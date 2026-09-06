@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Tl.Algorithms.Playback_MediumCode_-20260907-034642</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.400
+  [Host] : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
+  steady : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code>Job=steady  IterationCount=12  IterationTime=250ms  
+WarmupCount=16  
+</code></pre>
+
+<table>
+<thead><tr><th>Method  </th><th>Step</th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Ratio</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>Binary</td><td>1</td><td>4.1273 ns</td><td>0.0149 ns</td><td>0.0099 ns</td><td>4.1247 ns</td><td>1.00</td><td>-</td><td>NA</td>
+</tr><tr><td>Dense</td><td>1</td><td>1.2035 ns</td><td>0.0038 ns</td><td>0.0025 ns</td><td>1.2045 ns</td><td>0.29</td><td>-</td><td>NA</td>
+</tr><tr><td>Rank</td><td>1</td><td>1.5086 ns</td><td>0.0098 ns</td><td>0.0065 ns</td><td>1.5093 ns</td><td>0.37</td><td>-</td><td>NA</td>
+</tr><tr><td>GeneratedTree</td><td>1</td><td>1.9563 ns</td><td>0.0352 ns</td><td>0.0275 ns</td><td>1.9578 ns</td><td>0.47</td><td>-</td><td>NA</td>
+</tr><tr><td>Cursor</td><td>1</td><td>1.0453 ns</td><td>0.0064 ns</td><td>0.0047 ns</td><td>1.0449 ns</td><td>0.25</td><td>-</td><td>NA</td>
+</tr><tr><td>GeneratedState</td><td>1</td><td>1.7924 ns</td><td>0.0028 ns</td><td>0.0022 ns</td><td>1.7932 ns</td><td>0.43</td><td>-</td><td>NA</td>
+</tr><tr><td>Binary</td><td>7</td><td>5.7989 ns</td><td>0.0138 ns</td><td>0.0100 ns</td><td>5.7970 ns</td><td>1.00</td><td>-</td><td>NA</td>
+</tr><tr><td>Dense</td><td>7</td><td>1.0829 ns</td><td>0.0008 ns</td><td>0.0006 ns</td><td>1.0828 ns</td><td>0.19</td><td>-</td><td>NA</td>
+</tr><tr><td>Rank</td><td>7</td><td>1.4816 ns</td><td>0.0018 ns</td><td>0.0013 ns</td><td>1.4810 ns</td><td>0.26</td><td>-</td><td>NA</td>
+</tr><tr><td>GeneratedTree</td><td>7</td><td>2.2078 ns</td><td>0.0119 ns</td><td>0.0093 ns</td><td>2.2059 ns</td><td>0.38</td><td>-</td><td>NA</td>
+</tr><tr><td>Cursor</td><td>7</td><td>0.9592 ns</td><td>0.0018 ns</td><td>0.0013 ns</td><td>0.9594 ns</td><td>0.17</td><td>-</td><td>NA</td>
+</tr><tr><td>GeneratedState</td><td>7</td><td>1.8183 ns</td><td>0.0392 ns</td><td>0.0306 ns</td><td>1.8225 ns</td><td>0.31</td><td>-</td><td>NA</td>
+</tr></tbody></table>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Tl.Algorithms.Seeking_MediumCode_-20260907-033619</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.400
+  [Host] : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
+  steady : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code>Job=steady  IterationCount=12  IterationTime=150ms  
+WarmupCount=4  
+</code></pre>
+
+<table>
+<thead><tr><th>Method </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Ratio</th><th>RatioSD</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>Binary</td><td>25.639 ns</td><td>1.0921 ns</td><td>0.7897 ns</td><td>25.774 ns</td><td>1.00</td><td>0.04</td><td>-</td><td>NA</td>
+</tr><tr><td>Dense</td><td>2.094 ns</td><td>0.2655 ns</td><td>0.2073 ns</td><td>2.257 ns</td><td>0.08</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>Rank</td><td>2.788 ns</td><td>0.1701 ns</td><td>0.1328 ns</td><td>2.705 ns</td><td>0.11</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>GeneratedTree</td><td>16.251 ns</td><td>3.4714 ns</td><td>2.7102 ns</td><td>18.306 ns</td><td>0.63</td><td>0.10</td><td>-</td><td>NA</td>
+</tr></tbody></table>
+</body>
+</html>
