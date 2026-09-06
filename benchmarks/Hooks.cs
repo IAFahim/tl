@@ -3,12 +3,7 @@ using System.Runtime.CompilerServices;
 namespace Tl.Hooks;
 
 public interface IClip;
-public interface ITrack;
 public interface ITimelineForward { void OnForward(in Frame frame); }
-public interface ITimelineBackward { void OnBackward(in Frame frame); }
-public interface ITimelineStart { void OnStart(); }
-public interface ITimelineStop { void OnStop(); }
-public interface ITimelineLoop { void OnLoop(long cycle); }
 
 public readonly record struct Frame(int Tick, float Weight);
 public readonly record struct Receipt(float Sum, long Ticks, int Count);
