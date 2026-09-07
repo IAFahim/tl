@@ -1,0 +1,37 @@
+name: publish-nuget
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build and Pack
+        run: |
+          dotnet pack src/Tl.Core -c Release -o artifacts/packages
+          dotnet pack src/Tl.Gen -c Release -o artifacts/packages
+
+      - name: Authenticate with NuGet
+        uses: NuGet/login@v1
+        with:
+          user: iafahim
+
+      - name: Push Packages to NuGet
+        run: |
+          dotnet nuget push "artifacts/packages/*.nupkg" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
