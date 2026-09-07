@@ -352,14 +352,20 @@ compiles `Hooks.cs`, so the fixture tables have one source of truth):
   Review/Movement shape: clip `i` covers `[i*4, i*4+3)` with value `i+1`,
   duration 63, the 4th tick of each group is the gap. The ~1 ns headline arm.
 
-What the frozen form specializes away from `PlaybackCore`: region lookup is a
-binary branch tree over the known starts, positional flags and payloads are
-immediates and constant compares, and movement facts (Enter/Exit) are rank
-comparisons over the known clip-start/clip-end cut boundaries — the boundary
-walk collapses because a cut boundary lies in the crossed span exactly when
-its rank at the two ends differs. The frozen form is bound to one exact
-non-looping timeline: no wraps, no cycle arithmetic (`Cycles` passes through),
-no duration-0/empty handling.
+What the frozen form specializes away from `PlaybackCore`: positional flags
+and payloads are immediates and constant compares, and movement facts
+(Enter/Exit) are rank comparisons over the known clip-start/clip-end cut
+boundaries — the boundary walk collapses because a cut boundary lies in the
+crossed span exactly when its rank at the two ends differs. Region lookup and
+the ranks come out of the emitter's **dense LUT mode**, picked when duration
+is ≤ 1024: three per-tick tables (`s_region`, `s_startRank`, `s_endRank`)
+loaded behind an in-range guard, with a jump-table switch over region indices
+carrying leaf bodies identical to the tree mode's (ticks past the duration
+take the sentinel region / total-cut-count fallbacks, so out-of-range jumps
+keep their parity). Longer timelines fall back to binary branch trees over
+the starts and cut boundaries. The frozen form is bound to one exact
+non-looping timeline: no wraps, no cycle arithmetic (`Cycles` passes
+through), no duration-0/empty handling.
 
 Parity receipts (`Dispatch --verify`, oracle = `PlaybackCore` through the real
 tables: `OracleVitals`, and hand-set `Fused16Track` literals cross-checked
@@ -382,25 +388,37 @@ Vitals fixture is 21.5 ns with random ticks):
 
 | Method                 | Random ticks | Sequential ticks |
 |------------------------|-------------:|-----------------:|
-| `FrozenVitalsSingle`   |        9.50  |            4.22  |
-| `FrozenVitalsBatch8`   |        8.80  |               —  |
-| `Fused16Single`        |       19.89  |            7.19  |
-| `Fused16Batch8`        |       21.88  |               —  |
+| `FrozenVitalsSingle`   |        9.53  |            3.48  |
+| `FrozenVitalsBatch8`   |        8.52  |               —  |
+| `Fused16Single`        |       12.38  |            3.11  |
+| `Fused16Batch8`        |       11.35  |               —  |
 
 Readings, honestly:
 
 - Frozen beats the generic engine everywhere it should: 2.3x on random
-  jumps, 5.1x on sequential streams for the full Vitals semantics
-  (movement flags + sink + `Playback` return), 0 B allocated. Tiered PGO
-  matters on the branch tree: with tiering off, sequential Vitals is
-  8.6 ns.
-- `Fused16` losing to the harder `Vitals` fixture is an emitter-quality
-  gap, not a path limit: its tree specializes per tick with equality
-  checks inside leaves that the branch path already implies, while the
-  Vitals emitter specializes per region with flags folded. Next emitter
-  milestone: region-shaped leaves for thin-region fixtures.
+  jumps, 6.2x on sequential streams for the full Vitals semantics
+  (movement flags + sink + `Playback` return), 0 B allocated. The dense
+  LUT mode (tables + jump-table switch, ≤ 1024 ticks, now in the emitter)
+  moved the sequential arms most — Fused16 sequential went 7.19 → 3.11,
+  Vitals 4.22 → 3.48 — because three predictable loads replaced the
+  data-dependent tree walks. Tiered PGO still matters, just less: with
+  tiering off, sequential Vitals is 4.67 ns (was 8.6).
+- `Fused16` still trails the harder `Vitals` fixture on random ticks
+  (12.4 vs 9.5 ns), but the reason has moved. The tree mispredicts are
+  gone (19.89 → 12.38); what remains is fixture shape. Random ticks
+  spread almost uniformly over Fused16's 32 thin regions (three-tick
+  clips, one-tick gaps), so the jump table's indirect branch is a coin
+  toss no predictor learns,
+  while Vitals's regions are skewed enough (three of them cover about
+  two thirds of the ticks) that its switch target predicts well. Vitals
+  random barely moved (9.50 → 9.53) for the same reason: its old trees
+  were already mostly predicted, so there the LUT is a wash and the
+  remaining cost is per-tick `Playback` bookkeeping plus four-track
+  sampling. The next milestone is branchless computed sampling, not more
+  lookup tuning.
 - The sub-1 ns frozen receipts from the sibling LUT repo (0.165 ns
   sampling, 1.33 ns one-tick traverse) measured a repeated single tick
   and pure sampling, without per-tick `Playback` flags on varied ticks;
-  this path is not there yet. 4.2 ns/tick sequential with full movement
-  semantics is the current proven floor for tl timelines.
+  this path is not there yet. 3.1–3.5 ns/tick sequential (Fused16,
+  Vitals) with full movement semantics is the current proven floor for
+  tl timelines.

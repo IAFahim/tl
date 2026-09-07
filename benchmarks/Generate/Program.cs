@@ -535,6 +535,103 @@ string EmitFrozen(
     var startCuts = Enumerable.Range(0, starts.Length).Where(i => (regionFlags[i] & 1) != 0).Select(i => starts[i]).ToArray();
     var endCuts = Enumerable.Range(0, starts.Length).Where(i => (regionFlags[i] & 2) != 0).Select(i => starts[i]).ToArray();
 
+    // Dense LUT mode for short timelines: one guarded table load replaces
+    // the region tree, two more replace the rank trees, and the per-region
+    // leaves stay byte-identical behind a jump-table switch over region
+    // indices. Longer timelines keep the branch trees this emitter also
+    // produces; both fixtures today are far below the threshold.
+    const int denseLimit = 1024;
+    var dense = duration <= denseLimit;
+    int[] regionTable = [], startRankTable = [], endRankTable = [];
+
+    if (dense)
+    {
+        regionTable = new int[(int)duration];
+        startRankTable = new int[(int)duration];
+        endRankTable = new int[(int)duration];
+        var region = 0;
+        var startRank = 0;
+        var endRank = 0;
+
+        for (var t = 0; t < duration; t++)
+        {
+            while (region + 1 < starts.Length && starts[region + 1] <= (uint)t)
+                region++;
+            while (startRank < startCuts.Length && startCuts[startRank] <= (uint)t)
+                startRank++;
+            while (endRank < endCuts.Length && endCuts[endRank] <= (uint)t)
+                endRank++;
+            regionTable[t] = region;
+            startRankTable[t] = startRank;
+            endRankTable[t] = endRank;
+        }
+    }
+
+    // Region lookup in dense mode: s_region[tick] is the region containing
+    // the tick (the last region start <= tick, exactly what the tree
+    // computes); ticks at or beyond the duration take the sentinel region
+    // the tree lands them in, so the receipts' out-of-range jumps keep
+    // their parity.
+    string DenseSwitch(bool backward)
+    {
+        var sentinel = starts.Length - 1;
+        var regionCases = new List<string>();
+
+        for (var r = 0; r < starts.Length; r++)
+            regionCases.Add(Render($$"""
+                case {{r}}:
+                {
+                    {{Leaf(r, backward)}}
+                    break;
+                }
+                """));
+
+        return Render($$"""
+            var region = tick < {{U(duration)}} ? s_region[tick] : {{sentinel}};
+            switch (region)
+            {
+            {{ForEach(regionCases, out var regionCase)}}
+                {{regionCase}}
+            {{End}}
+                default:
+                    goto case {{sentinel}};
+            }
+            """);
+    }
+
+    // The dense tables: one entry per tick below the duration, values the
+    // tree lookups would compute (region index, cut counts at or below the
+    // tick). byte covers the region indices and cut ranks these sizes
+    // produce; a table with a value above 255 widens to ushort instead.
+    string Table(string name, int[] values)
+    {
+        var max = 0;
+        foreach (var value in values)
+            if (value > max)
+                max = value;
+
+        var bytes = max <= byte.MaxValue;
+        var elementType = bytes ? "byte" : "ushort";
+        string Lit(int value) => bytes ? Hex2(value) : Hex((ushort)value);
+
+        var rows = new List<string>();
+        for (var i = 0; i < values.Length; i += 16)
+        {
+            var count = Math.Min(16, values.Length - i);
+            var row = string.Join(", ", Enumerable.Range(i, count).Select(j => Lit(values[j])));
+            rows.Add(i + count < values.Length ? row + "," : row);
+        }
+
+        return Render($$"""
+            private static readonly {{elementType}}[] {{name}} =
+            [
+            {{ForEach(rows, out var tableRow)}}
+                {{tableRow}}
+            {{End}}
+            ];
+            """);
+    }
+
     string Rank(string method, uint[] cuts)
     {
         string Body(int lo, int hi)
@@ -572,9 +669,70 @@ string EmitFrozen(
             """);
     }
 
+    // The movement-fact block: same comparisons and direction rules in
+    // both modes. Dense mode swaps the rank-tree calls for guarded table
+    // loads (the fallback past the duration is the total cut count, the
+    // rank a tick at or beyond the duration yields); the tree mode keeps
+    // the StartRank/EndRank helper calls.
+    string Movement(bool backward)
+    {
+        string RankLoad(string table, int top, string tickExpr)
+            => $"{tickExpr} < {U(duration)} ? {table}[{tickExpr}] : {top}";
+
+        if (!dense)
+        {
+            return backward ? Render($$"""
+                if (tick < state.Tick)
+                {
+                    if (EndRank(state.Tick) > EndRank(tick))
+                        flags |= PlaybackFlags.Enter;
+                    if (StartRank(state.Tick) > StartRank(tick))
+                        flags |= PlaybackFlags.Exit;
+                }
+                """) : Render($$"""
+                if (tick > state.Tick)
+                {
+                    if (StartRank(tick) > StartRank(state.Tick))
+                        flags |= PlaybackFlags.Enter;
+                    if (EndRank(tick) > EndRank(state.Tick))
+                        flags |= PlaybackFlags.Exit;
+                }
+                """);
+        }
+
+        return backward ? Render($$"""
+            if (tick < state.Tick)
+            {
+                var endRank = {{RankLoad("s_endRank", endCuts.Length, "state.Tick")}};
+                var prevEndRank = {{RankLoad("s_endRank", endCuts.Length, "tick")}};
+                var startRank = {{RankLoad("s_startRank", startCuts.Length, "state.Tick")}};
+                var prevStartRank = {{RankLoad("s_startRank", startCuts.Length, "tick")}};
+                if (endRank > prevEndRank)
+                    flags |= PlaybackFlags.Enter;
+                if (startRank > prevStartRank)
+                    flags |= PlaybackFlags.Exit;
+            }
+            """) : Render($$"""
+            if (tick > state.Tick)
+            {
+                var startRank = {{RankLoad("s_startRank", startCuts.Length, "tick")}};
+                var prevStartRank = {{RankLoad("s_startRank", startCuts.Length, "state.Tick")}};
+                var endRank = {{RankLoad("s_endRank", endCuts.Length, "tick")}};
+                var prevEndRank = {{RankLoad("s_endRank", endCuts.Length, "state.Tick")}};
+                if (startRank > prevStartRank)
+                    flags |= PlaybackFlags.Enter;
+                if (endRank > prevEndRank)
+                    flags |= PlaybackFlags.Exit;
+            }
+            """);
+    }
+
     var startMethod = Render($$"""
         public static Playback Start(uint at = 0) => Playback.Start(at);
         """);
+
+    var forwardRegion = dense ? DenseSwitch(false) : Tree(0, starts.Length, false);
+    var backwardRegion = dense ? DenseSwitch(true) : Tree(0, starts.Length, true);
 
     var forward = Render($$"""
         public static Playback Forward(in Playback from, ref FrozenSink sink, params ReadOnlySpan<uint> ticks)
@@ -583,14 +741,8 @@ string EmitFrozen(
             foreach (var tick in ticks)
             {
                 PlaybackFlags flags;
-                {{Tree(0, starts.Length, false)}}
-                if (tick > state.Tick)
-                {
-                    if (StartRank(tick) > StartRank(state.Tick))
-                        flags |= PlaybackFlags.Enter;
-                    if (EndRank(tick) > EndRank(state.Tick))
-                        flags |= PlaybackFlags.Exit;
-                }
+                {{forwardRegion}}
+                {{Movement(false)}}
                 sink.Flags += (uint)flags;
                 if ((flags & PlaybackFlags.Active) != 0)
                     sink.Count++;
@@ -607,14 +759,8 @@ string EmitFrozen(
             foreach (var tick in ticks)
             {
                 PlaybackFlags flags;
-                {{Tree(0, starts.Length, true)}}
-                if (tick < state.Tick)
-                {
-                    if (EndRank(state.Tick) > EndRank(tick))
-                        flags |= PlaybackFlags.Enter;
-                    if (StartRank(state.Tick) > StartRank(tick))
-                        flags |= PlaybackFlags.Exit;
-                }
+                {{backwardRegion}}
+                {{Movement(true)}}
                 sink.Flags -= (uint)flags;
                 if ((flags & PlaybackFlags.Active) != 0)
                     sink.Count--;
@@ -624,8 +770,41 @@ string EmitFrozen(
         }
         """);
 
-    var members = new List<string> { startMethod, forward, backward, Rank("StartRank", startCuts), Rank("EndRank", endCuts) };
-    var header = string.Join("\n", notes.Select(note => "// " + note));
+    var members = new List<string> { startMethod, forward, backward };
+
+    if (dense)
+    {
+        members.Add(Table("s_region", regionTable));
+        members.Add(Table("s_startRank", startRankTable));
+        members.Add(Table("s_endRank", endRankTable));
+    }
+    else
+    {
+        members.Add(Rank("StartRank", startCuts));
+        members.Add(Rank("EndRank", endCuts));
+    }
+
+    // The lookup strategy belongs to the emitter (it picks the mode), so
+    // its header lines are spliced in here just before the trailing "See
+    // docs" note rather than written into the per-fixture notes.
+    string[] strategy = dense
+        ? [
+            $"Lookup strategy: dense LUT mode (this timeline's duration {duration} is within",
+            $"the <= {denseLimit} threshold). Region lookup is one guarded table load plus a",
+            "jump-table switch over region indices - the leaf bodies are identical to the",
+            "tree mode's - and the movement-fact ranks are guarded loads whose",
+            "past-the-duration fallback is the total cut count. Timelines longer than",
+            $"{denseLimit} ticks emit binary branch trees over the region starts and cut",
+            "boundaries instead.",
+        ]
+        : [
+            $"Lookup strategy: binary branch trees (this timeline's duration {duration} exceeds",
+            $"the {denseLimit} threshold of the dense LUT mode). Region lookup is a branch tree",
+            "over the region starts and movement facts are rank trees over the cut",
+            $"boundaries; durations <= {denseLimit} get dense region and rank tables with a",
+            "jump-table switch over region indices instead.",
+        ];
+    var header = string.Join("\n", notes[..^1].Concat(strategy).Append(notes[^1]).Select(note => "// " + note));
     var body = string.Join("\n\n", members);
 
     return Render($$"""
@@ -650,8 +829,7 @@ var vitalsSource = EmitFrozen(
         "Frozen playback for the VitalsTrack fixture (duration 600, 13 region",
         "starts = 12 regions plus the empty sentinel at 600, 4 tracks, blends",
         "and gaps). Region starts, cut bits, clip windows, and payloads are",
-        "compile-time constants here: region lookup is a binary branch tree",
-        "over the known starts, movement facts are rank comparisons over the",
+        "compile-time constants here: movement facts compare ranks over the",
         "known clip-start/clip-end cut boundaries, and sampling adds immediates",
         "with the same blend-factor arithmetic as the table path",
         "((tick - factorStart) / (float)(factorLength - 1)).",
@@ -753,9 +931,8 @@ var fusedSource = EmitFrozen(
     [
         "Frozen playback for the Movement-shaped fixture (one track, 16 clips,",
         "clip i = [i*4, i*4+3) with value i+1, duration 63; the 4th tick of",
-        "each group is a gap). Region lookup is a binary branch tree, movement",
-        "facts are rank comparisons, and every clip region folds to one",
-        "immediate add.",
+        "each group is a gap); every clip region folds to one immediate add",
+        "and movement facts compare cut-boundary ranks.",
         "Specialized from PlaybackCore for this exact timeline: non-looping,",
         "no wraps, no cycle arithmetic, no duration-0/empty handling.",
         "Accumulation contract: identical to VitalsFrozen (see there);",
