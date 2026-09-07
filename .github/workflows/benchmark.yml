@@ -95,4 +95,3 @@ jobs:
           alert-threshold: '120%'
           comment-on-alert: true
           fail-on-alert: false
-          summary-annotate: true
