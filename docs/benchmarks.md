@@ -703,3 +703,105 @@ Readings:
   the generic engine on random jumps (21.5 → 2.65 ns on the same Vitals
   fixture) with a registry in front, and the hub gives every consumer a
   single, receipt-verified entry point.
+
+### Skew-aware tree ordering (experiment)
+
+**Verdict: DROP.** Width-ordering the branch tree regresses the arm that
+matters (random ticks, the frozen path's design target and every prior
+receipt's worst case) because it minimizes the wrong quantity: compare
+*count*, when compare *entropy* is what costs. Measured on the
+pre-redesign contract (base `2f7fb52`, aggregate flag bits — the
+branch-entropy finding is contract-independent); the emitter flags,
+fixtures, and benchmark class live on the `exp/skew` branch so the
+receipt stays reproducible there.
+
+The question: timelines longer than the 1024-tick dense-LUT threshold keep
+the binary branch-tree fallback; on strongly skewed timelines, does
+ordering the tree so the widest regions sit shallowest (fewest compares
+for the most-visited ticks) beat the midpoint split?
+
+The fixture (`Generated/SkewNaive.g.cs` / `SkewOrdered.g.cs`, from
+`Generate/Program.cs` block (c) on the branch): duration 4096 — one idle
+region `[0, 2048)` covering half the timeline, then 32 thin clip/gap
+regions (clip `i` = `[2048 + i*60, 2048 + i*60 + 50)` with value `i+1`,
+10-tick gaps, empty tail, zero-width sentinel at 4096; 66 region starts,
+single track, single slot, Fused16's value conventions). Two emitter
+flags drive it: `forceTree` pins a fixture to the tree path regardless
+of the dense threshold (the duration already exceeds it — the flag
+documents intent and survives a threshold change), and `skewWide` swaps
+the region tree's split. Both default off; VitalsFrozen/Fused16Frozen
+regenerate byte-identically with the flags in place (diffed against a
+pre-change generation). The cut-rank trees stay midpoint in both arms,
+so the A/B isolates region lookup.
+
+The heuristic (`SkewOrdered`): split each node at the **width-weighted
+median** — a region's weight is its tick count, the split lands where the
+remaining tick mass divides most evenly. On this fixture the fat idle
+region resolves with ONE comparison (`tick < 2048u` at the root) instead
+of the midpoint tree's six (`tick < 3008u` root, then 2518/2278/2158/
+2098/2048 down the left spine). Analytically (width-weighted leaf depths
+under the same split rule): expected compares on a uniform random tick
+drop 6.05 → 4.01, paid for by the thin regions sitting ~1 compare deeper
+(mean depth 6.10 → 7.03, max 7 → 8; source 53.6 → 57.9 KB). On a uniform
+fixture the rule degenerates to the midpoint shape.
+
+Parity: both arms pass the same walk-oracle battery as Vitals/Fused16
+(`Dispatch --verify`). The oracle-side `SkewTrack` tables are *computed*
+from the authored clip list by the same event sweep the generator runs
+(no hand-set literals), brute-force cross-checked tick-by-tick against
+the raw clip list, and then each arm runs the full battery against
+PlaybackCore: forward walk 0..duration+10 (per-step `Playback` equality,
+exact-float sink equality, flag-count totals), a 24-pair deterministic
+jump battery in and out of range both directions, the backward mirror
+(sink restored), and an 8-tick batch vs singles. Each arm matches the
+oracle bit-for-bit, so naive ≡ ordered transitively.
+
+Measurement (`SkewTree` class, Frozen-style config — Jit + NoTiering,
+16 warmups / 12 iterations / 250 ms — pinned to core 14 via
+`taskset -c 14`, two runs, artifacts under `/tmp/skew-run1` and
+`/tmp/skew-run2`; ns per tick, medians; standard errors ≤ 0.05 ns):
+
+| Arm                | Random Jit (run 1 / run 2) | Random NoTiering (1 / 2) | Sequential Jit (1 / 2) | Sequential NoTiering (1 / 2) |
+|--------------------|---------------------------:|------------------------:|----------------------:|-----------------------------:|
+| `SkewNaiveSingle`   |           14.052 / 13.801 |          13.985 / 13.930 |        6.900 / 6.602 |               9.693 / 9.720 |
+| `SkewOrderedSingle` |           15.555 / 14.847 |          15.709 / 15.732 |        6.385 / 6.399 |               9.070 / 9.017 |
+
+Readings, honestly:
+
+- **Random ticks: ordering regresses 1.0–1.8 ns/tick (7–12%), both jobs,
+  both runs.** The mechanism is the experiment's real finding:
+  width-balancing the tree makes every compare's outcome a fair coin
+  (~50/50 tick mass each side — that is what the split optimizes), the
+  worst possible input for branch prediction, while the midpoint tree's
+  compares skew along the fat spine (root 73% taken, deeper 84/90/95%)
+  and resolve at better-than-coin rates. A bimodal model (per-compare
+  mispredict ≈ `min(p, 1−p)` of the taken-mass) predicts 1.31
+  mispredicts per random tick for naive vs 1.78 for ordered; the +0.47
+  difference at ~17–20 cycles ≈ +1.6–1.9 ns at ~5.3 GHz — matching the
+  measured regression. Buying −2 compares with +0.5 mispredicts is a
+  bad trade: a correct compare costs ~1 cycle, a mispredict ~17–20.
+- **Sequential ticks: ordering wins 0.2–0.7 ns (~4–8%).** With the
+  per-region path stable for runs of ticks, compares stay predicted and
+  count is (almost) pure throughput — the fat half of the walk genuinely
+  executes 1 compare instead of 6. But predictable streams are not the
+  frozen path's target workload, and even here ordering recovers only a
+  fraction of the gap to the LUT mode below.
+- **The random baseline itself (~14 ns/tick) indicts trees, not their
+  order.** Bake v2's LUT mode runs the *same full movement semantics* at
+  2.1–2.7 ns/tick on random ticks for ≤ 1024-tick timelines; the tree
+  fallback is ~5–7× that. A 4096-tick single-slot LUT needs ~32 KB of
+  words per direction — the same order as these trees' code footprint —
+  so the natural evolution for > 1024 timelines is bigger (or two-level)
+  LUTs, which deletes the branches outright and makes tree-ordering
+  moot. (Part of the ~14 ns is the shared movement/rank machinery both
+  arms pay equally — the delta, not the absolute, is the A/B.)
+
+Net: **DROP the width-weighted split from the default path.** It is a
+loss on the arm the frozen receipts optimize (random seeks), a small win
+only where the LUT already dominates, and — the general lesson worth
+keeping — reordering comparison trees against measured skew must be
+judged by branch-outcome entropy, not by expected comparison count: the
+two objectives move in opposite directions precisely on skewed data. The
+`forceTree`/`skewWide` emitter flags and the `SkewTree` benchmark class
+stay on the `exp/skew` branch so this receipt can be re-run; neither is
+registered in `FrozenHub` and neither changes any default emission.
