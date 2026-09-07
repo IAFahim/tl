@@ -15,7 +15,7 @@ against NativeAOT. Baseline benchmark verification receipts remain intact.
 
 | Package | Version | Description |
 | --- | --- | --- |
-| `Tl.Core` | `0.1.0` | Core timeline runtime, builder, copy-on-write registry, and zero-allocation playback engine. |
+| `Tl.Runtime` | `0.1.0` | Core timeline runtime, builder, copy-on-write registry, and zero-allocation playback engine. |
 | `Tl.Gen` | `0.1.0` | Build-time MSBuild generator emitting compiled C# timeline tables and specialized kernels. |
 
 ## Consumer API

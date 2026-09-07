@@ -7,6 +7,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Version>0.1.0</Version>
+    <PackageId>Tl.Runtime</PackageId>
     <Authors>IAFahim</Authors>
     <Description>Timelines compiled into C#, with typed struct hooks and caller-owned playback state.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
