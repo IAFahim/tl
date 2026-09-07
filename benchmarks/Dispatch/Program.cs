@@ -634,7 +634,7 @@ public struct OracleVitals :
 {
     public FrozenSink Sink { get; set; }
 
-    public void Forward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref OracleVitals data)
+    public void OnTick(in Tracks<VitalsTrack, VitalsClip> tracks, uint tick, ref OracleVitals data)
     {
         var sink = data.Sink;
         foreach (var item in tracks)
@@ -645,7 +645,7 @@ public struct OracleVitals :
         data.Sink = sink;
     }
 
-    public void Backward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref OracleVitals data)
+    public void OnTickBack(in Tracks<VitalsTrack, VitalsClip> tracks, uint tick, ref OracleVitals data)
     {
         var sink = data.Sink;
         foreach (var item in tracks)
@@ -729,7 +729,7 @@ public struct OracleFused16 :
 {
     public FrozenSink Sink { get; set; }
 
-    public void Forward(uint tick, in Tracks<Fused16Track, Fused16Clip> tracks, ref OracleFused16 data)
+    public void OnTick(in Tracks<Fused16Track, Fused16Clip> tracks, uint tick, ref OracleFused16 data)
     {
         var sink = data.Sink;
         foreach (var item in tracks)
@@ -740,7 +740,7 @@ public struct OracleFused16 :
         data.Sink = sink;
     }
 
-    public void Backward(uint tick, in Tracks<Fused16Track, Fused16Clip> tracks, ref OracleFused16 data)
+    public void OnTickBack(in Tracks<Fused16Track, Fused16Clip> tracks, uint tick, ref OracleFused16 data)
     {
         var sink = data.Sink;
         foreach (var item in tracks)
@@ -763,14 +763,14 @@ public struct SharedLeft :
     public int Seen;
     public int Rewinds;
 
-    public void Forward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref SharedLeft data)
+    public void OnTick(in Tracks<VitalsTrack, VitalsClip> tracks, uint tick, ref SharedLeft data)
     {
         foreach (var item in tracks)
             data.Sum += item.Clip.Amount;
         data.Seen++;
     }
 
-    public void Backward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref SharedLeft data)
+    public void OnTickBack(in Tracks<VitalsTrack, VitalsClip> tracks, uint tick, ref SharedLeft data)
     {
         foreach (var item in tracks)
             data.Sum -= item.Clip.Amount;
@@ -786,14 +786,14 @@ public struct SharedRight :
     public int Seen;
     public int Rewinds;
 
-    public void Forward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref SharedRight data)
+    public void OnTick(in Tracks<VitalsTrack, VitalsClip> tracks, uint tick, ref SharedRight data)
     {
         foreach (var item in tracks)
             data.Ticks += item.Track.Offset + tick;
         data.Seen++;
     }
 
-    public void Backward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref SharedRight data)
+    public void OnTickBack(in Tracks<VitalsTrack, VitalsClip> tracks, uint tick, ref SharedRight data)
     {
         foreach (var item in tracks)
             data.Ticks -= item.Track.Offset + tick;

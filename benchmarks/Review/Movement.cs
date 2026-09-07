@@ -135,12 +135,12 @@ public struct AfterData : Tl.Hooks.IForwardTracks<AfterTrack, AfterClip, AfterDa
     public ulong Flags;
     public int Count;
     public readonly Receipt Result => new(Sum, Flags, Count);
-    public void Forward(uint tick, in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, ref AfterData data)
+    public void OnTick(in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, uint tick, ref AfterData data)
     {
         foreach (var item in tracks) data.Sum += item.Clip.Value;
         data.Flags += (uint)tracks.Status;
         data.Count++;
     }
-    public void Backward(uint tick, in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, ref AfterData data)
-        => Forward(tick, in tracks, ref data);
+    public void OnTickBack(in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, uint tick, ref AfterData data)
+        => OnTick(in tracks, tick, ref data);
 }

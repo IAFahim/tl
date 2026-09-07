@@ -13,7 +13,8 @@ semantic claim gets a receipt check under `--verify`, and runs are pinned by
 From [benchmarks.md](benchmarks.md), the contract is fixed and must not drift:
 
 - Ticks are `uint`; multi-tick calls are `params ReadOnlySpan<uint>`.
-- One callback per tick through `IForwardTracks`; the frame is never
+- One callback per tick through `IForwardTracks` (`OnTick`/`OnTickBack`;
+  `in` payloads first, tick after, `ref data` last); the frame is never
   materialized. `Tracks`/`TrackItem` are `ref struct` views over the
   CSR tables.
 - Blending is resolved before the consumer sees it: `IBlend<TClip>.Blend`
@@ -41,9 +42,18 @@ From [benchmarks.md](benchmarks.md), the contract is fixed and must not drift:
   `Complete`, `Exit`). It flows `in` and comes back by value — no hidden
   state, snapshot-friendly for save games and rewind. Movement facts are
   polled bits, not push callbacks: the entire enter/exit/looped hook family
-  is replaced by the status word and `Tracks.Status`.
-- Direction is a method, not a subtype: `IForward`/`IBackward` (clip-level)
-  and `IForwardTracks`/`IBackwardTracks` (view-level). Looping is a timeline
+  is replaced by the status word, `Tracks.Status`, and the per-clip
+  `TrackItem.State` word (same bits, per clip: `Active` always, positional
+  `First`/`Last` from the window edges, `Enter`/`Exit` only when the step
+  moved — forward enters through Start, backward through End; a
+  blend-resolved item reports the pair's outer window).
+- Direction is a method, not a subtype: consumer hooks are `OnTick`/
+  `OnTickBack` (view-level, `IForwardTracks`/`IBackwardTracks`) and
+  `OnClip`/`OnClipBack` (clip-level, the three-parameter
+  `IForward<TTrack,TClip,TData>`/`IBackward`, carrying the track payload
+  and the per-clip `clipState` word); engine call sites stay
+  `Forward`/`Backward`, so an engine call and a callback can never be
+  confused. Looping is a timeline
   trait (`Loops` for generated tables, authored `Looping()` at runtime);
   wraps move `Cycles` (forward adds, backward
   saturates at zero) instead of setting `Complete`.
@@ -74,9 +84,11 @@ Move the validated code out of the benchmark harness into a real project:
 - Unit tests replay the benchmark fixtures (`VitalsTrack` tables, the runtime
   `BuildTimeline()` authoring case) and assert receipt equality against the
   numbers already verified in the Dispatch `--verify` path.
-- Resolved: `IForward<TClip,TData>` stays in the contract (with its
-  `IBackward` mirror and the `ClipTimeline<,,>` shell); it has an ApiShape
-  benchmark arm and rewind receipts.
+- Resolved: the clip-level hook stays in the contract as the widened
+  `IForward<TTrack,TClip,TData>`/`IBackward<...>` (`OnClip`/`OnClipBack`
+  receive the track payload and the per-clip `clipState` word) with the
+  `ClipTimeline<,>` shell; it has an ApiShape benchmark arm, rewind
+  receipts, and a per-clip facts oracle under `--verify`.
 
 ## Phase 2 — generator
 

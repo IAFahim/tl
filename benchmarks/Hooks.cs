@@ -135,20 +135,28 @@ public static class IdleCalls
 // stackalloc'd slot. Consumers never see weights, pairs, or blend windows.
 //
 // Movement facts (entering, leaving, completing) are NOT callbacks: the
-// engine folds them into the returned Playback status word and the Tracks
-// view, so one branch on bits replaces a family of push hooks.
-public interface IForward<TClip, TData>
+// engine folds them into the returned Playback status word, the Tracks
+// view, and each item's per-clip State word, so one branch on bits
+// replaces a family of push hooks.
+//
+// Consumer-side hook methods are OnTick/OnTickBack and OnClip/OnClipBack
+// (convention: `in` payloads first, tick after, `ref data` last); engine
+// call sites stay Forward/Backward, so an engine call and a callback can
+// never be confused again.
+public interface IForward<TTrack, TClip, TData>
+    where TTrack : struct
     where TClip : struct
     where TData : struct
 {
-    void Forward(in TClip clip, uint tick, ref TData data);
+    void OnClip(in TTrack track, in TClip clip, PlaybackFlags clipState, uint tick, ref TData data);
 }
 
-public interface IBackward<TClip, TData>
+public interface IBackward<TTrack, TClip, TData>
+    where TTrack : struct
     where TClip : struct
     where TData : struct
 {
-    void Backward(in TClip clip, uint tick, ref TData data);
+    void OnClipBack(in TTrack track, in TClip clip, PlaybackFlags clipState, uint tick, ref TData data);
 }
 
 public interface IBlend<TClip>
@@ -162,7 +170,7 @@ public interface IForwardTracks<TTrack, TClip, TData>
     where TClip : struct
     where TData : struct
 {
-    void Forward(uint tick, in Tracks<TTrack, TClip> tracks, ref TData data);
+    void OnTick(in Tracks<TTrack, TClip> tracks, uint tick, ref TData data);
 }
 
 public interface IBackwardTracks<TTrack, TClip, TData>
@@ -170,7 +178,7 @@ public interface IBackwardTracks<TTrack, TClip, TData>
     where TClip : struct
     where TData : struct
 {
-    void Backward(uint tick, in Tracks<TTrack, TClip> tracks, ref TData data);
+    void OnTickBack(in Tracks<TTrack, TClip> tracks, uint tick, ref TData data);
 }
 
 // Movement facts live in the top six bits; completed cycles fill the rest.
@@ -243,6 +251,11 @@ internal static class PlaybackCore
         {
             var (tEff, prevEff, cycles, wrapped, full) = Position(state.Tick, tick, duration, loops, backward);
 
+            // Did the step actually move? Per-clip Enter/Exit exist only
+            // then — the same condition that guards the aggregate's
+            // movement bits.
+            var moved = wrapped || full || (backward ? tEff < prevEff : tEff > prevEff);
+
             var region = Locate(starts, tEff, previousRegion);
 
             var row = regionRows[region];
@@ -259,12 +272,13 @@ internal static class PlaybackCore
             var tracks = new Tracks<TTrack, TClip>(
                 tEff, flags,
                 trackRows.Slice(row.TrackStart, row.TrackCount),
-                clipRows, trackData, clipData, resolved);
+                clipRows, trackData, clipData, resolved,
+                edges, new MovementSpan(prevEff, backward, moved, wrapped, full));
 
             if (backward)
-                data.Backward(tEff, in tracks, ref data);
+                data.OnTickBack(in tracks, tEff, ref data);
             else
-                data.Forward(tEff, in tracks, ref data);
+                data.OnTick(in tracks, tEff, ref data);
 
             state = next;
             previousRegion = region;
@@ -284,7 +298,7 @@ internal static class PlaybackCore
         Span<TClip> resolved)
         where TTrack : struct, IBlend<TClip>
         where TClip : unmanaged
-        where TData : struct, IForward<TClip, TData>, IBackward<TClip, TData>
+        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
     {
         var duration = starts[^1];
         var state = from;
@@ -293,6 +307,11 @@ internal static class PlaybackCore
         foreach (var tick in ticks)
         {
             var (tEff, prevEff, cycles, wrapped, full) = Position(state.Tick, tick, duration, loops, backward);
+
+            // Did the step actually move? Per-clip Enter/Exit exist only
+            // then — the same condition that guards the aggregate's
+            // movement bits.
+            var moved = wrapped || full || (backward ? tEff < prevEff : tEff > prevEff);
 
             var region = Locate(starts, tEff, previousRegion);
 
@@ -310,19 +329,22 @@ internal static class PlaybackCore
             var tracks = new Tracks<TTrack, TClip>(
                 tEff, flags,
                 trackRows.Slice(row.TrackStart, row.TrackCount),
-                clipRows, trackData, clipData, resolved);
+                clipRows, trackData, clipData, resolved,
+                edges, new MovementSpan(prevEff, backward, moved, wrapped, full));
 
-            // Clip-level hooks: one call per active clip (blend-resolved).
-            // The hook rides the data type's IForward/IBackward (methods
-            // cannot constrain a class-level TClip, so the clip-side hook is
-            // reached through the consumer); the clip keeps the body.
+            // Clip-level hooks: one call per active (blend-resolved) item,
+            // carrying the track payload and the item's per-clip facts word.
+            // The data type implements IForward<TTrack, TClip, TData>
+            // directly and owns the whole body (see TrackItem.State for the
+            // word's semantics).
             foreach (var item in tracks)
             {
                 var clip = item.Clip;
+                var clipState = item.State;
                 if (backward)
-                    data.Backward(in clip, tEff, ref data);
+                    data.OnClipBack(in item.Track, in clip, clipState, tEff, ref data);
                 else
-                    data.Forward(in clip, tEff, ref data);
+                    data.OnClip(in item.Track, in clip, clipState, tEff, ref data);
             }
 
             state = next;
@@ -558,6 +580,32 @@ public interface ITrackTables<TTrack, TClip>
     static abstract bool Loops { get; }
 }
 
+// The movement span of one step, distilled for per-clip facts: where the
+// step came from (PrevEff), its direction, whether it moved at all, and
+// the wrap shape of the span. Stateless sampling has no movement, so those
+// paths pass all-false and items carry positional facts only.
+// Assembly-internal on purpose: the view's public surface gains nothing
+// but TrackItem.State.
+internal readonly record struct MovementSpan(uint PrevEff, bool Backward, bool HasMovement, bool Wrapped, bool Full)
+{
+    // Was `boundary` crossed by the step's span? A plain span covers
+    // (PrevEff, tEff] forward or (tEff, PrevEff] backward; a wrapped span
+    // is two ranges (the same expressions with || instead of &&); full
+    // coverage (a multi-cycle jump) crossed everything. Mirrors
+    // PlaybackCore.InSpan.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public readonly bool Crossed(uint boundary, uint tEff)
+    {
+        if (Full)
+            return true;
+        if (Backward)
+            return Wrapped ? boundary > tEff || boundary <= PrevEff
+                           : boundary > tEff && boundary <= PrevEff;
+        return Wrapped ? boundary > PrevEff || boundary <= tEff
+                       : boundary > PrevEff && boundary <= tEff;
+    }
+}
+
 public readonly ref struct Tracks<TTrack, TClip>
     where TTrack : struct, IBlend<TClip>
     where TClip : struct
@@ -569,12 +617,15 @@ public readonly ref struct Tracks<TTrack, TClip>
     private readonly ReadOnlySpan<TTrack> _trackData;
     private readonly ReadOnlySpan<TClip> _clipData;
     private readonly Span<TClip> _resolved;
+    private readonly ReadOnlySpan<ClipEdge> _clipEdges;
+    private readonly MovementSpan _movement;
 
     internal Tracks(
         uint tick, PlaybackFlags status,
         ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
-        Span<TClip> resolved)
+        Span<TClip> resolved,
+        ReadOnlySpan<ClipEdge> clipEdges, MovementSpan movement)
     {
         _tick = tick;
         _status = status;
@@ -583,6 +634,8 @@ public readonly ref struct Tracks<TTrack, TClip>
         _trackData = trackData;
         _clipData = clipData;
         _resolved = resolved;
+        _clipEdges = clipEdges;
+        _movement = movement;
     }
 
     public int Count => _trackRows.Length;
@@ -592,7 +645,7 @@ public readonly ref struct Tracks<TTrack, TClip>
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Enumerator GetEnumerator()
-        => new(_tick, _trackRows, _clipRows, _trackData, _clipData, _resolved);
+        => new(_tick, _trackRows, _clipRows, _trackData, _clipData, _resolved, _clipEdges, _movement);
 
     public ref struct Enumerator
     {
@@ -602,13 +655,16 @@ public readonly ref struct Tracks<TTrack, TClip>
         private readonly ReadOnlySpan<TTrack> _trackData;
         private readonly ReadOnlySpan<TClip> _clipData;
         private readonly Span<TClip> _resolved;
+        private readonly ReadOnlySpan<ClipEdge> _clipEdges;
+        private readonly MovementSpan _movement;
         private int _i;
 
         internal Enumerator(
             uint tick,
             ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
             ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
-            Span<TClip> resolved)
+            Span<TClip> resolved,
+            ReadOnlySpan<ClipEdge> clipEdges, MovementSpan movement)
         {
             _tick = tick;
             _trackRows = trackRows;
@@ -616,11 +672,13 @@ public readonly ref struct Tracks<TTrack, TClip>
             _trackData = trackData;
             _clipData = clipData;
             _resolved = resolved;
+            _clipEdges = clipEdges;
+            _movement = movement;
             _i = -1;
         }
 
         public readonly TrackItem<TTrack, TClip> Current
-            => new(_trackRows[_i], _clipRows, _trackData, _clipData, _resolved, _i);
+            => new(_trackRows[_i], _tick, _clipRows, _trackData, _clipData, _resolved, _clipEdges, _movement, _i);
 
         // Resolution fused with traversal: each blending track collapses to
         // one clip the moment it is reached. Items that are never visited are
@@ -659,22 +717,29 @@ public readonly ref struct TrackItem<TTrack, TClip>
     where TClip : struct
 {
     private readonly TrackRow _row;
+    private readonly uint _tick;
     private readonly ReadOnlySpan<ClipRow> _clipRows;
     private readonly ReadOnlySpan<TTrack> _trackData;
     private readonly ReadOnlySpan<TClip> _clipData;
     private readonly ReadOnlySpan<TClip> _resolved;
+    private readonly ReadOnlySpan<ClipEdge> _clipEdges;
+    private readonly MovementSpan _movement;
     private readonly int _slot;
 
     internal TrackItem(
-        TrackRow row, ReadOnlySpan<ClipRow> clipRows,
+        TrackRow row, uint tick, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
-        ReadOnlySpan<TClip> resolved, int slot)
+        ReadOnlySpan<TClip> resolved,
+        ReadOnlySpan<ClipEdge> clipEdges, MovementSpan movement, int slot)
     {
         _row = row;
+        _tick = tick;
         _clipRows = clipRows;
         _trackData = trackData;
         _clipData = clipData;
         _resolved = resolved;
+        _clipEdges = clipEdges;
+        _movement = movement;
         _slot = slot;
     }
 
@@ -690,27 +755,85 @@ public readonly ref struct TrackItem<TTrack, TClip>
             return ref _resolved[_slot];
         }
     }
+
+    // Per-clip facts for this item — the per-clip mirror of the aggregate
+    // status word (same bits, same rules, one clip at a time):
+    // - Active: always set — the item exists, so its clip is active at the
+    //   tick.
+    // - First/Last: positional — tick equals the window's Start / End-1.
+    // - Enter/Exit: only when the step actually moved (a stateless sample
+    //   or a repeated position carries no movement bits). Forward enters
+    //   through Start and exits through End; backward mirrors (enter
+    //   through End, exit through Start); a wrapped span crosses two
+    //   ranges; a multi-cycle jump crossed everything. A clip that FULLY
+    //   crossed during a big jump is not active at the destination and
+    //   gets no item at all — its facts appear only in the aggregate word,
+    //   exactly the aggregate's existing semantics for such clips.
+    // - Complete/Cycles are timeline-level facts and never appear here.
+    //
+    // CONVENTION (pinned word-for-word by the --verify per-clip oracle):
+    // a blend-resolved item reports the pair's OUTER window — min Start
+    // and max End of the two clips — the same window the aggregate oracle
+    // ORs together for that pair. ClipRow.ClipIndex therefore indexes both
+    // the payload table and ClipEdges: one payload row per authored
+    // instance, no dedup (Timeline.Build guarantees the same).
+    public PlaybackFlags State
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get
+        {
+            uint start, end;
+            if (_row.ClipCount == 1)
+            {
+                var edge = _clipEdges[_clipRows[_row.ClipStart].ClipIndex];
+                start = edge.Start;
+                end = edge.End;
+            }
+            else
+            {
+                var first = _clipEdges[_clipRows[_row.ClipStart].ClipIndex];
+                var second = _clipEdges[_clipRows[_row.ClipStart + 1].ClipIndex];
+                start = first.Start < second.Start ? first.Start : second.Start;
+                end = first.End > second.End ? first.End : second.End;
+            }
+
+            var state = PlaybackFlags.Active;
+            if (_tick == start)
+                state |= PlaybackFlags.First;
+            if (_tick == end - 1)
+                state |= PlaybackFlags.Last;
+
+            if (_movement.HasMovement)
+            {
+                if (_movement.Backward)
+                {
+                    if (_movement.Crossed(end, _tick))
+                        state |= PlaybackFlags.Enter;
+                    if (_movement.Crossed(start, _tick))
+                        state |= PlaybackFlags.Exit;
+                }
+                else
+                {
+                    if (_movement.Crossed(start, _tick))
+                        state |= PlaybackFlags.Enter;
+                    if (_movement.Crossed(end, _tick))
+                        state |= PlaybackFlags.Exit;
+                }
+            }
+
+            return state;
+        }
+    }
 }
 
-public readonly struct VitalsClip : IForward<VitalsClip, Vitals>, IBackward<VitalsClip, Vitals>
+// The clip payload for the Vitals fixture. The clip-level hook bodies now
+// live on the data type (IForward<TTrack, TClip, TData>); the payload is
+// just a payload.
+public readonly struct VitalsClip
 {
     public readonly float Amount;
 
     public VitalsClip(float amount) => Amount = amount;
-
-    public void Forward(in VitalsClip clip, uint tick, ref Vitals data)
-    {
-        data.Health -= clip.Amount;
-        data.Ticks += tick;
-        data.Count++;
-    }
-
-    public void Backward(in VitalsClip clip, uint tick, ref Vitals data)
-    {
-        data.Health += clip.Amount;
-        data.Ticks -= tick;
-        data.Back++;
-    }
 }
 
 public struct Vitals :
@@ -718,8 +841,8 @@ public struct Vitals :
     IBackwardTracks<VitalsTrack, VitalsClip, Vitals>,
     IForwardTracks<LoopVitalsTrack, VitalsClip, Vitals>,
     IBackwardTracks<LoopVitalsTrack, VitalsClip, Vitals>,
-    IForward<VitalsClip, Vitals>,
-    IBackward<VitalsClip, Vitals>
+    IForward<VitalsTrack, VitalsClip, Vitals>,
+    IBackward<VitalsTrack, VitalsClip, Vitals>
 {
     public float Health;
     public long Ticks;
@@ -731,7 +854,7 @@ public struct Vitals :
     // Blend-ignorant on purpose: every active track has exactly one resolved
     // clip — an original or a blend result, indistinguishable here. Backward
     // is the exact inverse, so a forward walk rewound restores the state.
-    public void Forward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref Vitals data)
+    public void OnTick(in Tracks<VitalsTrack, VitalsClip> tracks, uint tick, ref Vitals data)
     {
         foreach (var item in tracks)
         {
@@ -742,7 +865,7 @@ public struct Vitals :
         data.Count++;
     }
 
-    public void Backward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref Vitals data)
+    public void OnTickBack(in Tracks<VitalsTrack, VitalsClip> tracks, uint tick, ref Vitals data)
     {
         foreach (var item in tracks)
         {
@@ -753,7 +876,7 @@ public struct Vitals :
         data.Back++;
     }
 
-    public void Forward(uint tick, in Tracks<LoopVitalsTrack, VitalsClip> tracks, ref Vitals data)
+    public void OnTick(in Tracks<LoopVitalsTrack, VitalsClip> tracks, uint tick, ref Vitals data)
     {
         foreach (var item in tracks)
         {
@@ -764,7 +887,7 @@ public struct Vitals :
         data.Count++;
     }
 
-    public void Backward(uint tick, in Tracks<LoopVitalsTrack, VitalsClip> tracks, ref Vitals data)
+    public void OnTickBack(in Tracks<LoopVitalsTrack, VitalsClip> tracks, uint tick, ref Vitals data)
     {
         foreach (var item in tracks)
         {
@@ -775,13 +898,23 @@ public struct Vitals :
         data.Back++;
     }
 
-    // Clip-level hooks, received by the data (see ClipTimeline): the clip
-    // struct keeps the body of record; this forwards the engine's call.
-    public void Forward(in VitalsClip clip, uint tick, ref Vitals data)
-        => clip.Forward(in clip, tick, ref data);
+    // Clip-level hooks (ClipTimeline): one call per active clip, with the
+    // track payload and the per-clip facts word. The arithmetic is the old
+    // VitalsClip body verbatim — receipts keep their exact values; Backward
+    // is the exact inverse.
+    public void OnClip(in VitalsTrack track, in VitalsClip clip, PlaybackFlags clipState, uint tick, ref Vitals data)
+    {
+        data.Health -= clip.Amount;
+        data.Ticks += tick;
+        data.Count++;
+    }
 
-    public void Backward(in VitalsClip clip, uint tick, ref Vitals data)
-        => clip.Backward(in clip, tick, ref data);
+    public void OnClipBack(in VitalsTrack track, in VitalsClip clip, PlaybackFlags clipState, uint tick, ref Vitals data)
+    {
+        data.Health += clip.Amount;
+        data.Ticks -= tick;
+        data.Back++;
+    }
 }
 
 public struct VitalsTrack : ITrackTables<VitalsTrack, VitalsClip>, IBlend<VitalsClip>
@@ -809,33 +942,48 @@ public struct VitalsTrack : ITrackTables<VitalsTrack, VitalsClip>, IBlend<Vitals
         1 | 2 | 4, 1 | 2 | 4, 2, 1 | 4, 1 | 2 | 4, 1 | 2 | 4, 2,
     ];
 
-    // Track rows: (track index, slice of s_clipRows).
+    // Track rows: (track index, slice of s_clipRows), one row per region in
+    // track order; the pool below grows in first-use order across regions.
     private static readonly TrackRow[] s_trackRows =
     [
-        new(0, 0, 1), new(0, 0, 1), new(1, 1, 2), new(3, 4, 1),
-        new(1, 3, 1), new(3, 4, 1),
-        new(2, 5, 1), new(3, 4, 1),
-        new(0, 6, 2),
-        new(0, 8, 1), new(1, 9, 1),
-        new(1, 9, 1), new(2, 5, 1), new(3, 10, 2),
-        new(3, 4, 1),
-        new(0, 0, 1), new(2, 5, 1), new(3, 4, 1),
-        new(1, 3, 1),
+        new(0, 0, 1),
+        new(0, 0, 1), new(1, 1, 2), new(3, 3, 1),
+        new(1, 4, 1), new(3, 3, 1),
+        new(2, 5, 1), new(3, 6, 1),
+        new(0, 7, 2),
+        new(0, 9, 1), new(1, 10, 1),
+        new(1, 11, 1), new(2, 12, 1), new(3, 13, 2),
+        new(3, 15, 1),
+        new(0, 16, 1), new(2, 17, 1), new(3, 18, 1),
+        new(1, 19, 1),
     ];
 
-    // Clip rows: (clip index, blend window). FactorLength 0 = standalone clip;
-    // an overlapping pair shares one window and Blend receives the factor.
+    // Clip rows: (authored clip index, blend window). FactorLength 0 =
+    // standalone clip; an overlapping pair shares one window and Blend
+    // receives the factor. ClipIndex indexes BOTH s_clipData and
+    // s_clipEdges — one payload row per authored instance, no dedup, the
+    // same invariant Timeline.Build guarantees — so an item's true window
+    // is always ClipEdges[ClipIndex] (a pair: the outer window of its two
+    // edges). That is what TrackItem.State reports.
     private static readonly ClipRow[] s_clipRows =
     [
         new(0, 0, 0),
-        new(1, 3, 4), new(2, 3, 4),
-        new(2, 0, 0),
+        new(5, 3, 4), new(6, 3, 4),
+        new(13, 0, 0),
+        new(6, 0, 0),
+        new(10, 0, 0),
+        new(14, 0, 0),
+        new(1, 29, 18), new(2, 29, 18),
         new(3, 0, 0),
+        new(7, 0, 0),
+        new(8, 0, 0),
+        new(11, 0, 0),
+        new(15, 76, 47), new(16, 76, 47),
+        new(17, 0, 0),
         new(4, 0, 0),
-        new(5, 29, 18), new(6, 29, 18),
-        new(5, 0, 0),
-        new(1, 0, 0),
-        new(7, 76, 47), new(8, 76, 47),
+        new(12, 0, 0),
+        new(18, 0, 0),
+        new(9, 0, 0),
     ];
 
     // True clip windows, one per authored instance — the flag oracle.
@@ -849,8 +997,16 @@ public struct VitalsTrack : ITrackTables<VitalsTrack, VitalsClip>, IBlend<Vitals
 
     private static readonly VitalsTrack[] s_trackData = [new(1), new(2), new(3), new(4)];
 
+    // One payload per authored instance (in s_clipEdges order), so ClipIndex
+    // is an edge index too; amounts are the same values the old deduplicated
+    // payload table produced, keeping every receipt's arithmetic identical.
     private static readonly VitalsClip[] s_clipData =
-        [new(1), new(2), new(3), new(5), new(8), new(13), new(21), new(34), new(55)];
+    [
+        new(1), new(13), new(21), new(13), new(1),
+        new(2), new(3), new(2), new(2), new(3),
+        new(8), new(8), new(8),
+        new(5), new(5), new(34), new(55), new(5), new(5),
+    ];
 
     public static ReadOnlySpan<uint> RegionStarts => s_regionStarts;
     public static ReadOnlySpan<RegionRow> RegionRows => s_regionRows;
@@ -908,6 +1064,7 @@ public static class GeneratedTimeline<TTrack, TClip>
         var regionRows = TTrack.RegionRows;
         var trackRows = TTrack.TrackRows;
         var clipRows = TTrack.ClipRows;
+        var edges = TTrack.ClipEdges;
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
@@ -935,6 +1092,8 @@ public static class GeneratedTimeline<TTrack, TClip>
             }
             var row = regionRows[region];
 
+            // Stateless sampling has no movement: items expose positional
+            // facts only (see TrackItem.State).
             var tracks = new Tracks<TTrack, TClip>(
                 localTick,
                 PlaybackFlags.None,
@@ -942,9 +1101,11 @@ public static class GeneratedTimeline<TTrack, TClip>
                 clipRows,
                 trackData,
                 clipData,
-                resolved);
+                resolved,
+                edges,
+                default);
 
-            data.Forward(localTick, in tracks, ref data);
+            data.OnTick(in tracks, localTick, ref data);
         }
     }
 
@@ -986,9 +1147,11 @@ public static class GeneratedTimeline<TTrack, TClip>
 }
 
 // Clip-level playback for simple consumers: one call per active
-// (blend-resolved) clip. The hook keeps the IForward/IBackward shape, but
-// rides the data type (a method cannot constrain the class-level TClip, so
-// the consumer's IForward<TClip, TData> forwards to the clip's own body).
+// (blend-resolved) clip, carrying the track payload and the per-clip facts
+// word. The data type implements IForward<TTrack, TClip, TData> (with its
+// IBackward mirror) and owns the whole hook body; the method-level
+// constraint may reference the class-level TTrack/TClip — the same shape
+// Timeline<,> uses for its TData.
 public static class ClipTimeline<TTrack, TClip>
     where TTrack : struct, ITrackTables<TTrack, TClip>, IBlend<TClip>
     where TClip : unmanaged
@@ -996,15 +1159,15 @@ public static class ClipTimeline<TTrack, TClip>
     public static Playback Start(uint at = 0) => Playback.Start(at);
 
     public static Playback Forward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
-        where TData : struct, IForward<TClip, TData>, IBackward<TClip, TData>
+        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
         => Run(in from, backward: false, ticks, ref data);
 
     public static Playback Backward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
-        where TData : struct, IForward<TClip, TData>, IBackward<TClip, TData>
+        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
         => Run(in from, backward: true, ticks, ref data);
 
     private static Playback Run<TData>(in Playback from, bool backward, ReadOnlySpan<uint> ticks, ref TData data)
-        where TData : struct, IForward<TClip, TData>, IBackward<TClip, TData>
+        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
     {
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
@@ -1293,6 +1456,7 @@ public static class Timeline<TTrack, TClip>
         var regionRows = entry.RegionRows.AsSpan();
         var trackRows = entry.TrackRows.AsSpan();
         var clipRows = entry.ClipRows.AsSpan();
+        var edges = entry.ClipEdges.AsSpan();
         var trackData = entry.TrackData.AsSpan();
         var clipData = entry.ClipData.AsSpan();
         Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
@@ -1315,6 +1479,7 @@ public static class Timeline<TTrack, TClip>
             }
             var row = regionRows[region];
 
+            // Stateless sampling has no movement: positional facts only.
             var tracks = new Tracks<TTrack, TClip>(
                 localTick,
                 PlaybackFlags.None,
@@ -1322,9 +1487,11 @@ public static class Timeline<TTrack, TClip>
                 clipRows,
                 trackData,
                 clipData,
-                resolved);
+                resolved,
+                edges,
+                default);
 
-            data.Forward(localTick, in tracks, ref data);
+            data.OnTick(in tracks, localTick, ref data);
         }
     }
 

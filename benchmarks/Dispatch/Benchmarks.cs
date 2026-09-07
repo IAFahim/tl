@@ -385,7 +385,8 @@ public class ApiShape
         return data.Result;
     }
 
-    // Clip-level hooks: TClip itself receives one call per active clip.
+    // Clip-level hooks: the data type's OnClip receives one call per active
+    // clip, with the track payload and the per-clip facts word.
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt ClipHooksSingle()
     {
