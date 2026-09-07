@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <_TlGenPkgTool>$(MSBuildThisFileDirectory)../tools/net10.0/any/Tl.Gen.dll</_TlGenPkgTool>
+    <_TlGenProjBin>$(MSBuildThisFileDirectory)../bin/$(Configuration)/net10.0/Tl.Gen.dll</_TlGenProjBin>
+    <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenPkgTool)')">$(_TlGenPkgTool)</TlGenAssembly>
+    <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenProjBin)')">$(_TlGenProjBin)</TlGenAssembly>
+    <TlGenAssembly Condition="'$(TlGenAssembly)' == ''">$(MSBuildThisFileDirectory)../bin/Release/net10.0/Tl.Gen.dll</TlGenAssembly>
+  </PropertyGroup>
+
+  <Target Name="GenerateTlTimelines"
+          BeforeTargets="BeforeCompile;CoreCompile"
+          Condition="'@(TimelineDefinition)' != ''"
+          Inputs="@(TimelineDefinition);$(TlGenAssembly)"
+          Outputs="@(TimelineDefinition->'$(IntermediateOutputPath)Generated\%(Filename).g.cs')">
+    <PropertyGroup>
+      <_GenOutDir>$(IntermediateOutputPath)Generated\</_GenOutDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(_GenOutDir)" />
+    <Exec Command="dotnet &quot;$(TlGenAssembly)&quot; --input &quot;%(TimelineDefinition.FullPath)&quot; --output &quot;$(_GenOutDir)&quot; --name &quot;%(TimelineDefinition.Filename)&quot; --namespace &quot;%(TimelineDefinition.Namespace)&quot;" />
+    <ItemGroup>
+      <Compile Include="$(_GenOutDir)*.g.cs" />
+      <FileWrites Include="$(_GenOutDir)*.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

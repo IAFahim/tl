@@ -1,0 +1,143 @@
+type Tl.ClipEdge
+  Method Void Deconstruct(UInt32 ByRef, UInt32 ByRef)
+  Property UInt32 End
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.ClipEdge)
+  Method Int32 GetHashCode()
+  Property UInt32 Start
+  Method System.String ToString()
+type Tl.ClipState
+  Field Tl.ClipState Enter
+  Field Tl.ClipState Exit
+  Field Tl.ClipState Stay
+  Field Byte value__
+type Tl.Cursor
+type Tl.Generation.ClipRow
+  Property UInt16 ClipIndex
+  Method Void Deconstruct(UInt16 ByRef, UInt32 ByRef, UInt32 ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Generation.ClipRow)
+  Property UInt32 FactorLength
+  Property UInt32 FactorStart
+  Method Int32 GetHashCode()
+  Method System.String ToString()
+type Tl.Generation.GeneratedTimeline`2
+  Method Void Backward[TData](TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Void Backward[TData](TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Backward[TData](Tl.Playback ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Backward[TData](Tl.Playback ByRef, TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Void Forward[TData](TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Void Forward[TData](TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Forward[TData](Tl.Playback ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Forward[TData](Tl.Playback ByRef, TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Start(UInt32)
+type Tl.Generation.ITrackTables`2
+  Property System.ReadOnlySpan`1[TClip] ClipData
+  Property System.ReadOnlySpan`1[Tl.ClipEdge] ClipEdges
+  Property System.ReadOnlySpan`1[Tl.Generation.ClipRow] ClipRows
+  Property Boolean Loops
+  Property Int32 MaxActiveBlends
+  Property Int32 MaxActiveTracks
+  Property System.ReadOnlySpan`1[System.Byte] RegionFlags
+  Property System.ReadOnlySpan`1[Tl.Generation.RegionRow] RegionRows
+  Property System.ReadOnlySpan`1[System.UInt32] RegionStarts
+  Property System.ReadOnlySpan`1[TTrack] TrackData
+  Property System.ReadOnlySpan`1[Tl.Generation.TrackRow] TrackRows
+type Tl.Generation.RegionRow
+  Method Void Deconstruct(UInt16 ByRef, UInt16 ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Generation.RegionRow)
+  Method Int32 GetHashCode()
+  Method System.String ToString()
+  Property UInt16 TrackCount
+  Property UInt16 TrackStart
+type Tl.Generation.TrackRow
+  Property UInt16 ClipCount
+  Property UInt16 ClipStart
+  Method Void Deconstruct(UInt16 ByRef, UInt16 ByRef, UInt16 ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Generation.TrackRow)
+  Method Int32 GetHashCode()
+  Method System.String ToString()
+  Property UInt16 TrackIndex
+type Tl.IBackward`3
+  Method Void Backward(TData ByRef, Tl.Tracks`2[TTrack,TClip] ByRef, UInt32 ByRef)
+type Tl.IBlend`1
+  Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
+type Tl.IForward`3
+  Method Void Forward(TData ByRef, Tl.Tracks`2[TTrack,TClip] ByRef, UInt32 ByRef)
+type Tl.Playback
+  Field UInt16 Cycles
+  Method Boolean Equals(Tl.Playback)
+  Method Boolean Equals(System.Object)
+  Field Tl.PlaybackFlags Flags
+  Method Int32 GetHashCode()
+  Method Boolean Has(Tl.PlaybackFlags)
+  Field UInt32 Tick
+  Method System.String ToString()
+type Tl.PlaybackFlags
+  Field Tl.PlaybackFlags Completed
+  Field Tl.PlaybackFlags LastLoopFrame
+  Field Tl.PlaybackFlags None
+  Field Tl.PlaybackFlags Started
+  Field Tl.PlaybackFlags Stopped
+  Field UInt16 value__
+type Tl.Timeline
+  Method Tl.Playback Backward[TData](UInt16, Tl.Playback ByRef, TData ByRef, UInt32 ByRef)
+  Method Tl.Playback Backward[TData](UInt16, Tl.Playback ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Backward[TData](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TData ByRef, UInt32 ByRef)
+  Method Tl.Playback Backward[TData](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Void Backward[TData](UInt16, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Void Destroy(UInt16)
+  Method UInt32 Duration(UInt16)
+  Method Tl.Playback Forward[TData](UInt16, Tl.Playback ByRef, TData ByRef, UInt32 ByRef)
+  Method Tl.Playback Forward[TData](UInt16, Tl.Playback ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Forward[TData](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TData ByRef, UInt32 ByRef)
+  Method Tl.Playback Forward[TData](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Void Forward[TData](UInt16, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Boolean IsLooping(UInt16)
+  Method Boolean IsValid(UInt16)
+  Field UInt16 None
+  Method Tl.Playback Start(UInt16, UInt32)
+  Method Tl.Playback Stop(UInt16, Tl.Playback ByRef)
+type Tl.TimelineBuild`2
+  Method System.IAsyncResult BeginInvoke(Tl.TimelineBuilder`2[TTrack,TClip], System.AsyncCallback, System.Object)
+  Method Void EndInvoke(System.IAsyncResult)
+  Method Void Invoke(Tl.TimelineBuilder`2[TTrack,TClip])
+type Tl.TimelineBuild`3
+  Method System.IAsyncResult BeginInvoke(Tl.TimelineBuilder`2[TTrack,TClip], TSource, System.AsyncCallback, System.Object)
+  Method Void EndInvoke(System.IAsyncResult)
+  Method Void Invoke(Tl.TimelineBuilder`2[TTrack,TClip], TSource)
+type Tl.TimelineBuilder`2
+  Method Void Clip(Tl.TrackRef ByRef, TClip ByRef, UInt32, UInt32)
+  Method Void DedupStorage(Boolean)
+  Method Void Looping()
+  Method Tl.TrackRef Track(TTrack ByRef)
+type Tl.TimelineOptions
+  Property Boolean DedupStorage
+  Field Tl.TimelineOptions Default
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.TimelineOptions)
+  Method Int32 GetHashCode()
+  Method System.String ToString()
+type Tl.Timeline`2
+  Method Tl.Playback Backward[TData](UInt16, Tl.Playback ByRef, TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Void Bind[TData](UInt16)
+  Method UInt16 Build(Tl.TimelineBuild`2[TTrack,TClip])
+  Method UInt16 Build(Tl.TimelineBuild`2[TTrack,TClip], Tl.TimelineOptions)
+  Method UInt16 Build[TSource](TSource, Tl.TimelineBuild`3[TTrack,TClip,TSource])
+  Method UInt16 Build[TSource](TSource, Tl.TimelineBuild`3[TTrack,TClip,TSource], Tl.TimelineOptions)
+  Method Tl.Playback Forward[TData](UInt16, Tl.Playback ByRef, TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+type Tl.TrackRef
+type Tl.TrackWork`2
+  Property TClip& Clip
+  Property UInt16 Index
+  Property Tl.ClipState State
+  Property TTrack& Track
+type Tl.Tracks`2
+  Property Int32 Count
+  NestedType Tl.Tracks`2+Enumerator[TTrack,TClip]
+  Method Enumerator GetEnumerator()
+type Tl.Tracks`2+Enumerator
+  Property Tl.TrackWork`2[TTrack,TClip] Current
+  Method Boolean MoveNext()

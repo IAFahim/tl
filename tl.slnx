@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Tl.Core/Tl.Core.csproj" />
+    <Project Path="src/Tl.Gen/Tl.Gen.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Basic/Basic.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tl.Core.Tests/Tl.Core.Tests.csproj" />
+    <Project Path="tests/Tl.Gen.Tests/Tl.Gen.Tests.csproj" />
+    <Project Path="tests/Tl.Aot/Tl.Aot.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Dispatch/Dispatch.csproj" />
+    <Project Path="benchmarks/Algorithms/Algorithms.csproj" />
+    <Project Path="benchmarks/Generate/Generate.csproj" />
+    <Project Path="benchmarks/Review/Review.csproj" />
+    <Project Path="benchmarks/AotBench/AotBench.csproj" />
+  </Folder>
+</Solution>

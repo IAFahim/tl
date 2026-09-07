@@ -1,4 +1,10 @@
-# Next performance pass — agent handoff
+# Completed performance pass — historical agent handoff
+
+> **Closed at `ccd344a`.** All four experiments below have KEEP/REJECT receipts
+> in [review.md](review.md): cursor KEEP, blend scratch KEEP, prefix counts REJECT,
+> dedup KEEP as opt-in. The instructions and snippets below describe the earlier
+> prototype and are retained as history. Do not implement them again. Continue
+> with the [v0.1 extraction handoff](v0.1.md).
 
 Work from the current `tl` prototype. Keep the interface-based API, typed struct
 hooks, `uint` ticks, `[start, end)` windows and 8-byte `Playback`. The real
