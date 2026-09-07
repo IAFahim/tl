@@ -12,28 +12,28 @@ public class DedupTests
             => result = new PayloadClip(first.X + second.X, first.Y + second.Y);
     }
 
-    public struct SumConsumer :
-        IForward<CollisionTrack, PayloadClip, SumConsumer>,
-        IBackward<CollisionTrack, PayloadClip, SumConsumer>
+    public struct SumResult :
+        IForward<CollisionTrack, PayloadClip, NoInput, SumResult>,
+        IBackward<CollisionTrack, PayloadClip, NoInput, SumResult>
     {
         public int TotalX;
         public int TotalY;
 
-        public void Forward(ref SumConsumer data, in Tracks<CollisionTrack, PayloadClip> tracks, in uint tick)
+        public void Forward(in Tracks<CollisionTrack, PayloadClip> tracks, in NoInput input, in uint tick, ref SumResult result)
         {
             foreach (var work in tracks)
             {
-                data.TotalX += work.Clip.X;
-                data.TotalY += work.Clip.Y;
+                result.TotalX += work.Clip.X;
+                result.TotalY += work.Clip.Y;
             }
         }
 
-        public void Backward(ref SumConsumer data, in Tracks<CollisionTrack, PayloadClip> tracks, in uint tick)
+        public void Backward(in Tracks<CollisionTrack, PayloadClip> tracks, in NoInput input, in uint tick, ref SumResult result)
         {
             foreach (var work in tracks)
             {
-                data.TotalX -= work.Clip.X;
-                data.TotalY -= work.Clip.Y;
+                result.TotalX -= work.Clip.X;
+                result.TotalY -= work.Clip.Y;
             }
         }
     }
@@ -56,13 +56,15 @@ public class DedupTests
         var defaultId = Timeline<CollisionTrack, PayloadClip>.Build(AuthorTimeline);
         var dedupId = Timeline<CollisionTrack, PayloadClip>.Build(AuthorTimeline, new TimelineOptions { DedupStorage = true });
 
-        var cDefault = new SumConsumer();
-        var pbDefault = Timeline.Start(defaultId);
-        pbDefault = Timeline.Forward(defaultId, in pbDefault, ref cDefault, 0u, 2u, 6u, 11u);
+        var input = default(NoInput);
 
-        var cDedup = new SumConsumer();
+        var cDefault = new SumResult();
+        var pbDefault = Timeline.Start(defaultId);
+        pbDefault = Timeline.Forward(defaultId, in pbDefault, in input, ref cDefault, 0u, 2u, 6u, 11u);
+
+        var cDedup = new SumResult();
         var pbDedup = Timeline.Start(dedupId);
-        pbDedup = Timeline.Forward(dedupId, in pbDedup, ref cDedup, 0u, 2u, 6u, 11u);
+        pbDedup = Timeline.Forward(dedupId, in pbDedup, in input, ref cDedup, 0u, 2u, 6u, 11u);
 
         Assert.Equal(cDefault.TotalX, cDedup.TotalX);
         Assert.Equal(cDefault.TotalY, cDedup.TotalY);
@@ -84,9 +86,10 @@ public class DedupTests
             b.Clip(in t, new PayloadClip(2, 1), 5, 10);
         }, new TimelineOptions { DedupStorage = true });
 
-        var c = new SumConsumer();
+        var c = new SumResult();
+        var input = default(NoInput);
         var pb = Timeline.Start(id);
-        pb = Timeline.Forward(id, in pb, ref c, 2u, 7u);
+        pb = Timeline.Forward(id, in pb, in input, ref c, 2u, 7u);
 
         Assert.Equal(3, c.TotalX); // 1 + 2
         Assert.Equal(3, c.TotalY); // 2 + 1

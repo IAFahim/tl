@@ -20,11 +20,11 @@ public static unsafe partial class Timeline
         public required int MaxActiveTracks { get; init; }
         public required int MaxActiveBlends { get; init; }
         public required bool Loops { get; init; }
-        public required Action<Type, Entry> Binder { get; init; }
+        public required Action<Type, Type, Entry> Binder { get; init; }
 
-        public void Bind(Type data)
+        public void Bind(Type input, Type result)
         {
-            Binder(data, this);
+            Binder(input, result, this);
         }
     }
 
@@ -48,7 +48,15 @@ public static unsafe partial class Timeline
         lock (s_gate)
         {
             var current = s_slots;
-            var nextSlots = new Entry?[Math.Max(next + 1, current.Length == 0 ? 16 : current.Length * 2)];
+            // Grow geometrically only when the claimed index does not fit. The
+            // previous always-double policy re-allocated on every registration
+            // and walked `current.Length * 2` into an int overflow once the
+            // slot array reached 2^30 entries. Indexes are bounded by None,
+            // so the doubling loop always terminates.
+            var capacity = Math.Max(current.Length, 16);
+            while (capacity <= next)
+                capacity *= 2;
+            var nextSlots = new Entry?[capacity];
             current.CopyTo(nextSlots, 0);
             nextSlots[next] = entry;
             Volatile.Write(ref s_slots, nextSlots);

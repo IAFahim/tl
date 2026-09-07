@@ -22,14 +22,14 @@ type Tl.Generation.ClipRow
   Method Int32 GetHashCode()
   Method System.String ToString()
 type Tl.Generation.GeneratedTimeline`2
-  Method Void Backward[TData](TData ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Void Backward[TData](TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
-  Method Tl.Playback Backward[TData](Tl.Playback ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Tl.Playback Backward[TData](Tl.Playback ByRef, TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
-  Method Void Forward[TData](TData ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Void Forward[TData](TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
-  Method Tl.Playback Forward[TData](Tl.Playback ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Tl.Playback Forward[TData](Tl.Playback ByRef, TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Void Backward[TInput,TResult](TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Void Backward[TInput,TResult](TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Backward[TInput,TResult](Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Backward[TInput,TResult](Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Void Forward[TInput,TResult](TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Void Forward[TInput,TResult](TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Forward[TInput,TResult](Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Forward[TInput,TResult](Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
   Method Tl.Playback Start(UInt32)
 type Tl.Generation.ITrackTables`2
   Property System.ReadOnlySpan`1[TClip] ClipData
@@ -60,12 +60,12 @@ type Tl.Generation.TrackRow
   Method Int32 GetHashCode()
   Method System.String ToString()
   Property UInt16 TrackIndex
-type Tl.IBackward`3
-  Method Void Backward(TData ByRef, Tl.Tracks`2[TTrack,TClip] ByRef, UInt32 ByRef)
+type Tl.IBackward`4
+  Method Void Backward(Tl.Tracks`2[TTrack,TClip] ByRef, TInput ByRef, UInt32 ByRef, TResult ByRef)
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
-type Tl.IForward`3
-  Method Void Forward(TData ByRef, Tl.Tracks`2[TTrack,TClip] ByRef, UInt32 ByRef)
+type Tl.IForward`4
+  Method Void Forward(Tl.Tracks`2[TTrack,TClip] ByRef, TInput ByRef, UInt32 ByRef, TResult ByRef)
 type Tl.Playback
   Field UInt16 Cycles
   Method Boolean Equals(Tl.Playback)
@@ -83,18 +83,18 @@ type Tl.PlaybackFlags
   Field Tl.PlaybackFlags Stopped
   Field UInt16 value__
 type Tl.Timeline
-  Method Tl.Playback Backward[TData](UInt16, Tl.Playback ByRef, TData ByRef, UInt32 ByRef)
-  Method Tl.Playback Backward[TData](UInt16, Tl.Playback ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Tl.Playback Backward[TData](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TData ByRef, UInt32 ByRef)
-  Method Tl.Playback Backward[TData](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Void Backward[TData](UInt16, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Backward[TInput,TResult](UInt16, Tl.Playback ByRef, TInput ByRef, TResult ByRef, UInt32 ByRef)
+  Method Tl.Playback Backward[TInput,TResult](UInt16, Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Backward[TInput,TResult](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TInput ByRef, TResult ByRef, UInt32 ByRef)
+  Method Tl.Playback Backward[TInput,TResult](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Void Backward[TInput,TResult](UInt16, TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
   Method Void Destroy(UInt16)
   Method UInt32 Duration(UInt16)
-  Method Tl.Playback Forward[TData](UInt16, Tl.Playback ByRef, TData ByRef, UInt32 ByRef)
-  Method Tl.Playback Forward[TData](UInt16, Tl.Playback ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Tl.Playback Forward[TData](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TData ByRef, UInt32 ByRef)
-  Method Tl.Playback Forward[TData](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Void Forward[TData](UInt16, TData ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Forward[TInput,TResult](UInt16, Tl.Playback ByRef, TInput ByRef, TResult ByRef, UInt32 ByRef)
+  Method Tl.Playback Forward[TInput,TResult](UInt16, Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Forward[TInput,TResult](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TInput ByRef, TResult ByRef, UInt32 ByRef)
+  Method Tl.Playback Forward[TInput,TResult](UInt16, Tl.Playback ByRef, Tl.Cursor ByRef, TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
+  Method Void Forward[TInput,TResult](UInt16, TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
   Method Boolean IsLooping(UInt16)
   Method Boolean IsValid(UInt16)
   Field UInt16 None
@@ -121,13 +121,13 @@ type Tl.TimelineOptions
   Method Int32 GetHashCode()
   Method System.String ToString()
 type Tl.Timeline`2
-  Method Tl.Playback Backward[TData](UInt16, Tl.Playback ByRef, TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
-  Method Void Bind[TData](UInt16)
+  Method Tl.Playback Backward[TInput,TResult](UInt16, Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Void Bind[TInput,TResult](UInt16)
   Method UInt16 Build(Tl.TimelineBuild`2[TTrack,TClip])
   Method UInt16 Build(Tl.TimelineBuild`2[TTrack,TClip], Tl.TimelineOptions)
   Method UInt16 Build[TSource](TSource, Tl.TimelineBuild`3[TTrack,TClip,TSource])
   Method UInt16 Build[TSource](TSource, Tl.TimelineBuild`3[TTrack,TClip,TSource], Tl.TimelineOptions)
-  Method Tl.Playback Forward[TData](UInt16, Tl.Playback ByRef, TData ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
+  Method Tl.Playback Forward[TInput,TResult](UInt16, Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
 type Tl.TrackRef
 type Tl.TrackWork`2
   Property TClip& Clip

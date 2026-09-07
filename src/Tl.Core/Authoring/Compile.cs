@@ -21,7 +21,7 @@ internal static class TimelineCompiler
 {
     public static ushort Compile<TTrack, TClip>(
         TimelineBuilder<TTrack, TClip>.Authoring authoring,
-        Action<Type, Timeline.Entry> binder)
+        Action<Type, Type, Timeline.Entry> binder)
         where TTrack : struct, IBlend<TClip>
         where TClip : unmanaged
     {

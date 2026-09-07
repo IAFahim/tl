@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Xunit;
 
 namespace Tl.Core.Tests;
@@ -13,17 +12,17 @@ public class DefectTests
             => result = new TestClip(first.Value * (1f - t) + second.Value * t);
     }
 
-    public struct TestConsumer :
-        IForward<TestTrack, TestClip, TestConsumer>,
-        IBackward<TestTrack, TestClip, TestConsumer>
+    public struct TestResult :
+        IForward<TestTrack, TestClip, NoInput, TestResult>,
+        IBackward<TestTrack, TestClip, NoInput, TestResult>
     {
         public float Sum;
         public int Count;
         public bool TriggerGc;
 
-        public void Forward(ref TestConsumer data, in Tracks<TestTrack, TestClip> tracks, in uint tick)
+        public void Forward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref TestResult result)
         {
-            if (data.TriggerGc)
+            if (result.TriggerGc)
             {
                 for (int i = 0; i < 50; i++)
                     _ = new byte[1024];
@@ -31,13 +30,13 @@ public class DefectTests
             }
 
             foreach (var work in tracks)
-                data.Sum += work.Clip.Value;
-            data.Count++;
+                result.Sum += work.Clip.Value;
+            result.Count++;
         }
 
-        public void Backward(ref TestConsumer data, in Tracks<TestTrack, TestClip> tracks, in uint tick)
+        public void Backward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref TestResult result)
         {
-            if (data.TriggerGc)
+            if (result.TriggerGc)
             {
                 for (int i = 0; i < 50; i++)
                     _ = new byte[1024];
@@ -45,8 +44,8 @@ public class DefectTests
             }
 
             foreach (var work in tracks)
-                data.Sum -= work.Clip.Value;
-            data.Count++;
+                result.Sum -= work.Clip.Value;
+            result.Count++;
         }
     }
 
@@ -76,11 +75,12 @@ public class DefectTests
         Assert.Equal(0u, Timeline.Duration(id));
 
         var pb = Timeline.Start(id);
-        var consumer = new TestConsumer();
-        pb = Timeline.Forward(id, in pb, ref consumer, 0u);
+        var result = new TestResult();
+        var input = default(NoInput);
+        pb = Timeline.Forward(id, in pb, in input, ref result, 0u);
 
         Assert.True(pb.Has(PlaybackFlags.Completed));
-        Assert.Equal(0, consumer.Count);
+        Assert.Equal(0, result.Count);
 
         Timeline.Destroy(id);
     }
@@ -98,11 +98,12 @@ public class DefectTests
 
         Assert.Equal(dur, Timeline.Duration(loopId));
 
-        var consumer = new TestConsumer();
+        var result = new TestResult();
+        var input = default(NoInput);
         var pb = Timeline.Start(loopId);
 
         // Advance past one full loop (dur + 5)
-        pb = Timeline.Forward(loopId, in pb, ref consumer, dur + 5);
+        pb = Timeline.Forward(loopId, in pb, in input, ref result, dur + 5);
 
         Assert.Equal(1, pb.Cycles);
         Assert.Equal(dur + 5, pb.Tick);
@@ -116,31 +117,31 @@ public class DefectTests
 
     private class HeapContainer
     {
-        public TestConsumer Consumer;
+        public TestResult Result;
         public Cursor Cursor;
     }
 
-    public struct ManagedFieldsConsumer :
-        IForward<TestTrack, TestClip, ManagedFieldsConsumer>,
-        IBackward<TestTrack, TestClip, ManagedFieldsConsumer>
+    public struct ManagedFieldsResult :
+        IForward<TestTrack, TestClip, NoInput, ManagedFieldsResult>,
+        IBackward<TestTrack, TestClip, NoInput, ManagedFieldsResult>
     {
         public string Name;
         public List<float> Values;
 
-        public void Forward(ref ManagedFieldsConsumer data, in Tracks<TestTrack, TestClip> tracks, in uint tick)
+        public void Forward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref ManagedFieldsResult result)
         {
             for (int i = 0; i < 50; i++)
                 _ = new byte[1024];
             GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
 
             foreach (var work in tracks)
-                data.Values.Add(work.Clip.Value);
+                result.Values.Add(work.Clip.Value);
         }
 
-        public void Backward(ref ManagedFieldsConsumer data, in Tracks<TestTrack, TestClip> tracks, in uint tick)
+        public void Backward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref ManagedFieldsResult result)
         {
             foreach (var work in tracks)
-                data.Values.Remove(work.Clip.Value);
+                result.Values.Remove(work.Clip.Value);
         }
     }
 
@@ -155,14 +156,15 @@ public class DefectTests
 
         var container = new HeapContainer
         {
-            Consumer = new TestConsumer { TriggerGc = true }
+            Result = new TestResult { TriggerGc = true }
         };
+        var input = default(NoInput);
 
         var pb = Timeline.Start(id);
-        pb = Timeline.Forward(id, in pb, ref container.Consumer, 1u, 2u, 3u);
+        pb = Timeline.Forward(id, in pb, in input, ref container.Result, 1u, 2u, 3u);
 
-        Assert.Equal(3, container.Consumer.Count);
-        Assert.Equal(42f * 3, container.Consumer.Sum);
+        Assert.Equal(3, container.Result.Count);
+        Assert.Equal(42f * 3, container.Result.Sum);
 
         Timeline.Destroy(id);
     }
@@ -176,11 +178,12 @@ public class DefectTests
             b.Clip(in t, new TestClip(10f), 0, 10);
         });
 
-        var array = new TestConsumer[5];
+        var array = new TestResult[5];
         array[2].TriggerGc = true;
+        var input = default(NoInput);
 
         var pb = Timeline.Start(id);
-        pb = Timeline.Forward(id, in pb, ref array[2], 0u, 1u);
+        pb = Timeline.Forward(id, in pb, in input, ref array[2], 0u, 1u);
 
         Assert.Equal(2, array[2].Count);
         Assert.Equal(20f, array[2].Sum);
@@ -197,14 +200,15 @@ public class DefectTests
             b.Clip(in t, new TestClip(7f), 0, 10);
         });
 
-        var managed = new ManagedFieldsConsumer
+        var managed = new ManagedFieldsResult
         {
             Name = "Player1",
             Values = []
         };
+        var input = default(NoInput);
 
         var pb = Timeline.Start(id);
-        pb = Timeline.Forward(id, in pb, ref managed, 1u, 2u);
+        pb = Timeline.Forward(id, in pb, in input, ref managed, 1u, 2u);
 
         Assert.Equal("Player1", managed.Name);
         Assert.Equal([7f, 7f], managed.Values);
@@ -223,11 +227,12 @@ public class DefectTests
 
         var container = new HeapContainer
         {
-            Consumer = new TestConsumer { TriggerGc = true }
+            Result = new TestResult { TriggerGc = true }
         };
+        var input = default(NoInput);
 
         var pb = Timeline.Start(id);
-        pb = Timeline.Forward(id, in pb, ref container.Cursor, ref container.Consumer, 5u);
+        pb = Timeline.Forward(id, in pb, ref container.Cursor, in input, ref container.Result, 5u);
 
         Assert.Equal(5u, pb.Tick);
         Assert.NotNull(container.Cursor.Owner);
@@ -247,15 +252,15 @@ public class DefectTests
     }
 
     public struct DualConsumer :
-        IForward<TestTrack, TestClip, DualConsumer>,
-        IBackward<TestTrack, TestClip, DualConsumer>,
-        IForward<OtherTrack, OtherClip, DualConsumer>,
-        IBackward<OtherTrack, OtherClip, DualConsumer>
+        IForward<TestTrack, TestClip, NoInput, DualConsumer>,
+        IBackward<TestTrack, TestClip, NoInput, DualConsumer>,
+        IForward<OtherTrack, OtherClip, NoInput, DualConsumer>,
+        IBackward<OtherTrack, OtherClip, NoInput, DualConsumer>
     {
-        public void Forward(ref DualConsumer data, in Tracks<TestTrack, TestClip> tracks, in uint tick) { }
-        public void Backward(ref DualConsumer data, in Tracks<TestTrack, TestClip> tracks, in uint tick) { }
-        public void Forward(ref DualConsumer data, in Tracks<OtherTrack, OtherClip> tracks, in uint tick) { }
-        public void Backward(ref DualConsumer data, in Tracks<OtherTrack, OtherClip> tracks, in uint tick) { }
+        public void Forward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref DualConsumer result) { }
+        public void Backward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref DualConsumer result) { }
+        public void Forward(in Tracks<OtherTrack, OtherClip> tracks, in NoInput input, in uint tick, ref DualConsumer result) { }
+        public void Backward(in Tracks<OtherTrack, OtherClip> tracks, in NoInput input, in uint tick, ref DualConsumer result) { }
     }
 
     [Fact]
@@ -269,13 +274,14 @@ public class DefectTests
         });
 
         var dual = new DualConsumer();
+        var input = default(NoInput);
         var pb = Timeline.Start(idOther);
         Span<TestClip> scratchTest = stackalloc TestClip[4];
 
         ArgumentException? exForward = null;
         try
         {
-            Timeline<TestTrack, TestClip>.Forward(idOther, in pb, ref dual, scratchTest, 5u);
+            Timeline<TestTrack, TestClip>.Forward(idOther, in pb, in input, ref dual, scratchTest, 5u);
         }
         catch (ArgumentException ex)
         {
@@ -288,7 +294,7 @@ public class DefectTests
         ArgumentException? exBackward = null;
         try
         {
-            Timeline<TestTrack, TestClip>.Backward(idOther, in pb, ref dual, scratchTest, 5u);
+            Timeline<TestTrack, TestClip>.Backward(idOther, in pb, in input, ref dual, scratchTest, 5u);
         }
         catch (ArgumentException ex)
         {
@@ -315,14 +321,15 @@ public class DefectTests
             b.Clip(in t2, new TestClip(4f), 5, 15);
         });
 
-        var consumer = new TestConsumer();
+        var result = new TestResult();
+        var input = default(NoInput);
         var pb = Timeline.Start(id);
 
         Span<TestClip> tooSmall = stackalloc TestClip[1];
         ArgumentException? ex = null;
         try
         {
-            Timeline<TestTrack, TestClip>.Forward(id, in pb, ref consumer, tooSmall, 7u);
+            Timeline<TestTrack, TestClip>.Forward(id, in pb, in input, ref result, tooSmall, 7u);
         }
         catch (ArgumentException e)
         {
@@ -355,13 +362,14 @@ public class DefectTests
         {
             tasks[i] = Task.Run(() =>
             {
-                var c = new TestConsumer();
+                var r = new TestResult();
+                var input = default(NoInput);
                 var pb = Timeline.Start(id);
                 for (uint tick = 1; tick < 20; tick++)
                 {
-                    pb = Timeline.Forward(id, in pb, ref c, tick);
+                    pb = Timeline.Forward(id, in pb, in input, ref r, tick);
                 }
-                Assert.Equal(19, c.Count);
+                Assert.Equal(19, r.Count);
             });
         }
 
@@ -379,7 +387,8 @@ public class DefectTests
         });
 
         var pb = Timeline.Start(id);
-        var consumer = new TestConsumer();
+        var result = new TestResult();
+        var input = default(NoInput);
 
         // Destroy the timeline
         Timeline.Destroy(id);
@@ -388,7 +397,7 @@ public class DefectTests
         Assert.Throws<ArgumentOutOfRangeException>(() => Timeline.Live(id));
 
         // And attempting to start or run throws
-        Assert.Throws<ArgumentOutOfRangeException>(() => Timeline.Forward(id, in pb, ref consumer, 5u));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Timeline.Forward(id, in pb, in input, ref result, 5u));
     }
 
     #endregion
@@ -400,7 +409,6 @@ public class DefectTests
     {
         var builder = new TimelineBuilder<TestTrack, TestClip>(TimelineOptions.Default);
         TrackRef defaultRef = default;
-
         ArgumentException? ex = null;
         try
         {

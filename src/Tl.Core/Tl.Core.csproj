@@ -6,14 +6,14 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <PackageId>Tl.Runtime</PackageId>
     <Authors>IAFahim</Authors>
     <Description>Timelines compiled into C#, with typed struct hooks and caller-owned playback state.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v0.1.0 release: Core timeline engine extracted, zero-allocation playback dispatch, six critical safety defects resolved, NativeAOT support.</PackageReleaseNotes>
+    <PackageReleaseNotes>v0.2.0 release: the consumer data parameter splits into an immutable input (in TInput) and a mutable result (ref TResult); TResult owns the Forward/Backward hooks. Full breaking change: the v0.1 ref TData surface is removed. Pair-keyed (TInput, TResult) binding caches, two-byref dispatch pointers, two-argument MakeGenericMethod bridges. Input-immutability and seed-parity receipts added; zero-allocation and NativeAOT verification maintained.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

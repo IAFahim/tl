@@ -6,16 +6,20 @@ ushort id = Timeline<HealthTrack, HealthClip>.Build(static builder =>
     builder.Clip(in track, new HealthClip(2f), start: 0, end: 4);
 });
 
-Timeline<HealthTrack, HealthClip>.Bind<Health>(id);
+Timeline<HealthTrack, HealthClip>.Bind<HealthInput, HealthResult>(id);
 
-var health = new Health();
+// Input is read-only context (here: the seed the run starts from).
+// Result is the live state the hooks mutate through the ref parameter.
+var input = new HealthInput(Seed: 100f);
+var result = new HealthResult { Value = input.Seed };
+
 var playback = Timeline.Start(id);
-playback = Timeline.Forward(id, in playback, ref health, 0u, 1u, 2u, 3u);
+playback = Timeline.Forward(id, in playback, in input, ref result, 0u, 1u, 2u, 3u);
 
-Console.WriteLine(health.Value); // 6: ticks 0, 1 and 2 are Stay; tick 3 is Exit.
+Console.WriteLine(result.Value); // 106: seed 100; ticks 0, 1 and 2 are Stay (+2 each); tick 3 is Exit.
 
-if (health.Value != 6f)
-    throw new InvalidOperationException($"Expected 6, got {health.Value}");
+if (result.Value != 106f)
+    throw new InvalidOperationException($"Expected 106, got {result.Value}");
 
 playback = Timeline.Stop(id, in playback);
 Timeline.Destroy(id);
@@ -31,25 +35,27 @@ public readonly struct HealthTrack : IBlend<HealthClip>
     }
 }
 
-public struct Health :
-    IForward<HealthTrack, HealthClip, Health>,
-    IBackward<HealthTrack, HealthClip, Health>
+public readonly record struct HealthInput(float Seed);
+
+public struct HealthResult :
+    IForward<HealthTrack, HealthClip, HealthInput, HealthResult>,
+    IBackward<HealthTrack, HealthClip, HealthInput, HealthResult>
 {
     public float Value;
 
-    public void Forward(ref Health data,
-        in Tracks<HealthTrack, HealthClip> tracks, in uint tick)
+    public void Forward(in Tracks<HealthTrack, HealthClip> tracks,
+        in HealthInput input, in uint tick, ref HealthResult result)
     {
         foreach (var work in tracks)
             if (work.State == ClipState.Stay)
-                data.Value += work.Clip.Amount;
+                result.Value += work.Clip.Amount;
     }
 
-    public void Backward(ref Health data,
-        in Tracks<HealthTrack, HealthClip> tracks, in uint tick)
+    public void Backward(in Tracks<HealthTrack, HealthClip> tracks,
+        in HealthInput input, in uint tick, ref HealthResult result)
     {
         foreach (var work in tracks)
             if (work.State == ClipState.Stay)
-                data.Value -= work.Clip.Amount;
+                result.Value -= work.Clip.Amount;
     }
 }

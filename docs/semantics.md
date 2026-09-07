@@ -3,6 +3,8 @@
 This is the extraction contract derived from the redesigned prototype at
 `ccd344a`. It is not the older Iutq event-traversal API. The
 [v0.1 handoff](v0.1.md) lists implementation defects to fix before freezing it.
+Behavior is unchanged by the v0.2 input/result split; only the consumer data
+parameter shape changed — see the [v0.2 delta](v0.2.md).
 
 ## Time and work
 

@@ -43,9 +43,9 @@ internal static class PlaybackCore
             throw new InvalidOperationException("Playback is stopped.");
     }
 
-    public static Playback Advance<TTrack, TClip, TData>(
+    public static Playback Advance<TTrack, TClip, TInput, TResult>(
         in Playback from, bool backward, bool loops,
-        ReadOnlySpan<uint> ticks, ref TData data,
+        ReadOnlySpan<uint> ticks, in TInput input, ref TResult result,
         ReadOnlySpan<uint> starts, ReadOnlySpan<RegionRow> regionRows,
         ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<ClipEdge> edges,
@@ -54,15 +54,16 @@ internal static class PlaybackCore
         Span<TClip> resolved)
         where TTrack : struct, IBlend<TClip>
         where TClip : struct
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
         => Advance(
-            in from, backward, loops, ticks, ref data,
+            in from, backward, loops, ticks, in input, ref result,
             starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
             -1, out _);
 
-    public static Playback Advance<TTrack, TClip, TData>(
+    public static Playback Advance<TTrack, TClip, TInput, TResult>(
         in Playback from, bool backward, bool loops,
-        ReadOnlySpan<uint> ticks, ref TData data,
+        ReadOnlySpan<uint> ticks, in TInput input, ref TResult result,
         ReadOnlySpan<uint> starts, ReadOnlySpan<RegionRow> regionRows,
         ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<ClipEdge> edges,
@@ -72,7 +73,8 @@ internal static class PlaybackCore
         int regionHint, out int finalRegion)
         where TTrack : struct, IBlend<TClip>
         where TClip : struct
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         var duration = starts[^1];
         var state = from;
@@ -116,9 +118,9 @@ internal static class PlaybackCore
                     new MovementSpan(prevEff, backward, wrapped, full));
 
                 if (backward)
-                    data.Backward(ref data, in tracks, in tEff);
+                    result.Backward(in tracks, in input, in tEff, ref result);
                 else
-                    data.Forward(ref data, in tracks, in tEff);
+                    result.Forward(in tracks, in input, in tEff, ref result);
             }
 
             state = next;
@@ -129,8 +131,8 @@ internal static class PlaybackCore
         return state;
     }
 
-    public static void Sample<TTrack, TClip, TData>(
-        bool backward, bool loops, ReadOnlySpan<uint> ticks, ref TData data,
+    public static void Sample<TTrack, TClip, TInput, TResult>(
+        bool backward, bool loops, ReadOnlySpan<uint> ticks, in TInput input, ref TResult result,
         ReadOnlySpan<uint> starts, ReadOnlySpan<RegionRow> regionRows,
         ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<ClipEdge> edges,
@@ -139,7 +141,8 @@ internal static class PlaybackCore
         Span<TClip> resolved)
         where TTrack : struct, IBlend<TClip>
         where TClip : struct
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         var duration = starts[^1];
         var wrap = loops && duration != 0;
@@ -175,9 +178,9 @@ internal static class PlaybackCore
                 new MovementSpan(localTick, backward, Wrapped: false, Full: false));
 
             if (backward)
-                data.Backward(ref data, in tracks, in localTick);
+                result.Backward(in tracks, in input, in localTick, ref result);
             else
-                data.Forward(ref data, in tracks, in localTick);
+                result.Forward(in tracks, in input, in localTick, ref result);
         }
     }
 

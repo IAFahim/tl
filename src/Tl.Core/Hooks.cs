@@ -6,18 +6,20 @@ public interface IBlend<TClip>
     void Blend(in TClip first, in TClip second, float t, out TClip result);
 }
 
-public interface IForward<TTrack, TClip, TData>
+public interface IForward<TTrack, TClip, TInput, TResult>
     where TTrack : struct, IBlend<TClip>
     where TClip : struct
-    where TData : struct
+    where TInput : struct
+    where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
 {
-    void Forward(ref TData data, in Tracks<TTrack, TClip> tracks, in uint tick);
+    void Forward(in Tracks<TTrack, TClip> tracks, in TInput input, in uint tick, ref TResult result);
 }
 
-public interface IBackward<TTrack, TClip, TData>
+public interface IBackward<TTrack, TClip, TInput, TResult>
     where TTrack : struct, IBlend<TClip>
     where TClip : struct
-    where TData : struct
+    where TInput : struct
+    where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
 {
-    void Backward(ref TData data, in Tracks<TTrack, TClip> tracks, in uint tick);
+    void Backward(in Tracks<TTrack, TClip> tracks, in TInput input, in uint tick, ref TResult result);
 }

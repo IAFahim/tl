@@ -7,22 +7,26 @@ applications consume the resulting timeline through `IBlend`, `IForward` and
 `IBackward`. Runtime authoring is also part of the design. Blob export is not
 required.
 
-**Status: v0.1 Core and Generator Extracted.** The core library (`src/Tl.Core`)
-and build-time code generator (`src/Tl.Gen`) are extracted, fully tested, and verified
-against NativeAOT. Baseline benchmark verification receipts remain intact.
+**Status: v0.2 Input/Result Split.** The core library (`src/Tl.Core`) and
+build-time code generator (`src/Tl.Gen`) are extracted, fully tested, and
+verified against NativeAOT. v0.2 splits the consumer data parameter into an
+immutable input (`in TInput`) and a mutable result (`ref TResult`); the v0.1
+`ref TData` surface is fully removed. See [v0.2](docs/v0.2.md).
 
 ## Packages
 
 | Package | Version | Description |
 | --- | --- | --- |
-| `Tl.Runtime` | `0.1.0` | Core timeline runtime, builder, copy-on-write registry, and zero-allocation playback engine. |
-| `Tl.Gen` | `0.1.0` | Build-time MSBuild generator emitting compiled C# timeline tables and specialized kernels. |
+| `Tl.Runtime` | `0.2.0` | Core timeline runtime, builder, copy-on-write registry, and zero-allocation playback engine. |
+| `Tl.Gen` | `0.2.0` | Build-time MSBuild generator emitting compiled C# timeline tables and specialized kernels. |
 
 ## Consumer API
 
 A track blends its clip type. A consumer handles forward and backward work.
 `Tracks` provides each active track, its resolved clip and its `Enter`, `Stay`
-or `Exit` state. The consumer decides what those states do.
+or `Exit` state. The consumer decides what those states do. Consumer data is
+split in two: an immutable `in TInput` (read-only context, e.g. a seed) and a
+mutable `ref TResult` (the live state, which also implements the hooks).
 
 This complete example runs against `Tl.Core` (`Tl` namespace).
 
@@ -35,13 +39,14 @@ ushort id = Timeline<HealthTrack, HealthClip>.Build(static builder =>
     builder.Clip(in track, new HealthClip(2f), start: 0, end: 4);
 });
 
-Timeline<HealthTrack, HealthClip>.Bind<Health>(id);
+Timeline<HealthTrack, HealthClip>.Bind<HealthInput, HealthResult>(id);
 
-var health = new Health();
+var input = new HealthInput(Seed: 100f);
+var health = new HealthResult { Value = input.Seed };
 var playback = Timeline.Start(id);
-playback = Timeline.Forward(id, in playback, ref health, 0u, 1u, 2u, 3u);
+playback = Timeline.Forward(id, in playback, in input, ref health, 0u, 1u, 2u, 3u);
 
-Console.WriteLine(health.Value); // 6: ticks 0, 1 and 2 are Stay; tick 3 is Exit.
+Console.WriteLine(health.Value); // 106: seed 100; ticks 0, 1 and 2 are Stay (+2 each); tick 3 is Exit.
 
 playback = Timeline.Stop(id, in playback);
 Timeline.Destroy(id);
@@ -57,38 +62,43 @@ public readonly struct HealthTrack : IBlend<HealthClip>
     }
 }
 
-public struct Health :
-    IForward<HealthTrack, HealthClip, Health>,
-    IBackward<HealthTrack, HealthClip, Health>
+public readonly record struct HealthInput(float Seed);
+
+public struct HealthResult :
+    IForward<HealthTrack, HealthClip, HealthInput, HealthResult>,
+    IBackward<HealthTrack, HealthClip, HealthInput, HealthResult>
 {
     public float Value;
 
-    public void Forward(ref Health data,
-        in Tracks<HealthTrack, HealthClip> tracks, in uint tick)
+    public void Forward(in Tracks<HealthTrack, HealthClip> tracks,
+        in HealthInput input, in uint tick, ref HealthResult result)
     {
         foreach (var work in tracks)
             if (work.State == ClipState.Stay)
-                data.Value += work.Clip.Amount;
+                result.Value += work.Clip.Amount;
     }
 
-    public void Backward(ref Health data,
-        in Tracks<HealthTrack, HealthClip> tracks, in uint tick)
+    public void Backward(in Tracks<HealthTrack, HealthClip> tracks,
+        in HealthInput input, in uint tick, ref HealthResult result)
     {
         foreach (var work in tracks)
             if (work.State == ClipState.Stay)
-                data.Value -= work.Clip.Amount;
+                result.Value -= work.Clip.Amount;
     }
 }
 ```
 
-`Bind<Health>` explicitly registers the closed consumer type before playback;
-this is the intended AOT path. The example chooses to apply only `Stay` work.
-Backward behavior is application code, not automatic undo. See the
-[semantics](docs/semantics.md) before writing consumers.
+`Bind<HealthInput, HealthResult>` explicitly registers the closed input/result
+pair before playback; this is the intended AOT path. The engine treats the
+input as read-only and never writes through it; all mutation flows through the
+`ref` result. The example chooses to apply only `Stay` work. Backward behavior
+is application code, not automatic undo. See the [semantics](docs/semantics.md)
+and the [v0.2 delta](docs/v0.2.md) before writing consumers.
 
-## What v0.1 preserves
+## What v0.2 preserves from v0.1
 
-- Three consumer hooks, typed struct calls and `ref` mutation of caller data.
+- Three consumer hooks, typed struct calls and `ref` mutation of the caller's
+  result, now alongside an immutable `in TInput`.
 - `uint` ticks, `[start, end)` clip windows and an 8-byte `Playback`.
 - One hook call per non-empty destination tick; one resolved work per active track.
 - Runtime region tables, a caller-owned cursor and bounded blend scratch.
@@ -102,7 +112,7 @@ infrastructure is separate from the three consumer hooks.
 
 The first library target is .NET 10. NativeAOT is fully supported and verified;
 the test suite and smoke harness publish and execute native binaries under NativeAOT.
-Unity and WebAssembly integration are future adapter/target work, with no compatibility claim for v0.1.
+Unity and WebAssembly integration are future adapter/target work, with no compatibility claim for v0.2.
 
 ## NativeAOT and Code Generation
 
@@ -110,9 +120,9 @@ Unity and WebAssembly integration are future adapter/target work, with no compat
 
 1. **AOT Consumer Binding**: Dynamic code generation is avoided under NativeAOT by explicitly registering consumer types:
    ```cs
-   Timeline<HealthTrack, HealthClip>.Bind<Health>(id);
+   Timeline<HealthTrack, HealthClip>.Bind<HealthInput, HealthResult>(id);
    ```
-   If a consumer is not bound under NativeAOT, a clear exception is thrown explaining the need for `Bind<TConsumer>()`. Under JIT runtimes, dynamic dispatch bridges bind automatically on first use.
+   If a consumer pair is not bound under NativeAOT, a clear exception is thrown explaining the need for `Bind<TInput,TResult>()`. Under JIT runtimes, dynamic dispatch bridges bind automatically on first use.
 2. **Build-Time Generation (`Tl.Gen`)**: The `Tl.Gen` MSBuild package compiles declarative `.def` files directly into C# source at build time:
    ```xml
    <ItemGroup>
@@ -132,7 +142,7 @@ During extraction from the prototype into `Tl.Core` and `Tl.Gen`, six critical d
 - **Defect A: Timeline duration overflow**:
   Duration is now represented as `uint` throughout all entry records, builder validation, compiler passes, and public query APIs (`Timeline.Duration(id)`), eliminating 31-bit integer truncation.
 - **Defect B: Unsafe pointer tracking during dispatch**:
-  Removed all `Unsafe.AsPointer(ref data)` and `Unsafe.AsPointer(ref cursor)` casts that bypassed GC tracking for references into managed heap objects. The dispatch pipeline now passes true managed references (`ref TData`, `ref Cursor`) throughout typed function pointers (`delegate*<Entry, in Playback, ref TData, ...>`), with zero unsafe indexing or GC pinning.
+  Removed all `Unsafe.AsPointer(ref data)` and `Unsafe.AsPointer(ref cursor)` casts that bypassed GC tracking for references into managed heap objects. The dispatch pipeline passes true managed references throughout typed function pointers (in v0.2: `delegate*<Entry, in Playback, in TInput, ref TResult, ReadOnlySpan<uint>, Playback>` and its cursor/scratch/stateless shapes), with zero unsafe indexing or GC pinning.
 - **Defect C: Scratch forward/backward payload type mismatch**:
   `Timeline<TTrack, TClip>.Forward` and `Backward` methods accepting caller scratch buffers now explicitly validate that the timeline payload is a valid table representation (`if (entry.Payload is not Tables) throw new ArgumentException(...)`), preventing invalid memory access when dispatched on non-table timeline entries.
 - **Defect D: Hub snapshot publication race and entry destruction race**:
@@ -186,6 +196,7 @@ all five baseline verification commands, and package packing.
 
 ## Start here
 
+- [v0.2 delta](docs/v0.2.md): the input/result split, its receipts and migration.
 - [v0.1 handoff](docs/v0.1.md): ordered tasks, source map, fixes and acceptance gates.
 - [Semantics](docs/semantics.md): the behavior to preserve during extraction.
 - [Adapters](docs/adapters.md): build-time boundaries and C# output.

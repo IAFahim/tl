@@ -29,15 +29,17 @@ public static class GeneratedTimeline<TTrack, TClip>
 {
     public static Playback Start(uint at = 0) => new(at, 0, PlaybackFlags.Started);
 
-    public static void Forward<TData>(ref TData data, params ReadOnlySpan<uint> ticks)
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    public static void Forward<TInput, TResult>(in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         Span<TClip> scratch = stackalloc TClip[BlendScratch.StackCount<TClip>(TTrack.MaxActiveBlends)];
-        Forward(ref data, scratch, ticks);
+        Forward(in input, ref result, scratch, ticks);
     }
 
-    public static void Forward<TData>(ref TData data, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    public static void Forward<TInput, TResult>(in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         if (scratch.Length < TTrack.MaxActiveBlends)
             throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
@@ -50,20 +52,22 @@ public static class GeneratedTimeline<TTrack, TClip>
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
-        PlaybackCore.Sample<TTrack, TClip, TData>(
-            backward: false, TTrack.Loops, ticks, ref data,
+        PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
+            backward: false, TTrack.Loops, ticks, in input, ref result,
             starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
     }
 
-    public static void Backward<TData>(ref TData data, params ReadOnlySpan<uint> ticks)
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    public static void Backward<TInput, TResult>(in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         Span<TClip> scratch = stackalloc TClip[BlendScratch.StackCount<TClip>(TTrack.MaxActiveBlends)];
-        Backward(ref data, scratch, ticks);
+        Backward(in input, ref result, scratch, ticks);
     }
 
-    public static void Backward<TData>(ref TData data, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    public static void Backward<TInput, TResult>(in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         if (scratch.Length < TTrack.MaxActiveBlends)
             throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
@@ -76,20 +80,22 @@ public static class GeneratedTimeline<TTrack, TClip>
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
-        PlaybackCore.Sample<TTrack, TClip, TData>(
-            backward: true, TTrack.Loops, ticks, ref data,
+        PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
+            backward: true, TTrack.Loops, ticks, in input, ref result,
             starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
     }
 
-    public static Playback Forward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    public static Playback Forward<TInput, TResult>(in Playback from, in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         Span<TClip> scratch = stackalloc TClip[BlendScratch.StackCount<TClip>(TTrack.MaxActiveBlends)];
-        return Forward(in from, ref data, scratch, ticks);
+        return Forward(in from, in input, ref result, scratch, ticks);
     }
 
-    public static Playback Forward<TData>(in Playback from, ref TData data, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    public static Playback Forward<TInput, TResult>(in Playback from, in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         PlaybackCore.RequireRunnable(in from);
         if (scratch.Length < TTrack.MaxActiveBlends)
@@ -103,20 +109,22 @@ public static class GeneratedTimeline<TTrack, TClip>
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
-        return PlaybackCore.Advance<TTrack, TClip, TData>(
-            in from, backward: false, TTrack.Loops, ticks, ref data,
+        return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
+            in from, backward: false, TTrack.Loops, ticks, in input, ref result,
             starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
     }
 
-    public static Playback Backward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    public static Playback Backward<TInput, TResult>(in Playback from, in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         Span<TClip> scratch = stackalloc TClip[BlendScratch.StackCount<TClip>(TTrack.MaxActiveBlends)];
-        return Backward(in from, ref data, scratch, ticks);
+        return Backward(in from, in input, ref result, scratch, ticks);
     }
 
-    public static Playback Backward<TData>(in Playback from, ref TData data, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
-        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    public static Playback Backward<TInput, TResult>(in Playback from, in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
+        where TInput : struct
+        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         PlaybackCore.RequireRunnable(in from);
         if (scratch.Length < TTrack.MaxActiveBlends)
@@ -130,8 +138,8 @@ public static class GeneratedTimeline<TTrack, TClip>
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
-        return PlaybackCore.Advance<TTrack, TClip, TData>(
-            in from, backward: true, TTrack.Loops, ticks, ref data,
+        return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
+            in from, backward: true, TTrack.Loops, ticks, in input, ref result,
             starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
     }
 }

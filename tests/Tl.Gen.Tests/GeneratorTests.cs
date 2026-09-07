@@ -17,6 +17,10 @@ public interface ITestInvoker
     void Run(uint[] ticks, out float sum, out int enter, out int stay, out int exit, out List<string> log);
 }
 
+// Test-local fixture: the empty input marker for consumers without read-only
+// context. Not part of the public API.
+public readonly struct NoInput;
+
 public class GeneratorTests
 {
     [Fact]
@@ -93,9 +97,9 @@ public class GeneratorTests
             => result = new SampleClip(first.Value * (1f - t) + second.Value * t);
     }
 
-    public struct ComplexConsumer :
-        IForward<SampleTrack, SampleClip, ComplexConsumer>,
-        IBackward<SampleTrack, SampleClip, ComplexConsumer>
+    public struct ComplexResult :
+        IForward<SampleTrack, SampleClip, NoInput, ComplexResult>,
+        IBackward<SampleTrack, SampleClip, NoInput, ComplexResult>
     {
         public float Sum;
         public int EnterCount;
@@ -103,52 +107,52 @@ public class GeneratorTests
         public int ExitCount;
         public List<string> Log;
 
-        public ComplexConsumer()
+        public ComplexResult()
         {
             Log = [];
         }
 
-        public void Forward(ref ComplexConsumer data, in Tracks<SampleTrack, SampleClip> tracks, in uint tick)
+        public void Forward(in Tracks<SampleTrack, SampleClip> tracks, in NoInput input, in uint tick, ref ComplexResult result)
         {
             foreach (var work in tracks)
             {
                 switch (work.State)
                 {
                     case ClipState.Enter:
-                        data.EnterCount++;
-                        data.Log.Add($"Fwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                        result.EnterCount++;
+                        result.Log.Add($"Fwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                         break;
                     case ClipState.Stay:
-                        data.StayCount++;
-                        data.Sum += work.Clip.Value;
-                        data.Log.Add($"Fwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                        result.StayCount++;
+                        result.Sum += work.Clip.Value;
+                        result.Log.Add($"Fwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                         break;
                     case ClipState.Exit:
-                        data.ExitCount++;
-                        data.Log.Add($"Fwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                        result.ExitCount++;
+                        result.Log.Add($"Fwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                         break;
                 }
             }
         }
 
-        public void Backward(ref ComplexConsumer data, in Tracks<SampleTrack, SampleClip> tracks, in uint tick)
+        public void Backward(in Tracks<SampleTrack, SampleClip> tracks, in NoInput input, in uint tick, ref ComplexResult result)
         {
             foreach (var work in tracks)
             {
                 switch (work.State)
                 {
                     case ClipState.Enter:
-                        data.EnterCount++;
-                        data.Log.Add($"Bwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                        result.EnterCount++;
+                        result.Log.Add($"Bwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                         break;
                     case ClipState.Stay:
-                        data.StayCount++;
-                        data.Sum -= work.Clip.Value;
-                        data.Log.Add($"Bwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                        result.StayCount++;
+                        result.Sum -= work.Clip.Value;
+                        result.Log.Add($"Bwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                         break;
                     case ClipState.Exit:
-                        data.ExitCount++;
-                        data.Log.Add($"Bwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                        result.ExitCount++;
+                        result.Log.Add($"Bwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                         break;
                 }
             }
@@ -166,7 +170,7 @@ public class GeneratorTests
             _duration = duration;
         }
 
-        public void StepForward(uint prevTick, uint tick, ref ComplexConsumer consumer)
+        public void StepForward(uint prevTick, uint tick, ref ComplexResult consumer)
         {
             if (_duration == 0) return;
 
@@ -242,7 +246,7 @@ public class GeneratorTests
 
         // 1. Independent Simple Oracle
         var oracle = new SimpleOracle(clips, duration);
-        var oracleConsumer = new ComplexConsumer();
+        var oracleConsumer = new ComplexResult();
         uint cur = 0;
         uint[] walk = [0u, 1u, 3u, 5u, 6u, 7u, 10u, 11u, 14u, 15u];
         foreach (var next in walk)
@@ -263,9 +267,10 @@ public class GeneratorTests
             }
         });
 
-        var runtimeConsumer = new ComplexConsumer();
+        var runtimeConsumer = new ComplexResult();
+        var runtimeInput = default(NoInput);
         var pb = Timeline.Start(runtimeId, 0u);
-        pb = Timeline.Forward(runtimeId, in pb, ref runtimeConsumer, walk);
+        pb = Timeline.Forward(runtimeId, in pb, in runtimeInput, ref runtimeConsumer, walk);
 
         // Compare Runtime with Oracle
         Assert.Equal(oracleConsumer.Sum, runtimeConsumer.Sum, precision: 3);
@@ -311,8 +316,9 @@ public class GeneratorTests
                 public void Run(uint[] ticks, out float sum, out int enter, out int stay, out int exit, out List<string> log)
                 {
                     var consumer = new GenConsumer();
+                    var input = default(GenInput);
                     var pb = GeneratedTimeline<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip>.Start(0u);
-                    pb = GeneratedTimeline<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip>.Forward(in pb, ref consumer, ticks);
+                    pb = GeneratedTimeline<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip>.Forward(in pb, in input, ref consumer, ticks);
                     sum = consumer.Sum;
                     enter = consumer.EnterCount;
                     stay = consumer.StayCount;
@@ -321,9 +327,11 @@ public class GeneratorTests
                 }
             }
 
+            public readonly struct GenInput;
+
             public struct GenConsumer :
-                IForward<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip, GenConsumer>,
-                IBackward<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip, GenConsumer>
+                IForward<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip, GenInput, GenConsumer>,
+                IBackward<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip, GenInput, GenConsumer>
             {
                 public float Sum;
                 public int EnterCount;
@@ -333,47 +341,47 @@ public class GeneratorTests
 
                 public GenConsumer() { Log = []; }
 
-                public void Forward(ref GenConsumer data, in Tracks<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip> tracks, in uint tick)
+                public void Forward(in Tracks<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip> tracks, in GenInput input, in uint tick, ref GenConsumer result)
                 {
                     foreach (var work in tracks)
                     {
                         switch (work.State)
                         {
                             case ClipState.Enter:
-                                data.EnterCount++;
-                                data.Log.Add($"Fwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                                result.EnterCount++;
+                                result.Log.Add($"Fwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                                 break;
                             case ClipState.Stay:
-                                data.StayCount++;
-                                data.Sum += work.Clip.Value;
-                                data.Log.Add($"Fwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                                result.StayCount++;
+                                result.Sum += work.Clip.Value;
+                                result.Log.Add($"Fwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                                 break;
                             case ClipState.Exit:
-                                data.ExitCount++;
-                                data.Log.Add($"Fwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                                result.ExitCount++;
+                                result.Log.Add($"Fwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                                 break;
                         }
                     }
                 }
 
-                public void Backward(ref GenConsumer data, in Tracks<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip> tracks, in uint tick)
+                public void Backward(in Tracks<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip> tracks, in GenInput input, in uint tick, ref GenConsumer result)
                 {
                     foreach (var work in tracks)
                     {
                         switch (work.State)
                         {
                             case ClipState.Enter:
-                                data.EnterCount++;
-                                data.Log.Add($"Bwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                                result.EnterCount++;
+                                result.Log.Add($"Bwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                                 break;
                             case ClipState.Stay:
-                                data.StayCount++;
-                                data.Sum -= work.Clip.Value;
-                                data.Log.Add($"Bwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                                result.StayCount++;
+                                result.Sum -= work.Clip.Value;
+                                result.Log.Add($"Bwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                                 break;
                             case ClipState.Exit:
-                                data.ExitCount++;
-                                data.Log.Add($"Bwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
+                                result.ExitCount++;
+                                result.Log.Add($"Bwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
                                 break;
                         }
                     }
