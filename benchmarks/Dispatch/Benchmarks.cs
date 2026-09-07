@@ -727,4 +727,53 @@ public class Frozen
             pb = Fused16Frozen.Forward(in pb, ref sink, tick);
         return sink.Sum + sink.Flags + sink.Count;
     }
+
+    // The hub arms route the same tick arrays through FrozenHub (the dense
+    // switch over the frozen registry) instead of the direct static calls:
+    // registry index 1 is Fused16Frozen, index 0 is VitalsFrozen. No
+    // baselines here either - the deltas against the direct arms above are
+    // the measurement, reported in docs/benchmarks.md.
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float HubFused16Single()
+    {
+        var sink = default(FrozenSink);
+        var pb = FrozenHub.Start(1);
+        foreach (var tick in _fusedTicks.AsSpan())
+            pb = FrozenHub.Forward(1, in pb, ref sink, tick);
+        return sink.Sum + sink.Flags + sink.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float HubFused16Sequential()
+    {
+        var sink = default(FrozenSink);
+        var pb = FrozenHub.Start(1);
+        foreach (var tick in _fusedSeq.AsSpan())
+            pb = FrozenHub.Forward(1, in pb, ref sink, tick);
+        return sink.Sum + sink.Flags + sink.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float HubFused16Batch8()
+    {
+        var sink = default(FrozenSink);
+        var pb = FrozenHub.Start(1);
+        var ticks = _fusedTicks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 8)
+        {
+            var t = ticks.Slice(i, 8);
+            pb = FrozenHub.Forward(1, in pb, ref sink, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7]);
+        }
+        return sink.Sum + sink.Flags + sink.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float HubVitalsSingle()
+    {
+        var sink = default(FrozenSink);
+        var pb = FrozenHub.Start(0);
+        foreach (var tick in _vitalsTicks.AsSpan())
+            pb = FrozenHub.Forward(0, in pb, ref sink, tick);
+        return sink.Sum + sink.Flags + sink.Count;
+    }
 }

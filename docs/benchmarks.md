@@ -422,3 +422,65 @@ Readings, honestly:
   this path is not there yet. 3.1–3.5 ns/tick sequential (Fused16,
   Vitals) with full movement semantics is the current proven floor for
   tl timelines.
+
+#### The frozen hub: one dispatch call site
+
+`FrozenHub.g.cs` closes the loop the dispatch verdicts opened: ONE call
+site dispatching a timeline index into the right generated frozen
+timeline. `FrozenHub` exposes `Count` plus `Start` / `Forward` /
+`Backward(ushort index, …)`; every method bounds-checks first
+(`index >= Count` throws `ArgumentOutOfRangeException` before any work)
+and then runs one dense `switch` over contiguous cases `0..Count-1` —
+the jump-table shape the dense-switch verdict established holds up to
+256 indices and beyond. The index space is the generator's frozen hub
+registry (a plain index → type-name list in `Generate/Program.cs`, also
+documented in the generated file header):
+
+| Index | Timeline        | Fixture                                            |
+|------:|-----------------|----------------------------------------------------|
+| 0     | `VitalsFrozen`  | VitalsTrack (duration 600, 4 tracks, blends, gaps) |
+| 1     | `Fused16Frozen` | Movement shape (1 track, 16 clips, duration 63)    |
+
+A third frozen timeline joins the registry and the switch grows by one
+contiguous case; nothing else changes.
+
+Hub receipts (`--verify`): for every registered index, hub `Start`,
+`Forward`, and `Backward` must be identical to the direct static calls
+on one shared deterministic walk (ascending runs plus jumps, some past
+the duration) — per-step and final `Playback` equality, sink equality
+with exact floats, over a forward walk, the reversed backward mirror,
+and one 128-tick batch. Out-of-range indices (`Count` and
+`ushort.MaxValue`) must throw `ArgumentOutOfRangeException` on all three
+methods before touching the sink, proven by a sentinel sink left
+bit-identical after the rejected call.
+
+Measured hub-vs-direct deltas (same `--filter '*Frozen*'` run, medians,
+ns per tick; negative = hub faster, and anything under ~0.2 ns is
+run-to-run noise on these arms):
+
+| Arm pair (Jit / NoTiering medians)                  | Direct              | Via hub             | Delta               |
+|-----------------------------------------------------|--------------------:|--------------------:|--------------------:|
+| `Fused16Single` ↔ `HubFused16Single` (random ticks) | 12.513 / 14.374 ns  | 12.286 / 14.482 ns  | −0.23 / +0.11 ns    |
+| `Fused16Sequential` ↔ `HubFused16Sequential`        |  3.025 /  5.170 ns  |  3.271 /  5.952 ns  | +0.25 / +0.78 ns    |
+| `Fused16Batch8` ↔ `HubFused16Batch8`                | 11.495 / 13.153 ns  | 11.378 / 13.171 ns  | −0.12 / +0.02 ns    |
+| `FrozenVitalsSingle` ↔ `HubVitalsSingle` (random)   |  9.518 / 11.411 ns  |  9.429 / 11.284 ns  | −0.09 / −0.13 ns    |
+
+Readings:
+
+- The prediction held, and was conservative on the random side. The
+  dispatch verdicts expected the hop to be ~free on sequential streams
+  and to cost ~an indirect-branch mispredict on random. Measured: on the
+  random-tick arms the hub delta is noise-level (−0.23…+0.11 ns, both
+  signs) — the hub's switch sees a per-call-site *constant* index (only
+  the ticks randomize), so there is no second random indirect branch to
+  mispredict; the one mispredict those arms already pay lives in the
+  timeline's own region jump table.
+- On sequential streams the hop is measurable but tiny: +0.25 ns/tick
+  with tiered PGO (about one cycle on the tightest 3.0 ns arm; the guard
+  and call do not fully fold), +0.78 ns without tiering (no PGO, the hub
+  stays a plain call). Batched calls amortize it out of sight
+  (−0.12/+0.02 ns).
+- Net: one call site dispatching a dense ≤ 256 index into the frozen
+  timelines costs effectively nothing — the frozen path keeps its
+  2.3×/6.2× wins over the generic engine with a registry in front, and
+  the hub gives every consumer a single, receipt-verified entry point.

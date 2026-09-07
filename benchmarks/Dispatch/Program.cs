@@ -377,6 +377,13 @@ if (args is ["--verify"])
     VerifyFrozen<Fused16Track, Fused16Clip, OracleFused16, Fused16Frozen>("Fused16", 63u);
     Console.WriteLine("Frozen parity verified: walks, jumps, mirrors, batches, flags (Vitals + Fused16).");
 
+    // Frozen hub receipts (Generated/FrozenHub.g.cs): the dense <= 256
+    // dispatch hub over the frozen registry must be a transparent
+    // forwarder. Index space: VitalsFrozen = 0, Fused16Frozen = 1.
+    VerifyHubTimeline<VitalsFrozen>(0);
+    VerifyHubTimeline<Fused16Frozen>(1);
+    Console.WriteLine($"Frozen hub verified: {FrozenHub.Count} timelines dispatched identically to direct calls; out-of-range rejected.");
+
     void VerifyFrozen<TTrack, TClip, TData, TFrozen>(string name, uint duration)
         where TTrack : struct, ITrackTables<TTrack, TClip>, IBlend<TClip>
         where TClip : unmanaged
@@ -509,6 +516,96 @@ if (args is ["--verify"])
             singleFrozen = TFrozen.Forward(in singleFrozen, ref singleFrozenSink, t);
         RequireStep("batch singles", batchFrozen, singleFrozen);
         RequireSink("batch singles", batchFrozenSink, singleFrozenSink);
+    }
+
+    // The hub parity receipt: for one registered index, hub Start/Forward/
+    // Backward against the direct static calls on one deterministic walk -
+    // same final Playback AND same sink, exact floats, per step and at the
+    // end - plus out-of-range rejection before any sink work.
+    void VerifyHubTimeline<TFrozen>(ushort index)
+        where TFrozen : struct, IFrozen
+    {
+        void RequireStep(string what, in Playback direct, in Playback viaHub)
+        {
+            if (direct.Tick != viaHub.Tick || direct.Cycles != viaHub.Cycles || direct.Flags != viaHub.Flags)
+                throw new InvalidOperationException(
+                    $"hub {index} {what}: Playback diverged ({direct.Tick}/{direct.Cycles}/{direct.Flags} vs {viaHub.Tick}/{viaHub.Cycles}/{viaHub.Flags}).");
+        }
+
+        void RequireSink(string what, in FrozenSink direct, in FrozenSink viaHub)
+        {
+            if (direct.Sum != viaHub.Sum || direct.Flags != viaHub.Flags || direct.Count != viaHub.Count)
+                throw new InvalidOperationException(
+                    $"hub {index} {what}: sink diverged ({direct.Sum:R}/{direct.Flags}/{direct.Count} vs {viaHub.Sum:R}/{viaHub.Flags}/{viaHub.Count}).");
+        }
+
+        // Start receipt: several entry points, hub call vs direct call.
+        foreach (var at in new uint[] { 0, 1, 9, 41, 300 })
+            RequireStep($"Start({at})", TFrozen.Start(at), FrozenHub.Start(index, at));
+
+        // One deterministic mixed walk - ascending runs plus jumps, some
+        // past the duration - shared by both paths tick for tick.
+        uint random = 0x85EBCA6Bu;
+        var ticks = new uint[128];
+        for (var i = 0; i < ticks.Length; i++)
+        {
+            random ^= random << 13;
+            random ^= random >> 17;
+            random ^= random << 5;
+            ticks[i] = i % 5 == 0 ? random % 700 : (uint)(i * 3) % 700;
+        }
+
+        var directSink = default(FrozenSink);
+        var hubSink = default(FrozenSink);
+        var directPb = TFrozen.Start();
+        var hubPb = FrozenHub.Start(index);
+        foreach (var tick in ticks)
+        {
+            directPb = TFrozen.Forward(in directPb, ref directSink, tick);
+            hubPb = FrozenHub.Forward(index, in hubPb, ref hubSink, tick);
+            RequireStep($"forward tick {tick}", directPb, hubPb);
+        }
+        RequireSink("forward walk", directSink, hubSink);
+
+        // Backward mirror over the same ticks reversed: hub and direct must
+        // subtract identically, per step and at the end.
+        for (var i = ticks.Length - 1; i >= 0; i--)
+        {
+            directPb = TFrozen.Backward(in directPb, ref directSink, ticks[i]);
+            hubPb = FrozenHub.Backward(index, in hubPb, ref hubSink, ticks[i]);
+            RequireStep($"backward tick {ticks[i]}", directPb, hubPb);
+        }
+        RequireSink("backward walk", directSink, hubSink);
+
+        // Batch receipt: the whole walk in one call on both paths.
+        var batchDirectSink = default(FrozenSink);
+        var batchHubSink = default(FrozenSink);
+        var batchDirectStart = TFrozen.Start();
+        var batchHubStart = FrozenHub.Start(index);
+        var batchDirect = TFrozen.Forward(in batchDirectStart, ref batchDirectSink, ticks);
+        var batchHub = FrozenHub.Forward(index, in batchHubStart, ref batchHubSink, ticks);
+        RequireStep("batch", batchDirect, batchHub);
+        RequireSink("batch", batchDirectSink, batchHubSink);
+
+        // Out-of-range: Count and ushort.MaxValue must throw
+        // ArgumentOutOfRangeException on all three methods before touching
+        // the sink - the sentinel sink proves no work happened.
+        foreach (var bad in new ushort[] { checked((ushort)FrozenHub.Count), ushort.MaxValue })
+        {
+            var sink = new FrozenSink { Sum = 3.5f, Flags = 77, Count = -5 };
+            var witness = sink;
+            var from = TFrozen.Start();
+
+            try { FrozenHub.Start(bad); throw new InvalidOperationException($"Hub.Start({bad}) must throw."); }
+            catch (ArgumentOutOfRangeException) { }
+            try { FrozenHub.Forward(bad, in from, ref sink, 1u); throw new InvalidOperationException($"Hub.Forward({bad}) must throw."); }
+            catch (ArgumentOutOfRangeException) { }
+            try { FrozenHub.Backward(bad, in from, ref sink, 1u); throw new InvalidOperationException($"Hub.Backward({bad}) must throw."); }
+            catch (ArgumentOutOfRangeException) { }
+
+            if (sink.Sum != witness.Sum || sink.Flags != witness.Flags || sink.Count != witness.Count)
+                throw new InvalidOperationException($"Hub out-of-range index {bad} touched the sink before rejecting.");
+        }
     }
 
     EdgeVerification.Run();
