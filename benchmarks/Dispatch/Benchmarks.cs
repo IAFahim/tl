@@ -348,6 +348,90 @@ public class ApiShape
         }
         return data.Result;
     }
+
+    // The Playback path: same sampling, plus movement facts folded into the
+    // returned 8-byte status word. Receipts must still match DirectTicks.
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public Receipt PlaybackSingle()
+    {
+        var data = new Vitals { Health = 1_000_000f };
+        var pb = Playback.Start();
+        foreach (var tick in _ticks.AsSpan())
+            pb = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in pb, ref data, tick);
+        return data.Result;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public Receipt PlaybackParamsFour()
+    {
+        var data = new Vitals { Health = 1_000_000f };
+        var pb = Playback.Start();
+        var ticks = _ticks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 4)
+        {
+            var t = ticks.Slice(i, 4);
+            pb = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in pb, ref data, t[0], t[1], t[2], t[3]);
+        }
+        return data.Result;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public Receipt PlaybackBackwardSingle()
+    {
+        var data = new Vitals { Health = 1_000_000f };
+        var pb = Playback.Start();
+        foreach (var tick in _ticks.AsSpan())
+            pb = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Backward(in pb, ref data, tick);
+        return data.Result;
+    }
+
+    // Clip-level hooks: TClip itself receives one call per active clip.
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public Receipt ClipHooksSingle()
+    {
+        var data = new Vitals { Health = 1_000_000f };
+        var pb = Playback.Start();
+        foreach (var tick in _ticks.AsSpan())
+            pb = ClipTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in pb, ref data, tick);
+        return data.Result;
+    }
+}
+
+// The 8-byte Playback claim: `in`, by-value, and `ref` passing of one qword
+// should be indistinguishable.
+[Config(typeof(Config))]
+public class PassPlayback
+{
+    private Playback _pass = new(123, 456, PlaybackFlags.Active);
+    private ulong _sink;
+
+    private static Playback StepByValue(Playback p) => new(p.Tick + 1, p.Cycles, p.Flags);
+    private static Playback StepIn(in Playback p) => new(p.Tick + 1, p.Cycles, p.Flags);
+    private static void StepRef(ref Playback p) => p = new Playback(p.Tick + 1, p.Cycles, p.Flags);
+
+    [Benchmark(Baseline = true)]
+    public ulong PassByValue()
+    {
+        var p = _pass;
+        p = StepByValue(p);
+        return _sink = p.Tick;
+    }
+
+    [Benchmark]
+    public ulong PassIn()
+    {
+        var p = _pass;
+        p = StepIn(in p);
+        return _sink = p.Tick;
+    }
+
+    [Benchmark]
+    public ulong PassRef()
+    {
+        var p = _pass;
+        StepRef(ref p);
+        return _sink = p.Tick;
+    }
 }
 
 [DisassemblyDiagnoser(maxDepth: 3, printSource: true, exportCombinedDisassemblyReport: true)]

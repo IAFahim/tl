@@ -125,7 +125,7 @@ public interface IForwardTracks<TTrack, TClip, TData>
     where TClip : struct
     where TData : struct
 {
-    void Forward(uint tick, in ForwardTracks<TTrack, TClip> tracks, ref TData data);
+    void Forward(uint tick, in Tracks<TTrack, TClip> tracks, ref TData data);
 }
 
 Timeline<HealthTrack, HealthClip, Player>.Forward(ref player, t0, t1, t2, t3);
@@ -141,7 +141,7 @@ foreach (var item in tracks)
 }
 ```
 
-`ForwardTracks` is a small `readonly ref struct` view over the region's slice
+`Tracks` is a small `readonly ref struct` view over the region's slice
 of generated CSR tables (`RegionRow → TrackRow → ClipRow`). `item.Track` and
 `item.Clip` are `ref readonly`; standalone clips point straight into the
 payload table (never copied), blend results into one hoisted
@@ -192,6 +192,75 @@ Runtime authoring costs essentially nothing at playback time — instance array
 loads hoist the same way static-abstract fetches do. Index assignment is
 construction order (fine for runtime use; use explicit indices if save/replay
 determinism ever requires stable ids).
+
+### Playback state and direction
+
+Direction is a method, not a subtype. Four hooks cover everything; the
+enter/exit/looped/start/stop callback family is replaced by bits:
+
+```cs
+public interface IForward<TClip, TData>      // clip-level, simple consumers
+    { void Forward(in TClip clip, uint tick, ref TData data); }
+public interface IBackward<TClip, TData>     // its mirror
+    { void Backward(in TClip clip, uint tick, ref TData data); }
+public interface IForwardTracks<TTrack, TClip, TData>
+    { void Forward(uint tick, in Tracks<TTrack, TClip> tracks, ref TData data); }
+public interface IBackwardTracks<TTrack, TClip, TData>
+    { void Backward(uint tick, in Tracks<TTrack, TClip> tracks, ref TData data); }
+```
+
+`Playback` is an 8-byte blittable value: `uint Tick` plus one packed word of
+26-bit `Cycles` and six flags — `Enter`, `First`, `Active`, `Last`,
+`Complete`, `Exit`. It flows `in` and comes back by value, so state is data
+you can snapshot: a rewind ring of `(Playback, Player)` pairs *is* the
+Prince-of-Persia save format, and replay is the initial value plus logged
+ticks. Nothing hides inside a timeline object.
+
+```cs
+var pb = Playback.Start();                                    // positions silently
+pb = timeline.Forward(in pb, ref player, t0, t1, t2);         // each tick = one step
+pb = timeline.Backward(in pb, ref player, t);
+if (pb.Has(PlaybackFlags.Complete)) ...
+```
+
+Semantics (all receipt-verified, including a forward-walk-then-rewind that
+restores the player exactly):
+
+- `First`/`Last`/`Active` are positional: facts about the destination tick.
+  `Enter`/`Exit` are facts about the step; a jump that fully skips a clip
+  shows `Enter | Exit` on the same word — nothing crosses silently.
+- Backward mirrors: enter through the clip's right edge, exit through its
+  left. A repeated tick re-samples without re-firing movement flags.
+- Looping timelines (`Loops`/`IsLooping`) wrap ticks modulo duration; each
+  crossed boundary moves `Cycles` (forward adds — multi-cycle jumps count
+  exactly; backward subtracts and saturates at zero). Non-looping timelines
+  set `Complete` at their far end instead.
+- `Tracks.Status` carries the same bits inside the per-tick callback.
+
+The physics of the 8 bytes: `in`, by-value, and `ref` passing of `Playback`
+are indistinguishable (0.527/0.528/0.527 ns for a step-and-return micro;
+the tiered JIT deletes the call outright). The real cost is computing
+movement facts. The first implementation scanned the authored `ClipEdge`
+table per step and cost 3.9× direct. The fix falls out of the table shape:
+clip starts and ends are always region cuts, so three precomputed bits per
+region (`starts on a clip start`, `starts on a clip end`, `ends on a clip
+end`) answer every flag — positional facts from the destination region,
+movement facts from the boundaries crossed between the two positions. Only
+wraps touch the edge table.
+
+| Path                                | Tiered | No tiering | Allocated |
+|-------------------------------------|-------:|-----------:|-----------|
+| Stateless shell, 1 tick             |  1.37 × |     1.13 × | -         |
+| Playback + flags, 1 tick            |  1.97 × |     2.41 × | -         |
+| Playback + flags, 4 ticks           |  1.77 × |     2.15 × | -         |
+| Playback backward, 1 tick           |  2.01 × |     2.45 × | -         |
+| Clip-level hooks, 1 tick            |  1.86 × |     2.33 × | -         |
+
+Measured on random jump queries — the worst case for movement facts (every
+step binary-searches the previous region and walks the crossed boundaries);
+sequential playback crosses at most one boundary per step. The gap over the
+stateless shell (~6.5 ns/tick) is the flag machinery plus the `Playback`
+churn; receipts confirm sampling is bit-identical to the stateless path.
 
 ## Sparse index dispatch
 

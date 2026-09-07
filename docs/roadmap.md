@@ -28,27 +28,45 @@ From [benchmarks.md](benchmarks.md), the contract is fixed and must not drift:
   the receipts; per-closed-generic-type `ushort Index` sequencing works.
 - Sparse `ushort` timeline dispatch: Radix8 nested switches are the safe
   default; dense `delegate*` tables win on speed (6–11 ns) but cost 512 KB
-  for the full space; the fused megaswitch loses on sparse keys.
+  for the full space; the fused megaswitch loses on sparse keys. With the
+  expected ~256 timelines per closed type the index space is dense, so the
+  hub is one flat switch the JIT lowers to a jump table; the dense registry
+  is capped at 256 and Radix8 takes over beyond that.
+- Playback is an 8-byte blittable value: `uint Tick` plus a packed word of
+  26-bit `Cycles` and six status flags (`Enter`, `First`, `Active`, `Last`,
+  `Complete`, `Exit`). It flows `in` and comes back by value — no hidden
+  state, snapshot-friendly for save games and rewind. Movement facts are
+  polled bits, not push callbacks: the entire enter/exit/looped hook family
+  is replaced by the status word and `Tracks.Status`.
+- Direction is a method, not a subtype: `IForward`/`IBackward` (clip-level)
+  and `IForwardTracks`/`IBackwardTracks` (view-level). Looping is a timeline
+  trait (`Loops`/`IsLooping`); wraps move `Cycles` (forward adds, backward
+  saturates at zero) instead of setting `Complete`.
+- Sequential steps answer every flag from four precomputed region cut bits;
+  jumps and wraps scan the authored `ClipEdge` table so nothing crosses
+  silently (verified by receipts; see the playback section of
+  [benchmarks.md](benchmarks.md)).
 
 ## Phase 1 — core library
 
 Move the validated code out of the benchmark harness into a real project:
 
-- `src/Tl.Core`: `IForward`, `IBlend`, `IForwardTracks`, the CSR rows
-  (`RegionRow`, `TrackRow`, `ClipRow`), `ITrackTables`, `ForwardTracks`,
-  `ForwardItem`, `GeneratedTimeline<,,>`, and the runtime-authored
-  `Timeline<,,>` (`AddTrack`/`AddClip`/`Build`/`Forward`, `ushort Index`).
-  This replaces the current empty `src/` scaffold, whose layout reflects the
-  older mock API rather than the validated architecture.
+- `src/Tl.Core`: `IForward`, `IBackward`, `IBlend`, `IForwardTracks`,
+  `IBackwardTracks`, the CSR rows (`RegionRow`, `TrackRow`, `ClipRow`,
+  `ClipEdge`), `ITrackTables` (incl. `RegionFlags`, `ClipEdges`, `Loops`),
+  `Playback` + `PlaybackFlags`, `Tracks`, `TrackItem`,
+  `GeneratedTimeline<,,>`, `ClipTimeline<,,>`, and the runtime-authored
+  `Timeline<,,>` (`AddTrack`/`AddClip`/`Build`/`Forward`, `ushort Index`,
+  `IsLooping`). This replaces the current empty `src/` scaffold, whose
+  layout reflects the older mock API rather than the validated architecture.
 - `TClip : unmanaged` stays on the playback entry points (`stackalloc`
   resolution buffer). Managed payloads are a Phase 4 question.
 - Unit tests replay the benchmark fixtures (`VitalsTrack` tables, the runtime
   `BuildTimeline()` authoring case) and assert receipt equality against the
   numbers already verified in the Dispatch `--verify` path.
-- Decision needed: `IForward<TClip,TData>` (the simple one-clip hook) is
-  currently implemented by `VitalsClip` but exercised by nothing — not a
-  benchmark arm, not a line in benchmarks.md. Either give it an ApiShape arm
-  and document it, or drop it from the contract before Phase 1 freezes.
+- Resolved: `IForward<TClip,TData>` stays in the contract (with its
+  `IBackward` mirror and the `ClipTimeline<,,>` shell); it has an ApiShape
+  benchmark arm and rewind receipts.
 
 ## Phase 2 — generator
 
@@ -79,17 +97,16 @@ Move the validated code out of the benchmark harness into a real project:
 
 ## Phase 4 — playback semantics (design + bench before locking)
 
-The api mock explores a wider contract (`long` ticks, frames, transitions,
-budgeted traversal, resume tokens) that the benchmarks have not validated.
-Each item below enters the contract only after it has numbers:
+The api mock explores a wider contract (`long` ticks, frames, budgeted
+traversal, resume tokens) that the benchmarks have not validated. The former
+open questions about sequential playback state and reverse playback are now
+settled by the `Playback` design (see [benchmarks.md](benchmarks.md)); each
+item below still enters the contract only after it has numbers:
 
-- `ref State` sequential playback: transition events across successive
-  `Forward` calls (the mock's `Update`/`Seek`/`Advance` split).
-- Reverse playback: the old `ITimelineBackward` sketch was dead weight and
-  was removed; reintroduce only with a bench that shows what it costs.
 - Explicit timeline indices for save/replay determinism.
 - `[InlineArray]`-backed locals for managed `TClip` payloads (removing the
   `unmanaged` constraint from the happy path).
+- Budgeted traversal and resume tokens for bounded catch-up work.
 
 ## Housekeeping (2026-09-07)
 
