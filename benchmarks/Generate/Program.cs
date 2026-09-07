@@ -440,18 +440,24 @@ foreach (var name in new[] { "Sparse256", "Sparse4096" })
 // ClipState codes (Enter=0, Stay=1, Exit=2) accumulated by the sink. The
 // full-bake dense LUT form bakes the whole per-tick leaf into ONE
 // interleaved ulong word per tick per direction - the per-slot Exit mask,
-// the direction-dependent Completed bit, the active-slot count, and
-// (single-slot fixtures) the blend-resolved slot value's float bits - all
-// computed with the identical float expressions the runtime evaluates.
-// Per-slot entry-reference tables (the window Start forward, the window End
-// backward) ride beside the words so Enter is one compare against prev;
-// empty ticks do no sink work (the count field is zero, so one branch skips
-// the whole tick); the out-of-range clamp target is the empty sentinel word
-// at the duration. The frozen form is bound to one exact non-looping
-// timeline: no wraps, no cycle arithmetic (Cycles passes through
-// unchanged), no duration-0/empty handling.
-
-string Lit(float value) => value.ToString("R", CultureInfo.InvariantCulture) + "f";
+// the direction-dependent Completed bit, the any-active bit, the active-slot
+// count, and (single-slot fixtures) the blend-resolved slot value's float
+// bits - all computed with the identical float expressions the runtime
+// evaluates. Each slot's entry reference (the window Start forward, the
+// window End backward) rides beside the words - in a uint table for the
+// single-slot shape, interleaved with the slot's value bits in one pair
+// word per slot for the multi-slot shape - so Enter is one compare against
+// prev at ONE load per slot. Bake v3 keeps the hot loop free of
+// data-dependent branches: every tick does its slot work UNCONDITIONALLY -
+// the any-active bit adds itself to Count, each slot's ClipState code is
+// pure integer arithmetic on the exit bit and one setcc enter compare, and
+// inactive slots are baked to contribute exactly nothing (reference at the
+// direction's always-Enter-false sentinel, value bits zero) - so empty
+// ticks do no observable sink work with no `if (n != 0)` guard at all; the
+// out-of-range clamp target is the empty sentinel word at the duration.
+// The frozen form is bound to one exact non-looping timeline: no wraps, no
+// cycle arithmetic (Cycles passes through unchanged), no duration-0/empty
+// handling.
 
 string U(uint value) => value.ToString(CultureInfo.InvariantCulture) + "u";
 
@@ -514,16 +520,24 @@ string EmitFrozen(
     // Single-slot fixtures (exactly one active-track position at any tick)
     // get the fully packed word: the slot value's float bits ride in bits
     // 0..31, so ONE load serves the value, the Exit bit, the Completed bit,
-    // and the active count. Multi-slot fixtures keep their float[] slot
-    // tables; the word still carries the per-slot facts, so their extra
-    // loads are independent stream loads.
+    // and the any-active bit; the entry reference rides in its own uint
+    // table (one more load per tick). Multi-slot fixtures keep the facts
+    // word and give each slot ONE interleaved pair table instead - a ulong
+    // per tick whose low half is the slot value's float bits and whose high
+    // half is that slot's entry reference - so the per-slot cost stays ONE
+    // load for value AND movement together (the bake v2 access pattern:
+    // one word load plus one load per slot).
     var single = slotCount == 1;
 
     var wordsForward = new ulong[(int)duration + 1];
     var wordsBackward = new ulong[(int)duration + 1];
-    var slots = new float[slotCount][];
+    var pairsForward = new ulong[slotCount][];
+    var pairsBackward = new ulong[slotCount][];
     for (var k = 0; k < slotCount; k++)
-        slots[k] = new float[(int)duration + 1];
+    {
+        pairsForward[k] = new ulong[(int)duration + 1];
+        pairsBackward[k] = new ulong[(int)duration + 1];
+    }
     var enterForward = new uint[slotCount][];
     var enterBackward = new uint[slotCount][];
     for (var k = 0; k < slotCount; k++)
@@ -571,10 +585,18 @@ string EmitFrozen(
     // (single-slot shape only), bits 32..39 the per-slot exit mask (bit per
     // slot: forward at window End-1, backward at window Start - Exit is
     // positional), bit 40 the direction-dependent Completed bit (forward
-    // from duration-1 on, backward exactly at 0), bits 44..47 the active
-    // slot count. The enter-reference tables carry each slot's entry edge
-    // beside the words - window Start forward, window End backward - so
-    // Enter is one compare of prev against that reference.
+    // from duration-1 on, backward exactly at 0), bit 41 the any-active bit
+    // (the branchless Count: one added per tick with at least one active
+    // slot, zero on gaps), bits 44..47 the active slot count (kept for
+    // table inspection; the hot loop reads only bit 41). Each slot's entry
+    // reference - the window Start forward, the window End backward - rides
+    // in the single-slot shape's uint tables and in the multi-slot shape's
+    // pair high halves, so Enter is one setcc compare of prev against it;
+    // every slot FIRST bakes the direction's always-Enter-false sentinel
+    // (uint.MaxValue forward, where prev < uint.MaxValue always holds; 0u
+    // backward, where prev >= 0u always holds) and active slots overwrite
+    // it, so an inactive slot's unconditional code arithmetic yields
+    // exactly 0 (and its 0f value bits make the Sum add an exact no-op).
     for (var t = 0; t <= duration; t++)
     {
         var region = 0;
@@ -584,11 +606,20 @@ string EmitFrozen(
         var row = regionRows[region];
         byte exitsF = 0, exitsB = 0;
         var slot = 0;
+        for (var k = 0; k < slotCount; k++)
+        {
+            pairsForward[k][t] = (ulong)uint.MaxValue << 32;
+            pairsBackward[k][t] = 0u;
+            enterForward[k][t] = uint.MaxValue;
+            enterBackward[k][t] = 0u;
+        }
         for (var k = 0; k < row.TrackCount; k++)
         {
             var track = trackRows[row.TrackStart + k];
             var (start, end) = Window(track);
-            slots[slot][t] = SlotValue((uint)t, track);
+            var bits = (uint)BitConverter.SingleToInt32Bits(SlotValue((uint)t, track));
+            pairsForward[slot][t] = bits | (ulong)start << 32;
+            pairsBackward[slot][t] = bits | (ulong)end << 32;
             enterForward[slot][t] = start;
             enterBackward[slot][t] = end;
             if ((uint)t == end - 1)
@@ -600,12 +631,18 @@ string EmitFrozen(
 
         var completedF = (byte)(t >= duration - 1u ? 1 : 0);
         var completedB = (byte)(t == 0u ? 1 : 0);
-        var slotBits = single ? (uint)BitConverter.SingleToInt32Bits(slots[0][t]) : 0u;
+        var anyActive = (uint)(slot != 0 ? 1 : 0);
+        var slotBits = single ? (uint)pairsForward[0][t] : 0u;
 
-        wordsForward[t] = (ulong)slotBits | (ulong)exitsF << 32 | (ulong)completedF << 40 | (ulong)slot << 44;
-        wordsBackward[t] = (ulong)slotBits | (ulong)exitsB << 32 | (ulong)completedB << 40 | (ulong)slot << 44;
+        wordsForward[t] = (ulong)slotBits | (ulong)exitsF << 32 | (ulong)completedF << 40 | (ulong)anyActive << 41 | (ulong)slot << 44;
+        wordsBackward[t] = (ulong)slotBits | (ulong)exitsB << 32 | (ulong)completedB << 40 | (ulong)anyActive << 41 | (ulong)slot << 44;
     }
 
+    // The tables emit as ReadOnlySpan collection expressions (not static
+    // readonly arrays): Roslyn lowers them to frozen read-only data blobs,
+    // so the JIT sees constant lengths (immediate bounds guards instead of
+    // a length load per access) and no GC-static base initialization check
+    // in the hot loop - same values, same indexing, zero allocation.
     string WordTable(string table, ulong[] values)
     {
         var rows = new List<string>();
@@ -617,25 +654,7 @@ string EmitFrozen(
         }
 
         return $$"""
-            private static readonly ulong[] {{table}} =
-            [
-                {{string.Join("\n    ", rows)}}
-            ];
-            """;
-    }
-
-    string FloatTable(string table, float[] values)
-    {
-        var rows = new List<string>();
-        for (var i = 0; i < values.Length; i += 8)
-        {
-            var count = Math.Min(8, values.Length - i);
-            var row = string.Join(", ", Enumerable.Range(i, count).Select(j => Lit(values[j])));
-            rows.Add(i + count < values.Length ? row + "," : row);
-        }
-
-        return $$"""
-            private static readonly float[] {{table}} =
+            private static ReadOnlySpan<ulong> {{table}} =>
             [
                 {{string.Join("\n    ", rows)}}
             ];
@@ -653,7 +672,7 @@ string EmitFrozen(
         }
 
         return $$"""
-            private static readonly uint[] {{table}} =
+            private static ReadOnlySpan<uint> {{table}} =>
             [
                 {{string.Join("\n    ", rows)}}
             ];
@@ -680,30 +699,49 @@ string EmitFrozen(
     // construction re-passes from.Cycles (within Playback's invariant) and a
     // flags word that only ever holds Started | Completed. Per tick the
     // flags are minted fresh (Started always, Completed from the word's bit
-    // 40), empty ticks do no sink work, and each active slot contributes
-    // its ClipState code - Exit (2) from the word's exit bit, else Enter (0)
-    // when prev sits on the far side of the slot's entry reference, else
-    // Stay (1) - before its value; Backward subtracts both in the same
-    // order (the exact inverse).
+    // 40) and EVERY slot line runs unconditionally - bake v3's zero-data-
+    // dependent-branch movement: Count adds the word's any-active bit (bit
+    // 41, no `if (n != 0)`); each slot's value bits AND entry reference
+    // arrive in ONE pair load (multi-slot shape; the single-slot shape reads
+    // the value from the word itself and the reference from its uint
+    // table); each slot's ClipState code is pure integer arithmetic,
+    // exit + (exit | enter) with exit the word's exit bit for the slot and
+    // enter the 0/1 setcc of the prev compare against the reference (exit
+    // set -> 1 + 1 = 2, exit clear -> 0 + enter - Exit precedence exact,
+    // no branch), while inactive slots were baked to contribute nothing
+    // (reference at the always-Enter-false sentinel, value bits 0), so
+    // their unconditional adds are exact no-ops; the per-slot codes are
+    // summed and folded into Flags once per tick (integer addition is
+    // associative even under wraparound, so the collapsed accumulation is
+    // bit-exact); Backward subtracts both in the same order (the exact
+    // inverse). The only conditional branches in the loop are the constant
+    // clamp (tick < duration, never taken in range), the never-taken table
+    // bounds guards, and the span iteration itself - none depends on the
+    // tick VALUES, so no stream shape can mispredict.
     string Loop(string method, bool backward)
     {
         var op = backward ? "-" : "+";
         var wordTable = single ? (backward ? "s_tickB" : "s_tickF") : (backward ? "s_wordB" : "s_wordF");
         var enterPrefix = backward ? "s_enterB" : "s_enterF";
         var enterCompare = backward ? ">=" : "<";
+        var pairPrefix = backward ? "s_pairB" : "s_pairF";
+        var codes = Enumerable.Range(0, slotCount).ToList();
 
         var slotLines = single
             ? $$"""
-                sink.Flags {{op}}= (exits & 1) != 0 ? 2 : prev {{enterCompare}} {{enterPrefix}}0[i] ? 0 : 1;
+                var exit0 = exits & 1;
+                var enter0 = prev {{enterCompare}} {{enterPrefix}}0[i] ? 0 : 1;
+                sink.Flags {{op}}= exit0 + (exit0 | enter0);
                 sink.Sum {{op}}= BitConverter.Int32BitsToSingle((int)word);
                 """
-            : string.Join("\n", Enumerable.Range(0, slotCount).Select(k => $$"""
-                if (n > {{k}})
-                {
-                    sink.Sum {{op}}= s_slot{{k}}[i];
-                    sink.Flags {{op}}= (exits & {{1 << k}}) != 0 ? 2 : prev {{enterCompare}} {{enterPrefix}}{{k}}[i] ? 0 : 1;
-                }
-                """));
+            : string.Join("\n", new[]
+            {
+                string.Join("\n", codes.Select(k => $"var pair{k} = {pairPrefix}{k}[i];")),
+                string.Join("\n", codes.Select(k => $"sink.Sum {op}= BitConverter.Int32BitsToSingle((int)pair{k});")),
+                string.Join("\n", codes.Select(k => $"var exit{k} = (exits >> {k}) & 1;")),
+                string.Join("\n", codes.Select(k => $"var enter{k} = prev {enterCompare} (uint)(pair{k} >> 32) ? 0 : 1;")),
+                $"sink.Flags {op}= " + string.Join(" + ", codes.Select(k => $"exit{k} + (exit{k} | enter{k})")) + ";",
+            });
 
         return $$"""
             {{Inline}}
@@ -714,17 +752,13 @@ string EmitFrozen(
                 var flags = from.Flags;
                 foreach (var tick in ticks)
                 {
-                    var i = tick < {{U(duration)}} ? tick : {{U(duration)}};
+                    var i = (int)(tick < {{U(duration)}} ? tick : {{U(duration)}});
                     var word = {{wordTable}}[i];
                     var exits = (int)(word >> 32);
                     flags = (PlaybackFlags)((uint)PlaybackFlags.Started
                         | (((word >> 40) & 1u) * (uint)PlaybackFlags.Completed));
-                    var n = (int)((word >> 44) & 0xFu);
-                    if (n != 0)
-                    {
-                        sink.Count{{op}}{{op}};
-                        {{slotLines}}
-                    }
+                    sink.Count {{op}}= (int)((word >> 41) & 1u);
+                    {{slotLines}}
                     prev = tick;
                 }
                 return new Playback(prev, cycles, flags);
@@ -741,19 +775,21 @@ string EmitFrozen(
     {
         members.Add(WordTable("s_tickF", wordsForward));
         members.Add(WordTable("s_tickB", wordsBackward));
+        for (var k = 0; k < slotCount; k++)
+        {
+            members.Add(UintTable($"s_enterF{k}", enterForward[k]));
+            members.Add(UintTable($"s_enterB{k}", enterBackward[k]));
+        }
     }
     else
     {
         members.Add(WordTable("s_wordF", wordsForward));
         members.Add(WordTable("s_wordB", wordsBackward));
         for (var k = 0; k < slotCount; k++)
-            members.Add(FloatTable($"s_slot{k}", slots[k]));
-    }
-
-    for (var k = 0; k < slotCount; k++)
-    {
-        members.Add(UintTable($"s_enterF{k}", enterForward[k]));
-        members.Add(UintTable($"s_enterB{k}", enterBackward[k]));
+        {
+            members.Add(WordTable($"s_pairF{k}", pairsForward[k]));
+            members.Add(WordTable($"s_pairB{k}", pairsBackward[k]));
+        }
     }
 
     var header = string.Join("\n", notes.Select(note => "// " + note));
@@ -801,16 +837,26 @@ var vitalsSource = EmitFrozen(
         "PlaybackCore for this exact non-looping timeline: no wraps, no cycle",
         "arithmetic (Cycles passes through unchanged), effective positions",
         "are the raw ticks, and duration-0/empty handling does not apply.",
-        "Lookup strategy: dense per-tick word tables, one per direction.",
-        "Word layout (little-endian): bits 0..31 the slot-0 float bits (this",
-        "is the multi-slot shape, so zero here — slot values live in the",
-        "s_slot0..N float tables), bits 32..39 the per-slot Exit mask, bit 40",
-        "the direction-dependent Completed bit, bits 44..47 the active slot",
-        "count (zero on gaps, so one branch skips the whole tick). The s_",
-        "enterFk/s_enterBk uint tables hold each slot's entry reference —",
-        "the window Start forward, the window End backward — so Enter is one",
-        "compare against prev. The out-of-range clamp target is the empty",
-        "sentinel word at the duration.",
+        "Lookup strategy: dense per-tick word tables, one per direction,",
+        "plus one interleaved pair table per slot per direction.",
+        "Word layout (little-endian, bake v3): bits 0..31 zero (this is the",
+        "multi-slot shape), bits 32..39 the per-slot Exit mask, bit 40 the",
+        "direction-dependent Completed bit, bit 41 the any-active bit (the",
+        "branchless Count: Count += that bit — no `if (n != 0)` guard),",
+        "bits 44..47 the active slot count (inspection only; the loop reads",
+        "bit 41). Each s_pairFk/s_pairBk ulong table row carries the slot's",
+        "value float bits in its low half and its entry reference — window",
+        "Start forward, window End backward — in its high half, so ONE load",
+        "per slot serves value AND movement; INACTIVE slots bake the",
+        "direction's always-Enter-false sentinel (uint.MaxValue forward, 0u",
+        "backward) as the reference and zero value bits, so each slot's code",
+        "= exitBit + (exitBit | enterBit) (enterBit the setcc of the prev",
+        "compare; exit set -> 1 + 1 = 2, exit clear -> enterBit: Exit",
+        "precedence exact) yields 0 and the Sum add is an exact no-op —",
+        "zero data-dependent branches per tick, with the per-slot codes",
+        "summed into one Flags accumulation (integer-exact). The",
+        "out-of-range clamp target is the empty sentinel word at the",
+        "duration.",
         "See docs/benchmarks.md.",
     ],
     """
@@ -910,8 +956,11 @@ var fusedSource = EmitFrozen(
         "there); Backward subtracts in the same order. Single-slot shape: the",
         "slot value's float bits ride in the word's low half, so ONE load per",
         "tick covers the value, the Exit bit, the Completed bit, and the",
-        "active count; Enter compares prev against the s_enterF0/s_enterB0",
-        "reference.",
+        "any-active bit; Enter is the setcc of prev against the s_enterF0/",
+        "s_enterB0 reference (uint.MaxValue forward / 0u backward baked on",
+        "gaps, so gap ticks contribute exactly nothing with no guard branch),",
+        "and the code arithmetic exit + (exit | enter) keeps the whole loop",
+        "free of data-dependent branches.",
         "Specialized from PlaybackCore for this exact non-looping timeline:",
         "no wraps, no cycle arithmetic, no duration-0/empty handling.",
         "See docs/benchmarks.md.",
