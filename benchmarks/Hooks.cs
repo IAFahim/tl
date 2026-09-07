@@ -124,8 +124,9 @@ public static class IdleCalls
         => player.OnIdle();
 }
 
-// The composed API shape:
-//   Timeline<HealthTrack, HealthClip, Player>.Forward(ref player, t0, t1, t2, t3)
+// The composed API shape (the consumer's data type is inferred at the call
+// from `ref data`; the timeline's identity is tables + loops only):
+//   Timeline<HealthTrack, HealthClip>.Forward(ref player, t0, t1, t2, t3)
 //
 // One callback per tick per direction, always through IForwardTracks or
 // IBackwardTracks. The "frame" is never materialized, and blending is
@@ -282,8 +283,8 @@ internal static class PlaybackCore
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
         Span<TClip> resolved)
         where TTrack : struct, IBlend<TClip>
-        where TClip : unmanaged, IForward<TClip, TData>, IBackward<TClip, TData>
-        where TData : struct
+        where TClip : unmanaged
+        where TData : struct, IForward<TClip, TData>, IBackward<TClip, TData>
     {
         var duration = starts[^1];
         var state = from;
@@ -312,13 +313,16 @@ internal static class PlaybackCore
                 clipRows, trackData, clipData, resolved);
 
             // Clip-level hooks: one call per active clip (blend-resolved).
+            // The hook rides the data type's IForward/IBackward (methods
+            // cannot constrain a class-level TClip, so the clip-side hook is
+            // reached through the consumer); the clip keeps the body.
             foreach (var item in tracks)
             {
                 var clip = item.Clip;
                 if (backward)
-                    clip.Backward(in clip, tEff, ref data);
+                    data.Backward(in clip, tEff, ref data);
                 else
-                    clip.Forward(in clip, tEff, ref data);
+                    data.Forward(in clip, tEff, ref data);
             }
 
             state = next;
@@ -713,7 +717,9 @@ public struct Vitals :
     IForwardTracks<VitalsTrack, VitalsClip, Vitals>,
     IBackwardTracks<VitalsTrack, VitalsClip, Vitals>,
     IForwardTracks<LoopVitalsTrack, VitalsClip, Vitals>,
-    IBackwardTracks<LoopVitalsTrack, VitalsClip, Vitals>
+    IBackwardTracks<LoopVitalsTrack, VitalsClip, Vitals>,
+    IForward<VitalsClip, Vitals>,
+    IBackward<VitalsClip, Vitals>
 {
     public float Health;
     public long Ticks;
@@ -768,6 +774,14 @@ public struct Vitals :
 
         data.Back++;
     }
+
+    // Clip-level hooks, received by the data (see ClipTimeline): the clip
+    // struct keeps the body of record; this forwards the engine's call.
+    public void Forward(in VitalsClip clip, uint tick, ref Vitals data)
+        => clip.Forward(in clip, tick, ref data);
+
+    public void Backward(in VitalsClip clip, uint tick, ref Vitals data)
+        => clip.Backward(in clip, tick, ref data);
 }
 
 public struct VitalsTrack : ITrackTables<VitalsTrack, VitalsClip>, IBlend<VitalsClip>
@@ -878,15 +892,15 @@ public struct LoopVitalsTrack : ITrackTables<LoopVitalsTrack, VitalsClip>, IBlen
         => result = new VitalsClip(first.Amount * (1f - factor) + second.Amount * factor);
 }
 
-public static class GeneratedTimeline<TTrack, TClip, TData>
+public static class GeneratedTimeline<TTrack, TClip>
     where TTrack : struct, ITrackTables<TTrack, TClip>, IBlend<TClip>
     where TClip : unmanaged
-    where TData : struct, IForwardTracks<TTrack, TClip, TData>, IBackwardTracks<TTrack, TClip, TData>
 {
     public static Playback Start(uint at = 0) => Playback.Start(at);
 
     // Sampling only, no movement facts: the stateless path.
-    public static void Forward(ref TData data, params ReadOnlySpan<uint> ticks)
+    public static void Forward<TData>(ref TData data, params ReadOnlySpan<uint> ticks)
+        where TData : struct, IForwardTracks<TTrack, TClip, TData>, IBackwardTracks<TTrack, TClip, TData>
     {
         // Static-abstract fetches are generic-dictionary indirections — take
         // them once per call, never inside the per-track loop.
@@ -934,7 +948,8 @@ public static class GeneratedTimeline<TTrack, TClip, TData>
         }
     }
 
-    public static Playback Forward(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+    public static Playback Forward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+        where TData : struct, IForwardTracks<TTrack, TClip, TData>, IBackwardTracks<TTrack, TClip, TData>
     {
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
@@ -951,7 +966,8 @@ public static class GeneratedTimeline<TTrack, TClip, TData>
             starts, regionRows, regionFlags, trackRows, clipRows, edges, trackData, clipData, resolved);
     }
 
-    public static Playback Backward(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+    public static Playback Backward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+        where TData : struct, IForwardTracks<TTrack, TClip, TData>, IBackwardTracks<TTrack, TClip, TData>
     {
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
@@ -969,22 +985,26 @@ public static class GeneratedTimeline<TTrack, TClip, TData>
     }
 }
 
-// Clip-level playback for simple consumers: TClip itself implements
-// IForward/IBackward and receives one call per active (blend-resolved) clip.
-public static class ClipTimeline<TTrack, TClip, TData>
+// Clip-level playback for simple consumers: one call per active
+// (blend-resolved) clip. The hook keeps the IForward/IBackward shape, but
+// rides the data type (a method cannot constrain the class-level TClip, so
+// the consumer's IForward<TClip, TData> forwards to the clip's own body).
+public static class ClipTimeline<TTrack, TClip>
     where TTrack : struct, ITrackTables<TTrack, TClip>, IBlend<TClip>
-    where TClip : unmanaged, IForward<TClip, TData>, IBackward<TClip, TData>
-    where TData : struct
+    where TClip : unmanaged
 {
     public static Playback Start(uint at = 0) => Playback.Start(at);
 
-    public static Playback Forward(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+    public static Playback Forward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+        where TData : struct, IForward<TClip, TData>, IBackward<TClip, TData>
         => Run(in from, backward: false, ticks, ref data);
 
-    public static Playback Backward(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+    public static Playback Backward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+        where TData : struct, IForward<TClip, TData>, IBackward<TClip, TData>
         => Run(in from, backward: true, ticks, ref data);
 
-    private static Playback Run(in Playback from, bool backward, ReadOnlySpan<uint> ticks, ref TData data)
+    private static Playback Run<TData>(in Playback from, bool backward, ReadOnlySpan<uint> ticks, ref TData data)
+        where TData : struct, IForward<TClip, TData>, IBackward<TClip, TData>
     {
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
@@ -1007,7 +1027,8 @@ public static class ClipTimeline<TTrack, TClip, TData>
 // stack-scoped TimelineBuilder handed to the definition delegate (the
 // SpanAction<T,TArg> shape), so no reference to a timeline can escape into
 // game code — the only thing that leaves authoring is the assigned ushort
-// index. Each closed generic type owns a slot registry: indices are
+// index. Each closed (TTrack, TClip) type owns a slot registry (the data
+// type never participates, so one build serves every consumer): indices are
 // sequential and never reused, Destroy tombstones a slot, and playback on
 // a dead or unknown index throws before any callback or state change.
 public ref struct TimelineBuilder<TTrack, TClip>
@@ -1062,10 +1083,9 @@ public ref struct TimelineBuilder<TTrack, TClip>
     public void Looping(bool loops = true) => _state.Loops = loops;
 }
 
-public static class Timeline<TTrack, TClip, TData>
+public static class Timeline<TTrack, TClip>
     where TTrack : struct, IBlend<TClip>
     where TClip : unmanaged
-    where TData : struct, IForwardTracks<TTrack, TClip, TData>, IBackwardTracks<TTrack, TClip, TData>
 {
     // The authoring callback: the builder is a scoped ref struct parameter,
     // un-capturable and dead when the delegate returns.
@@ -1263,7 +1283,8 @@ public static class Timeline<TTrack, TClip, TData>
         return Playback.Start(at);
     }
 
-    public static void Forward(ushort index, ref TData data, params ReadOnlySpan<uint> ticks)
+    public static void Forward<TData>(ushort index, ref TData data, params ReadOnlySpan<uint> ticks)
+        where TData : struct, IForwardTracks<TTrack, TClip, TData>, IBackwardTracks<TTrack, TClip, TData>
     {
         var entry = Live(index);
 
@@ -1307,7 +1328,8 @@ public static class Timeline<TTrack, TClip, TData>
         }
     }
 
-    public static Playback Forward(ushort index, in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+    public static Playback Forward<TData>(ushort index, in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+        where TData : struct, IForwardTracks<TTrack, TClip, TData>, IBackwardTracks<TTrack, TClip, TData>
     {
         var entry = Live(index);
 
@@ -1326,7 +1348,8 @@ public static class Timeline<TTrack, TClip, TData>
             starts, regionRows, regionFlags, trackRows, clipRows, edges, trackData, clipData, resolved);
     }
 
-    public static Playback Backward(ushort index, in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+    public static Playback Backward<TData>(ushort index, in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+        where TData : struct, IForwardTracks<TTrack, TClip, TData>, IBackwardTracks<TTrack, TClip, TData>
     {
         var entry = Live(index);
 

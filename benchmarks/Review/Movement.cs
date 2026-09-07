@@ -49,7 +49,7 @@ public class Movement
         for (uint i = 0; i < Clips; i++)
             _before.AddClip(0, new BeforeClip(i + 1), i * 4, i * 4 + 3);
         _before.Build();
-        _after = Tl.Hooks.Timeline<AfterTrack, AfterClip, AfterData>.Build(b =>
+        _after = Tl.Hooks.Timeline<AfterTrack, AfterClip>.Build(b =>
         {
             var track = b.Track(new AfterTrack());
             for (uint i = 0; i < (uint)Clips; i++)
@@ -86,7 +86,7 @@ public class Movement
         var data = new AfterData();
         var state = Tl.Hooks.Playback.Start();
         foreach (uint tick in _ticks)
-            state = Tl.Hooks.Timeline<AfterTrack, AfterClip, AfterData>.Forward(_after, in state, ref data, tick);
+            state = Tl.Hooks.Timeline<AfterTrack, AfterClip>.Forward(_after, in state, ref data, tick);
         return data.Result;
     }
 
@@ -96,7 +96,7 @@ public class Movement
         var data = new AfterData();
         var state = Tl.Hooks.Playback.Start();
         for (int i = 0; i < _ticks.Length; i += 8)
-            state = Tl.Hooks.Timeline<AfterTrack, AfterClip, AfterData>.Forward(_after, in state, ref data, _ticks.AsSpan(i, 8));
+            state = Tl.Hooks.Timeline<AfterTrack, AfterClip>.Forward(_after, in state, ref data, _ticks.AsSpan(i, 8));
         return data.Result;
     }
 }

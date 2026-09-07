@@ -25,9 +25,11 @@ From [benchmarks.md](benchmarks.md), the contract is fixed and must not drift:
   silent mutation loss), no delegates (4×), no boxing (4–4.5×).
 - Region navigation stays data-driven (cursor/CSR), not generated code.
 - Runtime-authored timelines cost the same as the generated shell and share
-  the receipts; authoring is a `Timeline<,,>.Build` callback over a
-  stack-scoped builder, per-closed-generic-type `ushort` index sequencing
-  works, and the index registry never reuses slots (Destroy tombstones).
+  the receipts; authoring is a `Timeline<,>.Build` callback over a
+  stack-scoped builder, per-`(TTrack,TClip)`-closed-type `ushort` index
+  sequencing works, and the index registry never reuses slots (Destroy
+  tombstones). The consumer's data type is demoted to the playback methods
+  (inferred from `ref data`), so one build serves every consumer type.
 - Sparse `ushort` timeline dispatch: Radix8 nested switches are the safe
   default; dense `delegate*` tables win on speed (6–11 ns) but cost 512 KB
   for the full space; the fused megaswitch loses on sparse keys. With the
@@ -59,10 +61,12 @@ Move the validated code out of the benchmark harness into a real project:
   `IBackwardTracks`, the CSR rows (`RegionRow`, `TrackRow`, `ClipRow`,
   `ClipEdge`), `ITrackTables` (incl. `RegionFlags`, `ClipEdges`, `Loops`),
   `Playback` + `PlaybackFlags`, `Tracks`, `TrackItem`,
-  `GeneratedTimeline<,,>`, `ClipTimeline<,,>`, and the runtime-authored
-  `Timeline<,,>` (static `Build(Definition)` over a stack-scoped
-  `TimelineBuilder`, a never-reusing `ushort` index registry with `Destroy`,
-  index-keyed `Start`/`Forward`/`Backward`; looping is authored). This
+  `GeneratedTimeline<,>`, `ClipTimeline<,>`, and the runtime-authored
+  `Timeline<,>` — all data-free closed types whose `Forward`/`Backward`
+  carry the method-level `TData` (static `Build(Definition)` over a
+  stack-scoped `TimelineBuilder`, a never-reusing `ushort` index registry
+  with `Destroy`, index-keyed `Start`/`Forward`/`Backward`; looping is
+  authored). This
   replaces the current empty `src/` scaffold, whose
   layout reflects the older mock API rather than the validated architecture.
 - `TClip : unmanaged` stays on the playback entry points (`stackalloc`

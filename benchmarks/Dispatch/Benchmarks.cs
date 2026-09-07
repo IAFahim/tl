@@ -263,7 +263,7 @@ public class ApiShape
     // The same fixture the static tables encode, authored at run time inside
     // a Build callback; only the assigned ushort index escapes.
     public ushort BuildTimeline(bool loops = false)
-        => Timeline<VitalsTrack, VitalsClip, Vitals>.Build(b =>
+        => Timeline<VitalsTrack, VitalsClip>.Build(b =>
         {
             b.Track(new VitalsTrack(1));
             b.Track(new VitalsTrack(2));
@@ -301,7 +301,7 @@ public class ApiShape
     {
         var data = new Vitals { Health = 1_000_000f };
         foreach (var tick in _ticks.AsSpan())
-            Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(timeline, ref data, tick);
+            Timeline<VitalsTrack, VitalsClip>.Forward(timeline, ref data, tick);
         return data.Result;
     }
 
@@ -310,7 +310,7 @@ public class ApiShape
     {
         var data = new Vitals { Health = 1_000_000f };
         foreach (var tick in _ticks.AsSpan())
-            Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(_timeline, ref data, tick);
+            Timeline<VitalsTrack, VitalsClip>.Forward(_timeline, ref data, tick);
         return data.Result;
     }
 
@@ -322,7 +322,7 @@ public class ApiShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(_timeline, ref data, t[0], t[1], t[2], t[3]);
+            Timeline<VitalsTrack, VitalsClip>.Forward(_timeline, ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Result;
     }
@@ -332,7 +332,7 @@ public class ApiShape
     {
         var data = new Vitals { Health = 1_000_000f };
         foreach (var tick in _ticks.AsSpan())
-            GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(ref data, tick);
+            GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(ref data, tick);
         return data.Result;
     }
 
@@ -344,7 +344,7 @@ public class ApiShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(ref data, t[0], t[1], t[2], t[3]);
+            GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Result;
     }
@@ -357,7 +357,7 @@ public class ApiShape
         var data = new Vitals { Health = 1_000_000f };
         var pb = Playback.Start();
         foreach (var tick in _ticks.AsSpan())
-            pb = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in pb, ref data, tick);
+            pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pb, ref data, tick);
         return data.Result;
     }
 
@@ -370,7 +370,7 @@ public class ApiShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            pb = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in pb, ref data, t[0], t[1], t[2], t[3]);
+            pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pb, ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Result;
     }
@@ -381,7 +381,7 @@ public class ApiShape
         var data = new Vitals { Health = 1_000_000f };
         var pb = Playback.Start();
         foreach (var tick in _ticks.AsSpan())
-            pb = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Backward(in pb, ref data, tick);
+            pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in pb, ref data, tick);
         return data.Result;
     }
 
@@ -392,7 +392,7 @@ public class ApiShape
         var data = new Vitals { Health = 1_000_000f };
         var pb = Playback.Start();
         foreach (var tick in _ticks.AsSpan())
-            pb = ClipTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in pb, ref data, tick);
+            pb = ClipTimeline<VitalsTrack, VitalsClip>.Forward(in pb, ref data, tick);
         return data.Result;
     }
 }

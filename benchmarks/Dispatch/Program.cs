@@ -1,6 +1,6 @@
 using BenchmarkDotNet.Running;
 using Tl.Hooks;
-using ProbeTimeline = Tl.Hooks.Timeline<Tl.Hooks.EdgeVerification.ProbeTrack, Tl.Hooks.EdgeVerification.ProbeClip, Tl.Hooks.EdgeVerification.Probe>;
+using ProbeTimeline = Tl.Hooks.Timeline<Tl.Hooks.EdgeVerification.ProbeTrack, Tl.Hooks.EdgeVerification.ProbeClip>;
 
 if (args is ["--verify-edges"])
 {
@@ -58,11 +58,37 @@ if (args is ["--verify"])
         if (actual != directShape)
             throw new InvalidOperationException($"API shape receipt mismatch: {directShape} / {actual}.");
 
-    var timelineA = Timeline<VitalsTrack, VitalsClip, Vitals>.Build(static b => { });
-    var timelineB = Timeline<VitalsTrack, VitalsClip, Vitals>.Build(static b => { });
+    var timelineA = Timeline<VitalsTrack, VitalsClip>.Build(static b => { });
+    var timelineB = Timeline<VitalsTrack, VitalsClip>.Build(static b => { });
     if (timelineB != timelineA + 1)
         throw new InvalidOperationException("Timeline indices are not sequential.");
     Console.WriteLine($"Timeline index {timelineA}, then {timelineB} (per closed generic type).");
+
+    // One Build'd index serves every consumer type: the registry keys on
+    // (TTrack, TClip) alone and the data arrives by method-level inference,
+    // so two different data types play the SAME index. Each accumulates its
+    // own result, and playing one leaves the other's instance untouched.
+    var shared = Timeline<VitalsTrack, VitalsClip>.Build(b =>
+    {
+        var track = b.Track(new VitalsTrack(2));
+        b.Clip(track, new VitalsClip(5f), 0, 10);
+    });
+    if (shared != timelineB + 1)
+        throw new InvalidOperationException($"Sequential registry expected {timelineB + 1}, got {shared}.");
+
+    var left = new SharedLeft();
+    var right = new SharedRight();
+    var sharedState = Timeline<VitalsTrack, VitalsClip>.Start(shared);
+    sharedState = Timeline<VitalsTrack, VitalsClip>.Forward(shared, in sharedState, ref left, 4);
+    sharedState = Timeline<VitalsTrack, VitalsClip>.Forward(shared, in sharedState, ref right, 5);
+    if (left is not { Sum: 5f, Seen: 1, Rewinds: 0 } || right is not { Ticks: 7L, Seen: 1, Rewinds: 0 })
+        throw new InvalidOperationException($"Shared index receipt mismatch: left {left.Sum}/{left.Seen}, right {right.Ticks}/{right.Seen}.");
+
+    sharedState = Timeline<VitalsTrack, VitalsClip>.Forward(shared, in sharedState, ref left, 6);
+    sharedState = Timeline<VitalsTrack, VitalsClip>.Backward(shared, in sharedState, ref right, 4);
+    if (left is not { Sum: 10f, Seen: 2, Rewinds: 0 } || right is not { Ticks: 1L, Seen: 1, Rewinds: 1 })
+        throw new InvalidOperationException($"Playing one data type must leave the other untouched: left {left.Sum}/{left.Seen}, right {right.Ticks}/{right.Seen}/{right.Rewinds}.");
+    Console.WriteLine($"Index {shared} served two data types from one Build: left {left.Sum:R}/{left.Seen}, right {right.Ticks}/{right.Rewinds}.");
 
     var instance = shape.BuildTimeline();
     var viaInstance = shape.RunInstance(instance);
@@ -100,9 +126,9 @@ if (args is ["--verify"])
     Console.WriteLine($"Fused256/Fused4096: fused and two-level dispatch agree ({expectedFused.Count:N0} random hits each).");
 
     var vitals = new Vitals { Health = 100_000f };
-    GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(ref vitals, 10, 20, 30);
+    GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(ref vitals, 10, 20, 30);
     var authored = new Vitals { Health = 100_000f };
-    Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(instance, ref authored, 10, 20, 30);
+    Timeline<VitalsTrack, VitalsClip>.Forward(instance, ref authored, 10, 20, 30);
     if (authored.Result != vitals.Result)
         throw new InvalidOperationException($"Runtime timeline demo mismatch: {vitals.Result} / {authored.Result}.");
     Console.WriteLine($"Runtime-authored timeline matches the generated one: {authored.Result}");
@@ -118,7 +144,7 @@ if (args is ["--verify"])
     var pw = Playback.Start();
     for (uint t = 0; t < 515; t++)
     {
-        pw = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in pw, ref walk, t);
+        pw = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pw, ref walk, t);
         if (pw.Has(PlaybackFlags.Enter)) enters++;
         if (pw.Has(PlaybackFlags.Exit)) exits++;
         if (pw.Has(PlaybackFlags.Active)) actives++;
@@ -134,30 +160,30 @@ if (args is ["--verify"])
         throw new InvalidOperationException($"Forward walk ended at {pw.Tick}, cycles {pw.Cycles}.");
 
     var spot = Playback.Start();
-    spot = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in spot, ref walk, 0);
+    spot = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in spot, ref walk, 0);
     if (spot.Flags != (PlaybackFlags.First | PlaybackFlags.Active))
         throw new InvalidOperationException($"Tick 0 should be First|Active, got {spot.Flags}.");
 
     spot = Playback.Start(14);
-    spot = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in spot, ref walk, 15);
+    spot = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in spot, ref walk, 15);
     if (spot.Flags != PlaybackFlags.None)
         throw new InvalidOperationException($"Gap tick 15 should carry no flags, got {spot.Flags}.");
 
     spot = Playback.Start();
-    spot = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in spot, ref walk, 10);
+    spot = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in spot, ref walk, 10);
     if (spot.Flags != (PlaybackFlags.Enter | PlaybackFlags.Exit | PlaybackFlags.Active | PlaybackFlags.Last))
         throw new InvalidOperationException($"Jump to 10 should carry Enter|Exit|Active|Last, got {spot.Flags}.");
 
-    var repeat = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in spot, ref walk, 10);
+    var repeat = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in spot, ref walk, 10);
     if (repeat.Flags != (PlaybackFlags.Active | PlaybackFlags.Last))
         throw new InvalidOperationException($"Repeated tick should keep positional flags only, got {repeat.Flags}.");
 
     var back = Playback.Start(10);
-    back = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Backward(in back, ref walk, 6);
+    back = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in back, ref walk, 6);
     if (back.Flags != (PlaybackFlags.Enter | PlaybackFlags.Active | PlaybackFlags.Last))
         throw new InvalidOperationException($"Backward 10->6 should carry Enter|Active|Last, got {back.Flags}.");
 
-    back = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Backward(in back, ref walk, 2);
+    back = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in back, ref walk, 2);
     if (back.Flags != (PlaybackFlags.Exit | PlaybackFlags.Active))
         throw new InvalidOperationException($"Backward 6->2 should carry Exit|Active, got {back.Flags}.");
 
@@ -165,10 +191,10 @@ if (args is ["--verify"])
     var rt = new Vitals { Health = 100_000f };
     var pf = Playback.Start();
     for (uint t = 0; t < 515; t++)
-        pf = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in pf, ref rt, t);
+        pf = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pf, ref rt, t);
     var pb = pf;
     for (int t = 514; t >= 0; t--)
-        pb = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Backward(in pb, ref rt, (uint)t);
+        pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in pb, ref rt, (uint)t);
     if (Math.Abs(rt.Health - 100_000f) > 1f || rt.Ticks != 0 || rt.Count != 515 || rt.Back != 515)
         throw new InvalidOperationException($"Rewind did not restore state: {rt.Result}, back {rt.Back}.");
 
@@ -177,7 +203,7 @@ if (args is ["--verify"])
     var pb2 = Playback.Start(514);
     for (int t = 513; t >= 0; t--)
     {
-        pb2 = GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Backward(in pb2, ref bw, (uint)t);
+        pb2 = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in pb2, ref bw, (uint)t);
         if (pb2.Has(PlaybackFlags.Enter)) bEnters++;
         if (pb2.Has(PlaybackFlags.Exit)) bExits++;
     }
@@ -189,21 +215,21 @@ if (args is ["--verify"])
     // exactly, a full-cycle jump sets Enter|Exit, backward wraps saturate.
     var lv = new Vitals();
     var lp = Playback.Start();
-    lp = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in lp, ref lv, 685);
+    lp = GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Forward(in lp, ref lv, 685);
     if (lp.Tick != 685 || lp.Cycles != 1 || lp.Flags != (PlaybackFlags.Enter | PlaybackFlags.Exit | PlaybackFlags.Active))
         throw new InvalidOperationException($"Loop wrap to 685 wrong: {lp.Tick}, {lp.Cycles}, {lp.Flags}.");
 
-    lp = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in lp, ref lv, 1205);
+    lp = GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Forward(in lp, ref lv, 1205);
     if (lp.Tick != 1205 || lp.Cycles != 2 || !lp.Has(PlaybackFlags.Enter) || !lp.Has(PlaybackFlags.Active))
         throw new InvalidOperationException($"Second wrap to 1205 wrong: {lp.Tick}, {lp.Cycles}, {lp.Flags}.");
 
     var multi = Playback.Start();
-    multi = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in multi, ref lv, 1205);
+    multi = GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Forward(in multi, ref lv, 1205);
     if (multi.Cycles != 2 || !multi.Has(PlaybackFlags.Enter) || !multi.Has(PlaybackFlags.Exit) || !multi.Has(PlaybackFlags.Active))
         throw new InvalidOperationException($"Two-cycle jump should be full coverage, got {multi.Cycles}, {multi.Flags}.");
 
     var wrap = Playback.Start(0);
-    wrap = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Backward(in wrap, ref lv, 599);
+    wrap = GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Backward(in wrap, ref lv, 599);
     if (wrap.Cycles != 0
         || wrap.Flags != (PlaybackFlags.Enter | PlaybackFlags.Exit | PlaybackFlags.Active | PlaybackFlags.Last))
         throw new InvalidOperationException($"Backward wrap past zero wrong: {wrap.Cycles}, {wrap.Flags}.");
@@ -211,12 +237,12 @@ if (args is ["--verify"])
     var lr = new Vitals();
     var pl = Playback.Start();
     for (uint t = 0; t <= 600; t++)
-        pl = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in pl, ref lr, t);
+        pl = GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Forward(in pl, ref lr, t);
     if (pl.Cycles != 1)
         throw new InvalidOperationException($"Looping walk should report one cycle, got {pl.Cycles}.");
     var plb = pl;
     for (int t = 600; t >= 0; t--)
-        plb = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Backward(in plb, ref lr, (uint)t);
+        plb = GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Backward(in plb, ref lr, (uint)t);
     if (plb.Cycles != 0 || Math.Abs(lr.Health) > 1f || lr.Ticks != 0 || lr.Count != 601 || lr.Back != 601)
         throw new InvalidOperationException($"Looping rewind did not restore: cycles {plb.Cycles}, {lr.Result}, back {lr.Back}.");
 
@@ -224,12 +250,12 @@ if (args is ["--verify"])
     var cv = new Vitals { Health = 100_000f };
     var pc = Playback.Start();
     for (uint t = 0; t < 515; t++)
-        pc = ClipTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in pc, ref cv, t);
+        pc = ClipTimeline<VitalsTrack, VitalsClip>.Forward(in pc, ref cv, t);
     if (cv.Count != 965)
         throw new InvalidOperationException($"Clip hooks fired {cv.Count} times, expected 965.");
     var pcb = pc;
     for (int t = 514; t >= 0; t--)
-        pcb = ClipTimeline<VitalsTrack, VitalsClip, Vitals>.Backward(in pcb, ref cv, (uint)t);
+        pcb = ClipTimeline<VitalsTrack, VitalsClip>.Backward(in pcb, ref cv, (uint)t);
     if (cv.Back != 965 || Math.Abs(cv.Health - 100_000f) > 1f || cv.Ticks != 0)
         throw new InvalidOperationException($"Clip-level rewind did not restore: back {cv.Back}, health {cv.Health}, ticks {cv.Ticks}.");
 
@@ -237,15 +263,15 @@ if (args is ["--verify"])
     // trait now, so the looping variant is a second Build.
     var runtime = shape.BuildTimeline();
     var rv = new Vitals { Health = 100_000f };
-    var rp = Timeline<VitalsTrack, VitalsClip, Vitals>.Start(runtime);
+    var rp = Timeline<VitalsTrack, VitalsClip>.Start(runtime);
     for (uint t = 0; t < 600; t++)
-        rp = Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(runtime, in rp, ref rv, t);
+        rp = Timeline<VitalsTrack, VitalsClip>.Forward(runtime, in rp, ref rv, t);
     if (!rp.Has(PlaybackFlags.Complete) || rp.Tick != 599)
         throw new InvalidOperationException($"Runtime walk should complete at 599: {rp.Tick}, {rp.Flags}.");
 
     var runtimeLoop = shape.BuildTimeline(loops: true);
-    var loopStart = Timeline<VitalsTrack, VitalsClip, Vitals>.Start(runtimeLoop);
-    var rp2 = Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(runtimeLoop, in loopStart, ref rv, 700);
+    var loopStart = Timeline<VitalsTrack, VitalsClip>.Start(runtimeLoop);
+    var rp2 = Timeline<VitalsTrack, VitalsClip>.Forward(runtimeLoop, in loopStart, ref rv, 700);
     if (rp2.Cycles != 1 || rp2.Tick != 700)
         throw new InvalidOperationException($"Runtime loop wrap wrong: {rp2.Tick}, {rp2.Cycles}.");
 
@@ -281,21 +307,21 @@ if (args is ["--verify"])
     // The definition delegate is not restricted to static lambdas: a closure
     // variable can author clip payloads.
     float closure = 7f;
-    var captured = Timeline<VitalsTrack, VitalsClip, Vitals>.Build(b =>
+    var captured = Timeline<VitalsTrack, VitalsClip>.Build(b =>
     {
         var track = b.Track(new VitalsTrack(1));
         b.Clip(track, new VitalsClip(closure), 0, 10);
     });
     var closureData = new Vitals();
-    Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(captured, ref closureData, 5);
+    Timeline<VitalsTrack, VitalsClip>.Forward(captured, ref closureData, 5);
     if (closureData.Count != 1 || closureData.Ticks != 1 || closureData.Health != closure)
         throw new InvalidOperationException($"Capturing definition mismatch: {closureData.Result}.");
 
     // Empty definitions stay valid: empty tables, duration 0, Complete.
-    var emptyIndex = Timeline<VitalsTrack, VitalsClip, Vitals>.Build(static b => { });
-    var emptyState = Timeline<VitalsTrack, VitalsClip, Vitals>.Start(emptyIndex);
+    var emptyIndex = Timeline<VitalsTrack, VitalsClip>.Build(static b => { });
+    var emptyState = Timeline<VitalsTrack, VitalsClip>.Start(emptyIndex);
     var emptyData = new Vitals();
-    emptyState = Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(emptyIndex, in emptyState, ref emptyData, 0);
+    emptyState = Timeline<VitalsTrack, VitalsClip>.Forward(emptyIndex, in emptyState, ref emptyData, 0);
     if (!emptyState.Has(PlaybackFlags.Complete) || emptyData.Count != 1 || emptyData.Ticks != 0)
         throw new InvalidOperationException($"Empty definition mismatch: {emptyState.Flags}, {emptyData.Result}.");
 
@@ -377,13 +403,13 @@ if (args is ["--verify"])
         //    duration land in the empty sentinel region.
         var oracle = new TData();
         var frozen = default(FrozenSink);
-        var walkOracle = GeneratedTimeline<TTrack, TClip, TData>.Start();
+        var walkOracle = GeneratedTimeline<TTrack, TClip>.Start();
         var walkFrozen = TFrozen.Start();
         uint oEnter = 0, oExit = 0, oActive = 0, oComplete = 0, oFirst = 0, oLast = 0;
         uint fEnter = 0, fExit = 0, fActive = 0, fComplete = 0, fFirst = 0, fLast = 0;
         for (uint t = 0; t < duration + 10; t++)
         {
-            walkOracle = GeneratedTimeline<TTrack, TClip, TData>.Forward(in walkOracle, ref oracle, t);
+            walkOracle = GeneratedTimeline<TTrack, TClip>.Forward(in walkOracle, ref oracle, t);
             walkFrozen = TFrozen.Forward(in walkFrozen, ref frozen, t);
             RequireStep($"walk tick {t}", walkOracle, walkFrozen);
             if (walkOracle.Has(PlaybackFlags.Enter)) oEnter++;
@@ -424,18 +450,18 @@ if (args is ["--verify"])
 
             var jumpOracleData = new TData();
             var jumpFrozenSink = default(FrozenSink);
-            var jumpOracle = GeneratedTimeline<TTrack, TClip, TData>.Start(from);
+            var jumpOracle = GeneratedTimeline<TTrack, TClip>.Start(from);
             var jumpFrozen = TFrozen.Start(from);
-            jumpOracle = GeneratedTimeline<TTrack, TClip, TData>.Forward(in jumpOracle, ref jumpOracleData, to);
+            jumpOracle = GeneratedTimeline<TTrack, TClip>.Forward(in jumpOracle, ref jumpOracleData, to);
             jumpFrozen = TFrozen.Forward(in jumpFrozen, ref jumpFrozenSink, to);
             RequireStep($"forward jump {from}->{to}", jumpOracle, jumpFrozen);
             RequireSink($"forward jump {from}->{to}", jumpOracleData.Sink, jumpFrozenSink);
 
             jumpOracleData = new TData();
             jumpFrozenSink = default;
-            jumpOracle = GeneratedTimeline<TTrack, TClip, TData>.Start(from);
+            jumpOracle = GeneratedTimeline<TTrack, TClip>.Start(from);
             jumpFrozen = TFrozen.Start(from);
-            jumpOracle = GeneratedTimeline<TTrack, TClip, TData>.Backward(in jumpOracle, ref jumpOracleData, to);
+            jumpOracle = GeneratedTimeline<TTrack, TClip>.Backward(in jumpOracle, ref jumpOracleData, to);
             jumpFrozen = TFrozen.Backward(in jumpFrozen, ref jumpFrozenSink, to);
             RequireStep($"backward jump {from}->{to}", jumpOracle, jumpFrozen);
             RequireSink($"backward jump {from}->{to}", jumpOracleData.Sink, jumpFrozenSink);
@@ -447,16 +473,16 @@ if (args is ["--verify"])
         //    float cancellation of the interleaved adds and subtracts).
         var mirrorOracleData = new TData();
         var mirrorFrozenSink = default(FrozenSink);
-        var mirrorOracle = GeneratedTimeline<TTrack, TClip, TData>.Start();
+        var mirrorOracle = GeneratedTimeline<TTrack, TClip>.Start();
         var mirrorFrozen = TFrozen.Start();
         for (uint t = 0; t < duration; t++)
         {
-            mirrorOracle = GeneratedTimeline<TTrack, TClip, TData>.Forward(in mirrorOracle, ref mirrorOracleData, t);
+            mirrorOracle = GeneratedTimeline<TTrack, TClip>.Forward(in mirrorOracle, ref mirrorOracleData, t);
             mirrorFrozen = TFrozen.Forward(in mirrorFrozen, ref mirrorFrozenSink, t);
         }
         for (var t = (int)(duration - 1); t >= 0; t--)
         {
-            mirrorOracle = GeneratedTimeline<TTrack, TClip, TData>.Backward(in mirrorOracle, ref mirrorOracleData, (uint)t);
+            mirrorOracle = GeneratedTimeline<TTrack, TClip>.Backward(in mirrorOracle, ref mirrorOracleData, (uint)t);
             mirrorFrozen = TFrozen.Backward(in mirrorFrozen, ref mirrorFrozenSink, (uint)t);
             RequireStep($"mirror tick {t}", mirrorOracle, mirrorFrozen);
             RequireSink($"mirror tick {t}", mirrorOracleData.Sink, mirrorFrozenSink);
@@ -474,7 +500,7 @@ if (args is ["--verify"])
         var singleFrozenSink = default(FrozenSink);
         var batchStartOracle = Playback.Start();
         var batchStartFrozen = TFrozen.Start();
-        var batchOracle = GeneratedTimeline<TTrack, TClip, TData>.Forward(in batchStartOracle, ref batchOracleData, batch);
+        var batchOracle = GeneratedTimeline<TTrack, TClip>.Forward(in batchStartOracle, ref batchOracleData, batch);
         var batchFrozen = TFrozen.Forward(in batchStartFrozen, ref batchFrozenSink, batch);
         RequireStep("batch", batchOracle, batchFrozen);
         RequireSink("batch", batchOracleData.Sink, batchFrozenSink);
@@ -626,5 +652,54 @@ public struct OracleFused16 :
         if (tracks.Count > 0)
             sink.Count--;
         data.Sink = sink;
+    }
+}
+
+// Two distinct consumer data types for one (VitalsTrack, VitalsClip)
+// timeline: the shared-index receipt above plays both through the SAME
+// Build'd index, each accumulating in its own units.
+public struct SharedLeft :
+    IForwardTracks<VitalsTrack, VitalsClip, SharedLeft>,
+    IBackwardTracks<VitalsTrack, VitalsClip, SharedLeft>
+{
+    public float Sum;
+    public int Seen;
+    public int Rewinds;
+
+    public void Forward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref SharedLeft data)
+    {
+        foreach (var item in tracks)
+            data.Sum += item.Clip.Amount;
+        data.Seen++;
+    }
+
+    public void Backward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref SharedLeft data)
+    {
+        foreach (var item in tracks)
+            data.Sum -= item.Clip.Amount;
+        data.Rewinds++;
+    }
+}
+
+public struct SharedRight :
+    IForwardTracks<VitalsTrack, VitalsClip, SharedRight>,
+    IBackwardTracks<VitalsTrack, VitalsClip, SharedRight>
+{
+    public long Ticks;
+    public int Seen;
+    public int Rewinds;
+
+    public void Forward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref SharedRight data)
+    {
+        foreach (var item in tracks)
+            data.Ticks += item.Track.Offset + tick;
+        data.Seen++;
+    }
+
+    public void Backward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref SharedRight data)
+    {
+        foreach (var item in tracks)
+            data.Ticks -= item.Track.Offset + tick;
+        data.Rewinds++;
     }
 }
