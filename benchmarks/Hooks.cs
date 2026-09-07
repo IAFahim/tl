@@ -1251,12 +1251,38 @@ public static class Timeline<TTrack, TClip>
     // method closed by reflection once per (entry, TData) pair; the bound
     // function pointers are cached on the entry and the steady state is a
     // plain pointer call.
+    // AOT: reflection is unavailable without dynamic code — Bind<TData>(index)
+    // is the static, instantiation-at-call-site path for ahead-of-time
+    // consumers; this automatic path guards and throws a named error.
     private static readonly MethodInfo s_bind =
         typeof(Timeline<TTrack, TClip>).GetMethod(nameof(BindData), BindingFlags.NonPublic | BindingFlags.Static)
         ?? throw new MissingMethodException(nameof(BindData));
 
+    // The explicit, reflection-free bind: one static generic call per
+    // (timeline index, consumer type), so the instantiation exists at a
+    // call site the AOT compiler can see. Repeat calls are idempotent
+    // (Install overwrites the same token slot).
+    public static void Bind<TData>(ushort index)
+        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    {
+        var entry = Timeline.Live(index);
+        if (entry.Payload is not Tables)
+            throw new InvalidOperationException($"Timeline index {index} does not belong to the <{typeof(TTrack).Name}, {typeof(TClip).Name}> closure.");
+        BindData<TData>(entry);
+    }
+
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("ReflectionAnalysis", "IL2060:MakeGenericMethod",
+        Justification = "The generic method is closed over the consumer type; AOT consumers use Bind<TData> instead.")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050:MakeGenericMethod",
+        Justification = "Guarded by the IsDynamicCodeSupported check; AOT consumers use Bind<TData> instead.")]
     private static void BindType(Type data, Timeline.Entry entry)
-        => s_bind.MakeGenericMethod(data).Invoke(null, [entry]);
+    {
+        if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)
+            throw new NotSupportedException(
+                $"The automatic (entry, consumer) bridge bind needs dynamic code; under NativeAOT call " +
+                $"{typeof(Timeline<TTrack, TClip>).Name}.Bind<TConsumer>(index) once per pair instead.");
+        s_bind.MakeGenericMethod(data).Invoke(null, [entry]);
+    }
 
     private static void BindData<TData>(Timeline.Entry entry)
         where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
@@ -1500,7 +1526,7 @@ public static unsafe partial class Timeline
 
     // Dead, unknown, or the None sentinel reject before any callback or
     // state change.
-    private static Entry Live(ushort index)
+    internal static Entry Live(ushort index)
     {
         if (index == None)
             throw new ArgumentOutOfRangeException(nameof(index), index, "Timeline.None is not a timeline index.");
