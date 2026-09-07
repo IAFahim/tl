@@ -805,3 +805,55 @@ two objectives move in opposite directions precisely on skewed data. The
 `forceTree`/`skewWide` emitter flags and the `SkewTree` benchmark class
 stay on the `exp/skew` branch so this receipt can be re-run; neither is
 registered in `FrozenHub` and neither changes any default emission.
+
+### The redesigned contract on the frozen path — and the regression it smuggled in
+
+The Tracks redesign (15ce099) deleted the aggregate movement flag bits,
+and the frozen kernels were re-emitted for the new sink contract
+(emitter ported in b82c60d behind a byte-identity gate against a
+ground-truth generation; all parity receipts green):
+
+- **Per-slot ClipState codes, not flag bits.** `sink.Flags` accumulates
+  Enter=0 / Stay=1 / Exit=2 per **active** slot: Exit is positional (the
+  window's End−1 forward, Start backward) and baked as a per-slot bit in
+  word bits 32..39; Enter fires when the step crossed the slot's entry
+  edge (window Start forward, End backward), carried by per-slot
+  `s_enterFk`/`s_enterBk` uint **entry-reference tables** so the test is
+  one `prev` compare.
+- **Lifecycle bits.** `Start` mints `Started`; the per-tick flags word is
+  `Started | (Completed × bit 40)` — Completed direction-dependent and
+  positional, assembled branchlessly (a 0/1 multiply).
+- **Empty ticks do no sink work**: bits 44..47 carry the active-slot
+  count and `n == 0` skips the tick entirely.
+- `Cycles` passes through; `Count++` per tick with at least one active
+  slot; `Backward` stays the exact subtractive mirror; the clamp still
+  targets the empty sentinel word at the duration.
+
+Parity held everywhere — but nothing had **timed** the new kernels (the
+redesign receipts covered the API-shape and hub arms only). First
+measurement (`--filter '*Frozen*'`, core 4, medians, ns per tick; old =
+the bake v2 receipts; a package-free JIT harness on core 14 reproduced
+the same picture within 0.15 ns):
+
+| Method                 | Random Jit     | Random NoTiering | Sequential Jit  | Sequential NoTiering |
+|------------------------|---------------:|-----------------:|----------------:|---------------------:|
+| `FrozenVitalsSingle`   | 2.65 → **5.58** | 3.20 → **6.91**  | 2.49 → 2.13     | 3.21 → 3.19          |
+| `FrozenVitalsBatch8`   | 1.96 → **5.65** | 2.21 → **6.95**  |       —         |         —            |
+| `Fused16Single`        | 2.12 → **4.35** | 2.51 → **5.16**  | 2.16 → **1.08** | 2.51 → 1.86          |
+| `Fused16Batch8`        | 1.54 → **4.44** | 1.70 → **5.20**  |       —         |         —            |
+
+Random arms regressed 2.3–2.9× while sequential arms *improved* — the
+exact mispredict signature of the bake v1 era, back for the same class
+of reason: the redesigned emission reintroduced data-dependent branches
+bake v2 had engineered out. Two sources: the per-slot nested ternary
+`(exits & 1) != 0 ? 2 : prev < s_enterFk[i] ? 0 : 1` (variable-arm
+ternaries compile as branches, and the enter compare is a coin toss on
+random streams), and the active-slot guards `if (n != 0)` / `if (n > k)`
+flipping per tick. Sequential streams predict everything and profit from
+the gap skip (`Fused16Sequential` 1.08 — a quarter of its ticks are
+gaps and now cost nearly nothing); random streams pay a mispredict per
+unpredicted branch, up to four deep on Vitals. The hub deltas stayed
+noise-level (3.87 vs 4.44 on `HubFused16Batch8` tiered) — the kernel,
+not the dispatch, regressed. Lesson recorded: **byte-identity and parity
+gates do not catch a branchiness regression; every re-emission of a
+hot loop needs its timing receipt re-run.**
