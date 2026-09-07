@@ -350,22 +350,36 @@ compiles `Hooks.cs`, so the fixture tables have one source of truth):
   starts = 12 regions plus the empty sentinel, 4 tracks, blends and gaps).
 - `Fused16Frozen.g.cs` — a synthesized single-track, 16-clip fixture in the
   Review/Movement shape: clip `i` covers `[i*4, i*4+3)` with value `i+1`,
-  duration 63, the 4th tick of each group is the gap. The ~1 ns headline arm.
+  duration 63, the 4th tick of each group is the gap. The sub-1 ns gate arm.
 
-What the frozen form specializes away from `PlaybackCore`: positional flags
-and payloads are immediates and constant compares, and movement facts
-(Enter/Exit) are rank comparisons over the known clip-start/clip-end cut
-boundaries — the boundary walk collapses because a cut boundary lies in the
-crossed span exactly when its rank at the two ends differs. Region lookup and
-the ranks come out of the emitter's **dense LUT mode**, picked when duration
-is ≤ 1024: three per-tick tables (`s_region`, `s_startRank`, `s_endRank`)
-loaded behind an in-range guard, with a jump-table switch over region indices
-carrying leaf bodies identical to the tree mode's (ticks past the duration
-take the sentinel region / total-cut-count fallbacks, so out-of-range jumps
-keep their parity). Longer timelines fall back to binary branch trees over
-the starts and cut boundaries. The frozen form is bound to one exact
-non-looping timeline: no wraps, no cycle arithmetic (`Cycles` passes
-through), no duration-0/empty handling.
+What the frozen form specializes away from `PlaybackCore`: in the
+**full-bake dense LUT mode** (picked when duration is ≤ 1024) the entire
+per-tick leaf is precomputed. Positional flags (`Active | First | Last |
+Complete`) are one byte per tick per direction (`s_baseFlagsF` /
+`s_baseFlagsB`, shifted `<< 27` into the `PlaybackFlags` word — two tables
+because `Complete` is direction-dependent: forward fires from duration−1 on
+and past the duration, backward only exactly at tick 0), and every
+blend-resolved track value is a baked float (`s_slot0..s_slotN`, one table
+per active-track slot in track-row order, `0f` where the slot is inactive —
+an exact no-op in the addition order the oracle performs). The generator
+folds the exact runtime expressions — `(tick - factorStart) / (float)
+(factorLength - 1)` (`0.5f` for a one-tick window) run through
+`first * (1f - f) + second * f`, all in `float` — so parity holds
+bit-for-bit. Per tick the loop does: a bounds-guard index (out-of-range
+ticks clamp to the tables' sentinel entry at the duration — the empty
+region, asserted at emission), the flag-byte load + shift, the
+movement-fact rank lookups (`s_startRank` / `s_endRank`, load-vs-load
+diffs — the only branches left), sink accumulation, and `Count++` when
+`Active`. No per-tick blend math, no flag-assembly branches, and no region
+switch (`s_region`, the jump-table switch, and the leaf bodies all died);
+exactly one `Playback` construction remains, after the loop — the loop
+carries only `prev` / `cycles` / `flags` locals, valid because frozen
+timelines never loop, which makes the ctor's cycle-capacity throw
+unreachable (commented in the generated files). Timelines longer than
+1024 ticks keep the binary branch trees over the starts and cut
+boundaries, rank trees for movement, and immediate-payload leaves. The
+frozen form is bound to one exact non-looping timeline: no wraps, no
+cycle arithmetic (`Cycles` passes through), no duration-0/empty handling.
 
 Parity receipts (`Dispatch --verify`, oracle = `PlaybackCore` through the real
 tables: `OracleVitals`, and hand-set `Fused16Track` literals cross-checked
@@ -382,46 +396,57 @@ Accumulation contract mirrored bit-for-bit by both sides, per tick, in order:
 track; `Backward` subtracts in the same order (the exact inverse — which is
 why the mirror receipt can demand exact restoration of `Count` and `Flags`).
 
-Quick measurement (`--filter '*Frozen*'`, pinned to one core, tiered-JIT
-medians, ns per tick; the ApiShape reference `PlaybackSingle` on the same
-Vitals fixture is 21.5 ns with random ticks):
+Quick measurement (`--filter '*Frozen*'`, pinned to one core, medians,
+ns per tick, old = the dense-LUT switch shape before the full bake,
+new = the full-bake tables + batch `Playback` skip; the ApiShape
+reference `PlaybackSingle` on the same Vitals fixture is 21.5 ns with
+random ticks):
 
-| Method                 | Random ticks | Sequential ticks |
-|------------------------|-------------:|-----------------:|
-| `FrozenVitalsSingle`   |        9.53  |            3.48  |
-| `FrozenVitalsBatch8`   |        8.52  |               —  |
-| `Fused16Single`        |       12.38  |            3.11  |
-| `Fused16Batch8`        |       11.35  |               —  |
+| Method                 | Random Jit    | Random NoTiering | Sequential Jit | Sequential NoTiering |
+|------------------------|--------------:|-----------------:|---------------:|---------------------:|
+| `FrozenVitalsSingle`   |  9.62 →  5.08 |   11.57 →  6.20   |  3.40 →  2.22  |   4.73 →  3.26        |
+| `FrozenVitalsBatch8`   |  8.45 →  4.93 |   10.59 →  5.87   |       —        |         —             |
+| `Fused16Single`        | 12.60 →  5.07 |   14.33 →  6.21   |  3.07 →  1.89  |   4.96 →  3.28        |
+| `Fused16Batch8`        | 11.42 →  4.50 |   13.11 →  5.52   |       —        |         —             |
+
+Table cost: Vitals bakes 3 slot tables (601 floats each, 7.2 KB) plus
+two 601-byte flag tables and the two rank tables — ≈ 9.4 KB of runtime
+data; the generated source grew 23.0 → 29.7 KB. Fused16 needs one slot
+table and two 64-byte flag tables (0.5 KB); its source shrank
+17.3 → 6.4 KB because the 32-case switches died.
 
 Readings, honestly:
 
-- Frozen beats the generic engine everywhere it should: 2.3x on random
-  jumps, 6.2x on sequential streams for the full Vitals semantics
-  (movement flags + sink + `Playback` return), 0 B allocated. The dense
-  LUT mode (tables + jump-table switch, ≤ 1024 ticks, now in the emitter)
-  moved the sequential arms most — Fused16 sequential went 7.19 → 3.11,
-  Vitals 4.22 → 3.48 — because three predictable loads replaced the
-  data-dependent tree walks. Tiered PGO still matters, just less: with
-  tiering off, sequential Vitals is 4.67 ns (was 8.6).
-- `Fused16` still trails the harder `Vitals` fixture on random ticks
-  (12.4 vs 9.5 ns), but the reason has moved. The tree mispredicts are
-  gone (19.89 → 12.38); what remains is fixture shape. Random ticks
-  spread almost uniformly over Fused16's 32 thin regions (three-tick
-  clips, one-tick gaps), so the jump table's indirect branch is a coin
-  toss no predictor learns,
-  while Vitals's regions are skewed enough (three of them cover about
-  two thirds of the ticks) that its switch target predicts well. Vitals
-  random barely moved (9.50 → 9.53) for the same reason: its old trees
-  were already mostly predicted, so there the LUT is a wash and the
-  remaining cost is per-tick `Playback` bookkeeping plus four-track
-  sampling. The next milestone is branchless computed sampling, not more
-  lookup tuning.
+- The full bake plus the batch `Playback` skip moved everything:
+  `Fused16Batch8` 11.42 → 4.50 ns/tick (2.5x), `Fused16Single`
+  12.60 → 5.07, Vitals random 9.62 → 5.08 — now 4.2x over the generic
+  engine on random jumps and 9.7x on sequential streams (was 2.3x /
+  6.2x), still 0 B allocated. The sequential arms dropped to
+  1.89 (Fused16) / 2.22 (Vitals) ns/tick.
+- The sub-1 ns gate (`Fused16Batch8` < 1.0 ns/tick tiered) was **missed**:
+  it landed at 4.50 ns/tick. The remaining per-tick work, in loop order:
+  span iteration (pointer bump + bounds check), the clamp cmov, the
+  flag-byte load + shift, the movement gate `tick > prev` — a coin toss
+  on a random tick stream, mispredicted about half the time at ~15–20
+  cycles a piece — four guarded rank loads and two rank-diff branches
+  inside that gate, the float slot add(s), and the `Active` branch for
+  `Count`. The sequential arms price the memory path itself: 1.89 ns/tick
+  with the movement gate perfectly predicted and always taken. The gap
+  (4.50 − 1.89 ≈ 2.6 ns/tick) is branch mispredicts on the movement
+  facts, not table traffic; the next lever is a branchless movement
+  encoding (setcc/cmov rank-diff to flag bits instead of
+  compare-and-OR), deliberately untouched here.
+- Tiered PGO matters more now, and `AggressiveInlining` on the frozen
+  entry points is load-bearing: without the hint the shrunken bodies
+  stopped folding through callers (the hub arms paid +2.6…+4.0 ns/tick
+  and the NoTiering sequential arms regressed ~1.5–1.9 ns); with it,
+  every arm on both jobs improves over the old shape.
 - The sub-1 ns frozen receipts from the sibling LUT repo (0.165 ns
   sampling, 1.33 ns one-tick traverse) measured a repeated single tick
-  and pure sampling, without per-tick `Playback` flags on varied ticks;
-  this path is not there yet. 3.1–3.5 ns/tick sequential (Fused16,
-  Vitals) with full movement semantics is the current proven floor for
-  tl timelines.
+  and pure sampling, without per-tick `Playback` movement facts on
+  varied ticks; this path is not there yet. 1.9–2.2 ns/tick sequential
+  and ~4.5–5.1 ns/tick random (Fused16/Vitals) with full movement
+  semantics is the current proven floor for tl timelines.
 
 #### The frozen hub: one dispatch call site
 
@@ -454,33 +479,31 @@ and one 128-tick batch. Out-of-range indices (`Count` and
 methods before touching the sink, proven by a sentinel sink left
 bit-identical after the rejected call.
 
-Measured hub-vs-direct deltas (same `--filter '*Frozen*'` run, medians,
-ns per tick; negative = hub faster, and anything under ~0.2 ns is
-run-to-run noise on these arms):
+Measured hub-vs-direct deltas (same `--filter '*Frozen*'` run as the
+table above, medians, ns per tick; negative = hub faster, and anything
+under ~0.2 ns is run-to-run noise on these arms):
 
 | Arm pair (Jit / NoTiering medians)                  | Direct              | Via hub             | Delta               |
 |-----------------------------------------------------|--------------------:|--------------------:|--------------------:|
-| `Fused16Single` ↔ `HubFused16Single` (random ticks) | 12.513 / 14.374 ns  | 12.286 / 14.482 ns  | −0.23 / +0.11 ns    |
-| `Fused16Sequential` ↔ `HubFused16Sequential`        |  3.025 /  5.170 ns  |  3.271 /  5.952 ns  | +0.25 / +0.78 ns    |
-| `Fused16Batch8` ↔ `HubFused16Batch8`                | 11.495 / 13.153 ns  | 11.378 / 13.171 ns  | −0.12 / +0.02 ns    |
-| `FrozenVitalsSingle` ↔ `HubVitalsSingle` (random)   |  9.518 / 11.411 ns  |  9.429 / 11.284 ns  | −0.09 / −0.13 ns    |
+| `Fused16Single` ↔ `HubFused16Single` (random ticks) |  5.065 /  6.209 ns  |  4.930 /  6.157 ns  | −0.14 / −0.05 ns    |
+| `Fused16Sequential` ↔ `HubFused16Sequential`        |  1.893 /  3.276 ns  |  1.841 /  3.386 ns  | −0.05 / +0.11 ns    |
+| `Fused16Batch8` ↔ `HubFused16Batch8`                |  4.496 /  5.517 ns  |  4.498 /  5.507 ns  | +0.00 / −0.01 ns    |
+| `FrozenVitalsSingle` ↔ `HubVitalsSingle` (random)   |  5.083 /  6.196 ns  |  5.062 /  6.418 ns  | −0.02 / +0.22 ns    |
 
 Readings:
 
-- The prediction held, and was conservative on the random side. The
-  dispatch verdicts expected the hop to be ~free on sequential streams
-  and to cost ~an indirect-branch mispredict on random. Measured: on the
-  random-tick arms the hub delta is noise-level (−0.23…+0.11 ns, both
-  signs) — the hub's switch sees a per-call-site *constant* index (only
-  the ticks randomize), so there is no second random indirect branch to
-  mispredict; the one mispredict those arms already pay lives in the
-  timeline's own region jump table.
-- On sequential streams the hop is measurable but tiny: +0.25 ns/tick
-  with tiered PGO (about one cycle on the tightest 3.0 ns arm; the guard
-  and call do not fully fold), +0.78 ns without tiering (no PGO, the hub
-  stays a plain call). Batched calls amortize it out of sight
-  (−0.12/+0.02 ns).
+- One structural note from the full bake: when the frozen bodies
+  shrank to table loads, the hub's forwarder layer first *stopped*
+  inlining under tiered PGO and cost +2.6…+4.0 ns/tick
+  (`HubFused16Sequential` 3.25 → 5.19 in that intermediate state).
+  `AggressiveInlining` on the frozen entry points and the hub methods
+  restored it — the deltas above are all noise-level again, on both
+  jobs, including the tightest 1.8 ns sequential arm.
+- The hub's switch sees a per-call-site *constant* index (only the
+  ticks randomize), so there is no second random indirect branch to
+  mispredict; the mispredict those arms pay lives in the timeline's own
+  movement gate, not in dispatch.
 - Net: one call site dispatching a dense ≤ 256 index into the frozen
   timelines costs effectively nothing — the frozen path keeps its
-  2.3×/6.2× wins over the generic engine with a registry in front, and
+  4.2×/9.7× wins over the generic engine with a registry in front, and
   the hub gives every consumer a single, receipt-verified entry point.
