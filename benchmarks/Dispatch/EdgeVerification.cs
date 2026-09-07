@@ -7,14 +7,14 @@ internal static class EdgeVerification
     public static void Run()
     {
         var failures = new List<string>();
-        foreach (var test in new Action[] { Gaps, Empty, Blend, Order, Packing, Wrap, States, Batches, CursorParity, Scratch, Fixture, PerClip, WideTicks, Limits, Indices })
+        foreach (var test in new Action[] { Gaps, Empty, Blend, Order, Packing, Wrap, States, Batches, CursorParity, Scratch, PrefixCounts, Fixture, PerClip, WideTicks, Limits, Indices })
         {
             try { test(); }
             catch (Exception e) { failures.Add($"{test.Method.Name}: {e.Message}"); }
         }
         if (failures.Count != 0)
             throw new InvalidOperationException(string.Join(Environment.NewLine, failures));
-        Console.WriteLine("Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, blend scratch, fixture parity, per-work facts oracle, limits.");
+        Console.WriteLine("Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, blend scratch, prefix counts, fixture parity, per-work facts oracle, limits.");
     }
 
     private static void Require(bool condition, string message)
@@ -626,6 +626,92 @@ internal static class EdgeVerification
         shellStackPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in shellStackPb, ref shellStateStack, 0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599);
         Require(shellPb.Flags == shellStackPb.Flags && shellStateData.Result == shellStateStack.Result,
             "GeneratedTimeline stateful scratch/stack diverged on the Vitals fixture.");
+    }
+
+    // Prefix counts for the per-work Enter gate (faster queue #3): the
+    // cumulative CutCounts table must equal values derived from the raw
+    // authored clip list, the flag-off build must leave it empty, and every
+    // walk/jump receipt must be identical with the gate on and off — the
+    // counts may only ever skip Enter checks that provably cannot fire.
+    private static void PrefixCounts()
+    {
+        ClipEdge[] edges = [new(2, 3), new(5, 12), new(8, 10), new(16, 25), new(20, 28)];
+        ushort Build(bool emit)
+        {
+            Timeline.EmitCutCounts = emit;
+            return Make(edges);
+        }
+
+        var counted = Build(true);
+        var scanned = Build(false);
+        Timeline.EmitCutCounts = true;
+
+        var entry = Timeline.Live(counted);
+        Require(entry.CutCounts.Length == entry.RegionStarts.Length, "The counts table must have one record per region.");
+        Require(Timeline.Live(scanned).CutCounts.Length == 0, "The flag-off build must leave the counts empty.");
+
+        // The oracle: counts[i] prefix-sums, over regions 0..i, whether any
+        // authored clip starts (Starts) or ends (Ends) exactly at that
+        // region's start position — derived here from the raw edge list.
+        var starts = entry.RegionStarts;
+        var counts = entry.CutCounts;
+        uint startsSeen = 0, endsSeen = 0;
+        for (var i = 0; i < starts.Length; i++)
+        {
+            foreach (var edge in edges)
+            {
+                if (edge.Start == starts[i])
+                {
+                    startsSeen++;
+                    break;
+                }
+            }
+
+            foreach (var edge in edges)
+            {
+                if (edge.End == starts[i])
+                {
+                    endsSeen++;
+                    break;
+                }
+            }
+
+            Require(counts[i].Starts == startsSeen && counts[i].Ends == endsSeen,
+                $"Prefix counts diverged at region {i}: {counts[i]} vs ({startsSeen}, {endsSeen}).");
+        }
+
+        // Gate on/off parity: linear and looping, forward and backward, over
+        // the full (previous, tick) step space — works, sums and flags must
+        // be identical.
+        var loopingCounted = Build(true);
+        var loopingScanned = Build(false);
+        Timeline.EmitCutCounts = true;
+
+        foreach (var (loops, countedIndex, scannedIndex) in new (bool, ushort, ushort)[]
+                 {
+                     (false, counted, scanned),
+                     (true, loopingCounted, loopingScanned),
+                 })
+        foreach (bool backward in new[] { false, true })
+        {
+            for (uint previous = 0; previous < 85; previous++)
+            for (uint tick = 0; tick < 85; tick++)
+            {
+                var from = At(previous);
+                var viaCounts = new Probe();
+                var viaScan = new Probe();
+                var countedPb = backward
+                    ? Timeline.Backward(countedIndex, in from, ref viaCounts, tick)
+                    : Timeline.Forward(countedIndex, in from, ref viaCounts, tick);
+                var scannedPb = backward
+                    ? Timeline.Backward(scannedIndex, in from, ref viaScan, tick)
+                    : Timeline.Forward(scannedIndex, in from, ref viaScan, tick);
+                if (countedPb.Flags != scannedPb.Flags || countedPb.Cycles != scannedPb.Cycles
+                    || !viaCounts.Works.SequenceEqual(viaScan.Works))
+                    throw new InvalidOperationException(
+                        $"Prefix-count gate changed results at {previous}->{tick}, loops={loops}, backward={backward}.");
+            }
+        }
     }
 
     private static void Fixture()

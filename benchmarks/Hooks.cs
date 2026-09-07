@@ -267,7 +267,12 @@ public readonly record struct ClipEdge(uint Start, uint End);
 // step came from (PrevEff), its direction, and the wrap shape of the span.
 // Stateless sampling has no movement, so those paths pass all-false and
 // works carry positional facts only (Exit is positional and still fires).
-internal readonly record struct MovementSpan(uint PrevEff, bool Backward, bool Wrapped, bool Full)
+// EnterPossible is the prefix-count gate (faster queue #3): false when the
+// crossed region range provably contains no start (forward) or end
+// (backward) cut, so no work of this step can report Enter. Conservative
+// by construction — true keeps the full Crossed check, so an absent or
+// empty CutCounts table never changes results.
+internal readonly record struct MovementSpan(uint PrevEff, bool Backward, bool Wrapped, bool Full, bool EnterPossible = true)
 {
     // Was `boundary` crossed by the step's span? A plain span covers
     // (PrevEff, tEff] forward or (tEff, PrevEff] backward; a wrapped span is
@@ -312,7 +317,7 @@ internal static class PlaybackCore
         where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
         => Advance(
             in from, backward, loops, ticks, ref data,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved,
+            starts, regionRows, ReadOnlySpan<CutCounts>.Empty, trackRows, clipRows, edges, trackData, clipData, resolved,
             -1, out _);
 
     // `regionHint` is a CALLER-VALIDATED region for the effective position
@@ -320,11 +325,13 @@ internal static class PlaybackCore
     // returns the region of the last processed tick's effective position —
     // pass it back as the next call's hint after storing `result.Tick`
     // alongside it. An empty tick span returns `from` and echoes the hint
-    // unchanged, so a valid cursor survives it.
+    // unchanged, so a valid cursor survives it. `cutCounts` (when non-empty)
+    // gates the per-work Enter checks with two prefix-count loads per step.
     public static Playback Advance<TTrack, TClip, TData>(
         in Playback from, bool backward, bool loops,
         ReadOnlySpan<uint> ticks, ref TData data,
         ReadOnlySpan<uint> starts, ReadOnlySpan<RegionRow> regionRows,
+        ReadOnlySpan<CutCounts> cutCounts,
         ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<ClipEdge> edges,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
@@ -349,6 +356,19 @@ internal static class PlaybackCore
             var region = Locate(starts, tEff, previousRegion, hinted);
             hinted = false;
             var row = regionRows[region];
+
+            // Prefix-count gate: some start (forward) or end (backward) cut
+            // lies in the crossed region range iff the cumulative counts
+            // differ at the two ends — clip starts and ends are always
+            // region cuts. Wraps and multi-cycle jumps keep the full scan,
+            // and an absent table or an unlocated previous region cannot
+            // answer, so the gate only ever turns the Enter check OFF when
+            // provably nothing crossed.
+            var enterPossible = wrapped || full || previousRegion < 0 || cutCounts.IsEmpty;
+            if (!enterPossible)
+                enterPossible = backward
+                    ? cutCounts[previousRegion].Ends != cutCounts[region].Ends
+                    : cutCounts[region].Starts != cutCounts[previousRegion].Starts;
 
             // Forward wraps are counted exactly; the cycle capacity guard
             // throws before this tick's callback, like the old 26-bit guard.
@@ -379,7 +399,7 @@ internal static class PlaybackCore
                     trackRows.Slice(row.TrackStart, row.TrackCount),
                     clipRows, trackData, clipData, resolved,
                     edges,
-                    new MovementSpan(prevEff, backward, wrapped, full));
+                    new MovementSpan(prevEff, backward, wrapped, full, enterPossible));
 
                 // The hook sees the EFFECTIVE tick — normalized on looping
                 // timelines, exactly the position the view's works describe
@@ -540,6 +560,15 @@ internal static class PlaybackCore
 public readonly record struct RegionRow(ushort TrackStart, ushort TrackCount);
 public readonly record struct TrackRow(ushort TrackIndex, ushort ClipStart, ushort ClipCount);
 public readonly record struct ClipRow(ushort ClipIndex, uint FactorStart, uint FactorLength);
+
+// Cumulative cut facts per region (built once from the authored clip
+// edges, checked conversions): counts[i].Starts/Ends = regions 0..i whose
+// start position carries a clip start/end. Two 4-byte record loads answer
+// "did the crossed region range contain a start/end cut?" without touching
+// the per-work windows. Playback falls back to the full per-work check
+// whenever the table is empty or the shape cannot be answered — the counts
+// only ever switch the Enter check off, provably.
+public readonly record struct CutCounts(ushort Starts, ushort Ends);
 
 public interface ITrackTables<TTrack, TClip>
     where TTrack : struct
@@ -777,6 +806,9 @@ public readonly ref struct TrackWork<TTrack, TClip>
 
             if (_movement.Backward ? _tick == start : _tick == end - 1)
                 return ClipState.Exit;
+
+            if (!_movement.EnterPossible)
+                return ClipState.Stay;
 
             return _movement.Crossed(_movement.Backward ? end : start, _tick) ? ClipState.Enter : ClipState.Stay;
         }
@@ -1353,6 +1385,33 @@ public static class Timeline<TTrack, TClip>
                 maxBlends = blends;
         }
 
+        // Prefix counts from the authored clip edges, checked conversions:
+        // counts fit a ushort because each of the at most 65,535 authored
+        // clips contributes at most one start cut and one end cut. Bit 1
+        // marks a region whose start position is a clip start, bit 2 a clip
+        // end — the same cut facts the static fixtures' RegionFlags carry.
+        var cutStarts = new HashSet<uint>();
+        var cutEnds = new HashSet<uint>();
+        foreach (var clip in authoring.Clips)
+        {
+            cutStarts.Add(clip.Start);
+            cutEnds.Add(clip.End);
+        }
+
+        var cutCounts = new CutCounts[Timeline.EmitCutCounts ? regionStarts.Length : 0];
+        if (cutCounts.Length != 0)
+        {
+            uint startsSeen = 0, endsSeen = 0;
+            for (var i = 0; i < regionStarts.Length; i++)
+            {
+                if (cutStarts.Contains(regionStarts[i]))
+                    startsSeen++;
+                if (cutEnds.Contains(regionStarts[i]))
+                    endsSeen++;
+                cutCounts[i] = new(checked((ushort)startsSeen), checked((ushort)endsSeen));
+            }
+        }
+
         return Timeline.Register(new Timeline.Entry
         {
             RegionStarts = regionStarts,
@@ -1367,6 +1426,7 @@ public static class Timeline<TTrack, TClip>
             },
             MaxActiveTracks = maxActive,
             MaxActiveBlends = maxBlends,
+            CutCounts = cutCounts,
             Loops = authoring.Loops,
             Duration = (ushort)regionStarts[^1],
             Binder = BindType,
@@ -1466,6 +1526,7 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
+            var cutCounts = entry.CutCounts.AsSpan();
             var trackRows = entry.TrackRows.AsSpan();
             var clipRows = entry.ClipRows.AsSpan();
             var edges = entry.ClipEdges.AsSpan();
@@ -1475,7 +1536,8 @@ public static class Timeline<TTrack, TClip>
 
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: false, entry.Loops, ticks, ref consumer,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
+                -1, out _);
         }
 
         private static Playback RunBackward(Timeline.Entry entry, in Playback from, void* data, ReadOnlySpan<uint> ticks)
@@ -1484,6 +1546,7 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
+            var cutCounts = entry.CutCounts.AsSpan();
             var trackRows = entry.TrackRows.AsSpan();
             var clipRows = entry.ClipRows.AsSpan();
             var edges = entry.ClipEdges.AsSpan();
@@ -1493,7 +1556,8 @@ public static class Timeline<TTrack, TClip>
 
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: true, entry.Loops, ticks, ref consumer,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
+                -1, out _);
         }
 
         // Cursor-primed runners: the caller's `ref cursor` rides through as a
@@ -1512,6 +1576,7 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
+            var cutCounts = entry.CutCounts.AsSpan();
             var trackRows = entry.TrackRows.AsSpan();
             var clipRows = entry.ClipRows.AsSpan();
             var edges = entry.ClipEdges.AsSpan();
@@ -1521,7 +1586,7 @@ public static class Timeline<TTrack, TClip>
 
             var result = PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: false, entry.Loops, ticks, ref consumer,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved,
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
                 hint, out var region);
 
             cache = new Cursor { Owner = entry, Tick = result.Tick, Region = region };
@@ -1538,6 +1603,7 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
+            var cutCounts = entry.CutCounts.AsSpan();
             var trackRows = entry.TrackRows.AsSpan();
             var clipRows = entry.ClipRows.AsSpan();
             var edges = entry.ClipEdges.AsSpan();
@@ -1547,7 +1613,7 @@ public static class Timeline<TTrack, TClip>
 
             var result = PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: true, entry.Loops, ticks, ref consumer,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved,
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
                 hint, out var region);
 
             cache = new Cursor { Owner = entry, Tick = result.Tick, Region = region };
@@ -1564,6 +1630,7 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
+            var cutCounts = entry.CutCounts.AsSpan();
             var trackRows = entry.TrackRows.AsSpan();
             var clipRows = entry.ClipRows.AsSpan();
             var edges = entry.ClipEdges.AsSpan();
@@ -1573,7 +1640,8 @@ public static class Timeline<TTrack, TClip>
 
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: false, entry.Loops, ticks, ref consumer,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
+                -1, out _);
         }
 
         private static Playback RunBackwardScratch(Timeline.Entry entry, in Playback from, void* scratch, int scratchLength, void* data, ReadOnlySpan<uint> ticks)
@@ -1582,6 +1650,7 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
+            var cutCounts = entry.CutCounts.AsSpan();
             var trackRows = entry.TrackRows.AsSpan();
             var clipRows = entry.ClipRows.AsSpan();
             var edges = entry.ClipEdges.AsSpan();
@@ -1591,7 +1660,8 @@ public static class Timeline<TTrack, TClip>
 
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: true, entry.Loops, ticks, ref consumer,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
+                -1, out _);
         }
 
         private static void SampleForward(Timeline.Entry entry, void* data, ReadOnlySpan<uint> ticks)
@@ -1693,6 +1763,10 @@ public static unsafe partial class Timeline
 
         public required int MaxActiveTracks { get; init; }
         public required int MaxActiveBlends { get; init; }
+        // Cumulative cut counts per region (4 B each), or empty when built
+        // with the flag off — playback then always runs the full per-work
+        // Enter check.
+        public required CutCounts[] CutCounts { get; init; }
         public required bool Loops { get; init; }
 
         public required Action<Type, Entry> Binder { get; init; }
@@ -1769,6 +1843,15 @@ public static unsafe partial class Timeline
     private static readonly object s_gate = new();
     private static Entry?[] s_slots = [];
     private static int s_nextIndex;
+
+    // Build-time switch for the prefix-count experiment (faster queue #3),
+    // verdict REJECT on receipts: false (default) leaves the table empty and
+    // playback always runs the full per-work Enter check — measured parity
+    // or regressions in every shape (the redesign already made the per-work
+    // check O(1); the counts only remove a well-predicted branch at the
+    // price of 4 B per region and two extra loads per step). Benchmark A/B
+    // only — not API.
+    internal static bool EmitCutCounts = false;
 
     internal static ushort Register(Entry entry)
     {

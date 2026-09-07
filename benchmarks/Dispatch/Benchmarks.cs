@@ -769,6 +769,143 @@ public class BlendShape
     }
 }
 
+// Prefix counts for the per-work Enter gate (faster queue #3): four tracks
+// each tiling Clips/4 non-overlapping clips, so every region carries four
+// works whose State is consumed (a state-code checksum). Two builds of the
+// same content — CutCounts emitted (gate on) versus empty (full per-work
+// Crossed check, the pre-experiment behavior) — single-tick and batch4,
+// sequential and random.
+public struct CountsTrack : IBlend<CursorClip>
+{
+    public void Blend(in CursorClip first, in CursorClip second, float t, out CursorClip result)
+        => result = new(first.Value * (1f - t) + second.Value * t);
+}
+
+public struct CountsData :
+    IForward<CountsTrack, CursorClip, CountsData>,
+    IBackward<CountsTrack, CursorClip, CountsData>
+{
+    public float Sum;
+    public long Codes;
+    public int Count;
+
+    public void Forward(ref CountsData data, in Tracks<CountsTrack, CursorClip> tracks, in uint tick)
+    {
+        foreach (var work in tracks)
+        {
+            data.Sum += work.Clip.Value;
+            data.Codes += (uint)work.State;
+        }
+        data.Count++;
+    }
+
+    public void Backward(ref CountsData data, in Tracks<CountsTrack, CursorClip> tracks, in uint tick)
+    {
+        foreach (var work in tracks)
+        {
+            data.Sum -= work.Clip.Value;
+            data.Codes -= (uint)work.State;
+        }
+        data.Count--;
+    }
+}
+
+[Config(typeof(Config))]
+public class CountsShape
+{
+    public const int Operations = 65536;
+    [Params(16, 64, 512)] public int Clips { get; set; }
+    [Params(false, true)] public bool Sequential { get; set; }
+    private uint[] _ticks = null!;
+    private ushort _counted;
+    private ushort _scanned;
+
+    private static ushort BuildCounts(bool emit, int clips)
+    {
+        Timeline.EmitCutCounts = emit;
+        return Timeline<CountsTrack, CursorClip>.Build(b =>
+        {
+            for (var t = 0; t < 4; t++)
+            {
+                TrackRef track = b.Track(new CountsTrack());
+                for (uint i = 0; i < (uint)clips / 4; i++)
+                    b.Clip(track, new CursorClip(i + 1), i * 4, i * 4 + 3);
+            }
+        });
+    }
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _counted = BuildCounts(true, Clips);
+        _scanned = BuildCounts(false, Clips);
+        Timeline.EmitCutCounts = true;
+        _ticks = new uint[Operations];
+        uint duration = (uint)Clips / 4 * 4;
+        uint random = 0xB19F4C27;
+        for (var i = 0; i < _ticks.Length; i++)
+        {
+            random ^= random << 13;
+            random ^= random >> 17;
+            random ^= random << 5;
+            _ticks[i] = Sequential ? (uint)i % duration : random % duration;
+        }
+
+        // Receipt: the gate must not change the state-code checksum.
+        var expected = ScanSingle();
+        if (CountsSingle() != expected || ScanBatchFour() != expected || CountsBatchFour() != expected)
+            throw new InvalidOperationException($"CountsShape receipts differ for {Clips}/{Sequential}.");
+    }
+
+    [Benchmark(Baseline = true, OperationsPerInvoke = Operations)]
+    public float ScanSingle()
+    {
+        var data = new CountsData();
+        var pb = Timeline.Start(_scanned);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_scanned, in pb, ref data, tick);
+        return data.Sum + data.Codes + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float CountsSingle()
+    {
+        var data = new CountsData();
+        var pb = Timeline.Start(_counted);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_counted, in pb, ref data, tick);
+        return data.Sum + data.Codes + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float ScanBatchFour()
+    {
+        var data = new CountsData();
+        var pb = Timeline.Start(_scanned);
+        var ticks = _ticks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 4)
+        {
+            var t = ticks.Slice(i, 4);
+            pb = Timeline.Forward(_scanned, in pb, ref data, t[0], t[1], t[2], t[3]);
+        }
+        return data.Sum + data.Codes + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float CountsBatchFour()
+    {
+        var data = new CountsData();
+        var pb = Timeline.Start(_counted);
+        var ticks = _ticks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 4)
+        {
+            var t = ticks.Slice(i, 4);
+            pb = Timeline.Forward(_counted, in pb, ref data, t[0], t[1], t[2], t[3]);
+        }
+        return data.Sum + data.Codes + data.Count;
+    }
+}
+
 // The 8-byte Playback claim: `in`, by-value, and `ref` passing of one qword
 // should be indistinguishable.
 [Config(typeof(Config))]
