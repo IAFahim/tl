@@ -1,0 +1,12 @@
+# IDE
+.idea/
+
+# Build output
+**/bin/
+**/obj/
+
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
+
+# Timestamped local benchmark runs; named labels (validated/, release/) are committed receipts
+benchmarks/*/results/20*
