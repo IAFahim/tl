@@ -7,14 +7,14 @@ internal static class EdgeVerification
     public static void Run()
     {
         var failures = new List<string>();
-        foreach (var test in new Action[] { Gaps, Empty, Blend, Order, Packing, Wrap, States, Batches, CursorParity, Fixture, PerClip, WideTicks, Limits, Indices })
+        foreach (var test in new Action[] { Gaps, Empty, Blend, Order, Packing, Wrap, States, Batches, CursorParity, Scratch, Fixture, PerClip, WideTicks, Limits, Indices })
         {
             try { test(); }
             catch (Exception e) { failures.Add($"{test.Method.Name}: {e.Message}"); }
         }
         if (failures.Count != 0)
             throw new InvalidOperationException(string.Join(Environment.NewLine, failures));
-        Console.WriteLine("Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, fixture parity, per-work facts oracle, limits.");
+        Console.WriteLine("Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, blend scratch, fixture parity, per-work facts oracle, limits.");
     }
 
     private static void Require(bool condition, string message)
@@ -470,6 +470,164 @@ internal static class EdgeVerification
         }
     }
 
+    // Blend-sized scratch (faster queue #2): only blended tracks consume
+    // resolution slots, a zero-blend timeline needs no scratch at all, the
+    // stack path is byte-budgeted with the scratch overload as the escape
+    // hatch, and caller buffers never share state between simultaneous
+    // calls. Every receipt compares the scratch path against the plain stack
+    // path (and the authored values) for identical results.
+    private static void Scratch()
+    {
+        // 1. Zero blends: no blend scratch required at all — an empty caller
+        //    span is accepted and matches the stack path exactly.
+        var plainIndex = Make(new ClipEdge(0, 10), new ClipEdge(4, 8));
+        Require(Timeline.Live(plainIndex).MaxActiveBlends == 0, "A timeline without pairs must need no blend scratch.");
+        var plainStart = At(5);
+        var emptyScratch = new Probe();
+        var viaEmpty = Timeline<ProbeTrack, ProbeClip>.Forward(plainIndex, in plainStart, ref emptyScratch, Span<ProbeClip>.Empty, 5);
+        var plainZero = new Probe();
+        var viaStack = Timeline.Forward(plainIndex, in plainStart, ref plainZero, 5);
+        Require(viaEmpty.Flags == viaStack.Flags && viaEmpty.Cycles == viaStack.Cycles
+            && emptyScratch.Works.SequenceEqual(plainZero.Works) && emptyScratch.Sum == plainZero.Sum,
+            "The empty scratch span diverged on a zero-blend timeline.");
+
+        // 2. Mixed single/blended tracks: one standalone row resolves in
+        //    place, only the pair takes a slot; sizing follows blends, not
+        //    active tracks.
+        var mixed = Timeline<ProbeTrack, ProbeClip>.Build(static b =>
+        {
+            var solo = b.Track(new ProbeTrack(0));
+            var pair = b.Track(new ProbeTrack(2));
+            b.Clip(solo, new ProbeClip(10), 0, 8);
+            b.Clip(pair, new ProbeClip(10), 4, 9);
+            b.Clip(pair, new ProbeClip(30), 4, 9);
+        });
+        Require(Timeline.Live(mixed).MaxActiveTracks == 2, "Mixed fixture should have two concurrent active tracks.");
+        Require(Timeline.Live(mixed).MaxActiveBlends == 1, "Mixed fixture should size scratch to its one blend.");
+        Span<ProbeClip> one = stackalloc ProbeClip[1];
+        for (uint tick = 0; tick < 10; tick++)
+        {
+            var from = At(tick == 0 ? 0 : tick - 1);
+            var buffered = new Probe();
+            var bufferedPb = Timeline<ProbeTrack, ProbeClip>.Forward(mixed, in from, ref buffered, one, tick);
+            var stacked = new Probe();
+            var stackedPb = Timeline.Forward(mixed, in from, ref stacked, tick);
+            Require(bufferedPb.Flags == stackedPb.Flags && bufferedPb.Cycles == stackedPb.Cycles
+                && buffered.Works.SequenceEqual(stacked.Works) && buffered.Sum == stacked.Sum,
+                $"Scratch/stack diverged on the mixed fixture at {tick}.");
+        }
+
+        // 3. One-tick blend: the pair shares exactly one active frame, the
+        //    factor is 0.5.
+        var oneTick = Timeline<BigTrack, BigClip>.Build(static b =>
+        {
+            var track = b.Track(new BigTrack());
+            b.Clip(track, new BigClip(10f), 4, 5);
+            b.Clip(track, new BigClip(30f), 4, 5);
+        });
+        var oneData = new BigData();
+        var onePb = new Playback(3, 0, PlaybackFlags.Started);
+        Span<BigClip> oneBig = stackalloc BigClip[1];
+        onePb = Timeline<BigTrack, BigClip>.Forward(oneTick, in onePb, ref oneData, oneBig, 4);
+        Require(Math.Abs(oneData.Sum - 20f) < 1e-4f, $"A one-tick blend must resolve at factor 0.5; got {oneData.Sum}.");
+
+        // 4. All-blends, large payloads: caller buffer equals the stack path
+        //    tick for tick, and the same buffer serves repeated calls
+        //    without state bleed.
+        var all = Timeline<BigTrack, BigClip>.Build(static b =>
+        {
+            var track = b.Track(new BigTrack());
+            b.Clip(track, new BigClip(10f), 0, 16);
+            b.Clip(track, new BigClip(30f), 8, 24);
+        });
+        Require(Timeline.Live(all).MaxActiveTracks == 1 && Timeline.Live(all).MaxActiveBlends == 1,
+            "All-blends fixture sizing wrong.");
+        var buffer = new BigClip[1];
+        float first = 0, second = 0;
+        for (var run = 0; run < 2; run++)
+        {
+            var data = new BigData();
+            var pb = new Playback(0, 0, PlaybackFlags.Started);
+            for (uint tick = 0; tick < 24; tick++)
+                pb = Timeline<BigTrack, BigClip>.Forward(all, in pb, ref data, buffer, tick);
+            if (run == 0)
+                first = data.Sum;
+            else
+                second = data.Sum;
+        }
+
+        var stackedWalk = new BigData();
+        var stackedWalkPb = new Playback(0, 0, PlaybackFlags.Started);
+        for (uint tick = 0; tick < 24; tick++)
+            stackedWalkPb = Timeline.Forward(all, in stackedWalkPb, ref stackedWalk, tick);
+        Require(Math.Abs(first - stackedWalk.Sum) < 1e-4f && Math.Abs(second - stackedWalk.Sum) < 1e-4f,
+            "The caller buffer diverged from the stack path, or reusing one buffer bled state.");
+
+        // 5. Insufficient scratch rejects before any callback.
+        var witness = new BigData();
+        var startPb = new Playback(0, 0, PlaybackFlags.Started);
+        Reject<ArgumentException>(() => Timeline<BigTrack, BigClip>.Forward(all, in startPb, ref witness, Span<BigClip>.Empty, 1));
+        Require(witness.Count == 0, "Insufficient scratch must reject before any callback.");
+
+        // 6. Over-budget payloads refuse the stack path and play through the
+        //    caller buffer: one 4,204-byte blend slot exceeds the 4,096-byte
+        //    stack budget, so the stack overload throws and a retained heap
+        //    buffer carries it.
+        Require(Unsafe.SizeOf<HugeClip>() > BlendScratch.StackBytes, "The huge fixture should exceed the stack byte budget.");
+        var huge = Timeline<HugeTrack, HugeClip>.Build(static b =>
+        {
+            var track = b.Track(new HugeTrack());
+            b.Clip(track, new HugeClip(10f), 4, 9);
+            b.Clip(track, new HugeClip(30f), 4, 9);
+        });
+        var hugeWitness = new HugeData();
+        var hugeStart = new Playback(3, 0, PlaybackFlags.Started);
+        Reject<InvalidOperationException>(() => Timeline.Forward(huge, in hugeStart, ref hugeWitness, 4));
+        Require(hugeWitness.Count == 0, "The over-budget stack rejection must fire before any callback.");
+        var retained = new HugeClip[1];
+        var hugeData = new HugeData();
+        hugeStart = Timeline<HugeTrack, HugeClip>.Forward(huge, in hugeStart, ref hugeData, retained, 6);
+        Require(Math.Abs(hugeData.Sum - (10f * 0.5f + 30f * 0.5f)) < 1e-4f, $"The huge blend resolved wrong through the caller buffer: {hugeData.Sum}.");
+
+        // 7. Simultaneous/reentrant calls: the outer consumer plays a second
+        //    blended timeline from inside its callback, each with its own
+        //    scratch — outer and inner accumulate their own values.
+        var inner = Timeline<BigTrack, BigClip>.Build(static b =>
+        {
+            var track = b.Track(new BigTrack());
+            b.Clip(track, new BigClip(1f), 0, 24);
+            b.Clip(track, new BigClip(3f), 8, 24);
+        });
+        var nestedData = new NestedData { Inner = inner };
+        var nestedPb = new Playback(0, 0, PlaybackFlags.Started);
+        var outerBuffer = new BigClip[1];
+        for (uint tick = 0; tick < 24; tick++)
+            nestedPb = Timeline<BigTrack, BigClip>.Forward(all, in nestedPb, ref nestedData, outerBuffer, tick);
+        var innerReference = new BigData();
+        var innerPb = new Playback(0, 0, PlaybackFlags.Started);
+        for (uint tick = 0; tick < 24; tick++)
+            innerPb = Timeline.Forward(inner, in innerPb, ref innerReference, tick);
+        Require(Math.Abs(nestedData.InnerData.Sum - innerReference.Sum) < 1e-4f && nestedData.InnerData.Count == innerReference.Count,
+            "The reentrant inner timeline diverged from its standalone reference.");
+
+        // 8. The compiled-tables shell: same arrangement — scratch overload
+        //    equals the stack params overload.
+        Span<VitalsClip> vitalsScratch = stackalloc VitalsClip[1];
+        var shellData = new Vitals { Health = 100_000f };
+        GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(ref shellData, vitalsScratch, [0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599]);
+        var shellStack = new Vitals { Health = 100_000f };
+        GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(ref shellStack, 0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599);
+        Require(shellData.Result == shellStack.Result, "GeneratedTimeline scratch/stack diverged on the Vitals fixture.");
+        var shellStateData = new Vitals { Health = 100_000f };
+        var shellPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
+        shellPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in shellPb, ref shellStateData, vitalsScratch, [0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599]);
+        var shellStateStack = new Vitals { Health = 100_000f };
+        var shellStackPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
+        shellStackPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in shellStackPb, ref shellStateStack, 0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599);
+        Require(shellPb.Flags == shellStackPb.Flags && shellStateData.Result == shellStateStack.Result,
+            "GeneratedTimeline stateful scratch/stack diverged on the Vitals fixture.");
+    }
+
     private static void Fixture()
     {
         var shape = new ApiShape();
@@ -804,6 +962,126 @@ internal static class EdgeVerification
     {
         public void Blend(in ProbeClip first, in ProbeClip second, float t, out ProbeClip result)
             => result = new(first.Value * (1f - t) + second.Value * t + Bias);
+    }
+
+    // A 260-byte blend payload: comfortably inside the 4,096-byte stack
+    // budget for a few concurrent blends.
+    internal unsafe struct BigClip
+    {
+        public fixed byte Pad[256];
+        public float Value;
+
+        public BigClip(float value)
+        {
+            Value = value;
+        }
+    }
+
+    // A 4,204-byte blend payload: a single slot already exceeds the stack
+    // budget, so only the caller-buffer overload can play it.
+    internal unsafe struct HugeClip
+    {
+        public fixed byte Pad[4200];
+        public float Value;
+
+        public HugeClip(float value)
+        {
+            Value = value;
+        }
+    }
+
+    internal struct BigTrack : IBlend<BigClip>
+    {
+        public void Blend(in BigClip first, in BigClip second, float t, out BigClip result)
+            => result = new BigClip(first.Value * (1f - t) + second.Value * t);
+    }
+
+    internal struct HugeTrack : IBlend<HugeClip>
+    {
+        public void Blend(in HugeClip first, in HugeClip second, float t, out HugeClip result)
+            => result = new HugeClip(first.Value * (1f - t) + second.Value * t);
+    }
+
+    // Sums every work's resolved clip regardless of state, so blend values
+    // are visible even on one-frame windows.
+    internal struct BigData :
+        IForward<BigTrack, BigClip, BigData>,
+        IBackward<BigTrack, BigClip, BigData>
+    {
+        public float Sum;
+        public int Count;
+
+        public void Forward(ref BigData data, in Tracks<BigTrack, BigClip> tracks, in uint tick)
+        {
+            foreach (var work in tracks)
+                data.Sum += work.Clip.Value;
+            data.Count++;
+        }
+
+        public void Backward(ref BigData data, in Tracks<BigTrack, BigClip> tracks, in uint tick)
+        {
+            foreach (var work in tracks)
+                data.Sum -= work.Clip.Value;
+            data.Count--;
+        }
+    }
+
+    internal struct HugeData :
+        IForward<HugeTrack, HugeClip, HugeData>,
+        IBackward<HugeTrack, HugeClip, HugeData>
+    {
+        public float Sum;
+        public int Count;
+
+        public void Forward(ref HugeData data, in Tracks<HugeTrack, HugeClip> tracks, in uint tick)
+        {
+            foreach (var work in tracks)
+                data.Sum += work.Clip.Value;
+            data.Count++;
+        }
+
+        public void Backward(ref HugeData data, in Tracks<HugeTrack, HugeClip> tracks, in uint tick)
+        {
+            foreach (var work in tracks)
+                data.Sum -= work.Clip.Value;
+            data.Count--;
+        }
+    }
+
+    // Reentrancy witness: the consumer of one blended timeline plays a
+    // second blended timeline from inside its callback, each call resolving
+    // into its own scratch (the inner one is a stack buffer inside the
+    // callback — never a shared global).
+    internal struct NestedData :
+        IForward<BigTrack, BigClip, NestedData>,
+        IBackward<BigTrack, BigClip, NestedData>
+    {
+        public float Sum;
+        public int Count;
+        public ushort Inner;
+        public BigData InnerData;
+
+        public void Forward(ref NestedData data, in Tracks<BigTrack, BigClip> tracks, in uint tick)
+        {
+            foreach (var work in tracks)
+                data.Sum += work.Clip.Value;
+            data.Count++;
+
+            Span<BigClip> inner = stackalloc BigClip[1];
+            var pb = new Playback(tick, 0, PlaybackFlags.Started);
+            Timeline<BigTrack, BigClip>.Forward(data.Inner, in pb, ref data.InnerData, inner, tick);
+        }
+
+        public void Backward(ref NestedData data, in Tracks<BigTrack, BigClip> tracks, in uint tick)
+        {
+            foreach (var work in tracks)
+                data.Sum -= work.Clip.Value;
+            data.Count--;
+
+            Span<BigClip> inner = stackalloc BigClip[1];
+            var pb = new Playback(tick, 0, PlaybackFlags.Started);
+            Timeline<BigTrack, BigClip>.Backward(data.Inner, in pb, ref data.InnerData, inner, tick);
+        }
     }
 
     // The probe consumer: records every (Index, State) work it sees and

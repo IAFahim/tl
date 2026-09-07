@@ -554,7 +554,31 @@ public interface ITrackTables<TTrack, TClip>
     static abstract ReadOnlySpan<TTrack> TrackData { get; }
     static abstract ReadOnlySpan<TClip> ClipData { get; }
     static abstract int MaxActiveTracks { get; }
+    // Worst-case blended tracks in one region: the scratch a call must
+    // reserve. Standalone clips resolve in place and need no slot, so a
+    // zero-blend timeline requires no blend scratch at all.
+    static abstract int MaxActiveBlends { get; }
     static abstract bool Loops { get; }
+}
+
+// Bounded blend scratch: the convenient stack path reserves at most
+// StackBytes of blend-resolution storage per call; timelines whose worst
+// case exceeds the budget (or callers that prefer one buffer for many
+// calls) use the scratch-buffer overloads. Never a pool — pooling is not
+// zero allocation, and each simultaneous or reentrant call needs its own
+// buffer.
+internal static class BlendScratch
+{
+    internal const int StackBytes = 4096;
+
+    public static int StackCount<TClip>(int maxActiveBlends) where TClip : struct
+    {
+        var capacity = StackBytes / Unsafe.SizeOf<TClip>();
+        if ((uint)maxActiveBlends > (uint)capacity)
+            throw new InvalidOperationException(
+                "Blend scratch exceeds the stack byte budget; use the scratch-buffer overload.");
+        return maxActiveBlends;
+    }
 }
 
 // The per-tick view: only Count and enumeration — the aggregate status word
@@ -607,6 +631,10 @@ public readonly ref struct Tracks<TTrack, TClip>
         private readonly ReadOnlySpan<ClipEdge> _clipEdges;
         private readonly MovementSpan _movement;
         private int _i;
+        // Ordinal of the last blend this enumerator resolved: blend results
+        // take scratch slots in visit order, so only blended tracks consume
+        // scratch. -1 until the first blend is reached.
+        private int _blendSlot;
 
         internal Enumerator(
             uint tick,
@@ -624,14 +652,15 @@ public readonly ref struct Tracks<TTrack, TClip>
             _clipEdges = clipEdges;
             _movement = movement;
             _i = -1;
+            _blendSlot = -1;
         }
 
         public readonly TrackWork<TTrack, TClip> Current
-            => new(_trackRows[_i], _tick, _clipRows, _trackData, _clipData, _resolved, _clipEdges, _movement, _i);
+            => new(_trackRows[_i], _tick, _clipRows, _trackData, _clipData, _resolved, _clipEdges, _movement, _blendSlot);
 
         // Resolution fused with traversal: each blending track collapses to
         // one clip the moment it is reached. Works that are never visited are
-        // never blended.
+        // never blended — and never take a scratch slot.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
@@ -647,11 +676,12 @@ public readonly ref struct Tracks<TTrack, TClip>
             var first = _clipRows[row.ClipStart];
             var second = _clipRows[row.ClipStart + 1];
             var factor = first.FactorLength <= 1 ? 0.5f : (_tick - first.FactorStart) / (float)(first.FactorLength - 1);
+            var slot = ++_blendSlot;
             _trackData[row.TrackIndex].Blend(
                 in _clipData[first.ClipIndex],
                 in _clipData[second.ClipIndex],
                 factor,
-                out _resolved[i]);
+                out _resolved[slot]);
 
             return true;
         }
@@ -972,6 +1002,10 @@ public struct VitalsTrack : ITrackTables<VitalsTrack, VitalsClip>, IBlend<Vitals
     public static ReadOnlySpan<VitalsTrack> TrackData => s_trackData;
     public static ReadOnlySpan<VitalsClip> ClipData => s_clipData;
     public static int MaxActiveTracks => 3;
+    // At most one blended track is active in any region (regions 1, 5 and 7
+    // each hold exactly one pair); the other concurrent rows are standalone
+    // clips that resolve in place.
+    public static int MaxActiveBlends => 1;
     public static bool Loops => false;
 
     public void Blend(in VitalsClip first, in VitalsClip second, float t, out VitalsClip result)
@@ -997,6 +1031,7 @@ public struct LoopVitalsTrack : ITrackTables<LoopVitalsTrack, VitalsClip>, IBlen
     public static ReadOnlySpan<LoopVitalsTrack> TrackData => s_trackData;
     public static ReadOnlySpan<VitalsClip> ClipData => VitalsTrack.ClipData;
     public static int MaxActiveTracks => VitalsTrack.MaxActiveTracks;
+    public static int MaxActiveBlends => VitalsTrack.MaxActiveBlends;
     public static bool Loops => true;
 
     public void Blend(in VitalsClip first, in VitalsClip second, float t, out VitalsClip result)
@@ -1011,10 +1046,24 @@ public static class GeneratedTimeline<TTrack, TClip>
 {
     public static Playback Start(uint at = 0) => new(at, 0, PlaybackFlags.Started);
 
-    // Sampling only, no movement facts: the stateless path.
+    // Sampling only, no movement facts: the stateless path. The stack
+    // overload reserves only the timeline's worst-case blend scratch (within
+    // the byte budget); zero-blend timelines reserve nothing.
     public static void Forward<TData>(ref TData data, params ReadOnlySpan<uint> ticks)
         where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
     {
+        Span<TClip> scratch = stackalloc TClip[BlendScratch.StackCount<TClip>(TTrack.MaxActiveBlends)];
+        Forward(ref data, scratch, ticks);
+    }
+
+    // Caller-provided scratch: one buffer can serve many calls, but each
+    // simultaneous or reentrant call needs its own.
+    public static void Forward<TData>(ref TData data, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
+        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    {
+        if (scratch.Length < TTrack.MaxActiveBlends)
+            throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
+
         // Static-abstract fetches are generic-dictionary indirections — take
         // them once per call, never inside the per-track loop.
         var starts = TTrack.RegionStarts;
@@ -1025,18 +1074,24 @@ public static class GeneratedTimeline<TTrack, TClip>
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
-        // One hoisted resolution buffer per call — sized to the timeline's
-        // known maximum, exactly what generated code would emit.
-        Span<TClip> resolved = stackalloc TClip[TTrack.MaxActiveTracks];
-
         PlaybackCore.Sample<TTrack, TClip, TData>(
             backward: false, TTrack.Loops, ticks, ref data,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, scratch);
     }
 
     public static void Backward<TData>(ref TData data, params ReadOnlySpan<uint> ticks)
         where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
     {
+        Span<TClip> scratch = stackalloc TClip[BlendScratch.StackCount<TClip>(TTrack.MaxActiveBlends)];
+        Backward(ref data, scratch, ticks);
+    }
+
+    public static void Backward<TData>(ref TData data, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
+        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    {
+        if (scratch.Length < TTrack.MaxActiveBlends)
+            throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
+
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
         var trackRows = TTrack.TrackRows;
@@ -1044,17 +1099,25 @@ public static class GeneratedTimeline<TTrack, TClip>
         var edges = TTrack.ClipEdges;
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
-        Span<TClip> resolved = stackalloc TClip[TTrack.MaxActiveTracks];
 
         PlaybackCore.Sample<TTrack, TClip, TData>(
             backward: true, TTrack.Loops, ticks, ref data,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, scratch);
     }
 
     public static Playback Forward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
         where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
     {
+        Span<TClip> scratch = stackalloc TClip[BlendScratch.StackCount<TClip>(TTrack.MaxActiveBlends)];
+        return Forward(in from, ref data, scratch, ticks);
+    }
+
+    public static Playback Forward<TData>(in Playback from, ref TData data, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
+        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    {
         PlaybackCore.RequireRunnable(in from);
+        if (scratch.Length < TTrack.MaxActiveBlends)
+            throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
 
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
@@ -1063,17 +1126,25 @@ public static class GeneratedTimeline<TTrack, TClip>
         var edges = TTrack.ClipEdges;
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
-        Span<TClip> resolved = stackalloc TClip[TTrack.MaxActiveTracks];
 
         return PlaybackCore.Advance<TTrack, TClip, TData>(
             in from, backward: false, TTrack.Loops, ticks, ref data,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, scratch);
     }
 
     public static Playback Backward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
         where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
     {
+        Span<TClip> scratch = stackalloc TClip[BlendScratch.StackCount<TClip>(TTrack.MaxActiveBlends)];
+        return Backward(in from, ref data, scratch, ticks);
+    }
+
+    public static Playback Backward<TData>(in Playback from, ref TData data, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
+        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+    {
         PlaybackCore.RequireRunnable(in from);
+        if (scratch.Length < TTrack.MaxActiveBlends)
+            throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
 
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
@@ -1082,11 +1153,10 @@ public static class GeneratedTimeline<TTrack, TClip>
         var edges = TTrack.ClipEdges;
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
-        Span<TClip> resolved = stackalloc TClip[TTrack.MaxActiveTracks];
 
         return PlaybackCore.Advance<TTrack, TClip, TData>(
             in from, backward: true, TTrack.Loops, ticks, ref data,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, scratch);
     }
 }
 
@@ -1218,6 +1288,7 @@ public static class Timeline<TTrack, TClip>
         }
 
         var maxActive = 0;
+        var maxBlends = 0;
 
         for (var r = 0; r < regionRows.Length; r++)
         {
@@ -1272,6 +1343,14 @@ public static class Timeline<TTrack, TClip>
 
             if (count > maxActive)
                 maxActive = count;
+            // Blend rows are the pairs: exactly two active clips on one
+            // track. Only those consume scratch slots at play time.
+            var blends = 0;
+            for (var t = rowStart; t < trackRows.Count; t++)
+                if (trackRows[t].ClipCount == 2)
+                    blends++;
+            if (blends > maxBlends)
+                maxBlends = blends;
         }
 
         return Timeline.Register(new Timeline.Entry
@@ -1287,11 +1366,45 @@ public static class Timeline<TTrack, TClip>
                 ClipData = clipData,
             },
             MaxActiveTracks = maxActive,
+            MaxActiveBlends = maxBlends,
             Loops = authoring.Loops,
             Duration = (ushort)regionStarts[^1],
             Binder = BindType,
         });
     }
+
+    // Caller-provided blend scratch: one buffer can serve many calls, but
+    // each simultaneous or reentrant call needs its own. Length is in TClip
+    // elements and must cover the timeline's worst-case blends (checked
+    // before any callback); zero-blend timelines accept an empty span.
+    // Lives here — not on the non-generic hub — because only this closure
+    // can name TClip.
+    public static unsafe Playback Forward<TData>(ushort index, in Playback playback, ref TData data, Span<TClip> scratch, params ReadOnlySpan<uint> ticks)
+        where TData : struct
+    {
+        var entry = Timeline.Live(index);
+        PlaybackCore.RequireRunnable(in playback);
+        if (scratch.Length < entry.MaxActiveBlends)
+            throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
+        var run = entry.Bind(typeof(TData), Timeline.TokenOf<TData>());
+        return run.ForwardScratch(entry, in playback, ScratchPointer(scratch), scratch.Length, Unsafe.AsPointer(ref data), ticks);
+    }
+
+    public static unsafe Playback Backward<TData>(ushort index, in Playback playback, ref TData data, Span<TClip> scratch, params ReadOnlySpan<uint> ticks)
+        where TData : struct
+    {
+        var entry = Timeline.Live(index);
+        PlaybackCore.RequireRunnable(in playback);
+        if (scratch.Length < entry.MaxActiveBlends)
+            throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
+        var run = entry.Bind(typeof(TData), Timeline.TokenOf<TData>());
+        return run.BackwardScratch(entry, in playback, ScratchPointer(scratch), scratch.Length, Unsafe.AsPointer(ref data), ticks);
+    }
+
+    // The raw pointer the scratch runners receive; null for empty spans
+    // (zero-blend timelines reserve nothing).
+    private static unsafe void* ScratchPointer(Span<TClip> scratch)
+        => scratch.IsEmpty ? null : (void*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(scratch));
 
     // The one-time, per-(entry, TData) bridge instantiation. The non-generic
     // hub cannot constrain its TData against this closure (the CS0699-style
@@ -1342,7 +1455,7 @@ public static class Timeline<TTrack, TClip>
         public static void Install(Timeline.Entry entry)
             => entry.Install(
                 DataToken<TData>.Id,
-                new Timeline.Entry.Run(&RunForward, &RunBackward, &RunForwardCursor, &RunBackwardCursor, &SampleForward, &SampleBackward));
+                new Timeline.Entry.Run(&RunForward, &RunBackward, &RunForwardCursor, &RunBackwardCursor, &RunForwardScratch, &RunBackwardScratch, &SampleForward, &SampleBackward));
 
         // The caller's `ref data` arrives as a stack-pinned void* and is
         // rehydrated here: the pointer mutates the caller's instance, zero
@@ -1358,7 +1471,7 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: false, entry.Loops, ticks, ref consumer,
@@ -1376,7 +1489,7 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: true, entry.Loops, ticks, ref consumer,
@@ -1404,7 +1517,7 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             var result = PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: false, entry.Loops, ticks, ref consumer,
@@ -1430,7 +1543,7 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             var result = PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: true, entry.Loops, ticks, ref consumer,
@@ -1439,6 +1552,46 @@ public static class Timeline<TTrack, TClip>
 
             cache = new Cursor { Owner = entry, Tick = result.Tick, Region = region };
             return result;
+        }
+
+        // Caller-scratch runners: the caller's buffer arrives raw (pointer
+        // plus element count — the hub cannot name TClip) and is rehydrated
+        // here where the closure knows it. The public overload checked the
+        // length before the call; the engine is otherwise identical.
+        private static Playback RunForwardScratch(Timeline.Entry entry, in Playback from, void* scratch, int scratchLength, void* data, ReadOnlySpan<uint> ticks)
+        {
+            ref var consumer = ref Unsafe.AsRef<TData>(data);
+            var tables = Unsafe.As<Tables>(entry.Payload);
+            var starts = entry.RegionStarts.AsSpan();
+            var regionRows = entry.RegionRows.AsSpan();
+            var trackRows = entry.TrackRows.AsSpan();
+            var clipRows = entry.ClipRows.AsSpan();
+            var edges = entry.ClipEdges.AsSpan();
+            var trackData = tables.TrackData.AsSpan();
+            var clipData = tables.ClipData.AsSpan();
+            var resolved = new Span<TClip>(scratch, scratchLength);
+
+            return PlaybackCore.Advance<TTrack, TClip, TData>(
+                in from, backward: false, entry.Loops, ticks, ref consumer,
+                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+        }
+
+        private static Playback RunBackwardScratch(Timeline.Entry entry, in Playback from, void* scratch, int scratchLength, void* data, ReadOnlySpan<uint> ticks)
+        {
+            ref var consumer = ref Unsafe.AsRef<TData>(data);
+            var tables = Unsafe.As<Tables>(entry.Payload);
+            var starts = entry.RegionStarts.AsSpan();
+            var regionRows = entry.RegionRows.AsSpan();
+            var trackRows = entry.TrackRows.AsSpan();
+            var clipRows = entry.ClipRows.AsSpan();
+            var edges = entry.ClipEdges.AsSpan();
+            var trackData = tables.TrackData.AsSpan();
+            var clipData = tables.ClipData.AsSpan();
+            var resolved = new Span<TClip>(scratch, scratchLength);
+
+            return PlaybackCore.Advance<TTrack, TClip, TData>(
+                in from, backward: true, entry.Loops, ticks, ref consumer,
+                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
         }
 
         private static void SampleForward(Timeline.Entry entry, void* data, ReadOnlySpan<uint> ticks)
@@ -1452,7 +1605,7 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             PlaybackCore.Sample<TTrack, TClip, TData>(
                 backward: false, entry.Loops, ticks, ref consumer,
@@ -1470,7 +1623,7 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             PlaybackCore.Sample<TTrack, TClip, TData>(
                 backward: true, entry.Loops, ticks, ref consumer,
@@ -1539,19 +1692,24 @@ public static unsafe partial class Timeline
         public required ushort Duration { get; init; }
 
         public required int MaxActiveTracks { get; init; }
+        public required int MaxActiveBlends { get; init; }
         public required bool Loops { get; init; }
 
         public required Action<Type, Entry> Binder { get; init; }
 
         // One bound (forward, backward, cursor-primed forward/backward,
-        // sample-forward, sample-backward) pointer set per consumer token
-        // id. The cursor variants carry the caller's stack-pinned Cursor
-        // alongside the data pointer.
+        // caller-scratch forward/backward, sample-forward, sample-backward)
+        // pointer set per consumer token id. The cursor variants carry the
+        // caller's stack-pinned Cursor alongside the data pointer; the
+        // scratch variants carry the caller's blend buffer as a raw pointer
+        // plus element count (the hub cannot name TClip).
         public readonly struct Run(
             delegate*<Entry, in Playback, void*, ReadOnlySpan<uint>, Playback> forward,
             delegate*<Entry, in Playback, void*, ReadOnlySpan<uint>, Playback> backward,
             delegate*<Entry, in Playback, void*, void*, ReadOnlySpan<uint>, Playback> forwardCursor,
             delegate*<Entry, in Playback, void*, void*, ReadOnlySpan<uint>, Playback> backwardCursor,
+            delegate*<Entry, in Playback, void*, int, void*, ReadOnlySpan<uint>, Playback> forwardScratch,
+            delegate*<Entry, in Playback, void*, int, void*, ReadOnlySpan<uint>, Playback> backwardScratch,
             delegate*<Entry, void*, ReadOnlySpan<uint>, void> sampleForward,
             delegate*<Entry, void*, ReadOnlySpan<uint>, void> sampleBackward)
         {
@@ -1559,6 +1717,8 @@ public static unsafe partial class Timeline
             public readonly delegate*<Entry, in Playback, void*, ReadOnlySpan<uint>, Playback> Backward = backward;
             public readonly delegate*<Entry, in Playback, void*, void*, ReadOnlySpan<uint>, Playback> ForwardCursor = forwardCursor;
             public readonly delegate*<Entry, in Playback, void*, void*, ReadOnlySpan<uint>, Playback> BackwardCursor = backwardCursor;
+            public readonly delegate*<Entry, in Playback, void*, int, void*, ReadOnlySpan<uint>, Playback> ForwardScratch = forwardScratch;
+            public readonly delegate*<Entry, in Playback, void*, int, void*, ReadOnlySpan<uint>, Playback> BackwardScratch = backwardScratch;
             public readonly delegate*<Entry, void*, ReadOnlySpan<uint>, void> SampleForward = sampleForward;
             public readonly delegate*<Entry, void*, ReadOnlySpan<uint>, void> SampleBackward = sampleBackward;
 
@@ -1773,7 +1933,7 @@ public static unsafe partial class Timeline
         run.SampleBackward(entry, Unsafe.AsPointer(ref data), ticks);
     }
 
-    private static int TokenOf<TData>()
+    internal static int TokenOf<TData>()
     {
         var id = DataToken<TData>.Id;
         if (id != 0)

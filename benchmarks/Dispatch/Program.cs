@@ -859,6 +859,8 @@ public struct Fused16Track : ITrackTables<Fused16Track, Fused16Clip>, IBlend<Fus
     public static ReadOnlySpan<Fused16Track> TrackData => s_trackData;
     public static ReadOnlySpan<Fused16Clip> ClipData => s_clipData;
     public static int MaxActiveTracks => 1;
+    // No overlapping pairs anywhere: this fixture needs no blend scratch.
+    public static int MaxActiveBlends => 0;
     public static bool Loops => false;
 
     public void Blend(in Fused16Clip first, in Fused16Clip second, float t, out Fused16Clip result)

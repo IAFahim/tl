@@ -598,6 +598,177 @@ public class CursorShape
     }
 }
 
+// Blend-sized scratch: a four-track region where two tracks carry
+// crossfading pairs (260 B payloads) and two hold standalone clips. The
+// stack path reserves MaxActiveBlends (2 x 260 B) per call; the buffer arms
+// reuse one caller-owned buffer across the whole walk. The zero-blend arms
+// run a timeline with no pairs at all — no scratch reserved either way.
+public unsafe struct BlendClip
+{
+    public fixed byte Pad[256];
+    public float Value;
+
+    public BlendClip(float value)
+    {
+        Value = value;
+    }
+}
+
+public struct BlendTrack : IBlend<BlendClip>
+{
+    public void Blend(in BlendClip first, in BlendClip second, float t, out BlendClip result)
+        => result = new BlendClip(first.Value * (1f - t) + second.Value * t);
+}
+
+public struct BlendData :
+    IForward<BlendTrack, BlendClip, BlendData>,
+    IBackward<BlendTrack, BlendClip, BlendData>
+{
+    public float Sum;
+    public int Count;
+
+    public void Forward(ref BlendData data, in Tracks<BlendTrack, BlendClip> tracks, in uint tick)
+    {
+        foreach (var work in tracks)
+            data.Sum += work.Clip.Value;
+        data.Count++;
+    }
+
+    public void Backward(ref BlendData data, in Tracks<BlendTrack, BlendClip> tracks, in uint tick)
+    {
+        foreach (var work in tracks)
+            data.Sum -= work.Clip.Value;
+        data.Count--;
+    }
+}
+
+[Config(typeof(Config))]
+public class BlendShape
+{
+    public const int Operations = 65536;
+    public const int Duration = 64;
+    private uint[] _ticks = null!;
+    private ushort _blended;
+    private ushort _zeroBlend;
+    private BlendClip[] _buffer = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _blended = Timeline<BlendTrack, BlendClip>.Build(b =>
+        {
+            // Two crossfading pairs and two standalone clips, all live over
+            // the whole duration: MaxActiveTracks 4, MaxActiveBlends 2.
+            TrackRef firstPair = b.Track(new BlendTrack());
+            TrackRef secondPair = b.Track(new BlendTrack());
+            TrackRef soloA = b.Track(new BlendTrack());
+            TrackRef soloB = b.Track(new BlendTrack());
+            b.Clip(firstPair, new BlendClip(4f), 0, Duration);
+            b.Clip(firstPair, new BlendClip(8f), 0, Duration);
+            b.Clip(secondPair, new BlendClip(6f), 0, Duration);
+            b.Clip(secondPair, new BlendClip(12f), 0, Duration);
+            b.Clip(soloA, new BlendClip(3f), 0, Duration);
+            b.Clip(soloB, new BlendClip(5f), 0, Duration);
+        });
+        _zeroBlend = Timeline<BlendTrack, BlendClip>.Build(b =>
+        {
+            for (var t = 0; t < 4; t++)
+            {
+                TrackRef track = b.Track(new BlendTrack());
+                b.Clip(track, new BlendClip(t + 1), 0, Duration);
+            }
+        });
+        _ticks = new uint[Operations];
+        for (var i = 0; i < _ticks.Length; i++)
+            _ticks[i] = (uint)i % Duration;
+
+        // The caller-owned buffer: two blend slots, retained for the whole
+        // walk — stack bytes per call become zero, retained bytes 2 * 260.
+        _buffer = new BlendClip[2];
+
+        // Receipts: every arm must produce the identical sum.
+        var expected = StackSingle();
+        if (BufferSingle() != expected || StackBatchFour() != expected || BufferBatchFour() != expected)
+            throw new InvalidOperationException("BlendShape receipts differ across arms.");
+        var zero = ZeroBlendSingle();
+        if (ZeroBlendBatchFour() != zero)
+            throw new InvalidOperationException("BlendShape zero-blend receipts differ across arms.");
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float StackSingle()
+    {
+        var data = new BlendData();
+        var pb = Timeline.Start(_blended);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_blended, in pb, ref data, tick);
+        return data.Sum + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float StackBatchFour()
+    {
+        var data = new BlendData();
+        var pb = Timeline.Start(_blended);
+        var ticks = _ticks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 4)
+        {
+            var t = ticks.Slice(i, 4);
+            pb = Timeline.Forward(_blended, in pb, ref data, t[0], t[1], t[2], t[3]);
+        }
+        return data.Sum + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float BufferSingle()
+    {
+        var data = new BlendData();
+        var pb = Timeline.Start(_blended);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline<BlendTrack, BlendClip>.Forward(_blended, in pb, ref data, _buffer, tick);
+        return data.Sum + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float BufferBatchFour()
+    {
+        var data = new BlendData();
+        var pb = Timeline.Start(_blended);
+        var ticks = _ticks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 4)
+        {
+            var t = ticks.Slice(i, 4);
+            pb = Timeline<BlendTrack, BlendClip>.Forward(_blended, in pb, ref data, _buffer, t);
+        }
+        return data.Sum + data.Count;
+    }
+
+    // No pairs anywhere: the scratch reservation is zero on every path.
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float ZeroBlendSingle()
+    {
+        var data = new BlendData();
+        var pb = Timeline.Start(_zeroBlend);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_zeroBlend, in pb, ref data, tick);
+        return data.Sum + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float ZeroBlendBatchFour()
+    {
+        var data = new BlendData();
+        var pb = Timeline.Start(_zeroBlend);
+        var ticks = _ticks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 4)
+        {
+            var t = ticks.Slice(i, 4);
+            pb = Timeline.Forward(_zeroBlend, in pb, ref data, t[0], t[1], t[2], t[3]);
+        }
+        return data.Sum + data.Count;
+    }
+}
+
 // The 8-byte Playback claim: `in`, by-value, and `ref` passing of one qword
 // should be indistinguishable.
 [Config(typeof(Config))]
