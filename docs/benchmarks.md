@@ -338,3 +338,69 @@ Hard rules from the dispatch suite still apply:
 Static-abstract polymorphism over timelines (`interface ITimeline` implemented
 by generated tracks) remains available for utilities that are generic over
 timelines — same devirtualization machinery, zero cost.
+
+### Frozen path (work in progress)
+
+The `Generate` project now emits two **frozen** timelines into
+`benchmarks/Dispatch/Generated/` — per-timeline playback code specialized at
+emission time against tables the generator reads directly (`Generate.csproj`
+compiles `Hooks.cs`, so the fixture tables have one source of truth):
+
+- `VitalsFrozen.g.cs` — the `VitalsTrack` fixture (duration 600, 13 region
+  starts = 12 regions plus the empty sentinel, 4 tracks, blends and gaps).
+- `Fused16Frozen.g.cs` — a synthesized single-track, 16-clip fixture in the
+  Review/Movement shape: clip `i` covers `[i*4, i*4+3)` with value `i+1`,
+  duration 63, the 4th tick of each group is the gap. The ~1 ns headline arm.
+
+What the frozen form specializes away from `PlaybackCore`: region lookup is a
+binary branch tree over the known starts, positional flags and payloads are
+immediates and constant compares, and movement facts (Enter/Exit) are rank
+comparisons over the known clip-start/clip-end cut boundaries — the boundary
+walk collapses because a cut boundary lies in the crossed span exactly when
+its rank at the two ends differs. The frozen form is bound to one exact
+non-looping timeline: no wraps, no cycle arithmetic (`Cycles` passes through),
+no duration-0/empty handling.
+
+Parity receipts (`Dispatch --verify`, oracle = `PlaybackCore` through the real
+tables: `OracleVitals`, and hand-set `Fused16Track` literals cross-checked
+tick-by-tick against the raw clip list): sequential walks 0..duration+10 with
+exact float sink equality, a 24-pair deterministic jump battery in and out of
+range (forward and backward), forward/backward mirrors that land both sinks
+back on their initial values (`Count` and `Flags` exactly zero, `Sum` within
+float cancellation), one 8-tick batch call vs eight single calls, and
+flag-count totals over the full walk (frozen vs oracle, nothing hardcoded).
+
+Accumulation contract mirrored bit-for-bit by both sides, per tick, in order:
+`Sum +=` one blend-resolved clip value per active track in track-row order,
+`Flags += (uint)status`, then `Count++` for ticks with at least one active
+track; `Backward` subtracts in the same order (the exact inverse — which is
+why the mirror receipt can demand exact restoration of `Count` and `Flags`).
+
+Quick measurement (`--filter '*Frozen*'`, pinned to one core, tiered-JIT
+medians, ns per tick; the ApiShape reference `PlaybackSingle` on the same
+Vitals fixture is 21.5 ns with random ticks):
+
+| Method                 | Random ticks | Sequential ticks |
+|------------------------|-------------:|-----------------:|
+| `FrozenVitalsSingle`   |        9.50  |            4.22  |
+| `FrozenVitalsBatch8`   |        8.80  |               —  |
+| `Fused16Single`        |       19.89  |            7.19  |
+| `Fused16Batch8`        |       21.88  |               —  |
+
+Readings, honestly:
+
+- Frozen beats the generic engine everywhere it should: 2.3x on random
+  jumps, 5.1x on sequential streams for the full Vitals semantics
+  (movement flags + sink + `Playback` return), 0 B allocated. Tiered PGO
+  matters on the branch tree: with tiering off, sequential Vitals is
+  8.6 ns.
+- `Fused16` losing to the harder `Vitals` fixture is an emitter-quality
+  gap, not a path limit: its tree specializes per tick with equality
+  checks inside leaves that the branch path already implies, while the
+  Vitals emitter specializes per region with flags folded. Next emitter
+  milestone: region-shaped leaves for thin-region fixtures.
+- The sub-1 ns frozen receipts from the sibling LUT repo (0.165 ns
+  sampling, 1.33 ns one-tick traverse) measured a repeated single tick
+  and pure sampling, without per-tick `Playback` flags on varied ticks;
+  this path is not there yet. 4.2 ns/tick sequential with full movement
+  semantics is the current proven floor for tl timelines.

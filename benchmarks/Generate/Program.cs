@@ -1,5 +1,6 @@
 using System.Globalization;
 using Tl.Algorithms;
+using Tl.Hooks;
 using static Waffle.WaffleSyntax;
 
 if (args.Length != 1)
@@ -430,3 +431,347 @@ foreach (var name in new[] { "Sparse256", "Sparse4096" })
     File.WriteAllText(Path.Combine(dispatchDir, name + ".g.cs"), source);
     Console.WriteLine($"{name}: {indices.Length} timelines, {source.Length} source characters.");
 }
+
+// ---- Frozen per-timeline playback (Dispatch fixtures) ----
+// Per-timeline code specialized at emission time against tables the generator
+// can read: region lookup becomes a binary branch tree over the known starts
+// (the Tree pattern from the Algorithms fixtures), movement facts become rank
+// comparisons over the known cut-bit boundaries, and clip payloads become
+// immediates. The frozen form is bound to one exact non-looping timeline.
+
+string Lit(float value) => value.ToString("R", CultureInfo.InvariantCulture) + "f";
+
+string U(uint value) => value.ToString(CultureInfo.InvariantCulture) + "u";
+
+string EmitFrozen(
+    string name, string[] notes, string tail,
+    uint[] starts, RegionRow[] regionRows, byte[] regionFlags,
+    TrackRow[] trackRows, ClipRow[] clipRows, float[] amounts)
+{
+    var duration = starts[^1];
+
+    // One leaf per region: positional flags from the region's constants,
+    // sampling as immediate adds, Complete folded to where it can still fire.
+    string Leaf(int r, bool backward)
+    {
+        var rs = starts[r];
+        var re = r + 1 < starts.Length ? starts[r + 1] : duration;
+        var cut = regionFlags[r];
+        var row = regionRows[r];
+        var lines = new List<string>
+        {
+            row.TrackCount > 0 ? "flags = PlaybackFlags.Active;" : "flags = PlaybackFlags.None;",
+        };
+
+        if ((cut & 1) != 0)
+            lines.Add($"if (tick == {U(rs)}) flags |= PlaybackFlags.First;");
+        if ((cut & 4) != 0)
+            lines.Add($"if (tick == {U(re - 1)}) flags |= PlaybackFlags.Last;");
+
+        // Non-looping completion: forward fires from duration-1 on, backward
+        // only exactly at tick 0.
+        if (backward)
+        {
+            if (rs == 0)
+                lines.Add("if (tick == 0u) flags |= PlaybackFlags.Complete;");
+        }
+        else if (re >= duration)
+        {
+            if (rs >= duration - 1)
+                lines.Add("flags |= PlaybackFlags.Complete;");
+            else
+                lines.Add($"if (tick >= {U(duration - 1)}) flags |= PlaybackFlags.Complete;");
+        }
+
+        for (var t = 0; t < row.TrackCount; t++)
+        {
+            var track = trackRows[row.TrackStart + t];
+            var op = backward ? "-=" : "+=";
+            if (track.ClipCount == 1)
+            {
+                lines.Add($"sink.Sum {op} {Lit(amounts[clipRows[track.ClipStart].ClipIndex])};");
+                continue;
+            }
+
+            // Blend-resolved track: the factor expression is byte-for-byte
+            // the one Tracks.MoveNext evaluates, with constant windows, so
+            // the float arithmetic matches the table path exactly.
+            var first = clipRows[track.ClipStart];
+            var second = clipRows[track.ClipStart + 1];
+            var factor = $"factor{t}";
+            lines.Add(first.FactorLength <= 1
+                ? $"var {factor} = 0.5f;"
+                : $"var {factor} = (tick - {U(first.FactorStart)}) / {Lit(first.FactorLength - 1)};");
+            lines.Add($"sink.Sum {op} {Lit(amounts[first.ClipIndex])} * (1f - {factor}) + {Lit(amounts[second.ClipIndex])} * {factor};");
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    string Tree(int lo, int hi, bool backward)
+    {
+        if (hi - lo == 1)
+            return Leaf(lo, backward);
+
+        var mid = (lo + hi) / 2;
+        var left = Tree(lo, mid, backward);
+        var right = Tree(mid, hi, backward);
+        return Render($$"""
+            if (tick < {{U(starts[mid])}})
+            {
+                {{left}}
+            }
+            else
+            {
+                {{right}}
+            }
+            """);
+    }
+
+    // Movement facts without the boundary walk: Enter/Exit fire when a
+    // clip-start or clip-end cut boundary (exactly the region boundaries
+    // carrying that cut bit) falls inside the crossed span, which is a rank
+    // comparison over the known constants.
+    var startCuts = Enumerable.Range(0, starts.Length).Where(i => (regionFlags[i] & 1) != 0).Select(i => starts[i]).ToArray();
+    var endCuts = Enumerable.Range(0, starts.Length).Where(i => (regionFlags[i] & 2) != 0).Select(i => starts[i]).ToArray();
+
+    string Rank(string method, uint[] cuts)
+    {
+        string Body(int lo, int hi)
+        {
+            if (lo == hi)
+                return $"return {lo};";
+            if (hi - lo == 1)
+                return cuts[lo] == 0 ? $"return {lo + 1};" : $"return tick < {U(cuts[lo])} ? {lo} : {lo + 1};";
+
+            var mid = (lo + hi) / 2;
+            var left = Body(lo, mid);
+            var right = Body(mid + 1, hi);
+            return Render($$"""
+                if (tick < {{U(cuts[mid])}})
+                {
+                    {{left}}
+                }
+                else
+                {
+                    {{right}}
+                }
+                """);
+        }
+
+        if (cuts.Length == 0)
+            return Render($$"""
+                private static int {{method}}(uint tick) => 0;
+                """);
+
+        return Render($$"""
+            private static int {{method}}(uint tick)
+            {
+                {{Body(0, cuts.Length)}}
+            }
+            """);
+    }
+
+    var startMethod = Render($$"""
+        public static Playback Start(uint at = 0) => Playback.Start(at);
+        """);
+
+    var forward = Render($$"""
+        public static Playback Forward(in Playback from, ref FrozenSink sink, params ReadOnlySpan<uint> ticks)
+        {
+            var state = from;
+            foreach (var tick in ticks)
+            {
+                PlaybackFlags flags;
+                {{Tree(0, starts.Length, false)}}
+                if (tick > state.Tick)
+                {
+                    if (StartRank(tick) > StartRank(state.Tick))
+                        flags |= PlaybackFlags.Enter;
+                    if (EndRank(tick) > EndRank(state.Tick))
+                        flags |= PlaybackFlags.Exit;
+                }
+                sink.Flags += (uint)flags;
+                if ((flags & PlaybackFlags.Active) != 0)
+                    sink.Count++;
+                state = new Playback(tick, state.Cycles, flags);
+            }
+            return state;
+        }
+        """);
+
+    var backward = Render($$"""
+        public static Playback Backward(in Playback from, ref FrozenSink sink, params ReadOnlySpan<uint> ticks)
+        {
+            var state = from;
+            foreach (var tick in ticks)
+            {
+                PlaybackFlags flags;
+                {{Tree(0, starts.Length, true)}}
+                if (tick < state.Tick)
+                {
+                    if (EndRank(state.Tick) > EndRank(tick))
+                        flags |= PlaybackFlags.Enter;
+                    if (StartRank(state.Tick) > StartRank(tick))
+                        flags |= PlaybackFlags.Exit;
+                }
+                sink.Flags -= (uint)flags;
+                if ((flags & PlaybackFlags.Active) != 0)
+                    sink.Count--;
+                state = new Playback(tick, state.Cycles, flags);
+            }
+            return state;
+        }
+        """);
+
+    var members = new List<string> { startMethod, forward, backward, Rank("StartRank", startCuts), Rank("EndRank", endCuts) };
+    var header = string.Join("\n", notes.Select(note => "// " + note));
+    var body = string.Join("\n\n", members);
+
+    return Render($$"""
+        // <auto-generated>
+        {{header}}
+        namespace Tl.Hooks;
+
+        public unsafe struct {{name}} : IFrozen
+        {
+        {{body}}
+        }
+        {{tail}}
+        """) + "\n";
+}
+
+// (a) The real fixture: tables read straight from Hooks.cs - a single source
+// of truth shared with the oracle the parity receipts run through.
+var vitalsStarts = VitalsTrack.RegionStarts.ToArray();
+var vitalsSource = EmitFrozen(
+    "VitalsFrozen",
+    [
+        "Frozen playback for the VitalsTrack fixture (duration 600, 13 region",
+        "starts = 12 regions plus the empty sentinel at 600, 4 tracks, blends",
+        "and gaps). Region starts, cut bits, clip windows, and payloads are",
+        "compile-time constants here: region lookup is a binary branch tree",
+        "over the known starts, movement facts are rank comparisons over the",
+        "known clip-start/clip-end cut boundaries, and sampling adds immediates",
+        "with the same blend-factor arithmetic as the table path",
+        "((tick - factorStart) / (float)(factorLength - 1)).",
+        "Specialized from PlaybackCore for this exact timeline: non-looping,",
+        "so no wraps, no cycle arithmetic (Cycles passes through unchanged),",
+        "effective positions are the raw ticks, and duration-0/empty-timeline",
+        "handling does not apply.",
+        "Accumulation contract, mirrored bit-for-bit by the oracle in",
+        "Dispatch's Program.cs: per tick, in order - Sum += one blend-resolved",
+        "clip value per active track in track-row order, Flags += (uint)status,",
+        "Count++ for ticks with at least one active track; Backward subtracts",
+        "in the same order (the exact inverse).",
+        "See docs/benchmarks.md.",
+    ],
+    """
+    // The frozen call contract: one static face per generated timeline so
+    // the parity receipts can be generic over fixtures.
+    public interface IFrozen
+    {
+        static abstract Playback Start(uint at = 0);
+
+        static abstract Playback Forward(in Playback from, ref FrozenSink sink, params ReadOnlySpan<uint> ticks);
+
+        static abstract Playback Backward(in Playback from, ref FrozenSink sink, params ReadOnlySpan<uint> ticks);
+    }
+
+    // What the frozen code accumulates directly: same fields, same order,
+    // same arithmetic as the oracle consumers in Dispatch's Program.cs.
+    public struct FrozenSink
+    {
+        public float Sum;
+        public long Flags;
+        public int Count;
+    }
+    """,
+    vitalsStarts,
+    VitalsTrack.RegionRows.ToArray(),
+    VitalsTrack.RegionFlags.ToArray(),
+    VitalsTrack.TrackRows.ToArray(),
+    VitalsTrack.ClipRows.ToArray(),
+    VitalsTrack.ClipData.ToArray().Select(clip => clip.Amount).ToArray());
+
+File.WriteAllText(Path.Combine(dispatchDir, "VitalsFrozen.g.cs"), vitalsSource);
+Console.WriteLine($"VitalsFrozen: {vitalsStarts.Length} region starts, {vitalsSource.Length} source characters.");
+
+// (b) The synthesized single-track fixture in the Review/Movement shape: one
+// track, 16 clips, clip i = [i*4, i*4+3) with value i+1, duration 63; the
+// 4th tick of each group is the gap. Tables derive from the same event sweep
+// Timeline.Build uses; Dispatch's --verify cross-checks the hand-set oracle
+// literals against the raw clip list.
+const int fusedClips = 16;
+const uint fusedDuration = 63;
+var fusedCuts = new SortedSet<uint> { 0 };
+for (var i = 0; i < fusedClips; i++)
+{
+    fusedCuts.Add((uint)(i * 4));
+    fusedCuts.Add((uint)(i * 4 + 3));
+}
+var fusedStarts = fusedCuts.ToArray();
+if (fusedStarts[^1] != fusedDuration)
+    throw new InvalidOperationException("Fused16 duration must be the last cut.");
+var fusedRegionRows = new RegionRow[fusedStarts.Length];
+var fusedRegionFlags = new byte[fusedStarts.Length];
+var fusedTrackRows = new List<TrackRow>();
+var fusedClipRows = new List<ClipRow>();
+
+for (var r = 0; r < fusedStarts.Length; r++)
+{
+    var lo = fusedStarts[r];
+    var rowStart = fusedTrackRows.Count;
+
+    for (var i = 0; i < fusedClips; i++)
+    {
+        if ((uint)(i * 4) > lo || lo >= (uint)(i * 4 + 3))
+            continue;
+        fusedClipRows.Add(new ClipRow(checked((ushort)i), 0, 0));
+        fusedTrackRows.Add(new TrackRow(0, checked((ushort)(fusedClipRows.Count - 1)), 1));
+    }
+
+    fusedRegionRows[r] = new RegionRow(
+        checked((ushort)rowStart), checked((ushort)(fusedTrackRows.Count - rowStart)));
+
+    var re = r + 1 < fusedStarts.Length ? fusedStarts[r + 1] : 0;
+    byte flag = 0;
+    for (var i = 0; i < fusedClips; i++)
+    {
+        if ((uint)(i * 4) == lo)
+            flag |= 1;
+        if ((uint)(i * 4 + 3) == lo)
+            flag |= 2;
+        if ((uint)(i * 4 + 3) == re)
+            flag |= 4;
+    }
+    fusedRegionFlags[r] = flag;
+}
+
+var fusedSource = EmitFrozen(
+    "Fused16Frozen",
+    [
+        "Frozen playback for the Movement-shaped fixture (one track, 16 clips,",
+        "clip i = [i*4, i*4+3) with value i+1, duration 63; the 4th tick of",
+        "each group is a gap). Region lookup is a binary branch tree, movement",
+        "facts are rank comparisons, and every clip region folds to one",
+        "immediate add.",
+        "Specialized from PlaybackCore for this exact timeline: non-looping,",
+        "no wraps, no cycle arithmetic, no duration-0/empty handling.",
+        "Accumulation contract: identical to VitalsFrozen (see there);",
+        "Backward subtracts in the same order.",
+        "See docs/benchmarks.md.",
+    ],
+    """
+    // FrozenSink and IFrozen live in VitalsFrozen.g.cs; this fixture reuses
+    // them unchanged.
+    """,
+    fusedStarts,
+    fusedRegionRows,
+    fusedRegionFlags,
+    [.. fusedTrackRows],
+    [.. fusedClipRows],
+    Enumerable.Range(1, fusedClips).Select(i => (float)i).ToArray());
+
+File.WriteAllText(Path.Combine(dispatchDir, "Fused16Frozen.g.cs"), fusedSource);
+Console.WriteLine($"Fused16Frozen: {fusedClips} clips, {fusedStarts.Length} region starts, {fusedSource.Length} source characters.");

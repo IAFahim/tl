@@ -301,6 +301,190 @@ if (args is ["--verify"])
 
     Console.WriteLine($"Index registry verified: sequential builds {destroyed}/{live}/{rebuilt}, tombstone rejects playback, no reuse, capturing and empty definitions all work.");
 
+    // Frozen path parity: per-timeline code specialized at emission time
+    // (Generated/VitalsFrozen.g.cs, Generated/Fused16Frozen.g.cs), receipt-
+    // matched here against the PlaybackCore oracle through the real tables.
+    // Accumulation contract, mirrored bit-for-bit in this order by both
+    // sides: Sum += one blend-resolved clip value per active track in
+    // track-row order, then Flags += (uint)status, then Count++ for ticks
+    // with at least one active track; Backward subtracts in the same order
+    // (the exact inverse).
+    VerifyFrozen<VitalsTrack, VitalsClip, OracleVitals, VitalsFrozen>("Vitals", 600u);
+
+    // The Fused16 oracle tables are hand-set literals; this cross-checks
+    // them against the raw clip description (clip i = [i*4, i*4+3), value
+    // i+1) so the generator and the oracle agree by construction, not by
+    // copy: every tick's region slice and resolved value must match a
+    // brute-force scan of the clip list.
+    for (uint t = 0; t <= 73u; t++)
+    {
+        var count = 0;
+        var sum = 0f;
+        for (uint i = 0; i < 16; i++)
+            if (i * 4 <= t && t < i * 4 + 3)
+            {
+                count++;
+                sum += i + 1;
+            }
+
+        var starts = Fused16Track.RegionStarts;
+        var region = 0;
+        while (region + 1 < starts.Length && starts[region + 1] <= t)
+            region++;
+        var row = Fused16Track.RegionRows[region];
+        var tableCount = 0;
+        var tableSum = 0f;
+        for (var k = 0; k < row.TrackCount; k++)
+        {
+            var track = Fused16Track.TrackRows[row.TrackStart + k];
+            tableCount++;
+            tableSum += Fused16Track.ClipData[Fused16Track.ClipRows[track.ClipStart].ClipIndex].Value;
+        }
+
+        if (tableCount != count || tableSum != sum)
+            throw new InvalidOperationException($"Fused16 table literals diverge from the clip list at tick {t}.");
+    }
+    for (uint i = 0; i < 16; i++)
+        if (Fused16Track.ClipEdges[(int)i] != new ClipEdge(i * 4, i * 4 + 3))
+            throw new InvalidOperationException($"Fused16 clip-edge literal {i} diverges from the clip list.");
+
+    VerifyFrozen<Fused16Track, Fused16Clip, OracleFused16, Fused16Frozen>("Fused16", 63u);
+    Console.WriteLine("Frozen parity verified: walks, jumps, mirrors, batches, flags (Vitals + Fused16).");
+
+    void VerifyFrozen<TTrack, TClip, TData, TFrozen>(string name, uint duration)
+        where TTrack : struct, ITrackTables<TTrack, TClip>, IBlend<TClip>
+        where TClip : unmanaged
+        where TData : struct, IForwardTracks<TTrack, TClip, TData>, IBackwardTracks<TTrack, TClip, TData>, IFrozenOracle
+        where TFrozen : struct, IFrozen
+    {
+        void RequireStep(string what, in Playback oracle, in Playback frozen)
+        {
+            if (oracle.Tick != frozen.Tick || oracle.Cycles != frozen.Cycles || oracle.Flags != frozen.Flags)
+                throw new InvalidOperationException(
+                    $"{name} {what}: Playback diverged ({oracle.Tick}/{oracle.Cycles}/{oracle.Flags} vs {frozen.Tick}/{frozen.Cycles}/{frozen.Flags}).");
+        }
+
+        void RequireSink(string what, in FrozenSink oracle, in FrozenSink frozen)
+        {
+            if (oracle.Sum != frozen.Sum || oracle.Flags != frozen.Flags || oracle.Count != frozen.Count)
+                throw new InvalidOperationException(
+                    $"{name} {what}: sink diverged ({oracle.Sum:R}/{oracle.Flags}/{oracle.Count} vs {frozen.Sum:R}/{frozen.Flags}/{frozen.Count}).");
+        }
+
+        // 1. Sequential forward walk 0..duration+10: the returned Playback is
+        //    equal at every step (Tick, Cycles, Flags) and the sinks at the
+        //    end are equal with exact float equality. The tail steps past the
+        //    duration land in the empty sentinel region.
+        var oracle = new TData();
+        var frozen = default(FrozenSink);
+        var walkOracle = GeneratedTimeline<TTrack, TClip, TData>.Start();
+        var walkFrozen = TFrozen.Start();
+        uint oEnter = 0, oExit = 0, oActive = 0, oComplete = 0, oFirst = 0, oLast = 0;
+        uint fEnter = 0, fExit = 0, fActive = 0, fComplete = 0, fFirst = 0, fLast = 0;
+        for (uint t = 0; t < duration + 10; t++)
+        {
+            walkOracle = GeneratedTimeline<TTrack, TClip, TData>.Forward(in walkOracle, ref oracle, t);
+            walkFrozen = TFrozen.Forward(in walkFrozen, ref frozen, t);
+            RequireStep($"walk tick {t}", walkOracle, walkFrozen);
+            if (walkOracle.Has(PlaybackFlags.Enter)) oEnter++;
+            if (walkOracle.Has(PlaybackFlags.Exit)) oExit++;
+            if (walkOracle.Has(PlaybackFlags.Active)) oActive++;
+            if (walkOracle.Has(PlaybackFlags.Complete)) oComplete++;
+            if (walkOracle.Has(PlaybackFlags.First)) oFirst++;
+            if (walkOracle.Has(PlaybackFlags.Last)) oLast++;
+            if (walkFrozen.Has(PlaybackFlags.Enter)) fEnter++;
+            if (walkFrozen.Has(PlaybackFlags.Exit)) fExit++;
+            if (walkFrozen.Has(PlaybackFlags.Active)) fActive++;
+            if (walkFrozen.Has(PlaybackFlags.Complete)) fComplete++;
+            if (walkFrozen.Has(PlaybackFlags.First)) fFirst++;
+            if (walkFrozen.Has(PlaybackFlags.Last)) fLast++;
+        }
+        RequireSink("walk sink", oracle.Sink, frozen);
+
+        // 5. Flag-count totals over the full walk: frozen totals against
+        //    oracle totals, nothing hardcoded.
+        if ((oEnter, oExit, oActive, oComplete, oFirst, oLast) != (fEnter, fExit, fActive, fComplete, fFirst, fLast))
+            throw new InvalidOperationException(
+                $"{name} flag totals diverged: ({oEnter}/{oExit}/{oActive}/{oComplete}/{oFirst}/{oLast}) vs ({fEnter}/{fExit}/{fActive}/{fComplete}/{fFirst}/{fLast}).");
+
+        // 2. Random jump battery: 24 deterministic xorshift [from, to] pairs,
+        //    in range and beyond the duration, forward and backward - each
+        //    step must agree on the Playback and the sink delta.
+        uint random = 0x6D2B79F5u;
+        for (var j = 0; j < 24; j++)
+        {
+            random ^= random << 13;
+            random ^= random >> 17;
+            random ^= random << 5;
+            var from = random % (duration + 20);
+            random ^= random << 13;
+            random ^= random >> 17;
+            random ^= random << 5;
+            var to = random % (duration + 20);
+
+            var jumpOracleData = new TData();
+            var jumpFrozenSink = default(FrozenSink);
+            var jumpOracle = GeneratedTimeline<TTrack, TClip, TData>.Start(from);
+            var jumpFrozen = TFrozen.Start(from);
+            jumpOracle = GeneratedTimeline<TTrack, TClip, TData>.Forward(in jumpOracle, ref jumpOracleData, to);
+            jumpFrozen = TFrozen.Forward(in jumpFrozen, ref jumpFrozenSink, to);
+            RequireStep($"forward jump {from}->{to}", jumpOracle, jumpFrozen);
+            RequireSink($"forward jump {from}->{to}", jumpOracleData.Sink, jumpFrozenSink);
+
+            jumpOracleData = new TData();
+            jumpFrozenSink = default;
+            jumpOracle = GeneratedTimeline<TTrack, TClip, TData>.Start(from);
+            jumpFrozen = TFrozen.Start(from);
+            jumpOracle = GeneratedTimeline<TTrack, TClip, TData>.Backward(in jumpOracle, ref jumpOracleData, to);
+            jumpFrozen = TFrozen.Backward(in jumpFrozen, ref jumpFrozenSink, to);
+            RequireStep($"backward jump {from}->{to}", jumpOracle, jumpFrozen);
+            RequireSink($"backward jump {from}->{to}", jumpOracleData.Sink, jumpFrozenSink);
+        }
+
+        // 3. Backward mirror: forward walk, then rewind tick-by-tick to 0 -
+        //    the Playback is equal each step and both sinks land back on
+        //    their initial values (Count and Flags exactly zero; Sum within
+        //    float cancellation of the interleaved adds and subtracts).
+        var mirrorOracleData = new TData();
+        var mirrorFrozenSink = default(FrozenSink);
+        var mirrorOracle = GeneratedTimeline<TTrack, TClip, TData>.Start();
+        var mirrorFrozen = TFrozen.Start();
+        for (uint t = 0; t < duration; t++)
+        {
+            mirrorOracle = GeneratedTimeline<TTrack, TClip, TData>.Forward(in mirrorOracle, ref mirrorOracleData, t);
+            mirrorFrozen = TFrozen.Forward(in mirrorFrozen, ref mirrorFrozenSink, t);
+        }
+        for (var t = (int)(duration - 1); t >= 0; t--)
+        {
+            mirrorOracle = GeneratedTimeline<TTrack, TClip, TData>.Backward(in mirrorOracle, ref mirrorOracleData, (uint)t);
+            mirrorFrozen = TFrozen.Backward(in mirrorFrozen, ref mirrorFrozenSink, (uint)t);
+            RequireStep($"mirror tick {t}", mirrorOracle, mirrorFrozen);
+            RequireSink($"mirror tick {t}", mirrorOracleData.Sink, mirrorFrozenSink);
+        }
+        if (mirrorFrozenSink.Count != 0 || mirrorFrozenSink.Flags != 0L || Math.Abs(mirrorFrozenSink.Sum) > 1e-2f)
+            throw new InvalidOperationException(
+                $"{name} mirror did not restore the sink: {mirrorFrozenSink.Sum:R}, {mirrorFrozenSink.Flags}, {mirrorFrozenSink.Count}.");
+
+        // 4. Batch parity: one 8-tick call (mixed jumps, one beyond the
+        //    duration) against eight single calls - equal final Playback and
+        //    sink on both paths.
+        Span<uint> batch = [duration / 3, 1, duration - 1, duration + 7, 0, duration / 2, 2, duration - 2];
+        var batchOracleData = new TData();
+        var batchFrozenSink = default(FrozenSink);
+        var singleFrozenSink = default(FrozenSink);
+        var batchStartOracle = Playback.Start();
+        var batchStartFrozen = TFrozen.Start();
+        var batchOracle = GeneratedTimeline<TTrack, TClip, TData>.Forward(in batchStartOracle, ref batchOracleData, batch);
+        var batchFrozen = TFrozen.Forward(in batchStartFrozen, ref batchFrozenSink, batch);
+        RequireStep("batch", batchOracle, batchFrozen);
+        RequireSink("batch", batchOracleData.Sink, batchFrozenSink);
+        var singleFrozen = TFrozen.Start();
+        foreach (var t in batch)
+            singleFrozen = TFrozen.Forward(in singleFrozen, ref singleFrozenSink, t);
+        RequireStep("batch singles", batchFrozen, singleFrozen);
+        RequireSink("batch singles", batchFrozenSink, singleFrozenSink);
+    }
+
     EdgeVerification.Run();
 
     Console.WriteLine("Playback verified: flags, jumps, mirrors, loops, rewind, clip hooks, runtime timelines, index registry.");
@@ -309,3 +493,138 @@ if (args is ["--verify"])
 }
 
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
+
+// Exposes one oracle consumer's accumulated FrozenSink to the generic frozen
+// parity receipts above.
+public interface IFrozenOracle
+{
+    FrozenSink Sink { get; }
+}
+
+// The PlaybackCore-side consumer for the VitalsTrack fixture: the same
+// fields, the same order, the same arithmetic as the frozen emission, but
+// resolved through the real tables at run time.
+public struct OracleVitals :
+    IForwardTracks<VitalsTrack, VitalsClip, OracleVitals>,
+    IBackwardTracks<VitalsTrack, VitalsClip, OracleVitals>,
+    IFrozenOracle
+{
+    public FrozenSink Sink { get; set; }
+
+    public void Forward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref OracleVitals data)
+    {
+        var sink = data.Sink;
+        foreach (var item in tracks)
+            sink.Sum += item.Clip.Amount;
+        sink.Flags += (uint)tracks.Status;
+        if (tracks.Count > 0)
+            sink.Count++;
+        data.Sink = sink;
+    }
+
+    public void Backward(uint tick, in Tracks<VitalsTrack, VitalsClip> tracks, ref OracleVitals data)
+    {
+        var sink = data.Sink;
+        foreach (var item in tracks)
+            sink.Sum -= item.Clip.Amount;
+        sink.Flags -= (uint)tracks.Status;
+        if (tracks.Count > 0)
+            sink.Count--;
+        data.Sink = sink;
+    }
+}
+
+public readonly record struct Fused16Clip(float Value);
+
+// The Movement-shaped oracle fixture: one track, 16 clips, clip i =
+// [i*4, i*4+3) with value i+1, duration 63. The literals below are hand-set
+// from that description -- the same description the generator specialized
+// into Fused16Frozen -- and --verify cross-checks them against the raw clip
+// list tick by tick before running the parity receipts.
+public struct Fused16Track : ITrackTables<Fused16Track, Fused16Clip>, IBlend<Fused16Clip>
+{
+    private static readonly uint[] s_regionStarts =
+        [0, 3, 4, 7, 8, 11, 12, 15, 16, 19, 20, 23, 24, 27, 28, 31, 32, 35, 36, 39, 40, 43, 44, 47, 48, 51, 52, 55, 56, 59, 60, 63];
+
+    // Even regions are clip regions (one track row); odd regions are the
+    // gaps; the last region is the empty sentinel at 63.
+    private static readonly RegionRow[] s_regionRows =
+    [
+        new(0, 1), new(1, 0), new(1, 1), new(2, 0), new(2, 1), new(3, 0), new(3, 1), new(4, 0),
+        new(4, 1), new(5, 0), new(5, 1), new(6, 0), new(6, 1), new(7, 0), new(7, 1), new(8, 0),
+        new(8, 1), new(9, 0), new(9, 1), new(10, 0), new(10, 1), new(11, 0), new(11, 1), new(12, 0),
+        new(12, 1), new(13, 0), new(13, 1), new(14, 0), new(14, 1), new(15, 0), new(15, 1), new(16, 0),
+    ];
+
+    // Clip regions start on a clip start and end on a clip end (1|4); gap
+    // regions start on a clip end (2).
+    private static readonly byte[] s_regionFlags =
+        [5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2, 5, 2];
+
+    private static readonly TrackRow[] s_trackRows =
+    [
+        new(0, 0, 1), new(0, 1, 1), new(0, 2, 1), new(0, 3, 1), new(0, 4, 1), new(0, 5, 1), new(0, 6, 1), new(0, 7, 1),
+        new(0, 8, 1), new(0, 9, 1), new(0, 10, 1), new(0, 11, 1), new(0, 12, 1), new(0, 13, 1), new(0, 14, 1), new(0, 15, 1),
+    ];
+
+    private static readonly ClipRow[] s_clipRows =
+    [
+        new(0, 0, 0), new(1, 0, 0), new(2, 0, 0), new(3, 0, 0), new(4, 0, 0), new(5, 0, 0), new(6, 0, 0), new(7, 0, 0),
+        new(8, 0, 0), new(9, 0, 0), new(10, 0, 0), new(11, 0, 0), new(12, 0, 0), new(13, 0, 0), new(14, 0, 0), new(15, 0, 0),
+    ];
+
+    private static readonly ClipEdge[] s_clipEdges =
+    [
+        new(0, 3), new(4, 7), new(8, 11), new(12, 15), new(16, 19), new(20, 23), new(24, 27), new(28, 31),
+        new(32, 35), new(36, 39), new(40, 43), new(44, 47), new(48, 51), new(52, 55), new(56, 59), new(60, 63),
+    ];
+
+    private static readonly Fused16Track[] s_trackData = [new()];
+
+    private static readonly Fused16Clip[] s_clipData =
+        [new(1f), new(2f), new(3f), new(4f), new(5f), new(6f), new(7f), new(8f), new(9f), new(10f), new(11f), new(12f), new(13f), new(14f), new(15f), new(16f)];
+
+    public static ReadOnlySpan<uint> RegionStarts => s_regionStarts;
+    public static ReadOnlySpan<RegionRow> RegionRows => s_regionRows;
+    public static ReadOnlySpan<byte> RegionFlags => s_regionFlags;
+    public static ReadOnlySpan<TrackRow> TrackRows => s_trackRows;
+    public static ReadOnlySpan<ClipRow> ClipRows => s_clipRows;
+    public static ReadOnlySpan<ClipEdge> ClipEdges => s_clipEdges;
+    public static ReadOnlySpan<Fused16Track> TrackData => s_trackData;
+    public static ReadOnlySpan<Fused16Clip> ClipData => s_clipData;
+    public static int MaxActiveTracks => 1;
+    public static bool Loops => false;
+
+    public void Blend(in Fused16Clip first, in Fused16Clip second, float factor, out Fused16Clip result)
+        => result = new Fused16Clip(first.Value * (1f - factor) + second.Value * factor);
+}
+
+public struct OracleFused16 :
+    IForwardTracks<Fused16Track, Fused16Clip, OracleFused16>,
+    IBackwardTracks<Fused16Track, Fused16Clip, OracleFused16>,
+    IFrozenOracle
+{
+    public FrozenSink Sink { get; set; }
+
+    public void Forward(uint tick, in Tracks<Fused16Track, Fused16Clip> tracks, ref OracleFused16 data)
+    {
+        var sink = data.Sink;
+        foreach (var item in tracks)
+            sink.Sum += item.Clip.Value;
+        sink.Flags += (uint)tracks.Status;
+        if (tracks.Count > 0)
+            sink.Count++;
+        data.Sink = sink;
+    }
+
+    public void Backward(uint tick, in Tracks<Fused16Track, Fused16Clip> tracks, ref OracleFused16 data)
+    {
+        var sink = data.Sink;
+        foreach (var item in tracks)
+            sink.Sum -= item.Clip.Value;
+        sink.Flags -= (uint)tracks.Status;
+        if (tracks.Count > 0)
+            sink.Count--;
+        data.Sink = sink;
+    }
+}

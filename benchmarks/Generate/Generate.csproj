@@ -8,5 +8,6 @@
   <ItemGroup>
     <PackageReference Include="Waffle.Core" Version="1.0.0" />
     <Compile Include="../Shared.cs" Link="Shared.cs" />
+    <Compile Include="../Hooks.cs" Link="Hooks.cs" />
   </ItemGroup>
 </Project>

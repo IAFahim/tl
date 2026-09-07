@@ -609,3 +609,122 @@ public abstract class FusedBase<T> where T : struct, IFusedFixture
 public class Fused<T> : FusedBase<T> where T : struct, IFusedFixture
 {
 }
+
+// The frozen path: the same sampling and movement facts with every table row
+// specialized into compile-time constants at generation time (region branch
+// trees, immediate payloads, rank-compare movement facts). No baselines in
+// this class - the ApiShape arms stay the reference; these arms are compared
+// against them in docs/benchmarks.md.
+public sealed class FrozenConfig : ManualConfig
+{
+    public FrozenConfig()
+    {
+        var job = Job.Default.WithWarmupCount(16).WithIterationCount(12)
+            .WithIterationTime(TimeInterval.FromMilliseconds(250));
+        AddJob(job.WithId("Jit"));
+        AddJob(job.WithId("NoTiering").WithEnvironmentVariable("DOTNET_TieredCompilation", "0"));
+        AddColumn(StatisticColumn.Median);
+        AddDiagnoser(MemoryDiagnoser.Default);
+        AddExporter(JsonExporter.Full);
+    }
+}
+
+[Config(typeof(FrozenConfig))]
+public class Frozen
+{
+    public const int Operations = 65536;
+    private uint[] _vitalsTicks = null!;
+    private uint[] _fusedTicks = null!;
+    private uint[] _vitalsSeq = null!;
+    private uint[] _fusedSeq = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _vitalsTicks = new uint[Operations];
+        _fusedTicks = new uint[Operations];
+        _vitalsSeq = new uint[Operations];
+        _fusedSeq = new uint[Operations];
+        uint random = 0x6D2B79F5;
+        for (var i = 0; i < Operations; i++)
+        {
+            random ^= random << 13;
+            random ^= random >> 17;
+            random ^= random << 5;
+            _vitalsTicks[i] = random % 600;
+            _fusedTicks[i] = random % 63;
+            _vitalsSeq[i] = (uint)i % 600;
+            _fusedSeq[i] = (uint)i % 63;
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float FrozenVitalsSingle()
+    {
+        var sink = default(FrozenSink);
+        var pb = VitalsFrozen.Start();
+        foreach (var tick in _vitalsTicks.AsSpan())
+            pb = VitalsFrozen.Forward(in pb, ref sink, tick);
+        return sink.Sum + sink.Flags + sink.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float FrozenVitalsBatch8()
+    {
+        var sink = default(FrozenSink);
+        var pb = VitalsFrozen.Start();
+        var ticks = _vitalsTicks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 8)
+        {
+            var t = ticks.Slice(i, 8);
+            pb = VitalsFrozen.Forward(in pb, ref sink, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7]);
+        }
+        return sink.Sum + sink.Flags + sink.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float Fused16Single()
+    {
+        var sink = default(FrozenSink);
+        var pb = Fused16Frozen.Start();
+        foreach (var tick in _fusedTicks.AsSpan())
+            pb = Fused16Frozen.Forward(in pb, ref sink, tick);
+        return sink.Sum + sink.Flags + sink.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float Fused16Batch8()
+    {
+        var sink = default(FrozenSink);
+        var pb = Fused16Frozen.Start();
+        var ticks = _fusedTicks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 8)
+        {
+            var t = ticks.Slice(i, 8);
+            pb = Fused16Frozen.Forward(in pb, ref sink, t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7]);
+        }
+        return sink.Sum + sink.Flags + sink.Count;
+    }
+
+    // Predictable streams are where folding pays: identical code, ticks in
+    // order, so the branch tree and its data stay hot and predicted.
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float FrozenVitalsSequential()
+    {
+        var sink = default(FrozenSink);
+        var pb = VitalsFrozen.Start();
+        foreach (var tick in _vitalsSeq.AsSpan())
+            pb = VitalsFrozen.Forward(in pb, ref sink, tick);
+        return sink.Sum + sink.Flags + sink.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float Fused16Sequential()
+    {
+        var sink = default(FrozenSink);
+        var pb = Fused16Frozen.Start();
+        foreach (var tick in _fusedSeq.AsSpan())
+            pb = Fused16Frozen.Forward(in pb, ref sink, tick);
+        return sink.Sum + sink.Flags + sink.Count;
+    }
+}
