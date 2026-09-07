@@ -434,19 +434,22 @@ foreach (var name in new[] { "Sparse256", "Sparse4096" })
 
 // ---- Frozen per-timeline playback (Dispatch fixtures) ----
 // Per-timeline code specialized at emission time against tables the generator
-// can read. Two lookup strategies, picked by duration: the full-bake dense
-// LUT mode (<= 1024 ticks) bakes the WHOLE per-tick leaf into one
-// interleaved ulong word per tick per direction - the positional flag byte,
-// both movement-fact cut ranks, and (single-slot fixtures) the blend-resolved
-// slot value's float bits - all computed with the identical expressions the
-// runtime evaluates - so the hot loop is ONE table load, a shift unpack,
-// branchless (setcc/cmov-shaped) movement and Count arithmetic, and sink
-// accumulation, plus one Playback construction after the loop. The previous
-// tick's ranks ride in locals carried across iterations, so even the rank
-// loads are gone. Longer timelines keep binary branch trees over the known
-// starts (the Tree pattern from the Algorithms fixtures), rank-compare
-// movement facts, and immediate-payload leaves. The frozen form is bound to
-// one exact non-looping timeline either way.
+// can read, under the redesigned consumer API: the Playback flags word
+// carries only lifecycle and completion facts (Started minted at Start,
+// Completed positional per direction), and movement facts are per-work
+// ClipState codes (Enter=0, Stay=1, Exit=2) accumulated by the sink. The
+// full-bake dense LUT form bakes the whole per-tick leaf into ONE
+// interleaved ulong word per tick per direction - the per-slot Exit mask,
+// the direction-dependent Completed bit, the active-slot count, and
+// (single-slot fixtures) the blend-resolved slot value's float bits - all
+// computed with the identical float expressions the runtime evaluates.
+// Per-slot entry-reference tables (the window Start forward, the window End
+// backward) ride beside the words so Enter is one compare against prev;
+// empty ticks do no sink work (the count field is zero, so one branch skips
+// the whole tick); the out-of-range clamp target is the empty sentinel word
+// at the duration. The frozen form is bound to one exact non-looping
+// timeline: no wraps, no cycle arithmetic (Cycles passes through
+// unchanged), no duration-0/empty handling.
 
 string Lit(float value) => value.ToString("R", CultureInfo.InvariantCulture) + "f";
 
@@ -455,132 +458,79 @@ string U(uint value) => value.ToString(CultureInfo.InvariantCulture) + "u";
 string EmitFrozen(
     string name, string[] notes, string tail,
     uint[] starts, RegionRow[] regionRows, byte[] regionFlags,
-    TrackRow[] trackRows, ClipRow[] clipRows, float[] amounts)
+    TrackRow[] trackRows, ClipRow[] clipRows, ClipEdge[] edges,
+    float[] amounts)
 {
     var duration = starts[^1];
 
-    // One leaf per region (branch-tree mode, durations past the dense
-    // threshold): positional flags from the region's constants, sampling
-    // as immediate adds, Complete folded to where it can still fire.
-    string Leaf(int r, bool backward)
+    // The cut facts are off the redesigned engine's hot path (the aggregate
+    // movement bits are gone), but the tables stay: this emission-time
+    // cross-check is what keeps them honest. Bit 1 = the region starts on a
+    // clip start, bit 2 = on a clip end, bit 4 = the region ends on a clip
+    // end; the last region has no successor, so its bit 4 stays clear.
+    for (var r = 0; r < starts.Length; r++)
     {
-        var rs = starts[r];
-        var re = r + 1 < starts.Length ? starts[r + 1] : duration;
-        var cut = regionFlags[r];
-        var row = regionRows[r];
-        var lines = new List<string>
+        byte expected = 0;
+        foreach (var edge in edges)
         {
-            row.TrackCount > 0 ? "flags = PlaybackFlags.Active;" : "flags = PlaybackFlags.None;",
-        };
-
-        if ((cut & 1) != 0)
-            lines.Add($"if (tick == {U(rs)}) flags |= PlaybackFlags.First;");
-        if ((cut & 4) != 0)
-            lines.Add($"if (tick == {U(re - 1)}) flags |= PlaybackFlags.Last;");
-
-        // Non-looping completion: forward fires from duration-1 on, backward
-        // only exactly at tick 0.
-        if (backward)
-        {
-            if (rs == 0)
-                lines.Add("if (tick == 0u) flags |= PlaybackFlags.Complete;");
-        }
-        else if (re >= duration)
-        {
-            if (rs >= duration - 1)
-                lines.Add("flags |= PlaybackFlags.Complete;");
-            else
-                lines.Add($"if (tick >= {U(duration - 1)}) flags |= PlaybackFlags.Complete;");
+            if (edge.Start == starts[r])
+                expected |= 1;
+            if (edge.End == starts[r])
+                expected |= 2;
+            if (r + 1 < starts.Length && edge.End == starts[r + 1])
+                expected |= 4;
         }
 
-        for (var t = 0; t < row.TrackCount; t++)
-        {
-            var track = trackRows[row.TrackStart + t];
-            var op = backward ? "-=" : "+=";
-            if (track.ClipCount == 1)
-            {
-                lines.Add($"sink.Sum {op} {Lit(amounts[clipRows[track.ClipStart].ClipIndex])};");
-                continue;
-            }
-
-            // Blend-resolved track: the factor expression is byte-for-byte
-            // the one Tracks.MoveNext evaluates, with constant windows, so
-            // the float arithmetic matches the table path exactly.
-            var first = clipRows[track.ClipStart];
-            var second = clipRows[track.ClipStart + 1];
-            var factor = $"factor{t}";
-            lines.Add(first.FactorLength <= 1
-                ? $"var {factor} = 0.5f;"
-                : $"var {factor} = (tick - {U(first.FactorStart)}) / {Lit(first.FactorLength - 1)};");
-            lines.Add($"sink.Sum {op} {Lit(amounts[first.ClipIndex])} * (1f - {factor}) + {Lit(amounts[second.ClipIndex])} * {factor};");
-        }
-
-        return string.Join("\n", lines);
+        if (regionFlags[r] != expected)
+            throw new InvalidOperationException($"{name}: region {r} cut flags {regionFlags[r]} diverge from the clip edges ({expected}).");
     }
 
-    string Tree(int lo, int hi, bool backward)
-    {
-        if (hi - lo == 1)
-            return Leaf(lo, backward);
-
-        var mid = (lo + hi) / 2;
-        var left = Tree(lo, mid, backward);
-        var right = Tree(mid, hi, backward);
-        return Render($$"""
-            if (tick < {{U(starts[mid])}})
-            {
-                {{left}}
-            }
-            else
-            {
-                {{right}}
-            }
-            """);
-    }
-
-    // Movement facts without the boundary walk: Enter/Exit fire when a
-    // clip-start or clip-end cut boundary (exactly the region boundaries
-    // carrying that cut bit) falls inside the crossed span, which is a rank
-    // comparison over the known constants.
-    var startCuts = Enumerable.Range(0, starts.Length).Where(i => (regionFlags[i] & 1) != 0).Select(i => starts[i]).ToArray();
-    var endCuts = Enumerable.Range(0, starts.Length).Where(i => (regionFlags[i] & 2) != 0).Select(i => starts[i]).ToArray();
-
-    // Full-bake dense LUT mode for short timelines (duration <= 1024): the
-    // whole per-tick leaf is precomputed into ONE interleaved ulong word per
-    // tick per direction, so the hot loop loads a single qword, unpacks it
-    // with shifts, and runs branchless movement/Count arithmetic. Longer
-    // timelines keep the branch trees this emitter also produces; both
-    // fixtures today are far below the threshold.
+    // The redesigned frozen path emits only the full-bake dense LUT form;
+    // a longer timeline rejects here rather than emitting an unverified
+    // lookup strategy.
     const int denseLimit = 1024;
-    var dense = duration <= denseLimit;
+    if (duration > denseLimit)
+        throw new InvalidOperationException($"{name}: the frozen full-bake dense LUT covers durations <= {denseLimit}; duration {duration} exceeds it.");
 
-    // The interleaved word layout (little-endian bit positions):
-    //   bits  0..31  slot-0 float bits - the blend-resolved value of the
-    //                first active track, exact bits from the slot table;
-    //                0 when the fixture has more than one slot (those values
-    //                stay in their float[] tables, loaded alongside the word)
-    //                or no tracks at all
-    //   bits 40..47  positional base flags: bit 0 First, bit 1 Active,
-    //                bit 2 Last, bit 3 Complete, so (uint)byte << 27
-    //                reproduces the PlaybackFlags word (First = 1<<27 ..
-    //                Complete = 1<<30); Complete is direction-dependent,
-    //                which is why there is one word table per direction
-    //   bits 48..55  startRank: start cuts at or below the tick
-    //   bits 56..63  endRank: end cuts at or below the tick
-    // The ranks are why the movement facts no longer need their own loads:
-    // the current tick's ranks unpack from the same word, and the previous
-    // tick's ride in locals. Enter/Exit (1<<26 / 1<<31) sit outside the
-    // packed byte range and stay comparison logic.
-    const byte FirstBit = 1, ActiveBit = 2, LastBit = 4, CompleteBit = 8;
-
-    // One slot table per active-track position: slot k holds the k-th
-    // active track's blend-resolved value in track-row order (the exact
-    // order the leaf adds them in), 0f wherever fewer tracks are active -
-    // an exact no-op in the addition sequence the oracle performs.
     var slotCount = 0;
     foreach (var row in regionRows)
         if (row.TrackCount > slotCount)
             slotCount = row.TrackCount;
+
+    // The clamped out-of-range table entry reproduces the empty sentinel
+    // region at the duration: it must carry no tracks, so ticks past the
+    // duration do no sink work. (A clip starting exactly at the duration
+    // cannot exist - its end would move the duration - so the cut
+    // cross-check above already pins that shape.)
+    if (regionRows[^1].TrackCount != 0)
+        throw new InvalidOperationException($"{name}: dense full-bake requires an empty sentinel region at the duration (no tracks).");
+
+    // The word's per-slot exit mask is one byte and the active-slot count a
+    // nibble, so the packing covers at most eight concurrently active
+    // tracks.
+    if (slotCount > 8)
+        throw new InvalidOperationException($"{name}: dense full-bake packs the exit mask into one byte and the active count into a nibble; {slotCount} active tracks exceed 8.");
+
+    // Single-slot fixtures (exactly one active-track position at any tick)
+    // get the fully packed word: the slot value's float bits ride in bits
+    // 0..31, so ONE load serves the value, the Exit bit, the Completed bit,
+    // and the active count. Multi-slot fixtures keep their float[] slot
+    // tables; the word still carries the per-slot facts, so their extra
+    // loads are independent stream loads.
+    var single = slotCount == 1;
+
+    var wordsForward = new ulong[(int)duration + 1];
+    var wordsBackward = new ulong[(int)duration + 1];
+    var slots = new float[slotCount][];
+    for (var k = 0; k < slotCount; k++)
+        slots[k] = new float[(int)duration + 1];
+    var enterForward = new uint[slotCount][];
+    var enterBackward = new uint[slotCount][];
+    for (var k = 0; k < slotCount; k++)
+    {
+        enterForward[k] = new uint[(int)duration + 1];
+        enterBackward[k] = new uint[(int)duration + 1];
+    }
 
     // The value baked into a slot: the byte-for-byte expression
     // Tracks.MoveNext plus Blend evaluate at run time, folded here in
@@ -600,96 +550,63 @@ string EmitFrozen(
         return amounts[first.ClipIndex] * (1f - factor) + amounts[second.ClipIndex] * factor;
     }
 
-    float[][] slotTables = [];
-    ulong[] wordsForward = [], wordsBackward = [];
-
-    // Single-slot fixtures (exactly one active-track position at any tick)
-    // get the fully packed word: the slot value's float bits ride in bits
-    // 0..31, so ONE load serves flags, both ranks, and the value. Multi-slot
-    // fixtures keep their float[] slot tables; the word still carries flags
-    // and both ranks, so their extra loads are independent stream loads.
-    var single = dense && slotCount == 1;
-
-    if (dense)
+    // A work's true window: ClipEdges[ClipIndex] for an original, the OUTER
+    // window (min Start, max End) for a blend-resolved pair - exactly the
+    // convention TrackWork.State reports (pinned by the per-work oracle).
+    (uint Start, uint End) Window(TrackRow track)
     {
-        // The clamped out-of-range table entry must reproduce the empty
-        // sentinel region exactly, both at tick == duration and beyond:
-        // no tracks, and no clip starting at the duration (a StartCut
-        // there would make tick == duration carry First while larger
-        // out-of-range ticks would not - one clamp target cannot express
-        // both, so that shape falls back to asserting here).
-        if (regionRows[^1].TrackCount != 0 || (regionFlags[^1] & 1) != 0)
-            throw new InvalidOperationException($"{name}: dense full-bake requires an empty sentinel region (no tracks, no clip starting at the duration).");
+        var first = edges[clipRows[track.ClipStart].ClipIndex];
+        if (track.ClipCount == 1)
+            return (first.Start, first.End);
 
-        // The ranks must fit the word's rank bytes; a timeline this dense
-        // in cuts cannot use the interleaved packing (byte covers every
-        // dense fixture's cut count with room to spare).
-        if (startCuts.Length > 255 || endCuts.Length > 255)
-            throw new InvalidOperationException($"{name}: dense full-bake packs cut ranks into bytes; {startCuts.Length} start cuts / {endCuts.Length} end cuts exceed 255.");
-
-        wordsForward = new ulong[(int)duration + 1];
-        wordsBackward = new ulong[(int)duration + 1];
-        slotTables = new float[slotCount][];
-        for (var k = 0; k < slotCount; k++)
-            slotTables[k] = new float[(int)duration + 1];
-
-        var startRank = 0;
-        var endRank = 0;
-
-        for (var t = 0; t <= duration; t++)
-        {
-            var region = 0;
-            while (region + 1 < starts.Length && starts[region + 1] <= (uint)t)
-                region++;
-            while (startRank < startCuts.Length && startCuts[startRank] <= (uint)t)
-                startRank++;
-            while (endRank < endCuts.Length && endCuts[endRank] <= (uint)t)
-                endRank++;
-
-            // The positional word the leaf assembles, evaluated per tick:
-            // Active for any track, First/Last on the region's cut
-            // boundaries, Complete folded per direction (forward from
-            // duration-1 on and past the duration, backward exactly at 0).
-            var row = regionRows[region];
-            var rs = starts[region];
-            var re = region + 1 < starts.Length ? starts[region + 1] : duration;
-            var cut = regionFlags[region];
-            byte positional = 0;
-
-            if (row.TrackCount > 0)
-                positional |= ActiveBit;
-            if (t == rs && (cut & 1) != 0)
-                positional |= FirstBit;
-            if (t == re - 1 && (cut & 4) != 0)
-                positional |= LastBit;
-
-            var forwardByte = (byte)(positional | (t >= duration - 1u ? CompleteBit : 0));
-            var backwardByte = (byte)(positional | (t == 0u ? CompleteBit : 0));
-
-            var slot = 0;
-            for (var k = 0; k < row.TrackCount; k++)
-            {
-                if (slot >= slotCount)
-                    throw new InvalidOperationException($"{name}: tick {t} has more active tracks than the {slotCount} slot tables cover.");
-
-                slotTables[slot++][t] = SlotValue((uint)t, trackRows[row.TrackStart + k]);
-            }
-
-            // At the sentinel tick (t == duration, the clamp target) the
-            // rank walk has consumed every cut, so the packed ranks equal
-            // the total cut counts - exactly the past-the-duration fallback
-            // the movement facts need for clamped out-of-range ticks.
-            var slotBits = single ? (uint)BitConverter.SingleToInt32Bits(slotTables[0][t]) : 0u;
-            wordsForward[t] = (ulong)slotBits | (ulong)forwardByte << 40 | (ulong)(byte)startRank << 48 | (ulong)(byte)endRank << 56;
-            wordsBackward[t] = (ulong)slotBits | (ulong)backwardByte << 40 | (ulong)(byte)startRank << 48 | (ulong)(byte)endRank << 56;
-        }
+        var second = edges[clipRows[track.ClipStart + 1].ClipIndex];
+        var start = first.Start < second.Start ? first.Start : second.Start;
+        var end = first.End > second.End ? first.End : second.End;
+        return (start, end);
     }
 
-    // The interleaved per-tick words: one 16-digit hex ulong literal per
-    // entry, four per row. One entry per tick plus the out-of-range clamp
-    // sentinel at the duration (the empty region, ranks = the total cut
-    // counts); layout described by the word-packing comment above.
-    string WordTable(string name, ulong[] values)
+    // One interleaved word per tick per direction, baked over the whole tick
+    // domain 0..duration inclusive (the entry at the duration is the empty
+    // sentinel the clamp targets): bits 0..31 the slot-0 float bits
+    // (single-slot shape only), bits 32..39 the per-slot exit mask (bit per
+    // slot: forward at window End-1, backward at window Start - Exit is
+    // positional), bit 40 the direction-dependent Completed bit (forward
+    // from duration-1 on, backward exactly at 0), bits 44..47 the active
+    // slot count. The enter-reference tables carry each slot's entry edge
+    // beside the words - window Start forward, window End backward - so
+    // Enter is one compare of prev against that reference.
+    for (var t = 0; t <= duration; t++)
+    {
+        var region = 0;
+        while (region + 1 < starts.Length && starts[region + 1] <= (uint)t)
+            region++;
+
+        var row = regionRows[region];
+        byte exitsF = 0, exitsB = 0;
+        var slot = 0;
+        for (var k = 0; k < row.TrackCount; k++)
+        {
+            var track = trackRows[row.TrackStart + k];
+            var (start, end) = Window(track);
+            slots[slot][t] = SlotValue((uint)t, track);
+            enterForward[slot][t] = start;
+            enterBackward[slot][t] = end;
+            if ((uint)t == end - 1)
+                exitsF |= (byte)(1 << slot);
+            if ((uint)t == start)
+                exitsB |= (byte)(1 << slot);
+            slot++;
+        }
+
+        var completedF = (byte)(t >= duration - 1u ? 1 : 0);
+        var completedB = (byte)(t == 0u ? 1 : 0);
+        var slotBits = single ? (uint)BitConverter.SingleToInt32Bits(slots[0][t]) : 0u;
+
+        wordsForward[t] = (ulong)slotBits | (ulong)exitsF << 32 | (ulong)completedF << 40 | (ulong)slot << 44;
+        wordsBackward[t] = (ulong)slotBits | (ulong)exitsB << 32 | (ulong)completedB << 40 | (ulong)slot << 44;
+    }
+
+    string WordTable(string table, ulong[] values)
     {
         var rows = new List<string>();
         for (var i = 0; i < values.Length; i += 4)
@@ -699,19 +616,15 @@ string EmitFrozen(
             rows.Add(i + count < values.Length ? row + "," : row);
         }
 
-        return Render($$"""
-            private static readonly ulong[] {{name}} =
+        return $$"""
+            private static readonly ulong[] {{table}} =
             [
-            {{ForEach(rows, out var wordRow)}}
-                {{wordRow}}
-            {{End}}
+                {{string.Join("\n    ", rows)}}
             ];
-            """);
+            """;
     }
 
-    // The baked slot values: "R"-round-tripped float literals, one table
-    // per active-track slot, 0f wherever that slot is inactive at the tick.
-    string FloatTable(string name, float[] values)
+    string FloatTable(string table, float[] values)
     {
         var rows = new List<string>();
         for (var i = 0; i < values.Length; i += 8)
@@ -721,76 +634,31 @@ string EmitFrozen(
             rows.Add(i + count < values.Length ? row + "," : row);
         }
 
-        return Render($$"""
-            private static readonly float[] {{name}} =
+        return $$"""
+            private static readonly float[] {{table}} =
             [
-            {{ForEach(rows, out var floatRow)}}
-                {{floatRow}}
-            {{End}}
+                {{string.Join("\n    ", rows)}}
             ];
-            """);
+            """;
     }
 
-    string Rank(string method, uint[] cuts)
+    string UintTable(string table, uint[] values)
     {
-        string Body(int lo, int hi)
+        var rows = new List<string>();
+        for (var i = 0; i < values.Length; i += 8)
         {
-            if (lo == hi)
-                return $"return {lo};";
-            if (hi - lo == 1)
-                return cuts[lo] == 0 ? $"return {lo + 1};" : $"return tick < {U(cuts[lo])} ? {lo} : {lo + 1};";
-
-            var mid = (lo + hi) / 2;
-            var left = Body(lo, mid);
-            var right = Body(mid + 1, hi);
-            return Render($$"""
-                if (tick < {{U(cuts[mid])}})
-                {
-                    {{left}}
-                }
-                else
-                {
-                    {{right}}
-                }
-                """);
+            var count = Math.Min(8, values.Length - i);
+            var row = string.Join(", ", Enumerable.Range(i, count).Select(j => U(values[j])));
+            rows.Add(i + count < values.Length ? row + "," : row);
         }
 
-        if (cuts.Length == 0)
-            return Render($$"""
-                private static int {{method}}(uint tick) => 0;
-                """);
-
-        return Render($$"""
-            private static int {{method}}(uint tick)
-            {
-                {{Body(0, cuts.Length)}}
-            }
-            """);
+        return $$"""
+            private static readonly uint[] {{table}} =
+            [
+                {{string.Join("\n    ", rows)}}
+            ];
+            """;
     }
-
-    // The movement-fact block for tree mode: same comparisons and direction
-    // rules as the dense path, reading the previous tick from the hoisted
-    // `prev` local through the StartRank/EndRank helper calls. Dense mode
-    // folds movement into the per-tick word unpack instead - branchless
-    // comparisons against the locally carried previous ranks.
-    string Movement(bool backward)
-        => backward ? Render($$"""
-            if (tick < prev)
-            {
-                if (EndRank(prev) > EndRank(tick))
-                    flags |= PlaybackFlags.Enter;
-                if (StartRank(prev) > StartRank(tick))
-                    flags |= PlaybackFlags.Exit;
-            }
-            """) : Render($$"""
-            if (tick > prev)
-            {
-                if (StartRank(tick) > StartRank(prev))
-                    flags |= PlaybackFlags.Enter;
-                if (EndRank(tick) > EndRank(prev))
-                    flags |= PlaybackFlags.Exit;
-            }
-            """);
 
     // AggressiveInlining on the frozen entry points: the full-bake bodies
     // are small enough to fold into callers, which is what keeps the hub's
@@ -798,100 +666,70 @@ string EmitFrozen(
     // paying a call per batch.
     const string Inline = "[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]";
 
-    var startMethod = Render($$"""
+    var startMethod = $$"""
         {{Inline}}
-        public static Playback Start(uint at = 0) => Playback.Start(at);
-        """);
+        public static Playback Start(uint at = 0) => new Playback(at, 0, PlaybackFlags.Started);
+        """;
 
-    // One Forward/Backward shape for both modes. The loop carries only the
-    // previous tick, the pass-through cycles, the running flags, and (dense
-    // mode) the previous tick's two cut ranks as locals: the sink never saw
-    // the intermediate Playback, so the single construction after the loop
-    // (from the last tick) is the only one needed. Frozen timelines never
-    // loop - no step adds cycles - so the Playback constructor's
-    // cycle-capacity throw is unreachable here: the construction re-passes
-    // from.Cycles (within Playback.MaxCycles by the type's invariant) and a
-    // flags word that only ever holds PlaybackFlags bits.
+    // One Forward/Backward shape for both slot shapes. The loop carries only
+    // the previous tick, the pass-through cycles, and the running flags: the
+    // sink never saw the intermediate Playback, so the single construction
+    // after the loop (from the last tick) is the only one needed. Frozen
+    // timelines never loop - no step adds cycles - so the Playback
+    // constructor's cycle-capacity throw is unreachable here: the
+    // construction re-passes from.Cycles (within Playback's invariant) and a
+    // flags word that only ever holds Started | Completed. Per tick the
+    // flags are minted fresh (Started always, Completed from the word's bit
+    // 40), empty ticks do no sink work, and each active slot contributes
+    // its ClipState code - Exit (2) from the word's exit bit, else Enter (0)
+    // when prev sits on the far side of the slot's entry reference, else
+    // Stay (1) - before its value; Backward subtracts both in the same
+    // order (the exact inverse).
     string Loop(string method, bool backward)
     {
         var op = backward ? "-" : "+";
-        var countOp = backward ? "--" : "++";
         var wordTable = single ? (backward ? "s_tickB" : "s_tickF") : (backward ? "s_wordB" : "s_wordF");
-        var movedCmp = backward ? "<" : ">";
-        // The movement facts as sign masks: -1 exactly when the rank moved
-        // the way this direction fires the fact, 0 otherwise. Derived from
-        // the same comparisons the guarded form evaluated (forward Enter
-        // is startRank growing, backward Enter is prevEndRank above
-        // endRank, and so on) - the subtraction cannot overflow because
-        // the packed ranks are 0..255, so bit 31 IS the comparison.
-        var enterDiff = backward ? "(endRank - prevEndRank) >> 31" : "(prevStartRank - startRank) >> 31";
-        var exitDiff = backward ? "(startRank - prevStartRank) >> 31" : "(prevEndRank - endRank) >> 31";
+        var enterPrefix = backward ? "s_enterB" : "s_enterF";
+        var enterCompare = backward ? ">=" : "<";
 
         var slotLines = single
-            ? $"sink.Sum {op}= BitConverter.Int32BitsToSingle((int)word);"
-            : string.Join("\n", Enumerable.Range(0, slotCount).Select(k => $"sink.Sum {op}= s_slot{k}[i];"));
+            ? $$"""
+                sink.Flags {{op}}= (exits & 1) != 0 ? 2 : prev {{enterCompare}} {{enterPrefix}}0[i] ? 0 : 1;
+                sink.Sum {{op}}= BitConverter.Int32BitsToSingle((int)word);
+                """
+            : string.Join("\n", Enumerable.Range(0, slotCount).Select(k => $$"""
+                if (n > {{k}})
+                {
+                    sink.Sum {{op}}= s_slot{{k}}[i];
+                    sink.Flags {{op}}= (exits & {{1 << k}}) != 0 ? 2 : prev {{enterCompare}} {{enterPrefix}}{{k}}[i] ? 0 : 1;
+                }
+                """));
 
-        var perTick = dense
-            ? Render($$"""
-                var i = tick < {{U(duration)}} ? tick : {{U(duration)}};
-                var word = {{wordTable}}[i];
-                var startRank = (int)((word >> 48) & 0xFFu);
-                var endRank = (int)(word >> 56);
-                uint moved = tick {{movedCmp}} prev ? 1u : 0u;
-                var moveMask = 0u - moved;
-                var enterDiff = {{enterDiff}};
-                var exitDiff = {{exitDiff}};
-                flags = (PlaybackFlags)(((uint)((word >> 40) & 0xFFu) << 27)
-                    | moveMask & ((uint)enterDiff & (uint)PlaybackFlags.Enter)
-                    | moveMask & ((uint)exitDiff & (uint)PlaybackFlags.Exit));
-                sink.Flags {{op}}= (uint)flags;
-                {{slotLines}}
-                sink.Count {{op}}= (int)((uint)(flags & PlaybackFlags.Active) >> 28);
-                prevStartRank = startRank;
-                prevEndRank = endRank;
-                prev = tick;
-                """)
-            : Render($$"""
-                {{Tree(0, starts.Length, backward)}}
-                {{Movement(backward)}}
-                sink.Flags {{op}}= (uint)flags;
-                if ((flags & PlaybackFlags.Active) != 0)
-                    sink.Count{{countOp}};
-                prev = tick;
-                """);
-
-        // Dense mode seeds the movement comparisons' previous-tick ranks
-        // once before the loop: one clamped word load whose at-or-past-the-
-        // duration entry carries the total cut counts - the exact value the
-        // guarded rank loads used to produce - and the loop then carries
-        // the ranks as plain locals, so no per-tick rank loads remain.
-        var seedLines = dense
-            ? Render($$"""
-                var prevWord = {{wordTable}}[prev < {{U(duration)}} ? prev : {{U(duration)}}];
-                var prevStartRank = (int)((prevWord >> 48) & 0xFFu);
-                var prevEndRank = (int)(prevWord >> 56);
-                """)
-            : string.Empty;
-
-        var preamble = Render($$"""
-            var cycles = from.Cycles;
-            var prev = from.Tick;
-            var flags = from.Flags;
-            {{seedLines}}
-            """);
-
-        return Render($$"""
+        return $$"""
             {{Inline}}
             public static Playback {{method}}(in Playback from, ref FrozenSink sink, params ReadOnlySpan<uint> ticks)
             {
-                {{preamble}}
+                var cycles = from.Cycles;
+                var prev = from.Tick;
+                var flags = from.Flags;
                 foreach (var tick in ticks)
                 {
-                    {{perTick}}
+                    var i = tick < {{U(duration)}} ? tick : {{U(duration)}};
+                    var word = {{wordTable}}[i];
+                    var exits = (int)(word >> 32);
+                    flags = (PlaybackFlags)((uint)PlaybackFlags.Started
+                        | (((word >> 40) & 1u) * (uint)PlaybackFlags.Completed));
+                    var n = (int)((word >> 44) & 0xFu);
+                    if (n != 0)
+                    {
+                        sink.Count{{op}}{{op}};
+                        {{slotLines}}
+                    }
+                    prev = tick;
                 }
                 return new Playback(prev, cycles, flags);
             }
-            """);
+            """;
     }
 
     var forward = Loop("Forward", false);
@@ -899,73 +737,29 @@ string EmitFrozen(
 
     var members = new List<string> { startMethod, forward, backward };
 
-    if (dense)
+    if (single)
     {
-        members.Add(WordTable(single ? "s_tickF" : "s_wordF", wordsForward));
-        members.Add(WordTable(single ? "s_tickB" : "s_wordB", wordsBackward));
-        if (!single)
-            for (var k = 0; k < slotCount; k++)
-                members.Add(FloatTable($"s_slot{k}", slotTables[k]));
+        members.Add(WordTable("s_tickF", wordsForward));
+        members.Add(WordTable("s_tickB", wordsBackward));
     }
     else
     {
-        members.Add(Rank("StartRank", startCuts));
-        members.Add(Rank("EndRank", endCuts));
+        members.Add(WordTable("s_wordF", wordsForward));
+        members.Add(WordTable("s_wordB", wordsBackward));
+        for (var k = 0; k < slotCount; k++)
+            members.Add(FloatTable($"s_slot{k}", slots[k]));
     }
 
-    // The lookup strategy belongs to the emitter (it picks the mode), so
-    // its header lines are spliced in here just before the trailing "See
-    // docs" note rather than written into the per-fixture notes.
-    var wordNames = single ? "s_tickF/s_tickB" : "s_wordF/s_wordB";
+    for (var k = 0; k < slotCount; k++)
+    {
+        members.Add(UintTable($"s_enterF{k}", enterForward[k]));
+        members.Add(UintTable($"s_enterB{k}", enterBackward[k]));
+    }
 
-    string[] slotShape = single
-        ? [
-            "bits 0..31 the slot value's float bits, unpacked with",
-            "BitConverter.Int32BitsToSingle((int)word), a JIT intrinsic - so ONE load per",
-            "tick covers flags, both ranks, and the value.",
-        ]
-        : [
-            "bits 0..31 zero - this is the multi-slot shape: slot values stay in the",
-            "s_slot0..s_slotN float tables, one independent stream load per active-track",
-            "slot alongside the word.",
-        ];
-
-    string[] strategy = dense
-        ? [
-            $"Lookup strategy: full-bake dense LUT mode (this timeline's duration {duration} is",
-            $"within the <= {denseLimit} threshold). The whole per-tick leaf is baked into ONE",
-            $"interleaved ulong word per tick per direction ({wordNames}): bits 40..47 the",
-            "positional flag byte (Active/First/Last/Complete, shifted << 27 into the",
-            "PlaybackFlags word - Complete is direction-dependent, hence one word table per",
-            "direction), bits 48..55 the startRank and bits 56..63 the endRank (the cut",
-            "counts at or below the tick), and",
-            ..slotShape,
-            "Movement is arithmetic, not branches: the step fact materializes as a 0/1",
-            "setcc (tick > prev / tick < prev ? 1u : 0u) that 0u - moved broadcasts to a",
-            "mask, and both rank diffs are -1/0 sign masks ((prevRank - rank) >> 31 -",
-            "exact because the packed ranks are 0..255, so the subtraction cannot",
-            "overflow and bit 31 is the comparison), AND-ed with the Enter/Exit bits and",
-            "OR-ed over the shifted flag byte. The previous tick's ranks ride in locals",
-            "carried across iterations (seeded once before the loop from the word",
-            "table's clamp target), so there are no rank loads at all. Count is the",
-            "Active bit arithmetically shifted out (>> 28), not a conditional increment.",
-            "The out-of-range clamp target is the tables' sentinel word at the duration (the",
-            "empty region, ranks = the total cut counts, asserted at emission). Timelines",
-            "longer than the threshold emit binary branch trees over the region starts and",
-            "cut boundaries with per-region leaves instead.",
-        ]
-        : [
-            $"Lookup strategy: binary branch trees (this timeline's duration {duration} exceeds",
-            $"the {denseLimit} threshold of the full-bake dense LUT mode). Region lookup is a",
-            "branch tree over the region starts with per-region leaf bodies (immediate",
-            "payloads, constant-compare flags), and movement facts are rank trees over the",
-            $"cut boundaries; durations <= {denseLimit} get the interleaved per-tick word",
-            "tables instead.",
-        ];
-    var header = string.Join("\n", notes[..^1].Concat(strategy).Append(notes[^1]).Select(note => "// " + note));
+    var header = string.Join("\n", notes.Select(note => "// " + note));
     var body = string.Join("\n\n", members);
 
-    return Render($$"""
+    return $$"""
         // <auto-generated>
         {{header}}
         namespace Tl.Hooks;
@@ -975,7 +769,7 @@ string EmitFrozen(
         {{body}}
         }
         {{tail}}
-        """) + "\n";
+        """ + "\n";
 }
 
 // (a) The real fixture: tables read straight from Hooks.cs - a single source
@@ -986,23 +780,37 @@ var vitalsSource = EmitFrozen(
     [
         "Frozen playback for the VitalsTrack fixture (duration 600, 13 region",
         "starts = 12 regions plus the empty sentinel at 600, 4 tracks, blends",
-        "and gaps). Region starts, cut bits, clip windows, and payloads are",
-        "compile-time constants here: movement facts compare ranks over the",
-        "known clip-start/clip-end cut boundaries, and the per-tick slot",
-        "values are baked floats - folded at emission time with the same",
+        "and gaps), specialized at emission time against the redesigned API:",
+        "the Playback flags word carries only lifecycle and completion facts",
+        "(Started minted at Start, Completed positional per direction), and",
+        "movement facts are per-work ClipState codes accumulated by the sink.",
+        "Accumulation contract, mirrored bit-for-bit by the oracle in",
+        "Dispatch's Program.cs: per tick WITH at least one active track, in",
+        "track-row order — Sum += one blend-resolved clip value per active",
+        "slot, Flags += the slot's ClipState code (Enter=0, Stay=1, Exit=2:",
+        "Exit positional at the window's last active frame — End-1 forward,",
+        "Start backward; Enter when the step crossed the entry edge — Start",
+        "forward, End backward; both from per-slot enter-reference tables),",
+        "then Count++; empty ticks do no sink work; Backward subtracts in the",
+        "same order (the exact inverse).",
+        "Slot values are baked floats - folded at emission time with the same",
         "blend-factor arithmetic the table path evaluates at run time",
         "((tick - factorStart) / (float)(factorLength - 1), 0.5f for a",
         "one-tick window, then first * (1f - f) + second * f, all in float),",
-        "so the parity receipts hold bit-for-bit.",
-        "Specialized from PlaybackCore for this exact timeline: non-looping,",
-        "so no wraps, no cycle arithmetic (Cycles passes through unchanged),",
-        "effective positions are the raw ticks, and duration-0/empty-timeline",
-        "handling does not apply.",
-        "Accumulation contract, mirrored bit-for-bit by the oracle in",
-        "Dispatch's Program.cs: per tick, in order - Sum += one blend-resolved",
-        "clip value per active track in track-row order, Flags += (uint)status,",
-        "Count++ for ticks with at least one active track; Backward subtracts",
-        "in the same order (the exact inverse).",
+        "so the parity receipts hold bit-for-bit. Specialized from",
+        "PlaybackCore for this exact non-looping timeline: no wraps, no cycle",
+        "arithmetic (Cycles passes through unchanged), effective positions",
+        "are the raw ticks, and duration-0/empty handling does not apply.",
+        "Lookup strategy: dense per-tick word tables, one per direction.",
+        "Word layout (little-endian): bits 0..31 the slot-0 float bits (this",
+        "is the multi-slot shape, so zero here — slot values live in the",
+        "s_slot0..N float tables), bits 32..39 the per-slot Exit mask, bit 40",
+        "the direction-dependent Completed bit, bits 44..47 the active slot",
+        "count (zero on gaps, so one branch skips the whole tick). The s_",
+        "enterFk/s_enterBk uint tables hold each slot's entry reference —",
+        "the window Start forward, the window End backward — so Enter is one",
+        "compare against prev. The out-of-range clamp target is the empty",
+        "sentinel word at the duration.",
         "See docs/benchmarks.md.",
     ],
     """
@@ -1031,6 +839,7 @@ var vitalsSource = EmitFrozen(
     VitalsTrack.RegionFlags.ToArray(),
     VitalsTrack.TrackRows.ToArray(),
     VitalsTrack.ClipRows.ToArray(),
+    VitalsTrack.ClipEdges.ToArray(),
     VitalsTrack.ClipData.ToArray().Select(clip => clip.Amount).ToArray());
 
 File.WriteAllText(Path.Combine(dispatchDir, "VitalsFrozen.g.cs"), vitalsSource);
@@ -1056,6 +865,7 @@ var fusedRegionRows = new RegionRow[fusedStarts.Length];
 var fusedRegionFlags = new byte[fusedStarts.Length];
 var fusedTrackRows = new List<TrackRow>();
 var fusedClipRows = new List<ClipRow>();
+var fusedEdges = new List<ClipEdge>();
 
 for (var r = 0; r < fusedStarts.Length; r++)
 {
@@ -1068,6 +878,7 @@ for (var r = 0; r < fusedStarts.Length; r++)
             continue;
         fusedClipRows.Add(new ClipRow(checked((ushort)i), 0, 0));
         fusedTrackRows.Add(new TrackRow(0, checked((ushort)(fusedClipRows.Count - 1)), 1));
+        fusedEdges.Add(new ClipEdge((uint)(i * 4), (uint)(i * 4 + 3)));
     }
 
     fusedRegionRows[r] = new RegionRow(
@@ -1092,13 +903,17 @@ var fusedSource = EmitFrozen(
     [
         "Frozen playback for the Movement-shaped fixture (one track, 16 clips,",
         "clip i = [i*4, i*4+3) with value i+1, duration 63; the 4th tick of",
-        "each group is a gap); the single active track's value rides as float",
-        "bits in the low half of the one-load interleaved per-tick word and",
-        "movement facts compare cut-boundary ranks.",
-        "Specialized from PlaybackCore for this exact timeline: non-looping,",
+        "each group is a gap), specialized at emission time against the",
+        "redesigned API: lifecycle-only Playback flags (Started minted at",
+        "Start, Completed positional per direction) and per-work ClipState",
+        "accumulation. Same accumulation contract as VitalsFrozen (see",
+        "there); Backward subtracts in the same order. Single-slot shape: the",
+        "slot value's float bits ride in the word's low half, so ONE load per",
+        "tick covers the value, the Exit bit, the Completed bit, and the",
+        "active count; Enter compares prev against the s_enterF0/s_enterB0",
+        "reference.",
+        "Specialized from PlaybackCore for this exact non-looping timeline:",
         "no wraps, no cycle arithmetic, no duration-0/empty handling.",
-        "Accumulation contract: identical to VitalsFrozen (see there);",
-        "Backward subtracts in the same order.",
         "See docs/benchmarks.md.",
     ],
     """
@@ -1110,6 +925,7 @@ var fusedSource = EmitFrozen(
     fusedRegionFlags,
     [.. fusedTrackRows],
     [.. fusedClipRows],
+    [.. fusedEdges],
     Enumerable.Range(1, fusedClips).Select(i => (float)i).ToArray());
 
 File.WriteAllText(Path.Combine(dispatchDir, "Fused16Frozen.g.cs"), fusedSource);
