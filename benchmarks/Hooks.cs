@@ -220,6 +220,22 @@ public readonly struct Playback
     public bool Has(PlaybackFlags flags) => (Flags & flags) == flags;
 }
 
+// Caller-owned region cache for single-tick stepping, kept BETWEEN calls:
+// `Playback` stays 8 bytes; this side state is opt-in per caller. The cache
+// validates against the registry Entry itself — a rebuilt timeline is a NEW
+// Entry, and loop mode is per-entry immutable, so ReferenceEquals replaces
+// both the owner and the revision checks of the earlier design — plus the
+// source tick (a repositioned or snapshot-restored Playback must re-search).
+// Purely advisory: any mismatch falls back to searching and can never change
+// results. The runtime registry path only; generated timelines bake their
+// own schedule.
+public struct Cursor
+{
+    internal object? Owner;
+    internal uint Tick;
+    internal int Region;
+}
+
 public interface IBlend<TClip>
     where TClip : struct
 {
@@ -294,16 +310,44 @@ internal static class PlaybackCore
         where TTrack : struct, IBlend<TClip>
         where TClip : struct
         where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
+        => Advance(
+            in from, backward, loops, ticks, ref data,
+            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved,
+            -1, out _);
+
+    // `regionHint` is a CALLER-VALIDATED region for the effective position
+    // of `from.Tick` (a persistent Cursor); -1 means none. `finalRegion`
+    // returns the region of the last processed tick's effective position —
+    // pass it back as the next call's hint after storing `result.Tick`
+    // alongside it. An empty tick span returns `from` and echoes the hint
+    // unchanged, so a valid cursor survives it.
+    public static Playback Advance<TTrack, TClip, TData>(
+        in Playback from, bool backward, bool loops,
+        ReadOnlySpan<uint> ticks, ref TData data,
+        ReadOnlySpan<uint> starts, ReadOnlySpan<RegionRow> regionRows,
+        ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
+        ReadOnlySpan<ClipEdge> edges,
+        ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
+        Span<TClip> resolved,
+        int regionHint, out int finalRegion)
+        where TTrack : struct, IBlend<TClip>
+        where TClip : struct
+        where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
     {
         var duration = starts[^1];
         var state = from;
-        var previousRegion = -1;
+        var previousRegion = regionHint;
+        // Only the caller-validated across-call hint may probe the +-1
+        // neighborhood in small tables; the call-local cursor keeps its
+        // existing scan-from-zero behavior there.
+        var hinted = regionHint >= 0;
 
         foreach (var tick in ticks)
         {
             var (tEff, prevEff, cycles, wrapped, full) = Position(state.Tick, tick, duration, loops, backward);
 
-            var region = Locate(starts, tEff, previousRegion);
+            var region = Locate(starts, tEff, previousRegion, hinted);
+            hinted = false;
             var row = regionRows[region];
 
             // Forward wraps are counted exactly; the cycle capacity guard
@@ -350,6 +394,7 @@ internal static class PlaybackCore
             previousRegion = region;
         }
 
+        finalRegion = previousRegion;
         return state;
     }
 
@@ -442,10 +487,13 @@ internal static class PlaybackCore
             : (tEff, prevEff, 0u, false, false);
     }
 
+    // `anySize` lets a caller-validated across-call hint use the +-1
+    // neighborhood probe even in small tables (the call-local cursor stays
+    // on the scan-from-zero path there, matching measured behavior).
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int Locate(ReadOnlySpan<uint> starts, uint tick, int previousRegion)
+    internal static int Locate(ReadOnlySpan<uint> starts, uint tick, int previousRegion, bool anySize = false)
     {
-        if (previousRegion >= 0 && starts.Length > 16)
+        if (previousRegion >= 0 && (anySize || starts.Length > 16))
         {
             if (tick >= starts[previousRegion])
             {
@@ -1294,7 +1342,7 @@ public static class Timeline<TTrack, TClip>
         public static void Install(Timeline.Entry entry)
             => entry.Install(
                 DataToken<TData>.Id,
-                new Timeline.Entry.Run(&RunForward, &RunBackward, &SampleForward, &SampleBackward));
+                new Timeline.Entry.Run(&RunForward, &RunBackward, &RunForwardCursor, &RunBackwardCursor, &SampleForward, &SampleBackward));
 
         // The caller's `ref data` arrives as a stack-pinned void* and is
         // rehydrated here: the pointer mutates the caller's instance, zero
@@ -1333,6 +1381,64 @@ public static class Timeline<TTrack, TClip>
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: true, entry.Loops, ticks, ref consumer,
                 starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+        }
+
+        // Cursor-primed runners: the caller's `ref cursor` rides through as a
+        // second stack-pinned void*. The cache validates against the entry
+        // itself (a rebuilt timeline is a new Entry; loop mode is per-entry
+        // immutable) plus the source tick; any mismatch falls back to
+        // searching and can never change results. Stored only after the call
+        // returns; an empty tick span echoes a valid region through unchanged.
+        private static Playback RunForwardCursor(Timeline.Entry entry, in Playback from, void* cursor, void* data, ReadOnlySpan<uint> ticks)
+        {
+            ref var cache = ref Unsafe.AsRef<Cursor>(cursor);
+            var valid = ReferenceEquals(cache.Owner, entry) && cache.Tick == from.Tick;
+            var hint = valid ? cache.Region : -1;
+
+            ref var consumer = ref Unsafe.AsRef<TData>(data);
+            var tables = Unsafe.As<Tables>(entry.Payload);
+            var starts = entry.RegionStarts.AsSpan();
+            var regionRows = entry.RegionRows.AsSpan();
+            var trackRows = entry.TrackRows.AsSpan();
+            var clipRows = entry.ClipRows.AsSpan();
+            var edges = entry.ClipEdges.AsSpan();
+            var trackData = tables.TrackData.AsSpan();
+            var clipData = tables.ClipData.AsSpan();
+            Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
+
+            var result = PlaybackCore.Advance<TTrack, TClip, TData>(
+                in from, backward: false, entry.Loops, ticks, ref consumer,
+                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved,
+                hint, out var region);
+
+            cache = new Cursor { Owner = entry, Tick = result.Tick, Region = region };
+            return result;
+        }
+
+        private static Playback RunBackwardCursor(Timeline.Entry entry, in Playback from, void* cursor, void* data, ReadOnlySpan<uint> ticks)
+        {
+            ref var cache = ref Unsafe.AsRef<Cursor>(cursor);
+            var valid = ReferenceEquals(cache.Owner, entry) && cache.Tick == from.Tick;
+            var hint = valid ? cache.Region : -1;
+
+            ref var consumer = ref Unsafe.AsRef<TData>(data);
+            var tables = Unsafe.As<Tables>(entry.Payload);
+            var starts = entry.RegionStarts.AsSpan();
+            var regionRows = entry.RegionRows.AsSpan();
+            var trackRows = entry.TrackRows.AsSpan();
+            var clipRows = entry.ClipRows.AsSpan();
+            var edges = entry.ClipEdges.AsSpan();
+            var trackData = tables.TrackData.AsSpan();
+            var clipData = tables.ClipData.AsSpan();
+            Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
+
+            var result = PlaybackCore.Advance<TTrack, TClip, TData>(
+                in from, backward: true, entry.Loops, ticks, ref consumer,
+                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved,
+                hint, out var region);
+
+            cache = new Cursor { Owner = entry, Tick = result.Tick, Region = region };
+            return result;
         }
 
         private static void SampleForward(Timeline.Entry entry, void* data, ReadOnlySpan<uint> ticks)
@@ -1437,16 +1543,22 @@ public static unsafe partial class Timeline
 
         public required Action<Type, Entry> Binder { get; init; }
 
-        // One bound (forward, backward, sample-forward, sample-backward)
-        // pointer quad per consumer token id.
+        // One bound (forward, backward, cursor-primed forward/backward,
+        // sample-forward, sample-backward) pointer set per consumer token
+        // id. The cursor variants carry the caller's stack-pinned Cursor
+        // alongside the data pointer.
         public readonly struct Run(
             delegate*<Entry, in Playback, void*, ReadOnlySpan<uint>, Playback> forward,
             delegate*<Entry, in Playback, void*, ReadOnlySpan<uint>, Playback> backward,
+            delegate*<Entry, in Playback, void*, void*, ReadOnlySpan<uint>, Playback> forwardCursor,
+            delegate*<Entry, in Playback, void*, void*, ReadOnlySpan<uint>, Playback> backwardCursor,
             delegate*<Entry, void*, ReadOnlySpan<uint>, void> sampleForward,
             delegate*<Entry, void*, ReadOnlySpan<uint>, void> sampleBackward)
         {
             public readonly delegate*<Entry, in Playback, void*, ReadOnlySpan<uint>, Playback> Forward = forward;
             public readonly delegate*<Entry, in Playback, void*, ReadOnlySpan<uint>, Playback> Backward = backward;
+            public readonly delegate*<Entry, in Playback, void*, void*, ReadOnlySpan<uint>, Playback> ForwardCursor = forwardCursor;
+            public readonly delegate*<Entry, in Playback, void*, void*, ReadOnlySpan<uint>, Playback> BackwardCursor = backwardCursor;
             public readonly delegate*<Entry, void*, ReadOnlySpan<uint>, void> SampleForward = sampleForward;
             public readonly delegate*<Entry, void*, ReadOnlySpan<uint>, void> SampleBackward = sampleBackward;
 
@@ -1596,6 +1708,43 @@ public static unsafe partial class Timeline
     {
         ReadOnlySpan<uint> ticks = [tick];
         return Backward(index, in playback, ref data, ticks);
+    }
+
+    // Cursor-primed entry points: same playback, plus a caller-owned region
+    // cache carried between calls. Any mismatch (different entry — index
+    // switch, rebuild, loop-mode change — or a repositioned Playback) falls
+    // back to searching. Separate callers keep separate cursors; sharing one
+    // is legal but only ever validated against its own owner.
+    public static Playback Forward<TData>(ushort index, in Playback playback, ref Cursor cursor, ref TData data, in uint tick)
+        where TData : struct
+    {
+        ReadOnlySpan<uint> ticks = [tick];
+        return Forward(index, in playback, ref cursor, ref data, ticks);
+    }
+
+    public static Playback Forward<TData>(ushort index, in Playback playback, ref Cursor cursor, ref TData data, params ReadOnlySpan<uint> ticks)
+        where TData : struct
+    {
+        var entry = Live(index);
+        PlaybackCore.RequireRunnable(in playback);
+        var run = entry.Bind(typeof(TData), TokenOf<TData>());
+        return run.ForwardCursor(entry, in playback, Unsafe.AsPointer(ref cursor), Unsafe.AsPointer(ref data), ticks);
+    }
+
+    public static Playback Backward<TData>(ushort index, in Playback playback, ref Cursor cursor, ref TData data, in uint tick)
+        where TData : struct
+    {
+        ReadOnlySpan<uint> ticks = [tick];
+        return Backward(index, in playback, ref cursor, ref data, ticks);
+    }
+
+    public static Playback Backward<TData>(ushort index, in Playback playback, ref Cursor cursor, ref TData data, params ReadOnlySpan<uint> ticks)
+        where TData : struct
+    {
+        var entry = Live(index);
+        PlaybackCore.RequireRunnable(in playback);
+        var run = entry.Bind(typeof(TData), TokenOf<TData>());
+        return run.BackwardCursor(entry, in playback, Unsafe.AsPointer(ref cursor), Unsafe.AsPointer(ref data), ticks);
     }
 
     public static Playback Backward<TData>(ushort index, in Playback playback, ref TData data, params ReadOnlySpan<uint> ticks)

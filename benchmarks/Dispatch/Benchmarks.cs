@@ -492,6 +492,112 @@ public class ApiShape
     }
 }
 
+// The persistent caller-owned cursor at 16/64/512 clips (33/129/1025
+// regions — all past the binary-search threshold), sequential and random
+// single-tick streams, against the no-cursor reference on the same runtime
+// registry path. The invalid arm nulls the owner before every call, so it
+// measures full validation plus the search fallback.
+public readonly record struct CursorClip(float Value);
+
+public struct CursorTrack : IBlend<CursorClip>
+{
+    public void Blend(in CursorClip first, in CursorClip second, float t, out CursorClip result)
+        => result = new(first.Value * (1f - t) + second.Value * t);
+}
+
+public struct CursorData :
+    IForward<CursorTrack, CursorClip, CursorData>,
+    IBackward<CursorTrack, CursorClip, CursorData>
+{
+    public float Sum;
+    public int Count;
+
+    public void Forward(ref CursorData data, in Tracks<CursorTrack, CursorClip> tracks, in uint tick)
+    {
+        foreach (var work in tracks)
+            data.Sum += work.Clip.Value;
+        data.Count++;
+    }
+
+    public void Backward(ref CursorData data, in Tracks<CursorTrack, CursorClip> tracks, in uint tick)
+    {
+        foreach (var work in tracks)
+            data.Sum -= work.Clip.Value;
+        data.Count--;
+    }
+}
+
+[Config(typeof(Config))]
+public class CursorShape
+{
+    public const int Operations = 65536;
+    [Params(16, 64, 512)] public int Clips { get; set; }
+    [Params(false, true)] public bool Sequential { get; set; }
+    private uint[] _ticks = null!;
+    private ushort _timeline;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _timeline = Timeline<CursorTrack, CursorClip>.Build(b =>
+        {
+            var track = b.Track(new CursorTrack());
+            for (uint i = 0; i < (uint)Clips; i++)
+                b.Clip(track, new CursorClip(i + 1), i * 4, i * 4 + 3);
+        });
+        _ticks = new uint[Operations];
+        uint duration = (uint)Clips * 4;
+        uint random = 0xB19F4C27;
+        for (var i = 0; i < _ticks.Length; i++)
+        {
+            random ^= random << 13;
+            random ^= random >> 17;
+            random ^= random << 5;
+            _ticks[i] = Sequential ? (uint)i % duration : random % duration;
+        }
+
+        // Receipt: cursor arms must match the no-cursor arm exactly.
+        var expected = Single();
+        if (SingleCursor() != expected || SingleCursorInvalid() != expected)
+            throw new InvalidOperationException($"CursorShape receipts differ for {Clips}/{Sequential}.");
+    }
+
+    [Benchmark(Baseline = true, OperationsPerInvoke = Operations)]
+    public float Single()
+    {
+        var data = new CursorData();
+        var pb = Timeline.Start(_timeline);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_timeline, in pb, ref data, tick);
+        return data.Sum + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float SingleCursor()
+    {
+        var data = new CursorData();
+        var pb = Timeline.Start(_timeline);
+        var cursor = default(Cursor);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_timeline, in pb, ref cursor, ref data, tick);
+        return data.Sum + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float SingleCursorInvalid()
+    {
+        var data = new CursorData();
+        var pb = Timeline.Start(_timeline);
+        var cursor = default(Cursor);
+        foreach (var tick in _ticks.AsSpan())
+        {
+            cursor.Owner = null; // deliberately stale before every call
+            pb = Timeline.Forward(_timeline, in pb, ref cursor, ref data, tick);
+        }
+        return data.Sum + data.Count;
+    }
+}
+
 // The 8-byte Playback claim: `in`, by-value, and `ref` passing of one qword
 // should be indistinguishable.
 [Config(typeof(Config))]

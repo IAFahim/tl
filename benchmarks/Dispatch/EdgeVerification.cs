@@ -7,14 +7,14 @@ internal static class EdgeVerification
     public static void Run()
     {
         var failures = new List<string>();
-        foreach (var test in new Action[] { Gaps, Empty, Blend, Order, Packing, Wrap, States, Batches, Fixture, PerClip, WideTicks, Limits, Indices })
+        foreach (var test in new Action[] { Gaps, Empty, Blend, Order, Packing, Wrap, States, Batches, CursorParity, Fixture, PerClip, WideTicks, Limits, Indices })
         {
             try { test(); }
             catch (Exception e) { failures.Add($"{test.Method.Name}: {e.Message}"); }
         }
         if (failures.Count != 0)
             throw new InvalidOperationException(string.Join(Environment.NewLine, failures));
-        Console.WriteLine("Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, fixture parity, per-work facts oracle, limits.");
+        Console.WriteLine("Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, fixture parity, per-work facts oracle, limits.");
     }
 
     private static void Require(bool condition, string message)
@@ -252,6 +252,222 @@ internal static class EdgeVerification
             Require(Timeline<ProbeTrack, ProbeClip>.Build(static b => { }) == i, "Index was reused before exhaustion.");
         Reject<InvalidOperationException>(() => Timeline<ProbeTrack, ProbeClip>.Build(static b => { }));
         Reject<InvalidOperationException>(() => Timeline<ProbeTrack, ProbeClip>.Build(static b => { }));
+    }
+
+    // The persistent caller-owned Cursor: every receipt runs the same step
+    // twice — plain search, and cursor-primed — and requires identical
+    // Playback AND identical recorded works. Covers the handoff's list,
+    // adapted to per-work states: same tick, adjacent forward/backward
+    // ticks, random seeks, wraps, restored Playback snapshots, alternating
+    // timelines (separate cursors, and one shared cursor), rebuilds,
+    // loop-mode changes, empty spans, and the lifecycle rejections firing
+    // before any callback.
+    private static void CursorParity()
+    {
+        ClipEdge[] edges = [new(2, 3), new(5, 12), new(8, 10), new(16, 25), new(20, 28)];
+        var linear = Make(edges);
+        var looping = Make(true, edges);
+
+        void RequireEqual(Playback plain, Probe plainData, Playback primed, Probe primedData, string what)
+        {
+            if (plain.Tick != primed.Tick || plain.Cycles != primed.Cycles || plain.Flags != primed.Flags)
+                throw new InvalidOperationException($"Cursor {what}: Playback diverged ({plain.Tick}/{plain.Cycles}/{plain.Flags} vs {primed.Tick}/{primed.Cycles}/{primed.Flags}).");
+            if (!plainData.Works.SequenceEqual(primedData.Works) || plainData.Sum != primedData.Sum || plainData.Count != primedData.Count)
+                throw new InvalidOperationException($"Cursor {what}: works diverged.");
+        }
+
+        // A cursor-stepped walk against a plain walk, tick for tick.
+        void Walk(ushort timeline, ReadOnlySpan<uint> ticks, bool backward)
+        {
+            var plain = At(0);
+            var primed = At(0);
+            var cache = default(Cursor);
+            var plainData = new Probe();
+            var primedData = new Probe();
+            foreach (var tick in ticks)
+            {
+                var markP = plainData.Works.Count;
+                var markC = primedData.Works.Count;
+                plain = backward
+                    ? Timeline.Backward(timeline, in plain, ref plainData, tick)
+                    : Timeline.Forward(timeline, in plain, ref plainData, tick);
+                primed = backward
+                    ? Timeline.Backward(timeline, in primed, ref cache, ref primedData, tick)
+                    : Timeline.Forward(timeline, in primed, ref cache, ref primedData, tick);
+                if (plain.Tick != primed.Tick || plain.Cycles != primed.Cycles || plain.Flags != primed.Flags
+                    || !plainData.Works.Skip(markP).SequenceEqual(primedData.Works.Skip(markC)))
+                    throw new InvalidOperationException($"Cursor walk diverged at {tick}, backward={backward}.");
+            }
+        }
+
+        // Same tick, adjacent forward/backward, and a wrap on the looping variant.
+        Walk(linear, [5, 5, 5, 6, 7, 6, 5, 4], backward: false);
+        Walk(looping, [5, 5, 5, 6, 7, 6, 5, 4], backward: false);
+        Walk(linear, [20, 20, 19, 18, 19, 20, 21], backward: true);
+        Walk(looping, [27, 27, 28, 0, 1, 27, 26, 28, 0], backward: false);
+        Walk(looping, [0, 0, 28, 27, 0, 1, 28], backward: true);
+
+        // Random seeks: deterministic xorshift battery, both timelines, both
+        // directions — full per-step parity.
+        uint random = 0x9E3779B9u;
+        Span<uint> seeks = stackalloc uint[64];
+        for (var i = 0; i < seeks.Length; i++)
+        {
+            random ^= random << 13; random ^= random >> 17; random ^= random << 5;
+            seeks[i] = random % 85;
+        }
+        Walk(linear, seeks, backward: false);
+        Walk(linear, seeks, backward: true);
+        Walk(looping, seeks, backward: false);
+        Walk(looping, seeks, backward: true);
+
+        // Deliberately invalid caches: wrong owner, stale tick, out-of-range
+        // region — all must fall back to searching with unchanged results.
+        foreach (var bad in new[] { default(Cursor), new Cursor { Owner = linear, Tick = 99, Region = 0 }, new Cursor { Owner = looping, Tick = 0, Region = 0 } })
+        {
+            var cache = bad;
+            var data = new Probe();
+            var plainData = new Probe();
+            var from = At(0);
+            var plain = Timeline.Forward(linear, in from, ref plainData, 9);
+            var primed = Timeline.Forward(linear, in from, ref cache, ref data, 9);
+            RequireEqual(plain, plainData, primed, data, "invalid fallback");
+        }
+        {
+            var cache = new Cursor { Owner = looping, Tick = 0, Region = 99 };
+            var data = new Probe();
+            var from = At(0);
+            var primed = Timeline.Forward(looping, in from, ref cache, ref data, 9);
+            var plainData = new Probe();
+            var plain = Timeline.Forward(looping, in from, ref plainData, 9);
+            RequireEqual(plain, plainData, primed, data, "out-of-range region");
+        }
+
+        // Restored Playback snapshot: continue past a saved point, then rewind
+        // the Playback without touching the cursor — the tick check must
+        // invalidate the hint and reproduce the plain result.
+        {
+            var saved = At(5);
+            var cache = default(Cursor);
+            var warm = new Probe();
+            Timeline.Forward(linear, in saved, ref cache, ref warm, 8);
+            var rewoundData = new Probe();
+            var rewound = Timeline.Forward(linear, in saved, ref cache, ref rewoundData, 8);
+            var plainData = new Probe();
+            var plain = Timeline.Forward(linear, in saved, ref plainData, 8);
+            RequireEqual(plain, plainData, rewound, rewoundData, "restored snapshot");
+        }
+
+        // Alternating timelines: two cursors stay independent, and one shared
+        // cursor alternates by falling back (still correct).
+        {
+            var other = Make(edges);
+            var first = default(Cursor);
+            var second = default(Cursor);
+            var a = At(0);
+            var b = At(0);
+            var plainA = At(0);
+            var plainB = At(0);
+            var dataA = new Probe();
+            var dataB = new Probe();
+            var plainDataA = new Probe();
+            var plainDataB = new Probe();
+            for (var i = 4; i < 30; i += 3)
+            {
+                plainA = Timeline.Forward(linear, in plainA, ref plainDataA, (uint)i);
+                plainB = Timeline.Forward(other, in plainB, ref plainDataB, (uint)i);
+                a = Timeline.Forward(linear, in a, ref first, ref dataA, (uint)i);
+                b = Timeline.Forward(other, in b, ref second, ref dataB, (uint)i);
+                if (a.Tick != plainA.Tick || b.Tick != plainB.Tick)
+                    throw new InvalidOperationException("Alternating timelines diverged with separate cursors.");
+            }
+            if (!dataA.Works.SequenceEqual(plainDataA.Works) || !dataB.Works.SequenceEqual(plainDataB.Works))
+                throw new InvalidOperationException("Separate cursors interfered across timelines.");
+
+            var shared = default(Cursor);
+            var c = At(0);
+            var d = At(0);
+            var sharedDataA = new Probe();
+            var sharedDataB = new Probe();
+            for (var i = 4; i < 30; i += 3)
+            {
+                c = Timeline.Forward(linear, in c, ref shared, ref sharedDataA, (uint)i);
+                d = Timeline.Forward(other, in d, ref shared, ref sharedDataB, (uint)i);
+            }
+            if (c.Tick != plainA.Tick || d.Tick != plainB.Tick
+                || !sharedDataA.Works.SequenceEqual(plainDataA.Works) || !sharedDataB.Works.SequenceEqual(plainDataB.Works))
+                throw new InvalidOperationException("A shared cursor changed results across timelines.");
+        }
+
+        // Rebuild and loop-mode change: same content, NEW entries — the stale
+        // owner must fall back and stay correct.
+        {
+            var rebuilt = Make(edges);
+            var start = At(0);
+            var cache = default(Cursor);
+            var stale = new Probe();
+            Timeline.Forward(linear, in start, ref cache, ref stale, 9);
+            var rebuiltData = new Probe();
+            var rebuiltPb = Timeline.Forward(rebuilt, in start, ref cache, ref rebuiltData, 9);
+            var plainData = new Probe();
+            var plain = Timeline.Forward(rebuilt, in start, ref plainData, 9);
+            RequireEqual(plain, plainData, rebuiltPb, rebuiltData, "rebuild fallback");
+
+            var loopData = new Probe();
+            var loopPb = Timeline.Forward(looping, in start, ref cache, ref loopData, 9);
+            var plainLoopData = new Probe();
+            var plainLoop = Timeline.Forward(looping, in start, ref plainLoopData, 9);
+            RequireEqual(plainLoop, plainLoopData, loopPb, loopData, "loop-mode fallback");
+        }
+
+        // Empty spans: a valid cursor survives unchanged, and the next call
+        // still lands correctly; an empty span over an invalid cursor simply
+        // refreshes the owner.
+        {
+            var cache = default(Cursor);
+            var data = new Probe();
+            var begin = At(4);
+            var pb = Timeline.Forward(linear, in begin, ref cache, ref data, 6);
+            var empty = Timeline.Forward(linear, in pb, ref cache, ref data, []);
+            if (empty.Tick != pb.Tick || empty.Flags != pb.Flags || data.Count != 1)
+                throw new InvalidOperationException("An empty span must not run callbacks or move the playback.");
+            var mark = data.Works.Count;
+            var next = Timeline.Forward(linear, in empty, ref cache, ref data, 7);
+            var plainData = new Probe();
+            var plainNext = Timeline.Forward(linear, in pb, ref plainData, 7);
+            if (next.Tick != plainNext.Tick || next.Cycles != plainNext.Cycles || next.Flags != plainNext.Flags)
+                throw new InvalidOperationException("Cursor after an empty span: Playback diverged.");
+            if (!data.Works.Skip(mark).SequenceEqual(plainData.Works))
+                throw new InvalidOperationException("Cursor after an empty span: works diverged.");
+        }
+
+        // Single vs batch parity with a primed cursor.
+        {
+            uint[] ticks = [0, 1, 2, 7, 25, 24, 6, 28, 84, 3, 3, 4, 20, 80, 5];
+            var singleData = new Probe();
+            var single = At(0);
+            var cache = default(Cursor);
+            foreach (var tick in ticks)
+                single = Timeline.Forward(linear, in single, ref cache, ref singleData, tick);
+            var batchData = new Probe();
+            var batchStart = At(0);
+            var batch = Timeline.Forward(linear, in batchStart, ref cache, ref batchData, ticks);
+            if (single.Tick != batch.Tick || single.Cycles != batch.Cycles || single.Flags != batch.Flags
+                || !singleData.Works.SequenceEqual(batchData.Works))
+                throw new InvalidOperationException("Cursor single/batch parity broke.");
+        }
+
+        // Lifecycle: the cursor overload rejects before any callback too.
+        {
+            var guard = new Probe();
+            var cache = default(Cursor);
+            Reject<InvalidOperationException>(() => Timeline.Forward(linear, default, ref cache, ref guard, 5));
+            Reject<InvalidOperationException>(() => Timeline.Backward(linear, default, ref cache, ref guard, 5));
+            var stopped = Timeline.Stop(linear, At(5));
+            Reject<InvalidOperationException>(() => Timeline.Forward(linear, in stopped, ref cache, ref guard, 5));
+            if (guard.Count != 0)
+                throw new InvalidOperationException("A rejected cursor playback must not run callbacks.");
+        }
     }
 
     private static void Fixture()
