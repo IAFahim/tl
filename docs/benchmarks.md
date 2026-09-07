@@ -547,6 +547,95 @@ Readings, honestly:
   this contract for a single active track; 1.54 is the current proven
   point, throughput-bound ~0.6 ns above the floor.
 
+#### NativeAOT: the no-tiering, no-PGO column
+
+Does the frozen story survive a compilation model with no tiering and no
+PGO, ever? BenchmarkDotNet cannot answer that: `dotnet publish
+benchmarks/Dispatch -c Release -r linux-x64 /p:PublishAot=true` dies in ILC
+on the BDN dependency tree (load-bearing subset, verbatim):
+
+```
+BenchmarkDotNet.dll : error IL2104: Assembly 'BenchmarkDotNet' produced trim warnings.
+CommandLine.dll : error IL2104: Assembly 'CommandLine' produced trim warnings.
+ILC : error IL3000: BenchmarkDotNet.Running.BenchmarkPartitioner...: 'System.Reflection.Assembly.Location.get' always returns an empty string for assemblies embedded in a single-file app.
+ILC : error IL3053: Assembly 'BenchmarkDotNet' produced AOT analysis warnings.
+Microsoft.CodeAnalysis.dll : error IL2104: Assembly 'Microsoft.CodeAnalysis' produced trim warnings.
+```
+
+and BDN's default toolchain would only spawn generated JIT child projects
+anyway. The AOT column therefore comes from a **manual harness**:
+`benchmarks/AotBench`, a package-free console project compiling the same
+`Hooks.cs` and the same generated frozen fixtures, published with
+`dotnet publish -c Release -r linux-x64 /p:PublishAot=true /p:IlcInstructionSet=native`
+(.NET SDK 10.0.400, ILC 10.0.11, this machine's ISA — like the JIT sees).
+Every arm body and the tick generation are copied verbatim from the Frozen
+benchmark class (seed `0x6D2B79F5`, 65536 ticks per sample, durations
+63/600); a sample times one full pass with `Stopwatch`, the number is the
+median of 512 samples per round, median across 5 rounds, 2 s warmup first.
+The harness runs unchanged under the JIT, so its JIT columns cross-check
+the BDN medians before any AOT comparison: Fused16Batch8 1.512 vs 1.54,
+Fused16Single 2.110 vs 2.12, Fused16Sequential 2.155 vs 2.16,
+VitalsBatch8 1.921 vs 1.96 (VitalsSingle 2.470 vs 2.65 — the harness reads
+that one 0.18 ns faster than the older BDN run; everything else within
+0.05). Correctness under AOT: all six arm checksums are bit-identical to
+the JIT output, batch-vs-single stays bit-exact, the forward/backward
+mirror still restores the sink exactly — the `params ReadOnlySpan<uint>`
+shape and the static-abstract `IFrozen` face are no trouble on .NET 10
+NativeAOT.
+
+Measurement (core 10, ns per tick, medians; two AOT process runs agreed
+within 0.03 on every arm):
+
+| Method                  | BDN Jit (bake v2, core 4) | Harness Jit tiered | Harness Jit NoTiering | NativeAOT |
+|-------------------------|--------------------------:|-------------------:|----------------------:|----------:|
+| `Fused16Batch8`         |                      1.54  |              1.512 |                 1.526 |     1.622 |
+| `Fused16Single`         |                      2.12  |              2.110 |                 2.103 |     2.605 |
+| `Fused16Sequential`     |                      2.16  |              2.155 |                 2.168 |     2.596 |
+| `FrozenVitalsBatch8`    |                      1.96  |              1.921 |                 1.920 |     2.235 |
+| `FrozenVitalsSingle`    |                      2.65  |              2.470 |                 2.637 |     3.101 |
+| `FrozenVitalsSequential`|                      2.49  |              2.432 |                 2.570 |     3.101 |
+
+Readings, honestly:
+
+- The design held. The arm ordering survives intact (batch arms fastest,
+  Fused16 under Vitals, everything under the float-chain floor plus toll),
+  the batch `Playback` amortization pays exactly the same way (1.62 vs
+  2.60 — a 1.0 ns/tick gap, same as the JIT's 1.51 vs 2.11), and the
+  branchless movement arithmetic is fully present in the published binary
+  (`seta`+`neg`, the `sub`/`sar`/`and` sign-mask chains are all in the
+  objdump). The mispredict-immunity held too: AOT random and sequential
+  arms are statistically identical (2.605 vs 2.596 Fused16, 3.101 vs 3.101
+  Vitals) — no stream shape regressed.
+- The toll is uniform and codegen-shaped, not design-shaped: +0.11 ns/tick
+  on Fused16Batch8 (+7%) and +0.44…+0.67 on the per-tick-call arms
+  (+20–27%). objdump of the published binary shows where it lives: ILC did
+  NOT inline `Playback.__ctor` — the single arms pay a real `call` (with
+  its own frame) once per tick, plus the per-call prev-word seed reload
+  (`s_tickF[clamp(prev)]` re-loaded and re-unpacked every tick instead of
+  carried in locals), the params ticks staged through stack slots, the
+  `Sum` float accumulator spilled/reloaded per tick (`vmovss` against the
+  frame), the branchy clamp diamond, and a per-tick rip-relative `lea` for
+  the frozen struct's static base (the tables themselves sit in writable
+  BSS as `__FrozenObj_*`, not frozen read-only pages — placement note, not
+  a latency claim). The tick-array bounds checks ARE eliminated. The batch
+  arms amortize the ctor/seed over 8 ticks, which is why they only pay
+  +0.1–0.3.
+- This is not "no PGO" biting. The harness's NoTiering JIT column is also
+  PGO-less, single-pass FullOpts — and it lands on the tiered numbers
+  (1.526 vs 1.512 Fused16Batch8; bake v2 deleted the mispredicts PGO used
+  to fix). NativeAOT sits above *both* JIT columns by the same margin, so
+  the driver is ILC's inline/register-allocation decisions for this
+  call-shaped source, not tiering-forever effects.
+- Layout sensitivity is real on these arms: an earlier publish of
+  byte-identical hot-loop source (only the harness warmup constants
+  differed, shifting code layout) measured 0.08–0.19 ns/tick slower on
+  every arm. The numbers above are the final binary, run twice.
+- Net: the frozen path is NativeAOT-viable at 1.62/2.24 ns/tick batch and
+  2.60/3.10 single — a +7…27% codegen toll, zero allocation (the 48 B in
+  the harness log is the six cached delegate thunks), bit-exact parity,
+  and no stream-shape cliff. The ".NET x64 JIT only" hedge is retired for
+  the frozen path; IL2CPP/WASM stay unmeasured.
+
 #### The frozen hub: one dispatch call site
 
 `FrozenHub.g.cs` closes the loop the dispatch verdicts opened: ONE call
