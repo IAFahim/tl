@@ -1,6 +1,12 @@
 using BenchmarkDotNet.Running;
 using Tl.Hooks;
 
+if (args is ["--verify-edges"])
+{
+    EdgeVerification.Run();
+    return;
+}
+
 if (args is ["--verify"])
 {
     var benchmark = new Dispatch();
@@ -120,8 +126,8 @@ if (args is ["--verify"])
 
     // The status word ORs across clips, so counts are distinct boundary
     // ticks: starts {3,18,29,47,76,200,321}, ends {7,11,29,47,76,123,321};
-    // 431 ticks are covered and 514 is the last for a non-looping timeline.
-    if ((enters, exits, actives, completes) != (7, 7, 431, 1))
+    // 431 ticks are covered; completion is at 599, beyond this walk.
+    if ((enters, exits, actives, completes) != (7, 7, 431, 0))
         throw new InvalidOperationException($"Forward walk flag counts wrong: {enters}/{exits}/{actives}/{completes}.");
     if (pw.Tick != 514 || pw.Cycles != 0)
         throw new InvalidOperationException($"Forward walk ended at {pw.Tick}, cycles {pw.Cycles}.");
@@ -182,21 +188,21 @@ if (args is ["--verify"])
     // exactly, a full-cycle jump sets Enter|Exit, backward wraps saturate.
     var lv = new Vitals();
     var lp = Playback.Start();
-    lp = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in lp, ref lv, 600);
-    if (lp.Tick != 600 || lp.Cycles != 1 || lp.Flags != (PlaybackFlags.Enter | PlaybackFlags.Exit | PlaybackFlags.Active))
-        throw new InvalidOperationException($"Loop wrap to 600 wrong: {lp.Tick}, {lp.Cycles}, {lp.Flags}.");
+    lp = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in lp, ref lv, 685);
+    if (lp.Tick != 685 || lp.Cycles != 1 || lp.Flags != (PlaybackFlags.Enter | PlaybackFlags.Exit | PlaybackFlags.Active))
+        throw new InvalidOperationException($"Loop wrap to 685 wrong: {lp.Tick}, {lp.Cycles}, {lp.Flags}.");
 
-    lp = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in lp, ref lv, 1035);
-    if (lp.Tick != 1035 || lp.Cycles != 2 || !lp.Has(PlaybackFlags.Enter) || !lp.Has(PlaybackFlags.Active))
-        throw new InvalidOperationException($"Second wrap to 1035 wrong: {lp.Tick}, {lp.Cycles}, {lp.Flags}.");
+    lp = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in lp, ref lv, 1205);
+    if (lp.Tick != 1205 || lp.Cycles != 2 || !lp.Has(PlaybackFlags.Enter) || !lp.Has(PlaybackFlags.Active))
+        throw new InvalidOperationException($"Second wrap to 1205 wrong: {lp.Tick}, {lp.Cycles}, {lp.Flags}.");
 
     var multi = Playback.Start();
-    multi = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in multi, ref lv, 1035);
+    multi = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in multi, ref lv, 1205);
     if (multi.Cycles != 2 || !multi.Has(PlaybackFlags.Enter) || !multi.Has(PlaybackFlags.Exit) || !multi.Has(PlaybackFlags.Active))
         throw new InvalidOperationException($"Two-cycle jump should be full coverage, got {multi.Cycles}, {multi.Flags}.");
 
     var wrap = Playback.Start(0);
-    wrap = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Backward(in wrap, ref lv, 514);
+    wrap = GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Backward(in wrap, ref lv, 599);
     if (wrap.Cycles != 0
         || wrap.Flags != (PlaybackFlags.Enter | PlaybackFlags.Exit | PlaybackFlags.Active | PlaybackFlags.Last))
         throw new InvalidOperationException($"Backward wrap past zero wrong: {wrap.Cycles}, {wrap.Flags}.");
@@ -240,6 +246,8 @@ if (args is ["--verify"])
     var rp2 = runtime.Forward(in loopStart, ref rv, 700);
     if (rp2.Cycles != 1 || rp2.Tick != 700)
         throw new InvalidOperationException($"Runtime loop wrap wrong: {rp2.Tick}, {rp2.Cycles}.");
+
+    EdgeVerification.Run();
 
     Console.WriteLine("Playback verified: flags, jumps, mirrors, loops, rewind, clip hooks, runtime instances.");
     Console.WriteLine("Dispatch receipts match; generated, constrained, ref-data, and API-shape calls mutate the original; boxing copies it.");

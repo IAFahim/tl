@@ -189,11 +189,16 @@ public enum PlaybackFlags : uint
 
 public readonly struct Playback
 {
+    public const uint MaxCycles = 0x03FF_FFFFu;
     public readonly uint Tick;
     private readonly uint _packed;
 
     public Playback(uint tick, uint cycles, PlaybackFlags flags)
     {
+        if (cycles > MaxCycles)
+            throw new ArgumentOutOfRangeException(nameof(cycles));
+        if (((uint)flags & MaxCycles) != 0)
+            throw new ArgumentOutOfRangeException(nameof(flags));
         Tick = tick;
         _packed = cycles | (uint)flags;
     }
@@ -231,20 +236,24 @@ internal static class PlaybackCore
     {
         var duration = starts[^1];
         var state = from;
+        var previousRegion = -1;
 
         foreach (var tick in ticks)
         {
             var (tEff, prevEff, cycles, wrapped, full) = Position(state.Tick, tick, duration, loops, backward);
 
-            var region = 0;
-            while (region + 1 < starts.Length && starts[region + 1] <= tEff)
-                region++;
+            var region = Locate(starts, tEff, previousRegion);
 
             var row = regionRows[region];
 
             var flags = Flags(
-                edges, regionFlags, starts, region, row.TrackCount,
+                edges, regionFlags, starts, region, row.TrackCount, previousRegion,
                 tEff, prevEff, duration, cycles, wrapped, full, backward, loops);
+
+            if (!backward && cycles > Playback.MaxCycles - state.Cycles)
+                throw new ArgumentOutOfRangeException(nameof(ticks), "Playback cycle capacity exceeded.");
+            var newCycles = backward ? state.Cycles - Math.Min(state.Cycles, cycles) : state.Cycles + cycles;
+            var next = new Playback(tick, newCycles, flags);
 
             var tracks = new Tracks<TTrack, TClip>(
                 tEff, flags,
@@ -256,10 +265,8 @@ internal static class PlaybackCore
             else
                 data.Forward(tEff, in tracks, ref data);
 
-            var newCycles = backward
-                ? state.Cycles >= cycles ? state.Cycles - cycles : 0u
-                : state.Cycles + cycles;
-            state = new Playback(tick, newCycles, flags);
+            state = next;
+            previousRegion = region;
         }
 
         return state;
@@ -280,20 +287,24 @@ internal static class PlaybackCore
     {
         var duration = starts[^1];
         var state = from;
+        var previousRegion = -1;
 
         foreach (var tick in ticks)
         {
             var (tEff, prevEff, cycles, wrapped, full) = Position(state.Tick, tick, duration, loops, backward);
 
-            var region = 0;
-            while (region + 1 < starts.Length && starts[region + 1] <= tEff)
-                region++;
+            var region = Locate(starts, tEff, previousRegion);
 
             var row = regionRows[region];
 
             var flags = Flags(
-                edges, regionFlags, starts, region, row.TrackCount,
+                edges, regionFlags, starts, region, row.TrackCount, previousRegion,
                 tEff, prevEff, duration, cycles, wrapped, full, backward, loops);
+
+            if (!backward && cycles > Playback.MaxCycles - state.Cycles)
+                throw new ArgumentOutOfRangeException(nameof(ticks), "Playback cycle capacity exceeded.");
+            var newCycles = backward ? state.Cycles - Math.Min(state.Cycles, cycles) : state.Cycles + cycles;
+            var next = new Playback(tick, newCycles, flags);
 
             var tracks = new Tracks<TTrack, TClip>(
                 tEff, flags,
@@ -310,10 +321,8 @@ internal static class PlaybackCore
                     clip.Forward(in clip, tEff, ref data);
             }
 
-            var newCycles = backward
-                ? state.Cycles >= cycles ? state.Cycles - cycles : 0u
-                : state.Cycles + cycles;
-            state = new Playback(tick, newCycles, flags);
+            state = next;
+            previousRegion = region;
         }
 
         return state;
@@ -328,7 +337,7 @@ internal static class PlaybackCore
     private static (uint TEff, uint PrevEff, uint Cycles, bool Wrapped, bool Full) Position(
         uint previous, uint tick, uint duration, bool loops, bool backward)
     {
-        if (!loops)
+        if (!loops || duration == 0)
             return (tick, previous, 0u, false, false);
 
         var prevEff = previous % duration;
@@ -336,7 +345,9 @@ internal static class PlaybackCore
 
         if (!backward)
         {
-            var cycles = tick / duration - previous / duration;
+            var cycles = tick >= previous
+                ? tick / duration - previous / duration
+                : tEff < prevEff ? 1u : 0u;
             return (tEff, prevEff, cycles, cycles == 1, cycles >= 2);
         }
 
@@ -362,10 +373,13 @@ internal static class PlaybackCore
     // crossed between the two positions. Only wraps scan the edge table.
     private static PlaybackFlags Flags(
         ReadOnlySpan<ClipEdge> edges, ReadOnlySpan<byte> regionFlags,
-        ReadOnlySpan<uint> starts, int region, int trackCount,
+        ReadOnlySpan<uint> starts, int region, int trackCount, int previousRegion,
         uint tEff, uint prevEff, uint duration,
         uint cycles, bool wrapped, bool full, bool backward, bool loops)
     {
+        if (duration == 0)
+            return loops ? PlaybackFlags.None : PlaybackFlags.Complete;
+
         if (wrapped || full)
             return StepFlags(edges, prevEff, tEff, duration, backward, loops, wrapped, full);
 
@@ -383,11 +397,22 @@ internal static class PlaybackCore
         if (tEff == re - 1 && (here & RegionEndIsClipEnd) != 0)
             flags |= PlaybackFlags.Last;
 
-        var from = backward ? region : RegionOf(starts, prevEff);
-        var to = backward ? RegionOf(starts, prevEff) : region;
+        if (!loops && (backward ? tEff == 0 : tEff >= duration - 1))
+            flags |= PlaybackFlags.Complete;
+
+        if (backward ? tEff >= prevEff : tEff <= prevEff)
+            return flags;
+
+        if (previousRegion < 0)
+            previousRegion = RegionOf(starts, prevEff);
+        var from = backward ? region : previousRegion;
+        var to = backward ? previousRegion : region;
 
         for (var i = from + 1; i <= to; i++)
         {
+            if ((flags & (PlaybackFlags.Enter | PlaybackFlags.Exit)) == (PlaybackFlags.Enter | PlaybackFlags.Exit))
+                break;
+
             var cut = regionFlags[i];
 
             if (backward)
@@ -408,15 +433,42 @@ internal static class PlaybackCore
             }
         }
 
-        if (!loops && (backward ? tEff == 0 : tEff >= duration - 1))
-            flags |= PlaybackFlags.Complete;
-
         return flags;
     }
 
-    // Index of the last region start at or below the tick (clamped).
-    private static int RegionOf(ReadOnlySpan<uint> starts, uint tick)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int Locate(ReadOnlySpan<uint> starts, uint tick, int previousRegion)
     {
+        if (previousRegion >= 0 && starts.Length > 16)
+        {
+            if (tick >= starts[previousRegion])
+            {
+                var next = previousRegion + 1;
+                if (next == starts.Length || tick < starts[next])
+                    return previousRegion;
+                if (next + 1 == starts.Length || tick < starts[next + 1])
+                    return next;
+            }
+            else if (previousRegion > 0 && tick >= starts[previousRegion - 1])
+            {
+                return previousRegion - 1;
+            }
+        }
+        return RegionOf(starts, tick);
+    }
+
+    // Index of the last region start at or below the tick (clamped).
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int RegionOf(ReadOnlySpan<uint> starts, uint tick)
+    {
+        if (starts.Length <= 16)
+        {
+            int region = 0;
+            while (region + 1 < starts.Length && starts[region + 1] <= tick)
+                region++;
+            return region;
+        }
+
         int lo = 0, hi = starts.Length - 1;
         while (lo < hi)
         {
@@ -546,7 +598,6 @@ public readonly ref struct Tracks<TTrack, TClip>
         private readonly ReadOnlySpan<TTrack> _trackData;
         private readonly ReadOnlySpan<TClip> _clipData;
         private readonly Span<TClip> _resolved;
-        private readonly TTrack _blender;
         private int _i;
 
         internal Enumerator(
@@ -561,7 +612,6 @@ public readonly ref struct Tracks<TTrack, TClip>
             _trackData = trackData;
             _clipData = clipData;
             _resolved = resolved;
-            _blender = default;
             _i = -1;
         }
 
@@ -585,8 +635,8 @@ public readonly ref struct Tracks<TTrack, TClip>
 
             var first = _clipRows[row.ClipStart];
             var second = _clipRows[row.ClipStart + 1];
-            var factor = (_tick - first.FactorStart) / (float)(first.FactorLength - 1);
-            _blender.Blend(
+            var factor = first.FactorLength <= 1 ? 0.5f : (_tick - first.FactorStart) / (float)(first.FactorLength - 1);
+            _trackData[row.TrackIndex].Blend(
                 in _clipData[first.ClipIndex],
                 in _clipData[second.ClipIndex],
                 factor,
@@ -726,13 +776,13 @@ public struct VitalsTrack : ITrackTables<VitalsTrack, VitalsClip>, IBlend<Vitals
 
     public VitalsTrack(int offset) => Offset = offset;
 
-    private static readonly uint[] s_regionStarts = [0, 3, 7, 11, 18, 29, 47, 76, 123, 200, 321, 515];
+    private static readonly uint[] s_regionStarts = [0, 3, 7, 11, 18, 29, 47, 76, 123, 200, 321, 515, 600];
 
     // Region r -> slice of s_trackRows; TrackCount 0 marks a gap.
     private static readonly RegionRow[] s_regionRows =
     [
         new(0, 1), new(1, 3), new(4, 2), new(6, 0), new(6, 2), new(8, 1),
-        new(9, 2), new(11, 3), new(14, 0), new(14, 1), new(15, 3), new(18, 1),
+        new(9, 2), new(11, 3), new(14, 0), new(14, 1), new(15, 3), new(18, 1), new(19, 0),
     ];
 
     // Cut facts per region, precomputed from the clip edges: bit 1 = the
@@ -742,7 +792,7 @@ public struct VitalsTrack : ITrackTables<VitalsTrack, VitalsClip>, IBlend<Vitals
     private static readonly byte[] s_regionFlags =
     [
         1, 1 | 4, 2 | 4, 2, 1 | 4, 1 | 2 | 4,
-        1 | 2 | 4, 1 | 2 | 4, 2, 1 | 4, 1 | 2 | 4, 2,
+        1 | 2 | 4, 1 | 2 | 4, 2, 1 | 4, 1 | 2 | 4, 1 | 2 | 4, 2,
     ];
 
     // Track rows: (track index, slice of s_clipRows).
@@ -778,7 +828,7 @@ public struct VitalsTrack : ITrackTables<VitalsTrack, VitalsClip>, IBlend<Vitals
     private static readonly ClipEdge[] s_clipEdges =
     [
         new(0, 7), new(29, 47), new(29, 47), new(47, 76), new(321, 515),
-        new(3, 7), new(3, 11), new(47, 76), new(76, 123),
+        new(3, 7), new(3, 11), new(47, 76), new(76, 123), new(515, 600),
         new(18, 29), new(76, 123), new(321, 515),
         new(3, 11), new(18, 29), new(76, 123), new(76, 123), new(200, 321), new(321, 515),
     ];
@@ -853,16 +903,26 @@ public static class GeneratedTimeline<TTrack, TClip, TData>
         // moment the consumer reaches it.
         Span<TClip> resolved = stackalloc TClip[TTrack.MaxActiveTracks];
 
+        var duration = starts[^1];
+        var wrap = TTrack.Loops && duration != 0;
+        var region = -1;
         foreach (var tick in ticks)
         {
-            var region = 0;
-            while (region + 1 < starts.Length && starts[region + 1] <= tick)
-                region++;
-
+            var localTick = wrap ? tick % duration : tick;
+            if (starts.Length <= 16)
+            {
+                region = 0;
+                while (region + 1 < starts.Length && starts[region + 1] <= localTick)
+                    region++;
+            }
+            else
+            {
+                region = PlaybackCore.Locate(starts, localTick, region);
+            }
             var row = regionRows[region];
 
             var tracks = new Tracks<TTrack, TClip>(
-                tick,
+                localTick,
                 PlaybackFlags.None,
                 trackRows.Slice(row.TrackStart, row.TrackCount),
                 clipRows,
@@ -870,7 +930,7 @@ public static class GeneratedTimeline<TTrack, TClip, TData>
                 clipData,
                 resolved);
 
-            data.Forward(tick, in tracks, ref data);
+            data.Forward(localTick, in tracks, ref data);
         }
     }
 
@@ -972,10 +1032,22 @@ public sealed class Timeline<TTrack, TClip, TData>
 
     public bool IsLooping { get; set; }
 
-    public Timeline() => Index = (ushort)(Interlocked.Increment(ref s_nextIndex) - 1);
+    public Timeline()
+    {
+        int next;
+        do
+        {
+            next = Volatile.Read(ref s_nextIndex);
+            if (next > ushort.MaxValue)
+                throw new InvalidOperationException("Timeline index capacity exceeded.");
+        } while (Interlocked.CompareExchange(ref s_nextIndex, next + 1, next) != next);
+        Index = (ushort)next;
+    }
 
     public int AddTrack(in TTrack track)
     {
+        if (_tracks.Count == ushort.MaxValue)
+            throw new InvalidOperationException("Track capacity exceeded.");
         _built = false;
         _tracks.Add(track);
         return _tracks.Count - 1;
@@ -983,8 +1055,12 @@ public sealed class Timeline<TTrack, TClip, TData>
 
     public void AddClip(int track, in TClip clip, uint start, uint end)
     {
+        if ((uint)track >= (uint)_tracks.Count)
+            throw new ArgumentOutOfRangeException(nameof(track));
         if (end <= start)
             throw new ArgumentOutOfRangeException(nameof(end), "Clip end must be after its start.");
+        if (_clips.Count == ushort.MaxValue)
+            throw new InvalidOperationException("Clip capacity exceeded.");
 
         _built = false;
         _clips.Add((track, clip, start, end));
@@ -994,7 +1070,7 @@ public sealed class Timeline<TTrack, TClip, TData>
     // its active tracks, and an overlapping pair shares one blend window.
     public void Build()
     {
-        var cuts = new SortedSet<uint>();
+        var cuts = new SortedSet<uint> { 0 };
         foreach (var clip in _clips)
         {
             cuts.Add(clip.Start);
@@ -1004,8 +1080,8 @@ public sealed class Timeline<TTrack, TClip, TData>
         var regionStarts = cuts.ToArray();
         var clipRows = new List<ClipRow>();
         var trackRows = new List<TrackRow>();
-        var regionRows = new RegionRow[regionStarts.Length - 1];
-        var regionFlags = new byte[regionStarts.Length - 1];
+        var regionRows = new RegionRow[regionStarts.Length];
+        var regionFlags = new byte[regionStarts.Length];
         var clipData = new TClip[_clips.Count];
         var clipEdges = new ClipEdge[_clips.Count];
 
@@ -1048,27 +1124,29 @@ public sealed class Timeline<TTrack, TClip, TData>
 
                 if (second < 0)
                 {
-                    clipRows.Add(new ClipRow((ushort)first, 0, 0));
-                    trackRows.Add(new TrackRow((ushort)t, (ushort)clipStart, 1));
+                    clipRows.Add(new ClipRow(checked((ushort)first), 0, 0));
+                    trackRows.Add(new TrackRow(checked((ushort)t), checked((ushort)clipStart), 1));
                 }
                 else
                 {
+                    if (_clips[first].Start > _clips[second].Start)
+                        (first, second) = (second, first);
                     var a = _clips[first];
                     var b = _clips[second];
                     var factorStart = a.Start > b.Start ? a.Start : b.Start;
                     var factorEnd = a.End < b.End ? a.End : b.End;
-                    clipRows.Add(new ClipRow((ushort)first, factorStart, factorEnd - factorStart));
-                    clipRows.Add(new ClipRow((ushort)second, factorStart, factorEnd - factorStart));
-                    trackRows.Add(new TrackRow((ushort)t, (ushort)clipStart, 2));
+                    clipRows.Add(new ClipRow(checked((ushort)first), factorStart, factorEnd - factorStart));
+                    clipRows.Add(new ClipRow(checked((ushort)second), factorStart, factorEnd - factorStart));
+                    trackRows.Add(new TrackRow(checked((ushort)t), checked((ushort)clipStart), 2));
                 }
             }
 
             var count = trackRows.Count - rowStart;
-            regionRows[r] = new RegionRow((ushort)rowStart, (ushort)count);
+            regionRows[r] = new RegionRow(checked((ushort)rowStart), checked((ushort)count));
 
             // Cut facts: which clip edges sit on this region's boundaries.
             var rs = regionStarts[r];
-            var re = r + 1 < regionStarts.Length ? regionStarts[r + 1] : uint.MaxValue;
+            var re = r + 1 < regionStarts.Length ? regionStarts[r + 1] : 0;
             byte flag = 0;
 
             foreach (var clip in _clips)
@@ -1113,16 +1191,26 @@ public sealed class Timeline<TTrack, TClip, TData>
         var clipData = _clipData.AsSpan();
         Span<TClip> resolved = stackalloc TClip[_maxActiveTracks];
 
+        var duration = starts[^1];
+        var wrap = IsLooping && duration != 0;
+        var region = -1;
         foreach (var tick in ticks)
         {
-            var region = 0;
-            while (region + 1 < starts.Length && starts[region + 1] <= tick)
-                region++;
-
+            var localTick = wrap ? tick % duration : tick;
+            if (starts.Length <= 16)
+            {
+                region = 0;
+                while (region + 1 < starts.Length && starts[region + 1] <= localTick)
+                    region++;
+            }
+            else
+            {
+                region = PlaybackCore.Locate(starts, localTick, region);
+            }
             var row = regionRows[region];
 
             var tracks = new Tracks<TTrack, TClip>(
-                tick,
+                localTick,
                 PlaybackFlags.None,
                 trackRows.Slice(row.TrackStart, row.TrackCount),
                 clipRows,
@@ -1130,7 +1218,7 @@ public sealed class Timeline<TTrack, TClip, TData>
                 clipData,
                 resolved);
 
-            data.Forward(tick, in tracks, ref data);
+            data.Forward(localTick, in tracks, ref data);
         }
     }
 

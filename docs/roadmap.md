@@ -14,7 +14,7 @@ From [benchmarks.md](benchmarks.md), the contract is fixed and must not drift:
 
 - Ticks are `uint`; multi-tick calls are `params ReadOnlySpan<uint>`.
 - One callback per tick through `IForwardTracks`; the frame is never
-  materialized. `ForwardTracks`/`ForwardItem` are `ref struct` views over the
+  materialized. `Tracks`/`TrackItem` are `ref struct` views over the
   CSR tables.
 - Blending is resolved before the consumer sees it: `IBlend<TClip>.Blend`
   collapses an overlapping pair into one clip, fused into enumerator
@@ -42,10 +42,11 @@ From [benchmarks.md](benchmarks.md), the contract is fixed and must not drift:
   and `IForwardTracks`/`IBackwardTracks` (view-level). Looping is a timeline
   trait (`Loops`/`IsLooping`); wraps move `Cycles` (forward adds, backward
   saturates at zero) instead of setting `Complete`.
-- Sequential steps answer every flag from four precomputed region cut bits;
-  jumps and wraps scan the authored `ClipEdge` table so nothing crosses
-  silently (verified by receipts; see the playback section of
-  [benchmarks.md](benchmarks.md)).
+- Non-wrapped steps use three region cut bits. A call-local cursor handles
+  nearby positions inside a batch, with binary search for distant positions
+  in larger tables. Jump scans stop once both movement bits are known; wraps
+  scan `ClipEdge`. The reference checks and measured costs are in
+  [review.md](review.md).
 
 ## Phase 1 — core library
 

@@ -1,5 +1,10 @@
 # Algorithm and dispatch verdicts
 
+The latest correctness and playback performance review is in [review.md](review.md).
+The tables below record the earlier experiments. The generated fixture's duration
+has since been corrected from 515 to 600 ticks, and playback now handles leading
+gaps and terminal ticks. Use the new review results for the updated movement path.
+
 Two questions, two benchmark suites, both with verified-equivalent results
 (812,544 exact trace comparisons against an oracle; dispatch receipts checked
 including mutation semantics):
@@ -289,7 +294,7 @@ Readings:
   function-pointer jump table pays an indirect-branch misprediction per
   random hit (~26 cycles at 4.4 GHz). Sub-2 ns dispatch exists only for
   predictable streams (same timeline, sequential ticks), where predictors and
-  caches are warm — which the cursor playback numbers already reflect.
+  caches are warm — which needs a separate end-to-end timeline-dispatch benchmark; the cursor suite measures region selection and sampling.
 
 Recommended thresholds: a handful of timelines → plain comparisons; sparse and
 safe-code-only → generated radix 8+8; maximum speed where unsafe is acceptable
