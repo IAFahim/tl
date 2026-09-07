@@ -195,6 +195,14 @@ public class DimTrap
     }
 }
 
+// The redesigned API shape on the Vitals fixture: work-in-Tracks callbacks,
+// Stay-only accumulation (Enter/Exit frames notify), empty ticks fire
+// nothing. DirectTicks is the hand-rolled STATELESS sampling oracle —
+// per tick, resolve every active track to one window and one clip, Exit is
+// positional at the window's last frame, everything else Stay. The stateful
+// arms (Playback*/HubDispatch) additionally cross entry edges as Enter when
+// the destination advances past a window start; StatefulOracle mirrors that
+// path for the --verify receipts.
 [Config(typeof(Config))]
 public class ApiShape
 {
@@ -230,29 +238,46 @@ public class ApiShape
                 region++;
 
             var row = VitalsTrack.RegionRows[region];
+            if (row.TrackCount == 0)
+                continue;
+
             for (var t = 0; t < row.TrackCount; t++)
             {
                 var track = VitalsTrack.TrackRows[row.TrackStart + t];
                 var first = VitalsTrack.ClipRows[track.ClipStart];
 
+                uint start, end;
+                float amount;
                 if (track.ClipCount == 1)
                 {
-                    data.Ticks += VitalsTrack.TrackData[track.TrackIndex].Offset;
-                    data.Health += VitalsTrack.ClipData[first.ClipIndex].Amount;
+                    var edge = VitalsTrack.ClipEdges[first.ClipIndex];
+                    start = edge.Start;
+                    end = edge.End;
+                    amount = VitalsTrack.ClipData[first.ClipIndex].Amount;
                 }
                 else
                 {
                     var second = VitalsTrack.ClipRows[track.ClipStart + 1];
-                    var factor = (tick - first.FactorStart) / (float)(first.FactorLength - 1);
+                    var edgeA = VitalsTrack.ClipEdges[first.ClipIndex];
+                    var edgeB = VitalsTrack.ClipEdges[second.ClipIndex];
+                    start = edgeA.Start < edgeB.Start ? edgeA.Start : edgeB.Start;
+                    end = edgeA.End > edgeB.End ? edgeA.End : edgeB.End;
+                    var factor = first.FactorLength <= 1 ? 0.5f : (tick - first.FactorStart) / (float)(first.FactorLength - 1);
                     blender.Blend(
                         in VitalsTrack.ClipData[first.ClipIndex],
                         in VitalsTrack.ClipData[second.ClipIndex],
                         factor,
                         out var resolved);
-
-                    data.Ticks += VitalsTrack.TrackData[track.TrackIndex].Offset;
-                    data.Health += resolved.Amount;
+                    amount = resolved.Amount;
                 }
+
+                // Stateless sampling: Exit is positional, everything else
+                // Stay — no movement, so nothing enters.
+                if (tick == end - 1)
+                    continue;
+
+                data.Ticks += VitalsTrack.TrackData[track.TrackIndex].Offset;
+                data.Health += amount;
             }
 
             data.Count++;
@@ -260,38 +285,102 @@ public class ApiShape
         return data.Result;
     }
 
+    // The stateful mirror of DirectTicks: tracks the previous tick the way
+    // the Playback path does, so an advancing step that crosses a window
+    // start reports Enter and does not accumulate. Receipts-only helper —
+    // not a benchmark arm.
+    public Receipt StatefulOracle()
+    {
+        var data = new Vitals { Health = 1_000_000f };
+        var blender = new VitalsTrack();
+        uint prev = 0;
+        foreach (var tick in _ticks.AsSpan())
+        {
+            var starts = VitalsTrack.RegionStarts;
+            var region = 0;
+            while (region + 1 < starts.Length && starts[region + 1] <= tick)
+                region++;
+
+            var row = VitalsTrack.RegionRows[region];
+            if (row.TrackCount != 0)
+            {
+                for (var t = 0; t < row.TrackCount; t++)
+                {
+                    var track = VitalsTrack.TrackRows[row.TrackStart + t];
+                    var first = VitalsTrack.ClipRows[track.ClipStart];
+
+                    uint start, end;
+                    float amount;
+                    if (track.ClipCount == 1)
+                    {
+                        var edge = VitalsTrack.ClipEdges[first.ClipIndex];
+                        start = edge.Start;
+                        end = edge.End;
+                        amount = VitalsTrack.ClipData[first.ClipIndex].Amount;
+                    }
+                    else
+                    {
+                        var second = VitalsTrack.ClipRows[track.ClipStart + 1];
+                        var edgeA = VitalsTrack.ClipEdges[first.ClipIndex];
+                        var edgeB = VitalsTrack.ClipEdges[second.ClipIndex];
+                        start = edgeA.Start < edgeB.Start ? edgeA.Start : edgeB.Start;
+                        end = edgeA.End > edgeB.End ? edgeA.End : edgeB.End;
+                        var factor = first.FactorLength <= 1 ? 0.5f : (tick - first.FactorStart) / (float)(first.FactorLength - 1);
+                        blender.Blend(
+                            in VitalsTrack.ClipData[first.ClipIndex],
+                            in VitalsTrack.ClipData[second.ClipIndex],
+                            factor,
+                            out var resolved);
+                        amount = resolved.Amount;
+                    }
+
+                    if (tick == end - 1 || prev < start)
+                        continue;
+
+                    data.Ticks += VitalsTrack.TrackData[track.TrackIndex].Offset;
+                    data.Health += amount;
+                }
+
+                data.Count++;
+            }
+
+            prev = tick;
+        }
+        return data.Result;
+    }
+
     // The same fixture the static tables encode, authored at run time inside
-    // a Build callback; only the assigned ushort index escapes.
+    // a Build callback; only the assigned global ushort index escapes.
     public ushort BuildTimeline(bool loops = false)
         => Timeline<VitalsTrack, VitalsClip>.Build(b =>
         {
-            b.Track(new VitalsTrack(1));
-            b.Track(new VitalsTrack(2));
-            b.Track(new VitalsTrack(3));
-            b.Track(new VitalsTrack(4));
+            TrackRef track0 = b.Track(new VitalsTrack(1));
+            TrackRef track1 = b.Track(new VitalsTrack(2));
+            TrackRef track2 = b.Track(new VitalsTrack(3));
+            TrackRef track3 = b.Track(new VitalsTrack(4));
 
-            b.Clip(0, new VitalsClip(1f), 0, 7);
-            b.Clip(0, new VitalsClip(13f), 29, 47);
-            b.Clip(0, new VitalsClip(21f), 29, 47);
-            b.Clip(0, new VitalsClip(13f), 47, 76);
-            b.Clip(0, new VitalsClip(1f), 321, 515);
+            b.Clip(track0, new VitalsClip(1f), 0, 7);
+            b.Clip(track0, new VitalsClip(13f), 29, 47);
+            b.Clip(track0, new VitalsClip(21f), 29, 47);
+            b.Clip(track0, new VitalsClip(13f), 47, 76);
+            b.Clip(track0, new VitalsClip(1f), 321, 515);
 
-            b.Clip(1, new VitalsClip(2f), 3, 7);
-            b.Clip(1, new VitalsClip(3f), 3, 11);
-            b.Clip(1, new VitalsClip(2f), 47, 76);
-            b.Clip(1, new VitalsClip(2f), 76, 123);
-            b.Clip(1, new VitalsClip(3f), 515, 600);
+            b.Clip(track1, new VitalsClip(2f), 3, 7);
+            b.Clip(track1, new VitalsClip(3f), 3, 11);
+            b.Clip(track1, new VitalsClip(2f), 47, 76);
+            b.Clip(track1, new VitalsClip(2f), 76, 123);
+            b.Clip(track1, new VitalsClip(3f), 515, 600);
 
-            b.Clip(2, new VitalsClip(8f), 18, 29);
-            b.Clip(2, new VitalsClip(8f), 76, 123);
-            b.Clip(2, new VitalsClip(8f), 321, 515);
+            b.Clip(track2, new VitalsClip(8f), 18, 29);
+            b.Clip(track2, new VitalsClip(8f), 76, 123);
+            b.Clip(track2, new VitalsClip(8f), 321, 515);
 
-            b.Clip(3, new VitalsClip(5f), 3, 11);
-            b.Clip(3, new VitalsClip(5f), 18, 29);
-            b.Clip(3, new VitalsClip(34f), 76, 123);
-            b.Clip(3, new VitalsClip(55f), 76, 123);
-            b.Clip(3, new VitalsClip(5f), 200, 321);
-            b.Clip(3, new VitalsClip(5f), 321, 515);
+            b.Clip(track3, new VitalsClip(5f), 3, 11);
+            b.Clip(track3, new VitalsClip(5f), 18, 29);
+            b.Clip(track3, new VitalsClip(34f), 76, 123);
+            b.Clip(track3, new VitalsClip(55f), 76, 123);
+            b.Clip(track3, new VitalsClip(5f), 200, 321);
+            b.Clip(track3, new VitalsClip(5f), 321, 515);
 
             if (loops)
                 b.Looping();
@@ -301,16 +390,17 @@ public class ApiShape
     {
         var data = new Vitals { Health = 1_000_000f };
         foreach (var tick in _ticks.AsSpan())
-            Timeline<VitalsTrack, VitalsClip>.Forward(timeline, ref data, tick);
+            Timeline.Forward(timeline, ref data, tick);
         return data.Result;
     }
 
+    // The runtime-authored timeline through the global hub, stateless.
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt InstanceSingle()
     {
         var data = new Vitals { Health = 1_000_000f };
         foreach (var tick in _ticks.AsSpan())
-            Timeline<VitalsTrack, VitalsClip>.Forward(_timeline, ref data, tick);
+            Timeline.Forward(_timeline, ref data, tick);
         return data.Result;
     }
 
@@ -322,11 +412,12 @@ public class ApiShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            Timeline<VitalsTrack, VitalsClip>.Forward(_timeline, ref data, t[0], t[1], t[2], t[3]);
+            Timeline.Forward(_timeline, ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Result;
     }
 
+    // The compiled-tables shell, stateless.
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt ShellSingle()
     {
@@ -349,13 +440,14 @@ public class ApiShape
         return data.Result;
     }
 
-    // The Playback path: same sampling, plus movement facts folded into the
-    // returned 8-byte status word. Receipts must still match DirectTicks.
+    // The Playback path: same sampling, plus the lifecycle/loop/completion
+    // flags word folded into the returned 8-byte Playback and the per-work
+    // movement facts in the view. Receipts must still match StatefulOracle.
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt PlaybackSingle()
     {
         var data = new Vitals { Health = 1_000_000f };
-        var pb = Playback.Start();
+        var pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
         foreach (var tick in _ticks.AsSpan())
             pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pb, ref data, tick);
         return data.Result;
@@ -365,7 +457,7 @@ public class ApiShape
     public Receipt PlaybackParamsFour()
     {
         var data = new Vitals { Health = 1_000_000f };
-        var pb = Playback.Start();
+        var pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
         var ticks = _ticks.AsSpan();
         for (var i = 0; i < ticks.Length; i += 4)
         {
@@ -379,21 +471,23 @@ public class ApiShape
     public Receipt PlaybackBackwardSingle()
     {
         var data = new Vitals { Health = 1_000_000f };
-        var pb = Playback.Start();
+        var pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
         foreach (var tick in _ticks.AsSpan())
             pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in pb, ref data, tick);
         return data.Result;
     }
 
-    // Clip-level hooks: the data type's OnClip receives one call per active
-    // clip, with the track payload and the per-clip facts word.
+    // The dispatch cost of the global hub: Timeline.Forward(index, ...) —
+    // bounds + lifecycle checks, the per-(entry, TData) function-pointer
+    // lookup, then the same engine the closure shell calls directly
+    // (PlaybackSingle). Expected within ~1-2 ns of the direct call.
     [Benchmark(OperationsPerInvoke = Operations)]
-    public Receipt ClipHooksSingle()
+    public Receipt HubDispatch()
     {
         var data = new Vitals { Health = 1_000_000f };
-        var pb = Playback.Start();
+        var pb = Timeline.Start(_timeline);
         foreach (var tick in _ticks.AsSpan())
-            pb = ClipTimeline<VitalsTrack, VitalsClip>.Forward(in pb, ref data, tick);
+            pb = Timeline.Forward(_timeline, in pb, ref data, tick);
         return data.Result;
     }
 }
@@ -403,7 +497,7 @@ public class ApiShape
 [Config(typeof(Config))]
 public class PassPlayback
 {
-    private Playback _pass = new(123, 456, PlaybackFlags.Active);
+    private Playback _pass = new(123, 456, PlaybackFlags.Started);
     private ulong _sink;
 
     private static Playback StepByValue(Playback p) => new(p.Tick + 1, p.Cycles, p.Flags);

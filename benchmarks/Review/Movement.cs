@@ -55,9 +55,47 @@ public class Movement
             for (uint i = 0; i < (uint)Clips; i++)
                 b.Clip(track, new AfterClip(i + 1), i * 4, i * 4 + 3);
         });
-        var expected = BeforeSingle();
-        if (AfterSingle() != expected || BeforeBatch() != expected || AfterBatch() != expected)
-            throw new InvalidOperationException($"Movement receipts differ for {Clips}, {Sequential}.");
+        // Receipts: the Before arms keep their internal consistency (single
+        // vs batch on the frozen old API), and the After arms must match the
+        // Stay-only oracle derived from the raw clip list — the redesigned
+        // engine fires no callbacks on the gap ticks and reports the
+        // boundary frames (Enter on the window start, Exit positional on
+        // the window's last frame) without accumulating them, so the sums
+        // are not comparable across the two APIs; the oracle is.
+        var beforeSingle = BeforeSingle();
+        if (BeforeBatch() != beforeSingle)
+            throw new InvalidOperationException($"Before receipts differ for {Clips}, {Sequential}.");
+        var expected = AfterOracle();
+        if (AfterSingle() != expected || AfterBatch() != expected)
+            throw new InvalidOperationException($"After receipts differ from the oracle for {Clips}, {Sequential}: {AfterSingle()} vs {expected}.");
+    }
+
+    // Stay-only walk derived from the authored clip list (clip i =
+    // [i*4, i*4+3), value i+1): per tick, the single active clip (if any)
+    // contributes its value unless the frame is a boundary — the window
+    // start crossed by the step (Enter) or the window's last frame
+    // (Exit, positional). Count counts active ticks only.
+    private Receipt AfterOracle()
+    {
+        float sum = 0f;
+        int count = 0;
+        uint prev = 0;
+        foreach (uint tick in _ticks)
+        {
+            for (uint i = 0; i < (uint)Clips; i++)
+            {
+                uint start = i * 4, end = i * 4 + 3;
+                if (start > tick || tick >= end)
+                    continue;
+                if (tick == end - 1 || prev < start)
+                    continue;
+                sum += i + 1;
+            }
+            if (tick % 4 != 3)
+                count++;
+            prev = tick;
+        }
+        return new Receipt(sum, 0, count);
     }
 
     [Benchmark(Baseline = true, OperationsPerInvoke = Operations)]
@@ -84,9 +122,9 @@ public class Movement
     public Receipt AfterSingle()
     {
         var data = new AfterData();
-        var state = Tl.Hooks.Playback.Start();
+        var state = Tl.Hooks.Timeline.Start(_after);
         foreach (uint tick in _ticks)
-            state = Tl.Hooks.Timeline<AfterTrack, AfterClip>.Forward(_after, in state, ref data, tick);
+            state = Tl.Hooks.Timeline.Forward(_after, in state, ref data, tick);
         return data.Result;
     }
 
@@ -94,9 +132,9 @@ public class Movement
     public Receipt AfterBatch()
     {
         var data = new AfterData();
-        var state = Tl.Hooks.Playback.Start();
+        var state = Tl.Hooks.Timeline.Start(_after);
         for (int i = 0; i < _ticks.Length; i += 8)
-            state = Tl.Hooks.Timeline<AfterTrack, AfterClip>.Forward(_after, in state, ref data, _ticks.AsSpan(i, 8));
+            state = Tl.Hooks.Timeline.Forward(_after, in state, ref data, _ticks.AsSpan(i, 8));
         return data.Result;
     }
 }
@@ -126,21 +164,24 @@ public struct BeforeData : Tl.Before.IForwardTracks<BeforeTrack, BeforeClip, Bef
 public readonly record struct AfterClip(float Value);
 public readonly struct AfterTrack : Tl.Hooks.IBlend<AfterClip>
 {
-    public void Blend(in AfterClip a, in AfterClip b, float factor, out AfterClip result)
-        => result = new(a.Value * (1f - factor) + b.Value * factor);
+    public void Blend(in AfterClip a, in AfterClip b, float t, out AfterClip result)
+        => result = new(a.Value * (1f - t) + b.Value * t);
 }
-public struct AfterData : Tl.Hooks.IForwardTracks<AfterTrack, AfterClip, AfterData>, Tl.Hooks.IBackwardTracks<AfterTrack, AfterClip, AfterData>
+public struct AfterData : Tl.Hooks.IForward<AfterTrack, AfterClip, AfterData>, Tl.Hooks.IBackward<AfterTrack, AfterClip, AfterData>
 {
     public float Sum;
     public ulong Flags;
     public int Count;
     public readonly Receipt Result => new(Sum, Flags, Count);
-    public void OnTick(in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, uint tick, ref AfterData data)
+    public void Forward(ref AfterData data, in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, in uint tick)
     {
-        foreach (var item in tracks) data.Sum += item.Clip.Value;
-        data.Flags += (uint)tracks.Status;
+        foreach (var work in tracks)
+        {
+            if (work.State == Tl.Hooks.ClipState.Stay)
+                data.Sum += work.Clip.Value;
+        }
         data.Count++;
     }
-    public void OnTickBack(in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, uint tick, ref AfterData data)
-        => OnTick(in tracks, tick, ref data);
+    public void Backward(ref AfterData data, in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, in uint tick)
+        => Forward(ref data, in tracks, in tick);
 }
