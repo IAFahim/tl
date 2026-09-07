@@ -29,7 +29,7 @@ public class Movement
     [Params(false, true)] public bool Sequential { get; set; }
     private uint[] _ticks = null!;
     private Tl.Before.Timeline<BeforeTrack, BeforeClip, BeforeData> _before = null!;
-    private Tl.Hooks.Timeline<AfterTrack, AfterClip, AfterData> _after = null!;
+    private ushort _after;
 
     [GlobalSetup]
     public void Setup()
@@ -49,11 +49,12 @@ public class Movement
         for (uint i = 0; i < Clips; i++)
             _before.AddClip(0, new BeforeClip(i + 1), i * 4, i * 4 + 3);
         _before.Build();
-        _after = new();
-        _after.AddTrack(new AfterTrack());
-        for (uint i = 0; i < Clips; i++)
-            _after.AddClip(0, new AfterClip(i + 1), i * 4, i * 4 + 3);
-        _after.Build();
+        _after = Tl.Hooks.Timeline<AfterTrack, AfterClip, AfterData>.Build(b =>
+        {
+            var track = b.Track(new AfterTrack());
+            for (uint i = 0; i < (uint)Clips; i++)
+                b.Clip(track, new AfterClip(i + 1), i * 4, i * 4 + 3);
+        });
         var expected = BeforeSingle();
         if (AfterSingle() != expected || BeforeBatch() != expected || AfterBatch() != expected)
             throw new InvalidOperationException($"Movement receipts differ for {Clips}, {Sequential}.");
@@ -85,7 +86,7 @@ public class Movement
         var data = new AfterData();
         var state = Tl.Hooks.Playback.Start();
         foreach (uint tick in _ticks)
-            state = _after.Forward(in state, ref data, tick);
+            state = Tl.Hooks.Timeline<AfterTrack, AfterClip, AfterData>.Forward(_after, in state, ref data, tick);
         return data.Result;
     }
 
@@ -95,7 +96,7 @@ public class Movement
         var data = new AfterData();
         var state = Tl.Hooks.Playback.Start();
         for (int i = 0; i < _ticks.Length; i += 8)
-            state = _after.Forward(in state, ref data, _ticks.AsSpan(i, 8));
+            state = Tl.Hooks.Timeline<AfterTrack, AfterClip, AfterData>.Forward(_after, in state, ref data, _ticks.AsSpan(i, 8));
         return data.Result;
     }
 }

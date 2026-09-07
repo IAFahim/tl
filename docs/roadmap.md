@@ -24,8 +24,10 @@ From [benchmarks.md](benchmarks.md), the contract is fixed and must not drift:
 - Hooks are abstract-only: no default interface methods (10.9–11.4× and
   silent mutation loss), no delegates (4×), no boxing (4–4.5×).
 - Region navigation stays data-driven (cursor/CSR), not generated code.
-- Runtime-authored instances cost the same as the generated shell and share
-  the receipts; per-closed-generic-type `ushort Index` sequencing works.
+- Runtime-authored timelines cost the same as the generated shell and share
+  the receipts; authoring is a `Timeline<,,>.Build` callback over a
+  stack-scoped builder, per-closed-generic-type `ushort` index sequencing
+  works, and the index registry never reuses slots (Destroy tombstones).
 - Sparse `ushort` timeline dispatch: Radix8 nested switches are the safe
   default; dense `delegate*` tables win on speed (6–11 ns) but cost 512 KB
   for the full space; the fused megaswitch loses on sparse keys. With the
@@ -40,7 +42,8 @@ From [benchmarks.md](benchmarks.md), the contract is fixed and must not drift:
   is replaced by the status word and `Tracks.Status`.
 - Direction is a method, not a subtype: `IForward`/`IBackward` (clip-level)
   and `IForwardTracks`/`IBackwardTracks` (view-level). Looping is a timeline
-  trait (`Loops`/`IsLooping`); wraps move `Cycles` (forward adds, backward
+  trait (`Loops` for generated tables, authored `Looping()` at runtime);
+  wraps move `Cycles` (forward adds, backward
   saturates at zero) instead of setting `Complete`.
 - Non-wrapped steps use three region cut bits. A call-local cursor handles
   nearby positions inside a batch, with binary search for distant positions
@@ -57,8 +60,10 @@ Move the validated code out of the benchmark harness into a real project:
   `ClipEdge`), `ITrackTables` (incl. `RegionFlags`, `ClipEdges`, `Loops`),
   `Playback` + `PlaybackFlags`, `Tracks`, `TrackItem`,
   `GeneratedTimeline<,,>`, `ClipTimeline<,,>`, and the runtime-authored
-  `Timeline<,,>` (`AddTrack`/`AddClip`/`Build`/`Forward`, `ushort Index`,
-  `IsLooping`). This replaces the current empty `src/` scaffold, whose
+  `Timeline<,,>` (static `Build(Definition)` over a stack-scoped
+  `TimelineBuilder`, a never-reusing `ushort` index registry with `Destroy`,
+  index-keyed `Start`/`Forward`/`Backward`; looping is authored). This
+  replaces the current empty `src/` scaffold, whose
   layout reflects the older mock API rather than the validated architecture.
 - `TClip : unmanaged` stays on the playback entry points (`stackalloc`
   resolution buffer). Managed payloads are a Phase 4 question.
@@ -93,8 +98,8 @@ Move the validated code out of the benchmark harness into a real project:
 - Dense `delegate*` table only as an opt-in when indices are dense and the
   footprint is acceptable; a two-level 256-page pointer table would shrink it
   but is unbenched — bench before adopting.
-- Player-level composition (several `Timeline<,,>` instances per player)
-  rides on the existing `Index` sequencing; nothing new to design.
+- Player-level composition (several live `ushort` indices per player) rides
+  on the existing index sequencing; nothing new to design.
 
 ## Phase 4 — playback semantics (design + bench before locking)
 

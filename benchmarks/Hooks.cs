@@ -1003,75 +1003,107 @@ public static class ClipTimeline<TTrack, TClip, TData>
 }
 
 // Runtime-authored timeline: the same CSR tables as the generated flavor,
-// built at run time from AddTrack/AddClip. Each closed generic type assigns
-// sequential ushort indices, so one player can hold several timeline
-// instances (Timeline<HealthTrack, HealthClip, Player> A = ..., B = ...;
-// A.Index == 0, B.Index == 1).
-public sealed class Timeline<TTrack, TClip, TData>
+// built at run time inside a Build callback. The authoring surface is a
+// stack-scoped TimelineBuilder handed to the definition delegate (the
+// SpanAction<T,TArg> shape), so no reference to a timeline can escape into
+// game code — the only thing that leaves authoring is the assigned ushort
+// index. Each closed generic type owns a slot registry: indices are
+// sequential and never reused, Destroy tombstones a slot, and playback on
+// a dead or unknown index throws before any callback or state change.
+public ref struct TimelineBuilder<TTrack, TClip>
+    where TTrack : struct
+    where TClip : struct
+{
+    // The definition delegate receives the builder by value (the
+    // SpanAction<T,TArg> shape), so every authoring mutation must land
+    // behind this one reference — Track/Clip/Looping included — or the
+    // copy the delegate held would take the changes to its grave.
+    internal sealed class Authoring
+    {
+        public List<TTrack> Tracks = [];
+        public List<(int Track, TClip Clip, uint Start, uint End)> Clips = [];
+        public bool Loops;
+        public bool Dirty;
+    }
+
+    internal readonly Authoring _state;
+
+    // The key parameter keeps construction internal: a parameterless struct
+    // constructor would have to be public, so this is the closest an
+    // "internal constructor" gets for a ref struct. Only Timeline.Build can
+    // construct a builder: authoring lives inside the callback and dies
+    // when it returns.
+    internal readonly struct Key;
+
+    internal TimelineBuilder(Key key) => _state = new Authoring();
+
+    public int Track(in TTrack track)
+    {
+        if (_state.Tracks.Count == ushort.MaxValue)
+            throw new InvalidOperationException("Track capacity exceeded.");
+        _state.Dirty = true;
+        _state.Tracks.Add(track);
+        return _state.Tracks.Count - 1;
+    }
+
+    public void Clip(int track, in TClip clip, uint start, uint end)
+    {
+        if ((uint)track >= (uint)_state.Tracks.Count)
+            throw new ArgumentOutOfRangeException(nameof(track));
+        if (end <= start)
+            throw new ArgumentOutOfRangeException(nameof(end), "Clip end must be after its start.");
+        if (_state.Clips.Count == ushort.MaxValue)
+            throw new InvalidOperationException("Clip capacity exceeded.");
+
+        _state.Dirty = true;
+        _state.Clips.Add((track, clip, start, end));
+    }
+
+    public void Looping(bool loops = true) => _state.Loops = loops;
+}
+
+public static class Timeline<TTrack, TClip, TData>
     where TTrack : struct, IBlend<TClip>
     where TClip : unmanaged
     where TData : struct, IForwardTracks<TTrack, TClip, TData>, IBackwardTracks<TTrack, TClip, TData>
 {
+    // The authoring callback: the builder is a scoped ref struct parameter,
+    // un-capturable and dead when the delegate returns.
+    public delegate void Definition(scoped TimelineBuilder<TTrack, TClip> builder);
+
+    // Inert tables for one registered index: plain managed arrays, never
+    // referenced by players or playback state.
+    private sealed class Entry
+    {
+        public required uint[] RegionStarts { get; init; }
+        public required RegionRow[] RegionRows { get; init; }
+        public required byte[] RegionFlags { get; init; }
+        public required TrackRow[] TrackRows { get; init; }
+        public required ClipRow[] ClipRows { get; init; }
+        public required ClipEdge[] ClipEdges { get; init; }
+        public required TTrack[] TrackData { get; init; }
+        public required TClip[] ClipData { get; init; }
+        public required int MaxActiveTracks { get; init; }
+        public required bool Loops { get; init; }
+    }
+
+    private static readonly object s_gate = new();
+    private static Entry?[] s_slots = [];
     private static int s_nextIndex;
 
-    private readonly List<TTrack> _tracks = [];
-    private readonly List<(int Track, TClip Clip, uint Start, uint End)> _clips = [];
-    private bool _built;
-
-    private uint[] _regionStarts = [];
-    private RegionRow[] _regionRows = [];
-    private byte[] _regionFlags = [];
-    private TrackRow[] _trackRows = [];
-    private ClipRow[] _clipRows = [];
-    private ClipEdge[] _clipEdges = [];
-    private TTrack[] _trackData = [];
-    private TClip[] _clipData = [];
-    private int _maxActiveTracks;
-
-    public ushort Index { get; }
-
-    public bool IsLooping { get; set; }
-
-    public Timeline()
+    public static ushort Build(Definition definition)
     {
-        int next;
-        do
-        {
-            next = Volatile.Read(ref s_nextIndex);
-            if (next > ushort.MaxValue)
-                throw new InvalidOperationException("Timeline index capacity exceeded.");
-        } while (Interlocked.CompareExchange(ref s_nextIndex, next + 1, next) != next);
-        Index = (ushort)next;
-    }
+        ArgumentNullException.ThrowIfNull(definition);
 
-    public int AddTrack(in TTrack track)
-    {
-        if (_tracks.Count == ushort.MaxValue)
-            throw new InvalidOperationException("Track capacity exceeded.");
-        _built = false;
-        _tracks.Add(track);
-        return _tracks.Count - 1;
-    }
+        var builder = new TimelineBuilder<TTrack, TClip>(default);
+        definition(builder);
+        var authoring = builder._state;
 
-    public void AddClip(int track, in TClip clip, uint start, uint end)
-    {
-        if ((uint)track >= (uint)_tracks.Count)
-            throw new ArgumentOutOfRangeException(nameof(track));
-        if (end <= start)
-            throw new ArgumentOutOfRangeException(nameof(end), "Clip end must be after its start.");
-        if (_clips.Count == ushort.MaxValue)
-            throw new InvalidOperationException("Clip capacity exceeded.");
-
-        _built = false;
-        _clips.Add((track, clip, start, end));
-    }
-
-    // Event sweep: clip edges become region boundaries; each region records
-    // its active tracks, and an overlapping pair shares one blend window.
-    public void Build()
-    {
+        // Event sweep: clip edges become region boundaries; each region
+        // records its active tracks, and an overlapping pair shares one
+        // blend window.
         var cuts = new SortedSet<uint> { 0 };
-        foreach (var clip in _clips)
+        foreach (var clip in authoring.Clips)
         {
             cuts.Add(clip.Start);
             cuts.Add(clip.End);
@@ -1082,13 +1114,13 @@ public sealed class Timeline<TTrack, TClip, TData>
         var trackRows = new List<TrackRow>();
         var regionRows = new RegionRow[regionStarts.Length];
         var regionFlags = new byte[regionStarts.Length];
-        var clipData = new TClip[_clips.Count];
-        var clipEdges = new ClipEdge[_clips.Count];
+        var clipData = new TClip[authoring.Clips.Count];
+        var clipEdges = new ClipEdge[authoring.Clips.Count];
 
-        for (var i = 0; i < _clips.Count; i++)
+        for (var i = 0; i < authoring.Clips.Count; i++)
         {
-            clipData[i] = _clips[i].Clip;
-            clipEdges[i] = new ClipEdge(_clips[i].Start, _clips[i].End);
+            clipData[i] = authoring.Clips[i].Clip;
+            clipEdges[i] = new ClipEdge(authoring.Clips[i].Start, authoring.Clips[i].End);
         }
 
         var maxActive = 0;
@@ -1098,14 +1130,14 @@ public sealed class Timeline<TTrack, TClip, TData>
             var lo = regionStarts[r];
             var rowStart = trackRows.Count;
 
-            for (var t = 0; t < _tracks.Count; t++)
+            for (var t = 0; t < authoring.Tracks.Count; t++)
             {
                 var first = -1;
                 var second = -1;
 
-                for (var c = 0; c < _clips.Count; c++)
+                for (var c = 0; c < authoring.Clips.Count; c++)
                 {
-                    var clip = _clips[c];
+                    var clip = authoring.Clips[c];
                     if (clip.Track != t || clip.Start > lo || clip.End <= lo)
                         continue;
 
@@ -1129,10 +1161,10 @@ public sealed class Timeline<TTrack, TClip, TData>
                 }
                 else
                 {
-                    if (_clips[first].Start > _clips[second].Start)
+                    if (authoring.Clips[first].Start > authoring.Clips[second].Start)
                         (first, second) = (second, first);
-                    var a = _clips[first];
-                    var b = _clips[second];
+                    var a = authoring.Clips[first];
+                    var b = authoring.Clips[second];
                     var factorStart = a.Start > b.Start ? a.Start : b.Start;
                     var factorEnd = a.End < b.End ? a.End : b.End;
                     clipRows.Add(new ClipRow(checked((ushort)first), factorStart, factorEnd - factorStart));
@@ -1149,7 +1181,7 @@ public sealed class Timeline<TTrack, TClip, TData>
             var re = r + 1 < regionStarts.Length ? regionStarts[r + 1] : 0;
             byte flag = 0;
 
-            foreach (var clip in _clips)
+            foreach (var clip in authoring.Clips)
             {
                 if (clip.Start == rs)
                     flag |= 1;
@@ -1165,34 +1197,87 @@ public sealed class Timeline<TTrack, TClip, TData>
                 maxActive = count;
         }
 
-        _regionStarts = regionStarts;
-        _regionRows = regionRows;
-        _regionFlags = regionFlags;
-        _trackRows = [.. trackRows];
-        _clipRows = [.. clipRows];
-        _clipEdges = clipEdges;
-        _trackData = [.. _tracks];
-        _clipData = clipData;
-        _maxActiveTracks = maxActive;
-        _built = true;
+        return Register(new Entry
+        {
+            RegionStarts = regionStarts,
+            RegionRows = regionRows,
+            RegionFlags = regionFlags,
+            TrackRows = [.. trackRows],
+            ClipRows = [.. clipRows],
+            ClipEdges = clipEdges,
+            TrackData = [.. authoring.Tracks],
+            ClipData = clipData,
+            MaxActiveTracks = maxActive,
+            Loops = authoring.Loops,
+        });
     }
 
-    public void Forward(ref TData data, params ReadOnlySpan<uint> ticks)
+    // Slots are never reused: Destroy only tombstones. Index assignment
+    // uses the same CAS loop the old instance constructor used.
+    private static ushort Register(Entry entry)
     {
-        if (!_built)
-            throw new InvalidOperationException("Call Build() before playback.");
+        int next;
+        do
+        {
+            next = Volatile.Read(ref s_nextIndex);
+            if (next > ushort.MaxValue)
+                throw new InvalidOperationException("Timeline index capacity exceeded.");
+        } while (Interlocked.CompareExchange(ref s_nextIndex, next + 1, next) != next);
+
+        lock (s_gate)
+        {
+            if (s_slots.Length <= next)
+            {
+                var grown = new Entry?[s_slots.Length == 0 ? 16 : s_slots.Length * 2];
+                Array.Copy(s_slots, grown, s_slots.Length);
+                Volatile.Write(ref s_slots, grown);
+            }
+
+            s_slots[next] = entry;
+        }
+
+        return (ushort)next;
+    }
+
+    public static void Destroy(ushort index)
+    {
+        _ = Live(index);
+
+        lock (s_gate)
+            s_slots[index] = null;
+    }
+
+    // Dead or unknown indices reject before any callback or state change.
+    private static Entry Live(ushort index)
+    {
+        var slots = Volatile.Read(ref s_slots);
+        if ((uint)index >= (uint)slots.Length)
+            throw new ArgumentOutOfRangeException(nameof(index), index, "Timeline index is not live.");
+        return Volatile.Read(ref slots[index])
+            ?? throw new ArgumentOutOfRangeException(nameof(index), index, "Timeline index is not live.");
+    }
+
+    public static Playback Start(ushort index, uint at = 0)
+    {
+        _ = Live(index);
+        return Playback.Start(at);
+    }
+
+    public static void Forward(ushort index, ref TData data, params ReadOnlySpan<uint> ticks)
+    {
+        var entry = Live(index);
 
         // Same rule as the generated shell: hoist every table once per call.
-        var starts = _regionStarts.AsSpan();
-        var regionRows = _regionRows.AsSpan();
-        var trackRows = _trackRows.AsSpan();
-        var clipRows = _clipRows.AsSpan();
-        var trackData = _trackData.AsSpan();
-        var clipData = _clipData.AsSpan();
-        Span<TClip> resolved = stackalloc TClip[_maxActiveTracks];
+        var starts = entry.RegionStarts.AsSpan();
+        var regionRows = entry.RegionRows.AsSpan();
+        var trackRows = entry.TrackRows.AsSpan();
+        var clipRows = entry.ClipRows.AsSpan();
+        var trackData = entry.TrackData.AsSpan();
+        var clipData = entry.ClipData.AsSpan();
+        Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
 
         var duration = starts[^1];
-        var wrap = IsLooping && duration != 0;
+        var wrap = entry.Loops && duration != 0;
         var region = -1;
         foreach (var tick in ticks)
         {
@@ -1222,45 +1307,41 @@ public sealed class Timeline<TTrack, TClip, TData>
         }
     }
 
-    public Playback Start(uint at = 0) => Playback.Start(at);
-
-    public Playback Forward(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+    public static Playback Forward(ushort index, in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
     {
-        if (!_built)
-            throw new InvalidOperationException("Call Build() before playback.");
+        var entry = Live(index);
 
-        var starts = _regionStarts.AsSpan();
-        var regionRows = _regionRows.AsSpan();
-        var regionFlags = _regionFlags.AsSpan();
-        var trackRows = _trackRows.AsSpan();
-        var clipRows = _clipRows.AsSpan();
-        var edges = _clipEdges.AsSpan();
-        var trackData = _trackData.AsSpan();
-        var clipData = _clipData.AsSpan();
-        Span<TClip> resolved = stackalloc TClip[_maxActiveTracks];
+        var starts = entry.RegionStarts.AsSpan();
+        var regionRows = entry.RegionRows.AsSpan();
+        var regionFlags = entry.RegionFlags.AsSpan();
+        var trackRows = entry.TrackRows.AsSpan();
+        var clipRows = entry.ClipRows.AsSpan();
+        var edges = entry.ClipEdges.AsSpan();
+        var trackData = entry.TrackData.AsSpan();
+        var clipData = entry.ClipData.AsSpan();
+        Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
 
         return PlaybackCore.Advance(
-            in from, backward: false, IsLooping, ticks, ref data,
+            in from, backward: false, entry.Loops, ticks, ref data,
             starts, regionRows, regionFlags, trackRows, clipRows, edges, trackData, clipData, resolved);
     }
 
-    public Playback Backward(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
+    public static Playback Backward(ushort index, in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
     {
-        if (!_built)
-            throw new InvalidOperationException("Call Build() before playback.");
+        var entry = Live(index);
 
-        var starts = _regionStarts.AsSpan();
-        var regionRows = _regionRows.AsSpan();
-        var regionFlags = _regionFlags.AsSpan();
-        var trackRows = _trackRows.AsSpan();
-        var clipRows = _clipRows.AsSpan();
-        var edges = _clipEdges.AsSpan();
-        var trackData = _trackData.AsSpan();
-        var clipData = _clipData.AsSpan();
-        Span<TClip> resolved = stackalloc TClip[_maxActiveTracks];
+        var starts = entry.RegionStarts.AsSpan();
+        var regionRows = entry.RegionRows.AsSpan();
+        var regionFlags = entry.RegionFlags.AsSpan();
+        var trackRows = entry.TrackRows.AsSpan();
+        var clipRows = entry.ClipRows.AsSpan();
+        var edges = entry.ClipEdges.AsSpan();
+        var trackData = entry.TrackData.AsSpan();
+        var clipData = entry.ClipData.AsSpan();
+        Span<TClip> resolved = stackalloc TClip[entry.MaxActiveTracks];
 
         return PlaybackCore.Advance(
-            in from, backward: true, IsLooping, ticks, ref data,
+            in from, backward: true, entry.Loops, ticks, ref data,
             starts, regionRows, regionFlags, trackRows, clipRows, edges, trackData, clipData, resolved);
     }
 }

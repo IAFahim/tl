@@ -29,16 +29,24 @@ internal static class EdgeVerification
         throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
     }
 
-    private static Timeline<ProbeTrack, ProbeClip, Probe> Make(params ReadOnlySpan<ClipEdge> edges)
+    private static ushort Make(params ReadOnlySpan<ClipEdge> edges) => Make(false, edges);
+
+    // Looping is an authored trait now, so a looping variant is a second
+    // Build, not a post-build toggle.
+    private static ushort Make(bool loops, params ReadOnlySpan<ClipEdge> edges)
     {
-        var timeline = new Timeline<ProbeTrack, ProbeClip, Probe>();
-        foreach (var edge in edges)
+        var authoring = edges.ToArray();
+        return Timeline<ProbeTrack, ProbeClip, Probe>.Build(b =>
         {
-            int track = timeline.AddTrack(new ProbeTrack(0));
-            timeline.AddClip(track, new ProbeClip(10), edge.Start, edge.End);
-        }
-        timeline.Build();
-        return timeline;
+            foreach (var edge in authoring)
+            {
+                int track = b.Track(new ProbeTrack(0));
+                b.Clip(track, new ProbeClip(10), edge.Start, edge.End);
+            }
+
+            if (loops)
+                b.Looping();
+        });
     }
 
     private static void Gaps()
@@ -47,11 +55,11 @@ internal static class EdgeVerification
         foreach (uint tick in new uint[] { 0, 9, 10, 19, 20, 21, uint.MaxValue })
         {
             var probe = new Probe();
-            timeline.Forward(ref probe, tick);
+            Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, ref probe, tick);
             Require(probe.Tracks == (tick >= 10 && tick < 20 ? 1 : 0), $"Wrong active tracks at {tick}.");
             var from = Playback.Start(19);
             probe = default;
-            var state = timeline.Forward(in from, ref probe, tick);
+            var state = Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, in from, ref probe, tick);
             Require(state.Flags == Oracle([new(10, 20)], 19, tick, 20, false, false), $"Wrong terminal flags at {tick}.");
         }
     }
@@ -61,34 +69,36 @@ internal static class EdgeVerification
         var timeline = Make();
         var data = new Probe();
         var from = Playback.Start();
-        var result = timeline.Forward(in from, ref data, 0, 10);
+        var result = Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, in from, ref data, 0, 10);
         Require(data.Count == 2 && data.Tracks == 0 && result.Has(PlaybackFlags.Complete), "Empty non-looping timeline did not complete.");
-        timeline.IsLooping = true;
-        result = timeline.Forward(in from, ref data, 10);
+        var looping = Make(true);
+        result = Timeline<ProbeTrack, ProbeClip, Probe>.Forward(looping, in from, ref data, 10);
         Require(result.Cycles == 0 && result.Flags == PlaybackFlags.None, "Empty loop should have no movement facts.");
     }
 
     private static void Blend()
     {
-        var timeline = new Timeline<ProbeTrack, ProbeClip, Probe>();
-        var track = timeline.AddTrack(new ProbeTrack(2));
-        timeline.AddClip(track, new ProbeClip(10), 4, 5);
-        timeline.AddClip(track, new ProbeClip(30), 4, 5);
-        timeline.Build();
+        var timeline = Timeline<ProbeTrack, ProbeClip, Probe>.Build(static b =>
+        {
+            var track = b.Track(new ProbeTrack(2));
+            b.Clip(track, new ProbeClip(10), 4, 5);
+            b.Clip(track, new ProbeClip(30), 4, 5);
+        });
         var data = new Probe();
-        timeline.Forward(ref data, 4);
+        Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, ref data, 4);
         Require(data.Sum == 22, $"One-tick blend with authored track data returned {data.Sum}, expected 22.");
     }
 
     private static void Order()
     {
-        var timeline = new Timeline<ProbeTrack, ProbeClip, Probe>();
-        var track = timeline.AddTrack(new ProbeTrack(0));
-        timeline.AddClip(track, new ProbeClip(30), 5, 10);
-        timeline.AddClip(track, new ProbeClip(10), 0, 8);
-        timeline.Build();
+        var timeline = Timeline<ProbeTrack, ProbeClip, Probe>.Build(static b =>
+        {
+            var track = b.Track(new ProbeTrack(0));
+            b.Clip(track, new ProbeClip(30), 5, 10);
+            b.Clip(track, new ProbeClip(10), 0, 8);
+        });
         var data = new Probe();
-        timeline.Forward(ref data, 5);
+        Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, ref data, 5);
         Require(data.Sum == 10, $"Crossfade should start with the earlier clip; got {data.Sum}.");
     }
 
@@ -97,40 +107,39 @@ internal static class EdgeVerification
         Require(Unsafe.SizeOf<Playback>() == 8, "Playback grew beyond 8 bytes.");
         const uint max = 0x03FF_FFFFu;
         Reject<ArgumentOutOfRangeException>(() => _ = new Playback(0, max + 1, PlaybackFlags.None));
-        var timeline = Make(new ClipEdge(0, 1));
-        timeline.IsLooping = true;
+        var timeline = Make(true, new ClipEdge(0, 1));
         var from = new Playback(0, max, PlaybackFlags.None);
         var data = new Probe();
-        Reject<ArgumentOutOfRangeException>(() => timeline.Forward(in from, ref data, 1));
+        Reject<ArgumentOutOfRangeException>(() => Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, in from, ref data, 1));
         Require(data.Count == 0, "Overflow invoked a callback before rejecting the step.");
     }
 
     private static void Wrap()
     {
-        var timeline = Make(new ClipEdge(0, 10));
-        timeline.IsLooping = true;
+        var timeline = Make(true, new ClipEdge(0, 10));
         var from = Playback.Start(9);
         var data = new Probe();
-        var next = timeline.Forward(in from, ref data, 0);
+        var next = Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, in from, ref data, 0);
         Require(next.Cycles == 1 && next.Flags == (PlaybackFlags.Enter | PlaybackFlags.Exit | PlaybackFlags.First | PlaybackFlags.Active), $"Local forward wrap corrupted state: {next.Cycles}, {next.Flags}.");
-        timeline.Forward(ref data, 11);
+        Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, ref data, 11);
         Require(data.Tick == 1 && data.Tracks == 1, "Stateless looping playback must normalize the tick too.");
     }
 
     private static void Flags()
     {
         ClipEdge[] edges = [new(2, 3), new(5, 12), new(8, 10), new(16, 25), new(20, 28)];
-        var timeline = Make(edges);
+        var linear = Make(edges);
+        var looping = Make(true, edges);
         foreach (bool loops in new[] { false, true })
         foreach (bool backward in new[] { false, true })
         {
-            timeline.IsLooping = loops;
+            var timeline = loops ? looping : linear;
             for (uint previous = 0; previous < 85; previous++)
             for (uint tick = 0; tick < 85; tick++)
             {
                 var from = Playback.Start(previous);
                 var data = new Probe();
-                var result = backward ? timeline.Backward(in from, ref data, tick) : timeline.Forward(in from, ref data, tick);
+                var result = backward ? Timeline<ProbeTrack, ProbeClip, Probe>.Backward(timeline, in from, ref data, tick) : Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, in from, ref data, tick);
                 var expected = Oracle(edges, previous, tick, 28, loops, backward);
                 Require(result.Flags == expected && data.Status == expected, $"Flags at {previous}->{tick}, loops={loops}, backward={backward}: {result.Flags} != {expected}.");
             }
@@ -176,18 +185,19 @@ internal static class EdgeVerification
     {
         ClipEdge[] edges = [new(2, 3), new(5, 12), new(8, 10), new(16, 25), new(20, 28)];
         uint[] ticks = [0, 1, 2, 7, 25, 24, 6, 28, 84, 3, 3, 4, 20, 80, 5];
-        var timeline = Make(edges);
+        var linear = Make(edges);
+        var looping = Make(true, edges);
         foreach (bool loops in new[] { false, true })
         foreach (bool backward in new[] { false, true })
         {
-            timeline.IsLooping = loops;
+            var timeline = loops ? looping : linear;
             var single = new Probe { Trace = [] };
             var batch = new Probe { Trace = [] };
             var state = Playback.Start();
             foreach (uint tick in ticks)
-                state = backward ? timeline.Backward(in state, ref single, tick) : timeline.Forward(in state, ref single, tick);
+                state = backward ? Timeline<ProbeTrack, ProbeClip, Probe>.Backward(timeline, in state, ref single, tick) : Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, in state, ref single, tick);
             var from = Playback.Start();
-            var result = backward ? timeline.Backward(in from, ref batch, ticks) : timeline.Forward(in from, ref batch, ticks);
+            var result = backward ? Timeline<ProbeTrack, ProbeClip, Probe>.Backward(timeline, in from, ref batch, ticks) : Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, in from, ref batch, ticks);
             Require(single.Trace!.SequenceEqual(batch.Trace!) && single.Sum == batch.Sum && state.Cycles == result.Cycles && state.Flags == result.Flags, "Batch cursor changed sampling or movement facts.");
         }
     }
@@ -197,37 +207,36 @@ internal static class EdgeVerification
         var timeline = Make(new ClipEdge(uint.MaxValue - 2, uint.MaxValue));
         var data = new Probe();
         var from = Playback.Start(uint.MaxValue - 3);
-        var active = timeline.Forward(in from, ref data, uint.MaxValue - 1);
+        var active = Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, in from, ref data, uint.MaxValue - 1);
         Require(active.Flags == (PlaybackFlags.Enter | PlaybackFlags.Active | PlaybackFlags.Last | PlaybackFlags.Complete), "Wide tick lost last/complete flags.");
-        var end = timeline.Forward(in active, ref data, uint.MaxValue);
+        var end = Timeline<ProbeTrack, ProbeClip, Probe>.Forward(timeline, in active, ref data, uint.MaxValue);
         Require(end.Flags == (PlaybackFlags.Exit | PlaybackFlags.Complete) && data.Tracks == 0, "Wide terminal tick did not exit.");
     }
 
     private static void Indices()
     {
-        var timeline = new Timeline<ProbeTrack, ProbeClip, Probe>();
-        for (int i = timeline.Index + 1; i <= ushort.MaxValue; i++)
-        {
-            timeline = new();
-            Require(timeline.Index == i, "Index was reused before exhaustion.");
-        }
-        Reject<InvalidOperationException>(() => _ = new Timeline<ProbeTrack, ProbeClip, Probe>());
-        Reject<InvalidOperationException>(() => _ = new Timeline<ProbeTrack, ProbeClip, Probe>());
+        ushort next = Timeline<ProbeTrack, ProbeClip, Probe>.Build(static b => { });
+        for (int i = next + 1; i <= ushort.MaxValue; i++)
+            Require(Timeline<ProbeTrack, ProbeClip, Probe>.Build(static b => { }) == i, "Index was reused before exhaustion.");
+        Reject<InvalidOperationException>(() => Timeline<ProbeTrack, ProbeClip, Probe>.Build(static b => { }));
+        Reject<InvalidOperationException>(() => Timeline<ProbeTrack, ProbeClip, Probe>.Build(static b => { }));
     }
 
     private static void Fixture()
     {
-        var timeline = new ApiShape().BuildTimeline();
+        var shape = new ApiShape();
+        var linear = shape.BuildTimeline();
+        var looping = shape.BuildTimeline(loops: true);
         foreach (bool loops in new[] { false, true })
         {
-            timeline.IsLooping = loops;
+            var timeline = loops ? looping : linear;
             var a = Playback.Start();
             var b = a;
             for (uint tick = 0; tick < 1300; tick++)
             {
                 var x = new Vitals();
                 var y = new Vitals();
-                a = timeline.Forward(in a, ref x, tick);
+                a = Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(timeline, in a, ref x, tick);
                 b = loops ? GeneratedTimeline<LoopVitalsTrack, VitalsClip, Vitals>.Forward(in b, ref y, tick) : GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(in b, ref y, tick);
                 Require(a.Flags == b.Flags && a.Cycles == b.Cycles && x.Result == y.Result, $"Generated/runtime fixture diverged at {tick}, loops={loops}.");
             }
@@ -236,19 +245,27 @@ internal static class EdgeVerification
 
     private static void Limits()
     {
-        var timeline = new Timeline<ProbeTrack, ProbeClip, Probe>();
-        Reject<ArgumentOutOfRangeException>(() => timeline.AddClip(0, new ProbeClip(1), 0, 1));
-        var track = timeline.AddTrack(new ProbeTrack(0));
-        Reject<ArgumentOutOfRangeException>(() => timeline.AddClip(-1, new ProbeClip(1), 0, 1));
-        for (int i = 0; i < ushort.MaxValue; i++) timeline.AddClip(track, new ProbeClip(1), (uint)i, (uint)i + 1);
-        Reject<InvalidOperationException>(() => timeline.AddClip(track, new ProbeClip(1), 0, 1));
-        var large = new Timeline<ProbeTrack, ProbeClip, Probe>();
-        for (uint i = 0; i < 400; i++)
+        Reject<ArgumentOutOfRangeException>(static () => Timeline<ProbeTrack, ProbeClip, Probe>.Build(static b => b.Clip(0, new ProbeClip(1), 0, 1)));
+        Reject<ArgumentOutOfRangeException>(static () => Timeline<ProbeTrack, ProbeClip, Probe>.Build(static b =>
         {
-            int t = large.AddTrack(new ProbeTrack(0));
-            large.AddClip(t, new ProbeClip(1), 0, i + 1);
-        }
-        Reject<OverflowException>(() => large.Build());
+            var track = b.Track(new ProbeTrack(0));
+            b.Clip(-1, new ProbeClip(1), 0, 1);
+        }));
+        Reject<InvalidOperationException>(static () => Timeline<ProbeTrack, ProbeClip, Probe>.Build(static b =>
+        {
+            var track = b.Track(new ProbeTrack(0));
+            for (int i = 0; i < ushort.MaxValue; i++)
+                b.Clip(track, new ProbeClip(1), (uint)i, (uint)i + 1);
+            b.Clip(track, new ProbeClip(1), 0, 1);
+        }));
+        Reject<OverflowException>(static () => Timeline<ProbeTrack, ProbeClip, Probe>.Build(static b =>
+        {
+            for (uint i = 0; i < 400; i++)
+            {
+                int t = b.Track(new ProbeTrack(0));
+                b.Clip(t, new ProbeClip(1), 0, i + 1);
+            }
+        }));
     }
 
     internal readonly record struct ProbeClip(float Value);

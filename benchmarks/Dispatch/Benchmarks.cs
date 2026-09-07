@@ -200,7 +200,7 @@ public class ApiShape
 {
     public const int Operations = 65536;
     private uint[] _ticks = null!;
-    private Timeline<VitalsTrack, VitalsClip, Vitals> _timeline = null!;
+    private ushort _timeline;
 
     [GlobalSetup]
     public void Setup()
@@ -260,48 +260,48 @@ public class ApiShape
         return data.Result;
     }
 
-    // The same fixture the static tables encode, authored at run time.
-    public Timeline<VitalsTrack, VitalsClip, Vitals> BuildTimeline()
-    {
-        var timeline = new Timeline<VitalsTrack, VitalsClip, Vitals>();
+    // The same fixture the static tables encode, authored at run time inside
+    // a Build callback; only the assigned ushort index escapes.
+    public ushort BuildTimeline(bool loops = false)
+        => Timeline<VitalsTrack, VitalsClip, Vitals>.Build(b =>
+        {
+            b.Track(new VitalsTrack(1));
+            b.Track(new VitalsTrack(2));
+            b.Track(new VitalsTrack(3));
+            b.Track(new VitalsTrack(4));
 
-        timeline.AddTrack(new VitalsTrack(1));
-        timeline.AddTrack(new VitalsTrack(2));
-        timeline.AddTrack(new VitalsTrack(3));
-        timeline.AddTrack(new VitalsTrack(4));
+            b.Clip(0, new VitalsClip(1f), 0, 7);
+            b.Clip(0, new VitalsClip(13f), 29, 47);
+            b.Clip(0, new VitalsClip(21f), 29, 47);
+            b.Clip(0, new VitalsClip(13f), 47, 76);
+            b.Clip(0, new VitalsClip(1f), 321, 515);
 
-        timeline.AddClip(0, new VitalsClip(1f), 0, 7);
-        timeline.AddClip(0, new VitalsClip(13f), 29, 47);
-        timeline.AddClip(0, new VitalsClip(21f), 29, 47);
-        timeline.AddClip(0, new VitalsClip(13f), 47, 76);
-        timeline.AddClip(0, new VitalsClip(1f), 321, 515);
+            b.Clip(1, new VitalsClip(2f), 3, 7);
+            b.Clip(1, new VitalsClip(3f), 3, 11);
+            b.Clip(1, new VitalsClip(2f), 47, 76);
+            b.Clip(1, new VitalsClip(2f), 76, 123);
+            b.Clip(1, new VitalsClip(3f), 515, 600);
 
-        timeline.AddClip(1, new VitalsClip(2f), 3, 7);
-        timeline.AddClip(1, new VitalsClip(3f), 3, 11);
-        timeline.AddClip(1, new VitalsClip(2f), 47, 76);
-        timeline.AddClip(1, new VitalsClip(2f), 76, 123);
-        timeline.AddClip(1, new VitalsClip(3f), 515, 600);
+            b.Clip(2, new VitalsClip(8f), 18, 29);
+            b.Clip(2, new VitalsClip(8f), 76, 123);
+            b.Clip(2, new VitalsClip(8f), 321, 515);
 
-        timeline.AddClip(2, new VitalsClip(8f), 18, 29);
-        timeline.AddClip(2, new VitalsClip(8f), 76, 123);
-        timeline.AddClip(2, new VitalsClip(8f), 321, 515);
+            b.Clip(3, new VitalsClip(5f), 3, 11);
+            b.Clip(3, new VitalsClip(5f), 18, 29);
+            b.Clip(3, new VitalsClip(34f), 76, 123);
+            b.Clip(3, new VitalsClip(55f), 76, 123);
+            b.Clip(3, new VitalsClip(5f), 200, 321);
+            b.Clip(3, new VitalsClip(5f), 321, 515);
 
-        timeline.AddClip(3, new VitalsClip(5f), 3, 11);
-        timeline.AddClip(3, new VitalsClip(5f), 18, 29);
-        timeline.AddClip(3, new VitalsClip(34f), 76, 123);
-        timeline.AddClip(3, new VitalsClip(55f), 76, 123);
-        timeline.AddClip(3, new VitalsClip(5f), 200, 321);
-        timeline.AddClip(3, new VitalsClip(5f), 321, 515);
+            if (loops)
+                b.Looping();
+        });
 
-        timeline.Build();
-        return timeline;
-    }
-
-    public Receipt RunInstance(Timeline<VitalsTrack, VitalsClip, Vitals> timeline)
+    public Receipt RunInstance(ushort timeline)
     {
         var data = new Vitals { Health = 1_000_000f };
         foreach (var tick in _ticks.AsSpan())
-            timeline.Forward(ref data, tick);
+            Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(timeline, ref data, tick);
         return data.Result;
     }
 
@@ -310,7 +310,7 @@ public class ApiShape
     {
         var data = new Vitals { Health = 1_000_000f };
         foreach (var tick in _ticks.AsSpan())
-            _timeline.Forward(ref data, tick);
+            Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(_timeline, ref data, tick);
         return data.Result;
     }
 
@@ -322,7 +322,7 @@ public class ApiShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            _timeline.Forward(ref data, t[0], t[1], t[2], t[3]);
+            Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(_timeline, ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Result;
     }

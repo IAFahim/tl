@@ -1,5 +1,6 @@
 using BenchmarkDotNet.Running;
 using Tl.Hooks;
+using ProbeTimeline = Tl.Hooks.Timeline<Tl.Hooks.EdgeVerification.ProbeTrack, Tl.Hooks.EdgeVerification.ProbeClip, Tl.Hooks.EdgeVerification.Probe>;
 
 if (args is ["--verify-edges"])
 {
@@ -57,11 +58,11 @@ if (args is ["--verify"])
         if (actual != directShape)
             throw new InvalidOperationException($"API shape receipt mismatch: {directShape} / {actual}.");
 
-    var timelineA = new Timeline<VitalsTrack, VitalsClip, Vitals>();
-    var timelineB = new Timeline<VitalsTrack, VitalsClip, Vitals>();
-    if (timelineB.Index != timelineA.Index + 1)
+    var timelineA = Timeline<VitalsTrack, VitalsClip, Vitals>.Build(static b => { });
+    var timelineB = Timeline<VitalsTrack, VitalsClip, Vitals>.Build(static b => { });
+    if (timelineB != timelineA + 1)
         throw new InvalidOperationException("Timeline indices are not sequential.");
-    Console.WriteLine($"timelineA.Index = {timelineA.Index}, timelineB.Index = {timelineB.Index} (per closed generic type).");
+    Console.WriteLine($"Timeline index {timelineA}, then {timelineB} (per closed generic type).");
 
     var instance = shape.BuildTimeline();
     var viaInstance = shape.RunInstance(instance);
@@ -101,7 +102,7 @@ if (args is ["--verify"])
     var vitals = new Vitals { Health = 100_000f };
     GeneratedTimeline<VitalsTrack, VitalsClip, Vitals>.Forward(ref vitals, 10, 20, 30);
     var authored = new Vitals { Health = 100_000f };
-    instance.Forward(ref authored, 10, 20, 30);
+    Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(instance, ref authored, 10, 20, 30);
     if (authored.Result != vitals.Result)
         throw new InvalidOperationException($"Runtime timeline demo mismatch: {vitals.Result} / {authored.Result}.");
     Console.WriteLine($"Runtime-authored timeline matches the generated one: {authored.Result}");
@@ -232,24 +233,77 @@ if (args is ["--verify"])
     if (cv.Back != 965 || Math.Abs(cv.Health - 100_000f) > 1f || cv.Ticks != 0)
         throw new InvalidOperationException($"Clip-level rewind did not restore: back {cv.Back}, health {cv.Health}, ticks {cv.Ticks}.");
 
-    // Runtime instances share the same Playback core.
+    // Runtime indices share the same Playback core. Looping is an authored
+    // trait now, so the looping variant is a second Build.
     var runtime = shape.BuildTimeline();
     var rv = new Vitals { Health = 100_000f };
-    var rp = Playback.Start();
+    var rp = Timeline<VitalsTrack, VitalsClip, Vitals>.Start(runtime);
     for (uint t = 0; t < 600; t++)
-        rp = runtime.Forward(in rp, ref rv, t);
+        rp = Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(runtime, in rp, ref rv, t);
     if (!rp.Has(PlaybackFlags.Complete) || rp.Tick != 599)
         throw new InvalidOperationException($"Runtime walk should complete at 599: {rp.Tick}, {rp.Flags}.");
 
-    runtime.IsLooping = true;
-    var loopStart = Playback.Start();
-    var rp2 = runtime.Forward(in loopStart, ref rv, 700);
+    var runtimeLoop = shape.BuildTimeline(loops: true);
+    var loopStart = Timeline<VitalsTrack, VitalsClip, Vitals>.Start(runtimeLoop);
+    var rp2 = Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(runtimeLoop, in loopStart, ref rv, 700);
     if (rp2.Cycles != 1 || rp2.Tick != 700)
         throw new InvalidOperationException($"Runtime loop wrap wrong: {rp2.Tick}, {rp2.Cycles}.");
 
+    // Index-registry receipts: sequential assignment, tombstones, no reuse,
+    // capturing definitions, and empty definitions.
+    var destroyed = ProbeTimeline.Build(static b => { });
+    var live = ProbeTimeline.Build(static b =>
+    {
+        var track = b.Track(new EdgeVerification.ProbeTrack(0));
+        b.Clip(track, new EdgeVerification.ProbeClip(10), 0, 10);
+    });
+    if (destroyed != 0 || live != 1)
+        throw new InvalidOperationException($"A fresh closed type must assign indices 0 and 1, got {destroyed}, {live}.");
+
+    ProbeTimeline.Destroy(destroyed);
+    try
+    {
+        ProbeTimeline.Start(destroyed);
+        throw new InvalidOperationException("Start on a destroyed index must throw.");
+    }
+    catch (ArgumentOutOfRangeException) { }
+
+    var probeData = new EdgeVerification.Probe();
+    var probeState = ProbeTimeline.Start(live);
+    probeState = ProbeTimeline.Forward(live, in probeState, ref probeData, 5);
+    if (!probeState.Has(PlaybackFlags.Active) || probeData.Tracks != 1 || probeData.Sum != 10f)
+        throw new InvalidOperationException($"A live index stopped playing after a destroy: {probeState.Flags}, tracks {probeData.Tracks}, sum {probeData.Sum}.");
+
+    var rebuilt = ProbeTimeline.Build(static b => { });
+    if (rebuilt == destroyed || rebuilt != live + 1)
+        throw new InvalidOperationException($"Build reused a destroyed index: destroyed {destroyed}, live {live}, rebuilt {rebuilt}.");
+
+    // The definition delegate is not restricted to static lambdas: a closure
+    // variable can author clip payloads.
+    float closure = 7f;
+    var captured = Timeline<VitalsTrack, VitalsClip, Vitals>.Build(b =>
+    {
+        var track = b.Track(new VitalsTrack(1));
+        b.Clip(track, new VitalsClip(closure), 0, 10);
+    });
+    var closureData = new Vitals();
+    Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(captured, ref closureData, 5);
+    if (closureData.Count != 1 || closureData.Ticks != 1 || closureData.Health != closure)
+        throw new InvalidOperationException($"Capturing definition mismatch: {closureData.Result}.");
+
+    // Empty definitions stay valid: empty tables, duration 0, Complete.
+    var emptyIndex = Timeline<VitalsTrack, VitalsClip, Vitals>.Build(static b => { });
+    var emptyState = Timeline<VitalsTrack, VitalsClip, Vitals>.Start(emptyIndex);
+    var emptyData = new Vitals();
+    emptyState = Timeline<VitalsTrack, VitalsClip, Vitals>.Forward(emptyIndex, in emptyState, ref emptyData, 0);
+    if (!emptyState.Has(PlaybackFlags.Complete) || emptyData.Count != 1 || emptyData.Ticks != 0)
+        throw new InvalidOperationException($"Empty definition mismatch: {emptyState.Flags}, {emptyData.Result}.");
+
+    Console.WriteLine($"Index registry verified: sequential builds {destroyed}/{live}/{rebuilt}, tombstone rejects playback, no reuse, capturing and empty definitions all work.");
+
     EdgeVerification.Run();
 
-    Console.WriteLine("Playback verified: flags, jumps, mirrors, loops, rewind, clip hooks, runtime instances.");
+    Console.WriteLine("Playback verified: flags, jumps, mirrors, loops, rewind, clip hooks, runtime timelines, index registry.");
     Console.WriteLine("Dispatch receipts match; generated, constrained, ref-data, and API-shape calls mutate the original; boxing copies it.");
     return;
 }
