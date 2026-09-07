@@ -10,4 +10,16 @@
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <Compile Include="../Shared.cs" Link="Shared.cs" />
   </ItemGroup>
+
+  <!-- Generated fixtures are not tracked; a fresh clone regenerates them
+       through the Waffle-based generator before the first build. -->
+  <Target Name="GenerateFixtures" BeforeTargets="BeforeBuild"
+          Condition="'$(SkipFixtureGeneration)' != 'true' and (!Exists('Generated/Small.g.cs') or !Exists('Generated/Medium.g.cs') or !Exists('Generated/Large.g.cs'))">
+    <Exec Command="dotnet run --project $(MSBuildThisFileDirectory)../Generate -c $(Configuration) -- $(MSBuildThisFileDirectory)../.." />
+    <!-- The default Compile glob evaluated before this target ran; pick the
+         freshly written files up (deduplicated against the existing items). -->
+    <ItemGroup>
+      <Compile Include="Generated/**/*.cs" Exclude="@(Compile)" />
+    </ItemGroup>
+  </Target>
 </Project>

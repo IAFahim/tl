@@ -4,10 +4,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <WaffleRoot Condition="'$(WaffleRoot)' == ''">../../../Waffle</WaffleRoot>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="$(WaffleRoot)/src/Waffle.Core/Waffle.Core.csproj" />
+    <PackageReference Include="Waffle.Core" Version="1.0.0" />
     <Compile Include="../Hooks.cs" Link="Hooks.cs" />
   </ItemGroup>
 </Project>

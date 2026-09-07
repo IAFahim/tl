@@ -11,4 +11,21 @@
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <Compile Include="../Hooks.cs" Link="Hooks.cs" />
   </ItemGroup>
+
+  <!-- Generated fixtures are not tracked; a fresh clone regenerates them
+       through the Waffle-based generators before the first build. -->
+  <Target Name="GenerateFixtures" BeforeTargets="BeforeBuild"
+          Condition="'$(SkipFixtureGeneration)' != 'true' and (!Exists('Generated/Fused256.g.cs') or !Exists('Generated/Fused4096.g.cs') or !Exists('Generated/Sparse256.g.cs') or !Exists('Generated/Sparse4096.g.cs'))">
+    <Exec Command="dotnet run --project $(MSBuildThisFileDirectory)../Generate -c $(Configuration) -- $(MSBuildThisFileDirectory)../.." />
+    <ItemGroup>
+      <Compile Include="Generated/**/*.cs" Exclude="@(Compile)" />
+    </ItemGroup>
+  </Target>
+  <Target Name="GenerateReceiverLink" BeforeTargets="BeforeBuild"
+          Condition="'$(SkipFixtureGeneration)' != 'true' and !Exists('ReceiverLink.g.cs')">
+    <Exec Command="dotnet run --project $(MSBuildThisFileDirectory)../GenerateHooks -c $(Configuration) -- $(MSBuildThisFileDirectory)ReceiverLink.g.cs" />
+    <ItemGroup>
+      <Compile Include="ReceiverLink.g.cs" Exclude="@(Compile)" />
+    </ItemGroup>
+  </Target>
 </Project>
