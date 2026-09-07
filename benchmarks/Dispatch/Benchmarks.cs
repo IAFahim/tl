@@ -906,6 +906,151 @@ public class CountsShape
     }
 }
 
+// Storage dedup at Build time (faster queue #4): 64 long clips spanning 256
+// four-tick regions (payloads drawn from eight distinct 260-byte values)
+// plus a 256-clip sweeper — the shape where long clips duplicate their CSR
+// rows per region and payloads repeat heavily. Plain builds keep one row
+// per authored instance; deduped builds share payload slots and alias
+// identical row runs. Warm playback arms A/B the indirection cost; the
+// Build arms are the cold preparation (allocation visible to the
+// diagnoser); retained bytes are receipted in setup.
+[Config(typeof(Config))]
+public class DedupShape
+{
+    public const int Operations = 65536;
+    public const int Regions = 256;
+    private uint[] _ticks = null!;
+    private ushort _plain;
+    private ushort _deduped;
+    public long PlainRetained;
+    public long DedupRetained;
+
+    private static ushort Build(bool dedup)
+    {
+        Timeline.DedupStorage = dedup;
+        var index = Timeline<BlendTrack, BlendClip>.Build(b =>
+        {
+            for (var t = 0; t < 64; t++)
+            {
+                TrackRef track = b.Track(new BlendTrack());
+                b.Clip(track, new BlendClip((t % 8) + 1), 0, (uint)Regions * 4);
+            }
+
+            TrackRef sweeper = b.Track(new BlendTrack());
+            for (uint i = 0; i < Regions; i++)
+                b.Clip(sweeper, new BlendClip(i % 4), i * 4, i * 4 + 3);
+        });
+        Timeline.DedupStorage = true;
+        return index;
+    }
+
+    private static long RetainedOf(bool dedup)
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        var before = GC.GetTotalMemory(true);
+        var index = Build(dedup);
+        var after = GC.GetTotalMemory(true);
+        _ = Timeline.Duration(index); // the entry stays registered: retained
+        return after - before;
+    }
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _plain = Build(false);
+        _deduped = Build(true);
+        _ticks = new uint[Operations];
+        uint random = 0xB19F4C27;
+        for (var i = 0; i < _ticks.Length; i++)
+        {
+            random ^= random << 13;
+            random ^= random >> 17;
+            random ^= random << 5;
+            _ticks[i] = random % (uint)(Regions * 4);
+        }
+
+        PlainRetained = RetainedOf(false);
+        DedupRetained = RetainedOf(true);
+        Console.WriteLine($"DedupShape retained bytes: plain {PlainRetained:N0}, deduped {DedupRetained:N0} ({100.0 * DedupRetained / PlainRetained:F1} percent)");
+        if (DedupRetained >= PlainRetained)
+            throw new InvalidOperationException("The deduped build must not retain more than the plain build on this fixture.");
+
+        // Receipts: warm arms must agree exactly.
+        var expected = PlainSingle();
+        if (DedupSingle() != expected || PlainBatchFour() != expected || DedupBatchFour() != expected)
+            throw new InvalidOperationException("DedupShape receipts differ across arms.");
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float PlainSingle()
+    {
+        var data = new BlendData();
+        var pb = Timeline.Start(_plain);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_plain, in pb, ref data, tick);
+        return data.Sum + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float DedupSingle()
+    {
+        var data = new BlendData();
+        var pb = Timeline.Start(_deduped);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_deduped, in pb, ref data, tick);
+        return data.Sum + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float PlainBatchFour()
+    {
+        var data = new BlendData();
+        var pb = Timeline.Start(_plain);
+        var ticks = _ticks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 4)
+        {
+            var t = ticks.Slice(i, 4);
+            pb = Timeline.Forward(_plain, in pb, ref data, t[0], t[1], t[2], t[3]);
+        }
+        return data.Sum + data.Count;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float DedupBatchFour()
+    {
+        var data = new BlendData();
+        var pb = Timeline.Start(_deduped);
+        var ticks = _ticks.AsSpan();
+        for (var i = 0; i < ticks.Length; i += 4)
+        {
+            var t = ticks.Slice(i, 4);
+            pb = Timeline.Forward(_deduped, in pb, ref data, t[0], t[1], t[2], t[3]);
+        }
+        return data.Sum + data.Count;
+    }
+
+    // Cold preparation: one Build per invoke (each registers a fresh index).
+    [Benchmark(OperationsPerInvoke = 4)]
+    public float BuildPlain()
+    {
+        var sum = 0f;
+        for (var i = 0; i < 4; i++)
+            sum += Timeline.Duration(Build(false));
+        return sum;
+    }
+
+    [Benchmark(OperationsPerInvoke = 4)]
+    public float BuildDedup()
+    {
+        var sum = 0f;
+        for (var i = 0; i < 4; i++)
+            sum += Timeline.Duration(Build(true));
+        return sum;
+    }
+}
+
 // The 8-byte Playback claim: `in`, by-value, and `ref` passing of one qword
 // should be indistinguishable.
 [Config(typeof(Config))]

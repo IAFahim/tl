@@ -311,13 +311,14 @@ internal static class PlaybackCore
         ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<ClipEdge> edges,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
+        ReadOnlySpan<ushort> payloadMap,
         Span<TClip> resolved)
         where TTrack : struct, IBlend<TClip>
         where TClip : struct
         where TData : struct, IForward<TTrack, TClip, TData>, IBackward<TTrack, TClip, TData>
         => Advance(
             in from, backward, loops, ticks, ref data,
-            starts, regionRows, ReadOnlySpan<CutCounts>.Empty, trackRows, clipRows, edges, trackData, clipData, resolved,
+            starts, regionRows, ReadOnlySpan<CutCounts>.Empty, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
             -1, out _);
 
     // `regionHint` is a CALLER-VALIDATED region for the effective position
@@ -335,6 +336,7 @@ internal static class PlaybackCore
         ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<ClipEdge> edges,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
+        ReadOnlySpan<ushort> payloadMap,
         Span<TClip> resolved,
         int regionHint, out int finalRegion)
         where TTrack : struct, IBlend<TClip>
@@ -397,7 +399,7 @@ internal static class PlaybackCore
                 var tracks = new Tracks<TTrack, TClip>(
                     tEff,
                     trackRows.Slice(row.TrackStart, row.TrackCount),
-                    clipRows, trackData, clipData, resolved,
+                    clipRows, trackData, clipData, payloadMap, resolved,
                     edges,
                     new MovementSpan(prevEff, backward, wrapped, full, enterPossible));
 
@@ -425,6 +427,7 @@ internal static class PlaybackCore
         ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<ClipEdge> edges,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
+        ReadOnlySpan<ushort> payloadMap,
         Span<TClip> resolved)
         where TTrack : struct, IBlend<TClip>
         where TClip : struct
@@ -462,6 +465,7 @@ internal static class PlaybackCore
                 clipRows,
                 trackData,
                 clipData,
+                payloadMap,
                 resolved,
                 edges,
                 new MovementSpan(localTick, backward, Wrapped: false, Full: false));
@@ -622,6 +626,9 @@ public readonly ref struct Tracks<TTrack, TClip>
     private readonly ReadOnlySpan<ClipRow> _clipRows;
     private readonly ReadOnlySpan<TTrack> _trackData;
     private readonly ReadOnlySpan<TClip> _clipData;
+    // Authored-clip index -> payload slot (build-time payload dedup); empty
+    // means identity - the payload table is one row per authored instance.
+    private readonly ReadOnlySpan<ushort> _payloadMap;
     private readonly Span<TClip> _resolved;
     private readonly ReadOnlySpan<ClipEdge> _clipEdges;
     private readonly MovementSpan _movement;
@@ -630,6 +637,7 @@ public readonly ref struct Tracks<TTrack, TClip>
         uint tick,
         ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
+        ReadOnlySpan<ushort> payloadMap,
         Span<TClip> resolved,
         ReadOnlySpan<ClipEdge> clipEdges, MovementSpan movement)
     {
@@ -638,6 +646,7 @@ public readonly ref struct Tracks<TTrack, TClip>
         _clipRows = clipRows;
         _trackData = trackData;
         _clipData = clipData;
+        _payloadMap = payloadMap;
         _resolved = resolved;
         _clipEdges = clipEdges;
         _movement = movement;
@@ -647,7 +656,7 @@ public readonly ref struct Tracks<TTrack, TClip>
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Enumerator GetEnumerator()
-        => new(_tick, _trackRows, _clipRows, _trackData, _clipData, _resolved, _clipEdges, _movement);
+        => new(_tick, _trackRows, _clipRows, _trackData, _clipData, _payloadMap, _resolved, _clipEdges, _movement);
 
     public ref struct Enumerator
     {
@@ -656,6 +665,7 @@ public readonly ref struct Tracks<TTrack, TClip>
         private readonly ReadOnlySpan<ClipRow> _clipRows;
         private readonly ReadOnlySpan<TTrack> _trackData;
         private readonly ReadOnlySpan<TClip> _clipData;
+        private readonly ReadOnlySpan<ushort> _payloadMap;
         private readonly Span<TClip> _resolved;
         private readonly ReadOnlySpan<ClipEdge> _clipEdges;
         private readonly MovementSpan _movement;
@@ -669,6 +679,7 @@ public readonly ref struct Tracks<TTrack, TClip>
             uint tick,
             ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
             ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
+            ReadOnlySpan<ushort> payloadMap,
             Span<TClip> resolved,
             ReadOnlySpan<ClipEdge> clipEdges, MovementSpan movement)
         {
@@ -677,6 +688,7 @@ public readonly ref struct Tracks<TTrack, TClip>
             _clipRows = clipRows;
             _trackData = trackData;
             _clipData = clipData;
+            _payloadMap = payloadMap;
             _resolved = resolved;
             _clipEdges = clipEdges;
             _movement = movement;
@@ -685,7 +697,7 @@ public readonly ref struct Tracks<TTrack, TClip>
         }
 
         public readonly TrackWork<TTrack, TClip> Current
-            => new(_trackRows[_i], _tick, _clipRows, _trackData, _clipData, _resolved, _clipEdges, _movement, _blendSlot);
+            => new(_trackRows[_i], _tick, _clipRows, _trackData, _clipData, _payloadMap, _resolved, _clipEdges, _movement, _blendSlot);
 
         // Resolution fused with traversal: each blending track collapses to
         // one clip the moment it is reached. Works that are never visited are
@@ -706,9 +718,11 @@ public readonly ref struct Tracks<TTrack, TClip>
             var second = _clipRows[row.ClipStart + 1];
             var factor = first.FactorLength <= 1 ? 0.5f : (_tick - first.FactorStart) / (float)(first.FactorLength - 1);
             var slot = ++_blendSlot;
+            var firstPayload = _payloadMap.IsEmpty ? first.ClipIndex : _payloadMap[first.ClipIndex];
+            var secondPayload = _payloadMap.IsEmpty ? second.ClipIndex : _payloadMap[second.ClipIndex];
             _trackData[row.TrackIndex].Blend(
-                in _clipData[first.ClipIndex],
-                in _clipData[second.ClipIndex],
+                in _clipData[firstPayload],
+                in _clipData[secondPayload],
                 factor,
                 out _resolved[slot]);
 
@@ -730,6 +744,7 @@ public readonly ref struct TrackWork<TTrack, TClip>
     private readonly ReadOnlySpan<ClipRow> _clipRows;
     private readonly ReadOnlySpan<TTrack> _trackData;
     private readonly ReadOnlySpan<TClip> _clipData;
+    private readonly ReadOnlySpan<ushort> _payloadMap;
     private readonly ReadOnlySpan<TClip> _resolved;
     private readonly ReadOnlySpan<ClipEdge> _clipEdges;
     private readonly MovementSpan _movement;
@@ -738,6 +753,7 @@ public readonly ref struct TrackWork<TTrack, TClip>
     internal TrackWork(
         TrackRow row, uint tick, ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
+        ReadOnlySpan<ushort> payloadMap,
         ReadOnlySpan<TClip> resolved,
         ReadOnlySpan<ClipEdge> clipEdges, MovementSpan movement, int slot)
     {
@@ -746,6 +762,7 @@ public readonly ref struct TrackWork<TTrack, TClip>
         _clipRows = clipRows;
         _trackData = trackData;
         _clipData = clipData;
+        _payloadMap = payloadMap;
         _resolved = resolved;
         _clipEdges = clipEdges;
         _movement = movement;
@@ -761,7 +778,10 @@ public readonly ref struct TrackWork<TTrack, TClip>
         get
         {
             if (_row.ClipCount == 1)
-                return ref _clipData[_clipRows[_row.ClipStart].ClipIndex];
+            {
+                var authored = _clipRows[_row.ClipStart].ClipIndex;
+                return ref _clipData[_payloadMap.IsEmpty ? authored : _payloadMap[authored]];
+            }
 
             return ref _resolved[_slot];
         }
@@ -1108,7 +1128,7 @@ public static class GeneratedTimeline<TTrack, TClip>
 
         PlaybackCore.Sample<TTrack, TClip, TData>(
             backward: false, TTrack.Loops, ticks, ref data,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, scratch);
+            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
     }
 
     public static void Backward<TData>(ref TData data, params ReadOnlySpan<uint> ticks)
@@ -1134,7 +1154,7 @@ public static class GeneratedTimeline<TTrack, TClip>
 
         PlaybackCore.Sample<TTrack, TClip, TData>(
             backward: true, TTrack.Loops, ticks, ref data,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, scratch);
+            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
     }
 
     public static Playback Forward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
@@ -1161,7 +1181,7 @@ public static class GeneratedTimeline<TTrack, TClip>
 
         return PlaybackCore.Advance<TTrack, TClip, TData>(
             in from, backward: false, TTrack.Loops, ticks, ref data,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, scratch);
+            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
     }
 
     public static Playback Backward<TData>(in Playback from, ref TData data, params ReadOnlySpan<uint> ticks)
@@ -1188,7 +1208,7 @@ public static class GeneratedTimeline<TTrack, TClip>
 
         return PlaybackCore.Advance<TTrack, TClip, TData>(
             in from, backward: true, TTrack.Loops, ticks, ref data,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, scratch);
+            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
     }
 }
 
@@ -1275,6 +1295,10 @@ public static class Timeline<TTrack, TClip>
     {
         public required TTrack[] TrackData { get; init; }
         public required TClip[] ClipData { get; init; }
+
+        // Authored-clip index -> payload slot. Empty means identity: one
+        // payload row per authored instance, no dedup.
+        public required ushort[] PayloadMap { get; init; }
     }
 
     public static ushort Build(TimelineBuild<TTrack, TClip> build)
@@ -1412,17 +1436,130 @@ public static class Timeline<TTrack, TClip>
             }
         }
 
+        // Build-time storage dedup (faster queue #4). Payloads merge only
+        // on bitwise-equal bytes — float bit patterns are preserved, +0/-0
+        // and distinct NaN payloads never merge — through an indirection
+        // map that keeps authored-instance identity (the ClipIndex ==
+        // ClipEdges 1:1 invariant; payload slots, not row renumbering).
+        // Identical CSR row sequences alias one canonical run: regions with
+        // byte-identical track-row slices share storage, and track rows
+        // with byte-identical clip-row runs share theirs. Storage merges
+        // never merge two authored instances — per-region row counts,
+        // order and track indices are untouched.
+        ushort[] payloadMap;
+        if (Timeline.DedupStorage)
+        {
+            var comparer = new ByteArrayComparer();
+            var unique = new Dictionary<byte[], ushort>(comparer);
+            var slots = new List<TClip>();
+            payloadMap = new ushort[authoring.Clips.Count];
+            for (var i = 0; i < authoring.Clips.Count; i++)
+            {
+                var bytes = new byte[Unsafe.SizeOf<TClip>()];
+                var authored = authoring.Clips[i].Clip;
+                MemoryMarshal.Write(bytes, in authored);
+                if (unique.TryGetValue(bytes, out var slot))
+                {
+                    payloadMap[i] = slot;
+                    continue;
+                }
+
+                slot = checked((ushort)slots.Count);
+                unique.Add(bytes, slot);
+                slots.Add(authoring.Clips[i].Clip);
+                payloadMap[i] = slot;
+            }
+
+            clipData = [.. slots];
+        }
+        else
+        {
+            payloadMap = [];
+        }
+
+        TrackRow[] compactTracks;
+        if (Timeline.DedupStorage)
+        {
+            // 1. Track rows whose clip-row runs are byte-identical (same
+            //    track index, same authored clip indices and blend windows)
+            //    alias the first kept run.
+            var rowComparer = new ByteArrayComparer();
+            var clipRuns = new Dictionary<byte[], ushort>(rowComparer);
+            var keptClips = new List<ClipRow>(clipRows.Count);
+            var remapped = new TrackRow[trackRows.Count];
+            for (var i = 0; i < trackRows.Count; i++)
+            {
+                var row = trackRows[i];
+                var count = row.ClipCount;
+                var key = new byte[4 + Unsafe.SizeOf<ClipRow>() * count];
+                var trackIndex = row.TrackIndex;
+                MemoryMarshal.Write(key.AsSpan(0, 2), in trackIndex);
+                MemoryMarshal.Write(key.AsSpan(2, 2), in count);
+                MemoryMarshal.AsBytes(CollectionsMarshal.AsSpan(clipRows).Slice(row.ClipStart, count))
+                    .CopyTo(key.AsSpan(4));
+                if (clipRuns.TryGetValue(key, out var canonical))
+                {
+                    remapped[i] = new TrackRow(row.TrackIndex, canonical, count);
+                    continue;
+                }
+
+                canonical = checked((ushort)keptClips.Count);
+                clipRuns.Add(key, canonical);
+                for (var c = 0; c < count; c++)
+                    keptClips.Add(clipRows[row.ClipStart + c]);
+                remapped[i] = new TrackRow(row.TrackIndex, canonical, count);
+            }
+
+            clipRows = keptClips;
+
+            // 2. Regions whose (remapped) track-row slices are byte-identical
+            //    alias the first kept slice.
+            var regionSlices = new Dictionary<byte[], ushort>(rowComparer);
+            var keptTracks = new List<TrackRow>(trackRows.Count);
+            var sliceBytes = new byte[Unsafe.SizeOf<TrackRow>()];
+            for (var r = 0; r < regionRows.Length; r++)
+            {
+                var row = regionRows[r];
+                var key = new byte[Unsafe.SizeOf<TrackRow>() * row.TrackCount];
+                for (var t = 0; t < row.TrackCount; t++)
+                {
+                    var source = remapped[row.TrackStart + t];
+                    MemoryMarshal.Write(sliceBytes.AsSpan(0, Unsafe.SizeOf<TrackRow>()), in source);
+                    sliceBytes.AsSpan(0, Unsafe.SizeOf<TrackRow>()).CopyTo(key.AsSpan(Unsafe.SizeOf<TrackRow>() * t));
+                }
+
+                if (regionSlices.TryGetValue(key, out var canonical))
+                {
+                    regionRows[r] = new RegionRow(canonical, row.TrackCount);
+                    continue;
+                }
+
+                canonical = checked((ushort)keptTracks.Count);
+                regionSlices.Add(key, canonical);
+                for (var t = 0; t < row.TrackCount; t++)
+                    keptTracks.Add(remapped[row.TrackStart + t]);
+                regionRows[r] = new RegionRow(canonical, row.TrackCount);
+            }
+
+            compactTracks = [.. keptTracks];
+        }
+        else
+        {
+            compactTracks = [.. trackRows];
+        }
+
         return Timeline.Register(new Timeline.Entry
         {
             RegionStarts = regionStarts,
             RegionRows = regionRows,
-            TrackRows = [.. trackRows],
+            TrackRows = compactTracks,
             ClipRows = [.. clipRows],
             ClipEdges = clipEdges,
             Payload = new Tables
             {
                 TrackData = [.. authoring.Tracks],
                 ClipData = clipData,
+                PayloadMap = payloadMap,
             },
             MaxActiveTracks = maxActive,
             MaxActiveBlends = maxBlends,
@@ -1532,11 +1669,12 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
+            var payloadMap = tables.PayloadMap.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: false, entry.Loops, ticks, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
                 -1, out _);
         }
 
@@ -1552,11 +1690,12 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
+            var payloadMap = tables.PayloadMap.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: true, entry.Loops, ticks, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
                 -1, out _);
         }
 
@@ -1582,11 +1721,12 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
+            var payloadMap = tables.PayloadMap.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             var result = PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: false, entry.Loops, ticks, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
                 hint, out var region);
 
             cache = new Cursor { Owner = entry, Tick = result.Tick, Region = region };
@@ -1609,11 +1749,12 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
+            var payloadMap = tables.PayloadMap.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             var result = PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: true, entry.Loops, ticks, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
                 hint, out var region);
 
             cache = new Cursor { Owner = entry, Tick = result.Tick, Region = region };
@@ -1636,11 +1777,12 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
+            var payloadMap = tables.PayloadMap.AsSpan();
             var resolved = new Span<TClip>(scratch, scratchLength);
 
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: false, entry.Loops, ticks, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
                 -1, out _);
         }
 
@@ -1656,11 +1798,12 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
+            var payloadMap = tables.PayloadMap.AsSpan();
             var resolved = new Span<TClip>(scratch, scratchLength);
 
             return PlaybackCore.Advance<TTrack, TClip, TData>(
                 in from, backward: true, entry.Loops, ticks, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, resolved,
+                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
                 -1, out _);
         }
 
@@ -1675,11 +1818,12 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
+            var payloadMap = tables.PayloadMap.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             PlaybackCore.Sample<TTrack, TClip, TData>(
                 backward: false, entry.Loops, ticks, ref consumer,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved);
         }
 
         private static void SampleBackward(Timeline.Entry entry, void* data, ReadOnlySpan<uint> ticks)
@@ -1693,11 +1837,12 @@ public static class Timeline<TTrack, TClip>
             var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
+            var payloadMap = tables.PayloadMap.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             PlaybackCore.Sample<TTrack, TClip, TData>(
                 backward: true, entry.Loops, ticks, ref consumer,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, resolved);
+                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved);
         }
     }
 }
@@ -1707,6 +1852,21 @@ public static class Timeline<TTrack, TClip>
 internal static class DataToken<TData>
 {
     public static int Id;
+}
+
+// Build-time key equality for the storage dedup: structural byte
+// equality, so equal keys mean bitwise-identical payloads/rows and a hash
+// collision is resolved by the full comparison (never by hash alone).
+internal sealed class ByteArrayComparer : IEqualityComparer<byte[]>
+{
+    public bool Equals(byte[]? x, byte[]? y) => x.AsSpan().SequenceEqual(y);
+
+    public int GetHashCode(byte[] obj)
+    {
+        var hash = new HashCode();
+        hash.AddBytes(obj);
+        return hash.ToHashCode();
+    }
 }
 
 internal static class TokenCounter
@@ -1852,6 +2012,15 @@ public static unsafe partial class Timeline
     // price of 4 B per region and two extra loads per step). Benchmark A/B
     // only — not API.
     internal static bool EmitCutCounts = false;
+
+    // Build-time switch for storage dedup (faster queue #4), verdict KEEP
+    // as an opt-in: false (default) keeps one row per authored instance and
+    // the zero-indirection payload read — small timelines dedup to nothing
+    // and the map hop measurably taxes their hot arms; true shares payload
+    // slots (bitwise) and aliases identical CSR row sequences for
+    // duplication-heavy content, where it retains 6x less with playback
+    // parity. Benchmark A/B only — not API.
+    internal static bool DedupStorage = false;
 
     internal static ushort Register(Entry entry)
     {

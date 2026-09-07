@@ -7,14 +7,14 @@ internal static class EdgeVerification
     public static void Run()
     {
         var failures = new List<string>();
-        foreach (var test in new Action[] { Gaps, Empty, Blend, Order, Packing, Wrap, States, Batches, CursorParity, Scratch, PrefixCounts, Fixture, PerClip, WideTicks, Limits, Indices })
+        foreach (var test in new Action[] { Gaps, Empty, Blend, Order, Packing, Wrap, States, Batches, CursorParity, Scratch, PrefixCounts, Dedup, Fixture, PerClip, WideTicks, Limits, Indices })
         {
             try { test(); }
             catch (Exception e) { failures.Add($"{test.Method.Name}: {e.Message}"); }
         }
         if (failures.Count != 0)
             throw new InvalidOperationException(string.Join(Environment.NewLine, failures));
-        Console.WriteLine("Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, blend scratch, prefix counts, fixture parity, per-work facts oracle, limits.");
+        Console.WriteLine("Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, blend scratch, prefix counts, storage dedup, fixture parity, per-work facts oracle, limits.");
     }
 
     private static void Require(bool condition, string message)
@@ -714,6 +714,115 @@ internal static class EdgeVerification
         }
     }
 
+    // Build-time storage dedup (faster queue #4): identical payload bytes
+    // share storage through the indirection map (bitwise keys, so +0/-0 and
+    // distinct NaN payloads never merge), long clips spanning many regions
+    // stop duplicating their CSR rows, and equal storage never merges two
+    // authored instances — every (Index, State, value-bits) sequence and
+    // callback count must be identical with dedup on and off.
+    private static void Dedup()
+    {
+        // 1. Bit-pattern receipt: four same-window works whose payloads are
+        //    +0, -0 and two identical NaNs. The recorded bits must equal the
+        //    authored bits exactly — the -0 must not have merged into +0.
+        var bits = Timeline<ProbeTrack, ProbeClip>.Build(static b =>
+        {
+            TrackRef plus = b.Track(new ProbeTrack(0));
+            TrackRef minus = b.Track(new ProbeTrack(0));
+            TrackRef nanA = b.Track(new ProbeTrack(0));
+            TrackRef nanB = b.Track(new ProbeTrack(0));
+            b.Clip(plus, new ProbeClip(0f), 0, 4);
+            b.Clip(minus, new ProbeClip(-0f), 0, 4);
+            b.Clip(nanA, new ProbeClip(float.NaN), 0, 4);
+            b.Clip(nanB, new ProbeClip(float.NaN), 0, 4);
+        });
+        var recorded = new BitsData { Bits = [] };
+        Timeline.Forward(bits, ref recorded, 1);
+        var seen = recorded.Bits ?? throw new InvalidOperationException("The bits consumer recorded nothing.");
+        uint[] expected =
+        [
+            BitConverter.SingleToUInt32Bits(0f),
+            BitConverter.SingleToUInt32Bits(-0f),
+            BitConverter.SingleToUInt32Bits(float.NaN),
+            BitConverter.SingleToUInt32Bits(float.NaN),
+        ];
+        if (!seen.SequenceEqual(expected))
+            throw new InvalidOperationException($"Payload dedup changed authored value bits: [{string.Join(", ", seen)}] vs [{string.Join(", ", expected)}].");
+        if (seen.Count != 4)
+            throw new InvalidOperationException("Equal storage merged two authored instances into fewer works.");
+
+        // 2. On/off parity and sizing on a duplication-heavy fixture: eight
+        //    long clips spanning 64 regions (payloads from three values) and
+        //    a sweeper track cutting four-tick regions.
+        ushort Build(bool dedup)
+        {
+            Timeline.DedupStorage = dedup;
+            return Timeline<ProbeTrack, ProbeClip>.Build(b =>
+            {
+                for (var t = 0; t < 8; t++)
+                {
+                    TrackRef longs = b.Track(new ProbeTrack(t + 1));
+                    b.Clip(longs, new ProbeClip((t % 3) + 1), 0, 64);
+                }
+
+                TrackRef sweeper = b.Track(new ProbeTrack(0));
+                for (uint i = 0; i < 16; i++)
+                    b.Clip(sweeper, new ProbeClip(i % 2), i * 4, i * 4 + 3);
+            });
+        }
+
+        var deduped = Build(true);
+        var plain = Build(false);
+        Timeline.DedupStorage = true;
+
+        var dedupEntry = Timeline.Live(deduped);
+        var plainEntry = Timeline.Live(plain);
+        var dedupTables = (Tl.Hooks.Timeline<ProbeTrack, ProbeClip>.Tables)dedupEntry.Payload!;
+        if (dedupTables.PayloadMap.Length != 24)
+            throw new InvalidOperationException($"The payload map must stay one entry per authored clip; got {dedupTables.PayloadMap.Length}.");
+        if (dedupTables.ClipData.Length != 4)
+            throw new InvalidOperationException($"Expected 4 unique payloads (long values {{1,2,3}} plus the sweeper's 0; the sweeper's 1 collides with a long value); got {dedupTables.ClipData.Length}.");
+        if (dedupEntry.TrackRows.Length >= plainEntry.TrackRows.Length)
+            throw new InvalidOperationException($"Row dedup did not compact: {dedupEntry.TrackRows.Length} vs {plainEntry.TrackRows.Length}.");
+        if (dedupEntry.ClipRows.Length >= plainEntry.ClipRows.Length)
+            throw new InvalidOperationException($"Clip-row dedup did not compact: {dedupEntry.ClipRows.Length} vs {plainEntry.ClipRows.Length}.");
+
+        // Parity: linear walk and a jump battery — works, sums, flags.
+        for (uint tick = 0; tick < 70; tick++)
+        {
+            var from = At(tick == 0 ? 0 : tick - 1);
+            var viaDedup = new Probe();
+            var viaPlain = new Probe();
+            var dedupPb = Timeline.Forward(deduped, in from, ref viaDedup, tick);
+            var plainPb = Timeline.Forward(plain, in from, ref viaPlain, tick);
+            if (dedupPb.Flags != plainPb.Flags || !viaDedup.Works.SequenceEqual(viaPlain.Works) || viaDedup.Sum != viaPlain.Sum)
+                throw new InvalidOperationException($"Dedup changed results at {tick}.");
+        }
+
+        uint random = 0x85EBCA6Bu;
+        for (var j = 0; j < 32; j++)
+        {
+            random ^= random << 13; random ^= random >> 17; random ^= random << 5;
+            var from = random % 70;
+            random ^= random << 13; random ^= random >> 17; random ^= random << 5;
+            var to = random % 70;
+            foreach (var backward in new[] { false, true })
+            {
+                var start = At(from);
+                var viaDedup = new Probe();
+                var viaPlain = new Probe();
+                var dedupPb = backward
+                    ? Timeline.Backward(deduped, in start, ref viaDedup, to)
+                    : Timeline.Forward(deduped, in start, ref viaDedup, to);
+                var plainPb = backward
+                    ? Timeline.Backward(plain, in start, ref viaPlain, to)
+                    : Timeline.Forward(plain, in start, ref viaPlain, to);
+                if (dedupPb.Flags != plainPb.Flags || !viaDedup.Works.SequenceEqual(viaPlain.Works) || viaDedup.Sum != viaPlain.Sum)
+                    throw new InvalidOperationException($"Dedup changed jump results at {from}->{to}, backward={backward}.");
+            }
+        }
+    }
+
     private static void Fixture()
     {
         var shape = new ApiShape();
@@ -1167,6 +1276,27 @@ internal static class EdgeVerification
             Span<BigClip> inner = stackalloc BigClip[1];
             var pb = new Playback(tick, 0, PlaybackFlags.Started);
             Timeline<BigTrack, BigClip>.Backward(data.Inner, in pb, ref data.InnerData, inner, tick);
+        }
+    }
+
+    // Records the raw value bits of every work it sees, for the payload
+    // dedup receipts.
+    internal struct BitsData :
+        IForward<ProbeTrack, ProbeClip, BitsData>,
+        IBackward<ProbeTrack, ProbeClip, BitsData>
+    {
+        public List<uint>? Bits;
+
+        public void Forward(ref BitsData data, in Tracks<ProbeTrack, ProbeClip> tracks, in uint tick)
+        {
+            foreach (var work in tracks)
+                data.Bits!.Add(BitConverter.SingleToUInt32Bits(work.Clip.Value));
+        }
+
+        public void Backward(ref BitsData data, in Tracks<ProbeTrack, ProbeClip> tracks, in uint tick)
+        {
+            foreach (var work in tracks)
+                data.Bits!.Add(BitConverter.SingleToUInt32Bits(work.Clip.Value));
         }
     }
 
