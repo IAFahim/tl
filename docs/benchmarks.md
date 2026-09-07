@@ -636,6 +636,37 @@ Readings, honestly:
   and no stream-shape cliff. The ".NET x64 JIT only" hedge is retired for
   the frozen path; IL2CPP/WASM stay unmeasured.
 
+**Re-measured after the redesign + bake v3 (be9aa92).** Two things
+changed since the table above. First, the redesigned global registry
+broke the *publish*: the one-time (entry, consumer) bridge bind closes
+`BindData<TData>` via `MakeGenericMethod`, and ILC fails IL2060/IL3050
+on it. The frozen arms never bind, so the fix is scoped and honest —
+`Timeline<TTrack,TClip>.Bind<TData>(index)` is the new static,
+AOT-compiler-visible instantiation path, and the reflection path guards
+on `RuntimeFeature.IsDynamicCodeSupported` (a named throw under AOT)
+behind scoped suppressions. Second, bake v3's emission — span
+collection-expression tables (frozen blobs, no per-tick GC-static base
+reload) and pure-integer branchless movement — turns out to be exactly
+the shape ILC likes. Back-to-back runs, same core, same harness:
+
+| Arm                  | Harness Jit | NativeAOT | delta  |
+|----------------------|------------:|----------:|-------:|
+| `Fused16Batch8`      |       1.064 |     1.094 | +0.030 |
+| `Fused16Single`      |       1.205 |     1.138 | −0.067 |
+| `Fused16Sequential`  |       1.205 |     1.146 | −0.059 |
+| `FrozenVitalsBatch8` |       2.502 |     2.528 | +0.026 |
+| `FrozenVitalsSingle` |       2.957 |     3.012 | +0.055 |
+| `FrozenVitalsSequential` |    2.922 |     2.913 | −0.009 |
+
+All six arm checksums are bit-identical to the JIT output (verified by
+direct diff of full checksum sections, not just the harness's inline
+checks). **The +7…27% ILC toll is gone** — every delta is within ±0.07
+ns with mixed signs, i.e. run noise, and the AOT binary now sits at
+1.09 ns/tick on the gate arm. The pre-v3 toll traced to ILC's codegen
+for the old emission's shape (stack spills around guarded loads,
+GC-static base re-derivation); v3's arithmetic form has nothing left
+for ILC to decide differently.
+
 #### The frozen hub: one dispatch call site
 
 `FrozenHub.g.cs` closes the loop the dispatch verdicts opened: ONE call
@@ -857,3 +888,79 @@ noise-level (3.87 vs 4.44 on `HubFused16Batch8` tiered) — the kernel,
 not the dispatch, regressed. Lesson recorded: **byte-identity and parity
 gates do not catch a branchiness regression; every re-emission of a
 hot loop needs its timing receipt re-run.**
+
+#### Bake v3: branchless under the per-work contract
+
+The fix deletes all three branch classes the redesign introduced,
+keeping the new semantics bit-exact:
+
+1. **Per-slot ClipState is pure integer arithmetic.** The exit bit comes
+   from the word; Enter is one constant-arm ternary `prev < ref ? 0 : 1`
+   (compiles to `setcc`, as bake v2 proved); the code is
+   `exit + (exit | enter)` — 2 uops, exit set gives 1 + (1|e) = 2, exit
+   clear gives 0 + e. Multi-slot codes are summed into **one `Flags`
+   RMW per tick** (integer addition is associative, so the single
+   accumulate is bit-exact).
+2. **Inactive slots are baked to contribute exactly nothing.** Forward
+   entry refs bake `uint.MaxValue` (`prev < MaxValue` always holds →
+   Enter code 0), backward bake `0u` (`prev >= 0u` always holds); value
+   bits bake zero. The `if (n > k)` guards are gone entirely.
+3. **`Count` is an add.** Word bit 41 = any-active; `Count += bit`. The
+   `if (n != 0)` guard is gone; "empty ticks do no sink work" now holds
+   arithmetically (zero contributions) instead of by branch.
+4. **Multi-slot pair tables.** Each slot's value bits (low half) and
+   entry reference (high half) ride in ONE `ulong` per tick per
+   direction — value and movement in a single load, restoring bake v2's
+   one-word-plus-one-load-per-slot access pattern.
+5. **Span collection-expression tables** (`static ReadOnlySpan<T> =>
+   [...]`): Roslyn lowers them to frozen read-only blobs with constant
+   lengths — every per-access bounds guard AND the per-tick GC-static
+   base reload die, the latter even the v2 receipt still carried.
+
+Disassembly receipt (FullOpts, probes around `Fused16Frozen.Forward`):
+per tick — tick load, the constant clamp diamond, ONE word load, the
+`Started | Completed` shift/and/or/mul unpack, `Count` bit-add, one
+`cmp`/`setae` enter, the `or`+`add` code, one Flags RMW, one
+`vaddss`+store pair, the `prev = tick` move, increment/compare/branch.
+**Exactly two conditional branches: the constant clamp and the loop
+increment. Zero data-dependent branches.** Vitals is the identical
+shape ×3 slots; Backward is the exact subtractive mirror
+(`sub`/`setb`/`vsubss`).
+
+Measurement — cross-checked three ways (BDN core 10 dev run, BDN core 4
+receipt-of-record, package-free Stopwatch harness core 14; all agree
+within 0.06 ns on Fused16 and 0.14 on Vitals; ns per tick, medians):
+
+| Method                 | bake v2 Jit | redesigned Jit | v3 Jit  | v3 NoTiering |
+|------------------------|------------:|---------------:|--------:|-------------:|
+| `FrozenVitalsSingle`   |        2.65 |           5.58 |   2.942 |        2.722 |
+| `FrozenVitalsBatch8`   |        1.96 |           5.65 |   2.587 |        2.478 |
+| `Fused16Single`        |        2.12 |           4.35 |   1.236 |        1.107 |
+| `Fused16Batch8`        |        1.54 |           4.44 |   1.088 |        1.061 |
+| `FrozenVitalsSequential` |      2.49 |           2.13 |   2.721 |        2.733 |
+| `Fused16Sequential`    |        2.16 |           1.08 |   1.190 |        1.105 |
+
+Readings, honestly:
+
+- **Random ≡ sequential again** (1.236 vs 1.190, 2.942 vs 2.721): the
+  mispredict cliff is gone, and this time there was no sequential toll
+  to pay for it — v3 sequential beats bake v2's sequential too.
+- **Fused16 beats bake v2 on every arm**: batch 1.54 → 1.06–1.09
+  (−30%), single 2.12 → 1.11–1.24, sequential 2.16 → 1.11–1.19. The
+  richer per-work semantics cost *less* than the old aggregate-flag
+  machinery once both are branchless.
+- **VitalsBatch8 missed its 2.0–2.3 bar** (2.46–2.59): the per-slot
+  contract intrinsically adds ~25 uops/tick over v2's aggregate word —
+  three entry-ref consumes and three code computations — on top of the
+  3-chained-`addss` float floor (~1.7–2.3) that parity pins. The
+  disassembly shows no guard or branch fat left; the remaining levers
+  (unsafe bounds-free pointer walks) are outside the established
+  emission shape. This is the new honest floor of the per-work
+  contract on a 3-track fixture.
+- **The sub-1 ns gate** (`Fused16Batch8` < 1.0 tiered): 1.088/1.061
+  Jit, 1.094 NativeAOT, 1.05–1.09 across every harness and core. Still
+  not crossed — but the gap to the ~0.6–0.95 parity floor of the
+  serial `addss` chain is now 0.1–0.4 ns, and the loop is proven
+  branch-free on JIT, NoTiering, and AOT alike.
+- Hub stays free at the new speeds: `HubFused16Batch8` 1.050/1.058 vs
+  direct 1.088/1.061 — noise-level, both jobs.
