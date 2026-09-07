@@ -87,7 +87,10 @@ is still proportional to `MaxActiveTracks * sizeof(TClip)` on the stack. A
 bounded default plus a caller-provided scratch overload is needed before
 supporting arbitrary large payload/track counts in the shipping library.
 
-The measured target is .NET 10.0.11, x64 JIT on this machine. NativeAOT, Unity
+The measured target is .NET 10.0.11, x64 JIT on this machine. The frozen path
+is now also measured under NativeAOT (manual harness; see the NativeAOT
+section in [benchmarks.md](benchmarks.md)): +7–27% ns/tick depending on arm,
+bit-exact parity, zero allocation — the design holds without tiering. Unity
 IL2CPP and WASM performance remain unmeasured. Those targets need their own
 build and benchmark gates before the roadmap's choices are treated as portable
 performance guarantees.
