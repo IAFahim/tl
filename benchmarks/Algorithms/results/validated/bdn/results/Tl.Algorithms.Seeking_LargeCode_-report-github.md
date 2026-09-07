@@ -12,7 +12,7 @@ WarmupCount=16
 ```
 | Method        | Mean      | Error     | StdDev    | Median    | Ratio | Allocated | Alloc Ratio |
 |-------------- |----------:|----------:|----------:|----------:|------:|----------:|------------:|
-| Binary        | 71.361 ns | 0.7488 ns | 0.4953 ns | 71.252 ns |  1.00 |         - |          NA |
-| Dense         |  4.081 ns | 0.0479 ns | 0.0317 ns |  4.089 ns |  0.06 |         - |          NA |
-| Rank          |  5.387 ns | 0.0703 ns | 0.0508 ns |  5.371 ns |  0.08 |         - |          NA |
-| GeneratedTree | 46.551 ns | 0.5363 ns | 0.3547 ns | 46.595 ns |  0.65 |         - |          NA |
+| Binary        | 36.064 ns | 0.0279 ns | 0.0185 ns | 36.057 ns |  1.00 |         - |          NA |
+| Dense         |  1.986 ns | 0.0079 ns | 0.0057 ns |  1.988 ns |  0.06 |         - |          NA |
+| Rank          |  2.675 ns | 0.0067 ns | 0.0044 ns |  2.674 ns |  0.07 |         - |          NA |
+| GeneratedTree | 23.739 ns | 0.0330 ns | 0.0239 ns | 23.743 ns |  0.66 |         - |          NA |

@@ -9,8 +9,8 @@ Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
 IterationCount=6  IterationTime=250ms  WarmupCount=16  
 
 ```
-| Method        | Mean      | Error     | StdDev    | Ratio | RatioSD | Code Size | Allocated | Alloc Ratio |
-|-------------- |----------:|----------:|----------:|------:|--------:|----------:|----------:|------------:|
-| Direct        | 0.0219 ns | 0.0041 ns | 0.0011 ns |  1.00 |    0.06 |      71 B |         - |          NA |
-| GeneratedLink | 0.0219 ns | 0.0009 ns | 0.0002 ns |  1.01 |    0.04 |      71 B |         - |          NA |
-| Constrained   | 0.0213 ns | 0.0004 ns | 0.0001 ns |  0.98 |    0.04 |      71 B |         - |          NA |
+| Method        | Mean      | Error     | StdDev    | Ratio | Code Size | Allocated | Alloc Ratio |
+|-------------- |----------:|----------:|----------:|------:|----------:|----------:|------------:|
+| Direct        | 0.1755 ns | 0.0016 ns | 0.0004 ns |  1.00 |      71 B |         - |          NA |
+| GeneratedLink | 0.1753 ns | 0.0004 ns | 0.0001 ns |  1.00 |      71 B |         - |          NA |
+| Constrained   | 0.1746 ns | 0.0005 ns | 0.0002 ns |  1.00 |      71 B |         - |          NA |

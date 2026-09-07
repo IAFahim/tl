@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Tl.Hooks.PassPlayback-20260907-062845</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.400
+  [Host]    : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
+  Jit       : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
+  NoTiering : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code>IterationCount=12  IterationTime=250ms  WarmupCount=16  
+</code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Job</th><th>EnvironmentVariables</th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Ratio</th><th>RatioSD</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>PassByValue</td><td>Jit</td><td>Empty</td><td>0.0000 ns</td><td>0.0000 ns</td><td>0.0000 ns</td><td>0.0000 ns</td><td>?</td><td>?</td><td>-</td><td>?</td>
+</tr><tr><td>PassIn</td><td>Jit</td><td>Empty</td><td>0.0005 ns</td><td>0.0010 ns</td><td>0.0008 ns</td><td>0.0001 ns</td><td>?</td><td>?</td><td>-</td><td>?</td>
+</tr><tr><td>PassRef</td><td>Jit</td><td>Empty</td><td>0.0004 ns</td><td>0.0006 ns</td><td>0.0005 ns</td><td>0.0003 ns</td><td>?</td><td>?</td><td>-</td><td>?</td>
+</tr><tr><td>PassByValue</td><td>NoTiering</td><td>DOTNET_TieredCompilation=0</td><td>0.5268 ns</td><td>0.0002 ns</td><td>0.0002 ns</td><td>0.5268 ns</td><td>1.00</td><td>0.00</td><td>-</td><td>NA</td>
+</tr><tr><td>PassIn</td><td>NoTiering</td><td>DOTNET_TieredCompilation=0</td><td>0.5273 ns</td><td>0.0004 ns</td><td>0.0003 ns</td><td>0.5273 ns</td><td>1.00</td><td>0.00</td><td>-</td><td>NA</td>
+</tr><tr><td>PassRef</td><td>NoTiering</td><td>DOTNET_TieredCompilation=0</td><td>0.5271 ns</td><td>0.0008 ns</td><td>0.0006 ns</td><td>0.5268 ns</td><td>1.00</td><td>0.00</td><td>-</td><td>NA</td>
+</tr></tbody></table>
+</body>
+</html>

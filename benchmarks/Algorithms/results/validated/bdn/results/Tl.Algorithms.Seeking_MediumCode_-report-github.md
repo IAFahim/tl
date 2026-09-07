@@ -10,9 +10,9 @@ Job=steady  IterationCount=12  IterationTime=250ms
 WarmupCount=16  
 
 ```
-| Method        | Mean      | Error     | StdDev    | Median    | Ratio | RatioSD | Allocated | Alloc Ratio |
-|-------------- |----------:|----------:|----------:|----------:|------:|--------:|----------:|------------:|
-| Binary        | 47.388 ns | 1.5871 ns | 1.1476 ns | 46.820 ns |  1.00 |    0.03 |         - |          NA |
-| Dense         |  3.677 ns | 0.0403 ns | 0.0291 ns |  3.670 ns |  0.08 |    0.00 |         - |          NA |
-| Rank          |  5.787 ns | 0.0529 ns | 0.0382 ns |  5.785 ns |  0.12 |    0.00 |         - |          NA |
-| GeneratedTree | 24.747 ns | 0.5774 ns | 0.4175 ns | 24.587 ns |  0.52 |    0.01 |         - |          NA |
+| Method        | Mean      | Error     | StdDev    | Median    | Ratio | Allocated | Alloc Ratio |
+|-------------- |----------:|----------:|----------:|----------:|------:|----------:|------------:|
+| Binary        | 24.584 ns | 0.0527 ns | 0.0349 ns | 24.594 ns |  1.00 |         - |          NA |
+| Dense         |  1.833 ns | 0.0118 ns | 0.0085 ns |  1.830 ns |  0.07 |         - |          NA |
+| Rank          |  2.692 ns | 0.0162 ns | 0.0117 ns |  2.689 ns |  0.11 |         - |          NA |
+| GeneratedTree | 12.616 ns | 0.0324 ns | 0.0234 ns | 12.618 ns |  0.51 |         - |          NA |
