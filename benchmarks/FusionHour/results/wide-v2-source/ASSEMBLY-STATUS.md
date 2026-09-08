@@ -1,0 +1,1 @@
+The original standalone disassembly may have reused a previous binary because copying the source preserved its timestamp. It is retained as unverified and must not support code-size or lowering conclusions. Final fresh-build parity is in ../final-verification. The final chosen carry assembly is recaptured there.

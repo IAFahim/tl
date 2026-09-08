@@ -7,18 +7,18 @@ applications consume the resulting timeline through `IBlend`, `IForward` and
 `IBackward`. Runtime authoring is also part of the design. Blob export is not
 required.
 
-**Status: v0.2 Input/Result Split.** The core library (`src/Tl.Core`) and
-build-time code generator (`src/Tl.Gen`) are extracted, fully tested, and
-verified against NativeAOT. v0.2 splits the consumer data parameter into an
-immutable input (`in TInput`) and a mutable result (`ref TResult`); the v0.1
-`ref TData` surface is fully removed. See [v0.2](docs/v0.2.md).
+**Status: v0.5.** The runtime and build-time generator target .NET 10 and are
+verified under JIT and NativeAOT. Runtime-authored timelines lower into
+explicitly owned native memory. Generated `.Compile()` outputs are
+deterministic, repairable and stricter about which declarations they accept.
+See the [v0.5 release notes](docs/v0.5.md).
 
 ## Packages
 
 | Package | Version | Description |
 | --- | --- | --- |
-| `Tl.Runtime` | `0.2.0` | Core timeline runtime, builder, copy-on-write registry, and zero-allocation playback engine. |
-| `Tl.Gen` | `0.2.0` | Build-time MSBuild generator emitting compiled C# timeline tables and specialized kernels. |
+| `Tl.Runtime` | `0.5.0` | Core timeline runtime, authoring API, native timeline storage, and zero-allocation playback engine. |
+| `Tl.Gen` | `0.5.0` | Build-time MSBuild generator emitting compiled C# timeline tables and specialized kernels. |
 
 ## Consumer API
 
@@ -37,7 +37,7 @@ ushort id = Timeline<HealthTrack, HealthClip>.Build(static builder =>
 {
     var track = builder.Track(new HealthTrack());
     builder.Clip(in track, new HealthClip(2f), start: 0, end: 4);
-});
+}).InMemory();
 
 Timeline<HealthTrack, HealthClip>.Bind<HealthInput, HealthResult>(id);
 
@@ -46,7 +46,7 @@ var health = new HealthResult { Value = input.Seed };
 var playback = Timeline.Start(id);
 playback = Timeline.Forward(id, in playback, in input, ref health, 0u, 1u, 2u, 3u);
 
-Console.WriteLine(health.Value); // 106: seed 100; ticks 0, 1 and 2 are Stay (+2 each); tick 3 is Exit.
+Console.WriteLine(health.Value);
 
 playback = Timeline.Stop(id, in playback);
 Timeline.Destroy(id);
@@ -92,27 +92,45 @@ public struct HealthResult :
 pair before playback; this is the intended AOT path. The engine treats the
 input as read-only and never writes through it; all mutation flows through the
 `ref` result. The example chooses to apply only `Stay` work. Backward behavior
-is application code, not automatic undo. See the [semantics](docs/semantics.md)
-and the [v0.2 delta](docs/v0.2.md) before writing consumers.
+is application code, not automatic undo. `Build(...)` is authoring syntax;
+`.InMemory()` creates and registers the runtime timeline. `Timeline.Destroy(id)`
+releases its native allocation. See the [semantics](docs/semantics.md) and
+[v0.5 release notes](docs/v0.5.md) before writing consumers.
 
-## What v0.2 preserves from v0.1
+## What v0.5 provides
 
 - Three consumer hooks, typed struct calls and `ref` mutation of the caller's
   result, now alongside an immutable `in TInput`.
 - `uint` ticks, `[start, end)` clip windows and an 8-byte `Playback`.
 - One hook call per non-empty destination tick; one resolved work per active track.
-- Runtime region tables, a caller-owned cursor and bounded blend scratch.
-- Generated C# tables and specialization where its semantics are proven.
-- Zero library allocations during valid playback after build/bind/initialization,
-  subject to release verification. User hooks may allocate independently.
+- Runtime region tables in one native allocation, a caller-owned cursor and
+  bounded blend scratch.
+- Generated C# tables and direction-specialized playback while preserving the
+  existing public generated method signatures.
+- Deterministic generation caching that repairs missing or changed owned
+  outputs, removes only unchanged obsolete owned outputs, and leaves unowned
+  files alone.
+- Stricter `.Compile()` declaration discovery, name resolution, collision
+  checks and diagnostics for unsupported forms.
+- A 24-byte runtime work slot, down from 28 bytes by removing field padding.
+- Zero library allocations during valid warmed playback. User hooks may
+  allocate independently.
 
 Build, binding, generation and registry growth may allocate. Large blends use
 caller-provided scratch. Storage deduplication remains opt-in. Generated-table
 infrastructure is separate from the three consumer hooks.
 
-The first library target is .NET 10. NativeAOT is fully supported and verified;
-the test suite and smoke harness publish and execute native binaries under NativeAOT.
-Unity and WebAssembly integration are future adapter/target work, with no compatibility claim for v0.2.
+Each `.InMemory()` call owns one native block. Handles are never reused, and
+`Timeline.Destroy(id)` must run exactly once after playback has stopped. Build,
+registration, explicit binding and destruction must be single-threaded or
+externally synchronized with playback. Playback reads an immutable snapshot
+and can run concurrently from any number of threads. Destroying a timeline
+while playback is in flight for that handle is invalid and can cause a
+use-after-free.
+
+The first library target is .NET 10. The test suite and smoke harness publish
+and execute native binaries under NativeAOT. Unity, Burst and WebAssembly are
+separate future qualifications; v0.5 makes no compatibility claim for them.
 
 ## NativeAOT and Code Generation
 
@@ -135,46 +153,42 @@ Unity and WebAssembly integration are future adapter/target work, with no compat
    - `Table`: Emits static read-only struct tables implementing `ITrackTables<TTrack, TClip>` for standard runtime dispatch.
    - `Bake`: Emits unrolled specialized playback kernels with inline blending, branch pruning, and strict preservation of floating-point arithmetic order.
 
-## Defects Resolved in v0.1
+The package also supports C# authoring discovered from
+`Timeline<TTrack,TClip>.Build(...).Compile()`. That path emits a generated
+static kernel during the consumer build. v0.5 keeps its public surface intact
+while making output reuse deterministic and specializing forward and backward
+direction internally. Unsupported or ambiguous declaration forms fail closed
+with diagnostics.
 
-During extraction from the prototype into `Tl.Core` and `Tl.Gen`, six critical defects were identified and resolved:
+## Production evidence
 
-- **Defect A: Timeline duration overflow**:
-  Duration is now represented as `uint` throughout all entry records, builder validation, compiler passes, and public query APIs (`Timeline.Duration(id)`), eliminating 31-bit integer truncation.
-- **Defect B: Unsafe pointer tracking during dispatch**:
-  Removed all `Unsafe.AsPointer(ref data)` and `Unsafe.AsPointer(ref cursor)` casts that bypassed GC tracking for references into managed heap objects. The dispatch pipeline passes true managed references throughout typed function pointers (in v0.2: `delegate*<Entry, in Playback, in TInput, ref TResult, ReadOnlySpan<uint>, Playback>` and its cursor/scratch/stateless shapes), with zero unsafe indexing or GC pinning.
-- **Defect C: Scratch forward/backward payload type mismatch**:
-  `Timeline<TTrack, TClip>.Forward` and `Backward` methods accepting caller scratch buffers now explicitly validate that the timeline payload is a valid table representation (`if (entry.Payload is not Tables) throw new ArgumentException(...)`), preventing invalid memory access when dispatched on non-table timeline entries.
-- **Defect D: Hub snapshot publication race and entry destruction race**:
-  Replaced mutable shared array allocations with thread-safe copy-on-write snapshot publication (`Volatile.Write(ref s_runs, next)` and atomic snapshot reads). Slot indexes are monotonic and non-reusable; `Destroy` uses copy-on-write tombstoning to prevent race conditions or use-after-free bugs.
-- **Defect E: Builder cross-instance track leakage**:
-  `TrackRef` structs carry an internal `Owner` reference. `TimelineBuilder.Clip` verifies `ReferenceEquals(track.Owner, _state)`, rejecting attempts to add clips using track references created by a different builder instance.
-- **Defect F: Code generation safety and budget enforcement**:
-  The `Tl.Gen` pipeline validates clip budgets, structural correctness, and timeline bounds prior to code generation. Generated `Bake` kernels preserve exact float order-of-operations (no illegal reassociations) and include safety guards.
+The v0.5 release gates passed 46 core tests, 52 generator tests, the compiled
+interpreter/generated parity sample, a published NativeAOT execution, local
+package consumption from a clean package cache, and repeat installed-package
+generation with a cache hit. The library source footprint is
+186,154/200,000 bytes including paths.
 
-## Measurements, with scope
+On the recorded Pulse kernel comparison, direction specialization improved
+five of six measured shapes and regressed repeated single-tick throughput by
+about 1.8%. The accepted storage result is exact: field reordering reduces each
+runtime work slot from 28 to 24 bytes, or 14.3%. Timing results are machine and
+workload measurements, not universal performance promises. See the
+[v0.5 release notes](docs/v0.5.md) and [benchmark history](docs/benchmarks.md).
 
-These are committed research results, not a new benchmark run or a guarantee
-for arbitrary timelines and hooks. Times are normalized per tick.
+## Experimental research
 
-| Recorded experiment | Result | Meaning |
-| --- | --- | --- |
-| Bake v3 `Fused16Batch8`, BenchmarkDotNet | 1.088 ns JIT / 1.061 ns NoTiering | Specialized frozen fixture |
-| Same named fixture, separate manual harness | 1.064 ns JIT / 1.094 ns NativeAOT | Cross-runtime comparison within that harness |
-| Persistent runtime cursor | 1.7–2.7× on measured sequential cases | Keep opt-in; random access did not universally improve |
-| Storage deduplication | About 6× less retained storage on the duplicate-heavy fixture | Keep default off; build cost and small-case playback can rise |
+A separate consumer-fusion prototype recognizes one exact Pulse payload,
+blend law and ordered sum/subtract operation. Its tree/carry batch measured
+about 1.3 ns/tick for sequential and repeated inputs and about 7.5 ns/tick for
+random inputs; the scalar entry point measured about 2.6 ns/tick. All reported
+zero managed allocation after setup.
 
-The **sub-1 ns target remains unmet** for the full-state Fused16 result above.
-The receipts identify a serial float dependency and useful optimization limits;
-they do not prove a universal lower bound or that sub-1 ns is impossible.
-Starting `src` uses correctness and measured regression gates. Sub-1 ns remains
-a research target rather than a claim needed to begin v0.1.
+That prototype is research, not the production `.Compile()` backend. It does
+not analyze arbitrary consumer C#, change the public API, establish a universal
+2 ns result, or establish Unity or Burst compatibility. Production generated
+playback still uses the general view/callback path and retained arrays.
 
-See [benchmark history](docs/benchmarks.md), [optimization verdicts](docs/review.md)
-and the [completed experiment queue](docs/faster.md). Sampling-only measurements
-from other repositories are not substitutes for full playback measurements here.
-
-## Check the prototype
+## Verify the release
 
 From the repository root, using the .NET 10 SDK:
 
@@ -188,15 +202,17 @@ dotnet run --project benchmarks/AotBench -c Release -- --check
 
 These run correctness receipts. The last command runs the AOT harness under the
 JIT; native validation requires publishing and executing a NativeAOT binary.
-Initial builds may restore packages and generate fixtures. Waffle is currently
-a build-time dependency of the generator projects.
+Initial builds may restore packages and generate fixtures. Waffle is a
+build-time dependency of the generator projects.
 
 CI runs full solution build, test suites (`dotnet test`), published NativeAOT binary smoke testing,
 all five baseline verification commands, and package packing.
 
 ## Start here
 
-- [v0.2 delta](docs/v0.2.md): the input/result split, its receipts and migration.
+- [v0.5 release notes](docs/v0.5.md): current changes, evidence and limits.
+- [v0.4 unmanaged runtime](docs/v0.4-unmanaged.md): native ownership and threading contract.
+- [v0.4 compiled path](docs/v0.4-compile.md): `.Compile()` grammar, behavior and receipts.
 - [v0.1 handoff](docs/v0.1.md): ordered tasks, source map, fixes and acceptance gates.
 - [Semantics](docs/semantics.md): the behavior to preserve during extraction.
 - [Adapters](docs/adapters.md): build-time boundaries and C# output.

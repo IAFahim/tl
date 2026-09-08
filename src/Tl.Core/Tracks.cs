@@ -41,13 +41,13 @@ internal readonly struct WorkSlot(
 {
     public const ushort Single = ushort.MaxValue;
 
-    public readonly ushort Index = index;
-    public readonly ushort First = first;
-    public readonly ushort Second = second;
     public readonly uint EnterF = enterF;
     public readonly uint EnterB = enterB;
     public readonly uint FactorStart = factorStart;
     public readonly uint FactorLength = factorLength;
+    public readonly ushort Index = index;
+    public readonly ushort First = first;
+    public readonly ushort Second = second;
     public readonly ushort BlendOrdinal = blendOrdinal;
 }
 

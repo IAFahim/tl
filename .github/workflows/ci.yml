@@ -27,6 +27,10 @@ jobs:
         uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
         with:
           dotnet-version: '10.0.x'
+      - name: Check source budget and benchmark collection
+        run: |
+          python3 benchmarks/source_budget.py
+          python3 -m unittest discover -s benchmarks -p test_collect.py
       - name: Build solution (Release)
         run: dotnet build tl.slnx -c Release
       - name: Run tests
@@ -45,6 +49,16 @@ jobs:
         run: dotnet run --project benchmarks/Review --no-build -c Release -- --verify
       - name: Baseline verification - AotBench
         run: dotnet run --project benchmarks/AotBench --no-build -c Release -- --check
+      - name: Verify experimental fusion generation
+        run: |
+          dotnet run --project benchmarks/FusionGenerate -c Release -- --self-test
+          dotnet run --project benchmarks/FusionGenerate -c Release -- --output "$RUNNER_TEMP/FusedPulse.g.cs"
+          cmp benchmarks/FusionHour/Generated/FusedPulse.g.cs "$RUNNER_TEMP/FusedPulse.g.cs"
+          dotnet run --project benchmarks/FusionChecks -c Release
+      - name: Verify experimental fusion under NativeAOT
+        run: |
+          dotnet publish benchmarks/FusionChecks -c Release -r linux-x64 -p:PublishAot=true
+          ./benchmarks/FusionChecks/bin/Release/net10.0/linux-x64/publish/FusionChecks
       - name: Pack packages
         run: |
           dotnet pack src/Tl.Core -c Release -o artifacts/packages

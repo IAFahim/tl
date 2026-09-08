@@ -1,0 +1,18 @@
+Default-interface hook ran on a boxed copy: the caller's mutation was silently lost.
+Global registry: Heal pair index 0, Vitals pair index 1 — one ushort index space across different (TTrack, TClip) closures.
+Hub pointer dispatch: Enter/Stay/Exit = 1/1/1, caller mutated in place (no boxing copy).
+Index 1 served two data types from one Build: left 10/2, right 1/1.
+Lifecycle verified: unstarted/stopped throw before callbacks, Stop is callback-free, Start mints fresh Started.
+Hub dispatch equals the per-closure direct call: 128-step walk and one batch, Playback and receipts identical (Receipt { Sum = 101317.016, Ticks = 448, Count = 97 }).
+GUI receipt: lambda Build and TSource Build produced identical tables (1/4/1 over the clip).
+API shape receipts match on the new surface: Receipt { Sum = 1761156, Ticks = 309203, Count = 56327 } stateless, Receipt { Sum = 1514126.9, Ticks = 178227, Count = 56327 } stateful.
+Forward walk 0..514: 431 active ticks (of 515), Stay-only Ticks 2619, sum matched the authored-clip oracle.
+Rewind verified: Ticks land on -7 (boundary frames do not accumulate: the silent start adds, the repeated final tick subtracts), health restored to 99987, counts 431/431.
+Loops verified: Cycles count wraps exactly, LastLoopFrame is positional, backward saturation holds.
+Index registry verified: sequential builds 8/9/10, tombstones reject playback, no reuse, empty definitions fire no callbacks.
+Frozen parity verified: walks, jumps, mirrors, batches, lifecycle flags (Vitals + Fused16).
+Frozen hub verified: 2 timelines dispatched identically to direct calls; out-of-range rejected.
+Input immutability verified: VitalsInput (seed 100000) and the reentrant NestedInput are bit-identical after forward walks and backward rewinds through the compiled tables and the global hub (516/516 callbacks, nested inner peaked at 24 and restored to 0).
+Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, blend scratch, prefix counts, storage dedup, fixture parity, per-work facts oracle, limits, indexed/sliced views.
+Playback verified: packing, walks, rewind, loops, lifecycle, per-work states, runtime timelines, global hub, frozen parity.
+Dispatch receipts match; generated, constrained, ref-data, and API-shape calls mutate the original; boxing copies it.

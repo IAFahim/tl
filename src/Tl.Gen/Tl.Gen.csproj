@@ -2,17 +2,18 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <ShouldBeValidatedAsExecutableReference>false</ShouldBeValidatedAsExecutableReference>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.2.0</Version>
+    <Version>0.5.0</Version>
     <Authors>IAFahim</Authors>
     <Description>Build-time generator emitting compiled C# timelines from authored definitions.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v0.2.0 release: aligns with Tl.Runtime 0.2.0. The generator pipeline is unchanged; emitted tables feed the new input/result-split GeneratedTimeline API.</PackageReleaseNotes>
+    <PackageReleaseNotes>v0.5.0: deterministic compile cache with output repair and stale-file cleanup, stricter declaration diagnostics, packaged Roslyn dependencies, and direction-specialized generated playback. Consumer fusion remains an isolated benchmark experiment. See docs/v0.5.md.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +30,8 @@
     <None Include="$(OutputPath)Tl.Gen.runtimeconfig.json" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(OutputPath)Tl.Core.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(OutputPath)Waffle.Core.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
+    <None Include="$(OutputPath)Microsoft.CodeAnalysis.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
+    <None Include="$(OutputPath)Microsoft.CodeAnalysis.CSharp.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
   </ItemGroup>
 
 </Project>

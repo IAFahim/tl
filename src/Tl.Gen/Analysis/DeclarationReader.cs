@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Tl.Gen.CSharp;
 using Tl.Gen.Model;
 
 namespace Tl.Gen.Analysis;
@@ -42,7 +43,7 @@ public static class DeclarationReader
         var trees = sources.Select(s => CSharpSyntaxTree.ParseText(s.Source, path: s.Path)).ToList();
         var diagnostics = new List<DeclarationDiagnostic>();
         var declarations = new List<CompiledDeclaration>();
-        var usedKernelNames = new HashSet<string>(StringComparer.Ordinal);
+        var usedKernelNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // Method groups resolve across every scanned source; collect the
         // candidates once up front.
@@ -50,7 +51,6 @@ public static class DeclarationReader
         foreach (var tree in trees)
             authorMethods.AddRange(tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>());
 
-        var sequence = 0;
         foreach (var tree in trees)
         {
             var path = tree.FilePath;
@@ -62,6 +62,13 @@ public static class DeclarationReader
                 if (read == null)
                     continue;
 
+                if (string.Equals($"{read.KernelName}.g.cs", KernelEmitter.SharedFileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    diagnostics.Add(At(compile, path, "TLGEN07",
+                        $"the kernel name '{read.KernelName}' is reserved for the shared compiled runtime; rename the declaration variable."));
+                    continue;
+                }
+
                 if (!usedKernelNames.Add(read.KernelName))
                 {
                     diagnostics.Add(At(compile, path, "TLGEN07",
@@ -70,7 +77,6 @@ public static class DeclarationReader
                 }
 
                 declarations.Add(read);
-                sequence++;
             }
         }
 
@@ -91,11 +97,7 @@ public static class DeclarationReader
             return null;
 
         if (compileMember.Expression is not InvocationExpressionSyntax build)
-        {
-            diagnostics.Add(At(compile, path, "TLGEN01",
-                "'.Compile()' must chain directly on a Timeline<TTrack,TClip>.Build(author) invocation."));
             return null;
-        }
 
         // Timeline<A,B>.Build: the member's receiver must be the closed
         // generic timeline type (bare, Tl.-qualified, or global::-qualified).
@@ -103,12 +105,8 @@ public static class DeclarationReader
         // arguments sit on Timeline.
         if (build.Expression is not MemberAccessExpressionSyntax buildMember
             || buildMember.Name is not IdentifierNameSyntax { Identifier.ValueText: "Build" }
-            || !TryReadTimelineTypes(buildMember.Expression, out var trackType, out var clipType))
-        {
-            diagnostics.Add(At(compile, path, "TLGEN01",
-                "'.Compile()' must chain directly on a Timeline<TTrack,TClip>.Build(author) invocation."));
+            || !TryReadTimelineTypes(buildMember.Expression, trees, out var trackType, out var clipType))
             return null;
-        }
 
         if (build.ArgumentList.Arguments.Count != 1)
         {
@@ -126,7 +124,7 @@ public static class DeclarationReader
             if (!lambda.Modifiers.Any(static m => m.IsKind(SyntaxKind.StaticKeyword)))
             {
                 diagnostics.Add(At(lambda, path, "TLGEN02",
-                    "the authoring lambda must be static (no captures): compile-time specialization reads the declaration, it does not close over runtime state. The in-memory interpreter path (Timeline<TTrack,TClip>.Build without .Compile()) accepts any lambda."));
+                    "the authoring lambda must be static (no captures): compile-time specialization reads the declaration, it does not close over runtime state. The in-memory interpreter path (Timeline<TTrack,TClip>.Build(...).InMemory()) accepts any lambda."));
                 return null;
             }
 
@@ -140,7 +138,7 @@ public static class DeclarationReader
 
             body = block;
         }
-        else if (TryResolveMethodGroup(authorArg, trackType, clipType, authorMethods, out var method, out builderName))
+        else if (TryResolveMethodGroup(authorArg, trackType, clipType, trees, authorMethods, out var method, out builderName))
         {
             // The shared-authoring form: the same static method feeds the
             // in-memory interpreter leg (Timeline<T,C>.Build(Author)) and the
@@ -177,13 +175,30 @@ public static class DeclarationReader
         };
     }
 
-    private static bool TryReadTimelineTypes(ExpressionSyntax receiver, out string trackType, out string clipType)
+    private static bool TryReadTimelineTypes(
+        ExpressionSyntax receiver,
+        IReadOnlyList<SyntaxTree> trees,
+        out string trackType,
+        out string clipType)
     {
         trackType = clipType = "";
         var generic = receiver switch
         {
-            GenericNameSyntax { Identifier.ValueText: "Timeline" } g => g,
-            QualifiedNameSyntax { Right: GenericNameSyntax { Identifier.ValueText: "Timeline" } g } => g,
+            GenericNameSyntax { Identifier.ValueText: "Timeline" } g when IsTlTimelineInScope(receiver, trees) => g,
+            MemberAccessExpressionSyntax
+            {
+                Expression: IdentifierNameSyntax { Identifier.ValueText: "Tl" },
+                Name: GenericNameSyntax { Identifier.ValueText: "Timeline" } g,
+            } => g,
+            MemberAccessExpressionSyntax
+            {
+                Expression: AliasQualifiedNameSyntax
+                {
+                    Alias.Identifier.ValueText: "global",
+                    Name.Identifier.ValueText: "Tl",
+                },
+                Name: GenericNameSyntax { Identifier.ValueText: "Timeline" } g,
+            } => g,
             _ => null,
         };
 
@@ -195,10 +210,76 @@ public static class DeclarationReader
         return true;
     }
 
+    private static bool IsTlTimelineInScope(ExpressionSyntax receiver, IReadOnlyList<SyntaxTree> trees)
+    {
+        if (DeclaresTimelineInScope(receiver, trees))
+            return false;
+
+        var root = receiver.SyntaxTree.GetCompilationUnitRoot();
+        var visibleUsings = root.Usings
+            .Concat(receiver.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(static scope => scope.Usings))
+            .ToList();
+        if (visibleUsings.Any(IsTimelineAlias))
+            return false;
+        var containingNamespace = NamespaceIdentity(receiver);
+        if (containingNamespace == "Tl" || containingNamespace.StartsWith("Tl.", StringComparison.Ordinal))
+            return true;
+        if (visibleUsings.Any(IsTlImport))
+            return true;
+
+        var globalUsings = trees
+            .Select(static tree => tree.GetCompilationUnitRoot())
+            .SelectMany(static unit => unit.Usings)
+            .Where(static directive => directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
+            .ToList();
+        if (globalUsings.Any(IsTimelineAlias))
+            return false;
+
+        return globalUsings.Any(IsTlImport);
+    }
+
+    private static bool IsTlImport(UsingDirectiveSyntax directive) =>
+        directive.Alias == null
+        && !directive.StaticKeyword.IsKind(SyntaxKind.StaticKeyword)
+        && directive.Name is IdentifierNameSyntax { Identifier.ValueText: "Tl" }
+            or AliasQualifiedNameSyntax
+            {
+                Alias.Identifier.ValueText: "global",
+                Name.Identifier.ValueText: "Tl",
+            };
+
+    private static bool IsTimelineAlias(UsingDirectiveSyntax directive) =>
+        directive.Alias?.Name.Identifier.ValueText == "Timeline";
+
+    private static bool DeclaresTimelineInScope(ExpressionSyntax receiver, IReadOnlyList<SyntaxTree> trees)
+    {
+        if (receiver.Ancestors().OfType<TypeDeclarationSyntax>().Any(static container =>
+                container.Members.OfType<TypeDeclarationSyntax>().Any(IsTimelineType)))
+            return true;
+
+        var targetNamespace = NamespaceIdentity(receiver);
+        return trees
+            .SelectMany(static tree => tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>())
+            .Any(type => type.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax
+                && NamespaceIdentity(type) == targetNamespace
+                && IsTimelineType(type));
+    }
+
+    private static bool IsTimelineType(TypeDeclarationSyntax type) =>
+        type.Identifier.ValueText == "Timeline" && type.TypeParameterList?.Parameters.Count == 2;
+
+    private static string NamespaceIdentity(SyntaxNode node) => string.Join(
+        ".",
+        node.AncestorsAndSelf()
+            .OfType<BaseNamespaceDeclarationSyntax>()
+            .Reverse()
+            .Select(static declaration => declaration.Name.ToString()));
+
     private static bool TryResolveMethodGroup(
         ExpressionSyntax expression,
         string trackType,
         string clipType,
+        IReadOnlyList<SyntaxTree> trees,
         List<MethodDeclarationSyntax> methods,
         out MethodDeclarationSyntax method,
         out string builderName)
@@ -206,29 +287,53 @@ public static class DeclarationReader
         method = null!;
         builderName = "";
 
-        var identifier = expression switch
+        var (identifier, qualifier, global) = expression switch
         {
-            IdentifierNameSyntax id => id.Identifier.ValueText,
-            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } => name.Identifier.ValueText,
-            _ => null,
+            IdentifierNameSyntax id => (id.Identifier.ValueText, (string?)null, false),
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } member =>
+                (name.Identifier.ValueText, NormalizeName(member.Expression.ToString()), member.Expression.ToString().StartsWith("global::", StringComparison.Ordinal)),
+            _ => ((string?)null, null, false),
         };
 
         if (identifier == null)
             return false;
 
-        var matches = new List<MethodDeclarationSyntax>();
-        foreach (var candidate in methods)
+        var namedMethods = methods.Where(candidate => candidate.Identifier.ValueText == identifier).ToList();
+        string? targetType;
+        if (qualifier == null)
         {
-            if (candidate.Identifier.ValueText != identifier
+            var enclosingType = expression.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+            targetType = enclosingType == null ? null : TypeIdentity(enclosingType);
+        }
+        else
+        {
+            var allowedTypes = AllowedTypeIdentities(expression, qualifier, global, trees);
+            var matchedTypes = namedMethods
+                .Select(TypeIdentity)
+                .Where(allowedTypes.Contains)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            targetType = matchedTypes.Count == 1 ? matchedTypes[0] : null;
+        }
+
+        if (targetType == null)
+            return false;
+
+        var matches = new List<MethodDeclarationSyntax>();
+        foreach (var candidate in namedMethods)
+        {
+            if (TypeIdentity(candidate) != targetType
                 || !candidate.Modifiers.Any(static m => m.IsKind(SyntaxKind.StaticKeyword))
-                || candidate.ParameterList.Parameters.Count != 1)
+                || candidate.ParameterList.Parameters.Count != 1
+                || candidate.ReturnType is not PredefinedTypeSyntax { Keyword.ValueText: "void" })
                 continue;
 
             var parameter = candidate.ParameterList.Parameters[0];
-            if (parameter.Type is not GenericNameSyntax { Identifier.ValueText: "TimelineBuilder" } builderType
+            var builderType = TimelineBuilderType(parameter.Type);
+            if (builderType == null
                 || builderType.TypeArgumentList.Arguments.Count != 2
-                || builderType.TypeArgumentList.Arguments[0].ToString() != trackType
-                || builderType.TypeArgumentList.Arguments[1].ToString() != clipType)
+                || NormalizeName(builderType.TypeArgumentList.Arguments[0].ToString()) != NormalizeName(trackType)
+                || NormalizeName(builderType.TypeArgumentList.Arguments[1].ToString()) != NormalizeName(clipType))
                 continue;
 
             matches.Add(candidate);
@@ -241,6 +346,71 @@ public static class DeclarationReader
         builderName = matches[0].ParameterList.Parameters[0].Identifier.ValueText;
         return true;
     }
+
+    private static GenericNameSyntax? TimelineBuilderType(TypeSyntax? type) => type switch
+    {
+        GenericNameSyntax { Identifier.ValueText: "TimelineBuilder" } generic => generic,
+        QualifiedNameSyntax
+        {
+            Left: IdentifierNameSyntax { Identifier.ValueText: "Tl" },
+            Right: GenericNameSyntax { Identifier.ValueText: "TimelineBuilder" } generic,
+        } => generic,
+        QualifiedNameSyntax
+        {
+            Left: AliasQualifiedNameSyntax
+            {
+                Alias.Identifier.ValueText: "global",
+                Name.Identifier.ValueText: "Tl",
+            },
+            Right: GenericNameSyntax { Identifier.ValueText: "TimelineBuilder" } generic,
+        } => generic,
+        _ => null,
+    };
+
+    private static HashSet<string> AllowedTypeIdentities(
+        ExpressionSyntax expression,
+        string qualifier,
+        bool global,
+        IReadOnlyList<SyntaxTree> trees)
+    {
+        var identities = new HashSet<string>(StringComparer.Ordinal) { qualifier };
+        if (global)
+            return identities;
+
+        var currentNamespace = NamespaceIdentity(expression);
+        while (currentNamespace.Length > 0)
+        {
+            identities.Add(currentNamespace + "." + qualifier);
+            var separator = currentNamespace.LastIndexOf('.');
+            currentNamespace = separator < 0 ? "" : currentNamespace[..separator];
+        }
+
+        var visibleUsings = expression.SyntaxTree.GetCompilationUnitRoot().Usings
+            .Concat(expression.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(static scope => scope.Usings))
+            .Concat(trees
+                .Select(static tree => tree.GetCompilationUnitRoot())
+                .SelectMany(static unit => unit.Usings)
+                .Where(static directive => directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword)));
+        foreach (var directive in visibleUsings)
+        {
+            if (directive.Alias == null
+                && !directive.StaticKeyword.IsKind(SyntaxKind.StaticKeyword)
+                && directive.Name != null)
+                identities.Add(NormalizeName(directive.Name.ToString()) + "." + qualifier);
+        }
+
+        return identities;
+    }
+
+    private static string TypeIdentity(SyntaxNode node)
+    {
+        var type = string.Join(
+            ".",
+            node.AncestorsAndSelf().OfType<TypeDeclarationSyntax>().Reverse().Select(static declaration => declaration.Identifier.ValueText));
+        return string.Join('.', new[] { NamespaceIdentity(node), type }.Where(static part => part.Length > 0));
+    }
+
+    private static string NormalizeName(string name) => name.Replace("global::", "", StringComparison.Ordinal);
 
     private static TimelineDefinition? InterpretBody(
         BlockSyntax body,
@@ -276,7 +446,7 @@ public static class DeclarationReader
                 if (!IsConstantPayload(trackPayload))
                 {
                     diagnostics.Add(At(trackPayload, path, "TLGEN04",
-                        $"track payloads must be compile-time constants (literals, default, or 'new T(literal-args...)'); '{trackPayload}' is not. The in-memory interpreter path (Timeline<TTrack,TClip>.Build without .Compile()) accepts any track value."));
+                        $"track payloads must be compile-time constants (literals, default, or 'new T(literal-args...)'); '{trackPayload}' is not. The in-memory interpreter path (Timeline<TTrack,TClip>.Build(...).InMemory()) accepts any track value."));
                     return null;
                 }
 
@@ -286,7 +456,7 @@ public static class DeclarationReader
                 continue;
             }
 
-            if (statement is not ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call } expressionStatement
+            if (statement is not ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call }
                 || !TryGetBuilderName(call, builderName, out var member))
             {
                 diagnostics.Add(At(statement, path, "TLGEN03",
@@ -328,7 +498,10 @@ public static class DeclarationReader
                 // kernel bakes per-region work slots and never dedups, and
                 // dedup is behaviorally invisible, so the flag is accepted
                 // and ignored by emission.
-                if (call.ArgumentList.Arguments.Count is < 0 or > 1)
+                if (call.ArgumentList.Arguments.Count > 1
+                    || call.ArgumentList.Arguments.Count == 1
+                    && !call.ArgumentList.Arguments[0].Expression.IsKind(SyntaxKind.TrueLiteralExpression)
+                    && !call.ArgumentList.Arguments[0].Expression.IsKind(SyntaxKind.FalseLiteralExpression))
                 {
                     diagnostics.Add(At(call, path, "TLGEN03", "DedupStorage(bool) is the only accepted form."));
                     return null;
@@ -403,7 +576,7 @@ public static class DeclarationReader
         if (!IsConstantPayload(payload))
         {
             diagnostics.Add(At(payload, path, "TLGEN04",
-                $"clip payloads must be compile-time constants (literals, default, or 'new T(literal-args...)'); '{payload}' is not. The in-memory interpreter path (Timeline<TTrack,TClip>.Build without .Compile()) accepts any clip value."));
+                $"clip payloads must be compile-time constants (literals, default, or 'new T(literal-args...)'); '{payload}' is not. The in-memory interpreter path (Timeline<TTrack,TClip>.Build(...).InMemory()) accepts any clip value."));
             return null;
         }
 
@@ -413,14 +586,14 @@ public static class DeclarationReader
             var name = argument.NameColon?.Name.Identifier.ValueText;
             if (name == "start" || name == "end")
             {
-                var value = ReadUintLiteral(argument.Expression, path, diagnostics, call);
+                var value = ReadUintLiteral(argument.Expression, path, diagnostics);
                 if (value == null)
                     return null;
                 if (name == "start") start = value; else end = value;
             }
             else
             {
-                var value = ReadUintLiteral(argument.Expression, path, diagnostics, call);
+                var value = ReadUintLiteral(argument.Expression, path, diagnostics);
                 if (value == null)
                     return null;
                 if (start == null) start = value;
@@ -451,21 +624,22 @@ public static class DeclarationReader
     private static uint? ReadUintLiteral(
         ExpressionSyntax expression,
         string path,
-        List<DeclarationDiagnostic> diagnostics,
-        InvocationExpressionSyntax site)
+        List<DeclarationDiagnostic> diagnostics)
     {
         if (expression is not LiteralExpressionSyntax literal || !literal.Token.IsKind(SyntaxKind.NumericLiteralToken))
         {
             diagnostics.Add(At(expression, path, "TLGEN10",
-                $"tick windows must be uint literals; '{expression}' is not. The in-memory interpreter path (Timeline<TTrack,TClip>.Build without .Compile()) accepts any window values."));
+                $"tick windows must be uint literals; '{expression}' is not. The in-memory interpreter path (Timeline<TTrack,TClip>.Build(...).InMemory()) accepts any window values."));
             return null;
         }
 
-        var text = literal.Token.Text.TrimEnd('u', 'U');
-        var style = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-            ? System.Globalization.NumberStyles.HexNumber
-            : System.Globalization.NumberStyles.Integer;
-        if (!uint.TryParse(text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? text[2..] : text, style, System.Globalization.CultureInfo.InvariantCulture, out var value))
+        var value = literal.Token.Value switch
+        {
+            uint number => number,
+            int number when number >= 0 => (uint)number,
+            _ => (uint?)null,
+        };
+        if (value == null)
         {
             diagnostics.Add(At(expression, path, "TLGEN10", $"'{literal.Token.Text}' is not a uint literal."));
             return null;

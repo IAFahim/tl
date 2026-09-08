@@ -1,0 +1,1 @@
+Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, blend scratch, prefix counts, storage dedup, fixture parity, per-work facts oracle, limits, indexed/sliced views.

@@ -59,8 +59,8 @@ jobs:
 
       - name: Collect reports
         run: |
-          jq -s '{ Title: "tl-benchmarks", HostEnvironmentInfo: .[0].HostEnvironmentInfo, Benchmarks: (map(.Benchmarks) | add // []) }' \
-            bench-ci/*/results/*-report-full.json > benchmark-results.json
+          python3 benchmarks/collect.py bench-ci/*/results/*-report-full.json \
+            --output benchmark-results.json --excluded benchmark-excluded.json
           {
             echo "# tl benchmark report — $(git rev-parse --short HEAD)"
             echo
@@ -81,14 +81,15 @@ jobs:
           name: benchmark-results-${{ github.run_number }}
           path: |
             benchmark-results.json
+            benchmark-excluded.json
             benchmark-report.md
             bench-ci/
 
       - name: Store history and compare against previous versions
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba
         with:
           name: tl benchmarks
-          tool: benchmarkdotnet
+          tool: customSmallerIsBetter
           output-file-path: benchmark-results.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true

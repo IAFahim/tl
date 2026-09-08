@@ -181,16 +181,24 @@ public static class GeneratorCli
             return 1;
         }
 
-        if (sources.Count == 0)
-        {
-            Console.Error.WriteLine("Error: at least one --source file is required.");
-            return 1;
-        }
-
         Directory.CreateDirectory(outputDir);
 
+        var compileSources = sources
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static path => path, StringComparer.Ordinal)
+            .Select(static path => new CompileSource(path, File.ReadAllText(path)))
+            .ToList();
+        var cacheKey = CompileGenerationCache.GetKey(compileSources);
+        var previous = CompileGenerationCache.Load(outputDir);
+        if (CompileGenerationCache.IsHit(outputDir, cacheKey, previous))
+        {
+            Console.WriteLine($"TlGenCompile: cache hit -> {outputDir}");
+            return 0;
+        }
+
         var (declarations, diagnostics) = DeclarationReader.Read(
-            sources.Select(path => (Path: path, Source: File.ReadAllText(path))).ToList());
+            compileSources.Select(static source => (source.Path, source.Content)).ToList());
 
         foreach (var diagnostic in diagnostics)
             Console.Error.WriteLine(diagnostic.ToString());
@@ -200,35 +208,32 @@ public static class GeneratorCli
 
         if (declarations.Count == 0)
         {
+            CompileGenerationCache.Synchronize(outputDir, cacheKey, [], previous);
             Console.WriteLine("TlGenCompile: no .Compile() declarations found.");
             return 0;
         }
 
+        var artifacts = new List<CompileArtifact>(declarations.Count + 1);
         var emitted = 0;
         foreach (var declaration in declarations)
         {
             var plan = RegionAnalyzer.Analyze(declaration.Definition);
             var slots = WorkSlotMaterializer.ForRegions(plan);
-            var kernel = KernelEmitter.EmitKernel(plan, slots, declaration.KernelName, declaration.File, declaration.Line);
-            WriteIfChanged(Path.Combine(outputDir, $"{declaration.KernelName}.g.cs"), kernel);
+            var kernel = KernelEmitter.EmitKernel(plan, slots, declaration.KernelName, declaration.KernelName, 0);
+            artifacts.Add(new CompileArtifact(
+                $"{declaration.KernelName}.g.cs",
+                CompileGenerationCache.NormalizeSource(kernel)));
             Console.WriteLine(
                 $"TlGenCompile: {declaration.KernelName} <- {Path.GetFileName(declaration.File)}:{declaration.Line} " +
                 $"({declaration.TrackCount} tracks, {declaration.ClipCount} clips, duration {plan.Duration}, loops {plan.Definition.Loops}).");
             emitted++;
         }
 
-        WriteIfChanged(Path.Combine(outputDir, KernelEmitter.SharedFileName), KernelEmitter.EmitSharedRuntime());
+        artifacts.Add(new CompileArtifact(
+            KernelEmitter.SharedFileName,
+            CompileGenerationCache.NormalizeSource(KernelEmitter.EmitSharedRuntime())));
+        CompileGenerationCache.Synchronize(outputDir, cacheKey, artifacts, previous);
         Console.WriteLine($"TlGenCompile: {emitted} kernel(s) + shared runtime -> {outputDir}");
         return 0;
-    }
-
-    // Content-stable writes: a regenerated-but-identical file keeps its
-    // timestamp, so downstream incremental compiles stay calm.
-    private static void WriteIfChanged(string path, string content)
-    {
-        if (File.Exists(path) && File.ReadAllText(path) == content)
-            return;
-
-        File.WriteAllText(path, content);
     }
 }

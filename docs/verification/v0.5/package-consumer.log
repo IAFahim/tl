@@ -1,0 +1,43 @@
+tl v0.5 isolated package-consumer receipt
+
+Packages:
+  /tmp/tl-v05-packages/Tl.Runtime.0.5.0.nupkg
+  /tmp/tl-v05-packages/Tl.Gen.0.5.0.nupkg
+
+Consumer:
+  /tmp/tl-v05-package-consumer
+  PackageReference Tl.Runtime 0.5.0
+  PackageReference Tl.Gen 0.5.0, PrivateAssets=all
+  Sources limited by NuGet.Config to the fresh package directory and the local dependency archive.
+  Global package cache: /tmp/tl-v05-nuget-cache, created empty for this receipt.
+
+Restore:
+  Restored /tmp/tl-v05-package-consumer/Consumer.csproj (in 540 ms).
+
+First Release build:
+  TlGenCompile: CompiledProbe <- Program.cs:22 (1 tracks, 1 clips, duration 10, loops False).
+  TlGenCompile: 1 kernel(s) + shared runtime -> obj/Release/net10.0/TlGenCompile/
+  Build succeeded.
+  0 Warning(s)
+  0 Error(s)
+
+Execution:
+  Installed package receipt: tick=1; sum=2; duration=10
+
+Second Release build:
+  TlGenCompile: cache hit -> obj/Release/net10.0/TlGenCompile/
+  Build succeeded.
+  0 Warning(s)
+  0 Error(s)
+
+Package inspection:
+  Tl.Runtime id/version: Tl.Runtime 0.5.0
+  Tl.Gen id/version: Tl.Gen 0.5.0
+  Tl.Gen dependency: Tl.Runtime 0.5.0
+  Tl.Gen tool payload includes Tl.Gen, Tl.Core, Waffle.Core, Microsoft.CodeAnalysis,
+  and Microsoft.CodeAnalysis.CSharp assemblies under tools/net10.0/any.
+
+The local packages were produced before the release commit, so their nuspec
+repository commit is the pre-release HEAD 0ef26769a11ff90bab288948170334c9396ae9a7.
+The GitHub release workflow repacks from the v0.5 tag; its packages must record
+the final tagged release SHA.

@@ -1,0 +1,212 @@
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 18 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/" /p:OutDir="/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/bin/Release/net10.0/" /p:OutputPath="/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/bin/Release/net10.0/" /p:PublishDir="/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/publish/" in /home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1
+// command took 0.69 sec and exited with 0
+// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/" /p:OutDir="/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/bin/Release/net10.0/" /p:OutputPath="/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/bin/Release/net10.0/" /p:PublishDir="/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/publish/" --output "/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/bin/Release/net10.0/" in /home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1
+// command took 4.66 sec and exited with 1
+// ***** Done, took 00:00:05 (5.37 sec)   *****
+// Found 18 benchmarks:
+//   FusionBenchmarks.InterpreterSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Sequential]
+//   FusionBenchmarks.CompiledSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Sequential]
+//   FusionBenchmarks.FusedSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Sequential]
+//   FusionBenchmarks.InterpreterBatch8: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Sequential]
+//   FusionBenchmarks.CompiledBatch8: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Sequential]
+//   FusionBenchmarks.FusedBatch8: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Sequential]
+//   FusionBenchmarks.InterpreterSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Random]
+//   FusionBenchmarks.CompiledSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Random]
+//   FusionBenchmarks.FusedSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Random]
+//   FusionBenchmarks.InterpreterBatch8: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Random]
+//   FusionBenchmarks.CompiledBatch8: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Random]
+//   FusionBenchmarks.FusedBatch8: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Random]
+//   FusionBenchmarks.InterpreterSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Repeated]
+//   FusionBenchmarks.CompiledSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Repeated]
+//   FusionBenchmarks.FusedSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Repeated]
+//   FusionBenchmarks.InterpreterBatch8: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Repeated]
+//   FusionBenchmarks.CompiledBatch8: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Repeated]
+//   FusionBenchmarks.FusedBatch8: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Repeated]
+
+// Build Error: Standard output: 
+  
+ Standard error: 
+   Tl.Core -> /home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/bin/Release/net10.0/Tl.Core.dll
+  Tl.Gen -> /home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/bin/Release/net10.0/Tl.Gen.dll
+  TlGenCompile: CompiledPulse <- Timeline.cs:66 (4 tracks, 19 clips, duration 600, loops True).
+  TlGenCompile: 1 kernel(s) + shared runtime -> /home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/obj/Compiled/release/TlGenCompile/
+  Compiled -> /home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1/bin/Release/net10.0/Compiled.dll
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Generator.cs(9,1): error CS8802: Only one compilation unit can have top-level statements. [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Program.cs(5,1): error CS8802: Only one compilation unit can have top-level statements. [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Generator.cs(6,10): error CS0234: The type or namespace name 'Gen' does not exist in the namespace 'Tl' (are you missing an assembly reference?) [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Generator.cs(7,10): error CS0234: The type or namespace name 'Gen' does not exist in the namespace 'Tl' (are you missing an assembly reference?) [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(13,21): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'FusionConfig' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(28,14): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'FusionBenchmarks' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(7,15): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'SumConsumer' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(40,31): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'SumReceipt' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(8,21): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'FusedPulse' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(8,21): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'Verification' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(25,13): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'TickPattern' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(15,12): error CS0111: Type 'FusionConfig' already defines a member called 'FusionConfig' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(27,2): error CS0579: Duplicate 'Config' attribute [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(39,17): error CS0111: Type 'FusionBenchmarks' already defines a member called 'Setup' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(72,17): error CS0111: Type 'FusionBenchmarks' already defines a member called 'Cleanup' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(75,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'InterpreterSingle' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(85,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'CompiledSingle' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(95,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'FusedSingle' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(105,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'InterpreterBatch8' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(115,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'CompiledBatch8' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(125,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'FusedBatch8' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(74,55): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(74,55): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(84,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(84,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(94,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(94,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(104,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(104,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(114,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(114,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(124,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(124,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(15,17): error CS0111: Type 'SumConsumer' already defines a member called 'Forward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(27,17): error CS0111: Type 'SumConsumer' already defines a member called 'Forward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(21,17): error CS0111: Type 'SumConsumer' already defines a member called 'Backward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(33,17): error CS0111: Type 'SumConsumer' already defines a member called 'Backward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(40,41): error CS8863: Only a single partial type declaration may have a parameter list [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(42,30): error CS0111: Type 'SumReceipt' already defines a member called 'Capture' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(14,28): error CS0111: Type 'FusedPulse' already defines a member called 'Start' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(18,28): error CS0111: Type 'FusedPulse' already defines a member called 'Stop' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(26,28): error CS0111: Type 'FusedPulse' already defines a member called 'Forward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(35,28): error CS0111: Type 'FusedPulse' already defines a member called 'Forward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(48,28): error CS0111: Type 'FusedPulse' already defines a member called 'Backward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(57,28): error CS0111: Type 'FusedPulse' already defines a member called 'Backward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(70,29): error CS0111: Type 'FusedPulse' already defines a member called 'ForwardOne' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(190,29): error CS0111: Type 'FusedPulse' already defines a member called 'BackwardOne' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(308,29): error CS0111: Type 'FusedPulse' already defines a member called 'Mint' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(11,43): error CS8863: Only a single partial type declaration may have a parameter list [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(12,48): error CS8863: Only a single partial type declaration may have a parameter list [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(22,24): error CS0111: Type 'Verification' already defines a member called 'Run' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(115,28): error CS0111: Type 'Verification' already defines a member called 'Run' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(103,25): error CS0111: Type 'Verification' already defines a member called 'Check' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(149,26): error CS0111: Type 'Verification' already defines a member called 'SampleOracle' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(172,29): error CS0111: Type 'Verification' already defines a member called 'Mint' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(175,25): error CS0111: Type 'Verification' already defines a member called 'RequireUnstartedStopRejects' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+Build FAILED.
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Generator.cs(9,1): error CS8802: Only one compilation unit can have top-level statements. [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Program.cs(5,1): error CS8802: Only one compilation unit can have top-level statements. [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Generator.cs(6,10): error CS0234: The type or namespace name 'Gen' does not exist in the namespace 'Tl' (are you missing an assembly reference?) [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Generator.cs(7,10): error CS0234: The type or namespace name 'Gen' does not exist in the namespace 'Tl' (are you missing an assembly reference?) [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(13,21): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'FusionConfig' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(28,14): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'FusionBenchmarks' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(7,15): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'SumConsumer' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(40,31): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'SumReceipt' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(8,21): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'FusedPulse' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(8,21): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'Verification' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(25,13): error CS0101: The namespace 'Tl.FusionExperiment' already contains a definition for 'TickPattern' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(15,12): error CS0111: Type 'FusionConfig' already defines a member called 'FusionConfig' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(27,2): error CS0579: Duplicate 'Config' attribute [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(39,17): error CS0111: Type 'FusionBenchmarks' already defines a member called 'Setup' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(72,17): error CS0111: Type 'FusionBenchmarks' already defines a member called 'Cleanup' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(75,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'InterpreterSingle' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(85,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'CompiledSingle' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(95,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'FusedSingle' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(105,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'InterpreterBatch8' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(115,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'CompiledBatch8' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(125,23): error CS0111: Type 'FusionBenchmarks' already defines a member called 'FusedBatch8' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(74,55): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(74,55): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(84,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(84,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(94,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(94,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(104,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(104,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(114,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(114,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Benchmarks.cs(124,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Benchmarks.cs(124,38): error CS0229: Ambiguity between 'FusionBenchmarks.Operations' and 'FusionBenchmarks.Operations' [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(15,17): error CS0111: Type 'SumConsumer' already defines a member called 'Forward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(27,17): error CS0111: Type 'SumConsumer' already defines a member called 'Forward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(21,17): error CS0111: Type 'SumConsumer' already defines a member called 'Backward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(33,17): error CS0111: Type 'SumConsumer' already defines a member called 'Backward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(40,41): error CS8863: Only a single partial type declaration may have a parameter list [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/Consumer.cs(42,30): error CS0111: Type 'SumReceipt' already defines a member called 'Capture' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(14,28): error CS0111: Type 'FusedPulse' already defines a member called 'Start' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(18,28): error CS0111: Type 'FusedPulse' already defines a member called 'Stop' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(26,28): error CS0111: Type 'FusedPulse' already defines a member called 'Forward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(35,28): error CS0111: Type 'FusedPulse' already defines a member called 'Forward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(48,28): error CS0111: Type 'FusedPulse' already defines a member called 'Backward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(57,28): error CS0111: Type 'FusedPulse' already defines a member called 'Backward' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(70,29): error CS0111: Type 'FusedPulse' already defines a member called 'ForwardOne' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(190,29): error CS0111: Type 'FusedPulse' already defines a member called 'BackwardOne' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/results/initial-source/FusedPulse.g.cs(308,29): error CS0111: Type 'FusedPulse' already defines a member called 'Mint' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(11,43): error CS8863: Only a single partial type declaration may have a parameter list [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(12,48): error CS8863: Only a single partial type declaration may have a parameter list [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(22,24): error CS0111: Type 'Verification' already defines a member called 'Run' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(115,28): error CS0111: Type 'Verification' already defines a member called 'Run' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(103,25): error CS0111: Type 'Verification' already defines a member called 'Check' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(149,26): error CS0111: Type 'Verification' already defines a member called 'SampleOracle' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(172,29): error CS0111: Type 'Verification' already defines a member called 'Mint' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/Verification.cs(175,25): error CS0111: Type 'Verification' already defines a member called 'RequireUnstartedStopRejects' with the same parameter types [/home/i/Work/tl-fusion-hour/benchmarks/FusionHour/FusionHour.csproj]
+    0 Warning(s)
+    56 Error(s)
+Time Elapsed 00:00:04.53
+
+// BenchmarkDotNet has failed to build the auto-generated boilerplate code.
+// It can be found in /home/i/Work/tl-fusion-hour/benchmarks/FusionHour/bin/Release/net10.0/FusionHour-JitCore4-1
+// Please follow the troubleshooting guide: https://benchmarkdotnet.org/articles/guides/troubleshooting.html
+
+// ** Remained 0 (0.0 %) benchmark(s) to run. Estimated finish 2026-09-09 3:10 (0h 0m from now) **
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  benchmarks/FusionHour/results/initial/results/Tl.FusionExperiment.FusionBenchmarks-report.csv
+  benchmarks/FusionHour/results/initial/results/Tl.FusionExperiment.FusionBenchmarks-report-github.md
+  benchmarks/FusionHour/results/initial/results/Tl.FusionExperiment.FusionBenchmarks-report.html
+  benchmarks/FusionHour/results/initial/results/Tl.FusionExperiment.FusionBenchmarks-report-full.json
+
+// * Detailed results *
+FusionBenchmarks.InterpreterSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Sequential]
+Runtime = ; GC = 
+There are not any results runs
+
+// * Summary *
+
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.400
+  [Host] : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
+
+Job=JitCore4  IterationCount=10  IterationTime=250ms  
+WarmupCount=8  
+
+| Method            | Pattern    | Mean | Error | Median | Ratio | RatioSD | Alloc Ratio |
+|------------------ |----------- |-----:|------:|-------:|------:|--------:|------------:|
+| InterpreterSingle | Sequential |   NA |    NA |     NA |     ? |       ? |           ? |
+
+Benchmarks with issues:
+  FusionBenchmarks.InterpreterSingle: JitCore4(IterationCount=10, IterationTime=250ms, WarmupCount=8) [Pattern=Sequential]
+
+// * Warnings *
+BaselineCustomAnalyzer
+  Summary -> A question mark '?' symbol indicates that it was not possible to compute the (Ratio, RatioSD, Alloc Ratio) column(s) because the baseline or benchmark could not be found, or the baseline value is too close to zero.
+
+// * Legends *
+  Pattern     : Value of the 'Pattern' parameter
+  Mean        : Arithmetic mean of all measurements
+  Error       : Half of 99.9% confidence interval
+  Median      : Value separating the higher half of all measurements (50th percentile)
+  Ratio       : Mean of the ratio distribution ([Current]/[Baseline])
+  RatioSD     : Standard deviation of the ratio distribution ([Current]/[Baseline])
+  Alloc Ratio : Allocated memory ratio distribution ([Current]/[Baseline])
+  1 ns        : 1 Nanosecond (0.000000001 sec)
+
+// * Diagnostic Output - MemoryDiagnoser *
+
+
+// ***** BenchmarkRunner: End *****
+Run time: 00:00:00 (0.01 sec), executed benchmarks: 0
+
+Global total time: 00:00:05 (5.43 sec), executed benchmarks: 0
+// * Artifacts cleanup *
+Artifacts cleanup is finished

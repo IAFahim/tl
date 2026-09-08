@@ -1,0 +1,1132 @@
+; Assembly listing for method Pulse.CompiledPulse:Advance[Pulse.PulseInput,Pulse.PulseResult,Pulse.CompiledPulse+ForwardDirection](byref,byref,byref,System.ReadOnlySpan`1[uint]):Tl.Playback (FullOpts)
+; Emitting BLENDED_CODE for generic X64 + VEX on Unix
+; FullOpts code
+; optimized code
+; rbp based frame
+; fully interruptible
+; No PGO data
+; 1 inlinees with PGO data; 20 single block inlinees; 15 inlinees without PGO data
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       push     r15
+       push     r14
+       push     r13
+       push     r12
+       push     rbx
+       sub      rsp, 200
+       lea      rbp, [rsp+0xF0]
+       vxorps   xmm8, xmm8, xmm8
+       vmovdqu  ymmword ptr [rbp-0xD0], ymm8
+       vmovdqu  ymmword ptr [rbp-0xB0], ymm8
+       vmovdqu  ymmword ptr [rbp-0x90], ymm8
+       vmovdqu  ymmword ptr [rbp-0x70], ymm8
+       vmovdqu  ymmword ptr [rbp-0x50], ymm8
+       mov      qword ptr [rbp-0x30], 0xB9C941
+       mov      bword ptr [rbp-0x48], rcx
+       mov      qword ptr [rbp-0x40], r8
+ 
+G_M000_IG02:                ;; offset=0x0050
+       vmovdqu  xmm0, xmmword ptr [rbp-0x48]
+       vmovdqu  xmmword ptr [rbp-0xD0], xmm0
+ 
+G_M000_IG03:                ;; offset=0x005D
+       mov      rbx, rdx
+       mov      bword ptr [rbp-0xF0], rsi
+       mov      r14, bword ptr [rbp-0xD0]
+       movzx    rax, word  ptr [rdi+0x06]
+       test     al, 1
+       je       G_M000_IG81
+       test     al, 2
+       jne      G_M000_IG82
+       mov      r13d, dword ptr [rdi]
+       movzx    r12, word  ptr [rdi+0x04]
+       lea      rcx, [rbp-0x38]
+       mov      bword ptr [rbp-0xE0], rcx
+       mov      bword ptr [rbp-0xE8], r14
+       mov      edx, dword ptr [rbp-0xC8]
+       mov      dword ptr [rbp-0xB8], edx
+       xor      esi, esi
+       cmp      esi, edx
+       jl       SHORT G_M000_IG05
+       jmp      G_M000_IG78
+ 
+G_M000_IG04:                ;; offset=0x00B3
+       mov      r14, bword ptr [rbp-0xE8]
+ 
+G_M000_IG05:                ;; offset=0x00BA
+       mov      qword ptr [rbp-0xD8], rsi
+       mov      eax, dword ptr [r14+4*rsi]
+       mov      dword ptr [rbp-0x4C], eax
+       mov      edi, r13d
+       imul     rdi, rdi, 0x1B4E81B5
+       shr      rdi, 38
+       imul     edi, edi, 600
+       mov      r8d, r13d
+       sub      r8d, edi
+       mov      dword ptr [rbp-0x50], r8d
+       mov      edi, eax
+       imul     rdi, rdi, 0x1B4E81B5
+       shr      rdi, 38
+       imul     edi, edi, 600
+       mov      r9d, eax
+       sub      r9d, edi
+       mov      dword ptr [rbp-0x58], r9d
+       cmp      eax, r13d
+       jb       SHORT G_M000_IG06
+       mov      edi, eax
+       imul     rdi, rdi, 0x1B4E81B5
+       shr      rdi, 38
+       mov      r9d, r13d
+       imul     r9, r9, 0x1B4E81B5
+       shr      r9, 38
+       sub      edi, r9d
+       mov      eax, dword ptr [rbp-0x4C]
+       jmp      SHORT G_M000_IG07
+ 
+G_M000_IG06:                ;; offset=0x012B
+       cmp      dword ptr [rbp-0x58], r8d
+       setb     dil
+       movzx    rdi, dil
+ 
+G_M000_IG07:                ;; offset=0x0137
+       cmp      edi, 1
+       sete     r13b
+       movzx    r13, r13b
+       cmp      edi, 2
+       setae    r9b
+       movzx    r9, r9b
+       mov      dword ptr [rbp-0x5C], r9d
+       mov      r10d, r12d
+       neg      r10d
+       add      r10d, 0xFFFF
+       movsxd   r10, r10d
+       mov      r11d, edi
+       cmp      r10, r11
+       jl       G_M000_IG95
+ 
+G_M000_IG08:                ;; offset=0x016D
+       add      edi, r12d
+       movzx    r12, di
+       mov      r10d, 1
+       cmp      dword ptr [rbp-0x58], 599
+       jne      SHORT G_M000_IG10
+ 
+G_M000_IG09:                ;; offset=0x0183
+       mov      dword ptr [rbp-0x60], 5
+       mov      r10d, dword ptr [rbp-0x60]
+ 
+G_M000_IG10:                ;; offset=0x018E
+       xor      r11, r11
+       xor      edi, edi
+       mov      r14d, dword ptr [rbp-0x58]
+       cmp      r14d, 47
+       jb       SHORT G_M000_IG18
+ 
+G_M000_IG11:                ;; offset=0x019D
+       cmp      r14d, 200
+       jb       SHORT G_M000_IG15
+       cmp      r14d, 515
+       jb       SHORT G_M000_IG13
+       cmp      r14d, 600
+       jb       SHORT G_M000_IG12
+       mov      r14d, 12
+       jmp      G_M000_IG24
+ 
+G_M000_IG12:                ;; offset=0x01C3
+       mov      r14d, 11
+       jmp      G_M000_IG24
+ 
+G_M000_IG13:                ;; offset=0x01CE
+       cmp      r14d, 321
+       jb       SHORT G_M000_IG14
+       mov      r14d, 10
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG14:                ;; offset=0x01DF
+       mov      r14d, 9
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG15:                ;; offset=0x01E7
+       cmp      r14d, 76
+       jb       SHORT G_M000_IG17
+       cmp      r14d, 123
+       jb       SHORT G_M000_IG16
+       mov      r14d, 8
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG16:                ;; offset=0x01FB
+       mov      r14d, 7
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG17:                ;; offset=0x0203
+       mov      r14d, 6
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG18:                ;; offset=0x020B
+       cmp      r14d, 11
+       jb       SHORT G_M000_IG21
+       cmp      r14d, 18
+       jb       SHORT G_M000_IG20
+       cmp      r14d, 29
+       jb       SHORT G_M000_IG19
+       mov      r14d, 5
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG19:                ;; offset=0x0225
+       mov      r14d, 4
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG20:                ;; offset=0x022D
+       mov      r14d, 3
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG21:                ;; offset=0x0235
+       cmp      r14d, 3
+       jb       SHORT G_M000_IG23
+       cmp      r14d, 7
+       jb       SHORT G_M000_IG22
+       mov      r14d, 2
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG22:                ;; offset=0x0249
+       mov      r14d, 1
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG23:                ;; offset=0x0251
+       xor      r14d, r14d
+ 
+G_M000_IG24:                ;; offset=0x0254
+       cmp      r14d, 11
+       ja       G_M000_IG70
+ 
+G_M000_IG25:                ;; offset=0x025E
+       mov      r14d, r14d
+       lea      r15, [reloc @RWD00]
+       mov      r15d, dword ptr [r15+4*r14]
+       lea      rcx, G_M000_IG02
+       add      r15, rcx
+       jmp      r15
+ 
+G_M000_IG26:                ;; offset=0x0279
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG93
+ 
+G_M000_IG27:                ;; offset=0x0286
+       mov      rdi, 0x7EF274000248
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG28
+       lea      r11, bword ptr [rdi+0x10]
+       mov      edi, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG29
+ 
+G_M000_IG28:                ;; offset=0x02A1
+       xor      r11, r11
+       xor      edi, edi
+ 
+G_M000_IG29:                ;; offset=0x02A6
+       mov      r15, r11
+       mov      r14d, edi
+       mov      edi, r14d
+       mov      r11, r15
+       jmp      G_M000_IG70
+ 
+G_M000_IG30:                ;; offset=0x02B7
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG92
+ 
+G_M000_IG31:                ;; offset=0x02C4
+       mov      rdi, 0x7EF274000240
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG32
+       lea      r15, bword ptr [rdi+0x10]
+       mov      r14d, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG33
+ 
+G_M000_IG32:                ;; offset=0x02E0
+       xor      r15, r15
+       xor      r14d, r14d
+ 
+G_M000_IG33:                ;; offset=0x02E6
+       mov      edi, r14d
+       mov      r11, r15
+       jmp      G_M000_IG70
+ 
+G_M000_IG34:                ;; offset=0x02F1
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG91
+ 
+G_M000_IG35:                ;; offset=0x02FE
+       mov      rdi, 0x7EF274000238
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG36
+       lea      r15, bword ptr [rdi+0x10]
+       mov      r14d, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG37
+ 
+G_M000_IG36:                ;; offset=0x031A
+       xor      r15, r15
+       xor      r14d, r14d
+ 
+G_M000_IG37:                ;; offset=0x0320
+       mov      edi, r14d
+       mov      r11, r15
+       jmp      G_M000_IG70
+ 
+G_M000_IG38:                ;; offset=0x032B
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG90
+ 
+G_M000_IG39:                ;; offset=0x0338
+       mov      rdi, 0x7EF274000230
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG40
+       lea      r15, bword ptr [rdi+0x10]
+       mov      r14d, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG41
+ 
+G_M000_IG40:                ;; offset=0x0354
+       xor      r15, r15
+       xor      r14d, r14d
+ 
+G_M000_IG41:                ;; offset=0x035A
+       mov      edi, r14d
+       mov      r11, r15
+       jmp      G_M000_IG70
+ 
+G_M000_IG42:                ;; offset=0x0365
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG89
+ 
+G_M000_IG43:                ;; offset=0x0372
+       mov      rdi, 0x7EF274000228
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG44
+       lea      r15, bword ptr [rdi+0x10]
+       mov      r14d, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG45
+ 
+G_M000_IG44:                ;; offset=0x038E
+       xor      r15, r15
+       xor      r14d, r14d
+ 
+G_M000_IG45:                ;; offset=0x0394
+       mov      edi, r14d
+       mov      r11, r15
+       jmp      G_M000_IG70
+ 
+G_M000_IG46:                ;; offset=0x039F
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG88
+ 
+G_M000_IG47:                ;; offset=0x03AC
+       mov      rdi, 0x7EF274000220
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG48
+       lea      r15, bword ptr [rdi+0x10]
+       mov      r14d, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG49
+ 
+G_M000_IG48:                ;; offset=0x03C8
+       xor      r15, r15
+       xor      r14d, r14d
+ 
+G_M000_IG49:                ;; offset=0x03CE
+       mov      edi, r14d
+       mov      r11, r15
+       jmp      G_M000_IG70
+ 
+G_M000_IG50:                ;; offset=0x03D9
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG87
+ 
+G_M000_IG51:                ;; offset=0x03E6
+       mov      rdi, 0x7EF274000218
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG52
+       lea      r15, bword ptr [rdi+0x10]
+       mov      r14d, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG53
+ 
+G_M000_IG52:                ;; offset=0x0402
+       xor      r15, r15
+       xor      r14d, r14d
+ 
+G_M000_IG53:                ;; offset=0x0408
+       mov      edi, r14d
+       mov      r11, r15
+       jmp      G_M000_IG70
+ 
+G_M000_IG54:                ;; offset=0x0413
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG86
+ 
+G_M000_IG55:                ;; offset=0x0420
+       mov      rdi, 0x7EF274000210
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG56
+       lea      r15, bword ptr [rdi+0x10]
+       mov      r14d, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG57
+ 
+G_M000_IG56:                ;; offset=0x043C
+       xor      r15, r15
+       xor      r14d, r14d
+ 
+G_M000_IG57:                ;; offset=0x0442
+       mov      edi, r14d
+       mov      r11, r15
+       jmp      G_M000_IG70
+ 
+G_M000_IG58:                ;; offset=0x044D
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG85
+ 
+G_M000_IG59:                ;; offset=0x045A
+       mov      rdi, 0x7EF274000208
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG60
+       lea      r15, bword ptr [rdi+0x10]
+       mov      r14d, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG61
+ 
+G_M000_IG60:                ;; offset=0x0476
+       xor      r15, r15
+       xor      r14d, r14d
+ 
+G_M000_IG61:                ;; offset=0x047C
+       mov      edi, r14d
+       mov      r11, r15
+       jmp      SHORT G_M000_IG70
+ 
+G_M000_IG62:                ;; offset=0x0484
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG84
+ 
+G_M000_IG63:                ;; offset=0x0491
+       mov      rdi, 0x7EF274000200
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG64
+       lea      r15, bword ptr [rdi+0x10]
+       mov      r14d, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG65
+ 
+G_M000_IG64:                ;; offset=0x04AD
+       xor      r15, r15
+       xor      r14d, r14d
+ 
+G_M000_IG65:                ;; offset=0x04B3
+       mov      edi, r14d
+       mov      r11, r15
+       jmp      SHORT G_M000_IG70
+ 
+G_M000_IG66:                ;; offset=0x04BB
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG83
+ 
+G_M000_IG67:                ;; offset=0x04C8
+       mov      rdi, 0x7EF2740001F8
+       mov      rdi, gword ptr [rdi]
+       test     rdi, rdi
+       je       SHORT G_M000_IG68
+       lea      r15, bword ptr [rdi+0x10]
+       mov      r14d, dword ptr [rdi+0x08]
+       jmp      SHORT G_M000_IG69
+ 
+G_M000_IG68:                ;; offset=0x04E4
+       xor      r15, r15
+       xor      r14d, r14d
+ 
+G_M000_IG69:                ;; offset=0x04EA
+       mov      edi, r14d
+       mov      r11, r15
+ 
+G_M000_IG70:                ;; offset=0x04F0
+       test     edi, edi
+       je       G_M000_IG77
+ 
+G_M000_IG71:                ;; offset=0x04F8
+       mov      r14, r11
+       mov      dword ptr [rbp-0xBC], edi
+       mov      edi, dword ptr [rbp-0x58]
+       mov      dword ptr [rbp-0xB4], edi
+       test     byte  ptr [(reloc 0x7f0211132878)], 1
+       je       G_M000_IG94
+ 
+G_M000_IG72:                ;; offset=0x0517
+       mov      r15, 0x7EF2740001E8
+       mov      r15, gword ptr [r15]
+       test     r15, r15
+       je       SHORT G_M000_IG73
+       lea      rcx, bword ptr [r15+0x10]
+       mov      r15d, dword ptr [r15+0x08]
+       mov      rdx, rcx
+       mov      ecx, r15d
+       mov      r15, rdx
+       jmp      SHORT G_M000_IG74
+ 
+G_M000_IG73:                ;; offset=0x053C
+       xor      r15, r15
+       xor      ecx, ecx
+ 
+G_M000_IG74:                ;; offset=0x0541
+       mov      r11, 0x7EF2740001F0
+       mov      r11, gword ptr [r11]
+       test     r11, r11
+       je       SHORT G_M000_IG75
+       lea      r9, bword ptr [r11+0x10]
+       mov      r11d, dword ptr [r11+0x08]
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdx, r9
+       mov      r9d, r11d
+       mov      r11, rdx
+       jmp      SHORT G_M000_IG76
+ 
+G_M000_IG75:                ;; offset=0x056A
+       xor      r11, r11
+       xor      r9d, r9d
+       mov      dword ptr [rbp-0x60], r10d
+ 
+G_M000_IG76:                ;; offset=0x0574
+       mov      dword ptr [rbp-0xC0], r9d
+       mov      r8d, dword ptr [rbp-0x50]
+       mov      r9d, dword ptr [rbp-0x5C]
+       movzx    r13, r13b
+       movzx    r9, r9b
+       mov      bword ptr [rbp-0xB0], r14
+       mov      r14d, dword ptr [rbp-0xBC]
+       mov      dword ptr [rbp-0xA8], r14d
+       mov      edi, dword ptr [rbp-0xB4]
+       mov      dword ptr [rbp-0xA0], edi
+       mov      r14, bword ptr [rbp-0xE0]
+       mov      bword ptr [rbp-0x98], r14
+       mov      dword ptr [rbp-0x90], 1
+       mov      bword ptr [rbp-0x88], r15
+       mov      dword ptr [rbp-0x80], ecx
+       mov      bword ptr [rbp-0x78], r11
+       mov      ecx, dword ptr [rbp-0xC0]
+       mov      dword ptr [rbp-0x70], ecx
+       mov      dword ptr [rbp-0x68], r8d
+       mov      byte  ptr [rbp-0x64], 0
+       mov      byte  ptr [rbp-0x63], r13b
+       mov      byte  ptr [rbp-0x62], r9b
+       lea      rcx, [rbp-0x58]
+       lea      rsi, [rbp-0xB0]
+       mov      rdi, rbx
+       mov      rdx, bword ptr [rbp-0xF0]
+       mov      r8, rbx
+       call     [Pulse.PulseResult:Forward(byref,byref,byref,byref):this]
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+ 
+G_M000_IG77:                ;; offset=0x0610
+       mov      r13d, eax
+       mov      eax, r10d
+       mov      rsi, qword ptr [rbp-0xD8]
+       inc      esi
+       mov      r14, rsi
+       mov      edx, dword ptr [rbp-0xB8]
+       cmp      r14d, edx
+       mov      rsi, r14
+       jl       G_M000_IG04
+ 
+G_M000_IG78:                ;; offset=0x0634
+       mov      edi, r13d
+       mov      ecx, r12d
+       shl      rcx, 32
+       or       rdi, rcx
+       mov      eax, eax
+       shl      rax, 48
+       or       rax, rdi
+       cmp      qword ptr [rbp-0x30], 0xB9C941
+       je       SHORT G_M000_IG79
+       call     CORINFO_HELP_FAIL_FAST
+ 
+G_M000_IG79:                ;; offset=0x0659
+       nop      
+ 
+G_M000_IG80:                ;; offset=0x065A
+       add      rsp, 200
+       pop      rbx
+       pop      r12
+       pop      r13
+       pop      r14
+       pop      r15
+       pop      rbp
+       ret      
+ 
+G_M000_IG81:                ;; offset=0x066C
+       mov      rdi, 0x7F0211132AB0
+       call     CORINFO_HELP_NEWSFAST
+       mov      rbx, rax
+       mov      edi, 0x853
+       mov      rsi, 0x7F0210F50668
+       call     [CORINFO_HELP_STRCNS]
+       mov      rsi, rax
+       mov      rdi, rbx
+       call     [System.InvalidOperationException:.ctor(System.String):this]
+       mov      rdi, rbx
+       call     CORINFO_HELP_THROW
+       int3     
+ 
+G_M000_IG82:                ;; offset=0x06A8
+       mov      rdi, 0x7F0211132AB0
+       call     CORINFO_HELP_NEWSFAST
+       mov      rbx, rax
+       mov      edi, 0x8D1
+       mov      rsi, 0x7F0210F50668
+       call     [CORINFO_HELP_STRCNS]
+       mov      rsi, rax
+       mov      rdi, rbx
+       call     [System.InvalidOperationException:.ctor(System.String):this]
+       mov      rdi, rbx
+       call     CORINFO_HELP_THROW
+       int3     
+ 
+G_M000_IG83:                ;; offset=0x06E4
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG67
+ 
+G_M000_IG84:                ;; offset=0x0703
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG63
+ 
+G_M000_IG85:                ;; offset=0x0722
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG59
+ 
+G_M000_IG86:                ;; offset=0x0741
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG55
+ 
+G_M000_IG87:                ;; offset=0x0760
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG51
+ 
+G_M000_IG88:                ;; offset=0x077F
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG47
+ 
+G_M000_IG89:                ;; offset=0x079E
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG43
+ 
+G_M000_IG90:                ;; offset=0x07BD
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG39
+ 
+G_M000_IG91:                ;; offset=0x07DC
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG35
+ 
+G_M000_IG92:                ;; offset=0x07FB
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG31
+ 
+G_M000_IG93:                ;; offset=0x081A
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG27
+ 
+G_M000_IG94:                ;; offset=0x0839
+       mov      dword ptr [rbp-0x60], r10d
+       mov      rdi, 0x7F02111327E8
+       call     CORINFO_HELP_GET_GCSTATIC_BASE
+       mov      eax, dword ptr [rbp-0x4C]
+       mov      r10d, dword ptr [rbp-0x60]
+       jmp      G_M000_IG72
+ 
+G_M000_IG95:                ;; offset=0x0858
+       mov      rdi, 0x7F021129F130
+       call     CORINFO_HELP_NEWSFAST
+       mov      r13, rax
+       mov      edi, 0x8FB
+       mov      rsi, 0x7F0210F50668
+       call     [CORINFO_HELP_STRCNS]
+       mov      r12, rax
+       mov      edi, 0x907
+       mov      rsi, 0x7F0210F50668
+       call     [CORINFO_HELP_STRCNS]
+       mov      rdx, rax
+       mov      rsi, r12
+       mov      rdi, r13
+       call     [System.ArgumentOutOfRangeException:.ctor(System.String,System.String):this]
+       mov      rdi, r13
+       call     CORINFO_HELP_THROW
+       int3     
+ 
+RWD00  	dd	0000046Bh ; case G_M000_IG66
+       	dd	00000434h ; case G_M000_IG62
+       	dd	000003FDh ; case G_M000_IG58
+       	dd	000004A0h ; case G_M000_IG70
+       	dd	000003C3h ; case G_M000_IG54
+       	dd	00000389h ; case G_M000_IG50
+       	dd	0000034Fh ; case G_M000_IG46
+       	dd	00000315h ; case G_M000_IG42
+       	dd	000002DBh ; case G_M000_IG38
+       	dd	000002A1h ; case G_M000_IG34
+       	dd	00000267h ; case G_M000_IG30
+       	dd	00000229h ; case G_M000_IG26
+
+; Total bytes of code 2223
+
+; Assembly listing for method Pulse.CompiledPulse:Advance[Pulse.PulseInput,Pulse.PulseResult,Pulse.CompiledPulse+BackwardDirection](byref,byref,byref,System.ReadOnlySpan`1[uint]):Tl.Playback (FullOpts)
+; Emitting BLENDED_CODE for generic X64 + VEX on Unix
+; FullOpts code
+; optimized code
+; rbp based frame
+; fully interruptible
+; No PGO data
+; 1 inlinees with PGO data; 20 single block inlinees; 15 inlinees without PGO data
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       push     r15
+       push     r14
+       push     r13
+       push     r12
+       push     rbx
+       sub      rsp, 184
+       lea      rbp, [rsp+0xE0]
+       vxorps   xmm8, xmm8, xmm8
+       vmovdqu  ymmword ptr [rbp-0xC0], ymm8
+       vmovdqu  ymmword ptr [rbp-0xA0], ymm8
+       vmovdqu  ymmword ptr [rbp-0x80], ymm8
+       vmovdqu  ymmword ptr [rbp-0x60], ymm8
+       vmovdqa  xmmword ptr [rbp-0x40], xmm8
+       mov      qword ptr [rbp-0x30], 0xB9C941
+       mov      bword ptr [rbp-0x48], rcx
+       mov      qword ptr [rbp-0x40], r8
+ 
+G_M000_IG02:                ;; offset=0x004D
+       vmovdqu  xmm0, xmmword ptr [rbp-0x48]
+       vmovdqu  xmmword ptr [rbp-0xC0], xmm0
+ 
+G_M000_IG03:                ;; offset=0x005A
+       mov      rbx, rdx
+       mov      bword ptr [rbp-0xE0], rsi
+       mov      r14, bword ptr [rbp-0xC0]
+       movzx    rax, word  ptr [rdi+0x06]
+       test     al, 1
+       je       G_M000_IG47
+       test     al, 2
+       jne      G_M000_IG48
+       mov      r13d, dword ptr [rdi]
+       movzx    r12, word  ptr [rdi+0x04]
+       lea      r9, [rbp-0x38]
+       mov      bword ptr [rbp-0xD0], r9
+       mov      bword ptr [rbp-0xD8], r14
+       mov      r10d, dword ptr [rbp-0xB8]
+       mov      dword ptr [rbp-0xAC], r10d
+       xor      r11d, r11d
+       cmp      r11d, r10d
+       jl       G_M000_IG37
+ 
+G_M000_IG04:                ;; offset=0x00B3
+       mov      ecx, eax
+       mov      eax, r13d
+       mov      r13d, ecx
+ 
+G_M000_IG05:                ;; offset=0x00BB
+       mov      eax, eax
+       mov      edi, r12d
+       shl      rdi, 32
+       or       rax, rdi
+       mov      edi, r13d
+       shl      rdi, 48
+       or       rax, rdi
+       cmp      qword ptr [rbp-0x30], 0xB9C941
+       je       SHORT G_M000_IG06
+       call     CORINFO_HELP_FAIL_FAST
+ 
+G_M000_IG06:                ;; offset=0x00E0
+       nop      
+ 
+G_M000_IG07:                ;; offset=0x00E1
+       add      rsp, 184
+       pop      rbx
+       pop      r12
+       pop      r13
+       pop      r14
+       pop      r15
+       pop      rbp
+       ret      
+ 
+G_M000_IG08:                ;; offset=0x00F3
+       cmp      r14d, 200
+       jb       SHORT G_M000_IG12
+       cmp      r14d, 515
+       jb       SHORT G_M000_IG10
+       cmp      r14d, 600
+       jb       SHORT G_M000_IG09
+       mov      r14d, 12
+       jmp      G_M000_IG20
+ 
+G_M000_IG09:                ;; offset=0x0119
+       mov      r14d, 11
+       jmp      SHORT G_M000_IG20
+ 
+G_M000_IG10:                ;; offset=0x0121
+       cmp      r14d, 321
+       jb       SHORT G_M000_IG11
+       mov      r14d, 10
+       jmp      SHORT G_M000_IG20
+ 
+G_M000_IG11:                ;; offset=0x0132
+       mov      r14d, 9
+       jmp      SHORT G_M000_IG20
+ 
+G_M000_IG12:                ;; offset=0x013A
+       cmp      r14d, 76
+       jb       SHORT G_M000_IG14
+       cmp      r14d, 123
+       jb       SHORT G_M000_IG13
+       mov      r14d, 8
+       jmp      SHORT G_M000_IG20
+ 
+G_M000_IG13:                ;; offset=0x014E
+       mov      r14d, 7
+       jmp      SHORT G_M000_IG20
+ 
+G_M000_IG14:                ;; offset=0x0156
+       mov      r14d, 6
+       jmp      SHORT G_M000_IG20
+ 
+G_M000_IG15:                ;; offset=0x015E
+       cmp      r14d, 18
+       jb       SHORT G_M000_IG17
+       cmp      r14d, 29
+       jb       SHORT G_M000_IG16
+       mov      r14d, 5
+       jmp      SHORT G_M000_IG20
+ 
+G_M000_IG16:                ;; offset=0x0172
+       mov      r14d, 4
+       jmp      SHORT G_M000_IG20
+ 
+G_M000_IG17:                ;; offset=0x017A
+       mov      r14d, 3
+       jmp      SHORT G_M000_IG20
+ 
+G_M000_IG18:                ;; offset=0x0182
+       cmp      r14d, 7
+       jb       SHORT G_M000_IG19
+       mov      r14d, 2
+       jmp      SHORT G_M000_IG20
+ 
+G_M000_IG19:                ;; offset=0x0190
+       mov      r14d, 1
+ 
+G_M000_IG20:                ;; offset=0x0196
+       cmp      r14d, 11
+       ja       G_M000_IG33
+ 
+G_M000_IG21:                ;; offset=0x01A0
+       mov      r14d, r14d
+       lea      r15, [reloc @RWD00]
+       mov      r15d, dword ptr [r15+4*r14]
+       lea      r9, G_M000_IG02
+       add      r15, r9
+       jmp      r15
+ 
+G_M000_IG22:                ;; offset=0x01BB
+       mov      rdi, 0x7EF274000248
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 1
+       jmp      G_M000_IG33
+ 
+G_M000_IG23:                ;; offset=0x01D7
+       mov      rdi, 0x7EF274000240
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 3
+       jmp      G_M000_IG33
+ 
+G_M000_IG24:                ;; offset=0x01F3
+       mov      rdi, 0x7EF274000238
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 2
+       jmp      G_M000_IG33
+ 
+G_M000_IG25:                ;; offset=0x020F
+       mov      rdi, 0x7EF274000230
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 1
+       jmp      G_M000_IG33
+ 
+G_M000_IG26:                ;; offset=0x022B
+       mov      rdi, 0x7EF274000228
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 2
+       jmp      G_M000_IG33
+ 
+G_M000_IG27:                ;; offset=0x0247
+       mov      rdi, 0x7EF274000220
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 2
+       jmp      SHORT G_M000_IG33
+ 
+G_M000_IG28:                ;; offset=0x0260
+       mov      rdi, 0x7EF274000218
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 1
+       jmp      SHORT G_M000_IG33
+ 
+G_M000_IG29:                ;; offset=0x0279
+       mov      rdi, 0x7EF274000210
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 2
+       jmp      SHORT G_M000_IG33
+ 
+G_M000_IG30:                ;; offset=0x0292
+       mov      rdi, 0x7EF274000208
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 2
+       jmp      SHORT G_M000_IG33
+ 
+G_M000_IG31:                ;; offset=0x02AB
+       mov      rdi, 0x7EF274000200
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 3
+       jmp      SHORT G_M000_IG33
+ 
+G_M000_IG32:                ;; offset=0x02C4
+       mov      rdi, 0x7EF2740001F8
+       mov      rdi, gword ptr [rdi]
+       add      rdi, 16
+       mov      r8d, 1
+ 
+G_M000_IG33:                ;; offset=0x02DB
+       test     r8d, r8d
+       je       G_M000_IG35
+ 
+G_M000_IG34:                ;; offset=0x02E4
+       mov      r14d, dword ptr [rbp-0x58]
+       mov      r15, 0x7EF2740001E8
+       mov      r15, gword ptr [r15]
+       add      r15, 16
+       mov      r9, 0x7EF2740001F0
+       mov      r9, gword ptr [r9]
+       add      r9, 16
+       movzx    rcx, cl
+       movzx    rdx, dl
+       mov      bword ptr [rbp-0xA8], rdi
+       mov      dword ptr [rbp-0xA0], r8d
+       mov      dword ptr [rbp-0x98], r14d
+       mov      r14, bword ptr [rbp-0xD0]
+       mov      bword ptr [rbp-0x90], r14
+       mov      dword ptr [rbp-0x88], 1
+       mov      bword ptr [rbp-0x80], r15
+       mov      dword ptr [rbp-0x78], 4
+       mov      bword ptr [rbp-0x70], r9
+       mov      dword ptr [rbp-0x68], 19
+       mov      dword ptr [rbp-0x60], esi
+       mov      byte  ptr [rbp-0x5C], 1
+       mov      byte  ptr [rbp-0x5B], cl
+       mov      byte  ptr [rbp-0x5A], dl
+       lea      rcx, [rbp-0x58]
+       lea      rsi, [rbp-0xA8]
+       mov      rdi, rbx
+       mov      rdx, bword ptr [rbp-0xE0]
+       mov      r8, rbx
+       call     [Pulse.PulseResult:Backward(byref,byref,byref,byref):this]
+       mov      eax, dword ptr [rbp-0x4C]
+ 
+G_M000_IG35:                ;; offset=0x0381
+       mov      r11, qword ptr [rbp-0xC8]
+       inc      r11d
+       mov      r14, r11
+       mov      r10d, dword ptr [rbp-0xAC]
+       cmp      r14d, r10d
+       mov      r11, r14
+       jge      G_M000_IG05
+ 
+G_M000_IG36:                ;; offset=0x03A1
+       mov      r13d, eax
+       mov      r14, bword ptr [rbp-0xD8]
+ 
+G_M000_IG37:                ;; offset=0x03AB
+       mov      qword ptr [rbp-0xC8], r11
+       mov      eax, dword ptr [r14+4*r11]
+       mov      dword ptr [rbp-0x4C], eax
+       mov      ecx, r13d
+       imul     rcx, rcx, 0x1B4E81B5
+       shr      rcx, 38
+       imul     ecx, ecx, 600
+       mov      esi, r13d
+       sub      esi, ecx
+       mov      ecx, eax
+       imul     rcx, rcx, 0x1B4E81B5
+       shr      rcx, 38
+       imul     ecx, ecx, 600
+       mov      edi, eax
+       sub      edi, ecx
+       mov      dword ptr [rbp-0x58], edi
+       cmp      eax, r13d
+       jbe      SHORT G_M000_IG45
+ 
+G_M000_IG38:                ;; offset=0x03F1
+       cmp      dword ptr [rbp-0x58], esi
+       seta     cl
+       movzx    rcx, cl
+       mov      edi, ecx
+       xor      edx, edx
+ 
+G_M000_IG39:                ;; offset=0x03FE
+       cmp      r12d, edi
+       ja       G_M000_IG46
+ 
+G_M000_IG40:                ;; offset=0x0407
+       mov      r8d, r12d
+ 
+G_M000_IG41:                ;; offset=0x040A
+       sub      r12d, r8d
+       movzx    r12, r12w
+       mov      r13d, 1
+       cmp      dword ptr [rbp-0x58], 599
+       jne      SHORT G_M000_IG43
+ 
+G_M000_IG42:                ;; offset=0x0420
+       mov      r13d, 5
+ 
+G_M000_IG43:                ;; offset=0x0426
+       xor      rdi, rdi
+       xor      r8d, r8d
+       mov      r14d, dword ptr [rbp-0x58]
+       cmp      r14d, 47
+       jae      G_M000_IG08
+ 
+G_M000_IG44:                ;; offset=0x0439
+       cmp      r14d, 11
+       jae      G_M000_IG15
+       cmp      r14d, 3
+       jae      G_M000_IG18
+       xor      r14d, r14d
+       jmp      G_M000_IG20
+ 
+G_M000_IG45:                ;; offset=0x0455
+       mov      edi, r13d
+       imul     rdi, rdi, 0x1B4E81B5
+       shr      rdi, 38
+       mov      ecx, eax
+       imul     rdx, rcx, 0x1B4E81B5
+       shr      rdx, 38
+       sub      edi, edx
+       cmp      edi, 1
+       sete     cl
+       movzx    rcx, cl
+       cmp      edi, 2
+       setae    dl
+       movzx    rdx, dl
+       mov      eax, dword ptr [rbp-0x4C]
+       jmp      G_M000_IG39
+ 
+G_M000_IG46:                ;; offset=0x048C
+       mov      r8d, edi
+       jmp      G_M000_IG41
+ 
+G_M000_IG47:                ;; offset=0x0494
+       mov      rdi, 0x7F0211132AB0
+       call     CORINFO_HELP_NEWSFAST
+       mov      rbx, rax
+       mov      edi, 0x853
+       mov      rsi, 0x7F0210F50668
+       call     [CORINFO_HELP_STRCNS]
+       mov      rsi, rax
+       mov      rdi, rbx
+       call     [System.InvalidOperationException:.ctor(System.String):this]
+       mov      rdi, rbx
+       call     CORINFO_HELP_THROW
+       int3     
+ 
+G_M000_IG48:                ;; offset=0x04D0
+       mov      rdi, 0x7F0211132AB0
+       call     CORINFO_HELP_NEWSFAST
+       mov      rbx, rax
+       mov      edi, 0x8D1
+       mov      rsi, 0x7F0210F50668
+       call     [CORINFO_HELP_STRCNS]
+       mov      rsi, rax
+       mov      rdi, rbx
+       call     [System.InvalidOperationException:.ctor(System.String):this]
+       mov      rdi, rbx
+       call     CORINFO_HELP_THROW
+       int3     
+ 
+RWD00  	dd	00000277h ; case G_M000_IG32
+       	dd	0000025Eh ; case G_M000_IG31
+       	dd	00000245h ; case G_M000_IG30
+       	dd	0000028Eh ; case G_M000_IG33
+       	dd	0000022Ch ; case G_M000_IG29
+       	dd	00000213h ; case G_M000_IG28
+       	dd	000001FAh ; case G_M000_IG27
+       	dd	000001DEh ; case G_M000_IG26
+       	dd	000001C2h ; case G_M000_IG25
+       	dd	000001A6h ; case G_M000_IG24
+       	dd	0000018Ah ; case G_M000_IG23
+       	dd	0000016Eh ; case G_M000_IG22
+
+; Total bytes of code 1292
+

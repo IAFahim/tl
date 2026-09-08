@@ -1,0 +1,2 @@
+benchmarks/**/results/** -whitespace
+docs/verification/** -whitespace

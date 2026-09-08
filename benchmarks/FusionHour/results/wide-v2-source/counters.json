@@ -1,0 +1,398 @@
+[
+  {
+    "method": "InterpreterSingle",
+    "pattern": "Sequential",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 375863628,
+    "time_running_ns": 375863628,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 2097714284,
+      "instructions": 13520810535,
+      "branches": 2643438713,
+      "branch_misses": 450399
+    },
+    "per_tick_scaled": {
+      "cycles": 62.51675736904144,
+      "instructions": 402.95155450701714,
+      "branches": 78.78061273694038,
+      "branch_misses": 0.013422936201095581
+    },
+    "checksum": "done 3985410671648"
+  },
+  {
+    "method": "CompiledSingle",
+    "pattern": "Sequential",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 603631737,
+    "time_running_ns": 603631737,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 3437793404,
+      "instructions": 11861865592,
+      "branches": 1430192096,
+      "branch_misses": 453373
+    },
+    "per_tick_scaled": {
+      "cycles": 102.45422732830048,
+      "instructions": 353.5111424922943,
+      "branches": 42.623045921325684,
+      "branch_misses": 0.013511568307876587
+    },
+    "checksum": "done 2716777381280"
+  },
+  {
+    "method": "FusedSingle",
+    "pattern": "Sequential",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 85630320,
+    "time_running_ns": 85630320,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 487628390,
+      "instructions": 2282413677,
+      "branches": 412723948,
+      "branch_misses": 398006
+    },
+    "per_tick_scaled": {
+      "cycles": 14.532458484172821,
+      "instructions": 68.02122822403908,
+      "branches": 12.300132155418396,
+      "branch_misses": 0.01186150312423706
+    },
+    "checksum": "done 15312142393984"
+  },
+  {
+    "method": "InterpreterBatch8",
+    "pattern": "Sequential",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 264345172,
+    "time_running_ns": 264345172,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 1505521607,
+      "instructions": 8428618041,
+      "branches": 1888464341,
+      "branch_misses": 420191
+    },
+    "per_tick_scaled": {
+      "cycles": 44.868040293455124,
+      "instructions": 251.1923921406269,
+      "branches": 56.280623108148575,
+      "branch_misses": 0.012522667646408081
+    },
+    "checksum": "done 5402788756720"
+  },
+  {
+    "method": "CompiledBatch8",
+    "pattern": "Sequential",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 336669956,
+    "time_running_ns": 336669956,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 1908744251,
+      "instructions": 9916182357,
+      "branches": 1242788958,
+      "branch_misses": 522667
+    },
+    "per_tick_scaled": {
+      "cycles": 56.88501152396202,
+      "instructions": 295.5252634584904,
+      "branches": 37.03799718618393,
+      "branch_misses": 0.015576690435409546
+    },
+    "checksum": "done 4366492377088"
+  },
+  {
+    "method": "FusedBatch8",
+    "pattern": "Sequential",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 44787325,
+    "time_running_ns": 44787325,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 255067956,
+      "instructions": 1551186725,
+      "branches": 288637914,
+      "branch_misses": 97109
+    },
+    "per_tick_scaled": {
+      "cycles": 7.601617455482483,
+      "instructions": 46.22896686196327,
+      "branches": 8.602080166339874,
+      "branch_misses": 0.002894073724746704
+    },
+    "checksum": "done 29792017904880"
+  },
+  {
+    "method": "InterpreterSingle",
+    "pattern": "Random",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 598549745,
+    "time_running_ns": 598549745,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 3407766839,
+      "instructions": 13392475688,
+      "branches": 2662148644,
+      "branch_misses": 38718644
+    },
+    "per_tick_scaled": {
+      "cycles": 101.55936595797539,
+      "instructions": 399.1268780231476,
+      "branches": 79.33821213245392,
+      "branch_misses": 1.1539055109024048
+    },
+    "checksum": "done 2733909528240"
+  },
+  {
+    "method": "CompiledSingle",
+    "pattern": "Random",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 901953641,
+    "time_running_ns": 901953641,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 5137393765,
+      "instructions": 11767665172,
+      "branches": 1413897340,
+      "branch_misses": 41166540
+    },
+    "per_tick_scaled": {
+      "cycles": 153.1062652170658,
+      "instructions": 350.703751206398,
+      "branches": 42.13742434978485,
+      "branch_misses": 1.2268584966659546
+    },
+    "checksum": "done 2028313314162"
+  },
+  {
+    "method": "FusedSingle",
+    "pattern": "Random",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 254146096,
+    "time_running_ns": 254146096,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 1447169640,
+      "instructions": 2230761181,
+      "branches": 429064035,
+      "branch_misses": 39889409
+    },
+    "per_tick_scaled": {
+      "cycles": 43.129016160964966,
+      "instructions": 66.48186388611794,
+      "branches": 12.787104696035385,
+      "branch_misses": 1.1887970268726349
+    },
+    "checksum": "done 5601777067341"
+  },
+  {
+    "method": "InterpreterBatch8",
+    "pattern": "Random",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 504672255,
+    "time_running_ns": 504672255,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 2866167190,
+      "instructions": 8389891141,
+      "branches": 1966731619,
+      "branch_misses": 42299361
+    },
+    "per_tick_scaled": {
+      "cycles": 85.41843861341476,
+      "instructions": 250.03824058175087,
+      "branches": 58.61316975951195,
+      "branch_misses": 1.260619193315506
+    },
+    "checksum": "done 3127273271280"
+  },
+  {
+    "method": "CompiledBatch8",
+    "pattern": "Random",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 644048838,
+    "time_running_ns": 644048838,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 3667503154,
+      "instructions": 9821977909,
+      "branches": 1226494019,
+      "branch_misses": 47129632
+    },
+    "per_tick_scaled": {
+      "cycles": 109.30011135339737,
+      "instructions": 292.7177521288395,
+      "branches": 36.5523701608181,
+      "branch_misses": 1.4045724868774414
+    },
+    "checksum": "done 2583939601206"
+  },
+  {
+    "method": "FusedBatch8",
+    "pattern": "Random",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 236280509,
+    "time_running_ns": 236280509,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 1345274912,
+      "instructions": 1584543564,
+      "branches": 305292568,
+      "branch_misses": 44933037
+    },
+    "per_tick_scaled": {
+      "cycles": 40.09231662750244,
+      "instructions": 47.22307813167572,
+      "branches": 9.098427534103394,
+      "branch_misses": 1.3391088545322418
+    },
+    "checksum": "done 5947199604198"
+  },
+  {
+    "method": "InterpreterSingle",
+    "pattern": "Repeated",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 437888841,
+    "time_running_ns": 437888841,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 2404149373,
+      "instructions": 15603010503,
+      "branches": 2919275849,
+      "branch_misses": 2665
+    },
+    "per_tick_scaled": {
+      "cycles": 71.64923468232155,
+      "instructions": 465.005949229002,
+      "branches": 87.00119999051094,
+      "branch_misses": 7.942318916320801e-05
+    },
+    "checksum": "done 3504737518592"
+  },
+  {
+    "method": "CompiledSingle",
+    "pattern": "Repeated",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 690133550,
+    "time_running_ns": 690133550,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 3879093579,
+      "instructions": 13891719007,
+      "branches": 1610650267,
+      "branch_misses": 2344
+    },
+    "per_tick_scaled": {
+      "cycles": 115.60599741339684,
+      "instructions": 414.0054883658886,
+      "branches": 48.00111851096153,
+      "branch_misses": 6.985664367675781e-05
+    },
+    "checksum": "done 2480522036224"
+  },
+  {
+    "method": "FusedSingle",
+    "pattern": "Repeated",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 86226747,
+    "time_running_ns": 86226747,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 484233288,
+      "instructions": 2299906698,
+      "branches": 415965942,
+      "branch_misses": 2986
+    },
+    "per_tick_scaled": {
+      "cycles": 14.431276559829712,
+      "instructions": 68.5425608754158,
+      "branches": 12.39675110578537,
+      "branch_misses": 8.89897346496582e-05
+    },
+    "checksum": "done 15183502279680"
+  },
+  {
+    "method": "InterpreterBatch8",
+    "pattern": "Repeated",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 302450677,
+    "time_running_ns": 302450677,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 1689133037,
+      "instructions": 10397881311,
+      "branches": 2164301867,
+      "branch_misses": 3609
+    },
+    "per_tick_scaled": {
+      "cycles": 50.340087324380875,
+      "instructions": 309.881010979414,
+      "branches": 64.50122198462486,
+      "branch_misses": 0.00010755658149719238
+    },
+    "checksum": "done 4860099593216"
+  },
+  {
+    "method": "CompiledBatch8",
+    "pattern": "Repeated",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 419334751,
+    "time_running_ns": 419334751,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 2328953658,
+      "instructions": 11946028940,
+      "branches": 1423246616,
+      "branch_misses": 5049
+    },
+    "per_tick_scaled": {
+      "cycles": 69.40822774171829,
+      "instructions": 356.0194057226181,
+      "branches": 42.416054487228394,
+      "branch_misses": 0.00015047192573547363
+    },
+    "checksum": "done 3633995482112"
+  },
+  {
+    "method": "FusedBatch8",
+    "pattern": "Repeated",
+    "ticks": 33554432,
+    "scope": "main thread user-space, warmed, includes loop and receipt overhead",
+    "time_enabled_ns": 41815047,
+    "time_running_ns": 41815047,
+    "running_fraction": 1.0,
+    "raw_counts": {
+      "cycles": 237651577,
+      "instructions": 1577105240,
+      "branches": 301996919,
+      "branch_misses": 1404
+    },
+    "per_tick_scaled": {
+      "cycles": 7.082568913698196,
+      "instructions": 47.00139880180359,
+      "branches": 9.000209540128708,
+      "branch_misses": 4.184246063232422e-05
+    },
+    "checksum": "done 30812636611584"
+  }
+]

@@ -1,0 +1,59 @@
+diff --git a/src/Tl.Gen/CSharp/KernelEmitter.cs b/src/Tl.Gen/CSharp/KernelEmitter.cs
+--- a/src/Tl.Gen/CSharp/KernelEmitter.cs
++++ b/src/Tl.Gen/CSharp/KernelEmitter.cs
+@@ -464,16 +464,1 @@
+-        writer.AppendLine($"            var works = default(ReadOnlySpan<CompiledWorkSlot>);");
+-        writer.AppendLine($"            switch (Locate(tEff))");
+-        writer.AppendLine($"            {{");
+-        for (var r = 0; r < slots.Length; r++)
+-        {
+-            if (slots[r].Length == 0)
+-                continue;
+-
+-            writer.AppendLine($"                case {r.ToString(CultureInfo.InvariantCulture)}:");
+-            writer.AppendLine($"                    works = s_works{r.ToString(CultureInfo.InvariantCulture)};");
+-            writer.AppendLine($"                    break;");
+-        }
+-
+-        writer.AppendLine($"                default:");
+-        writer.AppendLine($"                    break; // the empty sentinel region (and the clamp target)");
+-        writer.AppendLine($"            }}");
++        writer.AppendLine($"            var works = Locate(tEff);");
+@@ -499 +484 @@
+-        writer.Append(LocateTree(plan.RegionStarts));
++        writer.Append(LocateTree(plan.RegionStarts, slots));
+@@ -507,2 +492,2 @@
+-    /// tree computing exactly RegionOf(starts, tick) — the index of the last
+-    /// region start at or below the tick (src/Tl.Core/Internal/Playback.cs).
++    /// tree returning the work span for the last region start at or below the
++    /// tick (src/Tl.Core/Internal/Playback.cs).
+@@ -510 +495 @@
+-    private static string LocateTree(uint[] starts)
++    private static string LocateTree(uint[] starts, EmittedWorkSlot[][] slots)
+@@ -514 +499 @@
+-        writer.AppendLine($"    private static int Locate(uint tick)");
++        writer.AppendLine($"    private static ReadOnlySpan<CompiledWorkSlot> Locate(uint tick)");
+@@ -516 +501 @@
+-        EmitLocateNode(writer, starts, 0, starts.Length - 1, depth: 2);
++        EmitLocateNode(writer, starts, slots, 0, starts.Length - 1, depth: 2);
+@@ -521 +506 @@
+-    private static void EmitLocateNode(StringBuilder writer, uint[] starts, int lo, int hi, int depth)
++    private static void EmitLocateNode(StringBuilder writer, uint[] starts, EmittedWorkSlot[][] slots, int lo, int hi, int depth)
+@@ -527 +512,3 @@
+-            writer.AppendLine($"{indent}return {lo.ToString(CultureInfo.InvariantCulture)};");
++            writer.AppendLine(slots[lo].Length == 0
++                ? $"{indent}return default;"
++                : $"{indent}return s_works{lo.ToString(CultureInfo.InvariantCulture)};");
+@@ -536 +523 @@
+-        EmitLocateNode(writer, starts, lo, mid - 1, depth + 1);
++        EmitLocateNode(writer, starts, slots, lo, mid - 1, depth + 1);
+@@ -540 +527 @@
+-        EmitLocateNode(writer, starts, mid, hi, depth + 1);
++        EmitLocateNode(writer, starts, slots, mid, hi, depth + 1);
+diff --git a/tests/Tl.Gen.Tests/DeclarationReaderTests.cs b/tests/Tl.Gen.Tests/DeclarationReaderTests.cs
+--- a/tests/Tl.Gen.Tests/DeclarationReaderTests.cs
++++ b/tests/Tl.Gen.Tests/DeclarationReaderTests.cs
+@@ -209,0 +210,3 @@
++        Assert.Contains("var works = Locate(tEff);", kernel);
++        Assert.Contains("private static ReadOnlySpan<CompiledWorkSlot> Locate(uint tick)", kernel);
++        Assert.DoesNotContain("switch (Locate(tEff))", kernel);

@@ -1,0 +1,2954 @@
+[
+  {
+    "commit": {
+      "author": {
+        "email": "iafahim.dev@gmail.com",
+        "name": "IAFahim",
+        "username": "IAFahim"
+      },
+      "committer": {
+        "email": "iafahim.dev@gmail.com",
+        "name": "IAFahim",
+        "username": "IAFahim"
+      },
+      "distinct": true,
+      "id": "703661fef588272a9f5505698e90830e9fd6e57b",
+      "message": "Three-way bench receipts (2026-09-08): tl 0.3.0 fastest dynamic path; iutq main at tip 40x off its own README pins (flagged, needs iutq owner)",
+      "timestamp": "2026-09-08T23:02:53+06:00",
+      "tree_id": "3b27f3c5781111e7ac6a996c6910a6dbb76d286f",
+      "url": "https://github.com/IAFahim/tl/commit/703661fef588272a9f5505698e90830e9fd6e57b"
+    },
+    "date": 1788889721560,
+    "tool": "benchmarkdotnet",
+    "benches": [
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Binary(Step: 1)",
+        "value": 12.196017856597901,
+        "unit": "ns",
+        "range": "\u00b1 0.060018557240139596"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Dense(Step: 1)",
+        "value": 2.5040534057400445,
+        "unit": "ns",
+        "range": "\u00b1 0.0032358946309407137"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Rank(Step: 1)",
+        "value": 3.185836672465007,
+        "unit": "ns",
+        "range": "\u00b1 0.005023648895434938"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.GeneratedTree(Step: 1)",
+        "value": 5.528782021999359,
+        "unit": "ns",
+        "range": "\u00b1 0.0602433844211617"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Cursor(Step: 1)",
+        "value": 2.1643097756125713,
+        "unit": "ns",
+        "range": "\u00b1 0.005113324252787067"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.GeneratedState(Step: 1)",
+        "value": 24.148612834789134,
+        "unit": "ns",
+        "range": "\u00b1 0.10935774458821679"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Binary(Step: 7)",
+        "value": 11.803418882309444,
+        "unit": "ns",
+        "range": "\u00b1 0.04137428672534943"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Dense(Step: 7)",
+        "value": 2.692882245310237,
+        "unit": "ns",
+        "range": "\u00b1 0.0026440159884208916"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Rank(Step: 7)",
+        "value": 3.4828900970489145,
+        "unit": "ns",
+        "range": "\u00b1 0.0073487941467508516"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.GeneratedTree(Step: 7)",
+        "value": 6.055573384118459,
+        "unit": "ns",
+        "range": "\u00b1 0.008254838240057566"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Cursor(Step: 7)",
+        "value": 2.695827218193078,
+        "unit": "ns",
+        "range": "\u00b1 0.007769912069208818"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.GeneratedState(Step: 7)",
+        "value": 29.447392801443737,
+        "unit": "ns",
+        "range": "\u00b1 0.15643087478213316"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Binary(Step: 1)",
+        "value": 8.588140317371915,
+        "unit": "ns",
+        "range": "\u00b1 0.022839902681538855"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Dense(Step: 1)",
+        "value": 2.478288198254772,
+        "unit": "ns",
+        "range": "\u00b1 0.0023598202951731406"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Rank(Step: 1)",
+        "value": 3.2335934638977055,
+        "unit": "ns",
+        "range": "\u00b1 0.004149046755323107"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.GeneratedTree(Step: 1)",
+        "value": 4.035762685717959,
+        "unit": "ns",
+        "range": "\u00b1 0.013195592679473416"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Cursor(Step: 1)",
+        "value": 2.3326131807211112,
+        "unit": "ns",
+        "range": "\u00b1 0.0024060241440127836"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.GeneratedState(Step: 1)",
+        "value": 5.487147717436483,
+        "unit": "ns",
+        "range": "\u00b1 0.027751767354181306"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Binary(Step: 7)",
+        "value": 9.133194908683683,
+        "unit": "ns",
+        "range": "\u00b1 0.05350405111884012"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Dense(Step: 7)",
+        "value": 2.733373689257409,
+        "unit": "ns",
+        "range": "\u00b1 0.023369427187272838"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Rank(Step: 7)",
+        "value": 3.501582115304237,
+        "unit": "ns",
+        "range": "\u00b1 0.01154341524051081"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.GeneratedTree(Step: 7)",
+        "value": 4.2053980652415195,
+        "unit": "ns",
+        "range": "\u00b1 0.010814824129455605"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Cursor(Step: 7)",
+        "value": 2.5188678310499157,
+        "unit": "ns",
+        "range": "\u00b1 0.046833233774795306"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.GeneratedState(Step: 7)",
+        "value": 7.789987062414487,
+        "unit": "ns",
+        "range": "\u00b1 0.07786291683506986"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Binary(Step: 1)",
+        "value": 6.0725665807724,
+        "unit": "ns",
+        "range": "\u00b1 0.05209081233672394"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Dense(Step: 1)",
+        "value": 2.3325820996923357,
+        "unit": "ns",
+        "range": "\u00b1 0.010520237729376075"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Rank(Step: 1)",
+        "value": 3.079040950383895,
+        "unit": "ns",
+        "range": "\u00b1 0.006328393710638675"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.GeneratedTree(Step: 1)",
+        "value": 3.7873898511210444,
+        "unit": "ns",
+        "range": "\u00b1 0.006260197992250764"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Cursor(Step: 1)",
+        "value": 2.1165222551970357,
+        "unit": "ns",
+        "range": "\u00b1 0.016530768922343952"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.GeneratedState(Step: 1)",
+        "value": 2.5010381669414286,
+        "unit": "ns",
+        "range": "\u00b1 0.02938906100763129"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Binary(Step: 7)",
+        "value": 6.283703939766405,
+        "unit": "ns",
+        "range": "\u00b1 0.022072667254487546"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Dense(Step: 7)",
+        "value": 2.3004114545308627,
+        "unit": "ns",
+        "range": "\u00b1 0.004075128509859485"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Rank(Step: 7)",
+        "value": 3.0936571034518154,
+        "unit": "ns",
+        "range": "\u00b1 0.0042393805826119605"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.GeneratedTree(Step: 7)",
+        "value": 3.3333703266249763,
+        "unit": "ns",
+        "range": "\u00b1 0.005265038896328236"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Cursor(Step: 7)",
+        "value": 2.2253719878646563,
+        "unit": "ns",
+        "range": "\u00b1 0.005202657925043244"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.GeneratedState(Step: 7)",
+        "value": 2.302159108004523,
+        "unit": "ns",
+        "range": "\u00b1 0.02093027431153583"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<LargeCode>.Binary",
+        "value": 52.15891009966532,
+        "unit": "ns",
+        "range": "\u00b1 0.12771203350668528"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<LargeCode>.Dense",
+        "value": 4.34345038290377,
+        "unit": "ns",
+        "range": "\u00b1 0.015547596742988704"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<LargeCode>.Rank",
+        "value": 4.68331677679922,
+        "unit": "ns",
+        "range": "\u00b1 0.009528552566404386"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<LargeCode>.GeneratedTree",
+        "value": 35.17442785192419,
+        "unit": "ns",
+        "range": "\u00b1 0.04552323586800791"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<MediumCode>.Binary",
+        "value": 34.145497361818954,
+        "unit": "ns",
+        "range": "\u00b1 0.10452390460228361"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<MediumCode>.Dense",
+        "value": 3.984712836236665,
+        "unit": "ns",
+        "range": "\u00b1 0.04034787390560396"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<MediumCode>.Rank",
+        "value": 4.702458464100612,
+        "unit": "ns",
+        "range": "\u00b1 0.01588146881161902"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<MediumCode>.GeneratedTree",
+        "value": 19.874736237525944,
+        "unit": "ns",
+        "range": "\u00b1 0.012847314478846846"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<SmallCode>.Binary",
+        "value": 20.022559276734935,
+        "unit": "ns",
+        "range": "\u00b1 0.05727634578692112"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<SmallCode>.Dense",
+        "value": 4.926465170724051,
+        "unit": "ns",
+        "range": "\u00b1 0.00704465455928611"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<SmallCode>.Rank",
+        "value": 5.7511130174001055,
+        "unit": "ns",
+        "range": "\u00b1 0.015239332535797363"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<SmallCode>.GeneratedTree",
+        "value": 11.201601099376836,
+        "unit": "ns",
+        "range": "\u00b1 0.012009187647650387"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.DirectTicks",
+        "value": 17.50977384022304,
+        "unit": "ns",
+        "range": "\u00b1 0.04882076298659014"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.InstanceSingle",
+        "value": 40.85792396821352,
+        "unit": "ns",
+        "range": "\u00b1 0.34559874244467775"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.InstanceParamsFour",
+        "value": 28.921431283732403,
+        "unit": "ns",
+        "range": "\u00b1 0.18645430995309922"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.ShellSingle",
+        "value": 26.813073918047237,
+        "unit": "ns",
+        "range": "\u00b1 0.03769785969400941"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.ShellParamsFour",
+        "value": 25.755292568864498,
+        "unit": "ns",
+        "range": "\u00b1 0.03739847641438296"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackSingle",
+        "value": 32.63203480400636,
+        "unit": "ns",
+        "range": "\u00b1 0.2616590479976875"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackParamsFour",
+        "value": 28.13460046294937,
+        "unit": "ns",
+        "range": "\u00b1 0.18364749444816839"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackBackwardSingle",
+        "value": 32.36119460407485,
+        "unit": "ns",
+        "range": "\u00b1 0.06066596048304396"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.HubDispatch",
+        "value": 53.119085366521055,
+        "unit": "ns",
+        "range": "\u00b1 0.4518427679342624"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.DirectTicks",
+        "value": 22.49801754228996,
+        "unit": "ns",
+        "range": "\u00b1 0.10222421792100704"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.InstanceSingle",
+        "value": 58.16645635858281,
+        "unit": "ns",
+        "range": "\u00b1 0.20108063601756979"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.InstanceParamsFour",
+        "value": 43.19250033840988,
+        "unit": "ns",
+        "range": "\u00b1 0.05041699992519719"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.ShellSingle",
+        "value": 48.47939798037211,
+        "unit": "ns",
+        "range": "\u00b1 0.08209638929221767"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.ShellParamsFour",
+        "value": 40.605669830784656,
+        "unit": "ns",
+        "range": "\u00b1 0.21043309133674193"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackSingle",
+        "value": 71.06478510300319,
+        "unit": "ns",
+        "range": "\u00b1 0.11042240254415116"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackParamsFour",
+        "value": 56.75461984114213,
+        "unit": "ns",
+        "range": "\u00b1 0.07269171548312946"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackBackwardSingle",
+        "value": 70.74716933568318,
+        "unit": "ns",
+        "range": "\u00b1 0.1269720509493761"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.HubDispatch",
+        "value": 78.87989333470662,
+        "unit": "ns",
+        "range": "\u00b1 0.19067551717290143"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.StackSingle",
+        "value": 86.89690752896395,
+        "unit": "ns",
+        "range": "\u00b1 0.1468200708382992"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.StackBatchFour",
+        "value": 50.67939484054978,
+        "unit": "ns",
+        "range": "\u00b1 0.12756772096216784"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.BufferSingle",
+        "value": 72.44521102905273,
+        "unit": "ns",
+        "range": "\u00b1 0.34580761834572266"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.BufferBatchFour",
+        "value": 47.397115821838376,
+        "unit": "ns",
+        "range": "\u00b1 0.09382994924645974"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.ZeroBlendSingle",
+        "value": 62.68975446296461,
+        "unit": "ns",
+        "range": "\u00b1 0.4641115099566712"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.ZeroBlendBatchFour",
+        "value": 36.735905381744985,
+        "unit": "ns",
+        "range": "\u00b1 0.08223472775090028"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.StackSingle",
+        "value": 97.45206721623737,
+        "unit": "ns",
+        "range": "\u00b1 0.1084879937532246"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.StackBatchFour",
+        "value": 69.55983610586686,
+        "unit": "ns",
+        "range": "\u00b1 0.09932661541079403"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.BufferSingle",
+        "value": 85.50278547075061,
+        "unit": "ns",
+        "range": "\u00b1 0.17821509896150842"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.BufferBatchFour",
+        "value": 64.6549660762151,
+        "unit": "ns",
+        "range": "\u00b1 0.08657325159093139"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.ZeroBlendSingle",
+        "value": 69.42505638599395,
+        "unit": "ns",
+        "range": "\u00b1 0.11826406324496695"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.ZeroBlendBatchFour",
+        "value": 50.777599763870235,
+        "unit": "ns",
+        "range": "\u00b1 0.09350006553567922"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 16, Sequential: False)",
+        "value": 59.75022845798068,
+        "unit": "ns",
+        "range": "\u00b1 0.3686100593217665"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 16, Sequential: False)",
+        "value": 59.45038321018219,
+        "unit": "ns",
+        "range": "\u00b1 0.07445348355857408"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 16, Sequential: False)",
+        "value": 39.26079047520956,
+        "unit": "ns",
+        "range": "\u00b1 0.09043739644840113"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 16, Sequential: False)",
+        "value": 39.549527166307584,
+        "unit": "ns",
+        "range": "\u00b1 0.10949278221309369"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 16, Sequential: False)",
+        "value": 83.12187879735774,
+        "unit": "ns",
+        "range": "\u00b1 0.07132008335151806"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 16, Sequential: False)",
+        "value": 86.5591106703787,
+        "unit": "ns",
+        "range": "\u00b1 0.3229345296560169"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 16, Sequential: False)",
+        "value": 64.83834171295166,
+        "unit": "ns",
+        "range": "\u00b1 0.0663753251265792"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 16, Sequential: False)",
+        "value": 65.59026854038238,
+        "unit": "ns",
+        "range": "\u00b1 0.05285873225705471"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 16, Sequential: True)",
+        "value": 51.320866785822695,
+        "unit": "ns",
+        "range": "\u00b1 0.07648562037671652"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 16, Sequential: True)",
+        "value": 50.095829113109694,
+        "unit": "ns",
+        "range": "\u00b1 0.11069178131567414"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 16, Sequential: True)",
+        "value": 30.458022825179558,
+        "unit": "ns",
+        "range": "\u00b1 0.0920652942273388"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 16, Sequential: True)",
+        "value": 32.65376526148974,
+        "unit": "ns",
+        "range": "\u00b1 0.06501009250713975"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 16, Sequential: True)",
+        "value": 68.59443124857816,
+        "unit": "ns",
+        "range": "\u00b1 0.15631787586729975"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 16, Sequential: True)",
+        "value": 70.22693520784378,
+        "unit": "ns",
+        "range": "\u00b1 0.06900137560054946"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 16, Sequential: True)",
+        "value": 49.77550666982477,
+        "unit": "ns",
+        "range": "\u00b1 0.06797480236941784"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 16, Sequential: True)",
+        "value": 48.45252433776856,
+        "unit": "ns",
+        "range": "\u00b1 0.09912197863131365"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 64, Sequential: False)",
+        "value": 74.05605974384383,
+        "unit": "ns",
+        "range": "\u00b1 0.14225651421914806"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 64, Sequential: False)",
+        "value": 76.59936485290527,
+        "unit": "ns",
+        "range": "\u00b1 0.3430758661261179"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 64, Sequential: False)",
+        "value": 54.11823765345982,
+        "unit": "ns",
+        "range": "\u00b1 0.08144776292850722"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 64, Sequential: False)",
+        "value": 57.01105136871338,
+        "unit": "ns",
+        "range": "\u00b1 1.2234652848176717"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 64, Sequential: False)",
+        "value": 99.54324661601673,
+        "unit": "ns",
+        "range": "\u00b1 0.22042013252424755"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 64, Sequential: False)",
+        "value": 98.96718049771859,
+        "unit": "ns",
+        "range": "\u00b1 0.1801235591757936"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 64, Sequential: False)",
+        "value": 78.6477342410521,
+        "unit": "ns",
+        "range": "\u00b1 0.12914586123084623"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 64, Sequential: False)",
+        "value": 80.57446771679504,
+        "unit": "ns",
+        "range": "\u00b1 0.39320590776506953"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 64, Sequential: True)",
+        "value": 52.732299890652506,
+        "unit": "ns",
+        "range": "\u00b1 0.11842116071672386"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 64, Sequential: True)",
+        "value": 53.01205313326132,
+        "unit": "ns",
+        "range": "\u00b1 0.31675880822747193"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 64, Sequential: True)",
+        "value": 32.91238813331217,
+        "unit": "ns",
+        "range": "\u00b1 0.2166997382777953"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 64, Sequential: True)",
+        "value": 34.346412084736954,
+        "unit": "ns",
+        "range": "\u00b1 0.07558370933006986"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 64, Sequential: True)",
+        "value": 71.61008048057556,
+        "unit": "ns",
+        "range": "\u00b1 0.12647814722930684"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 64, Sequential: True)",
+        "value": 71.59146040136164,
+        "unit": "ns",
+        "range": "\u00b1 0.22429798458369338"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 64, Sequential: True)",
+        "value": 58.21414406516335,
+        "unit": "ns",
+        "range": "\u00b1 0.06154147108122249"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 64, Sequential: True)",
+        "value": 53.78248086929322,
+        "unit": "ns",
+        "range": "\u00b1 0.06737569022218215"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 512, Sequential: False)",
+        "value": 91.12421379089355,
+        "unit": "ns",
+        "range": "\u00b1 0.3376655354992363"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 512, Sequential: False)",
+        "value": 91.48771758306596,
+        "unit": "ns",
+        "range": "\u00b1 0.26895523315269576"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 512, Sequential: False)",
+        "value": 79.06071949005126,
+        "unit": "ns",
+        "range": "\u00b1 0.19555185781035153"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 512, Sequential: False)",
+        "value": 73.44993662516276,
+        "unit": "ns",
+        "range": "\u00b1 0.10298401254070638"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 512, Sequential: False)",
+        "value": 119.31804045041402,
+        "unit": "ns",
+        "range": "\u00b1 0.23408430195433055"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 512, Sequential: False)",
+        "value": 120.09868868192036,
+        "unit": "ns",
+        "range": "\u00b1 0.41553592041303233"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 512, Sequential: False)",
+        "value": 100.90073985523647,
+        "unit": "ns",
+        "range": "\u00b1 0.11604251860722332"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 512, Sequential: False)",
+        "value": 98.906986951828,
+        "unit": "ns",
+        "range": "\u00b1 0.24182443132820897"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 512, Sequential: True)",
+        "value": 55.67430381205544,
+        "unit": "ns",
+        "range": "\u00b1 0.24645447518633612"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 512, Sequential: True)",
+        "value": 57.067798577155266,
+        "unit": "ns",
+        "range": "\u00b1 0.429622072136806"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 512, Sequential: True)",
+        "value": 35.278257466253834,
+        "unit": "ns",
+        "range": "\u00b1 0.13907365764084587"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 512, Sequential: True)",
+        "value": 34.93115650523793,
+        "unit": "ns",
+        "range": "\u00b1 0.30450671088241765"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 512, Sequential: True)",
+        "value": 71.13430491360751,
+        "unit": "ns",
+        "range": "\u00b1 0.12667592215318813"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 512, Sequential: True)",
+        "value": 74.98166432380677,
+        "unit": "ns",
+        "range": "\u00b1 0.09246997498404973"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 512, Sequential: True)",
+        "value": 57.51913122177124,
+        "unit": "ns",
+        "range": "\u00b1 0.08328546196828003"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 512, Sequential: True)",
+        "value": 58.12512858130715,
+        "unit": "ns",
+        "range": "\u00b1 0.061801808581035976"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 16, Sequential: False)",
+        "value": 61.12978415567367,
+        "unit": "ns",
+        "range": "\u00b1 0.06942613867992593"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 16, Sequential: False)",
+        "value": 53.04236559800698,
+        "unit": "ns",
+        "range": "\u00b1 0.09814405779254495"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 16, Sequential: False)",
+        "value": 48.083221399978605,
+        "unit": "ns",
+        "range": "\u00b1 0.2765336760662996"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 16, Sequential: False)",
+        "value": 85.5644993464152,
+        "unit": "ns",
+        "range": "\u00b1 0.08836429538134227"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 16, Sequential: False)",
+        "value": 84.85318403533012,
+        "unit": "ns",
+        "range": "\u00b1 0.08924126483577481"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 16, Sequential: False)",
+        "value": 85.74496192643136,
+        "unit": "ns",
+        "range": "\u00b1 0.19782192933168688"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 16, Sequential: True)",
+        "value": 37.73585265783658,
+        "unit": "ns",
+        "range": "\u00b1 0.23488400785181537"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 16, Sequential: True)",
+        "value": 29.021624965522125,
+        "unit": "ns",
+        "range": "\u00b1 0.053646738309980756"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 16, Sequential: True)",
+        "value": 27.992699544570023,
+        "unit": "ns",
+        "range": "\u00b1 0.09081199845039865"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 16, Sequential: True)",
+        "value": 56.99103225072225,
+        "unit": "ns",
+        "range": "\u00b1 0.1112592507148017"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 16, Sequential: True)",
+        "value": 55.00912725448609,
+        "unit": "ns",
+        "range": "\u00b1 0.09405725252829861"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 16, Sequential: True)",
+        "value": 57.61420295021751,
+        "unit": "ns",
+        "range": "\u00b1 0.1314456240882057"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 64, Sequential: False)",
+        "value": 76.2957397143046,
+        "unit": "ns",
+        "range": "\u00b1 0.4272331006402496"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 64, Sequential: False)",
+        "value": 72.25698289671143,
+        "unit": "ns",
+        "range": "\u00b1 0.4731865063222861"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 64, Sequential: False)",
+        "value": 57.65276810866136,
+        "unit": "ns",
+        "range": "\u00b1 0.18608452517937168"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 64, Sequential: False)",
+        "value": 94.72069236003993,
+        "unit": "ns",
+        "range": "\u00b1 0.0915361359438079"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 64, Sequential: False)",
+        "value": 98.67140093716708,
+        "unit": "ns",
+        "range": "\u00b1 0.09612936368620012"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 64, Sequential: False)",
+        "value": 97.46381203333539,
+        "unit": "ns",
+        "range": "\u00b1 0.07240039245745139"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 64, Sequential: True)",
+        "value": 43.212656051013916,
+        "unit": "ns",
+        "range": "\u00b1 0.2605780474796415"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 64, Sequential: True)",
+        "value": 29.208834791917063,
+        "unit": "ns",
+        "range": "\u00b1 0.06312218444535554"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 64, Sequential: True)",
+        "value": 30.3315568734041,
+        "unit": "ns",
+        "range": "\u00b1 0.21643450611850196"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 64, Sequential: True)",
+        "value": 57.79798919677734,
+        "unit": "ns",
+        "range": "\u00b1 0.0541478938789429"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 64, Sequential: True)",
+        "value": 54.13131923675536,
+        "unit": "ns",
+        "range": "\u00b1 0.1682079802215006"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 64, Sequential: True)",
+        "value": 61.98221640153365,
+        "unit": "ns",
+        "range": "\u00b1 0.06359481585497177"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 512, Sequential: False)",
+        "value": 95.93904418945313,
+        "unit": "ns",
+        "range": "\u00b1 0.7743168912189375"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 512, Sequential: False)",
+        "value": 88.05551337792556,
+        "unit": "ns",
+        "range": "\u00b1 0.5792917107939602"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 512, Sequential: False)",
+        "value": 76.25548942721619,
+        "unit": "ns",
+        "range": "\u00b1 0.14764637189367452"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 512, Sequential: False)",
+        "value": 111.47729533513389,
+        "unit": "ns",
+        "range": "\u00b1 0.08214288085605179"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 512, Sequential: False)",
+        "value": 117.84905370798978,
+        "unit": "ns",
+        "range": "\u00b1 0.24098448328855676"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 512, Sequential: False)",
+        "value": 115.05953742518568,
+        "unit": "ns",
+        "range": "\u00b1 0.06488455060827175"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 512, Sequential: True)",
+        "value": 46.18228107452393,
+        "unit": "ns",
+        "range": "\u00b1 0.23154866793414908"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 512, Sequential: True)",
+        "value": 28.91122429534679,
+        "unit": "ns",
+        "range": "\u00b1 0.04616264940366234"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 512, Sequential: True)",
+        "value": 58.19265738663267,
+        "unit": "ns",
+        "range": "\u00b1 1.0882512783780562"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 512, Sequential: True)",
+        "value": 62.825964190743186,
+        "unit": "ns",
+        "range": "\u00b1 0.2910498028509165"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 512, Sequential: True)",
+        "value": 62.303522527217865,
+        "unit": "ns",
+        "range": "\u00b1 0.0819610287937123"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 512, Sequential: True)",
+        "value": 72.86637170314789,
+        "unit": "ns",
+        "range": "\u00b1 0.23004337730099977"
+      },
+      {
+        "name": "Tl.Hooks.DataFlow.DirectData",
+        "value": 0.9422302482541928,
+        "unit": "ns",
+        "range": "\u00b1 0.002049155726290253"
+      },
+      {
+        "name": "Tl.Hooks.DataFlow.RefGenericData",
+        "value": 0.940581900952284,
+        "unit": "ns",
+        "range": "\u00b1 0.0013394554234466033"
+      },
+      {
+        "name": "Tl.Hooks.DataFlow.DirectData",
+        "value": 0.9421034562391474,
+        "unit": "ns",
+        "range": "\u00b1 0.00233984201571498"
+      },
+      {
+        "name": "Tl.Hooks.DataFlow.RefGenericData",
+        "value": 0.9436182891812805,
+        "unit": "ns",
+        "range": "\u00b1 0.0013852544048486913"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.PlainSingle",
+        "value": 526.7388454288631,
+        "unit": "ns",
+        "range": "\u00b1 2.1474524313232974"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.DedupSingle",
+        "value": 517.2357860020228,
+        "unit": "ns",
+        "range": "\u00b1 0.5469279835413529"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.PlainBatchFour",
+        "value": 470.15604070027666,
+        "unit": "ns",
+        "range": "\u00b1 0.787823909654373"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.DedupBatchFour",
+        "value": 465.35843745144933,
+        "unit": "ns",
+        "range": "\u00b1 0.8897234811423732"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.BuildPlain",
+        "value": 12900905.346590908,
+        "unit": "ns",
+        "range": "\u00b1 158813.6365290166"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.BuildDedup",
+        "value": 14464440.886363637,
+        "unit": "ns",
+        "range": "\u00b1 241370.65198244932"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.PlainSingle",
+        "value": 543.6078453063965,
+        "unit": "ns",
+        "range": "\u00b1 2.4087050464265696"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.DedupSingle",
+        "value": 529.799976675851,
+        "unit": "ns",
+        "range": "\u00b1 0.5961865864085546"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.PlainBatchFour",
+        "value": 525.825644538516,
+        "unit": "ns",
+        "range": "\u00b1 1.819622908457851"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.DedupBatchFour",
+        "value": 513.878137365564,
+        "unit": "ns",
+        "range": "\u00b1 1.1783772254020015"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.BuildPlain",
+        "value": 12979598.426136363,
+        "unit": "ns",
+        "range": "\u00b1 107904.39486683924"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.BuildDedup",
+        "value": 14606532.607954545,
+        "unit": "ns",
+        "range": "\u00b1 76248.87114844253"
+      },
+      {
+        "name": "Tl.Hooks.DimTrap.Overridden",
+        "value": 0.31328991638986686,
+        "unit": "ns",
+        "range": "\u00b1 0.001618095381182779"
+      },
+      {
+        "name": "Tl.Hooks.DimTrap.NotOverridden",
+        "value": 5.1602639746158685,
+        "unit": "ns",
+        "range": "\u00b1 0.20616886155591926"
+      },
+      {
+        "name": "Tl.Hooks.DimTrap.Overridden",
+        "value": 0.31284590995294714,
+        "unit": "ns",
+        "range": "\u00b1 0.00038758091297850855"
+      },
+      {
+        "name": "Tl.Hooks.DimTrap.NotOverridden",
+        "value": 4.79845660018921,
+        "unit": "ns",
+        "range": "\u00b1 0.05846161090089524"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.Direct",
+        "value": 0.9385736587650023,
+        "unit": "ns",
+        "range": "\u00b1 0.0005006007313580238"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.GeneratedLink",
+        "value": 0.9395212038295475,
+        "unit": "ns",
+        "range": "\u00b1 0.0010210516635612802"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.Constrained",
+        "value": 0.9389894902236818,
+        "unit": "ns",
+        "range": "\u00b1 0.0002777743135979832"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.ExplicitConstrained",
+        "value": 0.9430512011243934,
+        "unit": "ns",
+        "range": "\u00b1 0.0009005852427643532"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.CachedDelegate",
+        "value": 3.7516147832978857,
+        "unit": "ns",
+        "range": "\u00b1 0.004440279763814727"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.BoxedOnce",
+        "value": 3.7521212294697763,
+        "unit": "ns",
+        "range": "\u00b1 0.0010061294305791133"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.MixedBoxes",
+        "value": 2.5483749477298825,
+        "unit": "ns",
+        "range": "\u00b1 0.04933050709517121"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.EscapingBoxPerCall",
+        "value": 9.687758650535192,
+        "unit": "ns",
+        "range": "\u00b1 0.3113966766496349"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.Direct",
+        "value": 0.9426162715630609,
+        "unit": "ns",
+        "range": "\u00b1 0.0025815322897991115"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.GeneratedLink",
+        "value": 0.9421446284141897,
+        "unit": "ns",
+        "range": "\u00b1 0.0014601094161736116"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.Constrained",
+        "value": 0.9424515788263013,
+        "unit": "ns",
+        "range": "\u00b1 0.0007939525153909192"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.ExplicitConstrained",
+        "value": 0.9446673715521343,
+        "unit": "ns",
+        "range": "\u00b1 0.0024342647753946055"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.CachedDelegate",
+        "value": 3.750411550203959,
+        "unit": "ns",
+        "range": "\u00b1 0.0020832728327726856"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.BoxedOnce",
+        "value": 3.7714701931584966,
+        "unit": "ns",
+        "range": "\u00b1 0.004926321711474523"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.MixedBoxes",
+        "value": 4.864224808999028,
+        "unit": "ns",
+        "range": "\u00b1 0.009889556953036744"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.EscapingBoxPerCall",
+        "value": 13.1387510476289,
+        "unit": "ns",
+        "range": "\u00b1 0.31942538249045"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsSingle",
+        "value": 5.034224738677342,
+        "unit": "ns",
+        "range": "\u00b1 0.0027491635447121493"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsBatch8",
+        "value": 4.796054410934448,
+        "unit": "ns",
+        "range": "\u00b1 0.00790420697039502"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Single",
+        "value": 2.192976804319143,
+        "unit": "ns",
+        "range": "\u00b1 0.0041734238552232125"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Batch8",
+        "value": 1.9189170588496145,
+        "unit": "ns",
+        "range": "\u00b1 0.0023335439659215103"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsSequential",
+        "value": 5.025299679149282,
+        "unit": "ns",
+        "range": "\u00b1 0.009375715211719251"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Sequential",
+        "value": 2.192440623537116,
+        "unit": "ns",
+        "range": "\u00b1 0.004315020003564124"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Single",
+        "value": 2.1945944953899366,
+        "unit": "ns",
+        "range": "\u00b1 0.006122271934351999"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Sequential",
+        "value": 2.1922444064384505,
+        "unit": "ns",
+        "range": "\u00b1 0.0028796051999195947"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Batch8",
+        "value": 1.9240940760790821,
+        "unit": "ns",
+        "range": "\u00b1 0.002834520051773429"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubVitalsSingle",
+        "value": 5.005130143779696,
+        "unit": "ns",
+        "range": "\u00b1 0.00391936043446824"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsSingle",
+        "value": 5.033980725540055,
+        "unit": "ns",
+        "range": "\u00b1 0.00783538969432832"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsBatch8",
+        "value": 4.900487765310426,
+        "unit": "ns",
+        "range": "\u00b1 0.004850146668058037"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Single",
+        "value": 1.8837647037556167,
+        "unit": "ns",
+        "range": "\u00b1 0.003852411839203265"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Batch8",
+        "value": 1.9588038384825568,
+        "unit": "ns",
+        "range": "\u00b1 0.0042767910729440955"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsSequential",
+        "value": 5.021303198554299,
+        "unit": "ns",
+        "range": "\u00b1 0.012921422215781724"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Sequential",
+        "value": 1.8866542756088138,
+        "unit": "ns",
+        "range": "\u00b1 0.0021437057696320864"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Single",
+        "value": 1.8923641493598653,
+        "unit": "ns",
+        "range": "\u00b1 0.0025358216014125332"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Sequential",
+        "value": 1.8803282872898373,
+        "unit": "ns",
+        "range": "\u00b1 0.0015454743093703573"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Batch8",
+        "value": 2.120892023266592,
+        "unit": "ns",
+        "range": "\u00b1 0.0036610117155718696"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubVitalsSingle",
+        "value": 5.0201347542531565,
+        "unit": "ns",
+        "range": "\u00b1 0.009966299388996768"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassByValue",
+        "value": 0.0010033491728378345,
+        "unit": "ns",
+        "range": "\u00b1 0.0012694714321993589"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassIn",
+        "value": 0,
+        "unit": "ns",
+        "range": "\u00b1 0"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassRef",
+        "value": 0.0015132234681205546,
+        "unit": "ns",
+        "range": "\u00b1 0.0014116581254987179"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassByValue",
+        "value": 0.0009608780791873179,
+        "unit": "ns",
+        "range": "\u00b1 0.002324579159940179"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassIn",
+        "value": 0.004002976329336799,
+        "unit": "ns",
+        "range": "\u00b1 0.004061541286977334"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassRef",
+        "value": 0.0006760480007882104,
+        "unit": "ns",
+        "range": "\u00b1 0.0015462810381480939"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.Calls",
+        "value": 24.51474004225297,
+        "unit": "ns",
+        "range": "\u00b1 0.06142285682125789"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.Walk",
+        "value": 30.280669887482173,
+        "unit": "ns",
+        "range": "\u00b1 0.09043389777126416"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.IndexRead",
+        "value": 36.33861965328068,
+        "unit": "ns",
+        "range": "\u00b1 0.03967657197896557"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.StateRead",
+        "value": 39.036616516113284,
+        "unit": "ns",
+        "range": "\u00b1 0.029351303960184937"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.ClipRead",
+        "value": 51.32576693682604,
+        "unit": "ns",
+        "range": "\u00b1 0.23517479404024966"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.ClipReadBlend",
+        "value": 51.556631666241266,
+        "unit": "ns",
+        "range": "\u00b1 0.23425810910095166"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.Calls",
+        "value": 39.62609747477941,
+        "unit": "ns",
+        "range": "\u00b1 0.08454604092928217"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.Walk",
+        "value": 39.610052108764656,
+        "unit": "ns",
+        "range": "\u00b1 0.06657182285150506"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.IndexRead",
+        "value": 49.12361301075328,
+        "unit": "ns",
+        "range": "\u00b1 0.040699585708796455"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.StateRead",
+        "value": 54.32140350341797,
+        "unit": "ns",
+        "range": "\u00b1 0.06486467486070145"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.ClipRead",
+        "value": 78.99166112957579,
+        "unit": "ns",
+        "range": "\u00b1 0.12613858901230032"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.ClipReadBlend",
+        "value": 84.23611130858913,
+        "unit": "ns",
+        "range": "\u00b1 0.1884946878239459"
+      }
+    ]
+  },
+  {
+    "commit": {
+      "author": {
+        "email": "iafahim.dev@gmail.com",
+        "name": "IAFahim",
+        "username": "IAFahim"
+      },
+      "committer": {
+        "email": "iafahim.dev@gmail.com",
+        "name": "IAFahim",
+        "username": "IAFahim"
+      },
+      "distinct": true,
+      "id": "0ef26769a11ff90bab288948170334c9396ae9a7",
+      "message": "v0.4 integration follow-up: CompiledCompare interpreter leg gains .InMemory()\n\nThe previous commit's chain masked this build failure (pipe swallowed\nthe exit code) and pushed past a red sandbox gate - this restores it:\nDispatch builds and --verify green on the merged tree.",
+      "timestamp": "2026-09-09T00:36:17+06:00",
+      "tree_id": "092724105c4059f5dd881c37f85797c090f5217d",
+      "url": "https://github.com/IAFahim/tl/commit/0ef26769a11ff90bab288948170334c9396ae9a7"
+    },
+    "date": 1788895395365,
+    "tool": "benchmarkdotnet",
+    "benches": [
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Binary(Step: 1)",
+        "value": 11.41229402038442,
+        "unit": "ns",
+        "range": "\u00b1 0.023090080143622533"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Dense(Step: 1)",
+        "value": 2.512444107657985,
+        "unit": "ns",
+        "range": "\u00b1 0.009109079520366202"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Rank(Step: 1)",
+        "value": 3.5074126944822424,
+        "unit": "ns",
+        "range": "\u00b1 0.006522222183845114"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.GeneratedTree(Step: 1)",
+        "value": 5.750202637627011,
+        "unit": "ns",
+        "range": "\u00b1 0.006676630898690353"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Cursor(Step: 1)",
+        "value": 2.2843706114467603,
+        "unit": "ns",
+        "range": "\u00b1 0.0074088236388858"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.GeneratedState(Step: 1)",
+        "value": 27.198164116252553,
+        "unit": "ns",
+        "range": "\u00b1 0.07760728537353813"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Binary(Step: 7)",
+        "value": 15.960957725842794,
+        "unit": "ns",
+        "range": "\u00b1 0.35865715058126224"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Dense(Step: 7)",
+        "value": 2.5718948748094816,
+        "unit": "ns",
+        "range": "\u00b1 0.03493892622349443"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Rank(Step: 7)",
+        "value": 3.533887601254592,
+        "unit": "ns",
+        "range": "\u00b1 0.011468072538826965"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.GeneratedTree(Step: 7)",
+        "value": 6.083759530385336,
+        "unit": "ns",
+        "range": "\u00b1 0.05622094008376882"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.Cursor(Step: 7)",
+        "value": 2.4565773431946627,
+        "unit": "ns",
+        "range": "\u00b1 0.038337682258955535"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<LargeCode>.GeneratedState(Step: 7)",
+        "value": 33.80327223596118,
+        "unit": "ns",
+        "range": "\u00b1 0.21611232062661784"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Binary(Step: 1)",
+        "value": 8.9602957478276,
+        "unit": "ns",
+        "range": "\u00b1 0.015316421987187636"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Dense(Step: 1)",
+        "value": 2.474438947885215,
+        "unit": "ns",
+        "range": "\u00b1 0.032841622555464633"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Rank(Step: 1)",
+        "value": 3.454097377686274,
+        "unit": "ns",
+        "range": "\u00b1 0.028282291019484034"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.GeneratedTree(Step: 1)",
+        "value": 4.494068932983111,
+        "unit": "ns",
+        "range": "\u00b1 0.008352014210587823"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Cursor(Step: 1)",
+        "value": 2.1902609938257807,
+        "unit": "ns",
+        "range": "\u00b1 0.04628880927818159"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.GeneratedState(Step: 1)",
+        "value": 6.671112706926135,
+        "unit": "ns",
+        "range": "\u00b1 0.018196329393677272"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Binary(Step: 7)",
+        "value": 8.623388968504868,
+        "unit": "ns",
+        "range": "\u00b1 0.049219529342898756"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Dense(Step: 7)",
+        "value": 2.4059993133544926,
+        "unit": "ns",
+        "range": "\u00b1 0.003657254658616628"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Rank(Step: 7)",
+        "value": 3.4061374230818315,
+        "unit": "ns",
+        "range": "\u00b1 0.006184862211534519"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.GeneratedTree(Step: 7)",
+        "value": 4.534599372085126,
+        "unit": "ns",
+        "range": "\u00b1 0.006543358934215665"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.Cursor(Step: 7)",
+        "value": 2.3005010630839906,
+        "unit": "ns",
+        "range": "\u00b1 0.0033373626385087706"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<MediumCode>.GeneratedState(Step: 7)",
+        "value": 5.748646467987125,
+        "unit": "ns",
+        "range": "\u00b1 0.07980058946698199"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Binary(Step: 1)",
+        "value": 5.736348079912591,
+        "unit": "ns",
+        "range": "\u00b1 0.01570000665092005"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Dense(Step: 1)",
+        "value": 2.2594895830694233,
+        "unit": "ns",
+        "range": "\u00b1 0.004496895587578831"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Rank(Step: 1)",
+        "value": 3.25781503883568,
+        "unit": "ns",
+        "range": "\u00b1 0.009504709765464983"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.GeneratedTree(Step: 1)",
+        "value": 4.192714315472227,
+        "unit": "ns",
+        "range": "\u00b1 0.013937282695825942"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Cursor(Step: 1)",
+        "value": 2.043981757112571,
+        "unit": "ns",
+        "range": "\u00b1 0.015770703972929297"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.GeneratedState(Step: 1)",
+        "value": 2.8468189691052292,
+        "unit": "ns",
+        "range": "\u00b1 0.06791402547296463"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Binary(Step: 7)",
+        "value": 5.565938716710999,
+        "unit": "ns",
+        "range": "\u00b1 0.008549180354188689"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Dense(Step: 7)",
+        "value": 2.249444640657437,
+        "unit": "ns",
+        "range": "\u00b1 0.004489412840745838"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Rank(Step: 7)",
+        "value": 3.2505762876935793,
+        "unit": "ns",
+        "range": "\u00b1 0.005074888401071095"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.GeneratedTree(Step: 7)",
+        "value": 3.7112513016431765,
+        "unit": "ns",
+        "range": "\u00b1 0.007989120476996634"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.Cursor(Step: 7)",
+        "value": 2.173918249390342,
+        "unit": "ns",
+        "range": "\u00b1 0.005581864203234873"
+      },
+      {
+        "name": "Tl.Algorithms.Playback<SmallCode>.GeneratedState(Step: 7)",
+        "value": 2.070861093676576,
+        "unit": "ns",
+        "range": "\u00b1 0.011479744956208737"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<LargeCode>.Binary",
+        "value": 58.60890887578327,
+        "unit": "ns",
+        "range": "\u00b1 0.10412374528147722"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<LargeCode>.Dense",
+        "value": 2.96024206047686,
+        "unit": "ns",
+        "range": "\u00b1 0.016681725373871165"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<LargeCode>.Rank",
+        "value": 3.6334977564041777,
+        "unit": "ns",
+        "range": "\u00b1 0.07088589683943551"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<LargeCode>.GeneratedTree",
+        "value": 37.7823083835178,
+        "unit": "ns",
+        "range": "\u00b1 0.028663846658102066"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<MediumCode>.Binary",
+        "value": 38.30870064099629,
+        "unit": "ns",
+        "range": "\u00b1 0.02657239655947137"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<MediumCode>.Dense",
+        "value": 2.4312638120619137,
+        "unit": "ns",
+        "range": "\u00b1 0.011884624238571796"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<MediumCode>.Rank",
+        "value": 3.4356330973761424,
+        "unit": "ns",
+        "range": "\u00b1 0.017320029850731264"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<MediumCode>.GeneratedTree",
+        "value": 21.936997847123582,
+        "unit": "ns",
+        "range": "\u00b1 0.02842114367730085"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<SmallCode>.Binary",
+        "value": 22.943688094615936,
+        "unit": "ns",
+        "range": "\u00b1 0.016797370896755648"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<SmallCode>.Dense",
+        "value": 2.300993751167865,
+        "unit": "ns",
+        "range": "\u00b1 0.009633515072511261"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<SmallCode>.Rank",
+        "value": 5.705193851052261,
+        "unit": "ns",
+        "range": "\u00b1 0.3932184240357051"
+      },
+      {
+        "name": "Tl.Algorithms.Seeking<SmallCode>.GeneratedTree",
+        "value": 12.855449795152584,
+        "unit": "ns",
+        "range": "\u00b1 0.03739232573746788"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.InterpreterSingleTick",
+        "value": 35.835259526153735,
+        "unit": "ns",
+        "range": "\u00b1 0.11205336686505848"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.CompiledSingleTick",
+        "value": 36.523834199451265,
+        "unit": "ns",
+        "range": "\u00b1 0.28356043380482826"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.InterpreterBatch8",
+        "value": 23.025883663714968,
+        "unit": "ns",
+        "range": "\u00b1 0.10098843121432217"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.CompiledBatch8",
+        "value": 24.39225799466076,
+        "unit": "ns",
+        "range": "\u00b1 0.07709431439820949"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.SumInterpreterSingleTick",
+        "value": 25.75695324647046,
+        "unit": "ns",
+        "range": "\u00b1 0.03508849083365677"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.SumCompiledSingleTick",
+        "value": 41.959860770562265,
+        "unit": "ns",
+        "range": "\u00b1 0.05142805366889859"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.InterpreterSingleTick",
+        "value": 75.75199081187417,
+        "unit": "ns",
+        "range": "\u00b1 0.10122148159086655"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.CompiledSingleTick",
+        "value": 60.04694925143024,
+        "unit": "ns",
+        "range": "\u00b1 0.1195789289820649"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.InterpreterBatch8",
+        "value": 47.788480034722205,
+        "unit": "ns",
+        "range": "\u00b1 0.5612599280794733"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.CompiledBatch8",
+        "value": 41.96306573738593,
+        "unit": "ns",
+        "range": "\u00b1 0.08497249183496143"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.SumInterpreterSingleTick",
+        "value": 64.46241053795968,
+        "unit": "ns",
+        "range": "\u00b1 0.12281180666781434"
+      },
+      {
+        "name": "Tl.CompiledBench.CompiledVsInterpreter.SumCompiledSingleTick",
+        "value": 38.48238356275582,
+        "unit": "ns",
+        "range": "\u00b1 0.04639885790910521"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.DirectTicks",
+        "value": 18.57519781589508,
+        "unit": "ns",
+        "range": "\u00b1 0.08847145691076772"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.InstanceSingle",
+        "value": 40.21575876336349,
+        "unit": "ns",
+        "range": "\u00b1 0.16439017040120185"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.InstanceParamsFour",
+        "value": 29.743371819225477,
+        "unit": "ns",
+        "range": "\u00b1 0.1647230564199066"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.ShellSingle",
+        "value": 26.906346183122352,
+        "unit": "ns",
+        "range": "\u00b1 0.22015838676994576"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.ShellParamsFour",
+        "value": 25.244401886632406,
+        "unit": "ns",
+        "range": "\u00b1 0.14457830332669222"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackSingle",
+        "value": 33.46132466574626,
+        "unit": "ns",
+        "range": "\u00b1 0.03268486688238679"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackParamsFour",
+        "value": 28.188363021167355,
+        "unit": "ns",
+        "range": "\u00b1 0.2283979250511687"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackBackwardSingle",
+        "value": 32.688186181109884,
+        "unit": "ns",
+        "range": "\u00b1 0.16817658994699164"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.HubDispatch",
+        "value": 56.76942980217211,
+        "unit": "ns",
+        "range": "\u00b1 0.08747236731879571"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.DirectTicks",
+        "value": 23.79355945009174,
+        "unit": "ns",
+        "range": "\u00b1 0.0466244395546979"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.InstanceSingle",
+        "value": 60.42596266667048,
+        "unit": "ns",
+        "range": "\u00b1 0.09891104069180172"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.InstanceParamsFour",
+        "value": 42.91978664109201,
+        "unit": "ns",
+        "range": "\u00b1 0.09029753930074848"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.ShellSingle",
+        "value": 48.49923768477006,
+        "unit": "ns",
+        "range": "\u00b1 0.0937977142953378"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.ShellParamsFour",
+        "value": 40.07891685312444,
+        "unit": "ns",
+        "range": "\u00b1 0.0654208760285445"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackSingle",
+        "value": 66.73067370328036,
+        "unit": "ns",
+        "range": "\u00b1 0.19650384801605864"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackParamsFour",
+        "value": 53.28738920038397,
+        "unit": "ns",
+        "range": "\u00b1 0.07206091630573846"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.PlaybackBackwardSingle",
+        "value": 66.53735131025314,
+        "unit": "ns",
+        "range": "\u00b1 0.2230718241956009"
+      },
+      {
+        "name": "Tl.Hooks.ApiShape.HubDispatch",
+        "value": 80.65118804122461,
+        "unit": "ns",
+        "range": "\u00b1 0.07098313923677485"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.StackSingle",
+        "value": 94.21843971252441,
+        "unit": "ns",
+        "range": "\u00b1 0.43929220319407664"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.StackBatchFour",
+        "value": 50.009349884858,
+        "unit": "ns",
+        "range": "\u00b1 0.2695600211521523"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.BufferSingle",
+        "value": 76.31276022338868,
+        "unit": "ns",
+        "range": "\u00b1 0.21791669382629206"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.BufferBatchFour",
+        "value": 46.870253941436566,
+        "unit": "ns",
+        "range": "\u00b1 1.2459173934035304"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.ZeroBlendSingle",
+        "value": 62.94539742391618,
+        "unit": "ns",
+        "range": "\u00b1 0.09395737112049105"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.ZeroBlendBatchFour",
+        "value": 40.27920425634065,
+        "unit": "ns",
+        "range": "\u00b1 0.35158983736703453"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.StackSingle",
+        "value": 104.61622107823692,
+        "unit": "ns",
+        "range": "\u00b1 0.09492773695933142"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.StackBatchFour",
+        "value": 75.56144152988087,
+        "unit": "ns",
+        "range": "\u00b1 0.112237183369419"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.BufferSingle",
+        "value": 89.22368211457224,
+        "unit": "ns",
+        "range": "\u00b1 0.13769209341674696"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.BufferBatchFour",
+        "value": 76.04124320637096,
+        "unit": "ns",
+        "range": "\u00b1 0.09090522467667068"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.ZeroBlendSingle",
+        "value": 79.92822443355213,
+        "unit": "ns",
+        "range": "\u00b1 0.08031857107672523"
+      },
+      {
+        "name": "Tl.Hooks.BlendShape.ZeroBlendBatchFour",
+        "value": 51.299721058932214,
+        "unit": "ns",
+        "range": "\u00b1 0.05391552907163014"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 16, Sequential: False)",
+        "value": 62.88458330790203,
+        "unit": "ns",
+        "range": "\u00b1 0.1427235485375509"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 16, Sequential: False)",
+        "value": 58.31897173987495,
+        "unit": "ns",
+        "range": "\u00b1 0.0437215805843326"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 16, Sequential: False)",
+        "value": 39.702452720479755,
+        "unit": "ns",
+        "range": "\u00b1 0.08759860412597104"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 16, Sequential: False)",
+        "value": 43.49111236572266,
+        "unit": "ns",
+        "range": "\u00b1 0.23596098741420668"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 16, Sequential: False)",
+        "value": 85.08617684576247,
+        "unit": "ns",
+        "range": "\u00b1 0.3364816580190238"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 16, Sequential: False)",
+        "value": 85.68905296325684,
+        "unit": "ns",
+        "range": "\u00b1 0.15483056095697728"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 16, Sequential: False)",
+        "value": 65.55178393920262,
+        "unit": "ns",
+        "range": "\u00b1 0.219803416186317"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 16, Sequential: False)",
+        "value": 66.42261216640472,
+        "unit": "ns",
+        "range": "\u00b1 0.056193731315043974"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 16, Sequential: True)",
+        "value": 62.18961834516681,
+        "unit": "ns",
+        "range": "\u00b1 0.10045172517213849"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 16, Sequential: True)",
+        "value": 56.96819653230555,
+        "unit": "ns",
+        "range": "\u00b1 0.09862457735653817"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 16, Sequential: True)",
+        "value": 32.03320892796372,
+        "unit": "ns",
+        "range": "\u00b1 0.3405502396608538"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 16, Sequential: True)",
+        "value": 31.839170559969812,
+        "unit": "ns",
+        "range": "\u00b1 0.2407133093543647"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 16, Sequential: True)",
+        "value": 70.90329641645604,
+        "unit": "ns",
+        "range": "\u00b1 0.18349141228129484"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 16, Sequential: True)",
+        "value": 71.26963210105896,
+        "unit": "ns",
+        "range": "\u00b1 0.15858462096055428"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 16, Sequential: True)",
+        "value": 49.06118933359782,
+        "unit": "ns",
+        "range": "\u00b1 0.08740784297776673"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 16, Sequential: True)",
+        "value": 49.814535026550296,
+        "unit": "ns",
+        "range": "\u00b1 0.06541251579788"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 64, Sequential: False)",
+        "value": 80.2103973713327,
+        "unit": "ns",
+        "range": "\u00b1 0.4079792975045143"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 64, Sequential: False)",
+        "value": 80.27407973269199,
+        "unit": "ns",
+        "range": "\u00b1 0.35596662493815945"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 64, Sequential: False)",
+        "value": 56.95359571052319,
+        "unit": "ns",
+        "range": "\u00b1 0.12396196530864648"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 64, Sequential: False)",
+        "value": 58.51510012149811,
+        "unit": "ns",
+        "range": "\u00b1 0.10087679714659095"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 64, Sequential: False)",
+        "value": 105.43300247192383,
+        "unit": "ns",
+        "range": "\u00b1 0.16551932646011797"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 64, Sequential: False)",
+        "value": 104.96424749162463,
+        "unit": "ns",
+        "range": "\u00b1 0.1622116636064806"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 64, Sequential: False)",
+        "value": 82.69847880469429,
+        "unit": "ns",
+        "range": "\u00b1 0.10765060725435414"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 64, Sequential: False)",
+        "value": 84.70958068635728,
+        "unit": "ns",
+        "range": "\u00b1 1.0227615464262145"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 64, Sequential: True)",
+        "value": 60.38678026199341,
+        "unit": "ns",
+        "range": "\u00b1 0.15851865251908187"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 64, Sequential: True)",
+        "value": 59.20540440486029,
+        "unit": "ns",
+        "range": "\u00b1 0.15944662133883727"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 64, Sequential: True)",
+        "value": 31.257215343537876,
+        "unit": "ns",
+        "range": "\u00b1 0.09271779526310067"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 64, Sequential: True)",
+        "value": 33.18718736882795,
+        "unit": "ns",
+        "range": "\u00b1 0.040517480388913084"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 64, Sequential: True)",
+        "value": 73.5112807967446,
+        "unit": "ns",
+        "range": "\u00b1 0.12714588540461477"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 64, Sequential: True)",
+        "value": 72.32519719817422,
+        "unit": "ns",
+        "range": "\u00b1 0.08656125078444252"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 64, Sequential: True)",
+        "value": 49.177633450248024,
+        "unit": "ns",
+        "range": "\u00b1 0.05870927831097877"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 64, Sequential: True)",
+        "value": 49.49689214706421,
+        "unit": "ns",
+        "range": "\u00b1 0.050296959180003126"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 512, Sequential: False)",
+        "value": 100.65816527006159,
+        "unit": "ns",
+        "range": "\u00b1 0.29644087048631773"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 512, Sequential: False)",
+        "value": 100.8247189170436,
+        "unit": "ns",
+        "range": "\u00b1 0.4261122946729713"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 512, Sequential: False)",
+        "value": 76.24869918823242,
+        "unit": "ns",
+        "range": "\u00b1 0.1075294225885293"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 512, Sequential: False)",
+        "value": 82.88915275905444,
+        "unit": "ns",
+        "range": "\u00b1 0.3939341210282793"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 512, Sequential: False)",
+        "value": 123.43976840105924,
+        "unit": "ns",
+        "range": "\u00b1 0.2228884435078328"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 512, Sequential: False)",
+        "value": 125.99050005999479,
+        "unit": "ns",
+        "range": "\u00b1 0.25079173315841996"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 512, Sequential: False)",
+        "value": 104.97243070602418,
+        "unit": "ns",
+        "range": "\u00b1 0.13581895439662015"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 512, Sequential: False)",
+        "value": 104.99933764669633,
+        "unit": "ns",
+        "range": "\u00b1 0.13686128694880317"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 512, Sequential: True)",
+        "value": 62.625740966796876,
+        "unit": "ns",
+        "range": "\u00b1 0.6921006954707388"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 512, Sequential: True)",
+        "value": 62.50737004135595,
+        "unit": "ns",
+        "range": "\u00b1 0.34617585519459515"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 512, Sequential: True)",
+        "value": 33.10876452902089,
+        "unit": "ns",
+        "range": "\u00b1 0.07818502711196632"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 512, Sequential: True)",
+        "value": 33.3340712401244,
+        "unit": "ns",
+        "range": "\u00b1 0.1046108349681341"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanSingle(Clips: 512, Sequential: True)",
+        "value": 75.6109476685524,
+        "unit": "ns",
+        "range": "\u00b1 0.0986117678204307"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsSingle(Clips: 512, Sequential: True)",
+        "value": 74.76991830269496,
+        "unit": "ns",
+        "range": "\u00b1 0.25782148082114725"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.ScanBatchFour(Clips: 512, Sequential: True)",
+        "value": 50.05669188065962,
+        "unit": "ns",
+        "range": "\u00b1 0.062226158193216856"
+      },
+      {
+        "name": "Tl.Hooks.CountsShape.CountsBatchFour(Clips: 512, Sequential: True)",
+        "value": 50.28154182434082,
+        "unit": "ns",
+        "range": "\u00b1 0.05655349719374305"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 16, Sequential: False)",
+        "value": 61.607874593427105,
+        "unit": "ns",
+        "range": "\u00b1 0.1998268992177871"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 16, Sequential: False)",
+        "value": 52.017920130899505,
+        "unit": "ns",
+        "range": "\u00b1 0.08044311226559661"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 16, Sequential: False)",
+        "value": 51.274376433572655,
+        "unit": "ns",
+        "range": "\u00b1 0.07798484200088643"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 16, Sequential: False)",
+        "value": 85.20675448215368,
+        "unit": "ns",
+        "range": "\u00b1 0.10919405793873943"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 16, Sequential: False)",
+        "value": 89.72238066461352,
+        "unit": "ns",
+        "range": "\u00b1 0.19670911006619005"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 16, Sequential: False)",
+        "value": 103.55552177429199,
+        "unit": "ns",
+        "range": "\u00b1 0.1275407872364656"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 16, Sequential: True)",
+        "value": 38.65268326592199,
+        "unit": "ns",
+        "range": "\u00b1 0.058051416668416046"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 16, Sequential: True)",
+        "value": 28.954733496001268,
+        "unit": "ns",
+        "range": "\u00b1 0.035013250519281884"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 16, Sequential: True)",
+        "value": 28.8996879696846,
+        "unit": "ns",
+        "range": "\u00b1 0.08356637875041159"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 16, Sequential: True)",
+        "value": 61.226690006256106,
+        "unit": "ns",
+        "range": "\u00b1 0.15339646053842268"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 16, Sequential: True)",
+        "value": 58.057718620300285,
+        "unit": "ns",
+        "range": "\u00b1 0.04317893901144393"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 16, Sequential: True)",
+        "value": 60.45471632480621,
+        "unit": "ns",
+        "range": "\u00b1 0.23998267699556652"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 64, Sequential: False)",
+        "value": 73.00274209242602,
+        "unit": "ns",
+        "range": "\u00b1 0.1808032830583341"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 64, Sequential: False)",
+        "value": 63.12913896416662,
+        "unit": "ns",
+        "range": "\u00b1 0.2890708767819538"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 64, Sequential: False)",
+        "value": 62.094078801472975,
+        "unit": "ns",
+        "range": "\u00b1 0.12332611249227227"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 64, Sequential: False)",
+        "value": 97.21365804672241,
+        "unit": "ns",
+        "range": "\u00b1 0.07320211593658425"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 64, Sequential: False)",
+        "value": 101.8996696472168,
+        "unit": "ns",
+        "range": "\u00b1 0.17791019179311082"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 64, Sequential: False)",
+        "value": 102.4799841562907,
+        "unit": "ns",
+        "range": "\u00b1 0.17220305429490465"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 64, Sequential: True)",
+        "value": 42.47152227045415,
+        "unit": "ns",
+        "range": "\u00b1 0.10910026618195694"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 64, Sequential: True)",
+        "value": 31.94275451410012,
+        "unit": "ns",
+        "range": "\u00b1 0.055164623048443336"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 64, Sequential: True)",
+        "value": 31.378871587117516,
+        "unit": "ns",
+        "range": "\u00b1 0.12055394325760418"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 64, Sequential: True)",
+        "value": 57.1393783378601,
+        "unit": "ns",
+        "range": "\u00b1 0.09538251013225042"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 64, Sequential: True)",
+        "value": 58.70879450711337,
+        "unit": "ns",
+        "range": "\u00b1 0.17631295479130218"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 64, Sequential: True)",
+        "value": 60.37615122397741,
+        "unit": "ns",
+        "range": "\u00b1 0.21190359101054007"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 512, Sequential: False)",
+        "value": 95.69876590728761,
+        "unit": "ns",
+        "range": "\u00b1 0.15141874419598386"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 512, Sequential: False)",
+        "value": 83.84572007921005,
+        "unit": "ns",
+        "range": "\u00b1 0.10339218148731065"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 512, Sequential: False)",
+        "value": 81.53167981086894,
+        "unit": "ns",
+        "range": "\u00b1 0.06381657858699281"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 512, Sequential: False)",
+        "value": 117.1391474983909,
+        "unit": "ns",
+        "range": "\u00b1 0.3714493789840757"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 512, Sequential: False)",
+        "value": 124.0757904919711,
+        "unit": "ns",
+        "range": "\u00b1 0.22932267061772346"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 512, Sequential: False)",
+        "value": 137.95859197775522,
+        "unit": "ns",
+        "range": "\u00b1 0.12363308705864236"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 512, Sequential: True)",
+        "value": 45.27479994440654,
+        "unit": "ns",
+        "range": "\u00b1 0.145319968471192"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 512, Sequential: True)",
+        "value": 28.533054594009645,
+        "unit": "ns",
+        "range": "\u00b1 0.1712355128482872"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 512, Sequential: True)",
+        "value": 35.9159167700321,
+        "unit": "ns",
+        "range": "\u00b1 0.2629288921109525"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.Single(Clips: 512, Sequential: True)",
+        "value": 62.24337253967921,
+        "unit": "ns",
+        "range": "\u00b1 0.1632886869608228"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursor(Clips: 512, Sequential: True)",
+        "value": 58.64469079104336,
+        "unit": "ns",
+        "range": "\u00b1 0.07872513082429518"
+      },
+      {
+        "name": "Tl.Hooks.CursorShape.SingleCursorInvalid(Clips: 512, Sequential: True)",
+        "value": 82.02000513943757,
+        "unit": "ns",
+        "range": "\u00b1 0.10402985659370857"
+      },
+      {
+        "name": "Tl.Hooks.DataFlow.DirectData",
+        "value": 1.0576333409768564,
+        "unit": "ns",
+        "range": "\u00b1 0.000825151862532205"
+      },
+      {
+        "name": "Tl.Hooks.DataFlow.RefGenericData",
+        "value": 1.0578361380416734,
+        "unit": "ns",
+        "range": "\u00b1 0.0013756048794273867"
+      },
+      {
+        "name": "Tl.Hooks.DataFlow.DirectData",
+        "value": 1.058388886831503,
+        "unit": "ns",
+        "range": "\u00b1 0.000324342550686116"
+      },
+      {
+        "name": "Tl.Hooks.DataFlow.RefGenericData",
+        "value": 1.0585789140346828,
+        "unit": "ns",
+        "range": "\u00b1 0.0009571066749495669"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.PlainSingle",
+        "value": 580.4140302022298,
+        "unit": "ns",
+        "range": "\u00b1 0.4683158600055399"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.DedupSingle",
+        "value": 576.8467760721844,
+        "unit": "ns",
+        "range": "\u00b1 0.7908687621589291"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.PlainBatchFour",
+        "value": 509.0592514632584,
+        "unit": "ns",
+        "range": "\u00b1 0.9589298197995465"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.DedupBatchFour",
+        "value": 505.03360481262206,
+        "unit": "ns",
+        "range": "\u00b1 1.7769681400048973"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.BuildPlain",
+        "value": 13682443.721590908,
+        "unit": "ns",
+        "range": "\u00b1 239848.722661468"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.BuildDedup",
+        "value": 15235993.477272727,
+        "unit": "ns",
+        "range": "\u00b1 262617.7123969234"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.PlainSingle",
+        "value": 611.9993699969668,
+        "unit": "ns",
+        "range": "\u00b1 0.6713272729441553"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.DedupSingle",
+        "value": 601.9332326253256,
+        "unit": "ns",
+        "range": "\u00b1 0.8838361332854602"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.PlainBatchFour",
+        "value": 579.7138802664621,
+        "unit": "ns",
+        "range": "\u00b1 0.6951399256339956"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.DedupBatchFour",
+        "value": 574.1084501588499,
+        "unit": "ns",
+        "range": "\u00b1 0.7638450379426263"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.BuildPlain",
+        "value": 13643268.176136363,
+        "unit": "ns",
+        "range": "\u00b1 151837.58388960187"
+      },
+      {
+        "name": "Tl.Hooks.DedupShape.BuildDedup",
+        "value": 15302952.289772727,
+        "unit": "ns",
+        "range": "\u00b1 112499.83013386228"
+      },
+      {
+        "name": "Tl.Hooks.DimTrap.Overridden",
+        "value": 0.3529770522968536,
+        "unit": "ns",
+        "range": "\u00b1 0.0007086971137608397"
+      },
+      {
+        "name": "Tl.Hooks.DimTrap.NotOverridden",
+        "value": 5.145837688446045,
+        "unit": "ns",
+        "range": "\u00b1 0.13501716164715472"
+      },
+      {
+        "name": "Tl.Hooks.DimTrap.Overridden",
+        "value": 0.35305009240934837,
+        "unit": "ns",
+        "range": "\u00b1 0.00029306489952034097"
+      },
+      {
+        "name": "Tl.Hooks.DimTrap.NotOverridden",
+        "value": 5.435513858441953,
+        "unit": "ns",
+        "range": "\u00b1 0.061780018660035164"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.Direct",
+        "value": 1.056178392370382,
+        "unit": "ns",
+        "range": "\u00b1 0.0004061095682655537"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.GeneratedLink",
+        "value": 1.0553648074787656,
+        "unit": "ns",
+        "range": "\u00b1 0.0003499471366307974"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.Constrained",
+        "value": 1.0562411992663063,
+        "unit": "ns",
+        "range": "\u00b1 0.0002275501753869077"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.ExplicitConstrained",
+        "value": 1.059057728666887,
+        "unit": "ns",
+        "range": "\u00b1 0.0022224854897400005"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.CachedDelegate",
+        "value": 4.2673012273652215,
+        "unit": "ns",
+        "range": "\u00b1 0.007093572958848654"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.BoxedOnce",
+        "value": 4.2310042080126316,
+        "unit": "ns",
+        "range": "\u00b1 0.0011835623460720631"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.MixedBoxes",
+        "value": 2.8263075806112847,
+        "unit": "ns",
+        "range": "\u00b1 0.008354583395877217"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.EscapingBoxPerCall",
+        "value": 9.629214730696246,
+        "unit": "ns",
+        "range": "\u00b1 0.05662333681566672"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.Direct",
+        "value": 1.058976832111325,
+        "unit": "ns",
+        "range": "\u00b1 0.0033797886389924795"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.GeneratedLink",
+        "value": 1.056861378354405,
+        "unit": "ns",
+        "range": "\u00b1 0.0012227858035924006"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.Constrained",
+        "value": 1.057728031999338,
+        "unit": "ns",
+        "range": "\u00b1 0.0014933588232693348"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.ExplicitConstrained",
+        "value": 1.0573011977834337,
+        "unit": "ns",
+        "range": "\u00b1 0.0004944407432311605"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.CachedDelegate",
+        "value": 4.24607029128493,
+        "unit": "ns",
+        "range": "\u00b1 0.0017090546114130918"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.BoxedOnce",
+        "value": 4.238917064666749,
+        "unit": "ns",
+        "range": "\u00b1 0.01059637935121855"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.MixedBoxes",
+        "value": 5.212393521320207,
+        "unit": "ns",
+        "range": "\u00b1 0.012342875582680487"
+      },
+      {
+        "name": "Tl.Hooks.Dispatch.EscapingBoxPerCall",
+        "value": 13.124951945410835,
+        "unit": "ns",
+        "range": "\u00b1 0.16273476970479592"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsSingle",
+        "value": 5.668235951378232,
+        "unit": "ns",
+        "range": "\u00b1 0.00400000597800163"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsBatch8",
+        "value": 5.494617310437289,
+        "unit": "ns",
+        "range": "\u00b1 0.006096929272883127"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Single",
+        "value": 2.295384826360049,
+        "unit": "ns",
+        "range": "\u00b1 0.004404914767272969"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Batch8",
+        "value": 2.13859166488761,
+        "unit": "ns",
+        "range": "\u00b1 0.004051368605711516"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsSequential",
+        "value": 5.339057063093089,
+        "unit": "ns",
+        "range": "\u00b1 0.009375062563921248"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Sequential",
+        "value": 2.296588906875024,
+        "unit": "ns",
+        "range": "\u00b1 0.0038439361172593646"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Single",
+        "value": 2.301881246841871,
+        "unit": "ns",
+        "range": "\u00b1 0.007692032986868106"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Sequential",
+        "value": 2.2951019329902453,
+        "unit": "ns",
+        "range": "\u00b1 0.0026898763496663296"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Batch8",
+        "value": 2.1356391465509095,
+        "unit": "ns",
+        "range": "\u00b1 0.004495527220902445"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubVitalsSingle",
+        "value": 5.366874880260891,
+        "unit": "ns",
+        "range": "\u00b1 0.013961518499616056"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsSingle",
+        "value": 5.672735736435613,
+        "unit": "ns",
+        "range": "\u00b1 0.0069892724716227395"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsBatch8",
+        "value": 5.303585855460461,
+        "unit": "ns",
+        "range": "\u00b1 0.003150591430586264"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Single",
+        "value": 2.128943396496946,
+        "unit": "ns",
+        "range": "\u00b1 0.002041858878268771"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Batch8",
+        "value": 2.163544265878288,
+        "unit": "ns",
+        "range": "\u00b1 0.0018965633881866417"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.FrozenVitalsSequential",
+        "value": 5.650195061278393,
+        "unit": "ns",
+        "range": "\u00b1 0.011687252861370734"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.Fused16Sequential",
+        "value": 2.118338255755669,
+        "unit": "ns",
+        "range": "\u00b1 0.0020013927409258166"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Single",
+        "value": 2.123226002052233,
+        "unit": "ns",
+        "range": "\u00b1 0.00222726022005407"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Sequential",
+        "value": 2.124018575448905,
+        "unit": "ns",
+        "range": "\u00b1 0.005994800719616685"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubFused16Batch8",
+        "value": 2.1749307198957957,
+        "unit": "ns",
+        "range": "\u00b1 0.0034305352487345843"
+      },
+      {
+        "name": "Tl.Hooks.Frozen.HubVitalsSingle",
+        "value": 5.64722716430277,
+        "unit": "ns",
+        "range": "\u00b1 0.006918166406918272"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassByValue",
+        "value": 0.004073814021345483,
+        "unit": "ns",
+        "range": "\u00b1 0.004824916701190612"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassIn",
+        "value": 0.00033047803085476806,
+        "unit": "ns",
+        "range": "\u00b1 0.000890926964642417"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassRef",
+        "value": 0.0032996669644355966,
+        "unit": "ns",
+        "range": "\u00b1 0.003949055890318991"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassByValue",
+        "value": 0,
+        "unit": "ns",
+        "range": "\u00b1 0"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassIn",
+        "value": 0.004135122252131,
+        "unit": "ns",
+        "range": "\u00b1 0.0026890718188201366"
+      },
+      {
+        "name": "Tl.Hooks.PassPlayback.PassRef",
+        "value": 0.0013525516390238954,
+        "unit": "ns",
+        "range": "\u00b1 0.0021178591906010863"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.Calls",
+        "value": 25.994112162687344,
+        "unit": "ns",
+        "range": "\u00b1 0.09730927617117506"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.Walk",
+        "value": 33.57516929224918,
+        "unit": "ns",
+        "range": "\u00b1 0.07195429970083081"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.IndexRead",
+        "value": 38.39728340616032,
+        "unit": "ns",
+        "range": "\u00b1 0.20028194260153495"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.StateRead",
+        "value": 41.47868123319414,
+        "unit": "ns",
+        "range": "\u00b1 0.0921478196249274"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.ClipRead",
+        "value": 58.772901756446686,
+        "unit": "ns",
+        "range": "\u00b1 0.18162524113206555"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.ClipReadBlend",
+        "value": 54.185306710256654,
+        "unit": "ns",
+        "range": "\u00b1 0.16214356091354548"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.Calls",
+        "value": 38.315079371134445,
+        "unit": "ns",
+        "range": "\u00b1 0.08473549105995311"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.Walk",
+        "value": 40.61596366130944,
+        "unit": "ns",
+        "range": "\u00b1 0.19212051215703912"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.IndexRead",
+        "value": 52.20353937149048,
+        "unit": "ns",
+        "range": "\u00b1 0.02981795766794978"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.StateRead",
+        "value": 56.32269620895386,
+        "unit": "ns",
+        "range": "\u00b1 0.066479309400462"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.ClipRead",
+        "value": 80.8742448344375,
+        "unit": "ns",
+        "range": "\u00b1 0.07174187347614752"
+      },
+      {
+        "name": "Tl.Hooks.TrackViewDecomp.ClipReadBlend",
+        "value": 84.43799989873713,
+        "unit": "ns",
+        "range": "\u00b1 0.08975473827237872"
+      }
+    ]
+  }
+]

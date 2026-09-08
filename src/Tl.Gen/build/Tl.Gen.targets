@@ -34,15 +34,21 @@
        in-memory interpreter path. -->
   <Target Name="TlGenCompileTimelines"
           BeforeTargets="BeforeCompile;CoreCompile"
-          Condition="'@(TlCompileTimeline)' != ''">
+          Condition="'@(TlCompileTimeline)' != '' Or Exists('$(IntermediateOutputPath)TlGenCompile\TlGenCompile.manifest.json')">
     <PropertyGroup>
       <_TlGenCompileOut>$(IntermediateOutputPath)TlGenCompile\</_TlGenCompileOut>
+      <_TlGenCompileSourceList>$(_TlGenCompileOut)TlGenCompile.sources</_TlGenCompileSourceList>
     </PropertyGroup>
     <MakeDir Directories="$(_TlGenCompileOut)" />
     <Exec Command="dotnet &quot;$(TlGenAssembly)&quot; --compile --output &quot;$(_TlGenCompileOut)&quot; @(TlCompileTimeline->'--source &quot;%(FullPath)&quot;', ' ')" />
+    <ReadLinesFromFile File="$(_TlGenCompileSourceList)">
+      <Output TaskParameter="Lines" ItemName="_TlGenCompileSources" />
+    </ReadLinesFromFile>
     <ItemGroup>
-      <Compile Include="$(_TlGenCompileOut)*.g.cs" />
-      <FileWrites Include="$(_TlGenCompileOut)*.g.cs" />
+      <Compile Include="@(_TlGenCompileSources->'$(_TlGenCompileOut)%(Identity)')" />
+      <FileWrites Include="@(_TlGenCompileSources->'$(_TlGenCompileOut)%(Identity)')" />
+      <FileWrites Include="$(_TlGenCompileSourceList)" />
+      <FileWrites Include="$(_TlGenCompileOut)TlGenCompile.manifest.json" />
     </ItemGroup>
   </Target>
 </Project>

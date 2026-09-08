@@ -1,0 +1,2652 @@
+{
+  "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.6.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "results": [
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Cursor.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 0
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 11,
+                  "endLine": 1,
+                  "endColumn": 13,
+                  "charOffset": 10,
+                  "charLength": 2
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "212FCF1B2F557F12CFAA74688AC8A3EBD63F92C07E5D3B5A1F52C5979107C344"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Hooks.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 1
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 11,
+                  "endLine": 1,
+                  "endColumn": 13,
+                  "charOffset": 10,
+                  "charLength": 2
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "212FCF1B2F557F12CFAA74688AC8A3EBD63F92C07E5D3B5A1F52C5979107C344"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Playback.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 2
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 11,
+                  "endLine": 3,
+                  "endColumn": 13,
+                  "charOffset": 49,
+                  "charLength": 2
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "232E7E3D2166A1DC226A4AE91A2C2AEE5A16DE10F5313DD898DDFEA624E56D79"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 8,
+                  "startColumn": 11,
+                  "endLine": 8,
+                  "endColumn": 13,
+                  "charOffset": 173,
+                  "charLength": 2
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "232E7E3D2166A1DC226A4AE91A2C2AEE5A16DE10F5313DD898DDFEA624E56D79"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Tracks.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 4
+                },
+                "region": {
+                  "startLine": 4,
+                  "startColumn": 11,
+                  "endLine": 4,
+                  "endColumn": 13,
+                  "charOffset": 69,
+                  "charLength": 2
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "232E7E3D2166A1DC226A4AE91A2C2AEE5A16DE10F5313DD898DDFEA624E56D79"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core.Authoring'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Authoring/Builder.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 5
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 11,
+                  "endLine": 3,
+                  "endColumn": 13,
+                  "charOffset": 31,
+                  "charLength": 2
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "232E7E3D2166A1DC226A4AE91A2C2AEE5A16DE10F5313DD898DDFEA624E56D79"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core.Authoring'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Authoring/Lowering.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 6
+                },
+                "region": {
+                  "startLine": 6,
+                  "startColumn": 11,
+                  "endLine": 6,
+                  "endColumn": 23,
+                  "charOffset": 128,
+                  "charLength": 12
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "114013839329BF1F56C3ECDC2463AE435FFAF6C810BA159B4A274EBDDA6E18E5"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core.Authoring'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Authoring/Options.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 7
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 11,
+                  "endLine": 1,
+                  "endColumn": 13,
+                  "charOffset": 10,
+                  "charLength": 2
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "212FCF1B2F557F12CFAA74688AC8A3EBD63F92C07E5D3B5A1F52C5979107C344"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core.Generation'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Generation/Tables.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 8
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 11,
+                  "endLine": 3,
+                  "endColumn": 24,
+                  "charOffset": 30,
+                  "charLength": 13
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "DFD354C2B7274F39EADB97F4DDEC131B2D86677CE4B9BB57CFB2660147EBFDE3"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core.Internal'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Binding.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 4,
+                  "startColumn": 11,
+                  "endLine": 4,
+                  "endColumn": 22,
+                  "charOffset": 88,
+                  "charLength": 11
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "E59DC454851C26B467F8C75EB56E72C4AED32AD07DEC31CFE811962F2FF4B95A"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core.Internal'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Playback.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 10
+                },
+                "region": {
+                  "startLine": 4,
+                  "startColumn": 11,
+                  "endLine": 4,
+                  "endColumn": 22,
+                  "charOffset": 71,
+                  "charLength": 11
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "E59DC454851C26B467F8C75EB56E72C4AED32AD07DEC31CFE811962F2FF4B95A"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "CheckNamespace",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Namespace does not correspond to file location, must be: 'Tl.Core.Internal'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Registry.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 11
+                },
+                "region": {
+                  "startLine": 6,
+                  "startColumn": 11,
+                  "endLine": 6,
+                  "endColumn": 13,
+                  "charOffset": 128,
+                  "charLength": 2
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "232E7E3D2166A1DC226A4AE91A2C2AEE5A16DE10F5313DD898DDFEA624E56D79"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Name '_state' does not match rule 'Instance fields (not private)'. Suggested name is 'State'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Authoring/Builder.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 5
+                },
+                "region": {
+                  "startLine": 29,
+                  "startColumn": 33,
+                  "endLine": 29,
+                  "endColumn": 39,
+                  "charOffset": 638,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "D347D3DA13358BFD3CE0F9B38DCA018C0C481D3D1768FE2C4E6BB538B0996069"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Name 's_bind' does not match rule 'Static readonly fields (private)'. Suggested name is 'SBind'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 202,
+                  "startColumn": 40,
+                  "endLine": 202,
+                  "endColumn": 46,
+                  "charOffset": 9889,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "7ED2BCF0BFCF5F9430330E0C221DE7FDC4981BF0520F28EF6A7F3BC4DD9F1EED"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Name 's_capacity' does not match rule 'Static fields (private)'. Suggested name is '_sCapacity'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Registry.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 11
+                },
+                "region": {
+                  "startLine": 98,
+                  "startColumn": 24,
+                  "endLine": 98,
+                  "endColumn": 34,
+                  "charOffset": 4103,
+                  "charLength": 10
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "DEE3DE2F47CDA9A8258946F347FBB9BF6F535D2B3FF51B0A6D3F746B070DD8F5"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Name 's_closureIds' does not match rule 'Static fields (private)'. Suggested name is '_sClosureIds'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Registry.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 11
+                },
+                "region": {
+                  "startLine": 105,
+                  "startColumn": 25,
+                  "endLine": 105,
+                  "endColumn": 37,
+                  "charOffset": 4467,
+                  "charLength": 12
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "5C354C26C298B1CCADF8940CFFBAAA26445E24AC1F0C9E8140B17F44835D332E"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Name 's_gate' does not match rule 'Static fields (private)'. Suggested name is '_sGate'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Registry.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 11
+                },
+                "region": {
+                  "startLine": 100,
+                  "startColumn": 24,
+                  "endLine": 100,
+                  "endColumn": 30,
+                  "charOffset": 4174,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "5323A2CEF731BA104DC01748D4F1200C37501F107261861E377041FCCB258F7F"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Name 's_next' does not match rule 'Static fields (private)'. Suggested name is '_sNext'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Binding.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 41,
+                  "startColumn": 24,
+                  "endLine": 41,
+                  "endColumn": 30,
+                  "charOffset": 1631,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "414E4DB9A535E4E4B81284D8F7C3BA54D2ED40B79CB7A1AAE9F1BEAC499CF17B"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Name 's_nextIndex' does not match rule 'Static fields (private)'. Suggested name is '_sNextIndex'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Registry.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 11
+                },
+                "region": {
+                  "startLine": 99,
+                  "startColumn": 24,
+                  "endLine": 99,
+                  "endColumn": 35,
+                  "charOffset": 4138,
+                  "charLength": 11
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "3EE1E7670E925130BA1C05DC59AFF3154707BE5E777F20FA5F23CC5B3A0EB125"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "InconsistentNaming",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Name 's_slots' does not match rule 'Static fields (private)'. Suggested name is '_sSlots'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Registry.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 11
+                },
+                "region": {
+                  "startLine": 97,
+                  "startColumn": 25,
+                  "endLine": 97,
+                  "endColumn": 32,
+                  "charOffset": 4071,
+                  "charLength": 7
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "E177CA39B57D2D53D869014DCD8BB773F42594432A23796177C81D614BBA7245"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "PossiblyImpureMethodCallOnReadonlyVariable",
+          "ruleIndex": 2,
+          "level": "warning",
+          "message": {
+            "text": "Possibly impure struct method called on readonly variable: struct value always copied before invocation"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Tracks.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 4
+                },
+                "region": {
+                  "startLine": 199,
+                  "startColumn": 37,
+                  "endLine": 199,
+                  "endColumn": 42,
+                  "charOffset": 8187,
+                  "charLength": 5
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "8BD588FB835DF91D3595D23D9F6105A669D831068A8FA5ACEAA400CA7A0F1C91"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantCast",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Type cast is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Authoring/Builder.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 5
+                },
+                "region": {
+                  "startLine": 48,
+                  "startColumn": 13,
+                  "endLine": 48,
+                  "endColumn": 19,
+                  "charOffset": 1306,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "26B9BF830843CCE3304C2F4B677C27A16743D54D64BD8B8E6A88B2C03FB44F3B"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantCast",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Type cast is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Registry.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 11
+                },
+                "region": {
+                  "startLine": 139,
+                  "startColumn": 62,
+                  "endLine": 139,
+                  "endColumn": 69,
+                  "charOffset": 5816,
+                  "charLength": 7
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "24103A29CB6E02D9229B79BFEF50E7C595129353B14B29B391D3C83B3C0895D6"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantCast",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Type cast is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Registry.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 11
+                },
+                "region": {
+                  "startLine": 154,
+                  "startColumn": 30,
+                  "endLine": 154,
+                  "endColumn": 36,
+                  "charOffset": 6231,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "F6672C4D2B531C5CA0C78D0714767D8B3E16675A300627CD36A32345931049FD"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantCast",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Type cast is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Registry.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 11
+                },
+                "region": {
+                  "startLine": 167,
+                  "startColumn": 33,
+                  "endLine": 167,
+                  "endColumn": 39,
+                  "charOffset": 6783,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "BBFE75AF36935C9E5D141BDAB1DBDC3BF8692B02007305FBAE24D9AD5CC9B344"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantCast",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Type cast is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 253,
+                  "startColumn": 22,
+                  "endLine": 253,
+                  "endColumn": 29,
+                  "charOffset": 12945,
+                  "charLength": 7
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "682CF6FB97337E881F5C81442537BF2AF6A36C6EEBFEE6EB2A2C46BF73A8F600"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantCast",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Type cast is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 256,
+                  "startColumn": 22,
+                  "endLine": 256,
+                  "endColumn": 29,
+                  "charOffset": 13119,
+                  "charLength": 7
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "CD9EB8B31A29B5C8B17B3F4A18A7CE6A850D7AE53A4BBA0AD1B710B576AA3230"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantCast",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Type cast is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 259,
+                  "startColumn": 22,
+                  "endLine": 259,
+                  "endColumn": 29,
+                  "charOffset": 13264,
+                  "charLength": 7
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "21A46516FFF4868972A22495F95B4979574B17F0974D91024AB06985B6F5D33B"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantCast",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Type cast is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 262,
+                  "startColumn": 22,
+                  "endLine": 262,
+                  "endColumn": 29,
+                  "charOffset": 13439,
+                  "charLength": 7
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "FDCB2CFEF7F794061235E3D782347925106F6F2521C1B362EEE1B03C15BEF9FC"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantNameQualifier",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "Qualifier is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 216,
+                  "startColumn": 14,
+                  "endLine": 216,
+                  "endColumn": 46,
+                  "charOffset": 10924,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "472E6A61D41BCE71268DACC942EB72B7F6E6E23F9B853B8C711C177161D343D9"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Authoring/Builder.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 5
+                },
+                "region": {
+                  "startLine": 90,
+                  "startColumn": 54,
+                  "endLine": 90,
+                  "endColumn": 69,
+                  "charOffset": 3432,
+                  "charLength": 15
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "0508C3F3CC73651877B4B063414818B1B0873593A718ABB6BAE3909EF207A034"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Generation/Tables.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 8
+                },
+                "region": {
+                  "startLine": 63,
+                  "startColumn": 28,
+                  "endLine": 63,
+                  "endColumn": 60,
+                  "charOffset": 2974,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "63A390D2E7B03C108A776CB617CBCC95A439862D8D709B82EDE893A29715294A"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Generation/Tables.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 8
+                },
+                "region": {
+                  "startLine": 88,
+                  "startColumn": 28,
+                  "endLine": 88,
+                  "endColumn": 60,
+                  "charOffset": 4258,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "53E8AA4438A802B75867A7BC8C9CDEC57039E6827E07BB764089A0383DF16F95"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Generation/Tables.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 8
+                },
+                "region": {
+                  "startLine": 114,
+                  "startColumn": 36,
+                  "endLine": 114,
+                  "endColumn": 68,
+                  "charOffset": 5653,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "A885E704D64B56E26CF5AED4406F6D2486BABCB0FFAF5DB98DE86F8E8C7575D8"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Generation/Tables.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 8
+                },
+                "region": {
+                  "startLine": 140,
+                  "startColumn": 36,
+                  "endLine": 140,
+                  "endColumn": 68,
+                  "charOffset": 7061,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "1DF576D6AC917C379F7AEBE97EFF18B40768BD53810334FBBB55C79DFCBC3A44"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 269,
+                  "startColumn": 40,
+                  "endLine": 269,
+                  "endColumn": 72,
+                  "charOffset": 13870,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "9B65EF799CF06F34CA8531D293E09981CD42D69ADC4FC23E616503D6768CB9C7"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 280,
+                  "startColumn": 40,
+                  "endLine": 280,
+                  "endColumn": 72,
+                  "charOffset": 14532,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "900BE22155BF31608C3DCF4E10FC4A757E5B13D325E12774958E7E6BEBB93DA9"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 294,
+                  "startColumn": 48,
+                  "endLine": 294,
+                  "endColumn": 80,
+                  "charOffset": 15358,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "58A736F9402FD9851AEEE209B27284EDC34EAEE396BD284F93E6608A8B1AB645"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 311,
+                  "startColumn": 48,
+                  "endLine": 311,
+                  "endColumn": 80,
+                  "charOffset": 16323,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "06846CB13B48959EA94C9CC1B5BB35781440D3F94AD5CA6FE60A76FE41339B72"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 324,
+                  "startColumn": 40,
+                  "endLine": 324,
+                  "endColumn": 72,
+                  "charOffset": 17039,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "9B65EF799CF06F34CA8531D293E09981CD42D69ADC4FC23E616503D6768CB9C7"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 334,
+                  "startColumn": 40,
+                  "endLine": 334,
+                  "endColumn": 72,
+                  "charOffset": 17619,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "900BE22155BF31608C3DCF4E10FC4A757E5B13D325E12774958E7E6BEBB93DA9"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 345,
+                  "startColumn": 32,
+                  "endLine": 345,
+                  "endColumn": 64,
+                  "charOffset": 18251,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "839ADF8E7F006780DAEDC4EA7B58294381A25C0B76EB5248EB372E5A61E877AA"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantTypeArgumentsOfMethod",
+          "ruleIndex": 5,
+          "level": "warning",
+          "message": {
+            "text": "Type argument specification is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 355,
+                  "startColumn": 32,
+                  "endLine": 355,
+                  "endColumn": 64,
+                  "charOffset": 18850,
+                  "charLength": 32
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "F895D9594A8AD49C1209A5F0E50FB411806A23A00AFC4C1DAF0CEB1F5FDC1D0E"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantUnsafeContext",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "'unsafe' context is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Binding.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 17,
+                  "startColumn": 10,
+                  "endLine": 17,
+                  "endColumn": 16,
+                  "charOffset": 809,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "C2D19D2268C199B97C328E4E00ABD269806EA5616474D7CEB49C23DC79C9599C"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantUnsafeContext",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "'unsafe' context is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 172,
+                  "startColumn": 19,
+                  "endLine": 172,
+                  "endColumn": 25,
+                  "charOffset": 7936,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "9C2EA5F9C91500547DDF7D54231FEB92756025C98F6897D61E48E56EC9230AB9"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantUnsafeContext",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "'unsafe' context is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 187,
+                  "startColumn": 19,
+                  "endLine": 187,
+                  "endColumn": 25,
+                  "charOffset": 8901,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "0487448B85BD29B2D41CAFA6B636B82C6556B165173CBA25BF183DB2715E017B"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantUnsafeContext",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "'unsafe' context is redundant"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 232,
+                  "startColumn": 20,
+                  "endLine": 232,
+                  "endColumn": 26,
+                  "charOffset": 11918,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "1534E9B0E5C5322F8958D9693F1AACB9523CFE8D34AD403A0335C3BA8DD2E369"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantUsingDirective",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Using directive is not required by the code and can be safely removed"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Registry.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 11
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 39,
+                  "charOffset": 0,
+                  "charLength": 38
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "A5AFAFF55C468A3B509B79DFEB32F9153A943F7C9D24880DDD455E10C681D954"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantUsingDirective",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Using directive is not required by the code and can be safely removed"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 2,
+                  "startColumn": 1,
+                  "endLine": 2,
+                  "endColumn": 39,
+                  "charOffset": 25,
+                  "charLength": 38
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "56C2C3D78DBC635860B55F94A946A74586A20E6201047E31D9877B28BD00F21E"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantUsingDirective",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Using directive is not required by the code and can be safely removed"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 3,
+                  "startColumn": 1,
+                  "endLine": 3,
+                  "endColumn": 38,
+                  "charOffset": 64,
+                  "charLength": 37
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "2F6B1915DB5A67D6ED28C0A8354304CCC09D69EB03DA5FEC638E313DD5AEA583"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "RedundantUsingDirective",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Using directive is not required by the code and can be safely removed"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 4,
+                  "startColumn": 1,
+                  "endLine": 4,
+                  "endColumn": 20,
+                  "charOffset": 102,
+                  "charLength": 19
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "BEC9388328E9656DC3E1DDF5FA2CB1023F99DE20E82A5F947D8B75A02BD5EC23"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "StaticMemberInGenericType",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Static field in generic type"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Generation/Tables.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 8
+                },
+                "region": {
+                  "startLine": 39,
+                  "startColumn": 43,
+                  "endLine": 39,
+                  "endColumn": 48,
+                  "charOffset": 1724,
+                  "charLength": 5
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "9D843F4B022FC9B599E1EA02FC27B885ECF990A3029F0D295772E93FFFDFBE62"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "StaticMemberInGenericType",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Static field in generic type"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Binding.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 50,
+                  "startColumn": 32,
+                  "endLine": 50,
+                  "endColumn": 37,
+                  "charOffset": 1846,
+                  "charLength": 5
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "57ABAE94A44C6A00D641A669892749C1410F5BD7E7F885F0618DBE2589E04A4A"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "StaticMemberInGenericType",
+          "ruleIndex": 8,
+          "level": "warning",
+          "message": {
+            "text": "Static field in generic type"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Timeline.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 3
+                },
+                "region": {
+                  "startLine": 136,
+                  "startColumn": 35,
+                  "endLine": 136,
+                  "endColumn": 44,
+                  "charOffset": 6318,
+                  "charLength": 9
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "2D67D961160BD73765602F0A36291B85AE6AEC251349FE66E8C9ECB319107C8A"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "UnusedTypeParameter",
+          "ruleIndex": 9,
+          "level": "warning",
+          "message": {
+            "text": "Type parameter 'TInput' is never used"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Binding.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 46,
+                  "startColumn": 34,
+                  "endLine": 46,
+                  "endColumn": 40,
+                  "charOffset": 1743,
+                  "charLength": 6
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "E7BC39988D221C11C6295CD34E99960AD8A198B5C3CCA311E743A6CB20C1D443"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "UnusedTypeParameter",
+          "ruleIndex": 9,
+          "level": "warning",
+          "message": {
+            "text": "Type parameter 'TResult' is never used"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Internal/Binding.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 9
+                },
+                "region": {
+                  "startLine": 46,
+                  "startColumn": 42,
+                  "endLine": 46,
+                  "endColumn": 49,
+                  "charOffset": 1751,
+                  "charLength": 7
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "E7BC39988D221C11C6295CD34E99960AD8A198B5C3CCA311E743A6CB20C1D443"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        },
+        {
+          "ruleId": "WithExpressionModifiesAllMembers",
+          "ruleIndex": 10,
+          "level": "warning",
+          "message": {
+            "text": "'with' expression modifies all accessible instance members"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Authoring/Builder.cs",
+                  "uriBaseId": "solutionDir",
+                  "index": 5
+                },
+                "region": {
+                  "startLine": 60,
+                  "startColumn": 86,
+                  "endLine": 60,
+                  "endColumn": 90,
+                  "charOffset": 1942,
+                  "charLength": 4
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "contextRegionHash/v1": "F0370D94E8B40200E69B9253298929EF7F625F2324D9F31BFBE31C315EEB20F7"
+          },
+          "properties": {
+            "tags": ["C#",".NET 10.0"]
+          }
+        }
+      ],
+      "tool": {
+        "driver": {
+          "name": "InspectCode",
+          "organization": "JetBrains, Inc",
+          "fullName": "JetBrains Inspect Code 2026.2.1",
+          "semanticVersion": "262.0.20260818.210923",
+          "informationUri": "http://www.jetbrains.com/resharper/features/command-line.html",
+          "rules": [
+            {
+              "id": "CheckNamespace",
+              "fullDescription": {
+                "text": "Namespace in file does not have a form of 'project Default Namespace plus folder names in the path to the file'. You can configure which folders form the namespace on the folder's Properties page."
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/CheckNamespace.html"
+              },
+              "shortDescription": {
+                "text": "Namespace does not correspond to file location"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/CheckNamespace.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.ConstraintViolation",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                },
+                {
+                  "target": {
+                    "id": "VBASIC.ConstraintViolation",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "InconsistentNaming",
+              "fullDescription": {
+                "text": "Name doesn't match naming style defined for this kind of symbol"
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/InconsistentNaming.html"
+              },
+              "shortDescription": {
+                "text": "Inconsistent Naming"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/InconsistentNaming.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.ConstraintViolation",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                },
+                {
+                  "target": {
+                    "id": "VBASIC.ConstraintViolation",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                },
+                {
+                  "target": {
+                    "id": "XAML.ConstraintViolation",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "PossiblyImpureMethodCallOnReadonlyVariable",
+              "fullDescription": {
+                "text": "Possibly impure struct instance method or 'this ref' extension method is called on readonly field/in parameter/ref readonly return: struct value always copied before invocation"
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/PossiblyImpureMethodCallOnReadonlyVariable.html"
+              },
+              "shortDescription": {
+                "text": "Possibly impure struct method is called on readonly variable: struct value always copied before invocation"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/PossiblyImpureMethodCallOnReadonlyVariable.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.CodeSmell",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                },
+                {
+                  "target": {
+                    "id": "VBASIC.CodeSmell",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "RedundantCast",
+              "fullDescription": {
+                "text": "Type cast can be safely removed"
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/RedundantCast.html"
+              },
+              "shortDescription": {
+                "text": "Redundant cast"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/RedundantCast.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.CodeRedundancy",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                },
+                {
+                  "target": {
+                    "id": "VBASIC.CodeRedundancy",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "RedundantNameQualifier",
+              "fullDescription": {
+                "text": "Redundant use of qualifier for a type name or static member usage"
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/RedundantNameQualifier.html"
+              },
+              "shortDescription": {
+                "text": "Redundant name qualifier"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/RedundantNameQualifier.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.CodeRedundancy",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "RedundantTypeArgumentsOfMethod",
+              "fullDescription": {
+                "text": "Specification of method type arguments is redundant because they are inferred from argument types"
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/RedundantTypeArgumentsOfMethod.html"
+              },
+              "shortDescription": {
+                "text": "Redundant type arguments of method"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/RedundantTypeArgumentsOfMethod.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.CodeRedundancy",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "RedundantUnsafeContext",
+              "fullDescription": {
+                "text": "Unsafe context declaration is redundant because it is declared in unsafe context, or it does not contain unsafe constructs"
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/RedundantUnsafeContext.html"
+              },
+              "shortDescription": {
+                "text": "Unsafe context declaration is redundant"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/RedundantUnsafeContext.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.CodeRedundancy",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "RedundantUsingDirective",
+              "fullDescription": {
+                "text": "Using directive is not required by the code and can be safely removed"
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/RedundantUsingDirective.html"
+              },
+              "shortDescription": {
+                "text": "Redundant using directive"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/RedundantUsingDirective.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "ASPX.CodeRedundancy",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                },
+                {
+                  "target": {
+                    "id": "CSHARP.CodeRedundancy",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "StaticMemberInGenericType",
+              "fullDescription": {
+                "text": "Static field or auto-property in generic type may result in state duplication per each generic type instantiation"
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/StaticMemberInGenericType.html"
+              },
+              "shortDescription": {
+                "text": "Static field or auto-property in generic type"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/StaticMemberInGenericType.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.CodeSmell",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                },
+                {
+                  "target": {
+                    "id": "VBASIC.CodeSmell",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "UnusedTypeParameter",
+              "fullDescription": {
+                "text": "Type parameter is never used"
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/UnusedTypeParameter.html"
+              },
+              "shortDescription": {
+                "text": "Unused type parameter"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/UnusedTypeParameter.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.DeclarationRedundancy",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                },
+                {
+                  "target": {
+                    "id": "VBASIC.DeclarationRedundancy",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "WithExpressionModifiesAllMembers",
+              "fullDescription": {
+                "text": "'with' expression modifies all accessible instance members. Unless it is an unintentional mistake, it should make more sense to create an entirely new instance."
+              },
+              "help": {
+                "text": "https://www.jetbrains.com/help/resharper/WithExpressionModifiesAllMembers.html"
+              },
+              "shortDescription": {
+                "text": "'with' expression modifies all accessible instance members"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://www.jetbrains.com/help/resharper/WithExpressionModifiesAllMembers.html",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP.CodeSmell",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            }
+          ],
+          "taxa": [
+            {
+              "id": "ASPX",
+              "name": "Aspx"
+            },
+            {
+              "id": "ASPX.CodeRedundancy",
+              "name": "Redundancies in Code",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "ASPX",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CSHARP",
+              "name": "C#"
+            },
+            {
+              "id": "CSHARP.CodeRedundancy",
+              "name": "Redundancies in Code",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CSHARP.CodeSmell",
+              "name": "Potential Code Quality Issues",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CSHARP.ConstraintViolation",
+              "name": "Constraints Violations",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CSHARP.DeclarationRedundancy",
+              "name": "Redundancies in Symbol Declarations",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "CSHARP",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "VBASIC",
+              "name": "VB.NET"
+            },
+            {
+              "id": "VBASIC.CodeRedundancy",
+              "name": "Redundancies in Code",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "VBASIC",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "VBASIC.CodeSmell",
+              "name": "Potential Code Quality Issues",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "VBASIC",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "VBASIC.ConstraintViolation",
+              "name": "Constraints Violations",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "VBASIC",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "VBASIC.DeclarationRedundancy",
+              "name": "Redundancies in Symbol Declarations",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "VBASIC",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "XAML",
+              "name": "XAML"
+            },
+            {
+              "id": "XAML.ConstraintViolation",
+              "name": "Constraints Violations",
+              "relationships": [
+                {
+                  "target": {
+                    "id": "XAML",
+                    "toolComponent": {
+                      "name": "InspectCode"
+                    }
+                  },
+                  "kinds": [
+                    "superset"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "invocations": [
+        {
+          "executionSuccessful": true
+        }
+      ],
+      "versionControlProvenance": [
+        {
+          "repositoryUri": "https://github.com/IAFahim/tl.git",
+          "revisionId": "0ef26769a11ff90bab288948170334c9396ae9a7",
+          "branch": "codex/tl-integration-20260909"
+        }
+      ],
+      "originalUriBaseIds": {
+        "solutionDir": {
+          "uri": "file:///home/i/Work/tl-integration/src/Tl.Core/",
+          "description": {
+            "text": "Solution Directory"
+          }
+        }
+      },
+      "artifacts": [
+        {
+          "location": {
+            "uri": "Cursor.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "090488B311631113E84257A2B645B5C1",
+            "sha-1": "8FB6B3859E66BD8EEBDCE0180E01A0D6580AA722",
+            "sha-256": "E9250A0EF3AC36ACE38DF5A79FB362669D0066B64E093BCCED8CB38C72EE981E"
+          }
+        },
+        {
+          "location": {
+            "uri": "Hooks.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "EA0A1C8323D9790653465D9ED76DE374",
+            "sha-1": "B13CB29EE0F47FD822B4D8636D25D43E8B852C15",
+            "sha-256": "AB551C0C3DBC2F4F3A2FCB7EFFE434E25D8BD712D41A0CAAB868E5468500C9B5"
+          }
+        },
+        {
+          "location": {
+            "uri": "Playback.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "7B5ACC34147EEF245ED30AF4624F7E58",
+            "sha-1": "A7F4D9D43C568D9AC0A071C7B204572C8D0159F5",
+            "sha-256": "F07E371726EA9FBF5EE19EC4637E6157BF108C211E96262E9DD5986948E7A42F"
+          }
+        },
+        {
+          "location": {
+            "uri": "Timeline.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "E8D4541A806F16E1005FF0F95318891F",
+            "sha-1": "EB264E26524493FFFE45403C9B51B30B99112354",
+            "sha-256": "9A7D1C2F305C0CF8F7B79DD14A4B3D8DDA72007A6A21FF1F89BE9B4B5A4987D6"
+          }
+        },
+        {
+          "location": {
+            "uri": "Tracks.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "B8D6906B92D7E9253910EAE13E0E575D",
+            "sha-1": "74C0938E3854449C29B3128CFAF4686B29FD1D77",
+            "sha-256": "68013C8AAA19981D1B2900A24E7C448250A6EF3C47CB5F7662D81E724B0954F3"
+          }
+        },
+        {
+          "location": {
+            "uri": "Authoring/Builder.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "9324A74A01DDF08795B5A403E9223B79",
+            "sha-1": "B3E9F83BB381F6B42F6FCE3827B51B107191259B",
+            "sha-256": "A1B6F6BBAC0F017A72351972BA2B7DE81AF400834444ADC322AAF8FF69CDEC48"
+          }
+        },
+        {
+          "location": {
+            "uri": "Authoring/Lowering.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "A4E5A4B8C11C8C55E70F2F1E0B00023D",
+            "sha-1": "5711F081DB20137A962DC55F39DC0E499F65FC37",
+            "sha-256": "D8FCBE06806A8BFD1501FFE585DFCA45B78EA812E1B4F727DB79919E256FBA35"
+          }
+        },
+        {
+          "location": {
+            "uri": "Authoring/Options.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "01609EB0CC1737BA07644AC7EF371D9B",
+            "sha-1": "E612C6B64AAC66CB6A4CE64B194D9EB5BDC9E355",
+            "sha-256": "3DF8E9A57AF4D84F1EEBE5A98334A78516DA7007826538486811F2E18F7C258F"
+          }
+        },
+        {
+          "location": {
+            "uri": "Generation/Tables.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "3EAA14D915675926B37A6BC4FF0FAE56",
+            "sha-1": "A9C993C07A32ADD4B6DEFC2A769F3A761003F7BB",
+            "sha-256": "08DF96900BB4F47622C9E5C51639B4C88093D1983D782B3F00CDB3669C42F69A"
+          }
+        },
+        {
+          "location": {
+            "uri": "Internal/Binding.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "1ACA7A52B0D91C36189DFC618F6EFF4D",
+            "sha-1": "C9104762725210180FF56653CAC90131BB7133F7",
+            "sha-256": "DF28CEC7CD6A1D21CCD1B45F86DEB460932E1F18E30BD77BC9F2A3F30D0BD529"
+          }
+        },
+        {
+          "location": {
+            "uri": "Internal/Playback.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "890FB38522CD3213D210C09133347ECD",
+            "sha-1": "F4E09FACAF8B719A5A51ABC6A7449C75EFDF25E5",
+            "sha-256": "5E10B487ED5A950328F05772C505C85EA98242C945E12611AD9A22859A57D5DA"
+          }
+        },
+        {
+          "location": {
+            "uri": "Internal/Registry.cs",
+            "uriBaseId": "solutionDir"
+          },
+          "hashes": {
+            "md5": "8E98FD8AB96D612A7EE63E6F2C4A2E6E",
+            "sha-1": "4260D11F67E46F56363FBF7478A21CB3DBE4644D",
+            "sha-256": "F9DDBE244E223D53BDB9EA2874131C32AE83BD912A8DA3CC16D610C997AFB433"
+          }
+        }
+      ],
+      "columnKind": "utf16CodeUnits"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+Date: 2026-09-09
+Baseline commit: 0ef26769a11ff90bab288948170334c9396ae9a7
+Machine: Intel Core i9-14900K, Linux x64
+SDK: 10.0.400
+Runtime: .NET 10.0.11, X64 RyuJIT x86-64-v3
+BenchmarkDotNet: 0.15.8
+Job: tiered JIT, 12 warmups, 12 measurements, 250 ms target iteration time, MemoryDiagnoser, Full JSON exporter
+Operations per invocation: 4096 ticks
+Streams: sequential 0..4095, xorshift32 seed 0xA312AFD5 modulo 2400, repeated tick 321
+Calls: single tick and batches of 8
+Observable return: Playback fields and all PulseResult fields
+Build: dotnet build benchmarks/KernelCompare/KernelCompare.csproj -c Release -p:UseSharedCompilation=false -p:NuGetAudit=false -m:1
+Run: taskset -c 4 dotnet run --project benchmarks/KernelCompare/KernelCompare.csproj -c Release --no-build -- --artifacts <result-directory>
+Verify: taskset -c 4 dotnet run --project benchmarks/KernelCompare/KernelCompare.csproj -c Release --no-build -- --verify
+Verified inherited Cpus_allowed_list: 4
+BenchmarkDotNet's redundant ProcessorAffinity setter reported Invalid argument after taskset restricted the inherited process mask to CPU 4.
+Logical CPU 5 was left unused.

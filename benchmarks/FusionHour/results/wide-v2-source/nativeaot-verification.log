@@ -1,0 +1,2 @@
+40,868 exact comparisons passed: both directions, full Playback, float bits, boundaries, gaps, wraps, overflow before effects, lifecycle, batch composition, independent sample oracle.
+runtime: NativeAOT

@@ -1,0 +1,34 @@
+  Determining projects to restore...
+  Restored /home/i/Work/tl-integration/tests/Tl.Gen.Tests/Tl.Gen.Tests.csproj (in 151 ms).
+  Restored /home/i/Work/tl-integration/tests/Tl.Core.Tests/Tl.Core.Tests.csproj (in 4 ms).
+  Restored /home/i/Work/tl-integration/tests/Tl.Aot/Tl.Aot.csproj (in 28 ms).
+  Restored /home/i/Work/tl-integration/src/Tl.Gen/Tl.Gen.csproj (in 2 ms).
+  Restored /home/i/Work/tl-integration/src/Tl.Core/Tl.Core.csproj (in 1 ms).
+  Restored /home/i/Work/tl-integration/samples/Compiled/Compiled.csproj (in 1 ms).
+  Restored /home/i/Work/tl-integration/samples/Basic/Basic.csproj (in 1 ms).
+  Restored /home/i/Work/tl-integration/benchmarks/Review/Review.csproj (in 35 ms).
+  Restored /home/i/Work/tl-integration/benchmarks/Dispatch/Dispatch.csproj (in 4 ms).
+  Restored /home/i/Work/tl-integration/benchmarks/AotBench/AotBench.csproj (in 0.7 ms).
+  Restored /home/i/Work/tl-integration/benchmarks/Algorithms/Algorithms.csproj (in 2 ms).
+  1 of 12 projects are up-to-date for restore.
+  Algorithms -> /home/i/Work/tl-integration/benchmarks/Algorithms/bin/Release/net10.0/Algorithms.dll
+  AotBench -> /home/i/Work/tl-integration/benchmarks/AotBench/bin/Release/net10.0/AotBench.dll
+  Tl.Core -> /home/i/Work/tl-integration/src/Tl.Core/bin/Release/net10.0/Tl.Core.dll
+  Tl.Gen -> /home/i/Work/tl-integration/src/Tl.Gen/bin/Release/net10.0/Tl.Gen.dll
+  TlGenCompile: CompiledPulse <- Timeline.cs:66 (4 tracks, 19 clips, duration 600, loops True).
+  TlGenCompile: 1 kernel(s) + shared runtime -> obj/Release/net10.0/TlGenCompile/
+  Compiled -> /home/i/Work/tl-integration/samples/Compiled/bin/Release/net10.0/Compiled.dll
+  Dispatch -> /home/i/Work/tl-integration/benchmarks/Dispatch/bin/Release/net10.0/Dispatch.dll
+  Generate -> /home/i/Work/tl-integration/benchmarks/Generate/bin/Release/net10.0/Generate.dll
+  Review -> /home/i/Work/tl-integration/benchmarks/Review/bin/Release/net10.0/Review.dll
+  Basic -> /home/i/Work/tl-integration/samples/Basic/bin/Release/net10.0/Basic.dll
+  Generated obj/Release/net10.0/Generated/GeneratedAotTimeline.g.cs
+  Tl.Aot -> /home/i/Work/tl-integration/tests/Tl.Aot/bin/Release/net10.0/Tl.Aot.dll
+  Tl.Core.Tests -> /home/i/Work/tl-integration/tests/Tl.Core.Tests/bin/Release/net10.0/Tl.Core.Tests.dll
+  Tl.Gen.Tests -> /home/i/Work/tl-integration/tests/Tl.Gen.Tests/bin/Release/net10.0/Tl.Gen.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:01:09.86
