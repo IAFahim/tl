@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <Compile Include="../Hooks.cs" Link="Hooks.cs" />
+    <ProjectReference Include="..\..\samples\Compiled\Compiled.csproj" />
   </ItemGroup>
 
   <!-- Generated fixtures are not tracked; a fresh clone regenerates them
