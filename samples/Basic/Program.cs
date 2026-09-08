@@ -4,7 +4,7 @@ ushort id = Timeline<HealthTrack, HealthClip>.Build(static builder =>
 {
     var track = builder.Track(new HealthTrack());
     builder.Clip(in track, new HealthClip(2f), start: 0, end: 4);
-});
+}).InMemory();
 
 Timeline<HealthTrack, HealthClip>.Bind<HealthInput, HealthResult>(id);
 Timeline<HealthTrack, HealthClip>.Bind<HealthInput, DirectHealthResult>(id);

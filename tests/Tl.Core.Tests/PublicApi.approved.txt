@@ -100,6 +100,8 @@ type Tl.Timeline
   Field UInt16 None
   Method Tl.Playback Start(UInt16, UInt32)
   Method Tl.Playback Stop(UInt16, Tl.Playback ByRef)
+type Tl.TimelineAuthoring`2
+  Method UInt16 InMemory()
 type Tl.TimelineBuild`2
   Method System.IAsyncResult BeginInvoke(Tl.TimelineBuilder`2[TTrack,TClip], System.AsyncCallback, System.Object)
   Method Void EndInvoke(System.IAsyncResult)
@@ -123,10 +125,10 @@ type Tl.TimelineOptions
 type Tl.Timeline`2
   Method Tl.Playback Backward[TInput,TResult](UInt16, Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
   Method Void Bind[TInput,TResult](UInt16)
-  Method UInt16 Build(Tl.TimelineBuild`2[TTrack,TClip])
-  Method UInt16 Build(Tl.TimelineBuild`2[TTrack,TClip], Tl.TimelineOptions)
-  Method UInt16 Build[TSource](TSource, Tl.TimelineBuild`3[TTrack,TClip,TSource])
-  Method UInt16 Build[TSource](TSource, Tl.TimelineBuild`3[TTrack,TClip,TSource], Tl.TimelineOptions)
+  Method Tl.TimelineAuthoring`2[TTrack,TClip] Build(Tl.TimelineBuild`2[TTrack,TClip])
+  Method Tl.TimelineAuthoring`2[TTrack,TClip] Build(Tl.TimelineBuild`2[TTrack,TClip], Tl.TimelineOptions)
+  Method Tl.TimelineAuthoring`2[TTrack,TClip] Build[TSource](TSource, Tl.TimelineBuild`3[TTrack,TClip,TSource])
+  Method Tl.TimelineAuthoring`2[TTrack,TClip] Build[TSource](TSource, Tl.TimelineBuild`3[TTrack,TClip,TSource], Tl.TimelineOptions)
   Method Tl.Playback Forward[TInput,TResult](UInt16, Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
 type Tl.TrackRef
 type Tl.TrackWork`2

@@ -14,7 +14,7 @@ ushort id = Timeline<AotTrack, AotClip>.Build(static b =>
     b.Clip(in t0, new AotClip(20f), 5, 15);
     b.Clip(in t1, new AotClip(5f), 2, 8);
     b.Clip(in t1, new AotClip(15f), 10, 18);
-});
+}).InMemory();
 
 Timeline<AotTrack, AotClip>.Bind<AotInput, AotConsumer>(id);
 

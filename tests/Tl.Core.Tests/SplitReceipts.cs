@@ -90,7 +90,7 @@ public class SplitReceipts
             var t = b.Track(new RichTrack());
             b.Clip(in t, new RichClip(1.5f), 0, 50);
             b.Clip(in t, new RichClip(3.5f), 25, 75);
-        });
+        }).InMemory();
 
         var input = new RichInput
         {
@@ -173,7 +173,7 @@ public class SplitReceipts
         {
             var t = b.Track(new SeedTrack());
             b.Clip(in t, new SeedClip(3f), 2, 10);
-        });
+        }).InMemory();
 
         var input = new SeedInput(Seed: 0.25f, Scale: 2f);
 
@@ -265,7 +265,7 @@ public class SplitReceipts
         {
             var t = b.Track(new ManagedTrack());
             b.Clip(in t, new ManagedClip(9f), 0, 10);
-        });
+        }).InMemory();
 
         // The result lives in a class field (a movable heap location) while
         // dispatch holds a byref to it through the function pointer.

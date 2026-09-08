@@ -1,160 +1,174 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Tl.Internal;
 
-internal unsafe readonly struct Run<TInput, TResult>
-    where TInput : struct
-    where TResult : struct
+// One (TInput, TResult) pair's dispatch record for ONE timeline: the eight
+// function pointers of the closure's bridge, address-stable for the entry's
+// lifetime. The slot lives in the timeline's native block (inline, or in
+// the grown overflow array) — no managed cache, no managed arrays. Slots
+// are append-only and immutable once published, so lock-free playback
+// lookups can copy one by value and call through it safely.
+//
+// The pointers are stored as nint and cast back to their exact delegate*
+// types at the call sites (the generic contexts that installed them); the
+// round trip is exact — install and call sites spell the same signatures.
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct NativeBindSlot
 {
-    public readonly object? Owner;
-    public readonly delegate*<Timeline.Entry, in Playback, in TInput, ref TResult, ReadOnlySpan<uint>, Playback> Forward;
-    public readonly delegate*<Timeline.Entry, in Playback, in TInput, ref TResult, ReadOnlySpan<uint>, Playback> Backward;
-    public readonly delegate*<Timeline.Entry, in Playback, ref Cursor, in TInput, ref TResult, ReadOnlySpan<uint>, Playback> ForwardCursor;
-    public readonly delegate*<Timeline.Entry, in Playback, ref Cursor, in TInput, ref TResult, ReadOnlySpan<uint>, Playback> BackwardCursor;
-    public readonly delegate*<Timeline.Entry, in TInput, ref TResult, ReadOnlySpan<uint>, void> SampleForward;
-    public readonly delegate*<Timeline.Entry, in TInput, ref TResult, ReadOnlySpan<uint>, void> SampleBackward;
+    public int Token;
+    private nint _padding;
 
-    public Run(
-        object owner,
-        delegate*<Timeline.Entry, in Playback, in TInput, ref TResult, ReadOnlySpan<uint>, Playback> forward,
-        delegate*<Timeline.Entry, in Playback, in TInput, ref TResult, ReadOnlySpan<uint>, Playback> backward,
-        delegate*<Timeline.Entry, in Playback, ref Cursor, in TInput, ref TResult, ReadOnlySpan<uint>, Playback> forwardCursor,
-        delegate*<Timeline.Entry, in Playback, ref Cursor, in TInput, ref TResult, ReadOnlySpan<uint>, Playback> backwardCursor,
-        delegate*<Timeline.Entry, in TInput, ref TResult, ReadOnlySpan<uint>, void> sampleForward,
-        delegate*<Timeline.Entry, in TInput, ref TResult, ReadOnlySpan<uint>, void> sampleBackward)
-    {
-        Owner = owner;
-        Forward = forward;
-        Backward = backward;
-        ForwardCursor = forwardCursor;
-        BackwardCursor = backwardCursor;
-        SampleForward = sampleForward;
-        SampleBackward = sampleBackward;
-    }
+    // Hub dispatch (Timeline.Forward/Backward/... <TInput, TResult>).
+    public nint Forward;
+    public nint Backward;
+    public nint ForwardCursor;
+    public nint BackwardCursor;
+    public nint SampleForward;
+    public nint SampleBackward;
 
-    public bool IsBound => Forward != null;
+    // Caller-owned scratch dispatch (Timeline<TTrack, TClip>.Forward/Backward).
+    public nint ScratchForward;
+    public nint ScratchBackward;
 }
 
-internal static unsafe class BindingCache<TInput, TResult>
+// The token source: (TInput, TResult) pair identity as a small integer.
+// This is binding metadata created by consumer code (one machine word per
+// closed generic pair), NOT timeline state — the pair exists whether or
+// not any timeline does. Documented in docs/v0.4-unmanaged.md.
+internal static class BindingIds
+{
+    private static int s_next;
+
+    public static int Next() => Interlocked.Increment(ref s_next);
+}
+
+internal static class BindingIds<TInput, TResult>
     where TInput : struct
     where TResult : struct
 {
-    private static readonly object s_gate = new();
-    private static Run<TInput, TResult>[] s_runs = [];
+    public static readonly int Token = BindingIds.Next();
+}
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Run<TInput, TResult> Get(ushort index, Timeline.Entry entry)
+// Lookup and install over an entry's native bind table. The inline slots
+// (first NativeEntry.InlineBindCapacity pairs) are read lock-free on the
+// playback hot path; everything past them runs under the entry's native
+// spin gate.
+internal static unsafe class NativeBinding
+{
+    // Hot path: scan the inline slots, copy the match by value. Publication
+    // order in Install (slot first, then the count, both volatile) makes a
+    // published slot fully visible to this read.
+    public static NativeBindSlot Get<TInput, TResult>(NativeEntry* entry)
+        where TInput : struct
+        where TResult : struct
     {
-        var runs = Volatile.Read(ref s_runs);
-        if ((uint)index < (uint)runs.Length && ReferenceEquals(runs[index].Owner, entry))
-            return runs[index];
+        var token = BindingIds<TInput, TResult>.Token;
+        var slots = entry->InlineBinds;
+        var count = Volatile.Read(ref entry->InlineBindCount);
+        for (var i = 0; i < count; i++)
+            if (slots[i].Token == token)
+                return slots[i];
 
-        return BindCold(index, entry);
+        return GetCold<TInput, TResult>(entry, token);
     }
 
+    // First use of this pair on this timeline: run the closure's automatic
+    // binder (reflection under the JIT, an explicit Bind<TInput, TResult>
+    // prerequisite under AOT), then retry.
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static Run<TInput, TResult> BindCold(ushort index, Timeline.Entry entry)
+    private static NativeBindSlot GetCold<TInput, TResult>(NativeEntry* entry, int token)
+        where TInput : struct
+        where TResult : struct
     {
-        entry.Bind(typeof(TInput), typeof(TResult));
-        var runs = Volatile.Read(ref s_runs);
-        if ((uint)index < (uint)runs.Length && ReferenceEquals(runs[index].Owner, entry))
-            return runs[index];
-
-        throw new InvalidOperationException($"The input/result pair ({typeof(TInput)}, {typeof(TResult)}) does not implement this timeline's closure.");
+        entry->Binder(typeof(TInput), typeof(TResult), entry->Index);
+        var found = Find(entry, token);
+        if (found == null)
+            throw new InvalidOperationException(
+                $"The input/result pair ({typeof(TInput)}, {typeof(TResult)}) does not implement this timeline's closure.");
+        return *found;
     }
 
-    public static void Install(ushort index, Timeline.Entry entry, in Run<TInput, TResult> run)
+    private static NativeBindSlot* Find(NativeEntry* entry, int token)
     {
-        lock (s_gate)
-        {
-            var current = s_runs;
-            if ((uint)index < (uint)current.Length && ReferenceEquals(current[index].Owner, entry) && current[index].IsBound)
-                return;
+        var slots = entry->InlineBinds;
+        var count = Volatile.Read(ref entry->InlineBindCount);
+        for (var i = 0; i < count; i++)
+            if (slots[i].Token == token)
+                return &slots[i];
 
-            // Grow geometrically only when the index does not fit; see the
-            // matching note in Timeline.Register for why always-doubling is
-            // not acceptable here.
-            var capacity = Math.Max(current.Length, 16);
-            while (capacity <= index)
-                capacity *= 2;
-            var next = new Run<TInput, TResult>[capacity];
-            current.CopyTo(next, 0);
-            next[index] = run;
-            Volatile.Write(ref s_runs, next);
+        Acquire(ref entry->BindGate);
+        try
+        {
+            var overflow = entry->BindOverflow;
+            var overflowCount = entry->BindOverflowCount;
+            for (var i = 0; i < overflowCount; i++)
+                if (overflow[i].Token == token)
+                    return &overflow[i];
+            return null;
+        }
+        finally
+        {
+            Release(ref entry->BindGate);
         }
     }
-}
 
-internal unsafe readonly struct ScratchRun<TTrack, TClip, TInput, TResult>
-    where TTrack : struct, IBlend<TClip>
-    where TClip : unmanaged
-    where TInput : struct
-    where TResult : struct
-{
-    public readonly object? Owner;
-    public readonly delegate*<Timeline.Entry, in Playback, in TInput, ref TResult, Span<TClip>, ReadOnlySpan<uint>, Playback> Forward;
-    public readonly delegate*<Timeline.Entry, in Playback, in TInput, ref TResult, Span<TClip>, ReadOnlySpan<uint>, Playback> Backward;
-
-    public ScratchRun(
-        object owner,
-        delegate*<Timeline.Entry, in Playback, in TInput, ref TResult, Span<TClip>, ReadOnlySpan<uint>, Playback> forward,
-        delegate*<Timeline.Entry, in Playback, in TInput, ref TResult, Span<TClip>, ReadOnlySpan<uint>, Playback> backward)
+    // Install is idempotent per token and runs under the entry's spin gate:
+    // safe to call concurrently (auto-bind races converge on one slot).
+    // Inline appends publish the slot and only then the count, both with
+    // volatile semantics, so lock-free readers never observe a half-written
+    // slot. Overflow growth copies into a new array and frees the old one
+    // — every overflow reader holds the gate, so nothing dangles.
+    public static void Install(NativeEntry* entry, in NativeBindSlot slot)
     {
-        Owner = owner;
-        Forward = forward;
-        Backward = backward;
-    }
-
-    public bool IsBound => Forward != null;
-}
-
-internal static unsafe class ScratchCache<TTrack, TClip, TInput, TResult>
-    where TTrack : struct, IBlend<TClip>
-    where TClip : unmanaged
-    where TInput : struct
-    where TResult : struct
-{
-    private static readonly object s_gate = new();
-    private static ScratchRun<TTrack, TClip, TInput, TResult>[] s_runs = [];
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ScratchRun<TTrack, TClip, TInput, TResult> Get(ushort index, Timeline.Entry entry)
-    {
-        var runs = Volatile.Read(ref s_runs);
-        if ((uint)index < (uint)runs.Length && ReferenceEquals(runs[index].Owner, entry))
-            return runs[index];
-
-        return BindCold(index, entry);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static ScratchRun<TTrack, TClip, TInput, TResult> BindCold(ushort index, Timeline.Entry entry)
-    {
-        entry.Bind(typeof(TInput), typeof(TResult));
-        var runs = Volatile.Read(ref s_runs);
-        if ((uint)index < (uint)runs.Length && ReferenceEquals(runs[index].Owner, entry))
-            return runs[index];
-
-        throw new InvalidOperationException($"The input/result pair ({typeof(TInput)}, {typeof(TResult)}) does not implement this timeline's closure.");
-    }
-
-    public static void Install(ushort index, Timeline.Entry entry, in ScratchRun<TTrack, TClip, TInput, TResult> run)
-    {
-        lock (s_gate)
+        Acquire(ref entry->BindGate);
+        try
         {
-            var current = s_runs;
-            if ((uint)index < (uint)current.Length && ReferenceEquals(current[index].Owner, entry) && current[index].IsBound)
-                return;
+            var inline = entry->InlineBinds;
+            var inlineCount = entry->InlineBindCount;
+            for (var i = 0; i < inlineCount; i++)
+                if (inline[i].Token == slot.Token)
+                    return;
 
-            // Grow geometrically only when the index does not fit; see the
-            // matching note in Timeline.Register.
-            var capacity = Math.Max(current.Length, 16);
-            while (capacity <= index)
-                capacity *= 2;
-            var next = new ScratchRun<TTrack, TClip, TInput, TResult>[capacity];
-            current.CopyTo(next, 0);
-            next[index] = run;
-            Volatile.Write(ref s_runs, next);
+            if (inlineCount < NativeEntry.InlineBindCapacity)
+            {
+                inline[inlineCount] = slot;
+                Volatile.Write(ref entry->InlineBindCount, inlineCount + 1);
+                return;
+            }
+
+            var overflow = entry->BindOverflow;
+            var count = entry->BindOverflowCount;
+            for (var i = 0; i < count; i++)
+                if (overflow[i].Token == slot.Token)
+                    return;
+
+            if (count == entry->BindOverflowCapacity)
+            {
+                var capacity = entry->BindOverflowCapacity == 0 ? 8 : entry->BindOverflowCapacity * 2;
+                var grown = (NativeBindSlot*)NativeMemory.AllocZeroed((nuint)(capacity * sizeof(NativeBindSlot)));
+                if (overflow != null)
+                    Buffer.MemoryCopy(overflow, grown,
+                        (nuint)(capacity * sizeof(NativeBindSlot)), (nuint)(count * sizeof(NativeBindSlot)));
+                entry->BindOverflow = grown;
+                entry->BindOverflowCapacity = capacity;
+                overflow = grown;
+            }
+
+            overflow[count] = slot;
+            entry->BindOverflowCount = count + 1;
+        }
+        finally
+        {
+            Release(ref entry->BindGate);
         }
     }
+
+    private static void Acquire(ref int gate)
+    {
+        while (Interlocked.CompareExchange(ref gate, 1, 0) != 0)
+            Thread.SpinWait(16);
+    }
+
+    private static void Release(ref int gate) => Volatile.Write(ref gate, 0);
 }

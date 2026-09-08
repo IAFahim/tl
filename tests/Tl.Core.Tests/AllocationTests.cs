@@ -38,7 +38,7 @@ public class AllocationTests
             var t = b.Track(new FastTrack());
             b.Clip(in t, new FastClip(1.5f), 0, 50);
             b.Clip(in t, new FastClip(3.5f), 25, 75);
-        });
+}).InMemory();
 
         // Warm up and bind
         Timeline<FastTrack, FastClip>.Bind<NoInput, ZeroAllocResult>(id);

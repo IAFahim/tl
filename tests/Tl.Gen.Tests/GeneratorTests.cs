@@ -265,7 +265,7 @@ public class GeneratorTests
                 var tr = c.Track == 0 ? t0 : t1;
                 b.Clip(in tr, new SampleClip(c.Value), c.Start, c.End);
             }
-        });
+        }).InMemory();
 
         var runtimeConsumer = new ComplexResult();
         var runtimeInput = default(NoInput);

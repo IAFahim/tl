@@ -1,3 +1,5 @@
+using Tl.Authoring;
+
 namespace Tl;
 
 public readonly ref struct TrackRef
@@ -65,3 +67,25 @@ public delegate void TimelineBuild<TTrack, TClip>(scoped TimelineBuilder<TTrack,
 public delegate void TimelineBuild<TTrack, TClip, TSource>(scoped TimelineBuilder<TTrack, TClip> builder, TSource source)
     where TTrack : struct
     where TClip : struct;
+
+// AUTHORED, NOT YET REAL: what Build returns. Authoring syntax only — the
+// timeline exists once a terminal operation runs. InMemory is that terminal
+// operation: it lowers the authored tracks/clips through the runtime
+// lowering into ONE native block, registers it in the native slot table,
+// and returns the ushort handle every Timeline hub call accepts. The token
+// is a ref struct, so it cannot be parked in a field or leaked past the
+// statement that uses it; drop it and nothing was ever created.
+public readonly ref struct TimelineAuthoring<TTrack, TClip>
+    where TTrack : unmanaged, IBlend<TClip>
+    where TClip : unmanaged
+{
+    private readonly TimelineBuilder<TTrack, TClip>.Authoring _state;
+
+    internal TimelineAuthoring(TimelineBuilder<TTrack, TClip>.Authoring state) => _state = state;
+
+    // The unmanaged runtime timeline: one native allocation, explicitly
+    // owned, freed by Timeline.Destroy(handle). Transient managed locals
+    // during this call are acceptable; what it registers and retains is
+    // unmanaged memory and nothing else.
+    public ushort InMemory() => RuntimeLowering.Lower<TTrack, TClip>(_state);
+}

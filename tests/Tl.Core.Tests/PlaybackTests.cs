@@ -40,7 +40,7 @@ public class PlaybackTests
         {
             var t = b.Track(new SampleTrack());
             b.Clip(in t, new SampleClip(1f), 0, 10);
-        });
+        }).InMemory();
 
         var result = new RecordingResult();
         var input = default(NoInput);
@@ -61,7 +61,7 @@ public class PlaybackTests
         {
             var t = b.Track(new SampleTrack());
             b.Clip(in t, new SampleClip(1f), 0, 10);
-        });
+        }).InMemory();
 
         var result = new RecordingResult();
         var input = default(NoInput);
@@ -92,7 +92,7 @@ public class PlaybackTests
         {
             var t = b.Track(new SampleTrack());
             b.Clip(in t, new SampleClip(1f), 0, 10);
-        });
+        }).InMemory();
 
         var result = new RecordingResult();
         var input = default(NoInput);
@@ -114,7 +114,7 @@ public class PlaybackTests
         {
             var t = b.Track(new SampleTrack());
             b.Clip(in t, new SampleClip(10f), 5, 10);
-        });
+        }).InMemory();
 
         var result = new RecordingResult();
         var input = default(NoInput);
@@ -142,7 +142,7 @@ public class PlaybackTests
         {
             var t = b.Track(new SampleTrack());
             b.Clip(in t, new SampleClip(99f), start: 3, end: 4); // single tick: 3
-        });
+        }).InMemory();
 
         var result = new RecordingResult();
         var input = default(NoInput);
@@ -163,7 +163,7 @@ public class PlaybackTests
         {
             var t = b.Track(new SampleTrack());
             b.Clip(in t, new SampleClip(5f), start: 2, end: 5); // ticks 2, 3, 4
-        });
+        }).InMemory();
 
         var result = new RecordingResult();
         var input = default(NoInput);
@@ -187,7 +187,7 @@ public class PlaybackTests
             var t = b.Track(new SampleTrack());
             b.Clip(in t, new SampleClip(0f), 0, 10);
             b.Clip(in t, new SampleClip(100f), 0, 10);
-        });
+        }).InMemory();
 
         var result = new RecordingResult();
         var input = default(NoInput);
@@ -213,7 +213,7 @@ public class PlaybackTests
             var t = b.Track(new SampleTrack());
             b.Clip(in t, new SampleClip(1f), 0, 10);
             b.Looping();
-        });
+        }).InMemory();
 
         var result = new RecordingResult();
         var input = default(NoInput);
@@ -238,7 +238,7 @@ public class PlaybackTests
             var t = b.Track(new SampleTrack());
             b.Clip(in t, new SampleClip(1f), 0, 10);
             b.Looping();
-        });
+        }).InMemory();
 
         var result = new RecordingResult();
         var input = default(NoInput);

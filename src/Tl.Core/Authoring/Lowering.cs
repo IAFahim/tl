@@ -17,12 +17,24 @@ internal sealed class ByteArrayComparer : IEqualityComparer<byte[]>
     }
 }
 
-internal static class TimelineCompiler
+// RUNTIME LOWERING — the runtime half of the two distinct compile stories:
+// this lowers authored tracks/clips into the UNMANAGED runtime
+// representation (one native block per timeline, registered in the native
+// slot table); compile-time specialization (frozen/generated tables) is a
+// different feature with its own name. Build(...) is authoring syntax
+// only; a timeline exists once its terminal operation (.InMemory()) runs
+// this lowering.
+//
+// The algorithm (event sweep -> region rows -> dedup -> work-slot
+// materialization) is the v0.3 behavioral spec, unchanged. What changed is
+// the destination: managed construction locals are fine (they die when
+// this returns), but the result must be one native block — no class, no
+// arrays, no List, no delegates retained anywhere.
+internal static unsafe class RuntimeLowering
 {
-    public static ushort Compile<TTrack, TClip>(
-        TimelineBuilder<TTrack, TClip>.Authoring authoring,
-        Action<Type, Type, Timeline.Entry> binder)
-        where TTrack : struct, IBlend<TClip>
+    public static ushort Lower<TTrack, TClip>(
+        TimelineBuilder<TTrack, TClip>.Authoring authoring)
+        where TTrack : unmanaged, IBlend<TClip>
         where TClip : unmanaged
     {
         var cuts = new SortedSet<uint> { 0 };
@@ -214,25 +226,89 @@ internal static class TimelineCompiler
         var workSlots = PlaybackCore.MaterializeWorkSlots(
             compactTracks, CollectionsMarshal.AsSpan(clipRows), payloadMap, clipEdges, regionRows);
 
-        return Timeline.Register(new Timeline.Entry
-        {
-            RegionStarts = regionStarts,
-            RegionRows = regionRows,
-            TrackRows = compactTracks,
-            ClipRows = [.. clipRows],
-            ClipEdges = clipEdges,
-            WorkSlots = workSlots,
-            Payload = new Timeline<TTrack, TClip>.Tables
-            {
-                TrackData = [.. authoring.Tracks],
-                ClipData = clipData,
-                PayloadMap = payloadMap,
-            },
-            MaxActiveTracks = maxActive,
-            MaxActiveBlends = maxBlends,
-            Loops = authoring.Loops,
-            Duration = regionStarts[^1],
-            Binder = binder,
-        });
+        return Emit(
+            authoring, regionStarts, regionRows, compactTracks,
+            CollectionsMarshal.AsSpan(clipRows), clipEdges, payloadMap, clipData, workSlots,
+            maxActive, maxBlends);
     }
+
+    // Copies the lowered tables into ONE 16-aligned native block and
+    // registers it. Every table is 16-aligned within the block; empty
+    // tables still get a valid (block-interior) pointer.
+    private static ushort Emit<TTrack, TClip>(
+        TimelineBuilder<TTrack, TClip>.Authoring authoring,
+        uint[] regionStarts, RegionRow[] regionRows, TrackRow[] compactTracks,
+        ReadOnlySpan<ClipRow> clipRows, ClipEdge[] clipEdges, ushort[] payloadMap, TClip[] clipData,
+        WorkSlot[] workSlots,
+        int maxActive, int maxBlends)
+        where TTrack : unmanaged, IBlend<TClip>
+        where TClip : unmanaged
+    {
+        nuint cursor = (nuint)Unsafe.SizeOf<NativeEntry>();
+        nuint Take(int bytes)
+        {
+            cursor = (cursor + 15u) & ~(nuint)15;
+            var at = cursor;
+            cursor += (nuint)bytes;
+            return at;
+        }
+
+        var startsAt = Take(regionStarts.Length * sizeof(uint));
+        var regionRowsAt = Take(regionRows.Length * Unsafe.SizeOf<RegionRow>());
+        var trackRowsAt = Take(compactTracks.Length * Unsafe.SizeOf<TrackRow>());
+        var clipRowsAt = Take(clipRows.Length * Unsafe.SizeOf<ClipRow>());
+        var edgesAt = Take(clipEdges.Length * Unsafe.SizeOf<ClipEdge>());
+        var payloadMapAt = Take(payloadMap.Length * sizeof(ushort));
+        var trackDataAt = Take(authoring.Tracks.Count * Unsafe.SizeOf<TTrack>());
+        var clipDataAt = Take(clipData.Length * Unsafe.SizeOf<TClip>());
+        var workSlotsAt = Take(workSlots.Length * Unsafe.SizeOf<WorkSlot>());
+        var bindsAt = Take(NativeEntry.InlineBindCapacity * Unsafe.SizeOf<NativeBindSlot>());
+
+        var block = (byte*)NativeMemory.AlignedAlloc(cursor, 16);
+        NativeMemory.Clear(block, cursor);
+        var entry = (NativeEntry*)block;
+
+        entry->Stamp = NativeEntry.Signature;
+        entry->ClosureId = Timeline<TTrack, TClip>.ClosureId;
+        entry->Duration = regionStarts[^1];
+        entry->MaxActiveTracks = maxActive;
+        entry->MaxActiveBlends = maxBlends;
+        entry->Loops = authoring.Loops ? 1 : 0;
+
+        entry->RegionCount = regionStarts.Length;
+        entry->TrackRowCount = compactTracks.Length;
+        entry->ClipRowCount = clipRows.Length;
+        entry->ClipEdgeCount = clipEdges.Length;
+        entry->PayloadCount = clipData.Length;
+        entry->PayloadMapCount = payloadMap.Length;
+        entry->TrackCount = authoring.Tracks.Count;
+
+        entry->RegionStarts = (uint*)(block + startsAt);
+        entry->RegionRows = (RegionRow*)(block + regionRowsAt);
+        entry->TrackRows = (TrackRow*)(block + trackRowsAt);
+        entry->ClipRows = (ClipRow*)(block + clipRowsAt);
+        entry->ClipEdges = (ClipEdge*)(block + edgesAt);
+        entry->PayloadMap = payloadMap.Length == 0 ? null : (ushort*)(block + payloadMapAt);
+        entry->TrackData = block + trackDataAt;
+        entry->ClipData = block + clipDataAt;
+        entry->WorkSlots = (WorkSlot*)(block + workSlotsAt);
+        entry->Binder = &Timeline<TTrack, TClip>.BindByType;
+        entry->InlineBinds = (NativeBindSlot*)(block + bindsAt);
+
+        CopyBytes(entry->RegionStarts, MemoryMarshal.AsBytes(regionStarts.AsSpan()));
+        CopyBytes(entry->RegionRows, MemoryMarshal.AsBytes(regionRows.AsSpan()));
+        CopyBytes(entry->TrackRows, MemoryMarshal.AsBytes(compactTracks.AsSpan()));
+        CopyBytes(entry->ClipRows, MemoryMarshal.AsBytes(clipRows));
+        CopyBytes(entry->ClipEdges, MemoryMarshal.AsBytes(clipEdges.AsSpan()));
+        if (payloadMap.Length != 0)
+            CopyBytes(entry->PayloadMap, MemoryMarshal.AsBytes(payloadMap.AsSpan()));
+        CopyBytes(entry->TrackData, MemoryMarshal.AsBytes(CollectionsMarshal.AsSpan(authoring.Tracks)));
+        CopyBytes(entry->ClipData, MemoryMarshal.AsBytes(clipData.AsSpan()));
+        CopyBytes(entry->WorkSlots, MemoryMarshal.AsBytes(workSlots.AsSpan()));
+
+        return Timeline.Register(entry);
+    }
+
+    private static void CopyBytes(void* destination, ReadOnlySpan<byte> source)
+        => source.CopyTo(new Span<byte>(destination, source.Length));
 }

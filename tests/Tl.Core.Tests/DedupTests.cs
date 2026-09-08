@@ -53,8 +53,8 @@ public class DedupTests
             b.Clip(in t2, new PayloadClip(30, 40), 5, 10);
         }
 
-        var defaultId = Timeline<CollisionTrack, PayloadClip>.Build(AuthorTimeline);
-        var dedupId = Timeline<CollisionTrack, PayloadClip>.Build(AuthorTimeline, new TimelineOptions { DedupStorage = true });
+        var defaultId = Timeline<CollisionTrack, PayloadClip>.Build(AuthorTimeline).InMemory();
+        var dedupId = Timeline<CollisionTrack, PayloadClip>.Build(AuthorTimeline, new TimelineOptions { DedupStorage = true }).InMemory();
 
         var input = default(NoInput);
 
@@ -84,7 +84,7 @@ public class DedupTests
             var t = b.Track(new CollisionTrack());
             b.Clip(in t, new PayloadClip(1, 2), 0, 5);
             b.Clip(in t, new PayloadClip(2, 1), 5, 10);
-        }, new TimelineOptions { DedupStorage = true });
+        }, new TimelineOptions { DedupStorage = true }).InMemory();
 
         var c = new SumResult();
         var input = default(NoInput);

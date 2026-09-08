@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Tl.Authoring;
+using Tl.Generation;
 using Tl.Internal;
 
 namespace Tl;
@@ -35,8 +37,9 @@ public static unsafe partial class Timeline
     {
         var entry = Live(index);
         PlaybackCore.RequireRunnable(in playback);
-        var run = BindingCache<TInput, TResult>.Get(index, entry);
-        return run.Forward(entry, in playback, in input, ref result, ticks);
+        var slot = NativeBinding.Get<TInput, TResult>(entry);
+        var forward = (delegate*<NativeEntry*, in Playback, in TInput, ref TResult, ReadOnlySpan<uint>, Playback>)(void*)slot.Forward;
+        return forward(entry, in playback, in input, ref result, ticks);
     }
 
     public static Playback Backward<TInput, TResult>(ushort index, in Playback playback, in TInput input, ref TResult result, in uint tick)
@@ -53,8 +56,9 @@ public static unsafe partial class Timeline
     {
         var entry = Live(index);
         PlaybackCore.RequireRunnable(in playback);
-        var run = BindingCache<TInput, TResult>.Get(index, entry);
-        return run.Backward(entry, in playback, in input, ref result, ticks);
+        var slot = NativeBinding.Get<TInput, TResult>(entry);
+        var backward = (delegate*<NativeEntry*, in Playback, in TInput, ref TResult, ReadOnlySpan<uint>, Playback>)(void*)slot.Backward;
+        return backward(entry, in playback, in input, ref result, ticks);
     }
 
     public static Playback Forward<TInput, TResult>(ushort index, in Playback playback, ref Cursor cursor, in TInput input, ref TResult result, in uint tick)
@@ -71,8 +75,9 @@ public static unsafe partial class Timeline
     {
         var entry = Live(index);
         PlaybackCore.RequireRunnable(in playback);
-        var run = BindingCache<TInput, TResult>.Get(index, entry);
-        return run.ForwardCursor(entry, in playback, ref cursor, in input, ref result, ticks);
+        var slot = NativeBinding.Get<TInput, TResult>(entry);
+        var forward = (delegate*<NativeEntry*, in Playback, ref Cursor, in TInput, ref TResult, ReadOnlySpan<uint>, Playback>)(void*)slot.ForwardCursor;
+        return forward(entry, in playback, ref cursor, in input, ref result, ticks);
     }
 
     public static Playback Backward<TInput, TResult>(ushort index, in Playback playback, ref Cursor cursor, in TInput input, ref TResult result, in uint tick)
@@ -89,8 +94,9 @@ public static unsafe partial class Timeline
     {
         var entry = Live(index);
         PlaybackCore.RequireRunnable(in playback);
-        var run = BindingCache<TInput, TResult>.Get(index, entry);
-        return run.BackwardCursor(entry, in playback, ref cursor, in input, ref result, ticks);
+        var slot = NativeBinding.Get<TInput, TResult>(entry);
+        var backward = (delegate*<NativeEntry*, in Playback, ref Cursor, in TInput, ref TResult, ReadOnlySpan<uint>, Playback>)(void*)slot.BackwardCursor;
+        return backward(entry, in playback, ref cursor, in input, ref result, ticks);
     }
 
     public static void Forward<TInput, TResult>(ushort index, in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)
@@ -98,8 +104,9 @@ public static unsafe partial class Timeline
         where TResult : struct
     {
         var entry = Live(index);
-        var run = BindingCache<TInput, TResult>.Get(index, entry);
-        run.SampleForward(entry, in input, ref result, ticks);
+        var slot = NativeBinding.Get<TInput, TResult>(entry);
+        var sample = (delegate*<NativeEntry*, in TInput, ref TResult, ReadOnlySpan<uint>, void>)(void*)slot.SampleForward;
+        sample(entry, in input, ref result, ticks);
     }
 
     public static void Backward<TInput, TResult>(ushort index, in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)
@@ -107,44 +114,49 @@ public static unsafe partial class Timeline
         where TResult : struct
     {
         var entry = Live(index);
-        var run = BindingCache<TInput, TResult>.Get(index, entry);
-        run.SampleBackward(entry, in input, ref result, ticks);
+        var slot = NativeBinding.Get<TInput, TResult>(entry);
+        var sample = (delegate*<NativeEntry*, in TInput, ref TResult, ReadOnlySpan<uint>, void>)(void*)slot.SampleBackward;
+        sample(entry, in input, ref result, ticks);
     }
 }
 
-public static class Timeline<TTrack, TClip>
-    where TTrack : struct, IBlend<TClip>
+// The runtime-authored timeline under the unmanaged boundary: authoring
+// syntax (Build) produces an authoring token; the terminal operation
+// (InMemory) lowers it into one native block and returns the ushort
+// handle. TTrack joins TClip in the unmanaged constraint — the payload
+// tables are copied into native memory, which is only correct for types
+// the GC never needs to see (the honest price of native storage).
+public static unsafe class Timeline<TTrack, TClip>
+    where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
-    internal sealed class Tables
-    {
-        public required TTrack[] TrackData { get; init; }
-        public required TClip[] ClipData { get; init; }
-        public required ushort[] PayloadMap { get; init; }
-    }
+    // Closure identity: one machine word per closed Timeline<,> type,
+    // minted from consumer code's generic instantiation — binding
+    // metadata (like the (TInput, TResult) token), not timeline state.
+    internal static readonly nint ClosureId = Timeline.NextClosureId();
 
-    public static ushort Build(TimelineBuild<TTrack, TClip> build)
+    public static TimelineAuthoring<TTrack, TClip> Build(TimelineBuild<TTrack, TClip> build)
         => Build(build, TimelineOptions.Default);
 
-    public static ushort Build(TimelineBuild<TTrack, TClip> build, TimelineOptions options)
+    public static TimelineAuthoring<TTrack, TClip> Build(TimelineBuild<TTrack, TClip> build, TimelineOptions options)
     {
         ArgumentNullException.ThrowIfNull(build);
 
         var builder = new TimelineBuilder<TTrack, TClip>(options);
         build(builder);
-        return TimelineCompiler.Compile(builder._state, BindType);
+        return new TimelineAuthoring<TTrack, TClip>(builder._state);
     }
 
-    public static ushort Build<TSource>(TSource source, TimelineBuild<TTrack, TClip, TSource> build)
+    public static TimelineAuthoring<TTrack, TClip> Build<TSource>(TSource source, TimelineBuild<TTrack, TClip, TSource> build)
         => Build(source, build, TimelineOptions.Default);
 
-    public static ushort Build<TSource>(TSource source, TimelineBuild<TTrack, TClip, TSource> build, TimelineOptions options)
+    public static TimelineAuthoring<TTrack, TClip> Build<TSource>(TSource source, TimelineBuild<TTrack, TClip, TSource> build, TimelineOptions options)
     {
         ArgumentNullException.ThrowIfNull(build);
 
         var builder = new TimelineBuilder<TTrack, TClip>(options);
         build(builder, source);
-        return TimelineCompiler.Compile(builder._state, BindType);
+        return new TimelineAuthoring<TTrack, TClip>(builder._state);
     }
 
     public static void Bind<TInput, TResult>(ushort index)
@@ -152,9 +164,9 @@ public static class Timeline<TTrack, TClip>
         where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
         var entry = Timeline.Live(index);
-        if (entry.Payload is not Tables)
+        if (entry->ClosureId != ClosureId)
             throw new InvalidOperationException($"Timeline index {index} does not belong to the <{typeof(TTrack).Name}, {typeof(TClip).Name}> closure.");
-        Bridge<TInput, TResult>.Install(index, entry);
+        Bridge<TInput, TResult>.Install(entry);
     }
 
     public static unsafe Playback Forward<TInput, TResult>(ushort index, in Playback playback, in TInput input, ref TResult result, Span<TClip> scratch, params ReadOnlySpan<uint> ticks)
@@ -162,13 +174,14 @@ public static class Timeline<TTrack, TClip>
         where TResult : struct
     {
         var entry = Timeline.Live(index);
-        if (entry.Payload is not Tables)
+        if (entry->ClosureId != ClosureId)
             throw new ArgumentException("Timeline belongs to a different track/clip pair.", nameof(index));
         PlaybackCore.RequireRunnable(in playback);
-        if (scratch.Length < entry.MaxActiveBlends)
+        if (scratch.Length < entry->MaxActiveBlends)
             throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
-        var run = ScratchCache<TTrack, TClip, TInput, TResult>.Get(index, entry);
-        return run.Forward(entry, in playback, in input, ref result, scratch, ticks);
+        var slot = NativeBinding.Get<TInput, TResult>(entry);
+        var run = (delegate*<NativeEntry*, in Playback, in TInput, ref TResult, Span<TClip>, ReadOnlySpan<uint>, Playback>)(void*)slot.ScratchForward;
+        return run(entry, in playback, in input, ref result, scratch, ticks);
     }
 
     public static unsafe Playback Backward<TInput, TResult>(ushort index, in Playback playback, in TInput input, ref TResult result, Span<TClip> scratch, params ReadOnlySpan<uint> ticks)
@@ -176,198 +189,189 @@ public static class Timeline<TTrack, TClip>
         where TResult : struct
     {
         var entry = Timeline.Live(index);
-        if (entry.Payload is not Tables)
+        if (entry->ClosureId != ClosureId)
             throw new ArgumentException("Timeline belongs to a different track/clip pair.", nameof(index));
         PlaybackCore.RequireRunnable(in playback);
-        if (scratch.Length < entry.MaxActiveBlends)
+        if (scratch.Length < entry->MaxActiveBlends)
             throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
-        var run = ScratchCache<TTrack, TClip, TInput, TResult>.Get(index, entry);
-        return run.Backward(entry, in playback, in input, ref result, scratch, ticks);
+        var slot = NativeBinding.Get<TInput, TResult>(entry);
+        var run = (delegate*<NativeEntry*, in Playback, in TInput, ref TResult, Span<TClip>, ReadOnlySpan<uint>, Playback>)(void*)slot.ScratchBackward;
+        return run(entry, in playback, in input, ref result, scratch, ticks);
     }
 
     private static readonly MethodInfo s_bind =
         typeof(Timeline<TTrack, TClip>).GetMethod(nameof(BindEntryData), BindingFlags.NonPublic | BindingFlags.Static)
         ?? throw new MissingMethodException(nameof(BindEntryData));
 
+    // The automatic (input, result) bridge bind for a Type pair — the cold
+    // path a first playback call takes when no explicit Bind ran. Stored in
+    // the native entry as a function pointer (its address also pins the
+    // closure identity the lowerer recorded).
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("ReflectionAnalysis", "IL2060:MakeGenericMethod",
         Justification = "The generic method is closed over the input/result pair; AOT consumers use Bind<TInput,TResult> instead.")]
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("AOT", "IL3050:MakeGenericMethod",
         Justification = "Guarded by the IsDynamicCodeSupported check; AOT consumers use Bind<TInput,TResult> instead.")]
-    private static void BindType(Type input, Type result, Timeline.Entry entry)
+    internal static void BindByType(Type input, Type result, ushort index)
     {
         if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)
             throw new NotSupportedException(
                 $"The automatic (entry, input, result) bridge bind needs dynamic code; under NativeAOT call " +
                 $"{typeof(Timeline<TTrack, TClip>).Name}.Bind<TInput,TResult>(index) once per pair instead.");
-        s_bind.MakeGenericMethod(input, result).Invoke(null, [entry]);
+        s_bind.MakeGenericMethod(input, result).Invoke(null, [index]);
     }
 
-    private static void BindEntryData<TInput, TResult>(Timeline.Entry entry)
+    private static void BindEntryData<TInput, TResult>(ushort index)
         where TInput : struct
         where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
-        => Bridge<TInput, TResult>.Install(entry.Index, entry);
+        => Bridge<TInput, TResult>.Install(Timeline.Live(index));
 
+    // The bridge: the eight entry points of one (TInput, TResult) pair over
+    // this closure's native representation. Each body wraps the SAME
+    // span-based PlaybackCore the generated tables shell uses — spans over
+    // native memory, adapter only at this boundary.
     private static unsafe class Bridge<TInput, TResult>
         where TInput : struct
         where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
-        public static void Install(ushort index, Timeline.Entry entry)
+        public static void Install(NativeEntry* entry)
         {
-            BindingCache<TInput, TResult>.Install(
-                index,
-                entry,
-                new Run<TInput, TResult>(
-                    entry,
-                    &RunForward,
-                    &RunBackward,
-                    &RunForwardCursor,
-                    &RunBackwardCursor,
-                    &SampleForward,
-                    &SampleBackward));
-
-            ScratchCache<TTrack, TClip, TInput, TResult>.Install(
-                index,
-                entry,
-                new ScratchRun<TTrack, TClip, TInput, TResult>(
-                    entry,
-                    &RunForwardScratch,
-                    &RunBackwardScratch));
+            NativeBinding.Install(entry, new NativeBindSlot
+            {
+                Token = BindingIds<TInput, TResult>.Token,
+                Forward = Address(&RunForward),
+                Backward = Address(&RunBackward),
+                ForwardCursor = Address(&RunForwardCursor),
+                BackwardCursor = Address(&RunBackwardCursor),
+                SampleForward = Address(&SampleForward),
+                SampleBackward = Address(&SampleBackward),
+                ScratchForward = Address(&RunForwardScratch),
+                ScratchBackward = Address(&RunBackwardScratch),
+            });
         }
 
-        private static Playback RunForward(Timeline.Entry entry, in Playback from, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
+        private static nint Address(delegate*<NativeEntry*, in Playback, in TInput, ref TResult, ReadOnlySpan<uint>, Playback> f)
+            => (nint)(void*)f;
+
+        private static nint Address(delegate*<NativeEntry*, in Playback, ref Cursor, in TInput, ref TResult, ReadOnlySpan<uint>, Playback> f)
+            => (nint)(void*)f;
+
+        private static nint Address(delegate*<NativeEntry*, in TInput, ref TResult, ReadOnlySpan<uint>, void> f)
+            => (nint)(void*)f;
+
+        private static nint Address(delegate*<NativeEntry*, in Playback, in TInput, ref TResult, Span<TClip>, ReadOnlySpan<uint>, Playback> f)
+            => (nint)(void*)f;
+
+        private static Playback RunForward(NativeEntry* entry, in Playback from, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
         {
-            var tables = Unsafe.As<Tables>(entry.Payload);
-            var starts = entry.RegionStarts.AsSpan();
-            var regionRows = entry.RegionRows.AsSpan();
-            var trackData = tables.TrackData.AsSpan();
-            var clipData = tables.ClipData.AsSpan();
-            var workSlots = entry.WorkSlots.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
+            View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
-                in from, backward: false, entry.Loops, ticks, in input, ref result,
+                in from, backward: false, entry->Loops != 0, ticks, in input, ref result,
                 starts, regionRows, trackData, clipData, resolved, workSlots,
                 -1, out _);
         }
 
-        private static Playback RunBackward(Timeline.Entry entry, in Playback from, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
+        private static Playback RunBackward(NativeEntry* entry, in Playback from, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
         {
-            var tables = Unsafe.As<Tables>(entry.Payload);
-            var starts = entry.RegionStarts.AsSpan();
-            var regionRows = entry.RegionRows.AsSpan();
-            var trackData = tables.TrackData.AsSpan();
-            var clipData = tables.ClipData.AsSpan();
-            var workSlots = entry.WorkSlots.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
+            View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
-                in from, backward: true, entry.Loops, ticks, in input, ref result,
+                in from, backward: true, entry->Loops != 0, ticks, in input, ref result,
                 starts, regionRows, trackData, clipData, resolved, workSlots,
                 -1, out _);
         }
 
-        private static Playback RunForwardCursor(Timeline.Entry entry, in Playback from, ref Cursor cursor, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
+        private static Playback RunForwardCursor(NativeEntry* entry, in Playback from, ref Cursor cursor, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
         {
-            var valid = ReferenceEquals(cursor.Owner, entry) && cursor.Tick == from.Tick;
+            var valid = cursor.Owner == (nint)entry && cursor.Tick == from.Tick;
             var hint = valid ? cursor.Region : -1;
 
-            var tables = Unsafe.As<Tables>(entry.Payload);
-            var starts = entry.RegionStarts.AsSpan();
-            var regionRows = entry.RegionRows.AsSpan();
-            var trackData = tables.TrackData.AsSpan();
-            var clipData = tables.ClipData.AsSpan();
-            var workSlots = entry.WorkSlots.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
+            View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             var playback = PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
-                in from, backward: false, entry.Loops, ticks, in input, ref result,
+                in from, backward: false, entry->Loops != 0, ticks, in input, ref result,
                 starts, regionRows, trackData, clipData, resolved, workSlots,
                 hint, out var region);
 
-            cursor = new Cursor { Owner = entry, Tick = playback.Tick, Region = region };
+            cursor = new Cursor { Owner = (nint)entry, Tick = playback.Tick, Region = region };
             return playback;
         }
 
-        private static Playback RunBackwardCursor(Timeline.Entry entry, in Playback from, ref Cursor cursor, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
+        private static Playback RunBackwardCursor(NativeEntry* entry, in Playback from, ref Cursor cursor, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
         {
-            var valid = ReferenceEquals(cursor.Owner, entry) && cursor.Tick == from.Tick;
+            var valid = cursor.Owner == (nint)entry && cursor.Tick == from.Tick;
             var hint = valid ? cursor.Region : -1;
 
-            var tables = Unsafe.As<Tables>(entry.Payload);
-            var starts = entry.RegionStarts.AsSpan();
-            var regionRows = entry.RegionRows.AsSpan();
-            var trackData = tables.TrackData.AsSpan();
-            var clipData = tables.ClipData.AsSpan();
-            var workSlots = entry.WorkSlots.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
+            View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             var playback = PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
-                in from, backward: true, entry.Loops, ticks, in input, ref result,
+                in from, backward: true, entry->Loops != 0, ticks, in input, ref result,
                 starts, regionRows, trackData, clipData, resolved, workSlots,
                 hint, out var region);
 
-            cursor = new Cursor { Owner = entry, Tick = playback.Tick, Region = region };
+            cursor = new Cursor { Owner = (nint)entry, Tick = playback.Tick, Region = region };
             return playback;
         }
 
-        private static Playback RunForwardScratch(Timeline.Entry entry, in Playback from, in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
+        private static Playback RunForwardScratch(NativeEntry* entry, in Playback from, in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
         {
-            var tables = Unsafe.As<Tables>(entry.Payload);
-            var starts = entry.RegionStarts.AsSpan();
-            var regionRows = entry.RegionRows.AsSpan();
-            var trackData = tables.TrackData.AsSpan();
-            var clipData = tables.ClipData.AsSpan();
-            var workSlots = entry.WorkSlots.AsSpan();
+            View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
-                in from, backward: false, entry.Loops, ticks, in input, ref result,
+                in from, backward: false, entry->Loops != 0, ticks, in input, ref result,
                 starts, regionRows, trackData, clipData, scratch, workSlots,
                 -1, out _);
         }
 
-        private static Playback RunBackwardScratch(Timeline.Entry entry, in Playback from, in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
+        private static Playback RunBackwardScratch(NativeEntry* entry, in Playback from, in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
         {
-            var tables = Unsafe.As<Tables>(entry.Payload);
-            var starts = entry.RegionStarts.AsSpan();
-            var regionRows = entry.RegionRows.AsSpan();
-            var trackData = tables.TrackData.AsSpan();
-            var clipData = tables.ClipData.AsSpan();
-            var workSlots = entry.WorkSlots.AsSpan();
+            View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
-                in from, backward: true, entry.Loops, ticks, in input, ref result,
+                in from, backward: true, entry->Loops != 0, ticks, in input, ref result,
                 starts, regionRows, trackData, clipData, scratch, workSlots,
                 -1, out _);
         }
 
-        private static void SampleForward(Timeline.Entry entry, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
+        private static void SampleForward(NativeEntry* entry, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
         {
-            var tables = Unsafe.As<Tables>(entry.Payload);
-            var starts = entry.RegionStarts.AsSpan();
-            var regionRows = entry.RegionRows.AsSpan();
-            var trackData = tables.TrackData.AsSpan();
-            var clipData = tables.ClipData.AsSpan();
-            var workSlots = entry.WorkSlots.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
+            View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
-                backward: false, entry.Loops, ticks, in input, ref result,
+                backward: false, entry->Loops != 0, ticks, in input, ref result,
                 starts, regionRows, trackData, clipData, resolved, workSlots);
         }
 
-        private static void SampleBackward(Timeline.Entry entry, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
+        private static void SampleBackward(NativeEntry* entry, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
         {
-            var tables = Unsafe.As<Tables>(entry.Payload);
-            var starts = entry.RegionStarts.AsSpan();
-            var regionRows = entry.RegionRows.AsSpan();
-            var trackData = tables.TrackData.AsSpan();
-            var clipData = tables.ClipData.AsSpan();
-            var workSlots = entry.WorkSlots.AsSpan();
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
+            View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
+            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
-                backward: true, entry.Loops, ticks, in input, ref result,
+                backward: true, entry->Loops != 0, ticks, in input, ref result,
                 starts, regionRows, trackData, clipData, resolved, workSlots);
+        }
+
+        // Spans over the native tables: the whole adaptation to unmanaged
+        // storage. PlaybackCore is unchanged — it consumes spans either way.
+        private static void View(
+            NativeEntry* entry,
+            out ReadOnlySpan<uint> starts,
+            out ReadOnlySpan<RegionRow> regionRows,
+            out ReadOnlySpan<TTrack> trackData,
+            out ReadOnlySpan<TClip> clipData,
+            out ReadOnlySpan<WorkSlot> workSlots)
+        {
+            starts = new ReadOnlySpan<uint>(entry->RegionStarts, entry->RegionCount);
+            regionRows = new ReadOnlySpan<RegionRow>(entry->RegionRows, entry->RegionCount);
+            trackData = new ReadOnlySpan<TTrack>(entry->TrackData, entry->TrackCount);
+            clipData = new ReadOnlySpan<TClip>(entry->ClipData, entry->PayloadCount);
+            workSlots = new ReadOnlySpan<WorkSlot>(entry->WorkSlots, entry->TrackRowCount);
         }
     }
 }

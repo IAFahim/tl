@@ -62,7 +62,7 @@ public class DefectTests
         {
             var t = b.Track(new TestTrack());
             b.Clip(in t, new TestClip(10f), start: duration - 100, end: duration);
-        });
+        }).InMemory();
 
         Assert.Equal(duration, Timeline.Duration(id));
         Timeline.Destroy(id);
@@ -71,7 +71,7 @@ public class DefectTests
     [Fact]
     public void DefectA_EmptyTimelineHasZeroDurationAndCompletes()
     {
-        var id = Timeline<TestTrack, TestClip>.Build(_ => { });
+        var id = Timeline<TestTrack, TestClip>.Build(_ => { }).InMemory();
         Assert.Equal(0u, Timeline.Duration(id));
 
         var pb = Timeline.Start(id);
@@ -94,7 +94,7 @@ public class DefectTests
             var t = b.Track(new TestTrack());
             b.Clip(in t, new TestClip(5f), 0, dur);
             b.Looping();
-        });
+        }).InMemory();
 
         Assert.Equal(dur, Timeline.Duration(loopId));
 
@@ -152,7 +152,7 @@ public class DefectTests
         {
             var t = b.Track(new TestTrack());
             b.Clip(in t, new TestClip(42f), 0, 10);
-        });
+        }).InMemory();
 
         var container = new HeapContainer
         {
@@ -176,7 +176,7 @@ public class DefectTests
         {
             var t = b.Track(new TestTrack());
             b.Clip(in t, new TestClip(10f), 0, 10);
-        });
+        }).InMemory();
 
         var array = new TestResult[5];
         array[2].TriggerGc = true;
@@ -198,7 +198,7 @@ public class DefectTests
         {
             var t = b.Track(new TestTrack());
             b.Clip(in t, new TestClip(7f), 0, 10);
-        });
+        }).InMemory();
 
         var managed = new ManagedFieldsResult
         {
@@ -223,7 +223,7 @@ public class DefectTests
         {
             var t = b.Track(new TestTrack());
             b.Clip(in t, new TestClip(1f), 0, 50);
-        });
+        }).InMemory();
 
         var container = new HeapContainer
         {
@@ -235,7 +235,7 @@ public class DefectTests
         pb = Timeline.Forward(id, in pb, ref container.Cursor, in input, ref container.Result, 5u);
 
         Assert.Equal(5u, pb.Tick);
-        Assert.NotNull(container.Cursor.Owner);
+        Assert.NotEqual(nint.Zero, container.Cursor.Owner);
 
         Timeline.Destroy(id);
     }
@@ -271,7 +271,7 @@ public class DefectTests
             var t = b.Track(new OtherTrack());
             b.Clip(in t, new OtherClip(100.0), 0, 10);
             b.Clip(in t, new OtherClip(200.0), 5, 15);
-        });
+        }).InMemory();
 
         var dual = new DualConsumer();
         var input = default(NoInput);
@@ -319,7 +319,7 @@ public class DefectTests
             var t2 = b.Track(new TestTrack());
             b.Clip(in t2, new TestClip(3f), 0, 10);
             b.Clip(in t2, new TestClip(4f), 5, 15);
-        });
+        }).InMemory();
 
         var result = new TestResult();
         var input = default(NoInput);
@@ -353,7 +353,7 @@ public class DefectTests
         {
             var t = b.Track(new TestTrack());
             b.Clip(in t, new TestClip(1f), 0, 100);
-        });
+        }).InMemory();
 
         const int threadCount = 8;
         var tasks = new Task[threadCount];
@@ -384,7 +384,7 @@ public class DefectTests
         {
             var t = b.Track(new TestTrack());
             b.Clip(in t, new TestClip(10f), 0, 20);
-        });
+        }).InMemory();
 
         var pb = Timeline.Start(id);
         var result = new TestResult();
@@ -393,8 +393,10 @@ public class DefectTests
         // Destroy the timeline
         Timeline.Destroy(id);
 
-        // Verify that Live(id) throws immediately
-        Assert.Throws<ArgumentOutOfRangeException>(() => Timeline.Live(id));
+        // Verify that the entry is dead immediately: Live(id) (used by
+        // every hub call) throws, and the public probe agrees.
+        Assert.False(Timeline.IsValid(id));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Timeline.Duration(id));
 
         // And attempting to start or run throws
         Assert.Throws<ArgumentOutOfRangeException>(() => Timeline.Forward(id, in pb, in input, ref result, 5u));

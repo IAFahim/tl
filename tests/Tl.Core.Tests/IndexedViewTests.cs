@@ -35,7 +35,7 @@ public class IndexedViewTests
             b.Clip(in secondPair, new ProbeClip(12), 0, 8);
             b.Clip(in soloA, new ProbeClip(3), 0, 8);
             b.Clip(in soloB, new ProbeClip(5), 0, 8);
-        });
+        }).InMemory();
 
     // The foreach reference consumer: records every (Index, State) work it
     // sees and accumulates clip values on Stay only.
