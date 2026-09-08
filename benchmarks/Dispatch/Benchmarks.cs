@@ -1443,6 +1443,90 @@ public class Frozen
     }
 }
 
+// TEMPORARY probe (removed before commit): disassemble PlaybackCore.Advance
+// directly (the hub's pointer call is opaque to the diagnoser) with the
+// ladder's consumer shapes, to see the per-work view codegen.
+[DisassemblyDiagnoser(maxDepth: 2, printSource: true, exportCombinedDisassemblyReport: true)]
+public class ProbeEngine
+{
+    private ushort _singles;
+    private Timeline.Entry _entry = null!;
+    private DecompClip[] _clips = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _singles = Timeline<DecompTrack, DecompClip>.Build(b =>
+        {
+            for (var t = 0; t < 4; t++)
+            {
+                TrackRef track = b.Track(new DecompTrack());
+                b.Clip(track, new DecompClip(t * 2 + 3), 0, TrackViewDecomp.Duration);
+            }
+        });
+        _entry = Timeline.Live(_singles);
+        _clips = new DecompClip[1];
+    }
+
+    [Benchmark]
+    public long HubCalls()
+    {
+        var data = new DecompCalls();
+        var pb = Timeline.Start(_singles);
+        return Timeline.Forward(_singles, in pb, default(NoInput), ref data, 5u).Tick + data.Calls;
+    }
+
+    [Benchmark]
+    public long HubIndexRead()
+    {
+        var data = new DecompIndex();
+        var pb = Timeline.Start(_singles);
+        return Timeline.Forward(_singles, in pb, default(NoInput), ref data, 5u).Tick + data.Sink + data.Calls;
+    }
+
+    [Benchmark]
+    public long CallsDirect()
+    {
+        var tables = (Timeline<DecompTrack, DecompClip>.Tables)_entry.Payload!;
+        var data = new DecompCalls();
+        var pb = new Playback(5, 0, PlaybackFlags.Started);
+        ReadOnlySpan<uint> ticks = [5u];
+        return PlaybackCore.Advance<DecompTrack, DecompClip, NoInput, DecompCalls>(
+            in pb, false, false, ticks, default, ref data,
+            _entry.RegionStarts.AsSpan(), _entry.RegionRows.AsSpan(),
+            tables.TrackData.AsSpan(), tables.ClipData.AsSpan(), _clips, _entry.WorkSlots.AsSpan()).Tick
+            + data.Calls;
+    }
+
+    [Benchmark]
+    public long IndexReadDirect()
+    {
+        var tables = (Timeline<DecompTrack, DecompClip>.Tables)_entry.Payload!;
+        var data = new DecompIndex();
+        var pb = new Playback(5, 0, PlaybackFlags.Started);
+        ReadOnlySpan<uint> ticks = [5u];
+        return PlaybackCore.Advance<DecompTrack, DecompClip, NoInput, DecompIndex>(
+            in pb, false, false, ticks, default, ref data,
+            _entry.RegionStarts.AsSpan(), _entry.RegionRows.AsSpan(),
+            tables.TrackData.AsSpan(), tables.ClipData.AsSpan(), _clips, _entry.WorkSlots.AsSpan()).Tick
+            + data.Sink + data.Calls;
+    }
+
+    [Benchmark]
+    public float ClipReadDirect()
+    {
+        var tables = (Timeline<DecompTrack, DecompClip>.Tables)_entry.Payload!;
+        var data = new DecompClipRead();
+        var pb = new Playback(5, 0, PlaybackFlags.Started);
+        ReadOnlySpan<uint> ticks = [5u];
+        return PlaybackCore.Advance<DecompTrack, DecompClip, NoInput, DecompClipRead>(
+            in pb, false, false, ticks, default, ref data,
+            _entry.RegionStarts.AsSpan(), _entry.RegionRows.AsSpan(),
+            tables.TrackData.AsSpan(), tables.ClipData.AsSpan(), _clips, _entry.WorkSlots.AsSpan()).Tick
+            + data.Sum + data.Calls;
+    }
+}
+
 // TrackViewDecomp — where does a single tick's time go? One region, four
 // tracks live on every tick of a 64-tick duration, so region lookup and
 // movement scans are constant and the ladder isolates the per-tick view
