@@ -22,4 +22,27 @@
       <FileWrites Include="$(_GenOutDir)*.g.cs" />
     </ItemGroup>
   </Target>
+
+  <!-- Compile-time timeline specialization: reads Build(...).Compile()
+       declarations out of the compiling project's sources (the
+       @(TlCompileTimeline) items) through the Tl.Gen CLI and emits the
+       shared compiled runtime plus one specialized static kernel per
+       declaration, before CoreCompile. Outputs live under the intermediate
+       folder and are never committed; content-stable writes keep
+       incremental builds calm. Non-eligible sites fail the build with a
+       TLGENxx diagnostic naming the constraint and pointing at the
+       in-memory interpreter path. -->
+  <Target Name="TlGenCompileTimelines"
+          BeforeTargets="BeforeCompile;CoreCompile"
+          Condition="'@(TlCompileTimeline)' != ''">
+    <PropertyGroup>
+      <_TlGenCompileOut>$(IntermediateOutputPath)TlGenCompile\</_TlGenCompileOut>
+    </PropertyGroup>
+    <MakeDir Directories="$(_TlGenCompileOut)" />
+    <Exec Command="dotnet &quot;$(TlGenAssembly)&quot; --compile --output &quot;$(_TlGenCompileOut)&quot; @(TlCompileTimeline->'--source &quot;%(FullPath)&quot;', ' ')" />
+    <ItemGroup>
+      <Compile Include="$(_TlGenCompileOut)*.g.cs" />
+      <FileWrites Include="$(_TlGenCompileOut)*.g.cs" />
+    </ItemGroup>
+  </Target>
 </Project>

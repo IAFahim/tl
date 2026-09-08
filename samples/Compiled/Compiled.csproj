@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
+    <!-- Build-order only: the Tl.Gen CLI the imported targets execute. -->
+    <ProjectReference Include="..\..\src\Tl.Gen\Tl.Gen.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+
+  <!-- The sources the declaration reader scans; the imported target emits
+       the specialized kernel + shared compiled runtime into obj/ before
+       CoreCompile (never committed). -->
+  <ItemGroup>
+    <TlCompileTimeline Include="Timeline.cs" />
+    <TlCompileTimeline Include="Consumer.cs" />
+    <TlCompileTimeline Include="Program.cs" />
+  </ItemGroup>
+
+  <Import Project="..\..\src\Tl.Gen\build\Tl.Gen.targets" />
+
+</Project>

@@ -9,6 +9,9 @@ public static class GeneratorCli
 {
     public static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--compile")
+            return RunCompileMode(args);
+
         string? inputFile = null;
         string? outputDir = null;
         string ns = "Tl.Generated";
@@ -151,5 +154,81 @@ public static class GeneratorCli
             Tracks = tracks.OrderBy(kv => kv.Key).Select(kv => kv.Value).ToList(),
             Clips = clips
         };
+    }
+
+    // ---- .Compile() declaration scanning ----
+    // Reads the compiling project's sources, interprets every
+    // Timeline<TTrack,TClip>.Build(author).Compile() declaration, and emits
+    // the shared compiled runtime plus one specialized kernel per
+    // declaration. Non-eligible sites surface as TLGENxx errors naming the
+    // constraint and pointing at the in-memory interpreter path.
+    private static int RunCompileMode(string[] args)
+    {
+        string? outputDir = null;
+        var sources = new List<string>();
+
+        for (var i = 1; i < args.Length; i++)
+        {
+            if (args[i] == "--output" && i + 1 < args.Length)
+                outputDir = args[++i];
+            else if (args[i] == "--source" && i + 1 < args.Length)
+                sources.Add(args[++i]);
+        }
+
+        if (string.IsNullOrEmpty(outputDir))
+        {
+            Console.Error.WriteLine("Error: --output directory is required.");
+            return 1;
+        }
+
+        if (sources.Count == 0)
+        {
+            Console.Error.WriteLine("Error: at least one --source file is required.");
+            return 1;
+        }
+
+        Directory.CreateDirectory(outputDir);
+
+        var (declarations, diagnostics) = DeclarationReader.Read(
+            sources.Select(path => (Path: path, Source: File.ReadAllText(path))).ToList());
+
+        foreach (var diagnostic in diagnostics)
+            Console.Error.WriteLine(diagnostic.ToString());
+
+        if (diagnostics.Count > 0)
+            return 2;
+
+        if (declarations.Count == 0)
+        {
+            Console.WriteLine("TlGenCompile: no .Compile() declarations found.");
+            return 0;
+        }
+
+        var emitted = 0;
+        foreach (var declaration in declarations)
+        {
+            var plan = RegionAnalyzer.Analyze(declaration.Definition);
+            var slots = WorkSlotMaterializer.ForRegions(plan);
+            var kernel = KernelEmitter.EmitKernel(plan, slots, declaration.KernelName, declaration.File, declaration.Line);
+            WriteIfChanged(Path.Combine(outputDir, $"{declaration.KernelName}.g.cs"), kernel);
+            Console.WriteLine(
+                $"TlGenCompile: {declaration.KernelName} <- {Path.GetFileName(declaration.File)}:{declaration.Line} " +
+                $"({declaration.TrackCount} tracks, {declaration.ClipCount} clips, duration {plan.Duration}, loops {plan.Definition.Loops}).");
+            emitted++;
+        }
+
+        WriteIfChanged(Path.Combine(outputDir, KernelEmitter.SharedFileName), KernelEmitter.EmitSharedRuntime());
+        Console.WriteLine($"TlGenCompile: {emitted} kernel(s) + shared runtime -> {outputDir}");
+        return 0;
+    }
+
+    // Content-stable writes: a regenerated-but-identical file keeps its
+    // timestamp, so downstream incremental compiles stay calm.
+    private static void WriteIfChanged(string path, string content)
+    {
+        if (File.Exists(path) && File.ReadAllText(path) == content)
+            return;
+
+        File.WriteAllText(path, content);
     }
 }
