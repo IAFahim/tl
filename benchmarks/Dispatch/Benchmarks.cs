@@ -228,7 +228,8 @@ public class ApiShape
     [Benchmark(Baseline = true, OperationsPerInvoke = Operations)]
     public Receipt DirectTicks()
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var seed = new VitalsInput(1_000_000f);
+        var data = seed.Seed();
         var blender = new VitalsTrack();
         foreach (var tick in _ticks.AsSpan())
         {
@@ -291,7 +292,8 @@ public class ApiShape
     // not a benchmark arm.
     public Receipt StatefulOracle()
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var seed = new VitalsInput(1_000_000f);
+        var data = seed.Seed();
         var blender = new VitalsTrack();
         uint prev = 0;
         foreach (var tick in _ticks.AsSpan())
@@ -388,9 +390,10 @@ public class ApiShape
 
     public Receipt RunInstance(ushort timeline)
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var input = new VitalsInput(1_000_000f);
+        var data = input.Seed();
         foreach (var tick in _ticks.AsSpan())
-            Timeline.Forward(timeline, ref data, tick);
+            Timeline.Forward(timeline, in input, ref data, tick);
         return data.Result;
     }
 
@@ -398,21 +401,23 @@ public class ApiShape
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt InstanceSingle()
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var input = new VitalsInput(1_000_000f);
+        var data = input.Seed();
         foreach (var tick in _ticks.AsSpan())
-            Timeline.Forward(_timeline, ref data, tick);
+            Timeline.Forward(_timeline, in input, ref data, tick);
         return data.Result;
     }
 
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt InstanceParamsFour()
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var input = new VitalsInput(1_000_000f);
+        var data = input.Seed();
         var ticks = _ticks.AsSpan();
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            Timeline.Forward(_timeline, ref data, t[0], t[1], t[2], t[3]);
+            Timeline.Forward(_timeline, in input, ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Result;
     }
@@ -421,21 +426,23 @@ public class ApiShape
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt ShellSingle()
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var input = new VitalsInput(1_000_000f);
+        var data = input.Seed();
         foreach (var tick in _ticks.AsSpan())
-            GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(ref data, tick);
+            GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in input, ref data, tick);
         return data.Result;
     }
 
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt ShellParamsFour()
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var input = new VitalsInput(1_000_000f);
+        var data = input.Seed();
         var ticks = _ticks.AsSpan();
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(ref data, t[0], t[1], t[2], t[3]);
+            GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in input, ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Result;
     }
@@ -446,23 +453,25 @@ public class ApiShape
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt PlaybackSingle()
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var input = new VitalsInput(1_000_000f);
+        var data = input.Seed();
         var pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
         foreach (var tick in _ticks.AsSpan())
-            pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pb, ref data, tick);
+            pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pb, in input, ref data, tick);
         return data.Result;
     }
 
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt PlaybackParamsFour()
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var input = new VitalsInput(1_000_000f);
+        var data = input.Seed();
         var pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
         var ticks = _ticks.AsSpan();
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pb, ref data, t[0], t[1], t[2], t[3]);
+            pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pb, in input, ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Result;
     }
@@ -470,10 +479,11 @@ public class ApiShape
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt PlaybackBackwardSingle()
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var input = new VitalsInput(1_000_000f);
+        var data = input.Seed();
         var pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
         foreach (var tick in _ticks.AsSpan())
-            pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in pb, ref data, tick);
+            pb = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in pb, in input, ref data, tick);
         return data.Result;
     }
 
@@ -484,10 +494,11 @@ public class ApiShape
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt HubDispatch()
     {
-        var data = new Vitals { Health = 1_000_000f };
+        var input = new VitalsInput(1_000_000f);
+        var data = input.Seed();
         var pb = Timeline.Start(_timeline);
         foreach (var tick in _ticks.AsSpan())
-            pb = Timeline.Forward(_timeline, in pb, ref data, tick);
+            pb = Timeline.Forward(_timeline, in pb, in input, ref data, tick);
         return data.Result;
     }
 }
@@ -505,25 +516,25 @@ public struct CursorTrack : IBlend<CursorClip>
         => result = new(first.Value * (1f - t) + second.Value * t);
 }
 
-public struct CursorData :
-    IForward<CursorTrack, CursorClip, CursorData>,
-    IBackward<CursorTrack, CursorClip, CursorData>
+internal struct CursorData :
+    IForward<CursorTrack, CursorClip, NoInput, CursorData>,
+    IBackward<CursorTrack, CursorClip, NoInput, CursorData>
 {
     public float Sum;
     public int Count;
 
-    public void Forward(ref CursorData data, in Tracks<CursorTrack, CursorClip> tracks, in uint tick)
+    public void Forward(in Tracks<CursorTrack, CursorClip> tracks, in NoInput input, in uint tick, ref CursorData result)
     {
         foreach (var work in tracks)
-            data.Sum += work.Clip.Value;
-        data.Count++;
+            result.Sum += work.Clip.Value;
+        result.Count++;
     }
 
-    public void Backward(ref CursorData data, in Tracks<CursorTrack, CursorClip> tracks, in uint tick)
+    public void Backward(in Tracks<CursorTrack, CursorClip> tracks, in NoInput input, in uint tick, ref CursorData result)
     {
         foreach (var work in tracks)
-            data.Sum -= work.Clip.Value;
-        data.Count--;
+            result.Sum -= work.Clip.Value;
+        result.Count--;
     }
 }
 
@@ -568,7 +579,7 @@ public class CursorShape
         var data = new CursorData();
         var pb = Timeline.Start(_timeline);
         foreach (var tick in _ticks.AsSpan())
-            pb = Timeline.Forward(_timeline, in pb, ref data, tick);
+            pb = Timeline.Forward(_timeline, in pb, default(NoInput), ref data, tick);
         return data.Sum + data.Count;
     }
 
@@ -579,7 +590,7 @@ public class CursorShape
         var pb = Timeline.Start(_timeline);
         var cursor = default(Cursor);
         foreach (var tick in _ticks.AsSpan())
-            pb = Timeline.Forward(_timeline, in pb, ref cursor, ref data, tick);
+            pb = Timeline.Forward(_timeline, in pb, ref cursor, default(NoInput), ref data, tick);
         return data.Sum + data.Count;
     }
 
@@ -592,7 +603,7 @@ public class CursorShape
         foreach (var tick in _ticks.AsSpan())
         {
             cursor.Owner = null; // deliberately stale before every call
-            pb = Timeline.Forward(_timeline, in pb, ref cursor, ref data, tick);
+            pb = Timeline.Forward(_timeline, in pb, ref cursor, default(NoInput), ref data, tick);
         }
         return data.Sum + data.Count;
     }
@@ -620,25 +631,25 @@ public struct BlendTrack : IBlend<BlendClip>
         => result = new BlendClip(first.Value * (1f - t) + second.Value * t);
 }
 
-public struct BlendData :
-    IForward<BlendTrack, BlendClip, BlendData>,
-    IBackward<BlendTrack, BlendClip, BlendData>
+internal struct BlendData :
+    IForward<BlendTrack, BlendClip, NoInput, BlendData>,
+    IBackward<BlendTrack, BlendClip, NoInput, BlendData>
 {
     public float Sum;
     public int Count;
 
-    public void Forward(ref BlendData data, in Tracks<BlendTrack, BlendClip> tracks, in uint tick)
+    public void Forward(in Tracks<BlendTrack, BlendClip> tracks, in NoInput input, in uint tick, ref BlendData result)
     {
         foreach (var work in tracks)
-            data.Sum += work.Clip.Value;
-        data.Count++;
+            result.Sum += work.Clip.Value;
+        result.Count++;
     }
 
-    public void Backward(ref BlendData data, in Tracks<BlendTrack, BlendClip> tracks, in uint tick)
+    public void Backward(in Tracks<BlendTrack, BlendClip> tracks, in NoInput input, in uint tick, ref BlendData result)
     {
         foreach (var work in tracks)
-            data.Sum -= work.Clip.Value;
-        data.Count--;
+            result.Sum -= work.Clip.Value;
+        result.Count--;
     }
 }
 
@@ -701,7 +712,7 @@ public class BlendShape
         var data = new BlendData();
         var pb = Timeline.Start(_blended);
         foreach (var tick in _ticks.AsSpan())
-            pb = Timeline.Forward(_blended, in pb, ref data, tick);
+            pb = Timeline.Forward(_blended, in pb, default(NoInput), ref data, tick);
         return data.Sum + data.Count;
     }
 
@@ -714,7 +725,7 @@ public class BlendShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            pb = Timeline.Forward(_blended, in pb, ref data, t[0], t[1], t[2], t[3]);
+            pb = Timeline.Forward(_blended, in pb, default(NoInput), ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Sum + data.Count;
     }
@@ -725,7 +736,7 @@ public class BlendShape
         var data = new BlendData();
         var pb = Timeline.Start(_blended);
         foreach (var tick in _ticks.AsSpan())
-            pb = Timeline<BlendTrack, BlendClip>.Forward(_blended, in pb, ref data, _buffer, tick);
+            pb = Timeline<BlendTrack, BlendClip>.Forward(_blended, in pb, default(NoInput), ref data, _buffer, tick);
         return data.Sum + data.Count;
     }
 
@@ -738,7 +749,7 @@ public class BlendShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            pb = Timeline<BlendTrack, BlendClip>.Forward(_blended, in pb, ref data, _buffer, t);
+            pb = Timeline<BlendTrack, BlendClip>.Forward(_blended, in pb, default(NoInput), ref data, _buffer, t);
         }
         return data.Sum + data.Count;
     }
@@ -750,7 +761,7 @@ public class BlendShape
         var data = new BlendData();
         var pb = Timeline.Start(_zeroBlend);
         foreach (var tick in _ticks.AsSpan())
-            pb = Timeline.Forward(_zeroBlend, in pb, ref data, tick);
+            pb = Timeline.Forward(_zeroBlend, in pb, default(NoInput), ref data, tick);
         return data.Sum + data.Count;
     }
 
@@ -763,7 +774,7 @@ public class BlendShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            pb = Timeline.Forward(_zeroBlend, in pb, ref data, t[0], t[1], t[2], t[3]);
+            pb = Timeline.Forward(_zeroBlend, in pb, default(NoInput), ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Sum + data.Count;
     }
@@ -781,32 +792,32 @@ public struct CountsTrack : IBlend<CursorClip>
         => result = new(first.Value * (1f - t) + second.Value * t);
 }
 
-public struct CountsData :
-    IForward<CountsTrack, CursorClip, CountsData>,
-    IBackward<CountsTrack, CursorClip, CountsData>
+internal struct CountsData :
+    IForward<CountsTrack, CursorClip, NoInput, CountsData>,
+    IBackward<CountsTrack, CursorClip, NoInput, CountsData>
 {
     public float Sum;
     public long Codes;
     public int Count;
 
-    public void Forward(ref CountsData data, in Tracks<CountsTrack, CursorClip> tracks, in uint tick)
+    public void Forward(in Tracks<CountsTrack, CursorClip> tracks, in NoInput input, in uint tick, ref CountsData result)
     {
         foreach (var work in tracks)
         {
-            data.Sum += work.Clip.Value;
-            data.Codes += (uint)work.State;
+            result.Sum += work.Clip.Value;
+            result.Codes += (uint)work.State;
         }
-        data.Count++;
+        result.Count++;
     }
 
-    public void Backward(ref CountsData data, in Tracks<CountsTrack, CursorClip> tracks, in uint tick)
+    public void Backward(in Tracks<CountsTrack, CursorClip> tracks, in NoInput input, in uint tick, ref CountsData result)
     {
         foreach (var work in tracks)
         {
-            data.Sum -= work.Clip.Value;
-            data.Codes -= (uint)work.State;
+            result.Sum -= work.Clip.Value;
+            result.Codes -= (uint)work.State;
         }
-        data.Count--;
+        result.Count--;
     }
 }
 
@@ -863,7 +874,7 @@ public class CountsShape
         var data = new CountsData();
         var pb = Timeline.Start(_scanned);
         foreach (var tick in _ticks.AsSpan())
-            pb = Timeline.Forward(_scanned, in pb, ref data, tick);
+            pb = Timeline.Forward(_scanned, in pb, default(NoInput), ref data, tick);
         return data.Sum + data.Codes + data.Count;
     }
 
@@ -873,7 +884,7 @@ public class CountsShape
         var data = new CountsData();
         var pb = Timeline.Start(_counted);
         foreach (var tick in _ticks.AsSpan())
-            pb = Timeline.Forward(_counted, in pb, ref data, tick);
+            pb = Timeline.Forward(_counted, in pb, default(NoInput), ref data, tick);
         return data.Sum + data.Codes + data.Count;
     }
 
@@ -886,7 +897,7 @@ public class CountsShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            pb = Timeline.Forward(_scanned, in pb, ref data, t[0], t[1], t[2], t[3]);
+            pb = Timeline.Forward(_scanned, in pb, default(NoInput), ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Sum + data.Codes + data.Count;
     }
@@ -900,7 +911,7 @@ public class CountsShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            pb = Timeline.Forward(_counted, in pb, ref data, t[0], t[1], t[2], t[3]);
+            pb = Timeline.Forward(_counted, in pb, default(NoInput), ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Sum + data.Codes + data.Count;
     }
@@ -989,7 +1000,7 @@ public class DedupShape
         var data = new BlendData();
         var pb = Timeline.Start(_plain);
         foreach (var tick in _ticks.AsSpan())
-            pb = Timeline.Forward(_plain, in pb, ref data, tick);
+            pb = Timeline.Forward(_plain, in pb, default(NoInput), ref data, tick);
         return data.Sum + data.Count;
     }
 
@@ -999,7 +1010,7 @@ public class DedupShape
         var data = new BlendData();
         var pb = Timeline.Start(_deduped);
         foreach (var tick in _ticks.AsSpan())
-            pb = Timeline.Forward(_deduped, in pb, ref data, tick);
+            pb = Timeline.Forward(_deduped, in pb, default(NoInput), ref data, tick);
         return data.Sum + data.Count;
     }
 
@@ -1012,7 +1023,7 @@ public class DedupShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            pb = Timeline.Forward(_plain, in pb, ref data, t[0], t[1], t[2], t[3]);
+            pb = Timeline.Forward(_plain, in pb, default(NoInput), ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Sum + data.Count;
     }
@@ -1026,7 +1037,7 @@ public class DedupShape
         for (var i = 0; i < ticks.Length; i += 4)
         {
             var t = ticks.Slice(i, 4);
-            pb = Timeline.Forward(_deduped, in pb, ref data, t[0], t[1], t[2], t[3]);
+            pb = Timeline.Forward(_deduped, in pb, default(NoInput), ref data, t[0], t[1], t[2], t[3]);
         }
         return data.Sum + data.Count;
     }

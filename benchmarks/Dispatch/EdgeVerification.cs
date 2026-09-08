@@ -56,13 +56,13 @@ internal static class EdgeVerification
         foreach (uint tick in new uint[] { 0, 9, 10, 19, 20, 21, uint.MaxValue })
         {
             var probe = new Probe();
-            Timeline.Forward(timeline, ref probe, tick);
+            Timeline.Forward(timeline, default(NoInput), ref probe, tick);
             Require(probe.Tracks == (tick >= 10 && tick < 20 ? 1 : 0), $"Wrong active tracks at {tick}.");
             Require(probe.Count == probe.Tracks, $"Empty ticks must not fire callbacks at {tick}.");
 
             var from = At(19);
             probe = new Probe();
-            var state = Timeline.Forward(timeline, in from, ref probe, tick);
+            var state = Timeline.Forward(timeline, in from, default(NoInput), ref probe, tick);
             Require(state.Has(PlaybackFlags.Started), $"Playback lost Started at {tick}.");
             Require(state.Has(PlaybackFlags.Completed) == (tick >= 19), $"Wrong Completed at {tick}: {state.Flags}.");
         }
@@ -73,11 +73,11 @@ internal static class EdgeVerification
         var timeline = Make();
         var data = new Probe();
         var from = At(0);
-        var result = Timeline.Forward(timeline, in from, ref data, 0, 10);
+        var result = Timeline.Forward(timeline, in from, default(NoInput), ref data, 0, 10);
         Require(data.Count == 0, "An empty timeline must fire no callbacks.");
         Require(result.Has(PlaybackFlags.Completed) && result.Tick == 10, "Empty non-looping timeline did not complete.");
         var looping = Make(true);
-        result = Timeline.Forward(looping, in from, ref data, 10);
+        result = Timeline.Forward(looping, in from, default(NoInput), ref data, 10);
         Require(result.Cycles == 0 && result.Flags == PlaybackFlags.Started, "Empty loop should have no facts.");
     }
 
@@ -97,7 +97,7 @@ internal static class EdgeVerification
         for (uint tick = 4; tick <= 8; tick++)
         {
             var data = new Probe();
-            Timeline.Forward(timeline, ref data, tick);
+            Timeline.Forward(timeline, default(NoInput), ref data, tick);
             var factor = (tick - 4) / 4f;
             var expected = tick == 8 ? 0f : 10f * (1f - factor) + 30f * factor + 2f;
             Require(Math.Abs(data.Sum - expected) < 1e-4f, $"Blend at {tick} returned {data.Sum}, expected {expected}.");
@@ -113,7 +113,7 @@ internal static class EdgeVerification
             b.Clip(track, new ProbeClip(10), 0, 8);
         });
         var data = new Probe();
-        Timeline.Forward(timeline, ref data, 5);
+        Timeline.Forward(timeline, default(NoInput), ref data, 5);
         Require(data.Sum == 10, $"Crossfade should start with the earlier clip; got {data.Sum}.");
     }
 
@@ -124,7 +124,7 @@ internal static class EdgeVerification
         var timeline = Make(true, new ClipEdge(0, 1));
         var from = new Playback(0, max, PlaybackFlags.Started);
         var data = new Probe();
-        Reject<ArgumentOutOfRangeException>(() => Timeline.Forward(timeline, in from, ref data, 1));
+        Reject<ArgumentOutOfRangeException>(() => Timeline.Forward(timeline, in from, default(NoInput), ref data, 1));
         Require(data.Count == 0, "Cycle overflow invoked a callback before rejecting the step.");
     }
 
@@ -133,13 +133,13 @@ internal static class EdgeVerification
         var timeline = Make(true, new ClipEdge(0, 10));
         var from = At(9);
         var data = new Probe();
-        var next = Timeline.Forward(timeline, in from, ref data, 0);
+        var next = Timeline.Forward(timeline, in from, default(NoInput), ref data, 0);
         Require(next.Cycles == 1 && next.Flags == PlaybackFlags.Started, $"Local forward wrap corrupted state: {next.Cycles}, {next.Flags}.");
         // The wrapped span (9, 10) then [0, 0] crossed the clip's start at 0:
         // the work reports Enter on its first local frame.
         Require(data.Works.Count == 1 && data.Works[0].State == ClipState.Enter, "A wrapped step must enter through the start edge.");
 
-        Timeline.Forward(timeline, ref data, 11);
+        Timeline.Forward(timeline, default(NoInput), ref data, 11);
         Require(data.Tick == 1 && data.Tracks == 1, "Stateless looping playback must normalize the tick too.");
     }
 
@@ -164,8 +164,8 @@ internal static class EdgeVerification
                 var from = At(previous);
                 var data = new Probe();
                 var result = backward
-                    ? Timeline.Backward(timeline, in from, ref data, tick)
-                    : Timeline.Forward(timeline, in from, ref data, tick);
+                    ? Timeline.Backward(timeline, in from, default(NoInput), ref data, tick)
+                    : Timeline.Forward(timeline, in from, default(NoInput), ref data, tick);
 
                 var (tEff, prevEff, wrapped, full) = Locate(previous, tick, duration, loops, backward);
 
@@ -215,12 +215,12 @@ internal static class EdgeVerification
             var state = At(0);
             foreach (uint tick in ticks)
                 state = backward
-                    ? Timeline.Backward(timeline, in state, ref single, tick)
-                    : Timeline.Forward(timeline, in state, ref single, tick);
+                    ? Timeline.Backward(timeline, in state, default(NoInput), ref single, tick)
+                    : Timeline.Forward(timeline, in state, default(NoInput), ref single, tick);
             var from = At(0);
             var result = backward
-                ? Timeline.Backward(timeline, in from, ref batch, ticks)
-                : Timeline.Forward(timeline, in from, ref batch, ticks);
+                ? Timeline.Backward(timeline, in from, default(NoInput), ref batch, ticks)
+                : Timeline.Forward(timeline, in from, default(NoInput), ref batch, ticks);
             Require(single.Works.Count == batch.Works.Count
                     && single.Works.SequenceEqual(batch.Works)
                     && single.Sum == batch.Sum
@@ -237,11 +237,11 @@ internal static class EdgeVerification
         var timeline = Make(new ClipEdge(uint.MaxValue - 2, uint.MaxValue));
         var data = new Probe();
         var from = At(uint.MaxValue - 3);
-        var active = Timeline.Forward(timeline, in from, ref data, uint.MaxValue - 1);
+        var active = Timeline.Forward(timeline, in from, default(NoInput), ref data, uint.MaxValue - 1);
         Require(active.Has(PlaybackFlags.Completed) && data.Tracks == 1 && data.Sum == 0,
             "Wide tick lost completion; the destination is the last active frame (Exit — no Stay accumulation).");
         var terminal = new Probe();
-        var end = Timeline.Forward(timeline, in active, ref terminal, uint.MaxValue);
+        var end = Timeline.Forward(timeline, in active, default(NoInput), ref terminal, uint.MaxValue);
         Require(end.Has(PlaybackFlags.Completed) && terminal.Tracks == 0 && terminal.Count == 0, "Wide terminal tick must leave the clip behind (no callback on the empty tick).");
     }
 
@@ -289,11 +289,11 @@ internal static class EdgeVerification
                 var markP = plainData.Works.Count;
                 var markC = primedData.Works.Count;
                 plain = backward
-                    ? Timeline.Backward(timeline, in plain, ref plainData, tick)
-                    : Timeline.Forward(timeline, in plain, ref plainData, tick);
+                    ? Timeline.Backward(timeline, in plain, default(NoInput), ref plainData, tick)
+                    : Timeline.Forward(timeline, in plain, default(NoInput), ref plainData, tick);
                 primed = backward
-                    ? Timeline.Backward(timeline, in primed, ref cache, ref primedData, tick)
-                    : Timeline.Forward(timeline, in primed, ref cache, ref primedData, tick);
+                    ? Timeline.Backward(timeline, in primed, ref cache, default(NoInput), ref primedData, tick)
+                    : Timeline.Forward(timeline, in primed, ref cache, default(NoInput), ref primedData, tick);
                 if (plain.Tick != primed.Tick || plain.Cycles != primed.Cycles || plain.Flags != primed.Flags
                     || !plainData.Works.Skip(markP).SequenceEqual(primedData.Works.Skip(markC)))
                     throw new InvalidOperationException($"Cursor walk diverged at {tick}, backward={backward}.");
@@ -329,17 +329,17 @@ internal static class EdgeVerification
             var data = new Probe();
             var plainData = new Probe();
             var from = At(0);
-            var plain = Timeline.Forward(linear, in from, ref plainData, 9);
-            var primed = Timeline.Forward(linear, in from, ref cache, ref data, 9);
+            var plain = Timeline.Forward(linear, in from, default(NoInput), ref plainData, 9);
+            var primed = Timeline.Forward(linear, in from, ref cache, default(NoInput), ref data, 9);
             RequireEqual(plain, plainData, primed, data, "invalid fallback");
         }
         {
             var cache = new Cursor { Owner = looping, Tick = 0, Region = 99 };
             var data = new Probe();
             var from = At(0);
-            var primed = Timeline.Forward(looping, in from, ref cache, ref data, 9);
+            var primed = Timeline.Forward(looping, in from, ref cache, default(NoInput), ref data, 9);
             var plainData = new Probe();
-            var plain = Timeline.Forward(looping, in from, ref plainData, 9);
+            var plain = Timeline.Forward(looping, in from, default(NoInput), ref plainData, 9);
             RequireEqual(plain, plainData, primed, data, "out-of-range region");
         }
 
@@ -350,11 +350,11 @@ internal static class EdgeVerification
             var saved = At(5);
             var cache = default(Cursor);
             var warm = new Probe();
-            Timeline.Forward(linear, in saved, ref cache, ref warm, 8);
+            Timeline.Forward(linear, in saved, ref cache, default(NoInput), ref warm, 8);
             var rewoundData = new Probe();
-            var rewound = Timeline.Forward(linear, in saved, ref cache, ref rewoundData, 8);
+            var rewound = Timeline.Forward(linear, in saved, ref cache, default(NoInput), ref rewoundData, 8);
             var plainData = new Probe();
-            var plain = Timeline.Forward(linear, in saved, ref plainData, 8);
+            var plain = Timeline.Forward(linear, in saved, default(NoInput), ref plainData, 8);
             RequireEqual(plain, plainData, rewound, rewoundData, "restored snapshot");
         }
 
@@ -374,10 +374,10 @@ internal static class EdgeVerification
             var plainDataB = new Probe();
             for (var i = 4; i < 30; i += 3)
             {
-                plainA = Timeline.Forward(linear, in plainA, ref plainDataA, (uint)i);
-                plainB = Timeline.Forward(other, in plainB, ref plainDataB, (uint)i);
-                a = Timeline.Forward(linear, in a, ref first, ref dataA, (uint)i);
-                b = Timeline.Forward(other, in b, ref second, ref dataB, (uint)i);
+                plainA = Timeline.Forward(linear, in plainA, default(NoInput), ref plainDataA, (uint)i);
+                plainB = Timeline.Forward(other, in plainB, default(NoInput), ref plainDataB, (uint)i);
+                a = Timeline.Forward(linear, in a, ref first, default(NoInput), ref dataA, (uint)i);
+                b = Timeline.Forward(other, in b, ref second, default(NoInput), ref dataB, (uint)i);
                 if (a.Tick != plainA.Tick || b.Tick != plainB.Tick)
                     throw new InvalidOperationException("Alternating timelines diverged with separate cursors.");
             }
@@ -391,8 +391,8 @@ internal static class EdgeVerification
             var sharedDataB = new Probe();
             for (var i = 4; i < 30; i += 3)
             {
-                c = Timeline.Forward(linear, in c, ref shared, ref sharedDataA, (uint)i);
-                d = Timeline.Forward(other, in d, ref shared, ref sharedDataB, (uint)i);
+                c = Timeline.Forward(linear, in c, ref shared, default(NoInput), ref sharedDataA, (uint)i);
+                d = Timeline.Forward(other, in d, ref shared, default(NoInput), ref sharedDataB, (uint)i);
             }
             if (c.Tick != plainA.Tick || d.Tick != plainB.Tick
                 || !sharedDataA.Works.SequenceEqual(plainDataA.Works) || !sharedDataB.Works.SequenceEqual(plainDataB.Works))
@@ -406,17 +406,17 @@ internal static class EdgeVerification
             var start = At(0);
             var cache = default(Cursor);
             var stale = new Probe();
-            Timeline.Forward(linear, in start, ref cache, ref stale, 9);
+            Timeline.Forward(linear, in start, ref cache, default(NoInput), ref stale, 9);
             var rebuiltData = new Probe();
-            var rebuiltPb = Timeline.Forward(rebuilt, in start, ref cache, ref rebuiltData, 9);
+            var rebuiltPb = Timeline.Forward(rebuilt, in start, ref cache, default(NoInput), ref rebuiltData, 9);
             var plainData = new Probe();
-            var plain = Timeline.Forward(rebuilt, in start, ref plainData, 9);
+            var plain = Timeline.Forward(rebuilt, in start, default(NoInput), ref plainData, 9);
             RequireEqual(plain, plainData, rebuiltPb, rebuiltData, "rebuild fallback");
 
             var loopData = new Probe();
-            var loopPb = Timeline.Forward(looping, in start, ref cache, ref loopData, 9);
+            var loopPb = Timeline.Forward(looping, in start, ref cache, default(NoInput), ref loopData, 9);
             var plainLoopData = new Probe();
-            var plainLoop = Timeline.Forward(looping, in start, ref plainLoopData, 9);
+            var plainLoop = Timeline.Forward(looping, in start, default(NoInput), ref plainLoopData, 9);
             RequireEqual(plainLoop, plainLoopData, loopPb, loopData, "loop-mode fallback");
         }
 
@@ -427,14 +427,14 @@ internal static class EdgeVerification
             var cache = default(Cursor);
             var data = new Probe();
             var begin = At(4);
-            var pb = Timeline.Forward(linear, in begin, ref cache, ref data, 6);
-            var empty = Timeline.Forward(linear, in pb, ref cache, ref data, []);
+            var pb = Timeline.Forward(linear, in begin, ref cache, default(NoInput), ref data, 6);
+            var empty = Timeline.Forward(linear, in pb, ref cache, default(NoInput), ref data, []);
             if (empty.Tick != pb.Tick || empty.Flags != pb.Flags || data.Count != 1)
                 throw new InvalidOperationException("An empty span must not run callbacks or move the playback.");
             var mark = data.Works.Count;
-            var next = Timeline.Forward(linear, in empty, ref cache, ref data, 7);
+            var next = Timeline.Forward(linear, in empty, ref cache, default(NoInput), ref data, 7);
             var plainData = new Probe();
-            var plainNext = Timeline.Forward(linear, in pb, ref plainData, 7);
+            var plainNext = Timeline.Forward(linear, in pb, default(NoInput), ref plainData, 7);
             if (next.Tick != plainNext.Tick || next.Cycles != plainNext.Cycles || next.Flags != plainNext.Flags)
                 throw new InvalidOperationException("Cursor after an empty span: Playback diverged.");
             if (!data.Works.Skip(mark).SequenceEqual(plainData.Works))
@@ -448,10 +448,10 @@ internal static class EdgeVerification
             var single = At(0);
             var cache = default(Cursor);
             foreach (var tick in ticks)
-                single = Timeline.Forward(linear, in single, ref cache, ref singleData, tick);
+                single = Timeline.Forward(linear, in single, ref cache, default(NoInput), ref singleData, tick);
             var batchData = new Probe();
             var batchStart = At(0);
-            var batch = Timeline.Forward(linear, in batchStart, ref cache, ref batchData, ticks);
+            var batch = Timeline.Forward(linear, in batchStart, ref cache, default(NoInput), ref batchData, ticks);
             if (single.Tick != batch.Tick || single.Cycles != batch.Cycles || single.Flags != batch.Flags
                 || !singleData.Works.SequenceEqual(batchData.Works))
                 throw new InvalidOperationException("Cursor single/batch parity broke.");
@@ -461,10 +461,10 @@ internal static class EdgeVerification
         {
             var guard = new Probe();
             var cache = default(Cursor);
-            Reject<InvalidOperationException>(() => Timeline.Forward(linear, default, ref cache, ref guard, 5));
-            Reject<InvalidOperationException>(() => Timeline.Backward(linear, default, ref cache, ref guard, 5));
+            Reject<InvalidOperationException>(() => Timeline.Forward(linear, default, ref cache, default(NoInput), ref guard, 5));
+            Reject<InvalidOperationException>(() => Timeline.Backward(linear, default, ref cache, default(NoInput), ref guard, 5));
             var stopped = Timeline.Stop(linear, At(5));
-            Reject<InvalidOperationException>(() => Timeline.Forward(linear, in stopped, ref cache, ref guard, 5));
+            Reject<InvalidOperationException>(() => Timeline.Forward(linear, in stopped, ref cache, default(NoInput), ref guard, 5));
             if (guard.Count != 0)
                 throw new InvalidOperationException("A rejected cursor playback must not run callbacks.");
         }
@@ -484,9 +484,9 @@ internal static class EdgeVerification
         Require(Timeline.Live(plainIndex).MaxActiveBlends == 0, "A timeline without pairs must need no blend scratch.");
         var plainStart = At(5);
         var emptyScratch = new Probe();
-        var viaEmpty = Timeline<ProbeTrack, ProbeClip>.Forward(plainIndex, in plainStart, ref emptyScratch, Span<ProbeClip>.Empty, 5);
+        var viaEmpty = Timeline<ProbeTrack, ProbeClip>.Forward(plainIndex, in plainStart, default(NoInput), ref emptyScratch, Span<ProbeClip>.Empty, 5);
         var plainZero = new Probe();
-        var viaStack = Timeline.Forward(plainIndex, in plainStart, ref plainZero, 5);
+        var viaStack = Timeline.Forward(plainIndex, in plainStart, default(NoInput), ref plainZero, 5);
         Require(viaEmpty.Flags == viaStack.Flags && viaEmpty.Cycles == viaStack.Cycles
             && emptyScratch.Works.SequenceEqual(plainZero.Works) && emptyScratch.Sum == plainZero.Sum,
             "The empty scratch span diverged on a zero-blend timeline.");
@@ -509,9 +509,9 @@ internal static class EdgeVerification
         {
             var from = At(tick == 0 ? 0 : tick - 1);
             var buffered = new Probe();
-            var bufferedPb = Timeline<ProbeTrack, ProbeClip>.Forward(mixed, in from, ref buffered, one, tick);
+            var bufferedPb = Timeline<ProbeTrack, ProbeClip>.Forward(mixed, in from, default(NoInput), ref buffered, one, tick);
             var stacked = new Probe();
-            var stackedPb = Timeline.Forward(mixed, in from, ref stacked, tick);
+            var stackedPb = Timeline.Forward(mixed, in from, default(NoInput), ref stacked, tick);
             Require(bufferedPb.Flags == stackedPb.Flags && bufferedPb.Cycles == stackedPb.Cycles
                 && buffered.Works.SequenceEqual(stacked.Works) && buffered.Sum == stacked.Sum,
                 $"Scratch/stack diverged on the mixed fixture at {tick}.");
@@ -528,7 +528,7 @@ internal static class EdgeVerification
         var oneData = new BigData();
         var onePb = new Playback(3, 0, PlaybackFlags.Started);
         Span<BigClip> oneBig = stackalloc BigClip[1];
-        onePb = Timeline<BigTrack, BigClip>.Forward(oneTick, in onePb, ref oneData, oneBig, 4);
+        onePb = Timeline<BigTrack, BigClip>.Forward(oneTick, in onePb, default(NoInput), ref oneData, oneBig, 4);
         Require(Math.Abs(oneData.Sum - 20f) < 1e-4f, $"A one-tick blend must resolve at factor 0.5; got {oneData.Sum}.");
 
         // 4. All-blends, large payloads: caller buffer equals the stack path
@@ -549,7 +549,7 @@ internal static class EdgeVerification
             var data = new BigData();
             var pb = new Playback(0, 0, PlaybackFlags.Started);
             for (uint tick = 0; tick < 24; tick++)
-                pb = Timeline<BigTrack, BigClip>.Forward(all, in pb, ref data, buffer, tick);
+                pb = Timeline<BigTrack, BigClip>.Forward(all, in pb, default(NoInput), ref data, buffer, tick);
             if (run == 0)
                 first = data.Sum;
             else
@@ -559,14 +559,14 @@ internal static class EdgeVerification
         var stackedWalk = new BigData();
         var stackedWalkPb = new Playback(0, 0, PlaybackFlags.Started);
         for (uint tick = 0; tick < 24; tick++)
-            stackedWalkPb = Timeline.Forward(all, in stackedWalkPb, ref stackedWalk, tick);
+            stackedWalkPb = Timeline.Forward(all, in stackedWalkPb, default(NoInput), ref stackedWalk, tick);
         Require(Math.Abs(first - stackedWalk.Sum) < 1e-4f && Math.Abs(second - stackedWalk.Sum) < 1e-4f,
             "The caller buffer diverged from the stack path, or reusing one buffer bled state.");
 
         // 5. Insufficient scratch rejects before any callback.
         var witness = new BigData();
         var startPb = new Playback(0, 0, PlaybackFlags.Started);
-        Reject<ArgumentException>(() => Timeline<BigTrack, BigClip>.Forward(all, in startPb, ref witness, Span<BigClip>.Empty, 1));
+        Reject<ArgumentException>(() => Timeline<BigTrack, BigClip>.Forward(all, in startPb, default(NoInput), ref witness, Span<BigClip>.Empty, 1));
         Require(witness.Count == 0, "Insufficient scratch must reject before any callback.");
 
         // 6. Over-budget payloads refuse the stack path and play through the
@@ -582,11 +582,11 @@ internal static class EdgeVerification
         });
         var hugeWitness = new HugeData();
         var hugeStart = new Playback(3, 0, PlaybackFlags.Started);
-        Reject<InvalidOperationException>(() => Timeline.Forward(huge, in hugeStart, ref hugeWitness, 4));
+        Reject<InvalidOperationException>(() => Timeline.Forward(huge, in hugeStart, default(NoInput), ref hugeWitness, 4));
         Require(hugeWitness.Count == 0, "The over-budget stack rejection must fire before any callback.");
         var retained = new HugeClip[1];
         var hugeData = new HugeData();
-        hugeStart = Timeline<HugeTrack, HugeClip>.Forward(huge, in hugeStart, ref hugeData, retained, 6);
+        hugeStart = Timeline<HugeTrack, HugeClip>.Forward(huge, in hugeStart, default(NoInput), ref hugeData, retained, 6);
         Require(Math.Abs(hugeData.Sum - (10f * 0.5f + 30f * 0.5f)) < 1e-4f, $"The huge blend resolved wrong through the caller buffer: {hugeData.Sum}.");
 
         // 7. Simultaneous/reentrant calls: the outer consumer plays a second
@@ -598,32 +598,34 @@ internal static class EdgeVerification
             b.Clip(track, new BigClip(1f), 0, 24);
             b.Clip(track, new BigClip(3f), 8, 24);
         });
-        var nestedData = new NestedData { Inner = inner };
+        var nestedInput = new NestedInput { Inner = inner };
+        var nestedData = new NestedData();
         var nestedPb = new Playback(0, 0, PlaybackFlags.Started);
         var outerBuffer = new BigClip[1];
         for (uint tick = 0; tick < 24; tick++)
-            nestedPb = Timeline<BigTrack, BigClip>.Forward(all, in nestedPb, ref nestedData, outerBuffer, tick);
+            nestedPb = Timeline<BigTrack, BigClip>.Forward(all, in nestedPb, in nestedInput, ref nestedData, outerBuffer, tick);
         var innerReference = new BigData();
         var innerPb = new Playback(0, 0, PlaybackFlags.Started);
         for (uint tick = 0; tick < 24; tick++)
-            innerPb = Timeline.Forward(inner, in innerPb, ref innerReference, tick);
+            innerPb = Timeline.Forward(inner, in innerPb, default(NoInput), ref innerReference, tick);
         Require(Math.Abs(nestedData.InnerData.Sum - innerReference.Sum) < 1e-4f && nestedData.InnerData.Count == innerReference.Count,
             "The reentrant inner timeline diverged from its standalone reference.");
 
         // 8. The compiled-tables shell: same arrangement — scratch overload
         //    equals the stack params overload.
         Span<VitalsClip> vitalsScratch = stackalloc VitalsClip[1];
-        var shellData = new Vitals { Health = 100_000f };
-        GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(ref shellData, vitalsScratch, [0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599]);
-        var shellStack = new Vitals { Health = 100_000f };
-        GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(ref shellStack, 0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599);
+        var shellIn = new VitalsInput(100_000f);
+        var shellData = shellIn.Seed();
+        GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in shellIn, ref shellData, vitalsScratch, [0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599]);
+        var shellStack = shellIn.Seed();
+        GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in shellIn, ref shellStack, 0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599);
         Require(shellData.Result == shellStack.Result, "GeneratedTimeline scratch/stack diverged on the Vitals fixture.");
-        var shellStateData = new Vitals { Health = 100_000f };
+        var shellStateData = shellIn.Seed();
         var shellPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
-        shellPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in shellPb, ref shellStateData, vitalsScratch, [0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599]);
-        var shellStateStack = new Vitals { Health = 100_000f };
+        shellPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in shellPb, in shellIn, ref shellStateData, vitalsScratch, [0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599]);
+        var shellStateStack = shellIn.Seed();
         var shellStackPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
-        shellStackPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in shellStackPb, ref shellStateStack, 0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599);
+        shellStackPb = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in shellStackPb, in shellIn, ref shellStateStack, 0, 1, 5, 29, 40, 76, 100, 320, 330, 515, 599);
         Require(shellPb.Flags == shellStackPb.Flags && shellStateData.Result == shellStateStack.Result,
             "GeneratedTimeline stateful scratch/stack diverged on the Vitals fixture.");
     }
@@ -701,11 +703,11 @@ internal static class EdgeVerification
                 var viaCounts = new Probe();
                 var viaScan = new Probe();
                 var countedPb = backward
-                    ? Timeline.Backward(countedIndex, in from, ref viaCounts, tick)
-                    : Timeline.Forward(countedIndex, in from, ref viaCounts, tick);
+                    ? Timeline.Backward(countedIndex, in from, default(NoInput), ref viaCounts, tick)
+                    : Timeline.Forward(countedIndex, in from, default(NoInput), ref viaCounts, tick);
                 var scannedPb = backward
-                    ? Timeline.Backward(scannedIndex, in from, ref viaScan, tick)
-                    : Timeline.Forward(scannedIndex, in from, ref viaScan, tick);
+                    ? Timeline.Backward(scannedIndex, in from, default(NoInput), ref viaScan, tick)
+                    : Timeline.Forward(scannedIndex, in from, default(NoInput), ref viaScan, tick);
                 if (countedPb.Flags != scannedPb.Flags || countedPb.Cycles != scannedPb.Cycles
                     || !viaCounts.Works.SequenceEqual(viaScan.Works))
                     throw new InvalidOperationException(
@@ -737,7 +739,7 @@ internal static class EdgeVerification
             b.Clip(nanB, new ProbeClip(float.NaN), 0, 4);
         });
         var recorded = new BitsData { Bits = [] };
-        Timeline.Forward(bits, ref recorded, 1);
+        Timeline.Forward(bits, default(NoInput), ref recorded, 1);
         var seen = recorded.Bits ?? throw new InvalidOperationException("The bits consumer recorded nothing.");
         uint[] expected =
         [
@@ -793,8 +795,8 @@ internal static class EdgeVerification
             var from = At(tick == 0 ? 0 : tick - 1);
             var viaDedup = new Probe();
             var viaPlain = new Probe();
-            var dedupPb = Timeline.Forward(deduped, in from, ref viaDedup, tick);
-            var plainPb = Timeline.Forward(plain, in from, ref viaPlain, tick);
+            var dedupPb = Timeline.Forward(deduped, in from, default(NoInput), ref viaDedup, tick);
+            var plainPb = Timeline.Forward(plain, in from, default(NoInput), ref viaPlain, tick);
             if (dedupPb.Flags != plainPb.Flags || !viaDedup.Works.SequenceEqual(viaPlain.Works) || viaDedup.Sum != viaPlain.Sum)
                 throw new InvalidOperationException($"Dedup changed results at {tick}.");
         }
@@ -812,11 +814,11 @@ internal static class EdgeVerification
                 var viaDedup = new Probe();
                 var viaPlain = new Probe();
                 var dedupPb = backward
-                    ? Timeline.Backward(deduped, in start, ref viaDedup, to)
-                    : Timeline.Forward(deduped, in start, ref viaDedup, to);
+                    ? Timeline.Backward(deduped, in start, default(NoInput), ref viaDedup, to)
+                    : Timeline.Forward(deduped, in start, default(NoInput), ref viaDedup, to);
                 var plainPb = backward
-                    ? Timeline.Backward(plain, in start, ref viaPlain, to)
-                    : Timeline.Forward(plain, in start, ref viaPlain, to);
+                    ? Timeline.Backward(plain, in start, default(NoInput), ref viaPlain, to)
+                    : Timeline.Forward(plain, in start, default(NoInput), ref viaPlain, to);
                 if (dedupPb.Flags != plainPb.Flags || !viaDedup.Works.SequenceEqual(viaPlain.Works) || viaDedup.Sum != viaPlain.Sum)
                     throw new InvalidOperationException($"Dedup changed jump results at {from}->{to}, backward={backward}.");
             }
@@ -833,14 +835,15 @@ internal static class EdgeVerification
             var timeline = loops ? looping : linear;
             var a = Timeline.Start(timeline);
             var b = GeneratedTimeline<VitalsTrack, VitalsClip>.Start();
+            var fixtureIn = default(VitalsInput);
             for (uint tick = 0; tick < 1300; tick++)
             {
-                var x = new Vitals();
-                var y = new Vitals();
-                a = Timeline.Forward(timeline, in a, ref x, tick);
+                var x = fixtureIn.Seed();
+                var y = fixtureIn.Seed();
+                a = Timeline.Forward(timeline, in a, in fixtureIn, ref x, tick);
                 b = loops
-                    ? GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Forward(in b, ref y, tick)
-                    : GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in b, ref y, tick);
+                    ? GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Forward(in b, in fixtureIn, ref y, tick)
+                    : GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in b, in fixtureIn, ref y, tick);
                 Require(a.Flags == b.Flags && a.Cycles == b.Cycles && x.Result == y.Result, $"Generated/runtime fixture diverged at {tick}, loops={loops}.");
             }
         }
@@ -925,7 +928,7 @@ internal static class EdgeVerification
         {
             var expected = WorksAt(t, pc.Tick, backward: false, wrapped: false, full: false);
             var mark = facts.Calls!.Count;
-            pc = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pc, ref facts, t);
+            pc = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in pc, default(NoInput), ref facts, t);
             RequireWorks(t, facts.Calls!, mark, expected);
         }
 
@@ -951,7 +954,7 @@ internal static class EdgeVerification
         {
             var expected = WorksAt((uint)t, (uint)t + 1, backward: true, wrapped: false, full: false);
             var mark = rewinds.Calls!.Count;
-            pr = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in pr, ref rewinds, (uint)t);
+            pr = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in pr, default(NoInput), ref rewinds, (uint)t);
             RequireWorks((uint)t, rewinds.Calls!, mark, expected);
         }
         foreach (var call in rewinds.Calls!)
@@ -1002,9 +1005,9 @@ internal static class EdgeVerification
                 var jumps = new Facts { Calls = [] };
                 var jp = GeneratedTimeline<VitalsTrack, VitalsClip>.Start(from);
                 if (backward)
-                    jp = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in jp, ref jumps, to);
+                    jp = GeneratedTimeline<VitalsTrack, VitalsClip>.Backward(in jp, default(NoInput), ref jumps, to);
                 else
-                    jp = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in jp, ref jumps, to);
+                    jp = GeneratedTimeline<VitalsTrack, VitalsClip>.Forward(in jp, default(NoInput), ref jumps, to);
 
                 var expected = WorksAt(to, from, backward, wrapped: false, full: false);
                 RequireWorks(to, jumps.Calls!, 0, expected);
@@ -1028,8 +1031,8 @@ internal static class EdgeVerification
             var loops = new Facts { Calls = [] };
             var lc = GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Start(from);
             lc = backward
-                ? GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Backward(in lc, ref loops, to)
-                : GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Forward(in lc, ref loops, to);
+                ? GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Backward(in lc, default(NoInput), ref loops, to)
+                : GeneratedTimeline<LoopVitalsTrack, VitalsClip>.Forward(in lc, default(NoInput), ref loops, to);
 
             var expected = WorksAt(tEff, prevEff, backward, wrapped, full);
             RequireWorks(tEff, loops.Calls!, 0, expected);
@@ -1200,103 +1203,109 @@ internal static class EdgeVerification
     // Sums every work's resolved clip regardless of state, so blend values
     // are visible even on one-frame windows.
     internal struct BigData :
-        IForward<BigTrack, BigClip, BigData>,
-        IBackward<BigTrack, BigClip, BigData>
+        IForward<BigTrack, BigClip, NoInput, BigData>,
+        IBackward<BigTrack, BigClip, NoInput, BigData>
     {
         public float Sum;
         public int Count;
 
-        public void Forward(ref BigData data, in Tracks<BigTrack, BigClip> tracks, in uint tick)
+        public void Forward(in Tracks<BigTrack, BigClip> tracks, in NoInput input, in uint tick, ref BigData result)
         {
             foreach (var work in tracks)
-                data.Sum += work.Clip.Value;
-            data.Count++;
+                result.Sum += work.Clip.Value;
+            result.Count++;
         }
 
-        public void Backward(ref BigData data, in Tracks<BigTrack, BigClip> tracks, in uint tick)
+        public void Backward(in Tracks<BigTrack, BigClip> tracks, in NoInput input, in uint tick, ref BigData result)
         {
             foreach (var work in tracks)
-                data.Sum -= work.Clip.Value;
-            data.Count--;
+                result.Sum -= work.Clip.Value;
+            result.Count--;
         }
     }
 
     internal struct HugeData :
-        IForward<HugeTrack, HugeClip, HugeData>,
-        IBackward<HugeTrack, HugeClip, HugeData>
+        IForward<HugeTrack, HugeClip, NoInput, HugeData>,
+        IBackward<HugeTrack, HugeClip, NoInput, HugeData>
     {
         public float Sum;
         public int Count;
 
-        public void Forward(ref HugeData data, in Tracks<HugeTrack, HugeClip> tracks, in uint tick)
+        public void Forward(in Tracks<HugeTrack, HugeClip> tracks, in NoInput input, in uint tick, ref HugeData result)
         {
             foreach (var work in tracks)
-                data.Sum += work.Clip.Value;
-            data.Count++;
+                result.Sum += work.Clip.Value;
+            result.Count++;
         }
 
-        public void Backward(ref HugeData data, in Tracks<HugeTrack, HugeClip> tracks, in uint tick)
+        public void Backward(in Tracks<HugeTrack, HugeClip> tracks, in NoInput input, in uint tick, ref HugeData result)
         {
             foreach (var work in tracks)
-                data.Sum -= work.Clip.Value;
-            data.Count--;
+                result.Sum -= work.Clip.Value;
+            result.Count--;
         }
     }
 
     // Reentrancy witness: the consumer of one blended timeline plays a
     // second blended timeline from inside its callback, each call resolving
     // into its own scratch (the inner one is a stack buffer inside the
-    // callback — never a shared global).
+    // callback — never a shared global). The inner timeline's index is
+    // immutable input context (NestedInput); the accumulators — both the
+    // outer sums and the nested InnerData result — live on the result side.
+    internal struct NestedInput
+    {
+        public ushort Inner;
+    }
+
     internal struct NestedData :
-        IForward<BigTrack, BigClip, NestedData>,
-        IBackward<BigTrack, BigClip, NestedData>
+        IForward<BigTrack, BigClip, NestedInput, NestedData>,
+        IBackward<BigTrack, BigClip, NestedInput, NestedData>
     {
         public float Sum;
         public int Count;
-        public ushort Inner;
         public BigData InnerData;
 
-        public void Forward(ref NestedData data, in Tracks<BigTrack, BigClip> tracks, in uint tick)
+        public void Forward(in Tracks<BigTrack, BigClip> tracks, in NestedInput input, in uint tick, ref NestedData result)
         {
             foreach (var work in tracks)
-                data.Sum += work.Clip.Value;
-            data.Count++;
+                result.Sum += work.Clip.Value;
+            result.Count++;
 
             Span<BigClip> inner = stackalloc BigClip[1];
             var pb = new Playback(tick, 0, PlaybackFlags.Started);
-            Timeline<BigTrack, BigClip>.Forward(data.Inner, in pb, ref data.InnerData, inner, tick);
+            Timeline<BigTrack, BigClip>.Forward(input.Inner, in pb, default(NoInput), ref result.InnerData, inner, tick);
         }
 
-        public void Backward(ref NestedData data, in Tracks<BigTrack, BigClip> tracks, in uint tick)
+        public void Backward(in Tracks<BigTrack, BigClip> tracks, in NestedInput input, in uint tick, ref NestedData result)
         {
             foreach (var work in tracks)
-                data.Sum -= work.Clip.Value;
-            data.Count--;
+                result.Sum -= work.Clip.Value;
+            result.Count--;
 
             Span<BigClip> inner = stackalloc BigClip[1];
             var pb = new Playback(tick, 0, PlaybackFlags.Started);
-            Timeline<BigTrack, BigClip>.Backward(data.Inner, in pb, ref data.InnerData, inner, tick);
+            Timeline<BigTrack, BigClip>.Backward(input.Inner, in pb, default(NoInput), ref result.InnerData, inner, tick);
         }
     }
 
     // Records the raw value bits of every work it sees, for the payload
     // dedup receipts.
     internal struct BitsData :
-        IForward<ProbeTrack, ProbeClip, BitsData>,
-        IBackward<ProbeTrack, ProbeClip, BitsData>
+        IForward<ProbeTrack, ProbeClip, NoInput, BitsData>,
+        IBackward<ProbeTrack, ProbeClip, NoInput, BitsData>
     {
         public List<uint>? Bits;
 
-        public void Forward(ref BitsData data, in Tracks<ProbeTrack, ProbeClip> tracks, in uint tick)
+        public void Forward(in Tracks<ProbeTrack, ProbeClip> tracks, in NoInput input, in uint tick, ref BitsData result)
         {
             foreach (var work in tracks)
-                data.Bits!.Add(BitConverter.SingleToUInt32Bits(work.Clip.Value));
+                result.Bits!.Add(BitConverter.SingleToUInt32Bits(work.Clip.Value));
         }
 
-        public void Backward(ref BitsData data, in Tracks<ProbeTrack, ProbeClip> tracks, in uint tick)
+        public void Backward(in Tracks<ProbeTrack, ProbeClip> tracks, in NoInput input, in uint tick, ref BitsData result)
         {
             foreach (var work in tracks)
-                data.Bits!.Add(BitConverter.SingleToUInt32Bits(work.Clip.Value));
+                result.Bits!.Add(BitConverter.SingleToUInt32Bits(work.Clip.Value));
         }
     }
 
@@ -1305,8 +1314,8 @@ internal static class EdgeVerification
     // boundary-frame rule. Backward runs the same body — the receipts
     // compare direction-specific expectations separately.
     internal struct Probe :
-        IForward<ProbeTrack, ProbeClip, Probe>,
-        IBackward<ProbeTrack, ProbeClip, Probe>
+        IForward<ProbeTrack, ProbeClip, NoInput, Probe>,
+        IBackward<ProbeTrack, ProbeClip, NoInput, Probe>
     {
         public float Sum;
         public int Tracks;
@@ -1318,48 +1327,49 @@ internal static class EdgeVerification
         {
         }
 
-        public void Forward(ref Probe data, in Tracks<ProbeTrack, ProbeClip> tracks, in uint tick)
+        public void Forward(in Tracks<ProbeTrack, ProbeClip> tracks, in NoInput input, in uint tick, ref Probe result)
         {
-            data.Tick = tick;
-            data.Tracks = tracks.Count;
+            result.Tick = tick;
+            result.Tracks = tracks.Count;
             foreach (var work in tracks)
             {
                 if (work.State == ClipState.Stay)
-                    data.Sum += work.Clip.Value;
-                data.Works.Add((work.Index, work.State));
+                    result.Sum += work.Clip.Value;
+                result.Works.Add((work.Index, work.State));
             }
-            data.Count++;
+            result.Count++;
         }
 
-        public void Backward(ref Probe data, in Tracks<ProbeTrack, ProbeClip> tracks, in uint tick) => Forward(ref data, in tracks, in tick);
+        public void Backward(in Tracks<ProbeTrack, ProbeClip> tracks, in NoInput input, in uint tick, ref Probe result)
+            => Forward(in tracks, in input, in tick, ref result);
     }
 
     // Records every work (track index, tick, state) for the Vitals-fixture
     // oracle, through both the linear and the looping closure.
     internal struct Facts :
-        IForward<VitalsTrack, VitalsClip, Facts>,
-        IBackward<VitalsTrack, VitalsClip, Facts>,
-        IForward<LoopVitalsTrack, VitalsClip, Facts>,
-        IBackward<LoopVitalsTrack, VitalsClip, Facts>
+        IForward<VitalsTrack, VitalsClip, NoInput, Facts>,
+        IBackward<VitalsTrack, VitalsClip, NoInput, Facts>,
+        IForward<LoopVitalsTrack, VitalsClip, NoInput, Facts>,
+        IBackward<LoopVitalsTrack, VitalsClip, NoInput, Facts>
     {
         public List<(int Track, uint Tick, ClipState State)>? Calls;
 
-        public void Forward(ref Facts data, in Tracks<VitalsTrack, VitalsClip> tracks, in uint tick)
+        public void Forward(in Tracks<VitalsTrack, VitalsClip> tracks, in NoInput input, in uint tick, ref Facts result)
         {
             foreach (var work in tracks)
-                data.Calls!.Add((work.Index, tick, work.State));
+                result.Calls!.Add((work.Index, tick, work.State));
         }
 
-        public void Backward(ref Facts data, in Tracks<VitalsTrack, VitalsClip> tracks, in uint tick)
-            => Forward(ref data, in tracks, in tick);
+        public void Backward(in Tracks<VitalsTrack, VitalsClip> tracks, in NoInput input, in uint tick, ref Facts result)
+            => Forward(in tracks, in input, in tick, ref result);
 
-        public void Forward(ref Facts data, in Tracks<LoopVitalsTrack, VitalsClip> tracks, in uint tick)
+        public void Forward(in Tracks<LoopVitalsTrack, VitalsClip> tracks, in NoInput input, in uint tick, ref Facts result)
         {
             foreach (var work in tracks)
-                data.Calls!.Add((work.Index, tick, work.State));
+                result.Calls!.Add((work.Index, tick, work.State));
         }
 
-        public void Backward(ref Facts data, in Tracks<LoopVitalsTrack, VitalsClip> tracks, in uint tick)
-            => Forward(ref data, in tracks, in tick);
+        public void Backward(in Tracks<LoopVitalsTrack, VitalsClip> tracks, in NoInput input, in uint tick, ref Facts result)
+            => Forward(in tracks, in input, in tick, ref result);
     }
 }

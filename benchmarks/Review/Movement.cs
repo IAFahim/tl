@@ -121,20 +121,20 @@ public class Movement
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt AfterSingle()
     {
-        var data = new AfterData();
+        var data = new AfterResult { Flags = 0 };
         var state = Tl.Hooks.Timeline.Start(_after);
         foreach (uint tick in _ticks)
-            state = Tl.Hooks.Timeline.Forward(_after, in state, ref data, tick);
+            state = Tl.Hooks.Timeline.Forward(_after, in state, default(Tl.Hooks.NoInput), ref data, tick);
         return data.Result;
     }
 
     [Benchmark(OperationsPerInvoke = Operations)]
     public Receipt AfterBatch()
     {
-        var data = new AfterData();
+        var data = new AfterResult { Flags = 0 };
         var state = Tl.Hooks.Timeline.Start(_after);
         for (int i = 0; i < _ticks.Length; i += 8)
-            state = Tl.Hooks.Timeline.Forward(_after, in state, ref data, _ticks.AsSpan(i, 8));
+            state = Tl.Hooks.Timeline.Forward(_after, in state, default(Tl.Hooks.NoInput), ref data, _ticks.AsSpan(i, 8));
         return data.Result;
     }
 }
@@ -167,21 +167,21 @@ public readonly struct AfterTrack : Tl.Hooks.IBlend<AfterClip>
     public void Blend(in AfterClip a, in AfterClip b, float t, out AfterClip result)
         => result = new(a.Value * (1f - t) + b.Value * t);
 }
-public struct AfterData : Tl.Hooks.IForward<AfterTrack, AfterClip, AfterData>, Tl.Hooks.IBackward<AfterTrack, AfterClip, AfterData>
+internal struct AfterResult : Tl.Hooks.IForward<AfterTrack, AfterClip, Tl.Hooks.NoInput, AfterResult>, Tl.Hooks.IBackward<AfterTrack, AfterClip, Tl.Hooks.NoInput, AfterResult>
 {
     public float Sum;
     public ulong Flags;
     public int Count;
     public readonly Receipt Result => new(Sum, Flags, Count);
-    public void Forward(ref AfterData data, in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, in uint tick)
+    public void Forward(in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, in Tl.Hooks.NoInput input, in uint tick, ref AfterResult result)
     {
         foreach (var work in tracks)
         {
             if (work.State == Tl.Hooks.ClipState.Stay)
-                data.Sum += work.Clip.Value;
+                result.Sum += work.Clip.Value;
         }
-        data.Count++;
+        result.Count++;
     }
-    public void Backward(ref AfterData data, in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, in uint tick)
-        => Forward(ref data, in tracks, in tick);
+    public void Backward(in Tl.Hooks.Tracks<AfterTrack, AfterClip> tracks, in Tl.Hooks.NoInput input, in uint tick, ref AfterResult result)
+        => Forward(in tracks, in input, in tick, ref result);
 }
