@@ -97,7 +97,7 @@ if (args is ["--verify"])
         throw new InvalidOperationException($"Tick 7 is the clip's last active frame: Exit must be positional: {patient.Exits}.");
     Console.WriteLine($"Hub pointer dispatch: Enter/Stay/Exit = {patient.Enters}/{patient.Stays}/{patient.Exits}, caller mutated in place (no boxing copy).");
 
-    // One index, two consumer types: the per-(entry, TData) binding cache
+    // One index, two consumer types: the per-(entry, TResult) binding cache
     // serves both, and playing one leaves the other's instance untouched.
     var left = new SharedLeft();
     var right = new SharedRight();
@@ -531,10 +531,10 @@ if (args is ["--verify"])
         return (sum, ticks, count);
     }
 
-    void VerifyFrozen<TTrack, TClip, TData, TFrozen>(string name, uint duration)
+    void VerifyFrozen<TTrack, TClip, TResult, TFrozen>(string name, uint duration)
         where TTrack : struct, ITrackTables<TTrack, TClip>, IBlend<TClip>
         where TClip : unmanaged
-        where TData : struct, IForward<TTrack, TClip, NoInput, TData>, IBackward<TTrack, TClip, NoInput, TData>, IFrozenOracle
+        where TResult : struct, IForward<TTrack, TClip, NoInput, TResult>, IBackward<TTrack, TClip, NoInput, TResult>, IFrozenOracle
         where TFrozen : struct, IFrozen
     {
         void RequireStep(string what, in Playback oracle, in Playback frozen)
@@ -555,7 +555,7 @@ if (args is ["--verify"])
         //    equal at every step (Tick, Cycles, Flags) and the sinks at the
         //    end are equal with exact float equality. The tail steps past the
         //    duration land in the empty sentinel region and fire no callbacks.
-        var oracle = new TData();
+        var oracle = new TResult();
         var frozen = default(FrozenSink);
         var walkOracle = GeneratedTimeline<TTrack, TClip>.Start();
         var walkFrozen = TFrozen.Start();
@@ -593,7 +593,7 @@ if (args is ["--verify"])
             jump ^= jump << 5;
             var to = jump % (duration + 20);
 
-            var jumpOracleData = new TData();
+            var jumpOracleData = new TResult();
             var jumpFrozenSink = default(FrozenSink);
             var jumpOracle = GeneratedTimeline<TTrack, TClip>.Start(from);
             var jumpFrozen = TFrozen.Start(from);
@@ -602,7 +602,7 @@ if (args is ["--verify"])
             RequireStep($"forward jump {from}->{to}", jumpOracle, jumpFrozen);
             RequireSink($"forward jump {from}->{to}", jumpOracleData.Sink, jumpFrozenSink);
 
-            jumpOracleData = new TData();
+            jumpOracleData = new TResult();
             jumpFrozenSink = default;
             jumpOracle = GeneratedTimeline<TTrack, TClip>.Start(from);
             jumpFrozen = TFrozen.Start(from);
@@ -620,7 +620,7 @@ if (args is ["--verify"])
         //    boundary rule puts them - boundary frames do not accumulate,
         //    so the codes are not symmetric in general - and are therefore
         //    only ever checked oracle-vs-frozen, never assumed to cancel.
-        var mirrorOracleData = new TData();
+        var mirrorOracleData = new TResult();
         var mirrorFrozenSink = default(FrozenSink);
         var mirrorOracle = GeneratedTimeline<TTrack, TClip>.Start();
         var mirrorFrozen = TFrozen.Start();
@@ -647,7 +647,7 @@ if (args is ["--verify"])
         //    duration) against eight single calls - equal final Playback and
         //    sink on both paths.
         Span<uint> batch = [duration / 3, 1, duration - 1, duration + 7, 0, duration / 2, 2, duration - 2];
-        var batchOracleData = new TData();
+        var batchOracleData = new TResult();
         var batchFrozenSink = default(FrozenSink);
         var singleFrozenSink = default(FrozenSink);
         var batchStartOracle = GeneratedTimeline<TTrack, TClip>.Start();
