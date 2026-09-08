@@ -138,6 +138,8 @@ type Tl.Tracks`2
   Property Int32 Count
   NestedType Tl.Tracks`2+Enumerator[TTrack,TClip]
   Method Enumerator GetEnumerator()
+  Property Tl.TrackWork`2[TTrack,TClip] Item [Int32]
+  Method Tl.Tracks`2[TTrack,TClip] Slice(Int32, Int32)
 type Tl.Tracks`2+Enumerator
   Property Tl.TrackWork`2[TTrack,TClip] Current
   Method Boolean MoveNext()

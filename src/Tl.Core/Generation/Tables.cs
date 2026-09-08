@@ -29,6 +29,17 @@ public static class GeneratedTimeline<TTrack, TClip>
 {
     public static Playback Start(uint at = 0) => new(at, 0, PlaybackFlags.Started);
 
+    // The build-time work-slot table is a per-closure static cache derived
+    // once from the authored tables (the registry path precomputes the same
+    // table at Build; a future generator can bake it at emission) and the
+    // static-abstract table fetches happen once per call — generic-dictionary
+    // indirections; never inside the per-track loop.
+    private static class WorkTables
+    {
+        public static readonly WorkSlot[] Slots = PlaybackCore.MaterializeWorkSlots(
+            TTrack.TrackRows, TTrack.ClipRows, ReadOnlySpan<ushort>.Empty, TTrack.ClipEdges, TTrack.RegionRows);
+    }
+
     public static void Forward<TInput, TResult>(in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)
         where TInput : struct
         where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
@@ -46,15 +57,12 @@ public static class GeneratedTimeline<TTrack, TClip>
 
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
-        var trackRows = TTrack.TrackRows;
-        var clipRows = TTrack.ClipRows;
-        var edges = TTrack.ClipEdges;
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
         PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
             backward: false, TTrack.Loops, ticks, in input, ref result,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
+            starts, regionRows, trackData, clipData, scratch, WorkTables.Slots);
     }
 
     public static void Backward<TInput, TResult>(in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)
@@ -74,15 +82,12 @@ public static class GeneratedTimeline<TTrack, TClip>
 
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
-        var trackRows = TTrack.TrackRows;
-        var clipRows = TTrack.ClipRows;
-        var edges = TTrack.ClipEdges;
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
         PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
             backward: true, TTrack.Loops, ticks, in input, ref result,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
+            starts, regionRows, trackData, clipData, scratch, WorkTables.Slots);
     }
 
     public static Playback Forward<TInput, TResult>(in Playback from, in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)
@@ -103,15 +108,12 @@ public static class GeneratedTimeline<TTrack, TClip>
 
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
-        var trackRows = TTrack.TrackRows;
-        var clipRows = TTrack.ClipRows;
-        var edges = TTrack.ClipEdges;
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
         return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
             in from, backward: false, TTrack.Loops, ticks, in input, ref result,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
+            starts, regionRows, trackData, clipData, scratch, WorkTables.Slots);
     }
 
     public static Playback Backward<TInput, TResult>(in Playback from, in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)
@@ -132,14 +134,11 @@ public static class GeneratedTimeline<TTrack, TClip>
 
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
-        var trackRows = TTrack.TrackRows;
-        var clipRows = TTrack.ClipRows;
-        var edges = TTrack.ClipEdges;
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
         return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
             in from, backward: true, TTrack.Loops, ticks, in input, ref result,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch);
+            starts, regionRows, trackData, clipData, scratch, WorkTables.Slots);
     }
 }

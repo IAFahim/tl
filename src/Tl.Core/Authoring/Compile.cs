@@ -207,6 +207,13 @@ internal static class TimelineCompiler
             compactTracks = [.. trackRows];
         }
 
+        // Build-time region materialization: one WorkSlot per final track
+        // row (post-dedup, so aliased row runs share aliased slots), region
+        // rows referencing them by slice. Per tick, the engine slices this
+        // table — no per-call materialization work at all.
+        var workSlots = PlaybackCore.MaterializeWorkSlots(
+            compactTracks, CollectionsMarshal.AsSpan(clipRows), payloadMap, clipEdges, regionRows);
+
         return Timeline.Register(new Timeline.Entry
         {
             RegionStarts = regionStarts,
@@ -214,6 +221,7 @@ internal static class TimelineCompiler
             TrackRows = compactTracks,
             ClipRows = [.. clipRows],
             ClipEdges = clipEdges,
+            WorkSlots = workSlots,
             Payload = new Timeline<TTrack, TClip>.Tables
             {
                 TrackData = [.. authoring.Tracks],

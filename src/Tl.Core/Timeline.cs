@@ -239,17 +239,14 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: false, entry.Loops, ticks, in input, ref result,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
+                starts, regionRows, trackData, clipData, resolved, workSlots,
                 -1, out _);
         }
 
@@ -258,17 +255,14 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: true, entry.Loops, ticks, in input, ref result,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
+                starts, regionRows, trackData, clipData, resolved, workSlots,
                 -1, out _);
         }
 
@@ -280,17 +274,14 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             var playback = PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: false, entry.Loops, ticks, in input, ref result,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
+                starts, regionRows, trackData, clipData, resolved, workSlots,
                 hint, out var region);
 
             cursor = new Cursor { Owner = entry, Tick = playback.Tick, Region = region };
@@ -305,17 +296,14 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             var playback = PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: true, entry.Loops, ticks, in input, ref result,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved,
+                starts, regionRows, trackData, clipData, resolved, workSlots,
                 hint, out var region);
 
             cursor = new Cursor { Owner = entry, Tick = playback.Tick, Region = region };
@@ -327,16 +315,13 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: false, entry.Loops, ticks, in input, ref result,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, scratch,
+                starts, regionRows, trackData, clipData, scratch, workSlots,
                 -1, out _);
         }
 
@@ -345,16 +330,13 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: true, entry.Loops, ticks, in input, ref result,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, scratch,
+                starts, regionRows, trackData, clipData, scratch, workSlots,
                 -1, out _);
         }
 
@@ -363,17 +345,14 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
                 backward: false, entry.Loops, ticks, in input, ref result,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved);
+                starts, regionRows, trackData, clipData, resolved, workSlots);
         }
 
         private static void SampleBackward(Timeline.Entry entry, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
@@ -381,17 +360,14 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
 
             PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
                 backward: true, entry.Loops, ticks, in input, ref result,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved);
+                starts, regionRows, trackData, clipData, resolved, workSlots);
         }
     }
 }

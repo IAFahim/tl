@@ -15,6 +15,10 @@ public static unsafe partial class Timeline
         public required TrackRow[] TrackRows { get; init; }
         public required ClipRow[] ClipRows { get; init; }
         public required ClipEdge[] ClipEdges { get; init; }
+
+        // Build-time region materialization: one WorkSlot per track row,
+        // parallel to TrackRows — a region's per-tick view is a slice.
+        public required WorkSlot[] WorkSlots { get; init; }
         public required object Payload { get; init; }
         public required uint Duration { get; init; }
         public required int MaxActiveTracks { get; init; }
