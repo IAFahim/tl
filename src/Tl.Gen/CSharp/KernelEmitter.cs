@@ -49,8 +49,12 @@ public static class KernelEmitter
         {
             // Discovery marker for the declaration reader: chains after
             // Timeline<TTrack,TClip>.Build(author) so the reader can find and
-            // specialize the site at build time.
-            public static CompiledTimelineInfo Compile(this ushort index)
+            // specialize the site at build time. Build never runs the authoring
+            // lambda (it is syntax only until a terminal operation), so the
+            // runtime call is a pure no-op returning the marker.
+            public static CompiledTimelineInfo Compile<TTrack, TClip>(this TimelineAuthoring<TTrack, TClip> authoring)
+                where TTrack : unmanaged, IBlend<TClip>
+                where TClip : unmanaged
                 => new("<compiled: call the generated kernel class for this declaration>");
         }
 

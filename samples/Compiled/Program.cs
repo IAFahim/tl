@@ -16,7 +16,7 @@ internal static class Program
 
         // The interpreter leg: a normal runtime registration + explicit bind
         // (the NativeAOT-safe form).
-        ushort id = Timeline<PulseTrack, PulseClip>.Build(Authoring.Author);
+        ushort id = Timeline<PulseTrack, PulseClip>.Build(Authoring.Author).InMemory();
         Timeline<PulseTrack, PulseClip>.Bind<PulseInput, PulseResult>(id);
 
         // The compiled leg: the generated static kernel. No registry entry,
