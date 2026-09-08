@@ -7,14 +7,14 @@ internal static class EdgeVerification
     public static void Run()
     {
         var failures = new List<string>();
-        foreach (var test in new Action[] { Gaps, Empty, Blend, Order, Packing, Wrap, States, Batches, CursorParity, Scratch, PrefixCounts, Dedup, Fixture, PerClip, WideTicks, Limits, Indices })
+        foreach (var test in new Action[] { Gaps, Empty, Blend, Order, Packing, Wrap, States, Batches, CursorParity, Scratch, PrefixCounts, Dedup, Fixture, PerClip, Indexed, WideTicks, Limits, Indices })
         {
             try { test(); }
             catch (Exception e) { failures.Add($"{test.Method.Name}: {e.Message}"); }
         }
         if (failures.Count != 0)
             throw new InvalidOperationException(string.Join(Environment.NewLine, failures));
-        Console.WriteLine("Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, blend scratch, prefix counts, storage dedup, fixture parity, per-work facts oracle, limits.");
+        Console.WriteLine("Edge checks passed: gaps, terminal ticks, empty tables, blends, packing, wraps, per-work state oracle, cursor parity, blend scratch, prefix counts, storage dedup, fixture parity, per-work facts oracle, limits, indexed/sliced views.");
     }
 
     private static void Require(bool condition, string message)
@@ -1309,6 +1309,67 @@ internal static class EdgeVerification
         }
     }
 
+    // The v0.3 indexed/sliced view surface: Count, this[int], and Slice are
+    // new API beside foreach — they must expose exactly the works
+    // enumeration exposes (same authored indices, same per-work states,
+    // blends resolved identically through the indexed path), slices must be
+    // zero-copy sub-views of the same slot table, and both must
+    // bounds-check like the spans they are.
+    private static void Indexed()
+    {
+        var timeline = Timeline<ProbeTrack, ProbeClip>.Build(static b =>
+        {
+            TrackRef firstPair = b.Track(new ProbeTrack(0));
+            TrackRef secondPair = b.Track(new ProbeTrack(0));
+            TrackRef soloA = b.Track(new ProbeTrack(0));
+            TrackRef soloB = b.Track(new ProbeTrack(0));
+            b.Clip(firstPair, new ProbeClip(4), 0, 8);
+            b.Clip(firstPair, new ProbeClip(8), 0, 8);
+            b.Clip(secondPair, new ProbeClip(6), 0, 8);
+            b.Clip(secondPair, new ProbeClip(12), 0, 8);
+            b.Clip(soloA, new ProbeClip(3), 0, 8);
+            b.Clip(soloB, new ProbeClip(5), 0, 8);
+        });
+
+        Span<uint> ticks = [0, 1, 2, 3, 4, 5, 6, 7];
+        var viaIndex = new IndexedProbe { Works = [] };
+        var state = At(0);
+        foreach (var tick in ticks)
+            state = Timeline.Forward(timeline, in state, default(NoInput), ref viaIndex, tick);
+
+        var viaForeach = new Probe();
+        state = At(0);
+        foreach (var tick in ticks)
+            state = Timeline.Forward(timeline, in state, default(NoInput), ref viaForeach, tick);
+
+        Require(viaIndex.Works!.Count == viaForeach.Works.Count && viaIndex.Works.SequenceEqual(viaForeach.Works),
+            "The indexed/sliced view diverged from enumeration.");
+        Require(viaIndex.Calls == ticks.Length && viaIndex.Tracks == 4,
+            $"Indexed view count wrong: {viaIndex.Tracks} tracks, {viaIndex.Calls} calls.");
+
+        // The indexed Clip reads resolve the same blends: two crossfades over
+        // [0,8) sweep factors t/7 with bias 0, plus the two constant solos.
+        var expected = 0f;
+        foreach (var tick in ticks)
+        {
+            var factor = tick / 7f;
+            expected += 4f * (1f - factor) + 8f * factor;
+            expected += 6f * (1f - factor) + 12f * factor;
+            expected += 3f + 5f;
+        }
+        Require(Math.Abs(viaIndex.Sum - expected) < 1e-3f, $"Indexed blend sums diverged: {viaIndex.Sum:R} vs {expected:R}.");
+
+        // A slice consumer that reads everything through sub-views: the
+        // recorded works and sums must match the whole-view consumer.
+        var viaSlice = new SliceProbe { Works = [] };
+        state = At(0);
+        foreach (var tick in ticks)
+            state = Timeline.Forward(timeline, in state, default(NoInput), ref viaSlice, tick);
+        Require(viaSlice.Works!.Count == viaIndex.Works.Count && viaSlice.Works.SequenceEqual(viaIndex.Works),
+            "Sliced consumption diverged from indexed consumption.");
+        Require(Math.Abs(viaSlice.Sum - viaIndex.Sum) < 1e-3f, $"Sliced blend sums diverged: {viaSlice.Sum:R} vs {viaIndex.Sum:R}.");
+    }
+
     // The probe consumer: records every (Index, State) work it sees and
     // accumulates clip values on Stay only, mirroring the pinned
     // boundary-frame rule. Backward runs the same body — the receipts
@@ -1341,6 +1402,86 @@ internal static class EdgeVerification
         }
 
         public void Backward(in Tracks<ProbeTrack, ProbeClip> tracks, in NoInput input, in uint tick, ref Probe result)
+            => Forward(in tracks, in input, in tick, ref result);
+    }
+
+    // The v0.3 indexed-view consumer: reads every work through this[int]
+    // (never foreach), sums every resolved clip, and runs the Slice
+    // boundary receipts once. Must record exactly what the foreach probe
+    // records — Index and State — while resolving blends through the
+    // indexed path.
+    internal struct IndexedProbe :
+        IForward<ProbeTrack, ProbeClip, NoInput, IndexedProbe>,
+        IBackward<ProbeTrack, ProbeClip, NoInput, IndexedProbe>
+    {
+        public float Sum;
+        public int Tracks;
+        public int Calls;
+        public List<(ushort Index, ClipState State)>? Works;
+
+        public void Forward(in Tracks<ProbeTrack, ProbeClip> tracks, in NoInput input, in uint tick, ref IndexedProbe result)
+        {
+            result.Tracks = tracks.Count;
+            for (var i = 0; i < tracks.Count; i++)
+            {
+                var work = tracks[i];
+                result.Sum += work.Clip.Value;
+                result.Works!.Add((work.Index, work.State));
+            }
+
+            if (result.Calls == 0)
+            {
+                // Bounds receipts, once: the indexer rejects like the span it
+                // is (IndexOutOfRangeException under the JIT's hardware
+                // bounds check) and Slice rejects with
+                // ArgumentOutOfRangeException; a full-length slice is valid.
+                try { _ = tracks[tracks.Count]; throw new InvalidOperationException("The indexer must bounds-check."); }
+                catch (IndexOutOfRangeException) { }
+                try { _ = tracks.Slice(0, tracks.Count + 1); throw new InvalidOperationException("Slice must bounds-check length."); }
+                catch (ArgumentOutOfRangeException) { }
+                try { _ = tracks.Slice(tracks.Count, 1); throw new InvalidOperationException("Slice must bounds-check start."); }
+                catch (ArgumentOutOfRangeException) { }
+                _ = tracks.Slice(0, tracks.Count);
+            }
+
+            result.Calls++;
+        }
+
+        public void Backward(in Tracks<ProbeTrack, ProbeClip> tracks, in NoInput input, in uint tick, ref IndexedProbe result)
+            => Forward(in tracks, in input, in tick, ref result);
+    }
+
+    // Consumes exclusively through sub-views: splits the view into slices,
+    // then foreaches each slice — sliced enumeration and sliced Clip reads
+    // (blends included, scratch ordinals baked per slot) must aggregate
+    // exactly what the whole view produces.
+    internal struct SliceProbe :
+        IForward<ProbeTrack, ProbeClip, NoInput, SliceProbe>,
+        IBackward<ProbeTrack, ProbeClip, NoInput, SliceProbe>
+    {
+        public float Sum;
+        public List<(ushort Index, ClipState State)>? Works;
+
+        public void Forward(in Tracks<ProbeTrack, ProbeClip> tracks, in NoInput input, in uint tick, ref SliceProbe result)
+        {
+            var half = tracks.Count / 2;
+            foreach (var work in tracks.Slice(0, half))
+            {
+                result.Sum += work.Clip.Value;
+                result.Works!.Add((work.Index, work.State));
+            }
+
+            foreach (var work in tracks.Slice(half, tracks.Count - half))
+            {
+                result.Sum += work.Clip.Value;
+                result.Works!.Add((work.Index, work.State));
+            }
+
+            // Empty slices enumerate nothing and never throw.
+            _ = tracks.Slice(0, 0).Count;
+        }
+
+        public void Backward(in Tracks<ProbeTrack, ProbeClip> tracks, in NoInput input, in uint tick, ref SliceProbe result)
             => Forward(in tracks, in input, in tick, ref result);
     }
 
