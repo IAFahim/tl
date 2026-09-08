@@ -1442,3 +1442,285 @@ public class Frozen
         return sink.Sum + sink.Flags + sink.Count;
     }
 }
+
+// TrackViewDecomp — where does a single tick's time go? One region, four
+// tracks live on every tick of a 64-tick duration, so region lookup and
+// movement scans are constant and the ladder isolates the per-tick view
+// machinery. Each result type adds exactly one cost on top of the last:
+//   Calls      the callback fires and counts — engine + dispatch floor
+//   Walk       + foreach traversal (enumerator; TrackWork reads nothing)
+//   Index      + one TrackWork field read (construction becomes live)
+//   State      + per-work ClipState derivation
+//   Clip       + full clip resolution (the payload read every consumer does)
+//   ClipBlend  the Clip read on the blended fixture — adds the Blend pair
+//              machinery (factor math, scratch slot, resolved-buffer clip)
+// References for the verdict: PlaybackSingle (real Vitals consumer, mixed
+// regions/blends/gaps) and the frozen floor in docs/benchmarks.md.
+public readonly record struct DecompClip(float Value);
+
+public struct DecompTrack : IBlend<DecompClip>
+{
+    public void Blend(in DecompClip first, in DecompClip second, float t, out DecompClip result)
+        => result = new(first.Value * (1f - t) + second.Value * t);
+}
+
+internal struct DecompCalls :
+    IForward<DecompTrack, DecompClip, NoInput, DecompCalls>,
+    IBackward<DecompTrack, DecompClip, NoInput, DecompCalls>
+{
+    public int Calls;
+
+    public void Forward(in Tracks<DecompTrack, DecompClip> tracks, in NoInput input, in uint tick, ref DecompCalls result)
+        => result.Calls++;
+
+    public void Backward(in Tracks<DecompTrack, DecompClip> tracks, in NoInput input, in uint tick, ref DecompCalls result)
+        => result.Calls--;
+}
+
+internal struct DecompWalk :
+    IForward<DecompTrack, DecompClip, NoInput, DecompWalk>,
+    IBackward<DecompTrack, DecompClip, NoInput, DecompWalk>
+{
+    public int Calls;
+
+    public void Forward(in Tracks<DecompTrack, DecompClip> tracks, in NoInput input, in uint tick, ref DecompWalk result)
+    {
+        foreach (var work in tracks)
+        {
+            _ = work; // traverse only: enumerator runs, nothing is read
+        }
+        result.Calls++;
+    }
+
+    public void Backward(in Tracks<DecompTrack, DecompClip> tracks, in NoInput input, in uint tick, ref DecompWalk result)
+    {
+        foreach (var work in tracks)
+        {
+            _ = work;
+        }
+        result.Calls--;
+    }
+}
+
+internal struct DecompIndex :
+    IForward<DecompTrack, DecompClip, NoInput, DecompIndex>,
+    IBackward<DecompTrack, DecompClip, NoInput, DecompIndex>
+{
+    public long Sink;
+    public int Calls;
+
+    public void Forward(in Tracks<DecompTrack, DecompClip> tracks, in NoInput input, in uint tick, ref DecompIndex result)
+    {
+        foreach (var work in tracks)
+            result.Sink += work.Index;
+        result.Calls++;
+    }
+
+    public void Backward(in Tracks<DecompTrack, DecompClip> tracks, in NoInput input, in uint tick, ref DecompIndex result)
+    {
+        foreach (var work in tracks)
+            result.Sink -= work.Index;
+        result.Calls--;
+    }
+}
+
+internal struct DecompState :
+    IForward<DecompTrack, DecompClip, NoInput, DecompState>,
+    IBackward<DecompTrack, DecompClip, NoInput, DecompState>
+{
+    public long Sink;
+    public int Calls;
+
+    public void Forward(in Tracks<DecompTrack, DecompClip> tracks, in NoInput input, in uint tick, ref DecompState result)
+    {
+        foreach (var work in tracks)
+            result.Sink += (long)work.State;
+        result.Calls++;
+    }
+
+    public void Backward(in Tracks<DecompTrack, DecompClip> tracks, in NoInput input, in uint tick, ref DecompState result)
+    {
+        foreach (var work in tracks)
+            result.Sink -= (long)work.State;
+        result.Calls--;
+    }
+}
+
+internal struct DecompClipRead :
+    IForward<DecompTrack, DecompClip, NoInput, DecompClipRead>,
+    IBackward<DecompTrack, DecompClip, NoInput, DecompClipRead>
+{
+    public float Sum;
+    public int Calls;
+
+    public void Forward(in Tracks<DecompTrack, DecompClip> tracks, in NoInput input, in uint tick, ref DecompClipRead result)
+    {
+        foreach (var work in tracks)
+            result.Sum += work.Clip.Value;
+        result.Calls++;
+    }
+
+    public void Backward(in Tracks<DecompTrack, DecompClip> tracks, in NoInput input, in uint tick, ref DecompClipRead result)
+    {
+        foreach (var work in tracks)
+            result.Sum -= work.Clip.Value;
+        result.Calls--;
+    }
+}
+
+[Config(typeof(Config))]
+public class TrackViewDecomp
+{
+    public const int Operations = 65536;
+    public const uint Duration = 64;
+    private uint[] _ticks = null!;
+    private ushort _singles;
+    private ushort _blends;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _singles = Timeline<DecompTrack, DecompClip>.Build(b =>
+        {
+            for (var t = 0; t < 4; t++)
+            {
+                TrackRef track = b.Track(new DecompTrack());
+                b.Clip(track, new DecompClip(t * 2 + 3), 0, Duration);
+            }
+        });
+        _blends = Timeline<DecompTrack, DecompClip>.Build(b =>
+        {
+            TrackRef firstPair = b.Track(new DecompTrack());
+            TrackRef secondPair = b.Track(new DecompTrack());
+            TrackRef soloA = b.Track(new DecompTrack());
+            TrackRef soloB = b.Track(new DecompTrack());
+            b.Clip(firstPair, new DecompClip(4f), 0, Duration);
+            b.Clip(firstPair, new DecompClip(8f), 0, Duration);
+            b.Clip(secondPair, new DecompClip(6f), 0, Duration);
+            b.Clip(secondPair, new DecompClip(12f), 0, Duration);
+            b.Clip(soloA, new DecompClip(3f), 0, Duration);
+            b.Clip(soloB, new DecompClip(5f), 0, Duration);
+        });
+        _ticks = new uint[Operations];
+        uint random = 0x6D2B79F5;
+        for (var i = 0; i < _ticks.Length; i++)
+        {
+            random ^= random << 13;
+            random ^= random >> 17;
+            random ^= random << 5;
+            _ticks[i] = random % Duration;
+        }
+
+        // Receipts, hand-derived: one region and Start(0) at the clip starts
+        // means every work on every tick is Stay; the blended pairs resolve
+        // with factor tick/63 in track-row order.
+        var clip = new DecompClipRead();
+        var pb = Timeline.Start(_singles);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_singles, in pb, default(NoInput), ref clip, tick);
+        if (clip.Calls != Operations || MathF.Abs(clip.Sum - 24f * Operations) > 0.01f)
+            throw new InvalidOperationException($"TrackViewDecomp singles receipt mismatch: {clip.Sum} / {clip.Calls}.");
+
+        var index = new DecompIndex();
+        var state = new DecompState();
+        var walk = new DecompWalk();
+        var calls = new DecompCalls();
+        pb = Timeline.Start(_singles);
+        foreach (var tick in _ticks.AsSpan())
+        {
+            pb = Timeline.Forward(_singles, in pb, default(NoInput), ref index, tick);
+            pb = Timeline.Forward(_singles, in pb, default(NoInput), ref state, tick);
+            pb = Timeline.Forward(_singles, in pb, default(NoInput), ref walk, tick);
+            pb = Timeline.Forward(_singles, in pb, default(NoInput), ref calls, tick);
+        }
+        if (index.Sink != 6L * Operations || index.Calls != Operations)
+            throw new InvalidOperationException($"TrackViewDecomp index receipt mismatch: {index.Sink} / {index.Calls}.");
+        // Random ticks cross entry edges in both directions, so the state mix
+        // is stream-dependent (measured run: 266184 vs 262144 all-Stay — the
+        // Enter surplus of a backward-crossing random walk). The exact
+        // per-work state semantics are gated by EdgeVerification's oracle;
+        // here only the callback count is structural.
+        if (state.Calls != Operations)
+            throw new InvalidOperationException($"TrackViewDecomp state receipt mismatch: {state.Calls}.");
+        if (walk.Calls != Operations || calls.Calls != Operations)
+            throw new InvalidOperationException("TrackViewDecomp walk/calls receipt mismatch.");
+
+        var blended = new DecompClipRead();
+        pb = Timeline.Start(_blends);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_blends, in pb, default(NoInput), ref blended, tick);
+        var expected = 0f;
+        foreach (var tick in _ticks.AsSpan())
+        {
+            var factor = tick / 63f;
+            expected += 4f * (1f - factor) + 8f * factor;
+            expected += 6f * (1f - factor) + 12f * factor;
+            expected += 3f;
+            expected += 5f;
+        }
+        if (blended.Calls != Operations || MathF.Abs(blended.Sum - expected) > 0.01f)
+            throw new InvalidOperationException($"TrackViewDecomp blends receipt mismatch: {blended.Sum:R} vs {expected:R}.");
+    }
+
+    private float Run(ushort index, ref DecompClipRead data)
+    {
+        var pb = Timeline.Start(index);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(index, in pb, default(NoInput), ref data, tick);
+        return data.Sum + data.Calls;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float Calls()
+    {
+        var data = new DecompCalls();
+        var pb = Timeline.Start(_singles);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_singles, in pb, default(NoInput), ref data, tick);
+        return data.Calls;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float Walk()
+    {
+        var data = new DecompWalk();
+        var pb = Timeline.Start(_singles);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_singles, in pb, default(NoInput), ref data, tick);
+        return data.Calls;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float IndexRead()
+    {
+        var data = new DecompIndex();
+        var pb = Timeline.Start(_singles);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_singles, in pb, default(NoInput), ref data, tick);
+        return data.Sink + data.Calls;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float StateRead()
+    {
+        var data = new DecompState();
+        var pb = Timeline.Start(_singles);
+        foreach (var tick in _ticks.AsSpan())
+            pb = Timeline.Forward(_singles, in pb, default(NoInput), ref data, tick);
+        return data.Sink + data.Calls;
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float ClipRead()
+    {
+        var data = new DecompClipRead();
+        return Run(_singles, ref data);
+    }
+
+    [Benchmark(OperationsPerInvoke = Operations)]
+    public float ClipReadBlend()
+    {
+        var data = new DecompClipRead();
+        return Run(_blends, ref data);
+    }
+}

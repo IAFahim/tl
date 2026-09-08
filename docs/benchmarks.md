@@ -964,3 +964,57 @@ Readings, honestly:
   branch-free on JIT, NoTiering, and AOT alike.
 - Hub stays free at the new speeds: `HubFused16Batch8` 1.050/1.058 vs
   direct 1.088/1.061 — noise-level, both jobs.
+
+### TrackViewDecomp: what one tick actually spends (v0.2 receipts)
+
+The suspicion: `Tracks<T,C>` view machinery dominates the per-tick cost.
+Decomposition ladder (`TrackViewDecomp` class, v0.2 API, core 4, medians,
+ns per single-tick call; fixture = ONE region, 4 tracks live every tick,
+duration 64 — region lookup and movement constant, so the ladder isolates
+the view; each step adds exactly one cost):
+
+| Step (adds)                        | Jit   | NoTiering |
+|------------------------------------|------:|----------:|
+| `Calls` — engine + dispatch floor  | 11.60 |     18.32 |
+| `Walk` — + bare foreach traversal  | 20.85 |     39.46 |
+| `IndexRead` — + one TrackWork read | 26.13 |     28.47 |
+| `StateRead` — + ClipState          | 25.12 |     26.91 |
+| `ClipRead` — + clip payload        | 26.92 |     29.53 |
+| `ClipReadBlend` — Clip over pairs  | 28.06 |     32.85 |
+
+Readings, honestly:
+
+- **The view is most of the tick.** Full consumption is 26.92 vs an
+  11.60 engine+dispatch floor: 15.3 ns (57%) is view machinery. The bare
+  `foreach` with nothing read — no field touched, the work discarded —
+  costs +9.25 ns (35% of the whole tick) to walk FOUR items: the
+  enumerator state machine, per-iteration TrackRow loads, and a
+  TrackWork construction the JIT cannot dead-code (ref struct with ref
+  returns).
+- **The bundle copy tax is real.** Making one field read live
+  (`IndexRead`) adds +5.3 ns over bare traversal — that is the
+  ~10-field table-span bundle copied into a fresh TrackWork per visited
+  work. After the first read, further reads are nearly free (StateRead
+  ≈ IndexRead; the bundle is already materialized), and the actual
+  payload read (`ClipRead`) adds only +0.8 — the data is cheap; the
+  plumbing is not.
+- **Blend machinery is NOT the problem**: +1.1 ns/tick for two full
+  crossfades (factor math + Blend + scratch slot) — fine.
+- **NoTiering confirms the fat-struct cliff**: bare traversal balloons
+  to 39.46 under FullOpts (the v0.2 guard root-cause: the 5-arg callback
+  inlines, spends the budget, and `Enumerator.Current` becomes a real
+  call shuttling the fat ref struct through a hidden buffer).
+- For scale: the real mixed consumer (`PlaybackSingle`, Vitals) runs
+  ~24-25 ns on this machine today; the frozen floor is 1.06. The 11.6 ns
+  floor here is engine bookkeeping (bridge call, checks, locate,
+  movement, Playback) — the view tax rides on top of it.
+
+Verdict: the enumerator + per-iteration bundle materialization is the
+dominant cost of generic playback. The fix direction (receipted next):
+region-stable materialization — the active track set is constant inside
+a region, so materialize a dense resolved array once per region ENTRY
+(clip refs constant; only blend factors vary per tick) and hand the
+callback a thin indexed span. Traversal becomes a flat for-loop,
+TrackWork becomes a 2-3 field view of one entry, and clip access reads
+pre-resolved refs — projected to reclaim most of the 15.3 ns while
+keeping uniform per-work semantics and adding first-class indexing.
