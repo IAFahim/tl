@@ -1018,3 +1018,56 @@ callback a thin indexed span. Traversal becomes a flat for-loop,
 TrackWork becomes a 2-3 field view of one entry, and clip access reads
 pre-resolved refs — projected to reclaim most of the 15.3 ns while
 keeping uniform per-work semantics and adding first-class indexing.
+
+### v0.3: region-stable materialization — the view tax paid once per region
+
+The TrackViewDecomp receipts above priced the enumerator + per-iteration
+bundle materialization at 57% of a consuming tick. v0.3 restructures the
+view around the one fact the tables encode: the active work set is
+CONSTANT inside a region. On region entry the engine materializes a dense
+`WorkSlot` span once (payload-map hops resolved, blend pairs + factor
+windows captured, enter-reference edges precomputed — the bake-v3
+encoding); every tick in the region reuses it. `Tracks` becomes a thin
+6-field carrier with `Count`, `this[int]`, `Slice` (new, zero-copy), and a
+flat enumerator; `TrackWork` becomes a small view of ONE slot instead of
+a copy of the whole table bundle. Blends still resolve lazily into
+scratch on first visit — works never visited are never blended. The
+callback signature is unchanged; a new `Indexed:` edge battery cross-
+checks Count/indexer/Slice against enumeration.
+
+Ladder (same class, core 4, medians, ns/tick; v0.2 = the table above):
+
+| step          | v0.2 Jit | v0.3 Jit | v0.2 NoTiering | v0.3 NoTiering |
+|---------------|---------:|---------:|---------------:|---------------:|
+| Calls (floor) |    11.60 |    10.44 |          18.32 |          17.18 |
+| Walk          |    20.85 |    15.09 |          39.46 |          16.75 |
+| IndexRead     |    26.13 |    17.03 |          28.47 |          23.76 |
+| StateRead     |    25.12 |    18.26 |          26.91 |          23.72 |
+| ClipRead      |    26.92 |    18.09 |          29.53 |          30.18 |
+| ClipReadBlend |    28.06 |    19.16 |          32.85 |          32.05 |
+
+Sweep vs the v0.2 same-session references (Jit tiered): PlaybackSingle
+23.91 → 16.05 (−33%), PlaybackBackwardSingle 23.28 → 15.40,
+PlaybackParamsFour 19.83 → 15.34, HubDispatch 26.37 → 22.07; NoTiering
+PlaybackSingle 35.19 → 28.96. Blend arms: stack single 47.13 → 37.31,
+buffer single 35.30 → 30.24, zero-blend single 49.72 → 24.48 Jit and
+49.72 → 29.87 NoTiering (−40%). The v0.2 NoTiering fat-struct cliff
+shrank but did not fully die on the fat-payload blend fixture
+(StackSingle 219.47 → 194.05) — the thin TrackWork removed the view half;
+the 260 B payload copies remain. No arm regressed.
+
+Readings, honestly:
+
+- Full consumption hit its target (≤18): 18.09, −33%; blends −32%. The
+  floor itself dropped 11.60 → 10.44 — materialization replaced per-tick
+  row walking even before the callback runs.
+- The v0.2 structural cliff is GONE on the ladder: bare traversal
+  NoTiering 39.46 → 16.75, now BELOW tiered. Thin structs stopped the
+  hidden-buffer shuttle.
+- Two stretch targets missed narrowly (Walk ≤13 landed 15.09, IndexRead
+  ≤16 landed 17.03): residual ≈ 1.2 ns/work of thin-TrackWork
+  construction + bounds checks, halved from v0.2's ≈ 2.3. NoTiering
+  ClipRead is flat (29.53 → 30.18) — the FullOpts blend of materialize +
+  consume did not improve there; noted, not diagnosed further.
+- The cursor filter arm was not re-run (its region-hint mechanism is
+  untouched by v0.3); zero-blend and blend arms cover the view cost.
