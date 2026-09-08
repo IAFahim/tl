@@ -285,7 +285,30 @@ public readonly record struct ClipEdge(uint Start, uint End);
 // PrevEff < window Start (activity pins Start <= tick), backward Enter iff
 // PrevEff >= window End (activity pins tick < End); Wrapped and Full spans
 // crossed the entry edge unconditionally.
-internal readonly record struct MovementSpan(uint PrevEff, bool Backward, bool Wrapped, bool Full, bool EnterPossible = true);
+//
+// The four facts pack into one flag byte so the per-tick view handoff is a
+// single store, not five fields.
+[Flags]
+internal enum MovementFlags : byte
+{
+    None = 0,
+    Backward = 1 << 0,
+    EnterPossible = 1 << 1,
+    CrossedAlways = 1 << 2, // wrapped or full span: every boundary crossed
+}
+
+internal readonly record struct MovementSpan(uint PrevEff, MovementFlags Flags)
+{
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal MovementSpan(uint prevEff, bool backward, bool wrapped, bool full, bool enterPossible = true)
+        : this(
+            prevEff,
+            (backward ? MovementFlags.Backward : 0)
+                | (enterPossible ? MovementFlags.EnterPossible : 0)
+                | (wrapped || full ? MovementFlags.CrossedAlways : 0))
+    {
+    }
+}
 
 // One step, both directions. The aggregate flags word is lifecycle plus
 // completion facts only; movement facts live per work in TrackWork.State.
@@ -303,19 +326,16 @@ internal static class PlaybackCore
         in Playback from, bool backward, bool loops,
         ReadOnlySpan<uint> ticks, in TInput input, ref TResult result,
         ReadOnlySpan<uint> starts, ReadOnlySpan<RegionRow> regionRows,
-        ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
-        ReadOnlySpan<ClipEdge> edges,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
-        ReadOnlySpan<ushort> payloadMap,
         Span<TClip> resolved,
-        Span<WorkSlot> slots)
+        ReadOnlySpan<WorkSlot> workSlots)
         where TTrack : struct, IBlend<TClip>
         where TClip : struct
         where TInput : struct
         where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
         => Advance(
             in from, backward, loops, ticks, in input, ref result,
-            starts, regionRows, ReadOnlySpan<CutCounts>.Empty, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved, slots,
+            starts, regionRows, ReadOnlySpan<CutCounts>.Empty, trackData, clipData, resolved, workSlots,
             -1, out _);
 
     // `regionHint` is a CALLER-VALIDATED region for the effective position
@@ -325,22 +345,22 @@ internal static class PlaybackCore
     // alongside it. An empty tick span returns `from` and echoes the hint
     // unchanged, so a valid cursor survives it. `cutCounts` (when non-empty)
     // gates the per-work Enter checks with two prefix-count loads per step.
-    // `slots` is the caller-sized region-materialization scratch: the active
-    // work set is constant inside a region, so it is resolved into dense
-    // WorkSlots ONCE per region entry and every tick in that region reuses
-    // the same slots — no track-row walking, no payload-map hops, no bundle
-    // copies per tick.
+    // `workSlots` is the BUILD-TIME materialized slot table, one WorkSlot
+    // per track row: the active work set is constant inside a region, so
+    // region r's view is simply workSlots.Slice(row.TrackStart,
+    // row.TrackCount) — per tick there is no track-row walking, no
+    // payload-map hops, no bundle copies, and no materialization work at
+    // all (a first cut re-materialized the slots per region entry per CALL
+    // and cost +8 ns/tick on a non-consuming callback — single-tick calls
+    // are a region entry every time; see docs/benchmarks.md v0.3).
     public static Playback Advance<TTrack, TClip, TInput, TResult>(
         in Playback from, bool backward, bool loops,
         ReadOnlySpan<uint> ticks, in TInput input, ref TResult result,
         ReadOnlySpan<uint> starts, ReadOnlySpan<RegionRow> regionRows,
         ReadOnlySpan<CutCounts> cutCounts,
-        ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
-        ReadOnlySpan<ClipEdge> edges,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
-        ReadOnlySpan<ushort> payloadMap,
         Span<TClip> resolved,
-        Span<WorkSlot> slots,
+        ReadOnlySpan<WorkSlot> workSlots,
         int regionHint, out int finalRegion)
         where TTrack : struct, IBlend<TClip>
         where TClip : struct
@@ -354,9 +374,6 @@ internal static class PlaybackCore
         // neighborhood in small tables; the call-local cursor keeps its
         // existing scan-from-zero behavior there.
         var hinted = regionHint >= 0;
-        // The region whose slots currently sit in the scratch buffer; -1
-        // means nothing materialized yet. Empty regions never materialize.
-        var materialized = -1;
 
         foreach (var tick in ticks)
         {
@@ -403,16 +420,8 @@ internal static class PlaybackCore
             // Empty ticks: no callback. Playback still updated above.
             if (row.TrackCount > 0)
             {
-                // Region entry: materialize the work set once, then reuse it
-                // for every tick spent in this region.
-                if (materialized != region)
-                {
-                    Materialize(trackRows.Slice(row.TrackStart, row.TrackCount), clipRows, payloadMap, edges, slots);
-                    materialized = region;
-                }
-
                 var tracks = new Tracks<TTrack, TClip>(
-                    slots.Slice(0, row.TrackCount),
+                    workSlots.Slice(row.TrackStart, row.TrackCount),
                     tEff,
                     resolved,
                     trackData, clipData,
@@ -439,12 +448,9 @@ internal static class PlaybackCore
     public static void Sample<TTrack, TClip, TInput, TResult>(
         bool backward, bool loops, ReadOnlySpan<uint> ticks, in TInput input, ref TResult result,
         ReadOnlySpan<uint> starts, ReadOnlySpan<RegionRow> regionRows,
-        ReadOnlySpan<TrackRow> trackRows, ReadOnlySpan<ClipRow> clipRows,
-        ReadOnlySpan<ClipEdge> edges,
         ReadOnlySpan<TTrack> trackData, ReadOnlySpan<TClip> clipData,
-        ReadOnlySpan<ushort> payloadMap,
         Span<TClip> resolved,
-        Span<WorkSlot> slots)
+        ReadOnlySpan<WorkSlot> workSlots)
         where TTrack : struct, IBlend<TClip>
         where TClip : struct
         where TInput : struct
@@ -453,8 +459,6 @@ internal static class PlaybackCore
         var duration = starts[^1];
         var wrap = loops && duration != 0;
         var region = -1;
-        // The region whose slots currently sit in the scratch buffer.
-        var materialized = -1;
 
         foreach (var tick in ticks)
         {
@@ -474,22 +478,16 @@ internal static class PlaybackCore
             if (row.TrackCount == 0)
                 continue;
 
-            if (materialized != region)
-            {
-                Materialize(trackRows.Slice(row.TrackStart, row.TrackCount), clipRows, payloadMap, edges, slots);
-                materialized = region;
-            }
-
             // Stateless sampling has no movement: positional facts only. The
             // span carries the destination as its own origin — a repeated
             // position crosses nothing — so Enter can never fire, while the
             // direction flag keeps Exit's positional mirror honest.
             var tracks = new Tracks<TTrack, TClip>(
-                slots.Slice(0, row.TrackCount),
+                workSlots.Slice(row.TrackStart, row.TrackCount),
                 localTick,
                 resolved,
                 trackData, clipData,
-                new MovementSpan(localTick, backward, Wrapped: false, Full: false));
+                new MovementSpan(localTick, backward, wrapped: false, full: false));
 
             if (backward)
                 result.Backward(in tracks, in input, in localTick, ref result);
@@ -498,54 +496,66 @@ internal static class PlaybackCore
         }
     }
 
-    // Region materialization: resolve one region's track rows into dense
-    // work slots — authored track index, payload-map-resolved clip payload
-    // indices, the OUTER window's entry references, the blend window, and a
-    // dense blend-scratch ordinal. Called ONCE per region entry; every tick
-    // in the region then reuses the slots untouched.
-    private static void Materialize(
-        ReadOnlySpan<TrackRow> rows,
+    // BUILD-TIME region materialization: one WorkSlot per track row of the
+    // whole table, so region r's per-tick view is simply
+    // slots.Slice(row.TrackStart, row.TrackCount). Blend-scratch ordinals
+    // are dense PER REGION (region-local counters), matching the scratch
+    // sizing (MaxActiveBlends covers any single region). Computed once:
+    // the registry path runs this in Timeline.Compile (after storage
+    // dedup, so aliased row runs share aliased slots), the generated-table
+    // shell through a per-closure static cache, and a future generator can
+    // bake the table at emission. NEVER per tick — the active work set is
+    // constant for the lifetime of the tables.
+    internal static WorkSlot[] MaterializeWorkSlots(
+        ReadOnlySpan<TrackRow> trackRows,
         ReadOnlySpan<ClipRow> clipRows,
         ReadOnlySpan<ushort> payloadMap,
         ReadOnlySpan<ClipEdge> clipEdges,
-        Span<WorkSlot> slots)
+        ReadOnlySpan<RegionRow> regionRows)
     {
-        var blendOrdinal = 0;
-        for (var i = 0; i < rows.Length; i++)
+        var slots = new WorkSlot[trackRows.Length];
+        for (var r = 0; r < regionRows.Length; r++)
         {
-            var row = rows[i];
-            var first = clipRows[row.ClipStart];
-
-            // Standalone clip: payload-resolved index, own window edges,
-            // factor window zero (the single discriminator).
-            if (row.ClipCount != 2)
+            var row = regionRows[r];
+            var blendOrdinal = 0;
+            for (var i = row.TrackStart; i < row.TrackStart + row.TrackCount; i++)
             {
-                var authored = first.ClipIndex;
-                slots[i] = new WorkSlot(
-                    row.TrackIndex,
-                    payloadMap.IsEmpty ? authored : payloadMap[authored],
-                    WorkSlot.Single,
-                    clipEdges[authored].Start,
-                    clipEdges[authored].End,
-                    0u, 0u, 0);
-                continue;
-            }
+                var trackRow = trackRows[i];
+                var first = clipRows[trackRow.ClipStart];
 
-            // Blend pair: both payload indices resolved, the pair's OUTER
-            // window (the State convention), the shared blend window, and
-            // the next scratch ordinal.
-            var second = clipRows[row.ClipStart + 1];
-            var a = clipEdges[first.ClipIndex];
-            var b = clipEdges[second.ClipIndex];
-            slots[i] = new WorkSlot(
-                row.TrackIndex,
-                payloadMap.IsEmpty ? first.ClipIndex : payloadMap[first.ClipIndex],
-                payloadMap.IsEmpty ? second.ClipIndex : payloadMap[second.ClipIndex],
-                a.Start < b.Start ? a.Start : b.Start,
-                a.End > b.End ? a.End : b.End,
-                first.FactorStart, first.FactorLength,
-                checked((ushort)blendOrdinal++));
+                // Standalone clip: payload-resolved index, own window edges,
+                // factor window zero (the single discriminator).
+                if (trackRow.ClipCount != 2)
+                {
+                    var authored = first.ClipIndex;
+                    slots[i] = new WorkSlot(
+                        trackRow.TrackIndex,
+                        payloadMap.IsEmpty ? authored : payloadMap[authored],
+                        WorkSlot.Single,
+                        clipEdges[authored].Start,
+                        clipEdges[authored].End,
+                        0u, 0u, 0);
+                    continue;
+                }
+
+                // Blend pair: both payload indices resolved, the pair's
+                // OUTER window (the State convention), the shared blend
+                // window, and the next region-local scratch ordinal.
+                var second = clipRows[trackRow.ClipStart + 1];
+                var a = clipEdges[first.ClipIndex];
+                var b = clipEdges[second.ClipIndex];
+                slots[i] = new WorkSlot(
+                    trackRow.TrackIndex,
+                    payloadMap.IsEmpty ? first.ClipIndex : payloadMap[first.ClipIndex],
+                    payloadMap.IsEmpty ? second.ClipIndex : payloadMap[second.ClipIndex],
+                    a.Start < b.Start ? a.Start : b.Start,
+                    a.End > b.End ? a.End : b.End,
+                    first.FactorStart, first.FactorLength,
+                    checked((ushort)blendOrdinal++));
+            }
         }
+
+        return slots;
     }
 
     // Effective positions, wrap counts, and coverage shape for one step.
@@ -646,9 +656,11 @@ public readonly record struct ClipRow(ushort ClipIndex, uint FactorStart, uint F
 public readonly record struct CutCounts(ushort Starts, ushort Ends);
 
 // One MATERIALIZED active track of a region: everything a per-tick view of
-// the work needs, resolved once per region ENTRY (PlaybackCore.Materialize)
-// instead of per visited work per tick. The active work set is constant
-// inside a region; only the tick (blend factors, movement facts) varies.
+// the work needs, resolved at BUILD time (PlaybackCore.MaterializeWorkSlots
+// — once per timeline, not per tick or per call) into a table parallel to
+// the track rows. The active work set is constant inside a region — and for
+// the lifetime of the tables; only the tick (blend factors, movement
+// facts) varies per tick.
 //   Index       the track's authored index — also its payload-table index
 //               (the track payload table is one row per authored track)
 //   First       singles: the payload-map-RESOLVED payload index of the one
@@ -665,10 +677,10 @@ public readonly record struct CutCounts(ushort Starts, ushort Ends);
 //               tick == EnterF backward)
 //   FactorStart/FactorLength  the blend window (FactorLength 0 marks a
 //               standalone clip — the authored table convention)
-//   BlendOrdinal  dense scratch ordinal for blends, assigned in slot order
-//               (visit order for a forward consumer); ONLY a Clip read ever
-//               writes the slot, so works the consumer never visits are
-//               never blended and never take scratch
+//   BlendOrdinal  dense region-local scratch ordinal for blends, assigned
+//               in slot order (visit order for a forward consumer); ONLY a
+//               Clip read ever writes the slot, so works the consumer
+//               never visits are never blended and never take scratch
 internal readonly struct WorkSlot(
     ushort index,
     ushort first,
@@ -716,8 +728,7 @@ public interface ITrackTables<TTrack, TClip>
 // case exceeds the budget (or callers that prefer one buffer for many
 // calls) use the scratch-buffer overloads. Never a pool — pooling is not
 // zero allocation, and each simultaneous or reentrant call needs its own
-// buffer. The region-materialization slot buffer shares the same per-call
-// byte budget.
+// buffer.
 internal static class BlendScratch
 {
     internal const int StackBytes = 4096;
@@ -729,19 +740,6 @@ internal static class BlendScratch
             throw new InvalidOperationException(
                 "Blend scratch exceeds the stack byte budget; use the scratch-buffer overload.");
         return maxActiveBlends;
-    }
-
-    // One WorkSlot per concurrently active track, same budget as the blend
-    // scratch. Engine scratch per call, not API: the materialized slots live
-    // only as long as the call (a cursor-owned cache across calls is a
-    // future option).
-    public static int SlotStackCount(int maxActiveTracks)
-    {
-        var capacity = StackBytes / Unsafe.SizeOf<WorkSlot>();
-        if ((uint)maxActiveTracks > (uint)capacity)
-            throw new InvalidOperationException(
-                "Region work-slot scratch exceeds the stack byte budget (too many concurrently active tracks in one region).");
-        return maxActiveTracks;
     }
 }
 
@@ -820,7 +818,10 @@ public readonly ref struct Tracks<TTrack, TClip>
         }
 
         public TrackWork<TTrack, TClip> Current
-            => new(in _slots[_i], _tick, _blendScratch, _trackData, _clipData, _movement);
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => new(in _slots[_i], _tick, _blendScratch, _trackData, _clipData, _movement);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
@@ -921,14 +922,16 @@ public readonly ref struct TrackWork<TTrack, TClip>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            if (_movement.Backward ? _tick == _slot.EnterF : _tick == _slot.EnterB - 1u)
+            var flags = _movement.Flags;
+            var backward = (flags & MovementFlags.Backward) != 0;
+            if (backward ? _tick == _slot.EnterF : _tick == _slot.EnterB - 1u)
                 return ClipState.Exit;
 
-            if (!_movement.EnterPossible)
+            if ((flags & MovementFlags.EnterPossible) == 0)
                 return ClipState.Stay;
 
-            var crossed = _movement.Wrapped || _movement.Full
-                || (_movement.Backward ? _movement.PrevEff >= _slot.EnterB : _movement.PrevEff < _slot.EnterF);
+            var crossed = (flags & MovementFlags.CrossedAlways) != 0
+                || (backward ? _movement.PrevEff >= _slot.EnterB : _movement.PrevEff < _slot.EnterF);
             return crossed ? ClipState.Enter : ClipState.Stay;
         }
     }
@@ -1295,27 +1298,31 @@ public static class GeneratedTimeline<TTrack, TClip>
         return Advance(backward: true, in from, in input, ref result, scratch, ticks);
     }
 
-    // The two engine entry points, one per flavor. The region work-slot
-    // scratch is reserved here — per call, same byte budget as the blend
-    // scratch — and the static-abstract table fetches happen once per call
-    // (generic-dictionary indirections; never inside the per-track loop).
+    // The two engine entry points, one per flavor. The build-time work-slot
+    // table is a per-closure static cache derived once from the authored
+    // tables (the registry path precomputes the same table at Build; a
+    // future generator bakes it at emission) and the static-abstract table
+    // fetches happen once per call — generic-dictionary indirections;
+    // never inside the per-track loop.
+    private static class WorkTables
+    {
+        public static readonly WorkSlot[] Slots = PlaybackCore.MaterializeWorkSlots(
+            TTrack.TrackRows, TTrack.ClipRows, ReadOnlySpan<ushort>.Empty, TTrack.ClipEdges, TTrack.RegionRows);
+    }
+
     private static void Sample<TInput, TResult>(
         bool backward, in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
         where TInput : struct
         where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
-        Span<WorkSlot> slots = stackalloc WorkSlot[BlendScratch.SlotStackCount(TTrack.MaxActiveTracks)];
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
-        var trackRows = TTrack.TrackRows;
-        var clipRows = TTrack.ClipRows;
-        var edges = TTrack.ClipEdges;
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
         PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
             backward, TTrack.Loops, ticks, in input, ref result,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch, slots);
+            starts, regionRows, trackData, clipData, scratch, WorkTables.Slots);
     }
 
     private static Playback Advance<TInput, TResult>(
@@ -1323,18 +1330,14 @@ public static class GeneratedTimeline<TTrack, TClip>
         where TInput : struct
         where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
     {
-        Span<WorkSlot> slots = stackalloc WorkSlot[BlendScratch.SlotStackCount(TTrack.MaxActiveTracks)];
         var starts = TTrack.RegionStarts;
         var regionRows = TTrack.RegionRows;
-        var trackRows = TTrack.TrackRows;
-        var clipRows = TTrack.ClipRows;
-        var edges = TTrack.ClipEdges;
         var trackData = TTrack.TrackData;
         var clipData = TTrack.ClipData;
 
         return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
             in from, backward, TTrack.Loops, ticks, in input, ref result,
-            starts, regionRows, trackRows, clipRows, edges, trackData, clipData, ReadOnlySpan<ushort>.Empty, scratch, slots);
+            starts, regionRows, trackData, clipData, scratch, WorkTables.Slots);
     }
 }
 
@@ -1674,6 +1677,13 @@ public static class Timeline<TTrack, TClip>
             compactTracks = [.. trackRows];
         }
 
+        // Build-time region materialization: one WorkSlot per final track
+        // row (post-dedup, so aliased row runs share aliased slots), region
+        // rows referencing them by slice. Per tick, the engine slices this
+        // table — no per-call materialization work at all.
+        var workSlots = PlaybackCore.MaterializeWorkSlots(
+            compactTracks, CollectionsMarshal.AsSpan(clipRows), payloadMap, clipEdges, regionRows);
+
         return Timeline.Register(new Timeline.Entry
         {
             RegionStarts = regionStarts,
@@ -1681,6 +1691,7 @@ public static class Timeline<TTrack, TClip>
             TrackRows = compactTracks,
             ClipRows = [.. clipRows],
             ClipEdges = clipEdges,
+            WorkSlots = workSlots,
             Payload = new Tables
             {
                 TrackData = [.. authoring.Tracks],
@@ -1799,18 +1810,14 @@ public static class Timeline<TTrack, TClip>
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
             var cutCounts = entry.CutCounts.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
-            Span<WorkSlot> slots = stackalloc WorkSlot[BlendScratch.SlotStackCount(entry.MaxActiveTracks)];
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: false, entry.Loops, ticks, in context, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved, slots,
+                starts, regionRows, cutCounts, trackData, clipData, resolved, workSlots,
                 -1, out _);
         }
 
@@ -1822,18 +1829,14 @@ public static class Timeline<TTrack, TClip>
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
             var cutCounts = entry.CutCounts.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
-            Span<WorkSlot> slots = stackalloc WorkSlot[BlendScratch.SlotStackCount(entry.MaxActiveTracks)];
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: true, entry.Loops, ticks, in context, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved, slots,
+                starts, regionRows, cutCounts, trackData, clipData, resolved, workSlots,
                 -1, out _);
         }
 
@@ -1856,18 +1859,14 @@ public static class Timeline<TTrack, TClip>
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
             var cutCounts = entry.CutCounts.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
-            Span<WorkSlot> slots = stackalloc WorkSlot[BlendScratch.SlotStackCount(entry.MaxActiveTracks)];
 
             var playback = PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: false, entry.Loops, ticks, in context, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved, slots,
+                starts, regionRows, cutCounts, trackData, clipData, resolved, workSlots,
                 hint, out var region);
 
             cache = new Cursor { Owner = entry, Tick = playback.Tick, Region = region };
@@ -1886,18 +1885,14 @@ public static class Timeline<TTrack, TClip>
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
             var cutCounts = entry.CutCounts.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
-            Span<WorkSlot> slots = stackalloc WorkSlot[BlendScratch.SlotStackCount(entry.MaxActiveTracks)];
 
             var playback = PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: true, entry.Loops, ticks, in context, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved, slots,
+                starts, regionRows, cutCounts, trackData, clipData, resolved, workSlots,
                 hint, out var region);
 
             cache = new Cursor { Owner = entry, Tick = playback.Tick, Region = region };
@@ -1917,18 +1912,14 @@ public static class Timeline<TTrack, TClip>
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
             var cutCounts = entry.CutCounts.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             var resolved = new Span<TClip>(scratch, scratchLength);
-            Span<WorkSlot> slots = stackalloc WorkSlot[BlendScratch.SlotStackCount(entry.MaxActiveTracks)];
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: false, entry.Loops, ticks, in context, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved, slots,
+                starts, regionRows, cutCounts, trackData, clipData, resolved, workSlots,
                 -1, out _);
         }
 
@@ -1940,18 +1931,14 @@ public static class Timeline<TTrack, TClip>
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
             var cutCounts = entry.CutCounts.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             var resolved = new Span<TClip>(scratch, scratchLength);
-            Span<WorkSlot> slots = stackalloc WorkSlot[BlendScratch.SlotStackCount(entry.MaxActiveTracks)];
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: true, entry.Loops, ticks, in context, ref consumer,
-                starts, regionRows, cutCounts, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved, slots,
+                starts, regionRows, cutCounts, trackData, clipData, resolved, workSlots,
                 -1, out _);
         }
 
@@ -1962,18 +1949,14 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
-            Span<WorkSlot> slots = stackalloc WorkSlot[BlendScratch.SlotStackCount(entry.MaxActiveTracks)];
 
             PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
                 backward: false, entry.Loops, ticks, in context, ref consumer,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved, slots);
+                starts, regionRows, trackData, clipData, resolved, workSlots);
         }
 
         private static void SampleBackward(Timeline.Entry entry, void* input, void* result, ReadOnlySpan<uint> ticks)
@@ -1983,18 +1966,14 @@ public static class Timeline<TTrack, TClip>
             var tables = Unsafe.As<Tables>(entry.Payload);
             var starts = entry.RegionStarts.AsSpan();
             var regionRows = entry.RegionRows.AsSpan();
-            var trackRows = entry.TrackRows.AsSpan();
-            var clipRows = entry.ClipRows.AsSpan();
-            var edges = entry.ClipEdges.AsSpan();
             var trackData = tables.TrackData.AsSpan();
             var clipData = tables.ClipData.AsSpan();
-            var payloadMap = tables.PayloadMap.AsSpan();
+            var workSlots = entry.WorkSlots.AsSpan();
             Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry.MaxActiveBlends)];
-            Span<WorkSlot> slots = stackalloc WorkSlot[BlendScratch.SlotStackCount(entry.MaxActiveTracks)];
 
             PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
                 backward: true, entry.Loops, ticks, in context, ref consumer,
-                starts, regionRows, trackRows, clipRows, edges, trackData, clipData, payloadMap, resolved, slots);
+                starts, regionRows, trackData, clipData, resolved, workSlots);
         }
     }
 }
@@ -2067,6 +2046,10 @@ public static unsafe partial class Timeline
         public required TrackRow[] TrackRows { get; init; }
         public required ClipRow[] ClipRows { get; init; }
         public required ClipEdge[] ClipEdges { get; init; }
+
+        // Build-time region materialization: one WorkSlot per track row,
+        // parallel to TrackRows — a region's per-tick view is a slice.
+        public required WorkSlot[] WorkSlots { get; init; }
 
         // The closure-typed half (Timeline<TTrack, TClip>.Tables), stored as
         // object and rehydrated without a cast by the bridge.
