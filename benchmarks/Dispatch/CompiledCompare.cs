@@ -30,7 +30,7 @@ public class CompiledVsInterpreter
     public void Setup()
     {
         _input = new PulseInput(Seed: 100f);
-        _id = Timeline<PulseTrack, PulseClip>.Build(Pulse.Authoring.Author);
+        _id = Timeline<PulseTrack, PulseClip>.Build(Pulse.Authoring.Author).InMemory();
         Timeline<PulseTrack, PulseClip>.Bind<PulseInput, PulseResult>(_id);
         Timeline<PulseTrack, PulseClip>.Bind<PulseInput, SumConsumer>(_id);
         _playback = Timeline.Start(_id);
