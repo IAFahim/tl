@@ -35,7 +35,6 @@ public static class KernelEmitter
         #nullable enable
         using System;
         using System.Runtime.CompilerServices;
-        using System.Runtime.InteropServices;
         using Tl;
 
         namespace Tl.Compiled;
@@ -110,20 +109,16 @@ public static class KernelEmitter
         internal readonly record struct CompiledMovement(uint PrevEff, bool Backward, bool Wrapped, bool Full);
 
         // Playback's constructor is internal to Tl.Core; kernels mint the
-        // same sequential (Tick: u32, Cycles: u16, Flags: u16) layout without
-        // the runtime registry. Follow-up (docs/v0.4-compile.md): a public
-        // factory on Tl.Playback replaces this once the runtime surface is
-        // open for the compiled path.
+        // same sequential (Tick: u32, Cycles: u16, Flags: u16) layout
+        // without the runtime registry, as one packed word bit-cast into
+        // the struct (no buffer, no marshal round trip). Follow-up
+        // (docs/v0.4-compile.md): a public factory on Tl.Playback replaces
+        // this once the runtime surface is open for the compiled path.
         internal static class CompiledPlayback
         {
             public static Playback Mint(uint tick, ushort cycles, PlaybackFlags flags)
-            {
-                Span<byte> bytes = stackalloc byte[8];
-                MemoryMarshal.Write(bytes, in tick);
-                MemoryMarshal.Write(bytes.Slice(4), in cycles);
-                MemoryMarshal.Write(bytes.Slice(6), in flags);
-                return MemoryMarshal.Read<Playback>(bytes);
-            }
+                => System.Runtime.CompilerServices.Unsafe.BitCast<ulong, Playback>(
+                    tick | (ulong)cycles << 32 | (ulong)(ushort)flags << 48);
         }
 
         // The per-tick view: the same thin, zero-copy slice surface the
@@ -511,6 +506,7 @@ public static class KernelEmitter
     private static string LocateTree(uint[] starts)
     {
         var writer = new StringBuilder();
+        writer.AppendLine($"    [MethodImpl(MethodImplOptions.AggressiveInlining)]");
         writer.AppendLine($"    private static int Locate(uint tick)");
         writer.AppendLine($"    {{");
         EmitLocateNode(writer, starts, 0, starts.Length - 1, depth: 2);
