@@ -90,6 +90,19 @@ if (!wrongClosureCaught)
 Console.WriteLine($"hub checksum: value={consumer.Value:G9} count={consumer.Count}");
 Console.WriteLine($"generated checksum: value={genConsumer.Value:G9} count={genConsumer.Count}");
 
+// 9b. v0.3 indexed/sliced views under NativeAOT: reading works through
+// this[int] and consuming through Slice must agree with enumeration.
+Timeline<AotTrack, AotClip>.Bind<AotInput, IndexedAotConsumer>(id);
+var idxConsumer = new IndexedAotConsumer();
+var idxPb = Timeline.Start(id);
+idxPb = Timeline.Forward(id, in idxPb, in input, ref idxConsumer, 1u, 3u, 6u);
+var enumConsumer = new AotConsumer();
+var enumPb = Timeline.Start(id);
+enumPb = Timeline.Forward(id, in enumPb, in input, ref enumConsumer, 1u, 3u, 6u);
+if (idxConsumer.Value != enumConsumer.Value || idxConsumer.Count != enumConsumer.Count)
+    throw new Exception($"Indexed/sliced walk diverged under AOT: {idxConsumer.Value} vs {enumConsumer.Value}");
+Console.WriteLine($"indexed checksum: value={idxConsumer.Value:G9} count={idxConsumer.Count}");
+
 // 10. The input must survive every walk bit-identical.
 if (input.Scale != 2f)
     throw new Exception("Input was mutated during playback.");
@@ -147,6 +160,31 @@ public struct AotConsumer :
     public void Backward(in Tracks<GeneratedAotTimeline, AotClip> tracks, in AotInput input, in uint tick, ref AotConsumer result)
     {
         foreach (var work in tracks)
+            result.Value -= work.Clip.Amount * input.Scale;
+        result.Count++;
+    }
+}
+
+public struct IndexedAotConsumer :
+    IForward<AotTrack, AotClip, AotInput, IndexedAotConsumer>,
+    IBackward<AotTrack, AotClip, AotInput, IndexedAotConsumer>
+{
+    public float Value;
+    public int Count;
+
+    public void Forward(in Tracks<AotTrack, AotClip> tracks, in AotInput input, in uint tick, ref IndexedAotConsumer result)
+    {
+        for (var i = 0; i < tracks.Count; i++)
+            result.Value += tracks[i].Clip.Amount * input.Scale;
+        result.Count++;
+    }
+
+    public void Backward(in Tracks<AotTrack, AotClip> tracks, in AotInput input, in uint tick, ref IndexedAotConsumer result)
+    {
+        var half = tracks.Count / 2;
+        foreach (var work in tracks.Slice(0, half))
+            result.Value -= work.Clip.Amount * input.Scale;
+        foreach (var work in tracks.Slice(half, tracks.Count - half))
             result.Value -= work.Clip.Amount * input.Scale;
         result.Count++;
     }

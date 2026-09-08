@@ -6,14 +6,14 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <PackageId>Tl.Runtime</PackageId>
     <Authors>IAFahim</Authors>
     <Description>Timelines compiled into C#, with typed struct hooks and caller-owned playback state.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v0.2.0 release: the consumer data parameter splits into an immutable input (in TInput) and a mutable result (ref TResult); TResult owns the Forward/Backward hooks. Full breaking change: the v0.1 ref TData surface is removed. Pair-keyed (TInput, TResult) binding caches, two-byref dispatch pointers, two-argument MakeGenericMethod bridges. Input-immutability and seed-parity receipts added; zero-allocation and NativeAOT verification maintained.</PackageReleaseNotes>
+    <PackageReleaseNotes>v0.3.0 release: region-stable materialization. Additive: Tracks gains this[int] and Slice(int, int) beside Count and foreach (indexed/sliced views), TrackWork becomes a thin view of one materialized WorkSlot, and blends resolve lazily into scratch on first read. Internal perf rework: each region's active work set is materialized once at build time (payload indices resolved, blend windows and entry-reference edges precomputed), so per tick the engine hands the callback a slice instead of walking the table rows. Consuming playback ticks ~-33% (ladder Walk 20.85 to 15.09, ClipRead 26.92 to 18.09 ns/tick; sweep PlaybackSingle 23.91 to 16.05) per the sandbox receipts in docs/benchmarks.md, v0.3 section — cited, not re-measured. v0.2 callback surface, zero-allocation playback and NativeAOT verification all maintained. See docs/v0.3.md.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
