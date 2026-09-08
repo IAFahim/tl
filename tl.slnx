@@ -5,6 +5,7 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Basic/Basic.csproj" />
+    <Project Path="samples/Compiled/Compiled.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Tl.Core.Tests/Tl.Core.Tests.csproj" />
