@@ -1,5 +1,12 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Xunit;
+
+// Test collections run sequentially: the steady-state heap receipt measures
+// process-wide retained bytes across a window, and concurrent collections
+// would land their allocations inside it. The suite is I/O-free and runs in
+// ~150 ms, so serialization costs nothing.
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace Tl.Core.Tests;
 

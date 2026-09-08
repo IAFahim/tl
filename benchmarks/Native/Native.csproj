@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <!-- The frozen v0.3 sandbox (managed registry + managed tables) is the
+         baseline arm; the src engine (v0.4 unmanaged) is the challenger.
+         Hooks.cs is included read-only — never edited here. -->
+    <Compile Include="../Hooks.cs" Link="Hooks.cs" />
+    <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" />
+  </ItemGroup>
+</Project>
