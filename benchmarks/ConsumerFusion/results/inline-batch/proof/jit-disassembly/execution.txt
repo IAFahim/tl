@@ -1,0 +1,19 @@
+Generated source SHA-256: cc6a6007b7cacfe5a13d7562cb7309bd9f925bcb381e900bd0b23565daef6ddb
+Consumer source SHA-256: b6d3bebc1792904814ea060ef98da24a1bb83a7902917f967347d44ba9cc4197
+215,273 exact comparisons passed for all consumers: both directions, authored edges and movement states, full Playback, all result fields, exact float bits, readonly inputs, scalar/span composition, wraps, saturation, lifecycle, partial failures, and overflow ordering.
+runtime: JIT
+Generated source SHA-256: cc6a6007b7cacfe5a13d7562cb7309bd9f925bcb381e900bd0b23565daef6ddb
+Consumer source SHA-256: b6d3bebc1792904814ea060ef98da24a1bb83a7902917f967347d44ba9cc4197
+SumConsumer/Random: ConsumerReceipt { Playback = Playback { Tick = 116, Cycles = 61434, Flags = Started }, SumBits = 1229261697, TrackOffsets = 0, Enters = 0, Stays = 0, Exits = 0, Callbacks = 0, Audit = 0 }
+Preparation receipt: 4285206275742
+SumConsumer disassembly receipt: 2458523394000
+Generated source SHA-256: cc6a6007b7cacfe5a13d7562cb7309bd9f925bcb381e900bd0b23565daef6ddb
+Consumer source SHA-256: b6d3bebc1792904814ea060ef98da24a1bb83a7902917f967347d44ba9cc4197
+StateConsumer/Random: ConsumerReceipt { Playback = Playback { Tick = 116, Cycles = 61434, Flags = Started }, SumBits = 1192729973, TrackOffsets = 364776, Enters = 119519, Stays = 10248, Exits = 1588, Callbacks = 0, Audit = 0 }
+Preparation receipt: 3878757872196
+StateConsumer disassembly receipt: 2385459946000
+Generated source SHA-256: cc6a6007b7cacfe5a13d7562cb7309bd9f925bcb381e900bd0b23565daef6ddb
+Consumer source SHA-256: b6d3bebc1792904814ea060ef98da24a1bb83a7902917f967347d44ba9cc4197
+EffectConsumer/Random: ConsumerReceipt { Playback = Playback { Tick = 116, Cycles = 61434, Flags = Started }, SumBits = 1192729973, TrackOffsets = 364776, Enters = 119519, Stays = 10248, Exits = 1588, Callbacks = 131355, Audit = 12332555947448341917 }
+Preparation receipt: 3291934725480
+EffectConsumer disassembly receipt: 2385459946000

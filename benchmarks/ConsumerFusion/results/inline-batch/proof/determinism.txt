@@ -1,0 +1,4 @@
+Unchanged /home/i/Work/tl-consumer-fusion/benchmarks/ConsumerFusion/Generated/FusedPulse.g.cs (32983 bytes).
+Unchanged /home/i/Work/tl-consumer-fusion/benchmarks/ConsumerFusion/Generated/FusedPulse.g.cs (32983 bytes).
+SHA-256 preserved: cc6a6007b7cacfe5a13d7562cb7309bd9f925bcb381e900bd0b23565daef6ddb
+mtime_ns preserved across two regenerations: 1788927893666016564

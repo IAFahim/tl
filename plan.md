@@ -756,3 +756,26 @@ A file timestamp hazard was found: copying an old generated source with its old 
 Historical work already included flat switches, radix switches, dense tables, cursors, specialized trees, and frozen consumer work. This experiment follows those findings through the current Pulse playback contract. It does not claim those techniques are new. The sparse-switch historical 4,096-ID result was 49.3 ns versus 19.9 ns for radix8; a switch keyword alone is not an optimization guarantee. Ordinary .NET does not provide Unity Burst's Hint.Likely intrinsic; Dynamic PGO can learn branch behavior. Removing proven-unused work is more useful than adding an identity-wrapper hint.
 
 [Experiment and reproduction](benchmarks/FusionHour/README.md) includes full matched BenchmarkDotNet JSON, source snapshots, counters, final source identities, and rejected candidates. [Release gate receipts](docs/verification/v0.5) record the packaged-tree checks. Experimental projects are validated by CI but excluded from the runtime NuGet API. The remaining production path is a typed operation grammar, semantic declaration discovery, an unmanaged shared view/storage boundary, and many-timeline instruction/data footprint measurement. The repository does not yet offer automatic consumer fusion through `.Compile()`.
+
+
+## Consumer-fusion follow-up: runtime inputs, states, and effects
+
+The subsequent user-authorized experiment is implemented on `codex/tl-consumer-fusion-20260909`, isolated from the released v0.5 tree. [Full report and reproduction](benchmarks/ConsumerFusion/README.md) documents the supported contract, every measured row, proof identities, JIT/NativeAOT assembly, and the integration boundary.
+
+The implementation emits direct static calls to an explicit per-work operation. Ordinary C# compiles the consumer body. Runtime input values and movement-derived state are supported; neither has to be a generation-time constant. Three unmanaged consumers share the same actual business methods across interpreted, normally compiled, and fused paths: an ordered sum, state accounting with runtime Scale/Bias, and that state work plus ordered notifications and optional failure after visible mutations.
+
+The full baseline measured 54 cases. Fusion was faster than both reference engines in every matched case. Assembly then identified a remaining non-inlined span-call boundary. One targeted candidate annotated the two batch overloads; an 18-case follow-up retained unchanged scalar methods as controls. Every measured case reported zero steady-state managed allocation.
+
+| Sequential batch workload | Interpreter | Normal compiled | Fused with batch inlining |
+|---|---:|---:|---:|
+| Ordered sum | 8.538 | 6.992 | 1.195 |
+| Runtime input plus clip state | 9.785 | 8.862 | 1.843 |
+| Ordered notification effects | 13.292 | 12.031 | 4.659 |
+
+These are median ns/tick in batches of eight on the same CPU 4 / i9-14900K / .NET 10.0.11 setup. They are throughput figures, not a universal single-call latency guarantee. Random inlined batches measured 7.071, 9.335, and 12.942 ns/tick respectively. Inlining improved the first two; effect-heavy random batching regressed 3.3% relative to the fused baseline, so the baseline remains available and no universal inlining policy is claimed.
+
+Both emitted variants passed 215,273 exact comparisons under JIT and NativeAOT. The independent authored-list oracle and failure tests cover movement state, float bits and special seeds, input preservation, full Playback, both directions, batch composition, boundaries, wraps, cycle overflow/saturation, lifecycle, and partial consumer effects before throws. The selected generator also passed eight rejection probes and preserved source bytes and timestamps on two repeated runs. NativeAOT performance was not measured.
+
+The practical limitation is the current per-work contract. A whole-view callback that slices Tracks or runs setup once per tick needs explicit boundary/selection operations or an adapter. Such code is not fundamentally uncompileable, but this prototype does not automatically translate it. Notification calls and runtime arithmetic remain observable work and cannot simply be deleted. The frontend still accepts the strict supported Pulse grammar; this is not a general arbitrary-C# consumer compiler.
+
+Production src is unchanged at 186,154 / 200,000 bytes including paths and one newline per path. The experimental generator costs 26,150 C# bytes, shared contracts 1,195 bytes, and selected emitted Pulse source 32,983 bytes. These are real additional costs; moving them outside src is not a production budgeting strategy. Integration requires factoring/replacing code, general semantic binding, backend selection, a supported Playback construction boundary, and measurements across many timelines. The experiment is implemented and executable locally; it has not been merged into the published runtime API or released.

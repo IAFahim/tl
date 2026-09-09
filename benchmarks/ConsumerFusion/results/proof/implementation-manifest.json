@@ -1,0 +1,62 @@
+[
+  {
+    "source_path": "benchmarks/ConsumerFusion/Benchmarks.cs",
+    "snapshot_path": "benchmarks/ConsumerFusion/results/proof/sources/benchmarks/ConsumerFusion/Benchmarks.cs",
+    "bytes": 6196,
+    "sha256": "ce5df00389abe95375f673b3dd80024443fb9751eaebf9e1d00e629a8955ba80"
+  },
+  {
+    "source_path": "benchmarks/ConsumerFusion/BuildIdentity.cs",
+    "snapshot_path": "benchmarks/ConsumerFusion/results/proof/sources/benchmarks/ConsumerFusion/BuildIdentity.cs",
+    "bytes": 284,
+    "sha256": "75ca10df077a01b67359f3ddbb0faecf42eb2ff959fd239dcbe8fb8c356f67b4"
+  },
+  {
+    "source_path": "benchmarks/ConsumerFusion/Contracts.cs",
+    "snapshot_path": "benchmarks/ConsumerFusion/results/proof/sources/benchmarks/ConsumerFusion/Contracts.cs",
+    "bytes": 1195,
+    "sha256": "55f5f44bb9d1fe83bbcc5ec08e653350d2f5bb3cc214bf312f35891e334c33ac"
+  },
+  {
+    "source_path": "benchmarks/ConsumerFusion/EffectConsumer.cs",
+    "snapshot_path": "benchmarks/ConsumerFusion/results/proof/sources/benchmarks/ConsumerFusion/EffectConsumer.cs",
+    "bytes": 3234,
+    "sha256": "d5e143beb2619c141b37f9572c4f544f0d554519f8ecd5ed2b6b36e758f2d7a4"
+  },
+  {
+    "source_path": "benchmarks/ConsumerFusion/Generated/FusedPulse.g.cs",
+    "snapshot_path": "benchmarks/ConsumerFusion/results/proof/sources/benchmarks/ConsumerFusion/Generated/FusedPulse.g.cs",
+    "bytes": 32873,
+    "sha256": "7bdbf05933e474d7a938b65943dea9904c38e119da36a57eeee6037572f9e30f"
+  },
+  {
+    "source_path": "benchmarks/ConsumerFusion/StateConsumer.cs",
+    "snapshot_path": "benchmarks/ConsumerFusion/results/proof/sources/benchmarks/ConsumerFusion/StateConsumer.cs",
+    "bytes": 3038,
+    "sha256": "fc148497b5c117405dfcd068b3c6c76a9d6848ce4334e78494ebe24721be66dc"
+  },
+  {
+    "source_path": "benchmarks/ConsumerFusion/SumConsumer.cs",
+    "snapshot_path": "benchmarks/ConsumerFusion/results/proof/sources/benchmarks/ConsumerFusion/SumConsumer.cs",
+    "bytes": 2415,
+    "sha256": "3f6a5d9d86cb74f7e42099fca66b6d6ca98fae4d00e983800861654552b2a53b"
+  },
+  {
+    "source_path": "benchmarks/ConsumerFusion/Verification.cs",
+    "snapshot_path": "benchmarks/ConsumerFusion/results/proof/sources/benchmarks/ConsumerFusion/Verification.cs",
+    "bytes": 35613,
+    "sha256": "3f0313e28b60b27bb62d757b66c6b727056b4ca9a8b9f6fa7b5d2a02a1f13a9c"
+  },
+  {
+    "source_path": "benchmarks/ConsumerGenerate/Program.cs",
+    "snapshot_path": "benchmarks/ConsumerFusion/results/proof/sources/benchmarks/ConsumerGenerate/Program.cs",
+    "bytes": 25780,
+    "sha256": "2532a8e25d473c18c235cedc82b1fe0d3df4454846e8843a016981a8a04136da"
+  },
+  {
+    "source_path": "samples/Compiled/Timeline.cs",
+    "snapshot_path": "benchmarks/ConsumerFusion/results/proof/sources/samples/Compiled/Timeline.cs",
+    "bytes": 3016,
+    "sha256": "ee021282556fb77561de5235662f7260fd7b59292c105ca29707e42e7b94c521"
+  }
+]

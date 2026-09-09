@@ -21,3 +21,4 @@ benchmarks/Dispatch/ReceiverLink.g.cs
 *.DotSettings.user
 __pycache__/
 !benchmarks/FusionHour/Generated/
+!benchmarks/ConsumerFusion/Generated/

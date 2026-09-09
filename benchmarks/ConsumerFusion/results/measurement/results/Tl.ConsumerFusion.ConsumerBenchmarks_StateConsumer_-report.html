@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Tl.ConsumerFusion.ConsumerBenchmarks_StateConsumer_-20260909-101451</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.400
+  [Host]   : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
+  JitCore4 : .NET 10.0.11 (10.0.11, 10.0.1126.37416), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code>Job=JitCore4  IterationCount=12  IterationTime=250ms  
+WarmupCount=16  
+</code></pre>
+
+<table>
+<thead><tr><th>Method     </th><th>Pattern</th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Ratio</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>InterpreterSingle</td><td>Sequential</td><td>14.327 ns</td><td>0.0646 ns</td><td>0.0467 ns</td><td>14.322 ns</td><td>1.00</td><td>-</td><td>NA</td>
+</tr><tr><td>CompiledSingle</td><td>Sequential</td><td>16.323 ns</td><td>0.0115 ns</td><td>0.0076 ns</td><td>16.322 ns</td><td>1.14</td><td>-</td><td>NA</td>
+</tr><tr><td>FusedSingle</td><td>Sequential</td><td>2.768 ns</td><td>0.0137 ns</td><td>0.0099 ns</td><td>2.765 ns</td><td>0.19</td><td>-</td><td>NA</td>
+</tr><tr><td>InterpreterBatch8</td><td>Sequential</td><td>9.785 ns</td><td>0.0228 ns</td><td>0.0165 ns</td><td>9.785 ns</td><td>0.68</td><td>-</td><td>NA</td>
+</tr><tr><td>CompiledBatch8</td><td>Sequential</td><td>8.861 ns</td><td>0.0099 ns</td><td>0.0065 ns</td><td>8.862 ns</td><td>0.62</td><td>-</td><td>NA</td>
+</tr><tr><td>FusedBatch8</td><td>Sequential</td><td>2.956 ns</td><td>0.0056 ns</td><td>0.0034 ns</td><td>2.957 ns</td><td>0.21</td><td>-</td><td>NA</td>
+</tr><tr><td>InterpreterSingle</td><td>Random</td><td>21.546 ns</td><td>0.1093 ns</td><td>0.0790 ns</td><td>21.516 ns</td><td>1.00</td><td>-</td><td>NA</td>
+</tr><tr><td>CompiledSingle</td><td>Random</td><td>30.378 ns</td><td>0.0396 ns</td><td>0.0286 ns</td><td>30.366 ns</td><td>1.41</td><td>-</td><td>NA</td>
+</tr><tr><td>FusedSingle</td><td>Random</td><td>10.033 ns</td><td>0.0556 ns</td><td>0.0402 ns</td><td>10.024 ns</td><td>0.47</td><td>-</td><td>NA</td>
+</tr><tr><td>InterpreterBatch8</td><td>Random</td><td>19.355 ns</td><td>0.1033 ns</td><td>0.0747 ns</td><td>19.327 ns</td><td>0.90</td><td>-</td><td>NA</td>
+</tr><tr><td>CompiledBatch8</td><td>Random</td><td>19.619 ns</td><td>0.0455 ns</td><td>0.0329 ns</td><td>19.623 ns</td><td>0.91</td><td>-</td><td>NA</td>
+</tr><tr><td>FusedBatch8</td><td>Random</td><td>9.554 ns</td><td>0.0455 ns</td><td>0.0301 ns</td><td>9.553 ns</td><td>0.44</td><td>-</td><td>NA</td>
+</tr><tr><td>InterpreterSingle</td><td>Repeated</td><td>16.810 ns</td><td>0.0240 ns</td><td>0.0174 ns</td><td>16.806 ns</td><td>1.00</td><td>-</td><td>NA</td>
+</tr><tr><td>CompiledSingle</td><td>Repeated</td><td>16.126 ns</td><td>0.0158 ns</td><td>0.0105 ns</td><td>16.123 ns</td><td>0.96</td><td>-</td><td>NA</td>
+</tr><tr><td>FusedSingle</td><td>Repeated</td><td>2.746 ns</td><td>0.0124 ns</td><td>0.0082 ns</td><td>2.742 ns</td><td>0.16</td><td>-</td><td>NA</td>
+</tr><tr><td>InterpreterBatch8</td><td>Repeated</td><td>12.338 ns</td><td>0.0797 ns</td><td>0.0576 ns</td><td>12.356 ns</td><td>0.73</td><td>-</td><td>NA</td>
+</tr><tr><td>CompiledBatch8</td><td>Repeated</td><td>11.040 ns</td><td>0.0217 ns</td><td>0.0157 ns</td><td>11.036 ns</td><td>0.66</td><td>-</td><td>NA</td>
+</tr><tr><td>FusedBatch8</td><td>Repeated</td><td>4.257 ns</td><td>0.0118 ns</td><td>0.0078 ns</td><td>4.255 ns</td><td>0.25</td><td>-</td><td>NA</td>
+</tr></tbody></table>
+</body>
+</html>
