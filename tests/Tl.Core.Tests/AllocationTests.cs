@@ -12,22 +12,19 @@ public class AllocationTests
     }
 
     public struct ZeroAllocResult :
-        IForward<FastTrack, FastClip, NoInput, ZeroAllocResult>,
-        IBackward<FastTrack, FastClip, NoInput, ZeroAllocResult>
+        ITrack<FastTrack, FastClip, NoInput, ZeroAllocResult>
     {
         public float Accumulator;
 
-        public void Forward(in Tracks<FastTrack, FastClip> tracks, in NoInput input, in uint tick, ref ZeroAllocResult result)
-        {
-            foreach (var work in tracks)
-                result.Accumulator += work.Clip.V;
-        }
+        public static void Forward(int ordinal, int count, ushort index,
+            in FastTrack track, in FastClip clip, ClipState state,
+            in uint tick, in NoInput input, ref ZeroAllocResult result)
+            => result.Accumulator += clip.V;
 
-        public void Backward(in Tracks<FastTrack, FastClip> tracks, in NoInput input, in uint tick, ref ZeroAllocResult result)
-        {
-            foreach (var work in tracks)
-                result.Accumulator -= work.Clip.V;
-        }
+        public static void Backward(int ordinal, int count, ushort index,
+            in FastTrack track, in FastClip clip, ClipState state,
+            in uint tick, in NoInput input, ref ZeroAllocResult result)
+            => result.Accumulator -= clip.V;
     }
 
     [Fact]
@@ -49,8 +46,6 @@ public class AllocationTests
 
         // Warm up both paths
         pb = Timeline.Forward(id, in pb, ref cursor, in input, ref result, 5u, 10u);
-        Span<FastClip> scratch = stackalloc FastClip[2];
-        pb = Timeline<FastTrack, FastClip>.Forward(id, in pb, in input, ref result, scratch, 15u, 20u);
         // ...and the plain hub paths the measurements below take (single and
         // batch share the non-cursor, non-scratch runner; first execution of
         // a cold runner can pay one-time tiering/dictionary allocations that
@@ -80,14 +75,6 @@ public class AllocationTests
         pb = Timeline.Forward(id, in pb, ref cursor, in input, ref result, 26u);
         long afterCursor = GC.GetAllocatedBytesForCurrentThread();
         Assert.Equal(0L, afterCursor - beforeCursor);
-
-        // Measure scratch overload (one-tick span, same variable-passing
-        // shape as the batch receipt above)
-        ReadOnlySpan<uint> scratchTick = [30u];
-        long beforeScratch = GC.GetAllocatedBytesForCurrentThread();
-        pb = Timeline<FastTrack, FastClip>.Forward(id, in pb, in input, ref result, scratch, scratchTick);
-        long afterScratch = GC.GetAllocatedBytesForCurrentThread();
-        Assert.Equal(0L, afterScratch - beforeScratch);
 
         Timeline.Destroy(id);
     }

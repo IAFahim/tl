@@ -37,7 +37,7 @@ internal static class CompileGenerationCache
     internal const string SourceListFileName = "TlGenCompile.sources";
     private const int FormatVersion = 2;
 
-    internal static string GetKey(IReadOnlyList<CompileSource> sources)
+    internal static string GetKey(IReadOnlyList<CompileSource> sources, IReadOnlyList<string> symbols)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Append(hash, "Tl.Gen compile");
@@ -49,6 +49,9 @@ internal static class CompileGenerationCache
         Append(hash, typeof(Microsoft.CodeAnalysis.SyntaxTree).Assembly);
         Append(hash, typeof(CSharpSyntaxTree).Assembly);
         Append(hash, typeof(Waffle.WaffleSyntax).Assembly);
+
+        foreach (var symbol in symbols)
+            Append(hash, symbol);
 
         foreach (var source in sources)
         {
@@ -185,8 +188,7 @@ internal static class CompileGenerationCache
 
         if (relativePath == KernelEmitter.SharedFileName)
             return true;
-        if (!relativePath.StartsWith("Compiled", StringComparison.Ordinal)
-            || !relativePath.EndsWith(".g.cs", StringComparison.Ordinal))
+        if (!relativePath.EndsWith(".g.cs", StringComparison.Ordinal))
             return false;
 
         return SyntaxFacts.IsValidIdentifier(relativePath[..^5]);

@@ -8,11 +8,11 @@ namespace Tl.Gen.CSharp;
 public static class KernelEmitter
 {
     public const string SharedFileName = "CompiledRuntime.g.cs";
+    private const int FullyInlineWorkSiteLimit = 64;
+    private readonly record struct CompactSegment(uint Start, uint End, EmittedWorkSlot Work);
 
     public static string EmitSharedRuntime() => """
         #nullable enable
-        using System;
-        using System.Runtime.CompilerServices;
         using Tl;
 
         namespace Tl.Compiled;
@@ -26,435 +26,549 @@ public static class KernelEmitter
                 where TClip : unmanaged
                 => new("<compiled: call the generated kernel class for this declaration>");
         }
-
-        public interface ICompiledForward<TTrack, TClip, TInput, TResult>
-            where TTrack : struct, IBlend<TClip>
-            where TClip : struct
-            where TInput : struct
-            where TResult : struct, ICompiledForward<TTrack, TClip, TInput, TResult>, ICompiledBackward<TTrack, TClip, TInput, TResult>
-        {
-            void Forward(in CompiledTracks<TTrack, TClip> tracks, in TInput input, in uint tick, ref TResult result);
-        }
-
-        public interface ICompiledBackward<TTrack, TClip, TInput, TResult>
-            where TTrack : struct, IBlend<TClip>
-            where TClip : struct
-            where TInput : struct
-            where TResult : struct, ICompiledForward<TTrack, TClip, TInput, TResult>, ICompiledBackward<TTrack, TClip, TInput, TResult>
-        {
-            void Backward(in CompiledTracks<TTrack, TClip> tracks, in TInput input, in uint tick, ref TResult result);
-        }
-
-        internal readonly struct CompiledWorkSlot(
-            ushort index,
-            ushort first,
-            ushort second,
-            uint enterF,
-            uint enterB,
-            uint factorStart,
-            uint factorLength,
-            ushort blendOrdinal)
-        {
-            public const ushort Single = ushort.MaxValue;
-
-            public readonly ushort Index = index;
-            public readonly ushort First = first;
-            public readonly ushort Second = second;
-            public readonly uint EnterF = enterF;
-            public readonly uint EnterB = enterB;
-            public readonly uint FactorStart = factorStart;
-            public readonly uint FactorLength = factorLength;
-            public readonly ushort BlendOrdinal = blendOrdinal;
-        }
-
-        internal readonly record struct CompiledMovement(uint PrevEff, bool Backward, bool Wrapped, bool Full);
-
-        internal static class CompiledPlayback
-        {
-            public static Playback Mint(uint tick, ushort cycles, PlaybackFlags flags)
-                => System.Runtime.CompilerServices.Unsafe.BitCast<ulong, Playback>(
-                    tick | (ulong)cycles << 32 | (ulong)(ushort)flags << 48);
-        }
-
-        public readonly ref struct CompiledTracks<TTrack, TClip>
-            where TTrack : struct, IBlend<TClip>
-            where TClip : struct
-        {
-            private readonly ReadOnlySpan<CompiledWorkSlot> _slots;
-            private readonly uint _tick;
-            private readonly Span<TClip> _blendScratch;
-            private readonly ReadOnlySpan<TTrack> _trackData;
-            private readonly ReadOnlySpan<TClip> _clipData;
-            private readonly CompiledMovement _movement;
-
-            internal CompiledTracks(
-                ReadOnlySpan<CompiledWorkSlot> slots,
-                uint tick,
-                Span<TClip> blendScratch,
-                ReadOnlySpan<TTrack> trackData,
-                ReadOnlySpan<TClip> clipData,
-                CompiledMovement movement)
-            {
-                _slots = slots;
-                _tick = tick;
-                _blendScratch = blendScratch;
-                _trackData = trackData;
-                _clipData = clipData;
-                _movement = movement;
-            }
-
-            public int Count => _slots.Length;
-
-            public CompiledTrackWork<TTrack, TClip> this[int index]
-                => new(in _slots[index], _tick, _blendScratch, _trackData, _clipData, _movement);
-
-            public CompiledTracks<TTrack, TClip> Slice(int start, int length)
-                => new(_slots.Slice(start, length), _tick, _blendScratch, _trackData, _clipData, _movement);
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public Enumerator GetEnumerator()
-                => new(_slots, _tick, _blendScratch, _trackData, _clipData, _movement);
-
-            public ref struct Enumerator
-            {
-                private ReadOnlySpan<CompiledWorkSlot> _slots;
-                private readonly uint _tick;
-                private readonly Span<TClip> _blendScratch;
-                private readonly ReadOnlySpan<TTrack> _trackData;
-                private readonly ReadOnlySpan<TClip> _clipData;
-                private readonly CompiledMovement _movement;
-                private int _i;
-
-                internal Enumerator(
-                    ReadOnlySpan<CompiledWorkSlot> slots,
-                    uint tick,
-                    Span<TClip> blendScratch,
-                    ReadOnlySpan<TTrack> trackData,
-                    ReadOnlySpan<TClip> clipData,
-                    CompiledMovement movement)
-                {
-                    _slots = slots;
-                    _tick = tick;
-                    _blendScratch = blendScratch;
-                    _trackData = trackData;
-                    _clipData = clipData;
-                    _movement = movement;
-                    _i = -1;
-                }
-
-                public CompiledTrackWork<TTrack, TClip> Current
-                {
-                    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                    get => new(in _slots[_i], _tick, _blendScratch, _trackData, _clipData, _movement);
-                }
-
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                public bool MoveNext()
-                {
-                    var i = _i + 1;
-                    if ((uint)i >= (uint)_slots.Length)
-                        return false;
-                    _i = i;
-                    return true;
-                }
-            }
-        }
-
-        public readonly ref struct CompiledTrackWork<TTrack, TClip>
-            where TTrack : struct, IBlend<TClip>
-            where TClip : struct
-        {
-            private readonly ref readonly CompiledWorkSlot _slot;
-            private readonly uint _tick;
-            private readonly Span<TClip> _blendScratch;
-            private readonly ReadOnlySpan<TTrack> _trackData;
-            private readonly ReadOnlySpan<TClip> _clipData;
-            private readonly CompiledMovement _movement;
-
-            internal CompiledTrackWork(
-                in CompiledWorkSlot slot,
-                uint tick,
-                Span<TClip> blendScratch,
-                ReadOnlySpan<TTrack> trackData,
-                ReadOnlySpan<TClip> clipData,
-                CompiledMovement movement)
-            {
-                _slot = ref slot;
-                _tick = tick;
-                _blendScratch = blendScratch;
-                _trackData = trackData;
-                _clipData = clipData;
-                _movement = movement;
-            }
-
-            public ushort Index => _slot.Index;
-
-            public ref readonly TTrack Track => ref _trackData[_slot.Index];
-
-            public ref readonly TClip Clip
-            {
-                get
-                {
-                    if (_slot.FactorLength == 0)
-                        return ref _clipData[_slot.First];
-
-                    var ordinal = _slot.BlendOrdinal;
-                    var factor = _slot.FactorLength <= 1
-                        ? 0.5f
-                        : (_tick - _slot.FactorStart) / (float)(_slot.FactorLength - 1);
-                    _trackData[_slot.Index].Blend(
-                        in _clipData[_slot.First],
-                        in _clipData[_slot.Second],
-                        factor,
-                        out _blendScratch[ordinal]);
-                    return ref _blendScratch[ordinal];
-                }
-            }
-
-            public ClipState State
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get
-                {
-                    var backward = _movement.Backward;
-                    if (backward ? _tick == _slot.EnterF : _tick == _slot.EnterB - 1u)
-                        return ClipState.Exit;
-
-                    var crossed = _movement.Wrapped || _movement.Full
-                        || (backward ? _movement.PrevEff >= _slot.EnterB : _movement.PrevEff < _slot.EnterF);
-                    return crossed ? ClipState.Enter : ClipState.Stay;
-                }
-            }
-        }
         """ + "\n";
 
-    public static string EmitKernel(TimelinePlan plan, EmittedWorkSlot[][] slots, string kernelName, string sourceFile, int sourceLine)
+    public static string EmitKernel(
+        TimelinePlan plan,
+        EmittedWorkSlot[][] regions,
+        string kernelName,
+        string sourceFile,
+        int sourceLine)
+        => EmitKernel(plan, regions, kernelName, sourceFile, sourceLine, CompiledDeclarationKind.LegacyCompile);
+
+    public static string EmitKernel(
+        TimelinePlan plan,
+        EmittedWorkSlot[][] regions,
+        string kernelName,
+        string sourceFile,
+        int sourceLine,
+        CompiledDeclarationKind kind)
     {
-        var d = plan.Definition;
-        var duration = plan.Duration;
-        var looping = d.Loops && duration != 0;
-        var trackType = d.TrackTypeName;
-        var clipType = d.ClipTypeName;
-
+        var definition = plan.Definition;
         var writer = new StringBuilder();
-        writer.AppendLine($"#nullable enable");
-        writer.AppendLine($"using System;");
-        writer.AppendLine($"using System.Runtime.CompilerServices;");
-        writer.AppendLine($"using Tl;");
-        writer.AppendLine($"using Tl.Compiled;");
-        writer.AppendLine();
-        if (d.Namespace.Length > 0)
-            writer.AppendLine($"namespace {d.Namespace};");
-        writer.AppendLine();
-        writer.AppendLine($"public static class {kernelName}");
-        writer.AppendLine("{");
-
-        writer.AppendLine($"    public const uint Duration = {U(duration)};");
-        if (d.Loops)
-            writer.AppendLine($"    public const bool Loops = true;");
-        writer.AppendLine();
-        writer.AppendLine($"    private static readonly {trackType}[] s_trackData =");
-        writer.AppendLine($"        [{string.Join(", ", d.Tracks.Select(t => t.TrackExpression))}];");
-        writer.AppendLine($"    private static readonly {clipType}[] s_clipData =");
-        writer.AppendLine($"        [{string.Join(", ", d.Clips.Select(c => c.PayloadExpression))}];");
-        writer.AppendLine();
-        writer.AppendLine($"    private readonly struct ForwardDirection {{ }}");
-        writer.AppendLine($"    private readonly struct BackwardDirection {{ }}");
-        writer.AppendLine();
-
-        for (var r = 0; r < slots.Length; r++)
+        Line(writer, "#nullable enable");
+        if (definition.Namespace.Length != 0)
         {
-            if (slots[r].Length == 0)
-                continue;
-
-            var rows = slots[r].Select(s => s.Second == EmittedWorkSlot.Single
-                ? $"new({s.Index}, {s.First}, CompiledWorkSlot.Single, {U(s.EnterF)}, {U(s.EnterB)}, {U(s.FactorStart)}, {U(s.FactorLength)}, {s.BlendOrdinal})"
-                : $"new({s.Index}, {s.First}, {s.Second}, {U(s.EnterF)}, {U(s.EnterB)}, {U(s.FactorStart)}, {U(s.FactorLength)}, {s.BlendOrdinal})");
-            writer.AppendLine($"    private static readonly CompiledWorkSlot[] s_works{r.ToString(CultureInfo.InvariantCulture)} =");
-            writer.AppendLine($"        [{string.Join(", ", rows)}];");
+            Line(writer, $"namespace {definition.Namespace};");
+            Line(writer);
         }
-
-        writer.AppendLine();
-        writer.AppendLine($"    public static Playback Start(uint at = 0)");
-        writer.AppendLine($"        => CompiledPlayback.Mint(at, 0, PlaybackFlags.Started);");
-        writer.AppendLine();
-        writer.AppendLine($"    public static Playback Stop(in Playback playback)");
-        writer.AppendLine($"    {{");
-        writer.AppendLine($"        if (!playback.Has(PlaybackFlags.Started))");
-        writer.AppendLine($"            throw new InvalidOperationException(\"Cannot stop a playback that was never started.\");");
-        writer.AppendLine($"        return CompiledPlayback.Mint(playback.Tick, playback.Cycles, playback.Flags | PlaybackFlags.Stopped);");
-        writer.AppendLine($"    }}");
-        writer.AppendLine();
-        writer.AppendLine($"    public static Playback Forward<TInput, TResult>(in Playback from, in TInput input, ref TResult result, uint tick)");
-        writer.AppendLine(Constraints(trackType, clipType));
-        writer.AppendLine($"    {{");
-        writer.AppendLine($"        ReadOnlySpan<uint> ticks = [tick];");
-        writer.AppendLine($"        return Advance<TInput, TResult, ForwardDirection>(in from, in input, ref result, ticks);");
-        writer.AppendLine($"    }}");
-        writer.AppendLine();
-        writer.AppendLine($"    public static Playback Forward<TInput, TResult>(in Playback from, in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)");
-        writer.AppendLine(Constraints(trackType, clipType));
-        writer.AppendLine($"        => Advance<TInput, TResult, ForwardDirection>(in from, in input, ref result, ticks);");
-        writer.AppendLine();
-        writer.AppendLine($"    public static Playback Backward<TInput, TResult>(in Playback from, in TInput input, ref TResult result, uint tick)");
-        writer.AppendLine(Constraints(trackType, clipType));
-        writer.AppendLine($"    {{");
-        writer.AppendLine($"        ReadOnlySpan<uint> ticks = [tick];");
-        writer.AppendLine($"        return Advance<TInput, TResult, BackwardDirection>(in from, in input, ref result, ticks);");
-        writer.AppendLine($"    }}");
-        writer.AppendLine();
-        writer.AppendLine($"    public static Playback Backward<TInput, TResult>(in Playback from, in TInput input, ref TResult result, params ReadOnlySpan<uint> ticks)");
-        writer.AppendLine(Constraints(trackType, clipType));
-        writer.AppendLine($"        => Advance<TInput, TResult, BackwardDirection>(in from, in input, ref result, ticks);");
-        writer.AppendLine();
-        writer.AppendLine($"    private static Playback Advance<TInput, TResult, TDirection>(in Playback from, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)");
-        writer.AppendLine(Constraints(trackType, clipType));
-        writer.AppendLine($"    {{");
-        writer.AppendLine($"        if (!from.Has(PlaybackFlags.Started))");
-        writer.AppendLine($"            throw new InvalidOperationException(\"Playback was never started; mint one with {kernelName}.Start.\");");
-        writer.AppendLine($"        if (from.Has(PlaybackFlags.Stopped))");
-        writer.AppendLine($"            throw new InvalidOperationException(\"Playback is stopped.\");");
-        writer.AppendLine();
-        writer.AppendLine($"        var stateTick = from.Tick;");
-        writer.AppendLine($"        var stateCycles = from.Cycles;");
-        writer.AppendLine($"        var stateFlags = from.Flags;");
-        writer.AppendLine($"        var backward = typeof(TDirection) == typeof(BackwardDirection);");
-        writer.AppendLine();
-
-        if (plan.MaxActiveBlends == 0)
-            writer.AppendLine($"        Span<{clipType}> scratch = default;");
-        else
-            writer.AppendLine($"        Span<{clipType}> scratch = stackalloc {clipType}[{plan.MaxActiveBlends.ToString(CultureInfo.InvariantCulture)}];");
-
-        writer.AppendLine();
-        writer.AppendLine($"        foreach (var tick in ticks)");
-        writer.AppendLine($"        {{");
-
-        if (looping)
+        foreach (var sourceUsing in definition.SourceUsings)
+            Line(writer, sourceUsing);
+        if (definition.SourceUsings.Count != 0)
+            Line(writer);
+        var declaration = kind == CompiledDeclarationKind.PartialTimeline
+            ? $"public readonly partial struct {kernelName}"
+            : $"public static class {kernelName}";
+        Line(writer, declaration);
+        Line(writer, "{");
+        Line(writer, $"    public const uint Duration = {U(plan.Duration)};");
+        Line(writer, $"    public const bool Loops = {Boolean(definition.Loops)};");
+        EmitData(writer, definition);
+        Line(writer);
+        Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        Line(writer, "    public static global::Tl.Playback Start(uint at = 0)");
+        Line(writer, "        => Mint(at, 0, global::Tl.PlaybackFlags.Started);");
+        Line(writer);
+        Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        Line(writer, "    public static global::Tl.Playback Stop(in global::Tl.Playback playback)");
+        Line(writer, "    {");
+        Line(writer, "        if (!playback.Has(global::Tl.PlaybackFlags.Started))");
+        Line(writer, "            throw new global::System.InvalidOperationException(\"Cannot stop a playback that was never started.\");");
+        Line(writer, "        return Mint(playback.Tick, playback.Cycles, playback.Flags | global::Tl.PlaybackFlags.Stopped);");
+        Line(writer, "    }");
+        Line(writer);
+        var compactRegionProgram = regions.Sum(static region => region.Length) > FullyInlineWorkSiteLimit;
+        var compactTracks = CompactTracks(plan, regions);
+        EmitScalar(writer, plan, regions, backward: false, kernelName, compactRegionProgram);
+        Line(writer);
+        EmitBatch(writer, plan, regions, backward: false, kernelName, compactRegionProgram);
+        Line(writer);
+        EmitScalar(writer, plan, regions, backward: true, kernelName, compactRegionProgram);
+        Line(writer);
+        EmitBatch(writer, plan, regions, backward: true, kernelName, compactRegionProgram);
+        if (compactRegionProgram)
         {
-            writer.AppendLine($"            var prevEff = stateTick % Duration;");
-            writer.AppendLine($"            var tEff = tick % Duration;");
-            writer.AppendLine($"            uint cycles;");
-            writer.AppendLine($"            bool wrapped, full;");
-            writer.AppendLine($"            if (!backward)");
-            writer.AppendLine($"            {{");
-            writer.AppendLine($"                cycles = tick >= stateTick ? tick / Duration - stateTick / Duration : tEff < prevEff ? 1u : 0u;");
-            writer.AppendLine($"                wrapped = cycles == 1u;");
-            writer.AppendLine($"                full = cycles >= 2u;");
-            writer.AppendLine($"            }}");
-            writer.AppendLine($"            else if (tick <= stateTick)");
-            writer.AppendLine($"            {{");
-            writer.AppendLine($"                cycles = stateTick / Duration - tick / Duration;");
-            writer.AppendLine($"                wrapped = cycles == 1u;");
-            writer.AppendLine($"                full = cycles >= 2u;");
-            writer.AppendLine($"            }}");
-            writer.AppendLine($"            else");
-            writer.AppendLine($"            {{");
-            writer.AppendLine($"                cycles = tEff > prevEff ? 1u : 0u;");
-            writer.AppendLine($"                wrapped = tEff > prevEff;");
-            writer.AppendLine($"                full = false;");
-            writer.AppendLine($"            }}");
-            writer.AppendLine();
-            writer.AppendLine($"            if (!backward && cycles > ushort.MaxValue - stateCycles)");
-            writer.AppendLine($"                throw new ArgumentOutOfRangeException(nameof(ticks), \"Playback cycle capacity exceeded.\");");
-            writer.AppendLine($"            var newCycles = backward ? (ushort)(stateCycles - Math.Min(stateCycles, cycles)) : (ushort)(stateCycles + cycles);");
-            writer.AppendLine();
-            writer.AppendLine($"            var flags = PlaybackFlags.Started;");
-            writer.AppendLine($"            if (tEff == Duration - 1u)");
-            writer.AppendLine($"                flags |= PlaybackFlags.LastLoopFrame;");
+            Line(writer);
+            EmitCompactRegionProgram(writer, plan, compactTracks, backward: false);
+            Line(writer);
+            EmitCompactRegionProgram(writer, plan, compactTracks, backward: true);
         }
-        else
-        {
-            writer.AppendLine($"            var prevEff = stateTick;");
-            writer.AppendLine($"            var tEff = tick;");
-            writer.AppendLine($"            const bool wrapped = false;");
-            writer.AppendLine($"            const bool full = false;");
-            writer.AppendLine($"            var newCycles = stateCycles;");
-            writer.AppendLine();
-            writer.AppendLine($"            var flags = PlaybackFlags.Started;");
-            if (!d.Loops)
-            {
-                writer.AppendLine($"            if (Duration == 0u || (backward ? tEff == 0u : tEff >= Duration - 1u))");
-                writer.AppendLine($"                flags |= PlaybackFlags.Completed;");
-            }
-        }
-
-        writer.AppendLine();
-        writer.AppendLine($"            var works = default(ReadOnlySpan<CompiledWorkSlot>);");
-        writer.AppendLine($"            switch (Locate(tEff))");
-        writer.AppendLine($"            {{");
-        for (var r = 0; r < slots.Length; r++)
-        {
-            if (slots[r].Length == 0)
-                continue;
-
-            writer.AppendLine($"                case {r.ToString(CultureInfo.InvariantCulture)}:");
-            writer.AppendLine($"                    works = s_works{r.ToString(CultureInfo.InvariantCulture)};");
-            writer.AppendLine($"                    break;");
-        }
-
-        writer.AppendLine($"                default:");
-        writer.AppendLine($"                    break;");
-        writer.AppendLine($"            }}");
-        writer.AppendLine();
-        writer.AppendLine($"            if (works.Length != 0)");
-        writer.AppendLine($"            {{");
-        writer.AppendLine($"                var tracks = new CompiledTracks<{trackType}, {clipType}>(works, tEff, scratch, s_trackData, s_clipData, new CompiledMovement(prevEff, backward, wrapped, full));");
-        writer.AppendLine($"                if (backward)");
-        writer.AppendLine($"                    result.Backward(in tracks, in input, in tEff, ref result);");
-        writer.AppendLine($"                else");
-        writer.AppendLine($"                    result.Forward(in tracks, in input, in tEff, ref result);");
-        writer.AppendLine($"            }}");
-        writer.AppendLine();
-        writer.AppendLine($"            stateTick = tick;");
-        writer.AppendLine($"            stateCycles = newCycles;");
-        writer.AppendLine($"            stateFlags = flags;");
-        writer.AppendLine($"        }}");
-        writer.AppendLine();
-        writer.AppendLine($"        return CompiledPlayback.Mint(stateTick, stateCycles, stateFlags);");
-        writer.AppendLine($"    }}");
-        writer.AppendLine();
-        writer.Append(LocateTree(plan.RegionStarts));
-        writer.AppendLine("}");
-
+        Line(writer);
+        Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        Line(writer, "    private static global::Tl.Playback Mint(uint tick, ushort cycles, global::Tl.PlaybackFlags flags)");
+        Line(writer, "        => global::System.Runtime.CompilerServices.Unsafe.BitCast<ulong, global::Tl.Playback>(tick | (ulong)cycles << 32 | (ulong)(ushort)flags << 48);");
+        Line(writer, "}");
         return writer.ToString();
     }
 
-    private static string LocateTree(uint[] starts)
+    private static void EmitData(StringBuilder writer, TimelineDefinition definition)
     {
-        var writer = new StringBuilder();
-        writer.AppendLine($"    [MethodImpl(MethodImplOptions.AggressiveInlining)]");
-        writer.AppendLine($"    private static int Locate(uint tick)");
-        writer.AppendLine($"    {{");
-        EmitLocateNode(writer, starts, 0, starts.Length - 1, depth: 2);
-        writer.AppendLine($"    }}");
-        return writer.ToString();
+        for (var index = 0; index < definition.Tracks.Count; index++)
+            Line(writer, $"    private static readonly {definition.TrackTypeName} s_track{I(index)} = {definition.Tracks[index].TrackExpression};");
+        for (var index = 0; index < definition.Clips.Count; index++)
+            Line(writer, $"    private static readonly {definition.ClipTypeName} s_clip{I(index)} = {definition.Clips[index].PayloadExpression};");
     }
 
-    private static void EmitLocateNode(StringBuilder writer, uint[] starts, int lo, int hi, int depth)
+    private static void EmitScalar(
+        StringBuilder writer,
+        TimelinePlan plan,
+        EmittedWorkSlot[][] regions,
+        bool backward,
+        string kernelName,
+        bool sharedRegionProgram)
     {
-        var indent = new string(' ', depth * 4);
-
-        if (lo == hi)
+        var method = backward ? "Backward" : "Forward";
+        Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        Line(writer, $"    public static global::Tl.Playback {method}<TInput, TResult>(in global::Tl.Playback from, in TInput input, ref TResult result, uint tick)");
+        EmitConstraints(writer, plan.Definition);
+        Line(writer, "    {");
+        EmitValidation(writer, kernelName, 2);
+        if (plan.MaxActiveTracks == 0)
         {
-            writer.AppendLine($"{indent}return {lo.ToString(CultureInfo.InvariantCulture)};");
+            EmitFlags(writer, plan, backward, "tick", 2);
+            Line(writer, "        return Mint(tick, from.Cycles, flags);");
+            Line(writer, "    }");
+            return;
+        }
+        EmitInitialPosition(writer, plan, "from.Tick", 2);
+        EmitCycleUpdate(writer, plan, backward, "from.Tick", "from.Cycles", "var newCycles", 2);
+        EmitRegionProgram(writer, plan, regions, backward, sharedRegionProgram, 2);
+        EmitFlags(writer, plan, backward, "effective", 2);
+        Line(writer, "        return Mint(tick, newCycles, flags);");
+        Line(writer, "    }");
+    }
+
+    private static void EmitBatch(
+        StringBuilder writer,
+        TimelinePlan plan,
+        EmittedWorkSlot[][] regions,
+        bool backward,
+        string kernelName,
+        bool sharedRegionProgram)
+    {
+        var method = backward ? "Backward" : "Forward";
+        Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        Line(writer, $"    public static global::Tl.Playback {method}<TInput, TResult>(in global::Tl.Playback from, in TInput input, ref TResult result, params global::System.ReadOnlySpan<uint> ticks)");
+        EmitConstraints(writer, plan.Definition);
+        Line(writer, "    {");
+        EmitValidation(writer, kernelName, 2);
+        Line(writer, "        if (ticks.IsEmpty)");
+        Line(writer, "            return from;");
+        if (plan.MaxActiveTracks == 0)
+        {
+            Line(writer, "        var tick = ticks[^1];");
+            EmitFlags(writer, plan, backward, "tick", 2);
+            Line(writer, "        return Mint(tick, from.Cycles, flags);");
+            Line(writer, "    }");
+            return;
+        }
+        Line(writer, "        var stateTick = from.Tick;");
+        Line(writer, "        var stateCycles = from.Cycles;");
+        EmitPreviousPosition(writer, plan, "stateTick", 2);
+        Line(writer, "        foreach (var tick in ticks)");
+        Line(writer, "        {");
+        EmitEffectivePosition(writer, plan, 3);
+        EmitCycleUpdate(writer, plan, backward, "stateTick", "stateCycles", "stateCycles", 3);
+        EmitRegionProgram(writer, plan, regions, backward, sharedRegionProgram, 3);
+        Line(writer, "            stateTick = tick;");
+        Line(writer, "            previousEffective = effective;");
+        if (IsLooping(plan))
+            Line(writer, "            previousQuotient = quotient;");
+        Line(writer, "        }");
+        EmitFlags(writer, plan, backward, "previousEffective", 2);
+        Line(writer, "        return Mint(stateTick, stateCycles, flags);");
+        Line(writer, "    }");
+    }
+
+    private static void EmitRegionProgram(
+        StringBuilder writer,
+        TimelinePlan plan,
+        EmittedWorkSlot[][] regions,
+        bool backward,
+        bool shared,
+        int depth)
+    {
+        if (!shared)
+        {
+            EmitRegions(writer, plan, regions, backward, depth);
             return;
         }
 
-        var mid = (lo + hi + 1) / 2;
-        writer.AppendLine($"{indent}if (tick < {U(starts[mid])})");
-        writer.AppendLine($"{indent}{{");
-        EmitLocateNode(writer, starts, lo, mid - 1, depth + 1);
-        writer.AppendLine($"{indent}}}");
-        writer.AppendLine($"{indent}else");
-        writer.AppendLine($"{indent}{{");
-        EmitLocateNode(writer, starts, mid, hi, depth + 1);
-        writer.AppendLine($"{indent}}}");
+        var method = backward ? "ApplyBackward" : "ApplyForward";
+        var cycles = IsLooping(plan) ? "cycles" : "0u";
+        Line(writer, $"{Indent(depth)}{method}(effective, previousEffective, {cycles}, in input, ref result);");
     }
 
-    private static string Constraints(string trackType, string clipType)
-        => "        where TInput : struct" + Environment.NewLine
-         + $"        where TResult : struct, ICompiledForward<{trackType}, {clipType}, TInput, TResult>, ICompiledBackward<{trackType}, {clipType}, TInput, TResult>";
+    private static void EmitCompactRegionProgram(
+        StringBuilder writer,
+        TimelinePlan plan,
+        IReadOnlyList<CompactSegment>[] tracks,
+        bool backward)
+    {
+        var method = backward ? "ApplyBackward" : "ApplyForward";
+        Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining | global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]");
+        Line(writer, $"    private static void {method}<TInput, TResult>(uint effective, uint previousEffective, uint cycles, in TInput input, ref TResult result)");
+        EmitConstraints(writer, plan.Definition);
+        Line(writer, "    {");
+        Line(writer, "        var count = 0;");
+        foreach (var track in tracks)
+            if (track.Count != 0)
+            {
+                Line(writer, $"        if ({ActiveCondition(track)})");
+                Line(writer, "            count++;");
+            }
+        Line(writer, "        var ordinal = 0;");
+        for (var trackIndex = 0; trackIndex < tracks.Length; trackIndex++)
+            EmitCompactTrack(writer, plan, tracks[trackIndex], trackIndex, backward);
+        Line(writer, "    }");
+    }
 
-    private static string U(uint value) => value.ToString(CultureInfo.InvariantCulture) + "u";
+    private static void EmitCompactTrack(
+        StringBuilder writer,
+        TimelinePlan plan,
+        IReadOnlyList<CompactSegment> segments,
+        int trackIndex,
+        bool backward)
+    {
+        for (var segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)
+        {
+            var segment = segments[segmentIndex];
+            var branch = segmentIndex == 0 ? "if" : "else if";
+            Line(writer, $"        {branch} ({IntervalCondition(segment.Start, segment.End)})");
+            Line(writer, "        {");
+            EmitCompactWork(writer, plan, segment.Work, trackIndex, segmentIndex, backward);
+            Line(writer, "            ordinal++;");
+            Line(writer, "        }");
+        }
+    }
+
+    private static void EmitCompactWork(
+        StringBuilder writer,
+        TimelinePlan plan,
+        EmittedWorkSlot work,
+        int trackIndex,
+        int segmentIndex,
+        bool backward)
+    {
+        var suffix = I(trackIndex) + "_" + I(segmentIndex);
+        var state = "state_" + suffix;
+        EmitCompactState(writer, plan, work, "            ", state, backward);
+        var clip = $"s_clip{I(work.First)}";
+        if (work.Second != EmittedWorkSlot.Single)
+        {
+            Line(writer, $"            var factor_{suffix} = {Factor(work)};");
+            Line(writer, $"            s_track{I(work.Index)}.Blend(in s_clip{I(work.First)}, in s_clip{I(work.Second)}, factor_{suffix}, out var clip_{suffix});");
+            clip = "clip_" + suffix;
+        }
+        var method = backward ? "Backward" : "Forward";
+        Line(writer,
+            $"            TResult.{method}(ordinal, count, {I(work.Index)}, in s_track{I(work.Index)}, in {clip}, {state}, effective, in input, ref result);");
+    }
+
+    private static void EmitCompactState(
+        StringBuilder writer,
+        TimelinePlan plan,
+        EmittedWorkSlot work,
+        string indent,
+        string state,
+        bool backward)
+    {
+        var exitTick = backward ? work.EnterF : work.EnterB - 1u;
+        var crossed = backward
+            ? $"previousEffective >= {U(work.EnterB)}"
+            : $"previousEffective < {U(work.EnterF)}";
+        var enterPossible = backward
+            ? !IsLooping(plan) || work.EnterB < plan.Duration
+            : work.EnterF != 0u;
+        var enter = IsLooping(plan)
+            ? enterPossible ? $"cycles != 0u || {crossed}" : "cycles != 0u"
+            : enterPossible ? crossed : "false";
+        Line(writer, $"{indent}var {state} = effective == {U(exitTick)}");
+        Line(writer, $"{indent}    ? global::Tl.ClipState.Exit");
+        Line(writer, enter == "false"
+            ? $"{indent}    : global::Tl.ClipState.Stay;"
+            : $"{indent}    : {enter} ? global::Tl.ClipState.Enter : global::Tl.ClipState.Stay;");
+    }
+
+    private static IReadOnlyList<CompactSegment>[] CompactTracks(
+        TimelinePlan plan,
+        EmittedWorkSlot[][] regions)
+    {
+        var tracks = Enumerable.Range(0, plan.Definition.Tracks.Count)
+            .Select(static _ => new List<CompactSegment>())
+            .ToArray();
+        for (var region = 0; region + 1 < plan.RegionStarts.Length; region++)
+        {
+            var start = plan.RegionStarts[region];
+            var end = plan.RegionStarts[region + 1];
+            foreach (var work in regions[region])
+            {
+                var segments = tracks[work.Index];
+                if (segments.Count != 0)
+                {
+                    var previous = segments[^1];
+                    if (previous.End == start && previous.Work == work)
+                    {
+                        segments[^1] = previous with { End = end };
+                        continue;
+                    }
+                }
+                segments.Add(new CompactSegment(start, end, work));
+            }
+        }
+        return tracks;
+    }
+
+    private static string ActiveCondition(IReadOnlyList<CompactSegment> segments)
+    {
+        var spans = new List<(uint Start, uint End)>();
+        foreach (var segment in segments)
+        {
+            if (spans.Count != 0 && spans[^1].End == segment.Start)
+            {
+                spans[^1] = (spans[^1].Start, segment.End);
+                continue;
+            }
+            spans.Add((segment.Start, segment.End));
+        }
+        return string.Join(" || ", spans.Select(static span => $"({IntervalCondition(span.Start, span.End)})"));
+    }
+
+    private static string IntervalCondition(uint start, uint end) => start == 0u
+        ? $"effective < {U(end)}"
+        : $"effective >= {U(start)} && effective < {U(end)}";
+
+    private static void EmitInitialPosition(StringBuilder writer, TimelinePlan plan, string stateTick, int depth)
+    {
+        EmitPreviousPosition(writer, plan, stateTick, depth);
+        EmitEffectivePosition(writer, plan, depth);
+    }
+
+    private static void EmitPreviousPosition(StringBuilder writer, TimelinePlan plan, string stateTick, int depth)
+    {
+        var indent = Indent(depth);
+        if (IsLooping(plan))
+        {
+            Line(writer, $"{indent}var previousQuotient = {stateTick} / Duration;");
+            Line(writer, $"{indent}var previousEffective = {stateTick} - previousQuotient * Duration;");
+            return;
+        }
+        Line(writer, $"{indent}var previousEffective = {stateTick};");
+    }
+
+    private static void EmitEffectivePosition(StringBuilder writer, TimelinePlan plan, int depth)
+    {
+        var indent = Indent(depth);
+        if (IsLooping(plan))
+        {
+            Line(writer, $"{indent}var quotient = tick / Duration;");
+            Line(writer, $"{indent}var effective = tick - quotient * Duration;");
+            return;
+        }
+        Line(writer, $"{indent}var effective = tick;");
+    }
+
+    private static void EmitCycleUpdate(
+        StringBuilder writer,
+        TimelinePlan plan,
+        bool backward,
+        string stateTick,
+        string stateCycles,
+        string destination,
+        int depth)
+    {
+        var indent = Indent(depth);
+        if (!IsLooping(plan))
+        {
+            if (destination.StartsWith("var ", StringComparison.Ordinal))
+                Line(writer, $"{indent}{destination} = {stateCycles};");
+            return;
+        }
+        Line(writer, $"{indent}uint cycles;");
+        if (!backward)
+        {
+            Line(writer, $"{indent}if (tick >= {stateTick})");
+            Line(writer, $"{indent}    cycles = quotient - previousQuotient;");
+            Line(writer, $"{indent}else");
+            Line(writer, $"{indent}    cycles = effective < previousEffective ? 1u : 0u;");
+            Line(writer, $"{indent}if (cycles > ushort.MaxValue - {stateCycles})");
+            Line(writer, $"{indent}    throw new global::System.ArgumentOutOfRangeException(\"ticks\", \"Playback cycle capacity exceeded.\");");
+            Line(writer, $"{indent}{destination} = (ushort)({stateCycles} + cycles);");
+            return;
+        }
+        Line(writer, $"{indent}if (tick <= {stateTick})");
+        Line(writer, $"{indent}    cycles = previousQuotient - quotient;");
+        Line(writer, $"{indent}else");
+        Line(writer, $"{indent}    cycles = effective > previousEffective ? 1u : 0u;");
+        Line(writer, $"{indent}{destination} = (ushort)({stateCycles} - global::System.Math.Min({stateCycles}, cycles));");
+    }
+
+    private static void EmitRegions(
+        StringBuilder writer,
+        TimelinePlan plan,
+        EmittedWorkSlot[][] regions,
+        bool backward,
+        int depth)
+    {
+        var upper = IsLooping(plan) ? regions.Length - 2 : regions.Length - 1;
+        EmitRegionTree(writer, plan, regions, 0, Math.Max(0, upper), depth, backward);
+    }
+
+    private static void EmitRegionTree(
+        StringBuilder writer,
+        TimelinePlan plan,
+        EmittedWorkSlot[][] regions,
+        int lower,
+        int upper,
+        int depth,
+        bool backward)
+    {
+        var indent = Indent(depth);
+        if (lower == upper)
+        {
+            EmitRegion(writer, plan, regions[lower], lower, indent, backward);
+            return;
+        }
+        var middle = (lower + upper + 1) / 2;
+        Line(writer, $"{indent}if (effective < {U(plan.RegionStarts[middle])})");
+        Line(writer, $"{indent}{{");
+        EmitRegionTree(writer, plan, regions, lower, middle - 1, depth + 1, backward);
+        Line(writer, $"{indent}}}");
+        Line(writer, $"{indent}else");
+        Line(writer, $"{indent}{{");
+        EmitRegionTree(writer, plan, regions, middle, upper, depth + 1, backward);
+        Line(writer, $"{indent}}}");
+    }
+
+    private static void EmitRegion(
+        StringBuilder writer,
+        TimelinePlan plan,
+        EmittedWorkSlot[] works,
+        int region,
+        string indent,
+        bool backward)
+    {
+        var method = backward ? "Backward" : "Forward";
+        var states = new Dictionary<(uint EnterF, uint EnterB), string>();
+        for (var ordinal = 0; ordinal < works.Length; ordinal++)
+        {
+            var work = works[ordinal];
+            var suffix = I(region) + "_" + I(ordinal);
+            if (!states.TryGetValue((work.EnterF, work.EnterB), out var state))
+            {
+                state = "state_" + suffix;
+                states.Add((work.EnterF, work.EnterB), state);
+                EmitState(writer, plan, work, region, indent, state, backward);
+            }
+            var clip = $"s_clip{I(work.First)}";
+            if (work.Second != EmittedWorkSlot.Single)
+            {
+                Line(writer, $"{indent}var factor_{suffix} = {Factor(work)};");
+                Line(writer, $"{indent}s_track{I(work.Index)}.Blend(in s_clip{I(work.First)}, in s_clip{I(work.Second)}, factor_{suffix}, out var clip_{suffix});");
+                clip = "clip_" + suffix;
+            }
+            Line(writer,
+                $"{indent}TResult.{method}({I(ordinal)}, {I(works.Length)}, {I(work.Index)}, in s_track{I(work.Index)}, in {clip}, {state}, effective, in input, ref result);");
+        }
+    }
+
+    private static void EmitState(
+        StringBuilder writer,
+        TimelinePlan plan,
+        EmittedWorkSlot work,
+        int region,
+        string indent,
+        string state,
+        bool backward)
+    {
+        var lower = plan.RegionStarts[region];
+        var upper = region + 1 < plan.RegionStarts.Length ? plan.RegionStarts[region + 1] : uint.MaxValue;
+        var exitTick = backward ? work.EnterF : work.EnterB - 1u;
+        var exitPossible = exitTick >= lower && exitTick < upper;
+        var enterPossible = backward
+            ? !IsLooping(plan) || work.EnterB < plan.Duration
+            : work.EnterF != 0u;
+        var crossed = backward
+            ? $"previousEffective >= {U(work.EnterB)}"
+            : $"previousEffective < {U(work.EnterF)}";
+        var enter = IsLooping(plan)
+            ? enterPossible ? $"cycles != 0u || {crossed}" : "cycles != 0u"
+            : enterPossible ? crossed : "false";
+        if (exitPossible)
+        {
+            Line(writer, $"{indent}var {state} = effective == {U(exitTick)}");
+            Line(writer, $"{indent}    ? global::Tl.ClipState.Exit");
+            Line(writer, $"{indent}    : {enter} ? global::Tl.ClipState.Enter : global::Tl.ClipState.Stay;");
+            return;
+        }
+        Line(writer, enter == "false"
+            ? $"{indent}const global::Tl.ClipState {state} = global::Tl.ClipState.Stay;"
+            : $"{indent}var {state} = {enter} ? global::Tl.ClipState.Enter : global::Tl.ClipState.Stay;");
+    }
+
+    private static void EmitFlags(
+        StringBuilder writer,
+        TimelinePlan plan,
+        bool backward,
+        string effective,
+        int depth)
+    {
+        var indent = Indent(depth);
+        Line(writer, $"{indent}var flags = global::Tl.PlaybackFlags.Started;");
+        if (plan.Definition.Loops)
+        {
+            if (plan.Duration != 0u)
+            {
+                Line(writer, $"{indent}if ({effective} == Duration - 1u)");
+                Line(writer, $"{indent}    flags |= global::Tl.PlaybackFlags.LastLoopFrame;");
+            }
+            return;
+        }
+        if (plan.Duration == 0u)
+        {
+            Line(writer, $"{indent}flags |= global::Tl.PlaybackFlags.Completed;");
+            return;
+        }
+        var completion = backward ? $"{effective} == 0u" : $"{effective} >= Duration - 1u";
+        Line(writer, $"{indent}if ({completion})");
+        Line(writer, $"{indent}    flags |= global::Tl.PlaybackFlags.Completed;");
+    }
+
+    private static void EmitValidation(StringBuilder writer, string kernelName, int depth)
+    {
+        var indent = Indent(depth);
+        Line(writer, $"{indent}if (!from.Has(global::Tl.PlaybackFlags.Started))");
+        Line(writer, $"{indent}    throw new global::System.InvalidOperationException(\"Playback was never started; mint one with {kernelName}.Start.\");");
+        Line(writer, $"{indent}if (from.Has(global::Tl.PlaybackFlags.Stopped))");
+        Line(writer, $"{indent}    throw new global::System.InvalidOperationException(\"Playback is stopped.\");");
+    }
+
+    private static void EmitConstraints(StringBuilder writer, TimelineDefinition definition)
+    {
+        Line(writer, "        where TInput : struct");
+        Line(writer,
+            $"        where TResult : struct, global::Tl.ITrack<{definition.TrackTypeName}, {definition.ClipTypeName}, TInput, TResult>");
+    }
+
+    private static string Factor(EmittedWorkSlot work) => work.FactorLength <= 1u
+        ? "0.5f"
+        : $"(effective - {U(work.FactorStart)}) / {I(work.FactorLength - 1u)}f";
+
+    private static bool IsLooping(TimelinePlan plan) => plan.Definition.Loops && plan.Duration != 0u;
+
+    private static string Boolean(bool value) => value ? "true" : "false";
+
+    private static string Indent(int depth) => new(' ', depth * 4);
+
+    private static string I(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    private static string I(uint value) => value.ToString(CultureInfo.InvariantCulture);
+
+    private static string U(uint value) => I(value) + "u";
+
+    private static void Line(StringBuilder writer, string value = "")
+    {
+        writer.Append(value);
+        writer.Append('\n');
+    }
 }

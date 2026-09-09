@@ -2,12 +2,6 @@ using System.Diagnostics;
 using Pulse;
 using Tl;
 
-// The parity battery: ONE authored timeline (Authoring.Author), TWO players
-// of the same instance — the in-memory interpreter (Tl.Core's Timeline.Build
-// path) and the generated kernel (CompiledPulse, specialized at build time
-// by the Tl.Gen compile reader). Every battery asserts bit-exact equality;
-// any divergence is a bug, not a tolerance. Run with no arguments for the
-// battery, or "bench" for the Stopwatch A/B used for the NativeAOT column.
 internal static class Program
 {
     private static int Main(string[] args)
@@ -16,7 +10,7 @@ internal static class Program
 
         // The interpreter leg: a normal runtime registration + explicit bind
         // (the NativeAOT-safe form).
-        ushort id = Timeline<PulseTrack, PulseClip>.Build(Authoring.Author).InMemory();
+        ushort id = Timeline<PulseTrack, PulseClip>.Build(PulseTimeline.Define).InMemory();
         Timeline<PulseTrack, PulseClip>.Bind<PulseInput, PulseResult>(id);
 
         // The compiled leg: the generated static kernel. No registry entry,
@@ -25,7 +19,7 @@ internal static class Program
         var kernel = new Leg(id, input, compiled: true);
 
         // Shape pins: both legs describe the same authored timeline.
-        Check(CompiledPulse.Duration == Timeline.Duration(id), "duration pin");
+        Check(PulseTimeline.Duration == Timeline.Duration(id), "duration pin");
         Check(Timeline.IsLooping(id), "looping pin");
 
         // 1. Sequential forward walk across two full loops (wraps, cycles,
@@ -97,7 +91,7 @@ internal static class Program
         // 8. Lifecycle: Stop semantics and rejection of stopped/unstarted
         //    playbacks agree.
         var stoppedInterp = Timeline.Stop(id, interp.Start(0));
-        var stoppedKernel = CompiledPulse.Stop(kernel.Start(0));
+        var stoppedKernel = PulseTimeline.Stop(kernel.Start(0));
         Check(stoppedInterp.Has(PlaybackFlags.Stopped) && stoppedKernel.Has(PlaybackFlags.Stopped), "stop flags agree");
 
         var resultA = new PulseResult();
@@ -105,15 +99,15 @@ internal static class Program
         AssertThrows<InvalidOperationException>("stopped interpreter rejects Forward",
             () => Timeline.Forward(id, in stoppedPlaybackA, in input, ref resultA, 0u));
         var resultB = new PulseResult();
-        var stoppedPlaybackB = CompiledPulse.Stop(CompiledPulse.Start());
+        var stoppedPlaybackB = PulseTimeline.Stop(PulseTimeline.Start());
         AssertThrows<InvalidOperationException>("stopped kernel rejects Forward",
-            () => CompiledPulse.Forward(in stoppedPlaybackB, in input, ref resultB, 0u));
+            () => PulseTimeline.Forward(in stoppedPlaybackB, in input, ref resultB, 0u));
 
         var fresh = new PulseResult();
         AssertThrows<InvalidOperationException>("unstarted interpreter rejects Forward",
             () => Timeline.Forward(id, new Playback(), in input, ref fresh, 0u));
         AssertThrows<InvalidOperationException>("unstarted kernel rejects Forward",
-            () => CompiledPulse.Forward(new Playback(), in input, ref fresh, 0u));
+            () => PulseTimeline.Forward(new Playback(), in input, ref fresh, 0u));
 
         Console.WriteLine("PARITY OK: interpreter and compiled kernel are behaviorally identical across the battery.");
         Console.WriteLine($"final walk receipt: tick {kernelWalk[^1].Tick}, cycles {kernelWalk[^1].Cycles}, flags {kernelWalk[^1].Flags}");
@@ -131,7 +125,7 @@ internal static class Program
         var interpreterResult = new PulseResult();
         var interpreterPlayback = Timeline.Start(id);
         var kernelResult = new PulseResult();
-        var kernelPlayback = CompiledPulse.Start();
+        var kernelPlayback = PulseTimeline.Start();
 
         // Interpreter.
         var sw = Stopwatch.StartNew();
@@ -143,7 +137,7 @@ internal static class Program
         // Kernel.
         sw.Restart();
         for (var i = 0u; i < steps; i++)
-            kernelPlayback = CompiledPulse.Forward(in kernelPlayback, in input, ref kernelResult, i % 600u);
+            kernelPlayback = PulseTimeline.Forward(in kernelPlayback, in input, ref kernelResult, i % 600u);
         sw.Stop();
         var kernelNanos = sw.Elapsed.TotalNanoseconds / steps;
 
@@ -273,16 +267,16 @@ internal static class Program
             _compiled = compiled;
         }
 
-        public Playback Start(uint at) => _compiled ? CompiledPulse.Start(at) : Timeline.Start(_id, at);
+        public Playback Start(uint at) => _compiled ? PulseTimeline.Start(at) : Timeline.Start(_id, at);
 
         public Playback Forward(in Playback from, ref PulseResult result, ReadOnlySpan<uint> ticks)
             => _compiled
-                ? CompiledPulse.Forward(in from, in _input, ref result, ticks)
+                ? PulseTimeline.Forward(in from, in _input, ref result, ticks)
                 : Timeline.Forward(_id, in from, in _input, ref result, ticks);
 
         public Playback Backward(in Playback from, ref PulseResult result, ReadOnlySpan<uint> ticks)
             => _compiled
-                ? CompiledPulse.Backward(in from, in _input, ref result, ticks)
+                ? PulseTimeline.Backward(in from, in _input, ref result, ticks)
                 : Timeline.Backward(_id, in from, in _input, ref result, ticks);
     }
 }

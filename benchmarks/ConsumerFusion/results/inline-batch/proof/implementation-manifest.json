@@ -1,0 +1,87 @@
+[
+  {
+    "path": "benchmarks/ConsumerChecks/ConsumerChecks.csproj",
+    "bytes": 998,
+    "sha256": "9ae3976dd1468b5f81beffad16608a59ebc4d21c19b76b495cb739b9ab31fddb"
+  },
+  {
+    "path": "benchmarks/ConsumerChecks/Program.cs",
+    "bytes": 46,
+    "sha256": "7b8347ce7304d6470f8e3dbcf134eaf006f30d12b26d91d4eaa6b5fec8f58370"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/Benchmarks.cs",
+    "bytes": 6196,
+    "sha256": "ce5df00389abe95375f673b3dd80024443fb9751eaebf9e1d00e629a8955ba80"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/BuildIdentity.cs",
+    "bytes": 284,
+    "sha256": "da86201d6fb6247cc22edac698b36af2ed700fa5852e2aaf22562e4ed0940075"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/ConsumerFusion.csproj",
+    "bytes": 506,
+    "sha256": "517a2272011b49fa1df61d7022ea797dc05765fff5692fbd626ee9bbb191b8d9"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/Contracts.cs",
+    "bytes": 1195,
+    "sha256": "55f5f44bb9d1fe83bbcc5ec08e653350d2f5bb3cc214bf312f35891e334c33ac"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/EffectConsumer.cs",
+    "bytes": 3234,
+    "sha256": "d5e143beb2619c141b37f9572c4f544f0d554519f8ecd5ed2b6b36e758f2d7a4"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/Generated/FusedPulse.g.cs",
+    "bytes": 32983,
+    "sha256": "cc6a6007b7cacfe5a13d7562cb7309bd9f925bcb381e900bd0b23565daef6ddb"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/Program.cs",
+    "bytes": 838,
+    "sha256": "7362aa88b80c6fbfbe5cb4ee2e4ced21f1cf1f5e4aa56fa6f1b931d7fc8130b1"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/README.md",
+    "bytes": 14083,
+    "sha256": "95877e9704649c54c73fb767c6c95b917c9a5577f3e425bb7b50d3fe922fda78"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/StateConsumer.cs",
+    "bytes": 3038,
+    "sha256": "fc148497b5c117405dfcd068b3c6c76a9d6848ce4334e78494ebe24721be66dc"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/SumConsumer.cs",
+    "bytes": 2415,
+    "sha256": "3f6a5d9d86cb74f7e42099fca66b6d6ca98fae4d00e983800861654552b2a53b"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/Verification.cs",
+    "bytes": 35613,
+    "sha256": "3f0313e28b60b27bb62d757b66c6b727056b4ca9a8b9f6fa7b5d2a02a1f13a9c"
+  },
+  {
+    "path": "benchmarks/ConsumerFusion/prepare.py",
+    "bytes": 1923,
+    "sha256": "af88de3086705a94308111a0f10a0136b199c46269309b46b7ff26110e308bb9"
+  },
+  {
+    "path": "benchmarks/ConsumerGenerate/ConsumerGenerate.csproj",
+    "bytes": 389,
+    "sha256": "77febf43f55723e7ccc24841625e4e7daa75b70e92ab4a91907238d9a6650ab5"
+  },
+  {
+    "path": "benchmarks/ConsumerGenerate/Program.cs",
+    "bytes": 26150,
+    "sha256": "35b746a5b74aaf3da90581dc49d116a559a04b19ca347400a09f68c1a960123f"
+  },
+  {
+    "path": "benchmarks/ConsumerGenerate/README.md",
+    "bytes": 1840,
+    "sha256": "a026201d0038f2535c3df332c16baf67180430035336873d98a9767073aec323"
+  }
+]

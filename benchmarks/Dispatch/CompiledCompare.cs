@@ -4,149 +4,152 @@ using Tl;
 
 namespace Tl.CompiledBench;
 
-// The gain receipt: interpreter vs compiled kernel on the SAME authored
-// timeline and consumer (samples/Compiled — Authoring.Author feeds the
-// runtime Timeline.Build registration here, and fed the Tl.Gen compile
-// reader that emitted CompiledPulse at build time). Single-tick
-// consumption is the headline; the batch arms show per-call amortization.
-// Reuses the project's Config (Jit + NoTiering jobs, Median column,
-// MemoryDiagnoser) from Benchmarks.cs.
 [Config(typeof(Tl.Hooks.Config))]
 public class CompiledVsInterpreter
 {
     private const int SingleOps = 1024;
     private const int BatchSize = 8;
-    private const int BatchOps = 75; // 600 ticks per invoke: exactly one sweep, no wraps inside a span
+    private const int BatchOps = 75;
 
     private ushort _id;
     private PulseInput _input;
-    private PulseResult _result;
-    private SumConsumer _sum;
-    private Playback _playback;
-    private uint _tick;
+    private uint[] _singleTicks = null!;
     private uint[] _batchTicks = null!;
 
     [GlobalSetup]
     public void Setup()
     {
         _input = new PulseInput(Seed: 100f);
-        _id = Timeline<PulseTrack, PulseClip>.Build(Pulse.Authoring.Author).InMemory();
+        _id = Timeline<PulseTrack, PulseClip>.Build(PulseTimeline.Define).InMemory();
         Timeline<PulseTrack, PulseClip>.Bind<PulseInput, PulseResult>(_id);
         Timeline<PulseTrack, PulseClip>.Bind<PulseInput, SumConsumer>(_id);
-        _playback = Timeline.Start(_id);
+        _singleTicks = new uint[SingleOps];
+        for (var i = 0; i < _singleTicks.Length; i++)
+            _singleTicks[i] = (uint)i % PulseTimeline.Duration;
         _batchTicks = new uint[BatchOps * BatchSize];
         for (var i = 0; i < _batchTicks.Length; i++)
             _batchTicks[i] = (uint)i;
-    }
 
-    // The timeline loops, so an endless forward tick stream would accrue
-    // Cycles past the ushort capacity (both engines throw identically).
-    // Each sweep restarts the playback instead — one Start per 600 ticks,
-    // amortized identically on both legs.
-    private uint NextTick(bool interpreter)
-    {
-        if (_tick == CompiledPulse.Duration)
-        {
-            _tick = 0;
-            _playback = interpreter ? Timeline.Start(_id) : CompiledPulse.Start();
-        }
-
-        return _tick++;
+        RequireEqual(InterpreterSingleTick(), CompiledSingleTick(), "full scalar");
+        RequireEqual(InterpreterBatch8(), CompiledBatch8(), "full batch");
+        RequireEqual(SumInterpreterSingleTick(), SumCompiledSingleTick(), "sum scalar");
     }
 
     [Benchmark(Baseline = true, OperationsPerInvoke = SingleOps)]
-    public Playback InterpreterSingleTick()
+    public BenchmarkReceipt InterpreterSingleTick()
     {
-        for (var i = 0; i < SingleOps; i++)
-            _playback = Timeline.Forward(_id, in _playback, in _input, ref _result, NextTick(interpreter: true));
-        return _playback;
+        var result = new PulseResult();
+        var playback = Timeline.Start(_id);
+        foreach (var tick in _singleTicks)
+            playback = Timeline.Forward(_id, in playback, in _input, ref result, tick);
+        return BenchmarkReceipt.Capture(in playback, in result);
     }
 
     [Benchmark(OperationsPerInvoke = SingleOps)]
-    public Playback CompiledSingleTick()
+    public BenchmarkReceipt CompiledSingleTick()
     {
-        for (var i = 0; i < SingleOps; i++)
-            _playback = CompiledPulse.Forward(in _playback, in _input, ref _result, NextTick(interpreter: false));
-        return _playback;
+        var result = new PulseResult();
+        var playback = PulseTimeline.Start();
+        foreach (var tick in _singleTicks)
+            playback = PulseTimeline.Forward(in playback, in _input, ref result, tick);
+        return BenchmarkReceipt.Capture(in playback, in result);
     }
 
     [Benchmark(OperationsPerInvoke = BatchOps * BatchSize)]
-    public Playback InterpreterBatch8()
+    public BenchmarkReceipt InterpreterBatch8()
     {
+        var result = new PulseResult();
+        var playback = Timeline.Start(_id);
         for (var i = 0; i < BatchOps; i++)
-        {
-            if (i == 0)
-                _playback = Timeline.Start(_id);
-            _playback = Timeline.Forward(_id, in _playback, in _input, ref _result, _batchTicks.AsSpan(i * BatchSize, BatchSize));
-        }
+            playback = Timeline.Forward(_id, in playback, in _input, ref result, _batchTicks.AsSpan(i * BatchSize, BatchSize));
 
-        return _playback;
+        return BenchmarkReceipt.Capture(in playback, in result);
     }
 
     [Benchmark(OperationsPerInvoke = BatchOps * BatchSize)]
-    public Playback CompiledBatch8()
+    public BenchmarkReceipt CompiledBatch8()
     {
+        var result = new PulseResult();
+        var playback = PulseTimeline.Start();
         for (var i = 0; i < BatchOps; i++)
-        {
-            if (i == 0)
-                _playback = CompiledPulse.Start();
-            _playback = CompiledPulse.Forward(in _playback, in _input, ref _result, _batchTicks.AsSpan(i * BatchSize, BatchSize));
-        }
+            playback = PulseTimeline.Forward(in playback, in _input, ref result, _batchTicks.AsSpan(i * BatchSize, BatchSize));
 
-        return _playback;
+        return BenchmarkReceipt.Capture(in playback, in result);
     }
 
     [Benchmark(OperationsPerInvoke = SingleOps)]
-    public Playback SumInterpreterSingleTick()
+    public BenchmarkReceipt SumInterpreterSingleTick()
     {
-        for (var i = 0; i < SingleOps; i++)
-            _playback = Timeline.Forward(_id, in _playback, in _input, ref _sum, NextTick(interpreter: true));
-        return _playback;
+        var result = new SumConsumer();
+        var playback = Timeline.Start(_id);
+        foreach (var tick in _singleTicks)
+            playback = Timeline.Forward(_id, in playback, in _input, ref result, tick);
+        return BenchmarkReceipt.Capture(in playback, result.Sum);
     }
 
     [Benchmark(OperationsPerInvoke = SingleOps)]
-    public Playback SumCompiledSingleTick()
+    public BenchmarkReceipt SumCompiledSingleTick()
     {
-        for (var i = 0; i < SingleOps; i++)
-            _playback = CompiledPulse.Forward(in _playback, in _input, ref _sum, NextTick(interpreter: false));
-        return _playback;
+        var result = new SumConsumer();
+        var playback = PulseTimeline.Start();
+        foreach (var tick in _singleTicks)
+            playback = PulseTimeline.Forward(in playback, in _input, ref result, tick);
+        return BenchmarkReceipt.Capture(in playback, result.Sum);
+    }
+
+    private static void RequireEqual(BenchmarkReceipt expected, BenchmarkReceipt actual, string name)
+    {
+        if (expected != actual)
+            throw new InvalidOperationException($"{name}: interpreter {expected}; compiled {actual}.");
     }
 }
 
-// The light consumer: the sandbox-baseline shape (one accumulation per
-// work, no state-machine accounting) the v0.3 ~16-18 ns/tick interpreter
-// receipts were measured against. Implemented over both hook pairs so the
-// A/B pins the ENGINES with the consumer call retained but the consumer
-// body minimal.
+public readonly record struct BenchmarkReceipt(
+    uint Tick,
+    ushort Cycles,
+    PlaybackFlags Flags,
+    int SumBits,
+    long Ticks,
+    int Count,
+    int Enters,
+    int Stays,
+    int Exits)
+{
+    public static BenchmarkReceipt Capture(in Playback playback, in PulseResult result) => new(
+        playback.Tick,
+        playback.Cycles,
+        playback.Flags,
+        BitConverter.SingleToInt32Bits(result.Sum),
+        result.Ticks,
+        result.Count,
+        result.Enters,
+        result.Stays,
+        result.Exits);
+
+    public static BenchmarkReceipt Capture(in Playback playback, float sum) => new(
+        playback.Tick,
+        playback.Cycles,
+        playback.Flags,
+        BitConverter.SingleToInt32Bits(sum),
+        0,
+        0,
+        0,
+        0,
+        0);
+}
+
 public struct SumConsumer :
-    IForward<PulseTrack, PulseClip, PulseInput, SumConsumer>,
-    IBackward<PulseTrack, PulseClip, PulseInput, SumConsumer>,
-    Tl.Compiled.ICompiledForward<PulseTrack, PulseClip, PulseInput, SumConsumer>,
-    Tl.Compiled.ICompiledBackward<PulseTrack, PulseClip, PulseInput, SumConsumer>
+    ITrack<PulseTrack, PulseClip, PulseInput, SumConsumer>
 {
     public float Sum;
 
-    public void Forward(in Tracks<PulseTrack, PulseClip> tracks, in PulseInput input, in uint tick, ref SumConsumer result)
-    {
-        foreach (var work in tracks)
-            result.Sum += work.Clip.Amount;
-    }
+    public static void Forward(int ordinal, int count, ushort index,
+        in PulseTrack track, in PulseClip clip, ClipState state,
+        in uint tick, in PulseInput input, ref SumConsumer result)
+        => result.Sum += clip.Amount;
 
-    public void Backward(in Tracks<PulseTrack, PulseClip> tracks, in PulseInput input, in uint tick, ref SumConsumer result)
-    {
-        foreach (var work in tracks)
-            result.Sum -= work.Clip.Amount;
-    }
-
-    public void Forward(in Tl.Compiled.CompiledTracks<PulseTrack, PulseClip> tracks, in PulseInput input, in uint tick, ref SumConsumer result)
-    {
-        foreach (var work in tracks)
-            result.Sum += work.Clip.Amount;
-    }
-
-    public void Backward(in Tl.Compiled.CompiledTracks<PulseTrack, PulseClip> tracks, in PulseInput input, in uint tick, ref SumConsumer result)
-    {
-        foreach (var work in tracks)
-            result.Sum -= work.Clip.Amount;
-    }
+    public static void Backward(int ordinal, int count, ushort index,
+        in PulseTrack track, in PulseClip clip, ClipState state,
+        in uint tick, in PulseInput input, ref SumConsumer result)
+        => result.Sum -= clip.Amount;
 }

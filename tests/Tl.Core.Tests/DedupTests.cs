@@ -13,28 +13,25 @@ public class DedupTests
     }
 
     public struct SumResult :
-        IForward<CollisionTrack, PayloadClip, NoInput, SumResult>,
-        IBackward<CollisionTrack, PayloadClip, NoInput, SumResult>
+        ITrack<CollisionTrack, PayloadClip, NoInput, SumResult>
     {
         public int TotalX;
         public int TotalY;
 
-        public void Forward(in Tracks<CollisionTrack, PayloadClip> tracks, in NoInput input, in uint tick, ref SumResult result)
+        public static void Forward(int ordinal, int count, ushort index,
+            in CollisionTrack track, in PayloadClip clip, ClipState state,
+            in uint tick, in NoInput input, ref SumResult result)
         {
-            foreach (var work in tracks)
-            {
-                result.TotalX += work.Clip.X;
-                result.TotalY += work.Clip.Y;
-            }
+            result.TotalX += clip.X;
+            result.TotalY += clip.Y;
         }
 
-        public void Backward(in Tracks<CollisionTrack, PayloadClip> tracks, in NoInput input, in uint tick, ref SumResult result)
+        public static void Backward(int ordinal, int count, ushort index,
+            in CollisionTrack track, in PayloadClip clip, ClipState state,
+            in uint tick, in NoInput input, ref SumResult result)
         {
-            foreach (var work in tracks)
-            {
-                result.TotalX -= work.Clip.X;
-                result.TotalY -= work.Clip.Y;
-            }
+            result.TotalX -= clip.X;
+            result.TotalY -= clip.Y;
         }
     }
 

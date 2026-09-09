@@ -13,24 +13,21 @@ public class PlaybackTests
     }
 
     public struct RecordingResult :
-        IForward<SampleTrack, SampleClip, NoInput, RecordingResult>,
-        IBackward<SampleTrack, SampleClip, NoInput, RecordingResult>
+        ITrack<SampleTrack, SampleClip, NoInput, RecordingResult>
     {
         public List<(uint Tick, ClipState State, float Value)> Visits = [];
 
         public RecordingResult() { }
 
-        public void Forward(in Tracks<SampleTrack, SampleClip> tracks, in NoInput input, in uint tick, ref RecordingResult result)
-        {
-            foreach (var work in tracks)
-                result.Visits.Add((tick, work.State, work.Clip.Value));
-        }
+        public static void Forward(int ordinal, int count, ushort index,
+            in SampleTrack track, in SampleClip clip, ClipState state,
+            in uint tick, in NoInput input, ref RecordingResult result)
+            => result.Visits.Add((tick, state, clip.Value));
 
-        public void Backward(in Tracks<SampleTrack, SampleClip> tracks, in NoInput input, in uint tick, ref RecordingResult result)
-        {
-            foreach (var work in tracks)
-                result.Visits.Add((tick, work.State, work.Clip.Value));
-        }
+        public static void Backward(int ordinal, int count, ushort index,
+            in SampleTrack track, in SampleClip clip, ClipState state,
+            in uint tick, in NoInput input, ref RecordingResult result)
+            => result.Visits.Add((tick, state, clip.Value));
     }
 
     [Fact]

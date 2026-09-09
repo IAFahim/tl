@@ -7,34 +7,27 @@ ushort id = Timeline<HealthTrack, HealthClip>.Build(static builder =>
 }).InMemory();
 
 Timeline<HealthTrack, HealthClip>.Bind<HealthInput, HealthResult>(id);
-Timeline<HealthTrack, HealthClip>.Bind<HealthInput, DirectHealthResult>(id);
 
-// Input is read-only context (here: the seed the run starts from).
-// Result is the live state the hooks mutate through the ref parameter.
 var input = new HealthInput(Seed: 100f);
 var result = new HealthResult { Value = input.Seed };
 
 var playback = Timeline.Start(id);
 playback = Timeline.Forward(id, in playback, in input, ref result, 0u, 1u, 2u, 3u);
 
-Console.WriteLine(result.Value); // 106: seed 100; ticks 0, 1 and 2 are Stay (+2 each); tick 3 is Exit.
+Console.WriteLine(result.Value);
 
 if (result.Value != 106f)
     throw new InvalidOperationException($"Expected 106, got {result.Value}");
 
-// v0.3: the per-tick view is indexable and sliceable. The same walk,
-// addressed directly (this[int]) and rewound through zero-copy sub-views
-// (Slice), must agree exactly with enumeration.
-var direct = new DirectHealthResult { Value = input.Seed };
-var indexed = Timeline.Start(id);
-indexed = Timeline.Forward(id, in indexed, in input, ref direct, 0u, 1u, 2u, 3u);
-indexed = Timeline.Backward(id, in indexed, in input, ref direct, 2u, 1u, 0u);
+var rewind = new HealthResult { Value = input.Seed };
+var rewindPlayback = Timeline.Start(id);
+rewindPlayback = Timeline.Forward(id, in rewindPlayback, in input, ref rewind, 0u, 1u, 2u, 3u);
+rewindPlayback = Timeline.Backward(id, in rewindPlayback, in input, ref rewind, 2u, 1u, 0u);
 
-Console.WriteLine(direct.Value); // 102: forward 106; the rewind undoes the two interior Stay
-                                 // frames (ticks 1 and 2); boundary frames notify only
+Console.WriteLine(rewind.Value);
 
-if (direct.Value != 102f)
-    throw new InvalidOperationException($"Indexed/sliced walk diverged: expected 102, got {direct.Value}");
+if (rewind.Value != 102f)
+    throw new InvalidOperationException($"Rewind diverged: expected 102, got {rewind.Value}");
 
 playback = Timeline.Stop(id, in playback);
 Timeline.Destroy(id);
@@ -53,54 +46,17 @@ public readonly struct HealthTrack : IBlend<HealthClip>
 public readonly record struct HealthInput(float Seed);
 
 public struct HealthResult :
-    IForward<HealthTrack, HealthClip, HealthInput, HealthResult>,
-    IBackward<HealthTrack, HealthClip, HealthInput, HealthResult>
+    ITrack<HealthTrack, HealthClip, HealthInput, HealthResult>
 {
     public float Value;
 
-    public void Forward(in Tracks<HealthTrack, HealthClip> tracks,
-        in HealthInput input, in uint tick, ref HealthResult result)
-    {
-        foreach (var work in tracks)
-            if (work.State == ClipState.Stay)
-                result.Value += work.Clip.Amount;
-    }
+    public static void Forward(int ordinal, int count, ushort index,
+        in HealthTrack track, in HealthClip clip, ClipState state,
+        in uint tick, in HealthInput input, ref HealthResult result)
+        => result.Value += state == ClipState.Stay ? clip.Amount : 0f;
 
-    public void Backward(in Tracks<HealthTrack, HealthClip> tracks,
-        in HealthInput input, in uint tick, ref HealthResult result)
-    {
-        foreach (var work in tracks)
-            if (work.State == ClipState.Stay)
-                result.Value -= work.Clip.Amount;
-    }
-}
-
-// v0.3 flavor of the same consumer: reads works by index in Forward and
-// consumes a zero-copy sub-view (Slice) in Backward — same numbers, no
-// enumeration.
-public struct DirectHealthResult :
-    IForward<HealthTrack, HealthClip, HealthInput, DirectHealthResult>,
-    IBackward<HealthTrack, HealthClip, HealthInput, DirectHealthResult>
-{
-    public float Value;
-
-    public void Forward(in Tracks<HealthTrack, HealthClip> tracks,
-        in HealthInput input, in uint tick, ref DirectHealthResult result)
-    {
-        for (var i = 0; i < tracks.Count; i++)
-            if (tracks[i].State == ClipState.Stay)
-                result.Value += tracks[i].Clip.Amount;
-    }
-
-    public void Backward(in Tracks<HealthTrack, HealthClip> tracks,
-        in HealthInput input, in uint tick, ref DirectHealthResult result)
-    {
-        var half = tracks.Count / 2;
-        foreach (var work in tracks.Slice(0, half))
-            if (work.State == ClipState.Stay)
-                result.Value -= work.Clip.Amount;
-        foreach (var work in tracks.Slice(half, tracks.Count - half))
-            if (work.State == ClipState.Stay)
-                result.Value -= work.Clip.Amount;
-    }
+    public static void Backward(int ordinal, int count, ushort index,
+        in HealthTrack track, in HealthClip clip, ClipState state,
+        in uint tick, in HealthInput input, ref HealthResult result)
+        => result.Value -= state == ClipState.Stay ? clip.Amount : 0f;
 }

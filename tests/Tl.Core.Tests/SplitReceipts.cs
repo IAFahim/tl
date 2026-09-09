@@ -52,33 +52,33 @@ public class SplitReceipts
     /// accumulates it into the result. Writing to <c>input</c> is not
     /// expressible: the hooks receive it by <c>in</c>.
     public struct RichResult :
-        IForward<RichTrack, RichClip, RichInput, RichResult>,
-        IBackward<RichTrack, RichClip, RichInput, RichResult>
+        ITrack<RichTrack, RichClip, RichInput, RichResult>
     {
         public double Seen;
         public byte LastB;
         public Kind LastK;
 
-        public void Forward(in Tracks<RichTrack, RichClip> tracks, in RichInput input, in uint tick, ref RichResult result)
+        public static void Forward(int ordinal, int count, ushort index,
+            in RichTrack track, in RichClip clip, ClipState state,
+            in uint tick, in RichInput input, ref RichResult result)
         {
-            foreach (var work in tracks)
-                if (work.State == ClipState.Stay)
-                {
-                    result.Seen += work.Clip.Value * input.I + input.L + input.D + (double)input.M + (double)input.F
-                        + input.B + input.S + input.U + input.UL + input.C + (byte)input.K
-                        + input.P.X + input.P.Y + (input.Flag ? 1 : 0);
-                    result.LastB = input.B;
-                    result.LastK = input.K;
-                }
+            if (state != ClipState.Stay)
+                return;
+            result.Seen += clip.Value * input.I + input.L + input.D + (double)input.M + (double)input.F
+                + input.B + input.S + input.U + input.UL + input.C + (byte)input.K
+                + input.P.X + input.P.Y + (input.Flag ? 1 : 0);
+            result.LastB = input.B;
+            result.LastK = input.K;
         }
 
-        public void Backward(in Tracks<RichTrack, RichClip> tracks, in RichInput input, in uint tick, ref RichResult result)
+        public static void Backward(int ordinal, int count, ushort index,
+            in RichTrack track, in RichClip clip, ClipState state,
+            in uint tick, in RichInput input, ref RichResult result)
         {
-            foreach (var work in tracks)
-                if (work.State == ClipState.Stay)
-                    result.Seen -= work.Clip.Value * input.I + input.L + input.D + (double)input.M + (double)input.F
-                        + input.B + input.S + input.U + input.UL + input.C + (byte)input.K
-                        + input.P.X + input.P.Y + (input.Flag ? 1 : 0);
+            if (state == ClipState.Stay)
+                result.Seen -= clip.Value * input.I + input.L + input.D + (double)input.M + (double)input.F
+                    + input.B + input.S + input.U + input.UL + input.C + (byte)input.K
+                    + input.P.X + input.P.Y + (input.Flag ? 1 : 0);
         }
     }
 
@@ -143,24 +143,23 @@ public class SplitReceipts
     /// v0.1 semantics: a single struct whose seed start plus per-Stay
     /// accumulation is exactly reproduced when the seed rides the input.
     public struct SeedResult :
-        IForward<SeedTrack, SeedClip, SeedInput, SeedResult>,
-        IBackward<SeedTrack, SeedClip, SeedInput, SeedResult>
+        ITrack<SeedTrack, SeedClip, SeedInput, SeedResult>
     {
         public float Value;
 
-        public void Forward(in Tracks<SeedTrack, SeedClip> tracks, in SeedInput input, in uint tick, ref SeedResult result)
-        {
-            foreach (var work in tracks)
-                if (work.State == ClipState.Stay)
-                    result.Value = result.Value + work.Clip.Value * input.Scale + input.Seed;
-        }
+        public static void Forward(int ordinal, int count, ushort index,
+            in SeedTrack track, in SeedClip clip, ClipState state,
+            in uint tick, in SeedInput input, ref SeedResult result)
+            => result.Value = state == ClipState.Stay
+                ? result.Value + clip.Value * input.Scale + input.Seed
+                : result.Value;
 
-        public void Backward(in Tracks<SeedTrack, SeedClip> tracks, in SeedInput input, in uint tick, ref SeedResult result)
-        {
-            foreach (var work in tracks)
-                if (work.State == ClipState.Stay)
-                    result.Value = result.Value - work.Clip.Value * input.Scale - input.Seed;
-        }
+        public static void Backward(int ordinal, int count, ushort index,
+            in SeedTrack track, in SeedClip clip, ClipState state,
+            in uint tick, in SeedInput input, ref SeedResult result)
+            => result.Value = state == ClipState.Stay
+                ? result.Value - clip.Value * input.Scale - input.Seed
+                : result.Value;
     }
 
     [Fact]
@@ -225,13 +224,14 @@ public class SplitReceipts
     }
 
     public struct ManagedResult :
-        IForward<ManagedTrack, ManagedClip, NoInput, ManagedResult>,
-        IBackward<ManagedTrack, ManagedClip, NoInput, ManagedResult>
+        ITrack<ManagedTrack, ManagedClip, NoInput, ManagedResult>
     {
         public string Name;
         public List<float> Values;
 
-        public void Forward(in Tracks<ManagedTrack, ManagedClip> tracks, in NoInput input, in uint tick, ref ManagedResult result)
+        public static void Forward(int ordinal, int count, ushort index,
+            in ManagedTrack track, in ManagedClip clip, ClipState state,
+            in uint tick, in NoInput input, ref ManagedResult result)
         {
             // The defect-B pattern: allocate and force a compacting GC from
             // inside the hook while the result reference is on the dispatch stack.
@@ -239,18 +239,14 @@ public class SplitReceipts
                 _ = new byte[1024];
             GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
 
-            foreach (var work in tracks)
-            {
-                result.Values.Add(work.Clip.Value);
-                result.Name = result.Name.ToLowerInvariant();
-            }
+            result.Values.Add(clip.Value);
+            result.Name = result.Name.ToLowerInvariant();
         }
 
-        public void Backward(in Tracks<ManagedTrack, ManagedClip> tracks, in NoInput input, in uint tick, ref ManagedResult result)
-        {
-            foreach (var work in tracks)
-                result.Values.Remove(work.Clip.Value);
-        }
+        public static void Backward(int ordinal, int count, ushort index,
+            in ManagedTrack track, in ManagedClip clip, ClipState state,
+            in uint tick, in NoInput input, ref ManagedResult result)
+            => result.Values.Remove(clip.Value);
     }
 
     private sealed class ResultHolder

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Tl.Internal;
 using Xunit;
 
 namespace Tl.Core.Tests;
@@ -24,8 +25,7 @@ public class WorkSlotLayoutTests
     public readonly record struct Visit(ushort Index, int Marker, uint Tick, ClipState State, float First, float Second);
 
     public struct LayoutResult :
-        IForward<LayoutTrack, LayoutClip, NoInput, LayoutResult>,
-        IBackward<LayoutTrack, LayoutClip, NoInput, LayoutResult>
+        ITrack<LayoutTrack, LayoutClip, NoInput, LayoutResult>
     {
         public List<Visit> Visits = [];
 
@@ -33,20 +33,21 @@ public class WorkSlotLayoutTests
         {
         }
 
-        public void Forward(in Tracks<LayoutTrack, LayoutClip> tracks, in NoInput input, in uint tick, ref LayoutResult result)
-            => Capture(in tracks, tick, ref result);
+        public static void Forward(int ordinal, int count, ushort index,
+            in LayoutTrack track, in LayoutClip clip, ClipState state,
+            in uint tick, in NoInput input, ref LayoutResult result)
+            => Capture(index, in track, in clip, state, tick, ref result);
 
-        public void Backward(in Tracks<LayoutTrack, LayoutClip> tracks, in NoInput input, in uint tick, ref LayoutResult result)
-            => Capture(in tracks, tick, ref result);
+        public static void Backward(int ordinal, int count, ushort index,
+            in LayoutTrack track, in LayoutClip clip, ClipState state,
+            in uint tick, in NoInput input, ref LayoutResult result)
+            => Capture(index, in track, in clip, state, tick, ref result);
 
-        private static void Capture(in Tracks<LayoutTrack, LayoutClip> tracks, uint tick, ref LayoutResult result)
+        private static void Capture(ushort index, in LayoutTrack track, in LayoutClip clip, ClipState state, uint tick, ref LayoutResult result)
         {
-            foreach (var work in tracks)
-            {
-                var first = work.Clip.Value;
-                var second = work.Clip.Value;
-                result.Visits.Add(new Visit(work.Index, work.Track.Marker, tick, work.State, first, second));
-            }
+            var first = clip.Value;
+            var second = clip.Value;
+            result.Visits.Add(new Visit(index, track.Marker, tick, state, first, second));
         }
     }
 
@@ -61,7 +62,6 @@ public class WorkSlotLayoutTests
         Assert.Equal(16, OffsetOf(nameof(WorkSlot.Index)));
         Assert.Equal(18, OffsetOf(nameof(WorkSlot.First)));
         Assert.Equal(20, OffsetOf(nameof(WorkSlot.Second)));
-        Assert.Equal(22, OffsetOf(nameof(WorkSlot.BlendOrdinal)));
     }
 
     [Fact]
@@ -80,15 +80,13 @@ public class WorkSlotLayoutTests
             var input = default(NoInput);
             var result = new LayoutResult();
             var playback = Timeline.Start(id, 2);
-            Span<LayoutClip> scratch = stackalloc LayoutClip[1];
             LayoutTrack.BlendCalls = 0;
 
-            playback = Timeline<LayoutTrack, LayoutClip>.Forward(
+            playback = Timeline.Forward(
                 id,
                 in playback,
                 in input,
                 ref result,
-                scratch,
                 [3u, 4u, 5u, 6u, 7u, 8u]);
 
             Assert.Equal(
@@ -101,7 +99,7 @@ public class WorkSlotLayoutTests
                     new Visit(0, 37, 8, ClipState.Exit, 8f, 8f),
                 ],
                 result.Visits);
-            Assert.Equal(8, LayoutTrack.BlendCalls);
+            Assert.Equal(4, LayoutTrack.BlendCalls);
             Assert.Equal(8u, playback.Tick);
             Assert.True(playback.Has(PlaybackFlags.Completed));
         }

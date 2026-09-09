@@ -29,8 +29,6 @@ public static class RegionAnalyzer
         }
 
         var maxActive = 0;
-        var maxBlends = 0;
-
         for (var r = 0; r < regionRows.Length; r++)
         {
             var lo = regionStarts[r];
@@ -83,30 +81,6 @@ public static class RegionAnalyzer
             if (count > maxActive)
                 maxActive = count;
 
-            var blends = 0;
-            for (var t = rowStart; t < trackRows.Count; t++)
-                if (trackRows[t].ClipCount == 2)
-                    blends++;
-            if (blends > maxBlends)
-                maxBlends = blends;
-        }
-
-        var regionFlags = new byte[regionStarts.Length];
-        for (var r = 0; r < regionStarts.Length; r++)
-        {
-            var lo = regionStarts[r];
-            var re = r + 1 < regionStarts.Length ? regionStarts[r + 1] : 0;
-            byte flag = 0;
-            foreach (var edge in clipEdges)
-            {
-                if (edge.Start == lo)
-                    flag |= 1;
-                if (edge.End == lo)
-                    flag |= 2;
-                if (r + 1 < regionStarts.Length && edge.End == re)
-                    flag |= 4;
-            }
-            regionFlags[r] = flag;
         }
 
         return new TimelinePlan
@@ -114,12 +88,10 @@ public static class RegionAnalyzer
             Definition = definition,
             RegionStarts = regionStarts,
             RegionRows = regionRows,
-            RegionFlags = regionFlags,
             TrackRows = [.. trackRows],
             ClipRows = [.. clipRows],
             ClipEdges = clipEdges,
             MaxActiveTracks = maxActive,
-            MaxActiveBlends = maxBlends,
             Duration = regionStarts[^1],
         };
     }

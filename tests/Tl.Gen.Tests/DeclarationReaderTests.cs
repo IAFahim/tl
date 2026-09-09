@@ -34,6 +34,179 @@ public class DeclarationReaderTests
             Shell.Replace("@@VARIABLE@@", variable).Replace("@@AUTHOR@@", author))]);
 
     [Fact]
+    public void PartialTimeline_ReadsDefineWithoutCompilePlaceholder()
+    {
+        const string source = """
+            using Tl;
+
+            namespace Fix;
+
+            public readonly record struct FClip(float Amount);
+
+            public readonly struct FTrack : IBlend<FClip>
+            {
+                public void Blend(in FClip first, in FClip second, float t, out FClip result)
+                    => result = new(first.Amount + (second.Amount - first.Amount) * t);
+            }
+
+            public readonly partial struct PulseTimeline : ITimeline<FTrack, FClip>
+            {
+                public static void Define(scoped TimelineBuilder<FTrack, FClip> timeline)
+                {
+                    var pulse = timeline.Track(new FTrack());
+                    timeline.Clip(in pulse, new FClip(7f), 2u, 11u);
+                    timeline.Looping();
+                }
+            }
+            """;
+
+        var (declarations, diagnostics) = DeclarationReader.Read([("PulseTimeline.cs", source)]);
+
+        Assert.Empty(diagnostics);
+        var declaration = Assert.Single(declarations);
+        Assert.Equal(CompiledDeclarationKind.PartialTimeline, declaration.Kind);
+        Assert.Equal("PulseTimeline", declaration.KernelName);
+        Assert.Equal("Fix", declaration.Definition.Namespace);
+        Assert.Equal("FTrack", declaration.Definition.TrackTypeName);
+        Assert.Equal("FClip", declaration.Definition.ClipTypeName);
+        Assert.True(declaration.Definition.Loops);
+        var clip = Assert.Single(declaration.Definition.Clips);
+        Assert.Equal(2u, clip.Start);
+        Assert.Equal(11u, clip.End);
+        Assert.Equal("new FClip(7f)", clip.PayloadExpression);
+    }
+
+    [Fact]
+    public void PartialTimeline_PreservesUsingAndAliasContext()
+    {
+        const string source = """
+            using Tl;
+            using Domain = Game.Data;
+
+            namespace Game.Data
+            {
+                public readonly record struct Clip(float Value);
+                public readonly struct Track : IBlend<Clip>
+                {
+                    public void Blend(in Clip first, in Clip second, float t, out Clip result) => result = first;
+                }
+            }
+
+            namespace Game.Playback
+            {
+                public readonly partial struct Pulse : ITimeline<Domain.Track, Domain.Clip>
+                {
+                    public static void Define(scoped TimelineBuilder<Domain.Track, Domain.Clip> timeline)
+                    {
+                        var track = timeline.Track(new Domain.Track());
+                        timeline.Clip(in track, new Domain.Clip(3f), 0u, 4u);
+                    }
+                }
+            }
+            """;
+
+        var (declarations, diagnostics) = DeclarationReader.Read([("Pulse.cs", source)]);
+
+        Assert.Empty(diagnostics);
+        var declaration = Assert.Single(declarations);
+        Assert.Contains("using Domain = Game.Data;", declaration.Definition.SourceUsings);
+        var plan = RegionAnalyzer.Analyze(declaration.Definition);
+        var kernel = KernelEmitter.EmitKernel(
+            plan,
+            WorkSlotMaterializer.ForRegions(plan),
+            declaration.KernelName,
+            declaration.File,
+            declaration.Line,
+            declaration.Kind);
+        Assert.Contains("using Domain = Game.Data;", kernel);
+        Assert.Empty(CSharpSyntaxTree.ParseText(kernel).GetDiagnostics());
+    }
+
+    [Fact]
+    public void PartialTimeline_PreservesEscapedIdentifier()
+    {
+        const string source = """
+            using Tl;
+            namespace Fix;
+            public readonly record struct Clip(float Value);
+            public readonly struct Track : IBlend<Clip>
+            {
+                public void Blend(in Clip first, in Clip second, float t, out Clip result) => result = first;
+            }
+            public readonly partial struct @class : ITimeline<Track, Clip>
+            {
+                public static void Define(scoped TimelineBuilder<Track, Clip> timeline)
+                {
+                    var track = timeline.Track(new Track());
+                    timeline.Clip(in track, new Clip(1f), 0u, 1u);
+                }
+            }
+            """;
+
+        var (declarations, diagnostics) = DeclarationReader.Read([("Keyword.cs", source)]);
+
+        Assert.Empty(diagnostics);
+        var declaration = Assert.Single(declarations);
+        Assert.Equal("@class", declaration.KernelName);
+        var plan = RegionAnalyzer.Analyze(declaration.Definition);
+        var kernel = KernelEmitter.EmitKernel(
+            plan,
+            WorkSlotMaterializer.ForRegions(plan),
+            declaration.KernelName,
+            declaration.File,
+            declaration.Line,
+            declaration.Kind);
+        Assert.Contains("public readonly partial struct @class", kernel);
+        Assert.Empty(CSharpSyntaxTree.ParseText(kernel).GetDiagnostics());
+    }
+
+    [Fact]
+    public void PartialTimeline_RejectsConflictingAliasesAcrossParts()
+    {
+        const string declaration = """
+            using Tl;
+            using Domain = First.Data;
+
+            namespace First { public sealed class Data; }
+            namespace Second { public sealed class Data; }
+            namespace Fix
+            {
+                public readonly record struct Clip(float Value);
+                public readonly struct Track : IBlend<Clip>
+                {
+                    public void Blend(in Clip first, in Clip second, float t, out Clip result) => result = first;
+                }
+                public readonly partial struct Pulse : ITimeline<Track, Clip> { }
+            }
+            """;
+        const string definition = """
+            using Tl;
+            using Domain = Second.Data;
+
+            namespace Fix
+            {
+                public readonly partial struct Pulse
+                {
+                    public static void Define(scoped TimelineBuilder<Track, Clip> timeline)
+                    {
+                        var track = timeline.Track(new Track());
+                        timeline.Clip(in track, new Clip(1f), 0u, 1u);
+                    }
+                }
+            }
+            """;
+
+        var (declarations, diagnostics) = DeclarationReader.Read(
+            [("Declaration.cs", declaration), ("Definition.cs", definition)]);
+
+        Assert.Empty(declarations);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("TLGEN13", diagnostic.Code);
+        Assert.Equal("Definition.cs", diagnostic.File);
+        Assert.Contains("Domain", diagnostic.Message);
+    }
+
+    [Fact]
     public void StaticLambda_ReadsTracksClipsAndLoops()
     {
         var (declarations, diagnostics) = ReadShell("Alpha", """
@@ -310,8 +483,8 @@ public class DeclarationReaderTests
         var tree = CSharpSyntaxTree.ParseText(kernel);
         Assert.Empty(tree.GetDiagnostics());
         Assert.Contains("public const uint Duration = 15u;", kernel);
-        Assert.Contains("s_works1", kernel);
-        Assert.Contains("CompiledWorkSlot.Single", kernel);
+        Assert.Contains("s_track0", kernel);
+        Assert.Contains("TResult.Forward", kernel);
 
         var shared = KernelEmitter.EmitSharedRuntime();
         Assert.Empty(CSharpSyntaxTree.ParseText(shared).GetDiagnostics());
@@ -346,8 +519,6 @@ public class DeclarationReaderTests
         Assert.Equal(11u, pair.EnterB);
         Assert.Equal(3u, pair.FactorStart);
         Assert.Equal(4u, pair.FactorLength);
-        Assert.Equal(0, pair.BlendOrdinal);
-
         var single = slots[0].Single();
         Assert.Equal(EmittedWorkSlot.Single, single.Second);
         Assert.Equal(0u, single.EnterF);
