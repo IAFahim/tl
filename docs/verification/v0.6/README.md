@@ -15,7 +15,7 @@ Date: 2026-09-09
 | Review movement verification | Passed |
 | AOT harness JIT checks | Passed with stable checksums |
 | Source budget | 29 files; 177,443 content bytes; 856 path bytes; 178,299/200,000 total |
-| Package creation | `Tl.Runtime.0.6.0.nupkg` and `Tl.Gen.0.6.0.nupkg` created; compressed and uncompressed sizes recorded in `plan.md` |
+| Package creation | `Tl.Runtime.0.6.0.nupkg` and `Tl.Gen.0.6.0.nupkg` created; compressed and uncompressed sizes recorded in the [archived report](plan.md) |
 | Clean package consumer | Generated `PackageTimeline.g.cs`, built with no project references, returned `7`; application output contained no generator, Roslyn, or Waffle assembly |
 | Repeat package build | Generator cache hit; only `PackageTimeline.g.cs` was compiled; no legacy shim emitted |
 | Application package output | `Tl.Core.dll` is 40,448 bytes; generator, Roslyn, and Waffle assemblies are absent |

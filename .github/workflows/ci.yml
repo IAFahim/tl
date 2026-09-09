@@ -3,8 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
@@ -20,48 +19,28 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
         with:
-          dotnet-version: '10.0.x'
-      - name: Check source budget and benchmark collection
-        run: |
-          python3 benchmarks/source_budget.py
-          python3 -m unittest discover -s benchmarks -p test_collect.py
-      - name: Build solution (Release)
-        run: dotnet build tl.slnx -c Release -m:1
-      - name: Run tests
-        run: dotnet test tl.slnx -c Release --no-build
-      - name: Publish NativeAOT executable
-        run: dotnet publish tests/Tl.Aot/Tl.Aot.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
-      - name: Execute NativeAOT binary
-        run: ./tests/Tl.Aot/bin/Release/net10.0/linux-x64/publish/Tl.Aot
-      - name: Baseline verification - Dispatch
-        run: dotnet run --project benchmarks/Dispatch --no-build -c Release -- --verify
-      - name: Baseline verification - Dispatch edges
-        run: dotnet run --project benchmarks/Dispatch --no-build -c Release -- --verify-edges
-      - name: Baseline verification - Algorithms
-        run: dotnet run --project benchmarks/Algorithms --no-build -c Release -- --verify
-      - name: Baseline verification - Review
-        run: dotnet run --project benchmarks/Review --no-build -c Release -- --verify
-      - name: Baseline verification - AotBench
-        run: dotnet run --project benchmarks/AotBench --no-build -c Release -- --check
-      - name: Verify compiled timeline parity
-        run: dotnet run --project samples/Compiled -c Release --no-build
-      - name: Verify compiled timeline under NativeAOT
-        run: |
-          set -euo pipefail
-          dotnet publish samples/Compiled/Compiled.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
-          ./samples/Compiled/bin/Release/net10.0/linux-x64/publish/Compiled
-      - name: Pack packages
-        run: |
-          set -euo pipefail
-          dotnet pack src/Tl.Core -c Release -o artifacts/packages
-          dotnet pack src/Tl.Gen -c Release -o artifacts/packages
-      - name: Verify clean package consumer
+          dotnet-version: 10.0.x
+      - run: python3 benchmarks/source_budget.py
+      - run: python3 -m unittest discover -s benchmarks -p test_collect.py
+      - run: dotnet build tl.slnx -c Release -m:1
+      - run: dotnet test tl.slnx -c Release --no-build
+      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build
+      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
+      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
+      - run: dotnet run --project samples/Mixed -c Release --no-build
+      - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
+      - run: dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true -o artifacts/aot
+      - run: ./artifacts/aot/Tl.Alpha
+      - run: ./artifacts/aot/Tl.Alpha --capacity
+      - run: ./artifacts/aot/Tl.Alpha --module-capacity
+      - run: dotnet pack src/Tl.Core -c Release --no-build -o artifacts/packages
+      - run: dotnet pack src/Tl.Gen -c Release --no-build -o artifacts/packages
+      - name: Verify package consumer
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/tl-package-consumer
         run: |
@@ -70,8 +49,10 @@ jobs:
           dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore
           test "$(./tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.PackageConsumer)" = "7"
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Waffle.Core.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.CSharp.dll
           dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore | tee artifacts/package-cache.log
           grep -F "TlGenCompile: cache hit" artifacts/package-cache.log
+          dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -r linux-x64 -p:PublishAot=true --source artifacts/packages --source https://api.nuget.org/v3/index.json
+          dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
+          test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"

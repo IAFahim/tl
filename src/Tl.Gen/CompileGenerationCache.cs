@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.CodeAnalysis.CSharp;
-using Tl.Gen.CSharp;
 
 namespace Tl.Gen;
 
@@ -35,9 +34,12 @@ internal static class CompileGenerationCache
 {
     internal const string ManifestFileName = "TlGenCompile.manifest.json";
     internal const string SourceListFileName = "TlGenCompile.sources";
-    private const int FormatVersion = 2;
+    private const int FormatVersion = 3;
 
-    internal static string GetKey(IReadOnlyList<CompileSource> sources, IReadOnlyList<string> symbols)
+    internal static string GetKey(
+        IReadOnlyList<CompileSource> sources,
+        IReadOnlyList<string> symbols,
+        IReadOnlyList<string>? semanticInputs = null)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Append(hash, "Tl.Gen compile");
@@ -45,13 +47,14 @@ internal static class CompileGenerationCache
         Append(hash, "newline=lf");
 
         Append(hash, typeof(CompileGenerationCache).Assembly);
-        Append(hash, typeof(Tl.Timeline).Assembly);
         Append(hash, typeof(Microsoft.CodeAnalysis.SyntaxTree).Assembly);
         Append(hash, typeof(CSharpSyntaxTree).Assembly);
-        Append(hash, typeof(Waffle.WaffleSyntax).Assembly);
 
         foreach (var symbol in symbols)
             Append(hash, symbol);
+
+        foreach (var input in semanticInputs ?? [])
+            Append(hash, input);
 
         foreach (var source in sources)
         {
@@ -186,8 +189,6 @@ internal static class CompileGenerationCache
             || relativePath.Contains('\n'))
             return false;
 
-        if (relativePath == KernelEmitter.SharedFileName)
-            return true;
         if (!relativePath.EndsWith(".g.cs", StringComparison.Ordinal))
             return false;
 

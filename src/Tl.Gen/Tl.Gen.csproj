@@ -10,29 +10,26 @@
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <DevelopmentDependency>true</DevelopmentDependency>
-    <Version>0.6.0</Version>
+    <Version>1.0.0-alpha.1</Version>
+    <PackageId>Tl.Gen.CSharp</PackageId>
     <Authors>IAFahim</Authors>
-    <Description>Build-time generator emitting compiled C# timelines from authored definitions.</Description>
+    <Description>Build-time compiler for heterogeneous C# timeline declarations.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v0.6.0: named partial timeline declarations, direct per-work kernels, scalar and batch specialization, deterministic generation caching, and NativeAOT parity. https://github.com/IAFahim/tl/releases/tag/v0.6.0</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.1: automatic source discovery, heterogeneous kernels, generated contexts, composition, deterministic caching, and NativeAOT output.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Waffle.Core" Version="1.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
-    <ProjectReference Include="..\Tl.Core\Tl.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-    <None Include="build\Tl.Gen.targets" Pack="true" PackagePath="build\Tl.Gen.targets;buildTransitive\Tl.Gen.targets" />
+    <None Include="build\Tl.Gen.targets" Pack="true" PackagePath="build\Tl.Gen.CSharp.targets;buildTransitive\Tl.Gen.CSharp.targets" />
     <None Include="$(OutputPath)Tl.Gen.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(OutputPath)Tl.Gen.deps.json" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(OutputPath)Tl.Gen.runtimeconfig.json" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
-    <None Include="$(OutputPath)Tl.Core.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
-    <None Include="$(OutputPath)Waffle.Core.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(OutputPath)Microsoft.CodeAnalysis.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(OutputPath)Microsoft.CodeAnalysis.CSharp.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
   </ItemGroup>

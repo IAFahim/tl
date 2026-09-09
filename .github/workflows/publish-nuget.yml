@@ -25,94 +25,66 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
           persist-credentials: false
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
         with:
-          dotnet-version: '10.0.x'
-
+          dotnet-version: 10.0.x
       - name: Validate release identity
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
-          core_version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Tl.Core/Tl.Core.csproj)"
-          generator_version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Tl.Gen/Tl.Gen.csproj)"
-          test "$core_version" = "$generator_version"
-          test "$RELEASE_TAG" = "v$core_version"
+          core="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Tl.Core/Tl.Core.csproj)"
+          generator="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Tl.Gen/Tl.Gen.csproj)"
+          test "$core" = "$generator"
+          test "$RELEASE_TAG" = "v$core"
           git tag --points-at HEAD | grep -Fx -- "$RELEASE_TAG"
-
-      - name: Check source budget and benchmark collection
-        run: |
-          python3 benchmarks/source_budget.py
-          python3 -m unittest discover -s benchmarks -p test_collect.py
-
-      - name: Build release
-        run: dotnet build tl.slnx -c Release -m:1
-
-      - name: Run tests
-        run: dotnet test tl.slnx -c Release --no-build
-
-      - name: Baseline verification - Dispatch
-        run: dotnet run --project benchmarks/Dispatch --no-build -c Release -- --verify
-
-      - name: Baseline verification - Dispatch edges
-        run: dotnet run --project benchmarks/Dispatch --no-build -c Release -- --verify-edges
-
-      - name: Baseline verification - Algorithms
-        run: dotnet run --project benchmarks/Algorithms --no-build -c Release -- --verify
-
-      - name: Baseline verification - Review
-        run: dotnet run --project benchmarks/Review --no-build -c Release -- --verify
-
-      - name: Baseline verification - AotBench
-        run: dotnet run --project benchmarks/AotBench --no-build -c Release -- --check
-
-      - name: Verify compiled timeline parity
-        run: dotnet run --project samples/Compiled -c Release --no-build
-
-      - name: Verify runtime NativeAOT
+      - run: python3 benchmarks/source_budget.py
+      - run: python3 -m unittest discover -s benchmarks -p test_collect.py
+      - run: dotnet build tl.slnx -c Release -m:1
+      - run: dotnet test tl.slnx -c Release --no-build
+      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build
+      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
+      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
+      - run: dotnet run --project samples/Mixed -c Release --no-build
+      - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
+      - run: dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true -o artifacts/aot
+      - run: ./artifacts/aot/Tl.Alpha
+      - run: ./artifacts/aot/Tl.Alpha --capacity
+      - run: ./artifacts/aot/Tl.Alpha --module-capacity
+      - name: Download and verify release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
           set -euo pipefail
-          dotnet publish tests/Tl.Aot/Tl.Aot.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
-          ./tests/Tl.Aot/bin/Release/net10.0/linux-x64/publish/Tl.Aot
-
-      - name: Verify compiled NativeAOT
-        run: |
-          set -euo pipefail
-          dotnet publish samples/Compiled/Compiled.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
-          ./samples/Compiled/bin/Release/net10.0/linux-x64/publish/Compiled
-
-      - name: Pack release
-        run: |
-          set -euo pipefail
-          dotnet pack src/Tl.Core -c Release --no-build -o artifacts/packages
-          dotnet pack src/Tl.Gen -c Release --no-build -o artifacts/packages
-
-      - name: Verify clean package consumer
+          mkdir -p artifacts/release
+          gh release download "$RELEASE_TAG" --dir artifacts/release
+          cd artifacts/release
+          sha256sum --check SHA256SUMS
+          version="${RELEASE_TAG#v}"
+          test -f "Tl.Runtime.$version.nupkg"
+          test -f "Tl.Gen.CSharp.$version.nupkg"
+          commit="$(git -C ../.. rev-parse HEAD)"
+          unzip -p "Tl.Runtime.$version.nupkg" Tl.Runtime.nuspec | grep -F "commit=\"$commit\""
+          unzip -p "Tl.Gen.CSharp.$version.nupkg" Tl.Gen.CSharp.nuspec | grep -F "commit=\"$commit\""
+      - name: Verify package consumer
         env:
           NUGET_PACKAGES: ${{ runner.temp }}/tl-package-consumer
         run: |
           set -euo pipefail
-          dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj --source artifacts/packages
+          dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj --source artifacts/release
           dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore
           test "$(./tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.PackageConsumer)" = "7"
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Waffle.Core.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.CSharp.dll
           dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore | tee artifacts/package-cache.log
           grep -F "TlGenCompile: cache hit" artifacts/package-cache.log
-
-      - name: Authenticate with NuGet
-        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841
+          dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -r linux-x64 -p:PublishAot=true --source artifacts/release --source https://api.nuget.org/v3/index.json
+          dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
+          test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"
+      - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841
         id: login
         with:
           user: iafahim
-
-      - name: Push Packages to NuGet
-        run: |
-          dotnet nuget push "artifacts/packages/*.nupkg" \
-            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
+      - run: dotnet nuget push "artifacts/release/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

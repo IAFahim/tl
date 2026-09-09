@@ -1,17 +1,5 @@
 name: benchmark
 
-# Runs the BenchmarkDotNet suites and compares each version against the
-# previous ones:
-#   - Receipts are verified before any time is spent measuring.
-#   - The full BDN markdown reports are attached to every run (artifacts)
-#     and rendered into the run summary.
-#   - benchmark-action/github-action-benchmark stores the numbers on the
-#     gh-pages branch, which renders charts of metric-over-commit at
-#     https://iafahim.github.io/tl/ and comments on commits that regress
-#     beyond alert-threshold vs the stored history.
-# Requires the repository setting "Settings > Actions > General > Workflow
-# permissions > Read and write permissions" for auto-push to gh-pages.
-
 on:
   push:
     branches: [main]
@@ -33,48 +21,14 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
         with:
-          dotnet-version: '10.0.x'
-
-      - name: Verify receipts (Dispatch)
-        run: |
-          dotnet build benchmarks/Dispatch/Dispatch.csproj -c Release -v q -clp:ErrorsOnly
-          dotnet run --project benchmarks/Dispatch --no-build -c Release -- --verify
-      - name: Verify receipts (Algorithms)
-        run: |
-          dotnet build benchmarks/Algorithms/Algorithms.csproj -c Release -v q -clp:ErrorsOnly
-          dotnet run --project benchmarks/Algorithms --no-build -c Release -- --verify
-
-      - name: Run benchmarks (Dispatch)
-        run: >
-          dotnet run --project benchmarks/Dispatch --no-build -c Release --
-          --filter '*' --artifacts bench-ci/dispatch
-      - name: Run benchmarks (Algorithms)
-        run: >
-          dotnet run --project benchmarks/Algorithms --no-build -c Release --
-          --filter '*' --artifacts bench-ci/algorithms
-
-      - name: Collect reports
-        run: |
-          python3 benchmarks/collect.py bench-ci/*/results/*-report-full.json \
-            --output benchmark-results.json --excluded benchmark-excluded.json
-          {
-            echo "# tl benchmark report — $(git rev-parse --short HEAD)"
-            echo
-            for f in bench-ci/*/results/*-report-github.md; do
-              echo "## ${f#bench-ci/}"
-              echo
-              cat "$f"
-              echo
-            done
-          } > benchmark-report.md
-
-      - name: Append report to run summary
-        run: cat benchmark-report.md >> "$GITHUB_STEP_SUMMARY"
-
+          dotnet-version: 10.0.x
+      - run: dotnet build benchmarks/Alpha/Alpha.csproj -c Release
+      - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
+      - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --filter '*' --artifacts bench-ci/alpha
+      - run: python3 benchmarks/collect.py bench-ci/alpha/results/*-report-full.json --output benchmark-results.json --excluded benchmark-excluded.json
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -82,13 +36,10 @@ jobs:
           path: |
             benchmark-results.json
             benchmark-excluded.json
-            benchmark-report.md
             bench-ci/
-
-      - name: Store history and compare against previous versions
-        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba
+      - uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba
         with:
-          name: tl benchmarks
+          name: tl v1 benchmarks
           tool: customSmallerIsBetter
           output-file-path: benchmark-results.json
           github-token: ${{ secrets.GITHUB_TOKEN }}

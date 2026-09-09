@@ -1,284 +1,272 @@
-# tl compiler plan and v0.6 report
+# v1.0.0-alpha.1 implementation plan
 
-Date: 2026-09-09
-Status: implemented, measured, and release-gated in `codex/tl-consumer-fusion-20260909`
+Date: 2026-09-10
+Base: `f3f91febf04dfe9bd0658b22c8693747ec95a972`, released as v0.6.0.
+Status: v1.0.0-alpha.1 implemented and validated on 2026-09-10. Initial and final generated-runtime evidence is retained under `benchmarks/Alpha/results`.
+Working branch: `codex/tl-v1-alpha-plan-20260910`.
+Release family requested: v1.0-alpha. First package version: `1.0.0-alpha.1`; first tag: `v1.0.0-alpha.1`.
 
-## Result
+This file is the execution plan and design record. The [API contract](docs/v1.0-alpha-api.md) defines the surface, the [checklist](docs/v1.0-alpha-checklist.md) tracks proof, and the [v0.6 report](docs/verification/v0.6/plan.md) preserves the previous design and measurements.
 
-The experiment produced a real production gain. The compiled path is no longer an interpreter expressed as generated C#. It emits direct region blocks and static per-work consumer operations. The minimal production consumer now measures 2.473 ns/tick, down from the 11.157 ns runtime interpreter. The full state-aware consumer measures 4.489 ns/tick, down from 15.340 ns. Both allocate zero managed bytes.
+## Objective and release gates
 
-The 1–2 ns target is possible for a narrower workload. The verified research backend reached 1.195 ns/tick for a predictable batch of eight with an ordered sum operation and 1.843 ns/tick for a state-aware operation with runtime input. It is not the universal scalar latency of an arbitrary consumer. The production API now has the correct shape to add that stricter tier without another consumer rewrite.
+Ship a breaking alpha that turns a partial timeline declaration into an automatically generated, heterogeneous timeline. The caller uses one runtime ID API, separate borrowed input/output contexts, and no manual compilation or binding. Runtime state remains unmanaged. Library source plus paths stays below 200,000 bytes.
 
-## Smallest domain model
+The performance objective is **less than 3.000 ns per scalar tick through the public runtime-ID entry point**, including its required validation, playback transition, clip resolution, consumer effects, and observable outputs. A private direct kernel, empty callback, constant-only calculation, or batch average cannot satisfy that objective.
 
-The system is defined by these values and laws:
+The release has three independent gates:
 
-1. A timeline is an ordered set of unmanaged tracks.
-2. A track owns half-open clip windows `[start, end)` and has at most two active clips at one tick.
-3. One active clip resolves to itself. Two active clips resolve through the track's pure `IBlend<TClip>` operation.
-4. A destination tick resolves to an ordered sequence of `(ordinal, count, track index, track, clip, state)` values.
-5. `ITrack.Forward` and `ITrack.Backward` interpret one resolved value into caller-owned result state.
-6. `Playback` is an 8-byte value carrying raw tick, cycle count, and lifecycle flags.
-7. Runtime authoring and build-time compilation must produce the same observable sequence.
+1. Correctness: the agreed observable behavior, invalid-input behavior, lifetime safety, deterministic generation, and NativeAOT receipts pass.
+2. Size: all library source and source-path bytes fit the existing strict 200,000-byte budget; generated application code, native code, and retained data are separately reported.
+3. Performance: the frozen public-path target workloads below pass the sub-3 ns gate on the declared reference machine. Passing a subset is reported as a subset. Failure leaves the performance goal open.
 
-Everything else is representation or acceleration. Removing a representation may reduce speed or supported authoring, but it must not alter these laws.
+There is no guarantee that arbitrary user callbacks, cold memory, thousands of active works, or arbitrary random seeks fit 3 ns. This does not waive the named target: if it misses, record the miss and the measured limiting operations. Do not quietly move validation outside the measurement or rename throughput as scalar latency.
 
-## Production API
+## Verified starting point
 
-The authored timeline and generated kernel are one named partial type:
+| Receipt | v0.6 evidence |
+| --- | --- |
+| Full compiled scalar consumer, direct generated call | 4.489 ns/tick |
+| Full interpreter scalar consumer | 15.340 ns/tick |
+| Simple compiled scalar sum, direct generated call | 2.473 ns/tick |
+| Simple interpreter scalar sum | 11.157 ns/tick |
+| Full compiled batch of eight | 4.104 ns/tick |
+| Restricted research sequential batch sum | 1.195 ns/tick; different contract |
+| Library source budget, rechecked for this plan | 29 files, 177,443 content bytes + 856 path bytes = 178,299 bytes |
+| Historical tests | 43 core and 60 generator tests; not rerun during this documentation task |
+| Historical native verification | Runtime and named compiled NativeAOT parity passed |
 
-```cs
-public readonly partial struct PulseTimeline : ITimeline<PulseTrack, PulseClip>
-{
-    public static void Define(scoped TimelineBuilder<PulseTrack, PulseClip> timeline)
-    {
-        var pulse = timeline.Track(new PulseTrack());
-        timeline.Clip(in pulse, new PulseClip(4f), 0u, 60u);
-    }
-}
+Sources: [release verification](docs/verification/v0.6/README.md), [raw production results](benchmarks/Dispatch/results/v06-production-fusion-20260909/Tl.CompiledBench.CompiledVsInterpreter-report-full.json).
+
+The historical v0.6 baseline used SDK 10.0.400 and runtime 10.0.11. Microsoft released .NET 10.0.12 on September 8, 2026, so the final alpha gate installed SDK 10.0.401 in an isolated toolchain, pinned it in `global.json`, and reran the candidate build, tests, NativeAOT validation, disassembly, and benchmark set on runtime 10.0.12. Historical 10.0.11 numbers remain labeled as historical and are not used as a causal patch-to-patch comparison.
+
+The local CPU is an i9-14900K. The inspected topology maps logical CPUs 4 and 5 to physical core 2. CPU 4 is an initial measurement candidate, subject to affinity permissions and fresh topology inspection.
+
+## Accepted design
+
+| Area | Target |
+| --- | --- |
+| Declaration | `readonly partial struct Attack : ITimeline` |
+| Authoring method | `static void Define(scoped Builder builder)` |
+| Track attachment | `builder.Track(new AnimationTrack())` |
+| Primary behavior | The track type declares its clip contract and primary directional methods |
+| Track contract | `ITrack<TClip>` marker/trait plus generator-validated methods; no variadic interface family |
+| Blending | `IBlend<TClip>`, supplied by the track |
+| Callback metadata | `Frame<TTrack,TClip>`: Track, Clip, Tick, State, TrackIndex |
+| Removed metadata | Ordinal and active count are absent from Frame |
+| Extensibility | Explicit Before/After timeline hooks, using `IHook` |
+| Composition | A wrapper can include a base timeline and add hooks without editing it |
+| External data | Generated `Attack.Input` and `Attack.Output`; no handwritten attributes or context declarations |
+| Arity | Any supported finite list of typed in/ref/out operation parameters |
+| Caller | `Timeline.TryForward(id, in playback, tick, in input, ref output, out nextPlayback)` |
+| Indexed facade | `Timeline.All[id].TryForward(...)`; no heap object per lookup |
+| Compilation | Automatic during application build, with cached unchanged output |
+| Legacy terminal methods | No public Compile, InMemory, or Bind in normal named-timeline use |
+| Other languages | C#-specific alpha model; a neutral IR and additional backends are post-alpha work |
+
+The fixed public input/output pair does not limit the number of components inside the generated containers. Input contains borrowed read-only references. Output contains borrowed writable references, including read/write state. `out` on an individual callback is different from `ref output` on the public call.
+
+The old standalone-operation `.Then<T>()` sketch is superseded. Merely implementing an interface does not register a hook. There is no automatic enumeration of all matching hook types.
+
+## Smallest semantic rules
+
+1. A definition is an immutable ordered set of typed tracks, half-open clip windows, and explicitly attached hooks.
+2. A track instance has one closed track/clip contract. Different tracks in the same timeline may have different contracts.
+3. Zero active clips produce no track call. One active clip resolves directly. Two compatible active clips resolve once through Blend. More than two overlapping clips are rejected in this alpha.
+4. Forward and backward are separate authored operations. Neither implies a universal inverse for arbitrary output mutation.
+5. One resolved active track produces one Frame. Consumers run in authored track order. Blending never duplicates a callback.
+6. Before hooks run before track callbacks; After hooks run after their successful completion. Each registration runs once per accepted tick, including gap ticks. Empty tick batches run no hooks.
+7. Read/write capabilities come from declared signatures and explicit composition, never from variable names at a call site or runtime object inspection.
+8. A pure transition computes the next playback or a typed failure. Validation precedes consumer effects.
+9. Runtime-ID mismatch, missing context data, unsupported bindings, stopped/unstarted playback, and capacity failures return false before callbacks. Outputs are unchanged and returned playback equals incoming playback on these engine-detected failures.
+10. User-code exceptions propagate. Previous writes and external effects remain visible; Try does not mean rollback or catch-everything.
+11. A batch equals ordered scalar execution on the same borrowed data, except that engine validation for the entire batch occurs first. Consumer exceptions preserve the executed prefix.
+12. Input references are read-only access, not snapshots. Aliasing input and output observes writes. Sequential feedback is explicit through ref state or caller updates between scalar calls.
+13. Generated and interpreted execution expose the same effects and failures for the same definition and inputs.
+14. The compiler may share data or code; it may not eliminate, duplicate, or reorder observable callback effects.
+
+Preserve existing movement rules unless a separately recorded breaking semantic decision is made: raw playback tick versus effective frame tick, one-tick Exit priority, gap handling, loop normalization, saturating backward cycle subtraction, and forward cycle overflow. Freeze those rules in oracle tests before changing the engine.
+
+## Decisions to settle in the first vertical slice
+
+These are unresolved engineering details with proposed defaults, not silently approved requirements. P1 must settle and document them before broad migration.
+
+| ID | Question | Proposed default and required evidence |
+| --- | --- | --- |
+| D01 | Does 256 cap kinds, track instances, or clips? | Treat 256 as closed track/clip kinds per timeline. Keep the separate existing track/clip instance bounds initially. Narrow TrackIndex only after choosing its independent bound; do not truncate instances to a type ID. |
+| D02 | How are repeated component types mapped? | Distinct root parameters remain distinct slots. Match inherited contract identities first; permit type-based adaptation only when both sides have a unique candidate. Diagnose ambiguous known graphs; reject ambiguous runtime compatibility. Prove two actors with the same Health type cannot silently share the wrong slot. |
+| D03 | How does playback prove its owning timeline? | Carry an owner ID. Retaining uint tick, ushort cycles, a 16-bit owner and four lifecycle bits needs at least 68 bits. Expect a naturally aligned 12-byte value; compare with a packed representation before selecting. Do not keep an 8-byte claim by silently narrowing cycles or omitting ownership. |
+| D04 | How does the core hub reach application-generated types? | A fixed core generic protocol implemented by generated context bridges, with inferred generic arguments. Prototype it under JIT and real NativeAOT. Application generation cannot add members to a static class in another assembly. |
+| D05 | What is runtime-data scope for this alpha? | Code-authored partial definitions and build-visible assets are required. Late runtime topology loading remains a distinct loading capability with identical playback, not a claim of compile-time precomputation. Do not introduce another public compilation-mode switch. |
+| D06 | How far does Include compose? | Initially wrap one base definition and add hooks. Inherit its duration/looping and preserve nesting order. Reject cycles and conflicting definitions. Multiple independently looping children need a separate composition law, not concatenated text. |
+| D07 | Which output slots are readable by hooks? | After may read an unambiguous produced output or declared external input; Before cannot depend on output that has not yet been produced. On gap ticks, output references retain caller-initialized values. |
+| D08 | How are plans and bindings shared? | Share by proven layout/schema and operation sequence, not by timeline ID. The bridge count must follow actually used contract combinations, not the Cartesian product of all timelines and contexts. |
+
+The ABI prototype must preserve managed byrefs to caller storage even when the component values are unmanaged: an unmanaged struct may still reside inside a movable managed array or object. Never erase a live GC-tracked reference into an unpinned native pointer to save a dispatch instruction.
+
+## Compiler and runtime structure
+
+Use the following separation without duplicating whole compiler stacks:
+
+```text
+C# source / build-visible assets
+    -> language frontend
+    -> typed definition and slot graph
+    -> validation and normalization
+    -> immutable timeline plan
+    -> backend selection
+    -> C# source emission
+    -> normal C# compilation
+    -> JIT or NativeAOT
 ```
 
-The consumer implements one interface for both engines:
+The post-alpha neutral model will own timeline identity, clip windows, closed type contracts, typed constant values, operation references, access modes, slot identities, hooks, and composition. It must not contain Roslyn symbols, source using directives, C# constructor expressions, or callback-body strings. The alpha deliberately keeps C# type and expression spellings in its internal model and names the package `Tl.Gen.CSharp`; it does not claim another-language backend. Frontend-owned symbol handles and source locations will map diagnostics back to their language. Operation bodies remain opaque code references unless explicitly represented by a supported neutral operation algebra; arbitrary C# bodies do not become portable by moving their strings.
 
-```cs
-public struct PulseResult : ITrack<PulseTrack, PulseClip, PulseInput, PulseResult>
-{
-    public float Sum;
+Start by replacing the existing C#-coupled Model/Definition.cs and declaration scanner boundary. Keep the first backend C#, but prove separation with a deterministic canonical plan serializer and a C#-free model test. A second production language backend is outside alpha scope.
 
-    public static void Forward(
-        int ordinal,
-        int count,
-        ushort index,
-        in PulseTrack track,
-        in PulseClip clip,
-        ClipState state,
-        in uint tick,
-        in PulseInput input,
-        ref PulseResult result)
-        => result.Sum += clip.Amount;
+Generated inputs/outputs are stack-only borrowed containers. Their concrete constructors and accessors enforce types, roles, and ref modes. A small generated bridge participates in the runtime hub protocol; users do not implement it. The alpha protocol works without reflection or user registration under JIT and NativeAOT when definitions are visible in the same compilation. Cross-assembly schema manifests and inter-generator ordering are explicit post-alpha work.
 
-    public static void Backward(
-        int ordinal,
-        int count,
-        ushort index,
-        in PulseTrack track,
-        in PulseClip clip,
-        ClipState state,
-        in uint tick,
-        in PulseInput input,
-        ref PulseResult result)
-        => result.Sum -= clip.Amount;
-}
-```
+Known definitions select among:
 
-Normal compiled use contains no build handle and no `Authoring.Author` indirection:
+- Direct blocks for small timelines: fully folded metadata, direction, loop trait, typed payload accesses and direct calls.
+- Compact per-track intervals for larger timelines: merge equal adjacent segments and share bounded helpers; omit the active-count prepass entirely.
+- Compact indexed or table-driven representation for working sets where code expansion loses.
 
-```cs
-var playback = PulseTimeline.Start();
-playback = PulseTimeline.Forward(in playback, in input, ref result, tick);
-```
+Do not duplicate one 30–40 KB source/native kernel for each of 65,536 timeline IDs. Separate reusable execution shape from immutable payload data. Full per-ID specialization is a measured choice, not an unconditional rule.
 
-Runtime data uses the same definition and consumer:
+Registration publishes complete immutable descriptors, not partially installed bindings. Sparse paged registry storage keeps unused ID ranges absent. All 65,536 ushort values are usable; validity is separate from the ID. IDs never reuse within a registry lifetime, preserving stale-handle rejection. Reuse would require a generation token and a new size/lifetime proof.
 
-```cs
-var id = Timeline<PulseTrack, PulseClip>.Build(PulseTimeline.Define).InMemory();
-Timeline<PulseTrack, PulseClip>.Bind<PulseInput, PulseResult>(id);
-var playback = Timeline.Start(id);
-playback = Timeline.Forward(id, in playback, in input, ref result, tick);
-Timeline.Destroy(id);
-```
+Runtime-created/native-loaded data has explicit ownership and destruction. Compiled static definitions live for the registry lifetime. Construction, publication, retirement and any native deallocation must have a documented synchronization rule. Immutable concurrent playback is separate from concurrent destruction; do not promise both without proving safe reclamation.
 
-`Build(...).InMemory()` means runtime construction. It is absent from normal compiled playback. The build-time generator reads `Define` before C# compilation and emits the remaining partial members. Rebuilding unchanged input is a content-addressed cache hit; it does not regenerate or rewrite output.
+## Performance contract
 
-## What changed
+### Alpha target workloads
 
-### Runtime
+The alpha gate measures a predictable runtime ID loaded from benchmark state, a dependent caller-owned playback, and complete observable receipts. The ID is not a compile-time literal, but the hot stream uses one owner so branch prediction and tiered PGO can specialize the common exact-schema route.
 
-- Removed `Tracks<TTrack,TClip>` and `TrackWork<TTrack,TClip>`.
-- Removed indexed and sliced ephemeral work views.
-- Removed caller scratch overloads and the 4 KB automatic blend scratch policy.
-- Removed scratch binding pointers and max-blend metadata.
-- Streams one work at a time from native tables.
-- Resolves a blend exactly once into one local unmanaged value.
-- Calls a static abstract `ITrack` operation, allowing constrained specialization without boxing or delegates.
-- Keeps track and clip storage unmanaged and immutable after publication.
-- Keeps input and result caller-owned; neither is retained by a timeline.
+| Case | Timed path and observable work | Target |
+| --- | --- | --- |
+| P-Sum | Public scalar and batch-8 calls; region selection, one blend where active, playback state, ordered floating-point sum, success count | <3.000 ns/tick for sequential tiered JIT |
+| P-Combat | Heterogeneous Animation/Pose and Damage/Health kinds; four borrowed inputs, three borrowed outputs, hooks, gaps, blending, lifecycle and trace accounting | <3.000 ns/tick for sequential tiered JIT |
 
-### Generator
+Both cases must pass an independent exact receipt before timing, allocate zero managed bytes, and retain public scalar, indexed, public batch, indexed batch, and handwritten scalar-oracle measurements. Random ticks are a separately reported stress case. NativeAOT correctness is an alpha gate; NativeAOT throughput is not claimed.
 
-- Added named `public readonly partial struct ... : ITimeline<TTrack,TClip>` declarations.
-- Emits methods into that partial type, so the authored and executable timeline have the same name.
-- Emits a true scalar method for one tick and a separate span loop for batches.
-- Specializes forward and backward independently.
-- Folds duration, looping, region cuts, work count, track index, payload identity, blend pairs, factor ranges, and state possibilities.
-- Emits a balanced region decision tree rather than a generic search followed by a work-table interpreter.
-- Fully inlines timelines with at most 64 generated work sites and switches above that limit to one direction-specific compact track program shared by scalar and batch entry points.
-- Merges adjacent per-track intervals with identical work in the compact fallback, so emitted work grows with authored segments instead of the region-by-active-work expansion.
-- Emits track and clip payloads as typed static readonly fields with constructor-once semantics.
-- Calls `TResult.Forward` or `TResult.Backward` directly at each generated work site.
-- Emits the legacy `.Compile()` shim only for projects that still use a legacy declaration.
-- Retains deterministic content hashing, stable timestamps, stale-owned-output cleanup, and diagnostics for unsupported authoring.
+The achieved median across three independent run medians on .NET 10.0.12 is 1.382 ns/tick for Sum scalar, 1.384 ns/tick for Sum batch-8, 2.239 ns/tick for Combat scalar, and 2.033 ns/tick for Combat batch-8. Random public results range from 4.854 through 6.974 ns/tick.
 
-### Surface
+### Post-alpha maximum matrix
 
-- Added `ITimeline<TTrack,TClip>` as the declaration law.
-- Added `ITrack<TTrack,TClip,TInput,TResult>` as the combined directional operation law.
-- Changed `IForward` and `IBackward` to static per-work operations.
-- Removed the separate `Tl.Compiled` consumer interfaces.
-- Preserved `ordinal`, work `count`, authored track `index`, typed track, typed resolved clip, movement state, effective tick, input, and mutable result.
+The original maximum matrix remains the next performance program. It requires streams selected among at least 16 compatible definitions with distinct payloads, per-ID playback/output state, P-Sum, a full consumer, and a mixed consumer separately under tiered JIT and NativeAOT. Fixed-ID alpha results do not prove this stronger target.
 
-This is a pre-1.0 breaking change. Existing consumers replace their per-tick `foreach` body with one static per-work body. `ordinal == 0` expresses once-before-work logic, `ordinal == count - 1` expresses once-after-work logic, and ordinal/index conditions express slices and filters without constructing a view. Consumers that require random access or multiple passes over the complete resolved set need an explicit future tick-phase contract or caller-owned storage.
+| Axis | Planned measurements |
+| --- | --- |
+| Dispatch | Existing direct v0.6 baseline, direct candidate diagnostic, complete public dynamic-ID candidate, indexed facade, runtime interpreter reference |
+| Consumers | Ordered sum; full state receipt; mixed types with live inputs; hook read/write effects |
+| Movement | Sequential 1; skipping 7; repeated tick; random; backward; loop boundaries; gaps |
+| Calls | Scalar; batch 8; batch 64; batch figures explicitly labeled throughput |
+| Shapes | Empty; single track; mixed two/four; 16/64/256 kinds where valid; sparse and overlapping clips; long duration |
+| Registry working set | 1, 16, 256, 4,096 and 65,536 IDs; distinguish payload diversity from shared execution shapes |
+| Runtime | Tiered JIT with default PGO; no tiering; genuine NativeAOT |
+| Memory | Warm managed allocation, retained native bytes, setup allocation, generated C# bytes, IL/native bytes, context/frame/playback sizes |
+| Hardware | Reference x64 for gate; additional hardware reports separated by architecture and runtime |
 
-## Measured comparison
+Use BenchmarkDotNet with the existing steady-state job as the baseline configuration: 16 warmups, 12 target iterations, 250 ms requested iterations, MemoryDiagnoser and full JSON. Disassembly runs are separate from timing runs. Add actual native instruction/code-size evidence, and perf counters for cycles/instructions/branches/misses when supported.
 
-BenchmarkDotNet v0.15.8 ran on .NET 10.0.11, x64 RyuJIT x86-64-v3, an i9-14900K, 16 warmups, 12 target iterations, and a requested 250 ms iteration time. Each operation processes an observable dependent stream and returns playback/result receipts. MemoryDiagnoser reported no managed allocation.
+Freeze one affinity-controlled reference core and keep its SMT sibling free of deliberate experiment load. Record OS, CPU model/microcode/topology, affinity, runtime/SDK, code hashes, flags, and command. Do not run experiments concurrently just because they have different logical CPU numbers; cache, power and memory bandwidth remain shared.
 
-| Method | Tiered JIT median | No tiering median |
-| --- | ---: | ---: |
-| Interpreter full scalar | 15.340 ns | 28.283 ns |
-| Compiled full scalar | 4.489 ns | 6.322 ns |
-| Interpreter full batch 8 | 11.231 ns | 16.830 ns |
-| Compiled full batch 8 | 4.104 ns | 5.891 ns |
-| Interpreter sum scalar | 11.157 ns | 25.332 ns |
-| Compiled sum scalar | 2.473 ns | 2.480 ns |
+Use at least three fresh-process paired runs with alternating baseline/candidate order for a future maximum-matrix claim. Every claimed target case must have a median below 3 ns in all three runs. Report the BDN distribution and uncertainty; if uncertainty straddles the threshold, collect more evidence instead of declaring victory from the best sample.
 
-Tiered-JIT speedups are 3.42x for the full scalar consumer, 2.74x for full batch throughput, and 4.51x for the minimal sum consumer. The full consumer performs tick accumulation, count updates, state counters, and state-dependent floating-point work, so its higher floor is real application work.
+Warm state and preallocation may occur in setup. The public-call entry lookup, compatibility validation and playback transition remain inside each timed call. Consume the boolean result, updated playback and all intended output fields. Prevent overflow/saturation from making the consumer dead. Compare exact per-tick traces against an independent oracle before timing, and verify all run outputs afterward.
 
-The previous v0.5 exact-operation research remains a separate controlled result:
+AOT timing uses BenchmarkDotNet's NativeAOT toolchain: the managed benchmark host builds and measures a native benchmark executable. Pin the ILCompiler version alongside the SDK/runtime, verify the actual executable and preserve its build log. Publishing the entire BDN host as NativeAOT is not this toolchain. The existing Stopwatch harness may provide clearly labeled supporting measurements with timer/batching limitations; it cannot be silently equated to BDN or used alone to claim isolated sub-3 ns latency.
 
-| Specialized research workload | Result |
+Hosted CI is a correctness and artifact gate, not the authority for sub-3 ns regressions across unlike machines. Update the collector key to include job/runtime, architecture, parameters, fixture/contract version, and environment identity; the older alert contained duplicate names and near-zero ratios.
+
+## Optimization sequence
+
+| Experiment | Hypothesis | Acceptance evidence |
+| --- | --- | --- |
+| E0: exact baseline | Same-machine reruns isolate code from SDK/CPU variation | Frozen fixture receipts, complete raw results |
+| E1: typed hub bridge | One typed, AOT-rooted context dispatch can preserve references without user Bind | Compiling vertical slice, compacting-GC reference test, AOT execution, code size |
+| E2: remove ordinal/count | Compact programs no longer need a global active-count scan | Emitted source and assembly omit the scan; full semantic receipts survive |
+| E3: Frame versus flattened private ABI | Readable public Frame can inline while a private adapter avoids materialization where necessary | Call-boundary, spill, copy, and code-size comparison on JIT/AOT |
+| E4: scalar/direction/lifecycle folding | Known facts disappear before runtime work | No scalar span construction; separate forward/backward; native disassembly |
+| E5: region algorithms | Shape-dependent tree/switch/rank/table selection beats one policy | Same traces; sequential and random results; data/code costs |
+| E6: sequential cursor | Common case uses a next-boundary check instead of full lookup | All seeks/wraps fall back correctly; size and crossover measured |
+| E7: code/data interning | Sharing equal plans and constants preserves cache locality at many IDs | Equality after hashing, signed-zero/NaN/padding rules, retained/native bytes, stress timings |
+| E8: hook boundaries | Empty hook lists emit no hook calls; present hooks pay only declared work | Per-tick effect order, gap behavior, no-hook versus real-hook overhead |
+| E9: bounded batching | Hoist per-call invariants without changing the public scalar target | Prefix effects, aliasing, batch validation, native code budget |
+| E10: final low-level tuning | Specific copies/branches or register spills explain remaining cost | One-variable A/B, annotated assembly outside source, reproducible results |
+
+No blind AggressiveInlining/AggressiveOptimization sweep. No unsafe pointer shortcut across live managed byrefs. No SIMD or reassociation across ordered consumer effects or floating-point reductions. No caching of callback results merely because payloads repeat. All rejected experiments leave a short verdict with measurements, so the next session does not repeat them without new evidence.
+
+## Memory budget and mathematical limits
+
+Keep the exact existing source metric from benchmarks/source_budget.py: content bytes plus UTF-8 relative-path bytes and one separator byte per path, across tracked and non-ignored untracked files under src. The existing gate accepts totals up to 200,000 bytes; plan to stay below that cap. The current headroom is 21,701 bytes. Remove obsolete API, shims, duplicate table emitters and unused dependencies while adding the new model. Do not move production code out of src or minify it to evade the measure.
+
+Provisional allocation of that budget:
+
+| Area | Planning ceiling |
 | --- | ---: |
-| Ordered sum, sequential batch 8 | 1.195 ns/tick |
-| State and runtime input, sequential batch 8 | 1.843 ns/tick |
-| Ordered sum, random batch 8 | 7.071 ns/tick |
-| State and runtime input, random batch 8 | 9.335 ns/tick |
+| Runtime/public contracts/native ownership | 45,000 bytes |
+| Neutral model, validation and lowering | 35,000 bytes |
+| C# frontend and diagnostics | 50,000 bytes |
+| C# backend and generated adapter templates | 50,000 bytes |
+| Build integration/project/path overhead | 10,000 bytes |
+| Contingency | 9,999 bytes |
 
-Random seeks are dominated by region choice and branch misses. Earlier hardware counters measured about 7.60 cycles/tick for predictable batches and 40.09 cycles/tick for random batches, with roughly 0.0029 versus 1.339 branch misses per tick. No API rename can erase unpredictable information.
+These are planning ceilings, not current measured component sizes.
 
-## The 1–2 ns limit
+At maximum capacities, independently selected timeline IDs require 16 bits and a local kind among 256 requires 8 bits. A count spanning 0 through 256 needs 9 bits; that is why deleting per-frame count is preferable to pretending a byte count covers 256. Ordinal/count are not retained per-clip fields today, so their deletion is not automatically an eight-byte-per-clip saving.
 
-At a nominal 4–6 GHz, 1–2 ns is roughly 4–12 core cycles. A tick that must normalize a loop, determine a region, derive movement state, load a payload, mutate a result, and construct the next playback has very little budget. Independent instructions can overlap, but dependent loads, division, mispredictions, and ordered floating-point effects cannot.
+For L distinct stored values, fixed-width selection requires at least ceil(log2 L) bits. A caller context referencing N independently located values generally needs information equivalent to N locations unless an explicit shared layout removes it. At 65,536 timelines, total game code/data is a separate budget from the library's 200 KB source cap. Arbitrary unique payloads cannot all be deduplicated into L1.
 
-The lower bound depends on observable behavior:
+Measure actual packing and alignment; smaller integer fields can add unpacking instructions and padding can erase nominal savings. Measure hot-set sizes and cache behavior rather than claiming all timelines fit a cache from source size. Do not promise a universal computable smallest equivalent program for arbitrary callbacks.
 
-```cs
-result.Sum += clip.Amount;
-```
+## Migration and implementation order
 
-can approach the throughput target when the region is predictable and several ticks share one call. This operation:
-
-```cs
-result.Audit = Notify(result.Audit, index, state, tick, input.Scale);
-```
-
-must execute the call in order. The compiler cannot delete it, reorder it across earlier effects, or precompute a runtime input. A thrown exception must expose exactly the mutations that happened before it.
-
-There is also no computable universal smallest representation for arbitrary authored programs. Finding the smallest equivalent program is a form of Kolmogorov minimization and is undecidable in general. For restricted timeline data, the information floor is the entropy of the selected track identities, boundaries, payload bit patterns, ordering, and semantics. Equal payloads and equal row runs can be canonicalized; distinct observable bits cannot be removed without restricting the language.
-
-The practical target is therefore three explicit tiers:
-
-| Tier | Contract | Expected domain |
+| Phase | Deliverable | Required exit proof |
 | --- | --- | --- |
-| General runtime | Dynamic authored data, native CSR-like tables, indirect bound operation | 10–30 ns/tick |
-| General compiled | Named timeline, arbitrary typed `ITrack`, direct region blocks or compact per-track intervals | 3–8 ns predictable scalar; higher for random or heavy work |
-| Restricted fused | Known operation algebra, profile-selected batch/cursor backend | 1–2 ns/tick for simple predictable throughput |
+| P0 | Baseline manifest, frozen fixtures, source budget and decision log | Paired-measurement harness works on unmodified v0.6 |
+| P1 | Minimal two-kind declaration -> generated Input/Output -> public TryForward -> actual native binary | D01–D08 settled or explicitly scoped; correct borrowed references; measured ABI cost |
+| P2 | Post-alpha language-neutral immutable definition/plan and one semantic validator | Pure tests and deterministic serialized plan, no C# types/strings in neutral model |
+| P3 | Typed heterogeneous tracks, clipping, Frame, contexts, diagnostics | Complete consumer example compiles; negative examples diagnose at source |
+| P4 | Registry ownership, public Try lifecycle, scalar/batch parity | Failure-before-effects, capacities, aliases, GC and native lifetime tests |
+| P5 | Before/After hooks and Include wrappers | Hooks compose without editing base; declared order and context extension tested |
+| P6 | Automatic build discovery and caching | Clean package consumer requires only package references and ITimeline; rebuild/deletion/reference-change tests |
+| P7 | Measured backend selection and sub-3 ns work | All primary target results, distributions, disassembly and code/data receipts retained |
+| P8 | Remove superseded surfaces and migrate repo consumers/docs | No live usage of legacy APIs; warnings/errors/public API checks clean |
+| P9 | Pack, package-only JIT/AOT consumer, alpha release ceremony | Version/tag/commit/package identity agree and all gates pass |
 
-The current implementation completes the first two tiers and provides measured proof for the third tier's feasibility.
+P1 precedes a broad rewrite because a beautiful public signature is useless if the generated application types cannot reach the runtime hub safely and cheaply. P2 and P3 may then proceed together when their shared model contracts are frozen. Performance investigations should run one at a time; independent read-only reviews can be delegated when requested.
 
-## Algorithm and data-structure policy
+Affected areas:
 
-Runtime storage is cut-based sparse partitioning. Sorted unique boundaries define regions. Each region references a contiguous ordered work run. Each work stores track and clip identities plus movement and blend facts. This avoids `duration × tracks` dense storage and makes retained size proportional to authored structure.
+- src/Tl.Core/Hooks.cs, Declaration.cs, Timeline.cs, Playback.cs, Authoring, Internal/Playback.cs, Binding.cs, Registry.cs.
+- src/Tl.Gen/Model, Analysis/DeclarationReader.cs, validation/lowering, CSharp/KernelEmitter.cs, GeneratorCli.cs, build targets and packaging.
+- samples/Compiled and Basic; core/generator/native/package consumer tests; Dispatch/CompiledCompare and verification consumers.
+- README, API examples, semantics, roadmap, benchmark report/collector, and release workflows.
 
-Build-time compilation removes tables that become code constants. Small kernels use a balanced region tree because its storage cost is zero and random lookup depth is logarithmic. Kernels above 64 expanded work sites use a compact per-track interval program: adjacent intervals with identical work collapse into one segment, and scalar and batch methods share one helper per direction. Its source size is linear in the authored per-track segments rather than the sum of active works across all cut regions. A dense dispatch table remains useful only when duration is small and random traffic dominates; it costs proportional to duration and lost on predictable Pulse streams. A compiled sequential cursor should make the common case one comparison against the next cut.
+The public removal list includes generic Timeline<TTrack,TClip> as the normal hub, the four-parameter ITrack result-as-behavior contract, ordinal/count callback parameters, manual Bind, Compile/InMemory terminals, legacy compiled shims and redundant table-shell entry points. Preserve the independent oracle and useful benchmark fixtures while migrating them; deleting a test because it exposes a regression is not migration.
 
-Payload and work-run deduplication must use equality after hashing. Hash equality alone is incorrect. Dedup is profitable when repeated payload bytes or long repeated region rows outweigh one level of indirection. Generated code must deduplicate constants and basic blocks subject to a measured instruction-cache budget.
+## Release identity and completion
 
-Backend selection should minimize a declared cost rather than always choosing the fastest isolated microbenchmark:
+Use NuGet version 1.0.0-alpha.1 consistently in packages and package-consumer tests. Use tag v1.0.0-alpha.1 on the exact validated commit and mark the GitHub release as a prerelease. Do not relabel v0.6 or publish a stable 1.0.0.
 
-```text
-cost = hot_cycles
-     + random_seek_weight * branch_miss_cycles
-     + code_byte_weight * emitted_native_bytes
-     + data_byte_weight * retained_bytes
-```
+A release checklist must include release build, all tests, semantic/property batteries, reference-machine benchmark proof, source budget, real NativeAOT binaries, fresh package consumer, repeat-build cache receipt, API approval, license/package metadata review without inventing a license, and source/generated/native size tables.
 
-Weights belong to the target build profile. A mobile AOT build, a desktop JIT build, and a server simulation do not have the same optimum.
+Publishing the alpha requires release-ready implementation and evidence. The functional gates and sequential sub-3 ns gates passed; the release record reports random-seek and environment limits separately.
 
-## Experiment verdicts
+## Execution record
 
-| Technique | Verdict | Evidence |
-| --- | --- | --- |
-| Per-work static operation | Production | Removes views and enables consumer inlining; 4.51x sum speedup. |
-| True scalar generated entry | Production | Avoids scalar-to-span wrapper in compiled hot path. |
-| Separate direction kernels | Production | Prior controlled run improved five of six shapes; accepted code-size tradeoff. |
-| Balanced generated region branches | Production | No region table and logarithmic random selection. |
-| Input-linear compact fallback | Production | Small timelines stay fully inline; kernels above 64 expanded work sites merge identical adjacent track intervals and share one compact helper per direction across scalar and batch. |
-| Batch inlining | Conditional | Reached 1.195 ns sum and 1.843 ns state throughput; effect/random regressed 3.3%. |
-| Dense dispatch data | Conditional | Helped random seeks but cost 7,800 bytes and lost predictable cases. |
-| Maximal same-region unrolling | Rejected | Slower in every measured stream and expanded generated C# from 18,651 to 44,175 bytes. |
-| Generic direct-span reshaping | Rejected | Regressed sequential and repeated scalar calls. |
-| Prefix cut counts | Rejected | Added storage without a reliable playback gain. |
-| Persistent resolved-work views | Removed | View construction and repeated clip access dominated simple consumers. |
-| Blend scratch arrays | Removed | Streaming needs one local blend value and no scratch lifetime API. |
-| Storage deduplication | Opt-in | Real retained-byte gain; warm indirection and cold build cost depend on content. |
-| `switch` for regions | Profile-dependent | The JIT may emit compares, a jump table, or a tree. Density and predictability decide. Generated balanced branches are the stable default. |
+The implementation replaces the homogeneous interpreter with an automatically generated heterogeneous path, borrowed contexts, a compact runtime-ID registry, module/ordinal routing, direct scalar kernels, composition, and deterministic generation. The exact release evidence belongs in [the verification record](docs/verification/v1.0-alpha.1/README.md); this document retains the rationale, rejected shortcuts, physical limits, and work matrix. The completed alpha covers P1 and the runtime-facing portions of P3 through P9. The language-neutral P2, cross-assembly schemas, source-generator input ordering, cross-definition interning, Unity Burst backend, dynamic-ID performance family, and NativeAOT timing remain named post-alpha work.
 
-C# has no portable public equivalent of Burst's `Hint.Likely()` that guarantees branch layout. Dynamic PGO and tiered compilation collect real branch behavior under the JIT. `MethodImplOptions.AggressiveOptimization` changes optimization tiering, not branch probability. The generator can express hot fall-through layout when a build profile provides probabilities; it must measure the native result on both x64 and ARM64.
+## Primary references
 
-## Memory and code-size budget
-
-The exact current `src` receipt is:
-
-```text
-files=29
-content=177443
-paths=856
-total=178299
-budget=200000
-remaining=21701
-```
-
-The release `Tl.Core.dll` is 40,448 bytes and `Tl.Gen.dll` is 108,544 bytes. The `Tl.Runtime` archive is about 24 KB compressed and contains 50,930 uncompressed bytes. The build-only `Tl.Gen` archive is about 3.77 MB compressed and contains 10,442,506 uncompressed bytes because it carries Roslyn and Waffle beside the executable tool. None of the generator assemblies enter application output, where the clean package consumer contains only the 40,448-byte runtime library. The generated Pulse timeline is 38,829 C# bytes. Generated application code is outside the 200 KB library-source rule, but it is not free: every backend decision must separately report emitted C# bytes, native method bytes, and the working set across many timelines.
-
-The runtime timeline is one 16-byte-aligned native block containing its header, region starts and rows, unmanaged track values, deduplicated unmanaged clip values, materialized work slots, and inline native binding slots. Intermediate track rows, clip rows, edges, and payload maps die after lowering. Overflow binding storage is also native and explicitly freed. Runtime authoring uses temporary managed collections, but no managed authoring graph survives `.InMemory()`.
-
-`Playback`, `Cursor`, track payloads, clip payloads, generated constants, and retained runtime data contain no GC references. `TInput` and `TResult` remain caller-owned generic structs, so a normal .NET application may use managed fields without storing them in the timeline. ECS users can and should provide unmanaged input and result components. Enforcing Burst's full subset requires a Unity-specific build and verification package rather than pretending NativeAOT proves Burst compatibility.
-
-## API fault analysis
-
-The former view API was a performance fault for the target. It required view construction, iterator/indexer machinery, deferred clip resolution, scratch ownership, and a once-per-tick callback boundary even when the consumer wanted one addition. That abstraction has been removed.
-
-The current `ITrack` API carries every fact needed to recreate ordinary single-pass enumeration logic: work order, total count, authored index, typed track, resolved clip, movement state, tick, input, and result. The first and last ordinals provide deterministic begin/end points. Random access and multiple passes are intentionally absent because they require retaining or recomputing the resolved set.
-
-Public lifecycle validation remains because default and stopped `Playback` values are part of the current semantics. Those highly predictable branches are not the dominant remaining cost. A future zero-check API should use distinct `RunningPlayback` and `StoppedPlayback` value types so invalid states are unrepresentable; an `Unchecked` method on the same weak type would move bugs into memory-adjacent game code.
-
-## Definition of done for v0.6
-
-- [x] One consumer contract for interpreted and compiled execution.
-- [x] Named partial timeline declaration with no `Authoring.Author` or placeholder field.
-- [x] Direct per-work production kernel.
-- [x] Scalar and batch generated entry points.
-- [x] No managed arrays in a compiled timeline.
-- [x] Unmanaged retained runtime storage.
-- [x] Zero managed allocation during warmed valid playback.
-- [x] Bit-exact interpreter/generated parity across direction, jumps, loops, gaps, batches, and lifecycle errors.
-- [x] Full solution build with zero warnings and errors.
-- [x] 43 core and 60 generator tests passing.
-- [x] Runtime NativeAOT smoke application passing.
-- [x] Named compiled timeline parity battery passing under NativeAOT.
-- [x] BenchmarkDotNet comparison with full receipts and MemoryDiagnoser.
-- [x] Source plus paths below 200,000 bytes.
-- [x] Package versions and release notes advanced to 0.6.0.
-- [x] Both NuGet packages created and consumed from a clean package-only project.
-
-## Next compiler work
-
-1. Add a typed, closed operation algebra for common ECS mutations and generate the operation body into each region block. Keep arbitrary `ITrack` as fallback.
-2. Add a compiled sequential cursor whose common transition is `tick < nextCut`; fall back to the branch tree for jumps and wraps.
-3. Generate batch kernels in bounded widths selected by profile. Inline only when native code-size and workload measurements justify it.
-4. Add a many-timeline native code-size benchmark and select tree, dense, compact, or fused blocks under an explicit profile budget. The current threshold replaces region expansion with input-linear per-track segments, but it does not solve working-set selection across a full game.
-5. Add disassembly receipts for x64 JIT, x64 NativeAOT, ARM64 NativeAOT, and eventually Burst.
-6. Build a Unity package with unmanaged component examples and Burst compilation gates. Do not infer Burst support from .NET NativeAOT.
-7. Replace legacy `.Compile()` input after one migration release, recovering its generator and shim bytes.
-
-Every future speed claim must include the same semantic receipt, allocation result, generated bytes, native bytes, machine identity, stream distribution, and interpreter comparison. A result that removes required state, effects, validation, or output is a different product mode and receives a different name.
+- [.NET 10 release/download information](https://dotnet.microsoft.com/en-us/download/dotnet/10.0): current release verification and patch selection.
+- [.NET 10.0.12 release notes](https://github.com/dotnet/core/blob/main/release-notes/10.0/10.0.12/10.0.12.md): refresh before changing the benchmark toolchain.
+- [C# 14](https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14): language target.
+- [NativeAOT limitations](https://learn.microsoft.com/en-us/dotnet/core/deploying/native-aot/): no arbitrary dynamic managed assembly loading.
+- [BenchmarkDotNet toolchains](https://benchmarkdotnet.org/articles/configs/toolchains.html): use the NativeAOT toolchain to measure native benchmark executables from a managed host.
+- [C# ref struct rules](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/ref-struct): borrowed containers and allows-ref-struct constraints.
+- [Partial types](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/partial-classes-and-methods): partial declarations do not extend a type across assemblies.
+- [Unity component reference access](https://docs.unity.cn/Packages/com.unity.entities%401.0/manual/systems-systemapi-query.html): ValueRW aliases component storage; this is not a claim of current Tl Burst compatibility.

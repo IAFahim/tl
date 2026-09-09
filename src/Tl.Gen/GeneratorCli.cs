@@ -1,7 +1,6 @@
-using System.Globalization;
 using Tl.Gen.Analysis;
 using Tl.Gen.CSharp;
-using Tl.Gen.Model;
+using System.Security.Cryptography;
 
 namespace Tl.Gen;
 
@@ -9,243 +8,132 @@ public static class GeneratorCli
 {
     public static int Main(string[] args)
     {
-        if (args.Length > 0 && args[0] == "--compile")
-            return RunCompileMode(args);
-
-        string? inputFile = null;
-        string? outputDir = null;
-        string ns = "Tl.Generated";
-        string name = "GeneratedTimelineDef";
-
-        for (int i = 0; i < args.Length; i++)
+        if (args is not ["--compile", ..])
         {
-            if (args[i] == "--input" && i + 1 < args.Length)
-                inputFile = args[++i];
-            else if (args[i] == "--output" && i + 1 < args.Length)
-                outputDir = args[++i];
-            else if (args[i] == "--namespace" && i + 1 < args.Length)
-                ns = args[++i];
-            else if (args[i] == "--name" && i + 1 < args.Length)
-                name = args[++i];
-        }
-
-        if (string.IsNullOrEmpty(outputDir))
-        {
-            Console.Error.WriteLine("Error: --output directory is required.");
+            Console.Error.WriteLine("TLGEN00: --compile is required.");
             return 1;
         }
 
-        Directory.CreateDirectory(outputDir);
-
-        TimelineDefinition def;
-        if (!string.IsNullOrEmpty(inputFile) && File.Exists(inputFile))
-        {
-            def = ParseDefinitionFile(inputFile, name, ns);
-        }
-        else
-        {
-            // Default built-in smoke definition
-            def = new TimelineDefinition
-            {
-                Name = name,
-                Namespace = ns,
-                TrackTypeName = "AotTrack",
-                ClipTypeName = "AotClip",
-                BlendMethodBody = "result = new AotClip(first.Amount * (1f - t) + second.Amount * t);",
-                Tracks =
-                [
-                    new TrackDefinition { Index = 0, TrackExpression = "new AotTrack(1)" },
-                    new TrackDefinition { Index = 1, TrackExpression = "new AotTrack(2)" }
-                ],
-                Clips =
-                [
-                    new ClipDefinition { TrackIndex = 0, Start = 0, End = 10, PayloadExpression = "new AotClip(10f)" },
-                    new ClipDefinition { TrackIndex = 0, Start = 5, End = 15, PayloadExpression = "new AotClip(20f)" },
-                    new ClipDefinition { TrackIndex = 1, Start = 2, End = 8, PayloadExpression = "new AotClip(5f)" },
-                    new ClipDefinition { TrackIndex = 1, Start = 10, End = 18, PayloadExpression = "new AotClip(15f)" },
-                ]
-            };
-        }
-
-        var plan = RegionAnalyzer.Analyze(def);
-        var files = CSharpAdapter.Default.Emit(plan);
-
-        foreach (var file in files)
-        {
-            var targetPath = Path.Combine(outputDir, file.RelativePath);
-            File.WriteAllText(targetPath, file.Content);
-            Console.WriteLine($"Generated {targetPath}");
-        }
-
-        return 0;
-    }
-
-    private static TimelineDefinition ParseDefinitionFile(string path, string name, string ns)
-    {
-        var tracks = new Dictionary<ushort, TrackDefinition>();
-        var clips = new List<ClipDefinition>();
-        string trackType = "AotTrack";
-        string clipType = "AotClip";
-        string? blendBody = null;
-        bool loops = false;
-
-        foreach (var line in File.ReadAllLines(path))
-        {
-            var trimmed = line.Trim();
-            if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith('#'))
-                continue;
-
-            var parts = trimmed.Split(':');
-            var key = parts[0].Trim();
-            if (key == "track_type" && parts.Length > 1)
-            {
-                trackType = parts[1].Trim();
-            }
-            else if (key == "clip_type" && parts.Length > 1)
-            {
-                clipType = parts[1].Trim();
-            }
-            else if (key == "blend" && parts.Length > 1)
-            {
-                blendBody = string.Join(':', parts.Skip(1)).Trim();
-            }
-            else if (key == "loops" && parts.Length > 1)
-            {
-                loops = bool.Parse(parts[1].Trim());
-            }
-            else if (key == "track")
-            {
-                var idx = ushort.Parse(parts[1].Trim(), CultureInfo.InvariantCulture);
-                var expr = parts.Length > 2 ? parts[2].Trim() : $"new {trackType}({idx})";
-                tracks[idx] = new TrackDefinition
-                {
-                    Index = idx,
-                    TrackExpression = expr
-                };
-            }
-            else if (key == "clip")
-            {
-                var tIdx = ushort.Parse(parts[1].Trim(), CultureInfo.InvariantCulture);
-                var start = uint.Parse(parts[2].Trim(), CultureInfo.InvariantCulture);
-                var end = uint.Parse(parts[3].Trim(), CultureInfo.InvariantCulture);
-                var val = float.Parse(parts[4].Trim(), CultureInfo.InvariantCulture);
-                var expr = parts.Length > 5 ? parts[5].Trim() : $"new {clipType}({val.ToString(CultureInfo.InvariantCulture)}f)";
-                clips.Add(new ClipDefinition
-                {
-                    TrackIndex = tIdx,
-                    Start = start,
-                    End = end,
-                    PayloadExpression = expr,
-                    NumericValue = val
-                });
-            }
-        }
-
-        blendBody ??= $"result = new {clipType}(first.Amount * (1f - t) + second.Amount * t);";
-
-        return new TimelineDefinition
-        {
-            Name = name,
-            Namespace = ns,
-            TrackTypeName = trackType,
-            ClipTypeName = clipType,
-            BlendMethodBody = blendBody,
-            Loops = loops,
-            Tracks = tracks.OrderBy(kv => kv.Key).Select(kv => kv.Value).ToList(),
-            Clips = clips
-        };
-    }
-
-    private static int RunCompileMode(string[] args)
-    {
-        string? outputDir = null;
-        var sources = new List<string>();
+        string? output = null;
+        var paths = new List<string>();
+        var references = new List<string>();
+        var options = new Dictionary<string, string>(StringComparer.Ordinal);
         var symbols = new SortedSet<string>(StringComparer.Ordinal);
-
-        for (var i = 1; i < args.Length; i++)
+        for (var index = 1; index < args.Length; index++)
         {
-            if (args[i] == "--output" && i + 1 < args.Length)
-                outputDir = args[++i];
-            else if (args[i] == "--source" && i + 1 < args.Length)
-                sources.Add(args[++i]);
-            else if (args[i] == "--define" && i + 1 < args.Length)
-                foreach (var symbol in args[++i].Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                    symbols.Add(symbol);
+            if (args[index] == "--output" && index + 1 < args.Length)
+                output = args[++index];
+            else if (args[index] == "--source" && index + 1 < args.Length)
+                paths.Add(args[++index]);
+            else if (args[index] == "--source-list" && index + 1 < args.Length)
+                paths.AddRange(File.ReadAllLines(args[++index]));
+            else if (args[index] == "--reference-list" && index + 1 < args.Length)
+                references.AddRange(File.ReadAllLines(args[++index]));
+            else if (args[index] == "--option-list" && index + 1 < args.Length)
+                ReadOptions(args[++index], options);
+            else if (args[index] == "--define" && index + 1 < args.Length)
+                AddSymbols(args[++index], symbols);
+            else
+            {
+                Console.Error.WriteLine($"TLGEN00: invalid argument '{args[index]}'.");
+                return 1;
+            }
         }
 
-        if (string.IsNullOrEmpty(outputDir))
+        if (string.IsNullOrWhiteSpace(output))
         {
-            Console.Error.WriteLine("Error: --output directory is required.");
+            Console.Error.WriteLine("TLGEN00: --output is required.");
             return 1;
         }
 
-        Directory.CreateDirectory(outputDir);
-
-        var compileSources = sources
+        var sources = paths
             .Select(Path.GetFullPath)
             .Distinct(StringComparer.Ordinal)
             .OrderBy(static path => path, StringComparer.Ordinal)
             .Select(static path => new CompileSource(path, File.ReadAllText(path)))
-            .ToList();
-        var preprocessorSymbols = symbols.ToArray();
-        var cacheKey = CompileGenerationCache.GetKey(compileSources, preprocessorSymbols);
-        var previous = CompileGenerationCache.Load(outputDir);
-        if (CompileGenerationCache.IsHit(outputDir, cacheKey, previous))
+            .ToArray();
+        var defines = symbols.ToArray();
+        var semanticInputs = references
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .Select(static path => path + "=" + ReferenceIdentity(path))
+            .Concat(options.OrderBy(static pair => pair.Key, StringComparer.Ordinal).Select(static pair => pair.Key + "=" + pair.Value))
+            .ToArray();
+        var key = CompileGenerationCache.GetKey(sources, defines, semanticInputs);
+        var previous = CompileGenerationCache.Load(output);
+        if (CompileGenerationCache.IsHit(output, key, previous))
         {
-            Console.WriteLine($"TlGenCompile: cache hit -> {outputDir}");
+            Console.WriteLine($"TlGenCompile: cache hit -> {output}");
             return 0;
         }
 
-        var (declarations, diagnostics) = DeclarationReader.Read(
-            compileSources.Select(static source => (source.Path, source.Content)).ToList(),
-            preprocessorSymbols);
-
+        var settings = new HeterogeneousCompilationSettings
+        {
+            ReferencePaths = references,
+            LanguageVersion = options.GetValueOrDefault("language-version", "preview"),
+            Nullable = options.GetValueOrDefault("nullable", "enable"),
+            AllowUnsafe = Boolean(options.GetValueOrDefault("allow-unsafe")),
+            CheckOverflow = Boolean(options.GetValueOrDefault("check-overflow")),
+        };
+        var (timelines, diagnostics) = HeterogeneousReader.Read(
+            sources.Select(static source => (source.Path, source.Content)).ToArray(),
+            defines,
+            settings);
         foreach (var diagnostic in diagnostics)
-            Console.Error.WriteLine(diagnostic.ToString());
-
-        if (diagnostics.Count > 0)
+            Console.Error.WriteLine(diagnostic);
+        if (diagnostics.Count != 0)
             return 2;
 
-        if (declarations.Count == 0)
+        var ordered = timelines
+            .OrderBy(static timeline => timeline.Namespace, StringComparer.Ordinal)
+            .ThenBy(static timeline => timeline.Name, StringComparer.Ordinal)
+            .ToArray();
+        if (ordered.Length > ushort.MaxValue + 1)
         {
-            CompileGenerationCache.Synchronize(outputDir, cacheKey, [], previous);
-            Console.WriteLine("TlGenCompile: no compiled timeline declarations found.");
-            return 0;
+            Console.Error.WriteLine("TLGEN49: a compilation may contain at most 65536 timelines.");
+            return 2;
         }
-
-        var artifacts = new List<CompileArtifact>(declarations.Count + 1);
-        var emitted = 0;
-        foreach (var declaration in declarations)
-        {
-            var plan = RegionAnalyzer.Analyze(declaration.Definition);
-            var slots = WorkSlotMaterializer.ForRegions(plan);
-            var kernel = KernelEmitter.EmitKernel(
-                plan,
-                slots,
-                declaration.KernelName,
-                declaration.File,
-                declaration.Line,
-                declaration.Kind);
-            artifacts.Add(new CompileArtifact(
-                $"{declaration.KernelName}.g.cs",
-                CompileGenerationCache.NormalizeSource(kernel)));
-            Console.WriteLine(
-                $"TlGenCompile: {declaration.KernelName} <- {Path.GetFileName(declaration.File)}:{declaration.Line} " +
-                $"({declaration.TrackCount} tracks, {declaration.ClipCount} clips, duration {plan.Duration}, loops {plan.Definition.Loops}).");
-            emitted++;
-        }
-
-        var usesLegacyCompile = declarations.Any(static declaration =>
-            declaration.Kind == CompiledDeclarationKind.LegacyCompile);
-        if (usesLegacyCompile)
-        {
-            artifacts.Add(new CompileArtifact(
-                KernelEmitter.SharedFileName,
-                CompileGenerationCache.NormalizeSource(KernelEmitter.EmitSharedRuntime())));
-        }
-
-        CompileGenerationCache.Synchronize(outputDir, cacheKey, artifacts, previous);
-        Console.WriteLine($"TlGenCompile: {emitted} kernel(s) -> {outputDir}");
+        var artifacts = HeterogeneousEmitter.EmitCompilation(ordered)
+            .Select(static artifact => artifact with
+            {
+                Content = CompileGenerationCache.NormalizeSource(artifact.Content),
+            })
+            .ToArray();
+        CompileGenerationCache.Synchronize(output, key, artifacts, previous);
+        Console.WriteLine($"TlGenCompile: {ordered.Length} timeline(s), {artifacts.Length} source file(s) -> {output}");
         return 0;
+    }
+
+    private static void AddSymbols(string value, ISet<string> symbols)
+    {
+        foreach (var symbol in value.Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            symbols.Add(symbol);
+    }
+
+    private static void ReadOptions(string path, IDictionary<string, string> options)
+    {
+        foreach (var line in File.ReadAllLines(path))
+        {
+            var separator = line.IndexOf('=');
+            if (separator > 0)
+                options[line[..separator]] = line[(separator + 1)..];
+        }
+    }
+
+    private static bool Boolean(string? value)
+        => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+
+    private static string ReferenceIdentity(string path)
+    {
+        try
+        {
+            using var stream = File.OpenRead(path);
+            return Convert.ToHexString(SHA256.HashData(stream));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return exception.GetType().Name;
+        }
     }
 }

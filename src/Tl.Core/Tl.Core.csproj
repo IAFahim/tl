@@ -6,22 +6,18 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>0.6.0</Version>
+    <Version>1.0.0-alpha.1</Version>
     <PackageId>Tl.Runtime</PackageId>
     <Authors>IAFahim</Authors>
-    <Description>Timelines compiled into C#, with typed struct hooks and caller-owned playback state.</Description>
+    <Description>Heterogeneous timelines compiled into direct C# kernels with borrowed typed contexts.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v0.6.0: one static ITrack operation per resolved work, unmanaged timeline storage, zero-allocation playback, and interpreter/generated parity under JIT and NativeAOT. https://github.com/IAFahim/tl/releases/tag/v0.6.0</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.1: heterogeneous tracks, automatic compilation, generated borrowed contexts, runtime IDs without binding, and zero-allocation JIT/NativeAOT playback.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="Tl.Core.Tests" />
   </ItemGroup>
 
 </Project>

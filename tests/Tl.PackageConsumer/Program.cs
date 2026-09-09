@@ -1,41 +1,34 @@
 using Tl;
 
-var input = new PackageInput();
-var result = new PackageResult();
-var playback = PackageTimeline.Start();
-playback = PackageTimeline.Forward(in playback, in input, ref result, 1u);
-Console.WriteLine(result.Sum);
+var total = default(PackageTotal);
+var input = new PackageTimeline.Input();
+var output = new PackageTimeline.Output(ref total);
+if (!Timeline.TryStart(PackageTimeline.Id, out var playback)
+    || !Timeline.TryForward(PackageTimeline.Id, in playback, 1u, in input, ref output, out playback))
+    return 1;
+Console.WriteLine(total.Value);
+return 0;
 
+public readonly record struct PackageTotal(int Value);
 public readonly record struct PackageClip(int Value);
 
-public readonly struct PackageTrack : IBlend<PackageClip>
+public readonly struct PackageTrack : ITrack<PackageClip>
 {
-    public void Blend(in PackageClip first, in PackageClip second, float t, out PackageClip result)
-        => result = t < 0.5f ? first : second;
+    public void Blend(in PackageClip first, in PackageClip second, float factor, out PackageClip result)
+        => result = factor < 0.5f ? first : second;
+
+    public static void Forward(in Frame<PackageTrack, PackageClip> frame, ref PackageTotal total)
+        => total = new(total.Value + frame.Clip.Value);
+
+    public static void Backward(in Frame<PackageTrack, PackageClip> frame, ref PackageTotal total)
+        => total = new(total.Value - frame.Clip.Value);
 }
 
-public readonly struct PackageInput { }
-
-public struct PackageResult : ITrack<PackageTrack, PackageClip, PackageInput, PackageResult>
+public readonly partial struct PackageTimeline : ITimeline
 {
-    public int Sum;
-
-    public static void Forward(int ordinal, int count, ushort index,
-        in PackageTrack track, in PackageClip clip, ClipState state,
-        in uint tick, in PackageInput input, ref PackageResult result)
-        => result.Sum += clip.Value;
-
-    public static void Backward(int ordinal, int count, ushort index,
-        in PackageTrack track, in PackageClip clip, ClipState state,
-        in uint tick, in PackageInput input, ref PackageResult result)
-        => result.Sum -= clip.Value;
-}
-
-public readonly partial struct PackageTimeline : ITimeline<PackageTrack, PackageClip>
-{
-    public static void Define(scoped TimelineBuilder<PackageTrack, PackageClip> timeline)
+    public static void Define(scoped Builder builder)
     {
-        var track = timeline.Track(new PackageTrack());
-        timeline.Clip(in track, new PackageClip(7), 0u, 4u);
+        var track = builder.Track(new PackageTrack());
+        builder.Clip(in track, new PackageClip(7), 0u, 4u);
     }
 }

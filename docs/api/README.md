@@ -1,6 +1,6 @@
-# tl API mock
+# Archived API mock
 
-This is a complete, compilable API example for discussion. Generation and playback methods intentionally throw `NotImplementedException`. It contains no timeline engine, generated execution blocks, or performance measurements.
+This is a pre-v1 design artifact retained for historical context. It is not the current API and no longer has a project file. Generation and playback methods intentionally throw `NotImplementedException`. The current contract is [v1.0-alpha-api.md](../v1.0-alpha-api.md).
 
 The `src` scaffold is separate from this mock.
 
@@ -14,7 +14,6 @@ The `src` scaffold is separate from this mock.
 | [Usage.cs](Usage.cs) | Playback, preview, frames, and resumable traversal examples |
 | [Generation.cs](Generation.cs) | Shared model, plan, adapter contract, and C# authoring facade |
 | [Authoring.cs](Authoring.cs) | An example definition and generation request |
-| [Api.csproj](Api.csproj) | A .NET 10 project for checking all signatures together |
 
 ## Normal consumption
 

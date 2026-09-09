@@ -1,0 +1,66 @@
+using Tl.Gen;
+using Xunit;
+
+namespace Tl.Gen.Tests;
+
+public sealed class CacheTests : IDisposable
+{
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), "tl-cache-tests", Guid.NewGuid().ToString("N"));
+
+    [Fact]
+    public void EqualInputsPreserveGeneratedFiles()
+    {
+        var source = new CompileSource("/src/Timeline.cs", "source");
+        var key = CompileGenerationCache.GetKey([source], ["A"], ["reference=first"]);
+        CompileGenerationCache.Synchronize(_directory, key, [new CompileArtifact("Tl0.g.cs", "content\n")], null);
+        var path = Path.Combine(_directory, "Tl0.g.cs");
+        var timestamp = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(path, timestamp);
+
+        var manifest = CompileGenerationCache.Load(_directory);
+
+        Assert.True(CompileGenerationCache.IsHit(_directory, key, manifest));
+        CompileGenerationCache.Synchronize(_directory, key, [new CompileArtifact("Tl0.g.cs", "content\n")], manifest);
+        Assert.Equal(timestamp, File.GetLastWriteTimeUtc(path));
+    }
+
+    [Fact]
+    public void SourcesDefinesReferencesAndOptionsChangeTheKey()
+    {
+        var source = new CompileSource("/src/Timeline.cs", "source");
+        var key = CompileGenerationCache.GetKey([source], ["A"], ["reference=first", "nullable=enable"]);
+
+        Assert.NotEqual(key, CompileGenerationCache.GetKey([source with { Content = "changed" }], ["A"], ["reference=first", "nullable=enable"]));
+        Assert.NotEqual(key, CompileGenerationCache.GetKey([source], ["B"], ["reference=first", "nullable=enable"]));
+        Assert.NotEqual(key, CompileGenerationCache.GetKey([source], ["A"], ["reference=second", "nullable=enable"]));
+        Assert.NotEqual(key, CompileGenerationCache.GetKey([source], ["A"], ["reference=first", "nullable=disable"]));
+    }
+
+    [Fact]
+    public void SynchronizeRemovesOnlyUnchangedOwnedFiles()
+    {
+        var key = CompileGenerationCache.GetKey([], [], []);
+        CompileGenerationCache.Synchronize(
+            _directory,
+            key,
+            [new CompileArtifact("Tl0.g.cs", "first\n"), new CompileArtifact("Tl1.g.cs", "second\n")],
+            null);
+        var previous = CompileGenerationCache.Load(_directory);
+        File.WriteAllText(Path.Combine(_directory, "Tl1.g.cs"), "owned by user\n");
+
+        CompileGenerationCache.Synchronize(
+            _directory,
+            key + "changed",
+            [new CompileArtifact("Tl0.g.cs", "first\n")],
+            previous);
+
+        Assert.True(File.Exists(Path.Combine(_directory, "Tl1.g.cs")));
+        Assert.Equal(["Tl0.g.cs"], File.ReadAllLines(Path.Combine(_directory, CompileGenerationCache.SourceListFileName)));
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_directory))
+            Directory.Delete(_directory, true);
+    }
+}

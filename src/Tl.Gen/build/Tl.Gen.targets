@@ -7,31 +7,40 @@
     <TlGenAssembly Condition="'$(TlGenAssembly)' == ''">$(MSBuildThisFileDirectory)../bin/Release/net10.0/Tl.Gen.dll</TlGenAssembly>
   </PropertyGroup>
 
-  <Target Name="GenerateTlTimelines"
-          BeforeTargets="BeforeCompile;CoreCompile"
-          Condition="'@(TimelineDefinition)' != ''"
-          Inputs="@(TimelineDefinition);$(TlGenAssembly)"
-          Outputs="@(TimelineDefinition->'$(IntermediateOutputPath)Generated\%(Filename).g.cs')">
-    <PropertyGroup>
-      <_GenOutDir>$(IntermediateOutputPath)Generated\</_GenOutDir>
-    </PropertyGroup>
-    <MakeDir Directories="$(_GenOutDir)" />
-    <Exec Command="dotnet &quot;$(TlGenAssembly)&quot; --input &quot;%(TimelineDefinition.FullPath)&quot; --output &quot;$(_GenOutDir)&quot; --name &quot;%(TimelineDefinition.Filename)&quot; --namespace &quot;%(TimelineDefinition.Namespace)&quot;" />
-    <ItemGroup>
-      <Compile Include="$(_GenOutDir)*.g.cs" />
-      <FileWrites Include="$(_GenOutDir)*.g.cs" />
-    </ItemGroup>
-  </Target>
-
   <Target Name="TlGenCompileTimelines"
           BeforeTargets="BeforeCompile;CoreCompile"
-          Condition="'@(TlCompileTimeline)' != '' Or Exists('$(IntermediateOutputPath)TlGenCompile\TlGenCompile.manifest.json')">
+          DependsOnTargets="ResolveReferences;GenerateGlobalUsings"
+          Condition="'@(Compile)' != '' Or Exists('$(IntermediateOutputPath)TlGenCompile\TlGenCompile.manifest.json')">
     <PropertyGroup>
       <_TlGenCompileOut>$(IntermediateOutputPath)TlGenCompile\</_TlGenCompileOut>
       <_TlGenCompileSourceList>$(_TlGenCompileOut)TlGenCompile.sources</_TlGenCompileSourceList>
+      <_TlGenCompileInputList>$(_TlGenCompileOut)TlGenCompile.inputs</_TlGenCompileInputList>
+      <_TlGenCompileReferenceList>$(_TlGenCompileOut)TlGenCompile.references</_TlGenCompileReferenceList>
+      <_TlGenCompileOptionList>$(_TlGenCompileOut)TlGenCompile.options</_TlGenCompileOptionList>
     </PropertyGroup>
+    <ItemGroup>
+      <_TlGenCompileInputs Include="@(Compile)"
+                           Exclude="$(_TlGenCompileOut)**\*" />
+      <_TlGenCompileReferences Include="@(ReferencePathWithRefAssemblies)" />
+      <_TlGenCompileOptions Include="language-version=$(LangVersion)" />
+      <_TlGenCompileOptions Include="nullable=$(Nullable)" />
+      <_TlGenCompileOptions Include="allow-unsafe=$(AllowUnsafeBlocks)" />
+      <_TlGenCompileOptions Include="check-overflow=$(CheckForOverflowUnderflow)" />
+    </ItemGroup>
     <MakeDir Directories="$(_TlGenCompileOut)" />
-    <Exec Command="dotnet &quot;$(TlGenAssembly)&quot; --compile --output &quot;$(_TlGenCompileOut)&quot; --define &quot;$(DefineConstants)&quot; @(TlCompileTimeline->'--source &quot;%(FullPath)&quot;', ' ')" />
+    <WriteLinesToFile File="$(_TlGenCompileInputList)"
+                      Lines="@(_TlGenCompileInputs->'%(FullPath)')"
+                      Overwrite="true"
+                      WriteOnlyWhenDifferent="true" />
+    <WriteLinesToFile File="$(_TlGenCompileReferenceList)"
+                      Lines="@(_TlGenCompileReferences->'%(FullPath)')"
+                      Overwrite="true"
+                      WriteOnlyWhenDifferent="true" />
+    <WriteLinesToFile File="$(_TlGenCompileOptionList)"
+                      Lines="@(_TlGenCompileOptions)"
+                      Overwrite="true"
+                      WriteOnlyWhenDifferent="true" />
+    <Exec Command="dotnet &quot;$(TlGenAssembly)&quot; --compile --output &quot;$(_TlGenCompileOut)&quot; --define &quot;$(DefineConstants)&quot; --source-list &quot;$(_TlGenCompileInputList)&quot; --reference-list &quot;$(_TlGenCompileReferenceList)&quot; --option-list &quot;$(_TlGenCompileOptionList)&quot;" />
     <ReadLinesFromFile File="$(_TlGenCompileSourceList)">
       <Output TaskParameter="Lines" ItemName="_TlGenCompileSources" />
     </ReadLinesFromFile>
@@ -39,6 +48,9 @@
       <Compile Include="@(_TlGenCompileSources->'$(_TlGenCompileOut)%(Identity)')" />
       <FileWrites Include="@(_TlGenCompileSources->'$(_TlGenCompileOut)%(Identity)')" />
       <FileWrites Include="$(_TlGenCompileSourceList)" />
+      <FileWrites Include="$(_TlGenCompileInputList)" />
+      <FileWrites Include="$(_TlGenCompileReferenceList)" />
+      <FileWrites Include="$(_TlGenCompileOptionList)" />
       <FileWrites Include="$(_TlGenCompileOut)TlGenCompile.manifest.json" />
     </ItemGroup>
   </Target>
