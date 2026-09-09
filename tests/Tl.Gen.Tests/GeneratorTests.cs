@@ -24,6 +24,50 @@ public readonly struct NoInput;
 public class GeneratorTests
 {
     [Fact]
+    public void GeneratedKernelCompilesWithSourceAliases()
+    {
+        const string source = """
+            using Tl;
+            using Domain = Game.Data;
+
+            namespace Game.Data
+            {
+                public readonly record struct Clip(float Value);
+                public readonly struct Track : IBlend<Clip>
+                {
+                    public void Blend(in Clip first, in Clip second, float t, out Clip result) => result = first;
+                }
+            }
+
+            namespace Game.Playback
+            {
+                public readonly partial struct Pulse : ITimeline<Domain.Track, Domain.Clip>
+                {
+                    public static void Define(scoped TimelineBuilder<Domain.Track, Domain.Clip> timeline)
+                    {
+                        var track = timeline.Track(new Domain.Track());
+                        timeline.Clip(in track, new Domain.Clip(3f), 0u, 4u);
+                    }
+                }
+            }
+            """;
+
+        var (declarations, diagnostics) = DeclarationReader.Read([("Pulse.cs", source)]);
+        Assert.Empty(diagnostics);
+        var declaration = Assert.Single(declarations);
+        var plan = RegionAnalyzer.Analyze(declaration.Definition);
+        var generated = KernelEmitter.EmitKernel(
+            plan,
+            WorkSlotMaterializer.ForRegions(plan),
+            declaration.KernelName,
+            declaration.File,
+            declaration.Line,
+            declaration.Kind);
+
+        Assert.NotNull(CompileCode(source, generated));
+    }
+
+    [Fact]
     public void Validator_RejectsInvalidClipBounds()
     {
         var def = new TimelineDefinition
@@ -82,9 +126,129 @@ public class GeneratorTests
         var plan = RegionAnalyzer.Analyze(def);
 
         Assert.Equal(2, plan.MaxActiveTracks);
-        Assert.Equal(1, plan.MaxActiveBlends);
         Assert.Equal(15u, plan.Duration);
         Assert.Equal([0u, 2u, 5u, 8u, 10u, 15u], plan.RegionStarts);
+    }
+
+    [Fact]
+    public void LargeKernelSharesEachDirectionalRegionProgram()
+    {
+        var def = new TimelineDefinition
+        {
+            Name = "LargeTimeline",
+            Namespace = "Tl.Gen.Tests.Generated",
+            TrackTypeName = "global::Tl.Gen.Tests.GeneratorTests.SampleTrack",
+            ClipTypeName = "global::Tl.Gen.Tests.GeneratorTests.SampleClip",
+            Tracks = Enumerable.Range(0, 80)
+                .Select(index => new TrackDefinition
+                {
+                    Index = (ushort)index,
+                    TrackExpression = $"new global::Tl.Gen.Tests.GeneratorTests.SampleTrack({index})"
+                })
+                .ToList(),
+            Clips = Enumerable.Range(0, 80)
+                .Select(index => new ClipDefinition
+                {
+                    TrackIndex = (ushort)index,
+                    Start = (uint)index,
+                    End = 160u - (uint)index,
+                    PayloadExpression = $"new global::Tl.Gen.Tests.GeneratorTests.SampleClip({index}f)"
+                })
+                .ToList()
+        };
+
+        var plan = RegionAnalyzer.Analyze(def);
+        var slots = WorkSlotMaterializer.ForRegions(plan);
+        var kernel = KernelEmitter.EmitKernel(plan, slots, "LargeTimeline", "Large.cs", 1);
+
+        Assert.Contains("private static void ApplyForward", kernel);
+        Assert.Contains("private static void ApplyBackward", kernel);
+        Assert.Equal(80, kernel.Split("TResult.Forward(", StringSplitOptions.None).Length - 1);
+        Assert.Equal(80, kernel.Split("TResult.Backward(", StringSplitOptions.None).Length - 1);
+        Assert.Empty(CSharpSyntaxTree.ParseText(kernel).GetDiagnostics());
+
+        var assembly = CompileCode(kernel + """
+            public struct LargeResult : global::Tl.ITrack<
+                global::Tl.Gen.Tests.GeneratorTests.SampleTrack,
+                global::Tl.Gen.Tests.GeneratorTests.SampleClip,
+                global::Tl.Gen.Tests.NoInput,
+                LargeResult>
+            {
+                public float Sum;
+                public int Count;
+
+                public static void Forward(int ordinal, int count, ushort index,
+                    in global::Tl.Gen.Tests.GeneratorTests.SampleTrack track,
+                    in global::Tl.Gen.Tests.GeneratorTests.SampleClip clip,
+                    global::Tl.ClipState state,
+                    in uint tick,
+                    in global::Tl.Gen.Tests.NoInput input,
+                    ref LargeResult result)
+                {
+                    result.Sum += clip.Value;
+                    result.Count++;
+                }
+
+                public static void Backward(int ordinal, int count, ushort index,
+                    in global::Tl.Gen.Tests.GeneratorTests.SampleTrack track,
+                    in global::Tl.Gen.Tests.GeneratorTests.SampleClip clip,
+                    global::Tl.ClipState state,
+                    in uint tick,
+                    in global::Tl.Gen.Tests.NoInput input,
+                    ref LargeResult result)
+                {
+                    result.Sum -= clip.Value;
+                    result.Count++;
+                }
+            }
+
+            public static class LargeRunner
+            {
+                public static int Run()
+                {
+                    var ticks = new uint[160];
+                    var backwardTicks = new uint[160];
+                    for (var index = 0; index < ticks.Length; index++)
+                    {
+                        ticks[index] = (uint)index;
+                        backwardTicks[index] = (uint)(ticks.Length - index - 1);
+                    }
+                    var input = default(global::Tl.Gen.Tests.NoInput);
+                    var forwardBatch = new LargeResult();
+                    var forwardBatchPlayback = LargeTimeline.Start();
+                    forwardBatchPlayback = LargeTimeline.Forward(
+                        in forwardBatchPlayback, in input, ref forwardBatch, ticks);
+                    var forwardScalar = new LargeResult();
+                    var forwardScalarPlayback = LargeTimeline.Start();
+                    foreach (var tick in ticks)
+                        forwardScalarPlayback = LargeTimeline.Forward(
+                            in forwardScalarPlayback, in input, ref forwardScalar, tick);
+                    var backwardBatch = new LargeResult();
+                    var backwardBatchPlayback = LargeTimeline.Start(159u);
+                    backwardBatchPlayback = LargeTimeline.Backward(
+                        in backwardBatchPlayback, in input, ref backwardBatch, backwardTicks);
+                    var backwardScalar = new LargeResult();
+                    var backwardScalarPlayback = LargeTimeline.Start(159u);
+                    foreach (var tick in backwardTicks)
+                        backwardScalarPlayback = LargeTimeline.Backward(
+                            in backwardScalarPlayback, in input, ref backwardScalar, tick);
+                    if (forwardBatch.Sum != 170640f
+                        || forwardBatch.Sum != forwardScalar.Sum
+                        || forwardBatch.Count != 6480
+                        || forwardBatch.Count != forwardScalar.Count
+                        || backwardBatch.Sum != -170640f
+                        || backwardBatch.Sum != backwardScalar.Sum
+                        || backwardBatch.Count != 6480
+                        || backwardBatch.Count != backwardScalar.Count
+                        || forwardBatchPlayback != forwardScalarPlayback
+                        || backwardBatchPlayback != backwardScalarPlayback)
+                        throw new global::System.InvalidOperationException();
+                    return forwardBatch.Count + backwardBatch.Count;
+                }
+            }
+            """);
+        var runner = assembly.GetType("Tl.Gen.Tests.Generated.LargeRunner")!;
+        Assert.Equal(12960, runner.GetMethod("Run")!.Invoke(null, null));
     }
 
     public readonly record struct SampleClip(float Value);
@@ -98,8 +262,7 @@ public class GeneratorTests
     }
 
     public struct ComplexResult :
-        IForward<SampleTrack, SampleClip, NoInput, ComplexResult>,
-        IBackward<SampleTrack, SampleClip, NoInput, ComplexResult>
+        ITrack<SampleTrack, SampleClip, NoInput, ComplexResult>
     {
         public float Sum;
         public int EnterCount;
@@ -112,49 +275,47 @@ public class GeneratorTests
             Log = [];
         }
 
-        public void Forward(in Tracks<SampleTrack, SampleClip> tracks, in NoInput input, in uint tick, ref ComplexResult result)
+        public static void Forward(int ordinal, int count, ushort index,
+            in SampleTrack track, in SampleClip clip, ClipState state,
+            in uint tick, in NoInput input, ref ComplexResult result)
         {
-            foreach (var work in tracks)
+            switch (state)
             {
-                switch (work.State)
-                {
-                    case ClipState.Enter:
-                        result.EnterCount++;
-                        result.Log.Add($"Fwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                        break;
-                    case ClipState.Stay:
-                        result.StayCount++;
-                        result.Sum += work.Clip.Value;
-                        result.Log.Add($"Fwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                        break;
-                    case ClipState.Exit:
-                        result.ExitCount++;
-                        result.Log.Add($"Fwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                        break;
-                }
+                case ClipState.Enter:
+                    result.EnterCount++;
+                    result.Log.Add($"Fwd:Enter:t{tick}:tr{index}:val{clip.Value}");
+                    break;
+                case ClipState.Stay:
+                    result.StayCount++;
+                    result.Sum += clip.Value;
+                    result.Log.Add($"Fwd:Stay:t{tick}:tr{index}:val{clip.Value}");
+                    break;
+                case ClipState.Exit:
+                    result.ExitCount++;
+                    result.Log.Add($"Fwd:Exit:t{tick}:tr{index}:val{clip.Value}");
+                    break;
             }
         }
 
-        public void Backward(in Tracks<SampleTrack, SampleClip> tracks, in NoInput input, in uint tick, ref ComplexResult result)
+        public static void Backward(int ordinal, int count, ushort index,
+            in SampleTrack track, in SampleClip clip, ClipState state,
+            in uint tick, in NoInput input, ref ComplexResult result)
         {
-            foreach (var work in tracks)
+            switch (state)
             {
-                switch (work.State)
-                {
-                    case ClipState.Enter:
-                        result.EnterCount++;
-                        result.Log.Add($"Bwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                        break;
-                    case ClipState.Stay:
-                        result.StayCount++;
-                        result.Sum -= work.Clip.Value;
-                        result.Log.Add($"Bwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                        break;
-                    case ClipState.Exit:
-                        result.ExitCount++;
-                        result.Log.Add($"Bwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                        break;
-                }
+                case ClipState.Enter:
+                    result.EnterCount++;
+                    result.Log.Add($"Bwd:Enter:t{tick}:tr{index}:val{clip.Value}");
+                    break;
+                case ClipState.Stay:
+                    result.StayCount++;
+                    result.Sum -= clip.Value;
+                    result.Log.Add($"Bwd:Stay:t{tick}:tr{index}:val{clip.Value}");
+                    break;
+                case ClipState.Exit:
+                    result.ExitCount++;
+                    result.Log.Add($"Bwd:Exit:t{tick}:tr{index}:val{clip.Value}");
+                    break;
             }
         }
     }
@@ -330,8 +491,7 @@ public class GeneratorTests
             public readonly struct GenInput;
 
             public struct GenConsumer :
-                IForward<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip, GenInput, GenConsumer>,
-                IBackward<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip, GenInput, GenConsumer>
+                ITrack<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip, GenInput, GenConsumer>
             {
                 public float Sum;
                 public int EnterCount;
@@ -341,49 +501,47 @@ public class GeneratorTests
 
                 public GenConsumer() { Log = []; }
 
-                public void Forward(in Tracks<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip> tracks, in GenInput input, in uint tick, ref GenConsumer result)
+                public static void Forward(int ordinal, int count, ushort index,
+                    in CompiledTestTimeline track, in global::Tl.Gen.Tests.GeneratorTests.SampleClip clip, ClipState state,
+                    in uint tick, in GenInput input, ref GenConsumer result)
                 {
-                    foreach (var work in tracks)
+                    switch (state)
                     {
-                        switch (work.State)
-                        {
-                            case ClipState.Enter:
-                                result.EnterCount++;
-                                result.Log.Add($"Fwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                                break;
-                            case ClipState.Stay:
-                                result.StayCount++;
-                                result.Sum += work.Clip.Value;
-                                result.Log.Add($"Fwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                                break;
-                            case ClipState.Exit:
-                                result.ExitCount++;
-                                result.Log.Add($"Fwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                                break;
-                        }
+                        case ClipState.Enter:
+                            result.EnterCount++;
+                            result.Log.Add($"Fwd:Enter:t{tick}:tr{index}:val{clip.Value}");
+                            break;
+                        case ClipState.Stay:
+                            result.StayCount++;
+                            result.Sum += clip.Value;
+                            result.Log.Add($"Fwd:Stay:t{tick}:tr{index}:val{clip.Value}");
+                            break;
+                        case ClipState.Exit:
+                            result.ExitCount++;
+                            result.Log.Add($"Fwd:Exit:t{tick}:tr{index}:val{clip.Value}");
+                            break;
                     }
                 }
 
-                public void Backward(in Tracks<CompiledTestTimeline, global::Tl.Gen.Tests.GeneratorTests.SampleClip> tracks, in GenInput input, in uint tick, ref GenConsumer result)
+                public static void Backward(int ordinal, int count, ushort index,
+                    in CompiledTestTimeline track, in global::Tl.Gen.Tests.GeneratorTests.SampleClip clip, ClipState state,
+                    in uint tick, in GenInput input, ref GenConsumer result)
                 {
-                    foreach (var work in tracks)
+                    switch (state)
                     {
-                        switch (work.State)
-                        {
-                            case ClipState.Enter:
-                                result.EnterCount++;
-                                result.Log.Add($"Bwd:Enter:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                                break;
-                            case ClipState.Stay:
-                                result.StayCount++;
-                                result.Sum -= work.Clip.Value;
-                                result.Log.Add($"Bwd:Stay:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                                break;
-                            case ClipState.Exit:
-                                result.ExitCount++;
-                                result.Log.Add($"Bwd:Exit:t{tick}:tr{work.Index}:val{work.Clip.Value}");
-                                break;
-                        }
+                        case ClipState.Enter:
+                            result.EnterCount++;
+                            result.Log.Add($"Bwd:Enter:t{tick}:tr{index}:val{clip.Value}");
+                            break;
+                        case ClipState.Stay:
+                            result.StayCount++;
+                            result.Sum -= clip.Value;
+                            result.Log.Add($"Bwd:Stay:t{tick}:tr{index}:val{clip.Value}");
+                            break;
+                        case ClipState.Exit:
+                            result.ExitCount++;
+                            result.Log.Add($"Bwd:Exit:t{tick}:tr{index}:val{clip.Value}");
+                            break;
                     }
                 }
             }
@@ -411,9 +569,9 @@ public class GeneratorTests
         Timeline.Destroy(runtimeId);
     }
 
-    private static Assembly CompileCode(string source)
+    private static Assembly CompileCode(params string[] sources)
     {
-        var syntaxTree = CSharpSyntaxTree.ParseText(source);
+        var syntaxTrees = sources.Select(static source => CSharpSyntaxTree.ParseText(source)).ToArray();
         var references = new List<MetadataReference>
         {
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
@@ -426,7 +584,7 @@ public class GeneratorTests
 
         var compilation = CSharpCompilation.Create(
             $"DynamicGen_{Guid.NewGuid():N}",
-            [syntaxTree],
+            syntaxTrees,
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
@@ -435,7 +593,7 @@ public class GeneratorTests
         if (!result.Success)
         {
             var errors = string.Join("\n", result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString()));
-            throw new InvalidOperationException($"Compilation failed:\n{errors}\nSource:\n{source}");
+            throw new InvalidOperationException($"Compilation failed:\n{errors}\nSource:\n{string.Join("\n", sources)}");
         }
 
         ms.Seek(0, SeekOrigin.Begin);

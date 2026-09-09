@@ -17,7 +17,6 @@ namespace Tl.Internal;
 internal unsafe struct NativeBindSlot
 {
     public int Token;
-    private nint _padding;
 
     // Hub dispatch (Timeline.Forward/Backward/... <TInput, TResult>).
     public nint Forward;
@@ -27,9 +26,6 @@ internal unsafe struct NativeBindSlot
     public nint SampleForward;
     public nint SampleBackward;
 
-    // Caller-owned scratch dispatch (Timeline<TTrack, TClip>.Forward/Backward).
-    public nint ScratchForward;
-    public nint ScratchBackward;
 }
 
 // The token source: (TInput, TResult) pair identity as a small integer.
@@ -70,6 +66,9 @@ internal static unsafe class NativeBinding
             if (slots[i].Token == token)
                 return slots[i];
 
+        if (TryGetOverflow(entry, token, out var overflow))
+            return overflow;
+
         return GetCold<TInput, TResult>(entry, token);
     }
 
@@ -82,21 +81,21 @@ internal static unsafe class NativeBinding
         where TResult : struct
     {
         entry->Binder(typeof(TInput), typeof(TResult), entry->Index);
-        var found = Find(entry, token);
-        if (found == null)
-            throw new InvalidOperationException(
-                $"The input/result pair ({typeof(TInput)}, {typeof(TResult)}) does not implement this timeline's closure.");
-        return *found;
-    }
-
-    private static NativeBindSlot* Find(NativeEntry* entry, int token)
-    {
         var slots = entry->InlineBinds;
         var count = Volatile.Read(ref entry->InlineBindCount);
         for (var i = 0; i < count; i++)
             if (slots[i].Token == token)
-                return &slots[i];
+                return slots[i];
 
+        if (TryGetOverflow(entry, token, out var overflow))
+            return overflow;
+
+        throw new InvalidOperationException(
+            $"The input/result pair ({typeof(TInput)}, {typeof(TResult)}) does not implement this timeline's closure.");
+    }
+
+    private static bool TryGetOverflow(NativeEntry* entry, int token, out NativeBindSlot slot)
+    {
         Acquire(ref entry->BindGate);
         try
         {
@@ -104,8 +103,13 @@ internal static unsafe class NativeBinding
             var overflowCount = entry->BindOverflowCount;
             for (var i = 0; i < overflowCount; i++)
                 if (overflow[i].Token == token)
-                    return &overflow[i];
-            return null;
+                {
+                    slot = overflow[i];
+                    return true;
+                }
+
+            slot = default;
+            return false;
         }
         finally
         {
@@ -147,11 +151,15 @@ internal static unsafe class NativeBinding
             {
                 var capacity = entry->BindOverflowCapacity == 0 ? 8 : entry->BindOverflowCapacity * 2;
                 var grown = (NativeBindSlot*)NativeMemory.AllocZeroed((nuint)(capacity * sizeof(NativeBindSlot)));
+                if (grown == null)
+                    throw new OutOfMemoryException();
                 if (overflow != null)
                     Buffer.MemoryCopy(overflow, grown,
                         (nuint)(capacity * sizeof(NativeBindSlot)), (nuint)(count * sizeof(NativeBindSlot)));
                 entry->BindOverflow = grown;
                 entry->BindOverflowCapacity = capacity;
+                if (overflow != null)
+                    NativeMemory.Free(overflow);
                 overflow = grown;
             }
 

@@ -1,6 +1,4 @@
 using Tl;
-using Tl.Compiled;
-
 namespace Pulse;
 
 public readonly record struct PulseClip(float Amount);
@@ -13,17 +11,9 @@ public readonly struct PulseTrack(int offset) : IBlend<PulseClip>
         => result = new PulseClip(first.Amount + (second.Amount - first.Amount) * t);
 }
 
-public static class Authoring
+public readonly partial struct PulseTimeline : ITimeline<PulseTrack, PulseClip>
 {
-    // The ONE authored timeline instance, played by both paths:
-    //   - the in-memory interpreter leg registers it through
-    //     Timeline<PulseTrack, PulseClip>.Build(Author) at runtime;
-    //   - the Tl.Gen compile reader interprets this same method at build
-    //     time and emits the CompiledPulse kernel.
-    // Vitals-shaped (benchmarks/Hooks.cs): 4 tracks, 19 clips, 3 blend
-    // pairs, a gap at [11,18), duration 600, looping — so the parity battery
-    // exercises blends, gaps, wraps, LastLoopFrame and cycle accounting.
-    public static void Author(scoped TimelineBuilder<PulseTrack, PulseClip> b)
+    public static void Define(scoped TimelineBuilder<PulseTrack, PulseClip> b)
     {
         var core = b.Track(new PulseTrack(1));
         var burst = b.Track(new PulseTrack(2));
@@ -55,13 +45,4 @@ public static class Authoring
 
         b.Looping();
     }
-}
-
-public static class Decls
-{
-    // The declaration the compile reader specializes into CompiledPulse
-    // (the variable name names the kernel). Compiled consumers call the
-    // kernel class directly, so this holder is deliberately never touched —
-    // the declaration site never executes and nothing registers at runtime.
-    public static readonly CompiledTimelineInfo Pulse = Timeline<PulseTrack, PulseClip>.Build(Authoring.Author).Compile();
 }

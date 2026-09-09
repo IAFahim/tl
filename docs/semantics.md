@@ -1,37 +1,32 @@
-# Playback semantics for v0.1
+# Playback semantics
 
-This is the extraction contract derived from the redesigned prototype at
-`ccd344a`. It is not the older Iutq event-traversal API. The
-[v0.1 handoff](v0.1.md) lists implementation defects to fix before freezing it.
-Behavior is unchanged by the v0.2 input/result split; only the consumer data
-parameter shape changed — see the [v0.2 delta](v0.2.md).
+This is the behavior shared by runtime-authored and compiled timelines.
 
 ## Time and work
 
 Ticks are `uint`. A clip occupies `[start, end)` with `end > start`. Runtime
-duration is the final end cut, or zero for empty content. The current `ushort`
-duration metadata bug must be fixed; it is not a 65,535-tick product limit.
-Clip, track and registry counts have their own checked capacities.
+duration is the final end cut, or zero for empty content. Clip, track and
+registry counts have their own checked capacities.
 
 For looping timelines with nonzero duration, effective tick is raw tick modulo
 duration. Hooks receive effective ticks; `Playback.Tick` retains the supplied
 raw destination. Duration zero must never cause division by zero.
 
-Each supplied destination tick updates playback. A non-empty destination causes
-one directional hook call. That hook sees work in authored track order. Empty
-destinations cause no hook call. A large jump does not replay all crossed clips:
+Each supplied destination tick updates playback. A non-empty destination invokes
+one directional `ITrack` operation per active track in authored order. Empty
+destinations invoke no operation. A large jump does not replay all crossed clips:
 only work active at the destination is exposed. Multi-tick input is processed in
 supplied order, not sorted or implicitly expanded.
 
 A track has at most two simultaneous clips. One active clip is passed directly;
-two are resolved by the authored track's `IBlend<TClip>.Blend` during enumeration.
+two are resolved by the authored track's `IBlend<TClip>.Blend` once before the operation.
 The overlap factor uses the intersection window, with factor 0.5 for a one-tick
 overlap. Preserve the existing orientation and arithmetic order. More than two
 simultaneous clips must fail authoring validation.
 
 ## Per-work state
 
-`TrackWork.State` is `Enter`, `Stay` or `Exit`:
+The operation's `ClipState` is `Enter`, `Stay` or `Exit`:
 
 - **Exit:** destination is the last active frame in the requested direction:
   forward `end - 1`, backward `start`. This is positional and takes precedence.
@@ -76,18 +71,16 @@ it is not a serialized, ownership-checked handle. Global runtime IDs use one
 `ushort` space, reserve `Timeline.None`, and are not reused after Destroy. They
 are process-local identifiers, not durable asset identifiers.
 
-Each playback owner keeps its own consumer, optional Cursor and scratch buffer.
+Each playback owner keeps its own result and optional `Cursor`.
 The cursor is only a navigation hint: wrong owner or starting tick must fall back
-to searching. Separate or reentrant calls require separate scratch. Automatic
-scratch is sized by simultaneous blends and capped at 4,096 bytes; larger work
-uses a caller buffer validated before hooks.
+to searching.
 
-`Tracks` and work values are scoped views, not persistent frame snapshots. Ref
-views must not escape their call. Building/binding may allocate; warmed library
-playback must not allocate. User hooks and blend implementations are responsible
+Track and clip values are passed by readonly reference. No work view or resolved
+blend buffer exists. Building and binding may allocate; warmed library playback
+must not allocate. Consumer operations and blend implementations are responsible
 for their own allocations and side effects.
 
-Callback exceptions are not a transaction rollback. Preserve mutations already
-made through caller references; do not promise that a failed multi-tick call undoes
-earlier work. Document cursor and returned-playback behavior for exceptions during
-extraction, and test it consistently across public paths.
+Callback exceptions preserve mutations already made through caller references.
+A failed call returns no `Playback`; the caller's previous value remains unchanged.
+Cursor publication happens after a successful walk, so a failed cursor call leaves
+the caller's cursor unchanged. Runtime and generated batch paths follow this rule.

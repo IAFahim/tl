@@ -9,6 +9,7 @@ public sealed class TimelineDefinition
     public bool Loops { get; init; }
     public List<TrackDefinition> Tracks { get; init; } = [];
     public List<ClipDefinition> Clips { get; init; } = [];
+    public IReadOnlyList<string> SourceUsings { get; init; } = [];
     public string? BlendMethodBody { get; init; }
 }
 

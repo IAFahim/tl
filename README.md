@@ -1,223 +1,158 @@
 # tl
 
-Timelines compiled into C#, with typed struct hooks and caller-owned playback state.
+`tl` compiles authored tracks and clips into direct C# playback kernels. It also provides an unmanaged runtime interpreter for timelines created from data at run time. Both paths use the same typed consumer contract and preserve the same playback semantics.
 
-Designers author tracks and clips. A build-time adapter uses Waffle to emit C#;
-applications consume the resulting timeline through `IBlend`, `IForward` and
-`IBackward`. Runtime authoring is also part of the design. Blob export is not
-required.
-
-**Status: v0.5.** The runtime and build-time generator target .NET 10 and are
-verified under JIT and NativeAOT. Runtime-authored timelines lower into
-explicitly owned native memory. Generated `.Compile()` outputs are
-deterministic, repairable and stricter about which declarations they accept.
-See the [v0.5 release notes](docs/v0.5.md).
+**Status: v0.6.** The runtime and generator target .NET 10 and are verified under JIT and NativeAOT. The library source footprint is 178,299 of 200,000 bytes including relative paths.
 
 ## Packages
 
-| Package | Version | Description |
+| Package | Version | Purpose |
 | --- | --- | --- |
-| `Tl.Runtime` | `0.5.0` | Core timeline runtime, authoring API, native timeline storage, and zero-allocation playback engine. |
-| `Tl.Gen` | `0.5.0` | Build-time MSBuild generator emitting compiled C# timeline tables and specialized kernels. |
+| `Tl.Runtime` | `0.6.0` | Authoring, unmanaged runtime storage, playback, and typed operations. |
+| `Tl.Gen` | `0.6.0` | Build-time C# timeline compiler and deterministic output cache. |
 
-## Consumer API
+## Compiled timeline
 
-A track blends its clip type. A consumer handles forward and backward work.
-`Tracks` provides each active track, its resolved clip and its `Enter`, `Stay`
-or `Exit` state. The consumer decides what those states do. Consumer data is
-split in two: an immutable `in TInput` (read-only context, e.g. a seed) and a
-mutable `ref TResult` (the live state, which also implements the hooks).
-
-This complete example runs against `Tl.Core` (`Tl` namespace).
+Declare one named partial value type. `Define` is the complete authoring program.
 
 ```cs
 using Tl;
 
-ushort id = Timeline<HealthTrack, HealthClip>.Build(static builder =>
-{
-    var track = builder.Track(new HealthTrack());
-    builder.Clip(in track, new HealthClip(2f), start: 0, end: 4);
-}).InMemory();
-
-Timeline<HealthTrack, HealthClip>.Bind<HealthInput, HealthResult>(id);
-
-var input = new HealthInput(Seed: 100f);
-var health = new HealthResult { Value = input.Seed };
-var playback = Timeline.Start(id);
-playback = Timeline.Forward(id, in playback, in input, ref health, 0u, 1u, 2u, 3u);
-
-Console.WriteLine(health.Value);
-
-playback = Timeline.Stop(id, in playback);
-Timeline.Destroy(id);
+namespace Game;
 
 public readonly record struct HealthClip(float Amount);
 
 public readonly struct HealthTrack : IBlend<HealthClip>
 {
-    public void Blend(in HealthClip first, in HealthClip second,
-        float t, out HealthClip result)
-    {
-        result = new HealthClip(first.Amount + (second.Amount - first.Amount) * t);
-    }
+    public void Blend(in HealthClip first, in HealthClip second, float t, out HealthClip result)
+        => result = new(first.Amount + (second.Amount - first.Amount) * t);
 }
 
+public readonly partial struct HealthTimeline : ITimeline<HealthTrack, HealthClip>
+{
+    public static void Define(scoped TimelineBuilder<HealthTrack, HealthClip> timeline)
+    {
+        var health = timeline.Track(new HealthTrack());
+        timeline.Clip(in health, new HealthClip(2f), 0u, 4u);
+    }
+}
+```
+
+Include the declaration in the generator input:
+
+```xml
+<ItemGroup>
+  <PackageReference Include="Tl.Runtime" Version="0.6.0" />
+  <PackageReference Include="Tl.Gen" Version="0.6.0" PrivateAssets="all" />
+  <TlCompileTimeline Include="HealthTimeline.cs" />
+</ItemGroup>
+```
+
+The build emits the other half of `HealthTimeline`. Application code calls the named type directly:
+
+```cs
+var input = new HealthInput(100f);
+var result = new HealthResult { Value = input.Seed };
+var playback = HealthTimeline.Start();
+playback = HealthTimeline.Forward(in playback, in input, ref result, 0u, 1u, 2u, 3u);
+playback = HealthTimeline.Stop(in playback);
+```
+
+An unchanged source set is a generation-cache hit. Identical output keeps its timestamp. Deleted declarations remove only generator-owned unchanged files. A project containing only named partial timelines receives no legacy compatibility source.
+
+## Consumer contract
+
+`ITrack` receives one resolved active track at a time. It replaces the former `Tracks<TTrack,TClip>` view and the separate compiled callback API.
+
+```cs
 public readonly record struct HealthInput(float Seed);
 
-public struct HealthResult :
-    IForward<HealthTrack, HealthClip, HealthInput, HealthResult>,
-    IBackward<HealthTrack, HealthClip, HealthInput, HealthResult>
+public struct HealthResult : ITrack<HealthTrack, HealthClip, HealthInput, HealthResult>
 {
     public float Value;
 
-    public void Forward(in Tracks<HealthTrack, HealthClip> tracks,
-        in HealthInput input, in uint tick, ref HealthResult result)
-    {
-        foreach (var work in tracks)
-            if (work.State == ClipState.Stay)
-                result.Value += work.Clip.Amount;
-    }
+    public static void Forward(
+        int ordinal,
+        int count,
+        ushort index,
+        in HealthTrack track,
+        in HealthClip clip,
+        ClipState state,
+        in uint tick,
+        in HealthInput input,
+        ref HealthResult result)
+        => result.Value += state == ClipState.Stay ? clip.Amount : 0f;
 
-    public void Backward(in Tracks<HealthTrack, HealthClip> tracks,
-        in HealthInput input, in uint tick, ref HealthResult result)
-    {
-        foreach (var work in tracks)
-            if (work.State == ClipState.Stay)
-                result.Value -= work.Clip.Amount;
-    }
+    public static void Backward(
+        int ordinal,
+        int count,
+        ushort index,
+        in HealthTrack track,
+        in HealthClip clip,
+        ClipState state,
+        in uint tick,
+        in HealthInput input,
+        ref HealthResult result)
+        => result.Value -= state == ClipState.Stay ? clip.Amount : 0f;
 }
 ```
 
-`Bind<HealthInput, HealthResult>` explicitly registers the closed input/result
-pair before playback; this is the intended AOT path. The engine treats the
-input as read-only and never writes through it; all mutation flows through the
-`ref` result. The example chooses to apply only `Stay` work. Backward behavior
-is application code, not automatic undo. `Build(...)` is authoring syntax;
-`.InMemory()` creates and registers the runtime timeline. `Timeline.Destroy(id)`
-releases its native allocation. See the [semantics](docs/semantics.md) and
-[v0.5 release notes](docs/v0.5.md) before writing consumers.
+`ordinal` is the work position in the destination tick, `count` is the number of active works, and `index` is the authored track index. `track` and `clip` are typed values. `state` is `Enter`, `Stay`, or `Exit`. Input is read-only; result is caller-owned mutable state. `ordinal == 0` and `ordinal == count - 1` replace begin/end logic from the former per-tick callback. `IForward` and `IBackward` remain available for direction-specific generic constraints; `ITrack` combines them.
 
-## What v0.5 provides
+The compiler specializes direction, loop behavior, region selection, work count, track and clip identity, blend shape, movement state, and payload access. The generated scalar entry point stays scalar. Batch methods retain playback locals across the span. Static abstract calls allow the JIT and NativeAOT compiler to inline the closed consumer operation into the generated kernel.
 
-- Three consumer hooks, typed struct calls and `ref` mutation of the caller's
-  result, now alongside an immutable `in TInput`.
-- `uint` ticks, `[start, end)` clip windows and an 8-byte `Playback`.
-- One hook call per non-empty destination tick; one resolved work per active track.
-- Runtime region tables in one native allocation, a caller-owned cursor and
-  bounded blend scratch.
-- Generated C# tables and direction-specialized playback while preserving the
-  existing public generated method signatures.
-- Deterministic generation caching that repairs missing or changed owned
-  outputs, removes only unchanged obsolete owned outputs, and leaves unowned
-  files alone.
-- Stricter `.Compile()` declaration discovery, name resolution, collision
-  checks and diagnostics for unsupported forms.
-- A 24-byte runtime work slot, down from 28 bytes by removing field padding.
-- Zero library allocations during valid warmed playback. User hooks may
-  allocate independently.
+## Runtime-authored timeline
 
-Build, binding, generation and registry growth may allocate. Large blends use
-caller-provided scratch. Storage deduplication remains opt-in. Generated-table
-infrastructure is separate from the three consumer hooks.
+Use the interpreter when the timeline data is unavailable at build time:
 
-Each `.InMemory()` call owns one native block. Handles are never reused, and
-`Timeline.Destroy(id)` must run exactly once after playback has stopped. Build,
-registration, explicit binding and destruction must be single-threaded or
-externally synchronized with playback. Playback reads an immutable snapshot
-and can run concurrently from any number of threads. Destroying a timeline
-while playback is in flight for that handle is invalid and can cause a
-use-after-free.
+```cs
+ushort id = Timeline<HealthTrack, HealthClip>.Build(HealthTimeline.Define).InMemory();
+Timeline<HealthTrack, HealthClip>.Bind<HealthInput, HealthResult>(id);
 
-The first library target is .NET 10. The test suite and smoke harness publish
-and execute native binaries under NativeAOT. Unity, Burst and WebAssembly are
-separate future qualifications; v0.5 makes no compatibility claim for them.
-
-## NativeAOT and Code Generation
-
-`tl` is designed for strict NativeAOT compilation and zero-allocation execution:
-
-1. **AOT Consumer Binding**: Dynamic code generation is avoided under NativeAOT by explicitly registering consumer types:
-   ```cs
-   Timeline<HealthTrack, HealthClip>.Bind<HealthInput, HealthResult>(id);
-   ```
-   If a consumer pair is not bound under NativeAOT, a clear exception is thrown explaining the need for `Bind<TInput,TResult>()`. Under JIT runtimes, dynamic dispatch bridges bind automatically on first use.
-2. **Build-Time Generation (`Tl.Gen`)**: The `Tl.Gen` MSBuild package compiles declarative `.def` files directly into C# source at build time:
-   ```xml
-   <ItemGroup>
-     <TimelineDefinition Include="Cutscene.def">
-       <Namespace>Game.Animations</Namespace>
-     </TimelineDefinition>
-   </ItemGroup>
-   ```
-   It supports two emission strategies:
-   - `Table`: Emits static read-only struct tables implementing `ITrackTables<TTrack, TClip>` for standard runtime dispatch.
-   - `Bake`: Emits unrolled specialized playback kernels with inline blending, branch pruning, and strict preservation of floating-point arithmetic order.
-
-The package also supports C# authoring discovered from
-`Timeline<TTrack,TClip>.Build(...).Compile()`. That path emits a generated
-static kernel during the consumer build. v0.5 keeps its public surface intact
-while making output reuse deterministic and specializing forward and backward
-direction internally. Unsupported or ambiguous declaration forms fail closed
-with diagnostics.
-
-## Production evidence
-
-The v0.5 release gates passed 46 core tests, 52 generator tests, the compiled
-interpreter/generated parity sample, a published NativeAOT execution, local
-package consumption from a clean package cache, and repeat installed-package
-generation with a cache hit. The library source footprint is
-186,154/200,000 bytes including paths.
-
-On the recorded Pulse kernel comparison, direction specialization improved
-five of six measured shapes and regressed repeated single-tick throughput by
-about 1.8%. The accepted storage result is exact: field reordering reduces each
-runtime work slot from 28 to 24 bytes, or 14.3%. Timing results are machine and
-workload measurements, not universal performance promises. See the
-[v0.5 release notes](docs/v0.5.md) and [benchmark history](docs/benchmarks.md).
-
-## Experimental research
-
-A separate consumer-fusion prototype recognizes one exact Pulse payload,
-blend law and ordered sum/subtract operation. Its tree/carry batch measured
-about 1.3 ns/tick for sequential and repeated inputs and about 7.5 ns/tick for
-random inputs; the scalar entry point measured about 2.6 ns/tick. All reported
-zero managed allocation after setup.
-
-That prototype is research, not the production `.Compile()` backend. It does
-not analyze arbitrary consumer C#, change the public API, establish a universal
-2 ns result, or establish Unity or Burst compatibility. Production generated
-playback still uses the general view/callback path and retained arrays.
-
-## Verify the release
-
-From the repository root, using the .NET 10 SDK:
-
-```sh
-dotnet run --project benchmarks/Dispatch -c Release -- --verify
-dotnet run --project benchmarks/Dispatch -c Release -- --verify-edges
-dotnet run --project benchmarks/Algorithms -c Release -- --verify
-dotnet run --project benchmarks/Review -c Release -- --verify
-dotnet run --project benchmarks/AotBench -c Release -- --check
+var playback = Timeline.Start(id);
+playback = Timeline.Forward(id, in playback, in input, ref result, 0u);
+playback = Timeline.Stop(id, in playback);
+Timeline.Destroy(id);
 ```
 
-These run correctness receipts. The last command runs the AOT harness under the
-JIT; native validation requires publishing and executing a NativeAOT binary.
-Initial builds may restore packages and generate fixtures. Waffle is a
-build-time dependency of the generator projects.
+`.InMemory()` lowers the authored graph into one explicitly owned native block. It contains region data, work slots, unmanaged track and clip payloads, and native binding slots. Playback is read-only over that immutable snapshot and allocates zero managed bytes after binding. `Destroy` must run exactly once and must not race playback. Handles are process-local and never reused.
 
-CI runs full solution build, test suites (`dotnet test`), published NativeAOT binary smoke testing,
-all five baseline verification commands, and package packing.
+`TTrack` and `TClip` are constrained to `unmanaged`. `Playback`, `Cursor`, and generated timeline state contain no managed references. `TInput` and `TResult` are caller-owned and may also be unmanaged ECS components; the runtime never retains either value. Unity Burst remains a separate toolchain qualification because it does not implement the complete .NET 10 runtime surface.
 
-## Start here
+## Measured result
 
-- [v0.5 release notes](docs/v0.5.md): current changes, evidence and limits.
-- [v0.4 unmanaged runtime](docs/v0.4-unmanaged.md): native ownership and threading contract.
-- [v0.4 compiled path](docs/v0.4-compile.md): `.Compile()` grammar, behavior and receipts.
-- [v0.1 handoff](docs/v0.1.md): ordered tasks, source map, fixes and acceptance gates.
-- [Semantics](docs/semantics.md): the behavior to preserve during extraction.
-- [Adapters](docs/adapters.md): build-time boundaries and C# output.
-- [Roadmap](docs/roadmap.md): current scope and deferred work.
+BenchmarkDotNet v0.15.8, .NET 10.0.11, x64 RyuJIT x86-64-v3, i9-14900K, 16 warmups, 12 measured iterations, 250 ms per iteration:
 
-`docs/api/` is an earlier API discussion mock. Historical benchmark implementations
-are evidence, not competing library specifications. Use the handoff when they
-conflict with the current direction.
+| Operation | Runtime interpreter | Compiled kernel | Speedup |
+| --- | ---: | ---: | ---: |
+| Full consumer, scalar | 15.340 ns | 4.489 ns | 3.42x |
+| Full consumer, batch 8 | 11.231 ns | 4.104 ns | 2.74x |
+| Sum consumer, scalar | 11.157 ns | 2.473 ns | 4.51x |
+
+Every arm reported zero managed allocation. Each invocation starts from fresh state, consumes a fixed tick sequence, returns the complete playback and consumer receipt, and checks interpreter/compiled parity during setup. The earlier exact-consumer research kernel remains useful evidence: predictable batches reached 1.195–1.344 ns/tick. The production kernel preserves arbitrary typed `ITrack` behavior and currently lands at about 2.5 ns for a minimal consumer and 4.5 ns for the full receipt consumer. See the [design report](https://github.com/IAFahim/tl/blob/v0.6.0/plan.md) for the physical floor, rejected approaches, and the next specialization tiers.
+
+## Semantics
+
+- Ticks are `uint`; clip windows are half-open `[start, end)`.
+- A track may have at most two simultaneous clips. A pair is blended once per work.
+- Work is delivered in authored track order.
+- Empty destinations invoke no consumer operation.
+- A large jump samples the destination and movement facts; it does not replay every crossed clip.
+- `Playback` is 8 bytes and caller-owned.
+- Compiled and interpreted paths are bit-exact for the same authored timeline and consumer.
+- Callback effects before an exception remain observable.
+
+The detailed contract is in the [semantics reference](https://github.com/IAFahim/tl/blob/v0.6.0/docs/semantics.md). The release changes and evidence are in the [v0.6 notes](https://github.com/IAFahim/tl/blob/v0.6.0/docs/v0.6.md).
+
+## Verification
+
+```sh
+dotnet build tl.slnx -c Release --no-restore -m:1
+dotnet test tl.slnx -c Release --no-build --no-restore -m:1
+dotnet run --project samples/Compiled -c Release --no-build
+dotnet run --project benchmarks/Dispatch -c Release --no-build -- --verify
+dotnet run --project benchmarks/Algorithms -c Release --no-build -- --verify
+dotnet publish samples/Compiled/Compiled.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
+```
+
+Historical release notes and benchmark artifacts remain under `docs/` and `benchmarks/`. They describe the API and hypotheses at the commit where each result was measured.

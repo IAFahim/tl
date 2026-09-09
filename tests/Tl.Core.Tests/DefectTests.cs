@@ -13,14 +13,15 @@ public class DefectTests
     }
 
     public struct TestResult :
-        IForward<TestTrack, TestClip, NoInput, TestResult>,
-        IBackward<TestTrack, TestClip, NoInput, TestResult>
+        ITrack<TestTrack, TestClip, NoInput, TestResult>
     {
         public float Sum;
         public int Count;
         public bool TriggerGc;
 
-        public void Forward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref TestResult result)
+        public static void Forward(int ordinal, int count, ushort index,
+            in TestTrack track, in TestClip clip, ClipState state,
+            in uint tick, in NoInput input, ref TestResult result)
         {
             if (result.TriggerGc)
             {
@@ -29,12 +30,14 @@ public class DefectTests
                 GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
             }
 
-            foreach (var work in tracks)
-                result.Sum += work.Clip.Value;
-            result.Count++;
+            result.Sum += clip.Value;
+            if (ordinal + 1 == count)
+                result.Count++;
         }
 
-        public void Backward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref TestResult result)
+        public static void Backward(int ordinal, int count, ushort index,
+            in TestTrack track, in TestClip clip, ClipState state,
+            in uint tick, in NoInput input, ref TestResult result)
         {
             if (result.TriggerGc)
             {
@@ -43,9 +46,9 @@ public class DefectTests
                 GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
             }
 
-            foreach (var work in tracks)
-                result.Sum -= work.Clip.Value;
-            result.Count++;
+            result.Sum -= clip.Value;
+            if (ordinal + 1 == count)
+                result.Count++;
         }
     }
 
@@ -122,27 +125,26 @@ public class DefectTests
     }
 
     public struct ManagedFieldsResult :
-        IForward<TestTrack, TestClip, NoInput, ManagedFieldsResult>,
-        IBackward<TestTrack, TestClip, NoInput, ManagedFieldsResult>
+        ITrack<TestTrack, TestClip, NoInput, ManagedFieldsResult>
     {
         public string Name;
         public List<float> Values;
 
-        public void Forward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref ManagedFieldsResult result)
+        public static void Forward(int ordinal, int count, ushort index,
+            in TestTrack track, in TestClip clip, ClipState state,
+            in uint tick, in NoInput input, ref ManagedFieldsResult result)
         {
             for (int i = 0; i < 50; i++)
                 _ = new byte[1024];
             GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
 
-            foreach (var work in tracks)
-                result.Values.Add(work.Clip.Value);
+            result.Values.Add(clip.Value);
         }
 
-        public void Backward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref ManagedFieldsResult result)
-        {
-            foreach (var work in tracks)
-                result.Values.Remove(work.Clip.Value);
-        }
+        public static void Backward(int ordinal, int count, ushort index,
+            in TestTrack track, in TestClip clip, ClipState state,
+            in uint tick, in NoInput input, ref ManagedFieldsResult result)
+            => result.Values.Remove(clip.Value);
     }
 
     [Fact]
@@ -236,108 +238,6 @@ public class DefectTests
 
         Assert.Equal(5u, pb.Tick);
         Assert.NotEqual(nint.Zero, container.Cursor.Owner);
-
-        Timeline.Destroy(id);
-    }
-
-    #endregion
-
-    #region Defect C: Validate the typed scratch closure
-
-    public readonly record struct OtherClip(double BigValue);
-    public readonly struct OtherTrack : IBlend<OtherClip>
-    {
-        public void Blend(in OtherClip first, in OtherClip second, float t, out OtherClip result)
-            => result = new OtherClip(first.BigValue * (1 - t) + second.BigValue * t);
-    }
-
-    public struct DualConsumer :
-        IForward<TestTrack, TestClip, NoInput, DualConsumer>,
-        IBackward<TestTrack, TestClip, NoInput, DualConsumer>,
-        IForward<OtherTrack, OtherClip, NoInput, DualConsumer>,
-        IBackward<OtherTrack, OtherClip, NoInput, DualConsumer>
-    {
-        public void Forward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref DualConsumer result) { }
-        public void Backward(in Tracks<TestTrack, TestClip> tracks, in NoInput input, in uint tick, ref DualConsumer result) { }
-        public void Forward(in Tracks<OtherTrack, OtherClip> tracks, in NoInput input, in uint tick, ref DualConsumer result) { }
-        public void Backward(in Tracks<OtherTrack, OtherClip> tracks, in NoInput input, in uint tick, ref DualConsumer result) { }
-    }
-
-    [Fact]
-    public void DefectC_ScratchOverloadRejectsDifferentTrackClipClosure()
-    {
-        var idOther = Timeline<OtherTrack, OtherClip>.Build(b =>
-        {
-            var t = b.Track(new OtherTrack());
-            b.Clip(in t, new OtherClip(100.0), 0, 10);
-            b.Clip(in t, new OtherClip(200.0), 5, 15);
-        }).InMemory();
-
-        var dual = new DualConsumer();
-        var input = default(NoInput);
-        var pb = Timeline.Start(idOther);
-        Span<TestClip> scratchTest = stackalloc TestClip[4];
-
-        ArgumentException? exForward = null;
-        try
-        {
-            Timeline<TestTrack, TestClip>.Forward(idOther, in pb, in input, ref dual, scratchTest, 5u);
-        }
-        catch (ArgumentException ex)
-        {
-            exForward = ex;
-        }
-
-        Assert.NotNull(exForward);
-        Assert.Equal("index", exForward.ParamName);
-
-        ArgumentException? exBackward = null;
-        try
-        {
-            Timeline<TestTrack, TestClip>.Backward(idOther, in pb, in input, ref dual, scratchTest, 5u);
-        }
-        catch (ArgumentException ex)
-        {
-            exBackward = ex;
-        }
-
-        Assert.NotNull(exBackward);
-        Assert.Equal("index", exBackward.ParamName);
-
-        Timeline.Destroy(idOther);
-    }
-
-    [Fact]
-    public void DefectC_RejectsUndersizedScratchBuffer()
-    {
-        var id = Timeline<TestTrack, TestClip>.Build(b =>
-        {
-            var t1 = b.Track(new TestTrack());
-            b.Clip(in t1, new TestClip(1f), 0, 10);
-            b.Clip(in t1, new TestClip(2f), 5, 15);
-
-            var t2 = b.Track(new TestTrack());
-            b.Clip(in t2, new TestClip(3f), 0, 10);
-            b.Clip(in t2, new TestClip(4f), 5, 15);
-        }).InMemory();
-
-        var result = new TestResult();
-        var input = default(NoInput);
-        var pb = Timeline.Start(id);
-
-        Span<TestClip> tooSmall = stackalloc TestClip[1];
-        ArgumentException? ex = null;
-        try
-        {
-            Timeline<TestTrack, TestClip>.Forward(id, in pb, in input, ref result, tooSmall, 7u);
-        }
-        catch (ArgumentException e)
-        {
-            ex = e;
-        }
-
-        Assert.NotNull(ex);
-        Assert.Equal("scratch", ex.ParamName);
 
         Timeline.Destroy(id);
     }

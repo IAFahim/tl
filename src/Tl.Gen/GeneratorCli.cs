@@ -156,16 +156,11 @@ public static class GeneratorCli
         };
     }
 
-    // ---- .Compile() declaration scanning ----
-    // Reads the compiling project's sources, interprets every
-    // Timeline<TTrack,TClip>.Build(author).Compile() declaration, and emits
-    // the shared compiled runtime plus one specialized kernel per
-    // declaration. Non-eligible sites surface as TLGENxx errors naming the
-    // constraint and pointing at the in-memory interpreter path.
     private static int RunCompileMode(string[] args)
     {
         string? outputDir = null;
         var sources = new List<string>();
+        var symbols = new SortedSet<string>(StringComparer.Ordinal);
 
         for (var i = 1; i < args.Length; i++)
         {
@@ -173,6 +168,9 @@ public static class GeneratorCli
                 outputDir = args[++i];
             else if (args[i] == "--source" && i + 1 < args.Length)
                 sources.Add(args[++i]);
+            else if (args[i] == "--define" && i + 1 < args.Length)
+                foreach (var symbol in args[++i].Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    symbols.Add(symbol);
         }
 
         if (string.IsNullOrEmpty(outputDir))
@@ -189,7 +187,8 @@ public static class GeneratorCli
             .OrderBy(static path => path, StringComparer.Ordinal)
             .Select(static path => new CompileSource(path, File.ReadAllText(path)))
             .ToList();
-        var cacheKey = CompileGenerationCache.GetKey(compileSources);
+        var preprocessorSymbols = symbols.ToArray();
+        var cacheKey = CompileGenerationCache.GetKey(compileSources, preprocessorSymbols);
         var previous = CompileGenerationCache.Load(outputDir);
         if (CompileGenerationCache.IsHit(outputDir, cacheKey, previous))
         {
@@ -198,7 +197,8 @@ public static class GeneratorCli
         }
 
         var (declarations, diagnostics) = DeclarationReader.Read(
-            compileSources.Select(static source => (source.Path, source.Content)).ToList());
+            compileSources.Select(static source => (source.Path, source.Content)).ToList(),
+            preprocessorSymbols);
 
         foreach (var diagnostic in diagnostics)
             Console.Error.WriteLine(diagnostic.ToString());
@@ -209,7 +209,7 @@ public static class GeneratorCli
         if (declarations.Count == 0)
         {
             CompileGenerationCache.Synchronize(outputDir, cacheKey, [], previous);
-            Console.WriteLine("TlGenCompile: no .Compile() declarations found.");
+            Console.WriteLine("TlGenCompile: no compiled timeline declarations found.");
             return 0;
         }
 
@@ -219,7 +219,13 @@ public static class GeneratorCli
         {
             var plan = RegionAnalyzer.Analyze(declaration.Definition);
             var slots = WorkSlotMaterializer.ForRegions(plan);
-            var kernel = KernelEmitter.EmitKernel(plan, slots, declaration.KernelName, declaration.KernelName, 0);
+            var kernel = KernelEmitter.EmitKernel(
+                plan,
+                slots,
+                declaration.KernelName,
+                declaration.File,
+                declaration.Line,
+                declaration.Kind);
             artifacts.Add(new CompileArtifact(
                 $"{declaration.KernelName}.g.cs",
                 CompileGenerationCache.NormalizeSource(kernel)));
@@ -229,11 +235,17 @@ public static class GeneratorCli
             emitted++;
         }
 
-        artifacts.Add(new CompileArtifact(
-            KernelEmitter.SharedFileName,
-            CompileGenerationCache.NormalizeSource(KernelEmitter.EmitSharedRuntime())));
+        var usesLegacyCompile = declarations.Any(static declaration =>
+            declaration.Kind == CompiledDeclarationKind.LegacyCompile);
+        if (usesLegacyCompile)
+        {
+            artifacts.Add(new CompileArtifact(
+                KernelEmitter.SharedFileName,
+                CompileGenerationCache.NormalizeSource(KernelEmitter.EmitSharedRuntime())));
+        }
+
         CompileGenerationCache.Synchronize(outputDir, cacheKey, artifacts, previous);
-        Console.WriteLine($"TlGenCompile: {emitted} kernel(s) + shared runtime -> {outputDir}");
+        Console.WriteLine($"TlGenCompile: {emitted} kernel(s) -> {outputDir}");
         return 0;
     }
 }

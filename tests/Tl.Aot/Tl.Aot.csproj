@@ -13,7 +13,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
-    <ProjectReference Include="..\..\src\Tl.Gen\Tl.Gen.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\src\Tl.Gen\Tl.Gen.csproj"
+                      ReferenceOutputAssembly="false"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
   </ItemGroup>
 
   <ItemGroup>

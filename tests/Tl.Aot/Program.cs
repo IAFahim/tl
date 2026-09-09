@@ -17,6 +17,18 @@ ushort id = Timeline<AotTrack, AotClip>.Build(static b =>
 }).InMemory();
 
 Timeline<AotTrack, AotClip>.Bind<AotInput, AotConsumer>(id);
+Timeline<AotTrack, AotClip>.Bind<AotInput, OverflowConsumer<BindingTag0>>(id);
+Timeline<AotTrack, AotClip>.Bind<AotInput, OverflowConsumer<BindingTag1>>(id);
+Timeline<AotTrack, AotClip>.Bind<AotInput, OverflowConsumer<BindingTag2>>(id);
+Timeline<AotTrack, AotClip>.Bind<AotInput, OverflowConsumer<BindingTag3>>(id);
+Timeline<AotTrack, AotClip>.Bind<AotInput, OverflowConsumer<BindingTag4>>(id);
+
+var overflowConsumer = new OverflowConsumer<BindingTag4>();
+var overflowPlayback = Timeline.Start(id);
+overflowPlayback = Timeline.Forward(id, in overflowPlayback, new AotInput(2f), ref overflowConsumer, 3u);
+if (overflowConsumer.Value != 30f)
+    throw new Exception($"Overflow binding failed under NativeAOT: {overflowConsumer.Value:G9}");
+Console.WriteLine($"overflow binding checksum: value={overflowConsumer.Value:G9}");
 
 // 2. Both directions: Forward and Backward
 var input = new AotInput(Scale: 2f);
@@ -34,11 +46,6 @@ if (consumer.Count != 5)
 var cursor = default(Cursor);
 pb = Timeline.Forward(id, in pb, ref cursor, in input, ref consumer, 5u, 7u);
 pb = Timeline.Backward(id, in pb, ref cursor, in input, ref consumer, 3u);
-
-// 4. Scratch overloads: Forward and Backward
-Span<AotClip> scratch = stackalloc AotClip[2];
-pb = Timeline<AotTrack, AotClip>.Forward(id, in pb, in input, ref consumer, scratch, 6u, 8u);
-pb = Timeline<AotTrack, AotClip>.Backward(id, in pb, in input, ref consumer, scratch, 4u);
 
 // 5. Stateless sampling in both directions
 Timeline.Forward(id, in input, ref consumer, 9u, 11u);
@@ -68,40 +75,20 @@ catch (NotSupportedException ex)
 if (!unboundCaught)
     throw new Exception("Expected unbound consumer to fail under NativeAOT.");
 
-// 8. Wrong consumer closure failure test
-bool wrongClosureCaught = false;
-try
-{
-    Span<OtherClip> otherScratch = stackalloc OtherClip[2];
-    var other = new OtherConsumer();
-    var otherInput = default(OtherInput);
-    Timeline<OtherTrack, OtherClip>.Forward(id, in pb, in otherInput, ref other, otherScratch, 1u);
-}
-catch (ArgumentException ex)
-{
-    wrongClosureCaught = true;
-    Console.WriteLine($"Wrong closure failure caught as expected: {ex.Message}");
-}
-if (!wrongClosureCaught)
-    throw new Exception("Expected wrong closure to fail.");
-
 // 9. Checksums: the hub and generated walks above accumulate through the
 // input's scale; print them so a run leaves verifiable numbers behind.
 Console.WriteLine($"hub checksum: value={consumer.Value:G9} count={consumer.Count}");
 Console.WriteLine($"generated checksum: value={genConsumer.Value:G9} count={genConsumer.Count}");
 
-// 9b. v0.3 indexed/sliced views under NativeAOT: reading works through
-// this[int] and consuming through Slice must agree with enumeration.
-Timeline<AotTrack, AotClip>.Bind<AotInput, IndexedAotConsumer>(id);
-var idxConsumer = new IndexedAotConsumer();
-var idxPb = Timeline.Start(id);
-idxPb = Timeline.Forward(id, in idxPb, in input, ref idxConsumer, 1u, 3u, 6u);
-var enumConsumer = new AotConsumer();
-var enumPb = Timeline.Start(id);
-enumPb = Timeline.Forward(id, in enumPb, in input, ref enumConsumer, 1u, 3u, 6u);
-if (idxConsumer.Value != enumConsumer.Value || idxConsumer.Count != enumConsumer.Count)
-    throw new Exception($"Indexed/sliced walk diverged under AOT: {idxConsumer.Value} vs {enumConsumer.Value}");
-Console.WriteLine($"indexed checksum: value={idxConsumer.Value:G9} count={idxConsumer.Count}");
+var parityConsumer = new AotConsumer();
+var parityPlayback = Timeline.Start(id);
+parityPlayback = Timeline.Forward(id, in parityPlayback, in input, ref parityConsumer, 1u, 3u, 6u);
+var repeatedConsumer = new AotConsumer();
+var repeatedPlayback = Timeline.Start(id);
+repeatedPlayback = Timeline.Forward(id, in repeatedPlayback, in input, ref repeatedConsumer, 1u, 3u, 6u);
+if (parityConsumer.Value != repeatedConsumer.Value || parityConsumer.Count != repeatedConsumer.Count)
+    throw new Exception($"Repeated walk diverged under AOT: {parityConsumer.Value} vs {repeatedConsumer.Value}");
+Console.WriteLine($"repeat checksum: value={parityConsumer.Value:G9} count={parityConsumer.Count}");
 
 // 10. The input must survive every walk bit-identical.
 if (input.Scale != 2f)
@@ -128,75 +115,77 @@ public readonly struct AotTrack : IBlend<AotClip>
 public readonly record struct AotInput(float Scale);
 
 public struct AotConsumer :
-    IForward<AotTrack, AotClip, AotInput, AotConsumer>,
-    IBackward<AotTrack, AotClip, AotInput, AotConsumer>,
-    IForward<GeneratedAotTimeline, AotClip, AotInput, AotConsumer>,
-    IBackward<GeneratedAotTimeline, AotClip, AotInput, AotConsumer>
+    ITrack<AotTrack, AotClip, AotInput, AotConsumer>,
+    ITrack<GeneratedAotTimeline, AotClip, AotInput, AotConsumer>
 {
     public float Value;
     public int Count;
 
-    public void Forward(in Tracks<AotTrack, AotClip> tracks, in AotInput input, in uint tick, ref AotConsumer result)
+    public static void Forward(int ordinal, int count, ushort index,
+        in AotTrack track, in AotClip clip, ClipState state,
+        in uint tick, in AotInput input, ref AotConsumer result)
     {
-        foreach (var work in tracks)
-            result.Value += work.Clip.Amount * input.Scale;
-        result.Count++;
+        result.Value += clip.Amount * input.Scale;
+        if (ordinal + 1 == count)
+            result.Count++;
     }
 
-    public void Backward(in Tracks<AotTrack, AotClip> tracks, in AotInput input, in uint tick, ref AotConsumer result)
+    public static void Backward(int ordinal, int count, ushort index,
+        in AotTrack track, in AotClip clip, ClipState state,
+        in uint tick, in AotInput input, ref AotConsumer result)
     {
-        foreach (var work in tracks)
-            result.Value -= work.Clip.Amount * input.Scale;
-        result.Count++;
+        result.Value -= clip.Amount * input.Scale;
+        if (ordinal + 1 == count)
+            result.Count++;
     }
 
-    public void Forward(in Tracks<GeneratedAotTimeline, AotClip> tracks, in AotInput input, in uint tick, ref AotConsumer result)
+    public static void Forward(int ordinal, int count, ushort index,
+        in GeneratedAotTimeline track, in AotClip clip, ClipState state,
+        in uint tick, in AotInput input, ref AotConsumer result)
     {
-        foreach (var work in tracks)
-            result.Value += work.Clip.Amount * input.Scale;
-        result.Count++;
+        result.Value += clip.Amount * input.Scale;
+        if (ordinal + 1 == count)
+            result.Count++;
     }
 
-    public void Backward(in Tracks<GeneratedAotTimeline, AotClip> tracks, in AotInput input, in uint tick, ref AotConsumer result)
+    public static void Backward(int ordinal, int count, ushort index,
+        in GeneratedAotTimeline track, in AotClip clip, ClipState state,
+        in uint tick, in AotInput input, ref AotConsumer result)
     {
-        foreach (var work in tracks)
-            result.Value -= work.Clip.Amount * input.Scale;
-        result.Count++;
-    }
-}
-
-public struct IndexedAotConsumer :
-    IForward<AotTrack, AotClip, AotInput, IndexedAotConsumer>,
-    IBackward<AotTrack, AotClip, AotInput, IndexedAotConsumer>
-{
-    public float Value;
-    public int Count;
-
-    public void Forward(in Tracks<AotTrack, AotClip> tracks, in AotInput input, in uint tick, ref IndexedAotConsumer result)
-    {
-        for (var i = 0; i < tracks.Count; i++)
-            result.Value += tracks[i].Clip.Amount * input.Scale;
-        result.Count++;
-    }
-
-    public void Backward(in Tracks<AotTrack, AotClip> tracks, in AotInput input, in uint tick, ref IndexedAotConsumer result)
-    {
-        var half = tracks.Count / 2;
-        foreach (var work in tracks.Slice(0, half))
-            result.Value -= work.Clip.Amount * input.Scale;
-        foreach (var work in tracks.Slice(half, tracks.Count - half))
-            result.Value -= work.Clip.Amount * input.Scale;
-        result.Count++;
+        result.Value -= clip.Amount * input.Scale;
+        if (ordinal + 1 == count)
+            result.Count++;
     }
 }
 
 public struct UnboundConsumer :
-    IForward<AotTrack, AotClip, AotInput, UnboundConsumer>,
-    IBackward<AotTrack, AotClip, AotInput, UnboundConsumer>
+    ITrack<AotTrack, AotClip, AotInput, UnboundConsumer>
 {
-    public void Forward(in Tracks<AotTrack, AotClip> tracks, in AotInput input, in uint tick, ref UnboundConsumer result) { }
-    public void Backward(in Tracks<AotTrack, AotClip> tracks, in AotInput input, in uint tick, ref UnboundConsumer result) { }
+    public static void Forward(int ordinal, int count, ushort index, in AotTrack track, in AotClip clip, ClipState state, in uint tick, in AotInput input, ref UnboundConsumer result) { }
+    public static void Backward(int ordinal, int count, ushort index, in AotTrack track, in AotClip clip, ClipState state, in uint tick, in AotInput input, ref UnboundConsumer result) { }
 }
+
+public struct OverflowConsumer<TTag> : ITrack<AotTrack, AotClip, AotInput, OverflowConsumer<TTag>>
+    where TTag : unmanaged
+{
+    public float Value;
+
+    public static void Forward(int ordinal, int count, ushort index,
+        in AotTrack track, in AotClip clip, ClipState state,
+        in uint tick, in AotInput input, ref OverflowConsumer<TTag> result)
+        => result.Value += clip.Amount * input.Scale;
+
+    public static void Backward(int ordinal, int count, ushort index,
+        in AotTrack track, in AotClip clip, ClipState state,
+        in uint tick, in AotInput input, ref OverflowConsumer<TTag> result)
+        => result.Value -= clip.Amount * input.Scale;
+}
+
+public enum BindingTag0 : byte { Value }
+public enum BindingTag1 : byte { Value }
+public enum BindingTag2 : byte { Value }
+public enum BindingTag3 : byte { Value }
+public enum BindingTag4 : byte { Value }
 
 public readonly record struct OtherClip(double V);
 public readonly struct OtherTrack : IBlend<OtherClip>
@@ -207,9 +196,8 @@ public readonly struct OtherTrack : IBlend<OtherClip>
 public readonly struct OtherInput;
 
 public struct OtherConsumer :
-    IForward<OtherTrack, OtherClip, OtherInput, OtherConsumer>,
-    IBackward<OtherTrack, OtherClip, OtherInput, OtherConsumer>
+    ITrack<OtherTrack, OtherClip, OtherInput, OtherConsumer>
 {
-    public void Forward(in Tracks<OtherTrack, OtherClip> tracks, in OtherInput input, in uint tick, ref OtherConsumer result) { }
-    public void Backward(in Tracks<OtherTrack, OtherClip> tracks, in OtherInput input, in uint tick, ref OtherConsumer result) { }
+    public static void Forward(int ordinal, int count, ushort index, in OtherTrack track, in OtherClip clip, ClipState state, in uint tick, in OtherInput input, ref OtherConsumer result) { }
+    public static void Backward(int ordinal, int count, ushort index, in OtherTrack track, in OtherClip clip, ClipState state, in uint tick, in OtherInput input, ref OtherConsumer result) { }
 }

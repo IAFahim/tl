@@ -161,42 +161,12 @@ public static unsafe class Timeline<TTrack, TClip>
 
     public static void Bind<TInput, TResult>(ushort index)
         where TInput : struct
-        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
+        where TResult : struct, ITrack<TTrack, TClip, TInput, TResult>
     {
         var entry = Timeline.Live(index);
         if (entry->ClosureId != ClosureId)
             throw new InvalidOperationException($"Timeline index {index} does not belong to the <{typeof(TTrack).Name}, {typeof(TClip).Name}> closure.");
         Bridge<TInput, TResult>.Install(entry);
-    }
-
-    public static unsafe Playback Forward<TInput, TResult>(ushort index, in Playback playback, in TInput input, ref TResult result, Span<TClip> scratch, params ReadOnlySpan<uint> ticks)
-        where TInput : struct
-        where TResult : struct
-    {
-        var entry = Timeline.Live(index);
-        if (entry->ClosureId != ClosureId)
-            throw new ArgumentException("Timeline belongs to a different track/clip pair.", nameof(index));
-        PlaybackCore.RequireRunnable(in playback);
-        if (scratch.Length < entry->MaxActiveBlends)
-            throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
-        var slot = NativeBinding.Get<TInput, TResult>(entry);
-        var run = (delegate*<NativeEntry*, in Playback, in TInput, ref TResult, Span<TClip>, ReadOnlySpan<uint>, Playback>)(void*)slot.ScratchForward;
-        return run(entry, in playback, in input, ref result, scratch, ticks);
-    }
-
-    public static unsafe Playback Backward<TInput, TResult>(ushort index, in Playback playback, in TInput input, ref TResult result, Span<TClip> scratch, params ReadOnlySpan<uint> ticks)
-        where TInput : struct
-        where TResult : struct
-    {
-        var entry = Timeline.Live(index);
-        if (entry->ClosureId != ClosureId)
-            throw new ArgumentException("Timeline belongs to a different track/clip pair.", nameof(index));
-        PlaybackCore.RequireRunnable(in playback);
-        if (scratch.Length < entry->MaxActiveBlends)
-            throw new ArgumentException("Scratch buffer is too small for this timeline's blends.", nameof(scratch));
-        var slot = NativeBinding.Get<TInput, TResult>(entry);
-        var run = (delegate*<NativeEntry*, in Playback, in TInput, ref TResult, Span<TClip>, ReadOnlySpan<uint>, Playback>)(void*)slot.ScratchBackward;
-        return run(entry, in playback, in input, ref result, scratch, ticks);
     }
 
     private static readonly MethodInfo s_bind =
@@ -222,7 +192,7 @@ public static unsafe class Timeline<TTrack, TClip>
 
     private static void BindEntryData<TInput, TResult>(ushort index)
         where TInput : struct
-        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
+        where TResult : struct, ITrack<TTrack, TClip, TInput, TResult>
         => Bridge<TInput, TResult>.Install(Timeline.Live(index));
 
     // The bridge: the eight entry points of one (TInput, TResult) pair over
@@ -231,7 +201,7 @@ public static unsafe class Timeline<TTrack, TClip>
     // native memory, adapter only at this boundary.
     private static unsafe class Bridge<TInput, TResult>
         where TInput : struct
-        where TResult : struct, IForward<TTrack, TClip, TInput, TResult>, IBackward<TTrack, TClip, TInput, TResult>
+        where TResult : struct, ITrack<TTrack, TClip, TInput, TResult>
     {
         public static void Install(NativeEntry* entry)
         {
@@ -244,8 +214,6 @@ public static unsafe class Timeline<TTrack, TClip>
                 BackwardCursor = Address(&RunBackwardCursor),
                 SampleForward = Address(&SampleForward),
                 SampleBackward = Address(&SampleBackward),
-                ScratchForward = Address(&RunForwardScratch),
-                ScratchBackward = Address(&RunBackwardScratch),
             });
         }
 
@@ -258,28 +226,23 @@ public static unsafe class Timeline<TTrack, TClip>
         private static nint Address(delegate*<NativeEntry*, in TInput, ref TResult, ReadOnlySpan<uint>, void> f)
             => (nint)(void*)f;
 
-        private static nint Address(delegate*<NativeEntry*, in Playback, in TInput, ref TResult, Span<TClip>, ReadOnlySpan<uint>, Playback> f)
-            => (nint)(void*)f;
-
         private static Playback RunForward(NativeEntry* entry, in Playback from, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
         {
             View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: false, entry->Loops != 0, ticks, in input, ref result,
-                starts, regionRows, trackData, clipData, resolved, workSlots,
+                starts, regionRows, trackData, clipData, workSlots,
                 -1, out _);
         }
 
         private static Playback RunBackward(NativeEntry* entry, in Playback from, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
         {
             View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: true, entry->Loops != 0, ticks, in input, ref result,
-                starts, regionRows, trackData, clipData, resolved, workSlots,
+                starts, regionRows, trackData, clipData, workSlots,
                 -1, out _);
         }
 
@@ -289,11 +252,10 @@ public static unsafe class Timeline<TTrack, TClip>
             var hint = valid ? cursor.Region : -1;
 
             View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             var playback = PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: false, entry->Loops != 0, ticks, in input, ref result,
-                starts, regionRows, trackData, clipData, resolved, workSlots,
+                starts, regionRows, trackData, clipData, workSlots,
                 hint, out var region);
 
             cursor = new Cursor { Owner = (nint)entry, Tick = playback.Tick, Region = region };
@@ -306,55 +268,32 @@ public static unsafe class Timeline<TTrack, TClip>
             var hint = valid ? cursor.Region : -1;
 
             View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             var playback = PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
                 in from, backward: true, entry->Loops != 0, ticks, in input, ref result,
-                starts, regionRows, trackData, clipData, resolved, workSlots,
+                starts, regionRows, trackData, clipData, workSlots,
                 hint, out var region);
 
             cursor = new Cursor { Owner = (nint)entry, Tick = playback.Tick, Region = region };
             return playback;
         }
 
-        private static Playback RunForwardScratch(NativeEntry* entry, in Playback from, in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
-        {
-            View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
-
-            return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
-                in from, backward: false, entry->Loops != 0, ticks, in input, ref result,
-                starts, regionRows, trackData, clipData, scratch, workSlots,
-                -1, out _);
-        }
-
-        private static Playback RunBackwardScratch(NativeEntry* entry, in Playback from, in TInput input, ref TResult result, Span<TClip> scratch, ReadOnlySpan<uint> ticks)
-        {
-            View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
-
-            return PlaybackCore.Advance<TTrack, TClip, TInput, TResult>(
-                in from, backward: true, entry->Loops != 0, ticks, in input, ref result,
-                starts, regionRows, trackData, clipData, scratch, workSlots,
-                -1, out _);
-        }
-
         private static void SampleForward(NativeEntry* entry, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
         {
             View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
                 backward: false, entry->Loops != 0, ticks, in input, ref result,
-                starts, regionRows, trackData, clipData, resolved, workSlots);
+                starts, regionRows, trackData, clipData, workSlots);
         }
 
         private static void SampleBackward(NativeEntry* entry, in TInput input, ref TResult result, ReadOnlySpan<uint> ticks)
         {
             View(entry, out var starts, out var regionRows, out var trackData, out var clipData, out var workSlots);
-            Span<TClip> resolved = stackalloc TClip[BlendScratch.StackCount<TClip>(entry->MaxActiveBlends)];
 
             PlaybackCore.Sample<TTrack, TClip, TInput, TResult>(
                 backward: true, entry->Loops != 0, ticks, in input, ref result,
-                starts, regionRows, trackData, clipData, resolved, workSlots);
+                starts, regionRows, trackData, clipData, workSlots);
         }
 
         // Spans over the native tables: the whole adaptation to unmanaged
@@ -371,7 +310,7 @@ public static unsafe class Timeline<TTrack, TClip>
             regionRows = new ReadOnlySpan<RegionRow>(entry->RegionRows, entry->RegionCount);
             trackData = new ReadOnlySpan<TTrack>(entry->TrackData, entry->TrackCount);
             clipData = new ReadOnlySpan<TClip>(entry->ClipData, entry->PayloadCount);
-            workSlots = new ReadOnlySpan<WorkSlot>(entry->WorkSlots, entry->TrackRowCount);
+            workSlots = new ReadOnlySpan<WorkSlot>(entry->WorkSlots, entry->WorkSlotCount);
         }
     }
 }

@@ -12,7 +12,6 @@ public static class TableEmitter
 
         var regionStartsStr = string.Join(", ", plan.RegionStarts.Select(s => s.ToString(CultureInfo.InvariantCulture) + "u"));
         var regionRowsStr = string.Join(", ", plan.RegionRows.Select(r => $"new({r.TrackStart}, {r.TrackCount})"));
-        var regionFlagsStr = string.Join(", ", plan.RegionFlags);
         var trackRowsStr = string.Join(", ", plan.TrackRows.Select(t => $"new({t.TrackIndex}, {t.ClipStart}, {t.ClipCount})"));
         var clipRowsStr = string.Join(", ", plan.ClipRows.Select(c => $"new({c.ClipIndex}, {c.FactorStart}u, {c.FactorLength}u)"));
         var clipEdgesStr = string.Join(", ", plan.ClipEdges.Select(e => $"new({e.Start}u, {e.End}u)"));
@@ -35,7 +34,6 @@ public static class TableEmitter
             {
                 private static readonly uint[] s_regionStarts = [{{regionStartsStr}}];
                 private static readonly RegionRow[] s_regionRows = [{{regionRowsStr}}];
-                private static readonly byte[] s_regionFlags = [{{regionFlagsStr}}];
                 private static readonly TrackRow[] s_trackRows = [{{trackRowsStr}}];
                 private static readonly ClipRow[] s_clipRows = [{{clipRowsStr}}];
                 private static readonly ClipEdge[] s_clipEdges = [{{clipEdgesStr}}];
@@ -44,14 +42,11 @@ public static class TableEmitter
 
                 public static ReadOnlySpan<uint> RegionStarts => s_regionStarts;
                 public static ReadOnlySpan<RegionRow> RegionRows => s_regionRows;
-                public static ReadOnlySpan<byte> RegionFlags => s_regionFlags;
                 public static ReadOnlySpan<TrackRow> TrackRows => s_trackRows;
                 public static ReadOnlySpan<ClipRow> ClipRows => s_clipRows;
                 public static ReadOnlySpan<ClipEdge> ClipEdges => s_clipEdges;
                 public static ReadOnlySpan<{{d.Name}}> TrackData => s_trackData;
                 public static ReadOnlySpan<{{d.ClipTypeName}}> ClipData => s_clipData;
-                public static int MaxActiveTracks => {{plan.MaxActiveTracks}};
-                public static int MaxActiveBlends => {{plan.MaxActiveBlends}};
                 public static bool Loops => {{d.Loops.ToString().ToLowerInvariant()}};
 
                 public void Blend(in {{d.ClipTypeName}} first, in {{d.ClipTypeName}} second, float t, out {{d.ClipTypeName}} result)

@@ -60,6 +60,41 @@ public sealed class CompileGenerationTests : IDisposable
     }
 
     [Fact]
+    public void PreprocessorSymbolsSelectDeclarationsAndInvalidateTheCache()
+    {
+        var source = WriteSource("Timeline.cs", $$"""
+            #if FAST_TIMELINE
+            {{Declaration("Fast", 10)}}
+            #else
+            {{Declaration("Compact", 20)}}
+            #endif
+            """);
+        var output = Path.Combine(_root, "generated");
+
+        Assert.Equal(0, RunWithDefines(output, "TRACE;FAST_TIMELINE", source));
+        Assert.True(File.Exists(Path.Combine(output, "CompiledFast.g.cs")));
+        Assert.False(File.Exists(Path.Combine(output, "CompiledCompact.g.cs")));
+
+        Assert.Equal(0, RunWithDefines(output, "TRACE", source));
+        Assert.False(File.Exists(Path.Combine(output, "CompiledFast.g.cs")));
+        var compact = Path.Combine(output, "CompiledCompact.g.cs");
+        Assert.True(File.Exists(compact));
+        Assert.Contains("public const uint Duration = 20u;", File.ReadAllText(compact));
+    }
+
+    [Fact]
+    public void PartialTimelineEmitsOnlyItsNamedKernel()
+    {
+        var source = WriteSource("PulseTimeline.cs", PartialDeclaration("PulseTimeline", 12));
+        var output = Path.Combine(_root, "generated");
+
+        Assert.Equal(0, Run(output, source));
+        Assert.True(File.Exists(Path.Combine(output, "PulseTimeline.g.cs")));
+        Assert.False(File.Exists(Path.Combine(output, KernelEmitter.SharedFileName)));
+        Assert.Equal(["PulseTimeline.g.cs"], File.ReadAllLines(Path.Combine(output, "TlGenCompile.sources")));
+    }
+
+    [Fact]
     public void MembershipRenameAndZeroDeclarationsSynchronizeOwnedOutputs()
     {
         var alpha = WriteSource("Alpha.cs", Declaration("Alpha", 10));
@@ -267,8 +302,11 @@ public sealed class CompileGenerationTests : IDisposable
     }
 
     private static int Run(string output, params string[] sources)
+        => RunWithDefines(output, "", sources);
+
+    private static int RunWithDefines(string output, string defines, params string[] sources)
     {
-        var args = new List<string> { "--compile", "--output", output };
+        var args = new List<string> { "--compile", "--output", output, "--define", defines };
         foreach (var source in sources)
         {
             args.Add("--source");
@@ -366,6 +404,29 @@ public sealed class CompileGenerationTests : IDisposable
                 var track = b.Track(new FTrack());
                 b.Clip(in track, new FClip(1f), start: 0, end: {{end}}u);
             }).Compile();
+        }
+        """;
+
+    private static string PartialDeclaration(string name, uint end) => $$"""
+        using Tl;
+
+        namespace Fix;
+
+        public readonly record struct FClip(float Amount);
+
+        public readonly struct FTrack : IBlend<FClip>
+        {
+            public void Blend(in FClip first, in FClip second, float t, out FClip result)
+                => result = first;
+        }
+
+        public readonly partial struct {{name}} : ITimeline<FTrack, FClip>
+        {
+            public static void Define(scoped TimelineBuilder<FTrack, FClip> timeline)
+            {
+                var track = timeline.Track(new FTrack());
+                timeline.Clip(in track, new FClip(1f), 0u, {{end}}u);
+            }
         }
         """;
 }

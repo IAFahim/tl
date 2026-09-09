@@ -18,13 +18,9 @@ namespace Tl;
 //   [NativeEntry header]  table directory + per-timeline facts + binds
 //   [RegionStarts]        uint[RegionCount]
 //   [RegionRows]          RegionRow[RegionCount]
-//   [TrackRows]           TrackRow[TrackRowCount]
-//   [ClipRows]            ClipRow[ClipRowCount]
-//   [ClipEdges]           ClipEdge[ClipEdgeCount]
-//   [PayloadMap]          ushort[PayloadMapCount]   (identity when count 0)
 //   [TrackData]           TTrack[TrackCount]
 //   [ClipData]            TClip[PayloadCount]
-//   [WorkSlots]           WorkSlot[TrackRowCount]
+//   [WorkSlots]           WorkSlot[WorkSlotCount]
 //   [InlineBinds]         NativeBindSlot[InlineBindCapacity]
 //
 // Construction transiently uses managed locals (the authoring builder, the
@@ -44,24 +40,15 @@ internal unsafe struct NativeEntry
     public nint ClosureId;      // owning Timeline<TTrack, TClip> identity
 
     public uint Duration;
-    public int MaxActiveTracks;
-    public int MaxActiveBlends;
     public int Loops;
 
     public int RegionCount;
-    public int TrackRowCount;
-    public int ClipRowCount;
-    public int ClipEdgeCount;
+    public int WorkSlotCount;
     public int PayloadCount;
-    public int PayloadMapCount;
     public int TrackCount;
 
     public uint* RegionStarts;
     public RegionRow* RegionRows;
-    public TrackRow* TrackRows;
-    public ClipRow* ClipRows;
-    public ClipEdge* ClipEdges;
-    public ushort* PayloadMap;
     public void* TrackData;
     public void* ClipData;
     public WorkSlot* WorkSlots;
@@ -108,42 +95,50 @@ public static unsafe partial class Timeline
 
     internal static ushort Register(NativeEntry* entry)
     {
-        int next;
-        do
-        {
-            next = Volatile.Read(ref s_nextIndex);
-            if (next >= None)
-                throw new InvalidOperationException("Timeline index capacity exceeded.");
-        }
-        while (Interlocked.CompareExchange(ref s_nextIndex, next + 1, next) != next);
-
-        Acquire(ref s_gate);
         try
         {
-            // Grow geometrically only when the claimed index does not fit;
-            // indexes are bounded by None, so the doubling terminates.
-            var capacity = Math.Max(s_capacity, 16);
-            while (capacity <= next)
-                capacity *= 2;
-            if (capacity != s_capacity)
+            int next;
+            do
             {
-                var grown = (nint*)NativeMemory.AllocZeroed((nuint)(capacity * sizeof(nint)));
-                if (s_slots != 0)
-                    Buffer.MemoryCopy((void*)s_slots, grown,
-                        (nuint)(capacity * sizeof(nint)), (nuint)(s_capacity * sizeof(nint)));
-                Volatile.Write(ref s_slots, (nint)grown);
-                s_capacity = capacity;
+                next = Volatile.Read(ref s_nextIndex);
+                if (next >= None)
+                    throw new InvalidOperationException("Timeline index capacity exceeded.");
+            }
+            while (Interlocked.CompareExchange(ref s_nextIndex, next + 1, next) != next);
+
+            Acquire(ref s_gate);
+            try
+            {
+                var capacity = Math.Max(s_capacity, 16);
+                while (capacity <= next)
+                    capacity *= 2;
+                if (capacity != s_capacity)
+                {
+                    var grown = (nint*)NativeMemory.AllocZeroed((nuint)(capacity * sizeof(nint)));
+                    if (grown == null)
+                        throw new OutOfMemoryException();
+                    if (s_slots != 0)
+                        Buffer.MemoryCopy((void*)s_slots, grown,
+                            (nuint)(capacity * sizeof(nint)), (nuint)(s_capacity * sizeof(nint)));
+                    Volatile.Write(ref s_slots, (nint)grown);
+                    s_capacity = capacity;
+                }
+
+                entry->Index = (ushort)next;
+                Volatile.Write(ref ((nint*)s_slots)[next], (nint)(void*)entry);
+            }
+            finally
+            {
+                Release(ref s_gate);
             }
 
-            entry->Index = (ushort)next;
-            Volatile.Write(ref ((nint*)s_slots)[next], (nint)(void*)entry);
+            return (ushort)next;
         }
-        finally
+        catch
         {
-            Release(ref s_gate);
+            NativeMemory.AlignedFree(entry);
+            throw;
         }
-
-        return (ushort)next;
     }
 
     internal static NativeEntry* Live(ushort index)

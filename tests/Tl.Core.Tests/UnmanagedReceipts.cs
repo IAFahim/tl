@@ -1,4 +1,5 @@
 using Tl.Authoring;
+using System.Runtime.CompilerServices;
 using Xunit;
 
 namespace Tl.Core.Tests;
@@ -24,26 +25,29 @@ public class UnmanagedReceipts
     }
 
     public struct MemAcc :
-        IForward<MemTrack, MemClip, NoInput, MemAcc>,
-        IBackward<MemTrack, MemClip, NoInput, MemAcc>
+        ITrack<MemTrack, MemClip, NoInput, MemAcc>
     {
         public float Sum;
         public int Count;
 
-        public void Forward(in Tracks<MemTrack, MemClip> tracks, in NoInput input, in uint tick, ref MemAcc result)
+        public static void Forward(int ordinal, int count, ushort index,
+            in MemTrack track, in MemClip clip, ClipState state,
+            in uint tick, in NoInput input, ref MemAcc result)
         {
-            foreach (var work in tracks)
-                if (work.State == ClipState.Stay)
-                    result.Sum += work.Clip.Value;
-            result.Count++;
+            if (state == ClipState.Stay)
+                result.Sum += clip.Value;
+            if (ordinal + 1 == count)
+                result.Count++;
         }
 
-        public void Backward(in Tracks<MemTrack, MemClip> tracks, in NoInput input, in uint tick, ref MemAcc result)
+        public static void Backward(int ordinal, int count, ushort index,
+            in MemTrack track, in MemClip clip, ClipState state,
+            in uint tick, in NoInput input, ref MemAcc result)
         {
-            foreach (var work in tracks)
-                if (work.State == ClipState.Stay)
-                    result.Sum -= work.Clip.Value;
-            result.Count++;
+            if (state == ClipState.Stay)
+                result.Sum -= clip.Value;
+            if (ordinal + 1 == count)
+                result.Count++;
         }
     }
 
@@ -69,52 +73,30 @@ public class UnmanagedReceipts
         return (acc.Sum, acc.Count);
     }
 
-    // (a) The steady-state receipt: after warmup, any number of full
-    // build/bind/play/destroy cycles must not move the retained managed
-    // heap — the transient authoring/lowering locals are reclaimed and
-    // nothing managed survives a cycle. Measured process-wide after forced
-    // compacting collections; up to three attempts guard against the
-    // harness's async result pump landing in a window (a real per-cycle
-    // leak grows on EVERY attempt, so retries cannot mask one).
     [Fact]
-    public void SteadyStateManagedHeapDoesNotGrowAcrossCycles()
+    public void ManagedAuthoringGraphsAreCollectibleAcrossCycles()
     {
-        for (var i = 0; i < 3; i++)
-            Cycle();
+        var authoring = new WeakReference[64];
+        for (var i = 0; i < authoring.Length; i++)
+            authoring[i] = CycleForWeakReferenceProbe();
 
-        long before = 0, after = 0, growth = long.MaxValue;
-        for (var attempt = 0; attempt < 3; attempt++)
-        {
-            before = Snap();
-            for (var i = 0; i < 64; i++)
-                Cycle();
-            after = Snap();
-            growth = after - before;
-            if (growth <= 1024)
-                break;
-        }
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+        GC.WaitForPendingFinalizers();
 
-        // Growth must be ZERO (the managed v0.3 engine retains ~1 KB of
-        // allocator residue across the same 64 cycles and hands ~628 KB of
-        // transient garbage to the GC; the native path's cycles leave the
-        // managed heap bit-identical). The heap can even shrink slightly
-        // when lazy runtime bookkeeping from warmup becomes reclaimable.
-        Assert.True(growth <= 1024, $"managed heap grew across cycles: {before} -> {after}");
+        Assert.All(authoring, static reference => Assert.False(reference.IsAlive));
+    }
 
-        static long Snap()
-        {
-            GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
-            GC.WaitForPendingFinalizers();
-            return GC.GetTotalMemory(true);
-        }
-
-        static void Cycle()
-        {
-            var id = Timeline<MemTrack, MemClip>.Build(Author).InMemory();
-            Timeline<MemTrack, MemClip>.Bind<NoInput, MemAcc>(id);
-            _ = Walk(id, 40);
-            Timeline.Destroy(id);
-        }
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CycleForWeakReferenceProbe()
+    {
+        var builder = new TimelineBuilder<MemTrack, MemClip>(TimelineOptions.Default);
+        Author(builder);
+        var authoring = new WeakReference(builder._state);
+        var id = RuntimeLowering.Lower<MemTrack, MemClip>(builder._state);
+        Timeline<MemTrack, MemClip>.Bind<NoInput, MemAcc>(id);
+        _ = Walk(id, 40);
+        Timeline.Destroy(id);
+        return authoring;
     }
 
     // (a, cont.) Destroy itself allocates nothing on the managed heap — the

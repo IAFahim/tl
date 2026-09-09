@@ -11,17 +11,19 @@ public sealed record DeclarationDiagnostic(string File, int Line, int Column, st
     public override string ToString() => $"{File}({Line},{Column}): error {Code}: {Message}";
 }
 
-/// <summary>
-/// One <c>Timeline&lt;TTrack,TClip&gt;.Build(author).Compile()</c> declaration site,
-/// interpreted at build time into the <see cref="Model.TimelineDefinition"/> the
-/// existing RegionAnalyzer pipeline consumes.
-/// </summary>
+public enum CompiledDeclarationKind : byte
+{
+    LegacyCompile,
+    PartialTimeline,
+}
+
 public sealed record CompiledDeclaration
 {
     public required string KernelName { get; init; }
     public required TimelineDefinition Definition { get; init; }
     public required string File { get; init; }
     public required int Line { get; init; }
+    public CompiledDeclarationKind Kind { get; init; }
     public int ClipCount => Definition.Clips.Count;
     public int TrackCount => Definition.Tracks.Count;
 }
@@ -38,9 +40,10 @@ public sealed record CompiledDeclaration
 public static class DeclarationReader
 {
     public static (IReadOnlyList<CompiledDeclaration> Declarations, IReadOnlyList<DeclarationDiagnostic> Diagnostics)
-        Read(IReadOnlyList<(string Path, string Source)> sources)
+        Read(IReadOnlyList<(string Path, string Source)> sources, IReadOnlyList<string>? preprocessorSymbols = null)
     {
-        var trees = sources.Select(s => CSharpSyntaxTree.ParseText(s.Source, path: s.Path)).ToList();
+        var parseOptions = CSharpParseOptions.Default.WithPreprocessorSymbols(preprocessorSymbols ?? []);
+        var trees = sources.Select(s => CSharpSyntaxTree.ParseText(s.Source, parseOptions, s.Path)).ToList();
         var diagnostics = new List<DeclarationDiagnostic>();
         var declarations = new List<CompiledDeclaration>();
         var usedKernelNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -56,31 +59,127 @@ public static class DeclarationReader
             var path = tree.FilePath;
             var root = tree.GetCompilationUnitRoot();
 
+            foreach (var declaration in root.DescendantNodes().OfType<StructDeclarationSyntax>())
+            {
+                var read = ReadPartialTimeline(declaration, path, trees, authorMethods, diagnostics);
+                if (read != null)
+                    Add(read, declaration, path, declarations, diagnostics, usedKernelNames);
+            }
+
             foreach (var compile in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
                 var read = ReadSite(compile, path, trees, authorMethods, diagnostics);
-                if (read == null)
-                    continue;
-
-                if (string.Equals($"{read.KernelName}.g.cs", KernelEmitter.SharedFileName, StringComparison.OrdinalIgnoreCase))
-                {
-                    diagnostics.Add(At(compile, path, "TLGEN07",
-                        $"the kernel name '{read.KernelName}' is reserved for the shared compiled runtime; rename the declaration variable."));
-                    continue;
-                }
-
-                if (!usedKernelNames.Add(read.KernelName))
-                {
-                    diagnostics.Add(At(compile, path, "TLGEN07",
-                        $"two Compile declarations resolve to the kernel name '{read.KernelName}'; rename one declaration variable."));
-                    continue;
-                }
-
-                declarations.Add(read);
+                if (read != null)
+                    Add(read, compile, path, declarations, diagnostics, usedKernelNames);
             }
         }
 
         return (declarations, diagnostics);
+    }
+
+    private static void Add(
+        CompiledDeclaration declaration,
+        SyntaxNode site,
+        string path,
+        List<CompiledDeclaration> declarations,
+        List<DeclarationDiagnostic> diagnostics,
+        HashSet<string> names)
+    {
+        if (string.Equals($"{declaration.KernelName}.g.cs", KernelEmitter.SharedFileName, StringComparison.OrdinalIgnoreCase))
+        {
+            diagnostics.Add(At(site, path, "TLGEN07", $"the generated type name '{declaration.KernelName}' is reserved."));
+            return;
+        }
+
+        if (!names.Add(declaration.KernelName))
+        {
+            diagnostics.Add(At(site, path, "TLGEN07", $"two compiled timelines resolve to '{declaration.KernelName}'."));
+            return;
+        }
+
+        declarations.Add(declaration);
+    }
+
+    private static CompiledDeclaration? ReadPartialTimeline(
+        StructDeclarationSyntax declaration,
+        string path,
+        IReadOnlyList<SyntaxTree> trees,
+        IReadOnlyList<MethodDeclarationSyntax> methods,
+        List<DeclarationDiagnostic> diagnostics)
+    {
+        if (!TryReadTimelineDeclarationTypes(declaration, trees, out var trackType, out var clipType))
+            return null;
+
+        if (declaration.Parent is not CompilationUnitSyntax and not BaseNamespaceDeclarationSyntax
+            || declaration.TypeParameterList != null
+            || !declaration.Modifiers.Any(static token => token.IsKind(SyntaxKind.PublicKeyword))
+            || !declaration.Modifiers.Any(static token => token.IsKind(SyntaxKind.ReadOnlyKeyword))
+            || !declaration.Modifiers.Any(static token => token.IsKind(SyntaxKind.PartialKeyword)))
+        {
+            diagnostics.Add(At(declaration, path, "TLGEN11",
+                "a compiled timeline must be a top-level public readonly partial struct without type parameters."));
+            return null;
+        }
+
+        var identity = TypeIdentity(declaration);
+        var candidates = methods
+            .Where(method => method.Identifier.ValueText == "Define" && TypeIdentity(method) == identity)
+            .ToList();
+        if (candidates.Count != 1)
+        {
+            diagnostics.Add(At(declaration, path, "TLGEN12",
+                "a compiled timeline must declare exactly one public static void Define(scoped TimelineBuilder<TTrack,TClip> timeline) method."));
+            return null;
+        }
+
+        var define = candidates[0];
+        var parameter = define.ParameterList.Parameters.Count == 1
+            ? define.ParameterList.Parameters[0]
+            : null;
+        var builder = TimelineBuilderType(parameter?.Type);
+        if (define.Body == null
+            || define.ReturnType is not PredefinedTypeSyntax { Keyword.ValueText: "void" }
+            || !define.Modifiers.Any(static token => token.IsKind(SyntaxKind.PublicKeyword))
+            || !define.Modifiers.Any(static token => token.IsKind(SyntaxKind.StaticKeyword))
+            || define.TypeParameterList != null
+            || parameter == null
+            || !parameter.Modifiers.Any(static token => token.IsKind(SyntaxKind.ScopedKeyword))
+            || builder?.TypeArgumentList.Arguments.Count != 2
+            || NormalizeName(builder.TypeArgumentList.Arguments[0].ToString()) != NormalizeName(trackType)
+            || NormalizeName(builder.TypeArgumentList.Arguments[1].ToString()) != NormalizeName(clipType))
+        {
+            diagnostics.Add(At(define, define.SyntaxTree.FilePath, "TLGEN12",
+                $"Define must be 'public static void Define(scoped TimelineBuilder<{trackType}, {clipType}> timeline)' with a block body."));
+            return null;
+        }
+
+        var sourceUsings = SourceUsings(declaration, define, diagnostics);
+        if (sourceUsings == null)
+            return null;
+
+        var name = declaration.Identifier.Text;
+        var definition = InterpretBody(
+            define.Body,
+            parameter.Identifier.ValueText,
+            name,
+            trackType,
+            clipType,
+            NamespaceIdentity(declaration),
+            define,
+            define.SyntaxTree.FilePath,
+            sourceUsings,
+            diagnostics);
+        if (definition == null)
+            return null;
+
+        return new CompiledDeclaration
+        {
+            KernelName = name,
+            Definition = definition,
+            File = path,
+            Line = declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+            Kind = CompiledDeclarationKind.PartialTimeline,
+        };
     }
 
     private static CompiledDeclaration? ReadSite(
@@ -159,9 +258,23 @@ public static class DeclarationReader
             return null;
         }
 
+        var sourceUsings = SourceUsings(compile, body, diagnostics);
+        if (sourceUsings == null)
+            return null;
+
         var name = KernelNameFor(compile);
         var declarationNamespace = EnclosingNamespace(compile);
-        var definition = InterpretBody(body, builderName, name, trackType, clipType, declarationNamespace, compile, path, diagnostics);
+        var definition = InterpretBody(
+            body,
+            builderName,
+            name,
+            trackType,
+            clipType,
+            declarationNamespace,
+            compile,
+            body.SyntaxTree.FilePath,
+            sourceUsings,
+            diagnostics);
         if (definition == null)
             return null;
 
@@ -172,7 +285,47 @@ public static class DeclarationReader
             Definition = definition,
             File = path,
             Line = line,
+            Kind = CompiledDeclarationKind.LegacyCompile,
         };
+    }
+
+    private static bool TryReadTimelineDeclarationTypes(
+        StructDeclarationSyntax declaration,
+        IReadOnlyList<SyntaxTree> trees,
+        out string trackType,
+        out string clipType)
+    {
+        trackType = clipType = "";
+        var marker = declaration.BaseList?.Types
+            .Select(static item => item.Type)
+            .Select(type => type switch
+            {
+                GenericNameSyntax { Identifier.ValueText: "ITimeline" } generic
+                    when IsTlTypeInScope(type, trees, "ITimeline", 2) => generic,
+                QualifiedNameSyntax
+                {
+                    Left: IdentifierNameSyntax { Identifier.ValueText: "Tl" },
+                    Right: GenericNameSyntax { Identifier.ValueText: "ITimeline" } generic,
+                } => generic,
+                QualifiedNameSyntax
+                {
+                    Left: AliasQualifiedNameSyntax
+                    {
+                        Alias.Identifier.ValueText: "global",
+                        Name.Identifier.ValueText: "Tl",
+                    },
+                    Right: GenericNameSyntax { Identifier.ValueText: "ITimeline" } generic,
+                } => generic,
+                _ => null,
+            })
+            .FirstOrDefault(static type => type != null);
+
+        if (marker?.TypeArgumentList.Arguments.Count != 2)
+            return false;
+
+        trackType = marker.TypeArgumentList.Arguments[0].ToString();
+        clipType = marker.TypeArgumentList.Arguments[1].ToString();
+        return true;
     }
 
     private static bool TryReadTimelineTypes(
@@ -211,15 +364,18 @@ public static class DeclarationReader
     }
 
     private static bool IsTlTimelineInScope(ExpressionSyntax receiver, IReadOnlyList<SyntaxTree> trees)
+        => IsTlTypeInScope(receiver, trees, "Timeline", 2);
+
+    private static bool IsTlTypeInScope(SyntaxNode receiver, IReadOnlyList<SyntaxTree> trees, string name, int arity)
     {
-        if (DeclaresTimelineInScope(receiver, trees))
+        if (DeclaresTypeInScope(receiver, trees, name, arity))
             return false;
 
         var root = receiver.SyntaxTree.GetCompilationUnitRoot();
         var visibleUsings = root.Usings
             .Concat(receiver.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(static scope => scope.Usings))
             .ToList();
-        if (visibleUsings.Any(IsTimelineAlias))
+        if (visibleUsings.Any(directive => IsTypeAlias(directive, name)))
             return false;
         var containingNamespace = NamespaceIdentity(receiver);
         if (containingNamespace == "Tl" || containingNamespace.StartsWith("Tl.", StringComparison.Ordinal))
@@ -232,7 +388,7 @@ public static class DeclarationReader
             .SelectMany(static unit => unit.Usings)
             .Where(static directive => directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
             .ToList();
-        if (globalUsings.Any(IsTimelineAlias))
+        if (globalUsings.Any(directive => IsTypeAlias(directive, name)))
             return false;
 
         return globalUsings.Any(IsTlImport);
@@ -248,13 +404,13 @@ public static class DeclarationReader
                 Name.Identifier.ValueText: "Tl",
             };
 
-    private static bool IsTimelineAlias(UsingDirectiveSyntax directive) =>
-        directive.Alias?.Name.Identifier.ValueText == "Timeline";
+    private static bool IsTypeAlias(UsingDirectiveSyntax directive, string name) =>
+        directive.Alias?.Name.Identifier.ValueText == name;
 
-    private static bool DeclaresTimelineInScope(ExpressionSyntax receiver, IReadOnlyList<SyntaxTree> trees)
+    private static bool DeclaresTypeInScope(SyntaxNode receiver, IReadOnlyList<SyntaxTree> trees, string name, int arity)
     {
-        if (receiver.Ancestors().OfType<TypeDeclarationSyntax>().Any(static container =>
-                container.Members.OfType<TypeDeclarationSyntax>().Any(IsTimelineType)))
+        if (receiver.Ancestors().OfType<TypeDeclarationSyntax>().Any(container =>
+                container.Members.OfType<TypeDeclarationSyntax>().Any(type => IsNamedType(type, name, arity))))
             return true;
 
         var targetNamespace = NamespaceIdentity(receiver);
@@ -262,11 +418,11 @@ public static class DeclarationReader
             .SelectMany(static tree => tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>())
             .Any(type => type.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax
                 && NamespaceIdentity(type) == targetNamespace
-                && IsTimelineType(type));
+                && IsNamedType(type, name, arity));
     }
 
-    private static bool IsTimelineType(TypeDeclarationSyntax type) =>
-        type.Identifier.ValueText == "Timeline" && type.TypeParameterList?.Parameters.Count == 2;
+    private static bool IsNamedType(TypeDeclarationSyntax type, string name, int arity) =>
+        type.Identifier.ValueText == name && type.TypeParameterList?.Parameters.Count == arity;
 
     private static string NamespaceIdentity(SyntaxNode node) => string.Join(
         ".",
@@ -419,8 +575,9 @@ public static class DeclarationReader
         string trackType,
         string clipType,
         string declarationNamespace,
-        InvocationExpressionSyntax site,
+        SyntaxNode site,
         string path,
+        IReadOnlyList<string> sourceUsings,
         List<DeclarationDiagnostic> diagnostics)
     {
         var tracks = new List<TrackDefinition>();
@@ -533,6 +690,7 @@ public static class DeclarationReader
             Loops = loops,
             Tracks = tracks,
             Clips = clips,
+            SourceUsings = sourceUsings,
         };
 
         try
@@ -546,6 +704,45 @@ public static class DeclarationReader
         }
 
         return definition;
+    }
+
+    private static IReadOnlyList<string>? SourceUsings(
+        SyntaxNode first,
+        SyntaxNode second,
+        List<DeclarationDiagnostic> diagnostics)
+    {
+        var values = new HashSet<string>(StringComparer.Ordinal);
+        var aliases = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var node in new[] { first, second })
+        {
+            var directives = node.SyntaxTree.GetCompilationUnitRoot().Usings
+                .Concat(node.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(static scope => scope.Usings));
+            foreach (var directive in directives)
+            {
+                if (directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
+                    continue;
+
+                var value = directive.WithoutTrivia().NormalizeWhitespace().ToFullString();
+                var alias = directive.Alias?.Name.Identifier.ValueText;
+                if (alias != null
+                    && aliases.TryGetValue(alias, out var existing)
+                    && existing != value)
+                {
+                    diagnostics.Add(At(
+                        directive,
+                        directive.SyntaxTree.FilePath,
+                        "TLGEN13",
+                        $"using alias '{alias}' has conflicting declarations across the compiled timeline parts; use distinct aliases or fully qualify the referenced type."));
+                    return null;
+                }
+
+                if (alias != null)
+                    aliases.TryAdd(alias, value);
+                values.Add(value);
+            }
+        }
+
+        return values.OrderBy(static value => value, StringComparer.Ordinal).ToArray();
     }
 
     private static ClipDefinition? ReadClipCall(
@@ -682,21 +879,7 @@ public static class DeclarationReader
         return false;
     }
 
-    // The kernel is emitted into the declaration's enclosing namespace so
-    // the authored track/clip types (and the payload expressions' names)
-    // resolve exactly as they do at the declaration site.
-    private static string EnclosingNamespace(SyntaxNode node)
-    {
-        for (var current = node.Parent; current != null; current = current.Parent)
-        {
-            if (current is FileScopedNamespaceDeclarationSyntax fileScoped)
-                return fileScoped.Name.ToString();
-            if (current is NamespaceDeclarationSyntax block)
-                return block.Name.ToString();
-        }
-
-        return "";
-    }
+    private static string EnclosingNamespace(SyntaxNode node) => NamespaceIdentity(node);
 
     private static string KernelNameFor(InvocationExpressionSyntax compile)
     {

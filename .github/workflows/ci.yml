@@ -32,11 +32,11 @@ jobs:
           python3 benchmarks/source_budget.py
           python3 -m unittest discover -s benchmarks -p test_collect.py
       - name: Build solution (Release)
-        run: dotnet build tl.slnx -c Release
+        run: dotnet build tl.slnx -c Release -m:1
       - name: Run tests
         run: dotnet test tl.slnx -c Release --no-build
       - name: Publish NativeAOT executable
-        run: dotnet publish tests/Tl.Aot/Tl.Aot.csproj -c Release -r linux-x64
+        run: dotnet publish tests/Tl.Aot/Tl.Aot.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
       - name: Execute NativeAOT binary
         run: ./tests/Tl.Aot/bin/Release/net10.0/linux-x64/publish/Tl.Aot
       - name: Baseline verification - Dispatch
@@ -49,17 +49,29 @@ jobs:
         run: dotnet run --project benchmarks/Review --no-build -c Release -- --verify
       - name: Baseline verification - AotBench
         run: dotnet run --project benchmarks/AotBench --no-build -c Release -- --check
-      - name: Verify experimental fusion generation
+      - name: Verify compiled timeline parity
+        run: dotnet run --project samples/Compiled -c Release --no-build
+      - name: Verify compiled timeline under NativeAOT
         run: |
-          dotnet run --project benchmarks/FusionGenerate -c Release -- --self-test
-          dotnet run --project benchmarks/FusionGenerate -c Release -- --output "$RUNNER_TEMP/FusedPulse.g.cs"
-          cmp benchmarks/FusionHour/Generated/FusedPulse.g.cs "$RUNNER_TEMP/FusedPulse.g.cs"
-          dotnet run --project benchmarks/FusionChecks -c Release
-      - name: Verify experimental fusion under NativeAOT
-        run: |
-          dotnet publish benchmarks/FusionChecks -c Release -r linux-x64 -p:PublishAot=true
-          ./benchmarks/FusionChecks/bin/Release/net10.0/linux-x64/publish/FusionChecks
+          set -euo pipefail
+          dotnet publish samples/Compiled/Compiled.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
+          ./samples/Compiled/bin/Release/net10.0/linux-x64/publish/Compiled
       - name: Pack packages
         run: |
+          set -euo pipefail
           dotnet pack src/Tl.Core -c Release -o artifacts/packages
           dotnet pack src/Tl.Gen -c Release -o artifacts/packages
+      - name: Verify clean package consumer
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/tl-package-consumer
+        run: |
+          set -euo pipefail
+          dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj --source artifacts/packages
+          dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore
+          test "$(./tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.PackageConsumer)" = "7"
+          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.dll
+          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Waffle.Core.dll
+          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.dll
+          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.CSharp.dll
+          dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore | tee artifacts/package-cache.log
+          grep -F "TlGenCompile: cache hit" artifacts/package-cache.log

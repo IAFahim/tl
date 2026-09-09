@@ -23,22 +23,15 @@ type Tl.Generation.ClipRow
   Method System.String ToString()
 type Tl.Generation.GeneratedTimeline`2
   Method Void Backward[TInput,TResult](TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Void Backward[TInput,TResult](TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
   Method Tl.Playback Backward[TInput,TResult](Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Tl.Playback Backward[TInput,TResult](Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
   Method Void Forward[TInput,TResult](TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Void Forward[TInput,TResult](TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
   Method Tl.Playback Forward[TInput,TResult](Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.ReadOnlySpan`1[System.UInt32])
-  Method Tl.Playback Forward[TInput,TResult](Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
   Method Tl.Playback Start(UInt32)
 type Tl.Generation.ITrackTables`2
   Property System.ReadOnlySpan`1[TClip] ClipData
   Property System.ReadOnlySpan`1[Tl.ClipEdge] ClipEdges
   Property System.ReadOnlySpan`1[Tl.Generation.ClipRow] ClipRows
   Property Boolean Loops
-  Property Int32 MaxActiveBlends
-  Property Int32 MaxActiveTracks
-  Property System.ReadOnlySpan`1[System.Byte] RegionFlags
   Property System.ReadOnlySpan`1[Tl.Generation.RegionRow] RegionRows
   Property System.ReadOnlySpan`1[System.UInt32] RegionStarts
   Property System.ReadOnlySpan`1[TTrack] TrackData
@@ -61,11 +54,14 @@ type Tl.Generation.TrackRow
   Method System.String ToString()
   Property UInt16 TrackIndex
 type Tl.IBackward`4
-  Method Void Backward(Tl.Tracks`2[TTrack,TClip] ByRef, TInput ByRef, UInt32 ByRef, TResult ByRef)
+  Method Void Backward(Int32, Int32, UInt16, TTrack ByRef, TClip ByRef, Tl.ClipState, UInt32 ByRef, TInput ByRef, TResult ByRef)
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.IForward`4
-  Method Void Forward(Tl.Tracks`2[TTrack,TClip] ByRef, TInput ByRef, UInt32 ByRef, TResult ByRef)
+  Method Void Forward(Int32, Int32, UInt16, TTrack ByRef, TClip ByRef, Tl.ClipState, UInt32 ByRef, TInput ByRef, TResult ByRef)
+type Tl.ITimeline`2
+  Method Void Define(Tl.TimelineBuilder`2[TTrack,TClip])
+type Tl.ITrack`4
 type Tl.Playback
   Field UInt16 Cycles
   Method Boolean Equals(Tl.Playback)
@@ -123,25 +119,9 @@ type Tl.TimelineOptions
   Method Int32 GetHashCode()
   Method System.String ToString()
 type Tl.Timeline`2
-  Method Tl.Playback Backward[TInput,TResult](UInt16, Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
   Method Void Bind[TInput,TResult](UInt16)
   Method Tl.TimelineAuthoring`2[TTrack,TClip] Build(Tl.TimelineBuild`2[TTrack,TClip])
   Method Tl.TimelineAuthoring`2[TTrack,TClip] Build(Tl.TimelineBuild`2[TTrack,TClip], Tl.TimelineOptions)
   Method Tl.TimelineAuthoring`2[TTrack,TClip] Build[TSource](TSource, Tl.TimelineBuild`3[TTrack,TClip,TSource])
   Method Tl.TimelineAuthoring`2[TTrack,TClip] Build[TSource](TSource, Tl.TimelineBuild`3[TTrack,TClip,TSource], Tl.TimelineOptions)
-  Method Tl.Playback Forward[TInput,TResult](UInt16, Tl.Playback ByRef, TInput ByRef, TResult ByRef, System.Span`1[TClip], System.ReadOnlySpan`1[System.UInt32])
 type Tl.TrackRef
-type Tl.TrackWork`2
-  Property TClip& Clip
-  Property UInt16 Index
-  Property Tl.ClipState State
-  Property TTrack& Track
-type Tl.Tracks`2
-  Property Int32 Count
-  NestedType Tl.Tracks`2+Enumerator[TTrack,TClip]
-  Method Enumerator GetEnumerator()
-  Property Tl.TrackWork`2[TTrack,TClip] Item [Int32]
-  Method Tl.Tracks`2[TTrack,TClip] Slice(Int32, Int32)
-type Tl.Tracks`2+Enumerator
-  Property Tl.TrackWork`2[TTrack,TClip] Current
-  Method Boolean MoveNext()
