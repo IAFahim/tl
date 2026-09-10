@@ -38,6 +38,6 @@ Unity ECS integration follows the core ABI rather than changing it. Timeline pay
 
 The first portability backend is C11. Its contract becomes the native foundation for C++, Rust, engines, and FFI bindings. The current neutral slice carries identity, runtime ID, looping, authored track indices, payload handles, clip windows, and stable operation IDs. Regions, movement facts, typed constant values, slot access, canonical serialization, and shared semantic lowering remain tracked compiler work. C consumers implement named operations; arbitrary C# method bodies are never presented as portable. The C ABI fixes layout, alignment, ownership, status values, and versioning. Cross-endian serialization is not yet defined.
 
-The current pause point keeps the reviewed C ABI v2 unchanged and finishes only the runnable C# generator and Unity qualification atoms. The exact continuation order and rejected codec findings are recorded in [plan.md](../plan.md#paused-architecture-work).
+The current pause point keeps the reviewed C ABI v2 unchanged. The runnable incremental C# generator and Unity qualification atoms are complete. The owner-reported C# API correction is the first continuation atom; neutral-plan and C work remain deferred. The exact continuation order and rejected codec findings are recorded in [plan.md](../plan.md#paused-architecture-work).
 
 Historical experiments remain evidence for earlier designs and measurements. They do not substitute for measurements of the v1 public API.

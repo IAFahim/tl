@@ -4,7 +4,7 @@ Date: 2026-09-10
 Base release: `v1.0.0-alpha.1` at `5c05aa5`
 Target package version: `1.0.0-alpha.2`
 Target immutable tag: `v1.0.0-alpha.2`
-Status: signed-seek C# candidate under review
+Status: runnable checkpoint; C# API correction and release paused
 
 This file records the accepted architecture, measurable targets, release gates, and recovery path. GitHub Issues and [Project 6](https://github.com/users/IAFahim/projects/6/views/4) own live work. [Issue #11](https://github.com/IAFahim/tl/issues/11) owns release completion. The [API contract](docs/v1.0-alpha-api.md), [migration guide](docs/v1.0-alpha-migration.md), and [release checklist](docs/v1.0-alpha-checklist.md) define the reviewable surface and proof.
 
@@ -184,7 +184,7 @@ Production source size is:
 sum(UTF-8 file content bytes + UTF-8 relative path bytes + one separator byte)
 ```
 
-for production files under `src`. The hard cap is 250,000 bytes. This C# signed-seek branch measures 154,651 bytes before the C and package-layout integration workstreams land. The final merged candidate must measure the complete tree again. Generated application source, IL, native code, retained timeline data, and runtime working set are reported separately.
+for production files under `src`. The hard cap is 250,000 bytes. The runnable integration checkpoint measures 205,815 content bytes plus 1,522 path bytes, or 207,337 bytes total, leaving 42,663 bytes. Generated application source, IL, native code, retained timeline data, and runtime working set are reported separately.
 
 For `L` independently selectable stored values, fixed-width selection requires at least `ceil(log2 L)` bits. A timeline kind upper bound of 256 requires eight bits. Selecting up to 65,536 dynamic timelines requires sixteen bits. A count representing every integer from zero through 256 requires nine bits. Narrowing a field helps only when packing and load costs improve after alignment.
 
@@ -218,7 +218,9 @@ One hundred percent line coverage is not a substitute for this boundary matrix. 
 
 ## Paused architecture work
 
-The current stopping checkpoint prioritizes a runnable C# package and qualified Unity path. The reviewed C ABI v2 remains unchanged. Further C optimization, C packaging expansion, and completion of issue #5 stay pending.
+The current stopping checkpoint contains a runnable incremental C# package and qualified Unity path. The reviewed C ABI v2 remains unchanged. Further C optimization, C packaging expansion, and completion of issue #5 stay pending.
+
+Before release or further backend work, resolve the owner-reported mistake in the C# API contract. Treat the current generated surface as provisional. The next session must first capture the failing game-facing use case, revise the API contract and migration guide, update generator/runtime/Unity surfaces together, renew public API approvals, and rerun correctness, allocation, NativeAOT, Burst, source-size, and performance gates. Do not preserve the current shape merely for compatibility with this unreleased checkpoint.
 
 The next neutral-plan atom is:
 
