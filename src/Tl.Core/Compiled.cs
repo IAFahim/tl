@@ -57,57 +57,39 @@ public readonly ref struct Frame<TTrack, TClip>
     private readonly ref readonly TClip _clip;
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public Frame(in TTrack track, in TClip clip, uint tick, ClipState state, ushort trackIndex)
+    public Frame(
+        in TTrack track,
+        in TClip clip,
+        uint gameTick,
+        uint timelineTick,
+        long cycle,
+        ushort trackIndex,
+        FrameFlags flags)
     {
         _track = ref track;
         _clip = ref clip;
-        Tick = tick;
-        State = state;
+        GameTick = gameTick;
+        TimelineTick = timelineTick;
+        Cycle = cycle;
         TrackIndex = trackIndex;
+        Flags = flags;
     }
 
     public ref readonly TTrack Track => ref _track;
     public ref readonly TClip Clip => ref _clip;
-    public uint Tick { get; }
-    public ClipState State { get; }
+    public uint GameTick { get; }
+    public uint TimelineTick { get; }
+    public long Cycle { get; }
     public ushort TrackIndex { get; }
+    public FrameFlags Flags { get; }
+    public int Direction => Has(FrameFlags.Reverse) ? -1 : 1;
+    public bool Has(FrameFlags flags) => (Flags & flags) == flags;
 }
 
-public interface ITimelineInput<TSelf, TOutput>
-    where TSelf : ITimelineInput<TSelf, TOutput>, allows ref struct
-    where TOutput : allows ref struct
+public interface ITimelineData<TSelf>
+    where TSelf : ITimelineData<TSelf>, allows ref struct
 {
-    static abstract bool TryForward(
-        ushort id,
-        in Playback playback,
-        uint tick,
-        scoped in TSelf input,
-        scoped ref TOutput output,
-        out Playback next);
-
-    static abstract bool TryBackward(
-        ushort id,
-        in Playback playback,
-        uint tick,
-        scoped in TSelf input,
-        scoped ref TOutput output,
-        out Playback next);
-
-    static abstract bool TryForward(
-        ushort id,
-        in Playback playback,
-        ReadOnlySpan<uint> ticks,
-        scoped in TSelf input,
-        scoped ref TOutput output,
-        out Playback next);
-
-    static abstract bool TryBackward(
-        ushort id,
-        in Playback playback,
-        ReadOnlySpan<uint> ticks,
-        scoped in TSelf input,
-        scoped ref TOutput output,
-        out Playback next);
+    static abstract bool TrySeek(ushort id, scoped ref TSelf data, int delta);
 }
 
 public static unsafe class Timeline
@@ -188,15 +170,15 @@ public static unsafe class Timeline
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public static Playback CreateCompiledPlayback(ushort owner, uint tick, ushort cycles, PlaybackFlags flags)
-        => new(tick, cycles, owner, flags);
+    public static Playback CreateCompiledPlayback(ushort owner, long position, uint gameTick, PlaybackFlags flags)
+        => new(position, gameTick, owner, flags);
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public static Playback<TTimeline> CreateTypedPlayback<TTimeline>(uint tick, ushort cycles, PlaybackFlags flags)
+    public static Playback<TTimeline> CreateTypedPlayback<TTimeline>(long position, uint gameTick, PlaybackFlags flags)
         where TTimeline : unmanaged, ITimeline
-        => new(tick, cycles, flags);
+        => new(position, gameTick, flags);
 
-    public static bool TryStart(ushort id, uint at, out Playback playback)
+    public static bool TryStart(ushort id, uint gameTick, out Playback playback)
     {
         if (!IsValid(id))
         {
@@ -204,12 +186,9 @@ public static unsafe class Timeline
             return false;
         }
 
-        playback = new Playback(at, 0, id, PlaybackFlags.Started);
+        playback = new Playback(0, gameTick, id, PlaybackFlags.Started);
         return true;
     }
-
-    public static bool TryStart(ushort id, out Playback playback)
-        => TryStart(id, 0, out playback);
 
     public static bool TryStop(ushort id, in Playback playback, out Playback stopped)
     {
@@ -221,57 +200,14 @@ public static unsafe class Timeline
 
         stopped = playback.Has(PlaybackFlags.Stopped)
             ? playback
-            : new Playback(playback.Tick, playback.Cycles, id, playback.Flags | PlaybackFlags.Stopped);
+            : new Playback(playback.Position, playback.GameTick, id, playback.Flags | PlaybackFlags.Stopped);
         return true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryForward<TInput, TOutput>(
-        ushort id,
-        in Playback playback,
-        uint tick,
-        scoped in TInput input,
-        scoped ref TOutput output,
-        out Playback next)
-        where TInput : ITimelineInput<TInput, TOutput>, allows ref struct
-        where TOutput : allows ref struct
-        => TInput.TryForward(id, in playback, tick, in input, ref output, out next);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryBackward<TInput, TOutput>(
-        ushort id,
-        in Playback playback,
-        uint tick,
-        scoped in TInput input,
-        scoped ref TOutput output,
-        out Playback next)
-        where TInput : ITimelineInput<TInput, TOutput>, allows ref struct
-        where TOutput : allows ref struct
-        => TInput.TryBackward(id, in playback, tick, in input, ref output, out next);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryForward<TInput, TOutput>(
-        ushort id,
-        in Playback playback,
-        ReadOnlySpan<uint> ticks,
-        scoped in TInput input,
-        scoped ref TOutput output,
-        out Playback next)
-        where TInput : ITimelineInput<TInput, TOutput>, allows ref struct
-        where TOutput : allows ref struct
-        => TInput.TryForward(id, in playback, ticks, in input, ref output, out next);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool TryBackward<TInput, TOutput>(
-        ushort id,
-        in Playback playback,
-        ReadOnlySpan<uint> ticks,
-        scoped in TInput input,
-        scoped ref TOutput output,
-        out Playback next)
-        where TInput : ITimelineInput<TInput, TOutput>, allows ref struct
-        where TOutput : allows ref struct
-        => TInput.TryBackward(id, in playback, ticks, in input, ref output, out next);
+    public static bool TrySeek<TData>(ushort id, scoped ref TData data, int delta)
+        where TData : ITimelineData<TData>, allows ref struct
+        => TData.TrySeek(id, ref data, delta);
 
     private static ushort RegisterSlot(nint slot)
     {
