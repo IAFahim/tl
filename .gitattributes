@@ -1,2 +1,6 @@
 benchmarks/**/results/** -whitespace
 docs/verification/** -whitespace
+src/Tl.Unity/**/*.meta -whitespace
+tests/Tl.Unity.Project/**/*.asset -whitespace
+tests/Tl.Unity.Project/**/*.meta -whitespace
+tests/Tl.Unity.Project/**/*.unity -whitespace
