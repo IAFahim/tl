@@ -6,106 +6,109 @@ namespace Tl.Gen.CSharp;
 
 internal static class JobEmitter
 {
+    private sealed record ScheduledOccurrence(JobDefinition Job, JobTrack? Track, int TrackStorage, int FirstStorage, int SecondStorage, uint WindowStart, uint WindowEnd, uint FactorStart, uint FactorLength);
+    private sealed record ScheduledRegion(uint End, IReadOnlyList<ScheduledOccurrence> Occurrences);
+
     internal static string Normalize(string content) => content.Replace("\r\n", "\n").Replace('\r', '\n');
     internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model)
     {
         var timelines = model.Timelines.OrderBy(Qualified, StringComparer.Ordinal).ToArray();
-        var files = timelines.Select((timeline, index) => new CompileArtifact($"TlJob{index}.g.cs", Timeline(timeline))).ToList();
+        var plans = timelines.ToDictionary(Qualified, JobTimelinePlanAdapter.Create, StringComparer.Ordinal);
+        var files = timelines.Select((timeline, index) => new CompileArtifact($"TlJob{index}.g.cs", Timeline(timeline, plans[Qualified(timeline)]))).ToList();
         files.AddRange(model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal)
-            .Select((catalog, index) => new CompileArtifact($"TlCatalog{index}.g.cs", Catalog(catalog, timelines))));
+            .Select((catalog, index) => new CompileArtifact($"TlCatalog{index}.g.cs", Catalog(catalog, timelines, plans))));
         return files;
     }
 
-    private static string Timeline(JobTimeline timeline)
+    private static string Timeline(JobTimeline timeline, BoundOrderedTimelinePlan bound)
     {
         var writer = Header(timeline.Namespace, timeline.Usings);
-        var slots = Slots([timeline]);
+        var regions = Regions(timeline, bound);
+        var operations = bound.OperationBindings;
         Line(writer, $"public readonly partial struct {timeline.Name}");
         Line(writer, "{");
         Line(writer, $"public const uint Duration = {U(timeline.Duration)};");
         Line(writer, $"public const bool Loops = {Bool(timeline.Loops)};");
         Line(writer, $"public const int TrackCount = {timeline.Tracks.Count};");
         Line(writer, $"public const int ClipCount = {timeline.Clips.Count};");
-        foreach (var track in timeline.Tracks)
-            Line(writer, $"private static readonly {track.TypeName} __tlTrack{track.Index} = {track.Expression};");
-        for (var index = 0; index < timeline.Clips.Count; index++)
-            Line(writer, $"private static readonly {timeline.Clips[index].TypeName} __tlClip{index} = {timeline.Clips[index].Expression};");
-        var sizes = timeline.Tracks.Select(static track => $"global::System.Runtime.CompilerServices.Unsafe.SizeOf<{track.TypeName}>()")
-            .Concat(timeline.Clips.Select(static clip => $"global::System.Runtime.CompilerServices.Unsafe.SizeOf<{clip.TypeName}>()"));
+        Line(writer, $"public const int MaxStageCount = {regions.Select(static region => region.Occurrences.Count).DefaultIfEmpty().Max()};");
+        var uniqueBindings = bound.Plan.UniquePayloads.Select(unique => bound.PayloadBindings[(int)unique.Id.Value]).ToArray();
+        for (var index = 0; index < uniqueBindings.Length; index++)
+            Line(writer, $"private static readonly {uniqueBindings[index].TypeName} __tlData{index} = {uniqueBindings[index].Expression};");
+        var sizes = uniqueBindings.Select(static binding => $"global::System.Runtime.CompilerServices.Unsafe.SizeOf<{binding.TypeName}>()");
         Line(writer, $"public static int StaticDataBytes => {string.Join(" + ", sizes.DefaultIfEmpty("0"))};");
         Line(writer, "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
         Line(writer, "public static bool Select(in global::Tl.TimelineState state, bool reverse, out global::Tl.TimelineState next, out uint tick, out long cycle, out global::Tl.FrameFlags flags)");
         Line(writer, "=> global::Tl.TimelineMovement.Select(in state, Duration, Loops, reverse, out next, out tick, out cycle, out flags);");
         Line(writer, "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
-        Line(writer, $"public static void ExecuteFrame(uint __tlTick, uint __tlGameTick, long __tlCycle, global::Tl.FrameFlags __tlFlags{Parameters(slots)})");
-        Line(writer, "{");
-        Line(writer, "if ((__tlFlags & global::Tl.FrameFlags.Reverse) != 0)");
-        Line(writer, "{");
-        Execute(writer, timeline, true);
-        Line(writer, "}");
-        Line(writer, "else");
-        Line(writer, "{");
-        Execute(writer, timeline, false);
-        Line(writer, "}");
-        Line(writer, "}");
+        Line(writer, "internal static long FrameCycle(in global::Tl.TimelineState state, global::Tl.FrameFlags flags)");
+        Line(writer, timeline.Loops
+            ? "=> (flags & global::Tl.FrameFlags.Reverse) != 0 && state.Position == 0 ? unchecked(state.Cycle - 1) : state.Cycle;"
+            : "=> 0L;");
+        Line(writer, "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
+        Line(writer, "internal static global::Tl.TimelineState Commit(in global::Tl.TimelineState state, uint tick, global::Tl.FrameFlags flags)");
+        if (timeline.Loops)
+        {
+            Line(writer, "=> (flags & global::Tl.FrameFlags.Reverse) != 0");
+            Line(writer, "? new global::Tl.TimelineState(state.Asset, tick, FrameCycle(in state, flags))");
+            Line(writer, ": (flags & global::Tl.FrameFlags.TimelineEnd) != 0");
+            Line(writer, "? new global::Tl.TimelineState(state.Asset, 0u, unchecked(state.Cycle + 1))");
+            Line(writer, " : new global::Tl.TimelineState(state.Asset, tick + 1u, state.Cycle);");
+        }
+        else
+            Line(writer, "=> new global::Tl.TimelineState(state.Asset, (flags & global::Tl.FrameFlags.Reverse) != 0 ? tick : tick + 1u);");
+        for (var operation = 0; operation < operations.Length; operation++)
+        {
+            EmitOperation(writer, timeline, regions, operations[operation], operation, false);
+            EmitOperation(writer, timeline, regions, operations[operation], operation, true);
+        }
         Line(writer, "}");
         return writer.ToString();
     }
 
-    private static void Execute(StringBuilder writer, JobTimeline timeline, bool reverse)
+    private static void EmitOperation(
+        StringBuilder writer,
+        JobTimeline timeline,
+        IReadOnlyList<ScheduledRegion> regions,
+        JobDefinition operation,
+        int operationIndex,
+        bool reverse)
     {
-        var leading = reverse ? timeline.After.Reverse() : timeline.Before;
-        var trailing = reverse ? timeline.Before.Reverse() : timeline.After;
-        if (timeline.Before.Count + timeline.After.Count != 0)
-            Line(writer, "var __tlFrame = new global::Tl.TimelineFrame(__tlGameTick, __tlTick, __tlCycle, __tlFlags);");
-        foreach (var hook in leading)
-            Line(writer, $"{hook.TypeName}.Execute(in __tlFrame{Arguments(hook.Slots)});");
-        var cuts = timeline.Clips.SelectMany(static clip => new[] { clip.Start, clip.End })
-            .Append(0u).Append(timeline.Duration).Distinct().OrderBy(static cut => cut).ToArray();
-        var tracks = reverse ? timeline.Tracks.Reverse() : timeline.Tracks;
-        for (var region = 0; region + 1 < cuts.Length; region++)
+        var direction = reverse ? "Reverse" : "Forward";
+        Line(writer, "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]");
+        Line(writer, $"internal static void Execute{direction}{operationIndex}(ushort __tlStage, uint __tlTick, uint __tlGameTick, long __tlCycle, global::Tl.FrameFlags __tlFlags{Parameters(operation.Slots)})");
+        Line(writer, "{");
+        for (var regionIndex = 0; regionIndex < regions.Count; regionIndex++)
         {
-            var start = cuts[region];
-            var end = cuts[region + 1];
-            Line(writer, $"if (__tlTick >= {U(start)} && __tlTick < {U(end)})");
+            var region = regions[regionIndex];
+            Line(writer, $"{(regionIndex == 0 ? "if" : "else if")} (__tlTick < {U(region.End)})");
             Line(writer, "{");
-            foreach (var track in tracks)
+            var occurrences = reverse ? region.Occurrences.Reverse().ToArray() : region.Occurrences.ToArray();
+            var matches = occurrences.Select((occurrence, stage) => (Occurrence: occurrence, Stage: stage))
+                .Where(pair => StringComparer.Ordinal.Equals(pair.Occurrence.Job.TypeName, operation.TypeName)).ToArray();
+            if (matches.Length != 0)
             {
-                var clips = timeline.Clips.Select((clip, index) => (Clip: clip, Index: index))
-                    .Where(pair => pair.Clip.TrackIndex == track.Index && pair.Clip.Start <= start && pair.Clip.End > start)
-                    .OrderBy(static pair => pair.Clip.Start).ThenBy(static pair => pair.Index).ToArray();
-                if (clips.Length == 0)
-                    continue;
+                Line(writer, "switch (__tlStage)");
                 Line(writer, "{");
-                var first = clips[0];
-                var windowStart = first.Clip.Start;
-                var windowEnd = first.Clip.End;
-                var clipExpression = $"__tlClip{first.Index}";
-                if (clips.Length == 2)
+                foreach (var match in matches)
                 {
-                    var second = clips[1];
-                    windowStart = Math.Min(windowStart, second.Clip.Start);
-                    windowEnd = Math.Max(windowEnd, second.Clip.End);
-                    var factorStart = Math.Max(first.Clip.Start, second.Clip.Start);
-                    var factorLength = Math.Min(first.Clip.End, second.Clip.End) - factorStart;
-                    var factor = factorLength <= 1 ? "0.5f" : $"(__tlTick - {U(factorStart)}) / (float){U(factorLength - 1)}";
-                    Line(writer, $"__tlTrack{track.Index}.Blend(in __tlClip{first.Index}, in __tlClip{second.Index}, {factor}, out var __tlResolved);");
-                    clipExpression = "__tlResolved";
+                    Line(writer, $"case {match.Stage}:");
+                    Line(writer, "{");
+                    Invoke(writer, timeline, match.Occurrence);
+                    Line(writer, "break;");
+                    Line(writer, "}");
                 }
-                Line(writer, "var __tlWorkFlags = __tlFlags;");
-                Line(writer, $"if (__tlTick == {U(windowStart)}) __tlWorkFlags |= global::Tl.FrameFlags.ClipStart;");
-                Line(writer, $"if (__tlTick == {U(windowEnd - 1)}) __tlWorkFlags |= global::Tl.FrameFlags.ClipEnd;");
-                Line(writer, $"var __tlWork = new global::Tl.Frame<{track.TypeName}, {track.ClipTypeName}>(in __tlTrack{track.Index}, in {clipExpression}, __tlGameTick, __tlTick, __tlCycle, {track.Index}, __tlWorkFlags);");
-                Line(writer, $"{track.Job.TypeName}.Execute(in __tlWork{Arguments(track.Job.Slots)});");
                 Line(writer, "}");
             }
             Line(writer, "}");
         }
-        foreach (var hook in trailing)
-            Line(writer, $"{hook.TypeName}.Execute(in __tlFrame{Arguments(hook.Slots)});");
+        Line(writer, "}");
     }
 
-    private static string Catalog(JobCatalog catalog, IReadOnlyList<JobTimeline> timelines)
+    private static string Catalog(
+        JobCatalog catalog,
+        IReadOnlyList<JobTimeline> timelines,
+        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
     {
         var byName = timelines.ToDictionary(Qualified, StringComparer.Ordinal);
         var assets = catalog.Schemas.SelectMany(static schema => schema.Assets).Distinct(StringComparer.Ordinal)
@@ -115,17 +118,28 @@ internal static class JobEmitter
         var writer = Header(catalog.Namespace, []);
         Line(writer, $"public readonly partial struct {catalog.Name}");
         Line(writer, "{");
+        Line(writer, $"public const int AssetCount = {assets.Length};");
+        Line(writer, "public static int StateBytes => global::System.Runtime.CompilerServices.Unsafe.SizeOf<State>();");
+        Line(writer, $"public static int StaticDataBytes => {string.Join(" + ", assets.Select(asset => Qualified(asset) + ".StaticDataBytes").DefaultIfEmpty("0"))};");
         Line(writer, "public enum Asset : uint");
         Line(writer, "{");
         Line(writer, "None = 0,");
         foreach (var asset in assets)
             Line(writer, $"{asset.Name} = {ids[Qualified(asset)]},");
         Line(writer, "}");
-        Line(writer, "public readonly struct State");
+        Line(writer, "public struct State");
         Line(writer, "{");
-        Line(writer, "internal readonly global::Tl.TimelineState Value;");
-        Line(writer, "public State(Asset asset, uint position = 0, long cycle = 0) => Value = new global::Tl.TimelineState((uint)asset, position, cycle);");
-        Line(writer, "internal State(global::Tl.TimelineState value) => Value = value;");
+        Line(writer, "internal global::Tl.TimelineState Value;");
+        Line(writer, "internal uint PendingTick;");
+        Line(writer, "internal global::Tl.FrameFlags PendingFlags;");
+        Line(writer, "internal bool Pending;");
+        Line(writer, "public State(Asset asset, uint position = 0, long cycle = 0)");
+        Line(writer, "{");
+        Line(writer, "Value = new global::Tl.TimelineState((uint)asset, position, cycle);");
+        Line(writer, "PendingTick = 0;");
+        Line(writer, "PendingFlags = global::Tl.FrameFlags.None;");
+        Line(writer, "Pending = false;");
+        Line(writer, "}");
         Line(writer, "public Asset Timeline => (Asset)Value.Asset;");
         Line(writer, "public uint Position => Value.Position;");
         Line(writer, "public long Cycle => Value.Cycle;");
@@ -140,14 +154,22 @@ internal static class JobEmitter
         }
         Line(writer, "}");
         foreach (var schema in catalog.Schemas)
-            Query(writer, schema, schema.Assets.Select(asset => byName[asset]).ToArray(), ids);
+            Query(writer, schema, schema.Assets.Select(asset => byName[asset]).ToArray(), ids, plans);
         Line(writer, "}");
         return writer.ToString();
     }
 
-    private static void Query(StringBuilder writer, JobSchema schema, IReadOnlyList<JobTimeline> assets, IReadOnlyDictionary<string, int> ids)
+    private static void Query(
+        StringBuilder writer,
+        JobSchema schema,
+        IReadOnlyList<JobTimeline> assets,
+        IReadOnlyDictionary<string, int> ids,
+        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
     {
         var slots = Slots(assets);
+        var operations = assets.SelectMany(asset => plans[Qualified(asset)].OperationBindings).GroupBy(static operation => operation.TypeName, StringComparer.Ordinal)
+            .Select(static group => group.First()).OrderBy(static operation => operation.TypeName, StringComparer.Ordinal).ToArray();
+        var maxStages = assets.Select(asset => plans[Qualified(asset)].Plan.Regions.Select(static region => (int)region.OccurrenceCount).DefaultIfEmpty().Max()).DefaultIfEmpty().Max();
         Line(writer, $"public readonly ref struct {schema.Name}Query");
         Line(writer, "{");
         Line(writer, "private readonly global::System.Span<State> __tlStates;");
@@ -193,6 +215,7 @@ internal static class JobEmitter
         Line(writer, "for (int __tlRow = 0; __tlRow < __tlStates.Length; __tlRow++)");
         Line(writer, "{");
         Line(writer, "ref var __tlState = ref __tlStates[__tlRow];");
+        Line(writer, "__tlState.Pending = false;");
         Line(writer, "switch (__tlState.Value.Asset)");
         Line(writer, "{");
         foreach (var asset in assets)
@@ -200,9 +223,8 @@ internal static class JobEmitter
             Line(writer, $"case {ids[Qualified(asset)]}:");
             Line(writer, "{");
             var name = Qualified(asset);
-            Line(writer, $"if (!{name}.Select(in __tlState.Value, __tlReverse, out var __tlNext, out var __tlTick, out var __tlCycle, out var __tlFlags)) break;");
-            Line(writer, $"{name}.ExecuteFrame(__tlTick, gameTick, __tlCycle, __tlFlags{Arguments(Slots([asset]), "[__tlRow]")});");
-            Line(writer, "__tlState = new State(__tlNext);");
+            Line(writer, $"if (!{name}.Select(in __tlState.Value, __tlReverse, out _, out __tlState.PendingTick, out _, out __tlState.PendingFlags)) break;");
+            Line(writer, "__tlState.Pending = true;");
             Line(writer, "__tlMoved = true;");
             Line(writer, "break;");
             Line(writer, "}");
@@ -210,10 +232,109 @@ internal static class JobEmitter
         Line(writer, "}");
         Line(writer, "}");
         Line(writer, "if (!__tlMoved) break;");
+        Line(writer, $"for (ushort __tlStage = 0; __tlStage < {maxStages}; __tlStage++)");
+        Line(writer, "{");
+        foreach (var operation in operations)
+        {
+            Line(writer, "for (int __tlRow = 0; __tlRow < __tlStates.Length; __tlRow++)");
+            Line(writer, "{");
+            Line(writer, "ref readonly var __tlState = ref __tlStates[__tlRow];");
+            Line(writer, "if (!__tlState.Pending) continue;");
+            Line(writer, "switch (__tlState.Value.Asset)");
+            Line(writer, "{");
+            foreach (var asset in assets.Where(asset => plans[Qualified(asset)].OperationBindings.Any(candidate => candidate.TypeName == operation.TypeName)))
+            {
+                var localOperation = plans[Qualified(asset)].OperationBindings.Select((candidate, index) => (candidate, index))
+                    .Single(pair => pair.candidate.TypeName == operation.TypeName);
+                Line(writer, $"case {ids[Qualified(asset)]}:");
+                Line(writer, $"if (__tlReverse) {Qualified(asset)}.ExecuteReverse{localOperation.index}(__tlStage, __tlState.PendingTick, gameTick, {Qualified(asset)}.FrameCycle(in __tlState.Value, __tlState.PendingFlags), __tlState.PendingFlags{Arguments(operation.Slots, "[__tlRow]")});");
+                Line(writer, $"else {Qualified(asset)}.ExecuteForward{localOperation.index}(__tlStage, __tlState.PendingTick, gameTick, {Qualified(asset)}.FrameCycle(in __tlState.Value, __tlState.PendingFlags), __tlState.PendingFlags{Arguments(operation.Slots, "[__tlRow]")});");
+                Line(writer, "break;");
+            }
+            Line(writer, "}");
+            Line(writer, "}");
+        }
+        Line(writer, "}");
+        Line(writer, "for (int __tlRow = 0; __tlRow < __tlStates.Length; __tlRow++)");
+        Line(writer, "{");
+        Line(writer, "ref var __tlState = ref __tlStates[__tlRow];");
+        Line(writer, "if (!__tlState.Pending) continue;");
+        Line(writer, "switch (__tlState.Value.Asset)");
+        Line(writer, "{");
+        foreach (var asset in assets)
+        {
+            Line(writer, $"case {ids[Qualified(asset)]}:");
+            Line(writer, $"__tlState.Value = {Qualified(asset)}.Commit(in __tlState.Value, __tlState.PendingTick, __tlState.PendingFlags);");
+            Line(writer, "break;");
+        }
+        Line(writer, "}");
+        Line(writer, "__tlState.Pending = false;");
+        Line(writer, "}");
         Line(writer, "if (!__tlReverse) gameTick = unchecked(gameTick + 1);");
         Line(writer, "}");
         Line(writer, "}");
         Line(writer, "}");
+    }
+
+    private static IReadOnlyList<ScheduledRegion> Regions(JobTimeline timeline, BoundOrderedTimelinePlan bound)
+    {
+        var regions = new List<ScheduledRegion>(bound.Plan.Regions.Length);
+        foreach (var region in bound.Plan.Regions)
+        {
+            var occurrences = new List<ScheduledOccurrence>(region.OccurrenceCount);
+            for (var stage = 0; stage < region.OccurrenceCount; stage++)
+            {
+                var occurrence = bound.Plan.Occurrences[(int)region.OccurrenceOffset + stage];
+                var job = bound.OperationBindings[occurrence.OperationIndex];
+                if ((occurrence.Flags & (global::Tl.Compiler.OrderedOccurrenceFlags.BeforeHook | global::Tl.Compiler.OrderedOccurrenceFlags.AfterHook)) != 0)
+                {
+                    occurrences.Add(new(job, null, -1, -1, -1, 0, 0, 0, 0));
+                    continue;
+                }
+                var track = timeline.Tracks.Single(candidate => candidate.Index == occurrence.TrackIndex);
+                var firstIndex = checked((int)occurrence.FirstPayloadIndex - timeline.Tracks.Count);
+                var secondIndex = occurrence.SecondPayloadIndex == global::Tl.Compiler.ValidatedOrderedTimelinePlan.NoPayload
+                    ? -1
+                    : checked((int)occurrence.SecondPayloadIndex - timeline.Tracks.Count);
+                var first = timeline.Clips[firstIndex];
+                var second = secondIndex < 0 ? null : timeline.Clips[secondIndex];
+                occurrences.Add(new(
+                    job,
+                    track,
+                    checked((int)bound.Plan.PayloadStorageIndices[(int)occurrence.TrackPayloadIndex]),
+                    checked((int)bound.Plan.PayloadStorageIndices[(int)occurrence.FirstPayloadIndex]),
+                    secondIndex < 0 ? -1 : checked((int)bound.Plan.PayloadStorageIndices[(int)occurrence.SecondPayloadIndex]),
+                    second is null ? first.Start : Math.Min(first.Start, second.Start),
+                    second is null ? first.End : Math.Max(first.End, second.End),
+                    occurrence.FactorStart,
+                    occurrence.FactorLength));
+            }
+            regions.Add(new(region.End, occurrences));
+        }
+        return regions;
+    }
+
+    private static void Invoke(StringBuilder writer, JobTimeline timeline, ScheduledOccurrence occurrence)
+    {
+        if (occurrence.Track is null)
+        {
+            Line(writer, "var __tlFrame = new global::Tl.TimelineFrame(__tlGameTick, __tlTick, __tlCycle, __tlFlags);");
+            Line(writer, $"{occurrence.Job.TypeName}.Execute(in __tlFrame{Arguments(occurrence.Job.Slots)});");
+            return;
+        }
+        var track = occurrence.Track;
+        var clipExpression = $"__tlData{occurrence.FirstStorage}";
+        if (occurrence.SecondStorage >= 0)
+        {
+            var factor = occurrence.FactorLength <= 1 ? "0.5f" : $"(__tlTick - {U(occurrence.FactorStart)}) / (float){U(occurrence.FactorLength - 1)}";
+            Line(writer, $"__tlData{occurrence.TrackStorage}.Blend(in __tlData{occurrence.FirstStorage}, in __tlData{occurrence.SecondStorage}, {factor}, out var __tlResolved);");
+            clipExpression = "__tlResolved";
+        }
+        Line(writer, "var __tlWorkFlags = __tlFlags;");
+        Line(writer, $"if (__tlTick == {U(occurrence.WindowStart)}) __tlWorkFlags |= global::Tl.FrameFlags.ClipStart;");
+        Line(writer, $"if (__tlTick == {U(occurrence.WindowEnd - 1)}) __tlWorkFlags |= global::Tl.FrameFlags.ClipEnd;");
+        Line(writer, $"var __tlWork = new global::Tl.Frame<{track.TypeName}, {track.ClipTypeName}>(in __tlData{occurrence.TrackStorage}, in {clipExpression}, __tlGameTick, __tlTick, __tlCycle, {track.Index}, __tlWorkFlags);");
+        Line(writer, $"{track.Job.TypeName}.Execute(in __tlWork{Arguments(track.Job.Slots)});");
     }
 
     internal static IReadOnlyList<TimelineSlot> Slots(IEnumerable<JobTimeline> timelines)

@@ -129,17 +129,27 @@ public static class GeneratorCli
         foreach (var timeline in model.Timelines.OrderBy(Qualified, StringComparer.Ordinal))
         {
             var qualified = Qualified(timeline);
+            var plan = JobTimelinePlanAdapter.Create(timeline).Plan;
             writer.Append("timeline\t").Append(qualified)
                 .Append("\ttracks=").Append(timeline.Tracks.Count)
                 .Append("\tclips=").Append(timeline.Clips.Count)
                 .Append("\tduration=").Append(timeline.Duration)
                 .Append("\tloops=").Append(timeline.Loops ? "true" : "false")
+                .Append("\toperations=").Append(plan.Operations.Length)
+                .Append("\tslots=").Append(plan.Slots.Length)
+                .Append("\tregions=").Append(plan.Regions.Length)
+                .Append("\toccurrences=").Append(plan.Occurrences.Length)
+                .Append("\tunique-schedules=").Append(plan.UniqueScheduleCount)
+                .Append("\tunique-payloads=").Append(plan.UniquePayloads.Length)
+                .Append("\tneutral-payload-bytes=").Append(plan.PayloadBytes)
+                .Append("\tneutral-schedule-bytes=").Append(plan.ScheduleBytes)
                 .Append("\tstatic-data-bytes=").Append(qualified).AppendLine(".StaticDataBytes");
         }
         foreach (var catalog in model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal))
             writer.Append("catalog\t").Append(catalog.Namespace).Append('.').Append(catalog.Name)
                 .Append("\tschemas=").Append(catalog.Schemas.Count)
-                .Append("\tassets=").AppendLine(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                .Append("\tassets=").Append(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture))
+                .Append("\tstate-bytes=").Append(catalog.Namespace).Append('.').Append(catalog.Name).AppendLine(".StateBytes");
         foreach (var artifact in artifacts.OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal))
             writer.Append("artifact\t").Append(artifact.RelativePath).Append("\tutf8-bytes=")
                 .AppendLine(System.Text.Encoding.UTF8.GetByteCount(artifact.Content).ToString(System.Globalization.CultureInfo.InvariantCulture));

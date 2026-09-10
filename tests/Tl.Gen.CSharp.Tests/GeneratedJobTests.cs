@@ -148,6 +148,7 @@ public sealed class GeneratedJobTests
         var assembly = Generate(Source);
         var result = assembly.GetType("JobFixture.Receipt")!.GetMethod("Run")!.Invoke(null, null);
         Assert.IsType<long>(result);
+        Assert.Equal(14, assembly.GetType("JobFixture.Combo")!.GetProperty("StaticDataBytes")!.GetValue(null));
         assembly.GetType("JobFixture.Receipt")!.GetMethod("InvalidColumns")!.Invoke(null, null);
     }
 
