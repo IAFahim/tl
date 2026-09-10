@@ -40,6 +40,7 @@ jobs:
       - run: ./artifacts/aot/Tl.Alpha
       - run: ./artifacts/aot/Tl.Alpha --capacity
       - run: ./artifacts/aot/Tl.Alpha --module-capacity
+      - run: test -z "$(find artifacts/aot -type f \( -name 'Tl.Gen*' -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
       - run: dotnet pack src/Tl.Core -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.Gen.CSharp -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.Compiler -c Release --no-build -o artifacts/packages
@@ -64,3 +65,4 @@ jobs:
           dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -r linux-x64 -p:PublishAot=true --source artifacts/packages --source https://api.nuget.org/v3/index.json
           dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
           test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"
+          test -z "$(find artifacts/package-aot -type f \( -name 'Tl.Gen*' -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"

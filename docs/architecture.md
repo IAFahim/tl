@@ -26,19 +26,20 @@ This separation allows a C# frontend to feed C#, C11, Unity/Burst, C++, Rust, vi
 flowchart TD
     Runtime[Tl.Runtime]
     Compiler[Tl.Compiler]
+    Meta[Tl.CSharp]
     CSharp[Tl.Gen.CSharp]
     C[Tl.Gen.C]
     Unity[Tl.Unity]
     Tools[Tl.Tools]
-    CSharp --> Runtime
-    CSharp --> Compiler
+    Meta --> Runtime
+    Meta -. embeds build tool .-> CSharp
     C --> Compiler
     Unity --> Compiler
     Unity --> Runtime
     Tools --> Compiler
 ```
 
-`Tl.Runtime` remains the only required game-output dependency for the current .NET path. Compiler and backend packages run during development or build. Future editor, asset, visualization, networking, and domain packages depend inward on the plan or runtime contract; the core never depends on them.
+`Tl.CSharp` has one package dependency on `Tl.Runtime` and embeds the `Tl.Gen.CSharp` tool payload for builds. `Tl.Gen.CSharp` currently depends on Roslyn and retains its private C# model; it does not yet reference `Tl.Compiler` or `Tl.Runtime`. `Tl.Gen.C` references only `Tl.Compiler`. `Tl.Runtime` remains the only required game-output dependency for the current .NET path. Future editor, asset, visualization, networking, and domain packages depend inward on the plan or runtime contract; the core never depends on them.
 
 Backend repositories may split out after the plan format and compatibility suite reach a stable version. Until then, the monorepo keeps atomic changes testable. A split backend must consume a released `Tl.Compiler` package and pass the same conformance fixtures; it may not copy private compiler models.
 

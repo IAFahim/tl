@@ -192,6 +192,7 @@ The [API contract](docs/v1.0-alpha-api.md), [semantics](docs/semantics.md), [mig
 | `samples/Mixed` | Complete heterogeneous signed-seek example |
 | `benchmarks/Alpha` | Public-path benchmarks, oracle, PMU harness, and evidence |
 | `tests/Tl.Alpha` | Generated JIT and NativeAOT correctness receipts |
+| `tests/Tl.Gen.CSharp.Tests` | C# frontend, emitter, cache, and public API receipts |
 | `tests/Tl.PackageConsumer` | Isolated typed and dynamic package-consumer gate |
 
 ## Validate
