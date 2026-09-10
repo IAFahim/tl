@@ -7,7 +7,7 @@ machine_name="${TL_MACHINE:-$(hostname)}"
 repository_owner=""
 project_node_id=""
 declare -A project_field_ids=()
-declare -A project_stage_ids=()
+declare -A project_status_ids=()
 remote_claim_commit=""
 remote_claim_issue=""
 remote_claim_agent=""
@@ -47,7 +47,7 @@ project_item() {
 
 project_claim() {
     gh project item-list "$project_number" --owner "$repository_owner" --format json --limit 1000 \
-        --jq ".items[] | select(.content.number == $1 and .content.type == \"Issue\") | [.id, (.stage // \"\"), (.agent // \"\"), (.machine // \"\"), (.branch // \"\"), (.checkpoint // \"\"), \"TL_CLAIM_END\"] | .[]"
+        --jq ".items[] | select(.content.number == $1 and .content.type == \"Issue\") | [.id, (.status // \"\"), (.agent // \"\"), (.machine // \"\"), (.branch // \"\"), (.checkpoint // \"\"), \"TL_CLAIM_END\"] | .[]"
 }
 
 load_project_claim() {
@@ -71,16 +71,16 @@ load_project_schema() {
     local id
     [[ -n "$project_node_id" ]] && return
     project_node_id="$(gh project view "$project_number" --owner "$repository_owner" --format json --jq .id)"
-    output="$(gh project field-list "$project_number" --owner "$repository_owner" --format json --jq '.fields[] | if .name == "Stage" then "FIELD\tStage\t\(.id)", (.options[] | "STAGE\t\(.name)\t\(.id)") elif (.name == "Agent" or .name == "Machine" or .name == "Branch" or .name == "Checkpoint") then "FIELD\t\(.name)\t\(.id)" else empty end')"
+    output="$(gh project field-list "$project_number" --owner "$repository_owner" --format json --jq '.fields[] | if .name == "Status" then "FIELD\tStatus\t\(.id)", (.options[] | "STATUS\t\(.name)\t\(.id)") elif (.name == "Agent" or .name == "Machine" or .name == "Branch" or .name == "Checkpoint") then "FIELD\t\(.name)\t\(.id)" else empty end')"
     while IFS=$'\t' read -r kind name id; do
         if [[ "$kind" == "FIELD" ]]; then
             project_field_ids["$name"]="$id"
-        elif [[ "$kind" == "STAGE" ]]; then
-            project_stage_ids["$name"]="$id"
+        elif [[ "$kind" == "STATUS" ]]; then
+            project_status_ids["$name"]="$id"
         fi
     done <<<"$output"
     [[ -n "$project_node_id" ]] || fail "Project $project_number has no node ID"
-    for name in Stage Agent Machine Branch Checkpoint; do
+    for name in Status Agent Machine Branch Checkpoint; do
         [[ -n "${project_field_ids[$name]:-}" ]] || fail "Project $project_number is missing the $name field"
     done
 }
@@ -90,10 +90,10 @@ set_text() {
     gh project item-edit --id "$1" --project-id "$project_node_id" --field-id "${project_field_ids[$2]}" --text "$3" >/dev/null
 }
 
-set_stage() {
+set_status() {
     load_project_schema
-    [[ -n "${project_stage_ids[$2]:-}" ]] || fail "Project $project_number Stage has no '$2' option"
-    gh project item-edit --id "$1" --project-id "$project_node_id" --field-id "${project_field_ids[Stage]}" --single-select-option-id "${project_stage_ids[$2]}" >/dev/null
+    [[ -n "${project_status_ids[$2]:-}" ]] || fail "Project $project_number Status has no '$2' option"
+    gh project item-edit --id "$1" --project-id "$project_node_id" --field-id "${project_field_ids[Status]}" --single-select-option-id "${project_status_ids[$2]}" >/dev/null
 }
 
 post() {
@@ -130,7 +130,7 @@ create_issue() {
     issue="${url##*/}"
     validate_issue "$issue"
     item="$(project_item "$issue")"
-    set_stage "$item" Ready
+    set_status "$item" Ready
     printf '%s\n' "$url"
 }
 
@@ -243,9 +243,19 @@ acquire_claim() {
 release_claim() {
     local issue="$1"
     local branch="$2"
-    local commit
-    commit="$(read_claim_commit "$issue" "$branch")" || fail "workstream '$branch' has no atomic remote claim"
-    git push --force-with-lease="$(claim_ref "$issue" "$branch"):$commit" origin ":$(claim_ref "$issue" "$branch")" >/dev/null
+    local expected="$3"
+    git push --force-with-lease="$(claim_ref "$issue" "$branch"):$expected" origin ":$(claim_ref "$issue" "$branch")" >/dev/null || fail "workstream '$branch' claim changed before release"
+}
+
+publish_branch() {
+    local issue="$1"
+    local branch="$2"
+    local expected="$3"
+    local replacement
+    replacement="$(new_claim_commit "$issue" "$branch" HEAD)"
+    git push --atomic --set-upstream --force-with-lease="$(claim_ref "$issue" "$branch"):$expected" origin \
+        "HEAD:refs/heads/$branch" "$replacement:$(claim_ref "$issue" "$branch")" >/dev/null || fail "workstream '$branch' claim changed while publishing"
+    remote_claim_commit="$replacement"
 }
 
 has_active_claims() {
@@ -299,7 +309,7 @@ publish_claim() {
     set_text "$item" Machine "$machine_name"
     set_text "$item" Branch "$branch"
     set_text "$item" Checkpoint "$(git -C "$worktree" rev-parse HEAD)"
-    set_stage "$item" "$state"
+    set_status "$item" "$state"
     post "$issue" "### Work claim
 
 - Agent: $agent_name
@@ -477,10 +487,10 @@ checkpoint_work() {
     assert_claim "$issue"
     branch="$(git branch --show-current)"
     commit="$(git rev-parse HEAD)"
-    git push --set-upstream origin HEAD
+    publish_branch "$issue" "$branch" "$remote_claim_commit"
     item="$(project_item "$issue")"
     set_text "$item" Checkpoint "$commit"
-    set_stage "$item" "In progress"
+    set_status "$item" "In progress"
     post "$issue" "### Green checkpoint
 
 - Agent: $agent_name
@@ -514,9 +524,9 @@ handoff_work() {
         item="$(project_item "$issue")"
         set_text "$item" Checkpoint "$head"
         if has_active_claims "$issue"; then
-            set_stage "$item" "In progress"
+            set_status "$item" "In progress"
         else
-            set_stage "$item" Ready
+            set_status "$item" Ready
         fi
         printf 'workstream %s is already handed off at %s\n' "$branch" "$head"
         return
@@ -531,12 +541,12 @@ handoff_work() {
 - Remaining work: $remaining
 - Exact next command: \`$next_command\`
 - State: Ready"
-    release_claim "$issue" "$branch"
+    release_claim "$issue" "$branch" "$remote_claim_commit"
     item="$(project_item "$issue")"
     if has_active_claims "$issue"; then
-        set_stage "$item" "In progress"
+        set_status "$item" "In progress"
     else
-        set_stage "$item" Ready
+        set_status "$item" Ready
     fi
 }
 
@@ -555,14 +565,14 @@ open_pr() {
     assert_clean
     assert_claim "$issue"
     branch="$(git branch --show-current)"
-    git push --set-upstream origin HEAD
+    publish_branch "$issue" "$branch" "$remote_claim_commit"
     pr_url="$(gh pr list --base main --head "$branch" --state open --json url --jq '.[0].url // ""')"
     if [[ -z "$pr_url" ]]; then
         pr_url="$(gh pr create --base main --head "$branch" --title "$title" --body-file "$body_file")"
     fi
     gh project item-add "$project_number" --owner "$repository_owner" --url "$pr_url" >/dev/null
     item="$(project_item "$issue")"
-    set_stage "$item" "In review"
+    set_status "$item" "In review"
     set_text "$item" Checkpoint "$(git rev-parse HEAD)"
     printf '%s\n' "$pr_url"
 }
@@ -614,11 +624,11 @@ finish_work() {
         set_text "$item" Checkpoint "$head"
         state="$(gh issue view "$issue" --json state --jq .state)"
         if has_active_claims "$issue"; then
-            set_stage "$item" "In progress"
+            set_status "$item" "In progress"
         elif [[ "$state" == "CLOSED" ]]; then
-            set_stage "$item" Done
+            set_status "$item" Done
         else
-            set_stage "$item" Ready
+            set_status "$item" Ready
         fi
         printf 'workstream %s is complete through PR #%s\n' "$branch" "$pr"
         return
@@ -629,13 +639,13 @@ finish_work() {
     set_text "$item" Checkpoint "$head"
     state="$(gh issue view "$issue" --json state --jq .state)"
     post "$issue" "$evidence Merged by #$pr."
-    release_claim "$issue" "$branch"
+    release_claim "$issue" "$branch" "$remote_claim_commit"
     if has_active_claims "$issue"; then
-        set_stage "$item" "In progress"
+        set_status "$item" "In progress"
     elif [[ "$state" == "CLOSED" ]]; then
-        set_stage "$item" Done
+        set_status "$item" Done
     else
-        set_stage "$item" Ready
+        set_status "$item" Ready
     fi
 }
 

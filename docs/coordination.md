@@ -2,7 +2,7 @@
 
 ## One system of record
 
-Use GitHub Issues for work definitions, pull requests for reviewable changes, and one GitHub Project for queue state. This keeps three machines and many agents consistent without copying tasks into chat, local Markdown checklists, or another tracker.
+Use GitHub Issues for work definitions, pull requests for reviewable changes, and [Project 6's Workflow view](https://github.com/users/IAFahim/projects/6/views/4) for queue state. The view groups cards by the built-in `Status` field. Do not create a second workflow field. This keeps three machines and many agents consistent without copying tasks into chat, local Markdown checklists, or another tracker.
 
 The Project uses these states:
 
@@ -61,7 +61,7 @@ After committing a tested change from that worktree, publish it and its evidence
 TL_AGENT=Curie TL_MACHINE=office-1 ./eng/agent-work checkpoint 123 "C identifiers are total" "dotnet test; gcc and clang strict C11" "second architecture remains"
 ```
 
-`handoff`, `pr`, and `done` update the Project summary. The helper refuses to publish a checkpoint with uncommitted files or from a machine, agent, or branch that does not own its remote claim. It adds the issue to Project 6 idempotently, records the latest Agent, Machine, Branch, and Checkpoint activity, pushes the commit, and posts the same recovery data on the issue. A `claims/<issue>/<kind>/<scope>` remote ref is the compare-and-set lock for one workstream. Concurrent starts of the same workstream race at the Git server and exactly one can create it; different workstreams under the same issue can proceed independently. Handoff releases only that lock after publishing a recoverable branch checkpoint. Completion releases it only after GitHub contains a merged pull request whose reviewed head is the claimed commit and whose merge commit is present on `origin/main`.
+`handoff`, `pr`, and `done` update the Project summary. The helper refuses to publish a checkpoint with uncommitted files or from a machine, agent, or branch that does not own its remote claim. It adds the issue to Project 6 idempotently, records the latest Agent, Machine, Branch, and Checkpoint activity, pushes the commit, and posts the same recovery data on the issue. A `claims/<issue>/<kind>/<scope>` remote ref is the compare-and-set lock for one workstream. Concurrent starts of the same workstream race at the Git server and exactly one can create it; different workstreams under the same issue can proceed independently. Every branch publication atomically advances the branch and rotates the claim under a lease on the claim object observed during validation. A concurrent takeover therefore wins either before or after the complete transaction and a stale owner cannot advance the branch. Handoff and completion delete only that observed claim object, so a successor claim is preserved if ownership changes before release. Completion releases the claim only after GitHub contains a merged pull request whose reviewed head is the claimed commit and whose merge commit is present on `origin/main`.
 
 Every transition is restartable. The same owner reruns `start` to repair a claim whose worktree, assignment, Project fields, or issue comment was interrupted. Repeating `handoff`, `pr`, or `done` completes the remaining transition without publishing a second branch or closing unrelated work. A coordinator recovers a stale claim from its last Project checkpoint by naming the exact current claim object; Git rejects the replacement if ownership changed between inspection and takeover:
 

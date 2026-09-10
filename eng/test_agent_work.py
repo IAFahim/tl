@@ -5,6 +5,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -62,7 +63,7 @@ with lock_path.open("a+") as lock:
     elif command == "project item-list":
         project = state["project"]
         print("ITEM")
-        print(project["stage"])
+        print(project["status"])
         print(project["agent"])
         print(project["machine"])
         print(project["branch"])
@@ -73,16 +74,16 @@ with lock_path.open("a+") as lock:
     elif command == "project view":
         print("PROJECT")
     elif command == "project field-list":
-        print("FIELD\tStage\tfield-stage")
+        print("FIELD\tStatus\tfield-status")
         print("FIELD\tAgent\tfield-agent")
         print("FIELD\tMachine\tfield-machine")
         print("FIELD\tBranch\tfield-branch")
         print("FIELD\tCheckpoint\tfield-checkpoint")
-        print("STAGE\tBacklog\tstage-backlog")
-        print("STAGE\tReady\tstage-ready")
-        print("STAGE\tIn progress\tstage-progress")
-        print("STAGE\tIn review\tstage-review")
-        print("STAGE\tDone\tstage-done")
+        print("STATUS\tBacklog\tstatus-backlog")
+        print("STATUS\tReady\tstatus-ready")
+        print("STATUS\tIn progress\tstatus-progress")
+        print("STATUS\tIn review\tstatus-review")
+        print("STATUS\tDone\tstatus-done")
     elif command == "project item-edit":
         field = value("--field-id")
         project = state["project"]
@@ -97,14 +98,14 @@ with lock_path.open("a+") as lock:
             project[names[field]] = text
         else:
             option = value("--single-select-option-id")
-            stages = {
-                "stage-backlog": "Backlog",
-                "stage-ready": "Ready",
-                "stage-progress": "In progress",
-                "stage-review": "In review",
-                "stage-done": "Done",
+            statuses = {
+                "status-backlog": "Backlog",
+                "status-ready": "Ready",
+                "status-progress": "In progress",
+                "status-review": "In review",
+                "status-done": "Done",
             }
-            project["stage"] = stages[option]
+            project["status"] = statuses[option]
     elif command == "pr list":
         requested = value("--state")
         if state.get("pr") and state["pr"]["state"].lower() == requested:
@@ -134,6 +135,45 @@ with lock_path.open("a+") as lock:
 '''
 
 
+FAKE_GIT = r'''#!/usr/bin/env python3
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+real_git = os.environ["TL_REAL_GIT"]
+arguments = sys.argv[1:]
+pause = os.environ.get("TL_GIT_PAUSE", "")
+ready = Path(os.environ.get("TL_GIT_READY", "/dev/null"))
+resume = Path(os.environ.get("TL_GIT_RESUME", "/dev/null"))
+is_branch_push = bool(arguments) and arguments[0] == "push" and any(
+    argument == "HEAD" or argument.startswith("HEAD:refs/heads/")
+    for argument in arguments
+)
+
+def wait():
+    ready.touch()
+    deadline = time.monotonic() + 10
+    while not resume.exists():
+        if time.monotonic() >= deadline:
+            sys.exit(97)
+        time.sleep(0.01)
+
+if pause == "before-branch-push" and is_branch_push:
+    wait()
+    os.execv(real_git, [real_git, *arguments])
+
+if pause == "after-branch-push" and is_branch_push:
+    result = subprocess.run([real_git, *arguments])
+    if result.returncode == 0:
+        wait()
+    sys.exit(result.returncode)
+
+os.execv(real_git, [real_git, *arguments])
+'''
+
+
 class AgentWorkTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp(prefix="tl-agent-work-"))
@@ -157,6 +197,9 @@ class AgentWorkTests(unittest.TestCase):
         fake = self.bin / "gh"
         fake.write_text(FAKE_GH)
         fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+        fake_git = self.bin / "git"
+        fake_git.write_text(FAKE_GIT)
+        fake_git.chmod(fake_git.stat().st_mode | stat.S_IXUSR)
 
     def tearDown(self):
         shutil.rmtree(self.root)
@@ -167,7 +210,7 @@ class AgentWorkTests(unittest.TestCase):
             "assigned": False,
             "comments": 0,
             "project": {
-                "stage": "Ready",
+                "status": "Ready",
                 "agent": "",
                 "machine": "",
                 "branch": "",
@@ -193,16 +236,21 @@ class AgentWorkTests(unittest.TestCase):
         self.run_raw(["git", "-C", str(repo), "config", "user.name", name])
         self.run_raw(["git", "-C", str(repo), "config", "user.email", f"{name}@example.invalid"])
 
-    def command(self, repo, agent, machine, *arguments):
+    def environment(self, agent, machine, **changes):
         environment = os.environ.copy()
         environment["PATH"] = str(self.bin) + os.pathsep + environment["PATH"]
         environment["TL_FAKE_STATE"] = str(self.state)
+        environment["TL_REAL_GIT"] = shutil.which("git")
         environment["TL_AGENT"] = agent
         environment["TL_MACHINE"] = machine
+        environment.update(changes)
+        return environment
+
+    def command(self, repo, agent, machine, *arguments):
         return subprocess.run(
             [str(repo / "eng" / "agent-work"), *arguments],
             cwd=repo,
-            env=environment,
+            env=self.environment(agent, machine),
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -215,17 +263,51 @@ class AgentWorkTests(unittest.TestCase):
         result = self.run_raw(["git", "ls-remote", "--heads", str(self.remote), f"refs/heads/claims/41/{kind}/{slug}"])
         return result.stdout.split()[0] if result.stdout else ""
 
+    def branch(self, kind="feat", slug="atomic"):
+        result = self.run_raw(["git", "ls-remote", "--heads", str(self.remote), f"refs/heads/{kind}/41-{slug}"])
+        return result.stdout.split()[0] if result.stdout else ""
+
     def worktree(self, repo, slug="atomic"):
         return repo.parent / f"repo-41-{slug}"
+
+    def paused_command(self, repo, agent, machine, pause, ready, resume, *arguments):
+        environment = self.environment(
+            agent,
+            machine,
+            TL_GIT_PAUSE=pause,
+            TL_GIT_READY=str(ready),
+            TL_GIT_RESUME=str(resume),
+        )
+        return subprocess.Popen(
+            [str(repo / "eng" / "agent-work"), *arguments],
+            cwd=repo,
+            env=environment,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+
+    def wait_until_paused(self, process, ready):
+        deadline = time.monotonic() + 10
+        while not ready.exists():
+            if process.poll() is not None:
+                output = process.stdout.read()
+                self.fail(f"command exited before pause with {process.returncode}: {output}")
+            if time.monotonic() >= deadline:
+                process.kill()
+                self.fail("command did not reach the requested Git interleaving")
+            time.sleep(0.01)
+
+    def resume(self, process, resume):
+        resume.touch()
+        output, _ = process.communicate(timeout=10)
+        return process.returncode, output
 
     def test_concurrent_start_has_one_winner(self):
         first = self.clone("first")
         second = self.clone("second")
-        environment = os.environ.copy()
-        environment["PATH"] = str(self.bin) + os.pathsep + environment["PATH"]
-        environment["TL_FAKE_STATE"] = str(self.state)
-        one_environment = environment | {"TL_AGENT": "Alpha", "TL_MACHINE": "pc-a"}
-        two_environment = environment | {"TL_AGENT": "Beta", "TL_MACHINE": "pc-b"}
+        one_environment = self.environment("Alpha", "pc-a")
+        two_environment = self.environment("Beta", "pc-b")
         one = subprocess.Popen([str(first / "eng" / "agent-work"), "start", "41", "feat", "atomic", "first"], cwd=first, env=one_environment)
         two = subprocess.Popen([str(second / "eng" / "agent-work"), "start", "41", "feat", "atomic", "second"], cwd=second, env=two_environment)
         statuses = [one.wait(), two.wait()]
@@ -247,10 +329,10 @@ class AgentWorkTests(unittest.TestCase):
         self.assertEqual(0, checkpoint.returncode, checkpoint.stdout)
         alpha_handoff = self.command(alpha_tree, "Alpha", "pc-a", "handoff", "41", "none", "done")
         self.assertEqual(0, alpha_handoff.returncode, alpha_handoff.stdout)
-        self.assertEqual("In progress", self.read_state()["project"]["stage"])
+        self.assertEqual("In progress", self.read_state()["project"]["status"])
         beta_handoff = self.command(beta_tree, "Beta", "pc-b", "handoff", "41", "none", "done")
         self.assertEqual(0, beta_handoff.returncode, beta_handoff.stdout)
-        self.assertEqual("Ready", self.read_state()["project"]["stage"])
+        self.assertEqual("Ready", self.read_state()["project"]["status"])
 
     def test_interrupted_start_repairs_the_same_claim(self):
         repo = self.clone("owner")
@@ -262,7 +344,7 @@ class AgentWorkTests(unittest.TestCase):
         second = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
         self.assertEqual(0, second.returncode, second.stdout)
         state = self.read_state()
-        self.assertEqual("In progress", state["project"]["stage"])
+        self.assertEqual("In progress", state["project"]["status"])
         self.assertEqual("Alpha", state["project"]["agent"])
         self.assertEqual(claim, self.claim())
 
@@ -280,6 +362,71 @@ class AgentWorkTests(unittest.TestCase):
         self.assertEqual(0, repeated.returncode, repeated.stdout)
         self.assertEqual(replacement, self.claim())
         self.assertEqual("Beta", self.read_state()["project"]["agent"])
+
+    def test_takeover_fences_stale_checkpoint_branch_push(self):
+        repo = self.clone("owner")
+        replacement_repo = self.clone("replacement")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        previous = self.claim()
+        worktree = self.worktree(repo)
+        (worktree / "checkpoint.txt").write_text("stale checkpoint\n")
+        self.run_raw(["git", "add", "checkpoint.txt"], worktree)
+        self.run_raw(["git", "commit", "-m", "checkpoint"], worktree)
+        ready = self.root / "checkpoint-ready"
+        resume = self.root / "checkpoint-resume"
+        checkpoint = self.paused_command(
+            worktree,
+            "Alpha",
+            "pc-a",
+            "before-branch-push",
+            ready,
+            resume,
+            "checkpoint",
+            "41",
+            "green",
+            "tests",
+        )
+        self.wait_until_paused(checkpoint, ready)
+        taken = self.command(replacement_repo, "Beta", "pc-b", "takeover", "41", "feat", "atomic", "power lost", previous)
+        self.assertEqual(0, taken.returncode, taken.stdout)
+        replacement = self.claim()
+        status, output = self.resume(checkpoint, resume)
+        self.assertNotEqual(0, status, output)
+        self.assertIn("claim changed while publishing", output)
+        self.assertEqual("", self.branch())
+        self.assertEqual(replacement, self.claim())
+
+    def test_takeover_before_release_preserves_successor_claim(self):
+        repo = self.clone("owner")
+        replacement_repo = self.clone("replacement")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        worktree = self.worktree(repo)
+        ready = self.root / "handoff-ready"
+        resume = self.root / "handoff-resume"
+        handoff = self.paused_command(
+            worktree,
+            "Alpha",
+            "pc-a",
+            "after-branch-push",
+            ready,
+            resume,
+            "handoff",
+            "41",
+            "remaining",
+            "next",
+        )
+        self.wait_until_paused(handoff, ready)
+        published_claim = self.claim()
+        taken = self.command(replacement_repo, "Beta", "pc-b", "takeover", "41", "feat", "atomic", "power lost", published_claim)
+        self.assertEqual(0, taken.returncode, taken.stdout)
+        replacement = self.claim()
+        status, output = self.resume(handoff, resume)
+        self.assertNotEqual(0, status, output)
+        self.assertIn("claim changed before release", output)
+        self.assertEqual(replacement, self.claim())
+        self.assertEqual(self.run_raw(["git", "rev-parse", "HEAD"], worktree).stdout.strip(), self.branch())
 
     def install_one_delete_failure(self):
         hook = self.remote / "hooks" / "update"
@@ -299,7 +446,7 @@ class AgentWorkTests(unittest.TestCase):
         self.install_one_delete_failure()
         first = self.command(worktree, "Alpha", "pc-a", "handoff", "41", "remaining", "next")
         self.assertNotEqual(0, first.returncode)
-        self.assertEqual("In progress", self.read_state()["project"]["stage"])
+        self.assertEqual("In progress", self.read_state()["project"]["status"])
         self.assertTrue(self.claim())
         second = self.command(worktree, "Alpha", "pc-a", "handoff", "41", "remaining", "next")
         self.assertEqual(0, second.returncode, second.stdout)
@@ -314,7 +461,7 @@ class AgentWorkTests(unittest.TestCase):
         worktree = self.worktree(repo)
         refused = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
         self.assertNotEqual(0, refused.returncode)
-        self.assertEqual("In progress", self.read_state()["project"]["stage"])
+        self.assertEqual("In progress", self.read_state()["project"]["status"])
         body = self.root / "pull.md"
         body.write_text("Closes #41\n")
         opened = self.command(worktree, "Alpha", "pc-a", "pr", "41", "title", str(body))
@@ -327,7 +474,7 @@ class AgentWorkTests(unittest.TestCase):
         self.install_one_delete_failure()
         first = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
         self.assertNotEqual(0, first.returncode)
-        self.assertEqual("In review", self.read_state()["project"]["stage"])
+        self.assertEqual("In review", self.read_state()["project"]["status"])
         second = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
         self.assertEqual(0, second.returncode, second.stdout)
         third = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
