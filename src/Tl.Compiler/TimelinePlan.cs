@@ -17,7 +17,7 @@ public readonly record struct ClipPlan(
 
 public sealed record TimelinePlan
 {
-    public const ushort FormatVersion = 1;
+    public const ushort FormatVersion = ValidatedTimelinePlan.FormatVersion;
 
     public TimelinePlan(
         string identity,
@@ -42,4 +42,5 @@ public sealed record TimelinePlan
     public ImmutableArray<TrackPlan> Tracks { get; }
     public ImmutableArray<ClipPlan> Clips { get; }
     public uint Duration => Clips.IsEmpty ? 0u : Clips.Max(static clip => clip.End);
+    public ValidatedTimelinePlan Validate() => ValidatedTimelinePlan.Create(this);
 }

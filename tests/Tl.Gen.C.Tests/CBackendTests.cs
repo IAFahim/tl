@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using Tl.Compiler;
 using Xunit;
 
@@ -18,6 +20,7 @@ public sealed class CBackendTests
         var second = CEmitter.Emit(plan, binding);
         var emission = CEmitter.Generate(plan, binding);
         var output = string.Concat(first.Select(static artifact => artifact.Content));
+        var outputHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(output)));
 
         Assert.True(first.SequenceEqual(second));
         Assert.Equal(["battle.h", "battle.c"], first.Select(static artifact => artifact.RelativePath));
@@ -56,6 +59,7 @@ public sealed class CBackendTests
         Assert.Equal(emission.Artifacts.Length, emission.Report.SourceFileCount);
         Assert.Equal(emission.Artifacts.Sum(static artifact => artifact.Utf8Bytes), emission.Report.SourceUtf8Bytes);
         Assert.Equal(14_627, emission.Report.SourceUtf8Bytes);
+        Assert.Equal("cfdc8451c651832c343df30642544e37a22140d9203dd937cd2e3fb6d2308207", outputHash);
         Assert.Equal(0, emission.Report.StaticDataBytes);
         Assert.Equal(16, emission.Report.PlaybackBytes);
         Assert.Equal(8, emission.Report.PlaybackAlignment);
@@ -77,6 +81,12 @@ public sealed class CBackendTests
         Assert.Throws<ArgumentException>(() => CEmitter.Emit(tripleOverlap, CreateBinding("invalid")));
         Assert.Throws<ArgumentException>(() => CEmitter.Emit(CreatePlan("battle", 42, true), new CBinding("while", "battle.h", [])));
         Assert.Throws<ArgumentException>(() => CEmitter.Emit(CreatePlan("battle", 42, true), new CBinding("_battle", "battle.h", [])));
+
+        var emptyIdentity = new TimelinePlan(" ", tripleOverlap.RuntimeId, tripleOverlap.Loops, tripleOverlap.Tracks, tripleOverlap.Clips);
+        var identityError = Assert.Throws<ArgumentException>(() => CEmitter.Emit(emptyIdentity, new CBinding("while", "invalid.h", [])));
+        var bindingError = Assert.Throws<ArgumentException>(() => CEmitter.Emit(tripleOverlap, new CBinding("while", "invalid.h", [])));
+        Assert.Equal("Timeline identity cannot be empty. (Parameter 'plan')", identityError.Message);
+        Assert.Equal("'while' is not a portable C identifier. (Parameter 'binding')", bindingError.Message);
     }
 
     [Theory]

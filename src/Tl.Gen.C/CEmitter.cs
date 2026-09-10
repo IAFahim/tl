@@ -7,15 +7,6 @@ namespace Tl.Gen.C;
 
 public static class CEmitter
 {
-    private sealed record Work(
-        TrackPlan Track,
-        ClipPlan First,
-        ClipPlan? Second,
-        uint FactorStart,
-        uint FactorLength);
-
-    private sealed record Region(uint Start, uint End, ImmutableArray<Work> Works);
-
     private static readonly HashSet<string> Keywords = new(StringComparer.Ordinal)
     {
         "auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum",
@@ -32,23 +23,22 @@ public static class CEmitter
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(binding);
-        var operations = Validate(plan, binding);
-        var regions = Regions(plan);
+        var (validated, operations) = Validate(plan, binding);
         ImmutableArray<CArtifact> artifacts =
         [
-            new CArtifact(binding.HeaderFileName, EmitHeader(plan, binding, operations)),
-            new CArtifact(binding.SymbolPrefix + ".c", EmitSource(plan, binding, operations, regions))
+            new CArtifact(binding.HeaderFileName, EmitHeader(validated, binding, operations)),
+            new CArtifact(binding.SymbolPrefix + ".c", EmitSource(validated, binding, operations))
         ];
         return new(
             artifacts,
             new(
-                TimelinePlan.FormatVersion,
+                ValidatedTimelinePlan.FormatVersion,
                 2,
-                plan.Tracks.Length,
-                plan.Clips.Length,
-                regions.Length,
-                plan.Duration,
-                plan.Loops,
+                validated.Tracks.Length,
+                validated.Clips.Length,
+                validated.Regions.Length,
+                validated.Duration,
+                validated.Loops,
                 artifacts.Length,
                 artifacts.Sum(static artifact => artifact.Utf8Bytes),
                 0,
@@ -59,48 +49,27 @@ public static class CEmitter
                 0));
     }
 
-    private static IReadOnlyDictionary<OperationId, COperationBinding> Validate(TimelinePlan plan, CBinding binding)
+    private static (ValidatedTimelinePlan Plan, IReadOnlyDictionary<OperationId, COperationBinding> Operations) Validate(
+        TimelinePlan plan,
+        CBinding binding)
     {
+        ValidatedTimelinePlan? validated = null;
+        ArgumentException? validationError = null;
+        try
+        {
+            validated = plan.Validate();
+        }
+        catch (ArgumentException exception)
+        {
+            validationError = exception;
+        }
+
         if (string.IsNullOrWhiteSpace(plan.Identity))
-            throw new ArgumentException("Timeline identity cannot be empty.", nameof(plan));
+            throw validationError!;
         ValidateIdentifier(binding.SymbolPrefix, nameof(binding));
         ValidateFileName(binding.HeaderFileName, nameof(binding));
-        if (plan.Tracks.Length > ushort.MaxValue + 1)
-            throw new ArgumentException("A timeline may contain at most 65,536 tracks.", nameof(plan));
-
-        var tracks = new HashSet<ushort>();
-        foreach (var track in plan.Tracks)
-        {
-            if (!tracks.Add(track.Index))
-                throw new ArgumentException($"Track index {track.Index} is duplicated.", nameof(plan));
-            if (string.IsNullOrWhiteSpace(track.Operation.Value))
-                throw new ArgumentException($"Track index {track.Index} has no operation.", nameof(plan));
-        }
-
-        foreach (var clip in plan.Clips)
-        {
-            if (!tracks.Contains(clip.TrackIndex))
-                throw new ArgumentException($"Clip track index {clip.TrackIndex} does not exist.", nameof(plan));
-            if (clip.Start >= clip.End)
-                throw new ArgumentException($"Clip [{clip.Start}, {clip.End}) is empty or reversed.", nameof(plan));
-        }
-
-        foreach (var track in plan.Tracks)
-        {
-            var events = plan.Clips
-                .Where(clip => clip.TrackIndex == track.Index)
-                .SelectMany(static clip => new[] { (Tick: clip.Start, Delta: 1), (Tick: clip.End, Delta: -1) })
-                .GroupBy(static item => item.Tick)
-                .OrderBy(static group => group.Key);
-            var active = 0;
-            foreach (var group in events)
-            {
-                active += group.Where(static item => item.Delta < 0).Sum(static item => item.Delta);
-                active += group.Where(static item => item.Delta > 0).Sum(static item => item.Delta);
-                if (active > 2)
-                    throw new ArgumentException($"Track index {track.Index} has more than two overlapping clips.", nameof(plan));
-            }
-        }
+        if (validationError is not null)
+            throw validationError;
 
         var reservedSymbols = ReservedSymbols(binding.SymbolPrefix);
         var operations = new Dictionary<OperationId, COperationBinding>();
@@ -113,14 +82,14 @@ public static class CEmitter
                 throw new ArgumentException($"Operation '{operation.Operation.Value}' is bound more than once.", nameof(binding));
         }
 
-        foreach (var operation in plan.Tracks.Select(static track => track.Operation).Distinct())
+        foreach (var operation in validated!.Tracks.Select(static track => track.Operation).Distinct())
             if (!operations.ContainsKey(operation))
                 throw new ArgumentException($"Operation '{operation.Value}' is not bound.", nameof(binding));
-        return operations;
+        return (validated, operations);
     }
 
     private static string EmitHeader(
-        TimelinePlan plan,
+        ValidatedTimelinePlan plan,
         CBinding binding,
         IReadOnlyDictionary<OperationId, COperationBinding> operations)
     {
@@ -200,10 +169,9 @@ public static class CEmitter
     }
 
     private static string EmitSource(
-        TimelinePlan plan,
+        ValidatedTimelinePlan plan,
         CBinding binding,
-        IReadOnlyDictionary<OperationId, COperationBinding> operations,
-        ImmutableArray<Region> regions)
+        IReadOnlyDictionary<OperationId, COperationBinding> operations)
     {
         var prefix = binding.SymbolPrefix;
         var writer = new StringBuilder();
@@ -222,9 +190,9 @@ public static class CEmitter
         Line(writer);
         if (plan.Duration != 0)
         {
-            EmitApply(writer, prefix, operations, regions, false);
+            EmitApply(writer, plan, prefix, operations, false);
             Line(writer);
-            EmitApply(writer, prefix, operations, regions, true);
+            EmitApply(writer, plan, prefix, operations, true);
             Line(writer);
         }
         Line(writer, $"bool {prefix}_try_start(uint16_t id, uint32_t game_tick, tl_playback *playback)");
@@ -252,9 +220,9 @@ public static class CEmitter
 
     private static void EmitApply(
         StringBuilder writer,
+        ValidatedTimelinePlan plan,
         string prefix,
         IReadOnlyDictionary<OperationId, COperationBinding> operations,
-        ImmutableArray<Region> regions,
         bool backward)
     {
         var direction = backward ? "backward" : "forward";
@@ -265,9 +233,9 @@ public static class CEmitter
         Line(writer, "    (void)game_tick;");
         Line(writer, "    (void)cycle;");
         Line(writer, "    (void)frame_flags;");
-        for (var regionIndex = 0; regionIndex < regions.Length; regionIndex++)
+        for (var regionIndex = 0; regionIndex < plan.Regions.Length; regionIndex++)
         {
-            var region = regions[regionIndex];
+            var region = plan.Regions[regionIndex];
             var branch = regionIndex == 0 ? "if" : "else if";
             var condition = region.Start == 0u
                 ? $"local < {U(region.End)}"
@@ -285,7 +253,7 @@ public static class CEmitter
     private static void EmitWork(
         StringBuilder writer,
         IReadOnlyDictionary<OperationId, COperationBinding> operations,
-        Work work)
+        RegionWorkPlan work)
     {
         var second = work.Second;
         var factor = second is null
@@ -311,7 +279,7 @@ public static class CEmitter
         Line(writer, "        }");
     }
 
-    private static void EmitSeek(StringBuilder writer, TimelinePlan plan, string prefix)
+    private static void EmitSeek(StringBuilder writer, ValidatedTimelinePlan plan, string prefix)
     {
         Line(writer, $"bool {prefix}_try_seek(uint16_t id, const tl_playback *playback, int32_t delta, void *context, tl_playback *next)");
         Line(writer, "{");
@@ -386,7 +354,7 @@ public static class CEmitter
         Line(writer, "}");
     }
 
-    private static void EmitInitialPosition(StringBuilder writer, TimelinePlan plan)
+    private static void EmitInitialPosition(StringBuilder writer, ValidatedTimelinePlan plan)
     {
         if (plan.Loops)
         {
@@ -406,7 +374,7 @@ public static class CEmitter
         }
     }
 
-    private static void EmitForwardStep(StringBuilder writer, TimelinePlan plan, int depth)
+    private static void EmitForwardStep(StringBuilder writer, ValidatedTimelinePlan plan, int depth)
     {
         var indent = new string(' ', depth * 4);
         if (plan.Loops)
@@ -423,7 +391,7 @@ public static class CEmitter
             Line(writer, $"{indent}local++;");
     }
 
-    private static void EmitReverseStep(StringBuilder writer, TimelinePlan plan, int depth)
+    private static void EmitReverseStep(StringBuilder writer, ValidatedTimelinePlan plan, int depth)
     {
         var indent = new string(' ', depth * 4);
         Line(writer, $"{indent}game_tick--;");
@@ -441,7 +409,7 @@ public static class CEmitter
             Line(writer, $"{indent}local--;");
     }
 
-    private static void EmitFrameFlags(StringBuilder writer, TimelinePlan plan, bool reverse, string local, string position, int depth)
+    private static void EmitFrameFlags(StringBuilder writer, ValidatedTimelinePlan plan, bool reverse, string local, string position, int depth)
     {
         var indent = new string(' ', depth * 4);
         var initial = new List<string>();
@@ -454,56 +422,6 @@ public static class CEmitter
         Line(writer, $"{indent}if ({local} == {U(plan.Duration - 1u)}) frame_flags = (tl_frame_flags)(frame_flags | TL_FRAME_TIMELINE_END);");
         if (!plan.Loops)
             Line(writer, $"{indent}if ({position} == INT64_C({I(plan.Duration - 1u)})) frame_flags = (tl_frame_flags)(frame_flags | {(reverse ? "TL_FRAME_COMPLETED_BEFORE" : "TL_FRAME_COMPLETED_AFTER")});");
-    }
-
-    private static ImmutableArray<Region> Regions(TimelinePlan plan)
-    {
-        if (plan.Duration == 0)
-            return [];
-        var cuts = plan.Clips
-            .SelectMany(static clip => new[] { clip.Start, clip.End })
-            .Append(0u)
-            .Append(plan.Duration)
-            .Distinct()
-            .Order()
-            .ToArray();
-        var regions = ImmutableArray.CreateBuilder<Region>(cuts.Length - 1);
-        for (var index = 0; index + 1 < cuts.Length; index++)
-        {
-            var start = cuts[index];
-            var end = cuts[index + 1];
-            var works = ImmutableArray.CreateBuilder<Work>();
-            foreach (var track in plan.Tracks)
-            {
-                var active = plan.Clips
-                    .Where(clip => clip.TrackIndex == track.Index && clip.Start <= start && start < clip.End)
-                    .Select(static (clip, authored) => (Clip: clip, Authored: authored))
-                    .OrderBy(static item => item.Clip.Start)
-                    .ThenBy(static item => item.Authored)
-                    .Select(static item => item.Clip)
-                    .ToArray();
-                if (active.Length == 1)
-                {
-                    var clip = active[0];
-                    works.Add(new Work(track, clip, null, 0u, 0u));
-                }
-                else if (active.Length == 2)
-                {
-                    var first = active[0];
-                    var second = active[1];
-                    var factorStart = Math.Max(first.Start, second.Start);
-                    var factorEnd = Math.Min(first.End, second.End);
-                    works.Add(new Work(
-                        track,
-                        first,
-                        second,
-                        factorStart,
-                        factorEnd - factorStart));
-                }
-            }
-            regions.Add(new Region(start, end, works.ToImmutable()));
-        }
-        return regions.MoveToImmutable();
     }
 
     private static void ValidateIdentifier(string value, string parameter)

@@ -17,7 +17,7 @@
 | `Tl.CSharp` | Recommended C# package; adds the build-only compiler and runtime |
 | `Tl.Runtime` | Playback ABI, declarations, frames, and dynamic registry |
 | `Tl.Gen.CSharp` | C# frontend and generated-kernel backend |
-| `Tl.Compiler` | Language-neutral immutable plan and extension contract |
+| `Tl.Compiler` | Language-neutral immutable plan, validation, region lowering, and extension contract |
 | `Tl.Gen.C` | Independently versioned portable C11 backend |
 
 ## Install
@@ -185,7 +185,7 @@ The [API contract](docs/v1.0-alpha-api.md), [semantics](docs/semantics.md), [mig
 | Path | Role |
 | --- | --- |
 | `src/Tl.Core` | Runtime ABI, playback, frame, declaration surface, and registry |
-| `src/Tl.Compiler` | Language-neutral immutable plan |
+| `src/Tl.Compiler` | Language-neutral immutable plan and validated region schedule |
 | `src/Tl.Gen.CSharp` | C# frontend and build-time kernel generator |
 | `src/Tl.Gen.C` | Portable C11 backend package |
 | `src/Tl.CSharp` | One-package C# installation |

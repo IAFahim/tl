@@ -10,6 +10,7 @@
     <Project Path="samples/Mixed/Mixed.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Tl.Compiler.Tests/Tl.Compiler.Tests.csproj" />
     <Project Path="tests/Tl.Core.Tests/Tl.Core.Tests.csproj" />
     <Project Path="tests/Tl.Gen.C.Tests/Tl.Gen.C.Tests.csproj" />
     <Project Path="tests/Tl.Gen.CSharp.Tests/Tl.Gen.CSharp.Tests.csproj" />

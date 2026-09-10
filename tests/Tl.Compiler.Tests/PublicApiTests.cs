@@ -2,13 +2,13 @@ using System.Reflection;
 using System.Text;
 using Xunit;
 
-namespace Tl.Gen.C.Tests;
+namespace Tl.Compiler.Tests;
 
 public sealed class PublicApiTests
 {
     [Fact]
-    public void CBackendPublicApiMatchesApproval()
-        => AssertPublicApi(typeof(CEmitter).Assembly, "Tl.Gen.C.PublicApi.approved.txt");
+    public void CompilerPublicApiMatchesApproval()
+        => AssertPublicApi(typeof(ValidatedTimelinePlan).Assembly, "Tl.Compiler.PublicApi.approved.txt");
 
     private static void AssertPublicApi(Assembly assembly, string fileName)
     {
