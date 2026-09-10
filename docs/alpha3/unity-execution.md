@@ -2,6 +2,8 @@
 
 Issue [#27](https://github.com/IAFahim/tl/issues/27) assigns this report the Unity execution boundary. The tested sources live in [`experiments/Alpha3/Unity`](../../experiments/Alpha3/Unity/README.md). They are a handwritten host probe derived from the portable reference, not production TL generation.
 
+The recommendations below record the experiment's proposal. The reviewed [plan](../../plan.md) selects ITimelineCatalog with named schema groups and a production IJobChunk gate over every timeline chunk, including incomplete scheduler-marker schemas. That stronger gate is not implemented by this probe. A uint route is catalog-local, not a stable saved/network identity. Disjoint schema-marker queries remain a possible optimization.
+
 ## Result
 
 The alpha.3 selection/operation/commit shape compiles through the real Entities source generators and executes in Burst-scheduled `IJobEntity` jobs on the installed preview Editor.
@@ -96,7 +98,7 @@ For `E` entities, `K` component schemas, and `S` ordered stages, this design doe
 
 ## Generator handoff
 
-Roslyn source generators cannot consume another generator's output in the same compilation. A TL generator cannot emit a new `IJobEntity` declaration and expect the Entities generator to transform it in that pass.
+Ordinary Roslyn source output cannot feed another generator in the same compilation. A TL generator using that phase cannot emit a new `IJobEntity` declaration and expect Entities to transform it in the same pass. Newer experimental pre-compilation output for additional files is a separate, unqualified host capability; it does not support reading Execute symbols through CompilationProvider.
 
 The concrete Unity path is a two-phase precompile importer. It reads the catalog and timeline assets, writes deterministic C# 9/HPC# `.Generated.cs` files before script compilation, and requests one Unity refresh. Unity's following compilation then presents those physical sources to the Entities generator and Burst pipeline. The importer writes atomically, preserves the file and timestamp when content is identical, records input/output hashes, deletes stale owned outputs, and prevents a refresh loop. The existing .NET incremental generator remains an independent IDE path. If only the timeline kernel is generated and `IJobEntity` wrappers are authored source, both generators may run in one compilation because the Entities generator does not need to discover a TL-generated job declaration.
 
@@ -106,7 +108,7 @@ The plan at `origin/docs/27-alpha3-plan@fb70db8` correctly keeps production migr
 
 1. Use the explicit catalog and generated per-schema marker/query shape above. Runtime asset IDs select only among the catalog's known definitions and cannot infer components.
 2. Retain the full current Frame boundary, including signed cycle and clip/timeline/completion flags, until a separately reviewed ABI change proves every removed field redundant. The 4-byte reference Playback and reverse-only Frame flags are prototype sizes, not compatibility targets.
-3. Encode empty separately from every nonempty asset. A 32-bit stable asset handle with zero reserved for empty and nonempty handles starting at one is the smallest natural representation if 65,536 nonempty assets remain required; a ushort cannot represent that domain plus empty.
+3. Encode empty separately from every nonempty asset. A uint catalog-local route with zero reserved for empty and nonempty routes starting at one represents the required 65,536 nonempty assets; a ushort cannot represent that domain plus empty. Persisted identity is a separate contract.
 4. Keep the plan's job-count and O(E*K*S) warnings as release blockers. The recommended schema markers remove overlapping schema scans, but occurrence-stage scheduling and large signed deltas still need measured design work.
 
 ## Limits and failed assumptions

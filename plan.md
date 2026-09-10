@@ -10,6 +10,8 @@ A timeline selects which operations must execute. It does not receive gameplay c
 
 The compiler knows the supported operation signatures. Designers choose immutable track values, clip values, windows, and ordering without editing those operations. Adding a new operation type requires compilation; editing data of an existing supported type does not inherently require translating new gameplay code.
 
+One timeline can contain TA..TX track types and CA..CX clip types. A job receives only its `(TTrack, TClip, inputs..., results...)` pairing. All those jobs share one pending frame and one committed playback position for that entity's timeline. The generated coordinator advances time; an operation job or independently authored system never advances it on its own.
+
 Normal playback has one public operation: `Tick(gameTick, delta = 1)`. Default playback is ready at local position zero. There is no mandatory `Start`, `Bind`, `Compile`, `InMemory`, or per-tick failure boolean. Empty assets do nothing. Finite timelines stop independently at their boundaries. Signed movement executes every available crossed frame.
 
 ## Evidence before implementation
@@ -30,6 +32,16 @@ dotnet run --project experiments/Alpha3/Reference/Proof.csproj -c Release
 ```
 
 The preserved receipt is 10,000 entities with default playback, mixed completion, clamping, empty assets, loops, signed order, and setup validation; 0 B over 2,560,000 entity-ticks. Its measured struct sizes are Playback 4 B, Selection 16 B, TimelineState 24 B. These are reference measurements, not a frozen production ABI or performance result. The reference does not prove arbitrary stage ordering, overlapping clips, complete frame flags, or generation by TL.
+
+The three bounded workstreams produced these additional receipts:
+
+| Workstream | Evidence | What remains unproved |
+| --- | --- | --- |
+| [Ordered operations](docs/alpha3/operation-order.md), PR #28 | Independent forward/reverse trace parity for A-B-A, opposing orders, simultaneous clips, gaps, 256 tracks and mixed completion; 0 B warmed across 100 passes | Production sparse layout, full frame ABI, reduced scans, timing |
+| [Unity execution](docs/alpha3/unity-execution.md), PR #29 | Actual Editor EditMode 4/4; six Burst job producers and system entry; enabled filtering, dependencies, missing-component/stale-marker case, borrowed-frame lifetime | Generated jobs, missing scheduler-marker gate, stable Editor, player/IL2CPP, allocation and timing |
+| [Generator path](docs/alpha3/generator-path.md), PR #30 | Existing real analyzer generates the old API; proposed builder/catalog syntax compiles; incompatible clip mapping is a compiler error | Production total Tick, schema queries, shared neutral lowering and Unity materializer |
+
+The preserved production baseline builds with zero warnings/errors and passes 129 tests; the benchmark collector passes 7/7. None of these tests establishes a speedup for the new architecture. The Unity evidence is specifically Editor 6000.7.0a5, Entities/Collections 6.7.0 and Burst 2.0.0 on Linux x64. Those preview results do not qualify an untested stable release.
 
 ## Two-hour execution budget
 
@@ -59,6 +71,8 @@ For per-entity state `s` and valid immutable definition `d`, repeated selection 
 
 A multi-frame call is a fold of this protocol over available frames. It is not one destination sample, an unordered set of effects, or an aggregate that skips side effects.
 
+In Unity, separate typed jobs/systems participate in one dependency chain. Selection precedes every occurrence, and commit depends on all required occurrences for that frame. A delayed second job cannot leave the first job's timeline already committed. Delta five repeats five complete select/execute/commit rounds; it does not run five Damage frames before five Animation frames. .NET observes the identical rule. Each occurrence gets shared local/game tick, cycle and direction from the pending frame, plus its own track/clip metadata.
+
 ## Total movement
 
 | Situation | Required behavior |
@@ -76,13 +90,15 @@ A multi-frame call is a fold of this protocol over available frames. It is not o
 
 `gameTick` is the external cursor before movement. Forward +3 from 200000 supplies 200000, 200001, 200002 to operations; reverse -3 from 200003 supplies 200002, 200001, 200000. The uint clock wraps explicitly. No wall clock is read by TL. The host owns the application clock even when every finite timeline has completed.
 
+Local uint position is separate from signed long Cycle. Finite assets have Cycle zero. Looped playback increments or decrements the cycle only when crossing its boundary; at the signed counter limits arithmetic wraps explicitly in two's complement. This total policy replaces the old checked-overflow rejection and needs production min/max, wrap and rewind receipts. Preserve the complete current clip/timeline/completion flags while migrating. The prototype's four-byte Playback is not the production size promise.
+
 Do not negate `int.MinValue` in `int`, iterate billions of empty steps, or schedule billions of empty Unity job chains. Finite work bounds come from the longest remaining live timeline. Looping replay with real effects is inherently proportional to the requested work; only a separately proven algebraic operation may collapse it.
 
 Clamping loses overshoot information. Therefore `Tick(+n); Tick(-n)` is not universally identity. Exact restoration additionally requires the same executed frames, reverse operation order, reversible consumer operations, and appropriate event history. Floating-point subtraction is not a general inverse of floating-point addition.
 
 ## Public surface and shared consumer code
 
-[The complete reference](experiments/Alpha3/Reference/README.md) includes all frame/state types, shared authored jobs, .NET query execution, Unity components, IJobEntity jobs, ISystem scheduling, and entity setup. The public shape under review is:
+[The complete runnable reference](experiments/Alpha3/Reference/README.md) includes frame/state types, shared authored jobs, .NET query execution, Unity components, IJobEntity jobs, ISystem scheduling, and entity setup. [The declaration compile receipt](experiments/Alpha3/Generator/README.md) supplies the proposed builder/catalog types and labels its handwritten generated-surface placeholders. The selected consumer shape is:
 
 ```csharp
 public readonly partial struct DamageJob : ITimelineJob<DamageTrack, DamageClip>
@@ -95,18 +111,44 @@ public readonly partial struct DamageJob : ITimelineJob<DamageTrack, DamageClip>
             * frame.Track.Multiplier * resistance.Scale;
 }
 
-var query = new CombatQuery(timelines, resistance, health, poses);
+public readonly partial struct DamageOnlyTimeline : ITimeline
+{
+    public static void Define(scoped Builder builder)
+    {
+        var damage = builder.Track(new DamageTrack(2)).Use<DamageJob>();
+        builder.Clip(damage, new DamageClip(7), 0u, 10u);
+    }
+}
+
+public readonly struct DamageRows;
+public readonly struct MixedRows;
+
+public readonly partial struct Combat : ITimelineCatalog
+{
+    public static void Define(scoped CatalogBuilder builder)
+    {
+        builder.Schema<DamageRows>().Asset<DamageOnlyTimeline>();
+        builder.Schema<MixedRows>().Asset<DamageAnimationTimeline>();
+    }
+}
+
+var catalog = new Combat.Query();
+var query = catalog.MixedRows(timelines, resistance, health, poses);
 query.Tick(gameTick: 200000, delta: 1);
 query.Tick(gameTick: 200001, delta: -1);
 ```
 
 `ITimelineJob<TTrack,TClip>` identifies a pairing; ordinary C# parameters define any supported finite set of inputs and outputs. It does not attempt variadic generic `in`/`out` syntax. `ref` updates the caller's component; `in` is a borrowed read-only alias, not a copy of gameplay state. A job requiring evolving state uses `ref`. An `out` operation, if retained in the final signature grammar, must assign its result on every executed occurrence; skipped occurrences leave existing caller storage unchanged.
 
-The generated query name comes from its compiled asset/schema set. That set must be defined in import/build metadata; discovering some random runtime asset ID cannot reveal arbitrary C# component types. A row may hold any asset compatible with the query's generated operation/component contract. A complete example must include how that set is declared before claiming the API has zero hidden boilerplate.
+`Track(settings)` infers the track type, `Use<TJob>()` binds behavior, and `Clip(track, payload, start, end)` infers and checks the clip pairing. This avoids the invalid assumption that C# infers omitted generic arguments after `Track<TJob>(settings)`. The ordinary declaration types exist before generation; no generated type is needed to read their definition.
 
-Unity's thin IJobEntity wrapper calls the same shared Execute bridge. Selection enables the operation marker for the current stage; disabled markers exclude that operation job. The selector must still visit rows with disabled markers, and completion must only advance rows whose entire selected schedule ran. The wrapper does not rename the domain operation to a different Try method.
+The catalog names schema groups and asset membership. Execute signatures determine component requirements, so a damage-only query does not require Pose. A role/name plus type identifies a logical slot; access is an effect joined across its operations. Damage's `ref Health health` and Animation's `in Health health` share the same health slot. Two differently named Pose roles remain distinct. Ambiguous mappings are compile/import diagnostics. A runtime number alone cannot infer arbitrary C# component types.
 
-`Frame` contains borrowed track and resolved clip values, local/game tick, authored track index, and flags. Direction belongs in flags with a computed convenience property. No ordinal or active-count field is added. Full clip/timeline boundary behavior and any retained cycle information must be specified and tested before replacing the existing frame ABI; the smaller reference must not silently erase them.
+Unity's generated catalog entry is `Combat.Tick(ref systemState, gameTick, delta)` inside an ISystem; .NET's borrowed schema query has the same Tick operation. The Unity host borrows ECS storage through job parameters rather than storing .NET spans in jobs. Authored operation signatures and domain semantics are shared; host scheduling arguments and declaration language versions are explicit adapter differences.
+
+Unity's thin IJobEntity wrapper calls the same shared Execute bridge. A generated IJobChunk selector visits every timeline chunk, clears pending selection and any present stage markers, then checks the current complete component and scheduler schema before enabling work. Missing scheduler markers must not bypass clearing. Disabled markers exclude operation jobs; completion advances only rows whose entire selected schedule ran. The tested IJobEntity clear requires both markers and therefore does not yet prove this stronger production gate. Disjoint schema-marker queries are an optimization candidate, not a prerequisite or an implemented result.
+
+`Frame` contains borrowed track and resolved clip values, local/game tick, authored track index, full boundary flags and signed long Cycle. Direction belongs in flags with a computed convenience property, not a stored int. No ordinal or active-count field is added. Generated code can eliminate unused fields from machine code; do not claim source-level size reduction without layout/codegen evidence. Unity's Frame implementation must use its qualified language/Burst subset; C# 14 ref-field or static-abstract syntax in the declaration proof is not a Unity compatibility receipt.
 
 ## Ordered batching, not type sorting
 
@@ -114,7 +156,9 @@ A type mask answers whether an operation occurs. It cannot encode `A -> B -> A`.
 
 The correctness baseline uses ordered **occurrences** with an internal stage/position identity. At each stage, compatible operations may batch across independent entity rows. Reverse movement traverses occurrences backward. Blend resolution produces one typed frame for its authored track occurrence, not two unrelated calls.
 
-The ordering workstream must choose and prove the smallest representation. It must measure both retained bytes and traversal complexity. Avoid a frame queue of `entities × active clips` and avoid allocating a 256-entry selection buffer per entity just because 256 tracks are supported. Immutable shared schedules plus small per-entity positions are the default candidate.
+The selected representation is an immutable shared ordered occurrence slice with a small per-entity selection. The array position supplies the internal stage ordinal. At stage s, each typed job processes compatible rows at that stage, then a dependency barrier precedes s+1. The proof measured 8 B occurrences, 8 B frame slices and 12 B selections, and exposed O(E × K × S) visits and up to K × S typed passes for E entities, K operation kinds and S stages. These are a correctness baseline and a measured layout, not an optimality claim.
+
+Production lowers sparse region boundaries rather than copying the proof's duration-sized table. Do not allocate a frame queue of entities × active clips or a 256-entry buffer per entity. Reduce repeated scans only after preserving the independent oracle's exact traces. SIMD is limited to operations with compatible layouts, independent lanes and unchanged evaluation semantics; arbitrary callbacks are not automatically vectorized.
 
 Cross-entity or global effects are a separate dependency domain. Passing `in`/`ref` alone does not prove independence if a body reads mutable statics, follows shared pointers, or writes another entity. The first parallel executor supports row-local borrowed components and immutable shared data. Broader effects require an explicit deterministic ordered phase or a proven reduction; arbitrary C# purity is not asserted by a marker interface.
 
@@ -122,12 +166,12 @@ The 256-track limit bounds authored track indices to 0..255; a count of 256 need
 
 ## Data, schemas, and lifetime
 
-- .NET queries borrow component columns or operate on validated native chunks. They validate equal entity membership, length, and prohibited overlap once at setup. Query creation does not allocate a hidden frame queue. A default query is empty.
+- .NET queries borrow component columns or operate on validated native chunks. They validate equal entity membership, length, and prohibited overlap at setup. If callers can change row asset routes, Tick rechecks route/schema compatibility before applying any effect; constructor validation cannot cover later mutation. Typed schema-specific state may remove that repeated check only if it actually makes the invalid assignment unrepresentable. Query creation does not allocate a hidden frame queue. A default query is empty.
 - Unity owns ECS component storage and job dependencies. TL supplies immutable asset data, per-entity playback/selection data, and generated operation filters. No span, managed byref, or ref struct is stored in a scheduled job.
 - Borrowed frames live only inside Execute. Blend scratch is bounded by the current operation/region, with a demonstrated stack limit or caller/host-owned chunk scratch. Large payloads must not produce unbounded stack allocation.
 - Required schema membership is checked during import/entity creation/query setup. If external structural changes remove required components, a generated schema gate must disable the whole affected timeline or report the mutation at that boundary before partial work can run. Merely letting each IJobEntity query filter independently is insufficient.
-- Stable asset identity is separate from a process-local ushort route. Save files, networking, and mod references do not store registration-order IDs. Typed facades may eliminate routing; dynamic assets retain an explicit generated routing cost.
-- Default asset needs an explicit empty representation. Supporting all 65,536 nonempty assets plus empty requires an extra state/bit or a wider handle; do not reserve ushort zero and still claim 65,536 live values.
+- Stable asset identity is separate from a uint catalog-local route. Save files, networking, and mod references do not store registration-order IDs. Catalog identity accompanies routing across package/catalog boundaries. Typed facades may eliminate routing; dynamic assets retain an explicit generated routing cost.
+- Route zero is empty; values 1..65,536 cover the requested nonempty assets. Arbitrary uint values are not legal asset constructors. A ushort cannot encode that domain plus empty. Stable imported asset IDs are resolved before executing the closed catalog.
 - Definition lifetime must outlive every scheduled reader. Publication exposes a complete immutable definition. Reclaiming/swapping it requires host fences; no per-frame lock is added.
 
 ## Compiler and portability
@@ -146,24 +190,32 @@ same neutral schedule + C# binding
 
 `Tl.Compiler` owns schedule semantics and validation, never Roslyn symbols or C# expression strings. `Tl.Gen.CSharp` owns symbol analysis, generated signatures, constant encoding, diagnostics, and .NET/Unity C# source emission. Unity storage adapters may use BlobAssetReference, but the semantic schedule is the same and .NET does not depend on Unity.
 
+The current analyzer target is netstandard2.0 with Roslyn 4.3.1, while the neutral compiler is currently net10-only. Sharing production lowering therefore requires a host-compatible neutral assembly target and analyzer dependency packaging/load tests. Referencing the CLI's net10 assembly from the analyzer is not a valid shortcut. Keep compiler objects out of runtime/player artifacts.
+
 Do not implement an entire portable codec during this timebox. New C work, backend repository extraction, GUI editor construction, and arbitrary C# translation remain deferred. Define the neutral seam needed by the slice and preserve the reviewed C ABI until a separate migration is approved.
 
-Roslyn generators do not consume other generators' output in the same pass. A TL-emitted IJobEntity declaration therefore needs deterministic source materialization before Unity's compilation, or TL must emit a complete IJobChunk adapter itself. Pick one qualified path; do not promise IDE generation alone solves the Unity handoff. Existing .NET incremental generation remains automatic while editing. Unity updates use the editor's import/compilation cycle, with unchanged output preserving content and timestamps.
+Ordinary Roslyn RegisterSourceOutput cannot feed another generator in the same compilation. Current Roslyn also documents experimental RegisterPreCompilationSourceOutput for non-compilation inputs; it cannot inspect SyntaxProvider/CompilationProvider and is not a qualified dependency of TL's older analyzer/Unity host. See the [official cookbook](https://github.com/dotnet/roslyn/blob/main/docs/features/incremental-generators.cookbook.md#pre-compilation-source-generation).
+
+The selected Unity path is deterministic materialization before script compilation: emit physical C# in the qualified subset, then let Entities discover IJobEntity declarations in the following compilation. Write atomically; preserve content/timestamps on a cache hit; remove stale owned outputs; prevent refresh loops. Existing .NET incremental generation remains automatic in a supporting IDE. A generated IJobChunk selector solves schema discovery, not the separate IJobEntity generator handoff.
+
+Microsoft's [support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core) still lists .NET 10 as active LTS at this review. Keep SDK 10.0.401 pinned for the recorded checks; a toolchain upgrade requires its own qualification.
 
 ## Implementation atoms after design review
 
-These define dependency and acceptance, not a second mutable task board. Issue #27 records the chosen owners, exact branches, published heads, and transitions.
+These define dependency and acceptance, not a second mutable task board. [Runtime #31](https://github.com/IAFahim/tl/issues/31), [neutral schedule #32](https://github.com/IAFahim/tl/issues/32), [generated .NET queries #33](https://github.com/IAFahim/tl/issues/33), [generated Unity jobs #34](https://github.com/IAFahim/tl/issues/34), and [release qualification #35](https://github.com/IAFahim/tl/issues/35) own production execution. They belong to [milestone alpha.3](https://github.com/IAFahim/tl/milestone/2). Issue #27 remains the reviewed design and experiment record. Each implementation issue records its owner, exact branch, published head, and next atom.
 
 | Atom | Owned production boundary | Dependency | Acceptance |
 | --- | --- | --- | --- |
-| A: total state/selection | `src/Tl.Core/Playback.cs`, `Compiled.cs`; core receipts | frozen movement and frame contract | default/empty/zero/mixed completion/finite extremes/loops; selection has no consumer calls |
-| B: ordered schedule | minimal `src/Tl.Compiler` records/validator; compiler receipts | ordering prototype | A-B-A and opposing orders, gaps, overlap order, reverse, 256 tracks; deterministic immutable plan |
-| C: real generated bridge | C# reader/model/emitter and generator tests | A/B | authored declarations compile into selector, typed Execute bridge, and query; no handwritten fixture dispatch hidden as generator output |
-| D: .NET column executor | generated query emitter, mixed sample and runtime receipts | C | 10,000 mixed rows; same traces as independent per-entity oracle; borrowed inputs, live ref outputs, 0 B warmed |
-| E: Unity executor | Unity generator/materializer, runtime adapter, ECS sample/tests | A/B/C | real IJobEntity filter and dependency behavior; complete-schema gate; actual Burst execution matches oracle |
-| F: candidate qualification | API approvals, README/migration, package versions, release evidence | A–E green | exact-commit build/tests/AOT/package/Unity/budget/inspection/benchmark checks; independent review |
+| A: total state/selection (#31) | `src/Tl.Core/Playback.cs`, `Compiled.cs`; core receipts | frozen movement and frame contract | default/empty/zero/mixed completion/finite extremes/loops; selection has no consumer calls |
+| B: ordered schedule (#32) | minimal `src/Tl.Compiler` records/validator; compiler receipts | ordering prototype | A-B-A and opposing orders, gaps, overlap order, reverse, 256 tracks; deterministic immutable plan |
+| C: real generated bridge (#33) | C# reader/model/emitter and generator tests | A/B | authored declarations compile into selector, typed Execute bridge, and query; no handwritten fixture dispatch hidden as generator output |
+| D: .NET column executor (#33) | generated query emitter, mixed sample and runtime receipts | C | 10,000 mixed rows; same traces as independent per-entity oracle; borrowed inputs, live ref outputs, 0 B warmed |
+| E: Unity executor (#34) | Unity generator/materializer, runtime adapter, ECS sample/tests | A/B/C | real IJobEntity filter and dependency behavior; complete-schema gate; actual Burst execution matches oracle |
+| F: candidate qualification (#35) | API approvals, README/migration, package versions, release evidence | A–E green | exact-commit build/tests/AOT/package/Unity/budget/inspection/benchmark checks; independent review |
 
 A/B can proceed independently after contract freeze. C consumes their reviewed contracts. E can prepare host tests while C is implemented. One agent owns the C# emitter at a time; do not assign colliding broad refactors. The reference is an oracle/example; migrating its hard-coded asset enum into production is forbidden.
+
+The first production checkpoint is deliberately finite, nonoverlapping and hook-free: one asset, one schema, one operation, actual generated selection/execution/commit, plus default/empty/zero/gap/both directions/clamp/mixed-completion/0-B receipts. Unsupported definitions diagnose during generation at that checkpoint. That limited checkpoint does not close #33 or qualify alpha.3; loops, blends, hooks, heterogeneous schemas and Unity remain mandatory before release.
 
 ## Performance experiment policy
 
