@@ -43,14 +43,12 @@ stage="$(mktemp -d /tmp/tl-release-artifacts.XXXXXX)"
 trap 'rm -rf -- "$stage"' EXIT
 mkdir -p "$stage/raw-a" "$stage/raw-b"
 export NUGET_PACKAGES="$stage/nuget"
-path_map="$root=/_/%2C$stage=/_release/"
 
 properties=(
     -p:ContinuousIntegrationBuild=true
     -p:RepositoryCommit="$head_commit"
     -p:RepositoryBranch="$repository_ref"
     -p:NuGetAudit=false
-    -p:PathMap="$path_map"
 )
 projects=(
     src/Tl.Core/Tl.Core.csproj
@@ -64,6 +62,7 @@ for package_pass in raw-a raw-b; do
     solution_artifacts="$stage/solution-$package_pass"
     solution_properties=(
         "${properties[@]}"
+        -p:PathMap="$root=/_/%2C$solution_artifacts=/_build/"
         -p:TlGenAssembly="$solution_artifacts/bin/Tl.Gen.CSharp/release/Tl.Gen.CSharp.dll"
         -p:TlGenPackOutput="$solution_artifacts/bin/Tl.Gen.CSharp/release/"
     )
@@ -90,13 +89,17 @@ python3 "$root/eng/release_artifacts.py" verify "$output" "$version" "$head_comm
 
 consumer="$root/tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj"
 consumer_artifacts="$stage/consumer-artifacts"
+consumer_properties=(
+    "${properties[@]}"
+    -p:PathMap="$root=/_/%2C$consumer_artifacts=/_consumer/"
+)
 dotnet restore "$consumer" --force --no-cache --source "$output" --artifacts-path "$consumer_artifacts"
-dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${properties[@]}"
+dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${consumer_properties[@]}"
 jit_output="$consumer_artifacts/bin/Tl.PackageConsumer/release"
 [[ "$("$jit_output/Tl.PackageConsumer")" == "7" ]]
 
 cache_log="$stage/Tl.PackageConsumer.cache.log"
-dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${properties[@]}" | tee "$cache_log"
+dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${consumer_properties[@]}" | tee "$cache_log"
 grep -F "TlGenCompile: cache hit" "$cache_log"
 
 for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do
@@ -104,7 +107,7 @@ for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Micro
 done
 
 dotnet restore "$consumer" -r "$runtime_identifier" -p:PublishAot=true --force --no-cache --source "$output" --source https://api.nuget.org/v3/index.json --artifacts-path "$consumer_artifacts"
-dotnet publish "$consumer" -c Release -r "$runtime_identifier" --self-contained true -p:PublishAot=true -p:StripSymbols=true --no-restore --artifacts-path "$consumer_artifacts" -o "$stage/aot" "${properties[@]}"
+dotnet publish "$consumer" -c Release -r "$runtime_identifier" --self-contained true -p:PublishAot=true -p:StripSymbols=true --no-restore --artifacts-path "$consumer_artifacts" -o "$stage/aot" "${consumer_properties[@]}"
 [[ "$("$stage/aot/Tl.PackageConsumer")" == "7" ]]
 
 for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do
