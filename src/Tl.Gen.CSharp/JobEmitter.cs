@@ -59,8 +59,8 @@ internal static class JobEmitter
             Line(writer, "=> new global::Tl.TimelineState(state.Asset, (flags & global::Tl.FrameFlags.Reverse) != 0 ? tick : tick + 1u);");
         for (var operation = 0; operation < operations.Length; operation++)
         {
-            EmitOperation(writer, timeline, regions, operations[operation], operation, false);
-            EmitOperation(writer, timeline, regions, operations[operation], operation, true);
+            EmitOperation(writer, regions, operations[operation], operation, false);
+            EmitOperation(writer, regions, operations[operation], operation, true);
         }
         Line(writer, "}");
         return writer.ToString();
@@ -68,7 +68,6 @@ internal static class JobEmitter
 
     private static void EmitOperation(
         StringBuilder writer,
-        JobTimeline timeline,
         IReadOnlyList<ScheduledRegion> regions,
         JobDefinition operation,
         int operationIndex,
@@ -94,7 +93,7 @@ internal static class JobEmitter
                 {
                     Line(writer, $"case {match.Stage}:");
                     Line(writer, "{");
-                    Invoke(writer, timeline, match.Occurrence);
+                    Invoke(writer, match.Occurrence);
                     Line(writer, "break;");
                     Line(writer, "}");
                 }
@@ -314,7 +313,7 @@ internal static class JobEmitter
         return regions;
     }
 
-    private static void Invoke(StringBuilder writer, JobTimeline timeline, ScheduledOccurrence occurrence)
+    private static void Invoke(StringBuilder writer, ScheduledOccurrence occurrence)
     {
         if (occurrence.Track is null)
         {
