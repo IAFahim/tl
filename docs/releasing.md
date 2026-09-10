@@ -1,14 +1,14 @@
 # Release artifacts
 
-`release-artifacts` and `publish-nuget` are separate manual workflows. Building a GitHub prerelease cannot publish a NuGet package. NuGet publication requires a repository-owner dispatch and approval through the protected `nuget-production` environment. Configure that environment with the repository owner as a required reviewer before enabling publication. The repository's unresolved license decision still blocks using this workflow.
+`release-artifacts` and `publish-nuget` are separate manual workflows. Building a GitHub prerelease cannot publish a NuGet package. The publish job is disabled while the license decision and protected `nuget-production` environment remain unresolved. Configure that environment with the repository owner as a required reviewer, record the license decision, and review the enabling change before publication.
 
-The artifact workflow checks out the fully qualified `refs/tags/<tag>` ref. It rejects a branch with the same short name, checks that the tag is `v` plus the package version, and requires the checked-out commit to be the tag target. It rejects tracked and untracked source changes, builds with the repository commit and tag ref supplied explicitly to MSBuild, packs every package twice, normalizes ZIP timestamps without recompressing entries, and requires the two normalized package sets to be byte-identical.
+The artifact workflow checks out the fully qualified `refs/tags/<tag>` ref. It rejects a branch with the same short name, checks that the tag is `v` plus the package version, and requires the checked-out commit to be the tag target. It rejects tracked and untracked source changes, performs two isolated restores and builds with the repository commit and tag ref supplied explicitly to MSBuild, normalizes ZIP timestamps without recompressing entries, and requires the two complete package sets to be byte-identical.
 
 The package contract verifies:
 
 - `Tl.Runtime`, `Tl.Gen.CSharp`, `Tl.CSharp`, `Tl.Compiler`, and `Tl.Gen.C` exist at the tag version.
 - Every package identifies the exact repository commit and tag ref.
-- The package dependency graph and required package paths match the approved graph.
+- Every package path and dependency group matches the approved graph exactly.
 - `Tl.Runtime`, `Tl.Compiler`, and `Tl.Gen.C` have portable symbol packages with embedded source.
 - The generator portable PDB with embedded source stays under the build-only `tools` path.
 - A clean consumer builds and runs from `Tl.CSharp` alone under the JIT and NativeAOT.

@@ -5,6 +5,7 @@ import hashlib
 import json
 import struct
 import sys
+import uuid
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
@@ -37,12 +38,12 @@ PACKAGE_FILES = {
     "Tl.Runtime": {"lib/net10.0/Tl.Core.dll"},
 }
 
-PACKAGE_DEPENDENCIES = {
-    "Tl.CSharp": {"Tl.Runtime"},
-    "Tl.Compiler": set(),
-    "Tl.Gen.C": {"Tl.Compiler"},
-    "Tl.Gen.CSharp": set(),
-    "Tl.Runtime": set(),
+PACKAGE_DEPENDENCY_GROUPS = {
+    "Tl.CSharp": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": [{"id": "Tl.Runtime", "exclude": "Build,Analyzers"}]}],
+    "Tl.Compiler": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": []}],
+    "Tl.Gen.C": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": [{"id": "Tl.Compiler", "exclude": "Build,Analyzers"}]}],
+    "Tl.Gen.CSharp": [],
+    "Tl.Runtime": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": []}],
 }
 
 PACKAGE_FORBIDDEN_FILES = {
@@ -58,6 +59,21 @@ SYMBOL_FILES = {
     "Tl.Gen.C": "lib/net10.0/Tl.Gen.C.pdb",
     "Tl.Runtime": "lib/net10.0/Tl.Core.pdb",
 }
+
+PACKAGE_METADATA_FILES = {
+    "_rels/.rels",
+    "README.md",
+    "[Content_Types].xml",
+    "package/services/metadata/core-properties/nuget.psmdcp",
+}
+
+SYMBOL_METADATA_FILES = {
+    "_rels/.rels",
+    "[Content_Types].xml",
+    "package/services/metadata/core-properties/nuget.psmdcp",
+}
+
+EMBEDDED_SOURCE_GUID = uuid.UUID("0e8a571b-6926-466e-b4ad-8ab04611f5fe").bytes_le
 
 
 def fail(message):
@@ -122,12 +138,38 @@ def metadata_value(root, name):
     return matches[0].text
 
 
+def verify_portable_embedded_pdb(payload, name):
+    if not payload.startswith(b"BSJB"):
+        fail(f"{name} is not a portable PDB")
+    if EMBEDDED_SOURCE_GUID not in payload:
+        fail(f"{name} has no embedded-source debug records")
+
+
+def dependency_groups(root):
+    containers = descendants(root, "dependencies")
+    if not containers:
+        return []
+    if len(containers) != 1:
+        fail("nuspec must contain at most one dependencies element")
+    groups = []
+    for group in containers[0]:
+        if local_name(group) != "group":
+            fail("nuspec dependencies must use framework groups")
+        dependencies = []
+        for dependency in group:
+            if local_name(dependency) != "dependency":
+                fail("nuspec dependency group contains an unsupported element")
+            dependencies.append(dict(dependency.attrib))
+        groups.append({"attributes": dict(group.attrib), "dependencies": dependencies})
+    return groups
+
+
 def verify_nupkg(path, package_id, version, commit, repository_ref):
     with zipfile.ZipFile(path) as archive:
         names = set(archive.namelist())
-        missing = PACKAGE_FILES[package_id] - names
-        if missing:
-            fail(f"{path.name} is missing {sorted(missing)}")
+        expected_names = PACKAGE_FILES[package_id] | PACKAGE_METADATA_FILES | {f"{package_id}.nuspec"}
+        if names != expected_names:
+            fail(f"{path.name} files are {sorted(names)}, expected {sorted(expected_names)}")
         basenames = {Path(name).name for name in names}
         forbidden = PACKAGE_FORBIDDEN_FILES[package_id] & basenames
         if forbidden:
@@ -149,22 +191,29 @@ def verify_nupkg(path, package_id, version, commit, repository_ref):
         }
         if repository != expected_repository:
             fail(f"{path.name} repository identity is {repository}, expected {expected_repository}")
-        dependency_items = descendants(root, "dependency")
-        dependencies = {item.attrib["id"]: item.attrib["version"] for item in dependency_items}
-        if len(dependencies) != len(dependency_items):
-            fail(f"{path.name} contains duplicate dependencies")
-        expected_dependencies = PACKAGE_DEPENDENCIES[package_id]
-        if set(dependencies) != expected_dependencies:
-            fail(f"{path.name} dependencies are {dependencies}, expected {sorted(expected_dependencies)}")
-        for dependency, dependency_version in dependencies.items():
-            if dependency_version != version:
-                fail(f"{path.name} dependency {dependency} version is {dependency_version}, expected {version}")
+        expected_groups = [
+            {
+                "attributes": group["attributes"],
+                "dependencies": [dependency | {"version": version} for dependency in group["dependencies"]],
+            }
+            for group in PACKAGE_DEPENDENCY_GROUPS[package_id]
+        ]
+        actual_groups = dependency_groups(root)
+        if actual_groups != expected_groups:
+            fail(f"{path.name} dependency groups are {actual_groups}, expected {expected_groups}")
+        generator_pdb = "tools/net10.0/any/Tl.Gen.CSharp.pdb"
+        if generator_pdb in names:
+            verify_portable_embedded_pdb(archive.read(generator_pdb), f"{path.name}:{generator_pdb}")
 
 
 def verify_snupkg(path, package_id, version, commit, repository_ref):
     with zipfile.ZipFile(path) as archive:
-        if SYMBOL_FILES[package_id] not in archive.namelist():
-            fail(f"{path.name} does not contain {SYMBOL_FILES[package_id]}")
+        symbol_file = SYMBOL_FILES[package_id]
+        expected_names = SYMBOL_METADATA_FILES | {f"{package_id}.nuspec", symbol_file}
+        names = set(archive.namelist())
+        if names != expected_names:
+            fail(f"{path.name} files are {sorted(names)}, expected {sorted(expected_names)}")
+        verify_portable_embedded_pdb(archive.read(symbol_file), f"{path.name}:{symbol_file}")
         root = nuspec(archive)
         if metadata_value(root, "id") != package_id or metadata_value(root, "version") != version:
             fail(f"{path.name} symbol identity does not match its package")

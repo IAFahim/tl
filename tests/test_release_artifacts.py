@@ -57,13 +57,41 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertIn("ref: refs/tags/${{ inputs.tag }}", validate)
         self.assertNotIn("id-token: write", validate)
         self.assertIn("environment: nuget-production", workflow)
-        self.assertIn("github.actor == github.repository_owner", workflow)
+        self.assertIn("if: ${{ false }}", workflow)
         self.assertIn("id-token: write", publish)
         self.assertIn("actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0", publish)
         self.assertIn("Tl.Runtime.$version.nupkg", publish)
         self.assertNotIn("*.nupkg\" --api-key", publish)
         self.assertNotIn("gh release download", workflow)
         self.assertNotIn("license_and_owner_decisions", workflow)
+
+    def test_package_verifier_rejects_unexpected_files_and_dependency_attributes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            valid = root / "valid.nupkg"
+            unexpected = root / "unexpected.nupkg"
+            wrong_dependency = root / "wrong-dependency.nupkg"
+            self.write_c_package(valid)
+            self.write_c_package(unexpected, extra="unexpected.dll")
+            self.write_c_package(wrong_dependency, exclude="Compile")
+
+            RELEASE_ARTIFACTS.verify_nupkg(valid, "Tl.Gen.C", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
+            with self.assertRaisesRegex(ValueError, "files are"):
+                RELEASE_ARTIFACTS.verify_nupkg(unexpected, "Tl.Gen.C", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
+            with self.assertRaisesRegex(ValueError, "dependency groups"):
+                RELEASE_ARTIFACTS.verify_nupkg(wrong_dependency, "Tl.Gen.C", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
+
+    def test_symbol_verifier_requires_portable_embedded_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            valid = root / "valid.snupkg"
+            invalid = root / "invalid.snupkg"
+            self.write_symbol_package(valid, b"BSJB" + RELEASE_ARTIFACTS.EMBEDDED_SOURCE_GUID)
+            self.write_symbol_package(invalid, b"BSJB")
+
+            RELEASE_ARTIFACTS.verify_snupkg(valid, "Tl.Compiler", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
+            with self.assertRaisesRegex(ValueError, "embedded-source"):
+                RELEASE_ARTIFACTS.verify_snupkg(invalid, "Tl.Compiler", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
 
     def test_nuget_publish_fails_on_an_existing_package(self):
         workflow = (ROOT / ".github" / "workflows" / "publish-nuget.yml").read_text(encoding="utf-8")
@@ -123,6 +151,24 @@ class ReleaseArtifactTests(unittest.TestCase):
             entry = zipfile.ZipInfo("data.txt", timestamp)
             entry.compress_type = zipfile.ZIP_DEFLATED
             archive.writestr(entry, b"same")
+
+    @staticmethod
+    def write_c_package(path, exclude="Build,Analyzers", extra=None):
+        nuspec = f"""<package><metadata><id>Tl.Gen.C</id><version>1.2.3</version><repository type="git" url="https://github.com/IAFahim/tl" branch="refs/tags/v1.2.3" commit="{'a' * 40}"/><dependencies><group targetFramework="net10.0"><dependency id="Tl.Compiler" version="1.2.3" exclude="{exclude}"/></group></dependencies></metadata></package>"""
+        files = RELEASE_ARTIFACTS.PACKAGE_FILES["Tl.Gen.C"] | RELEASE_ARTIFACTS.PACKAGE_METADATA_FILES | {"Tl.Gen.C.nuspec"}
+        if extra is not None:
+            files.add(extra)
+        with zipfile.ZipFile(path, "w") as archive:
+            for name in files:
+                archive.writestr(name, nuspec if name.endswith(".nuspec") else b"content")
+
+    @staticmethod
+    def write_symbol_package(path, pdb):
+        nuspec = f"""<package><metadata><id>Tl.Compiler</id><version>1.2.3</version><repository type="git" url="https://github.com/IAFahim/tl" branch="refs/tags/v1.2.3" commit="{'a' * 40}"/></metadata></package>"""
+        files = RELEASE_ARTIFACTS.SYMBOL_METADATA_FILES | {"Tl.Compiler.nuspec", "lib/net10.0/Tl.Compiler.pdb"}
+        with zipfile.ZipFile(path, "w") as archive:
+            for name in files:
+                archive.writestr(name, nuspec if name.endswith(".nuspec") else pdb if name.endswith(".pdb") else b"content")
 
 
 if __name__ == "__main__":
