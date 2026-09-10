@@ -40,13 +40,14 @@ type Tl.Compiler.RegionWorkPlan
   Method System.String ToString()
   Property Tl.Compiler.TrackPlan Track
 type Tl.Compiler.TimelinePlan
-  Constructor Void .ctor(System.String, UInt16, Boolean, System.Collections.Generic.IEnumerable`1[Tl.Compiler.TrackPlan], System.Collections.Generic.IEnumerable`1[Tl.Compiler.ClipPlan])
+  Constructor Void .ctor(System.String, UInt16, Boolean, System.Collections.Generic.IEnumerable`1[Tl.Compiler.TrackPlan], System.Collections.Generic.IEnumerable`1[Tl.Compiler.ClipPlan], UInt16)
   Method Tl.Compiler.TimelinePlan <Clone>$()
   Property System.Collections.Immutable.ImmutableArray`1[Tl.Compiler.ClipPlan] Clips
+  Field UInt16 CurrentFormatVersion
   Property UInt32 Duration
   Method Boolean Equals(System.Object)
   Method Boolean Equals(Tl.Compiler.TimelinePlan)
-  Field UInt16 FormatVersion
+  Property UInt16 FormatVersion
   Method Int32 GetHashCode()
   Property System.String Identity
   Property Boolean Loops
@@ -70,7 +71,7 @@ type Tl.Compiler.ValidatedTimelinePlan
   Property UInt32 Duration
   Method Boolean Equals(System.Object)
   Method Boolean Equals(Tl.Compiler.ValidatedTimelinePlan)
-  Field UInt16 FormatVersion
+  Property UInt16 FormatVersion
   Method Int32 GetHashCode()
   Property System.String Identity
   Property Boolean Loops

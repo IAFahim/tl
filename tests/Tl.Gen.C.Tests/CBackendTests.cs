@@ -66,6 +66,7 @@ public sealed class CBackendTests
         Assert.Equal(40, emission.Report.FrameBytes);
         Assert.Equal(8, emission.Report.FrameAlignment);
         Assert.Equal(0, emission.Report.RuntimeHeapBytes);
+        Assert.Equal(TimelinePlan.CurrentFormatVersion, CEmitter.SupportedPlanFormatVersion);
     }
 
     [Fact]

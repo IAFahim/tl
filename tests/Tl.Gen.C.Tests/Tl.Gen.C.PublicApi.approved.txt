@@ -53,6 +53,7 @@ type Tl.Gen.C.CEmissionReport
 type Tl.Gen.C.CEmitter
   Method System.Collections.Immutable.ImmutableArray`1[Tl.Gen.C.CArtifact] Emit(Tl.Compiler.TimelinePlan, Tl.Gen.C.CBinding)
   Method Tl.Gen.C.CEmission Generate(Tl.Compiler.TimelinePlan, Tl.Gen.C.CBinding)
+  Field UInt16 SupportedPlanFormatVersion
 type Tl.Gen.C.COperationBinding
   Constructor Void .ctor(Tl.Compiler.OperationId, System.String)
   Method Void Deconstruct(Tl.Compiler.OperationId ByRef, System.String ByRef)

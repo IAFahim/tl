@@ -16,8 +16,6 @@ public readonly record struct RegionPlan(
 
 public sealed record ValidatedTimelinePlan
 {
-    public const ushort FormatVersion = 1;
-
     private ValidatedTimelinePlan(TimelinePlan plan, ImmutableArray<RegionPlan> regions)
     {
         Identity = plan.Identity;
@@ -27,6 +25,7 @@ public sealed record ValidatedTimelinePlan
         Clips = plan.Clips;
         Duration = plan.Duration;
         Regions = regions;
+        FormatVersion = plan.FormatVersion;
     }
 
     public string Identity { get; }
@@ -36,9 +35,12 @@ public sealed record ValidatedTimelinePlan
     public ImmutableArray<ClipPlan> Clips { get; }
     public uint Duration { get; }
     public ImmutableArray<RegionPlan> Regions { get; }
+    public ushort FormatVersion { get; }
 
     internal static ValidatedTimelinePlan Create(TimelinePlan plan)
     {
+        if (plan.FormatVersion != TimelinePlan.CurrentFormatVersion)
+            throw new NotSupportedException($"Timeline plan format {plan.FormatVersion} is not supported. Expected {TimelinePlan.CurrentFormatVersion}.");
         if (string.IsNullOrWhiteSpace(plan.Identity))
             throw new ArgumentException("Timeline identity cannot be empty.", nameof(plan));
         if (plan.Tracks.Length > ushort.MaxValue + 1)

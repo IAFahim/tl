@@ -88,7 +88,9 @@ cp "$stage/raw-a-normalized"/* "$output/"
 python3 "$root/eng/release_artifacts.py" verify "$output" "$version" "$head_commit" "$repository_ref"
 
 consumer="$root/tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj"
+compiler_consumer="$root/tests/Tl.Compiler.PackageConsumer/Tl.Compiler.PackageConsumer.csproj"
 consumer_artifacts="$stage/consumer-artifacts"
+compiler_consumer_artifacts="$stage/compiler-consumer-artifacts"
 consumer_properties=(
     "${properties[@]}"
     -p:PathMap="$root=/_/%2C$consumer_artifacts=/_consumer/"
@@ -97,6 +99,11 @@ dotnet restore "$consumer" --force --no-cache --source "$output" --artifacts-pat
 dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${consumer_properties[@]}"
 jit_output="$consumer_artifacts/bin/Tl.PackageConsumer/release"
 [[ "$("$jit_output/Tl.PackageConsumer")" == "7" ]]
+
+dotnet restore "$compiler_consumer" --force --no-cache --source "$output" --artifacts-path "$compiler_consumer_artifacts"
+dotnet build "$compiler_consumer" -c Release --no-restore --artifacts-path "$compiler_consumer_artifacts" "${properties[@]}"
+compiler_jit_output="$compiler_consumer_artifacts/bin/Tl.Compiler.PackageConsumer/release"
+[[ "$("$compiler_jit_output/Tl.Compiler.PackageConsumer")" == "1:9:2" ]]
 
 cache_log="$stage/Tl.PackageConsumer.cache.log"
 dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${consumer_properties[@]}" | tee "$cache_log"

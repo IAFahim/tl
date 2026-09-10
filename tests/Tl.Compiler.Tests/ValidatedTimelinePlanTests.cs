@@ -61,7 +61,8 @@ public sealed class ValidatedTimelinePlanTests
 
         var validated = plan.Validate();
 
-        Assert.Equal(ValidatedTimelinePlan.FormatVersion, TimelinePlan.FormatVersion);
+        Assert.Equal(TimelinePlan.CurrentFormatVersion, plan.FormatVersion);
+        Assert.Equal(plan.FormatVersion, validated.FormatVersion);
         Assert.Equal("schedule", validated.Identity);
         Assert.Equal((ushort)7, validated.RuntimeId);
         Assert.True(validated.Loops);
@@ -76,6 +77,16 @@ public sealed class ValidatedTimelinePlanTests
                 "[4,5):9=901"
             ],
             validated.Regions.Select(Describe));
+    }
+
+    [Fact]
+    public void UnsupportedFormatIsRejectedBeforeSemanticValidation()
+    {
+        var plan = new TimelinePlan(" ", 1, false, [], [], formatVersion: 2);
+
+        var exception = Assert.Throws<NotSupportedException>(plan.Validate);
+
+        Assert.Equal("Timeline plan format 2 is not supported. Expected 1.", exception.Message);
     }
 
     [Fact]

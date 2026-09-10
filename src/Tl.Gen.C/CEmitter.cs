@@ -7,6 +7,8 @@ namespace Tl.Gen.C;
 
 public static class CEmitter
 {
+    public const ushort SupportedPlanFormatVersion = 1;
+
     private static readonly HashSet<string> Keywords = new(StringComparer.Ordinal)
     {
         "auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum",
@@ -24,6 +26,8 @@ public static class CEmitter
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(binding);
         var (validated, operations) = Validate(plan, binding);
+        if (validated.FormatVersion != SupportedPlanFormatVersion)
+            throw new NotSupportedException($"Timeline plan format {validated.FormatVersion} is not supported. Expected {SupportedPlanFormatVersion}.");
         ImmutableArray<CArtifact> artifacts =
         [
             new CArtifact(binding.HeaderFileName, EmitHeader(validated, binding, operations)),
@@ -32,7 +36,7 @@ public static class CEmitter
         return new(
             artifacts,
             new(
-                ValidatedTimelinePlan.FormatVersion,
+                validated.FormatVersion,
                 2,
                 validated.Tracks.Length,
                 validated.Clips.Length,
