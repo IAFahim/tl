@@ -1,6 +1,9 @@
 {
   "name": "Tl.Unity",
   "rootNamespace": "Tl",
+  "references": [
+    "Unity.Collections"
+  ],
   "allowUnsafeCode": true,
   "noEngineReferences": true
 }

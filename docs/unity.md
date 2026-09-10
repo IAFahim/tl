@@ -2,40 +2,42 @@
 
 ## Install
 
-Add the package from Unity Package Manager with the repository subdirectory URL:
+Add the native package through Unity Package Manager:
 
 ```text
 https://github.com/IAFahim/tl.git?path=/src/Tl.Unity
 ```
 
-The .NET `Tl.CSharp` package targets .NET 10 and its build generator runs through MSBuild. NuGetForUnity can copy NuGet assemblies, but it does not run that generator and cannot convert .NET 10/C# 14 code into Unity's C# 9 Burst subset. Unity projects use the native UPM package.
+The .NET `Tl.CSharp` package targets .NET 10 and runs its generator through MSBuild. Unity projects consume `Tl.Unity`, a C# 9 UPM package with checked-in generated kernels. The player does not contain `Tl.Compiler`, a Tl generator, Roslyn, reflection-based binding, or runtime compilation.
 
 ## Compatibility
 
 | Lane | Editor | Entities | Collections | Burst | Status |
 | --- | --- | --- | --- | --- | --- |
-| Stable floor | 6000.0 | 1.4.3 | resolved by Entities | resolved by Entities | Declared compatibility target; CI hardware lane pending |
-| Preview | 6000.7.0a5 (`a15235a53881`) | 6.7.0 | 6.7.0 | 2.0.0 | EditMode, PlayMode, Burst AOT, and Standalone Linux player passed |
+| Stable floor | 6000.0 | 1.4.3 | resolved by Entities | resolved by Entities | Required; editor unavailable on the current machine |
+| Preview | 6000.7.0a5 (`a15235a53881`) | 6.7.0 | 6.7.0 | 2.0.0 | Local qualification lane |
 
-Unity documents Entities 1.4.3 as released for Unity 6000.0. The package declares that dependency and uses only the C# 9 unmanaged subset shared by both lanes. Preview validation does not substitute for the pending stable-editor lane.
-
-This alpha contains checked-in C# 9 output from the Unity backend. It does not contain the Unity authoring generator or a cross-assembly ID allocator. IDs are assigned before emission and must be unique across the generated assemblies loaded by one player. Live Unity and IDE generation is tracked separately in [issue #4](https://github.com/IAFahim/tl/issues/4).
+The package declares Unity 6000.0 and Entities 1.4.3. Passing the installed preview editor does not establish the stable compatibility floor.
 
 ## Runtime shape
 
-Each generated timeline owns one `ushort` ID, direct forward and backward scalar kernels, generated input and output pointer contexts, and optional immutable blob data for ECS storage and tooling. The hot scalar kernel reads immediate constants and invokes concrete track operations. It does not traverse the blob, allocate, reflect, box, create delegates, or consult a managed registry.
+Each generated timeline exposes its own `Start(gameTick)`, `TrySeek(ref data, delta)`, and `TryStop` facade. `Start` anchors signed local position zero to the caller's external game tick. A positive delta executes every crossed frame in ascending order, a negative delta executes every crossed frame in descending order, and zero preserves playback and component storage.
 
-`Playback` is a 12-byte unmanaged value owned by the entity. Generated contexts borrow component fields for one immediate call. Construct and consume them within the same `IJobEntity.Execute` invocation. Never store a context in a component or retain it across structural changes, job scheduling, callbacks, or storage relocation.
+`Playback` is a 16-byte unmanaged value containing signed `Position`, `GameTick`, `Owner`, and lifecycle flags. Finite kernels reject an invalid origin, overflow, or a target outside `0..Duration` before effects. Looping kernels normalize negative positions into a local tick and signed cycle. Game tick arithmetic wraps as unsigned simulation time.
 
-`TimelineReport` separates generated UTF-8 source bytes, immediate static data bytes, typed blob bytes, and runtime managed heap bytes. Blob bytes cover the root and array elements; Unity allocator headers and alignment are outside that figure. Persistent `BlobAssetReference<TimelineBlob>` values must be disposed by their owning world or baking artifact.
+One direction-aware track operation receives `Frame<TTrack,TClip>`. Its `Direction` is `1` or `-1`. `FrameFlags` independently records clip start, clip end, timeline start, timeline end, completion side, looping, and reverse movement. An interior frame has neither clip boundary flag.
+
+Generated data structs contain typed pointers to playback and caller-owned component fields. Create and consume one inside the same `IJobEntity.Execute` call. Do not retain it across a callback, structural change, job boundary, or storage relocation. Read-only input pointers stay live: when input and output alias, later ordered frames observe earlier writes.
+
+The scalar kernel uses immediate constants and direct static calls. It does not traverse the optional `TimelineBlob`, allocate, box, reflect, use a delegate, or consult a managed registry. The blob mirrors the language-neutral track and clip plan for ECS storage and tooling.
 
 ## Verification
 
-The committed project at `tests/Tl.Unity.Project` consumes only the local UPM package. Its runtime suite executes a generated heterogeneous timeline through a Burst `IJobEntity`, checks exact forward and backward receipts and failure atomicity, proves all contexts are unmanaged, and measures zero managed bytes across 1,048,576 warm public calls. Its editor suite inspects Unity's player compilation graph and every assembly reference for forbidden compiler, generator, and Roslyn assemblies.
+The committed project at `tests/Tl.Unity.Project` consumes only the local package. Its PlayMode suite covers Burst ECS execution, forward and reverse replay, zero delta, finite rejection, looping with negative cycles, game tick wrap, aliasing, ABI widths, blob layout, and zero managed allocation across 1,048,576 warm calls. Its EditMode suite freezes the public API and inspects the player compilation graph for compiler, generator, and Roslyn assemblies.
 
 ```sh
 unity --no-banner --format json test tests/Tl.Unity.Project --mode EditMode --output /tmp/tl-unity-editmode.xml --timeout 600
 unity --no-banner --format json test tests/Tl.Unity.Project --mode PlayMode --output /tmp/tl-unity-playmode.xml --timeout 600
 ```
 
-The standalone player gate invokes `TlUnityBuild.Build`, verifies `lib_burst_generated` contains the generated ECS job, scans the player output for forbidden build assemblies, and runs the player until it prints `TL_UNITY_PLAYER_OK`.
+The standalone Linux gate builds `Assets/TlUnityPlayer.unity`, checks the Burst output and forbidden assemblies, and runs until the player prints `TL_UNITY_PLAYER_OK`.

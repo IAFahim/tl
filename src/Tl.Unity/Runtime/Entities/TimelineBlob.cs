@@ -9,30 +9,23 @@ namespace Tl
         public uint Duration;
         public ushort TrackCount;
         public ushort ClipCount;
-        public byte TrackKindCount;
-        public byte ClipKindCount;
         public byte Loops;
-        public BlobArray<TimelineRegionBlob> Regions;
-        public BlobArray<TimelineFrameBlob> Frames;
-        public BlobArray<ulong> StaticData;
+        public BlobArray<TimelineTrackBlob> Tracks;
+        public BlobArray<TimelineClipBlob> Clips;
     }
 
-    public struct TimelineRegionBlob
+    public struct TimelineTrackBlob
     {
-        public uint Start;
-        public uint End;
-        public ushort FrameStart;
-        public ushort FrameCount;
-    }
-
-    public struct TimelineFrameBlob
-    {
-        public uint Start;
-        public uint End;
-        public ushort TrackIndex;
+        public ushort Index;
         public ushort Operation;
-        public byte TrackKind;
-        public byte ClipKind;
-        public ushort DataWord;
+        public uint Payload;
+    }
+
+    public struct TimelineClipBlob
+    {
+        public ushort TrackIndex;
+        public uint Payload;
+        public uint Start;
+        public uint End;
     }
 }

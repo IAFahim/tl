@@ -1,74 +1,14 @@
 using System.Runtime.CompilerServices;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Tl
 {
-    public interface ITimelineInput<TOutput> where TOutput : struct
-    {
-        bool TryForward(ushort id, in Playback playback, uint tick, ref TOutput output, out Playback next);
-        bool TryBackward(ushort id, in Playback playback, uint tick, ref TOutput output, out Playback next);
-    }
-
-    public readonly struct TimelineHandle
-    {
-        public readonly ushort Id;
-
-        public TimelineHandle(ushort id)
-        {
-            Id = id;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryForward<TInput, TOutput>(in Playback playback, uint tick, in TInput input, ref TOutput output, out Playback next)
-            where TInput : struct, ITimelineInput<TOutput>
-            where TOutput : struct
-        {
-            return Timeline.TryForward(Id, in playback, tick, in input, ref output, out next);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryBackward<TInput, TOutput>(in Playback playback, uint tick, in TInput input, ref TOutput output, out Playback next)
-            where TInput : struct, ITimelineInput<TOutput>
-            where TOutput : struct
-        {
-            return Timeline.TryBackward(Id, in playback, tick, in input, ref output, out next);
-        }
-    }
-
-    public readonly struct TimelineCollection
-    {
-        public TimelineHandle this[ushort id]
-        {
-            get { return new TimelineHandle(id); }
-        }
-    }
-
     public static class Timeline
     {
-        public static TimelineCollection All
-        {
-            get { return default(TimelineCollection); }
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Playback Start(ushort id, uint at = 0)
+        public static Playback Start(ushort id, uint gameTick)
         {
-            return new Playback(at, 0, id, PlaybackFlags.Started);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryForward<TInput, TOutput>(ushort id, in Playback playback, uint tick, in TInput input, ref TOutput output, out Playback next)
-            where TInput : struct, ITimelineInput<TOutput>
-            where TOutput : struct
-        {
-            return input.TryForward(id, in playback, tick, ref output, out next);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryBackward<TInput, TOutput>(ushort id, in Playback playback, uint tick, in TInput input, ref TOutput output, out Playback next)
-            where TInput : struct, ITimelineInput<TOutput>
-            where TOutput : struct
-        {
-            return input.TryBackward(id, in playback, tick, ref output, out next);
+            return new Playback(0L, gameTick, id, PlaybackFlags.Started);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -82,8 +22,64 @@ namespace Tl
 
             stopped = playback.Has(PlaybackFlags.Stopped)
                 ? playback
-                : new Playback(playback.Tick, playback.Cycles, id, playback.Flags | PlaybackFlags.Stopped);
+                : new Playback(playback.Position, playback.GameTick, id, playback.Flags | PlaybackFlags.Stopped);
             return true;
+        }
+    }
+
+    public unsafe readonly ref struct Frame<TTrack, TClip>
+        where TTrack : unmanaged
+        where TClip : unmanaged
+    {
+        private readonly TTrack* _track;
+        private readonly TClip* _clip;
+
+        public Frame(
+            in TTrack track,
+            in TClip clip,
+            uint gameTick,
+            uint timelineTick,
+            long cycle,
+            ushort trackIndex,
+            FrameFlags flags)
+        {
+            _track = (TTrack*)UnsafeUtilityExtensions.AddressOf(in track);
+            _clip = (TClip*)UnsafeUtilityExtensions.AddressOf(in clip);
+            GameTick = gameTick;
+            TimelineTick = timelineTick;
+            Cycle = cycle;
+            TrackIndex = trackIndex;
+            Flags = flags;
+        }
+
+        public ref readonly TTrack Track
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return ref *_track; }
+        }
+
+        public ref readonly TClip Clip
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return ref *_clip; }
+        }
+
+        public uint GameTick { get; }
+        public uint TimelineTick { get; }
+        public long Cycle { get; }
+        public ushort TrackIndex { get; }
+        public FrameFlags Flags { get; }
+
+        public int Direction
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return Has(FrameFlags.Reverse) ? -1 : 1; }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Has(FrameFlags flags)
+        {
+            return (Flags & flags) == flags;
         }
     }
 }
