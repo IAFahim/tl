@@ -88,25 +88,34 @@ public readonly partial struct DamageAnimationTimeline : ITimeline
 
 `ITimelineJob<TTrack,TClip>`, both `TrackRef` types, `Builder.Track`, and `Builder.Clip` are runtime declarations, so the first compiler pass never depends on a generated extension or a partial declaration in another assembly. The `Clip` constraint makes C# check the full pairing. The normal experiment build accepts `DamageJob + DamageTrack + DamageClip`; compiling with `INVALID_MAPPING` adds `DamageJob + DamageTrack + OtherClip` and fails with CS0315. The generator still diagnoses a track that is never bound to a clip and validates the supported static `Execute` signature.
 
-The smallest asset-set declaration accepts the manager's proposed `ITimelineSet`: `TimelineSetBuilder.Include<TTimeline>` is a runtime method with one inferred-free generic argument. The generator derives and groups the per-asset schemas:
+The selected asset declaration is an `ITimelineCatalog` with named schema groups and explicit asset membership. Each builder call has one generic argument, and the generator derives the role-aware slot list from the included assets:
 
 ```csharp
-public readonly ref struct TimelineSetBuilder
+public readonly ref struct CatalogSchema<TSchema> where TSchema : unmanaged
 {
-    public void Include<TTimeline>() where TTimeline : unmanaged, ITimeline { }
+    public void Asset<TTimeline>() where TTimeline : unmanaged, ITimeline { }
 }
 
-public readonly partial struct Combat : ITimelineSet
+public readonly ref struct CatalogBuilder
 {
-    public static void Define(scoped TimelineSetBuilder builder)
+    public CatalogSchema<TSchema> Schema<TSchema>()
+        where TSchema : unmanaged => default;
+}
+
+public readonly struct DamageRows;
+public readonly struct MixedRows;
+
+public readonly partial struct Combat : ITimelineCatalog
+{
+    public static void Define(scoped CatalogBuilder builder)
     {
-        builder.Include<DamageOnlyTimeline>();
-        builder.Include<DamageAnimationTimeline>();
+        builder.Schema<DamageRows>().Asset<DamageOnlyTimeline>();
+        builder.Schema<MixedRows>().Asset<DamageAnimationTimeline>();
     }
 }
 ```
 
-The generator derives each asset schema's columns from the statically resolved `Execute` methods, groups identical schemas, and emits typed views under `Combat.Query`. It diagnoses an asset listed twice, an unlisted runtime route, and conflicting slot roles, modes, or types. The declaration does not repeat `Resistance`, `Health`, or `Pose`; those remain ordinary parameters in shared operation code.
+The generator emits one typed view per named schema under `Combat.Query`. It diagnoses an asset listed twice, an unlisted runtime route, assets in one group with different required schemas, and conflicting slot roles, modes, or types. The declaration does not repeat `Resistance`, `Health`, or `Pose`; those remain ordinary parameters in shared operation code.
 
 ```csharp
 public readonly partial struct DamageJob : ITimelineJob<DamageTrack, DamageClip>
@@ -128,26 +137,26 @@ public readonly partial struct AnimationJob : ITimelineJob<AnimationTrack, Anima
 }
 ```
 
-Slot identity is `(declared role, neutral type)`, not CLR type alone. By default the parameter name is the declared role: `bodyPose` and `aimPose` are different columns even when both have type `Pose`, while the same role and type can be shared across operations after access-mode compatibility is validated. An ambiguous rename, same role with conflicting type, or incompatible `in`/`ref`/`out` use is a generation diagnostic in the first slice; explicit alias mapping can be designed later.
+Slot identity is `(declared role, neutral type, access)`, not CLR type alone. By default the parameter name is the declared role: `bodyPose` and `aimPose` are different columns even when both have type `Pose`, while an exact role/type/access match shares one column across operations. An ambiguous rename, same role with conflicting type, or incompatible `in`/`ref`/`out` use is a generation diagnostic in the first slice; explicit alias mapping can be designed later.
 
 For .NET, the set generates two typed borrowed views rather than one fixed all-component query:
 
 ```csharp
 var query = new Combat.Query();
-query.DamageOnly(damageTimelines, resistances, health)
+query.DamageRows(damageTimelines, resistances, health)
     .Tick(gameTick: 200000, delta: 1);
 
-query.Mixed(mixedTimelines, resistances, health, poses)
+query.MixedRows(mixedTimelines, resistances, health, poses)
     .Tick(gameTick: 200000, delta: 1);
 ```
 
-`DamageOnly` accepts an entity with `Resistance` and `Health` and does not require `Pose`. `Mixed` requires all three components. Both views validate equal row membership and length, prohibited writable aliasing, asset membership, and schema compatibility before the first selected row. A mixed asset passed to the damage-only view fails setup before Damage executes. It cannot partially apply Damage and then discover that Pose is missing, and it cannot commit that frame.
+`DamageRows` accepts an entity with `Resistance` and `Health` and does not require `Pose`. `MixedRows` requires all three components. Both views validate equal row membership and length and prohibited writable aliasing at construction. `Tick` validates asset membership and schema compatibility before selecting each changed route; callers can replace a row's asset after query construction, so a constructor check alone is insufficient unless a generated typed state wrapper fences assignment. A mixed asset passed to the damage-only view becomes inactive or diagnoses before Damage executes. It cannot partially apply Damage and then discover that Pose is missing, and it cannot commit that frame.
 
 For Unity, distinct roles of the same value type become distinct generated role component wrappers, and the wrapped field is the canonical ECS storage. The operation receives `in` or `ref` directly to that field; no per-tick component copy is introduced. The generated setup API adds the correct role wrapper, and the chunk schema gate checks those wrapper types. Same-role sharing uses one wrapper.
 
-The exact public builder and view names still require API approval. The semantic requirement to freeze is the explicit `timeline set -> asset types` relation, derived per-asset schemas, role-aware typed columns, and whole-schema validation before selection. Generating a query from whatever asset ID appears at runtime is not viable.
+The semantic contract is the explicit `catalog -> named schema -> asset types` relation, role-aware typed columns, and whole-schema validation before selection. Generating a query from whatever asset ID appears at runtime is not viable.
 
-`experiments/Alpha3/Generator/ProposedShape.cs` compiles these runtime declarations, builders, jobs, timelines, and set plus a separate partial that models the generated `Combat.Query` views and a complete consumer. The user's `Combat.Define` does not call any generated member. The TL generator adds its own partial before the C# compilation completes; no second generator needs to inspect that output.
+`experiments/Alpha3/Generator/ProposedShape.cs` compiles the proposed runtime declarations, builders, jobs, timelines, and catalog. `GeneratedSurfacePlaceholder.cs` is explicitly handwritten and compiles the `Combat.Query` shape and complete consumer that TL would generate; it is not evidence that the current generator emits those members. The user's `Combat.Define` does not call any generated member. The future TL generator adds its own partial before the C# compilation completes; no second generator needs to inspect that output.
 
 ## Selection, execution, and completion boundary
 
@@ -179,7 +188,7 @@ The demonstrated executor scans `E` rows for every generated operation type `K` 
 
 Unity must validate the whole asset schema before it enables any operation stage. Filtering each generated `IJobEntity` independently is unsafe: a mixed row missing `Pose` would match Damage, apply it, then disappear from Animation.
 
-The smallest general gate is a generated `IJobChunk` selection pass over every chunk containing timeline state. It tests the component type handles required by the catalog once per chunk, derives the present schema mask, and compares every row's asset-required schema ID or mask before producing an advancing selection. Only a passing row can receive the stage/operation enable state. Generated typed operation jobs then borrow ordinary component references and construct `Frame` inside `Execute`. Completion advances only rows whose complete selected stage chain ran.
+The smallest general gate is a generated `IJobChunk` selection pass over every chunk containing timeline state. It clears pending selection before validation, tests the gameplay and scheduler-marker component type handles required by the catalog once per chunk, derives the present schema mask, and compares every row's asset-required schema ID or mask before producing an advancing selection. Only a passing row can receive the stage/operation enable state. Generated typed operation jobs then borrow ordinary component references and construct `Frame` inside `Execute`. Completion advances only rows whose complete selected stage chain ran.
 
 This gate is recomputed after the host's structural-change dependencies on every tick; it does not trust enableable markers left from a previous archetype. A structural change moves an entity to a new chunk, and the next selection pass derives membership from that chunk. The lower-bound gate cost is `O(chunks * C + E)`, where `C` is the distinct component-type set in the catalog and `E` is its timeline rows, before stage dispatch. Caching a chunk schema fingerprint is an optimization only if invalidation by Unity's structural version is proven. The materialized Unity source must use the Unity workstream's qualified generation path; a Roslyn generator cannot feed another generator in the same compilation pass.
 
@@ -187,9 +196,9 @@ This gate is recomputed after the host's structural-change dependencies on every
 
 Alpha.3 should retain the current public `Frame<TTrack,TClip>` information for the first migration: borrowed Track and resolved Clip, `GameTick`, `TimelineTick`, signed `long Cycle`, `TrackIndex`, and the byte `FrameFlags` values for clip/timeline boundaries, completion side, looping, and reverse. Direction remains derived from `Reverse`. Stage ordinal and active count stay internal.
 
-The 4-byte playback in the reference is therefore only a prototype measurement. It does not establish a production ABI. Loop selection computes `Cycle` with floor division for negative positions, and the selector must carry enough pending coordinates to construct the same frame at execution without gameplay data. Finite frames use cycle zero. Blend resolution returns one resolved clip for its authored track occurrence; the frame does not expose two calls. Boundary flags are derived for every crossed frame before the occurrence slice executes and require parity tests against current signed-seek fixtures.
+The 4-byte playback in the reference is therefore only a prototype measurement. It does not establish a production ABI. Production stores local position separately from a signed 64-bit loop counter. Loop selection updates `Cycle` with explicit unchecked two's-complement wrap at `long.MinValue`/`long.MaxValue`; the pending selection carries enough coordinates to construct the same frame at execution without gameplay data. Finite frames use cycle zero. Blend resolution returns one resolved clip for its authored track occurrence; the frame does not expose two calls. Boundary flags are derived for every crossed frame before the occurrence slice executes and require parity tests against current signed-seek fixtures, including loop-counter extrema.
 
-Dynamic asset identity is also separate from frame state. If zero is empty, a `ushort` handle supports 65,535 nonempty values. Supporting 65,536 nonempty assets plus empty requires a wider handle or an additional validity state. Process registration order is never serialized as stable asset identity.
+Dynamic asset identity is also separate from frame state. The selected catalog-local handle is `uint`, with zero reserved for empty, and therefore covers the required 65,536 nonempty assets. Process registration order is never serialized as stable asset identity; persistent save/network/import identity is a separate catalog identity.
 
 ## Neutral plan and C# binding
 
@@ -205,6 +214,8 @@ Dynamic asset identity is also separate from frame state. If zero is empty, a `u
 
 It must not contain Roslyn symbols, fully qualified C# spellings, syntax text, or constructor expressions. `Tl.Gen.CSharp` owns a `CSharpBinding` beside that plan: operation/track/clip/component symbols, source locations, safe display names, typed constant emitters, and the exact generated invocation.
 
+There is a packaging dependency before that split can compile. `Tl.Gen.CSharp` runs as a `netstandard2.0` analyzer, while `Tl.Compiler` currently targets only `net10.0`; the analyzer cannot simply add that project reference. The shared neutral IR and every dependency it exposes need a compiler-host-compatible target, followed by analyzer load and package-content qualification for both IDE generation and the `net10.0` CLI. Duplicating the IR into the emitter would evade this dependency and recreate the semantic fork this migration is meant to remove.
+
 The current static fields execute arbitrary accepted constructor expressions at type initialization. That is not a portable or deterministic constant-data contract. The frontend should accept an explicit bounded constant grammar, normalize primitive and enum bits, preserve signed zero and NaN payload bits where promised, encode composite unmanaged values by reviewed field order and endianness, and reject nonconstant constructors. Hashes locate candidates; byte equality confirms deduplication. Large clip/blend payloads need immutable asset storage or host-owned scratch, not unbounded stack copies.
 
 ## Exact production migration
@@ -213,10 +224,10 @@ The production work should land in dependency order, with one owner for the C# e
 
 1. **Core state contract.** Change `src/Tl.Core/Playback.cs` and `src/Tl.Core/Compiled.cs`. Remove `Started`/`Stopped` from normal typed playback, define explicit empty asset identity, pending selection and completion semantics, preserve the full Frame/cycle contract, and keep borrowed frames call-scoped. Dynamic routing can remain isolated as a compatibility layer; it cannot drive the typed catalog path.
 2. **Neutral ordered plan.** Extend `src/Tl.Compiler/TimelinePlan.cs` and `ValidatedTimelinePlan.cs`. Add neutral slot/type/constant records and deterministic ordered occurrences produced once by validation. Keep the 256 authored-track limit distinct from occurrence count and diagnose width overflow. The C# emitter must consume this lowering instead of reproducing regions.
-3. **Frontend and binding split.** Replace the mixed records in `src/Tl.Gen.CSharp/Model/Heterogeneous.cs` with a neutral-plan result plus C# binding. Update `Analysis/HeterogeneousReader.cs` to read `ITimelineJob<TTrack,TClip>.Execute`, `ITimelineSet` declarations, role-aware ordinary `in`/`ref` arguments, and the bounded constant grammar. Preserve source-located diagnostics and the SemanticModel/syntax-tree regression test.
+3. **Frontend and binding split.** Replace the mixed records in `src/Tl.Gen.CSharp/Model/Heterogeneous.cs` with a neutral-plan result plus C# binding. Update `Analysis/HeterogeneousReader.cs` to read `ITimelineJob<TTrack,TClip>.Execute`, named `ITimelineCatalog` schemas, role-aware ordinary `in`/`ref` arguments, and the bounded constant grammar. Preserve source-located diagnostics and the SemanticModel/syntax-tree regression test.
 4. **Selector emitter.** Split `HeterogeneousEmitter.cs`. Emit immutable asset tables, total per-frame selection, movement folding, full Frame coordinates/flags, and completion with no operation or gameplay-column access in the selector. Remove `Start`, `TryStop`, typed `TrySeek`, and eager hook calls from the approved alpha.3 facade.
-5. **Typed executor emitter.** Emit one .NET borrowed view per derived timeline-set schema and direct typed `Execute` calls. Consume occurrence ordinal as internal stage identity, reverse the slice on rewind, insert barriers, and commit after the complete chain. Diagnose unsupported hooks or cross-entity classifications rather than silently changing their order. Emit the per-chunk Unity schema gate and wrappers through the qualified materialization path.
-6. **Incremental and CLI graph.** Refactor `TimelineIncrementalGenerator.cs` so declaration analysis, neutral plan, timeline-set binding, and each backend artifact have stable semantic comparers. Keep compilation-wide aggregation only for outputs that require it, such as a set route table. Make analyzer and `GeneratorCli` consume the same normalized plan/binding serializer and content hash. Unchanged materialized output preserves bytes and timestamps.
+5. **Typed executor emitter.** Emit one .NET borrowed view per named catalog schema and direct typed `Execute` calls. Consume occurrence ordinal as internal stage identity, reverse the slice on rewind, insert barriers, recheck changed asset routes, and commit after the complete chain. Diagnose unsupported hooks or cross-entity classifications rather than silently changing their order. Emit the per-chunk Unity schema gate and wrappers through the qualified materialization path.
+6. **Incremental and CLI graph.** Refactor `TimelineIncrementalGenerator.cs` so declaration analysis, neutral plan, catalog binding, and each backend artifact have stable semantic comparers. Keep compilation-wide aggregation only for outputs that require it, such as a catalog route table. Make analyzer and `GeneratorCli` consume the same normalized plan/binding serializer and content hash. Unchanged materialized output preserves bytes and timestamps.
 7. **Receipts and migration.** Replace alpha.2 assertions in `SeekReaderTests.cs`, `GeneratedSeekTests.cs`, `GeneratedSeekRuntimeTests.cs`, `CompatibleRoutingTests.cs`, and the public API approvals. Extend `HeterogeneousCompositionTests.cs` for ordered repeats/blends and `IncrementalGeneratorTests.cs` for catalog-local invalidation and analyzer/CLI byte parity. Add damage-only versus invalid mixed-schema tests, default/empty/zero/clamp/loop extremes, A-B-A/opposing order/reverse/256 tracks, exception-before-commit, warmed allocation, and .NET/Unity oracle parity. Migrate `tests/Tl.Alpha` and `samples/Mixed` only after the new generated path is green.
 
 Hooks are operations in the ordered plan if retained. Treating them as emitter-only before/after lists would recreate a second ordering system. `Include` must flatten to the same neutral occurrence identities with deterministic asset constant ownership.
@@ -225,19 +236,21 @@ Hooks are operations in the ordered plan if retained. Treating them as emitter-o
 
 The first real slice is one finite, nonoverlapping, hook-free C# asset; one declared schema; one operation with one `in` and one `ref` component; a generated total selector; a generated borrowed .NET query; and completion. It must cover default playback, empty, zero, both directions, finite overshoot, a gap, one completed row beside a live row, schema rejection before effects, exact operation count, and 0 B warmed. Unsupported loops, blends, includes, hooks, dynamic routing, and Unity emission receive explicit generation diagnostics in this slice.
 
-That slice is small enough to demonstrate a real path through Core, Compiler, reader, emitter, and query without pretending the handwritten reference is generated. It depends on the ordered occurrence representation and the frozen Frame contract. Loops and resolved two-clip blends are the next generator atom; timeline sets with multiple derived schemas plus Unity materialization follow only after the single-schema query is green. Alpha.3 release remains blocked until every required case and Unity runtime receipt passes.
+That slice is small enough to demonstrate a real path through Core, Compiler, reader, emitter, and query without pretending the handwritten reference is generated. It depends on the ordered occurrence representation and the frozen Frame contract. Loops and resolved two-clip blends are the next generator atom; catalogs with multiple named schemas plus Unity materialization follow only after the single-schema query is green. Alpha.3 release remains blocked until every required case and Unity runtime receipt passes.
 
 ## Blockers and manager-plan review
 
 The manager plan at `fb70db89e327f8d0c975eb729bc24e7a28a68d02` correctly separates selection, ordered typed execution, and completion; requires an explicit schema set; retains the full Frame question; rejects type-only ordering; and sequences Core/Compiler before generator execution. The implementation atoms are usable with these additions:
 
-- freeze the `ITimelineSet` declaration and its compiled settings-first track binding before Atom C;
+- consume the selected named `ITimelineCatalog` declaration and compiled settings-first track binding in Atom C;
 - freeze the occurrence-slice/count representation proved by the ordering workstream before the selector and executor share a format;
 - retain `Cycle` and all current Frame boundary flags for the first migration, with exact compatibility receipts;
 - require a whole-schema gate before selection, including the valid damage-only and invalid mixed cases;
 - record the `O(E * K * S)` and `K * S` job/barrier baseline until a measured alternative exists;
 - freeze neutral constant encoding and definition lifetime before Unity schedules readers;
-- decide the empty-plus-65,536 asset representation without overloading a `ushort` zero sentinel.
+- use the selected catalog-local `uint` handle with zero empty, and keep persistent identity separate.
+
+The later contract freeze in issue comment `5624691961` selects those concrete outcomes: named catalog schemas, the occurrence slice, a current-chunk Unity gate, catalog-local `uint` handles, Tick-time route protection, and the retained signed Cycle/Frame flags. The remaining generator dependency is making the neutral compiler IR loadable from the `netstandard2.0` analyzer before Atom C consumes it.
 
 The source budget reported by the manager is 207,337/250,000 B. This branch changes only documentation and experiments, so it adds zero production bytes. The shipping implementation still needs deletion-first accounting within that remaining 42,663 B.
 

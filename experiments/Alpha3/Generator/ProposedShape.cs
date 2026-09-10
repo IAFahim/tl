@@ -5,9 +5,9 @@ public interface ITimeline
     static abstract void Define(scoped Builder builder);
 }
 
-public interface ITimelineSet
+public interface ITimelineCatalog
 {
-    static abstract void Define(scoped TimelineSetBuilder builder);
+    static abstract void Define(scoped CatalogBuilder builder);
 }
 
 public interface ITimelineJob<TTrack, TClip>
@@ -44,12 +44,20 @@ public readonly ref struct Builder
     }
 }
 
-public readonly ref struct TimelineSetBuilder
+public readonly ref struct CatalogSchema<TSchema>
+    where TSchema : unmanaged
 {
-    public void Include<TTimeline>()
+    public void Asset<TTimeline>()
         where TTimeline : unmanaged, ITimeline
     {
     }
+}
+
+public readonly ref struct CatalogBuilder
+{
+    public CatalogSchema<TSchema> Schema<TSchema>()
+        where TSchema : unmanaged
+        => default;
 }
 
 public readonly record struct DamageTrack(int Multiplier);
@@ -121,79 +129,14 @@ public readonly partial struct DamageAnimationTimeline : ITimeline
     }
 }
 
-public readonly partial struct Combat : ITimelineSet
+public readonly struct DamageRows;
+public readonly struct MixedRows;
+
+public readonly partial struct Combat : ITimelineCatalog
 {
-    public static void Define(scoped TimelineSetBuilder builder)
+    public static void Define(scoped CatalogBuilder builder)
     {
-        builder.Include<DamageOnlyTimeline>();
-        builder.Include<DamageAnimationTimeline>();
-    }
-}
-
-public readonly record struct TimelineState(uint Asset, long Position);
-
-public readonly partial struct Combat
-{
-    public readonly ref struct Query
-    {
-        public DamageOnlyView DamageOnly(
-            Span<TimelineState> timelines,
-            ReadOnlySpan<Resistance> resistances,
-            Span<Health> health)
-            => new(timelines, resistances, health);
-
-        public MixedView Mixed(
-            Span<TimelineState> timelines,
-            ReadOnlySpan<Resistance> resistances,
-            Span<Health> health,
-            Span<Pose> poses)
-            => new(timelines, resistances, health, poses);
-    }
-
-    public readonly ref struct DamageOnlyView
-    {
-        public DamageOnlyView(
-            Span<TimelineState> timelines,
-            ReadOnlySpan<Resistance> resistances,
-            Span<Health> health)
-        {
-        }
-
-        public void Tick(uint gameTick, int delta = 1)
-        {
-        }
-    }
-
-    public readonly ref struct MixedView
-    {
-        public MixedView(
-            Span<TimelineState> timelines,
-            ReadOnlySpan<Resistance> resistances,
-            Span<Health> health,
-            Span<Pose> poses)
-        {
-        }
-
-        public void Tick(uint gameTick, int delta = 1)
-        {
-        }
-    }
-}
-
-internal static class ProposalReceipt
-{
-    internal static void Verify()
-    {
-        DamageOnlyTimeline.Define(default);
-        DamageAnimationTimeline.Define(default);
-        Combat.Define(default);
-
-        Span<TimelineState> timelines = stackalloc TimelineState[1];
-        Span<Resistance> resistances = stackalloc Resistance[1];
-        Span<Health> health = stackalloc Health[1];
-        Span<Pose> poses = stackalloc Pose[1];
-        var query = new Combat.Query();
-        query.DamageOnly(timelines, resistances, health).Tick(200000u);
-        query.Mixed(timelines, resistances, health, poses).Tick(200000u);
+        builder.Schema<DamageRows>().Asset<DamageOnlyTimeline>();
+        builder.Schema<MixedRows>().Asset<DamageAnimationTimeline>();
     }
 }

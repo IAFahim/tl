@@ -1,6 +1,6 @@
 # Current generator path probe
 
-This project is a real `Tl.Gen.CSharp` analyzer consumer. It proves that checkpoint `5198e08` emits `Start`, borrowed `Data`, and eager `TrySeek`, while it emits no `Select` or `Complete` member. `ProposedShape.cs` also compiles the reviewed settings-first track binding, `ITimelineSet`, generated-query analog, and complete two-schema consumer as ordinary C#.
+This project is a real `Tl.Gen.CSharp` analyzer consumer. It proves that checkpoint `5198e08` emits `Start`, borrowed `Data`, and eager `TrySeek`, while it emits no `Select` or `Complete` member. `ProposedShape.cs` compiles the reviewed settings-first track binding and named `ITimelineCatalog` schemas. `GeneratedSurfacePlaceholder.cs` is a handwritten compile-only stand-in for the future generated query and its complete two-schema consumer; the current generator does not emit it.
 
 ```sh
 dotnet run --project experiments/Alpha3/Generator/CurrentPath.csproj -c Release
