@@ -57,8 +57,42 @@ public static class TimelineMovement
         tick = 0;
         cycle = 0;
         flags = FrameFlags.None;
-        if (state.Asset == 0 || duration == 0 || looping || state.Position > duration)
+        if (state.Asset == 0 || duration == 0 || state.Position > duration || looping && state.Position == duration)
             return false;
+
+        if (looping)
+        {
+            flags = reverse ? FrameFlags.Looping | FrameFlags.Reverse : FrameFlags.Looping;
+            if (reverse)
+            {
+                if (state.Position == 0)
+                {
+                    tick = duration - 1u;
+                    cycle = unchecked(state.Cycle - 1L);
+                }
+                else
+                {
+                    tick = state.Position - 1u;
+                    cycle = state.Cycle;
+                }
+
+                next = new TimelineState(state.Asset, tick, cycle);
+            }
+            else
+            {
+                tick = state.Position;
+                cycle = state.Cycle;
+                next = tick == duration - 1u
+                    ? new TimelineState(state.Asset, 0, unchecked(state.Cycle + 1L))
+                    : new TimelineState(state.Asset, tick + 1u, state.Cycle);
+            }
+
+            if (tick == 0)
+                flags |= FrameFlags.TimelineStart;
+            if (tick == duration - 1u)
+                flags |= FrameFlags.TimelineEnd;
+            return true;
+        }
 
         if (reverse)
         {
