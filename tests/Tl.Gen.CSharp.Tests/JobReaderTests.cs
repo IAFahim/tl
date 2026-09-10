@@ -280,16 +280,19 @@ public sealed class JobReaderTests
     [Fact]
     public void ReadsBoundedPayloadsAndEveryUnsignedBoundKind()
     {
-        var result = Read("""
+        const string declaration = """
             namespace Game
             {
                 public readonly record struct Track(int Value)
                 {
                     public const int DefaultValue = 7;
+                    public static Track operator -(Track value) => value;
                 }
                 public readonly record struct Clip(int Value)
                 {
+                    public Clip(string value) : this(value.Length) { }
                     public static implicit operator Clip(string value) => new(value.Length);
+                    public static Clip operator -(Clip value) => value;
                 }
                 public readonly struct Job : Tl.ITimelineJob<Track, Clip>
                 {
@@ -304,15 +307,26 @@ public sealed class JobReaderTests
                         builder.Clip(track, (Clip)nameof(Track), '\u0001', 2u);
                         builder.Clip(track, default(Clip), 2, 3);
                         builder.Clip(track, new Clip((string)nameof(Clip)), default, 4u);
+                        var implicitTrack = builder.Track<Track>(new(8)).Use<Job>();
+                        var parenthesizedTrack = builder.Track((new Track(9))).Use<Job>();
+                        var prefixedTrack = builder.Track(-new Track(10)).Use<Job>();
+                        var checkedTrack = builder.Track(checked(new Track(11))).Use<Job>();
+                        builder.Clip(implicitTrack, new Clip(5), 4u, 5u);
+                        builder.Clip(parenthesizedTrack, new Clip(6), 5u, 6u);
+                        builder.Clip(prefixedTrack, new Clip(7), 6u, 7u);
+                        builder.Clip(checkedTrack, new Clip(8), 7u, 8u);
                     }
                 }
             }
-            """);
+            """;
+        var compilation = Compile(Runtime + declaration);
+        Assert.Empty(compilation.GetDiagnostics().Where(static item => item.Severity == DiagnosticSeverity.Error));
+        var result = JobReader.Read(compilation);
 
         Assert.Empty(result.Diagnostics);
         var timeline = Assert.Single(result.Timelines);
-        Assert.Equal(4u, timeline.Duration);
-        Assert.Equal([(0u, 1u), (1u, 2u), (2u, 3u), (0u, 4u)], timeline.Clips.Select(static clip => (clip.Start, clip.End)));
+        Assert.Equal(8u, timeline.Duration);
+        Assert.Equal([(0u, 1u), (1u, 2u), (2u, 3u), (0u, 4u), (4u, 5u), (5u, 6u), (6u, 7u), (7u, 8u)], timeline.Clips.Select(static clip => (clip.Start, clip.End)));
         Assert.Contains("global::Game.Track.DefaultValue", timeline.Tracks[0].Expression);
         Assert.Contains("\"Asset\"", timeline.Clips[0].Expression);
         Assert.Contains("default(global::Game.Clip)", timeline.Clips[2].Expression);
@@ -347,6 +361,7 @@ public sealed class JobReaderTests
                         builder.Before<InvalidHook>();
                         builder.Looping();
                         builder.Looping();
+                        builder.ToString();
                         return;
                     }
                 }
@@ -409,6 +424,171 @@ public sealed class JobReaderTests
             Assert.True(item.Column > 0);
         });
         Assert.Empty(result.Catalogs);
+    }
+
+    [Fact]
+    public void RejectsInvalidBoundsWithoutExecutingAuthoredCode()
+    {
+        var result = Read("""
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), -1, 1u);
+                    }
+                }
+            }
+            """);
+
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN68");
+        Assert.Empty(result.Timelines);
+    }
+
+    [Fact]
+    public void RejectsIncompatibleIncludedLoopingModesAndDurations()
+    {
+        var result = Read("""
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Finite : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+                public readonly partial struct FiniteMadeLooping : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        builder.Include<Finite>();
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                        builder.Looping();
+                    }
+                }
+                public readonly partial struct Loop : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                        builder.Looping();
+                    }
+                }
+                public readonly partial struct ExtendedLoop : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        builder.Include<Loop>();
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 1u, 2u);
+                    }
+                }
+            }
+            """);
+
+        var diagnostics = result.Diagnostics.Where(static item => item.Code == "TLGEN70").ToArray();
+        Assert.Contains(diagnostics, static item => item.Message.Contains("incompatible looping modes", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, static item => item.Message.Contains("same duration", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void RejectsCatalogAssetsDefinedOutsideTheCompilation()
+    {
+        var reference = Reference("""
+            using Tl;
+            namespace External;
+            public readonly partial struct Asset : ITimeline
+            {
+                public static void Define(scoped Builder builder) { }
+            }
+            """);
+        var compilation = CSharpCompilation.Create(
+            "Consumer",
+            [CSharpSyntaxTree.ParseText("""
+                using Tl;
+                namespace Game;
+                public readonly struct Rows;
+                public readonly partial struct Catalog : ITimelineCatalog
+                {
+                    public static void Define(scoped CatalogBuilder builder)
+                    {
+                        builder.Schema<Rows>().Asset<External.Asset>();
+                    }
+                }
+                """, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "Catalog.cs")],
+            References.Add(reference),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var result = JobReader.Read(compilation);
+
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN70" && item.File == "Catalog.cs");
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN76" && item.File == "Catalog.cs");
+        Assert.Empty(result.Catalogs);
+    }
+
+    [Fact]
+    public void OrdersMultipleCatalogsByNamespaceAndName()
+    {
+        var result = Read("""
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+                public readonly struct Rows;
+                public readonly partial struct Zeta : Tl.ITimelineCatalog
+                {
+                    public static void Define(scoped Tl.CatalogBuilder builder) => DefineBody(builder);
+                    private static void DefineBody(scoped Tl.CatalogBuilder builder) { }
+                }
+                public readonly partial struct Beta : Tl.ITimelineCatalog
+                {
+                    public static void Define(scoped Tl.CatalogBuilder builder)
+                    {
+                        builder.Schema<Rows>().Asset<Asset>();
+                    }
+                }
+                public readonly partial struct Alpha : Tl.ITimelineCatalog
+                {
+                    public static void Define(scoped Tl.CatalogBuilder builder)
+                    {
+                        builder.Schema<Rows>().Asset<Asset>();
+                    }
+                }
+            }
+            """);
+
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN73");
+        Assert.Equal(["Alpha", "Beta"], result.Catalogs.Select(static catalog => catalog.Name));
     }
 
     [Fact]
@@ -691,6 +871,30 @@ public sealed class JobReaderTests
             """,
             "TLGEN61"
         },
+        {
+            """
+            namespace Game
+            {
+                public partial struct Catalog : Tl.ITimelineCatalog
+                {
+                    public static void Define(scoped Tl.CatalogBuilder builder) { }
+                }
+            }
+            """,
+            "TLGEN72"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly partial struct Catalog : Tl.ITimelineCatalog
+                {
+                    public static void Define(Tl.CatalogBuilder builder) { }
+                }
+            }
+            """,
+            "TLGEN73"
+        },
     };
 
     private static JobReadResult Read(string declaration)
@@ -717,6 +921,19 @@ public sealed class JobReaderTests
             [CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "Jobs.cs")],
             References,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
+    private static MetadataReference Reference(string source)
+    {
+        var compilation = CSharpCompilation.Create(
+            "ExternalJobs",
+            [CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "External.cs")],
+            References.Add(MetadataReference.CreateFromFile(typeof(global::Tl.ITimeline).Assembly.Location)),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        return MetadataReference.CreateFromImage(stream.ToArray());
+    }
 
     private static readonly ImmutableArray<MetadataReference> References =
         ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)

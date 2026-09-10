@@ -7,6 +7,25 @@ namespace Tl.Gen.CSharp.Tests;
 public sealed class JobTimelinePlanAdapterTests
 {
     [Fact]
+    public void EmptyTimelineEmitsItsAuthoredUsingDirective()
+    {
+        var timeline = new JobTimeline(
+            "Empty",
+            "Game",
+            false,
+            ["using Game.Support;"],
+            [],
+            [],
+            [],
+            []);
+
+        Assert.Equal(0u, timeline.Duration);
+        var artifact = Assert.Single(JobEmitter.Emit(new JobReadResult([timeline], [], [])));
+        Assert.Contains("#nullable enable\nusing Game.Support;\nnamespace Game;", artifact.Content);
+        Assert.Contains("public const uint Duration = 0u;", artifact.Content);
+    }
+
+    [Fact]
     public void RejectsNullTimeline()
     {
         var error = Assert.Throws<ArgumentNullException>(() => JobTimelinePlanAdapter.Create(null!));
