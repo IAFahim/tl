@@ -29,8 +29,9 @@ if [[ "$mode" == "--tag" ]]; then
 else
     phase="candidate"
     tag="$reference"
-    branch="$(git -C "$root" branch --show-current)"
+    branch="${GITHUB_HEAD_REF:-$(git -C "$root" branch --show-current)}"
     [[ -n "$branch" ]] || { printf '%s\n' "candidate artifacts require a named branch" >&2; exit 2; }
+    git check-ref-format --branch "$branch" >/dev/null
     repository_ref="refs/heads/$branch"
 fi
 
