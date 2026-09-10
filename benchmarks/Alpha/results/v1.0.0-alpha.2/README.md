@@ -42,7 +42,7 @@ python3 benchmarks/Alpha/collect_pmu.py
 
 The compiler emitted five files totaling 47,858 UTF-8 bytes. [generated.sha256](generated.sha256) identifies every generated file from the measured build. The two fixtures retain 13 and 26 bytes of declared static timeline data, and the runtime registry retains 8,192 bytes at its configured capacity.
 
-[PublicPaths.asm](disassembly/PublicPaths.asm) contains diffable x64 Tier-1-equivalent full-optimization listings with tiering and ReadyToRun disabled for the complete public scalar benchmark methods, public batch wrappers, and generated batch kernels. The observed code sizes are recorded in [environment.json](environment.json).
+[PublicPaths.asm](disassembly/PublicPaths.asm) contains diffable x64 full-optimization listings with tiering and ReadyToRun disabled for the complete public scalar benchmark methods, public batch wrappers, and generated batch kernels. The observed code sizes are recorded in [environment.json](environment.json).
 
 The measurements could not elevate process priority, and the operating system controlled frequency. These results establish behavior on this exact machine, source, SDK, and runtime. They do not claim universal scalar latency, NativeAOT timing, or random-seek performance below 3 ns.
 
