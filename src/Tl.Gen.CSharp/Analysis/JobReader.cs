@@ -35,7 +35,7 @@ public static class JobReader
         foreach (var entry in entries.Where(entry => Implements(entry.Type, contracts.Timeline)))
             declarations.Add(entry.Type, entry);
         var reader = new Reader(compilation, contracts, declarations, errors);
-        var timelines = declarations.Values.Select(entry => reader.Timeline(entry.Type, entry.Syntax))
+        var timelines = declarations.Values.Where(JobSyntax).Select(entry => reader.Timeline(entry.Type, entry.Syntax))
             .Where(static item => item is not null).Cast<JobTimeline>().OrderBy(static item => item.Namespace, StringComparer.Ordinal)
             .ThenBy(static item => item.Name, StringComparer.Ordinal).ToArray();
         var catalogs = entries.Where(entry => Implements(entry.Type, contracts.Catalog)).Select(reader.Catalog)
@@ -410,6 +410,12 @@ public static class JobReader
                 result.Add(new(type, syntax));
         return result;
     }
+
+    private static bool JobSyntax(Entry entry)
+        => entry.Type.GetMembers("Define").SelectMany(static member => member.DeclaringSyntaxReferences)
+            .Select(static reference => reference.GetSyntax()).SelectMany(static syntax => syntax.DescendantNodes())
+            .OfType<InvocationExpressionSyntax>().Any(static call => call.Expression is MemberAccessExpressionSyntax
+                { Name: GenericNameSyntax { Identifier.ValueText: "Use" } });
 
     private static bool BuilderCall(InvocationExpressionSyntax call, SemanticModel model, IParameterSymbol builder, string name)
         => call.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.ValueText == name
