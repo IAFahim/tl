@@ -4,6 +4,7 @@ using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Exporters.Json;
 using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Toolchains.InProcess.NoEmit;
 using Perfolizer.Horology;
 using Tl;
@@ -24,6 +25,7 @@ public sealed class AlphaConfig : ManualConfig
         AddColumn(StatisticColumn.Median);
         AddDiagnoser(MemoryDiagnoser.Default);
         AddExporter(JsonExporter.Full);
+        WithSummaryStyle(SummaryStyle.Default.WithMaxParameterColumnWidth(40));
     }
 }
 
