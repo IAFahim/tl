@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Tl.Gen.Analysis;
 using Tl.Gen.CSharp;
+using Tl.Gen.Model;
 using Xunit;
 
 namespace Tl.Gen.Tests;
@@ -78,6 +79,7 @@ public sealed class GeneratedSeekTests
         Assert.Contains("if (delta == 1)", all);
         Assert.Contains("if (delta == -1)", all);
         Assert.Contains("if (delta > 1)", all);
+        Assert.Equal(1, Occurrences(all, "beforePosition < 0L || beforePosition > Duration"));
         Assert.DoesNotContain("public static bool TryForward(", all);
         Assert.DoesNotContain("public static bool TryBackward(", all);
         Assert.DoesNotContain("ReadOnlySpan<uint>", all);
@@ -119,8 +121,8 @@ public sealed class GeneratedSeekTests
     [Fact]
     public void EmissionIsDeterministicAndSchemasIgnoreTimelineNamespace()
     {
-        var slot = new Tl.Gen.Model.TimelineSlot("value", "global::Shared.Value", Tl.Gen.Model.SlotMode.Reference);
-        Tl.Gen.Model.HeterogeneousTimeline[] timelines =
+        var slot = new TimelineSlot("value", "global::Shared.Value", SlotMode.Reference);
+        HeterogeneousTimeline[] timelines =
         [
             new("First", "One", false, [], [], [], [], [], [], [slot]),
             new("Second", "Two", false, [], [], [], [], [], [], [slot]),
@@ -132,6 +134,8 @@ public sealed class GeneratedSeekTests
         Assert.Equal(first, second);
         Assert.Single(first, static artifact => artifact.RelativePath.StartsWith("TlSchema", StringComparison.Ordinal));
         Assert.Contains("global::One.__TlGeneratedSchema0.Data", first.Single(static artifact => artifact.RelativePath == "Tl1.g.cs").Content);
+        Assert.All(first.Where(static artifact => artifact.RelativePath is "Tl0.g.cs" or "Tl1.g.cs"),
+            static artifact => Assert.Contains("beforePosition < 0L || beforePosition > Duration", artifact.Content));
     }
 
     private static IReadOnlyList<Diagnostic> Compile(string source, IReadOnlyList<CompileArtifact> artifacts)

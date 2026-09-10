@@ -367,7 +367,7 @@ public static class HeterogeneousReader
                 Add(diagnostics, _slotSites[slot], "TLGEN51", $"Writable component slot '{slot.Name}' cannot use '{slot.TypeName}' because it can alias generated playback state.");
                 valid = false;
             }
-            var (readOnlySlots, writableSlots) = MergeSlots(allSlots, define, ref valid);
+            var (readOnlySlots, writableSlots) = MergeSlots(allSlots, ref valid);
             if (!valid)
                 return null;
 
@@ -564,7 +564,6 @@ public static class HeterogeneousReader
 
         private (TimelineSlot[] ReadOnly, TimelineSlot[] Writable) MergeSlots(
             IEnumerable<TimelineSlot> source,
-            SyntaxNode site,
             ref bool valid)
         {
             var readOnlySlots = new List<TimelineSlot>();
