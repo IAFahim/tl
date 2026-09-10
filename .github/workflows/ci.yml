@@ -68,4 +68,12 @@ jobs:
           dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
           test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"
           test -z "$(find artifacts/package-aot -type f \( -name 'Tl.Gen*' -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
+      - name: Verify compiler package consumer
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/tl-compiler-package-consumer
+        run: |
+          set -euo pipefail
+          dotnet restore tests/Tl.Compiler.PackageConsumer/Tl.Compiler.PackageConsumer.csproj --source artifacts/packages
+          dotnet build tests/Tl.Compiler.PackageConsumer/Tl.Compiler.PackageConsumer.csproj -c Release --no-restore
+          test "$(./tests/Tl.Compiler.PackageConsumer/bin/Release/net10.0/Tl.Compiler.PackageConsumer)" = "1:9:2"
       - run: eng/release-artifacts --candidate ci artifacts/release
