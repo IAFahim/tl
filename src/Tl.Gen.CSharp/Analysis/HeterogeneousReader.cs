@@ -97,8 +97,11 @@ public static class HeterogeneousReader
         var contracts = ReadContracts(compilation);
         if (contracts is null)
         {
-            if (treeArray.Any(static tree => tree.GetRoot().DescendantNodes().OfType<BaseTypeSyntax>().Any(static type => type.Type.ToString().IndexOf("ITimeline", StringComparison.Ordinal) >= 0)))
-                diagnostics.Add(new DeclarationDiagnostic(treeArray[0].FilePath, 1, 1, "TLGEN20", "The exact Tl compilation contracts could not be resolved from metadata references."));
+            var site = treeArray
+                .SelectMany(static tree => tree.GetRoot().DescendantNodes().OfType<BaseTypeSyntax>())
+                .FirstOrDefault(static type => type.Type.ToString().IndexOf("ITimeline", StringComparison.Ordinal) >= 0);
+            if (site is not null)
+                Add(diagnostics, site, "TLGEN20", "The exact Tl compilation contracts could not be resolved from metadata references.");
             return ([], diagnostics);
         }
 
