@@ -1,4 +1,5 @@
 using Xunit;
+using System.Text.Json;
 
 namespace Tl.Gen.CSharp.Tests;
 
@@ -59,6 +60,22 @@ public sealed class CacheTests : IDisposable
     }
 
     [Fact]
+    public void InvalidManifestsAreRejected()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, CompileGenerationCache.ManifestFileName);
+        File.WriteAllText(path, "{");
+        Assert.Null(CompileGenerationCache.Load(_directory));
+
+        foreach (var manifest in InvalidManifests())
+        {
+            var json = JsonSerializer.Serialize(manifest, CompileManifestJsonContext.Default.CompileGenerationManifest);
+            File.WriteAllText(path, json);
+            Assert.Null(CompileGenerationCache.Load(_directory));
+        }
+    }
+
+    [Fact]
     public void ChangedReportInvalidatesAndRestoresTheCache()
     {
         var key = CompileGenerationCache.GetKey([], [], []);
@@ -88,13 +105,78 @@ public sealed class CacheTests : IDisposable
     }
 
     [Fact]
+    public void EveryCachedFileParticipatesInTheHitDecision()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(Path.Combine(_directory, CompileGenerationCache.ManifestFileName), "{");
+        var key = CompileGenerationCache.GetKey([], [], []);
+        Assert.Equal("manifest invalid", CompileGenerationCache.MissReason(_directory, key, null));
+        Assert.Equal("inputs changed", MissReason(static (_, manifest) => manifest.CacheKey = "changed"));
+        Assert.Equal("manifest outputs invalid", MissReason(static (_, manifest) => manifest.Outputs = null));
+        Assert.Equal("manifest outputs invalid", MissReason(static (_, manifest) => manifest.Outputs!.Add(null)));
+        Assert.Equal("source list manifest changed", MissReason(static (_, manifest) => manifest.SourceListHash = new string('0', 64)));
+        Assert.Equal("source list missing", MissReason(static directory =>
+            File.Delete(Path.Combine(directory, CompileGenerationCache.SourceListFileName))));
+        Assert.Equal("source list changed", MissReason(static directory =>
+            File.WriteAllText(Path.Combine(directory, CompileGenerationCache.SourceListFileName), "changed\n")));
+        Assert.Equal("report missing", MissReason(static directory =>
+            File.Delete(Path.Combine(directory, CompileGenerationCache.ReportFileName))));
+        Assert.Equal("report changed", MissReason(static directory =>
+            File.WriteAllText(Path.Combine(directory, CompileGenerationCache.ReportFileName), "changed\n")));
+        Assert.Equal("artifact missing: Tl0.g.cs", MissReason(static directory =>
+            File.Delete(Path.Combine(directory, "Tl0.g.cs"))));
+        Assert.Equal("artifact changed: Tl0.g.cs", MissReason(static directory =>
+            File.WriteAllText(Path.Combine(directory, "Tl0.g.cs"), "changed\n")));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("/Tl0.g.cs")]
+    [InlineData("nested/Tl0.g.cs")]
+    [InlineData("nested\\Tl0.g.cs")]
+    [InlineData("Tl0\r.g.cs")]
+    [InlineData("Tl0\n.g.cs")]
+    [InlineData("Tl0.cs")]
+    [InlineData("0Tl.g.cs")]
+    public void SynchronizeRejectsUnsafeArtifactPaths(string relativePath)
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => CompileGenerationCache.Synchronize(
+            _directory,
+            "key",
+            [new CompileArtifact(relativePath, "content\n")],
+            "report\n",
+            null));
+
+        Assert.Contains(relativePath, error.Message);
+        Assert.False(Directory.Exists(_directory));
+    }
+
+    [Fact]
+    public void SynchronizeRejectsCaseInsensitiveDuplicateArtifactPaths()
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => CompileGenerationCache.Synchronize(
+            _directory,
+            "key",
+            [new CompileArtifact("Tl0.g.cs", "first\n"), new CompileArtifact("tl0.g.cs", "second\n")],
+            "report\n",
+            null));
+
+        Assert.Contains("tl0.g.cs", error.Message);
+        Assert.False(Directory.Exists(_directory));
+    }
+
+    [Fact]
     public void SynchronizeRemovesOnlyUnchangedOwnedFiles()
     {
         var key = CompileGenerationCache.GetKey([], [], []);
         CompileGenerationCache.Synchronize(
             _directory,
             key,
-            [new CompileArtifact("Tl0.g.cs", "first\n"), new CompileArtifact("Tl1.g.cs", "second\n")],
+            [
+                new CompileArtifact("Tl0.g.cs", "first\n"),
+                new CompileArtifact("Tl1.g.cs", "second\n"),
+                new CompileArtifact("Tl2.g.cs", "third\n"),
+            ],
             "report\n",
             null);
         var previous = CompileGenerationCache.Load(_directory);
@@ -108,7 +190,59 @@ public sealed class CacheTests : IDisposable
             previous);
 
         Assert.True(File.Exists(Path.Combine(_directory, "Tl1.g.cs")));
+        Assert.False(File.Exists(Path.Combine(_directory, "Tl2.g.cs")));
         Assert.Equal(["Tl0.g.cs"], File.ReadAllLines(Path.Combine(_directory, CompileGenerationCache.SourceListFileName)));
+    }
+
+    private string? MissReason(Action<string> mutate)
+        => MissReason((directory, _) => mutate(directory));
+
+    private string? MissReason(Action<string, CompileGenerationManifest> mutate)
+    {
+        var directory = Path.Combine(_directory, Guid.NewGuid().ToString("N"));
+        var key = CompileGenerationCache.GetKey([], [], []);
+        CompileGenerationCache.Synchronize(
+            directory,
+            key,
+            [new CompileArtifact("Tl0.g.cs", "content\n")],
+            "report\n",
+            null);
+        var manifest = CompileGenerationCache.Load(directory)!;
+        mutate(directory, manifest);
+        return CompileGenerationCache.MissReason(directory, key, manifest);
+    }
+
+    private static IEnumerable<CompileGenerationManifest> InvalidManifests()
+    {
+        var hash = new string('0', 64);
+        var output = new CompileGenerationOutput { RelativePath = "Tl0.g.cs", ContentHash = hash };
+
+        yield return new() { FormatVersion = 4, SourceListHash = hash, ReportHash = hash, Outputs = [output] };
+        yield return new() { FormatVersion = 5, SourceListHash = hash, ReportHash = hash, Outputs = null };
+        yield return new() { FormatVersion = 5, SourceListHash = "short", ReportHash = hash, Outputs = [output] };
+        yield return new() { FormatVersion = 5, SourceListHash = hash, ReportHash = "short", Outputs = [output] };
+        yield return new() { FormatVersion = 5, SourceListHash = hash, ReportHash = hash, Outputs = [null] };
+        yield return new()
+        {
+            FormatVersion = 5,
+            SourceListHash = hash,
+            ReportHash = hash,
+            Outputs = [new() { RelativePath = "../Tl0.g.cs", ContentHash = hash }],
+        };
+        yield return new()
+        {
+            FormatVersion = 5,
+            SourceListHash = hash,
+            ReportHash = hash,
+            Outputs = [output, new() { RelativePath = "tl0.g.cs", ContentHash = hash }],
+        };
+        yield return new()
+        {
+            FormatVersion = 5,
+            SourceListHash = hash,
+            ReportHash = hash,
+            Outputs = [new() { RelativePath = "Tl0.g.cs", ContentHash = "short" }],
+        };
     }
 
     public void Dispose()
