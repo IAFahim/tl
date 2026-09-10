@@ -20,7 +20,10 @@ public sealed class SeekReaderTests
     [InlineData("public void Seek(in Frame<Track, Clip> frame) { }", "TLGEN30")]
     [InlineData("private static void Seek(in Frame<Track, Clip> frame) { }", "TLGEN30")]
     [InlineData("public static int Seek(in Frame<Track, Clip> frame) => 0;", "TLGEN30")]
+    [InlineData("public int Seek => 0;", "TLGEN30")]
+    [InlineData("public static void Seek() { }", "TLGEN31")]
     [InlineData("public static void Seek(in Frame<Track, Component> frame) { }", "TLGEN31")]
+    [InlineData("public static void Seek(in Frame<Track, Clip> frame, Component value) { }", "TLGEN32")]
     [InlineData("public static void Seek(in Frame<Track, Clip> frame, Component value = default) { }", "TLGEN32")]
     [InlineData("public static void Seek(in Frame<Track, Clip> frame, params Component[] value) { }", "TLGEN32")]
     [InlineData("public static void Seek(in Frame<Track, Clip> frame, in string value) { }", "TLGEN32")]
@@ -84,6 +87,39 @@ public sealed class SeekReaderTests
         Assert.Equal("state", Assert.Single(timeline.ReadOnlySlots).Name);
         Assert.Equal("value", Assert.Single(timeline.WritableSlots).Name);
         Assert.Equal(SlotMode.Reference, timeline.WritableSlots[0].Mode);
+    }
+
+    [Fact]
+    public void IncludedWritableTypedPlaybackIsCheckedAgainstTheEnclosingTimeline()
+    {
+        var source = Prefix + """
+
+            public readonly struct Track : ITrack<Clip>
+            {
+                public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
+                public static void Seek(in Frame<Track, Clip> frame, ref Playback<Outer> state) { }
+            }
+            public readonly partial struct Base : ITimeline
+            {
+                public static void Define(scoped Builder builder)
+                {
+                    var track = builder.Track(new Track());
+                    builder.Clip(track, new Clip(1), 0u, 1u);
+                }
+            }
+            public readonly partial struct Outer : ITimeline
+            {
+                public static void Define(scoped Builder builder)
+                {
+                    builder.Include<Base>();
+                }
+            }
+            """;
+
+        var (timelines, diagnostics) = HeterogeneousReader.Read([("Reader.cs", source)]);
+
+        Assert.Single(timelines, static timeline => timeline.Name == "Base");
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Code == "TLGEN51" && diagnostic.Line == 8);
     }
 
     [Theory]

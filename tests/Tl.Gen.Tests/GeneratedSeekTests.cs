@@ -90,6 +90,8 @@ public sealed class GeneratedSeekTests
         Assert.DoesNotContain("out global::Tl.Playback next", all);
         Assert.DoesNotContain(".Forward(in frame_", all);
         Assert.DoesNotContain(".Backward(in frame_", all);
+        Assert.DoesNotContain("-delta", all);
+        Assert.DoesNotContain("Math.Abs", all);
     }
 
     [Fact]
@@ -112,6 +114,24 @@ public sealed class GeneratedSeekTests
         Assert.Contains("FrameFlags.CompletedBefore", generated);
         Assert.Contains("FrameFlags.CompletedAfter", generated);
         Assert.Contains("FrameFlags.Reverse", generated);
+    }
+
+    [Fact]
+    public void EmissionIsDeterministicAndSchemasIgnoreTimelineNamespace()
+    {
+        var slot = new Tl.Gen.Model.TimelineSlot("value", "global::Shared.Value", Tl.Gen.Model.SlotMode.Reference);
+        Tl.Gen.Model.HeterogeneousTimeline[] timelines =
+        [
+            new("First", "One", false, [], [], [], [], [], [], [slot]),
+            new("Second", "Two", false, [], [], [], [], [], [], [slot]),
+        ];
+
+        var first = HeterogeneousEmitter.EmitCompilation(timelines);
+        var second = HeterogeneousEmitter.EmitCompilation(timelines);
+
+        Assert.Equal(first, second);
+        Assert.Single(first, static artifact => artifact.RelativePath.StartsWith("TlSchema", StringComparison.Ordinal));
+        Assert.Contains("global::One.__TlGeneratedSchema0.Data", first.Single(static artifact => artifact.RelativePath == "Tl1.g.cs").Content);
     }
 
     private static IReadOnlyList<Diagnostic> Compile(string source, IReadOnlyList<CompileArtifact> artifacts)
