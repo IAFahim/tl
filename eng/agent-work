@@ -41,7 +41,7 @@ project_item() {
 
 project_claim() {
     gh project item-list "$project_number" --owner "$(owner)" --format json --limit 1000 \
-        --jq ".items[] | select(.content.number == $1 and .content.type == \"Issue\") | [.id, (.stage // \"\"), (.agent // \"\"), (.machine // \"\"), (.branch // \"\"), (.checkpoint // \"\")] | .[]"
+        --jq ".items[] | select(.content.number == $1 and .content.type == \"Issue\") | [.id, (.stage // \"\"), (.agent // \"\"), (.machine // \"\"), (.branch // \"\"), (.checkpoint // \"\"), \"TL_CLAIM_END\"] | .[]"
 }
 
 load_project_claim() {
@@ -53,6 +53,8 @@ load_project_claim() {
     values=()
     if [[ -n "$output" ]]; then
         mapfile -t values <<<"$output"
+        [[ "${#values[@]}" -eq 7 && "${values[6]}" == "TL_CLAIM_END" ]] || fail "issue #$issue has an unreadable Project claim"
+        unset 'values[6]'
     fi
 }
 
