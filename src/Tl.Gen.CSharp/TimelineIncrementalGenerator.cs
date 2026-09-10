@@ -50,12 +50,14 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
             return null;
         var compilation = (CSharpCompilation)context.SemanticModel.Compilation;
         var contract = compilation.GetTypeByMetadataName("Tl.ITimeline");
+        var catalog = compilation.GetTypeByMetadataName("Tl.ITimelineCatalog");
         if (contract is null)
         {
             if (!syntax.BaseList!.Types.Any(static type => type.Type.ToString().IndexOf("ITimeline", StringComparison.Ordinal) >= 0))
                 return null;
         }
-        else if (!symbol.AllInterfaces.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, contract)))
+        else if (!symbol.AllInterfaces.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, contract)
+                     || SymbolEqualityComparer.Default.Equals(candidate, catalog)))
             return null;
         var sources = RelevantSources(compilation, symbol, cancellationToken);
         var identity = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -165,7 +167,7 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
         }
         if (input.Diagnostics.Length != 0)
             return;
-        var artifacts = HeterogeneousEmitter.EmitCompilation(input.Timelines);
+        var artifacts = HeterogeneousEmitter.EmitCompilation(input.Timelines).Concat(JobEmitter.Emit(input.Jobs));
         foreach (var artifact in artifacts.OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal))
             context.AddSource(artifact.RelativePath, SourceText.From(HeterogeneousEmitter.NormalizeSource(artifact.Content), new UTF8Encoding(false)));
     }
@@ -296,15 +298,18 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
     {
         private AnalysisInput(
             ImmutableArray<HeterogeneousTimeline> timelines,
+            JobReadResult jobs,
             ImmutableArray<DeclarationDiagnostic> diagnostics,
             string key)
         {
             Timelines = timelines;
+            Jobs = jobs;
             Diagnostics = diagnostics;
             Key = key;
         }
 
         internal ImmutableArray<HeterogeneousTimeline> Timelines { get; }
+        internal JobReadResult Jobs { get; }
         internal ImmutableArray<DeclarationDiagnostic> Diagnostics { get; }
         internal string Key { get; }
 
@@ -340,13 +345,16 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
                 checkOverflow: compiler.CheckOverflow,
                 nullableContextOptions: compiler.Nullable);
             var compilation = CSharpCompilation.Create(compiler.AssemblyName, trees, references, options);
-            var result = HeterogeneousReader.ReadCompilation(compilation);
+            var jobs = JobReader.Read(compilation);
+            var excluded = new HashSet<string>(jobs.Timelines.Select(static timeline =>
+                "global::" + (timeline.Namespace.Length == 0 ? "" : timeline.Namespace + ".") + timeline.Name), StringComparer.Ordinal);
+            var result = HeterogeneousReader.ReadCompilation(compilation, excluded);
             cancellationToken.ThrowIfCancellationRequested();
             var timelines = result.Timelines
                 .OrderBy(static timeline => timeline.Namespace, StringComparer.Ordinal)
                 .ThenBy(static timeline => timeline.Name, StringComparer.Ordinal)
                 .ToImmutableArray();
-            var diagnostics = result.Diagnostics
+            var diagnostics = result.Diagnostics.Concat(jobs.Diagnostics)
                 .GroupBy(static diagnostic => DiagnosticKey(diagnostic), StringComparer.Ordinal)
                 .Select(static group => group.First())
                 .OrderBy(static diagnostic => diagnostic.File, StringComparer.Ordinal)
@@ -358,7 +366,10 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
                 Append(key, HeterogeneousEmitter.NormalizeSource(HeterogeneousEmitter.Emit(timeline)));
             foreach (var diagnostic in diagnostics)
                 Append(key, DiagnosticKey(diagnostic));
-            return new AnalysisInput(timelines, diagnostics, key.ToString());
+            if (diagnostics.Length == 0)
+                foreach (var artifact in JobEmitter.Emit(jobs))
+                    Append(key, artifact.Content);
+            return new AnalysisInput(timelines, jobs, diagnostics, key.ToString());
         }
     }
 

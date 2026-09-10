@@ -75,13 +75,18 @@ public static class GeneratorCli
             AllowUnsafe = Boolean(options.GetValueOrDefault("allow-unsafe")),
             CheckOverflow = Boolean(options.GetValueOrDefault("check-overflow")),
         };
-        var (timelines, diagnostics) = HeterogeneousReader.Read(
+        var compilation = HeterogeneousReader.CreateCompilation(
             sources.Select(static source => (source.Path, source.Content)).ToArray(),
             defines,
-            settings);
+            settings, out var referenceDiagnostics);
+        var jobs = JobReader.Read(compilation);
+        var excluded = new HashSet<string>(jobs.Timelines.Select(static timeline =>
+            "global::" + (timeline.Namespace.Length == 0 ? "" : timeline.Namespace + ".") + timeline.Name), StringComparer.Ordinal);
+        var (timelines, legacyDiagnostics) = HeterogeneousReader.ReadCompilation(compilation, excluded);
+        var diagnostics = referenceDiagnostics.Concat(legacyDiagnostics).Concat(jobs.Diagnostics).ToArray();
         foreach (var diagnostic in diagnostics)
             Console.Error.WriteLine(diagnostic);
-        if (diagnostics.Count != 0)
+        if (diagnostics.Length != 0)
             return 2;
 
         var ordered = timelines
@@ -94,12 +99,14 @@ public static class GeneratorCli
             return 2;
         }
         var artifacts = HeterogeneousEmitter.EmitCompilation(ordered, out var sharedDispatchValueBytes)
+            .Concat(JobEmitter.Emit(jobs))
             .Select(static artifact => artifact with
             {
                 Content = HeterogeneousEmitter.NormalizeSource(artifact.Content),
             })
             .ToArray();
-        var report = Report(ordered, artifacts, sharedDispatchValueBytes);
+        var report = Report(ordered, artifacts, sharedDispatchValueBytes)
+            + $"job-timelines\t{jobs.Timelines.Count}\ncatalogs\t{jobs.Catalogs.Count}\n";
         CompileGenerationCache.Synchronize(output, key, artifacts, report, previous);
         var bytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
         Console.WriteLine($"TlGenCompile: {ordered.Length} timeline(s), {artifacts.Length} source file(s), {bytes:N0} UTF-8 B; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");

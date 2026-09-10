@@ -70,7 +70,17 @@ public static class HeterogeneousReader
             IReadOnlyList<string>? symbols,
             HeterogeneousCompilationSettings settings)
     {
-        var diagnostics = new List<DeclarationDiagnostic>();
+        var compilation = CreateCompilation(sources, symbols, settings, out var diagnostics);
+        return Read(compilation, compilation.SyntaxTrees, null, diagnostics);
+    }
+
+    internal static CSharpCompilation CreateCompilation(
+        IReadOnlyList<(string Path, string Source)> sources,
+        IReadOnlyList<string>? symbols,
+        HeterogeneousCompilationSettings settings,
+        out List<DeclarationDiagnostic> diagnostics)
+    {
+        diagnostics = [];
         var languageVersion = ParseLanguageVersion(settings.LanguageVersion);
         var parseOptions = CSharpParseOptions.Default
             .WithLanguageVersion(languageVersion)
@@ -87,20 +97,21 @@ public static class HeterogeneousReader
             checkOverflow: settings.CheckOverflow,
             nullableContextOptions: ParseNullable(settings.Nullable));
         var compilation = CSharpCompilation.Create("Tl.Generated.Analysis", trees, references, options);
-        return Read(compilation, trees, null, diagnostics);
+        return compilation;
     }
 #endif
 
     internal static (IReadOnlyList<HeterogeneousTimeline> Timelines, IReadOnlyList<DeclarationDiagnostic> Diagnostics)
-        ReadCompilation(CSharpCompilation compilation)
-        => Read(compilation, compilation.SyntaxTrees, null, []);
+        ReadCompilation(CSharpCompilation compilation, ISet<string>? excludedTimelines = null)
+        => Read(compilation, compilation.SyntaxTrees, null, [], excludedTimelines);
 
     private static (IReadOnlyList<HeterogeneousTimeline> Timelines, IReadOnlyList<DeclarationDiagnostic> Diagnostics)
         Read(
             CSharpCompilation compilation,
             IEnumerable<SyntaxTree> trees,
             INamedTypeSymbol? requested,
-            List<DeclarationDiagnostic> diagnostics)
+            List<DeclarationDiagnostic> diagnostics,
+            ISet<string>? excludedTimelines = null)
     {
         var treeArray = trees.ToArray();
         var contracts = ReadContracts(compilation);
@@ -116,6 +127,7 @@ public static class HeterogeneousReader
 
         var entries = SourceTypes(compilation, treeArray)
             .Where(pair => Implements(pair.Symbol, contracts.Timeline))
+            .Where(pair => excludedTimelines is null || !excludedTimelines.Contains(Display(pair.Symbol)))
             .OrderBy(pair => Display(pair.Symbol), StringComparer.Ordinal)
             .ToArray();
         var bySymbol = new Dictionary<INamedTypeSymbol, TimelineEntry>(SymbolEqualityComparer.Default);
