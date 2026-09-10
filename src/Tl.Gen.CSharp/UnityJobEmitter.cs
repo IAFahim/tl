@@ -184,7 +184,7 @@ internal static class UnityJobEmitter
         IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
     {
         Line(writer, "[global::Unity.Burst.BurstCompile(CompileSynchronously = true)]");
-        Line(writer, "[global::Unity.Entities.WithOptions(global::Unity.Entities.EntityQueryOptions.IgnoreComponentEnabledState)]");
+        Line(writer, "[WithOptions(global::Unity.Entities.EntityQueryOptions.IgnoreComponentEnabledState)]");
         Line(writer, $"internal partial struct __Tl{catalog.Name}ClearJob : IJobEntity");
         Line(writer, "{");
         Line(writer, $"private void Execute(ref {catalog.Name}.TimelineComponent timeline, global::Unity.Entities.EnabledRefRW<{catalog.Name}.Stage0> stage)");
@@ -199,8 +199,8 @@ internal static class UnityJobEmitter
             var asset = byName[schema.Assets[0]];
             var slots = JobEmitter.Slots([asset]);
             Line(writer, "[global::Unity.Burst.BurstCompile(CompileSynchronously = true)]");
-            Line(writer, "[global::Unity.Entities.WithOptions(global::Unity.Entities.EntityQueryOptions.IgnoreComponentEnabledState)]");
-            Line(writer, $"[global::Unity.Entities.WithAll(typeof({catalog.Name}.{schema.Name}){TypeArguments(slots)})]");
+            Line(writer, "[WithOptions(global::Unity.Entities.EntityQueryOptions.IgnoreComponentEnabledState)]");
+            Line(writer, $"[WithAll(typeof({catalog.Name}.{schema.Name}){TypeArguments(slots)})]");
             Line(writer, $"internal partial struct __Tl{catalog.Name}{schema.Name}SelectJob : IJobEntity");
             Line(writer, "{");
             Line(writer, "public bool Reverse;");
@@ -219,7 +219,7 @@ internal static class UnityJobEmitter
             throw new InvalidOperationException($"Catalog '{catalog.Namespace}.{catalog.Name}' must use one operation kind in the first Unity vertical slice.");
         var operation = plans[Qualified(operationAssets[0].First())].OperationBindings[0];
         Line(writer, "[global::Unity.Burst.BurstCompile(CompileSynchronously = true)]");
-        Line(writer, $"[global::Unity.Entities.WithAll(typeof({catalog.Name}.Stage0))]");
+        Line(writer, $"[WithAll(typeof({catalog.Name}.Stage0))]");
         Line(writer, $"internal partial struct __Tl{catalog.Name}Stage0Job : IJobEntity");
         Line(writer, "{");
         Line(writer, "public uint GameTick;");
@@ -240,7 +240,7 @@ internal static class UnityJobEmitter
         Line(writer, "}");
 
         Line(writer, "[global::Unity.Burst.BurstCompile(CompileSynchronously = true)]");
-        Line(writer, "[global::Unity.Entities.WithOptions(global::Unity.Entities.EntityQueryOptions.IgnoreComponentEnabledState)]");
+        Line(writer, "[WithOptions(global::Unity.Entities.EntityQueryOptions.IgnoreComponentEnabledState)]");
         Line(writer, $"internal partial struct __Tl{catalog.Name}CommitJob : IJobEntity");
         Line(writer, "{");
         Line(writer, $"private void Execute(ref {catalog.Name}.TimelineComponent timeline, global::Unity.Entities.EnabledRefRW<{catalog.Name}.Stage0> stage)");

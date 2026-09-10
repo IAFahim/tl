@@ -29,6 +29,9 @@ public sealed class UnityMaterializationTests : IDisposable
         Assert.Contains("IJobEntity", content);
         Assert.Contains("ScheduleParallel", content);
         Assert.Contains("TimelineMovement.Select", content);
+        Assert.Contains("[WithOptions(global::Unity.Entities.EntityQueryOptions.IgnoreComponentEnabledState)]", content);
+        Assert.Contains("[WithAll(typeof(Catalog.Rows)", content);
+        Assert.DoesNotContain("[global::Unity.Entities.With", content);
         Assert.DoesNotContain("namespace UnityFixture;", content);
         Assert.DoesNotContain("scoped", content);
         Assert.DoesNotContain("record struct", content);
