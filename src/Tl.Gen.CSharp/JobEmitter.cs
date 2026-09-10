@@ -246,14 +246,14 @@ internal static class JobEmitter
         Line(writer, "if (__tlStates.IsEmpty) return;");
         if (!fused)
         {
-            Line(writer, "Tick(gameTick, 1);");
+            Line(writer, "__tlTickMany(gameTick, 1);");
             Line(writer, "return;");
         }
         else
         {
             Line(writer, "if (__tlStates.Length != 1)");
             Line(writer, "{");
-            Line(writer, "Tick(gameTick, 1);");
+            Line(writer, "__tlTickMany(gameTick, 1);");
             Line(writer, "return;");
             Line(writer, "}");
             Line(writer, "ref var __tlState = ref __tlStates[0];");
@@ -297,6 +297,11 @@ internal static class JobEmitter
             Line(writer, "}");
             Line(writer, "}");
         }
+        Line(writer, "__tlTickMany(gameTick, delta);");
+        Line(writer, "}");
+        Line(writer, "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]");
+        Line(writer, "private void __tlTickMany(uint gameTick, int delta)");
+        Line(writer, "{");
         Line(writer, "Validate();");
         Line(writer, "bool __tlReverse = delta < 0;");
         Line(writer, "long __tlRemaining = __tlReverse ? -(long)delta : delta;");
