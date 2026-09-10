@@ -6,6 +6,7 @@ namespace Tl.Gen.CSharp;
 
 internal static class JobEmitter
 {
+    private const int FusedSchemaSourceBudget = 32768;
     private sealed record ScheduledOccurrence(JobDefinition Job, JobTrack? Track, int TrackStorage, int FirstStorage, int SecondStorage, uint WindowStart, uint WindowEnd, uint FactorStart, uint FactorLength);
     private sealed record ScheduledRegion(uint End, IReadOnlyList<ScheduledOccurrence> Occurrences);
 
@@ -14,8 +15,11 @@ internal static class JobEmitter
     {
         var timelines = model.Timelines.OrderBy(Qualified, StringComparer.Ordinal).ToArray();
         var plans = timelines.ToDictionary(Qualified, JobTimelinePlanAdapter.Create, StringComparer.Ordinal);
-        var queried = new HashSet<string>(model.Catalogs.SelectMany(static catalog => catalog.Schemas)
-            .SelectMany(static schema => schema.Assets), StringComparer.Ordinal);
+        var byName = timelines.ToDictionary(Qualified, StringComparer.Ordinal);
+        var queried = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var schema in model.Catalogs.SelectMany(static catalog => catalog.Schemas))
+            if (CanFuse(schema, byName, plans))
+                queried.UnionWith(schema.Assets);
         var files = timelines.Select((timeline, index) => new CompileArtifact($"TlJob{index}.g.cs", Timeline(timeline, plans[Qualified(timeline)], queried.Contains(Qualified(timeline))))).ToList();
         files.AddRange(model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal)
             .Select((catalog, index) => new CompileArtifact($"TlCatalog{index}.g.cs", Catalog(catalog, timelines, plans))));
@@ -188,7 +192,7 @@ internal static class JobEmitter
         }
         Line(writer, "}");
         foreach (var schema in catalog.Schemas)
-            Query(writer, schema, schema.Assets.Select(asset => byName[asset]).ToArray(), ids, plans);
+            Query(writer, schema, schema.Assets.Select(asset => byName[asset]).ToArray(), ids, plans, CanFuse(schema, byName, plans));
         Line(writer, "}");
         return writer.ToString();
     }
@@ -198,7 +202,8 @@ internal static class JobEmitter
         JobSchema schema,
         IReadOnlyList<JobTimeline> assets,
         IReadOnlyDictionary<string, int> ids,
-        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
+        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans,
+        bool fused)
     {
         var slots = Slots(assets);
         var operations = assets.SelectMany(asset => plans[Qualified(asset)].OperationBindings).GroupBy(static operation => operation.TypeName, StringComparer.Ordinal)
@@ -239,48 +244,59 @@ internal static class JobEmitter
         Line(writer, "public void Tick(uint gameTick)");
         Line(writer, "{");
         Line(writer, "if (__tlStates.IsEmpty) return;");
-        Line(writer, "if (__tlStates.Length != 1)");
-        Line(writer, "{");
-        Line(writer, "Tick(gameTick, 1);");
-        Line(writer, "return;");
-        Line(writer, "}");
-        Line(writer, "ref var __tlState = ref __tlStates[0];");
-        Line(writer, "switch (__tlState.Value.Asset)");
-        Line(writer, "{");
-        Line(writer, "case 0:");
-        Line(writer, "__tlState.Pending = false;");
-        Line(writer, "return;");
-        foreach (var asset in assets)
+        if (!fused)
         {
-            Line(writer, $"case {ids[Qualified(asset)]}:");
-            Line(writer, $"__tlForward{ids[Qualified(asset)]}(ref __tlState, gameTick);");
+            Line(writer, "Tick(gameTick, 1);");
             Line(writer, "return;");
         }
-        Line(writer, "default: throw new global::System.ArgumentException(\"Timeline does not belong to this query schema.\");");
-        Line(writer, "}");
+        else
+        {
+            Line(writer, "if (__tlStates.Length != 1)");
+            Line(writer, "{");
+            Line(writer, "Tick(gameTick, 1);");
+            Line(writer, "return;");
+            Line(writer, "}");
+            Line(writer, "ref var __tlState = ref __tlStates[0];");
+            Line(writer, "switch (__tlState.Value.Asset)");
+            Line(writer, "{");
+            Line(writer, "case 0:");
+            Line(writer, "__tlState.Pending = false;");
+            Line(writer, "return;");
+            foreach (var asset in assets)
+            {
+                Line(writer, $"case {ids[Qualified(asset)]}:");
+                Line(writer, $"__tlForward{ids[Qualified(asset)]}(ref __tlState, gameTick);");
+                Line(writer, "return;");
+            }
+            Line(writer, "default: throw new global::System.ArgumentException(\"Timeline does not belong to this query schema.\");");
+            Line(writer, "}");
+        }
         Line(writer, "}");
         Line(writer, "public void Tick(uint gameTick, int delta)");
         Line(writer, "{");
         Line(writer, "if (delta == 0 || __tlStates.IsEmpty) return;");
-        Line(writer, "if (__tlStates.Length == 1)");
-        Line(writer, "{");
-        Line(writer, "ref var __tlState = ref __tlStates[0];");
-        Line(writer, "switch (__tlState.Value.Asset)");
-        Line(writer, "{");
-        Line(writer, "case 0:");
-        Line(writer, "__tlState.Pending = false;");
-        Line(writer, "return;");
-        foreach (var asset in assets)
+        if (fused)
         {
-            Line(writer, $"case {ids[Qualified(asset)]}:");
+            Line(writer, "if (__tlStates.Length == 1)");
             Line(writer, "{");
-            EmitSingleRowTick(writer, ids[Qualified(asset)]);
+            Line(writer, "ref var __tlState = ref __tlStates[0];");
+            Line(writer, "switch (__tlState.Value.Asset)");
+            Line(writer, "{");
+            Line(writer, "case 0:");
+            Line(writer, "__tlState.Pending = false;");
             Line(writer, "return;");
+            foreach (var asset in assets)
+            {
+                Line(writer, $"case {ids[Qualified(asset)]}:");
+                Line(writer, "{");
+                EmitSingleRowTick(writer, ids[Qualified(asset)]);
+                Line(writer, "return;");
+                Line(writer, "}");
+            }
+            Line(writer, "default: throw new global::System.ArgumentException(\"Timeline does not belong to this query schema.\");");
+            Line(writer, "}");
             Line(writer, "}");
         }
-        Line(writer, "default: throw new global::System.ArgumentException(\"Timeline does not belong to this query schema.\");");
-        Line(writer, "}");
-        Line(writer, "}");
         Line(writer, "Validate();");
         Line(writer, "bool __tlReverse = delta < 0;");
         Line(writer, "long __tlRemaining = __tlReverse ? -(long)delta : delta;");
@@ -349,12 +365,34 @@ internal static class JobEmitter
         Line(writer, "if (!__tlReverse) gameTick = unchecked(gameTick + 1);");
         Line(writer, "}");
         Line(writer, "}");
-        foreach (var asset in assets)
-        {
-            EmitSingleRowMove(writer, asset, ids[Qualified(asset)], Slots([asset]), false);
-            EmitSingleRowMove(writer, asset, ids[Qualified(asset)], Slots([asset]), true);
-        }
+        if (fused)
+            foreach (var asset in assets)
+            {
+                EmitSingleRowMove(writer, asset, ids[Qualified(asset)], Slots([asset]), false);
+                EmitSingleRowMove(writer, asset, ids[Qualified(asset)], Slots([asset]), true);
+            }
         Line(writer, "}");
+    }
+
+    private static bool CanFuse(
+        JobSchema schema,
+        IReadOnlyDictionary<string, JobTimeline> timelines,
+        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
+    {
+        var bytes = 0;
+        foreach (var name in schema.Assets)
+        {
+            var timeline = timelines[name];
+            var regions = Regions(timeline, plans[name]);
+            var writer = new StringBuilder();
+            var slots = Slots([timeline]);
+            EmitRow(writer, regions, slots, false);
+            EmitRow(writer, regions, slots, true);
+            bytes += Encoding.UTF8.GetByteCount(writer.ToString());
+            if (bytes > FusedSchemaSourceBudget)
+                return false;
+        }
+        return true;
     }
 
     private static void EmitSingleRowTick(StringBuilder writer, int asset)
