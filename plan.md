@@ -26,7 +26,7 @@ Issues [#15](https://github.com/IAFahim/tl/issues/15) and [#16](https://github.c
 
 ## Cold-start manager index
 
-The canonical live board is the [Project 6 Workflow view](https://github.com/users/IAFahim/projects/6/views/4). The [release issue #11](https://github.com/IAFahim/tl/issues/11) owns merge order and release completion. Issues own task detail and progress; pull requests own review; `refs/heads/workstream-claims/<issue>/<kind>/<scope>` owns concurrent workstream publication. Legacy refs below `refs/heads/claims` remain readable during migration.
+The canonical live board is the [Project 6 Workflow view](https://github.com/users/IAFahim/projects/6/views/4). The [release issue #11](https://github.com/IAFahim/tl/issues/11) owns merge order and release completion. Issues own task detail and progress; pull requests own review; `refs/heads/workstream-claims/<issue>/<kind>/<scope>` owns concurrent workstream publication; and `refs/heads/issue-transactions/<issue>` serializes the shared Project and issue projection. Legacy refs below `refs/heads/claims` remain readable during migration.
 
 A new manager session recovers without chat history:
 
@@ -39,7 +39,7 @@ cat docs/roadmap.md
 gh issue view 11 --comments
 gh pr list --state open
 gh project item-list 6 --owner IAFahim --limit 1000
-git ls-remote --heads origin 'refs/heads/workstream-claims/*' 'refs/heads/claims/*'
+git ls-remote --heads origin 'refs/heads/workstream-claims/*' 'refs/heads/claims/*' 'refs/heads/issue-transactions/*'
 ```
 
 For each active item, read the issue and linked pull request, verify its Project branch and checkpoint against origin, inspect its atomic claim, then use `eng/agent-work` to resume, hand off, or perform a compare-and-set takeover. Never infer current ownership or next work from this file's prose when GitHub has newer state.

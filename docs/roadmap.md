@@ -13,10 +13,12 @@ cat plan.md
 gh issue view 11 --comments
 gh pr list --state open
 gh project item-list 6 --owner IAFahim --limit 1000
-git ls-remote --heads origin 'refs/heads/workstream-claims/*' 'refs/heads/claims/*'
+git ls-remote --heads origin 'refs/heads/workstream-claims/*' 'refs/heads/claims/*' 'refs/heads/issue-transactions/*'
 ```
 
 Resume only the branch and exact checkpoint recorded by its issue and Project fields. Use `eng/agent-work` to claim it before editing. Put the complete instruction on the issue before delegating; a private agent message needs only the issue reference. Record each changed decision before dependent edits, and publish one validated atom before beginning the next. If work must stop red, publish a recoverable checkpoint with the exact failures.
+
+An issue transaction normally lives only for one helper command. If one remains after confirmed process or machine loss, recover its exact object with `eng/agent-work recover-lock <issue> <exact-transaction> <reason>`. Never recover a transaction while its owner process may still be running.
 
 For a stacked change, pass its published dependency explicitly: `eng/agent-work start <issue> <kind> <scope> <description> origin/<dependency-branch>`. The claim records the resolved commit, so a new machine never guesses which parent was intended.
 

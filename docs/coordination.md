@@ -61,7 +61,9 @@ After committing a tested change from that worktree, publish it and its evidence
 TL_AGENT=Curie TL_MACHINE=office-1 ./eng/agent-work checkpoint 123 "C identifiers are total" "dotnet test; gcc and clang strict C11" "second architecture remains"
 ```
 
-`handoff`, `pr`, and `done` update the Project summary. The helper refuses to publish a checkpoint with uncommitted files or from a machine, agent, or branch that does not own its remote claim. It adds the issue to Project 6 idempotently, records the latest Agent, Machine, Branch, and Checkpoint activity, pushes the commit, and posts the same recovery data on the issue. A `refs/heads/workstream-claims/<issue>/<kind>/<scope>` remote ref is the compare-and-set lock for one workstream. Legacy `refs/heads/claims/<issue>` and `refs/heads/claims/<issue>/<kind>/<scope>` refs remain readable during migration. Concurrent starts of the same workstream race at the Git server and exactly one can create it; different workstreams under the same issue can proceed independently. Every branch publication atomically advances the branch and rotates the claim under a lease on the claim object observed during validation. Each projected checkpoint names that claim generation, and takeover records any missing generation before replacing it. A concurrent takeover therefore wins either before or after the complete transaction and a stale owner cannot advance the branch. Handoff and completion delete only that observed claim object before publishing their terminal projection, so a successor claim is preserved if ownership changes before release. Completion requires local HEAD, the claim parent, the remote branch head, and the linked merged pull-request head to be identical, with the merge commit present on `origin/main`.
+`handoff`, `pr`, and `done` update the Project summary. The helper refuses to publish a checkpoint with uncommitted files or from a machine, agent, or branch that does not own its remote claim. It adds the issue to Project 6 idempotently, records the latest Agent, Machine, Branch, and Checkpoint activity, pushes the commit, and posts the same recovery data on the issue. A `refs/heads/workstream-claims/<issue>/<kind>/<scope>` remote ref is the compare-and-set lock for one workstream. Legacy `refs/heads/claims/<issue>` and `refs/heads/claims/<issue>/<kind>/<scope>` refs remain readable during migration. Concurrent starts of the same workstream race at the Git server and exactly one can create it; different workstreams under the same issue can proceed independently. Every branch publication atomically advances the branch and rotates the claim under a lease on the claim object observed during validation.
+
+The single Project row and ordered issue record are shared by all workstreams, so every helper command that projects state holds `refs/heads/issue-transactions/<issue>`. This issue-level compare-and-set lock serializes Project fields, comments, workstream takeover, handoff, and completion. Handoff and completion publish their terminal projection while holding it, delete the exact observed workstream claim, then release the issue transaction as their final action; they perform no later Project or comment write. A successor may acquire the released workstream claim, but cannot project newer state until the terminal transaction releases. Completion also requires local HEAD, the claim parent, the remote branch head, and the linked merged pull-request head to be identical, with the merge commit present on `origin/main`.
 
 Every transition is restartable. The same owner reruns `start` to repair a claim whose worktree, assignment, Project fields, or issue comment was interrupted. Repeating `handoff`, `pr`, or `done` completes the remaining transition without publishing a second branch or closing unrelated work. A coordinator recovers a stale claim from its last Project checkpoint by naming the exact current claim object; Git rejects the replacement if ownership changed between inspection and takeover:
 
@@ -70,6 +72,14 @@ TL_AGENT=Turing TL_MACHINE=office-2 ./eng/agent-work takeover 123 feat c-backend
 ```
 
 The takeover recreates the same workstream branch from its last pushed remote checkpoint under a new compare-and-set owner. Work that was never pushed is not guessed from an inaccessible machine.
+
+An interrupted helper normally releases its issue transaction through an exit trap. Abrupt process or machine loss can leave the remote lock. After confirming the owner cannot resume, recover only the exact observed object, then rerun the interrupted command:
+
+```sh
+TL_AGENT=Turing TL_MACHINE=office-2 ./eng/agent-work recover-lock 123 89abcdef0123456789abcdef0123456789abcdef "owner machine lost power"
+```
+
+Recovery itself compare-and-set replaces the old transaction, records the audit on the issue, and releases the replacement. A wrong or changed object is rejected. Never recover a live transaction merely because a command is slow.
 
 The equivalent manual protocol remains valid:
 
