@@ -10,8 +10,6 @@ namespace Tl.Gen.CSharp;
 
 internal sealed record CompileSource(string Path, string Content);
 
-internal sealed record CompileArtifact(string RelativePath, string Content);
-
 internal sealed class CompileGenerationManifest
 {
     public int FormatVersion { get; set; }
@@ -170,7 +168,7 @@ internal static class CompileGenerationCache
 
         var sourceList = GetSourceList(expected.Keys);
         WriteIfChanged(Path.Combine(outputDirectory, SourceListFileName), sourceList);
-        var normalizedReport = NormalizeSource(report);
+        var normalizedReport = HeterogeneousEmitter.NormalizeSource(report);
         WriteIfChanged(Path.Combine(outputDirectory, ReportFileName), normalizedReport);
 
         var manifest = new CompileGenerationManifest
@@ -191,8 +189,6 @@ internal static class CompileGenerationCache
 
         WriteManifest(outputDirectory, manifest);
     }
-
-    internal static string NormalizeSource(string content) => content.Replace("\r\n", "\n").Replace('\r', '\n');
 
     private static bool IsOwnedPath(string relativePath)
     {
@@ -253,7 +249,7 @@ internal static class CompileGenerationCache
     private static void WriteManifest(string outputDirectory, CompileGenerationManifest manifest)
     {
         var path = Path.Combine(outputDirectory, ManifestFileName);
-        var content = NormalizeSource(JsonSerializer.Serialize(manifest, CompileManifestJsonContext.Default.CompileGenerationManifest)) + "\n";
+        var content = HeterogeneousEmitter.NormalizeSource(JsonSerializer.Serialize(manifest, CompileManifestJsonContext.Default.CompileGenerationManifest)) + "\n";
         if (File.Exists(path) && File.ReadAllText(path) == content)
             return;
 

@@ -94,3 +94,5 @@ type Tl.Gen.CSharp.Model.TimelineSlot
   Property System.String Name
   Method System.String ToString()
   Property System.String TypeName
+type Tl.Gen.CSharp.TimelineIncrementalGenerator
+  Method Void Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext)

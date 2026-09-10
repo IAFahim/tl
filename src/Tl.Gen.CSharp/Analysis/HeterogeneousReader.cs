@@ -13,6 +13,11 @@ public sealed record DeclarationDiagnostic(
     string Code,
     string Message)
 {
+    internal int SpanStart { get; init; } = -1;
+    internal int SpanLength { get; init; }
+    internal int EndLine { get; init; }
+    internal int EndColumn { get; init; }
+
     public override string ToString() => $"{File}({Line},{Column}): error {Code}: {Message}";
 }
 
@@ -40,6 +45,7 @@ public static class HeterogeneousReader
         INamedTypeSymbol Symbol,
         TypeDeclarationSyntax Syntax);
 
+#if NET10_0
     public static (IReadOnlyList<HeterogeneousTimeline> Timelines, IReadOnlyList<DeclarationDiagnostic> Diagnostics)
         Read(IReadOnlyList<(string Path, string Source)> sources, IReadOnlyList<string>? symbols = null)
         => Read(sources, symbols, new HeterogeneousCompilationSettings { ReferencePaths = DefaultReferences() });
@@ -72,15 +78,36 @@ public static class HeterogeneousReader
             checkOverflow: settings.CheckOverflow,
             nullableContextOptions: ParseNullable(settings.Nullable));
         var compilation = CSharpCompilation.Create("Tl.Generated.Analysis", trees, references, options);
+        return Read(compilation, trees, null, diagnostics);
+    }
+#endif
+
+    internal static (IReadOnlyList<HeterogeneousTimeline> Timelines, IReadOnlyList<DeclarationDiagnostic> Diagnostics)
+        ReadCandidate(CSharpCompilation compilation, TypeDeclarationSyntax candidate)
+    {
+        var symbol = compilation.GetSemanticModel(candidate.SyntaxTree).GetDeclaredSymbol(candidate);
+        return symbol is null
+            ? ([], [])
+            : Read(compilation, compilation.SyntaxTrees, symbol, []);
+    }
+
+    private static (IReadOnlyList<HeterogeneousTimeline> Timelines, IReadOnlyList<DeclarationDiagnostic> Diagnostics)
+        Read(
+            CSharpCompilation compilation,
+            IEnumerable<SyntaxTree> trees,
+            INamedTypeSymbol? requested,
+            List<DeclarationDiagnostic> diagnostics)
+    {
+        var treeArray = trees.ToArray();
         var contracts = ReadContracts(compilation);
         if (contracts is null)
         {
-            if (trees.Any(static tree => tree.GetRoot().DescendantNodes().OfType<BaseTypeSyntax>().Any(static type => type.Type.ToString().Contains("ITimeline", StringComparison.Ordinal))))
-                diagnostics.Add(new DeclarationDiagnostic(trees[0].FilePath, 1, 1, "TLGEN20", "The exact Tl compilation contracts could not be resolved from metadata references."));
+            if (treeArray.Any(static tree => tree.GetRoot().DescendantNodes().OfType<BaseTypeSyntax>().Any(static type => type.Type.ToString().IndexOf("ITimeline", StringComparison.Ordinal) >= 0)))
+                diagnostics.Add(new DeclarationDiagnostic(treeArray[0].FilePath, 1, 1, "TLGEN20", "The exact Tl compilation contracts could not be resolved from metadata references."));
             return ([], diagnostics);
         }
 
-        var entries = SourceTypes(compilation, trees)
+        var entries = SourceTypes(compilation, treeArray)
             .Where(pair => Implements(pair.Symbol, contracts.Timeline))
             .OrderBy(pair => Display(pair.Symbol), StringComparer.Ordinal)
             .ToArray();
@@ -103,6 +130,7 @@ public static class HeterogeneousReader
 
         var resolver = new Resolver(compilation, contracts, bySymbol, diagnostics);
         var timelines = entries
+            .Where(pair => requested is null || Same(pair.Symbol, requested))
             .Select(pair => resolver.Resolve(pair.Symbol, pair.Syntax))
             .Where(static timeline => timeline is not null)
             .Cast<HeterogeneousTimeline>()
@@ -119,7 +147,7 @@ public static class HeterogeneousReader
         private readonly Dictionary<INamedTypeSymbol, HeterogeneousTimeline> _resolved = new(SymbolEqualityComparer.Default);
         private readonly HashSet<INamedTypeSymbol> _failed = new(SymbolEqualityComparer.Default);
         private readonly List<INamedTypeSymbol> _stack = [];
-        private readonly Dictionary<TimelineSlot, SyntaxNode> _slotSites = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<TimelineSlot, SyntaxNode> _slotSites = new(ReferenceComparer<TimelineSlot>.Instance);
 
         public HeterogeneousTimeline? Resolve(INamedTypeSymbol symbol, SyntaxNode site)
         {
@@ -238,11 +266,13 @@ public static class HeterogeneousReader
                         Canonical(expression, model),
                         contract.Value.Seek);
                     tracks.Add(track);
-                    if (model.GetDeclaredSymbol(variable) is not ILocalSymbol localSymbol || !locals.TryAdd(localSymbol, (track, contract.Value.ClipType)))
+                    if (model.GetDeclaredSymbol(variable) is not ILocalSymbol localSymbol || locals.ContainsKey(localSymbol))
                     {
                         Add(diagnostics, variable, "TLGEN25", $"Track local '{variable.Identifier.ValueText}' is invalid or declared more than once.");
                         valid = false;
                     }
+                    else
+                        locals.Add(localSymbol, (track, contract.Value.ClipType));
                     continue;
                 }
 
@@ -322,8 +352,9 @@ public static class HeterogeneousReader
                 valid = false;
             }
 
-            if (included is [var nestedTimeline])
+            if (included.Count == 1)
             {
+                var nestedTimeline = included[0];
                 beforeHooks.AddRange(nestedTimeline.BeforeHooks);
                 afterHooks.InsertRange(0, nestedTimeline.AfterHooks);
             }
@@ -348,7 +379,7 @@ public static class HeterogeneousReader
                 Add(diagnostics, define, "TLGEN43", "Included timelines have incompatible looping modes.");
                 valid = false;
             }
-            var loops = loopsDeclared || loopModes is [true];
+            var loops = loopsDeclared || loopModes.Length == 1 && loopModes[0];
             var duration = clips.Count == 0 ? 0u : clips.Max(static clip => clip.End);
             if (loops && included.Any(timeline => timeline.Loops && timeline.Duration != duration))
             {
@@ -408,7 +439,8 @@ public static class HeterogeneousReader
             var members = trackType.GetMembers("Seek")
                 .Where(static member => !member.IsImplicitlyDeclared)
                 .ToArray();
-            if (members is not [IMethodSymbol method] || !ContractMethod(method))
+            var method = members.Length == 1 ? members[0] as IMethodSymbol : null;
+            if (method is null || !ContractMethod(method))
             {
                 var diagnosticSite = members.Length == 1 ? DeclarationSite(members[0], site) : TypeSite(trackType, site);
                 Add(diagnostics, diagnosticSite, "TLGEN30", $"Track '{Display(trackType)}' must declare exactly one public static non-generic void Seek method.");
@@ -599,8 +631,8 @@ public static class HeterogeneousReader
             => Same(type, contracts.Playback)
                 || type is INamedTypeSymbol named
                     && Same(named.OriginalDefinition, contracts.TypedPlayback)
-                    && named.TypeArguments is [var owner]
-                    && Same(owner, timelineType);
+                    && named.TypeArguments.Length == 1
+                    && Same(named.TypeArguments[0], timelineType);
 
         private bool BuilderCall(
             InvocationExpressionSyntax call,
@@ -626,16 +658,11 @@ public static class HeterogeneousReader
         {
             type = null!;
             if (call.ArgumentList.Arguments.Count != 0
-                || call.Expression is not MemberAccessExpressionSyntax
-                {
-                    Name: GenericNameSyntax
-                    {
-                        TypeArgumentList.Arguments: [var typeSyntax]
-                    } generic
-                } member
+                || call.Expression is not MemberAccessExpressionSyntax { Name: GenericNameSyntax generic } member
+                || generic.TypeArgumentList.Arguments.Count != 1
                 || generic.Identifier.ValueText != name
                 || !SameSymbol(model.GetSymbolInfo(member.Expression).Symbol, builderParameter)
-                || model.GetTypeInfo(typeSyntax).Type is not INamedTypeSymbol resolved)
+                || model.GetTypeInfo(generic.TypeArgumentList.Arguments[0]).Type is not INamedTypeSymbol resolved)
                 return false;
             var method = model.GetSymbolInfo(call).Symbol as IMethodSymbol;
             if (method is not null && (!Same(method.ContainingType, contracts.Builder) || method.Name != name))
@@ -731,6 +758,7 @@ public static class HeterogeneousReader
             : new Contracts(timeline, track, hook, frame, builder, playback, typedPlayback);
     }
 
+#if NET10_0
     private static IReadOnlyList<MetadataReference> References(
         IEnumerable<string> paths,
         ICollection<DeclarationDiagnostic> diagnostics)
@@ -762,7 +790,7 @@ public static class HeterogeneousReader
         var core = Path.Combine(AppContext.BaseDirectory, "Tl.Core.dll");
         if (File.Exists(core))
             paths.Add(core);
-        return paths.Order(StringComparer.Ordinal).ToArray();
+        return paths.OrderBy(static path => path, StringComparer.Ordinal).ToArray();
     }
 
     private static LanguageVersion ParseLanguageVersion(string value)
@@ -776,10 +804,12 @@ public static class HeterogeneousReader
             "warnings" => NullableContextOptions.Warnings,
             _ => NullableContextOptions.Disable,
         };
+#endif
 
     private static bool ValidDefine(IMethodSymbol method)
         => ContractMethod(method)
-            && method.Parameters is [var parameter]
+            && method.Parameters.Length == 1
+            && method.Parameters[0] is { } parameter
             && parameter.RefKind == RefKind.None
             && parameter.ScopedKind == ScopedKind.ScopedValue;
 
@@ -872,9 +902,22 @@ public static class HeterogeneousReader
             span.StartLinePosition.Line + 1,
             span.StartLinePosition.Character + 1,
             code,
-            message));
+            message)
+        {
+            SpanStart = node.SpanStart,
+            SpanLength = node.Span.Length,
+            EndLine = span.EndLinePosition.Line + 1,
+            EndColumn = span.EndLinePosition.Character + 1,
+        });
     }
 
     private static bool Has(SyntaxTokenList modifiers, SyntaxKind kind)
         => modifiers.Any(token => token.IsKind(kind));
+
+    private sealed class ReferenceComparer<T> : IEqualityComparer<T> where T : class
+    {
+        internal static readonly ReferenceComparer<T> Instance = new();
+        public bool Equals(T? x, T? y) => ReferenceEquals(x, y);
+        public int GetHashCode(T obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+    }
 }

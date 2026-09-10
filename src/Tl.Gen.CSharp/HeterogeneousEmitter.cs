@@ -20,6 +20,8 @@ internal static class HeterogeneousEmitter
         return EmitTimeline(compilation.Timelines[0], compilation.Routings[0]);
     }
 
+    internal static string NormalizeSource(string content) => content.Replace("\r\n", "\n").Replace('\r', '\n');
+
     internal static IReadOnlyList<CompileArtifact> EmitCompilation(IReadOnlyList<HeterogeneousTimeline> timelines)
         => EmitCompilation(timelines, out _);
 
@@ -326,7 +328,7 @@ internal static class HeterogeneousEmitter
         => string.Join("\n", timeline.ReadOnlySlots.Select(slot => $"r:{slot.Name}:{TypeKey(slot.TypeName)}").Concat(timeline.WritableSlots.Select(slot => $"w:{slot.Name}:{TypeKey(slot.TypeName)}")));
 
     private static string TypeKey(string type)
-        => type.StartsWith("global::", StringComparison.Ordinal) ? type[8..] : type;
+        => type.StartsWith("global::", StringComparison.Ordinal) ? type.Substring(8) : type;
 
     private static string Qualified(Schema schema) => Qualified(schema.Representative.Namespace, $"__TlGeneratedSchema{I(schema.Index)}");
     private static string Qualified(HeterogeneousTimeline timeline) => Qualified(timeline.Namespace, timeline.Name);
@@ -712,7 +714,7 @@ internal static class HeterogeneousEmitter
     {
         if (timeline.Duration == 0)
             return [];
-        var cuts = timeline.Clips.SelectMany(static clip => new[] { clip.Start, clip.End }).Append(0u).Append(timeline.Duration).Distinct().Order().ToArray();
+        var cuts = timeline.Clips.SelectMany(static clip => new[] { clip.Start, clip.End }).Append(0u).Append(timeline.Duration).Distinct().OrderBy(static value => value).ToArray();
         var regions = new List<Region>();
         for (var index = 0; index + 1 < cuts.Length; index++)
         {

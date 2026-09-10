@@ -9,8 +9,7 @@
     <TlGenAssembly Condition="'$(TlGenAssembly)' == ''">$(MSBuildThisFileDirectory)../bin/Release/net10.0/Tl.Gen.CSharp.dll</TlGenAssembly>
   </PropertyGroup>
 
-  <Target Name="TlGenCompileTimelines"
-          BeforeTargets="BeforeCompile;CoreCompile"
+  <Target Name="TlGenExport"
           DependsOnTargets="ResolveProjectReferences;ResolveAssemblyReferences;ResolveReferences;GenerateGlobalUsings"
           Condition="'@(Compile)' != '' Or Exists('$(IntermediateOutputPath)TlGenCompile\TlGenCompile.manifest.json')">
     <PropertyGroup>
@@ -45,12 +44,8 @@
                       Overwrite="true"
                       WriteOnlyWhenDifferent="true" />
     <Exec Command="&quot;$(_TlGenDotNet)&quot; &quot;$(TlGenAssembly)&quot; --compile --output &quot;$(_TlGenCompileOut)&quot; --define &quot;$(DefineConstants)&quot; --source-list &quot;$(_TlGenCompileInputList)&quot; --reference-list &quot;$(_TlGenCompileReferenceList)&quot; --option-list &quot;$(_TlGenCompileOptionList)&quot;" />
-    <ReadLinesFromFile File="$(_TlGenCompileSourceList)">
-      <Output TaskParameter="Lines" ItemName="_TlGenCompileSources" />
-    </ReadLinesFromFile>
     <ItemGroup>
-      <Compile Include="@(_TlGenCompileSources->'$(_TlGenCompileOut)%(Identity)')" />
-      <FileWrites Include="@(_TlGenCompileSources->'$(_TlGenCompileOut)%(Identity)')" />
+      <FileWrites Include="$(_TlGenCompileOut)**\*.g.cs" />
       <FileWrites Include="$(_TlGenCompileSourceList)" />
       <FileWrites Include="$(_TlGenCompileInputList)" />
       <FileWrites Include="$(_TlGenCompileReferenceList)" />

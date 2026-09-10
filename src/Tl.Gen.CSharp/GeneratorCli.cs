@@ -96,7 +96,7 @@ public static class GeneratorCli
         var artifacts = HeterogeneousEmitter.EmitCompilation(ordered, out var sharedDispatchValueBytes)
             .Select(static artifact => artifact with
             {
-                Content = CompileGenerationCache.NormalizeSource(artifact.Content),
+                Content = HeterogeneousEmitter.NormalizeSource(artifact.Content),
             })
             .ToArray();
         var report = Report(ordered, artifacts, sharedDispatchValueBytes);
