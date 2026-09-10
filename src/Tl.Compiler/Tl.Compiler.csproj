@@ -12,6 +12,8 @@
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReleaseNotes>v1.0.0-alpha.2: language-neutral immutable timeline plans with a versioned format and stable operation and payload identities.</PackageReleaseNotes>
   </PropertyGroup>
 

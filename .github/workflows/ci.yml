@@ -29,6 +29,7 @@ jobs:
           dotnet-version: 10.0.x
       - run: python3 benchmarks/source_budget.py
       - run: python3 -m unittest discover -s benchmarks -p test_collect.py
+      - run: python3 -m unittest discover -s tests -p test_release_artifacts.py
       - run: dotnet build tl.slnx -c Release -m:1
       - run: dotnet test tl.slnx -c Release --no-build
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build
@@ -40,26 +41,4 @@ jobs:
       - run: ./artifacts/aot/Tl.Alpha
       - run: ./artifacts/aot/Tl.Alpha --capacity
       - run: ./artifacts/aot/Tl.Alpha --module-capacity
-      - run: dotnet pack src/Tl.Core -c Release --no-build -o artifacts/packages
-      - run: dotnet pack src/Tl.Gen -c Release --no-build -o artifacts/packages
-      - run: dotnet pack src/Tl.Compiler -c Release --no-build -o artifacts/packages
-      - run: dotnet pack src/Tl.Gen.C -c Release --no-build -o artifacts/packages
-      - run: dotnet pack src/Tl.CSharp -c Release --no-build -m:1 -o artifacts/packages
-      - name: Verify package consumer
-        env:
-          NUGET_PACKAGES: ${{ runner.temp }}/tl-package-consumer
-        run: |
-          set -euo pipefail
-          dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj --source artifacts/packages
-          dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore
-          test "$(./tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.PackageConsumer)" = "7"
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.CSharp.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Compiler.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.C.dll
-          dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore | tee artifacts/package-cache.log
-          grep -F "TlGenCompile: cache hit" artifacts/package-cache.log
-          dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -r linux-x64 -p:PublishAot=true --source artifacts/packages --source https://api.nuget.org/v3/index.json
-          dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
-          test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"
+      - run: eng/release-artifacts --candidate ci artifacts/release

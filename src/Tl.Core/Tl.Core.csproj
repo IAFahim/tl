@@ -13,6 +13,8 @@
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReleaseNotes>v1.0.0-alpha.2: C11 portability contracts, generation and memory reports, editor build fixes, stronger inverse receipts, and a smaller compiled lifecycle check.</PackageReleaseNotes>
   </PropertyGroup>
 
