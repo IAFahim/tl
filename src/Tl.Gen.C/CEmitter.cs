@@ -131,6 +131,7 @@ public static class CEmitter
         Line(writer, $"#define {guard}");
         Line(writer);
         Line(writer, "#include <stdbool.h>");
+        Line(writer, "#include <float.h>");
         Line(writer, "#include <limits.h>");
         Line(writer, "#include <stddef.h>");
         Line(writer, "#include <stdint.h>");
@@ -142,6 +143,9 @@ public static class CEmitter
         Line(writer, "#endif");
         Line(writer, "#ifndef TL_C_ABI_V2_TYPES");
         Line(writer, "#define TL_C_ABI_V2_TYPES 1");
+        Line(writer, "#define TL_C_ABI_ENDIANNESS_NATIVE 1");
+        Line(writer, "#define TL_C_ABI_FLOAT_EVALUATION_NATIVE 1");
+        Line(writer, "#define TL_C_ABI_FLOAT_ROUNDING_NATIVE 1");
         Line(writer, "typedef uint8_t tl_playback_flags;");
         Line(writer, "typedef uint8_t tl_frame_flags;");
         Line(writer, "enum { TL_PLAYBACK_STARTED = 1u, TL_PLAYBACK_STOPPED = 2u };");
@@ -150,6 +154,10 @@ public static class CEmitter
         Line(writer, "typedef struct { _Alignas(8) int64_t cycle; uint32_t game_tick; uint32_t timeline_tick; uint32_t track_payload; uint32_t first_payload; uint32_t second_payload; float factor; uint16_t track_index; tl_frame_flags flags; uint8_t payload_count; uint32_t reserved; } tl_frame;");
         Line(writer, "_Static_assert(CHAR_BIT == 8, \"tl requires 8-bit bytes\");");
         Line(writer, "_Static_assert(sizeof(float) == 4, \"tl requires 32-bit float\");");
+        Line(writer, "_Static_assert(FLT_RADIX == 2, \"tl requires binary float\");");
+        Line(writer, "_Static_assert(FLT_MANT_DIG == 24, \"tl requires binary32 precision\");");
+        Line(writer, "_Static_assert(FLT_MIN_EXP == -125, \"tl requires binary32 minimum exponent\");");
+        Line(writer, "_Static_assert(FLT_MAX_EXP == 128, \"tl requires binary32 maximum exponent\");");
         Line(writer, "_Static_assert(sizeof(tl_playback) == 16, \"tl_playback ABI mismatch\");");
         Line(writer, "_Static_assert(_Alignof(tl_playback) == 8, \"tl_playback alignment mismatch\");");
         Line(writer, "_Static_assert(offsetof(tl_playback, position) == 0, \"tl_playback ABI mismatch\");");
@@ -185,7 +193,7 @@ public static class CEmitter
         Line(writer, $"bool {prefix}_is_looping(void);");
         Line(writer, $"bool {prefix}_try_start(uint16_t id, uint32_t game_tick, tl_playback *playback);");
         Line(writer, $"bool {prefix}_try_stop(uint16_t id, const tl_playback *playback, tl_playback *stopped);");
-        Line(writer, $"bool {prefix}_try_seek(uint16_t id, const tl_playback *playback, int32_t delta, void *restrict context, tl_playback *next);");
+        Line(writer, $"bool {prefix}_try_seek(uint16_t id, const tl_playback *playback, int32_t delta, void *context, tl_playback *next);");
         Line(writer);
         Line(writer, "#endif");
         return writer.ToString();
@@ -306,7 +314,7 @@ public static class CEmitter
 
     private static void EmitSeek(StringBuilder writer, TimelinePlan plan, string prefix)
     {
-        Line(writer, $"bool {prefix}_try_seek(uint16_t id, const tl_playback *playback, int32_t delta, void *restrict context, tl_playback *next)");
+        Line(writer, $"bool {prefix}_try_seek(uint16_t id, const tl_playback *playback, int32_t delta, void *context, tl_playback *next)");
         Line(writer, "{");
         if (plan.Duration == 0)
             Line(writer, "    (void)context;");
@@ -518,9 +526,70 @@ public static class CEmitter
             "bool",
             "false",
             "true",
+            "__bool_true_false_are_defined",
             "NULL",
+            "CHAR_BIT",
+            "SCHAR_MIN",
+            "SCHAR_MAX",
+            "UCHAR_MAX",
+            "CHAR_MIN",
+            "CHAR_MAX",
+            "MB_LEN_MAX",
+            "SHRT_MIN",
+            "SHRT_MAX",
+            "USHRT_MAX",
+            "INT_MIN",
+            "INT_MAX",
+            "UINT_MAX",
+            "LONG_MIN",
+            "LONG_MAX",
+            "ULONG_MAX",
+            "LLONG_MIN",
+            "LLONG_MAX",
+            "ULLONG_MAX",
+            "FLT_RADIX",
+            "FLT_ROUNDS",
+            "FLT_EVAL_METHOD",
+            "DECIMAL_DIG",
+            "FLT_DECIMAL_DIG",
+            "DBL_DECIMAL_DIG",
+            "LDBL_DECIMAL_DIG",
+            "FLT_MANT_DIG",
+            "DBL_MANT_DIG",
+            "LDBL_MANT_DIG",
+            "FLT_DIG",
+            "DBL_DIG",
+            "LDBL_DIG",
+            "FLT_MIN_EXP",
+            "DBL_MIN_EXP",
+            "LDBL_MIN_EXP",
+            "FLT_MIN_10_EXP",
+            "DBL_MIN_10_EXP",
+            "LDBL_MIN_10_EXP",
+            "FLT_MAX_EXP",
+            "DBL_MAX_EXP",
+            "LDBL_MAX_EXP",
+            "FLT_MAX_10_EXP",
+            "DBL_MAX_10_EXP",
+            "LDBL_MAX_10_EXP",
+            "FLT_MAX",
+            "DBL_MAX",
+            "LDBL_MAX",
+            "FLT_EPSILON",
+            "DBL_EPSILON",
+            "LDBL_EPSILON",
+            "FLT_MIN",
+            "DBL_MIN",
+            "LDBL_MIN",
+            "FLT_TRUE_MIN",
+            "DBL_TRUE_MIN",
+            "LDBL_TRUE_MIN",
+            "FLT_HAS_SUBNORM",
+            "DBL_HAS_SUBNORM",
+            "LDBL_HAS_SUBNORM",
             "offsetof",
             "ptrdiff_t",
+            "rsize_t",
             "size_t",
             "max_align_t",
             "wchar_t",
@@ -599,6 +668,7 @@ public static class CEmitter
             "SIG_ATOMIC_MIN",
             "SIG_ATOMIC_MAX",
             "SIZE_MAX",
+            "RSIZE_MAX",
             "WCHAR_MIN",
             "WCHAR_MAX",
             "WINT_MIN",
@@ -619,6 +689,9 @@ public static class CEmitter
             "tl_playback_flags",
             "TL_C_ABI_V2_TYPES",
             "TL_C_ABI_VERSION",
+            "TL_C_ABI_ENDIANNESS_NATIVE",
+            "TL_C_ABI_FLOAT_EVALUATION_NATIVE",
+            "TL_C_ABI_FLOAT_ROUNDING_NATIVE",
             "TL_FRAME_CLIP_END",
             "TL_FRAME_CLIP_START",
             "TL_FRAME_COMPLETED_AFTER",

@@ -23,7 +23,15 @@ public sealed class CBackendTests
         Assert.True(first.SequenceEqual(second));
         Assert.Equal(["battle.h", "battle.c"], first.Select(static artifact => artifact.RelativePath));
         Assert.Contains("#define TL_C_ABI_VERSION 2", first[0].Content);
+        Assert.Contains("#include <float.h>", first[0].Content);
+        Assert.Contains("#define TL_C_ABI_ENDIANNESS_NATIVE 1", first[0].Content);
+        Assert.Contains("#define TL_C_ABI_FLOAT_EVALUATION_NATIVE 1", first[0].Content);
+        Assert.Contains("#define TL_C_ABI_FLOAT_ROUNDING_NATIVE 1", first[0].Content);
         Assert.Contains("_Static_assert(CHAR_BIT == 8", first[0].Content);
+        Assert.Contains("_Static_assert(FLT_RADIX == 2", first[0].Content);
+        Assert.Contains("_Static_assert(FLT_MANT_DIG == 24", first[0].Content);
+        Assert.Contains("_Static_assert(FLT_MIN_EXP == -125", first[0].Content);
+        Assert.Contains("_Static_assert(FLT_MAX_EXP == 128", first[0].Content);
         Assert.Contains("_Alignas(8) int64_t position", first[0].Content);
         Assert.Contains("_Alignas(8) int64_t cycle", first[0].Content);
         Assert.Contains("_Static_assert(sizeof(tl_playback) == 16", first[0].Content);
@@ -32,7 +40,8 @@ public sealed class CBackendTests
         Assert.Contains("_Static_assert(offsetof(tl_frame, flags) == 34", first[0].Content);
         Assert.Contains("local >= 4u && local < 5u", first[1].Content);
         Assert.Contains("combat_seek(context, &frame);", first[1].Content);
-        Assert.Contains("bool battle_try_seek(uint16_t id, const tl_playback *playback, int32_t delta, void *restrict context, tl_playback *next)", output);
+        Assert.Contains("bool battle_try_seek(uint16_t id, const tl_playback *playback, int32_t delta, void *context, tl_playback *next)", output);
+        Assert.DoesNotContain("restrict context", output);
         Assert.DoesNotContain("try_forward", output);
         Assert.DoesNotContain("try_backward", output);
         Assert.DoesNotContain("tl_clip_state", output);
@@ -46,7 +55,7 @@ public sealed class CBackendTests
         Assert.Equal(8u, emission.Report.Duration);
         Assert.True(emission.Report.Loops);
         Assert.Equal(emission.Artifacts.Sum(static artifact => artifact.Utf8Bytes), emission.Report.SourceUtf8Bytes);
-        Assert.Equal(14_220, emission.Report.SourceUtf8Bytes);
+        Assert.Equal(14_627, emission.Report.SourceUtf8Bytes);
         Assert.Equal(0, emission.Report.StaticDataBytes);
         Assert.Equal(16, emission.Report.PlaybackBytes);
         Assert.Equal(8, emission.Report.PlaybackAlignment);
@@ -96,6 +105,20 @@ public sealed class CBackendTests
     [InlineData("uintptr_t")]
     [InlineData("intmax_t")]
     [InlineData("uintmax_t")]
+    [InlineData("CHAR_BIT")]
+    [InlineData("INT_MAX")]
+    [InlineData("ULLONG_MAX")]
+    [InlineData("FLT_RADIX")]
+    [InlineData("FLT_EPSILON")]
+    [InlineData("FLT_ROUNDS")]
+    [InlineData("FLT_EVAL_METHOD")]
+    [InlineData("DECIMAL_DIG")]
+    [InlineData("FLT_TRUE_MIN")]
+    [InlineData("FLT_MANT_DIG")]
+    [InlineData("FLT_MIN_EXP")]
+    [InlineData("FLT_MAX_EXP")]
+    [InlineData("INT64_C")]
+    [InlineData("INT64_MAX")]
     [InlineData("INT64_MIN")]
     [InlineData("UINT32_C")]
     [InlineData("_reserved")]
@@ -270,7 +293,7 @@ public sealed class CBackendTests
         #include <stdio.h>
         #include <string.h>
 
-        typedef struct { tl_frame frames[64]; uint32_t count; int64_t balance; } receipt;
+        typedef struct { tl_playback playback; tl_frame frames[64]; uint32_t count; int64_t balance; } receipt;
 
         static void record_frame(void *context, const tl_frame *frame)
         {
@@ -418,14 +441,14 @@ public sealed class CBackendTests
             if (one.count != 2u || one.frames[1].flags != reverse_flags || one.frames[1].game_tick != 50u || !playback_is(&one_playback, &one_start) || one.balance != INT64_C(0)) return 52;
 
             receipt aliased = { 0 };
-            tl_playback aliased_playback;
-            if (!battle_try_start(42u, 77u, &aliased_playback)) return 53;
-            if (!battle_try_seek(42u, &aliased_playback, 2, &aliased, &aliased_playback)) return 54;
-            if (aliased_playback.position != INT64_C(2) || aliased_playback.game_tick != 79u || aliased.count != 1u) return 55;
-            tl_playback before_stop = aliased_playback;
-            if (!battle_try_stop(42u, &aliased_playback, &aliased_playback)) return 56;
-            if (aliased_playback.position != before_stop.position || aliased_playback.game_tick != before_stop.game_tick || aliased_playback.owner != before_stop.owner || aliased_playback.flags != (TL_PLAYBACK_STARTED | TL_PLAYBACK_STOPPED)) return 57;
-            if (!battle_try_stop(42u, &aliased_playback, &aliased_playback) || aliased_playback.flags != (TL_PLAYBACK_STARTED | TL_PLAYBACK_STOPPED)) return 58;
+            if ((void *)&aliased != (void *)&aliased.playback) return 53;
+            if (!battle_try_start(42u, 77u, &aliased.playback)) return 54;
+            if (!battle_try_seek(42u, &aliased.playback, 2, &aliased.playback, &aliased.playback)) return 55;
+            if (aliased.playback.position != INT64_C(2) || aliased.playback.game_tick != 79u || aliased.count != 1u) return 56;
+            tl_playback before_stop = aliased.playback;
+            if (!battle_try_stop(42u, &aliased.playback, &aliased.playback)) return 57;
+            if (aliased.playback.position != before_stop.position || aliased.playback.game_tick != before_stop.game_tick || aliased.playback.owner != before_stop.owner || aliased.playback.flags != (TL_PLAYBACK_STARTED | TL_PLAYBACK_STOPPED)) return 58;
+            if (!battle_try_stop(42u, &aliased.playback, &aliased.playback) || aliased.playback.flags != (TL_PLAYBACK_STARTED | TL_PLAYBACK_STOPPED)) return 59;
 
             printf("c11 signed seek parity: %u mirrored frames; lifecycle exact\n", 16u);
             return 0;
