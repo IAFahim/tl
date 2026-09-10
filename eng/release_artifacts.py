@@ -45,6 +45,14 @@ PACKAGE_DEPENDENCIES = {
     "Tl.Runtime": set(),
 }
 
+PACKAGE_FORBIDDEN_FILES = {
+    "Tl.CSharp": {"Tl.Compiler.dll", "Tl.Gen.C.dll"},
+    "Tl.Compiler": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Gen.C.dll", "Tl.Gen.dll"},
+    "Tl.Gen.C": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Compiler.dll", "Tl.Gen.dll"},
+    "Tl.Gen.CSharp": {"Tl.Compiler.dll", "Tl.Gen.C.dll"},
+    "Tl.Runtime": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Compiler.dll", "Tl.Gen.C.dll", "Tl.Gen.dll"},
+}
+
 SYMBOL_FILES = {
     "Tl.Compiler": "lib/net10.0/Tl.Compiler.pdb",
     "Tl.Gen.C": "lib/net10.0/Tl.Gen.C.pdb",
@@ -120,6 +128,10 @@ def verify_nupkg(path, package_id, version, commit, repository_ref):
         missing = PACKAGE_FILES[package_id] - names
         if missing:
             fail(f"{path.name} is missing {sorted(missing)}")
+        basenames = {Path(name).name for name in names}
+        forbidden = PACKAGE_FORBIDDEN_FILES[package_id] & basenames
+        if forbidden:
+            fail(f"{path.name} contains forbidden files {sorted(forbidden)}")
         root = nuspec(archive)
         if metadata_value(root, "id") != package_id:
             fail(f"{path.name} has the wrong package ID")
@@ -137,7 +149,10 @@ def verify_nupkg(path, package_id, version, commit, repository_ref):
         }
         if repository != expected_repository:
             fail(f"{path.name} repository identity is {repository}, expected {expected_repository}")
-        dependencies = {item.attrib["id"]: item.attrib["version"] for item in descendants(root, "dependency")}
+        dependency_items = descendants(root, "dependency")
+        dependencies = {item.attrib["id"]: item.attrib["version"] for item in dependency_items}
+        if len(dependencies) != len(dependency_items):
+            fail(f"{path.name} contains duplicate dependencies")
         expected_dependencies = PACKAGE_DEPENDENCIES[package_id]
         if set(dependencies) != expected_dependencies:
             fail(f"{path.name} dependencies are {dependencies}, expected {sorted(expected_dependencies)}")
