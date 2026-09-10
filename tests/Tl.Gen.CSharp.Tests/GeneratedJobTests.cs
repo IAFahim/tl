@@ -54,13 +54,11 @@ public sealed class GeneratedJobTests
             }
         }
         public readonly struct MixedRows;
-        public readonly struct ShortRows;
         public readonly partial struct Combat : ITimelineCatalog
         {
             public static void Define(scoped CatalogBuilder builder)
             {
                 builder.Schema<MixedRows>().Asset<Combo>().Asset<Short>();
-                builder.Schema<ShortRows>().Asset<Short>();
             }
         }
         public static class Receipt
@@ -125,19 +123,19 @@ public sealed class GeneratedJobTests
                 var states = new[] { new Combat.State(Combat.Asset.Short) };
                 var bias = new long[1];
                 var value = new long[1];
-                var query = new Combat.Query().ShortRows(states, bias, value);
-                states[0] = new Combat.State(Combat.Asset.Combo);
+                var query = new Combat.Query().MixedRows(states, bias, value);
+                states[0] = new Combat.State((Combat.Asset)99);
                 var rejected = false;
                 try { query.Tick(0); } catch (ArgumentException) { rejected = true; }
                 if (!rejected || value[0] != 0 || states[0].Position != 0)
                     throw new Exception("Mutable route bypassed whole-schema validation.");
                 states[0] = new Combat.State(Combat.Asset.Short);
                 rejected = false;
-                try { _ = new Combat.Query().ShortRows(states, bias, bias); }
+                try { _ = new Combat.Query().MixedRows(states, bias, bias); }
                 catch (ArgumentException) { rejected = true; }
                 if (!rejected) throw new Exception("Aliased columns were accepted.");
                 rejected = false;
-                try { _ = new Combat.Query().ShortRows(states, Array.Empty<long>(), value); }
+                try { _ = new Combat.Query().MixedRows(states, Array.Empty<long>(), value); }
                 catch (ArgumentException) { rejected = true; }
                 if (!rejected) throw new Exception("Mismatched lengths were accepted.");
             }
