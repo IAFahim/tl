@@ -1,308 +1,221 @@
-# v1.0.0-alpha.2 implementation plan
+# v1.0.0-alpha.3: total timeline jobs
 
-Date: 2026-09-10
-Base release: `v1.0.0-alpha.1` at `5c05aa5`
-Target package version: `1.0.0-alpha.2`
-Target immutable tag: `v1.0.0-alpha.2`
-Status: runnable checkpoint; C# API correction and release paused
+Design owner: [issue #27](https://github.com/IAFahim/tl/issues/27). Live work: [Project 6](https://github.com/users/IAFahim/projects/6/views/4). Base: `a267a3b1ab59d37b78814449db51f7d5a8656ec1`. Package/tag target: `1.0.0-alpha.3` / `v1.0.0-alpha.3`.
 
-This file records the accepted architecture, measurable targets, release gates, and recovery path. GitHub Issues and [Project 6](https://github.com/users/IAFahim/projects/6/views/4) own live work. [Issue #11](https://github.com/IAFahim/tl/issues/11) owns release completion. The [API contract](docs/v1.0-alpha-api.md), [migration guide](docs/v1.0-alpha-migration.md), and [release checklist](docs/v1.0-alpha-checklist.md) define the reviewable surface and proof.
+This is the breaking design and delivery contract. It does not claim that the existing generator implements it. The alpha.2 package version remains until production migration and release validation succeed. The previous plan remains available in Git at the base commit.
 
-## Product
+## What changes
 
-`tl` compiles declarative, heterogeneous timelines into deterministic playback kernels. A partial `ITimeline` declaration is enough to request generation. The generated typed facade is the primary runtime API. A non-generic runtime ID facade exists for systems that select definitions dynamically.
+A timeline selects which operations must execute. It does not receive gameplay components while selecting. Generated typed jobs consume that selection over compatible entity rows. The .NET and Unity adapters call the same authored `Execute(in Frame<Track, Clip>, in input, ref output)` operation.
 
-The accepted C# shape is:
+The compiler knows the supported operation signatures. Designers choose immutable track values, clip values, windows, and ordering without editing those operations. Adding a new operation type requires compilation; editing data of an existing supported type does not inherently require translating new gameplay code.
 
-```csharp
-using Tl;
+Normal playback has one public operation: `Tick(gameTick, delta = 1)`. Default playback is ready at local position zero. There is no mandatory `Start`, `Bind`, `Compile`, `InMemory`, or per-tick failure boolean. Empty assets do nothing. Finite timelines stop independently at their boundaries. Signed movement executes every available crossed frame.
 
-public readonly record struct Scale(float Value);
-public readonly record struct Offset(float Value);
+## Evidence before implementation
 
-public readonly struct MotionTrack : ITrack<Offset>
-{
-    public void Blend(in Offset first, in Offset second, float factor, out Offset result)
-        => result = new(first.Value + (second.Value - first.Value) * factor);
+| Boundary | Existing production | Preserved reference | Alpha.3 requirement |
+| --- | --- | --- | --- |
+| Lifecycle | `Start` and `TrySeek`; invalid movement rejects | Total `Tick`, default ready, independent clamping | Generator emits the total contract |
+| Work execution | Whole timeline invokes consumers per entity | Selection, Damage stage, Animation stage, completion | Arbitrary ordered operation occurrences |
+| .NET data | Borrowed generated contexts | Borrowed component columns, validated at construction | Generated schema-specific query over caller storage |
+| Unity | Existing signed-seek package and player qualification | Real IJobEntity source generation, compile-only at preservation | New selection/filter/order path executes under Burst |
+| SIMD | Historical scalar specializations | No SIMD claim | Measured eligible kernels; scalar fallback preserves semantics |
+| Designer data | C# declarations; incomplete neutral plan | Three hard-coded assets | Validated language-neutral schedule and separate bindings |
 
-    public static void Seek(
-        in Frame<MotionTrack, Offset> frame,
-        in Scale scale,
-        ref float position)
-        => position += frame.Direction * frame.Clip.Value * scale.Value;
-}
-
-public readonly partial struct Attack : ITimeline
-{
-    public static void Define(scoped Builder builder)
-    {
-        var motion = builder.Track(new MotionTrack());
-        builder.Clip(motion, new Offset(1f), 0u, 8u);
-    }
-}
-
-public static class Simulation
-{
-    public static bool Tick(
-        ref Playback<Attack> playback,
-        in Scale scale,
-        ref float position)
-    {
-        var data = new Attack.Data(ref playback, in scale, ref position);
-        return Attack.TrySeek(ref data, 1);
-    }
-}
-```
-
-Create the playback once with `var playback = Attack.Start(gameTick)`, retain it with the simulation state, and pass it by reference to each tick. `Start(gameTick)` anchors local position zero to an external game tick. `TrySeek(ref data, delta)` consumes a signed simulation delta. Positive values move forward, negative values move backward, and zero is an identity operation. A successful magnitude greater than one replays every crossed local frame in order. It is not a snapshot jump.
-
-The generator owns `Attack.Data`, `Attack.DynamicData`, typed playback adaptation, track dispatch, validation, and generated diagnostics. Runtime authoring and explicit binding are absent. One signed operation owns movement in both directions.
-
-## Runtime contract
-
-1. `Playback<TTimeline>` belongs to its generated timeline type. The compiler rejects accidental cross-timeline typed calls.
-2. `Playback` is the explicit dynamic-routing state. Both playback forms are 16-byte values with a frozen field layout.
-3. `Frame<TTrack,TClip>` carries the borrowed track and resolved clip, game tick, local timeline tick, authored track index, signed cycle, and direction in flags. It carries no redundant signed direction integer.
-4. Generated data containers borrow caller storage. Read-only slots are `ref readonly`; mutable and produced slots are `ref`. The container is stack-only and cannot retain those references.
-5. `ITrack<TClip>`'s static `Seek` receives one typed frame followed by its explicitly declared slot parameters. User code never receives the generated data container. It may declare any finite set of generator-supported read-only and mutable slots.
-6. Generated typed calls have no registry lookup, runtime schema binding, boxing, delegate, reflection, managed allocation, or indirect callback in the warm path.
-7. Dynamic calls validate the runtime ID and schema before executing. Dynamic routing is an explicit flexibility and latency tradeoff.
-8. Empty timelines and finite timelines reject positions outside their legal domain before callbacks. Position arithmetic is checked in `long`; looping timelines derive a signed `long` cycle from the resulting position.
-9. Engine-detected failure returns `false` without effects.
-10. User-code exceptions propagate. Effects from already executed frames remain visible.
-11. A multi-frame seek is ordered scalar execution. If user code throws, the executed prefix remains visible.
-12. Input references are live read-only aliases rather than snapshots. Explicit aliasing observes writes in program order.
-13. Forward then inverse movement restores state only when the consumer operations themselves form a valid inverse. The engine preserves order and direction; it cannot manufacture reversibility for arbitrary side effects.
-14. Generation is deterministic and culture-independent. Unchanged inputs produce byte-identical sources.
-
-## Architecture
-
-```text
-C# declarations
-    -> Tl.Gen.CSharp frontend
-    -> Tl.Compiler language-neutral plan
-    -> validation and normalization
-    -> C# backend
-    -> generated typed and dynamic kernels
-    -> C# compiler
-    -> JIT or NativeAOT
-```
-
-`Tl.Runtime` owns the stable playback ABI, frame contract, declaration syntax, IDs, and compact dynamic registry.
-
-`Tl.Compiler` owns the immutable language-neutral plan, fixed-width records, semantic validation, and versioned extension contract. It contains no Roslyn symbols, C# expressions, source syntax, or language-specific type spellings.
-
-`Tl.Gen.CSharp` owns C# discovery, semantic analysis, diagnostics, generated C# binding, and IDE incremental generation. The analyzer/source-generator package is build-time only and must not enter application runtime or NativeAOT output.
-
-`Tl.Gen.C`, Unity/Burst, C++, Rust, and other backends consume the neutral plan through independently versioned packages. Arbitrary behavior is represented by stable operation IDs whose implementation is supplied by each language binding. Cross-language support never pretends to translate arbitrary C# method bodies.
-
-Compiled definitions are immutable and retained for their declared lifetime. Publication exposes a complete descriptor. Read-only playback may run concurrently after publication. Any future reclamation or ID reuse requires a generation token and safe-reclamation proof.
-
-## Kernel strategy
-
-Generation removes facts that authoring already proves:
-
-- timeline type, loop trait, track and clip types
-- region cuts, active track set, blend count, payload index
-- clip and timeline boundary flags for each signed movement
-- typed slot shape and access modes
-- direct track operation targets
-- scalar signed-seek direction when the delta is a literal
-
-Small timelines use emitted basic blocks and direct calls. Larger shapes may use compact interval, rank, tree, or table representations when measured code and data cost wins. Sequential playback keeps only state that reduces total work. Random access falls back to a total location strategy.
-
-Single-frame latency and multi-frame throughput use different generated shapes. The public operation remains signed seek. Literal and runtime delta paths may specialize internally while preserving identical ordered effects.
-
-Generated code is selected from deterministic shape rules. The compiler does not run hidden benchmarks during generation because results would depend on editor load, hardware, tiering, and unavailable target architecture. Thresholds require retained A/B evidence and must account for source bytes, native code bytes, static data, and hot-set behavior.
-
-## Performance contract
-
-The primary performance target is less than 3.000 ns per executed frame for the generated typed `SumTimeline` signed-seek matrix on the declared reference machine. It is a narrow, reproducible target rather than a universal callback guarantee.
-
-The fixed matrix contains:
-
-- literal and runtime `+1`
-- literal and runtime `-1`
-- alternating `+1/-1`
-- literal and runtime `+5`
-- literal and runtime `-5`
-- five repeated scalar `+1` calls
-- five repeated scalar `-1` calls
-- literal and runtime `+64`
-- direct oracle, typed generated facade, and dynamic generated facade
-
-Every benchmark consumes success, playback, and output state; passes exact semantic parity first; reports per executed frame; and allocates zero managed bytes in the warm path.
-
-At implementation commit `12119ca583884390c523049a3309ce5a3d244730`, median-of-three BenchmarkDotNet process medians on the reference i9-14900K and .NET 10.0.12 are:
-
-| Workload | Direct | Typed | Dynamic |
-| --- | ---: | ---: | ---: |
-| Literal +1 | 2.247 ns | 1.674 ns | 6.950 ns |
-| Literal -1 | 2.269 ns | 1.780 ns | 8.363 ns |
-| Runtime +1 | 2.468 ns | 2.170 ns | 6.987 ns |
-| Runtime -1 | 2.481 ns | 2.495 ns | 7.332 ns |
-| Alternating one | 4.431 ns | 2.562 ns | 7.141 ns |
-| Literal +5 | 1.534 ns | 1.448 ns | 2.397 ns |
-| Literal -5 | 1.520 ns | 1.412 ns | 2.443 ns |
-| Runtime +5 | 1.732 ns | 1.457 ns | 2.398 ns |
-| Runtime -5 | 1.731 ns | 1.486 ns | 2.396 ns |
-| Repeated +1 ×5 | 1.515 ns | 2.494 ns | 6.910 ns |
-| Repeated -1 ×5 | 1.578 ns | 2.780 ns | 7.282 ns |
-| Literal +64 | 1.564 ns | 1.411 ns | 1.421 ns |
-| Runtime +64 | 1.933 ns | 1.411 ns | 1.416 ns |
-
-All 117 `SumTimeline` measurements report 0 B allocated. The dynamic scalar path is measured above 3 ns and is not the primary latency target.
-
-A separate heterogeneous Combat fixture measures real animation and damage callbacks:
-
-| Stream | Direct | Typed | Dynamic |
-| --- | ---: | ---: | ---: |
-| Forward +1 | 3.778 ns | 4.165 ns | 6.039 ns |
-| Alternating +1/-1 | 8.005 ns | 7.696 ns | 20.258 ns |
-
-All 18 Combat measurements report 0 B allocated. These results define the honest workload boundary: callback bodies, active tracks, blending, branches, memory dependencies, and ordered effects establish a physical floor. The library cannot promise arbitrary consumers below 3 ns.
-
-[Signed-seek evidence](benchmarks/Alpha/results/signed-seek/README.md) retains raw JSON, logs, PMU counters, generated hashes, code sizes, and Tier-1 assembly. NativeAOT correctness is a release gate; NativeAOT throughput is reported separately when a controlled harness exists.
-
-## Measurement rules
-
-- Verify exact traces before timing.
-- Measure direct oracle, typed, and dynamic forms with the same authored timeline, ticks, inputs, effects, and receipts.
-- Use three fresh BenchmarkDotNet processes with 16 warmups, 12 target iterations, 250 ms requested iteration time, MemoryDiagnoser, and full JSON.
-- Pin one logical CPU and record topology, governor, turbo state, SDK, runtime, benchmark version, affinity, source commit, tree, generated hashes, and commands.
-- Retain cycles, instructions, branches, branch misses, code bytes, generated bytes, static data, registry bytes, and managed allocation as distinct quantities.
-- Keep validation, playback transition, and observable outputs inside the timed operation.
-- Label per-frame replay throughput as throughput. Do not describe it as one-call scalar latency.
-- Never use best-sample selection, timer subtraction, dead outputs, constant-folded receipts, unchecked failure, different fixtures, or reordered floating-point effects.
-- Hosted CI proves correctness and artifact integrity; it is not the authority for sub-3 ns comparisons across unlike machines.
-
-## Memory and size
-
-Production source size is:
-
-```text
-sum(UTF-8 file content bytes + UTF-8 relative path bytes + one separator byte)
-```
-
-for production files under `src`. The hard cap is 250,000 bytes. The runnable integration checkpoint measures 205,815 content bytes plus 1,522 path bytes, or 207,337 bytes total, leaving 42,663 bytes. Generated application source, IL, native code, retained timeline data, and runtime working set are reported separately.
-
-For `L` independently selectable stored values, fixed-width selection requires at least `ceil(log2 L)` bits. A timeline kind upper bound of 256 requires eight bits. Selecting up to 65,536 dynamic timelines requires sixteen bits. A count representing every integer from zero through 256 requires nine bits. Narrowing a field helps only when packing and load costs improve after alignment.
-
-Unique payload information cannot be losslessly deduplicated below its entropy. Equivalent plans, constants, rows, and operation sequences may be interned after exact equality. Signed zero, NaN payloads, padding, alignment, and deterministic ordering are part of that proof.
-
-The 250 KB library cap does not imply that all generated game code or payload data fits L1. Report source, generated code, native text, static data, and runtime hot sets independently. Select specialization only while its instruction-cache cost beats shared execution.
-
-## Correctness matrix
-
-Release validation covers:
-
-- start at arbitrary game ticks while local position begins at zero
-- zero, `+1`, `-1`, alternating, literal/runtime `±5`, and larger replay
-- finite beginning/end rejection and empty timelines
-- looping normalization, negative cycles, and checked signed-position extremes
-- gaps, one-frame clips, clip and timeline boundary flags, overlap blending
-- heterogeneous tracks and multiple borrowed inputs/outputs
-- typed and dynamic semantic parity
-- generated data access modes and compile-time rejection of invalid slots
-- exception prefix effects
-- stack-local and managed-heap byref safety through compacting GC
-- deterministic generation and stale-output deletion
-- zero warm managed allocation
-- capacity and module capacity
-- concurrent read-only playback after publication
-- exact Playback, typed Playback, and x64 Frame ABI layouts
-- isolated package consumption under managed JIT and NativeAOT
-- absence of Roslyn and generator assemblies from runtime artifacts
-
-One hundred percent line coverage is not a substitute for this boundary matrix. Coverage is evidence for missing cases; semantic oracles, ABI receipts, allocation receipts, NativeAOT execution, assembly, and hardware counters prove the properties that matter.
-
-## Paused architecture work
-
-The current stopping checkpoint contains a runnable incremental C# package and qualified Unity path. The reviewed C ABI v2 remains unchanged. Further C optimization, C packaging expansion, and completion of issue #5 stay pending.
-
-Before release or further backend work, resolve the owner-reported mistake in the C# API contract. Treat the current generated surface as provisional. The next session must first capture the failing game-facing use case, revise the API contract and migration guide, update generator/runtime/Unity surfaces together, renew public API approvals, and rerun correctness, allocation, NativeAOT, Burst, source-size, and performance gates. Do not preserve the current shape merely for compatibility with this unreleased checkpoint.
-
-The API correction must decide and prove these points:
-
-1. Define whether multi-frame replay mutates one evolving state or samples an immutable current state into a separate result. The current `in current` and `out next` shape does not feed one frame's output into the next unless storage aliases or the operation uses `ref`.
-2. Separate stable asset identity from process-local dispatch handles. Lazy `ushort` registration order cannot identify saved, networked, independently built, or modded timelines.
-3. Define dynamic invocation honestly. A runtime ID cannot infer an arbitrary component schema; either a generated world/context contract supplies it or the dynamic boundary is explicitly schema-specific.
-4. Choose one Unity authoring story: a Unity-compatible source generator or deterministic offline generated assets. The current Unity package has checked-in kernels rather than the .NET `ITimeline` authoring experience.
-5. Remove or type-fence Unity pointers created from movable managed byrefs. Pointer-backed contexts may accept only storage whose address remains stable for the complete call.
-6. Define late extension composition. The current single, same-compilation `Include` cannot support independently compiled analytics or mods and duplicates flattened code and data.
-7. Give hooks the frame facts they need or replace direction-specific hook methods with one signed operation.
-8. Replace emitted constructor execution with a proven constant-data representation before claiming build determinism for arbitrary unmanaged payload types.
-9. Make blending optional for tracks that can never overlap, select scalable region dispatch by measured shape, and omit dynamic machinery when a definition does not request it.
-10. Seal or authenticate compiler-only dynamic bridges and make invalid metadata queries total before claiming that malformed user code cannot bypass validation or exhaust registries.
-
-The current implementation already keeps `Playback<TTimeline>` timeline-typed, stores direction in the one-byte `FrameFlags`, derives `Direction`, omits ordinal and active-count fields, and borrows .NET component storage without copying payloads. Preserve those proven properties unless stronger evidence requires a change.
-
-The next neutral-plan atom is:
-
-1. Replace quadratic region lowering with a bounded sweep before accepting untrusted serialized plans.
-2. Add explicit limits for encoded bytes, strings, operations, clips, and derived regions.
-3. Reject unsupported formats before parsing their grammar and reject ill-formed Unicode during semantic validation.
-4. Define operation ordering by unsigned canonical UTF-8 bytes, retain authored track and clip order, reject unused table entries, and prove every successful decode re-encodes byte-identically.
-5. Add neutral type, borrowed-slot, constant, frame, and route records without language syntax.
-6. Lower C# declarations into that plan and make the C# and C emitters consume the same validated semantic schedule.
-7. Add version-skew, capacity, schema-compatibility, and golden cross-backend fixtures before extracting backend repositories.
-
-The discarded codec checkpoint is retained in local history as `f2f2da9` and reverted by `327e6bf`; it is design evidence, not production code. Its fixed ASCII vector, minimal ULEB128 implementation, and SHA-256 definition were sound. Review found noncanonical unused operation entries, insufficient untrusted-input limits, late format rejection, UTF-16-dependent ordering, and validated strings that strict UTF-8 could not encode. Those findings define the next implementation rather than being hidden by the pause.
-
-## Release gates
-
-The candidate may publish only when all gates are green on the same reviewed commit:
-
-1. Source budget and benchmark collector unit tests.
-2. Release build with zero compiler warnings.
-3. Full solution tests.
-4. Alpha correctness, capacity, and module-capacity receipts.
-5. Mixed heterogeneous sample.
-6. Signed-seek benchmark verification.
-7. Linux x64 NativeAOT publish and execution.
-8. Isolated package-only typed and dynamic execution under managed JIT and NativeAOT.
-9. No generator, compiler, or Roslyn assemblies in runtime output.
-10. JetBrains Inspect Code findings classified; real defects fixed.
-11. Raw benchmark, assembly, PMU, generated, source-size, and checksum evidence retained.
-12. Public API approval, migration guide, README, package versions, tag, and release metadata agree.
-13. Independent review passes.
-
-The C backend signed-seek ABI and Unity/Burst integration are separate workstreams. Issue #16 remains open until those accepted cross-language receipts land. Completion of the C# typed playback contract closes issue #15.
-
-## Coordination and recovery
-
-| Workstream | Issue |
-| --- | --- |
-| C# batch alias safety | [#2](https://github.com/IAFahim/tl/issues/2) |
-| C backend totality and widths | [#3](https://github.com/IAFahim/tl/issues/3) |
-| IDE incremental generation | [#4](https://github.com/IAFahim/tl/issues/4) |
-| Language-neutral plan | [#5](https://github.com/IAFahim/tl/issues/5) |
-| Correctness and coverage | [#6](https://github.com/IAFahim/tl/issues/6) |
-| Unity ECS and Burst | [#7](https://github.com/IAFahim/tl/issues/7) |
-| Packages and artifacts | [#8](https://github.com/IAFahim/tl/issues/8) |
-| Multi-PC coordination | [#9](https://github.com/IAFahim/tl/issues/9) |
-| Physical-floor performance | [#10](https://github.com/IAFahim/tl/issues/10) |
-| Release | [#11](https://github.com/IAFahim/tl/issues/11) |
-| Typed playback | [#15](https://github.com/IAFahim/tl/issues/15) |
-| Signed simulation seek | [#16](https://github.com/IAFahim/tl/issues/16) |
-| Separate the C# generator package | [#18](https://github.com/IAFahim/tl/issues/18) |
-| Compact generated schema routing tables | [#19](https://github.com/IAFahim/tl/issues/19) |
-| Make Release static analysis exact and warning-free | [#22](https://github.com/IAFahim/tl/issues/22) |
-
-A new machine recovers with:
+Run the portable reference with:
 
 ```sh
-git clone https://github.com/IAFahim/tl.git
-cd tl
+dotnet run --project experiments/Alpha3/Reference/Proof.csproj -c Release
+```
+
+The preserved receipt is 10,000 entities with default playback, mixed completion, clamping, empty assets, loops, signed order, and setup validation; 0 B over 2,560,000 entity-ticks. Its measured struct sizes are Playback 4 B, Selection 16 B, TimelineState 24 B. These are reference measurements, not a frozen production ABI or performance result. The reference does not prove arbitrary stage ordering, overlapping clips, complete frame flags, or generation by TL.
+
+## Two-hour execution budget
+
+The session starts at **2026-09-10 19:25:49 UTC**, or **2026-09-11 01:25:49 Dhaka**. The hard stop is **21:25:49 UTC / 03:25:49 Dhaka**. This budget includes planning and tests; it must not restart after every design change.
+
+| Window | Owner | Deliverable and exit condition |
+| --- | --- | --- |
+| 0–10 min | Manager | Publish current integration history, issue, remote plan branch, and runnable reference; claim three bounded workstreams |
+| 10–30 min | Three agents + manager | Falsify ordering, generator signatures, and Unity job execution assumptions; each publishes runnable evidence and limitations |
+| 30–40 min | Manager + reviewers | Freeze one API and stage law; publish exact production atoms, owned files, and acceptance commands; reject unproved shortcuts |
+| 40–75 min | Runtime, generator, Unity owners | Implement only the agreed end-to-end slice; first actual generated selector + shared operation + .NET query receipt by minute 60; no new speculative algorithm |
+| 75–100 min | Review and integration | Add adversarial ordering/alias/empty/loop tests, run actual Unity receipt, inspect allocation and emitted code; take one measured optimization only if there is time |
+| 100–120 min | Manager | Code freeze; exact-commit validation, package/API checks, push all work, review PRs, publish result or explicit blockers |
+
+**Stop rules:** if the first real generated vertical slice is not green by minute 75, finish and push that slice and its failing boundary instead of broadening the API. If Unity/Burst or package checks are unqualified by minute 100, the release remains blocked. A release name never substitutes for passing receipts. Experiments that disprove an assumption are retained with the reason; they do not become shipping code by being copied into `src`.
+
+The design request is complete when the selected contract, three reconciled reports, concrete implementation tasks, and recovery instructions are pushed. Shipping alpha.3 is the subsequent gate and requires the production checks below. Do not call a completed design a completed release.
+
+## Irreducible runtime laws
+
+1. **Definition:** validated immutable asset data owns intervals, typed payload references, operation identities, and authored order. It contains no entity state.
+2. **Selection:** definition plus committed position and movement direction determines the pending frame and ordered operation occurrences. Selection reads no gameplay component and performs no gameplay effect.
+3. **Execution:** each selected occurrence calls its statically known operation with borrowed data from the same entity. Its observable order is the authored order forward and the exact opposite occurrence order backward.
+4. **Commit:** after the frame's operations finish, playback advances to its pending position. Repeating commit on a completed frame has no effect.
+
+For per-entity state `s` and valid immutable definition `d`, repeated selection with identical arguments is identical. A fresh selection replaces an unexecuted selection; it does not append work. The public host owns select/execute/commit sequencing so users do not need to call those phases manually.
+
+A multi-frame call is a fold of this protocol over available frames. It is not one destination sample, an unordered set of effects, or an aggregate that skips side effects.
+
+## Total movement
+
+| Situation | Required behavior |
+| --- | --- |
+| Assigned asset, default playback | First `Tick(..., 1)` executes local frame 0 |
+| Default/empty asset | No callbacks and no allocation |
+| `delta == 0` | Playback and components unchanged |
+| Finite forward overshoot | Execute the remaining frames, then clamp at duration |
+| Finite reverse overshoot | Execute reverse frames down to local zero, then clamp |
+| One completed row among live rows | Only that row stops; live rows still execute |
+| Looping definition | Wrap local position and execute every crossed occurrence |
+| Empty query | Immediate no-op, including extreme deltas |
+| Invalid authored windows/schema/payload | Diagnostic at generation/import/setup before execution |
+| Consumer throws | Exception propagates; already executed effects are not silently rolled back |
+
+`gameTick` is the external cursor before movement. Forward +3 from 200000 supplies 200000, 200001, 200002 to operations; reverse -3 from 200003 supplies 200002, 200001, 200000. The uint clock wraps explicitly. No wall clock is read by TL. The host owns the application clock even when every finite timeline has completed.
+
+Do not negate `int.MinValue` in `int`, iterate billions of empty steps, or schedule billions of empty Unity job chains. Finite work bounds come from the longest remaining live timeline. Looping replay with real effects is inherently proportional to the requested work; only a separately proven algebraic operation may collapse it.
+
+Clamping loses overshoot information. Therefore `Tick(+n); Tick(-n)` is not universally identity. Exact restoration additionally requires the same executed frames, reverse operation order, reversible consumer operations, and appropriate event history. Floating-point subtraction is not a general inverse of floating-point addition.
+
+## Public surface and shared consumer code
+
+[The complete reference](experiments/Alpha3/Reference/README.md) includes all frame/state types, shared authored jobs, .NET query execution, Unity components, IJobEntity jobs, ISystem scheduling, and entity setup. The public shape under review is:
+
+```csharp
+public readonly partial struct DamageJob : ITimelineJob<DamageTrack, DamageClip>
+{
+    public static void Execute(
+        in Frame<DamageTrack, DamageClip> frame,
+        in Resistance resistance,
+        ref Health health)
+        => health.Value -= frame.Direction * frame.Clip.Amount
+            * frame.Track.Multiplier * resistance.Scale;
+}
+
+var query = new CombatQuery(timelines, resistance, health, poses);
+query.Tick(gameTick: 200000, delta: 1);
+query.Tick(gameTick: 200001, delta: -1);
+```
+
+`ITimelineJob<TTrack,TClip>` identifies a pairing; ordinary C# parameters define any supported finite set of inputs and outputs. It does not attempt variadic generic `in`/`out` syntax. `ref` updates the caller's component; `in` is a borrowed read-only alias, not a copy of gameplay state. A job requiring evolving state uses `ref`. An `out` operation, if retained in the final signature grammar, must assign its result on every executed occurrence; skipped occurrences leave existing caller storage unchanged.
+
+The generated query name comes from its compiled asset/schema set. That set must be defined in import/build metadata; discovering some random runtime asset ID cannot reveal arbitrary C# component types. A row may hold any asset compatible with the query's generated operation/component contract. A complete example must include how that set is declared before claiming the API has zero hidden boilerplate.
+
+Unity's thin IJobEntity wrapper calls the same shared Execute bridge. Selection enables the operation marker for the current stage; disabled markers exclude that operation job. The selector must still visit rows with disabled markers, and completion must only advance rows whose entire selected schedule ran. The wrapper does not rename the domain operation to a different Try method.
+
+`Frame` contains borrowed track and resolved clip values, local/game tick, authored track index, and flags. Direction belongs in flags with a computed convenience property. No ordinal or active-count field is added. Full clip/timeline boundary behavior and any retained cycle information must be specified and tested before replacing the existing frame ABI; the smaller reference must not silently erase them.
+
+## Ordered batching, not type sorting
+
+A type mask answers whether an operation occurs. It cannot encode `A -> B -> A`. A scheduler that runs all A operations and then all B operations is wrong for that sequence. Timelines `A -> B` and `B -> A` also cannot share one global type order.
+
+The correctness baseline uses ordered **occurrences** with an internal stage/position identity. At each stage, compatible operations may batch across independent entity rows. Reverse movement traverses occurrences backward. Blend resolution produces one typed frame for its authored track occurrence, not two unrelated calls.
+
+The ordering workstream must choose and prove the smallest representation. It must measure both retained bytes and traversal complexity. Avoid a frame queue of `entities × active clips` and avoid allocating a 256-entry selection buffer per entity just because 256 tracks are supported. Immutable shared schedules plus small per-entity positions are the default candidate.
+
+Cross-entity or global effects are a separate dependency domain. Passing `in`/`ref` alone does not prove independence if a body reads mutable statics, follows shared pointers, or writes another entity. The first parallel executor supports row-local borrowed components and immutable shared data. Broader effects require an explicit deterministic ordered phase or a proven reduction; arbitrary C# purity is not asserted by a marker interface.
+
+The 256-track limit bounds authored track indices to 0..255; a count of 256 needs more than eight bits. Multiple hooks can create more operation occurrences than tracks. Do not use a byte for occurrence count without a separate validated bound.
+
+## Data, schemas, and lifetime
+
+- .NET queries borrow component columns or operate on validated native chunks. They validate equal entity membership, length, and prohibited overlap once at setup. Query creation does not allocate a hidden frame queue. A default query is empty.
+- Unity owns ECS component storage and job dependencies. TL supplies immutable asset data, per-entity playback/selection data, and generated operation filters. No span, managed byref, or ref struct is stored in a scheduled job.
+- Borrowed frames live only inside Execute. Blend scratch is bounded by the current operation/region, with a demonstrated stack limit or caller/host-owned chunk scratch. Large payloads must not produce unbounded stack allocation.
+- Required schema membership is checked during import/entity creation/query setup. If external structural changes remove required components, a generated schema gate must disable the whole affected timeline or report the mutation at that boundary before partial work can run. Merely letting each IJobEntity query filter independently is insufficient.
+- Stable asset identity is separate from a process-local ushort route. Save files, networking, and mod references do not store registration-order IDs. Typed facades may eliminate routing; dynamic assets retain an explicit generated routing cost.
+- Default asset needs an explicit empty representation. Supporting all 65,536 nonempty assets plus empty requires an extra state/bit or a wider handle; do not reserve ushort zero and still claim 65,536 live values.
+- Definition lifetime must outlive every scheduled reader. Publication exposes a complete immutable definition. Reclaiming/swapping it requires host fences; no per-frame lock is added.
+
+## Compiler and portability
+
+```text
+C# declarations or designer asset data
+    -> frontend + typed language binding
+    -> validated neutral ordered schedule and constant data
+    -> C# kernel/query backend
+    -> .NET compiler
+
+same neutral schedule + C# binding
+    -> Unity-compatible materialized source + immutable data
+    -> Unity compilation, Entities generation, Burst
+```
+
+`Tl.Compiler` owns schedule semantics and validation, never Roslyn symbols or C# expression strings. `Tl.Gen.CSharp` owns symbol analysis, generated signatures, constant encoding, diagnostics, and .NET/Unity C# source emission. Unity storage adapters may use BlobAssetReference, but the semantic schedule is the same and .NET does not depend on Unity.
+
+Do not implement an entire portable codec during this timebox. New C work, backend repository extraction, GUI editor construction, and arbitrary C# translation remain deferred. Define the neutral seam needed by the slice and preserve the reviewed C ABI until a separate migration is approved.
+
+Roslyn generators do not consume other generators' output in the same pass. A TL-emitted IJobEntity declaration therefore needs deterministic source materialization before Unity's compilation, or TL must emit a complete IJobChunk adapter itself. Pick one qualified path; do not promise IDE generation alone solves the Unity handoff. Existing .NET incremental generation remains automatic while editing. Unity updates use the editor's import/compilation cycle, with unchanged output preserving content and timestamps.
+
+## Implementation atoms after design review
+
+These define dependency and acceptance, not a second mutable task board. Issue #27 records the chosen owners, exact branches, published heads, and transitions.
+
+| Atom | Owned production boundary | Dependency | Acceptance |
+| --- | --- | --- | --- |
+| A: total state/selection | `src/Tl.Core/Playback.cs`, `Compiled.cs`; core receipts | frozen movement and frame contract | default/empty/zero/mixed completion/finite extremes/loops; selection has no consumer calls |
+| B: ordered schedule | minimal `src/Tl.Compiler` records/validator; compiler receipts | ordering prototype | A-B-A and opposing orders, gaps, overlap order, reverse, 256 tracks; deterministic immutable plan |
+| C: real generated bridge | C# reader/model/emitter and generator tests | A/B | authored declarations compile into selector, typed Execute bridge, and query; no handwritten fixture dispatch hidden as generator output |
+| D: .NET column executor | generated query emitter, mixed sample and runtime receipts | C | 10,000 mixed rows; same traces as independent per-entity oracle; borrowed inputs, live ref outputs, 0 B warmed |
+| E: Unity executor | Unity generator/materializer, runtime adapter, ECS sample/tests | A/B/C | real IJobEntity filter and dependency behavior; complete-schema gate; actual Burst execution matches oracle |
+| F: candidate qualification | API approvals, README/migration, package versions, release evidence | A–E green | exact-commit build/tests/AOT/package/Unity/budget/inspection/benchmark checks; independent review |
+
+A/B can proceed independently after contract freeze. C consumes their reviewed contracts. E can prepare host tests while C is implemented. One agent owns the C# emitter at a time; do not assign colliding broad refactors. The reference is an oracle/example; migrating its hard-coded asset enum into production is forbidden.
+
+## Performance experiment policy
+
+First compare selector-only, direct per-entity oracle, and full query selection+execution+commit on the same data. Then compare the previous generated API when semantics match. Report selection, dispatch, callback, scheduler, and complete operation cost separately.
+
+The below-3-ns goal applies to a declared hot trivial workload on the reference CPU. Report scalar latency and per-entity batched throughput separately. A Unity job schedule time is not a per-entity processing time. A SIMD arithmetic loop that excludes gathers, masks, selection, and commit is not the full result.
+
+Measure sequential and mixed assets, alternating direction, gaps, blending, A-B-A, and 1/16/256 tracks. Working sets include 1, 32, 10,000, and a cache-exceeding row count. Use exact receipts before timing, retained BenchmarkDotNet JSON, warmed allocation measurement, and assembly; use perf counters if access works. Serialize timed runs and record CPU affinity/environment. Short runs are exploratory and must not satisfy the established three-process release evidence gate.
+
+The first optimization order is deletion of redundant work: hoist immutable facts, genuine scalar single-step entry, ordered stage reuse, compact shared payloads/schedules, direct typed calls, then SIMD only for eligible independent operation kernels. Do not apply every intrinsic or inlining hint blindly. No runtime or build-time autotuning benchmarks are hidden inside source generation.
+
+## Source and memory budget
+
+Production source plus relative UTF-8 paths is at most **250,000 B**. The base is **207,337 B**, leaving **42,663 B** before deletions. Run `python3 benchmarks/source_budget.py` after each production atom. Documentation and experiments are separate and must not be included in runtime packages.
+
+Report source bytes, generated C#, IL/native text, unique payload bytes, schedule bytes, per-entity state, scratch, managed allocation, and retained native allocation separately. Deduplication uses exact semantic/bit equality, not hash identity alone. Track stable ordering, signed zero, NaN payloads, alignment and endianness where they matter.
+
+A position with `D + 1` finite boundary values requires at least `ceil(log2(D + 1))` bits. Choosing among `A` assets plus empty needs `ceil(log2(A + 1))` bits. These are representation lower bounds, not a proof that an entire scheduler can reach them without padding, indexes, or lookup cost. For arbitrary effectful replay, at least each observable effect must execute; batching cannot erase that work.
+
+## Release gate
+
+Run the existing release gate unchanged unless a reviewed breaking migration explicitly replaces an obsolete receipt:
+
+```sh
+python3 benchmarks/source_budget.py
+python3 -m unittest discover -s benchmarks -p test_collect.py
+dotnet build tl.slnx -c Release -m:1 -p:NuGetAudit=false
+dotnet test tl.slnx -c Release --no-build -p:NuGetAudit=false
+dotnet run --project tests/Tl.Alpha -c Release --no-build
+dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
+dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
+dotnet run --project samples/Mixed -c Release --no-build
+dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
+dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
+```
+
+Also execute the published AOT binary, new generated batch/oracle/allocation tests, real Unity EditMode/PlayMode/Burst receipts, package-only JIT/AOT consumers, generator exclusion from player/runtime output, deterministic generation/cache invalidation tests, and JetBrains InspectCode. A compile-only Unity probe is not a player qualification. Report exact supported Editor/Entities/Burst versions; no untested stable Unity or IL2CPP claim.
+
+The SemanticModel/syntax-tree ownership issue found during previous inspection requires a regression receipt if it remains present. Do not hide an analyzer exception by suppressing its warning. Coverage is measured and gaps named; neither 100% correctness nor 100% test coverage is assumed.
+
+The candidate's public API approval files, migration examples, README, package versions, generated reports, tag, and checksums must agree. Another agent reviews the exact integration commit. The manager merges after checks and review, then creates an immutable prerelease tag only on that validated commit. NuGet publication and license choice retain their explicit owner-decision gates.
+
+## Recovery and completion
+
+```sh
 git fetch origin '+refs/heads/*:refs/remotes/origin/*'
-cat AGENTS.md
-cat plan.md
-cat docs/roadmap.md
-gh issue view 11 --comments
-gh issue view 16 --comments
-gh pr list --state open
+gh issue view 27 --comments
 gh project item-list 6 --owner IAFahim --limit 1000
+gh pr list --state open
 git ls-remote --heads origin 'refs/heads/workstream-claims/*' 'refs/heads/issue-transactions/*'
 ```
 
-Every workstream records its exact branch, owner, machine, commit, validation, remaining failure, and next atom on its issue. Green atoms are committed, pushed, and checkpointed before another atom begins. Pull requests are reviewed by another agent. The manager alone merges after required checks and evidence pass.
+Read the latest issue checkpoint and claim before editing. Use `eng/agent-work`; never push a branch with another active owner. Each atom is committed, pushed, and reported before the next. Source, test commands, result, remaining defects, and next atom live on GitHub. Only local installed tool paths and ephemeral build products remain machine-specific.
+
+The final report must say which outcome occurred: design validated, production vertical slice complete, or alpha.3 released. It includes exact commits/PRs, measured performance and allocation evidence, failures and deferred scope. A completed experiment is productive evidence, but it is not shipped functionality.

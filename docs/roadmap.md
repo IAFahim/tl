@@ -2,7 +2,7 @@
 
 ## Start here on any machine
 
-Chat history and local worktrees are disposable. The canonical live state is the [Project 6 Workflow view](https://github.com/users/IAFahim/projects/6/views/4), the [v1.0.0-alpha.2 release issue](https://github.com/IAFahim/tl/issues/11), each workstream issue, its linked pull request, and its remote atomic claim.
+Chat history and local worktrees are disposable. The canonical live state is the [Project 6 Workflow view](https://github.com/users/IAFahim/projects/6/views/4), the [v1.0.0-alpha.3 design and delivery issue](https://github.com/IAFahim/tl/issues/27), each workstream issue, its linked pull request, and its remote atomic claim.
 
 ```sh
 git clone https://github.com/IAFahim/tl.git
@@ -10,7 +10,7 @@ cd tl
 git fetch origin '+refs/heads/*:refs/remotes/origin/*'
 cat AGENTS.md
 cat plan.md
-gh issue view 11 --comments
+gh issue view 27 --comments
 gh pr list --state open
 gh project item-list 6 --owner IAFahim --limit 1000
 git ls-remote --heads origin 'refs/heads/workstream-claims/*' 'refs/heads/claims/*' 'refs/heads/issue-transactions/*'
@@ -28,9 +28,9 @@ v0.6 is the released baseline. Its implementation, measurements and verification
 
 v1.0.0-alpha.1 introduced the breaking generated-runtime line: heterogeneous tracks, automatic generation from partial ITimeline declarations, separate borrowed Input/Output contexts, Frame callbacks, explicit Before/After hooks and a runtime-ID hub without manual Bind.
 
-v1.0.0-alpha.2 is the current candidate. It adds one-install C# packaging, deterministic generation and memory reports, the first language-neutral plan and C11 backend, batch alias atomicity, PMU evidence, and durable GitHub coordination. Follow the [implementation plan](../plan.md), [API contract](v1.0-alpha-api.md), [execution checklist](v1.0-alpha-checklist.md), and [release issue](https://github.com/IAFahim/tl/issues/11).
+v1.0.0-alpha.2 is the prior runnable checkpoint, not a released implementation of the new API. It adds one-install C# packaging, deterministic generation and memory reports, the first language-neutral plan and C11 backend, batch alias atomicity, PMU evidence, and durable GitHub coordination. Follow the [implementation plan](../plan.md), [API contract](v1.0-alpha-api.md), [execution checklist](v1.0-alpha-checklist.md), and [release issue](https://github.com/IAFahim/tl/issues/11).
 
-The active breaking API work removes registry lookup from statically named timelines in [#15](https://github.com/IAFahim/tl/issues/15) and replaces destination/span movement with world-clock `Start` plus signed relative simulation seek in [#16](https://github.com/IAFahim/tl/issues/16). Their issue records supersede older API examples until the migration is merged.
+The previous breaking API work removed registry lookup from statically named timelines in [#15](https://github.com/IAFahim/tl/issues/15) and replaces destination/span movement with world-clock `Start` plus signed relative simulation seek in [#16](https://github.com/IAFahim/tl/issues/16). Those records describe the previous contract. Issue #27 supersedes their lifecycle and per-entity execution design for alpha.3 without closing unfinished backend work.
 
 The performance target is below 3 ns/tick for hot sequential or batched public workloads on the reference machine. Correctness, ordered effects, ownership, zero warmed allocation and the 250,000-byte source/path cap remain release gates. Random seeking, larger working sets and callback work are reported separately because their physical cost is content-dependent.
 
@@ -38,6 +38,6 @@ Unity ECS integration follows the core ABI rather than changing it. Timeline pay
 
 The first portability backend is C11. Its contract becomes the native foundation for C++, Rust, engines, and FFI bindings. The current neutral slice carries identity, runtime ID, looping, authored track indices, payload handles, clip windows, and stable operation IDs. Regions, movement facts, typed constant values, slot access, canonical serialization, and shared semantic lowering remain tracked compiler work. C consumers implement named operations; arbitrary C# method bodies are never presented as portable. The C ABI fixes layout, alignment, ownership, status values, and versioning. Cross-endian serialization is not yet defined.
 
-The current pause point keeps the reviewed C ABI v2 unchanged. The runnable incremental C# generator and Unity qualification atoms are complete. The owner-reported C# API correction is the first continuation atom; neutral-plan and C work remain deferred. The exact continuation order and rejected codec findings are recorded in [plan.md](../plan.md#paused-architecture-work).
+Alpha.3 separates pure timeline selection from ordered typed jobs shared by .NET and Unity. Default playback is ready; finite timelines clamp independently; signed Tick replays all available frames. The [two-hour plan](../plan.md) defines the design proof, production dependencies, stop rules, and release gates. [Issue #27](https://github.com/IAFahim/tl/issues/27) owns current decisions and pushed checkpoints. The complete portable reference lives under `experiments/Alpha3/Reference` and is explicitly handwritten, not production generator output. The reviewed C ABI v2 remains unchanged; new C work, a full GUI editor, and backend repository extraction remain deferred.
 
 Historical experiments remain evidence for earlier designs and measurements. They do not substitute for measurements of the v1 public API.
