@@ -162,7 +162,7 @@ public partial struct AdvanceAttackJob : IJobEntity
         var input = new Attack.Input(currentPose: in currentPose.Value);
         var output = new Attack.Output(
             nextPose: ref nextPose.Value,
-            boss: ref boss.Value);
+            combat: ref boss.Value);
 
         if (!Timeline.TryForward(
                 Attack.Id,
@@ -183,7 +183,7 @@ public partial struct AttackSystem : ISystem
 {
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
-        => new AdvanceAttackJob().ScheduleParallel();
+        => state.Dependency = new AdvanceAttackJob().ScheduleParallel(state.Dependency);
 }
 ```
 

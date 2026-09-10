@@ -19,6 +19,8 @@ The .NET `Tl.CSharp` package targets .NET 10 and its build generator runs throug
 
 Unity documents Entities 1.4.3 as released for Unity 6000.0. The package declares that dependency and uses only the C# 9 unmanaged subset shared by both lanes. Preview validation does not substitute for the pending stable-editor lane.
 
+This alpha contains checked-in C# 9 output from the Unity backend. It does not contain the Unity authoring generator or a cross-assembly ID allocator. IDs are assigned before emission and must be unique across the generated assemblies loaded by one player. Live Unity and IDE generation is tracked separately in [issue #4](https://github.com/IAFahim/tl/issues/4).
+
 ## Runtime shape
 
 Each generated timeline owns one `ushort` ID, direct forward and backward scalar kernels, generated input and output pointer contexts, and optional immutable blob data for ECS storage and tooling. The hot scalar kernel reads immediate constants and invokes concrete track operations. It does not traverse the blob, allocate, reflect, box, create delegates, or consult a managed registry.
