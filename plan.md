@@ -197,8 +197,8 @@ Release validation covers:
 - start at arbitrary game ticks while local position begins at zero
 - zero, `+1`, `-1`, alternating, literal/runtime `±5`, and larger replay
 - finite beginning/end rejection and empty timelines
-- looping normalization and cycle capacity
-- gaps, one-frame clips, entry/stay/exit priority, overlap blending
+- looping normalization, negative cycles, and checked signed-position extremes
+- gaps, one-frame clips, clip and timeline boundary flags, overlap blending
 - heterogeneous tracks and multiple borrowed inputs/outputs
 - typed and dynamic semantic parity
 - generated data access modes and compile-time rejection of invalid slots
