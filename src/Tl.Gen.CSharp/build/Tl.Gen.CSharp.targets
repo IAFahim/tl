@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <_TlGenProject>$(MSBuildThisFileDirectory)..\Tl.Gen.CSharp.csproj</_TlGenProject>
     <_TlGenPkgTool>$(MSBuildThisFileDirectory)../tools/net10.0/any/Tl.Gen.CSharp.dll</_TlGenPkgTool>
     <_TlGenProjBin>$(MSBuildThisFileDirectory)../bin/$(Configuration)/net10.0/Tl.Gen.CSharp.dll</_TlGenProjBin>
     <_TlGenDotNet Condition="'$(DotNetHostPath)' != ''">$(DotNetHostPath)</_TlGenDotNet>
@@ -8,6 +9,15 @@
     <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenProjBin)')">$(_TlGenProjBin)</TlGenAssembly>
     <TlGenAssembly Condition="'$(TlGenAssembly)' == ''">$(MSBuildThisFileDirectory)../bin/Release/net10.0/Tl.Gen.CSharp.dll</TlGenAssembly>
   </PropertyGroup>
+
+  <Target Name="_TlGenBuildExportTool"
+          BeforeTargets="TlGenExport"
+          Condition="Exists('$(_TlGenProject)') And !Exists('$(_TlGenProjBin)')">
+    <MSBuild Projects="$(_TlGenProject)"
+             Targets="Build"
+             BuildInParallel="false"
+             Properties="Configuration=$(Configuration);TargetFramework=net10.0" />
+  </Target>
 
   <Target Name="TlGenExport"
           DependsOnTargets="ResolveProjectReferences;ResolveAssemblyReferences;ResolveReferences;GenerateGlobalUsings"

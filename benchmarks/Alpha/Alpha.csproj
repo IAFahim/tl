@@ -18,4 +18,5 @@
                       AdditionalProperties="TargetFramework=netstandard2.0"
                       GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
   </ItemGroup>
+  <Import Project="../../src/Tl.Gen.CSharp/build/Tl.Gen.CSharp.targets" />
 </Project>

@@ -19,7 +19,7 @@
                       AdditionalProperties="TargetFramework=netstandard2.0"
                       GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
   </ItemGroup>
-  <Target Name="GenerateRoutingDomain" BeforeTargets="TlGenCompileTimelines">
+  <Target Name="GenerateRoutingDomain" BeforeTargets="TlGenExport;BeforeCompile;CoreCompile">
     <PropertyGroup>
       <RoutingDomain>$(IntermediateOutputPath)RoutingDomain.g.cs</RoutingDomain>
     </PropertyGroup>
@@ -29,4 +29,5 @@
       <FileWrites Include="$(RoutingDomain)" />
     </ItemGroup>
   </Target>
+  <Import Project="../../src/Tl.Gen.CSharp/build/Tl.Gen.CSharp.targets" />
 </Project>

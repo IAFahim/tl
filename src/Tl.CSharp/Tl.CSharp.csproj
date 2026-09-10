@@ -33,4 +33,11 @@
     <None Include="$(TlGenPackOutput)Microsoft.CodeAnalysis.CSharp.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
   </ItemGroup>
 
+  <Target Name="BuildTlCSharpAnalyzer" BeforeTargets="GenerateNuspec" Condition="'$(NoBuild)' != 'true'">
+    <MSBuild Projects="..\Tl.Gen.CSharp\Tl.Gen.CSharp.csproj"
+             Targets="Build"
+             BuildInParallel="false"
+             Properties="Configuration=$(Configuration);TargetFramework=netstandard2.0" />
+  </Target>
+
 </Project>

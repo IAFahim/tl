@@ -83,6 +83,22 @@ public sealed class IncrementalGeneratorTests
     }
 
     [Fact]
+    public void DiagnosticsUseTheInvalidBuilderCallSourceSpan()
+    {
+        var source = Declaration.Replace("builder.Clip(track,", "builder.Clip(missing,", StringComparison.Ordinal);
+        var compilation = Compilation(source);
+
+        var result = Driver().RunGenerators(compilation).GetRunResult();
+
+        var diagnostic = Assert.Single(result.Diagnostics, static diagnostic => diagnostic.Id == "TLGEN34");
+        var call = compilation.SyntaxTrees.Single().GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(static invocation => invocation.Expression.ToString() == "builder.Clip");
+        Assert.Equal(call.Span, diagnostic.Location.SourceSpan);
+        Assert.Equal("Tl.Generation", diagnostic.Descriptor.Category);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+    }
+
+    [Fact]
     public void TrackedCompilationStepRespondsOnlyToStructuralInputs()
     {
         var initial = Compilation(Declaration).AddSyntaxTrees(Tree("namespace Unrelated; internal sealed class Value { }", "Other.cs"));
@@ -137,10 +153,37 @@ public sealed class IncrementalGeneratorTests
         Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Environment"));
         Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Compilation"));
 
-        var reference = Reference("IncrementalReference");
+        var reference = Reference("IncrementalReference", "public sealed class AddedReference { }");
         driver = driver.RunGenerators(compilation.AddReferences(reference));
         Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Environment"));
         Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Compilation"));
+    }
+
+    [Fact]
+    public void SameIdentityReferenceReplacementRefreshesTheSemanticModel()
+    {
+        const string source = """
+            using Tl;
+            using External;
+            public readonly partial struct Referenced : ITimeline
+            {
+                public static void Define(scoped Builder builder)
+                {
+                    var track = builder.Track(new Track());
+                    builder.Clip(track, new Clip(1), 0u, 1u);
+                }
+            }
+            """;
+        var firstReference = Reference("ExternalReference", ExternalTrack(""));
+        var secondReference = Reference("ExternalReference", ExternalTrack(", ref int value"));
+        var first = Compilation(source).AddReferences(firstReference);
+        var driver = Driver().RunGenerators(first);
+        Assert.DoesNotContain("ref int @value", string.Join("\n", Sources(driver).Values));
+
+        driver = driver.RunGenerators(first.ReplaceReference(firstReference, secondReference));
+
+        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Compilation"));
+        Assert.Contains("ref int @value", string.Join("\n", Sources(driver).Values));
     }
 
     [Fact]
@@ -212,11 +255,11 @@ public sealed class IncrementalGeneratorTests
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
-    private static MetadataReference Reference(string name)
+    private static MetadataReference Reference(string name, string source)
     {
         var compilation = CSharpCompilation.Create(
             name,
-            [Tree("public sealed class AddedReference { }", "Reference.cs")],
+            [Tree(source, "Reference.cs")],
             References(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         using var stream = new MemoryStream();
@@ -224,4 +267,16 @@ public sealed class IncrementalGeneratorTests
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
         return MetadataReference.CreateFromImage(stream.ToArray());
     }
+
+    private static string ExternalTrack(string slot)
+        => $$"""
+            using Tl;
+            namespace External;
+            public readonly record struct Clip(int Value);
+            public readonly struct Track : ITrack<Clip>
+            {
+                public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
+                public static void Seek(in Frame<Track, Clip> frame{{slot}}) { }
+            }
+            """;
 }

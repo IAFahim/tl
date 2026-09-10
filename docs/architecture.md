@@ -39,13 +39,13 @@ flowchart TD
     Tools --> Compiler
 ```
 
-`Tl.CSharp` has one package dependency on `Tl.Runtime` and embeds the `Tl.Gen.CSharp` tool payload for builds. `Tl.Gen.CSharp` currently depends on Roslyn and retains its private C# model because its expressions, hooks, schemas, modules, and routes are outside the current neutral format; it does not yet reference `Tl.Compiler` or `Tl.Runtime`. `Tl.Gen.C` references only `Tl.Compiler` and consumes the validated region schedule. `Tl.Runtime` remains the only required game-output dependency for the current .NET path. Future editor, asset, visualization, networking, and domain packages depend inward on the plan or runtime contract; the core never depends on them.
+`Tl.CSharp` has one package dependency on `Tl.Runtime` and embeds the `Tl.Gen.CSharp` analyzer and explicit export tool. `Tl.Gen.CSharp` currently depends on Roslyn and retains its private C# model because its expressions, hooks, schemas, modules, and routes are outside the current neutral format; it does not yet reference `Tl.Compiler` or `Tl.Runtime`. The `netstandard2.0` analyzer is isolated under `analyzers/dotnet/cs`; Roslyn dependencies for the `net10.0` CLI remain under `tools` and never enter application references. `Tl.Gen.C` references only `Tl.Compiler` and consumes the validated region schedule. `Tl.Runtime` remains the only required game-output dependency for the current .NET path. Future editor, asset, visualization, networking, and domain packages depend inward on the plan or runtime contract; the core never depends on them.
 
 Backend repositories may split out after the plan format and compatibility suite reach a stable version. Until then, the monorepo keeps atomic changes testable. A split backend must consume a released `Tl.Compiler` package and pass the same conformance fixtures; it may not copy private compiler models.
 
 ## C# compilation
 
-The C# package runs before compilation for normal and IDE design-time builds. It reads normal compile items with Roslyn, validates declarations, lowers them deterministically, writes content-stable generated files, and records a manifest and report under `obj/<configuration>/<tfm>/TlGenCompile`.
+The C# package hosts a Roslyn incremental generator during normal and IDE design-time compilation. A syntax provider filters possible declarations, exact-symbol analysis lowers candidates into compiler-object-free structural values, and compilation-wide collection resolves includes, schemas, modules, and routes before deterministic emission. The compiler manages normal generated sources. `TlGenExport` runs the same reader, model, and emitter through the `net10.0` CLI when standalone content-stable files, a manifest, and a report are required.
 
 The generated timeline owns static payload values, direct signed-seek region blocks, one generated borrowed `Data` context, a dynamic-context adapter, and one module/ordinal route. Exact-schema public calls inline through the generated context protocol. Registry lookup, reflection, binding, callback interfaces, and a generic interpreter do not appear in the typed hot body.
 
