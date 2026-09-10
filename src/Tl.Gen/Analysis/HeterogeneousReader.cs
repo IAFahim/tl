@@ -32,7 +32,9 @@ public static class HeterogeneousReader
         INamedTypeSymbol Track,
         INamedTypeSymbol Hook,
         INamedTypeSymbol Frame,
-        INamedTypeSymbol Builder);
+        INamedTypeSymbol Builder,
+        INamedTypeSymbol Playback,
+        INamedTypeSymbol TypedPlayback);
 
     private sealed record TimelineEntry(
         INamedTypeSymbol Symbol,
@@ -117,6 +119,7 @@ public static class HeterogeneousReader
         private readonly Dictionary<INamedTypeSymbol, HeterogeneousTimeline> _resolved = new(SymbolEqualityComparer.Default);
         private readonly HashSet<INamedTypeSymbol> _failed = new(SymbolEqualityComparer.Default);
         private readonly List<INamedTypeSymbol> _stack = [];
+        private readonly Dictionary<TimelineSlot, SyntaxNode> _slotSites = new(ReferenceEqualityComparer.Instance);
 
         public HeterogeneousTimeline? Resolve(INamedTypeSymbol symbol, SyntaxNode site)
         {
@@ -192,6 +195,13 @@ public static class HeterogeneousReader
             var includeDeclared = false;
             var valid = true;
 
+            foreach (var member in declaration.Symbol.GetMembers()
+                .Where(static member => !member.IsImplicitlyDeclared && member.Name is "Data" or "DynamicData" or "Start" or "TrySeek"))
+            {
+                Add(diagnostics, DeclarationSite(member, declaration.Syntax), "TLGEN52", $"Timeline '{Display(declaration.Symbol)}' declares '{member.Name}', which conflicts with generated member '{member.Name}'.");
+                valid = false;
+            }
+
             foreach (var statement in define.Body!.Statements)
             {
                 if (statement is LocalDeclarationStatementSyntax local
@@ -210,7 +220,7 @@ public static class HeterogeneousReader
                         valid = false;
                         continue;
                     }
-                    var contract = ReadTrack(trackType, expression);
+                    var contract = ReadTrack(trackType, declaration.Symbol, expression);
                     if (contract is null)
                     {
                         valid = false;
@@ -221,8 +231,7 @@ public static class HeterogeneousReader
                         Display(trackType),
                         Display(contract.Value.ClipType),
                         Canonical(expression, model),
-                        contract.Value.Forward,
-                        contract.Value.Backward);
+                        contract.Value.Seek);
                     tracks.Add(track);
                     if (model.GetDeclaredSymbol(variable) is not ILocalSymbol localSymbol || !locals.TryAdd(localSymbol, (track, contract.Value.ClipType)))
                     {
@@ -258,7 +267,7 @@ public static class HeterogeneousReader
                 }
                 if (GenericBuilderCall(call, model, builderParameter, "Before", out var beforeType))
                 {
-                    var hook = ReadHook(beforeType, call);
+                    var hook = ReadHook(beforeType, declaration.Symbol, call);
                     if (hook is null)
                         valid = false;
                     else
@@ -267,7 +276,7 @@ public static class HeterogeneousReader
                 }
                 if (GenericBuilderCall(call, model, builderParameter, "After", out var afterType))
                 {
-                    var hook = ReadHook(afterType, call);
+                    var hook = ReadHook(afterType, declaration.Symbol, call);
                     if (hook is null)
                         valid = false;
                     else
@@ -340,17 +349,11 @@ public static class HeterogeneousReader
                 valid = false;
             }
 
-            var allSlots = tracks.SelectMany(static track => track.ForwardSlots.Concat(track.BackwardSlots))
+            var allSlots = tracks.SelectMany(static track => track.SeekSlots)
                 .Concat(beforeHooks.SelectMany(static hook => hook.ForwardSlots.Concat(hook.BackwardSlots)))
                 .Concat(afterHooks.SelectMany(static hook => hook.ForwardSlots.Concat(hook.BackwardSlots)))
                 .ToArray();
-            var inputs = MergeSlots(allSlots.Where(static slot => slot.Mode == SlotMode.Input), false, define, ref valid);
-            var outputs = MergeSlots(allSlots.Where(static slot => slot.Mode != SlotMode.Input), true, define, ref valid);
-            foreach (var name in inputs.Select(static slot => slot.Name).Intersect(outputs.Select(static slot => slot.Name), StringComparer.Ordinal))
-            {
-                Add(diagnostics, define, "TLGEN38", $"Slot '{name}' cannot be both input and output.");
-                valid = false;
-            }
+            var (readOnlySlots, writableSlots) = MergeSlots(allSlots, define, ref valid);
             if (!valid)
                 return null;
 
@@ -363,12 +366,12 @@ public static class HeterogeneousReader
                 clips,
                 beforeHooks,
                 afterHooks,
-                inputs,
-                outputs);
+                readOnlySlots,
+                writableSlots);
         }
 
-        private (INamedTypeSymbol ClipType, IReadOnlyList<TimelineSlot> Forward, IReadOnlyList<TimelineSlot> Backward)?
-            ReadTrack(INamedTypeSymbol trackType, SyntaxNode site)
+        private (INamedTypeSymbol ClipType, IReadOnlyList<TimelineSlot> Seek)?
+            ReadTrack(INamedTypeSymbol trackType, INamedTypeSymbol timelineType, SyntaxNode site)
         {
             var contractsForTrack = trackType.AllInterfaces
                 .Where(candidate => Same(candidate.OriginalDefinition, contracts.Track))
@@ -378,27 +381,25 @@ public static class HeterogeneousReader
                 Add(diagnostics, site, "TLGEN29", $"Track '{Display(trackType)}' must be unmanaged and implement exactly one exact Tl.ITrack<TClip> with an unmanaged clip type.");
                 return null;
             }
-            var forward = ReadTrackOperation(trackType, clipType, "Forward", site);
-            var backward = ReadTrackOperation(trackType, clipType, "Backward", site);
-            return forward is null || backward is null ? null : (clipType, forward, backward);
+            var seek = ReadSeekOperation(trackType, clipType, timelineType, site);
+            return seek is null ? null : (clipType, seek);
         }
 
-        private IReadOnlyList<TimelineSlot>? ReadTrackOperation(
+        private IReadOnlyList<TimelineSlot>? ReadSeekOperation(
             INamedTypeSymbol trackType,
             INamedTypeSymbol clipType,
-            string name,
+            INamedTypeSymbol timelineType,
             SyntaxNode site)
         {
-            var methods = trackType.GetMembers(name)
-                .OfType<IMethodSymbol>()
-                .Where(ContractMethod)
+            var members = trackType.GetMembers("Seek")
+                .Where(static member => !member.IsImplicitlyDeclared)
                 .ToArray();
-            if (methods.Length != 1)
+            if (members is not [IMethodSymbol method] || !ContractMethod(method))
             {
-                Add(diagnostics, site, "TLGEN30", $"Track '{Display(trackType)}' must declare exactly one public static non-generic void {name} method.");
+                var diagnosticSite = members.Length == 1 ? DeclarationSite(members[0], site) : TypeSite(trackType, site);
+                Add(diagnostics, diagnosticSite, "TLGEN30", $"Track '{Display(trackType)}' must declare exactly one public static non-generic void Seek method.");
                 return null;
             }
-            var method = methods[0];
             if (method.Parameters.Length == 0
                 || method.Parameters[0].RefKind != RefKind.In
                 || method.Parameters[0].Type is not INamedTypeSymbol frame
@@ -407,27 +408,28 @@ public static class HeterogeneousReader
                 || !Same(frame.TypeArguments[0], trackType)
                 || !Same(frame.TypeArguments[1], clipType))
             {
-                Add(diagnostics, site, "TLGEN31", $"Track '{Display(trackType)}.{name}' must begin with in Tl.Frame<{Display(trackType)}, {Display(clipType)}>.");
+                var diagnosticSite = method.Parameters.Length == 0 ? DeclarationSite(method, site) : ParameterSite(method.Parameters[0], site);
+                Add(diagnostics, diagnosticSite, "TLGEN31", $"Track '{Display(trackType)}.Seek' must begin with in Tl.Frame<{Display(trackType)}, {Display(clipType)}>.");
                 return null;
             }
-            return ReadSlots(method.Parameters.Skip(1), method, "TLGEN32", site);
+            return ReadSlots(method.Parameters.Skip(1), method, timelineType, "TLGEN32", site);
         }
 
-        private TimelineHook? ReadHook(INamedTypeSymbol hookType, SyntaxNode site)
+        private TimelineHook? ReadHook(INamedTypeSymbol hookType, INamedTypeSymbol timelineType, SyntaxNode site)
         {
             if (hookType.TypeKind != TypeKind.Struct || !hookType.IsUnmanagedType || !Implements(hookType, contracts.Hook))
             {
                 Add(diagnostics, site, "TLGEN44", $"Hook type '{Display(hookType)}' must be an unmanaged struct implementing the exact Tl.IHook contract.");
                 return null;
             }
-            var forward = ReadHookOperation(hookType, "Forward", site);
-            var backward = ReadHookOperation(hookType, "Backward", site);
+            var forward = ReadHookOperation(hookType, timelineType, "Forward", site);
+            var backward = ReadHookOperation(hookType, timelineType, "Backward", site);
             return forward is null || backward is null
                 ? null
                 : new TimelineHook(Display(hookType), forward, backward);
         }
 
-        private IReadOnlyList<TimelineSlot>? ReadHookOperation(INamedTypeSymbol hookType, string name, SyntaxNode site)
+        private IReadOnlyList<TimelineSlot>? ReadHookOperation(INamedTypeSymbol hookType, INamedTypeSymbol timelineType, string name, SyntaxNode site)
         {
             var methods = hookType.GetMembers(name)
                 .OfType<IMethodSymbol>()
@@ -438,12 +440,13 @@ public static class HeterogeneousReader
                 Add(diagnostics, site, "TLGEN45", $"Hook '{Display(hookType)}' must declare exactly one public static non-generic void {name} method.");
                 return null;
             }
-            return ReadSlots(methods[0].Parameters, methods[0], "TLGEN46", site);
+            return ReadSlots(methods[0].Parameters, methods[0], timelineType, "TLGEN46", site);
         }
 
         private IReadOnlyList<TimelineSlot>? ReadSlots(
             IEnumerable<IParameterSymbol> parameters,
             IMethodSymbol method,
+            INamedTypeSymbol timelineType,
             string code,
             SyntaxNode site)
         {
@@ -459,10 +462,22 @@ public static class HeterogeneousReader
                 };
                 if (mode is null || parameter.IsOptional || parameter.IsParams || !parameter.Type.IsUnmanagedType)
                 {
-                    Add(diagnostics, site, code, $"Every component parameter of '{Display(method.ContainingType)}.{method.Name}' must be a required unmanaged in, ref, or out parameter.");
+                    Add(diagnostics, ParameterSite(parameter, site), code, $"Every component parameter of '{Display(method.ContainingType)}.{method.Name}' must be a required unmanaged in, ref, or out parameter.");
                     return null;
                 }
-                slots.Add(new TimelineSlot(parameter.Name, Display(parameter.Type), mode.Value));
+                if (parameter.Name == "playback")
+                {
+                    Add(diagnostics, ParameterSite(parameter, site), "TLGEN50", "Component slot 'playback' is reserved for generated playback state.");
+                    return null;
+                }
+                if (mode != SlotMode.Input && IsProtectedPlayback(parameter.Type, timelineType))
+                {
+                    Add(diagnostics, ParameterSite(parameter, site), "TLGEN51", $"Writable component slot '{parameter.Name}' cannot use '{Display(parameter.Type)}' because it can alias generated playback state.");
+                    return null;
+                }
+                var slot = new TimelineSlot(parameter.Name, Display(parameter.Type), mode.Value);
+                _slotSites.Add(slot, ParameterSite(parameter, site));
+                slots.Add(slot);
             }
             return slots;
         }
@@ -523,28 +538,45 @@ public static class HeterogeneousReader
             return true;
         }
 
-        private TimelineSlot[] MergeSlots(
+        private (TimelineSlot[] ReadOnly, TimelineSlot[] Writable) MergeSlots(
             IEnumerable<TimelineSlot> source,
-            bool writable,
             SyntaxNode site,
             ref bool valid)
         {
-            var slots = new List<TimelineSlot>();
+            var readOnlySlots = new List<TimelineSlot>();
+            var writableSlots = new List<TimelineSlot>();
             foreach (var group in source.GroupBy(static slot => slot.Name, StringComparer.Ordinal))
             {
                 var variants = group.ToArray();
                 var types = variants.Select(static slot => slot.TypeName).Distinct(StringComparer.Ordinal).ToArray();
                 if (types.Length != 1)
                 {
-                    Add(diagnostics, site, "TLGEN38", $"Slot '{group.Key}' has incompatible type declarations.");
+                    Add(diagnostics, _slotSites[variants[1]], "TLGEN38", $"Slot '{group.Key}' has incompatible type declarations.");
                     valid = false;
                     continue;
                 }
-                var mode = writable ? SlotMode.Reference : variants[0].Mode;
-                slots.Add(new TimelineSlot(group.Key, types[0], mode));
+                var capabilities = variants.Select(static slot => slot.Mode == SlotMode.Input).Distinct().ToArray();
+                if (capabilities.Length != 1)
+                {
+                    var conflict = variants.First(slot => (slot.Mode == SlotMode.Input) != (variants[0].Mode == SlotMode.Input));
+                    Add(diagnostics, _slotSites[conflict], "TLGEN38", $"Slot '{group.Key}' cannot be both read-only and writable.");
+                    valid = false;
+                    continue;
+                }
+                var slot = new TimelineSlot(group.Key, types[0], capabilities[0] ? SlotMode.Input : SlotMode.Reference);
+                (capabilities[0] ? readOnlySlots : writableSlots).Add(slot);
             }
-            return slots.OrderBy(static slot => slot.Name, StringComparer.Ordinal).ToArray();
+            return (
+                readOnlySlots.OrderBy(static slot => slot.Name, StringComparer.Ordinal).ToArray(),
+                writableSlots.OrderBy(static slot => slot.Name, StringComparer.Ordinal).ToArray());
         }
+
+        private bool IsProtectedPlayback(ITypeSymbol type, INamedTypeSymbol timelineType)
+            => Same(type, contracts.Playback)
+                || type is INamedTypeSymbol named
+                    && Same(named.OriginalDefinition, contracts.TypedPlayback)
+                    && named.TypeArguments is [var owner]
+                    && Same(owner, timelineType);
 
         private bool BuilderCall(
             InvocationExpressionSyntax call,
@@ -668,9 +700,11 @@ public static class HeterogeneousReader
         var hook = compilation.GetTypeByMetadataName("Tl.IHook");
         var frame = compilation.GetTypeByMetadataName("Tl.Frame`2");
         var builder = compilation.GetTypeByMetadataName("Tl.Builder");
-        return timeline is null || track is null || hook is null || frame is null || builder is null
+        var playback = compilation.GetTypeByMetadataName("Tl.Playback");
+        var typedPlayback = compilation.GetTypeByMetadataName("Tl.Playback`1");
+        return timeline is null || track is null || hook is null || frame is null || builder is null || playback is null || typedPlayback is null
             ? null
-            : new Contracts(timeline, track, hook, frame, builder);
+            : new Contracts(timeline, track, hook, frame, builder, playback, typedPlayback);
     }
 
     private static IReadOnlyList<MetadataReference> References(
@@ -737,6 +771,19 @@ public static class HeterogeneousReader
             .Select(static reference => reference.GetSyntax())
             .OfType<MethodDeclarationSyntax>()
             .SingleOrDefault();
+
+    private static SyntaxNode DeclarationSite(ISymbol symbol, SyntaxNode fallback)
+        => symbol.DeclaringSyntaxReferences
+            .Select(static reference => reference.GetSyntax())
+            .OrderBy(static syntax => syntax.SyntaxTree.FilePath, StringComparer.Ordinal)
+            .ThenBy(static syntax => syntax.SpanStart)
+            .FirstOrDefault() ?? fallback;
+
+    private static SyntaxNode TypeSite(INamedTypeSymbol type, SyntaxNode fallback)
+        => DeclarationSite(type, fallback);
+
+    private static SyntaxNode ParameterSite(IParameterSymbol parameter, SyntaxNode fallback)
+        => DeclarationSite(parameter, fallback);
 
     private static bool Constant(ExpressionSyntax expression, SemanticModel model)
     {

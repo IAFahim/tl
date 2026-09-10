@@ -21,8 +21,7 @@ public sealed record HeterogeneousTrack(
     string TypeName,
     string ClipTypeName,
     string Expression,
-    IReadOnlyList<TimelineSlot> ForwardSlots,
-    IReadOnlyList<TimelineSlot> BackwardSlots);
+    IReadOnlyList<TimelineSlot> SeekSlots);
 
 public sealed record TimelineHook(
     string TypeName,
@@ -38,8 +37,8 @@ public sealed record HeterogeneousTimeline(
     IReadOnlyList<HeterogeneousClip> Clips,
     IReadOnlyList<TimelineHook> BeforeHooks,
     IReadOnlyList<TimelineHook> AfterHooks,
-    IReadOnlyList<TimelineSlot> Inputs,
-    IReadOnlyList<TimelineSlot> Outputs)
+    IReadOnlyList<TimelineSlot> ReadOnlySlots,
+    IReadOnlyList<TimelineSlot> WritableSlots)
 {
     public uint Duration => Clips.Count == 0 ? 0u : Clips.Max(static clip => clip.End);
 }

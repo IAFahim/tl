@@ -95,9 +95,9 @@ public sealed class HeterogeneousCompositionTests
         Assert.Equal([0, 1], outer.Clips.Select(static clip => clip.TrackIndex));
         Assert.Equal(["global::Fix.OuterBefore", "global::Fix.BaseBefore"], outer.BeforeHooks.Select(static hook => hook.TypeName));
         Assert.Equal(["global::Fix.BaseAfter", "global::Fix.OuterAfter"], outer.AfterHooks.Select(static hook => hook.TypeName));
-        Assert.Equal(["inputA", "inputB"], outer.Inputs.Select(static slot => slot.Name));
-        Assert.Equal(["outputA", "outputB"], outer.Outputs.Select(static slot => slot.Name));
-        Assert.All(outer.Outputs, static slot => Assert.Equal(SlotMode.Reference, slot.Mode));
+        Assert.Equal(["inputA", "inputB"], outer.ReadOnlySlots.Select(static slot => slot.Name));
+        Assert.Equal(["outputA", "outputB"], outer.WritableSlots.Select(static slot => slot.Name));
+        Assert.All(outer.WritableSlots, static slot => Assert.Equal(SlotMode.Reference, slot.Mode));
 
         var generated = HeterogeneousEmitter.Emit(outer);
         Assert.Contains("public const int TrackCount = 2;", generated);
@@ -245,7 +245,7 @@ public sealed class HeterogeneousCompositionTests
     [Fact]
     public void BlendOperandsFollowStartThenAuthoredOrder()
     {
-        var track = new HeterogeneousTrack(0, "global::Fix.TrackA", "global::Fix.ClipA", "new global::Fix.TrackA()", [], []);
+        var track = new HeterogeneousTrack(0, "global::Fix.TrackA", "global::Fix.ClipA", "new global::Fix.TrackA()", []);
         var later = new HeterogeneousClip(0, "global::Fix.ClipA", "new global::Fix.ClipA(2f)", 4u, 12u);
         var earlier = new HeterogeneousClip(0, "global::Fix.ClipA", "new global::Fix.ClipA(1f)", 0u, 8u);
         var timeline = new HeterogeneousTimeline("Ordered", "Fix", false, [], [track], [later, earlier], [], [], [], []);
@@ -427,8 +427,8 @@ public sealed class HeterogeneousCompositionTests
         Assert.Equal("global::Domain.Clip", Assert.Single(timeline.Clips).TypeName);
         Assert.Equal(1u, timeline.Clips[0].Start);
         Assert.Equal(8u, timeline.Clips[0].End);
-        Assert.Equal("global::Domain.Input", Assert.Single(timeline.Inputs).TypeName);
-        Assert.Equal("global::Domain.Output", Assert.Single(timeline.Outputs).TypeName);
+        Assert.Equal("global::Domain.Input", Assert.Single(timeline.ReadOnlySlots).TypeName);
+        Assert.Equal("global::Domain.Output", Assert.Single(timeline.WritableSlots).TypeName);
     }
 
     [Fact]
@@ -489,10 +489,10 @@ public sealed class HeterogeneousCompositionTests
 
         Assert.Empty(diagnostics);
         var timeline = Assert.Single(timelines);
-        var output = Assert.Single(timeline.Outputs);
+        var output = Assert.Single(timeline.WritableSlots);
         Assert.Equal("outputB", output.Name);
         Assert.Equal(SlotMode.Reference, output.Mode);
-        Assert.Equal(SlotMode.Output, Assert.Single(timeline.Tracks).ForwardSlots.Single(static slot => slot.Name == "outputB").Mode);
+        Assert.Equal(SlotMode.Output, Assert.Single(timeline.Tracks).SeekSlots.Single(static slot => slot.Name == "outputB").Mode);
         Assert.Equal(SlotMode.Reference, Assert.Single(timeline.AfterHooks).ForwardSlots.Single().Mode);
         var generated = HeterogeneousEmitter.Emit(timeline);
         Assert.Contains("out output._outputB", generated);
@@ -534,7 +534,7 @@ public sealed class HeterogeneousCompositionTests
 
         Assert.Empty(diagnostics);
         Assert.Equal(2, timelines.Count);
-        Assert.All(timelines, static timeline => Assert.Equal(SlotMode.Reference, Assert.Single(timeline.Outputs).Mode));
+        Assert.All(timelines, static timeline => Assert.Equal(SlotMode.Reference, Assert.Single(timeline.WritableSlots).Mode));
         var artifacts = HeterogeneousEmitter.EmitCompilation(timelines);
         Assert.Single(artifacts, static artifact => artifact.RelativePath.StartsWith("TlSchema", StringComparison.Ordinal));
     }
