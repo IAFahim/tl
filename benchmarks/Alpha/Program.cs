@@ -12,4 +12,10 @@ if (args is ["--verify"])
     return;
 }
 
+if (args is ["--matrix"])
+{
+    Verification.RunMatrix();
+    return;
+}
+
 BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);

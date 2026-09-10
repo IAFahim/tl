@@ -12,5 +12,17 @@ internal static class Verification
             combat.Setup();
             Console.WriteLine($"combat/{pattern}: typed={combat.TypedScalar()} dynamic={combat.DynamicScalar()}");
         }
+
+        RunMatrix();
+    }
+
+    public static void RunMatrix()
+    {
+        foreach (var seekCase in Enum.GetValues<SeekCase>())
+        {
+            var benchmark = new SignedSeekBenchmarks { Case = seekCase };
+            benchmark.Setup();
+            Console.WriteLine($"matrix/{seekCase}: typed={benchmark.Typed()} dynamic={benchmark.Dynamic()}");
+        }
     }
 }

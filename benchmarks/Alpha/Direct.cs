@@ -16,7 +16,16 @@ internal static class Direct
     private static readonly DamageClip s_zeroDamage = new(0f);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Sum(int direction, ref long position, ref uint gameTick, ref float sum)
+    public static void Sum(int delta, ref long position, ref uint gameTick, ref float sum)
+    {
+        var direction = delta > 0 ? 1 : -1;
+        var remaining = delta > 0 ? (long)delta : -(long)delta;
+        while (remaining-- != 0)
+            SumFrame(direction, ref position, ref gameTick, ref sum);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void SumFrame(int direction, ref long position, ref uint gameTick, ref float sum)
     {
         Locate(direction, position, gameTick, out var local, out var cycle, out var frameGameTick, out var flags);
         SumClip clip;
@@ -42,6 +51,35 @@ internal static class Direct
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Combat(
+        int delta,
+        ref long position,
+        ref uint gameTick,
+        in Pose currentPose,
+        in AnimationSettings animationSettings,
+        in Health currentHealth,
+        in DamageSettings damageSettings,
+        ref Pose nextPose,
+        ref Trace trace,
+        ref Health nextHealth)
+    {
+        var direction = delta > 0 ? 1 : -1;
+        var remaining = delta > 0 ? (long)delta : -(long)delta;
+        while (remaining-- != 0)
+            CombatFrame(
+                direction,
+                ref position,
+                ref gameTick,
+                in currentPose,
+                in animationSettings,
+                in currentHealth,
+                in damageSettings,
+                ref nextPose,
+                ref trace,
+                ref nextHealth);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CombatFrame(
         int direction,
         ref long position,
         ref uint gameTick,
