@@ -6,23 +6,26 @@ var currentHealth = new Health(100f);
 var damageSettings = new DamageSettings(1f);
 var nextPose = currentPose;
 var nextHealth = currentHealth;
-var input = new Attack.Input(
-    currentPose: in currentPose,
-    animationSettings: in animationSettings,
-    currentHealth: in currentHealth,
-    damageSettings: in damageSettings);
-var output = new Attack.Output(nextPose: ref nextPose, nextHealth: ref nextHealth);
+var playback = Attack.Start(0u);
+var data = new Attack.Data(
+    ref playback,
+    in animationSettings,
+    in currentHealth,
+    in currentPose,
+    in damageSettings,
+    ref nextHealth,
+    ref nextPose);
 
-if (!Timeline.TryStart(Attack.Id, out var playback))
+if (!Attack.TrySeek(ref data, 11))
     return 1;
 
-if (!Timeline.TryForward(Attack.Id, in playback, 10u, in input, ref output, out playback))
+if (nextPose != new Pose(2f, 1f) || nextHealth != new Health(90f))
     return 2;
 
-if (nextPose != new Pose(2f, 1f) || nextHealth != new Health(90f))
+if (!Attack.TrySeek(ref data, -6))
     return 3;
 
-if (!Timeline.All[Attack.Id].TryBackward(in playback, 5u, in input, ref output, out playback))
+if (playback.Position != 5L || playback.GameTick != 5u)
     return 4;
 
 Console.WriteLine($"{nextPose} {nextHealth} {playback}");
@@ -42,23 +45,14 @@ public readonly struct AnimationTrack : ITrack<AnimationClip>
             first.X + (second.X - first.X) * factor,
             first.Y + (second.Y - first.Y) * factor);
 
-    public static void Forward(
+    public static void Seek(
         in Frame<AnimationTrack, AnimationClip> frame,
         in Pose currentPose,
         in AnimationSettings animationSettings,
         out Pose nextPose)
         => nextPose = new(
-            currentPose.X + frame.Clip.X * animationSettings.Weight,
-            currentPose.Y + frame.Clip.Y * animationSettings.Weight);
-
-    public static void Backward(
-        in Frame<AnimationTrack, AnimationClip> frame,
-        in Pose currentPose,
-        in AnimationSettings animationSettings,
-        out Pose nextPose)
-        => nextPose = new(
-            currentPose.X - frame.Clip.X * animationSettings.Weight,
-            currentPose.Y - frame.Clip.Y * animationSettings.Weight);
+            currentPose.X + frame.Direction * frame.Clip.X * animationSettings.Weight,
+            currentPose.Y + frame.Direction * frame.Clip.Y * animationSettings.Weight);
 }
 
 public readonly struct DamageTrack : ITrack<DamageClip>
@@ -66,19 +60,12 @@ public readonly struct DamageTrack : ITrack<DamageClip>
     public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 
-    public static void Forward(
+    public static void Seek(
         in Frame<DamageTrack, DamageClip> frame,
         in Health currentHealth,
         in DamageSettings damageSettings,
         out Health nextHealth)
-        => nextHealth = new(currentHealth.Value - frame.Clip.Amount * damageSettings.Multiplier);
-
-    public static void Backward(
-        in Frame<DamageTrack, DamageClip> frame,
-        in Health currentHealth,
-        in DamageSettings damageSettings,
-        out Health nextHealth)
-        => nextHealth = new(currentHealth.Value + frame.Clip.Amount * damageSettings.Multiplier);
+        => nextHealth = new(currentHealth.Value - frame.Direction * frame.Clip.Amount * damageSettings.Multiplier);
 }
 
 public readonly partial struct Attack : ITimeline
