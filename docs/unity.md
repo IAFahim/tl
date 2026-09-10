@@ -29,6 +29,8 @@ One direction-aware track operation receives `Frame<TTrack,TClip>`. Its `Directi
 
 Generated data values are byref-like ref structs containing typed pointers to playback and caller-owned component fields. Create and consume one inside the same `IJobEntity.Execute` call. The type system prevents storing it in a component, class, array, or boxed value. Do not return it or retain it across a callback, structural change, job boundary, or storage relocation. Read-only input pointers stay live: when input and output alias, later ordered frames observe earlier writes.
 
+This checkpoint does not enforce native storage at the constructor boundary. Do not create Unity `Data` from a field in a movable managed object or managed array. A compacting GC can relocate that storage while a raw pointer exists. The API redesign must either accept direct tracked byrefs or expose an explicitly native-only context whose storage requirement is enforceable.
+
 The scalar kernel uses immediate constants and direct static calls. It does not traverse the optional `TimelineBlob`, allocate, box, reflect, use a delegate, or consult a managed registry. The blob mirrors the language-neutral track and clip plan for ECS storage and tooling.
 
 ## Verification

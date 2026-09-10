@@ -222,6 +222,21 @@ The current stopping checkpoint contains a runnable incremental C# package and q
 
 Before release or further backend work, resolve the owner-reported mistake in the C# API contract. Treat the current generated surface as provisional. The next session must first capture the failing game-facing use case, revise the API contract and migration guide, update generator/runtime/Unity surfaces together, renew public API approvals, and rerun correctness, allocation, NativeAOT, Burst, source-size, and performance gates. Do not preserve the current shape merely for compatibility with this unreleased checkpoint.
 
+The API correction must decide and prove these points:
+
+1. Define whether multi-frame replay mutates one evolving state or samples an immutable current state into a separate result. The current `in current` and `out next` shape does not feed one frame's output into the next unless storage aliases or the operation uses `ref`.
+2. Separate stable asset identity from process-local dispatch handles. Lazy `ushort` registration order cannot identify saved, networked, independently built, or modded timelines.
+3. Define dynamic invocation honestly. A runtime ID cannot infer an arbitrary component schema; either a generated world/context contract supplies it or the dynamic boundary is explicitly schema-specific.
+4. Choose one Unity authoring story: a Unity-compatible source generator or deterministic offline generated assets. The current Unity package has checked-in kernels rather than the .NET `ITimeline` authoring experience.
+5. Remove or type-fence Unity pointers created from movable managed byrefs. Pointer-backed contexts may accept only storage whose address remains stable for the complete call.
+6. Define late extension composition. The current single, same-compilation `Include` cannot support independently compiled analytics or mods and duplicates flattened code and data.
+7. Give hooks the frame facts they need or replace direction-specific hook methods with one signed operation.
+8. Replace emitted constructor execution with a proven constant-data representation before claiming build determinism for arbitrary unmanaged payload types.
+9. Make blending optional for tracks that can never overlap, select scalable region dispatch by measured shape, and omit dynamic machinery when a definition does not request it.
+10. Seal or authenticate compiler-only dynamic bridges and make invalid metadata queries total before claiming that malformed user code cannot bypass validation or exhaust registries.
+
+The current implementation already keeps `Playback<TTimeline>` timeline-typed, stores direction in the one-byte `FrameFlags`, derives `Direction`, omits ordinal and active-count fields, and borrows .NET component storage without copying payloads. Preserve those proven properties unless stronger evidence requires a change.
+
 The next neutral-plan atom is:
 
 1. Replace quadratic region lowering with a bounded sweep before accepting untrusted serialized plans.
