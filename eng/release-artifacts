@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mode="${1:-}"
+reference="${2:-}"
+output="${3:-}"
+
+[[ "$mode" == "--candidate" || "$mode" == "--tag" ]] || { printf '%s\n' "usage: eng/release-artifacts (--candidate <name> | --tag <tag>) <empty-output-directory>" >&2; exit 2; }
+[[ -n "$reference" && -n "$output" ]] || { printf '%s\n' "usage: eng/release-artifacts (--candidate <name> | --tag <tag>) <empty-output-directory>" >&2; exit 2; }
+[[ ! -e "$output" ]] || { printf '%s\n' "output already exists: $output" >&2; exit 2; }
+
+root="$(git rev-parse --show-toplevel)"
+head_commit="$(git rev-parse HEAD)"
+source_epoch="$(git -C "$root" show -s --format=%ct HEAD)"
+version="$(dotnet msbuild "$root/src/Tl.Core/Tl.Core.csproj" -getProperty:Version -nologo)"
+sdk="$(dotnet --version)"
+runtime_identifier="linux-x64"
+
+git -C "$root" diff --quiet
+git -C "$root" diff --cached --quiet
+
+if [[ "$mode" == "--tag" ]]; then
+    [[ "$reference" == "v$version" ]] || { printf '%s\n' "tag $reference does not match package version $version" >&2; exit 2; }
+    tag_commit="$(git -C "$root" rev-parse "$reference^{commit}")"
+    [[ "$tag_commit" == "$head_commit" ]] || { printf '%s\n' "tag $reference does not point to HEAD $head_commit" >&2; exit 2; }
+    phase="tagged"
+    tag="$reference"
+    repository_ref="refs/tags/$reference"
+else
+    phase="candidate"
+    tag="$reference"
+    branch="$(git -C "$root" branch --show-current)"
+    [[ -n "$branch" ]] || { printf '%s\n' "candidate artifacts require a named branch" >&2; exit 2; }
+    repository_ref="refs/heads/$branch"
+fi
+
+stage="$(mktemp -d /tmp/tl-release-artifacts.XXXXXX)"
+trap 'rm -rf -- "$stage"' EXIT
+mkdir -p "$stage/raw-a" "$stage/raw-b"
+
+properties=(
+    -p:ContinuousIntegrationBuild=true
+    -p:RepositoryCommit="$head_commit"
+    -p:RepositoryBranch="$repository_ref"
+    -p:NuGetAudit=false
+)
+projects=(
+    src/Tl.Core/Tl.Core.csproj
+    src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj
+    src/Tl.Compiler/Tl.Compiler.csproj
+    src/Tl.Gen.C/Tl.Gen.C.csproj
+    src/Tl.CSharp/Tl.CSharp.csproj
+)
+
+dotnet restore "$root/tl.slnx" -p:NuGetAudit=false
+dotnet build "$root/tl.slnx" -c Release -m:1 --no-restore "${properties[@]}"
+
+for package_pass in raw-a raw-b; do
+    for project in "${projects[@]}"; do
+        dotnet pack "$root/$project" -c Release --no-build --no-restore -m:1 -o "$stage/$package_pass" "${properties[@]}"
+    done
+    python3 "$root/eng/release_artifacts.py" canonicalize "$stage/$package_pass" "$stage/$package_pass-normalized"
+done
+
+for artifact in "$stage/raw-a-normalized"/*; do
+    name="${artifact##*/}"
+    cmp "$artifact" "$stage/raw-b-normalized/$name"
+done
+
+mkdir -p "$(dirname -- "$output")"
+mkdir "$output"
+cp "$stage/raw-a-normalized"/* "$output/"
+python3 "$root/eng/release_artifacts.py" verify "$output" "$version" "$head_commit" "$repository_ref"
+
+export NUGET_PACKAGES="$stage/nuget"
+consumer="$root/tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj"
+dotnet restore "$consumer" --force --no-cache --source "$output"
+dotnet build "$consumer" -c Release --no-restore "${properties[@]}"
+jit_output="$root/tests/Tl.PackageConsumer/bin/Release/net10.0"
+[[ "$("$jit_output/Tl.PackageConsumer")" == "7" ]]
+
+for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do
+    [[ ! -e "$jit_output/$forbidden" ]] || { printf '%s\n' "JIT output contains $forbidden" >&2; exit 2; }
+done
+
+dotnet restore "$consumer" -r "$runtime_identifier" -p:PublishAot=true --force --no-cache --source "$output" --source https://api.nuget.org/v3/index.json
+dotnet publish "$consumer" -c Release -r "$runtime_identifier" --self-contained true -p:PublishAot=true -p:StripSymbols=true --no-restore -o "$stage/aot" "${properties[@]}"
+[[ "$("$stage/aot/Tl.PackageConsumer")" == "7" ]]
+
+for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do
+    [[ ! -e "$stage/aot/$forbidden" ]] || { printf '%s\n' "NativeAOT output contains $forbidden" >&2; exit 2; }
+done
+
+tar --format=ustar --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner --mode=0755 -C "$stage/aot" -cf "$stage/Tl.PackageConsumer-$runtime_identifier.tar" Tl.PackageConsumer
+gzip -n -9 "$stage/Tl.PackageConsumer-$runtime_identifier.tar"
+cp "$stage/Tl.PackageConsumer-$runtime_identifier.tar.gz" "$output/"
+mkdir "$stage/aot-archive-check"
+tar -xzf "$output/Tl.PackageConsumer-$runtime_identifier.tar.gz" -C "$stage/aot-archive-check"
+[[ "$("$stage/aot-archive-check/Tl.PackageConsumer")" == "7" ]]
+generation_report="$(find "$root/tests/Tl.PackageConsumer/obj/Release" -path '*/TlGenCompile/TlGenCompile.report.txt' -print | sort | tail -n 1)"
+[[ -n "$generation_report" ]] || { printf '%s\n' "package consumer generation report was not produced" >&2; exit 2; }
+cp "$generation_report" "$output/Tl.PackageConsumer.generation-report.txt"
+
+python3 "$root/eng/release_artifacts.py" manifest "$output" "$phase" "$tag" "$version" "$head_commit" "$sdk" "$runtime_identifier"
+(cd "$output" && sha256sum --check SHA256SUMS)
+
+printf '%s\n' "release artifacts: $output"

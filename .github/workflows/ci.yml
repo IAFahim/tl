@@ -68,3 +68,4 @@ jobs:
           dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
           test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"
           test -z "$(find artifacts/package-aot -type f \( -name 'Tl.Gen*' -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
+      - run: eng/release-artifacts --candidate ci artifacts/release

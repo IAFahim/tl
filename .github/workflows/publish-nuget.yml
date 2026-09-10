@@ -1,14 +1,17 @@
 name: publish-nuget
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
         description: Existing v-prefixed release tag
         required: true
         type: string
+      license_and_owner_decisions:
+        description: The repository owner approved the license and NuGet package ownership
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -23,19 +26,22 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
         with:
           dotnet-version: 10.0.x
       - name: Validate release identity
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          PUBLISH_APPROVED: ${{ inputs.license_and_owner_decisions }}
         run: |
           set -euo pipefail
+          test "$PUBLISH_APPROVED" = "true"
           version="$(dotnet msbuild src/Tl.Core/Tl.Core.csproj -getProperty:Version -nologo)"
           test "$RELEASE_TAG" = "v$version"
-          git tag --points-at HEAD | grep -Fx -- "$RELEASE_TAG"
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
       - run: python3 benchmarks/source_budget.py
       - run: python3 -m unittest discover -s benchmarks -p test_collect.py
       - run: dotnet build tl.slnx -c Release -m:1
@@ -55,7 +61,7 @@ jobs:
       - name: Download and verify release assets
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           mkdir -p artifacts/release
