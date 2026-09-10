@@ -301,12 +301,7 @@ public static class JobReader
                         valid = false;
                         continue;
                     }
-                    if (CatalogAssetCapacityDiagnostic(assetNames.Count) is { } capacity)
-                    {
-                        Error(errors, assetSite, capacity.Code, capacity.Message);
-                        valid = false;
-                        continue;
-                    }
+                    valid &= ValidateCatalogAssetCapacity(assetNames.Count, assetSite, errors);
                     var slots = Joined(timeline);
                     expected ??= slots;
                     if (!expected.SequenceEqual(slots, StringComparer.Ordinal))
@@ -480,8 +475,11 @@ public static class JobReader
     }
 
     private static bool Unsigned(ExpressionSyntax expression, SemanticModel model, out uint value)
+        => TryUnsignedConstant(model.GetConstantValue(expression).Value, out value);
+
+    internal static bool TryUnsignedConstant(object? constant, out uint value)
     {
-        switch (model.GetConstantValue(expression).Value)
+        switch (constant)
         {
             case byte item: value = item; return true;
             case ushort item: value = item; return true;
@@ -499,6 +497,13 @@ public static class JobReader
         => (uint)count <= ushort.MaxValue + 1u
             ? null
             : ("TLGEN78", "A catalog may contain at most 65,536 nonempty assets because route zero is reserved.");
+    internal static bool ValidateCatalogAssetCapacity(int count, SyntaxNode site, ICollection<DeclarationDiagnostic> errors)
+    {
+        if (CatalogAssetCapacityDiagnostic(count) is not { } diagnostic)
+            return true;
+        Error(errors, site, diagnostic.Code, diagnostic.Message);
+        return false;
+    }
     private static string Canonical(ExpressionSyntax expression, SemanticModel model) => new Qualifier(model).Visit(expression)!.WithoutTrivia().ToFullString();
     private static MethodDeclarationSyntax? Method(IMethodSymbol method) => method.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).OfType<MethodDeclarationSyntax>().SingleOrDefault();
     private static SyntaxNode Site(ISymbol symbol, SyntaxNode fallback) => symbol.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).FirstOrDefault() ?? fallback;

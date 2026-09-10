@@ -33,6 +33,24 @@ public sealed class IncrementalGeneratorTests
         """;
 
     [Fact]
+    public void AnalysisComparerUsesOnlyTheStableFingerprint()
+    {
+        var first = new TimelineIncrementalGenerator.Analysis([], [], "same");
+        var equivalent = new TimelineIncrementalGenerator.Analysis([], [], "same");
+        var different = new TimelineIncrementalGenerator.Analysis([], [], "different");
+        var comparer = TimelineIncrementalGenerator.AnalysisComparer.Instance;
+
+        Assert.True(comparer.Equals(first, first));
+        Assert.True(comparer.Equals(first, equivalent));
+        Assert.False(comparer.Equals(first, different));
+        Assert.False(comparer.Equals(first, null));
+        Assert.False(comparer.Equals(null, first));
+        Assert.True(comparer.Equals(null, null));
+        Assert.Equal(comparer.GetHashCode(first), comparer.GetHashCode(equivalent));
+        Assert.NotEqual(comparer.GetHashCode(first), comparer.GetHashCode(different));
+    }
+
+    [Fact]
     public void GeneratedOutputBindsAndMatchesTheCliByteForByte()
     {
         var compilation = Compilation(Declaration);

@@ -53,6 +53,31 @@ public sealed class JobReaderTests
             ("TLGEN78", "A catalog may contain at most 65,536 nonempty assets because route zero is reserved."),
             JobReader.CatalogAssetCapacityDiagnostic(65_537));
         Assert.NotNull(JobReader.CatalogAssetCapacityDiagnostic(int.MaxValue));
+
+        var site = CSharpSyntaxTree.ParseText("asset", path: "Catalog.cs").GetRoot().FindToken(0).Parent!;
+        var diagnostics = new List<DeclarationDiagnostic>();
+        Assert.True(JobReader.ValidateCatalogAssetCapacity(65_536, site, diagnostics));
+        Assert.False(JobReader.ValidateCatalogAssetCapacity(65_537, site, diagnostics));
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("TLGEN78", diagnostic.Code);
+        Assert.Equal("Catalog.cs", diagnostic.File);
+        Assert.Equal(1, diagnostic.Line);
+        Assert.Equal(1, diagnostic.Column);
+    }
+
+    [Fact]
+    public void UnsignedConstantsMatchCSharpImplicitUintConversions()
+    {
+        Assert.True(JobReader.TryUnsignedConstant((byte)1, out var fromByte));
+        Assert.True(JobReader.TryUnsignedConstant((ushort)2, out var fromUshort));
+        Assert.True(JobReader.TryUnsignedConstant((char)3, out var fromChar));
+        Assert.True(JobReader.TryUnsignedConstant(4, out var fromInt));
+        Assert.True(JobReader.TryUnsignedConstant(5u, out var fromUint));
+        Assert.False(JobReader.TryUnsignedConstant(-1, out var negative));
+        Assert.False(JobReader.TryUnsignedConstant(6L, out var fromLong));
+        Assert.False(JobReader.TryUnsignedConstant(null, out var missing));
+
+        Assert.Equal([1u, 2u, 3u, 4u, 5u, 0u, 0u, 0u], [fromByte, fromUshort, fromChar, fromInt, fromUint, negative, fromLong, missing]);
     }
 
     [Fact]

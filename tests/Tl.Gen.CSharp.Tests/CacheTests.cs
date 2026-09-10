@@ -76,6 +76,32 @@ public sealed class CacheTests : IDisposable
     }
 
     [Fact]
+    public void LockedManifestIsTreatedAsACacheMiss()
+    {
+        var key = CompileGenerationCache.GetKey([], [], []);
+        CompileGenerationCache.Synchronize(_directory, key, [], "report\n", null);
+        var path = Path.Combine(_directory, CompileGenerationCache.ManifestFileName);
+        using var lockStream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        Assert.Null(CompileGenerationCache.Load(_directory));
+    }
+
+    [Fact]
+    public void FailedAtomicMoveRemovesItsTemporaryFile()
+    {
+        Directory.CreateDirectory(Path.Combine(_directory, "Tl0.g.cs"));
+
+        Assert.ThrowsAny<IOException>(() => CompileGenerationCache.Synchronize(
+            _directory,
+            "key",
+            [new CompileArtifact("Tl0.g.cs", "content\n")],
+            "report\n",
+            null));
+
+        Assert.Empty(Directory.EnumerateFiles(_directory, ".Tl0.g.cs.*.tmp"));
+    }
+
+    [Fact]
     public void ChangedReportInvalidatesAndRestoresTheCache()
     {
         var key = CompileGenerationCache.GetKey([], [], []);
