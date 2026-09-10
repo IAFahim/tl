@@ -79,6 +79,7 @@ jobs:
           dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj --source artifacts/release
           dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore
           test "$(./tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.PackageConsumer)" = "7"
+          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.CSharp.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.CSharp.dll

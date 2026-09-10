@@ -44,7 +44,7 @@ internal static class CompileGenerationCache
         IReadOnlyList<string>? semanticInputs = null)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        Append(hash, "Tl.Gen compile");
+        Append(hash, "Tl.Gen.CSharp compile");
         Append(hash, FormatVersion.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Append(hash, "newline=lf");
 

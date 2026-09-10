@@ -186,7 +186,7 @@ The [API contract](docs/v1.0-alpha-api.md), [semantics](docs/semantics.md), [mig
 | --- | --- |
 | `src/Tl.Core` | Runtime ABI, playback, frame, declaration surface, and registry |
 | `src/Tl.Compiler` | Language-neutral immutable plan |
-| `src/Tl.Gen` | Current C# frontend and kernel generator; issue #18 completes its package extraction |
+| `src/Tl.Gen.CSharp` | C# frontend and build-time kernel generator |
 | `src/Tl.Gen.C` | Portable C11 backend package |
 | `src/Tl.CSharp` | One-package C# installation |
 | `samples/Mixed` | Complete heterogeneous signed-seek example |
