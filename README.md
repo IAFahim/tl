@@ -1,23 +1,24 @@
 # tl
 
-Compile gameplay timelines into tiny, allocation-free playback kernels. Author an attack, animation, status effect, cutscene, or simulation as normal typed C#; `tl` folds its known data and calls directly into your component operations.
+`tl` compiles immutable gameplay timelines into allocation-free playback kernels. A timeline may contain different track and clip types, and every generated call borrows the exact component data its operations require.
 
-- Heterogeneous tracks and clips in one timeline
-- Generated `in`/`ref`/`out` contexts with no handwritten plumbing
-- 0 B warm playback allocation and NativeAOT support
-- `ushort` runtime IDs for up to 65,536 compiled timelines
-- Explicit Before/After hooks and timeline composition
-- 1.396 ns simple and 2.247 ns heterogeneous sequential public calls on the reference machine
+- Signed seek replays every crossed frame in deterministic order
+- Generated typed facade for the fastest known-timeline path
+- Generated dynamic facade for runtime-selected `ushort` IDs
+- Any finite set of `in`, `ref`, and `out` component slots
+- Zero managed allocation after warmup
+- .NET JIT and NativeAOT package-consumer verification
+- Language-neutral compiler plan with separate C# and C backends
 
 **Status: v1.0.0-alpha.2 candidate.** This is a breaking alpha for .NET 10 and C# 14.
 
 | Package | Purpose |
 | --- | --- |
-| `Tl.CSharp` | Recommended one-package C# installation; contains the build-only compiler and depends on the runtime |
-| `Tl.Runtime` | The compact runtime ABI, timeline IDs, playback state, authoring syntax, and frame contract |
-| `Tl.Gen.CSharp` | Standalone automatic C# frontend and build-time kernel generator |
-| `Tl.Compiler` | Versioned language-neutral immutable plan for backend and tooling authors |
-| `Tl.Gen.C` | Portable C11 backend with a fixed-width ABI |
+| `Tl.CSharp` | Recommended C# package; adds the build-only compiler and runtime |
+| `Tl.Runtime` | Playback ABI, declarations, frames, and dynamic registry |
+| `Tl.Gen.CSharp` | C# frontend and generated-kernel backend |
+| `Tl.Compiler` | Language-neutral immutable plan and extension contract |
+| `Tl.Gen.C` | Independently versioned portable C11 backend |
 
 ## Install
 
@@ -25,264 +26,183 @@ Compile gameplay timelines into tiny, allocation-free playback kernels. Author a
 dotnet add package Tl.CSharp --prerelease
 ```
 
-`Tl.CSharp` contains the compiler needed during the build and pulls in `Tl.Runtime`. Only `Tl.Runtime` enters the game output; the verified package consumer output contains no `Tl.Gen`, `Tl.Compiler`, `Tl.Gen.C`, or Roslyn assembly. Install `Tl.Runtime` and `Tl.Gen.CSharp` separately only when a toolchain needs that split.
+Normal builds and IDE design-time builds discover `ITimeline` declarations automatically. Generated files are deterministic cache outputs under `obj/<configuration>/<tfm>/TlGenCompile`. Applications ship `Tl.Runtime`; the package-only checks prove that the generator, compiler, and Roslyn assemblies do not enter managed or NativeAOT output.
 
 ## Build a combo attack
 
 ```cs
 using Tl;
 
-public readonly record struct FighterPose(float SwordAngle, float Lunge);
-public readonly record struct CombatStats(float Health, float Stagger);
-public readonly record struct SwingClip(float SwordAngle, float Lunge);
-public readonly record struct HitClip(float Damage, float Stagger);
+public readonly record struct Pose(float X, float Y);
+public readonly record struct AnimationSettings(float Weight);
+public readonly record struct AnimationClip(float X, float Y);
+public readonly record struct Health(float Value);
+public readonly record struct DamageSettings(float Multiplier);
+public readonly record struct DamageClip(float Amount);
 
-public readonly struct SwordTrack : ITrack<SwingClip>
+public readonly struct AnimationTrack : ITrack<AnimationClip>
 {
-    public void Blend(in SwingClip first, in SwingClip second, float factor, out SwingClip result)
+    public void Blend(in AnimationClip first, in AnimationClip second, float factor, out AnimationClip result)
         => result = new(
-            first.SwordAngle + (second.SwordAngle - first.SwordAngle) * factor,
-            first.Lunge + (second.Lunge - first.Lunge) * factor);
+            first.X + (second.X - first.X) * factor,
+            first.Y + (second.Y - first.Y) * factor);
 
-    public static void Forward(in Frame<SwordTrack, SwingClip> frame, in FighterPose currentPose, out FighterPose nextPose)
-        => nextPose = new(currentPose.SwordAngle + frame.Clip.SwordAngle, currentPose.Lunge + frame.Clip.Lunge);
-
-    public static void Backward(in Frame<SwordTrack, SwingClip> frame, in FighterPose currentPose, out FighterPose nextPose)
-        => nextPose = new(currentPose.SwordAngle - frame.Clip.SwordAngle, currentPose.Lunge - frame.Clip.Lunge);
+    public static void Seek(
+        in Frame<AnimationTrack, AnimationClip> frame,
+        in Pose currentPose,
+        in AnimationSettings animationSettings,
+        out Pose nextPose)
+        => nextPose = new(
+            currentPose.X + frame.Direction * frame.Clip.X * animationSettings.Weight,
+            currentPose.Y + frame.Direction * frame.Clip.Y * animationSettings.Weight);
 }
 
-public readonly struct HitTrack : ITrack<HitClip>
+public readonly struct DamageTrack : ITrack<DamageClip>
 {
-    public void Blend(in HitClip first, in HitClip second, float factor, out HitClip result)
-        => result = new(
-            first.Damage + (second.Damage - first.Damage) * factor,
-            first.Stagger + (second.Stagger - first.Stagger) * factor);
+    public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)
+        => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 
-    public static void Forward(in Frame<HitTrack, HitClip> frame, ref CombatStats boss)
-        => boss = new(boss.Health - frame.Clip.Damage, boss.Stagger + frame.Clip.Stagger);
-
-    public static void Backward(in Frame<HitTrack, HitClip> frame, ref CombatStats boss)
-        => boss = new(boss.Health + frame.Clip.Damage, boss.Stagger - frame.Clip.Stagger);
+    public static void Seek(
+        in Frame<DamageTrack, DamageClip> frame,
+        in Health currentHealth,
+        in DamageSettings damageSettings,
+        out Health nextHealth)
+        => nextHealth = new(
+            currentHealth.Value - frame.Direction * frame.Clip.Amount * damageSettings.Multiplier);
 }
 
 public readonly partial struct Attack : ITimeline
 {
     public static void Define(scoped Builder builder)
     {
-        var sword = builder.Track(new SwordTrack());
-        var hit = builder.Track(new HitTrack());
-        builder.Clip(in sword, new SwingClip(-25f, 0.1f), 0u, 16u);
-        builder.Clip(in sword, new SwingClip(90f, 1f), 8u, 24u);
-        builder.Clip(in hit, new HitClip(120f, 35f), 12u, 13u);
+        var animation = builder.Track(new AnimationTrack());
+        var damage = builder.Track(new DamageTrack());
+        builder.Clip(animation, new AnimationClip(2f, 1f), 0u, 40u);
+        builder.Clip(animation, new AnimationClip(6f, 3f), 20u, 60u);
+        builder.Clip(damage, new DamageClip(10f), 10u, 11u);
+        builder.Clip(damage, new DamageClip(20f), 40u, 41u);
     }
 }
 ```
 
-The generator discovers `ITimeline` declarations from the project’s normal compile items. Normal builds and IDE design-time compilations run the same deterministic pass; unchanged inputs are cache hits that preserve generated file timestamps. Editors decide when to schedule design-time compilation, so generation follows that background compile rather than each raw keystroke. There is no `Build`, `Compile`, `InMemory`, `Bind`, source item list, reflection, boxing, or runtime authoring graph.
+`Frame<TTrack,TClip>` exposes borrowed `Track` and resolved `Clip` values plus `GameTick`, `TimelineTick`, signed `Cycle`, `TrackIndex`, `Flags`, and the derived `Direction` value `1` or `-1`. The callback parameters after the frame declare the timeline's component schema. The generator produces the borrowed context and direct calls.
 
-`Frame<TTrack,TClip>` exposes `Track`, resolved `Clip`, effective `Tick`, `State`, and stable `TrackIndex`. Callback parameters after the frame define any finite set of `in`, `ref`, and `out` component slots. The generator derives the timeline’s complete input and output schema.
-
-## Advance it in the game loop
+## Run the typed facade
 
 ```cs
-var currentPose = new FighterPose(0f, 0f);
+var currentPose = new Pose(0f, 0f);
+var animationSettings = new AnimationSettings(1f);
+var currentHealth = new Health(100f);
+var damageSettings = new DamageSettings(1f);
 var nextPose = currentPose;
-var boss = new CombatStats(1_000f, 0f);
+var nextHealth = currentHealth;
+var playback = Attack.Start(20_000u);
+var data = new Attack.Data(
+    ref playback,
+    in animationSettings,
+    in currentHealth,
+    in currentPose,
+    in damageSettings,
+    ref nextHealth,
+    ref nextPose);
 
-var input = new Attack.Input(currentPose: in currentPose);
-var output = new Attack.Output(nextPose: ref nextPose, boss: ref boss);
+if (!Attack.TrySeek(ref data, 11))
+    return;
 
-if (Timeline.TryStart(Attack.Id, out var playback)
-    && Timeline.TryForward(
-        Attack.Id,
-        in playback,
-        10u,
-        in input,
-        ref output,
-        out var nextPlayback))
-{
-    playback = nextPlayback;
-}
+if (!Attack.TrySeek(ref data, -6))
+    return;
 ```
 
-`Timeline.All[id]` provides the equivalent indexed facade. Scalar forward/backward methods stay scalar. Span overloads hoist validation and route selection across a batch.
+`Start(20_000u)` starts timeline position zero at game tick 20,000. `TrySeek(ref data, 11)` executes local frames 0 through 10. The following `TrySeek(ref data, -6)` executes local frames 10 through 5 in reverse order. The resulting playback is at position 5 and game tick 20,005. A delta is an amount of simulation, not a destination sample.
 
-The generated contexts are stack-only ref structs. They retain managed byrefs correctly when component storage lives in an object or array, while unmanaged component values work naturally with ECS-style storage. The engine retains no input, output, frame, or playback reference.
+`Attack.Data` is a stack-only collection of borrowed references. `in` callback slots become read-only references and `ref` or `out` slots become writable references. It copies no component payload and the engine retains no context, component, frame, or playback reference.
+
+## Run a runtime-selected timeline
+
+```cs
+ushort id = Attack.Id;
+
+if (!Timeline.TryStart(id, 20_000u, out var playback))
+    return;
+
+var data = new Attack.DynamicData(
+    ref playback,
+    in animationSettings,
+    in currentHealth,
+    in currentPose,
+    in damageSettings,
+    ref nextHealth,
+    ref nextPose);
+
+if (!Timeline.TrySeek(id, ref data, 1))
+    return;
+
+if (!Timeline.TryStop(id, in playback, out var stopped))
+    return;
+
+playback = stopped;
+```
+
+Use `Attack.Start` and `Attack.TrySeek` when the definition is known in source. Use `Attack.Id`, `Timeline.TryStart`, `Attack.DynamicData`, and `Timeline.TrySeek` when an ID is selected at runtime. The dynamic route validates identity and schema before effects. It cannot infer a missing component from an ID.
 
 ## Unity ECS target
 
-The ECS ownership boundary is one `Playback` value per entity. Query the required components directly, construct the borrowed generated contexts inside `Execute`, advance once, and write the returned playback back only when the operation succeeds. A Unity backend should make this job the complete call site:
-
-```cs
-using Tl;
-using Unity.Burst;
-using Unity.Entities;
-
-public struct AttackPlayback : IComponentData
-{
-    public Playback Value;
-    public uint Tick;
-}
-
-public struct CurrentPose : IComponentData
-{
-    public FighterPose Value;
-}
-
-public struct NextPose : IComponentData
-{
-    public FighterPose Value;
-}
-
-public struct BossCombatStats : IComponentData
-{
-    public CombatStats Value;
-}
-
-[BurstCompile]
-public partial struct AdvanceAttackJob : IJobEntity
-{
-    private void Execute(
-        ref AttackPlayback state,
-        in CurrentPose currentPose,
-        ref NextPose nextPose,
-        ref BossCombatStats boss)
-    {
-        var playback = state.Value;
-        if (!playback.Has(PlaybackFlags.Started)
-            && !Timeline.TryStart(Attack.Id, out playback))
-            return;
-
-        var input = new Attack.Input(currentPose: in currentPose.Value);
-        var output = new Attack.Output(
-            nextPose: ref nextPose.Value,
-            boss: ref boss.Value);
-
-        if (!Timeline.TryForward(
-                Attack.Id,
-                in playback,
-                state.Tick,
-                in input,
-                ref output,
-                out var nextPlayback))
-            return;
-
-        state.Value = nextPlayback;
-        state.Tick++;
-    }
-}
-
-[BurstCompile]
-public partial struct AttackSystem : ISystem
-{
-    [BurstCompile]
-    public void OnUpdate(ref SystemState state)
-        => new AdvanceAttackJob().ScheduleParallel();
-}
-```
-
-`CurrentPose` and `NextPose` are separate component types because an entity cannot carry two components of the same type. A `ref` callback parameter aliases the queried component storage; an `in` parameter reads it without creating mutable output state. Generated contexts must be created and consumed inside the job invocation, never stored in a component, captured, or retained across a structural change.
-
-This is the required Unity integration shape, but the current package is not Unity-compatible. It targets .NET 10/C# 14, while Unity uses a different API and compiler profile, and the runtime registry has not passed Burst compilation. NuGetForUnity can copy NuGet assemblies into a Unity project, but it cannot make this target framework or the MSBuild generator Burst-compatible. A production `Tl.Unity` UPM package must emit Unity-compatible kernels, store immutable timeline data in Burst-supported native storage, and pass Burst, Entities, IL2CPP, player-content, and allocation gates. See Unity's [API compatibility](https://docs.unity3d.com/6000.0/Documentation/Manual/dotnet-profile-support.html), [C# compiler](https://docs.unity3d.com/6000.0/Documentation/Manual/csharp-compiler.html), [Entities `ISystem`](https://docs.unity.cn/Packages/com.unity.entities%401.2/manual/systems-isystem.html), and [Burst type support](https://docs.unity3d.com/Packages/com.unity.burst%401.8/manual/csharp-type-support.html) documentation.
-
-## Emit portable C11
-
-`Tl.Compiler` carries only numeric identities, operations, payload IDs, and half-open windows. `Tl.Gen.C` maps each operation ID to explicit C symbols and returns the source plus a byte-accurate report.
-
-```cs
-using Tl.Compiler;
-using Tl.Gen.C;
-
-var damage = new OperationId("game.damage");
-var plan = new TimelinePlan(
-    "attack",
-    runtimeId: 7,
-    loops: false,
-    tracks: [new TrackPlan(0, 10, damage)],
-    clips: [new ClipPlan(0, 120, 12, 13)]);
-var binding = new CBinding(
-    "attack",
-    "attack.h",
-    [new COperationBinding(damage, "damage_forward", "damage_backward")]);
-var emission = CEmitter.Generate(plan, binding);
-```
-
-The emitted C11 owns no heap memory. `tl_playback` is 12 bytes, `tl_frame` is 24 bytes, and the header asserts both layouts. Consumer operations receive a borrowed `void*` context and `const tl_frame*`. Arbitrary C# callback bodies are never claimed to be portable.
+The intended ECS call owns one playback value per entity, borrows queried components for one job invocation, constructs generated data inside that invocation, seeks by the simulation delta, and writes the playback back after success. The current .NET 10 package has not passed Unity Burst, Entities, IL2CPP, or player-content gates. `Tl.Unity` remains a separate backend and qualification workstream; the current package must not be presented as Burst-ready.
 
 ## Composition
 
-`builder.Include<TTimeline>()` composes another build-visible definition. `builder.Before<THook>()` and `builder.After<THook>()` register generated hook calls without editing the included timeline. Include graphs are cycle-checked and lowered in deterministic authored order.
+`builder.Include<TTimeline>()` composes a source-visible definition. `builder.Before<THook>()` and `builder.After<THook>()` add ordered hooks without editing the included definition. Include graphs are cycle-checked and lowered in deterministic authored order.
 
-## Know what the compiler made
+## Generated size and retained memory
 
-Every cache miss prints the number and UTF-8 size of generated C# files. Every build leaves `obj/<configuration>/<tfm>/TlGenCompile/TlGenCompile.report.txt` with one row per timeline and artifact. Cache hits preserve generated contents and timestamps and point to the same report.
-
-```text
-TlGenCompile: 1 timeline(s), 3 source file(s), 27,094 UTF-8 B; report obj/Release/net10.0/TlGenCompile/TlGenCompile.report.txt
-```
-
-The generated timeline exposes its exact authored shape and runtime-sized static payload storage. The core reports actual process-wide unmanaged registry allocation.
+Every cache miss prints generated C# file count and UTF-8 bytes. Every build writes `TlGenCompile.report.txt` with one row per timeline and artifact. Generated timelines expose `TrackCount`, `ClipCount`, `RegionCount`, and `StaticDataBytes`; `Timeline.RegistryRetainedBytes` reports process-wide unmanaged registry allocation.
 
 ```cs
-Console.WriteLine($"tracks: {Attack.TrackCount}");
-Console.WriteLine($"clips: {Attack.ClipCount}");
-Console.WriteLine($"regions: {Attack.RegionCount}");
-Console.WriteLine($"static payloads: {Attack.StaticDataBytes} B");
-Console.WriteLine($"timeline registry: {Timeline.RegistryRetainedBytes} B");
+Console.WriteLine(Attack.TrackCount);
+Console.WriteLine(Attack.ClipCount);
+Console.WriteLine(Attack.RegionCount);
+Console.WriteLine(Attack.StaticDataBytes);
+Console.WriteLine(Timeline.RegistryRetainedBytes);
 ```
 
-Generated source bytes, static payload bytes, shared dispatch values, registry allocation, managed assembly size, NativeAOT binary size, and JIT native code are separate quantities. The report does not pretend source length is runtime memory.
-
-## Performance
-
-The alpha benchmark measures a full public call and complete receipts with 65,536 operations, 16 warmups, 12 measured iterations, 250 ms iterations, and MemoryDiagnoser:
-
-| Workload | Pattern | Handwritten oracle | `Timeline.TryForward` | Public batch 8 |
-| --- | --- | ---: | ---: | ---: |
-| One-track sum | Sequential | 0.609 ns/tick | 1.396 ns/tick | 1.436 ns/tick |
-| Two-kind combat | Sequential | 1.512 ns/tick | 2.247 ns/tick | 2.870 ns/tick |
-| One-track sum | Random | 3.530 ns/tick | 4.972 ns/tick | 5.206 ns/tick |
-| Two-kind combat | Random | 6.826 ns/tick | 7.085 ns/tick | 7.999 ns/tick |
-
-Every measured arm allocates 0 B. Public scalar and batch values are the median of three independent alpha.2 run medians on an i9-14900K with .NET 10.0.12; handwritten oracle values are the unchanged alpha.1 reference. Batch values are throughput per tick across eight-tick calls. Each benchmark uses one runtime-loaded ID in its hot stream. Random seeking costs more because region selection and branch prediction are real work; a stream switching among many compatible IDs is not part of this alpha claim. Exact alpha.2 raw JSON, logs, environment, generated hashes, PMU counters, assembly, and limitations are retained in [the performance evidence](benchmarks/Alpha/results/v1.0.0-alpha.2/README.md). The [historical verification record](docs/verification/v1.0-alpha.1/README.md) preserves alpha.1.
+Generated source bytes, static payload bytes, registry allocation, managed assembly size, NativeAOT image size, and native code size are reported independently. See the [signed seek evidence](benchmarks/Alpha/results/signed-seek/README.md) for exact correctness, latency, allocation, code-size, assembly, and PMU receipts.
 
 ## Limits
 
-- IDs cover all 65,536 `ushort` values and are never reused within a process.
-- Each generated module contains at most 256 routes; modules compose to the full ID space.
+- IDs cover all 65,536 `ushort` values and do not reuse a published slot.
+- Each generated module contains at most 256 dynamic routes.
 - A definition supports at most 256 distinct track/clip kinds and 65,536 track instances.
-- Clip windows are half-open `[start, end)`; at most two clips overlap on one track.
-- A generated batch accepts at most 256 ticks and uses at most 1,024 bytes of stack storage to make aliased tick input stable before effects.
-- Compiled definitions live for the process lifetime.
-- Runtime topology mutation and arbitrary managed plugin loading are outside this alpha.
-- Context routing and `Include` resolve definitions from the same compilation. Cross-assembly schema routing is outside this alpha.
-- Timeline declarations emitted by another source generator are not visible to this pre-compilation generator pass.
-- NativeAOT is supported. Unity Burst requires its own backend and qualification.
+- Clip windows are half-open `[start, end)` and at most two clips overlap on one track.
+- Finite playback positions remain within `0..Duration`; looping positions and cycles are signed.
+- Definitions and registry routes are immutable after publication.
+- Cross-assembly schema routing and declarations produced by another generator are outside this alpha.
+- The portable C and Unity/Burst targets have separate ABIs and release gates.
 
-The [API contract](docs/v1.0-alpha-api.md), [migration guide](docs/v1.0-alpha-migration.md), [implementation plan](plan.md), [architecture](docs/architecture.md), and [extension contract](docs/extending.md) contain the complete design and verification rules.
+The [API contract](docs/v1.0-alpha-api.md), [semantics](docs/semantics.md), [migration guide](docs/v1.0-alpha-migration.md), [architecture](docs/architecture.md), and [implementation plan](plan.md) define the complete boundary.
 
 ## Repository map
 
 | Path | Role |
 | --- | --- |
-| `src/Tl.Core` | Compact runtime ABI, playback state, frame contract, and ID registry |
-| `src/Tl.Gen` | Compiler cache, C# semantic frontend, lowering, and source backend |
+| `src/Tl.Core` | Runtime ABI, playback, frame, declaration surface, and registry |
 | `src/Tl.Compiler` | Language-neutral immutable plan |
-| `src/Tl.Gen.C` | Portable C11 backend and ABI reporting |
+| `src/Tl.Gen` | Shared compiler transformations retained during extraction |
+| `src/Tl.Gen.CSharp` | C# frontend and kernel generator package |
+| `src/Tl.Gen.C` | Portable C11 backend package |
 | `src/Tl.CSharp` | One-package C# installation |
-| `samples/Mixed` | Small heterogeneous attack that builds and runs generated code |
-| `benchmarks/Alpha` | Public-path BenchmarkDotNet suite, exact oracle, and disassembly inputs |
-| `tests/Tl.Alpha` | JIT and NativeAOT behavioral, capacity, allocation, and lifetime receipts |
-| `tests/Tl.Core.Tests` | Approved public runtime surface |
-| `tests/Tl.Gen.Tests` | Semantic analysis, generation, routing, caching, and diagnostics |
-| `docs/verification` | Frozen measurements, environment identity, decisions, and limits |
+| `samples/Mixed` | Complete heterogeneous signed-seek example |
+| `benchmarks/Alpha` | Public-path benchmarks, oracle, PMU harness, and evidence |
+| `tests/Tl.Alpha` | Generated JIT and NativeAOT correctness receipts |
+| `tests/Tl.PackageConsumer` | Isolated typed and dynamic package-consumer gate |
 
-## Build
+## Validate
 
 ```sh
-dotnet build tl.slnx -c Release -m:1
-dotnet test tl.slnx -c Release --no-build
+python3 benchmarks/source_budget.py
+dotnet build tl.slnx -c Release -m:1 -p:NuGetAudit=false
+dotnet test tl.slnx -c Release --no-build -p:NuGetAudit=false
 dotnet run --project tests/Tl.Alpha -c Release --no-build
+dotnet run --project samples/Mixed -c Release --no-build
 dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
 dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
 ```
