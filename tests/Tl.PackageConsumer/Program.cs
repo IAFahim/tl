@@ -1,11 +1,21 @@
 using Tl;
 
-var total = default(PackageTotal);
-var playback = PackageTimeline.Start(0u);
-var data = new PackageTimeline.Data(ref playback, ref total);
-if (!PackageTimeline.TrySeek(ref data, 1))
+var typedTotal = default(PackageTotal);
+var typedPlayback = PackageTimeline.Start(0u);
+var typedData = new PackageTimeline.Data(ref typedPlayback, ref typedTotal);
+if (!PackageTimeline.TrySeek(ref typedData, 1))
     return 1;
-Console.WriteLine(total.Value);
+
+var dynamicTotal = default(PackageTotal);
+if (!Timeline.TryStart(PackageTimeline.Id, 0u, out var dynamicPlayback))
+    return 2;
+var dynamicData = new PackageTimeline.DynamicData(ref dynamicPlayback, ref dynamicTotal);
+if (!Timeline.TrySeek(PackageTimeline.Id, ref dynamicData, 1))
+    return 3;
+if (typedTotal != dynamicTotal || typedPlayback.Position != dynamicPlayback.Position)
+    return 4;
+
+Console.WriteLine(typedTotal.Value);
 return 0;
 
 public readonly record struct PackageTotal(int Value);
