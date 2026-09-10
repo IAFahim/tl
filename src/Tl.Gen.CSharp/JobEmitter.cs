@@ -6,6 +6,7 @@ namespace Tl.Gen.CSharp;
 
 internal static class JobEmitter
 {
+    internal static string Normalize(string content) => content.Replace("\r\n", "\n").Replace('\r', '\n');
     internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model)
     {
         var timelines = model.Timelines.OrderBy(Qualified, StringComparer.Ordinal).ToArray();

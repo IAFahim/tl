@@ -178,7 +178,7 @@ internal static class CompileGenerationCache
 
         var sourceList = GetSourceList(expected.Keys);
         WriteIfChanged(Path.Combine(outputDirectory, SourceListFileName), sourceList);
-        var normalizedReport = HeterogeneousEmitter.NormalizeSource(report);
+        var normalizedReport = JobEmitter.Normalize(report);
         WriteIfChanged(Path.Combine(outputDirectory, ReportFileName), normalizedReport);
 
         var manifest = new CompileGenerationManifest
@@ -259,7 +259,7 @@ internal static class CompileGenerationCache
     private static void WriteManifest(string outputDirectory, CompileGenerationManifest manifest)
     {
         var path = Path.Combine(outputDirectory, ManifestFileName);
-        var content = HeterogeneousEmitter.NormalizeSource(JsonSerializer.Serialize(manifest, CompileManifestJsonContext.Default.CompileGenerationManifest)) + "\n";
+        var content = JobEmitter.Normalize(JsonSerializer.Serialize(manifest, CompileManifestJsonContext.Default.CompileGenerationManifest)) + "\n";
         if (File.Exists(path) && File.ReadAllText(path) == content)
             return;
 

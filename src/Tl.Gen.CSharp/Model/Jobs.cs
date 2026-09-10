@@ -2,6 +2,21 @@ using Tl.Gen.CSharp.Analysis;
 
 namespace Tl.Gen.CSharp.Model;
 
+public enum SlotMode : byte
+{
+    Input,
+    Reference,
+}
+
+public sealed record TimelineSlot(string Name, string TypeName, SlotMode Mode);
+
+public sealed record HeterogeneousClip(
+    int TrackIndex,
+    string TypeName,
+    string Expression,
+    uint Start,
+    uint End);
+
 public sealed record JobDefinition(string TypeName, IReadOnlyList<TimelineSlot> Slots);
 
 public sealed record JobTrack(

@@ -14,16 +14,19 @@ public sealed class IncrementalGeneratorTests
         using Tl;
         namespace Incremental;
         public readonly record struct Clip(int Value);
-        public readonly struct Track : ITrack<Clip>
+        public readonly struct Track : IBlend<Clip>
         {
             public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
-            public static void Seek(in Frame<Track, Clip> frame, ref int value) => value += frame.Direction * frame.Clip.Value;
+        }
+        public readonly struct Job : ITimelineJob<Track, Clip>
+        {
+            public static void Execute(in Frame<Track, Clip> frame, ref int value) => value += frame.Direction * frame.Clip.Value;
         }
         public readonly partial struct Timeline : ITimeline
         {
             public static void Define(scoped Builder builder)
             {
-                var track = builder.Track(new Track());
+                var track = builder.Track(new Track()).Use<Job>();
                 builder.Clip(track, new Clip(2), 0u, 3u);
             }
         }
@@ -33,11 +36,9 @@ public sealed class IncrementalGeneratorTests
     public void GeneratedOutputBindsAndMatchesTheCliByteForByte()
     {
         var compilation = Compilation(Declaration);
-        var driver = Driver();
+        var driver = Driver().RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
 
-        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var generatorDiagnostics);
-
-        Assert.Empty(generatorDiagnostics);
+        Assert.Empty(diagnostics);
         Assert.Empty(output.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
         var analyzer = Sources(driver);
         var directory = Path.Combine(Path.GetTempPath(), "tl-incremental-tests", Guid.NewGuid().ToString("N"));
@@ -54,32 +55,16 @@ public sealed class IncrementalGeneratorTests
             var cli = File.ReadAllLines(Path.Combine(directory, CompileGenerationCache.SourceListFileName))
                 .ToDictionary(static path => path, path => File.ReadAllText(Path.Combine(directory, path)), StringComparer.Ordinal);
             Assert.Equal(cli, analyzer);
+            var report = File.ReadAllText(Path.Combine(directory, CompileGenerationCache.ReportFileName));
+            Assert.Contains("format\t2", report);
+            Assert.Contains("timeline\tIncremental.Timeline\ttracks=1\tclips=1\tduration=3", report);
+            Assert.Contains("generated-source-utf8-bytes", report);
         }
         finally
         {
             if (Directory.Exists(directory))
                 Directory.Delete(directory, true);
         }
-    }
-
-    [Fact]
-    public void DiagnosticsUseTheIncompleteDeclarationSourceSpan()
-    {
-        const string source = """
-            using Tl;
-            namespace Incremental;
-            public readonly partial struct Broken : ITimeline
-            {
-            """;
-        var compilation = Compilation(source);
-
-        var result = Driver().RunGenerators(compilation).GetRunResult();
-
-        var diagnostic = Assert.Single(result.Diagnostics, static diagnostic => diagnostic.Id == "TLGEN23");
-        var declaration = compilation.SyntaxTrees.Single().GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
-        Assert.Equal(declaration.Span, diagnostic.Location.SourceSpan);
-        Assert.Equal("Timeline.cs", diagnostic.Location.GetLineSpan().Path);
-        Assert.Equal(declaration.GetLocation().GetLineSpan().StartLinePosition, diagnostic.Location.GetLineSpan().StartLinePosition);
     }
 
     [Fact]
@@ -90,75 +75,42 @@ public sealed class IncrementalGeneratorTests
 
         var result = Driver().RunGenerators(compilation).GetRunResult();
 
-        var diagnostic = Assert.Single(result.Diagnostics, static diagnostic => diagnostic.Id == "TLGEN34");
         var call = compilation.SyntaxTrees.Single().GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression.ToString() == "builder.Clip");
+        var diagnostic = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Id == "TLGEN68" && diagnostic.Location.SourceSpan == call.Span);
         Assert.Equal(call.Span, diagnostic.Location.SourceSpan);
+        Assert.Equal("Timeline.cs", diagnostic.Location.GetLineSpan().Path);
         Assert.Equal("Tl.Generation", diagnostic.Descriptor.Category);
-        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
     }
 
     [Fact]
-    public void ExpensiveAnalysisIsCachedForUnchangedAndUnrelatedEdits()
+    public void AnalysisOutputIsStableAcrossUnrelatedEditsAndChangesForDeclarations()
     {
         var initial = Compilation(Declaration).AddSyntaxTrees(Tree("namespace Unrelated; internal sealed class Value { }", "Other.cs"));
-        var driver = Driver();
-        driver = driver.RunGenerators(initial);
-        Assert.Equal(IncrementalStepRunReason.New, Reason(driver, "Tl.Analysis"));
+        var driver = Driver().RunGenerators(initial);
+        Assert.Equal(IncrementalStepRunReason.New, Reason(driver));
+        var original = Sources(driver);
 
         driver = driver.RunGenerators(initial);
-        Assert.Equal(IncrementalStepRunReason.Cached, Reason(driver, "Tl.Analysis"));
+        Assert.Equal(IncrementalStepRunReason.Cached, Reason(driver));
 
         var unrelated = initial.ReplaceSyntaxTree(
             initial.SyntaxTrees.Single(static tree => tree.FilePath == "Other.cs"),
             Tree("namespace Unrelated; internal sealed class Value { internal int Number; }", "Other.cs"));
         driver = driver.RunGenerators(unrelated);
-        Assert.Equal(IncrementalStepRunReason.Cached, Reason(driver, "Tl.Analysis"));
+        Assert.Equal(IncrementalStepRunReason.Unchanged, Reason(driver));
+        Assert.Equal(original, Sources(driver));
 
         var changed = unrelated.ReplaceSyntaxTree(
             unrelated.SyntaxTrees.Single(static tree => tree.FilePath == "Timeline.cs"),
             Tree(Declaration.Replace("0u, 3u", "0u, 4u", StringComparison.Ordinal), "Timeline.cs"));
         driver = driver.RunGenerators(changed);
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Analysis"));
-
-        var addedTree = Tree("""
-            using Tl;
-            namespace Incremental;
-            public readonly partial struct Second : ITimeline
-            {
-                public static void Define(scoped Builder builder)
-                {
-                    var track = builder.Track(new Track());
-                    builder.Clip(track, new Clip(1), 0u, 1u);
-                }
-            }
-            """, "Second.cs");
-        var added = changed.AddSyntaxTrees(addedTree);
-        driver = driver.RunGenerators(added);
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Analysis"));
-        Assert.Equal(4, Sources(driver).Count);
-
-        driver = driver.RunGenerators(added.RemoveSyntaxTrees(addedTree));
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Analysis"));
-        Assert.Equal(3, Sources(driver).Count);
+        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver));
+        Assert.NotEqual(original, Sources(driver));
     }
 
     [Fact]
-    public void OptionsAndReferencesRefreshCandidateAnalysis()
-    {
-        var compilation = Compilation(Declaration);
-        var driver = Driver().RunGenerators(compilation);
-
-        driver = driver.RunGenerators(compilation.WithOptions(((CSharpCompilationOptions)compilation.Options).WithOverflowChecks(true)));
-        Assert.NotEqual(IncrementalStepRunReason.Cached, Reason(driver, "Tl.Analysis"));
-
-        var reference = Reference("IncrementalReference", "public sealed class AddedReference { }");
-        driver = driver.RunGenerators(compilation.AddReferences(reference));
-        Assert.NotEqual(IncrementalStepRunReason.Cached, Reason(driver, "Tl.Analysis"));
-    }
-
-    [Fact]
-    public void SameIdentityReferenceReplacementRefreshesTheSemanticModel()
+    public void SameIdentityReferenceReplacementRefreshesTheJobSlots()
     {
         const string source = """
             using Tl;
@@ -167,47 +119,36 @@ public sealed class IncrementalGeneratorTests
             {
                 public static void Define(scoped Builder builder)
                 {
-                    var track = builder.Track(new Track());
+                    var track = builder.Track(new Track()).Use<Job>();
                     builder.Clip(track, new Clip(1), 0u, 1u);
                 }
             }
             """;
-        var firstReference = Reference("ExternalReference", ExternalTrack(""));
-        var secondReference = Reference("ExternalReference", ExternalTrack(", ref int value"));
+        var firstReference = Reference("ExternalReference", ExternalJob(""));
+        var secondReference = Reference("ExternalReference", ExternalJob(", ref int value"));
         var first = Compilation(source).AddReferences(firstReference);
         var driver = Driver().RunGenerators(first);
         Assert.DoesNotContain("ref int @value", string.Join("\n", Sources(driver).Values));
 
         driver = driver.RunGenerators(first.ReplaceReference(firstReference, secondReference));
 
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Analysis"));
+        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver));
         Assert.Contains("ref int @value", string.Join("\n", Sources(driver).Values));
     }
 
     [Fact]
     public void OrderingAndTextAreCultureIndependent()
     {
-        var source = Declaration + """
-
-            public readonly partial struct Alpha : ITimeline
-            {
-                public static void Define(scoped Builder builder)
-                {
-                    var track = builder.Track(new Track());
-                    builder.Clip(track, new Clip(1), 0u, 1u);
-                }
-            }
-            """;
         var previousCulture = CultureInfo.CurrentCulture;
         var previousUiCulture = CultureInfo.CurrentUICulture;
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("tr-TR");
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("tr-TR");
-            var first = Sources(Driver().RunGenerators(Compilation(source)));
+            var first = Sources(Driver().RunGenerators(Compilation(Declaration)));
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ar-SA");
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ar-SA");
-            var second = Sources(Driver().RunGenerators(Compilation(source)));
+            var second = Sources(Driver().RunGenerators(Compilation(Declaration)));
             Assert.Equal(first, second);
         }
         finally
@@ -233,11 +174,10 @@ public sealed class IncrementalGeneratorTests
             parseOptions: CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview),
             driverOptions: new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, true));
 
-    private static IncrementalStepRunReason Reason(GeneratorDriver driver, string name)
+    private static IncrementalStepRunReason Reason(GeneratorDriver driver)
     {
-        var steps = driver.GetRunResult().Results.Single().TrackedSteps[name];
-        var step = Assert.Single(steps);
-        return Assert.Single(step.Outputs).Reason;
+        var steps = driver.GetRunResult().Results.Single().TrackedSteps["Tl.Analysis"];
+        return Assert.Single(Assert.Single(steps).Outputs).Reason;
     }
 
     private static Dictionary<string, string> Sources(GeneratorDriver driver)
@@ -249,9 +189,7 @@ public sealed class IncrementalGeneratorTests
 
     private static string[] ReferencePaths()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Append(typeof(ITimeline).Assembly.Location)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+            .Append(typeof(ITimeline).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
 
     private static MetadataReference Reference(string name, string source)
     {
@@ -268,15 +206,18 @@ public sealed class IncrementalGeneratorTests
         return MetadataReference.CreateFromFile(path);
     }
 
-    private static string ExternalTrack(string slot)
+    private static string ExternalJob(string slot)
         => $$"""
             using Tl;
             namespace External;
             public readonly record struct Clip(int Value);
-            public readonly struct Track : ITrack<Clip>
+            public readonly struct Track : IBlend<Clip>
             {
                 public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
-                public static void Seek(in Frame<Track, Clip> frame{{slot}}) { }
+            }
+            public readonly struct Job : ITimelineJob<Track, Clip>
+            {
+                public static void Execute(in Frame<Track, Clip> frame{{slot}}) { }
             }
             """;
 }

@@ -385,12 +385,19 @@ public static class JobReader
             => model.GetTypeInfo(node).Type is { } type ? SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName(Name(type)), (ArgumentListSyntax)Visit(node.ArgumentList)!, null) : base.VisitImplicitObjectCreationExpression(node);
         public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
             => model.GetTypeInfo(node.Type).Type is { } type ? node.WithType(SyntaxFactory.ParseTypeName(Name(type))).WithExpression((ExpressionSyntax)Visit(node.Expression)!) : base.VisitCastExpression(node);
+        public override SyntaxNode? VisitDefaultExpression(DefaultExpressionSyntax node)
+            => model.GetTypeInfo(node.Type).Type is { } type ? node.WithType(SyntaxFactory.ParseTypeName(Name(type))) : base.VisitDefaultExpression(node);
         public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
             => model.GetSymbolInfo(node).Symbol is IFieldSymbol { IsStatic: true } field && (field.HasConstantValue || field.ContainingType.TypeKind == TypeKind.Enum)
                 ? SyntaxFactory.ParseExpression($"{Name(field.ContainingType)}.{Escape(field.Name)}") : base.VisitMemberAccessExpression(node);
         public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
             => model.GetSymbolInfo(node).Symbol is IFieldSymbol { IsStatic: true } field && (field.HasConstantValue || field.ContainingType.TypeKind == TypeKind.Enum)
                 ? SyntaxFactory.ParseExpression($"{Name(field.ContainingType)}.{Escape(field.Name)}") : base.VisitIdentifierName(node);
+        public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+            => node.Expression is IdentifierNameSyntax { Identifier.ValueText: "nameof" }
+                && model.GetConstantValue(node) is { HasValue: true, Value: string value }
+                    ? SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(value))
+                    : base.VisitInvocationExpression(node);
     }
 
     private static Contracts? Contract(Compilation compilation)
@@ -452,7 +459,7 @@ public static class JobReader
     private static bool Bounded(ExpressionSyntax expression, SemanticModel model)
     {
         if (model.GetConstantValue(expression).HasValue)
-            return expression is not InvocationExpressionSyntax;
+            return expression is not InvocationExpressionSyntax || expression is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } };
         return expression switch
         {
             ObjectCreationExpressionSyntax item => item.Initializer is null && item.ArgumentList?.Arguments.All(argument => Bounded(argument.Expression, model)) != false,

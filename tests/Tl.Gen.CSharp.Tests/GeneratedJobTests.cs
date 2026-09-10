@@ -151,6 +151,47 @@ public sealed class GeneratedJobTests
         assembly.GetType("JobFixture.Receipt")!.GetMethod("InvalidColumns")!.Invoke(null, null);
     }
 
+    [Fact]
+    public void GeneratedBoundedExpressionsDoNotDependOnAuthoringUsings()
+    {
+        const string source = """
+            using Tl;
+            namespace Imported
+            {
+                public enum Mode : byte { None }
+            }
+            namespace Consumer
+            {
+                using Imported;
+                public readonly struct Clip
+                {
+                    public readonly int Value;
+                    public Clip(string value) => Value = value.Length;
+                }
+                public readonly record struct Track(Mode Mode) : IBlend<Clip>
+                {
+                    public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
+                }
+                public readonly struct Job : ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Qualified : ITimeline
+                {
+                    public static void Define(scoped Builder builder)
+                    {
+                        var track = builder.Track(new Track(default(Mode))).Use<Job>();
+                        builder.Clip(track, new Clip(nameof(Imported.Mode)), 0u, 1u);
+                    }
+                }
+            }
+            """;
+
+        var assembly = Generate(source);
+
+        Assert.NotNull(assembly.GetType("Consumer.Qualified"));
+    }
+
     internal static Assembly Generate(string source)
     {
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
