@@ -39,6 +39,14 @@ The reference-machine sequential results are below the 3 ns gate. Random seeking
 
 Linux PMU measurements show negligible branch-miss rates on the sequential fixtures. This means branch hints are not a useful blanket optimization. The retained lifecycle-mask change was accepted because it removes about one branch per tick, preserves exact receipts, and improves the complete public benchmark. [Raw alpha.2 performance evidence](../benchmarks/Alpha/results/v1.0.0-alpha.2/README.md) records the exact source, environment, generated hashes, JIT assembly, counters, and three BenchmarkDotNet processes.
 
+## Unity borrowed pointers
+
+The Unity backend takes addresses only from typed `in` and `ref` component fields supplied to one `IJobEntity.Execute` invocation. A generated context is created, consumed by one synchronous scalar call, and discarded before `Execute` returns. It is never stored in a component, blob, static field, closure, callback, job value, or returned playback. No structural change or scheduling boundary may occur while the context exists.
+
+Every pointer retains its source type and is dereferenced only as that type. Unity owns the alignment of the typed component reference; the generated kernel performs no byte reinterpretation, pointer arithmetic, or packed access. Blob arrays use Unity's typed `BlobBuilder` allocation and are read through their declared element types.
+
+Generated kernels preserve authored operation order and make no no-alias assumption. Writes through an output alias are visible to later ordered operations. The caller must serialize concurrent writes to the same storage. ECS dependency tracking supplies that exclusion for queried writable components, while generated constants and blob assets remain immutable and safe for concurrent reads. Persistent blobs belong to the creating world or baking artifact and must be disposed with that owner.
+
 ## No-spike policy
 
 Playback code must remain free of managed allocation, blocking locks, lazy initialization, dynamic code generation, runtime compilation, and unbounded work. Registration and source generation are cold paths and report their costs separately. A scheduler or threading extension must preallocate queues and state, define backpressure, and prove that its synchronization does not enter the generated scalar kernel.
