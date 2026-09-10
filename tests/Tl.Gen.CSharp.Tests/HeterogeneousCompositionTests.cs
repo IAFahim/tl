@@ -1,5 +1,4 @@
 using Tl.Gen.CSharp.Analysis;
-using Tl.Gen.CSharp;
 using Tl.Gen.CSharp.Model;
 using Xunit;
 

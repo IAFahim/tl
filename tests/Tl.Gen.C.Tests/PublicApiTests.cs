@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Text;
 using Tl.Compiler;
-using Tl.Gen.C;
 using Xunit;
 
 namespace Tl.Gen.C.Tests;

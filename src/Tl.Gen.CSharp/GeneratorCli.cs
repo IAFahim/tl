@@ -107,7 +107,7 @@ public static class GeneratorCli
     }
 
     private static string Report(
-        IReadOnlyList<Tl.Gen.CSharp.Model.HeterogeneousTimeline> timelines,
+        IReadOnlyList<Model.HeterogeneousTimeline> timelines,
         IReadOnlyList<CompileArtifact> artifacts)
     {
         var writer = new System.Text.StringBuilder();
