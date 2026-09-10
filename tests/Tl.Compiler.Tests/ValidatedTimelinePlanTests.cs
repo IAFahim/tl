@@ -90,6 +90,62 @@ public sealed class ValidatedTimelinePlanTests
     }
 
     [Fact]
+    public void CanonicalBinaryRoundTripsWithStableBytesAndHash()
+    {
+        var validated = new TimelinePlan(
+            "a",
+            7,
+            false,
+            [new TrackPlan(3, 300, new OperationId("op"))],
+            [new ClipPlan(3, 9, 2, 9)]).Validate();
+
+        var encoded = TimelinePlanCodec.Encode(validated);
+        var hash = TimelinePlanCodec.Hash(validated);
+
+        Assert.Equal("544c504c010700016101026f700103ac02000103090209", Convert.ToHexStringLower(encoded.AsSpan()));
+        Assert.Equal("8d3727d1072ba9d2fe503699b59370b9135dd7d2a3870649e119f2018b452035", Convert.ToHexStringLower(hash.AsSpan()));
+        Assert.True(TimelinePlanCodec.TryDecode(encoded.AsSpan(), out var decoded));
+        Assert.NotNull(decoded);
+        Assert.Equal(
+            Convert.ToHexStringLower(encoded.AsSpan()),
+            Convert.ToHexStringLower(TimelinePlanCodec.Encode(decoded).AsSpan()));
+        Assert.Equal(validated.Identity, decoded.Identity);
+        Assert.True(validated.Tracks.AsSpan().SequenceEqual(decoded.Tracks.AsSpan()));
+        Assert.True(validated.Clips.AsSpan().SequenceEqual(decoded.Clips.AsSpan()));
+        Assert.Equal(validated.Regions.Select(Describe), decoded.Regions.Select(Describe));
+    }
+
+    [Fact]
+    public void CanonicalBinaryRejectsMalformedAndNonCanonicalInputs()
+    {
+        var encoded = TimelinePlanCodec.Encode(new TimelinePlan(
+            "a",
+            7,
+            false,
+            [new TrackPlan(3, 300, new OperationId("op"))],
+            [new ClipPlan(3, 9, 2, 9)]).Validate()).ToArray();
+
+        for (var length = 0; length < encoded.Length; length++)
+            Assert.False(TimelinePlanCodec.TryDecode(encoded.AsSpan(0, length), out _));
+        Assert.False(TimelinePlanCodec.TryDecode([.. encoded, 0], out _));
+
+        var unsupported = encoded.ToArray();
+        unsupported[4] = 2;
+        Assert.False(TimelinePlanCodec.TryDecode(unsupported, out _));
+
+        var invalidUtf8 = encoded.ToArray();
+        invalidUtf8[8] = 0xff;
+        Assert.False(TimelinePlanCodec.TryDecode(invalidUtf8, out _));
+
+        var invalidWindow = encoded.ToArray();
+        invalidWindow[^1] = 2;
+        Assert.False(TimelinePlanCodec.TryDecode(invalidWindow, out _));
+
+        byte[] overlongVersion = [.. encoded.AsSpan(0, 4), 0x81, 0x00, .. encoded.AsSpan(5)];
+        Assert.False(TimelinePlanCodec.TryDecode(overlongVersion, out _));
+    }
+
+    [Fact]
     public void TouchingWindowsRemainValidAndEmptyTimelinesHaveNoRegions()
     {
         var touching = new TimelinePlan(

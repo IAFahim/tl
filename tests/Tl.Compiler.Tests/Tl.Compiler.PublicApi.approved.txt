@@ -55,6 +55,10 @@ type Tl.Compiler.TimelinePlan
   Method System.String ToString()
   Property System.Collections.Immutable.ImmutableArray`1[Tl.Compiler.TrackPlan] Tracks
   Method Tl.Compiler.ValidatedTimelinePlan Validate()
+type Tl.Compiler.TimelinePlanCodec
+  Method System.Collections.Immutable.ImmutableArray`1[System.Byte] Encode(Tl.Compiler.ValidatedTimelinePlan)
+  Method System.Collections.Immutable.ImmutableArray`1[System.Byte] Hash(Tl.Compiler.ValidatedTimelinePlan)
+  Method Boolean TryDecode(System.ReadOnlySpan`1[System.Byte], Tl.Compiler.ValidatedTimelinePlan ByRef)
 type Tl.Compiler.TrackPlan
   Constructor Void .ctor(UInt16, UInt32, Tl.Compiler.OperationId)
   Method Void Deconstruct(UInt16 ByRef, UInt32 ByRef, Tl.Compiler.OperationId ByRef)
