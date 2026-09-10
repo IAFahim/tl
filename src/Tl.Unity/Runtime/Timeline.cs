@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -6,15 +7,19 @@ namespace Tl
     public static class Timeline
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Playback Start(ushort id, uint gameTick)
+        public static Playback<TTimeline> Start<TTimeline>(uint gameTick)
+            where TTimeline : unmanaged, ITimeline
         {
-            return new Playback(0L, gameTick, id, PlaybackFlags.Started);
+            return new Playback<TTimeline>(0L, gameTick, PlaybackFlags.Started);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryStop(ushort id, in Playback playback, out Playback stopped)
+        public static bool TryStop<TTimeline>(
+            in Playback<TTimeline> playback,
+            out Playback<TTimeline> stopped)
+            where TTimeline : unmanaged, ITimeline
         {
-            if (playback.Owner != id || !playback.Has(PlaybackFlags.Started))
+            if (!playback.Has(PlaybackFlags.Started))
             {
                 stopped = playback;
                 return false;
@@ -22,8 +27,19 @@ namespace Tl
 
             stopped = playback.Has(PlaybackFlags.Stopped)
                 ? playback
-                : new Playback(playback.Position, playback.GameTick, id, playback.Flags | PlaybackFlags.Stopped);
+                : new Playback<TTimeline>(playback.Position, playback.GameTick, playback.Flags | PlaybackFlags.Stopped);
             return true;
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Playback<TTimeline> CreateTypedPlayback<TTimeline>(
+            long position,
+            uint gameTick,
+            PlaybackFlags flags)
+            where TTimeline : unmanaged, ITimeline
+        {
+            return new Playback<TTimeline>(position, gameTick, flags);
         }
     }
 

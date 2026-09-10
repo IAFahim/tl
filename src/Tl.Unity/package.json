@@ -22,12 +22,5 @@
     "ecs",
     "burst",
     "dots"
-  ],
-  "samples": [
-    {
-      "displayName": "Burst Combat",
-      "description": "A heterogeneous animation and damage timeline running in an ECS job.",
-      "path": "Samples~/BurstCombat"
-    }
   ]
 }
