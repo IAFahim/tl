@@ -40,7 +40,9 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="build\Tl.Gen.CSharp.targets" Pack="true" PackagePath="build\Tl.Gen.CSharp.targets;buildTransitive\Tl.Gen.CSharp.targets" />
     <None Include="$(TlGenAnalyzerPackOutput)Tl.Gen.CSharp.dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
+    <None Include="$(TlGenAnalyzerPackOutput)Tl.Compiler.dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
     <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
+    <None Include="$(TlGenPackOutput)Tl.Compiler.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.pdb" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.deps.json" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.runtimeconfig.json" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
