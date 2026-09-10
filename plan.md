@@ -43,16 +43,18 @@ public readonly partial struct Attack : ITimeline
 
 public static class Simulation
 {
-    public static bool Tick(uint gameTick, in Scale scale, ref float position)
+    public static bool Tick(
+        ref Playback<Attack> playback,
+        in Scale scale,
+        ref float position)
     {
-        var playback = Attack.Start(gameTick);
         var data = new Attack.Data(ref playback, in scale, ref position);
         return Attack.TrySeek(ref data, 1);
     }
 }
 ```
 
-`Start(gameTick)` anchors local position zero to an external game tick. `TrySeek(ref data, delta)` consumes a signed simulation delta. Positive values move forward, negative values move backward, and zero is an identity operation. A successful magnitude greater than one replays every crossed local frame in order. It is not a snapshot jump.
+Create the playback once with `var playback = Attack.Start(gameTick)`, retain it with the simulation state, and pass it by reference to each tick. `Start(gameTick)` anchors local position zero to an external game tick. `TrySeek(ref data, delta)` consumes a signed simulation delta. Positive values move forward, negative values move backward, and zero is an identity operation. A successful magnitude greater than one replays every crossed local frame in order. It is not a snapshot jump.
 
 The generator owns `Attack.Data`, `Attack.DynamicData`, typed playback adaptation, track dispatch, validation, and generated diagnostics. Runtime authoring and explicit binding are absent. One signed operation owns movement in both directions.
 
