@@ -1,19 +1,17 @@
 # Tl for Unity
 
-`Tl.Unity` is the C# 9 runtime boundary for generated Unity ECS and Burst kernels. Add the package with Unity Package Manager:
+`Tl.Unity` is the C# 9 runtime boundary for checked-in Unity ECS and Burst kernels. Add it through Unity Package Manager:
 
 ```text
 https://github.com/IAFahim/tl.git?path=/src/Tl.Unity
 ```
 
-The compatibility floor is Unity 6000.0 with Entities 1.4.3. The validated preview lane is Unity 6000.7.0a5 with Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0.
+The package declares Unity 6000.0 and Entities 1.4.3. The local qualification editor is Unity 6000.7.0a5 with Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0. The stable 6000.0 editor must be tested separately.
 
-This alpha ships checked-in C# 9 backend output. Timeline IDs are assigned before emission and must be unique across loaded generated assemblies. The Unity authoring generator and cross-assembly ID allocation remain separate work.
+Generated timeline facades expose `Start(gameTick)`, one signed `TrySeek(ref data, delta)`, and `TryStop`. Playback is a 16-byte unmanaged value with a signed position and external game-tick anchor. Multi-frame deltas replay every crossed frame. Direction and independent start, interior, end, completion, and loop facts reach one track operation through `Frame<TTrack,TClip>`.
 
-The Burst Combat sample has two track and clip kinds in one timeline. Its checked-in generated output contains pointer contexts, direct scalar kernels, an immutable `BlobAsset`, an `IJobEntity` call site, and byte-accounting metadata.
+Generated data structs borrow typed component storage for one synchronous call. Create and consume them inside `IJobEntity.Execute`; do not retain them across callbacks, structural changes, scheduling boundaries, or storage relocation. Ordered operations preserve live aliasing.
 
-Generated input and output contexts borrow unmanaged component storage for one immediate call. Create and consume them inside `Execute`. Do not retain them across a structural change, scheduling boundary, callback return, or storage relocation.
+The package contains no runtime authoring API, managed registry, Tl compiler, Tl generator, or Roslyn assembly. The checked-in kernels use immediate constants and direct calls. Optional `TimelineBlob` data mirrors neutral track and clip records for ECS storage and tooling and is absent from the hot path.
 
-The player receives only `Tl.Unity` and `Tl.Unity.Entities` from this package. The compiler, Roslyn frontend, and backend remain build tools. NuGetForUnity does not run the Tl generator and is not a supported installation path.
-
-`TimelineReport.GeneratedSourceBytes` counts the generated kernel and blob-builder source in UTF-8 bytes. `StaticDataBytes` counts immediate track and clip values. `BlobBytes` counts the typed blob root and array elements; Unity allocator headers and alignment are outside that value. `RuntimeHeapBytes` is zero for generated scalar playback. Dispose every persistent blob with its owning world or baking artifact.
+`TimelineReport.GeneratedSourceBytes` counts generated UTF-8 source. `StaticDataBytes` counts immediate track and clip values. `BlobBytes` counts the typed root and array elements without allocator headers. `RuntimeHeapBytes` is zero. Dispose persistent blob assets with their owning world or baking artifact.

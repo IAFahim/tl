@@ -4,34 +4,39 @@ using System.Runtime.InteropServices;
 namespace Tl
 {
     [Flags]
-    public enum PlaybackFlags : ushort
+    public enum PlaybackFlags : byte
     {
         None = 0,
-        Started = 1,
-        Stopped = 2,
-        LastLoopFrame = 4,
-        Completed = 8
+        Started = 1 << 0,
+        Stopped = 1 << 1
     }
 
-    public enum ClipState : byte
+    [Flags]
+    public enum FrameFlags : byte
     {
-        Enter,
-        Stay,
-        Exit
+        None = 0,
+        ClipStart = 1 << 0,
+        ClipEnd = 1 << 1,
+        TimelineStart = 1 << 2,
+        TimelineEnd = 1 << 3,
+        CompletedBefore = 1 << 4,
+        CompletedAfter = 1 << 5,
+        Looping = 1 << 6,
+        Reverse = 1 << 7
     }
 
     [StructLayout(LayoutKind.Sequential)]
     public readonly struct Playback : IEquatable<Playback>
     {
-        public readonly uint Tick;
-        public readonly ushort Cycles;
+        public readonly long Position;
+        public readonly uint GameTick;
         public readonly ushort Owner;
         public readonly PlaybackFlags Flags;
 
-        public Playback(uint tick, ushort cycles, ushort owner, PlaybackFlags flags)
+        public Playback(long position, uint gameTick, ushort owner, PlaybackFlags flags)
         {
-            Tick = tick;
-            Cycles = cycles;
+            Position = position;
+            GameTick = gameTick;
             Owner = owner;
             Flags = flags;
         }
@@ -43,7 +48,10 @@ namespace Tl
 
         public bool Equals(Playback other)
         {
-            return Tick == other.Tick && Cycles == other.Cycles && Owner == other.Owner && Flags == other.Flags;
+            return Position == other.Position
+                && GameTick == other.GameTick
+                && Owner == other.Owner
+                && Flags == other.Flags;
         }
 
         public override bool Equals(object value)
@@ -55,10 +63,10 @@ namespace Tl
         {
             unchecked
             {
-                var hash = (int)Tick;
-                hash = hash * 397 ^ Cycles;
+                var hash = Position.GetHashCode();
+                hash = hash * 397 ^ (int)GameTick;
                 hash = hash * 397 ^ Owner;
-                return hash * 397 ^ (ushort)Flags;
+                return hash * 397 ^ (byte)Flags;
             }
         }
 
