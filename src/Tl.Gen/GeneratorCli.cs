@@ -94,13 +94,13 @@ public static class GeneratorCli
             Console.Error.WriteLine("TLGEN49: a compilation may contain at most 65536 timelines.");
             return 2;
         }
-        var artifacts = HeterogeneousEmitter.EmitCompilation(ordered)
+        var artifacts = HeterogeneousEmitter.EmitCompilation(ordered, out var sharedDispatchValueBytes)
             .Select(static artifact => artifact with
             {
                 Content = CompileGenerationCache.NormalizeSource(artifact.Content),
             })
             .ToArray();
-        var report = Report(ordered, artifacts);
+        var report = Report(ordered, artifacts, sharedDispatchValueBytes);
         CompileGenerationCache.Synchronize(output, key, artifacts, report, previous);
         var bytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
         Console.WriteLine($"TlGenCompile: {ordered.Length} timeline(s), {artifacts.Length} source file(s), {bytes:N0} UTF-8 B; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
@@ -109,18 +109,17 @@ public static class GeneratorCli
 
     private static string Report(
         IReadOnlyList<Tl.Gen.Model.HeterogeneousTimeline> timelines,
-        IReadOnlyList<CompileArtifact> artifacts)
+        IReadOnlyList<CompileArtifact> artifacts,
+        int sharedDispatchValueBytes)
     {
         var writer = new System.Text.StringBuilder();
         var sourceBytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
-        var schemas = artifacts.Count(static artifact => artifact.RelativePath.StartsWith("TlSchema", StringComparison.Ordinal));
-        var modules = timelines.Count == 0 ? 0 : (timelines.Count + byte.MaxValue) / 256;
         writer.AppendLine("format\t1");
         writer.AppendLine("backend\tcsharp");
         writer.AppendLine($"timelines\t{timelines.Count}");
         writer.AppendLine($"generated-source-files\t{artifacts.Count}");
         writer.AppendLine($"generated-source-utf8-bytes\t{sourceBytes}");
-        writer.AppendLine($"declared-shared-dispatch-value-bytes\t{schemas * 512 + modules}");
+        writer.AppendLine($"declared-shared-dispatch-value-bytes\t{sharedDispatchValueBytes}");
         writer.AppendLine("runtime-registry-bytes\tglobal::Tl.Timeline.RegistryRetainedBytes");
         for (var index = 0; index < timelines.Count; index++)
         {

@@ -8,30 +8,64 @@ internal static class HeterogeneousEmitter
 {
     private sealed record Schema(int Index, HeterogeneousTimeline Representative, IReadOnlyList<TimelineSlot> ReadOnlySlots, IReadOnlyList<TimelineSlot> WritableSlots);
     private sealed record RoutedTimeline(HeterogeneousTimeline Timeline, int Index, int Module, byte Ordinal, Schema Schema);
-    private sealed record Compilation(IReadOnlyList<RoutedTimeline> Timelines, IReadOnlyList<Schema> Schemas, int ModuleCount);
+    private sealed record RouteModule(int Index, IReadOnlyList<RoutedTimeline> Timelines);
+    private sealed record Routing(Schema Schema, IReadOnlyList<RoutedTimeline> Timelines, IReadOnlyList<RouteModule> Modules);
+    private sealed record Compilation(IReadOnlyList<RoutedTimeline> Timelines, IReadOnlyList<Routing> Routings, int ModuleCount);
     private sealed record Work(HeterogeneousTrack Track, HeterogeneousClip First, HeterogeneousClip? Second, uint FactorStart, uint FactorLength);
     private sealed record Region(uint Start, uint End, IReadOnlyList<Work> Works);
 
     internal static string Emit(HeterogeneousTimeline timeline)
     {
         var compilation = Compile([timeline]);
-        return EmitTimeline(compilation.Timelines[0]);
+        return EmitTimeline(compilation.Timelines[0], compilation.Routings[0]);
     }
 
     internal static IReadOnlyList<CompileArtifact> EmitCompilation(IReadOnlyList<HeterogeneousTimeline> timelines)
+        => EmitCompilation(timelines, out _);
+
+    internal static IReadOnlyList<CompileArtifact> EmitCompilation(
+        IReadOnlyList<HeterogeneousTimeline> timelines,
+        out int sharedDispatchValueBytes)
     {
         var compilation = Compile(timelines);
-        var artifacts = compilation.Timelines.Select(timeline => new CompileArtifact($"Tl{timeline.Index}.g.cs", EmitTimeline(timeline))).ToList();
+        sharedDispatchValueBytes = SharedDispatchValueBytes(compilation);
+        var artifacts = compilation.Timelines.Select(timeline => new CompileArtifact(
+            $"Tl{timeline.Index}.g.cs",
+            EmitTimeline(timeline, compilation.Routings[timeline.Schema.Index]))).ToList();
         if (compilation.Timelines.Count == 0)
             return artifacts;
         artifacts.Add(new CompileArtifact("TlModules.g.cs", EmitModules(compilation.ModuleCount)));
-        artifacts.AddRange(compilation.Schemas.Select(schema => new CompileArtifact($"TlSchema{schema.Index}.g.cs", EmitSchema(compilation, schema))));
+        artifacts.AddRange(compilation.Routings.Select(routing => new CompileArtifact(
+            $"TlSchema{routing.Schema.Index}.g.cs",
+            EmitSchema(routing))));
         return artifacts;
     }
 
     internal static int RegionCount(HeterogeneousTimeline timeline) => Regions(timeline).Count;
 
-    private static string EmitTimeline(RoutedTimeline routed)
+    internal static int SharedDispatchValueBytes(IReadOnlyList<HeterogeneousTimeline> timelines)
+        => SharedDispatchValueBytes(Compile(timelines));
+
+    internal static string EmitSchema(IReadOnlyList<HeterogeneousTimeline> timelines, int schemaIndex)
+    {
+        var compilation = Compile(timelines);
+        return EmitSchema(compilation.Routings[schemaIndex]);
+    }
+
+    internal static (int Timelines, int Modules, bool RoutesModule255, int MapBytes) RoutingMetrics(
+        IReadOnlyList<HeterogeneousTimeline> timelines,
+        int schemaIndex)
+    {
+        var compilation = Compile(timelines);
+        var routing = compilation.Routings[schemaIndex];
+        return (
+            routing.Timelines.Count,
+            routing.Modules.Count,
+            routing.Modules.Any(static module => module.Index == byte.MaxValue),
+            routing.Modules.Count > 1 ? 256 : 0);
+    }
+
+    private static string EmitTimeline(RoutedTimeline routed, Routing routing)
     {
         var timeline = routed.Timeline;
         var schema = Qualified(routed.Schema);
@@ -66,7 +100,7 @@ internal static class HeterogeneousEmitter
         Line(writer);
         EmitTypedData(writer, timeline, schema);
         Line(writer);
-        EmitDynamicData(writer, timeline, schema);
+        EmitDynamicData(writer, timeline, schema, routing.Timelines.Count == 1);
         Line(writer);
         EmitCore(writer, timeline, schema);
         Line(writer);
@@ -96,8 +130,21 @@ internal static class HeterogeneousEmitter
             }
             routed.Add(new RoutedTimeline(timeline, index, index >> 8, (byte)index, schema));
         }
-        return new Compilation(routed, schemas, (timelines.Count + byte.MaxValue) / 256);
+        var routings = schemas.Select(schema =>
+        {
+            var targets = routed.Where(target => Compatible(schema, target.Schema)).ToArray();
+            var modules = targets
+                .GroupBy(static target => target.Module)
+                .OrderBy(static group => group.Key)
+                .Select(static group => new RouteModule(group.Key, group.OrderBy(static target => target.Ordinal).ToArray()))
+                .ToArray();
+            return new Routing(schema, targets, modules);
+        }).ToArray();
+        return new Compilation(routed, routings, (timelines.Count + byte.MaxValue) / 256);
     }
+
+    private static int SharedDispatchValueBytes(Compilation compilation)
+        => compilation.ModuleCount + compilation.Routings.Count(static routing => routing.Modules.Count > 1) * 256;
 
     private static string EmitModules(int count)
     {
@@ -112,8 +159,9 @@ internal static class HeterogeneousEmitter
         return writer.ToString();
     }
 
-    private static string EmitSchema(Compilation compilation, Schema schema)
+    private static string EmitSchema(Routing routing)
     {
+        var schema = routing.Schema;
         var writer = new StringBuilder();
         Line(writer, "#nullable enable");
         foreach (var directive in schema.Representative.Usings)
@@ -128,26 +176,37 @@ internal static class HeterogeneousEmitter
         Line(writer, $"internal static class __TlGeneratedSchema{I(schema.Index)}");
         Line(writer, "{");
         EmitCanonicalData(writer, schema);
-        Line(writer);
+        if (routing.Timelines.Count > 1)
+        {
+            Line(writer);
+            if (routing.Modules.Count > 1)
+            {
+                EmitModuleMap(writer, routing.Modules);
+                Line(writer);
+            }
+            EmitRouter(writer, routing);
+        }
+        Line(writer, "}");
+        return writer.ToString();
+    }
+
+    private static void EmitModuleMap(StringBuilder writer, IReadOnlyList<RouteModule> modules)
+    {
         Line(writer, "    [global::System.Runtime.CompilerServices.InlineArray(256)]");
         Line(writer, "    private struct ModuleMap");
         Line(writer, "    {");
-        Line(writer, "        private ushort _element0;");
+        Line(writer, "        private byte _element0;");
         Line(writer, "    }");
         Line(writer);
-        Line(writer, "    private static ModuleMap s_modules = CreateModules();");
+        Line(writer, "    private static readonly ModuleMap s_modules = CreateModules();");
         Line(writer);
         Line(writer, "    private static ModuleMap CreateModules()");
         Line(writer, "    {");
         Line(writer, "        var modules = default(ModuleMap);");
-        foreach (var module in compilation.Timelines.Where(target => Compatible(schema, target.Schema)).Select(static target => target.Module).Distinct().Order())
-            Line(writer, $"        modules[global::__TlGeneratedModules.Module{I(module)}] = {I(module + 1)};");
+        foreach (var module in modules.Where(static module => module.Index != byte.MaxValue))
+            Line(writer, $"        modules[global::__TlGeneratedModules.Module{I(module.Index)}] = {I(module.Index + 1)};");
         Line(writer, "        return modules;");
         Line(writer, "    }");
-        Line(writer);
-        EmitRouter(writer, compilation, schema);
-        Line(writer, "}");
-        return writer.ToString();
     }
 
     private static void EmitCanonicalData(StringBuilder writer, Schema schema)
@@ -173,8 +232,9 @@ internal static class HeterogeneousEmitter
         Line(writer, "    }");
     }
 
-    private static void EmitRouter(StringBuilder writer, Compilation compilation, Schema caller)
+    private static void EmitRouter(StringBuilder writer, Routing routing)
     {
+        var caller = routing.Schema;
         Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]");
         Line(writer, "    internal static bool TrySeek(");
         Line(writer, "        ushort id,");
@@ -187,16 +247,31 @@ internal static class HeterogeneousEmitter
         Line(writer, "            return false;");
         Line(writer, "        if (!global::Tl.Timeline.TryGetCompiledRoute(id, out var route))");
         Line(writer, "            return false;");
+        if (routing.Modules.Count == 1)
+        {
+            var module = routing.Modules[0];
+            Line(writer, $"        if (route.Module != global::__TlGeneratedModules.Module{I(module.Index)})");
+            Line(writer, "            return false;");
+            EmitOrdinalSwitch(writer, caller, module.Timelines, 2);
+            Line(writer, "        return false;");
+            Line(writer, "    }");
+            return;
+        }
+        var maximum = routing.Modules.SingleOrDefault(static module => module.Index == byte.MaxValue);
+        if (maximum is not null)
+        {
+            Line(writer, "        if (route.Module == global::__TlGeneratedModules.Module255)");
+            Line(writer, "        {");
+            EmitOrdinalSwitch(writer, caller, maximum.Timelines, 3);
+            Line(writer, "            return false;");
+            Line(writer, "        }");
+        }
         Line(writer, "        switch (s_modules[route.Module])");
         Line(writer, "        {");
-        foreach (var module in compilation.Timelines.Where(target => Compatible(caller, target.Schema)).GroupBy(static target => target.Module).OrderBy(static group => group.Key))
+        foreach (var module in routing.Modules.Where(static module => module.Index != byte.MaxValue))
         {
-            Line(writer, $"            case {I(module.Key + 1)}:");
-            Line(writer, "                switch (route.Ordinal)");
-            Line(writer, "                {");
-            foreach (var target in module.OrderBy(static item => item.Ordinal))
-                EmitRouteCase(writer, caller, target);
-            Line(writer, "                }");
+            Line(writer, $"            case {I(module.Index + 1)}:");
+            EmitOrdinalSwitch(writer, caller, module.Timelines, 4);
             Line(writer, "                break;");
         }
         Line(writer, "        }");
@@ -204,24 +279,39 @@ internal static class HeterogeneousEmitter
         Line(writer, "    }");
     }
 
-    private static void EmitRouteCase(StringBuilder writer, Schema caller, RoutedTimeline target)
+    private static void EmitOrdinalSwitch(
+        StringBuilder writer,
+        Schema caller,
+        IReadOnlyList<RoutedTimeline> timelines,
+        int depth)
+    {
+        var indent = new string(' ', depth * 4);
+        Line(writer, $"{indent}switch (route.Ordinal)");
+        Line(writer, $"{indent}{{");
+        foreach (var timeline in timelines)
+            EmitRouteCase(writer, caller, timeline, depth + 1);
+        Line(writer, $"{indent}}}");
+    }
+
+    private static void EmitRouteCase(StringBuilder writer, Schema caller, RoutedTimeline target, int depth)
     {
         var targetType = Qualified(target.Timeline);
         var targetSchema = Qualified(target.Schema);
-        Line(writer, $"                    case {I(target.Ordinal)}:");
+        var indent = new string(' ', depth * 4);
+        Line(writer, $"{indent}case {I(target.Ordinal)}:");
         if (caller.Index == target.Schema.Index)
-            Line(writer, $"                        return {targetType}.DynamicSeekKernel(id, ref playback, delta, in data);");
+            Line(writer, $"{indent}    return {targetType}.DynamicSeekKernel(id, ref playback, delta, in data);");
         else
         {
-            Line(writer, "                    {");
-            Line(writer, $"                        if (id != {targetType}.Id)");
-            Line(writer, "                            return false;");
+            Line(writer, $"{indent}{{");
+            Line(writer, $"{indent}    if (id != {targetType}.Id)");
+            Line(writer, $"{indent}        return false;");
             if (target.Schema.ReadOnlySlots.Count + target.Schema.WritableSlots.Count == 0)
-                Line(writer, $"                        var targetData = default({targetSchema}.Data);");
+                Line(writer, $"{indent}    var targetData = default({targetSchema}.Data);");
             else
-                Line(writer, $"                        var targetData = new {targetSchema}.Data({DataArguments(target.Schema, "data")});");
-            Line(writer, $"                        return {targetType}.DynamicSeekKernel(id, ref playback, delta, in targetData);");
-            Line(writer, "                    }");
+                Line(writer, $"{indent}    var targetData = new {targetSchema}.Data({DataArguments(target.Schema, "data")});");
+            Line(writer, $"{indent}    return {targetType}.DynamicSeekKernel(id, ref playback, delta, in targetData);");
+            Line(writer, $"{indent}}}");
         }
     }
 
@@ -314,7 +404,11 @@ internal static class HeterogeneousEmitter
         Line(writer, "    }");
     }
 
-    private static void EmitDynamicData(StringBuilder writer, HeterogeneousTimeline timeline, string schema)
+    private static void EmitDynamicData(
+        StringBuilder writer,
+        HeterogeneousTimeline timeline,
+        string schema,
+        bool direct)
     {
         Line(writer, "    public ref struct DynamicData : global::Tl.ITimelineData<DynamicData>");
         Line(writer, "    {");
@@ -333,7 +427,9 @@ internal static class HeterogeneousEmitter
         Line(writer, "        {");
         Line(writer, "            if (global::System.Runtime.CompilerServices.Unsafe.IsNullRef(ref data._playback))");
         Line(writer, "                return false;");
-        Line(writer, $"            return {schema}.TrySeek(id, ref data._playback, delta, in data._context);");
+        Line(writer, direct
+            ? $"            return {Qualified(timeline)}.DynamicSeekKernel(id, ref data._playback, delta, in data._context);"
+            : $"            return {schema}.TrySeek(id, ref data._playback, delta, in data._context);");
         Line(writer, "        }");
         Line(writer, "    }");
     }

@@ -206,7 +206,7 @@ public sealed class GeneratedSeekRuntimeTests
         Assert.Empty(diagnostics);
         var artifacts = HeterogeneousEmitter.EmitCompilation(timelines);
         var generatedBytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
-        Assert.Equal(24_359, generatedBytes);
+        Assert.Equal(23_910, generatedBytes);
         var assembly = Compile(Source, artifacts);
 
         var result = assembly.GetType("RuntimeReceipt.Receipt")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, null);
