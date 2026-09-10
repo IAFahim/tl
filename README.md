@@ -19,6 +19,7 @@
 | `Tl.Gen.CSharp` | C# frontend and generated-kernel backend |
 | `Tl.Compiler` | Language-neutral immutable plan, validation, region lowering, and extension contract |
 | `Tl.Gen.C` | Independently versioned portable C11 backend |
+| `Tl.Unity` | C# 9 UPM runtime for checked-in Unity ECS and Burst kernels |
 
 ## Install
 
@@ -147,7 +148,9 @@ Use `Attack.Start` and `Attack.TrySeek` when the definition is known in source. 
 
 ## Unity ECS target
 
-The intended ECS call owns one playback value per entity, borrows queried components for one job invocation, constructs generated data inside that invocation, seeks by the simulation delta, and writes the playback back after success. The current .NET 10 package has not passed Unity Burst, Entities, IL2CPP, or player-content gates. `Tl.Unity` remains a separate backend and qualification workstream; the current package must not be presented as Burst-ready.
+Unity projects consume the separate `Tl.Unity` UPM package and checked-in generated kernels. An ECS job owns one 16-byte playback value per entity, borrows queried components for one invocation, calls the generated signed `TrySeek`, and writes the playback back after success. The package contains no .NET 10 runtime, Tl compiler or generator, Roslyn assembly, managed registry, or runtime compilation.
+
+The installed Unity 6000.7.0a5 preview editor passes EditMode, PlayMode, Burst AOT, zero-allocation, player-content, and Standalone Linux player gates. Unity 6000.0 with Entities 1.4.3 remains the declared compatibility floor and was unavailable on the validation machine. IL2CPP has not been qualified. See the [Unity guide](docs/unity.md) for the package contract and commands.
 
 ## Composition
 
@@ -176,7 +179,7 @@ Generated source bytes, static payload bytes, registry allocation, managed assem
 - Finite playback positions remain within `0..Duration`; looping positions and cycles are signed.
 - Definitions and registry routes are immutable after publication.
 - Cross-assembly schema routing and declarations produced by another generator are outside this alpha.
-- C ABI v2 has its own in-process signed-seek qualification; Unity/Burst remains a separate target and release gate.
+- C ABI v2 and Unity/Burst have separate signed-seek packages and qualification receipts.
 
 The [API contract](docs/v1.0-alpha-api.md), [semantics](docs/semantics.md), [migration guide](docs/v1.0-alpha-migration.md), [architecture](docs/architecture.md), and [implementation plan](plan.md) define the complete boundary.
 
@@ -189,11 +192,13 @@ The [API contract](docs/v1.0-alpha-api.md), [semantics](docs/semantics.md), [mig
 | `src/Tl.Gen.CSharp` | C# frontend and build-time kernel generator |
 | `src/Tl.Gen.C` | Portable C11 backend package |
 | `src/Tl.CSharp` | One-package C# installation |
+| `src/Tl.Unity` | C# 9 Unity package with ECS, Burst, and blob boundaries |
 | `samples/Mixed` | Complete heterogeneous signed-seek example |
 | `benchmarks/Alpha` | Public-path benchmarks, oracle, PMU harness, and evidence |
 | `tests/Tl.Alpha` | Generated JIT and NativeAOT correctness receipts |
 | `tests/Tl.Gen.CSharp.Tests` | C# frontend, emitter, cache, and public API receipts |
 | `tests/Tl.PackageConsumer` | Isolated typed and dynamic package-consumer gate |
+| `tests/Tl.Unity.Project` | Unity EditMode, PlayMode, Burst, and player gate |
 
 ## Validate
 
