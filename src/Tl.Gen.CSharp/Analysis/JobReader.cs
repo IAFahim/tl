@@ -485,10 +485,9 @@ public static class JobReader
         {
             case byte item: value = item; return true;
             case ushort item: value = item; return true;
+            case char item: value = item; return true;
             case int item when item >= 0: value = (uint)item; return true;
             case uint item: value = item; return true;
-            case long item when item is >= 0 and <= uint.MaxValue: value = (uint)item; return true;
-            case ulong item when item <= uint.MaxValue: value = (uint)item; return true;
             default: value = 0; return false;
         }
     }

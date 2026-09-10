@@ -10,6 +10,32 @@ namespace Tl.Gen.CSharp.Tests;
 public sealed class JobReaderTests
 {
     [Fact]
+    public void RejectsNullCompilation()
+    {
+        var error = Assert.Throws<ArgumentNullException>(() => JobReader.Read(null!));
+
+        Assert.Equal("compilation", error.ParamName);
+    }
+
+    [Fact]
+    public void ReportsMissingContractsOnlyForTimelineSyntax()
+    {
+        static CSharpCompilation WithoutContracts(string source) => CSharpCompilation.Create(
+            "MissingContracts",
+            [CSharpSyntaxTree.ParseText(source, path: "Jobs.cs")]);
+
+        var unrelated = JobReader.Read(WithoutContracts("namespace Game { public sealed class Plain; }"));
+        var authored = JobReader.Read(WithoutContracts("namespace Tl { public interface ITimeline { } }"));
+
+        Assert.Empty(unrelated.Diagnostics);
+        var diagnostic = Assert.Single(authored.Diagnostics);
+        Assert.Equal("TLGEN60", diagnostic.Code);
+        Assert.Equal("Jobs.cs", diagnostic.File);
+        Assert.Equal(1, diagnostic.Line);
+        Assert.True(diagnostic.Column > 0);
+    }
+
+    [Fact]
     public void DeclarationDiagnosticFormatsCompilerStyleLocation()
     {
         var diagnostic = new DeclarationDiagnostic("Source.cs", 7, 11, "TLGEN42", "broken declaration");
@@ -220,6 +246,169 @@ public sealed class JobReaderTests
         var timeline = Assert.Single(result.Timelines);
         Assert.Equal(256, timeline.Tracks.Count);
         Assert.Equal(Enumerable.Range(0, 256), timeline.Tracks.Select(static track => track.Index));
+    }
+
+    [Fact]
+    public void RejectsTwoHundredFiftySevenAuthoredTracks()
+    {
+        var declarations = string.Join("\n", Enumerable.Range(0, 257)
+            .Select(static index => $"var track{index} = builder.Track(new Track({index})).Use<Job>(); builder.Clip(track{index}, new Clip({index}), 0u, 1u);"));
+        var result = Read($$"""
+            namespace Game
+            {
+                public readonly record struct Track(int Value);
+                public readonly record struct Clip(int Value);
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        {{declarations}}
+                    }
+                }
+            }
+            """);
+
+        var diagnostic = Assert.Single(result.Diagnostics, static item => item.Code == "TLGEN68");
+        Assert.Contains("at most 256 authored tracks", diagnostic.Message);
+        Assert.Empty(result.Timelines);
+    }
+
+    [Fact]
+    public void ReadsBoundedPayloadsAndEveryUnsignedBoundKind()
+    {
+        var result = Read("""
+            namespace Game
+            {
+                public readonly record struct Track(int Value)
+                {
+                    public const int DefaultValue = 7;
+                }
+                public readonly record struct Clip(int Value)
+                {
+                    public static implicit operator Clip(string value) => new(value.Length);
+                }
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track((int)+checked(Track.DefaultValue))).Use<Job>();
+                        builder.Clip(track, new Clip(nameof(Asset)), (byte)0, (ushort)1);
+                        builder.Clip(track, (Clip)nameof(Track), '\u0001', 2u);
+                        builder.Clip(track, default(Clip), 2, 3);
+                        builder.Clip(track, new Clip((string)nameof(Clip)), default, 4u);
+                    }
+                }
+            }
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var timeline = Assert.Single(result.Timelines);
+        Assert.Equal(4u, timeline.Duration);
+        Assert.Equal([(0u, 1u), (1u, 2u), (2u, 3u), (0u, 4u)], timeline.Clips.Select(static clip => (clip.Start, clip.End)));
+        Assert.Contains("global::Game.Track.DefaultValue", timeline.Tracks[0].Expression);
+        Assert.Contains("\"Asset\"", timeline.Clips[0].Expression);
+        Assert.Contains("default(global::Game.Clip)", timeline.Clips[2].Expression);
+    }
+
+    [Fact]
+    public void ReportsTimelineStructureDiagnosticsAtTheirSource()
+    {
+        var result = Read("""
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public struct FirstState;
+                public struct SecondState;
+                public readonly struct FirstJob : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame, ref FirstState state) { }
+                }
+                public readonly struct SecondJob : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame, ref SecondState state) { }
+                }
+                public sealed class InvalidHook : Tl.IHook;
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var first = builder.Track(new Track()).Use<FirstJob>();
+                        var second = builder.Track(new Track()).Use<SecondJob>();
+                        builder.Clip(first, new Clip(), 0u, 2u);
+                        builder.Before<InvalidHook>();
+                        builder.Looping();
+                        builder.Looping();
+                        return;
+                    }
+                }
+            }
+            """);
+
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN63");
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN66");
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN67");
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN68");
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN69");
+        Assert.All(result.Diagnostics, static item =>
+        {
+            Assert.Equal("Jobs.cs", item.File);
+            Assert.True(item.Line > 1);
+            Assert.True(item.Column > 0);
+        });
+    }
+
+    [Fact]
+    public void ReportsCatalogStructureDiagnosticsAtTheirSource()
+    {
+        var result = Read("""
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+                public readonly struct Rows;
+                public readonly partial struct Catalog : Tl.ITimelineCatalog
+                {
+                    public static void Define(scoped Tl.CatalogBuilder builder)
+                    {
+                        builder.Schema<Rows>().Asset<Asset>();
+                        builder.Schema<Rows>().Asset<Asset>();
+                        builder.Schema<Rows>();
+                    }
+                }
+            }
+            """);
+
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN74");
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN75");
+        Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN76");
+        Assert.All(result.Diagnostics, static item =>
+        {
+            Assert.Equal("Jobs.cs", item.File);
+            Assert.True(item.Line > 1);
+            Assert.True(item.Column > 0);
+        });
+        Assert.Empty(result.Catalogs);
     }
 
     [Fact]
