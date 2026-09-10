@@ -1,57 +1,51 @@
-# v1 timeline semantics
+# v1 signed seek semantics
 
-This contract applies to the generated v1 alpha path. The released v0.6 behavior is preserved under [verification/v0.6](verification/v0.6/README.md).
+This contract applies to the generated C# v1 alpha path. Released v0.6 behavior remains archived under [verification/v0.6](verification/v0.6/README.md).
 
 ## Definitions
 
-A public readonly partial struct implementing `ITimeline` declares one static `Define(scoped Builder builder)` method. The build compiler interprets the supported declarative statements; it never runs the method. Each definition is immutable after compilation and receives one process-local `ushort` ID. IDs cover 0 through 65,535, never reuse, and remain live for the process.
+A public readonly partial struct implementing `ITimeline` declares one static `Define(scoped Builder builder)` method. The build compiler interprets its supported declarative syntax and emits an immutable kernel. A definition may contain up to 256 closed track/clip kinds and 65,536 authored track instances. A clip occupies a half-open `[start, end)` window with `end > start`; at most two clips overlap on one track.
 
-A definition can contain up to 256 closed track/clip kinds and 65,536 authored track instances. A `TrackRef<TTrack>` belongs to the defining builder expression. Default, foreign, or mismatched handles are rejected during generation. A clip occupies a half-open `[start, end)` window where `end > start`. At most two clips may overlap on one track.
+## Position and time
 
-Normal compile items are discovered automatically. No runtime authoring graph, `Build`, `Compile`, `InMemory`, `Bind`, or destruction operation exists. Include and compatible runtime routing require their definitions in the same compilation in this alpha.
+`Start(gameTick)` creates playback at signed position zero and the supplied simulation tick. Position is a boundary between frames. `GameTick` uses unchecked `uint` arithmetic. Finite positions are valid in `0..Duration`. Looping positions and cycles may be negative.
 
-## Time and work
+For current position `P`, game tick `G`, and signed delta `d`:
 
-Ticks are `uint`. Duration is the largest clip end or zero for empty content. For a looping nonempty timeline, the effective tick is the supplied tick modulo duration. `Playback.Tick` retains the supplied destination and `Frame.Tick` receives the effective tick. A zero-duration definition never divides by zero.
+| Delta | Executed positions | Final position | Final game tick |
+| --- | --- | --- | --- |
+| `d > 0` | `P, P + 1, ..., P + d - 1` | `P + d` | `G + d` |
+| `d < 0` | `P - 1, P - 2, ..., P + d` | `P + d` | `G + d` |
+| `d = 0` | none | `P` | `G` |
 
-Each supplied tick updates playback and invokes one directional track operation for every active authored track in stable authored order. A gap invokes no track operation. A large jump samples the destination and movement facts; it does not replay every crossed clip. A span processes ticks in supplied order without sorting or expansion.
+Every crossed local frame is executed. `TrySeek(5)` and five consecutive `TrySeek(1)` calls have the same ordered effects. `TrySeek(-5)` and five consecutive `TrySeek(-1)` calls have the same ordered effects. A seek never samples only its destination.
 
-One active clip is supplied directly. Two active clips resolve once through the track's `Blend` operation. The factor uses their intersection window and is `0.5f` for a one-tick intersection. Equal-start clips preserve authored order, so blend orientation and floating-point evaluation are deterministic.
+For a finite definition, any target outside `0..Duration` rejects before effects. Empty finite definitions accept only zero. A looping nonempty definition maps each executed signed position to a local tick in `0..Duration-1` and a signed cycle using floor-style normalization.
 
-## Frame state
+## Ordered effects
 
-`Frame<TTrack,TClip>` borrows the authored track and resolved clip and carries effective tick, stable 16-bit `TrackIndex`, and `ClipState`:
+At an executed local frame, zero active clips invoke no track operation. One active clip is borrowed directly. Two active clips resolve once through `Blend`; the factor uses their intersection, with `0.5f` for a one-frame intersection. Equal-start clips retain authored order. Active tracks execute in authored order while moving forward and reverse authored order while moving backward.
 
-- `Exit` is positional at `end - 1` while moving forward and at `start` while moving backward.
-- `Enter` means movement crossed the work's entry edge: `start` forward or `end` backward, including defined loop crossings.
-- `Stay` means neither rule applies.
+Forward order is Before hooks, tracks, then After hooks. Reverse order is After hooks reversed, tracks reversed, then Before hooks reversed. This makes the generated schedule structurally invertible; application operations remain responsible for making their state changes invertible.
 
-Exit takes precedence. A blended work uses the pair's outer window for state and its intersection for the blend factor. A one-tick work is therefore Exit. Starting at a position is silent; sampling that same position does not create an entry crossing.
+`FrameFlags` are independent facts. `ClipStart` and `ClipEnd` describe clip boundaries. `TimelineStart` and `TimelineEnd` describe local definition boundaries. `CompletedBefore` and `CompletedAfter` describe finite completion sides. `Looping` marks a looping definition and `Reverse` marks reverse execution. `Frame.Direction` derives `-1` from `Reverse` and otherwise returns `1`.
 
-Track code decides what each state means for the application. Backward callbacks are explicit application behavior; the engine cannot reverse arbitrary effects automatically.
+`Frame.GameTick` is the simulation tick of the executed frame. `Frame.TimelineTick` is its normalized local tick. `Frame.Cycle` is signed. `Frame.TrackIndex` is the stable authored track identity.
 
-## Context and effects
+## Borrowed data
 
-Static track callbacks begin with the exact frame kind. Remaining parameters are explicit `in`, `ref`, or `out` component slots. The generator forms the union of those slots and emits separate stack-only borrowed `Input` and `Output` contexts. Matching uses parameter identity, exact type, and access mode; it never uses reflection, boxing, implicit conversion, or an object array.
+The generated `Data` and `DynamicData` ref structs borrow playback and every component slot. Callback `in` parameters produce read-only aliases; `ref` and `out` parameters produce writable aliases. The engine stores none of these references. Contexts cannot outlive their caller scope, cross asynchronous suspension, survive ECS structural changes, or be recursively reused with overlapping writable aliases.
 
-An `in` slot is a read-only alias through that path. It is not a snapshot against another writable alias. A `ref` slot aliases caller storage directly. An `out` callback overwrites its slot only when that callback runs; gaps and rejected operations preserve caller storage. Managed object-field and array-element references remain valid through compacting GC because generated contexts retain managed byrefs.
+An `in` alias does not freeze storage against mutation through another alias. Callers that need a snapshot create separate storage explicitly. User exceptions propagate and preserve the already-executed effect prefix.
 
-Hooks use the same component-slot rules. Before hooks run after validation and before track work. After hooks run after successful track work and are not finally handlers. Accepted gaps still run hooks. An outer include runs outer Before hooks, included Before hooks, included tracks, included After hooks, then outer After hooks. Registration order within a phase is stable in both directions.
+## Total failure
 
-User exceptions propagate and preserve prior effects. Try methods convert only engine validation failure to `false`; they do not catch callbacks or roll back component writes.
+The typed facade validates lifecycle, current position, arithmetic, and finite target before effects. The dynamic facade additionally validates live ID, owner, route, and generated schema. Engine rejection returns `false` and preserves playback and component storage. A zero delta still validates its context and playback before succeeding without effects.
 
-## Playback and failure
-
-`Playback` is a 12-byte unmanaged value containing raw `Tick`, `Cycles`, owner ID, and flags. Flags are `Started`, `Stopped`, `LastLoopFrame`, and `Completed`. Owner authentication prevents a playback from one definition executing another.
-
-`TryStart` creates started state for a live ID. `TryStop` requires the same owner and is idempotent after a successful stop. Default, unstarted, stopped, wrong-owner, invalid-ID, incompatible-context, and cycle-overflow executions return `false` before hooks or track effects. A valid empty span preserves playback and output.
-
-Non-looping completion is positional at the final active forward frame or zero backward. Looping cycles are checked against `ushort` capacity before effects; backward cycle subtraction saturates at zero. Batch validation precedes user effects for every engine-detectable failure.
-
-The runtime registry and compiled definition metadata are immutable after publication and safe for concurrent reads. Caller-owned mutable components require the caller's normal synchronization. Contexts must not outlive their stack scope, cross asynchronous suspension, survive ECS structural changes, or be used recursively with the same writable aliases.
+`TryStop` requires the matching owner on the dynamic path and is idempotent after a valid stop. Stopped and default playback cannot seek. Definitions and dynamic registry entries are immutable after publication and safe for concurrent reads; caller-owned mutable components retain the caller's synchronization responsibility.
 
 ## Allocation and portability
 
-Warmed exact-schema scalar and batch playback allocate zero managed bytes. The registry is paged unmanaged storage. The engine retains no context, component, frame, or playback reference.
+Warm typed and dynamic seek allocate zero managed bytes. Static payload storage, generated source, registry allocation, managed assembly size, NativeAOT image size, and native code size are separate reported quantities.
 
-The generated runtime is verified under .NET JIT and NativeAOT. Unity Burst is a separate backend target because its supported C# and runtime subset differs. Arbitrary managed plugin loading is not available in a published NativeAOT process.
+The generated C# path is verified under .NET JIT and NativeAOT. The portable C backend and Unity/Burst target have independent ABIs and qualification workstreams; their current state is not evidence for this C# contract.

@@ -27,7 +27,34 @@ EVENTS = {
     "branches": 0xC4,
     "branch_misses": 0xC5,
 }
-SCENARIOS = ("sum-direct", "sum-public", "combat-direct", "combat-public")
+BASE_SCENARIOS = (
+    "sum-direct",
+    "sum-typed",
+    "sum-dynamic",
+    "combat-direct",
+    "combat-typed",
+    "combat-dynamic",
+)
+SEEK_CASES = (
+    "LiteralPositiveOne",
+    "LiteralNegativeOne",
+    "RuntimePositiveOne",
+    "RuntimeNegativeOne",
+    "AlternatingOne",
+    "LiteralPositiveFive",
+    "LiteralNegativeFive",
+    "RuntimePositiveFive",
+    "RuntimeNegativeFive",
+    "RepeatedPositiveOneFive",
+    "RepeatedNegativeOneFive",
+    "LiteralPositiveSixtyFour",
+    "RuntimePositiveSixtyFour",
+)
+SCENARIOS = BASE_SCENARIOS + tuple(
+    f"matrix-{facade}-{seek_case}"
+    for facade in ("direct", "typed", "dynamic")
+    for seek_case in SEEK_CASES
+)
 
 
 def open_counter(process_id, config, group):
@@ -114,11 +141,32 @@ def main():
     )
     parser.add_argument("--cpu", type=int, default=0)
     parser.add_argument("--dotnet", default=shutil.which("dotnet"))
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--scenario", action="append", choices=SCENARIOS)
     arguments = parser.parse_args()
     if platform.machine() != "x86_64" or arguments.dotnet is None or not arguments.assembly.is_file():
         raise SystemExit(2)
-    for scenario in SCENARIOS:
-        print(json.dumps(measure(arguments.dotnet, arguments.assembly, arguments.cpu, scenario)))
+    records = []
+    failures = 0
+    for scenario in arguments.scenario or SCENARIOS:
+        try:
+            record = measure(arguments.dotnet, arguments.assembly, arguments.cpu, scenario)
+        except Exception as error:
+            record = {
+                "scenario": scenario,
+                "error_type": type(error).__name__,
+                "error": str(error),
+            }
+            failures += 1
+        records.append(record)
+        print(json.dumps(record))
+    if arguments.output:
+        arguments.output.write_text(
+            "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
+            encoding="utf-8",
+        )
+    if failures:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

@@ -46,17 +46,21 @@ Backend repositories may split out after the plan format and compatibility suite
 
 The C# package runs before compilation for normal and IDE design-time builds. It reads normal compile items with Roslyn, validates declarations, lowers them deterministically, writes content-stable generated files, and records a manifest and report under `obj/<configuration>/<tfm>/TlGenCompile`.
 
-The generated timeline owns static payload values, direct forward/backward region blocks, generated borrowed `Input` and `Output` contexts, and one module/ordinal route. Exact-schema public calls inline through the generated context protocol. Registry lookup, reflection, binding, callback interfaces, and a generic interpreter do not appear in the exact hot body.
+The generated timeline owns static payload values, direct signed-seek region blocks, one generated borrowed `Data` context, a dynamic-context adapter, and one module/ordinal route. Exact-schema public calls inline through the generated context protocol. Registry lookup, reflection, binding, callback interfaces, and a generic interpreter do not appear in the typed hot body.
 
 ## Runtime ownership
 
-`Playback` is a 12-byte caller-owned value containing absolute tick, cycle count, owner ID, and lifecycle flags. Generated contexts are stack-only borrowed views over caller storage. `Frame<TTrack,TClip>` is scoped to the operation call. The runtime retains none of these values.
+`Playback` and `Playback<TTimeline>` are 16-byte caller-owned readonly sequential values containing signed position, game tick, lifecycle flags, and dynamic owner where required. Generated contexts are stack-only borrowed views over caller storage. `Frame<TTrack,TClip>` is a readonly ref struct scoped to the operation call. The runtime retains none of these values.
+
+`Start(gameTick)` anchors timeline position zero to simulation time. Signed seek replays every crossed local frame. Positive execution applies authored effects in order; negative execution applies the structurally reversed schedule. Finite validation completes before effects, and zero delta performs validation without callbacks.
 
 The ID registry is a sparse two-level unmanaged table. Registration allocates and publishes complete immutable entries under a small construction gate. Playback performs read-only access after publication. IDs are never reused and compiled definitions live for the process lifetime, so stale handles cannot alias a new definition and playback needs no reclamation protocol.
 
 ## C11 boundary
 
-`Tl.Gen.C` emits a versioned C11 header and source pair from a neutral plan plus explicit symbol bindings. The header fixes integer widths, lifecycle flags, clip states, a 12-byte and 4-aligned `tl_playback`, a 24-byte and 4-aligned `tl_frame`, compilation-time layout assertions, and total `try` operations. Consumer-owned `void*` context crosses only the C boundary; each bound operation interprets it.
+`Tl.Gen.C` emits a versioned C11 header and source pair from a neutral plan plus explicit symbol bindings. Consumer-owned `void*` context crosses only the C boundary; each bound operation interprets it.
+
+The present C package implements its own earlier versioned playback contract. Migration to the signed seek law requires a separate C ABI revision and conformance gate. C layout or timing evidence must not be used as evidence for the current C# ABI.
 
 The first C backend is an in-process ABI. It does not define an on-disk format or network byte order. A serialized plan will require a separate canonical format with explicit endianness and compatibility rules.
 

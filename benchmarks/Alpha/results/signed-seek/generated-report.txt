@@ -1,0 +1,14 @@
+format	1
+backend	csharp
+timelines	2
+generated-source-files	5
+generated-source-utf8-bytes	39397
+declared-shared-dispatch-value-bytes	1025
+runtime-registry-bytes	global::Tl.Timeline.RegistryRetainedBytes
+timeline	CombatTimeline	tracks=2	clips=4	regions=7	duration=64	loops=true	static-data-bytes=CombatTimeline.StaticDataBytes
+timeline	SumTimeline	tracks=1	clips=3	regions=4	duration=64	loops=true	static-data-bytes=SumTimeline.StaticDataBytes
+artifact	Tl0.g.cs	utf8-bytes=21429
+artifact	Tl1.g.cs	utf8-bytes=13652
+artifact	TlModules.g.cs	utf8-bytes=147
+artifact	TlSchema0.g.cs	utf8-bytes=2610
+artifact	TlSchema1.g.cs	utf8-bytes=1559

@@ -1,87 +1,55 @@
 using Tl;
 
-internal static class BatchAliasingReceipt
+internal static class DataAliasingReceipt
 {
     internal static void Run()
     {
-        uint[] ticks = [0u, 1u];
+        var value = 1u;
         var calls = 0;
-        var input = default(BatchMutationTimeline.Input);
-        var output = new BatchMutationTimeline.Output(nextTick: ref ticks[1], calls: ref calls);
-        if (!Timeline.TryStart(BatchMutationTimeline.Id, out var playback))
+        var playback = AliasingTimeline.Start(0u);
+        var data = new AliasingTimeline.Data(ref playback, in value, ref calls, ref value);
+
+        if (!AliasingTimeline.TrySeek(ref data, 2))
             throw new InvalidOperationException();
-        if (!Timeline.TryForward(BatchMutationTimeline.Id, in playback, ticks, in input, ref output, out var next))
-            throw new InvalidOperationException();
-        if (calls != 2 || next.Tick != 1u || next.Cycles != 0 || ticks[1] != uint.MaxValue)
+        if (playback.Position != 2L || playback.GameTick != 2u || value != 3u || calls != 2)
             throw new InvalidOperationException();
 
-        ticks = [1u, 0u];
-        calls = 0;
-        output = new BatchMutationTimeline.Output(nextTick: ref ticks[1], calls: ref calls);
-        if (!Timeline.TryStart(BatchMutationTimeline.Id, 1u, out playback))
+        if (!AliasingTimeline.TrySeek(ref data, -2))
             throw new InvalidOperationException();
-        if (!Timeline.TryBackward(BatchMutationTimeline.Id, in playback, ticks, in input, ref output, out next))
-            throw new InvalidOperationException();
-        if (calls != -2 || next.Tick != 0u || next.Cycles != 0 || next.Flags != PlaybackFlags.Started || ticks[1] != uint.MaxValue)
+        if (playback.Position != 0L || playback.GameTick != 0u || value != 1u || calls != 0)
             throw new InvalidOperationException();
 
-        var oversized = new uint[BatchMutationTimeline.MaxBatchLength + 1];
-        var mutation = 17u;
-        calls = 0;
-        output = new BatchMutationTimeline.Output(nextTick: ref mutation, calls: ref calls);
-        if (!Timeline.TryStart(BatchMutationTimeline.Id, out playback))
+        var before = playback;
+        if (AliasingTimeline.TrySeek(ref data, -1))
             throw new InvalidOperationException();
-        if (Timeline.TryForward(BatchMutationTimeline.Id, in playback, oversized, in input, ref output, out next))
-            throw new InvalidOperationException();
-        if (next != playback || calls != 0 || mutation != 17u)
+        if (playback != before || value != 1u || calls != 0)
             throw new InvalidOperationException();
 
-        ticks = [1u, ((uint)ushort.MaxValue + 1u) * 2u];
-        mutation = 23u;
-        calls = 0;
-        output = new BatchMutationTimeline.Output(nextTick: ref mutation, calls: ref calls);
-        if (!Timeline.TryStart(BatchMutationTimeline.Id, out playback))
-            throw new InvalidOperationException();
-        if (Timeline.TryForward(BatchMutationTimeline.Id, in playback, ticks, in input, ref output, out next))
-            throw new InvalidOperationException();
-        if (next != playback || calls != 0 || mutation != 23u)
-            throw new InvalidOperationException();
-
-        if (!Timeline.TryStart(BatchMutationTimeline.Id, 1u, out playback))
-            throw new InvalidOperationException();
-        if (Timeline.TryBackward(BatchMutationTimeline.Id, in playback, oversized, in input, ref output, out next))
-            throw new InvalidOperationException();
-        if (next != playback || calls != 0 || mutation != 23u)
+        var empty = default(AliasingTimeline.Data);
+        if (AliasingTimeline.TrySeek(ref empty, 0))
             throw new InvalidOperationException();
     }
 }
 
-public readonly record struct BatchMutationClip(uint Value);
+public readonly record struct AliasingClip(uint Value);
 
-public readonly struct BatchMutationTrack : ITrack<BatchMutationClip>
+public readonly struct AliasingTrack : ITrack<AliasingClip>
 {
-    public void Blend(in BatchMutationClip first, in BatchMutationClip second, float factor, out BatchMutationClip result)
+    public void Blend(in AliasingClip first, in AliasingClip second, float factor, out AliasingClip result)
         => result = first;
 
-    public static void Forward(in Frame<BatchMutationTrack, BatchMutationClip> frame, ref uint nextTick, ref int calls)
+    public static void Seek(in Frame<AliasingTrack, AliasingClip> frame, in uint currentTick, ref uint nextTick, ref int calls)
     {
-        calls++;
-        nextTick = uint.MaxValue;
-    }
-
-    public static void Backward(in Frame<BatchMutationTrack, BatchMutationClip> frame, ref uint nextTick, ref int calls)
-    {
-        calls--;
-        nextTick = uint.MaxValue;
+        calls += frame.Direction;
+        nextTick = unchecked((uint)((long)currentTick + frame.Direction));
     }
 }
 
-public readonly partial struct BatchMutationTimeline : ITimeline
+public readonly partial struct AliasingTimeline : ITimeline
 {
     public static void Define(scoped Builder builder)
     {
-        var track = builder.Track(new BatchMutationTrack());
-        builder.Clip(track, new BatchMutationClip(1), 0, 2);
-        builder.Looping();
+        var track = builder.Track(new AliasingTrack());
+        builder.Clip(track, new AliasingClip(1), 0u, 2u);
     }
 }

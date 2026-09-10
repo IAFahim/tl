@@ -1,0 +1,90 @@
+{
+  "measurement": {
+    "source_commit": "12119ca583884390c523049a3309ce5a3d244730",
+    "source_tree": "733c5454af90e9cdd5fe3eb554a5136005cddcaf",
+    "rebased_onto": "8f6545a",
+    "started_local": "2026-09-10T17:50:22+06:00",
+    "completed_local": "2026-09-10T18:03:40+06:00"
+  },
+  "host": {
+    "os": "Linux Omarchy 7.2.3-arch1-3",
+    "architecture": "x86_64",
+    "processor": "Intel(R) Core(TM) i9-14900K",
+    "logical_processors": 32,
+    "cpu": 0,
+    "scaling_governor": "powersave",
+    "minimum_mhz": 800,
+    "maximum_mhz": 6000,
+    "turbo_disabled": false,
+    "frequency_locked": false
+  },
+  "toolchain": {
+    "sdk": "10.0.401",
+    "runtime": "10.0.12",
+    "benchmarkdotnet": "0.15.8",
+    "jit": "X64 RyuJIT x86-64-v3",
+    "gc": "Concurrent Workstation",
+    "perf": "7.2.3-1",
+    "perf_event_paranoid": 2,
+    "hardware_intrinsics": "AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE"
+  },
+  "benchmark": {
+    "logical_calls_per_invoke": 4096,
+    "warmup_count": 16,
+    "iteration_count": 12,
+    "iteration_time_ms": 250,
+    "sum_processes": 3,
+    "sum_results": 117,
+    "combat_processes": 3,
+    "combat_results": 18,
+    "total_results": 135,
+    "statistic": "median of the three independent process medians",
+    "cpu_affinity": 0,
+    "managed_allocation_bytes_per_operation": 0,
+    "priority_elevation": "denied by the operating system",
+    "large_delta_iteration_warning": "BenchmarkDotNet observed minimum iteration times below 100 ms for some large replay cases; raw logs are retained"
+  },
+  "pmu": {
+    "collection": "direct perf_event_open raw user-space event group",
+    "scenarios": 45,
+    "failed_scenarios": 0,
+    "running_fraction_minimum": 1.0,
+    "events": {
+      "cycles": "0x3c",
+      "instructions": "0xc0",
+      "branches": "0xc4",
+      "branch_misses": "0xc5"
+    },
+    "exclude_kernel": true,
+    "exclude_hypervisor": true,
+    "processes_per_scenario": 1,
+    "repetition": "one retained measurement per scenario"
+  },
+  "artifacts": {
+    "Alpha.dll": {
+      "bytes": 47616,
+      "sha256": "31cc67c848b0e91d140a5a03e2eb73b3d4453dd4f6536f33b612f8504334326e"
+    },
+    "Tl.Core.dll": {
+      "bytes": 14848,
+      "sha256": "fb2d194efaaefe31df943f050d2589978249942a2a706223211f086e0494d9a5"
+    },
+    "generated_source_files": 5,
+    "generated_source_utf8_bytes": 39397,
+    "shared_dispatch_value_bytes": 1025,
+    "SumTimeline_static_data_bytes": 13,
+    "CombatTimeline_static_data_bytes": 26,
+    "Playback_bytes": 16,
+    "Frame_x64_bytes": 40,
+    "production_source_and_path_bytes": 154651
+  },
+  "commands": {
+    "build": "dotnet build benchmarks/Alpha/Alpha.csproj -c Release -p:NuGetAudit=false",
+    "correctness": "dotnet run --project benchmarks/Alpha -c Release --no-build -- --matrix",
+    "sum_benchmark": "taskset -c 0 dotnet run --project benchmarks/Alpha/Alpha.csproj -c Release --no-build -- --filter '*SignedSeekBenchmarks*' --artifacts /tmp/tl16-sum-rN",
+    "combat_benchmark": "taskset -c 0 dotnet run --project benchmarks/Alpha/Alpha.csproj -c Release --no-build -- --filter '*CombatBenchmarks*' --artifacts /tmp/tl16-combat-rN",
+    "pmu": "python3 benchmarks/Alpha/collect_pmu.py --cpu 0 --output /tmp/tl16-pmu.jsonl",
+    "assembly": "DOTNET_TieredCompilation=0 DOTNET_ReadyToRun=0 DOTNET_JitDisasm='<filter>' DOTNET_JitStdOutFile=<path> dotnet run --project benchmarks/Alpha -c Release --no-build -- --matrix",
+    "source_budget": "python3 benchmarks/source_budget.py"
+  }
+}

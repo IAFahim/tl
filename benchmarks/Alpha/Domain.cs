@@ -1,10 +1,10 @@
 using System.Runtime.CompilerServices;
 using Tl;
 
-public enum TickPattern
+public enum SeekPattern
 {
-    Sequential,
-    Random,
+    Forward,
+    Alternating,
 }
 
 public readonly record struct SumClip(float Amount);
@@ -15,12 +15,8 @@ public readonly struct SumTrack : ITrack<SumClip>
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Forward(in Frame<SumTrack, SumClip> frame, ref float sum)
-        => sum += frame.Clip.Amount;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Backward(in Frame<SumTrack, SumClip> frame, ref float sum)
-        => sum -= frame.Clip.Amount;
+    public static void Seek(in Frame<SumTrack, SumClip> frame, ref float sum)
+        => sum += frame.Direction * frame.Clip.Amount;
 }
 
 public readonly partial struct SumTimeline : ITimeline
@@ -31,6 +27,7 @@ public readonly partial struct SumTimeline : ITimeline
         builder.Clip(values, new SumClip(1f), 0u, 32u);
         builder.Clip(values, new SumClip(3f), 16u, 48u);
         builder.Clip(values, new SumClip(5f), 48u, 64u);
+        builder.Looping();
     }
 }
 
@@ -45,27 +42,19 @@ public struct Trace
 {
     public long TickSum;
     public int Calls;
-    public int Enters;
-    public int Stays;
-    public int Exits;
+    public int Starts;
+    public int Interior;
+    public int Ends;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Add(uint tick, ushort trackIndex, ClipState state)
+    public void Add(uint timelineTick, ushort trackIndex, FrameFlags flags)
     {
-        TickSum += tick + trackIndex;
+        TickSum += timelineTick + trackIndex;
         Calls++;
-        switch (state)
-        {
-            case ClipState.Enter:
-                Enters++;
-                break;
-            case ClipState.Stay:
-                Stays++;
-                break;
-            case ClipState.Exit:
-                Exits++;
-                break;
-        }
+        var boundary = flags & (FrameFlags.ClipStart | FrameFlags.ClipEnd);
+        Starts += (flags & FrameFlags.ClipStart) != 0 ? 1 : 0;
+        Interior += boundary == 0 ? 1 : 0;
+        Ends += (flags & FrameFlags.ClipEnd) != 0 ? 1 : 0;
     }
 }
 
@@ -77,7 +66,7 @@ public readonly struct AnimationTrack : ITrack<AnimationClip>
             first.Y + (second.Y - first.Y) * factor);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Forward(
+    public static void Seek(
         in Frame<AnimationTrack, AnimationClip> frame,
         in Pose currentPose,
         in AnimationSettings animationSettings,
@@ -85,23 +74,9 @@ public readonly struct AnimationTrack : ITrack<AnimationClip>
         ref Trace trace)
     {
         nextPose = new(
-            currentPose.X + frame.Clip.X * animationSettings.Weight,
-            currentPose.Y + frame.Clip.Y * animationSettings.Weight);
-        trace.Add(frame.Tick, frame.TrackIndex, frame.State);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Backward(
-        in Frame<AnimationTrack, AnimationClip> frame,
-        in Pose currentPose,
-        in AnimationSettings animationSettings,
-        out Pose nextPose,
-        ref Trace trace)
-    {
-        nextPose = new(
-            currentPose.X - frame.Clip.X * animationSettings.Weight,
-            currentPose.Y - frame.Clip.Y * animationSettings.Weight);
-        trace.Add(frame.Tick, frame.TrackIndex, frame.State);
+            currentPose.X + frame.Direction * frame.Clip.X * animationSettings.Weight,
+            currentPose.Y + frame.Direction * frame.Clip.Y * animationSettings.Weight);
+        trace.Add(frame.TimelineTick, frame.TrackIndex, frame.Flags);
     }
 }
 
@@ -111,27 +86,15 @@ public readonly struct DamageTrack : ITrack<DamageClip>
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Forward(
+    public static void Seek(
         in Frame<DamageTrack, DamageClip> frame,
         in Health currentHealth,
         in DamageSettings damageSettings,
         out Health nextHealth,
         ref Trace trace)
     {
-        nextHealth = new(currentHealth.Value - frame.Clip.Amount * damageSettings.Multiplier);
-        trace.Add(frame.Tick, frame.TrackIndex, frame.State);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Backward(
-        in Frame<DamageTrack, DamageClip> frame,
-        in Health currentHealth,
-        in DamageSettings damageSettings,
-        out Health nextHealth,
-        ref Trace trace)
-    {
-        nextHealth = new(currentHealth.Value + frame.Clip.Amount * damageSettings.Multiplier);
-        trace.Add(frame.Tick, frame.TrackIndex, frame.State);
+        nextHealth = new(currentHealth.Value - frame.Direction * frame.Clip.Amount * damageSettings.Multiplier);
+        trace.Add(frame.TimelineTick, frame.TrackIndex, frame.Flags);
     }
 }
 
@@ -145,60 +108,54 @@ public readonly partial struct CombatTimeline : ITimeline
         builder.Clip(animation, new AnimationClip(6f, 3f), 16u, 48u);
         builder.Clip(damage, new DamageClip(5f), 8u, 56u);
         builder.Clip(damage, new DamageClip(0f), 63u, 64u);
+        builder.Looping();
     }
 }
 
 public readonly record struct SumReceipt(
-    uint Tick,
-    ushort Cycles,
-    ushort Owner,
+    long Position,
+    uint GameTick,
     PlaybackFlags Flags,
     int SumBits,
     int Successes)
 {
-    public static SumReceipt Capture(in Playback playback, float sum, int successes)
-        => new(
-            playback.Tick,
-            playback.Cycles,
-            playback.Owner,
-            playback.Flags,
-            BitConverter.SingleToInt32Bits(sum),
-            successes);
+    public static SumReceipt Capture(long position, uint gameTick, PlaybackFlags flags, float sum, int successes)
+        => new(position, gameTick, flags, BitConverter.SingleToInt32Bits(sum), successes);
 }
 
 public readonly record struct CombatReceipt(
-    uint Tick,
-    ushort Cycles,
-    ushort Owner,
+    long Position,
+    uint GameTick,
     PlaybackFlags Flags,
     int PoseXBits,
     int PoseYBits,
     int HealthBits,
     long TickSum,
     int Calls,
-    int Enters,
-    int Stays,
-    int Exits,
+    int Starts,
+    int Interior,
+    int Ends,
     int Successes)
 {
     public static CombatReceipt Capture(
-        in Playback playback,
+        long position,
+        uint gameTick,
+        PlaybackFlags flags,
         in Pose pose,
         in Health health,
         in Trace trace,
         int successes)
         => new(
-            playback.Tick,
-            playback.Cycles,
-            playback.Owner,
-            playback.Flags,
+            position,
+            gameTick,
+            flags,
             BitConverter.SingleToInt32Bits(pose.X),
             BitConverter.SingleToInt32Bits(pose.Y),
             BitConverter.SingleToInt32Bits(health.Value),
             trace.TickSum,
             trace.Calls,
-            trace.Enters,
-            trace.Stays,
-            trace.Exits,
+            trace.Starts,
+            trace.Interior,
+            trace.Ends,
             successes);
 }

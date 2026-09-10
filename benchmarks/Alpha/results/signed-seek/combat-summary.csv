@@ -1,0 +1,7 @@
+pattern,method,run1-median-ns-frame,run2-median-ns-frame,run3-median-ns-frame,median-of-medians-ns-frame,allocated-bytes
+Forward,DirectScalar,3.708433639,3.929570509,3.778446386,3.778446386,0
+Forward,TypedScalar,4.164778392,4.200878531,4.067356775,4.164778392,0
+Forward,DynamicScalar,6.041531563,6.029915810,6.038650870,6.038650870,0
+Alternating,DirectScalar,8.020371327,8.005240404,7.537587019,8.005240404,0
+Alternating,TypedScalar,7.696325098,7.694178530,7.701114195,7.696325098,0
+Alternating,DynamicScalar,20.169525743,20.257537603,20.258793354,20.257537603,0

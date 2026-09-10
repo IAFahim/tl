@@ -22,15 +22,13 @@ public sealed class HeterogeneousCompositionTests
         public readonly struct TrackA : ITrack<ClipA>
         {
             public void Blend(in ClipA first, in ClipA second, float factor, out ClipA result) => result = first;
-            public static void Forward(in Frame<TrackA, ClipA> frame, in InputA inputA, ref OutputA outputA) { }
-            public static void Backward(in Frame<TrackA, ClipA> frame, in InputA inputA, ref OutputA outputA) { }
+            public static void Seek(in Frame<TrackA, ClipA> frame, in InputA inputA, ref OutputA outputA) { }
         }
 
         public readonly struct TrackB : ITrack<ClipB>
         {
             public void Blend(in ClipB first, in ClipB second, float factor, out ClipB result) => result = first;
-            public static void Forward(in Frame<TrackB, ClipB> frame, in InputB inputB, out OutputB outputB) => outputB = default;
-            public static void Backward(in Frame<TrackB, ClipB> frame, in InputB inputB, out OutputB outputB) => outputB = default;
+            public static void Seek(in Frame<TrackB, ClipB> frame, in InputB inputB, out OutputB outputB) => outputB = default;
         }
 
         public readonly struct BaseBefore : IHook
@@ -95,9 +93,9 @@ public sealed class HeterogeneousCompositionTests
         Assert.Equal([0, 1], outer.Clips.Select(static clip => clip.TrackIndex));
         Assert.Equal(["global::Fix.OuterBefore", "global::Fix.BaseBefore"], outer.BeforeHooks.Select(static hook => hook.TypeName));
         Assert.Equal(["global::Fix.BaseAfter", "global::Fix.OuterAfter"], outer.AfterHooks.Select(static hook => hook.TypeName));
-        Assert.Equal(["inputA", "inputB"], outer.Inputs.Select(static slot => slot.Name));
-        Assert.Equal(["outputA", "outputB"], outer.Outputs.Select(static slot => slot.Name));
-        Assert.All(outer.Outputs, static slot => Assert.Equal(SlotMode.Reference, slot.Mode));
+        Assert.Equal(["inputA", "inputB"], outer.ReadOnlySlots.Select(static slot => slot.Name));
+        Assert.Equal(["outputA", "outputB"], outer.WritableSlots.Select(static slot => slot.Name));
+        Assert.All(outer.WritableSlots, static slot => Assert.Equal(SlotMode.Reference, slot.Mode));
 
         var generated = HeterogeneousEmitter.Emit(outer);
         Assert.Contains("public const int TrackCount = 2;", generated);
@@ -106,8 +104,8 @@ public sealed class HeterogeneousCompositionTests
         Assert.Contains("public static nuint StaticDataBytes", generated);
         var outerBefore = generated.IndexOf("global::Fix.OuterBefore.Forward", StringComparison.Ordinal);
         var baseBefore = generated.IndexOf("global::Fix.BaseBefore.Forward", StringComparison.Ordinal);
-        var trackA = generated.IndexOf("global::Fix.TrackA.Forward", StringComparison.Ordinal);
-        var trackB = generated.IndexOf("global::Fix.TrackB.Forward", StringComparison.Ordinal);
+        var trackA = generated.IndexOf("global::Fix.TrackA.Seek", StringComparison.Ordinal);
+        var trackB = generated.IndexOf("global::Fix.TrackB.Seek", StringComparison.Ordinal);
         var baseAfter = generated.IndexOf("global::Fix.BaseAfter.Forward", StringComparison.Ordinal);
         var outerAfter = generated.IndexOf("global::Fix.OuterAfter.Forward", StringComparison.Ordinal);
         Assert.True(outerBefore < baseBefore && baseBefore < trackA && trackA < trackB && trackB < baseAfter && baseAfter < outerAfter);
@@ -245,14 +243,14 @@ public sealed class HeterogeneousCompositionTests
     [Fact]
     public void BlendOperandsFollowStartThenAuthoredOrder()
     {
-        var track = new HeterogeneousTrack(0, "global::Fix.TrackA", "global::Fix.ClipA", "new global::Fix.TrackA()", [], []);
+        var track = new HeterogeneousTrack(0, "global::Fix.TrackA", "global::Fix.ClipA", "new global::Fix.TrackA()", []);
         var later = new HeterogeneousClip(0, "global::Fix.ClipA", "new global::Fix.ClipA(2f)", 4u, 12u);
         var earlier = new HeterogeneousClip(0, "global::Fix.ClipA", "new global::Fix.ClipA(1f)", 0u, 8u);
         var timeline = new HeterogeneousTimeline("Ordered", "Fix", false, [], [track], [later, earlier], [], [], [], []);
 
         var generated = HeterogeneousEmitter.Emit(timeline);
 
-        Assert.Contains("var factor_1_0 = (effective - 4u) / 3f", generated);
+        Assert.Contains("var factor_1_0 = (local - 4u) / 3f", generated);
         Assert.Contains("Blend(in s_clip1, in s_clip0, factor_1_0", generated);
 
         var tiedFirst = new HeterogeneousClip(0, "global::Fix.ClipA", "new global::Fix.ClipA(3f)", 0u, 8u);
@@ -265,7 +263,7 @@ public sealed class HeterogeneousCompositionTests
     }
 
     [Fact]
-    public void DataInitializationPrecedesTimelinePublication()
+    public void DataInitializationPrecedesLazyDynamicRegistration()
     {
         var (timelines, diagnostics) = HeterogeneousReader.Read([("Fix.cs", Contracts + """
 
@@ -282,9 +280,11 @@ public sealed class HeterogeneousCompositionTests
         Assert.Empty(diagnostics);
         var generated = HeterogeneousEmitter.Emit(Assert.Single(timelines));
         var data = generated.IndexOf("s_track0 =", StringComparison.Ordinal);
-        var publication = generated.IndexOf("s_id = global::Tl.Timeline.RegisterCompiled", StringComparison.Ordinal);
+        var holder = generated.IndexOf("private static class Dynamic", StringComparison.Ordinal);
+        var publication = generated.IndexOf("internal static readonly ushort Id = global::Tl.Timeline.RegisterCompiled", StringComparison.Ordinal);
 
-        Assert.True(data >= 0 && data < publication);
+        Assert.True(data >= 0 && data < holder && holder < publication);
+        Assert.Contains("public static ushort Id => Dynamic.Id", generated);
     }
 
     [Fact]
@@ -395,7 +395,7 @@ public sealed class HeterogeneousCompositionTests
 
             public readonly partial struct Attack : TimelineContract
             {
-                private const uint Start = 1u;
+                private const uint ClipStart = 1u;
             }
             """;
         var operations = """
@@ -403,8 +403,7 @@ public sealed class HeterogeneousCompositionTests
 
             public readonly partial struct Track
             {
-                public static void Forward(in FrameContract frame, in Input input, ref Output output) { }
-                public static void Backward(in FrameContract frame, in Input input, ref Output output) { }
+                public static void Seek(in FrameContract frame, in Input input, ref Output output) { }
             }
 
             public readonly partial struct Attack
@@ -412,7 +411,7 @@ public sealed class HeterogeneousCompositionTests
                 public static void Define(scoped BuilderContract builder)
                 {
                     var track = builder.Track(new Track());
-                    builder.Clip(track, new Clip(3), Start, Start + 7u);
+                    builder.Clip(track, new Clip(3), ClipStart, ClipStart + 7u);
                 }
             }
             """;
@@ -425,8 +424,8 @@ public sealed class HeterogeneousCompositionTests
         Assert.Equal("global::Domain.Clip", Assert.Single(timeline.Clips).TypeName);
         Assert.Equal(1u, timeline.Clips[0].Start);
         Assert.Equal(8u, timeline.Clips[0].End);
-        Assert.Equal("global::Domain.Input", Assert.Single(timeline.Inputs).TypeName);
-        Assert.Equal("global::Domain.Output", Assert.Single(timeline.Outputs).TypeName);
+        Assert.Equal("global::Domain.Input", Assert.Single(timeline.ReadOnlySlots).TypeName);
+        Assert.Equal("global::Domain.Output", Assert.Single(timeline.WritableSlots).TypeName);
     }
 
     [Fact]
@@ -441,8 +440,7 @@ public sealed class HeterogeneousCompositionTests
             public readonly struct Track : ITrack<Clip>
             {
                 public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
-                public static void Forward(in Frame<Track, Clip> frame, in string text) { }
-                public static void Backward(in Frame<Track, Clip> frame, in string text) { }
+                public static void Seek(in Frame<Track, Clip> frame, in string text) { }
             }
 
             public readonly partial struct Broken : ITimeline
@@ -487,14 +485,14 @@ public sealed class HeterogeneousCompositionTests
 
         Assert.Empty(diagnostics);
         var timeline = Assert.Single(timelines);
-        var output = Assert.Single(timeline.Outputs);
+        var output = Assert.Single(timeline.WritableSlots);
         Assert.Equal("outputB", output.Name);
         Assert.Equal(SlotMode.Reference, output.Mode);
-        Assert.Equal(SlotMode.Output, Assert.Single(timeline.Tracks).ForwardSlots.Single(static slot => slot.Name == "outputB").Mode);
+        Assert.Equal(SlotMode.Output, Assert.Single(timeline.Tracks).SeekSlots.Single(static slot => slot.Name == "outputB").Mode);
         Assert.Equal(SlotMode.Reference, Assert.Single(timeline.AfterHooks).ForwardSlots.Single().Mode);
         var generated = HeterogeneousEmitter.Emit(timeline);
-        Assert.Contains("out output._outputB", generated);
-        Assert.Contains("ref output._outputB", generated);
+        Assert.Contains("out data._outputB", generated);
+        Assert.Contains("ref data._outputB", generated);
     }
 
     [Fact]
@@ -505,8 +503,7 @@ public sealed class HeterogeneousCompositionTests
             public readonly struct RefTrackB : ITrack<ClipB>
             {
                 public void Blend(in ClipB first, in ClipB second, float factor, out ClipB result) => result = first;
-                public static void Forward(in Frame<RefTrackB, ClipB> frame, in InputB inputB, ref OutputB outputB) { }
-                public static void Backward(in Frame<RefTrackB, ClipB> frame, in InputB inputB, ref OutputB outputB) { }
+                public static void Seek(in Frame<RefTrackB, ClipB> frame, in InputB inputB, ref OutputB outputB) { }
             }
 
             public readonly partial struct PureOut : ITimeline
@@ -532,7 +529,7 @@ public sealed class HeterogeneousCompositionTests
 
         Assert.Empty(diagnostics);
         Assert.Equal(2, timelines.Count);
-        Assert.All(timelines, static timeline => Assert.Equal(SlotMode.Reference, Assert.Single(timeline.Outputs).Mode));
+        Assert.All(timelines, static timeline => Assert.Equal(SlotMode.Reference, Assert.Single(timeline.WritableSlots).Mode));
         var artifacts = HeterogeneousEmitter.EmitCompilation(timelines);
         Assert.Single(artifacts, static artifact => artifact.RelativePath.StartsWith("TlSchema", StringComparison.Ordinal));
     }
@@ -578,8 +575,7 @@ public sealed class HeterogeneousCompositionTests
             public readonly struct Track : ITrack<Clip>
             {
                 public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
-                public static void Forward(in Frame<Track, Clip> frame, in Value shared, ref Value result) { }
-                public static void Backward(in Frame<Track, Clip> frame, in Value shared, ref Value result) { }
+                public static void Seek(in Frame<Track, Clip> frame, in Value shared, ref Value result) { }
             }
 
             public readonly struct WriteShared : IHook

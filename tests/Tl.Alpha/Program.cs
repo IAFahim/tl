@@ -23,179 +23,209 @@ var owner = new Owner
 var animation = new AnimationSettings(0.5f, false);
 var damage = new DamageSettings(2f);
 var trace = default(Trace);
-var input = new Combat.Input(
-    currentPose: in owner.Pose,
-    animationSettings: in animation,
-    currentHealth: in owner.Health,
-    damageSettings: in damage);
-var output = new Combat.Output(
-    nextPose: ref owner.NextPose,
-    trace: ref trace,
-    nextHealth: ref owner.NextHealth);
+var playback = Combat.Start(uint.MaxValue);
+var data = new Combat.Data(
+    ref playback,
+    in animation,
+    in owner.Health,
+    in owner.Pose,
+    in damage,
+    ref owner.NextHealth,
+    ref owner.NextPose,
+    ref trace);
 
-Require(Timeline.TryStart(Combat.Id, out var playback));
-Require(playback.Owner == Combat.Id);
+Require(playback.Position == 0L && playback.GameTick == uint.MaxValue);
 Require(Timeline.IsValid(Combat.Id));
 Require(!Timeline.IsValid(60_000));
-Require(!Timeline.TryStart(60_000, out var absentPlayback));
+Require(!Timeline.TryStart(60_000, 0u, out var absentPlayback));
 Require(absentPlayback == default);
 RequireThrows<ArgumentOutOfRangeException>(() => Timeline.Duration(60_000));
 RequireThrows<ArgumentOutOfRangeException>(() => Timeline.IsLooping(60_000));
-Require(Timeline.TryStart(Combat.Id, 37u, out var positionedPlayback));
-Require(positionedPlayback.Tick == 37u && positionedPlayback.Owner == Combat.Id);
-Require(Timeline.TryForward(Combat.Id, in playback, 0u, in input, ref output, out playback));
+var unchanged = playback;
+Require(Combat.TrySeek(ref data, 0));
+Require(playback == unchanged && trace == default);
+Require(Combat.TrySeek(ref data, 1));
 Require(owner.NextPose == new Pose(11f, 20.5f));
-Require(trace.Calls == 1 && trace.Exits == 0);
+Require(trace == new Trace(1, 1, 0, 0));
+Require(playback.Position == 1L && playback.GameTick == 0u);
 
-Require(Timeline.TryForward(Combat.Id, in playback, 16u, in input, ref output, out playback));
+Require(Combat.TrySeek(ref data, 16));
 Require(owner.NextPose == new Pose(11f, 20.5f));
 Require(owner.NextHealth == new Health(90f));
-Require(trace.Calls == 3);
+Require(trace.Calls == 26 && trace.Starts == 3);
 
-var beforeBatch = trace.Calls;
-ReadOnlySpan<uint> ticks = [17u, 31u, 47u, 55u, 63u];
-Require(Timeline.All[Combat.Id].TryForward(in playback, ticks, in input, ref output, out playback));
-Require(trace.Calls == beforeBatch + 8);
-Require(playback.Tick == 63u);
-
-var wrongPlayback = playback;
+Require(Combat.TrySeek(ref data, 47));
+Require(playback.Position == 64L && playback.GameTick == 63u);
+Require(owner.NextPose == new Pose(13f, 21.5f));
+Require(owner.NextHealth == new Health(100f));
 var rejectedPose = owner.NextPose;
 var rejectedHealth = owner.NextHealth;
 var rejectedTrace = trace;
-Require(Timeline.TryStart(Other.Id, out var otherPlayback));
-Require(!Timeline.TryForward(Other.Id, in wrongPlayback, 1u, in input, ref output, out var failed));
-Require(failed == wrongPlayback);
-Require(!Timeline.TryForward(Combat.Id, in otherPlayback, 1u, in input, ref output, out failed));
-Require(failed == otherPlayback);
-Require(!Timeline.TryForward(60_000, in playback, 1u, in input, ref output, out failed));
-Require(failed == playback);
-Require(!Timeline.All[60_000].TryForward(in playback, 1u, in input, ref output, out failed));
-Require(failed == playback);
+unchanged = playback;
+Require(!Combat.TrySeek(ref data, 1));
+Require(!Combat.TrySeek(ref data, int.MinValue));
+Require(playback == unchanged);
 Require(owner.NextPose == rejectedPose && owner.NextHealth == rejectedHealth && trace == rejectedTrace);
 
-var unstarted = default(Playback);
-Require(!Timeline.TryForward(Combat.Id, in unstarted, 1u, in input, ref output, out failed));
-Require(failed == unstarted);
-Require(!Timeline.TryStop(Combat.Id, in unstarted, out failed));
-Require(failed == unstarted);
-Require(!Timeline.TryStop(60_000, in playback, out failed));
-Require(failed == playback);
-
-var defaultInput = default(Combat.Input);
-Require(!Timeline.TryForward(Combat.Id, in playback, 1u, in defaultInput, ref output, out failed));
-Require(owner.NextPose == rejectedPose && owner.NextHealth == rejectedHealth && trace == rejectedTrace);
-Require(RejectsDefaultOutput(in playback, in input));
-
-Require(Timeline.TryStop(Combat.Id, in playback, out var stopped));
-Require(stopped.Has(PlaybackFlags.Stopped));
-Require(Timeline.TryStop(Combat.Id, in stopped, out var stoppedAgain));
-Require(stoppedAgain == stopped);
-Require(!Timeline.TryForward(Combat.Id, in stopped, 1u, in input, ref output, out failed));
-Require(failed == stopped);
-
-var gcSettings = new AnimationSettings(1f, true);
-var gcInput = new Combat.Input(
-    currentPose: in owner.Pose,
-    animationSettings: in gcSettings,
-    currentHealth: in owner.Health,
-    damageSettings: in damage);
-var gcOutput = new Combat.Output(
-    nextPose: ref owner.NextPose,
-    trace: ref trace,
-    nextHealth: ref owner.NextHealth);
-Require(Timeline.TryStart(Combat.Id, out var gcPlayback));
-Require(Timeline.TryForward(Combat.Id, in gcPlayback, 2u, in gcInput, ref gcOutput, out gcPlayback));
-Require(owner.NextPose == new Pose(12f, 21f));
-
-var backwardTrace = trace;
-Require(Timeline.TryStart(Combat.Id, 63u, out var backwardPlayback));
-Require(Timeline.TryBackward(Combat.Id, in backwardPlayback, 47u, in input, ref output, out backwardPlayback));
-Require(backwardPlayback.Tick == 47u && backwardPlayback.Owner == Combat.Id);
+var backwardCalls = trace.Calls;
+Require(Combat.TrySeek(ref data, -17));
+Require(playback.Position == 47L && playback.GameTick == 46u);
 Require(owner.NextPose == new Pose(7f, 18.5f));
 Require(owner.NextHealth == new Health(110f));
-Require(trace.Calls == backwardTrace.Calls + 2);
+Require(trace.Calls == backwardCalls + 11);
 
-Require(Unsafe.SizeOf<Playback>() == 12);
+Require(Combat.TryStop(in playback, out var stopped));
+playback = stopped;
+Require(stopped.Has(PlaybackFlags.Stopped));
+Require(Combat.TryStop(in stopped, out var stoppedAgain));
+Require(stoppedAgain == stopped);
+rejectedTrace = trace;
+Require(!Combat.TrySeek(ref data, -1));
+Require(playback == stopped && trace == rejectedTrace);
+var emptyData = default(Combat.Data);
+Require(!Combat.TrySeek(ref emptyData, 0));
+
+var gcSettings = new AnimationSettings(1f, true);
+var gcPlayback = Combat.Start(0u);
+var gcData = new Combat.Data(
+    ref gcPlayback,
+    in gcSettings,
+    in owner.Health,
+    in owner.Pose,
+    in damage,
+    ref owner.NextHealth,
+    ref owner.NextPose,
+    ref trace);
+Require(Combat.TrySeek(ref gcData, 3));
+Require(owner.NextPose == new Pose(12f, 21f));
+
+Require(Unsafe.SizeOf<Playback>() == 16);
+Require(Unsafe.SizeOf<Playback<Combat>>() == 16);
 Require(Timeline.Duration(Combat.Id) == 64u);
 Require(!Timeline.IsLooping(Combat.Id));
 Require(Combat.TrackCount == 2 && Combat.ClipCount == 4 && Combat.RegionCount == 7);
 Require(Combat.StaticDataBytes > 0);
 Require(Timeline.RegistryRetainedBytes > 0);
 
-Require(Timeline.TryStart(Combat.Id, out var allocationPlayback));
-for (uint tick = 0; tick < 64; tick++)
-    Require(Timeline.TryForward(Combat.Id, in allocationPlayback, tick, in input, ref output, out allocationPlayback));
+var allocationPlayback = Cycle.Start(0u);
+var allocationData = new Cycle.Data(
+    ref allocationPlayback,
+    in animation,
+    in owner.Pose,
+    ref owner.NextPose,
+    ref trace);
+for (var index = 0; index < 128; index++)
+    Require(Cycle.TrySeek(ref allocationData, (index & 1) == 0 ? 1 : -1));
 var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
 const int allocationCalls = 1_048_576;
 for (var index = 0; index < allocationCalls; index++)
-    Require(Timeline.TryForward(Combat.Id, in allocationPlayback, (uint)index & 63u, in input, ref output, out allocationPlayback));
+    Require(Cycle.TrySeek(ref allocationData, (index & 1) == 0 ? 1 : -1));
 Require(GC.GetAllocatedBytesForCurrentThread() == allocatedBefore);
 var allocatedAfter = GC.GetAllocatedBytesForCurrentThread();
 
-var emptyTrace = trace;
-Require(Timeline.TryForward(Combat.Id, in gcPlayback, ReadOnlySpan<uint>.Empty, in gcInput, ref gcOutput, out var unchanged));
-Require(unchanged == gcPlayback && trace == emptyTrace);
-
-var emptyInput = default(Other.Input);
-var emptyOutput = default(Other.Output);
-Require(Timeline.TryForward(Other.Id, in otherPlayback, 123u, in emptyInput, ref emptyOutput, out var emptyPlayback));
-Require(emptyPlayback.Tick == 123u && emptyPlayback.Has(PlaybackFlags.Completed));
+var emptyPlayback = Other.Start(123u);
+var otherData = new Other.Data(ref emptyPlayback);
+Require(Other.TrySeek(ref otherData, 0));
+Require(emptyPlayback.Position == 0L && emptyPlayback.GameTick == 123u);
+Require(!Other.TrySeek(ref otherData, 1));
 
 var compatibleHealth = owner.NextHealth;
 var compatibleCalls = trace.Calls;
-Require(Timeline.TryStart(Cycle.Id, out var compatiblePlayback));
-Require(Timeline.TryForward(Cycle.Id, in compatiblePlayback, 4u, in input, ref output, out compatiblePlayback));
+Require(Timeline.TryStart(Cycle.Id, 0u, out var compatiblePlayback));
+var compatibleData = new Combat.DynamicData(
+    ref compatiblePlayback,
+    in animation,
+    in owner.Health,
+    in owner.Pose,
+    in damage,
+    ref owner.NextHealth,
+    ref owner.NextPose,
+    ref trace);
+Require(Timeline.TrySeek(Cycle.Id, ref compatibleData, 1));
 Require(owner.NextPose == new Pose(11f, 20.5f));
 Require(owner.NextHealth == compatibleHealth);
 Require(trace.Calls == compatibleCalls + 1);
 
 Require(Timeline.TryGetCompiledRoute(Combat.Id, out var combatRoute));
 var forgedCombat = Timeline.RegisterCompiled(Combat.Duration + 1u, !Combat.Loops, combatRoute);
-Require(Timeline.TryStart(forgedCombat, out var forgedPlayback));
+Require(Timeline.TryStart(forgedCombat, 0u, out var forgedPlayback));
 var forgedPose = owner.NextPose;
 var forgedHealth = owner.NextHealth;
 var forgedTrace = trace;
-Require(!Timeline.TryForward(forgedCombat, in forgedPlayback, 4u, in input, ref output, out failed));
-Require(failed == forgedPlayback);
+var forgedData = new Combat.DynamicData(
+    ref forgedPlayback,
+    in animation,
+    in owner.Health,
+    in owner.Pose,
+    in damage,
+    ref owner.NextHealth,
+    ref owner.NextPose,
+    ref trace);
+Require(!Timeline.TrySeek(forgedCombat, ref forgedData, 1));
 Require(owner.NextPose == forgedPose && owner.NextHealth == forgedHealth && trace == forgedTrace);
 
 var hookReceipt = default(HookReceipt);
 var timestamp = new DateTime(2026, 1, 1);
-var hookInput = new HookTimeline.Input(timestamp: in timestamp);
-var hookOutput = new HookTimeline.Output(ref hookReceipt);
-Require(Timeline.TryStart(HookTimeline.Id, out var hookPlayback));
-Require(Timeline.TryForward(HookTimeline.Id, in hookPlayback, ReadOnlySpan<uint>.Empty, in hookInput, ref hookOutput, out var emptyHookPlayback));
-Require(emptyHookPlayback == hookPlayback && hookReceipt == default);
-Require(Timeline.TryForward(HookTimeline.Id, in hookPlayback, 0u, in hookInput, ref hookOutput, out hookPlayback));
+var hookPlayback = HookTimeline.Start(0u);
+var hookData = new HookTimeline.Data(ref hookPlayback, in timestamp, ref hookReceipt);
+Require(HookTimeline.TrySeek(ref hookData, 0));
+Require(hookPlayback.Position == 0L && hookReceipt == default);
+Require(HookTimeline.TrySeek(ref hookData, 1));
 Require(hookReceipt == new HookReceipt(1, 0, 1));
-Require(Timeline.TryForward(HookTimeline.Id, in hookPlayback, 2u, in hookInput, ref hookOutput, out hookPlayback));
-Require(hookReceipt == new HookReceipt(2, 1, 2));
+Require(HookTimeline.TrySeek(ref hookData, 2));
+Require(hookReceipt == new HookReceipt(3, 1, 3));
 
-var cycleInput = new Cycle.Input(
-    currentPose: in owner.Pose,
-    animationSettings: in animation);
-var cycleOutput = new Cycle.Output(
-    nextPose: ref owner.NextPose,
-    trace: ref trace);
-Require(Timeline.TryStart(Combat.Id, out var incompatiblePlayback));
+Require(Timeline.TryStart(Combat.Id, 0u, out var incompatiblePlayback));
+var incompatibleData = new Cycle.DynamicData(
+    ref incompatiblePlayback,
+    in animation,
+    in owner.Pose,
+    ref owner.NextPose,
+    ref trace);
 var incompatiblePose = owner.NextPose;
 var incompatibleTrace = trace;
-Require(!Timeline.TryForward(Combat.Id, in incompatiblePlayback, 4u, in cycleInput, ref cycleOutput, out failed));
-Require(failed == incompatiblePlayback && owner.NextPose == incompatiblePose && trace == incompatibleTrace);
-Require(Timeline.TryStart(Cycle.Id, out var cyclePlayback));
-Require(Timeline.TryForward(Cycle.Id, in cyclePlayback, 129u, in cycleInput, ref cycleOutput, out cyclePlayback));
-Require(cyclePlayback.Tick == 129u && cyclePlayback.Cycles == 2);
+Require(!Timeline.TrySeek(Combat.Id, ref incompatibleData, 1));
+Require(incompatiblePlayback.Position == 0L && owner.NextPose == incompatiblePose && trace == incompatibleTrace);
+var cyclePlayback = Cycle.Start(200_000u);
+var cycleData = new Cycle.Data(
+    ref cyclePlayback,
+    in animation,
+    in owner.Pose,
+    ref owner.NextPose,
+    ref trace);
+Require(Cycle.TrySeek(ref cycleData, 129));
+Require(cyclePlayback.Position == 129L && cyclePlayback.GameTick == 200_129u);
 Require(Timeline.IsLooping(Cycle.Id) && Timeline.Duration(Cycle.Id) == 64u);
-var cycleTrace = trace;
-Require(!Timeline.TryForward(Cycle.Id, in cyclePlayback, 4_194_368u, in cycleInput, ref cycleOutput, out failed));
-Require(failed == cyclePlayback && trace == cycleTrace);
+
+Require(Timeline.TryStart(Combat.Id, 17u, out var dynamicPlayback));
+var dynamicData = new Combat.DynamicData(
+    ref dynamicPlayback,
+    in animation,
+    in owner.Health,
+    in owner.Pose,
+    in damage,
+    ref owner.NextHealth,
+    ref owner.NextPose,
+    ref trace);
+Require(Timeline.TrySeek(Combat.Id, ref dynamicData, 1));
+Require(dynamicPlayback.Position == 1L && dynamicPlayback.GameTick == 18u);
+var dynamicBefore = dynamicPlayback;
+rejectedPose = owner.NextPose;
+rejectedHealth = owner.NextHealth;
+rejectedTrace = trace;
+Require(!Timeline.TrySeek(Other.Id, ref dynamicData, 1));
+Require(!Timeline.TrySeek(60_000, ref dynamicData, 1));
+Require(dynamicPlayback == dynamicBefore);
+Require(owner.NextPose == rejectedPose && owner.NextHealth == rejectedHealth && trace == rejectedTrace);
+var emptyDynamicData = default(Combat.DynamicData);
+Require(!Timeline.TrySeek(Combat.Id, ref emptyDynamicData, 0));
 
 ReadDefinition<Other>();
 RunRegistryReceipt();
-BatchAliasingReceipt.Run();
+DataAliasingReceipt.Run();
 
 Console.WriteLine($"behavior: pose={owner.NextPose} health={owner.NextHealth} trace={trace}");
-Console.WriteLine($"lifecycle: owner={playback.Owner} tick={playback.Tick} flags={playback.Flags} size={Unsafe.SizeOf<Playback>()}");
+Console.WriteLine($"lifecycle: position={playback.Position} gameTick={playback.GameTick} flags={playback.Flags} size={Unsafe.SizeOf<Playback<Combat>>()}");
 Console.WriteLine($"allocation: {allocationCalls} scalar calls retained {allocatedAfter - allocatedBefore} B");
 Console.WriteLine($"memory: combat static data={Combat.StaticDataBytes} B registry={Timeline.RegistryRetainedBytes} B");
 return 0;
@@ -218,12 +248,6 @@ static void RequireThrows<TException>(Action action) where TException : Exceptio
     }
 
     throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
-}
-
-static bool RejectsDefaultOutput(in Playback playback, scoped in Combat.Input input)
-{
-    var output = default(Combat.Output);
-    return !Timeline.TryForward(Combat.Id, in playback, 1u, in input, ref output, out _);
 }
 
 static void ReadDefinition<TTimeline>() where TTimeline : unmanaged, ITimeline
@@ -339,15 +363,19 @@ public readonly record struct AnimationClip(float X, float Y);
 public readonly record struct DamageClip(float Amount);
 public readonly record struct HookClip(byte Value);
 public readonly record struct HookReceipt(int Before, int Track, int After);
-public readonly record struct Trace(int Calls, int Enters, int Stays, int Exits)
+public readonly record struct Trace(int Calls, int Starts, int Interior, int Ends)
 {
-    public Trace Add(ClipState state) => state switch
+    public Trace Add(FrameFlags flags)
     {
-        ClipState.Enter => this with { Calls = Calls + 1, Enters = Enters + 1 },
-        ClipState.Stay => this with { Calls = Calls + 1, Stays = Stays + 1 },
-        ClipState.Exit => this with { Calls = Calls + 1, Exits = Exits + 1 },
-        _ => throw new ArgumentOutOfRangeException(nameof(state)),
-    };
+        var boundary = flags & (FrameFlags.ClipStart | FrameFlags.ClipEnd);
+        return this with
+        {
+            Calls = Calls + 1,
+            Starts = Starts + ((flags & FrameFlags.ClipStart) != 0 ? 1 : 0),
+            Interior = Interior + (boundary == 0 ? 1 : 0),
+            Ends = Ends + ((flags & FrameFlags.ClipEnd) != 0 ? 1 : 0),
+        };
+    }
 }
 
 public readonly struct AnimationTrack : ITrack<AnimationClip>
@@ -357,7 +385,7 @@ public readonly struct AnimationTrack : ITrack<AnimationClip>
             first.X + (second.X - first.X) * factor,
             first.Y + (second.Y - first.Y) * factor);
 
-    public static void Forward(
+    public static void Seek(
         in Frame<AnimationTrack, AnimationClip> frame,
         in Pose currentPose,
         in AnimationSettings animationSettings,
@@ -366,23 +394,9 @@ public readonly struct AnimationTrack : ITrack<AnimationClip>
     {
         Collect(in animationSettings);
         nextPose = new(
-            currentPose.X + frame.Clip.X * animationSettings.Weight,
-            currentPose.Y + frame.Clip.Y * animationSettings.Weight);
-        trace = trace.Add(frame.State);
-    }
-
-    public static void Backward(
-        in Frame<AnimationTrack, AnimationClip> frame,
-        in Pose currentPose,
-        in AnimationSettings animationSettings,
-        out Pose nextPose,
-        ref Trace trace)
-    {
-        Collect(in animationSettings);
-        nextPose = new(
-            currentPose.X - frame.Clip.X * animationSettings.Weight,
-            currentPose.Y - frame.Clip.Y * animationSettings.Weight);
-        trace = trace.Add(frame.State);
+            currentPose.X + frame.Direction * frame.Clip.X * animationSettings.Weight,
+            currentPose.Y + frame.Direction * frame.Clip.Y * animationSettings.Weight);
+        trace = trace.Add(frame.Flags);
     }
 
     private static void Collect(in AnimationSettings settings)
@@ -400,26 +414,15 @@ public readonly struct DamageTrack : ITrack<DamageClip>
     public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 
-    public static void Forward(
+    public static void Seek(
         in Frame<DamageTrack, DamageClip> frame,
         in Health currentHealth,
         in DamageSettings damageSettings,
         out Health nextHealth,
         ref Trace trace)
     {
-        nextHealth = new(currentHealth.Value - frame.Clip.Amount * damageSettings.Multiplier);
-        trace = trace.Add(frame.State);
-    }
-
-    public static void Backward(
-        in Frame<DamageTrack, DamageClip> frame,
-        in Health currentHealth,
-        in DamageSettings damageSettings,
-        out Health nextHealth,
-        ref Trace trace)
-    {
-        nextHealth = new(currentHealth.Value + frame.Clip.Amount * damageSettings.Multiplier);
-        trace = trace.Add(frame.State);
+        nextHealth = new(currentHealth.Value - frame.Direction * frame.Clip.Amount * damageSettings.Multiplier);
+        trace = trace.Add(frame.Flags);
     }
 }
 
@@ -428,11 +431,8 @@ public readonly struct HookTrack : ITrack<HookClip>
     public void Blend(in HookClip first, in HookClip second, float factor, out HookClip result)
         => result = factor < 0.5f ? first : second;
 
-    public static void Forward(in Frame<HookTrack, HookClip> frame, in DateTime timestamp, ref HookReceipt hookReceipt)
-        => hookReceipt = hookReceipt with { Track = hookReceipt.Track + timestamp.Day };
-
-    public static void Backward(in Frame<HookTrack, HookClip> frame, in DateTime timestamp, ref HookReceipt hookReceipt)
-        => hookReceipt = hookReceipt with { Track = hookReceipt.Track - timestamp.Day };
+    public static void Seek(in Frame<HookTrack, HookClip> frame, in DateTime timestamp, ref HookReceipt hookReceipt)
+        => hookReceipt = hookReceipt with { Track = hookReceipt.Track + frame.Direction * timestamp.Day };
 }
 
 public readonly struct BeforeHook : IHook
