@@ -13,6 +13,7 @@ from xml.etree import ElementTree
 
 PACKAGE_FILES = {
     "Tl.CSharp": {
+        "analyzers/dotnet/cs/Tl.Gen.CSharp.dll",
         "build/Tl.CSharp.targets",
         "buildTransitive/Tl.CSharp.targets",
         "lib/net10.0/_._",
@@ -26,6 +27,7 @@ PACKAGE_FILES = {
     "Tl.Compiler": {"lib/net10.0/Tl.Compiler.dll"},
     "Tl.Gen.C": {"lib/net10.0/Tl.Gen.C.dll"},
     "Tl.Gen.CSharp": {
+        "analyzers/dotnet/cs/Tl.Gen.CSharp.dll",
         "build/Tl.Gen.CSharp.targets",
         "buildTransitive/Tl.Gen.CSharp.targets",
         "tools/net10.0/any/Microsoft.CodeAnalysis.CSharp.dll",

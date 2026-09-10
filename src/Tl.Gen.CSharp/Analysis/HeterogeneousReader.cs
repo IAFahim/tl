@@ -200,10 +200,10 @@ public static class HeterogeneousReader
                 .Where(static method => !method.IsImplicitlyDeclared)
                 .ToArray();
             if (definitions.Length != 1
-                || !ValidDefine(definitions[0])
+                || MethodSyntax(definitions[0]) is not { Body: not null } define
+                || !ValidDefine(definitions[0], define)
                 || definitions[0].Parameters[0].Type is not INamedTypeSymbol builderType
-                || !Same(builderType, contracts.Builder)
-                || MethodSyntax(definitions[0]) is not { Body: not null } define)
+                || !Same(builderType, contracts.Builder))
             {
                 Add(diagnostics, declaration.Syntax, "TLGEN23", $"Timeline '{Display(declaration.Symbol)}' must define exactly one public static void Define(scoped Tl.Builder builder) method with a block body.");
                 return null;
@@ -804,12 +804,13 @@ public static class HeterogeneousReader
         };
 #endif
 
-    private static bool ValidDefine(IMethodSymbol method)
+    private static bool ValidDefine(IMethodSymbol method, MethodDeclarationSyntax syntax)
         => ContractMethod(method)
             && method.Parameters.Length == 1
             && method.Parameters[0] is { } parameter
             && parameter.RefKind == RefKind.None
-            && parameter.ScopedKind == ScopedKind.ScopedValue;
+            && syntax.ParameterList.Parameters.Count == 1
+            && syntax.ParameterList.Parameters[0].Modifiers.Any(static modifier => modifier.ValueText == "scoped");
 
     private static bool ContractMethod(IMethodSymbol method)
         => method.DeclaredAccessibility == Accessibility.Public

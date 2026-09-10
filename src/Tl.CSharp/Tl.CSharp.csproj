@@ -13,6 +13,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>v1.0.0-alpha.2: one-package installation for Tl.Runtime and Tl.Gen.CSharp.</PackageReleaseNotes>
     <TlGenPackOutput Condition="'$(TlGenPackOutput)' == ''">..\Tl.Gen.CSharp\bin\$(Configuration)\net10.0\</TlGenPackOutput>
+    <TlGenAnalyzerPackOutput Condition="'$(TlGenAnalyzerPackOutput)' == ''">..\Tl.Gen.CSharp\bin\$(Configuration)\netstandard2.0\</TlGenAnalyzerPackOutput>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,7 +25,7 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="_._" Pack="true" PackagePath="lib\net10.0" />
     <None Include="..\Tl.Gen.CSharp\build\Tl.Gen.CSharp.targets" Pack="true" PackagePath="build\Tl.CSharp.targets;buildTransitive\Tl.CSharp.targets" />
-    <None Include="..\Tl.Gen.CSharp\bin\$(Configuration)\netstandard2.0\Tl.Gen.CSharp.dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
+    <None Include="$(TlGenAnalyzerPackOutput)Tl.Gen.CSharp.dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
     <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.pdb" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.deps.json" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
