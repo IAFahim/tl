@@ -6,6 +6,10 @@ namespace Tl.Gen.CSharp;
 
 internal static class UnityJobEmitter
 {
+    private sealed record ScheduledOccurrence(JobDefinition Job, JobTrack? Track, int TrackStorage, int FirstStorage, int SecondStorage, uint WindowStart, uint WindowEnd, uint FactorStart, uint FactorLength);
+    private sealed record ScheduledRegion(uint End, IReadOnlyList<ScheduledOccurrence> Occurrences);
+    private sealed record CatalogSlot(string Name, string TypeName, string ComponentName, int Index);
+
     internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model)
     {
         var timelines = model.Timelines.OrderBy(Qualified, StringComparer.Ordinal).ToArray();
@@ -28,32 +32,38 @@ internal static class UnityJobEmitter
     {
         if (model.Catalogs.Count == 0)
             throw new InvalidOperationException("The Unity Entities backend requires an explicit timeline catalog.");
-        foreach (var timeline in timelines)
-        {
-            var bound = plans[Qualified(timeline)];
-            if (timeline.Tracks.Count != 1 || timeline.Clips.Count != 1 || timeline.Before.Count != 0 || timeline.After.Count != 0
-                || bound.OperationBindings.Length != 1 || bound.Plan.Regions.Any(static region => region.OccurrenceCount > 1))
-                throw new InvalidOperationException($"Timeline '{Qualified(timeline)}' is outside the first Unity vertical slice: one track, one clip, one operation, and no hooks or blends are required.");
-        }
+        var byName = timelines.ToDictionary(Qualified, StringComparer.Ordinal);
         foreach (var catalog in model.Catalogs)
-        foreach (var schema in catalog.Schemas)
-            if (schema.Assets.Count != 1)
-                throw new InvalidOperationException($"Unity schema '{catalog.Namespace}.{catalog.Name}.{schema.Name}' must contain exactly one asset in the first vertical slice.");
+        {
+            var assets = catalog.Schemas.SelectMany(static schema => schema.Assets).Distinct(StringComparer.Ordinal)
+                .Select(asset => byName[asset]).ToArray();
+            foreach (var group in assets.SelectMany(asset => plans[Qualified(asset)].OperationBindings)
+                .GroupBy(static operation => operation.TypeName, StringComparer.Ordinal))
+            {
+                var first = group.First();
+                if (group.Skip(1).Any(operation => !operation.Slots.SequenceEqual(first.Slots)))
+                    throw new InvalidOperationException($"Unity catalog '{catalog.Namespace}.{catalog.Name}' binds operation '{first.TypeName}' with inconsistent slots.");
+            }
+        }
     }
 
     private static string Timeline(JobTimeline timeline, BoundOrderedTimelinePlan bound)
     {
         var writer = Header(timeline.Namespace);
-        var track = timeline.Tracks[0];
-        var clip = timeline.Clips[0];
-        var operation = bound.OperationBindings[0];
+        var regions = Regions(timeline, bound);
+        var operations = bound.OperationBindings;
         Line(writer, $"public readonly struct {timeline.Name}");
         Line(writer, "{");
         Line(writer, $"public const uint Duration = {U(timeline.Duration)};");
         Line(writer, $"public const bool Loops = {Bool(timeline.Loops)};");
-        Line(writer, $"public static int StaticDataBytes => global::Unity.Collections.LowLevel.Unsafe.UnsafeUtility.SizeOf<{track.TypeName}>() + global::Unity.Collections.LowLevel.Unsafe.UnsafeUtility.SizeOf<{clip.TypeName}>();");
-        Line(writer, $"private static readonly {track.TypeName} __tlTrack = {track.Expression};");
-        Line(writer, $"private static readonly {clip.TypeName} __tlClip = {clip.Expression};");
+        Line(writer, $"public const int TrackCount = {timeline.Tracks.Count};");
+        Line(writer, $"public const int ClipCount = {timeline.Clips.Count};");
+        Line(writer, $"public const int MaxStageCount = {regions.Select(static region => region.Occurrences.Count).DefaultIfEmpty().Max()};");
+        var uniqueBindings = bound.Plan.UniquePayloads.Select(unique => bound.PayloadBindings[(int)unique.Id.Value]).ToArray();
+        for (var index = 0; index < uniqueBindings.Length; index++)
+            Line(writer, $"private static readonly {uniqueBindings[index].TypeName} __tlData{index} = {uniqueBindings[index].Expression};");
+        var sizes = uniqueBindings.Select(static binding => $"global::Unity.Collections.LowLevel.Unsafe.UnsafeUtility.SizeOf<{binding.TypeName}>()");
+        Line(writer, $"public static int StaticDataBytes => {string.Join(" + ", sizes.DefaultIfEmpty("0"))};");
         Line(writer, "internal static bool Select(in global::Tl.TimelineState state, bool reverse, out global::Tl.TimelineState next, out uint tick, out long cycle, out global::Tl.FrameFlags flags)");
         Line(writer, "{");
         Line(writer, "return global::Tl.TimelineMovement.Select(in state, Duration, Loops, reverse, out next, out tick, out cycle, out flags);");
@@ -75,18 +85,51 @@ internal static class UnityJobEmitter
         else
             Line(writer, "return new global::Tl.TimelineState(state.Asset, (flags & global::Tl.FrameFlags.Reverse) != 0 ? tick : tick + 1u);");
         Line(writer, "}");
-        Line(writer, $"internal static void Execute(ushort stage, uint tick, uint gameTick, long cycle, global::Tl.FrameFlags flags, bool reverse{Parameters(operation.Slots)})");
-        Line(writer, "{");
-        Line(writer, $"if (stage != 0 || tick < {U(clip.Start)} || tick >= {U(clip.End)}) return;");
-        Line(writer, "var workFlags = flags;");
-        Line(writer, $"if (tick == {U(clip.Start)}) workFlags |= global::Tl.FrameFlags.ClipStart;");
-        Line(writer, $"if (tick == {U(clip.End - 1)}) workFlags |= global::Tl.FrameFlags.ClipEnd;");
-        Line(writer, $"var frame = new global::Tl.Frame<{track.TypeName}, {track.ClipTypeName}>(in __tlTrack, in __tlClip, gameTick, tick, cycle, {track.Index.ToString(CultureInfo.InvariantCulture)}, workFlags);");
-        Line(writer, $"{track.Job.TypeName}.Execute(in frame{Arguments(operation.Slots)});");
-        Line(writer, "}");
+        for (var operation = 0; operation < operations.Length; operation++)
+        {
+            EmitOperation(writer, regions, operations[operation], operation, false);
+            EmitOperation(writer, regions, operations[operation], operation, true);
+        }
         Line(writer, "}");
         Footer(writer, timeline.Namespace);
         return writer.ToString();
+    }
+
+    private static void EmitOperation(
+        StringBuilder writer,
+        IReadOnlyList<ScheduledRegion> regions,
+        JobDefinition operation,
+        int operationIndex,
+        bool reverse)
+    {
+        var direction = reverse ? "Reverse" : "Forward";
+        Line(writer, $"internal static void Execute{direction}{operationIndex}(ushort stage, uint tick, uint gameTick, long cycle, global::Tl.FrameFlags flags{Parameters(operation.Slots)})");
+        Line(writer, "{");
+        for (var regionIndex = 0; regionIndex < regions.Count; regionIndex++)
+        {
+            var region = regions[regionIndex];
+            Line(writer, $"{(regionIndex == 0 ? "if" : "else if")} (tick < {U(region.End)})");
+            Line(writer, "{");
+            var occurrences = reverse ? region.Occurrences.Reverse().ToArray() : region.Occurrences.ToArray();
+            var matches = occurrences.Select((occurrence, stage) => (Occurrence: occurrence, Stage: stage))
+                .Where(pair => StringComparer.Ordinal.Equals(pair.Occurrence.Job.TypeName, operation.TypeName)).ToArray();
+            if (matches.Length != 0)
+            {
+                Line(writer, "switch (stage)");
+                Line(writer, "{");
+                foreach (var match in matches)
+                {
+                    Line(writer, $"case {match.Stage.ToString(CultureInfo.InvariantCulture)}:");
+                    Line(writer, "{");
+                    Invoke(writer, match.Occurrence);
+                    Line(writer, "break;");
+                    Line(writer, "}");
+                }
+                Line(writer, "}");
+            }
+            Line(writer, "}");
+        }
+        Line(writer, "}");
     }
 
     private static string Catalog(
@@ -99,9 +142,18 @@ internal static class UnityJobEmitter
             .OrderBy(static asset => asset, StringComparer.Ordinal).Select(asset => byName[asset]).ToArray();
         var ids = assets.Select((asset, index) => (Name: Qualified(asset), Id: index + 1))
             .ToDictionary(static pair => pair.Name, static pair => pair.Id, StringComparer.Ordinal);
+        var operations = assets.SelectMany(asset => plans[Qualified(asset)].OperationBindings)
+            .GroupBy(static operation => operation.TypeName, StringComparer.Ordinal)
+            .Select(static group => group.First()).OrderBy(static operation => operation.TypeName, StringComparer.Ordinal).ToArray();
+        var maxStages = assets.Select(asset => plans[Qualified(asset)].Plan.Regions
+                .Select(static region => (int)region.OccurrenceCount).DefaultIfEmpty().Max())
+            .DefaultIfEmpty().Max();
+        var slots = CatalogSlots(catalog, byName);
+        var slotIds = slots.ToDictionary(slot => SlotKey(slot.Name, slot.TypeName), static slot => slot, StringComparer.Ordinal);
         var writer = Header(catalog.Namespace);
         Line(writer, $"public readonly partial struct {catalog.Name}");
         Line(writer, "{");
+        Line(writer, $"public const int AssetCount = {assets.Length.ToString(CultureInfo.InvariantCulture)};");
         Line(writer, "public enum Asset : uint");
         Line(writer, "{");
         Line(writer, "None = 0,");
@@ -133,46 +185,107 @@ internal static class UnityJobEmitter
         Line(writer, "}");
         foreach (var schema in catalog.Schemas)
             Line(writer, $"public struct {schema.Name} : global::Unity.Entities.IComponentData, global::Unity.Entities.IEnableableComponent {{ }}");
-        Line(writer, "public struct Stage0 : global::Unity.Entities.IComponentData, global::Unity.Entities.IEnableableComponent { }");
-        Line(writer, "public static void Tick(ref global::Unity.Entities.SystemState state, uint gameTick, int delta = 1)");
+        foreach (var slot in slots)
+        {
+            Line(writer, $"public struct {slot.ComponentName} : global::Unity.Entities.IComponentData");
+            Line(writer, "{");
+            Line(writer, $"public {slot.TypeName} Value;");
+            Line(writer, $"public {slot.ComponentName}({slot.TypeName} value) {{ Value = value; }}");
+            Line(writer, "}");
+        }
+        EmitScheduler(writer, catalog, byName, operations, maxStages, slots, slotIds);
+        Line(writer, "}");
+        EmitJobs(writer, catalog, assets, ids, byName, plans, operations, slotIds);
+        Footer(writer, catalog.Namespace);
+        return writer.ToString();
+    }
+
+    private static void EmitScheduler(
+        StringBuilder writer,
+        JobCatalog catalog,
+        IReadOnlyDictionary<string, JobTimeline> byName,
+        IReadOnlyList<JobDefinition> operations,
+        int maxStages,
+        IReadOnlyList<CatalogSlot> slots,
+        IReadOnlyDictionary<string, CatalogSlot> slotIds)
+    {
+        Line(writer, "public struct Scheduler");
+        Line(writer, "{");
+        Line(writer, "private global::Unity.Entities.EntityQuery __tlTimelineQuery;");
+        Line(writer, $"private global::Unity.Entities.ComponentTypeHandle<{catalog.Name}.TimelineComponent> __tlTimelineHandle;");
+        for (var schema = 0; schema < catalog.Schemas.Count; schema++)
+            Line(writer, $"private global::Unity.Entities.ComponentTypeHandle<{catalog.Name}.{catalog.Schemas[schema].Name}> __tlSchema{schema}Handle;");
+        foreach (var slot in slots)
+            Line(writer, $"private global::Unity.Entities.ComponentTypeHandle<{catalog.Name}.{slot.ComponentName}> __tlSlot{slot.Index}Handle;");
+        for (var operation = 0; operation < operations.Count; operation++)
+            Line(writer, $"private __Tl{catalog.Name}Operation{operation}Job.InternalCompilerQueryAndHandleData __tlOperation{operation}Data;");
+        Line(writer, $"private __Tl{catalog.Name}CommitJob.InternalCompilerQueryAndHandleData __tlCommitData;");
+        Line(writer, "public void OnCreate(ref global::Unity.Entities.SystemState state)");
+        Line(writer, "{");
+        Line(writer, $"__tlTimelineQuery = state.GetEntityQuery(global::Unity.Entities.ComponentType.ReadWrite<{catalog.Name}.TimelineComponent>());");
+        Line(writer, $"__tlTimelineHandle = state.GetComponentTypeHandle<{catalog.Name}.TimelineComponent>(false);");
+        for (var schema = 0; schema < catalog.Schemas.Count; schema++)
+            Line(writer, $"__tlSchema{schema}Handle = state.GetComponentTypeHandle<{catalog.Name}.{catalog.Schemas[schema].Name}>(true);");
+        foreach (var slot in slots)
+            Line(writer, $"__tlSlot{slot.Index}Handle = state.GetComponentTypeHandle<{catalog.Name}.{slot.ComponentName}>(true);");
+        for (var operation = 0; operation < operations.Count; operation++)
+            Line(writer, $"__tlOperation{operation}Data.Init(ref state, true);");
+        Line(writer, "__tlCommitData.Init(ref state, true);");
+        Line(writer, "}");
+        Line(writer, "public void Tick(ref global::Unity.Entities.SystemState state, uint gameTick, int delta = 1)");
         Line(writer, "{");
         Line(writer, "if (delta == 0) return;");
         Line(writer, "bool reverse = delta < 0;");
         Line(writer, "long remaining = reverse ? -(long)delta : delta;");
-        Line(writer, $"var clearData = new __Tl{catalog.Name}ClearJob.InternalCompilerQueryAndHandleData();");
-        Line(writer, "clearData.Init(ref state, true);");
-        foreach (var schema in catalog.Schemas)
-        {
-            Line(writer, $"var {Lower(schema.Name)}SelectData = new __Tl{catalog.Name}{schema.Name}SelectJob.InternalCompilerQueryAndHandleData();");
-            Line(writer, $"{Lower(schema.Name)}SelectData.Init(ref state, true);");
-        }
-        Line(writer, $"var stage0Data = new __Tl{catalog.Name}Stage0Job.InternalCompilerQueryAndHandleData();");
-        Line(writer, "stage0Data.Init(ref state, true);");
-        Line(writer, $"var commitData = new __Tl{catalog.Name}CommitJob.InternalCompilerQueryAndHandleData();");
-        Line(writer, "commitData.Init(ref state, true);");
+        Line(writer, "__tlTimelineHandle.Update(ref state);");
+        for (var schema = 0; schema < catalog.Schemas.Count; schema++)
+            Line(writer, $"__tlSchema{schema}Handle.Update(ref state);");
+        foreach (var slot in slots)
+            Line(writer, $"__tlSlot{slot.Index}Handle.Update(ref state);");
+        for (var operation = 0; operation < operations.Count; operation++)
+            Line(writer, $"__tlOperation{operation}Data.__TypeHandle.Update(ref state);");
+        Line(writer, "__tlCommitData.__TypeHandle.Update(ref state);");
         Line(writer, "var dependency = state.Dependency;");
         Line(writer, "while (remaining-- != 0)");
         Line(writer, "{");
         Line(writer, "if (reverse) gameTick = unchecked(gameTick - 1u);");
-        Line(writer, $"var clearJob = new __Tl{catalog.Name}ClearJob();");
-        Line(writer, "dependency = clearData.ScheduleParallel(ref clearJob, clearData.DefaultQuery, dependency);");
-        foreach (var schema in catalog.Schemas)
+        Line(writer, $"var clearJob = new __Tl{catalog.Name}ClearJob {{ TimelineHandle = __tlTimelineHandle }};");
+        Line(writer, "dependency = clearJob.ScheduleParallel(__tlTimelineQuery, dependency);");
+        for (var schema = 0; schema < catalog.Schemas.Count; schema++)
         {
-            Line(writer, $"var {Lower(schema.Name)}SelectJob = new __Tl{catalog.Name}{schema.Name}SelectJob {{ Reverse = reverse }};");
-            Line(writer, $"dependency = {Lower(schema.Name)}SelectData.ScheduleParallel(ref {Lower(schema.Name)}SelectJob, {Lower(schema.Name)}SelectData.DefaultQuery, dependency);");
+            var schemaSlots = JobEmitter.Slots(catalog.Schemas[schema].Assets.Select(asset => byName[asset]));
+            var values = new List<string>
+            {
+                "TimelineHandle = __tlTimelineHandle",
+                $"SchemaHandle = __tlSchema{schema}Handle",
+                "Reverse = reverse",
+            };
+            values.AddRange(schemaSlots.Select(slot =>
+            {
+                var binding = slotIds[SlotKey(slot.Name, slot.TypeName)];
+                return $"Slot{binding.Index}Handle = __tlSlot{binding.Index}Handle";
+            }));
+            Line(writer, $"var select{schema}Job = new __Tl{catalog.Name}Select{schema}Job {{ {string.Join(", ", values)} }};");
+            Line(writer, $"dependency = select{schema}Job.ScheduleParallel(__tlTimelineQuery, dependency);");
         }
-        Line(writer, $"var stage0Job = new __Tl{catalog.Name}Stage0Job {{ GameTick = gameTick, Reverse = reverse }};");
-        Line(writer, "dependency = stage0Data.ScheduleParallel(ref stage0Job, stage0Data.DefaultQuery, dependency);");
+        if (maxStages != 0)
+        {
+            Line(writer, $"for (ushort stage = 0; stage < {maxStages.ToString(CultureInfo.InvariantCulture)}; stage++)");
+            Line(writer, "{");
+            for (var operation = 0; operation < operations.Count; operation++)
+            {
+                Line(writer, $"var operation{operation}Job = new __Tl{catalog.Name}Operation{operation}Job {{ Stage = stage, GameTick = gameTick, Reverse = reverse }};");
+                Line(writer, $"dependency = __tlOperation{operation}Data.ScheduleParallel(ref operation{operation}Job, __tlOperation{operation}Data.DefaultQuery, dependency);");
+            }
+            Line(writer, "}");
+        }
         Line(writer, $"var commitJob = new __Tl{catalog.Name}CommitJob();");
-        Line(writer, "dependency = commitData.ScheduleParallel(ref commitJob, commitData.DefaultQuery, dependency);");
+        Line(writer, "dependency = __tlCommitData.ScheduleParallel(ref commitJob, __tlCommitData.DefaultQuery, dependency);");
         Line(writer, "if (!reverse) gameTick = unchecked(gameTick + 1u);");
         Line(writer, "}");
         Line(writer, "state.Dependency = dependency;");
         Line(writer, "}");
         Line(writer, "}");
-        EmitJobs(writer, catalog, assets, ids, byName, plans);
-        Footer(writer, catalog.Namespace);
-        return writer.ToString();
     }
 
     private static void EmitJobs(
@@ -181,69 +294,102 @@ internal static class UnityJobEmitter
         IReadOnlyList<JobTimeline> assets,
         IReadOnlyDictionary<string, int> ids,
         IReadOnlyDictionary<string, JobTimeline> byName,
-        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
+        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans,
+        IReadOnlyList<JobDefinition> operations,
+        IReadOnlyDictionary<string, CatalogSlot> slotIds)
     {
         Line(writer, "[global::Unity.Burst.BurstCompile(CompileSynchronously = true)]");
-        Line(writer, "[WithOptions(global::Unity.Entities.EntityQueryOptions.IgnoreComponentEnabledState)]");
-        Line(writer, $"internal partial struct __Tl{catalog.Name}ClearJob : IJobEntity");
+        Line(writer, $"internal struct __Tl{catalog.Name}ClearJob : global::Unity.Entities.IJobChunk");
         Line(writer, "{");
-        Line(writer, $"private void Execute(ref {catalog.Name}.TimelineComponent timeline, global::Unity.Entities.EnabledRefRW<{catalog.Name}.Stage0> stage)");
+        Line(writer, $"public global::Unity.Entities.ComponentTypeHandle<{catalog.Name}.TimelineComponent> TimelineHandle;");
+        EmitChunkSignature(writer);
         Line(writer, "{");
+        Line(writer, "var timelines = chunk.GetNativeArray(ref TimelineHandle);");
+        Line(writer, "for (int index = 0; index < chunk.Count; index++)");
+        Line(writer, "{");
+        Line(writer, "var timeline = timelines[index];");
         Line(writer, "timeline.Value.Pending = false;");
-        Line(writer, "stage.ValueRW = false;");
+        Line(writer, "timelines[index] = timeline;");
+        Line(writer, "}");
         Line(writer, "}");
         Line(writer, "}");
 
-        foreach (var schema in catalog.Schemas)
+        for (var schema = 0; schema < catalog.Schemas.Count; schema++)
         {
-            var asset = byName[schema.Assets[0]];
-            var slots = JobEmitter.Slots([asset]);
+            var definition = catalog.Schemas[schema];
+            var slots = JobEmitter.Slots(definition.Assets.Select(asset => byName[asset]));
+            Line(writer, "[global::Unity.Burst.BurstCompile(CompileSynchronously = true)]");
+            Line(writer, $"internal struct __Tl{catalog.Name}Select{schema}Job : global::Unity.Entities.IJobChunk");
+            Line(writer, "{");
+            Line(writer, $"public global::Unity.Entities.ComponentTypeHandle<{catalog.Name}.TimelineComponent> TimelineHandle;");
+            Line(writer, $"[global::Unity.Collections.ReadOnly] public global::Unity.Entities.ComponentTypeHandle<{catalog.Name}.{definition.Name}> SchemaHandle;");
+            foreach (var slot in slots)
+            {
+                var binding = slotIds[SlotKey(slot.Name, slot.TypeName)];
+                Line(writer, $"[global::Unity.Collections.ReadOnly] public global::Unity.Entities.ComponentTypeHandle<{catalog.Name}.{binding.ComponentName}> Slot{binding.Index}Handle;");
+            }
+            Line(writer, "public bool Reverse;");
+            EmitChunkSignature(writer);
+            Line(writer, "{");
+            var checks = new[] { "chunk.Has(ref SchemaHandle)" }.Concat(slots.Select(slot => $"chunk.Has(ref Slot{slotIds[SlotKey(slot.Name, slot.TypeName)].Index}Handle)"));
+            Line(writer, $"if (!({string.Join(" && ", checks)})) return;");
+            Line(writer, "var timelines = chunk.GetNativeArray(ref TimelineHandle);");
+            Line(writer, "for (int index = 0; index < chunk.Count; index++)");
+            Line(writer, "{");
+            Line(writer, "if (!chunk.IsComponentEnabled(ref SchemaHandle, index)) continue;");
+            Line(writer, "var timeline = timelines[index];");
+            Line(writer, "switch (timeline.Value.Value.Asset)");
+            Line(writer, "{");
+            foreach (var assetName in definition.Assets.Distinct(StringComparer.Ordinal))
+            {
+                var asset = byName[assetName];
+                Line(writer, $"case {ids[Qualified(asset)].ToString(CultureInfo.InvariantCulture)}u:");
+                Line(writer, $"if ({asset.Name}.Select(in timeline.Value.Value, Reverse, out _, out timeline.Value.PendingTick, out _, out timeline.Value.PendingFlags))");
+                Line(writer, "{");
+                Line(writer, "timeline.Value.Pending = true;");
+                Line(writer, "timelines[index] = timeline;");
+                Line(writer, "}");
+                Line(writer, "break;");
+            }
+            Line(writer, "}");
+            Line(writer, "}");
+            Line(writer, "}");
+            Line(writer, "}");
+        }
+
+        for (var operation = 0; operation < operations.Count; operation++)
+        {
+            var definition = operations[operation];
             Line(writer, "[global::Unity.Burst.BurstCompile(CompileSynchronously = true)]");
             Line(writer, "[WithOptions(global::Unity.Entities.EntityQueryOptions.IgnoreComponentEnabledState)]");
-            Line(writer, $"[WithAll(typeof({catalog.Name}.{schema.Name}){TypeArguments(slots)})]");
-            Line(writer, $"internal partial struct __Tl{catalog.Name}{schema.Name}SelectJob : IJobEntity");
+            Line(writer, $"internal partial struct __Tl{catalog.Name}Operation{operation}Job : IJobEntity");
             Line(writer, "{");
+            Line(writer, "public ushort Stage;");
+            Line(writer, "public uint GameTick;");
             Line(writer, "public bool Reverse;");
-            Line(writer, $"private void Execute(ref {catalog.Name}.TimelineComponent timeline, global::Unity.Entities.EnabledRefRW<{catalog.Name}.Stage0> stage)");
+            Line(writer, $"private void Execute(in {catalog.Name}.TimelineComponent timeline{WrapperParameters(catalog.Name, definition.Slots, slotIds)})");
             Line(writer, "{");
-            Line(writer, $"if (timeline.Value.Value.Asset != {ids[Qualified(asset)].ToString(CultureInfo.InvariantCulture)}u) return;");
-            Line(writer, $"if (!{asset.Name}.Select(in timeline.Value.Value, Reverse, out _, out timeline.Value.PendingTick, out _, out timeline.Value.PendingFlags)) return;");
-            Line(writer, "timeline.Value.Pending = true;");
-            Line(writer, "stage.ValueRW = true;");
+            Line(writer, "if (!timeline.Value.Pending) return;");
+            Line(writer, "switch (timeline.Value.Value.Asset)");
+            Line(writer, "{");
+            foreach (var asset in assets.Where(asset => plans[Qualified(asset)].OperationBindings.Any(candidate => candidate.TypeName == definition.TypeName)))
+            {
+                var local = plans[Qualified(asset)].OperationBindings.Select((candidate, index) => (candidate, index))
+                    .Single(pair => pair.candidate.TypeName == definition.TypeName);
+                Line(writer, $"case {ids[Qualified(asset)].ToString(CultureInfo.InvariantCulture)}u:");
+                Line(writer, $"if (Reverse) {asset.Name}.ExecuteReverse{local.index}(Stage, timeline.Value.PendingTick, GameTick, {asset.Name}.FrameCycle(in timeline.Value.Value, timeline.Value.PendingFlags), timeline.Value.PendingFlags{WrapperArguments(definition.Slots)});");
+                Line(writer, $"else {asset.Name}.ExecuteForward{local.index}(Stage, timeline.Value.PendingTick, GameTick, {asset.Name}.FrameCycle(in timeline.Value.Value, timeline.Value.PendingFlags), timeline.Value.PendingFlags{WrapperArguments(definition.Slots)});");
+                Line(writer, "break;");
+            }
+            Line(writer, "}");
             Line(writer, "}");
             Line(writer, "}");
         }
 
-        var operationAssets = assets.GroupBy(asset => plans[Qualified(asset)].OperationBindings[0].TypeName, StringComparer.Ordinal).ToArray();
-        if (operationAssets.Length != 1)
-            throw new InvalidOperationException($"Catalog '{catalog.Namespace}.{catalog.Name}' must use one operation kind in the first Unity vertical slice.");
-        var operation = plans[Qualified(operationAssets[0].First())].OperationBindings[0];
         Line(writer, "[global::Unity.Burst.BurstCompile(CompileSynchronously = true)]");
-        Line(writer, $"[WithAll(typeof({catalog.Name}.Stage0))]");
-        Line(writer, $"internal partial struct __Tl{catalog.Name}Stage0Job : IJobEntity");
-        Line(writer, "{");
-        Line(writer, "public uint GameTick;");
-        Line(writer, "public bool Reverse;");
-        Line(writer, $"private void Execute(in {catalog.Name}.TimelineComponent timeline{Parameters(operation.Slots)})");
-        Line(writer, "{");
-        Line(writer, "if (!timeline.Value.Pending) return;");
-        Line(writer, "switch (timeline.Value.Value.Asset)");
-        Line(writer, "{");
-        foreach (var asset in assets)
-        {
-            Line(writer, $"case {ids[Qualified(asset)].ToString(CultureInfo.InvariantCulture)}u:");
-            Line(writer, $"{asset.Name}.Execute(0, timeline.Value.PendingTick, GameTick, {asset.Name}.FrameCycle(in timeline.Value.Value, timeline.Value.PendingFlags), timeline.Value.PendingFlags, Reverse{Arguments(operation.Slots)});");
-            Line(writer, "break;");
-        }
-        Line(writer, "}");
-        Line(writer, "}");
-        Line(writer, "}");
-
-        Line(writer, "[global::Unity.Burst.BurstCompile(CompileSynchronously = true)]");
-        Line(writer, "[WithOptions(global::Unity.Entities.EntityQueryOptions.IgnoreComponentEnabledState)]");
         Line(writer, $"internal partial struct __Tl{catalog.Name}CommitJob : IJobEntity");
         Line(writer, "{");
-        Line(writer, $"private void Execute(ref {catalog.Name}.TimelineComponent timeline, global::Unity.Entities.EnabledRefRW<{catalog.Name}.Stage0> stage)");
+        Line(writer, $"private void Execute(ref {catalog.Name}.TimelineComponent timeline)");
         Line(writer, "{");
         Line(writer, "if (timeline.Value.Pending)");
         Line(writer, "{");
@@ -258,10 +404,105 @@ internal static class UnityJobEmitter
         Line(writer, "}");
         Line(writer, "}");
         Line(writer, "timeline.Value.Pending = false;");
-        Line(writer, "stage.ValueRW = false;");
         Line(writer, "}");
         Line(writer, "}");
     }
+
+    private static IReadOnlyList<ScheduledRegion> Regions(JobTimeline timeline, BoundOrderedTimelinePlan bound)
+    {
+        var regions = new List<ScheduledRegion>(bound.Plan.Regions.Length);
+        foreach (var region in bound.Plan.Regions)
+        {
+            var occurrences = new List<ScheduledOccurrence>(region.OccurrenceCount);
+            for (var stage = 0; stage < region.OccurrenceCount; stage++)
+            {
+                var occurrence = bound.Plan.Occurrences[(int)region.OccurrenceOffset + stage];
+                var job = bound.OperationBindings[occurrence.OperationIndex];
+                if ((occurrence.Flags & (global::Tl.Compiler.OrderedOccurrenceFlags.BeforeHook | global::Tl.Compiler.OrderedOccurrenceFlags.AfterHook)) != 0)
+                {
+                    occurrences.Add(new ScheduledOccurrence(job, null, -1, -1, -1, 0, 0, 0, 0));
+                    continue;
+                }
+                var track = timeline.Tracks.Single(candidate => candidate.Index == occurrence.TrackIndex);
+                var firstIndex = checked((int)occurrence.FirstPayloadIndex - timeline.Tracks.Count);
+                var secondIndex = occurrence.SecondPayloadIndex == global::Tl.Compiler.ValidatedOrderedTimelinePlan.NoPayload
+                    ? -1
+                    : checked((int)occurrence.SecondPayloadIndex - timeline.Tracks.Count);
+                var first = timeline.Clips[firstIndex];
+                var second = secondIndex < 0 ? null : timeline.Clips[secondIndex];
+                occurrences.Add(new ScheduledOccurrence(
+                    job,
+                    track,
+                    checked((int)bound.Plan.PayloadStorageIndices[(int)occurrence.TrackPayloadIndex]),
+                    checked((int)bound.Plan.PayloadStorageIndices[(int)occurrence.FirstPayloadIndex]),
+                    secondIndex < 0 ? -1 : checked((int)bound.Plan.PayloadStorageIndices[(int)occurrence.SecondPayloadIndex]),
+                    second is null ? first.Start : Math.Min(first.Start, second.Start),
+                    second is null ? first.End : Math.Max(first.End, second.End),
+                    occurrence.FactorStart,
+                    occurrence.FactorLength));
+            }
+            regions.Add(new ScheduledRegion(region.End, occurrences));
+        }
+        return regions;
+    }
+
+    private static void Invoke(StringBuilder writer, ScheduledOccurrence occurrence)
+    {
+        if (occurrence.Track is null)
+        {
+            Line(writer, "var frame = new global::Tl.TimelineFrame(gameTick, tick, cycle, flags);");
+            Line(writer, $"{occurrence.Job.TypeName}.Execute(in frame{Arguments(occurrence.Job.Slots)});");
+            return;
+        }
+        var track = occurrence.Track;
+        var clipExpression = $"__tlData{occurrence.FirstStorage}";
+        if (occurrence.SecondStorage >= 0)
+        {
+            var factor = occurrence.FactorLength <= 1 ? "0.5f" : $"(tick - {U(occurrence.FactorStart)}) / (float){U(occurrence.FactorLength - 1)}";
+            Line(writer, $"__tlData{occurrence.TrackStorage}.Blend(in __tlData{occurrence.FirstStorage}, in __tlData{occurrence.SecondStorage}, {factor}, out var resolved);");
+            clipExpression = "resolved";
+        }
+        Line(writer, "var workFlags = flags;");
+        Line(writer, $"if (tick == {U(occurrence.WindowStart)}) workFlags |= global::Tl.FrameFlags.ClipStart;");
+        Line(writer, $"if (tick == {U(occurrence.WindowEnd - 1)}) workFlags |= global::Tl.FrameFlags.ClipEnd;");
+        Line(writer, $"var frame = new global::Tl.Frame<{track.TypeName}, {track.ClipTypeName}>(in __tlData{occurrence.TrackStorage}, in {clipExpression}, gameTick, tick, cycle, {track.Index.ToString(CultureInfo.InvariantCulture)}, workFlags);");
+        Line(writer, $"{track.Job.TypeName}.Execute(in frame{Arguments(track.Job.Slots)});");
+    }
+
+    private static void EmitChunkSignature(StringBuilder writer)
+        => Line(writer, "public void Execute(in global::Unity.Entities.ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in global::Unity.Burst.Intrinsics.v128 chunkEnabledMask)");
+
+    private static IReadOnlyList<CatalogSlot> CatalogSlots(
+        JobCatalog catalog,
+        IReadOnlyDictionary<string, JobTimeline> byName)
+        => catalog.Schemas.SelectMany(schema => JobEmitter.Slots(schema.Assets.Select(asset => byName[asset])))
+            .GroupBy(static slot => SlotKey(slot.Name, slot.TypeName), StringComparer.Ordinal)
+            .Select(static group => new TimelineSlot(
+                group.First().Name,
+                group.First().TypeName,
+                group.Any(static slot => slot.Mode != SlotMode.Input) ? SlotMode.Reference : SlotMode.Input))
+            .OrderBy(static slot => slot.Name, StringComparer.Ordinal)
+            .ThenBy(static slot => slot.TypeName, StringComparer.Ordinal)
+            .Select((slot, index) => new CatalogSlot(slot.Name, slot.TypeName, "Role" + index.ToString(CultureInfo.InvariantCulture) + Pascal(slot.Name), index))
+            .ToArray();
+
+    private static string WrapperParameters(
+        string catalogName,
+        IEnumerable<TimelineSlot> slots,
+        IReadOnlyDictionary<string, CatalogSlot> bindings)
+        => string.Concat(slots.Select(slot =>
+        {
+            var binding = bindings[SlotKey(slot.Name, slot.TypeName)];
+            return $", {(slot.Mode == SlotMode.Input ? "in" : "ref")} {catalogName}.{binding.ComponentName} @{slot.Name}";
+        }));
+
+    private static string WrapperArguments(IEnumerable<TimelineSlot> slots)
+        => string.Concat(slots.Select(slot => $", {(slot.Mode == SlotMode.Input ? "in" : "ref")} @{slot.Name}.Value"));
+
+    private static string SlotKey(string name, string typeName) => name + "\0" + typeName;
+
+    private static string Pascal(string value)
+        => value.Length == 0 ? "Slot" : char.ToUpperInvariant(value[0]) + value.Substring(1);
 
     private static string Parameters(IEnumerable<TimelineSlot> slots)
         => string.Concat(slots.Select(static slot => $", {(slot.Mode == SlotMode.Input ? "in" : "ref")} {slot.TypeName} @{slot.Name}"));
@@ -269,15 +510,11 @@ internal static class UnityJobEmitter
     private static string Arguments(IEnumerable<TimelineSlot> slots)
         => string.Concat(slots.Select(static slot => $", {(slot.Mode == SlotMode.Input ? "in" : "ref")} @{slot.Name}"));
 
-    private static string TypeArguments(IEnumerable<TimelineSlot> slots)
-        => string.Concat(slots.Select(static slot => $", typeof({slot.TypeName})"));
-
     private static string Qualified(JobTimeline timeline)
         => "global::" + (timeline.Namespace.Length == 0 ? "" : timeline.Namespace + ".") + timeline.Name;
 
     private static string U(uint value) => value.ToString(CultureInfo.InvariantCulture) + "u";
     private static string Bool(bool value) => value ? "true" : "false";
-    private static string Lower(string value) => char.ToLowerInvariant(value[0]) + value.Substring(1);
     private static void Line(StringBuilder writer, string value) => writer.Append(value).Append('\n');
 
     private static StringBuilder Header(string nameSpace)
