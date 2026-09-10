@@ -246,7 +246,7 @@ No blind AggressiveInlining/AggressiveOptimization sweep. No unsafe pointer shor
 
 ## Memory budget and mathematical limits
 
-Keep the exact existing source metric from benchmarks/source_budget.py: content bytes plus UTF-8 relative-path bytes and one separator byte per path, across tracked and non-ignored untracked files under src. The existing gate accepts totals up to 200,000 bytes; plan to stay below that cap. The current headroom is 21,701 bytes. Remove obsolete API, shims, duplicate table emitters and unused dependencies while adding the new model. Do not move production code out of src or minify it to evade the measure.
+Keep the exact existing source metric from benchmarks/source_budget.py: content bytes plus UTF-8 relative-path bytes and one separator byte per path, across tracked and non-ignored untracked files under src. The existing gate accepts totals up to 200,000 bytes. The gate output at each checkpoint is authoritative; copied historical headroom is not. Remove obsolete API, shims, duplicate table emitters and unused dependencies while adding the new model. Do not move production code out of src or minify it to evade the measure.
 
 Provisional allocation of that budget:
 

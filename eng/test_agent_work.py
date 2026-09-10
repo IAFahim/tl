@@ -161,6 +161,9 @@ is_claim_delete = bool(arguments) and arguments[0] == "push" and any(
     argument.startswith(":refs/heads/workstream-claims/") or argument.startswith(":refs/heads/claims/")
     for argument in arguments
 )
+is_claim_enumeration = bool(arguments) and arguments[0] == "ls-remote" and any(
+    argument.endswith("/*") for argument in arguments
+)
 
 def wait():
     ready.touch()
@@ -169,6 +172,9 @@ def wait():
         if time.monotonic() >= deadline:
             sys.exit(97)
         time.sleep(0.01)
+
+if os.environ.get("TL_GIT_FAIL") == "claim-enumeration" and is_claim_enumeration:
+    sys.exit(88)
 
 if pause == "before-branch-push" and is_branch_push:
     wait()
@@ -391,6 +397,17 @@ class AgentWorkTests(unittest.TestCase):
         beta_tree = self.worktree(second, "unity-guide")
         checkpoint = self.command(alpha_tree, "Alpha", "pc-a", "checkpoint", "41", "green", "tests")
         self.assertEqual(0, checkpoint.returncode, checkpoint.stdout)
+        alpha_head = self.run_raw(["git", "rev-parse", "HEAD"], alpha_tree).stdout.strip()
+        self.assertEqual(
+            {
+                "status": "In progress",
+                "agent": "Alpha",
+                "machine": "pc-a",
+                "branch": "perf/41-scalar-kernel",
+                "checkpoint": alpha_head,
+            },
+            self.read_state()["project"],
+        )
         alpha_handoff = self.command(alpha_tree, "Alpha", "pc-a", "handoff", "41", "none", "done")
         self.assertEqual(0, alpha_handoff.returncode, alpha_handoff.stdout)
         self.assertEqual("In progress", self.read_state()["project"]["status"])
@@ -427,6 +444,40 @@ class AgentWorkTests(unittest.TestCase):
         self.assertIn("does not exist", started.stdout)
         self.assertFalse(self.claim())
         self.assertFalse(self.worktree(repo).exists())
+
+    def test_start_rejects_stale_local_branch_before_claiming(self):
+        repo = self.clone("owner")
+        producer = self.clone("producer")
+        self.run_raw(["git", "branch", "feat/41-atomic"], repo)
+        self.run_raw(["git", "switch", "-c", "feat/41-atomic"], producer)
+        (producer / "remote.txt").write_text("remote\n")
+        self.run_raw(["git", "add", "remote.txt"], producer)
+        self.run_raw(["git", "commit", "-m", "remote checkpoint"], producer)
+        self.run_raw(["git", "push", "origin", "feat/41-atomic"], producer)
+
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+
+        self.assertNotEqual(0, started.returncode)
+        self.assertIn("local branch 'feat/41-atomic' is stale", started.stdout)
+        self.assertFalse(self.claim())
+
+    def test_start_cleans_owned_claim_when_issue_closed_before_resume(self):
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        state = self.read_state()
+        state["issue_state"] = "CLOSED"
+        self.state.write_text(json.dumps(state))
+
+        resumed = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+
+        self.assertNotEqual(0, resumed.returncode)
+        self.assertIn("released workstream", resumed.stdout)
+        self.assertFalse(self.claim())
+        self.assertFalse(self.transaction())
+        self.assertEqual("Done", self.read_state()["project"]["status"])
+        cleanups = [body for body in self.read_state()["comment_bodies"] if body.startswith("### Closed issue claim cleanup")]
+        self.assertEqual(1, len(cleanups))
 
     def test_interrupted_start_repairs_the_same_claim(self):
         repo = self.clone("owner")
@@ -580,6 +631,40 @@ class AgentWorkTests(unittest.TestCase):
         self.assertEqual(0, len([body for body in bodies if body.startswith("### Green checkpoint")]))
         self.assertEqual(1, len([body for body in bodies if body.startswith("### Handoff")]))
 
+    def test_handoff_reconciles_terminal_projection_after_crash(self):
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        worktree = self.worktree(repo)
+        state = self.read_state()
+        state["project"]["status"] = "Ready"
+        self.state.write_text(json.dumps(state))
+
+        resumed = self.command(worktree, "Alpha", "pc-a", "handoff", "41", "remaining", "next")
+
+        self.assertEqual(0, resumed.returncode, resumed.stdout)
+        self.assertFalse(self.claim())
+        self.assertEqual("Ready", self.read_state()["project"]["status"])
+
+    def test_handoff_fails_closed_when_claim_enumeration_fails(self):
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        worktree = self.worktree(repo)
+        failed = subprocess.run(
+            [str(worktree / "eng" / "agent-work"), "handoff", "41", "remaining", "next"],
+            cwd=worktree,
+            env=self.environment("Alpha", "pc-a", TL_GIT_FAIL="claim-enumeration"),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+
+        self.assertNotEqual(0, failed.returncode)
+        self.assertIn("could not enumerate active claims", failed.stdout)
+        self.assertTrue(self.claim())
+        self.assertEqual("In progress", self.read_state()["project"]["status"])
+
     def test_handoff_has_no_project_writes_after_claim_release(self):
         repo = self.clone("owner")
         replacement_repo = self.clone("replacement")
@@ -645,6 +730,30 @@ class AgentWorkTests(unittest.TestCase):
         third = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
         self.assertEqual(0, third.returncode, third.stdout)
         self.assertFalse(self.claim())
+
+    def test_done_reconciles_terminal_projection_from_another_machine(self):
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        worktree = self.worktree(repo)
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+        opened = self.command(worktree, "Alpha", "pc-a", "pr", "41", "title", str(body))
+        self.assertEqual(0, opened.returncode, opened.stdout)
+        state = self.read_state()
+        state["pr"]["state"] = "MERGED"
+        state["pr"]["merge"] = state["pr"]["head"]
+        state["issue_state"] = "CLOSED"
+        state["project"]["status"] = "Done"
+        self.state.write_text(json.dumps(state))
+        recovery = self.clone("recovery")
+        self.run_raw(["git", "switch", "feat/41-atomic"], recovery)
+
+        resumed = self.command(recovery, "Beta", "pc-b", "done", "41", "evidence")
+
+        self.assertEqual(0, resumed.returncode, resumed.stdout)
+        self.assertFalse(self.claim())
+        self.assertEqual("Done", self.read_state()["project"]["status"])
 
     def test_done_rejects_merged_pr_without_exact_issue_link(self):
         repo = self.clone("owner")
@@ -772,6 +881,34 @@ class AgentWorkTests(unittest.TestCase):
         audits = [body for body in self.read_state()["comment_bodies"] if body.startswith("### Transaction recovery")]
         self.assertEqual(1, len(audits))
         self.assertIn(f"- Recovered transaction: `{transaction}`", audits[0])
+
+    def test_transaction_recovery_retries_original_object_after_audit_failure(self):
+        repo = self.clone("owner")
+        base = self.run_raw(["git", "rev-parse", "HEAD"], repo).stdout.strip()
+        tree = self.run_raw(["git", "rev-parse", "HEAD^{tree}"], repo).stdout.strip()
+        transaction = subprocess.run(
+            ["git", "commit-tree", tree, "-p", base],
+            cwd=repo,
+            input="issue=41\nagent=Lost\nmachine=pc-lost\noperation=checkpoint\nnonce=lost\n",
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        ).stdout.strip()
+        self.run_raw(["git", "push", "origin", f"{transaction}:refs/heads/issue-transactions/41"], repo)
+        self.write_state(fail="issue comment")
+
+        interrupted = self.command(repo, "Beta", "pc-b", "recover-lock", "41", transaction, "power lost")
+        recovery_lock = self.transaction()
+
+        self.assertNotEqual(0, interrupted.returncode)
+        self.assertTrue(recovery_lock)
+        self.assertNotEqual(transaction, recovery_lock)
+        resumed = self.command(repo, "Beta", "pc-b", "recover-lock", "41", transaction, "power lost")
+        self.assertEqual(0, resumed.returncode, resumed.stdout)
+        self.assertFalse(self.transaction())
+        audits = [body for body in self.read_state()["comment_bodies"] if body.startswith("### Transaction recovery")]
+        self.assertEqual(1, len(audits))
 
     def test_issue_transaction_serializes_done_and_takeover(self):
         repo = self.clone("owner")

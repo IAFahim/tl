@@ -346,16 +346,11 @@ publish_branch() {
     remote_claim_commit="$replacement"
 }
 
-has_active_claims() {
-    local issue="$1"
-    [[ -n "$(git ls-remote --heads origin "refs/heads/claims/$issue" "refs/heads/claims/$issue/*" "refs/heads/workstream-claims/$issue/*" 2>/dev/null)" ]]
-}
-
 has_other_active_claims() {
     local issue="$1"
     local excluded="$2"
     local refs
-    refs="$(git ls-remote --heads origin "refs/heads/claims/$issue" "refs/heads/claims/$issue/*" "refs/heads/workstream-claims/$issue/*" 2>/dev/null)"
+    refs="$(git ls-remote --heads origin "refs/heads/claims/$issue" "refs/heads/claims/$issue/*" "refs/heads/workstream-claims/$issue/*" 2>/dev/null)" || fail "could not enumerate active claims for issue #$issue"
     awk -v excluded="$excluded" '$2 != excluded { found = 1 } END { exit !found }' <<<"$refs"
 }
 
@@ -377,6 +372,32 @@ machine=$machine_name
 operation=$operation
 nonce=$(date -u +%Y%m%dT%H%M%S%N)-$$"
     printf '%s\n' "$message" | git commit-tree "$(git rev-parse 'HEAD^{tree}')" -p HEAD
+}
+
+new_recovery_transaction_commit() {
+    local issue="$1"
+    local recovered="$2"
+    local reason="$3"
+    local message
+    message="issue=$issue
+agent=$agent_name
+machine=$machine_name
+operation=recover stale transaction
+recovered_transaction=$recovered
+recovery_reason=$reason
+nonce=$(date -u +%Y%m%dT%H%M%S%N)-$$"
+    printf '%s\n' "$message" | git commit-tree "$(git rev-parse 'HEAD^{tree}')" -p HEAD
+}
+
+issue_transaction_message() {
+    local issue="$1"
+    local expected="$2"
+    local ref
+    local local_ref="refs/tl/transactions/$issue"
+    ref="$(issue_transaction_ref "$issue")"
+    git fetch --quiet origin "+$ref:$local_ref" || fail "could not read issue #$issue transaction"
+    [[ "$(git rev-parse "$local_ref")" == "$expected" ]] || fail "issue #$issue transaction changed while reading recovery state"
+    git show -s --format=%B "$local_ref"
 }
 
 cleanup_issue_transaction() {
@@ -424,26 +445,41 @@ recover_issue_transaction() {
     local current
     local replacement
     local ref
+    local message
+    local recovered
+    local recovery_reason
     validate_issue "$issue"
     validate_identity
     [[ "$expected" =~ ^[0-9a-f]{40,64}$ ]] || fail "expected transaction must be a full Git object ID"
     [[ -n "$reason" && "$reason" != *$'\n'* ]] || fail "recovery reason must be one nonempty line"
     current="$(read_issue_transaction "$issue" || true)"
-    [[ "$current" == "$expected" ]] || fail "issue #$issue transaction changed; expected $expected, found ${current:-none}"
     ref="$(issue_transaction_ref "$issue")"
-    replacement="$(new_issue_transaction_commit "$issue" "recover stale transaction: $reason")"
-    git push --force-with-lease="$ref:$expected" origin "$replacement:$ref" >/dev/null || fail "issue #$issue transaction changed during recovery"
+    if [[ "$current" == "$expected" ]]; then
+        replacement="$(new_recovery_transaction_commit "$issue" "$expected" "$reason")"
+        git push --force-with-lease="$ref:$expected" origin "$replacement:$ref" >/dev/null || fail "issue #$issue transaction changed during recovery"
+    else
+        [[ -n "$current" ]] || fail "issue #$issue transaction changed; expected $expected, found none"
+        message="$(issue_transaction_message "$issue" "$current")"
+        recovered="$(claim_value "$message" recovered_transaction)"
+        recovery_reason="$(claim_value "$message" recovery_reason)"
+        [[ "$recovered" == "$expected" && "$recovery_reason" == "$reason" ]] || fail "issue #$issue transaction changed; expected $expected, found $current"
+        replacement="$current"
+    fi
     issue_transaction_commit="$replacement"
     issue_transaction_issue="$issue"
-    issue_transaction_held="true"
-    trap cleanup_issue_transaction EXIT
-    post_once "$issue" "- Recovered transaction: \`$expected\`" "### Transaction recovery
+    issue_transaction_held="false"
+    trap - EXIT
+    if ! post_once "$issue" "- Recovered transaction: \`$expected\`" "### Transaction recovery
 
 - Agent: $agent_name
 - Machine: $machine_name
 - Recovered transaction: \`$expected\`
 - Recovery lock: \`$replacement\`
-- Reason: $reason"
+- Reason: $reason"; then
+        fail "issue #$issue recovery audit failed; recovery lock $replacement remains; rerun the same recover-lock command"
+    fi
+    issue_transaction_held="true"
+    trap cleanup_issue_transaction EXIT
     end_issue_transaction
 }
 
@@ -467,6 +503,9 @@ publish_checkpoint_projection() {
     local risks="$9"
     local item
     item="$(project_item "$issue")"
+    set_text "$item" Agent "$owner_agent"
+    set_text "$item" Machine "$owner_machine"
+    set_text "$item" Branch "$branch"
     set_text "$item" Checkpoint "$commit"
     set_status "$item" "In progress"
     post_once "$issue" "- Checkpoint claim: \`$claim\`" "### Green checkpoint
@@ -483,17 +522,30 @@ publish_checkpoint_projection() {
 
 assert_claim() {
     local issue="$1"
-    local allow_closed="${2:-false}"
+    local mode="${2:-active}"
     local branch
     local -a claim=()
     branch="$(git branch --show-current)"
     load_project_claim "$issue" claim
     [[ "${#claim[@]}" -eq 6 ]] || fail "issue #$issue is not attached to Project $project_number"
-    [[ "${claim[1]}" == "In progress" || "${claim[1]}" == "In review" ]] || fail "issue #$issue is not actively claimed"
-    assert_remote_claim "$issue" "$branch"
-    if [[ "$allow_closed" != "true" ]]; then
-        assert_issue_open "$issue"
-    fi
+    case "$mode" in
+        active)
+            [[ "${claim[1]}" == "In progress" || "${claim[1]}" == "In review" ]] || fail "issue #$issue is not actively claimed"
+            assert_remote_claim "$issue" "$branch"
+            assert_issue_open "$issue"
+            ;;
+        handoff)
+            [[ "${claim[1]}" == "In progress" || "${claim[1]}" == "In review" || "${claim[1]}" == "Ready" ]] || fail "issue #$issue cannot resume a handoff from status '${claim[1]}'"
+            assert_remote_claim "$issue" "$branch"
+            assert_issue_open "$issue"
+            ;;
+        completion)
+            [[ "${claim[1]}" == "In progress" || "${claim[1]}" == "In review" || "${claim[1]}" == "Ready" || "${claim[1]}" == "Done" ]] || fail "issue #$issue cannot resume completion from status '${claim[1]}'"
+            load_remote_claim "$issue" "$branch" || fail "workstream '$branch' has no atomic remote claim"
+            [[ "$remote_claim_branch" == "$branch" ]] || fail "issue #$issue atomically owns branch '$remote_claim_branch', not '$branch'"
+            ;;
+        *) fail "unknown claim assertion mode '$mode'" ;;
+    esac
     assert_issue_taxonomy "$issue"
     assert_assigned "$issue"
 }
@@ -502,15 +554,20 @@ ensure_worktree() {
     local worktree="$1"
     local branch="$2"
     local base="$3"
+    local expected
+    expected="$(git rev-parse "$base")"
     if [[ -e "$worktree" ]]; then
         [[ "$(git -C "$worktree" branch --show-current)" == "$branch" ]] || fail "worktree path is owned by another branch: $worktree"
+        [[ -z "$(git -C "$worktree" status --porcelain)" ]] || fail "worktree '$worktree' has unpublished changes; checkpoint or restore it before resuming"
+        [[ "$(git -C "$worktree" rev-parse HEAD)" == "$expected" ]] || fail "worktree '$worktree' is not at the claimed checkpoint $expected"
         return
     fi
     git worktree prune
     if git show-ref --verify --quiet "refs/heads/$branch"; then
+        [[ "$(git rev-parse "$branch")" == "$expected" ]] || fail "local branch '$branch' is stale; move it to the remote checkpoint $expected before starting"
         git worktree add "$worktree" "$branch"
     else
-        git worktree add "$worktree" -b "$branch" "$base"
+        git worktree add "$worktree" -b "$branch" "$expected"
     fi
 }
 
@@ -556,6 +613,42 @@ publish_claim() {
 - State: $state"
 }
 
+release_closed_start_claim() {
+    local issue="$1"
+    local branch="$2"
+    local checkpoint="$3"
+    local expected="$4"
+    local item
+    local status
+    local previous_status
+    local -a project=()
+    load_project_claim "$issue" project
+    previous_status="${project[1]}"
+    item="$(project_item "$issue")"
+    set_text "$item" Agent "$agent_name"
+    set_text "$item" Machine "$machine_name"
+    set_text "$item" Branch "$branch"
+    set_text "$item" Checkpoint "$checkpoint"
+    if has_other_active_claims "$issue" "$remote_claim_ref"; then
+        status="In progress"
+    else
+        status="Done"
+    fi
+    set_status "$item" "$status"
+    post_once "$issue" "- Released closed-issue claim: \`$expected\`" "### Closed issue claim cleanup
+
+- Agent: $agent_name
+- Machine: $machine_name
+- Branch: \`$branch\`
+- Checkpoint: \`$checkpoint\`
+- Released closed-issue claim: \`$expected\`
+- State: $status"
+    if ! release_claim "$issue" "$branch" "$expected"; then
+        set_status "$item" "$previous_status"
+        fail "closed issue #$issue claim changed before cleanup"
+    fi
+}
+
 start_work() {
     require_count 4 "$#"
     local issue="$1"
@@ -573,7 +666,6 @@ start_work() {
     validate_issue "$issue"
     validate_identity
     validate_workstream "$kind" "$slug"
-    assert_issue_open "$issue"
     assert_issue_taxonomy "$issue"
     repository_root="$(git rev-parse --show-toplevel)"
     worktree="$(dirname "$repository_root")/$(basename "$repository_root")-$issue-$slug"
@@ -583,9 +675,14 @@ start_work() {
     if [[ -n "$existing_claim" ]]; then
         assert_remote_claim "$issue" "$branch"
         base="$(git rev-parse "refs/tl/claims/$issue/$(printf '%s' "$branch" | tr / -)^")"
-        ensure_worktree "$worktree" "$branch" "$base"
         begin_issue_transaction "$issue" "resume $branch"
         assert_remote_claim "$issue" "$branch"
+        if [[ "$(gh issue view "$issue" --json state --jq .state)" != "OPEN" ]]; then
+            release_closed_start_claim "$issue" "$branch" "$base" "$remote_claim_commit"
+            end_issue_transaction
+            fail "issue #$issue is closed; released workstream '$branch' claim"
+        fi
+        ensure_worktree "$worktree" "$branch" "$base"
         publish_claim "$issue" "$branch" "$worktree" "$scope" "In progress" "recorded claim checkpoint"
         end_issue_transaction
         printf '%s\n' "$worktree"
@@ -598,10 +695,20 @@ start_work() {
         resolve_start_base "origin/$branch" base
         requested_base="origin/$branch"
     fi
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+        [[ "$(git rev-parse "$branch")" == "$base" ]] || fail "local branch '$branch' is stale; move it to the remote checkpoint $base before starting"
+    fi
+    begin_issue_transaction "$issue" "start $branch"
+    assert_issue_open "$issue"
     claim_commit="$(acquire_claim "$issue" "$branch" "$base")"
     remote_claim_commit="$claim_commit"
+    remote_claim_ref="$(claim_ref "$issue" "$branch")"
     ensure_worktree "$worktree" "$branch" "$base"
-    begin_issue_transaction "$issue" "start $branch"
+    if [[ "$(gh issue view "$issue" --json state --jq .state)" != "OPEN" ]]; then
+        release_closed_start_claim "$issue" "$branch" "$base" "$remote_claim_commit"
+        end_issue_transaction
+        fail "issue #$issue closed during start; released workstream '$branch' claim"
+    fi
     assert_remote_claim "$issue" "$branch"
     publish_claim "$issue" "$branch" "$worktree" "$scope" "In progress" "$requested_base"
     end_issue_transaction
@@ -785,7 +892,7 @@ handoff_work() {
         printf 'workstream %s is already handed off at %s\n' "$branch" "$head"
         return
     fi
-    assert_claim "$issue"
+    assert_claim "$issue" handoff
     load_project_claim "$issue" project
     previous_status="${project[1]}"
     if [[ "$remote_claim_checkpoint" != "$head" ]] ||
@@ -795,6 +902,9 @@ handoff_work() {
         assert_claimed_checkpoint "$branch" "$head"
     fi
     item="$(project_item "$issue")"
+    set_text "$item" Agent "$agent_name"
+    set_text "$item" Machine "$machine_name"
+    set_text "$item" Branch "$branch"
     set_text "$item" Checkpoint "$head"
     if has_other_active_claims "$issue" "$remote_claim_ref"; then
         status="In progress"
@@ -802,12 +912,13 @@ handoff_work() {
         status="Ready"
     fi
     set_status "$item" "$status"
-    post_once "$issue" "- Handoff checkpoint: \`$head\`" "### Handoff
+    post_once "$issue" "- Handoff claim: \`$remote_claim_commit\`" "### Handoff
 
 - Agent: $agent_name
 - Machine: $machine_name
 - Branch: \`$branch\`
 - Handoff checkpoint: \`$head\`
+- Handoff claim: \`$remote_claim_commit\`
 - Remaining work: $remaining
 - Exact next command: \`$next_command\`
 - State: $status"
@@ -841,8 +952,11 @@ open_pr() {
     fi
     gh project item-add "$project_number" --owner "$repository_owner" --url "$pr_url" >/dev/null
     item="$(project_item "$issue")"
-    set_status "$item" "In review"
+    set_text "$item" Agent "$agent_name"
+    set_text "$item" Machine "$machine_name"
+    set_text "$item" Branch "$branch"
     set_text "$item" Checkpoint "$(git rev-parse HEAD)"
+    set_status "$item" "In review"
     end_issue_transaction
     printf '%s\n' "$pr_url"
 }
@@ -903,12 +1017,15 @@ finish_work() {
         printf 'workstream %s is complete through PR #%s\n' "$branch" "$pr"
         return
     fi
-    assert_claim "$issue" true
+    assert_claim "$issue" completion
     load_project_claim "$issue" project
     previous_status="${project[1]}"
     assert_claimed_checkpoint "$branch" "$head"
     pr="$(merged_pr_for_claim "$issue" "$branch" "$head")" || fail "issue #$issue has no linked merged PR for branch '$branch' at commit $head"
     item="$(project_item "$issue")"
+    set_text "$item" Agent "$agent_name"
+    set_text "$item" Machine "$machine_name"
+    set_text "$item" Branch "$branch"
     set_text "$item" Checkpoint "$head"
     state="$(gh issue view "$issue" --json state --jq .state)"
     post_once "$issue" "Merged by #$pr." "$evidence Merged by #$pr."
