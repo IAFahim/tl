@@ -14,13 +14,15 @@ internal static class JobEmitter
     {
         var timelines = model.Timelines.OrderBy(Qualified, StringComparer.Ordinal).ToArray();
         var plans = timelines.ToDictionary(Qualified, JobTimelinePlanAdapter.Create, StringComparer.Ordinal);
-        var files = timelines.Select((timeline, index) => new CompileArtifact($"TlJob{index}.g.cs", Timeline(timeline, plans[Qualified(timeline)]))).ToList();
+        var queried = new HashSet<string>(model.Catalogs.SelectMany(static catalog => catalog.Schemas)
+            .SelectMany(static schema => schema.Assets), StringComparer.Ordinal);
+        var files = timelines.Select((timeline, index) => new CompileArtifact($"TlJob{index}.g.cs", Timeline(timeline, plans[Qualified(timeline)], queried.Contains(Qualified(timeline))))).ToList();
         files.AddRange(model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal)
             .Select((catalog, index) => new CompileArtifact($"TlCatalog{index}.g.cs", Catalog(catalog, timelines, plans))));
         return files;
     }
 
-    private static string Timeline(JobTimeline timeline, BoundOrderedTimelinePlan bound)
+    private static string Timeline(JobTimeline timeline, BoundOrderedTimelinePlan bound, bool queried)
     {
         var writer = Header(timeline.Namespace, timeline.Usings);
         var regions = Regions(timeline, bound);
@@ -62,9 +64,12 @@ internal static class JobEmitter
             EmitOperation(writer, regions, operations[operation], operation, false);
             EmitOperation(writer, regions, operations[operation], operation, true);
         }
-        var slots = Slots([timeline]);
-        EmitRow(writer, regions, slots, false);
-        EmitRow(writer, regions, slots, true);
+        if (queried)
+        {
+            var slots = Slots([timeline]);
+            EmitRow(writer, regions, slots, false);
+            EmitRow(writer, regions, slots, true);
+        }
         Line(writer, "}");
         return writer.ToString();
     }

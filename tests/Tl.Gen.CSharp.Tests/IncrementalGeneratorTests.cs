@@ -41,6 +41,7 @@ public sealed class IncrementalGeneratorTests
         Assert.Empty(diagnostics);
         Assert.Empty(output.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
         var analyzer = Sources(driver);
+        Assert.DoesNotContain("internal static void ExecuteForward(uint", string.Join("\n", analyzer.Values));
         var directory = Path.Combine(Path.GetTempPath(), "tl-incremental-tests", Guid.NewGuid().ToString("N"));
         try
         {
