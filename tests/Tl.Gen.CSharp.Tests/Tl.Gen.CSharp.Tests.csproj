@@ -25,6 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Tl.Compiler\Tl.Compiler.csproj" />
     <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
     <ProjectReference Include="..\..\src\Tl.Gen.CSharp\Tl.Gen.CSharp.csproj" />
   </ItemGroup>

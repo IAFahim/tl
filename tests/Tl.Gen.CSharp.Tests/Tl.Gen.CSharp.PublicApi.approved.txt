@@ -10,21 +10,8 @@ type Tl.Gen.CSharp.Analysis.DeclarationDiagnostic
   Property Int32 Line
   Property System.String Message
   Method System.String ToString()
-type Tl.Gen.CSharp.Analysis.HeterogeneousCompilationSettings
-  Method Tl.Gen.CSharp.Analysis.HeterogeneousCompilationSettings <Clone>$()
-  Property Boolean AllowUnsafe
-  Property Boolean CheckOverflow
-  Method Boolean Equals(System.Object)
-  Method Boolean Equals(Tl.Gen.CSharp.Analysis.HeterogeneousCompilationSettings)
-  Method Int32 GetHashCode()
-  Property System.String LanguageVersion
-  Property System.String Nullable
-  Property System.Collections.Generic.IReadOnlyList`1[System.String] ReferencePaths
-  Method System.String ToString()
-type Tl.Gen.CSharp.Analysis.HeterogeneousReader
-  Method System.ValueTuple`2[System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.HeterogeneousTimeline],System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic]] Read(System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.String,System.String]], System.Collections.Generic.IReadOnlyList`1[System.String])
-  Method System.ValueTuple`2[System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.HeterogeneousTimeline],System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic]] Read(System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.String,System.String]], System.Collections.Generic.IReadOnlyList`1[System.String], System.Collections.Generic.IReadOnlyList`1[System.String])
-  Method System.ValueTuple`2[System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.HeterogeneousTimeline],System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic]] Read(System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.String,System.String]], System.Collections.Generic.IReadOnlyList`1[System.String], Tl.Gen.CSharp.Analysis.HeterogeneousCompilationSettings)
+type Tl.Gen.CSharp.Analysis.JobReader
+  Method Tl.Gen.CSharp.Model.JobReadResult Read(Microsoft.CodeAnalysis.CSharp.CSharpCompilation)
 type Tl.Gen.CSharp.GeneratorCli
   Method Int32 Main(System.String[])
 type Tl.Gen.CSharp.Model.HeterogeneousClip
@@ -39,51 +26,76 @@ type Tl.Gen.CSharp.Model.HeterogeneousClip
   Method System.String ToString()
   Property Int32 TrackIndex
   Property System.String TypeName
-type Tl.Gen.CSharp.Model.HeterogeneousTimeline
-  Method Tl.Gen.CSharp.Model.HeterogeneousTimeline <Clone>$()
-  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineHook] AfterHooks
-  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineHook] BeforeHooks
+type Tl.Gen.CSharp.Model.JobCatalog
+  Method Tl.Gen.CSharp.Model.JobCatalog <Clone>$()
+  Method Void Deconstruct(System.String ByRef, System.String ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobSchema] ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobCatalog)
+  Method Int32 GetHashCode()
+  Property System.String Name
+  Property System.String Namespace
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobSchema] Schemas
+  Method System.String ToString()
+type Tl.Gen.CSharp.Model.JobDefinition
+  Method Tl.Gen.CSharp.Model.JobDefinition <Clone>$()
+  Method Void Deconstruct(System.String ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobDefinition)
+  Method Int32 GetHashCode()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] Slots
+  Method System.String ToString()
+  Property System.String TypeName
+type Tl.Gen.CSharp.Model.JobReadResult
+  Method Tl.Gen.CSharp.Model.JobReadResult <Clone>$()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobCatalog] Catalogs
+  Method Void Deconstruct(System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobTimeline] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobCatalog] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic] ByRef)
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic] Diagnostics
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobReadResult)
+  Method Int32 GetHashCode()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobTimeline] Timelines
+  Method System.String ToString()
+type Tl.Gen.CSharp.Model.JobSchema
+  Method Tl.Gen.CSharp.Model.JobSchema <Clone>$()
+  Property System.Collections.Generic.IReadOnlyList`1[System.String] Assets
+  Method Void Deconstruct(System.String ByRef, System.Collections.Generic.IReadOnlyList`1[System.String] ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobSchema)
+  Method Int32 GetHashCode()
+  Property System.String Name
+  Method System.String ToString()
+type Tl.Gen.CSharp.Model.JobTimeline
+  Method Tl.Gen.CSharp.Model.JobTimeline <Clone>$()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobDefinition] After
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobDefinition] Before
   Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.HeterogeneousClip] Clips
-  Method Void Deconstruct(System.String ByRef, System.String ByRef, Boolean ByRef, System.Collections.Generic.IReadOnlyList`1[System.String] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.HeterogeneousTrack] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.HeterogeneousClip] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineHook] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineHook] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ByRef)
+  Method Void Deconstruct(System.String ByRef, System.String ByRef, Boolean ByRef, System.Collections.Generic.IReadOnlyList`1[System.String] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobTrack] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.HeterogeneousClip] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobDefinition] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobDefinition] ByRef)
   Property UInt32 Duration
   Method Boolean Equals(System.Object)
-  Method Boolean Equals(Tl.Gen.CSharp.Model.HeterogeneousTimeline)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobTimeline)
   Method Int32 GetHashCode()
   Property Boolean Loops
   Property System.String Name
   Property System.String Namespace
-  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ReadOnlySlots
   Method System.String ToString()
-  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.HeterogeneousTrack] Tracks
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobTrack] Tracks
   Property System.Collections.Generic.IReadOnlyList`1[System.String] Usings
-  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] WritableSlots
-type Tl.Gen.CSharp.Model.HeterogeneousTrack
-  Method Tl.Gen.CSharp.Model.HeterogeneousTrack <Clone>$()
+type Tl.Gen.CSharp.Model.JobTrack
+  Method Tl.Gen.CSharp.Model.JobTrack <Clone>$()
   Property System.String ClipTypeName
-  Method Void Deconstruct(Int32 ByRef, System.String ByRef, System.String ByRef, System.String ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ByRef)
+  Method Void Deconstruct(Int32 ByRef, System.String ByRef, System.String ByRef, System.String ByRef, Tl.Gen.CSharp.Model.JobDefinition ByRef)
   Method Boolean Equals(System.Object)
-  Method Boolean Equals(Tl.Gen.CSharp.Model.HeterogeneousTrack)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobTrack)
   Property System.String Expression
   Method Int32 GetHashCode()
   Property Int32 Index
-  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] SeekSlots
+  Property Tl.Gen.CSharp.Model.JobDefinition Job
   Method System.String ToString()
   Property System.String TypeName
 type Tl.Gen.CSharp.Model.SlotMode
   Field Tl.Gen.CSharp.Model.SlotMode Input
-  Field Tl.Gen.CSharp.Model.SlotMode Output
   Field Tl.Gen.CSharp.Model.SlotMode Reference
   Field Byte value__
-type Tl.Gen.CSharp.Model.TimelineHook
-  Method Tl.Gen.CSharp.Model.TimelineHook <Clone>$()
-  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] BackwardSlots
-  Method Void Deconstruct(System.String ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ByRef)
-  Method Boolean Equals(System.Object)
-  Method Boolean Equals(Tl.Gen.CSharp.Model.TimelineHook)
-  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ForwardSlots
-  Method Int32 GetHashCode()
-  Method System.String ToString()
-  Property System.String TypeName
 type Tl.Gen.CSharp.Model.TimelineSlot
   Method Tl.Gen.CSharp.Model.TimelineSlot <Clone>$()
   Method Void Deconstruct(System.String ByRef, System.String ByRef, Tl.Gen.CSharp.Model.SlotMode ByRef)

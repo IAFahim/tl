@@ -27,4 +27,14 @@
     <ProjectReference Include="..\..\src\Tl.Compiler\Tl.Compiler.csproj" />
   </ItemGroup>
 
+  <Target Name="BuildCompilerHostAssembly" BeforeTargets="Build">
+    <MSBuild
+      Projects="..\..\src\Tl.Compiler\Tl.Compiler.csproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);TargetFramework=netstandard2.0" />
+    <Copy
+      SourceFiles="..\..\src\Tl.Compiler\bin\$(Configuration)\netstandard2.0\Tl.Compiler.dll"
+      DestinationFolder="$(OutputPath)compiler-host" />
+  </Target>
+
 </Project>

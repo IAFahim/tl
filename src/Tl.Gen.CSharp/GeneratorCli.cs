@@ -1,17 +1,20 @@
-using Tl.Gen.CSharp.Analysis;
+using System.Collections.Immutable;
 using System.Security.Cryptography;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Tl.Gen.CSharp.Analysis;
+using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp;
+
+internal sealed record CompilationReference(string Path, IReadOnlyList<string> Aliases, bool EmbedInteropTypes);
 
 public static class GeneratorCli
 {
     public static int Main(string[] args)
     {
         if (args is not ["--compile", ..])
-        {
-            Console.Error.WriteLine("TLGEN00: --compile is required.");
-            return 1;
-        }
+            return Error("TLGEN00: --compile is required.");
 
         string? output = null;
         var paths = new List<string>();
@@ -33,30 +36,17 @@ public static class GeneratorCli
             else if (args[index] == "--define" && index + 1 < args.Length)
                 AddSymbols(args[++index], symbols);
             else
-            {
-                Console.Error.WriteLine($"TLGEN00: invalid argument '{args[index]}'.");
-                return 1;
-            }
+                return Error($"TLGEN00: invalid argument '{args[index]}'.");
         }
 
         if (string.IsNullOrWhiteSpace(output))
-        {
-            Console.Error.WriteLine("TLGEN00: --output is required.");
-            return 1;
-        }
+            return Error("TLGEN00: --output is required.");
 
-        var sources = paths
-            .Select(Path.GetFullPath)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(static path => path, StringComparer.Ordinal)
-            .Select(static path => new CompileSource(path, File.ReadAllText(path)))
-            .ToArray();
-        var defines = symbols.ToArray();
-        var semanticInputs = references
-            .Select(static reference => ReferenceIdentity(reference))
-            .Concat(options.OrderBy(static pair => pair.Key, StringComparer.Ordinal).Select(static pair => pair.Key + "=" + pair.Value))
-            .ToArray();
-        var key = CompileGenerationCache.GetKey(sources, defines, semanticInputs);
+        var sources = paths.Select(Path.GetFullPath).Distinct(StringComparer.Ordinal).OrderBy(static path => path, StringComparer.Ordinal)
+            .Select(static path => new CompileSource(path, File.ReadAllText(path))).ToArray();
+        var semanticInputs = references.Select(ReferenceIdentity)
+            .Concat(options.OrderBy(static pair => pair.Key, StringComparer.Ordinal).Select(static pair => pair.Key + "=" + pair.Value)).ToArray();
+        var key = CompileGenerationCache.GetKey(sources, symbols.ToArray(), semanticInputs);
         var previous = CompileGenerationCache.Load(output);
         var missReason = CompileGenerationCache.MissReason(output, key, previous);
         if (missReason is null)
@@ -66,77 +56,108 @@ public static class GeneratorCli
         }
         Console.WriteLine($"TlGenCompile: cache miss ({missReason})");
 
-        var settings = new HeterogeneousCompilationSettings
+        CSharpCompilation compilation;
+        try
         {
-            ReferencePaths = references.Select(static reference => reference.Path).ToArray(),
-            MetadataReferences = references,
-            LanguageVersion = options.GetValueOrDefault("language-version", "preview"),
-            Nullable = options.GetValueOrDefault("nullable", "enable"),
-            AllowUnsafe = Boolean(options.GetValueOrDefault("allow-unsafe")),
-            CheckOverflow = Boolean(options.GetValueOrDefault("check-overflow")),
-        };
-        var (timelines, diagnostics) = HeterogeneousReader.Read(
-            sources.Select(static source => (source.Path, source.Content)).ToArray(),
-            defines,
-            settings);
-        foreach (var diagnostic in diagnostics)
+            compilation = Compilation(sources, references, options, symbols);
+        }
+        catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException or BadImageFormatException)
+        {
+            return Error($"TLGEN00: {exception.Message}", 2);
+        }
+
+        var model = JobReader.Read(compilation);
+        foreach (var diagnostic in model.Diagnostics)
             Console.Error.WriteLine(diagnostic);
-        if (diagnostics.Count != 0)
+        if (model.Diagnostics.Count != 0)
             return 2;
 
-        var ordered = timelines
-            .OrderBy(static timeline => timeline.Namespace, StringComparer.Ordinal)
-            .ThenBy(static timeline => timeline.Name, StringComparer.Ordinal)
-            .ToArray();
-        if (ordered.Length > ushort.MaxValue + 1)
-        {
-            Console.Error.WriteLine("TLGEN49: a compilation may contain at most 65536 timelines.");
-            return 2;
-        }
-        var artifacts = HeterogeneousEmitter.EmitCompilation(ordered, out var sharedDispatchValueBytes)
-            .Select(static artifact => artifact with
-            {
-                Content = HeterogeneousEmitter.NormalizeSource(artifact.Content),
-            })
-            .ToArray();
-        var report = Report(ordered, artifacts, sharedDispatchValueBytes);
+        var artifacts = JobEmitter.Emit(model).Select(static artifact => artifact with { Content = JobEmitter.Normalize(artifact.Content) }).ToArray();
+        var report = Report(model, artifacts);
         CompileGenerationCache.Synchronize(output, key, artifacts, report, previous);
         var bytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
-        Console.WriteLine($"TlGenCompile: {ordered.Length} timeline(s), {artifacts.Length} source file(s), {bytes:N0} UTF-8 B; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
+        Console.WriteLine($"TlGenCompile: {model.Timelines.Count} timeline(s), {model.Catalogs.Count} catalog(s), {artifacts.Length} source file(s), {bytes:N0} UTF-8 B; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
         return 0;
     }
 
-    private static string Report(
-        IReadOnlyList<Model.HeterogeneousTimeline> timelines,
-        IReadOnlyList<CompileArtifact> artifacts,
-        int sharedDispatchValueBytes)
+    private static CSharpCompilation Compilation(
+        IReadOnlyList<CompileSource> sources,
+        IReadOnlyList<CompilationReference> references,
+        IReadOnlyDictionary<string, string> options,
+        IEnumerable<string> symbols)
+    {
+        var language = LanguageVersion.Preview;
+        if (options.TryGetValue("language-version", out var configured) && !LanguageVersionFacts.TryParse(configured, out language))
+            throw new ArgumentException($"Invalid C# language version '{configured}'.");
+        var parse = new CSharpParseOptions(language, preprocessorSymbols: symbols);
+        var trees = sources.Select(source => CSharpSyntaxTree.ParseText(source.Content, parse, source.Path));
+        var metadata = references.Select(static reference => MetadataReference.CreateFromFile(
+            reference.Path,
+            new MetadataReferenceProperties(
+                MetadataImageKind.Assembly,
+                reference.Aliases.ToImmutableArray(),
+                reference.EmbedInteropTypes)));
+        var nullable = options.TryGetValue("nullable", out var nullableValue) ? Nullable(nullableValue) : NullableContextOptions.Enable;
+        var compilationOptions = new CSharpCompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            allowUnsafe: options.TryGetValue("allow-unsafe", out var unsafeValue) && Boolean(unsafeValue),
+            checkOverflow: options.TryGetValue("check-overflow", out var overflowValue) && Boolean(overflowValue),
+            nullableContextOptions: nullable);
+        return CSharpCompilation.Create("Tl.Generated.Authoring", trees, metadata, compilationOptions);
+    }
+
+    private static NullableContextOptions Nullable(string value)
+        => value.ToLowerInvariant() switch
+        {
+            "disable" => NullableContextOptions.Disable,
+            "annotations" => NullableContextOptions.Annotations,
+            "warnings" => NullableContextOptions.Warnings,
+            "enable" => NullableContextOptions.Enable,
+            _ => throw new ArgumentException($"Invalid nullable mode '{value}'."),
+        };
+
+    private static string Report(JobReadResult model, IReadOnlyList<CompileArtifact> artifacts)
     {
         var writer = new System.Text.StringBuilder();
         var sourceBytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
-        writer.AppendLine("format\t1");
+        writer.AppendLine("format\t2");
         writer.AppendLine("backend\tcsharp");
-        writer.AppendLine($"timelines\t{timelines.Count}");
+        writer.AppendLine($"timelines\t{model.Timelines.Count}");
+        writer.AppendLine($"catalogs\t{model.Catalogs.Count}");
         writer.AppendLine($"generated-source-files\t{artifacts.Count}");
         writer.AppendLine($"generated-source-utf8-bytes\t{sourceBytes}");
-        writer.AppendLine($"declared-shared-dispatch-value-bytes\t{sharedDispatchValueBytes}");
-        writer.AppendLine("runtime-registry-bytes\tglobal::Tl.Timeline.RegistryRetainedBytes");
-        for (var index = 0; index < timelines.Count; index++)
+        foreach (var timeline in model.Timelines.OrderBy(Qualified, StringComparer.Ordinal))
         {
-            var timeline = timelines[index];
-            var qualified = timeline.Namespace.Length == 0 ? timeline.Name : timeline.Namespace + "." + timeline.Name;
+            var qualified = Qualified(timeline);
+            var plan = JobTimelinePlanAdapter.Create(timeline).Plan;
             writer.Append("timeline\t").Append(qualified)
                 .Append("\ttracks=").Append(timeline.Tracks.Count)
                 .Append("\tclips=").Append(timeline.Clips.Count)
-                .Append("\tregions=").Append(HeterogeneousEmitter.RegionCount(timeline))
                 .Append("\tduration=").Append(timeline.Duration)
                 .Append("\tloops=").Append(timeline.Loops ? "true" : "false")
+                .Append("\toperations=").Append(plan.Operations.Length)
+                .Append("\tslots=").Append(plan.Slots.Length)
+                .Append("\tregions=").Append(plan.Regions.Length)
+                .Append("\toccurrences=").Append(plan.Occurrences.Length)
+                .Append("\tunique-schedules=").Append(plan.UniqueScheduleCount)
+                .Append("\tunique-payloads=").Append(plan.UniquePayloads.Length)
+                .Append("\tneutral-payload-bytes=").Append(plan.PayloadBytes)
+                .Append("\tneutral-schedule-bytes=").Append(plan.ScheduleBytes)
                 .Append("\tstatic-data-bytes=").Append(qualified).AppendLine(".StaticDataBytes");
         }
+        foreach (var catalog in model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal))
+            writer.Append("catalog\t").Append(catalog.Namespace).Append('.').Append(catalog.Name)
+                .Append("\tschemas=").Append(catalog.Schemas.Count)
+                .Append("\tassets=").Append(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture))
+                .Append("\tstate-bytes=").Append(catalog.Namespace).Append('.').Append(catalog.Name).AppendLine(".StateBytes");
         foreach (var artifact in artifacts.OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal))
             writer.Append("artifact\t").Append(artifact.RelativePath).Append("\tutf8-bytes=")
                 .AppendLine(System.Text.Encoding.UTF8.GetByteCount(artifact.Content).ToString(System.Globalization.CultureInfo.InvariantCulture));
         return writer.ToString();
     }
+
+    private static string Qualified(JobTimeline timeline)
+        => (timeline.Namespace.Length == 0 ? "" : timeline.Namespace + ".") + timeline.Name;
 
     private static void AddSymbols(string value, ISet<string> symbols)
     {
@@ -159,29 +180,31 @@ public static class GeneratorCli
         foreach (var line in File.ReadAllLines(path))
         {
             var fields = line.Split('\t');
-            var referencePath = Path.GetFullPath(fields[0]);
             var aliases = fields.Length > 1
                 ? fields[1].Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 : [];
-            var embedInteropTypes = fields.Length > 2 && Boolean(fields[2]);
-            references.Add(new CompilationReference(referencePath, aliases, embedInteropTypes));
+            references.Add(new(Path.GetFullPath(fields[0]), aliases, fields.Length > 2 && Boolean(fields[2])));
         }
     }
 
-    private static bool Boolean(string? value)
-        => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+    private static bool Boolean(string? value) => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 
     private static string ReferenceIdentity(CompilationReference reference)
     {
-        var path = reference.Path;
         try
         {
-            using var stream = File.OpenRead(path);
-            return path + "\t" + string.Join(",", reference.Aliases) + "\t" + reference.EmbedInteropTypes + "=" + Convert.ToHexString(SHA256.HashData(stream));
+            using var stream = File.OpenRead(reference.Path);
+            return reference.Path + "\t" + string.Join(",", reference.Aliases) + "\t" + reference.EmbedInteropTypes + "=" + Convert.ToHexString(SHA256.HashData(stream));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            return exception.GetType().Name;
+            return reference.Path + "=" + exception.GetType().Name;
         }
+    }
+
+    private static int Error(string message, int code = 1)
+    {
+        Console.Error.WriteLine(message);
+        return code;
     }
 }
