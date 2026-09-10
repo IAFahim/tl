@@ -13,7 +13,7 @@ cat plan.md
 gh issue view 11 --comments
 gh pr list --state open
 gh project item-list 6 --owner IAFahim --limit 1000
-git ls-remote --heads origin 'refs/heads/claims/*'
+git ls-remote --heads origin 'refs/heads/workstream-claims/*' 'refs/heads/claims/*'
 ```
 
 Resume only the branch and exact checkpoint recorded by its issue and Project fields. Use `eng/agent-work` to claim it before editing. Put the complete instruction on the issue before delegating; a private agent message needs only the issue reference. Record each changed decision before dependent edits, and publish one validated atom before beginning the next. If work must stop red, publish a recoverable checkpoint with the exact failures.

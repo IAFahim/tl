@@ -458,10 +458,11 @@ class AgentWorkTests(unittest.TestCase):
         interrupted = self.command(replacement_repo, "Beta", "pc-b", "takeover", "41", "feat", "atomic", "power lost", previous)
 
         self.assertNotEqual(0, interrupted.returncode)
-        replacement = self.claim()
-        self.assertNotEqual(previous, replacement)
+        self.assertEqual(previous, self.claim())
         recovered = self.command(replacement_repo, "Beta", "pc-b", "takeover", "41", "feat", "atomic", "power lost", previous)
         self.assertEqual(0, recovered.returncode, recovered.stdout)
+        replacement = self.claim()
+        self.assertNotEqual(previous, replacement)
         audits = [body for body in self.read_state()["comment_bodies"] if body.startswith("### Claim takeover")]
         self.assertEqual(1, len(audits))
         self.assertIn("- Previous agent: Alpha", audits[0])
@@ -533,6 +534,10 @@ class AgentWorkTests(unittest.TestCase):
         self.assertIn("claim changed before release", output)
         self.assertEqual(replacement, self.claim())
         self.assertEqual(self.run_raw(["git", "rev-parse", "HEAD"], worktree).stdout.strip(), self.branch())
+        bodies = self.read_state()["comment_bodies"]
+        self.assertFalse(any(body.startswith("### Handoff") for body in bodies))
+        self.assertEqual(1, len([body for body in bodies if f"- Checkpoint claim: `{published_claim}`" in body]))
+        self.assertEqual("Beta", self.read_state()["project"]["agent"])
 
     def install_one_delete_failure(self):
         hook = self.remote / "hooks" / "update"
@@ -559,6 +564,9 @@ class AgentWorkTests(unittest.TestCase):
         third = self.command(worktree, "Alpha", "pc-a", "handoff", "41", "remaining", "next")
         self.assertEqual(0, third.returncode, third.stdout)
         self.assertFalse(self.claim())
+        bodies = self.read_state()["comment_bodies"]
+        self.assertEqual(0, len([body for body in bodies if body.startswith("### Green checkpoint")]))
+        self.assertEqual(1, len([body for body in bodies if body.startswith("### Handoff")]))
 
     def test_done_requires_linked_merged_pr_and_recovers_unlock(self):
         repo = self.clone("owner")
@@ -610,6 +618,38 @@ class AgentWorkTests(unittest.TestCase):
         self.assertEqual(previous_claim, self.claim())
         self.assertEqual(previous_project, self.read_state()["project"])
         self.assertFalse(any("Merged by #12." in body for body in self.read_state()["comment_bodies"]))
+
+    def test_done_rejects_local_head_older_than_claimed_checkpoint(self):
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        worktree = self.worktree(repo)
+        merged_head = self.run_raw(["git", "rev-parse", "HEAD"], worktree).stdout.strip()
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+        opened = self.command(worktree, "Alpha", "pc-a", "pr", "41", "title", str(body))
+        self.assertEqual(0, opened.returncode, opened.stdout)
+        state = self.read_state()
+        state["pr"]["state"] = "MERGED"
+        state["pr"]["merge"] = state["pr"]["head"]
+        self.state.write_text(json.dumps(state))
+        (worktree / "newer.txt").write_text("newer checkpoint\n")
+        self.run_raw(["git", "add", "newer.txt"], worktree)
+        self.run_raw(["git", "commit", "-m", "newer checkpoint"], worktree)
+        checkpoint = self.command(worktree, "Alpha", "pc-a", "checkpoint", "41", "newer", "tests")
+        self.assertEqual(0, checkpoint.returncode, checkpoint.stdout)
+        claimed = self.claim()
+        project = self.read_state()["project"].copy()
+        comments = list(self.read_state()["comment_bodies"])
+        self.run_raw(["git", "reset", "--hard", merged_head], worktree)
+
+        refused = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
+
+        self.assertNotEqual(0, refused.returncode)
+        self.assertIn("is not the claimed checkpoint", refused.stdout)
+        self.assertEqual(claimed, self.claim())
+        self.assertEqual(project, self.read_state()["project"])
+        self.assertEqual(comments, self.read_state()["comment_bodies"])
 
     def test_takeover_fences_done_before_completion_publication(self):
         repo = self.clone("owner")
