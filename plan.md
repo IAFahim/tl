@@ -216,6 +216,22 @@ Release validation covers:
 
 One hundred percent line coverage is not a substitute for this boundary matrix. Coverage is evidence for missing cases; semantic oracles, ABI receipts, allocation receipts, NativeAOT execution, assembly, and hardware counters prove the properties that matter.
 
+## Paused architecture work
+
+The current stopping checkpoint prioritizes a runnable C# package and qualified Unity path. The reviewed C ABI v2 remains unchanged. Further C optimization, C packaging expansion, and completion of issue #5 stay pending.
+
+The next neutral-plan atom is:
+
+1. Replace quadratic region lowering with a bounded sweep before accepting untrusted serialized plans.
+2. Add explicit limits for encoded bytes, strings, operations, clips, and derived regions.
+3. Reject unsupported formats before parsing their grammar and reject ill-formed Unicode during semantic validation.
+4. Define operation ordering by unsigned canonical UTF-8 bytes, retain authored track and clip order, reject unused table entries, and prove every successful decode re-encodes byte-identically.
+5. Add neutral type, borrowed-slot, constant, frame, and route records without language syntax.
+6. Lower C# declarations into that plan and make the C# and C emitters consume the same validated semantic schedule.
+7. Add version-skew, capacity, schema-compatibility, and golden cross-backend fixtures before extracting backend repositories.
+
+The discarded codec checkpoint is retained in local history as `f2f2da9` and reverted by `327e6bf`; it is design evidence, not production code. Its fixed ASCII vector, minimal ULEB128 implementation, and SHA-256 definition were sound. Review found noncanonical unused operation entries, insufficient untrusted-input limits, late format rejection, UTF-16-dependent ordering, and validated strings that strict UTF-8 could not encode. Those findings define the next implementation rather than being hidden by the pause.
+
 ## Release gates
 
 The candidate may publish only when all gates are green on the same reviewed commit:
