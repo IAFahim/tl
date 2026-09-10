@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Version>$(TlVersion)</Version>
+    <PackageId>Tl.Gen.C</PackageId>
+    <Authors>IAFahim</Authors>
+    <Description>Portable C11 backend for language-neutral compiled timelines.</Description>
+    <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>v1.0.0-alpha.2: deterministic C11 kernels, fixed-width ABI assertions, direct consumer operations, and explicit artifact and memory reports.</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Tl.Compiler\Tl.Compiler.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

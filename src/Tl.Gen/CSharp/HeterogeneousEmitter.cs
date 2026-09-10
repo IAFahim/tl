@@ -55,10 +55,13 @@ internal static class HeterogeneousEmitter
         return artifacts;
     }
 
+    internal static int RegionCount(HeterogeneousTimeline timeline) => Regions(timeline).Count;
+
     private static string EmitTimeline(Compilation compilation, RoutedTimeline routed)
     {
         var timeline = routed.Timeline;
         var schema = Qualified(routed.Schema);
+        var regions = Regions(timeline);
         var writer = new StringBuilder();
         Line(writer, "#nullable enable");
         foreach (var directive in timeline.Usings)
@@ -74,6 +77,11 @@ internal static class HeterogeneousEmitter
         Line(writer, "{");
         Line(writer, $"    public const uint Duration = {U(timeline.Duration)};");
         Line(writer, $"    public const bool Loops = {Bool(timeline.Loops)};");
+        Line(writer, $"    public const int TrackCount = {I(timeline.Tracks.Count)};");
+        Line(writer, $"    public const int ClipCount = {I(timeline.Clips.Count)};");
+        Line(writer, $"    public const int RegionCount = {I(regions.Count)};");
+        Line(writer, "    public const int MaxBatchLength = 256;");
+        Line(writer, $"    public static nuint StaticDataBytes => {StaticDataBytes(timeline)};");
         EmitData(writer, timeline);
         Line(writer, $"    private static readonly ushort s_id = global::Tl.Timeline.RegisterCompiled(Duration, Loops, new global::Tl.CompiledRoute(global::__TlGeneratedModules.Module{I(routed.Module)}, {I(routed.Ordinal)}));");
         Line(writer, "    public static ushort Id => s_id;");
@@ -96,9 +104,9 @@ internal static class HeterogeneousEmitter
         Line(writer);
         EmitBatch(writer, timeline, schema, true);
         Line(writer);
-        EmitApply(writer, timeline, schema, Regions(timeline), false);
+        EmitApply(writer, timeline, schema, regions, false);
         Line(writer);
-        EmitApply(writer, timeline, schema, Regions(timeline), true);
+        EmitApply(writer, timeline, schema, regions, true);
         Line(writer, "}");
         return writer.ToString();
     }
@@ -349,6 +357,17 @@ internal static class HeterogeneousEmitter
         }
     }
 
+    private static string StaticDataBytes(HeterogeneousTimeline timeline)
+    {
+        var values = timeline.Tracks.Select(static track => track.TypeName)
+            .Concat(timeline.Clips.Select(static clip => clip.TypeName))
+            .GroupBy(static type => type, StringComparer.Ordinal)
+            .OrderBy(static group => group.Key, StringComparer.Ordinal)
+            .Select(static group => $"(nuint)global::System.Runtime.CompilerServices.Unsafe.SizeOf<{group.Key}>() * (nuint){I(group.Count())}")
+            .ToArray();
+        return values.Length == 0 ? "0u" : string.Join(" + ", values);
+    }
+
     private static void EmitInput(
         StringBuilder writer,
         RoutedTimeline routed,
@@ -468,7 +487,7 @@ internal static class HeterogeneousEmitter
         Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
         Line(writer, $"    private static bool CanRun(ushort id, in global::Tl.Playback playback, in {schema}.Input input, ref {schema}.Output output)");
         Line(writer, "    {");
-        Line(writer, "        if (id != s_id || playback.Owner != id || !playback.Has(global::Tl.PlaybackFlags.Started) || playback.Has(global::Tl.PlaybackFlags.Stopped))");
+        Line(writer, "        if (id != s_id || playback.Owner != id || (playback.Flags & (global::Tl.PlaybackFlags.Started | global::Tl.PlaybackFlags.Stopped)) != global::Tl.PlaybackFlags.Started)");
         Line(writer, "            return false;");
         if (timeline.Inputs.Count != 0)
             Line(writer, "        if (!input.IsValid) return false;");
@@ -566,20 +585,54 @@ internal static class HeterogeneousEmitter
         Line(writer, "            next = playback;");
         Line(writer, "            return false;");
         Line(writer, "        }");
-        Line(writer, "        var validated = playback;");
-        Line(writer, "        foreach (var tick in ticks)");
+        Line(writer, "        if (ticks.Length > MaxBatchLength)");
         Line(writer, "        {");
-        Line(writer, $"            if (!Position{direction}(in validated, tick, out var effective, out _, out _, out var cycles))");
+        Line(writer, "            next = playback;");
+        Line(writer, "            return false;");
+        Line(writer, "        }");
+        Line(writer, "        global::System.Span<uint> stableTicks = stackalloc uint[ticks.Length];");
+        Line(writer, "        ticks.CopyTo(stableTicks);");
+        if (!timeline.Loops || timeline.Duration == 0)
+        {
+            Line(writer, "        if (stableTicks.IsEmpty)");
+            Line(writer, "        {");
+            Line(writer, "            next = playback;");
+            Line(writer, "            return true;");
+            Line(writer, "        }");
+            Line(writer, "        var effective = playback.Tick;");
+            Line(writer, "        var cycles = playback.Cycles;");
+            Line(writer, "        foreach (var tick in stableTicks)");
+            Line(writer, "        {");
+            Line(writer, "            var previousEffective = effective;");
+            Line(writer, "            effective = tick;");
+            Line(writer, $"            Apply{direction}(effective, previousEffective, 0u, in input, ref output);");
+            Line(writer, "        }");
+            EmitNext(writer, timeline, backward, "effective", "effective", "cycles", 2);
+            Line(writer, "        return true;");
+            Line(writer, "    }");
+            return;
+        }
+        if (timeline.Loops && timeline.Duration != 0)
+        {
+            Line(writer, "        var validated = playback;");
+            Line(writer, "        foreach (var tick in stableTicks)");
+            Line(writer, "        {");
+            Line(writer, $"            if (!Position{direction}(in validated, tick, out var effective, out _, out _, out var cycles))");
+            Line(writer, "            {");
+            Line(writer, "                next = playback;");
+            Line(writer, "                return false;");
+            Line(writer, "            }");
+            EmitNext(writer, timeline, backward, "tick", "effective", "cycles", 3, "validated");
+            Line(writer, "        }");
+        }
+        Line(writer, "        var state = playback;");
+        Line(writer, "        foreach (var tick in stableTicks)");
+        Line(writer, "        {");
+        Line(writer, $"            if (!Position{direction}(in state, tick, out var effective, out var previousEffective, out var crossedCycles, out var cycles))");
         Line(writer, "            {");
         Line(writer, "                next = playback;");
         Line(writer, "                return false;");
         Line(writer, "            }");
-        EmitNext(writer, timeline, backward, "tick", "effective", "cycles", 3, "validated");
-        Line(writer, "        }");
-        Line(writer, "        var state = playback;");
-        Line(writer, "        foreach (var tick in ticks)");
-        Line(writer, "        {");
-        Line(writer, $"            _ = Position{direction}(in state, tick, out var effective, out var previousEffective, out var crossedCycles, out var cycles);");
         Line(writer, $"            Apply{direction}(effective, previousEffective, crossedCycles, in input, ref output);");
         EmitNext(writer, timeline, backward, "tick", "effective", "cycles", 3, "state");
         Line(writer, "        }");

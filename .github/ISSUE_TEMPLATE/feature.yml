@@ -1,0 +1,38 @@
+name: Feature
+description: Add a capability with explicit package boundaries and receipts
+title: "[Feature] "
+labels: ["kind:feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Observable problem
+      description: Describe the user-visible limitation or missing capability.
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Owning boundary
+      description: Name the runtime, compiler plan, frontend, backend, tooling, or documentation boundary and its invariants.
+    validations:
+      required: true
+  - type: textarea
+    id: receipts
+    attributes:
+      label: Completion receipts
+      description: List exact tests, target compilers, memory results, generated artifacts, and user behavior required for completion.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and conflicts
+      description: List exclusions, dependencies, likely files, and related issues or pull requests.
+    validations:
+      required: true
+  - type: textarea
+    id: claim
+    attributes:
+      label: Agent claim
+      description: Add machine, agent, branch, and worktree when work begins.

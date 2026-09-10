@@ -1,12 +1,48 @@
-# v1.0.0-alpha.1 implementation plan
+# v1.0.0-alpha.2 implementation plan
 
 Date: 2026-09-10
-Base: `f3f91febf04dfe9bd0658b22c8693747ec95a972`, released as v0.6.0.
-Status: v1.0.0-alpha.1 implemented and validated on 2026-09-10. Initial and final generated-runtime evidence is retained under `benchmarks/Alpha/results`.
+Base: `5c05aa5`, released as v1.0.0-alpha.1.
+Status: v1.0.0-alpha.2 candidate in progress. The generated C# scalar target is met; registry-free typed playback and signed simulation seek are active breaking API work. Complete release validation and publication remain open.
 Working branch: `codex/tl-v1-alpha-plan-20260910`.
-Release family requested: v1.0-alpha. First package version: `1.0.0-alpha.1`; first tag: `v1.0.0-alpha.1`.
+Target package version and immutable tag: `1.0.0-alpha.2` and `v1.0.0-alpha.2`.
 
-This file is the execution plan and design record. The [API contract](docs/v1.0-alpha-api.md) defines the surface, the [checklist](docs/v1.0-alpha-checklist.md) tracks proof, and the [v0.6 report](docs/verification/v0.6/plan.md) preserves the previous design and measurements.
+This file is the durable execution plan and design record. The [release issue](https://github.com/IAFahim/tl/issues/11) owns completion across machines, the [API contract](docs/v1.0-alpha-api.md) defines the surface, the [checklist](docs/v1.0-alpha-checklist.md) tracks proof, and the [alpha.1 record](docs/verification/v1.0-alpha.1/README.md) preserves the released baseline.
+
+Issues [#15](https://github.com/IAFahim/tl/issues/15) and [#16](https://github.com/IAFahim/tl/issues/16) contain newer owner-approved API decisions than the forward/backward, span-batch, runtime-ID, and 8-byte playback passages below. Their recorded contracts take precedence until the plan, API reference, generated code, tests, and measurements are migrated together.
+
+| Workstream | GitHub issue |
+| --- | --- |
+| C# batch alias safety | [#2](https://github.com/IAFahim/tl/issues/2) |
+| C backend totality and 16-bit widths | [#3](https://github.com/IAFahim/tl/issues/3) |
+| IDE incremental generation | [#4](https://github.com/IAFahim/tl/issues/4) |
+| Canonical language-neutral plan | [#5](https://github.com/IAFahim/tl/issues/5) |
+| Correctness and coverage matrix | [#6](https://github.com/IAFahim/tl/issues/6) |
+| Unity ECS and Burst package | [#7](https://github.com/IAFahim/tl/issues/7) |
+| One-install packages and artifacts | [#8](https://github.com/IAFahim/tl/issues/8) |
+| Multi-PC coordination | [#9](https://github.com/IAFahim/tl/issues/9) |
+| Physical-floor performance matrix | [#10](https://github.com/IAFahim/tl/issues/10) |
+| Registry-free typed playback | [#15](https://github.com/IAFahim/tl/issues/15) |
+| Signed simulation seek | [#16](https://github.com/IAFahim/tl/issues/16) |
+
+## Cold-start manager index
+
+The canonical live board is the [Project 6 Workflow view](https://github.com/users/IAFahim/projects/6/views/4). The [release issue #11](https://github.com/IAFahim/tl/issues/11) owns merge order and release completion. Issues own task detail and progress; pull requests own review; `refs/heads/workstream-claims/<issue>/<kind>/<scope>` owns concurrent workstream publication; and `refs/heads/issue-transactions/<issue>` serializes the shared Project and issue projection. Legacy refs below `refs/heads/claims` remain readable during migration.
+
+A new manager session recovers without chat history:
+
+```sh
+git clone https://github.com/IAFahim/tl.git
+cd tl
+git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+cat AGENTS.md
+cat docs/roadmap.md
+gh issue view 11 --comments
+gh pr list --state open
+gh project item-list 6 --owner IAFahim --limit 1000
+git ls-remote --heads origin 'refs/heads/workstream-claims/*' 'refs/heads/claims/*' 'refs/heads/issue-transactions/*'
+```
+
+For each active item, read the issue and linked pull request, verify its Project branch and checkpoint against origin, inspect its atomic claim, then use `eng/agent-work` to resume, hand off, or perform a compare-and-set takeover. Never infer current ownership or next work from this file's prose when GitHub has newer state.
 
 ## Objective and release gates
 
@@ -62,7 +98,7 @@ The local CPU is an i9-14900K. The inspected topology maps logical CPUs 4 and 5 
 | Indexed facade | `Timeline.All[id].TryForward(...)`; no heap object per lookup |
 | Compilation | Automatic during application build, with cached unchanged output |
 | Legacy terminal methods | No public Compile, InMemory, or Bind in normal named-timeline use |
-| Other languages | C#-specific alpha model; a neutral IR and additional backends are post-alpha work |
+| Other languages | `Tl.Compiler` supplies the first language-neutral plan; `Tl.Gen.C` supplies the first C11 backend; canonical serialization and full semantic convergence remain open |
 
 The fixed public input/output pair does not limit the number of components inside the generated containers. Input contains borrowed read-only references. Output contains borrowed writable references, including read/write state. `out` on an individual callback is different from `ref output` on the public call.
 
@@ -120,11 +156,20 @@ C# source / build-visible assets
     -> JIT or NativeAOT
 ```
 
-The post-alpha neutral model will own timeline identity, clip windows, closed type contracts, typed constant values, operation references, access modes, slot identities, hooks, and composition. It must not contain Roslyn symbols, source using directives, C# constructor expressions, or callback-body strings. The alpha deliberately keeps C# type and expression spellings in its internal model and names the package `Tl.Gen.CSharp`; it does not claim another-language backend. Frontend-owned symbol handles and source locations will map diagnostics back to their language. Operation bodies remain opaque code references unless explicitly represented by a supported neutral operation algebra; arbitrary C# bodies do not become portable by moving their strings.
+The neutral model must own timeline identity, clip windows, closed type contracts, typed constant values, operation references, access modes, slot identities, hooks, and composition. It must not contain Roslyn symbols, source using directives, C# constructor expressions, or callback-body strings. `Tl.Compiler` now establishes the package boundary and first fixed-width plan records. `Tl.Gen.C` proves that a non-C# backend can consume that boundary. The current C# frontend still has richer internal semantics than the neutral slice, so canonical serialization and one shared semantic plan remain release-program work rather than a completed portability claim. Frontend-owned symbol handles and source locations map diagnostics back to their language. Operation bodies remain opaque code references unless represented by a supported neutral operation algebra; arbitrary C# bodies do not become portable by moving their strings.
+
+The portable compiler split is four orthogonal layers:
+
+1. `Tl.Compiler` owns versioned numeric definition, type, slot, operation and constant IDs plus canonical typed constant bytes, windows, regions, work slots, movement facts and routes.
+2. A frontend maps one language into that plan and retains a private binding sidecar for source locations, native type spellings and operation symbols. `Tl.Gen.CSharp` remains the first frontend.
+3. A backend consumes the plan plus its language binding and emits local kernels. Planned backends are C#/.NET, Unity Burst, C++, Rust and a stable C ABI; each may choose a different code/data split while preserving the same receipts.
+4. A canonical manifest serializer proves frontend/backend separation and supplies deterministic cache identity. Process-local runtime IDs and module registration order never become interchange identities.
+
+Payload constructors, blend bodies and hooks are executable language semantics. Cross-language assets therefore use canonical structural constants and stable operation IDs, with an implementation supplied by each backend. A future portable operation DSL may cover a pure subset; it cannot silently translate arbitrary C# methods. The C ABI must specify version, layout, alignment, endianness, ownership and error values, and cannot expose C# ref structs or generic static-interface calls.
 
 Start by replacing the existing C#-coupled Model/Definition.cs and declaration scanner boundary. Keep the first backend C#, but prove separation with a deterministic canonical plan serializer and a C#-free model test. A second production language backend is outside alpha scope.
 
-Generated inputs/outputs are stack-only borrowed containers. Their concrete constructors and accessors enforce types, roles, and ref modes. A small generated bridge participates in the runtime hub protocol; users do not implement it. The alpha protocol works without reflection or user registration under JIT and NativeAOT when definitions are visible in the same compilation. Cross-assembly schema manifests and inter-generator ordering are explicit post-alpha work.
+Generated inputs/outputs are stack-only borrowed containers. Their concrete constructors and accessors enforce types, roles, and ref modes. A small generated bridge participates in the runtime hub protocol; users do not implement it. The protocol works without reflection or user registration under JIT and NativeAOT when definitions are visible in the same compilation. Cross-assembly schema manifests and inter-generator ordering remain explicit open work.
 
 Known definitions select among:
 
@@ -151,11 +196,11 @@ The alpha gate measures a predictable runtime ID loaded from benchmark state, a 
 
 Both cases must pass an independent exact receipt before timing, allocate zero managed bytes, and retain public scalar, indexed, public batch, indexed batch, and handwritten scalar-oracle measurements. Random ticks are a separately reported stress case. NativeAOT correctness is an alpha gate; NativeAOT throughput is not claimed.
 
-The achieved median across three independent run medians on .NET 10.0.12 is 1.382 ns/tick for Sum scalar, 1.384 ns/tick for Sum batch-8, 2.239 ns/tick for Combat scalar, and 2.033 ns/tick for Combat batch-8. Random public results range from 4.854 through 6.974 ns/tick.
+The current alpha.2 median across three independent run medians on .NET 10.0.12 is 1.396 ns/tick for Sum scalar and 2.247 ns/tick for Combat scalar. Alias-safe batch-8 measures 1.436 and 2.870 ns/tick. Random scalar results are 4.972 and 7.085 ns/tick; random batch-8 results are 5.206 and 7.999 ns/tick. Every arm allocates 0 B. [Raw evidence](benchmarks/Alpha/results/v1.0.0-alpha.2/README.md) identifies the exact source and retains all samples, logs, generated hashes, assembly, and PMU counters.
 
-### Post-alpha maximum matrix
+### Maximum matrix
 
-The original maximum matrix remains the next performance program. It requires streams selected among at least 16 compatible definitions with distinct payloads, per-ID playback/output state, P-Sum, a full consumer, and a mixed consumer separately under tiered JIT and NativeAOT. Fixed-ID alpha results do not prove this stronger target.
+The maximum matrix remains active in [#10](https://github.com/IAFahim/tl/issues/10). It requires streams selected among at least 16 compatible definitions with distinct payloads, per-ID playback/output state, P-Sum, a full consumer, and a mixed consumer separately under tiered JIT and NativeAOT. Fixed-ID results do not prove this stronger target.
 
 | Axis | Planned measurements |
 | --- | --- |
@@ -201,7 +246,7 @@ No blind AggressiveInlining/AggressiveOptimization sweep. No unsafe pointer shor
 
 ## Memory budget and mathematical limits
 
-Keep the exact existing source metric from benchmarks/source_budget.py: content bytes plus UTF-8 relative-path bytes and one separator byte per path, across tracked and non-ignored untracked files under src. The existing gate accepts totals up to 200,000 bytes; plan to stay below that cap. The current headroom is 21,701 bytes. Remove obsolete API, shims, duplicate table emitters and unused dependencies while adding the new model. Do not move production code out of src or minify it to evade the measure.
+Keep the exact existing source metric from benchmarks/source_budget.py: content bytes plus UTF-8 relative-path bytes and one separator byte per path, across tracked and non-ignored untracked files under src. The existing gate accepts totals up to 200,000 bytes. The gate output at each checkpoint is authoritative; copied historical headroom is not. Remove obsolete API, shims, duplicate table emitters and unused dependencies while adding the new model. Do not move production code out of src or minify it to evade the measure.
 
 Provisional allocation of that budget:
 
@@ -228,7 +273,7 @@ Measure actual packing and alignment; smaller integer fields can add unpacking i
 | --- | --- | --- |
 | P0 | Baseline manifest, frozen fixtures, source budget and decision log | Paired-measurement harness works on unmodified v0.6 |
 | P1 | Minimal two-kind declaration -> generated Input/Output -> public TryForward -> actual native binary | D01–D08 settled or explicitly scoped; correct borrowed references; measured ABI cost |
-| P2 | Post-alpha language-neutral immutable definition/plan and one semantic validator | Pure tests and deterministic serialized plan, no C# types/strings in neutral model |
+| P2 | Language-neutral immutable definition/plan and one semantic validator | Pure tests and deterministic serialized plan, no C# types/strings in neutral model |
 | P3 | Typed heterogeneous tracks, clipping, Frame, contexts, diagnostics | Complete consumer example compiles; negative examples diagnose at source |
 | P4 | Registry ownership, public Try lifecycle, scalar/batch parity | Failure-before-effects, capacities, aliases, GC and native lifetime tests |
 | P5 | Before/After hooks and Include wrappers | Hooks compose without editing base; declared order and context extension tested |
@@ -250,15 +295,15 @@ The public removal list includes generic Timeline<TTrack,TClip> as the normal hu
 
 ## Release identity and completion
 
-Use NuGet version 1.0.0-alpha.1 consistently in packages and package-consumer tests. Use tag v1.0.0-alpha.1 on the exact validated commit and mark the GitHub release as a prerelease. Do not relabel v0.6 or publish a stable 1.0.0.
+Use NuGet version 1.0.0-alpha.2 consistently in packages and package-consumer tests. Use tag v1.0.0-alpha.2 on the exact validated commit and mark the GitHub release as a prerelease. Never move v1.0.0-alpha.1 and do not publish a stable 1.0.0.
 
 A release checklist must include release build, all tests, semantic/property batteries, reference-machine benchmark proof, source budget, real NativeAOT binaries, fresh package consumer, repeat-build cache receipt, API approval, license/package metadata review without inventing a license, and source/generated/native size tables.
 
-Publishing the alpha requires release-ready implementation and evidence. The functional gates and sequential sub-3 ns gates passed; the release record reports random-seek and environment limits separately.
+Publishing the alpha requires release-ready implementation and evidence. The current generated C# sequential scalar gates pass. The release remains open until [#11](https://github.com/IAFahim/tl/issues/11) has exact tagged evidence for the C, package, correctness, source-size, performance, and Unity claims included in the release.
 
 ## Execution record
 
-The implementation replaces the homogeneous interpreter with an automatically generated heterogeneous path, borrowed contexts, a compact runtime-ID registry, module/ordinal routing, direct scalar kernels, composition, and deterministic generation. The exact release evidence belongs in [the verification record](docs/verification/v1.0-alpha.1/README.md); this document retains the rationale, rejected shortcuts, physical limits, and work matrix. The completed alpha covers P1 and the runtime-facing portions of P3 through P9. The language-neutral P2, cross-assembly schemas, source-generator input ordering, cross-definition interning, Unity Burst backend, dynamic-ID performance family, and NativeAOT timing remain named post-alpha work.
+Alpha.1 replaced the homogeneous interpreter with automatically generated heterogeneous kernels, borrowed contexts, a compact runtime-ID registry, module/ordinal routing, composition, and deterministic generation. Alpha.2 currently adds a neutral compiler boundary, a C11 backend, generation and memory reports, one-install C# packaging, PMU evidence, and alias-safe batches. Cross-assembly schemas, true Roslyn incremental ordering, cross-definition interning, the Unity Burst backend, the dynamic-ID performance family, and NativeAOT timing remain tracked by linked issues. Every completed scope must exist as a pushed green commit and issue handoff before this record calls it complete.
 
 ## Primary references
 

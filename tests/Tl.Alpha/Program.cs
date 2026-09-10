@@ -118,12 +118,16 @@ Require(trace.Calls == backwardTrace.Calls + 2);
 Require(Unsafe.SizeOf<Playback>() == 12);
 Require(Timeline.Duration(Combat.Id) == 64u);
 Require(!Timeline.IsLooping(Combat.Id));
+Require(Combat.TrackCount == 2 && Combat.ClipCount == 4 && Combat.RegionCount == 7);
+Require(Combat.StaticDataBytes > 0);
+Require(Timeline.RegistryRetainedBytes > 0);
 
 Require(Timeline.TryStart(Combat.Id, out var allocationPlayback));
 for (uint tick = 0; tick < 64; tick++)
     Require(Timeline.TryForward(Combat.Id, in allocationPlayback, tick, in input, ref output, out allocationPlayback));
 var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
-for (var index = 0; index < 4096; index++)
+const int allocationCalls = 1_048_576;
+for (var index = 0; index < allocationCalls; index++)
     Require(Timeline.TryForward(Combat.Id, in allocationPlayback, (uint)index & 63u, in input, ref output, out allocationPlayback));
 Require(GC.GetAllocatedBytesForCurrentThread() == allocatedBefore);
 var allocatedAfter = GC.GetAllocatedBytesForCurrentThread();
@@ -188,10 +192,12 @@ Require(failed == cyclePlayback && trace == cycleTrace);
 
 ReadDefinition<Other>();
 RunRegistryReceipt();
+BatchAliasingReceipt.Run();
 
 Console.WriteLine($"behavior: pose={owner.NextPose} health={owner.NextHealth} trace={trace}");
 Console.WriteLine($"lifecycle: owner={playback.Owner} tick={playback.Tick} flags={playback.Flags} size={Unsafe.SizeOf<Playback>()}");
-Console.WriteLine($"allocation: 4096 scalar calls retained {allocatedAfter - allocatedBefore} B");
+Console.WriteLine($"allocation: {allocationCalls} scalar calls retained {allocatedAfter - allocatedBefore} B");
+Console.WriteLine($"memory: combat static data={Combat.StaticDataBytes} B registry={Timeline.RegistryRetainedBytes} B");
 return 0;
 
 static void Require(bool condition, [CallerArgumentExpression(nameof(condition))] string? expression = null)
@@ -296,7 +302,7 @@ static void RunCapacityReceipt()
 static void RunModuleCapacityReceipt()
 {
     var first = Timeline.RegisterModule();
-    for (var expected = (int)first + 1; expected <= byte.MaxValue; expected++)
+    for (var expected = first + 1; expected <= byte.MaxValue; expected++)
         Require(Timeline.RegisterModule() == (byte)expected);
 
     var rejected = false;
@@ -344,7 +350,7 @@ public readonly record struct Trace(int Calls, int Enters, int Stays, int Exits)
     };
 }
 
-public readonly partial struct AnimationTrack : ITrack<AnimationClip>
+public readonly struct AnimationTrack : ITrack<AnimationClip>
 {
     public void Blend(in AnimationClip first, in AnimationClip second, float factor, out AnimationClip result)
         => result = new(
@@ -389,7 +395,7 @@ public readonly partial struct AnimationTrack : ITrack<AnimationClip>
     }
 }
 
-public readonly partial struct DamageTrack : ITrack<DamageClip>
+public readonly struct DamageTrack : ITrack<DamageClip>
 {
     public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
@@ -417,7 +423,7 @@ public readonly partial struct DamageTrack : ITrack<DamageClip>
     }
 }
 
-public readonly partial struct HookTrack : ITrack<HookClip>
+public readonly struct HookTrack : ITrack<HookClip>
 {
     public void Blend(in HookClip first, in HookClip second, float factor, out HookClip result)
         => result = factor < 0.5f ? first : second;

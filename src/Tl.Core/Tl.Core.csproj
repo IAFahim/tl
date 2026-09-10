@@ -6,14 +6,14 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>1.0.0-alpha.1</Version>
+    <Version>$(TlVersion)</Version>
     <PackageId>Tl.Runtime</PackageId>
     <Authors>IAFahim</Authors>
     <Description>Heterogeneous timelines compiled into direct C# kernels with borrowed typed contexts.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.0.0-alpha.1: heterogeneous tracks, automatic compilation, generated borrowed contexts, runtime IDs without binding, and zero-allocation JIT/NativeAOT playback.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.2: C11 portability contracts, generation and memory reports, editor build fixes, stronger inverse receipts, and a smaller compiled lifecycle check.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

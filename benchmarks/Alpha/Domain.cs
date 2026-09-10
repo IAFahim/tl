@@ -9,7 +9,7 @@ public enum TickPattern
 
 public readonly record struct SumClip(float Amount);
 
-public readonly partial struct SumTrack : ITrack<SumClip>
+public readonly struct SumTrack : ITrack<SumClip>
 {
     public void Blend(in SumClip first, in SumClip second, float factor, out SumClip result)
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
@@ -69,7 +69,7 @@ public struct Trace
     }
 }
 
-public readonly partial struct AnimationTrack : ITrack<AnimationClip>
+public readonly struct AnimationTrack : ITrack<AnimationClip>
 {
     public void Blend(in AnimationClip first, in AnimationClip second, float factor, out AnimationClip result)
         => result = new(
@@ -105,7 +105,7 @@ public readonly partial struct AnimationTrack : ITrack<AnimationClip>
     }
 }
 
-public readonly partial struct DamageTrack : ITrack<DamageClip>
+public readonly struct DamageTrack : ITrack<DamageClip>
 {
     public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);

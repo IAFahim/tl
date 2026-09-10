@@ -1,13 +1,17 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Tl.CSharp/Tl.CSharp.csproj" />
+    <Project Path="src/Tl.Compiler/Tl.Compiler.csproj" />
     <Project Path="src/Tl.Core/Tl.Core.csproj" />
     <Project Path="src/Tl.Gen/Tl.Gen.csproj" />
+    <Project Path="src/Tl.Gen.C/Tl.Gen.C.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Mixed/Mixed.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Tl.Core.Tests/Tl.Core.Tests.csproj" />
+    <Project Path="tests/Tl.Gen.C.Tests/Tl.Gen.C.Tests.csproj" />
     <Project Path="tests/Tl.Gen.Tests/Tl.Gen.Tests.csproj" />
     <Project Path="tests/Tl.Alpha/Tl.Alpha.csproj" />
   </Folder>

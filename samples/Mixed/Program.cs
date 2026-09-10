@@ -35,7 +35,7 @@ public readonly record struct Health(float Value);
 public readonly record struct DamageSettings(float Multiplier);
 public readonly record struct DamageClip(float Amount);
 
-public readonly partial struct AnimationTrack : ITrack<AnimationClip>
+public readonly struct AnimationTrack : ITrack<AnimationClip>
 {
     public void Blend(in AnimationClip first, in AnimationClip second, float factor, out AnimationClip result)
         => result = new(
@@ -61,7 +61,7 @@ public readonly partial struct AnimationTrack : ITrack<AnimationClip>
             currentPose.Y - frame.Clip.Y * animationSettings.Weight);
 }
 
-public readonly partial struct DamageTrack : ITrack<DamageClip>
+public readonly struct DamageTrack : ITrack<DamageClip>
 {
     public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);

@@ -64,7 +64,7 @@ public static class GeneratorCli
         var previous = CompileGenerationCache.Load(output);
         if (CompileGenerationCache.IsHit(output, key, previous))
         {
-            Console.WriteLine($"TlGenCompile: cache hit -> {output}");
+            Console.WriteLine($"TlGenCompile: cache hit; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
             return 0;
         }
 
@@ -100,9 +100,44 @@ public static class GeneratorCli
                 Content = CompileGenerationCache.NormalizeSource(artifact.Content),
             })
             .ToArray();
-        CompileGenerationCache.Synchronize(output, key, artifacts, previous);
-        Console.WriteLine($"TlGenCompile: {ordered.Length} timeline(s), {artifacts.Length} source file(s) -> {output}");
+        var report = Report(ordered, artifacts);
+        CompileGenerationCache.Synchronize(output, key, artifacts, report, previous);
+        var bytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
+        Console.WriteLine($"TlGenCompile: {ordered.Length} timeline(s), {artifacts.Length} source file(s), {bytes:N0} UTF-8 B; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
         return 0;
+    }
+
+    private static string Report(
+        IReadOnlyList<Tl.Gen.Model.HeterogeneousTimeline> timelines,
+        IReadOnlyList<CompileArtifact> artifacts)
+    {
+        var writer = new System.Text.StringBuilder();
+        var sourceBytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
+        var schemas = artifacts.Count(static artifact => artifact.RelativePath.StartsWith("TlSchema", StringComparison.Ordinal));
+        var modules = timelines.Count == 0 ? 0 : (timelines.Count + byte.MaxValue) / 256;
+        writer.AppendLine("format\t1");
+        writer.AppendLine("backend\tcsharp");
+        writer.AppendLine($"timelines\t{timelines.Count}");
+        writer.AppendLine($"generated-source-files\t{artifacts.Count}");
+        writer.AppendLine($"generated-source-utf8-bytes\t{sourceBytes}");
+        writer.AppendLine($"declared-shared-dispatch-value-bytes\t{schemas * 512 + modules}");
+        writer.AppendLine("runtime-registry-bytes\tglobal::Tl.Timeline.RegistryRetainedBytes");
+        for (var index = 0; index < timelines.Count; index++)
+        {
+            var timeline = timelines[index];
+            var qualified = timeline.Namespace.Length == 0 ? timeline.Name : timeline.Namespace + "." + timeline.Name;
+            writer.Append("timeline\t").Append(qualified)
+                .Append("\ttracks=").Append(timeline.Tracks.Count)
+                .Append("\tclips=").Append(timeline.Clips.Count)
+                .Append("\tregions=").Append(HeterogeneousEmitter.RegionCount(timeline))
+                .Append("\tduration=").Append(timeline.Duration)
+                .Append("\tloops=").Append(timeline.Loops ? "true" : "false")
+                .Append("\tstatic-data-bytes=").Append(qualified).AppendLine(".StaticDataBytes");
+        }
+        foreach (var artifact in artifacts.OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal))
+            writer.Append("artifact\t").Append(artifact.RelativePath).Append("\tutf8-bytes=")
+                .AppendLine(System.Text.Encoding.UTF8.GetByteCount(artifact.Content).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return writer.ToString();
     }
 
     private static void AddSymbols(string value, ISet<string> symbols)

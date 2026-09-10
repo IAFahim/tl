@@ -100,6 +100,10 @@ public sealed class HeterogeneousCompositionTests
         Assert.All(outer.Outputs, static slot => Assert.Equal(SlotMode.Reference, slot.Mode));
 
         var generated = HeterogeneousEmitter.Emit(outer);
+        Assert.Contains("public const int TrackCount = 2;", generated);
+        Assert.Contains("public const int ClipCount = 2;", generated);
+        Assert.Contains("public const int RegionCount = 1;", generated);
+        Assert.Contains("public static nuint StaticDataBytes", generated);
         var outerBefore = generated.IndexOf("global::Fix.OuterBefore.Forward", StringComparison.Ordinal);
         var baseBefore = generated.IndexOf("global::Fix.BaseBefore.Forward", StringComparison.Ordinal);
         var trackA = generated.IndexOf("global::Fix.TrackA.Forward", StringComparison.Ordinal);
@@ -244,7 +248,7 @@ public sealed class HeterogeneousCompositionTests
         var track = new HeterogeneousTrack(0, "global::Fix.TrackA", "global::Fix.ClipA", "new global::Fix.TrackA()", [], []);
         var later = new HeterogeneousClip(0, "global::Fix.ClipA", "new global::Fix.ClipA(2f)", 4u, 12u);
         var earlier = new HeterogeneousClip(0, "global::Fix.ClipA", "new global::Fix.ClipA(1f)", 0u, 8u);
-        var timeline = new HeterogeneousTimeline("Ordered", "Fix", "Fix.cs", 1, false, [], [track], [later, earlier], [], [], [], []);
+        var timeline = new HeterogeneousTimeline("Ordered", "Fix", false, [], [track], [later, earlier], [], [], [], []);
 
         var generated = HeterogeneousEmitter.Emit(timeline);
 

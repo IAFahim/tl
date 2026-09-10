@@ -32,8 +32,6 @@ public sealed record TimelineHook(
 public sealed record HeterogeneousTimeline(
     string Name,
     string Namespace,
-    string File,
-    int Line,
     bool Loops,
     IReadOnlyList<string> Usings,
     IReadOnlyList<HeterogeneousTrack> Tracks,

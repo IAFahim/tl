@@ -1,0 +1,36 @@
+name: Performance experiment
+description: Test one optimization hypothesis with exact receipts
+title: "[Performance] "
+labels: ["kind:performance", "experiment"]
+body:
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis
+      description: State the instruction, memory, branch, dispatch, or code-size cost and the one change expected to remove it.
+    validations:
+      required: true
+  - type: textarea
+    id: baseline
+    attributes:
+      label: Baseline identity
+      description: Record commit, SDK/runtime, CPU/core, command, fixture, and exact receipt.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance rule
+      description: Define timing, PMU, allocation, code-size, source-budget, JIT/AOT, and correctness thresholds before running.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Result
+      description: Post all samples and artifacts whether the candidate is retained or rejected.
+  - type: textarea
+    id: claim
+    attributes:
+      label: Agent claim
+      description: Add machine, agent, branch, and worktree when work begins.
