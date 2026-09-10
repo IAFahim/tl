@@ -94,7 +94,7 @@ internal static class JobEmitter
                 {
                     Line(writer, $"case {match.Stage}:");
                     Line(writer, "{");
-                    Invoke(writer, timeline, match.Occurrence);
+                    Invoke(writer, match.Occurrence);
                     Line(writer, "break;");
                     Line(writer, "}");
                 }
@@ -314,7 +314,7 @@ internal static class JobEmitter
         return regions;
     }
 
-    private static void Invoke(StringBuilder writer, JobTimeline timeline, ScheduledOccurrence occurrence)
+    private static void Invoke(StringBuilder writer, ScheduledOccurrence occurrence)
     {
         if (occurrence.Track is null)
         {

@@ -14,7 +14,7 @@ public static class JobReader
         INamedTypeSymbol Builder, INamedTypeSymbol CatalogBuilder,
         INamedTypeSymbol TrackRef, INamedTypeSymbol SchemaBuilder);
     private sealed record Entry(INamedTypeSymbol Type, TypeDeclarationSyntax Syntax);
-    private sealed record Binding(JobTrack Track, INamedTypeSymbol Clip, SyntaxNode Site);
+    private sealed record Binding(JobTrack Track, INamedTypeSymbol Clip, SyntaxNode Declaration);
 
     public static JobReadResult Read(CSharpCompilation compilation)
     {
@@ -153,7 +153,7 @@ public static class JobReader
             }
             foreach (var binding in locals.Values.Where(binding => clips.All(clip => clip.TrackIndex != binding.Track.Index)))
             {
-                Error(errors, binding.Site, "TLGEN68", $"Track {binding.Track.Index} must declare at least one clip.");
+                Error(errors, binding.Declaration, "TLGEN68", $"Track {binding.Track.Index} must declare at least one clip.");
                 valid = false;
             }
             if (tracks.Count > 256 || !Overlaps(tracks.Count, clips))
@@ -442,7 +442,7 @@ public static class JobReader
     {
         var info = model.GetSymbolInfo(call);
         return info.Symbol is IMethodSymbol method && method.Name == name && Same(method.ContainingType.OriginalDefinition, type.OriginalDefinition)
-            || info.CandidateSymbols.OfType<IMethodSymbol>().Any(method => method.Name == name && Same(method.ContainingType.OriginalDefinition, type.OriginalDefinition));
+            || info.CandidateSymbols.OfType<IMethodSymbol>().Any(candidate => candidate.Name == name && Same(candidate.ContainingType.OriginalDefinition, type.OriginalDefinition));
     }
 
     private static ExpressionSyntax[]? Args(InvocationExpressionSyntax call, SemanticModel model, int count)
