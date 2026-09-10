@@ -53,6 +53,8 @@ public class TotalMovementTests
         { 1, 2, 3, true, true, 1, 1, FrameFlags.Reverse },
         { 1, 3, 3, true, true, 2, 2, FrameFlags.Reverse | FrameFlags.TimelineEnd | FrameFlags.CompletedBefore },
         { 1, 4, 3, true, false, 4, 0, FrameFlags.None },
+        { 1, 0, 1, false, true, 1, 0, FrameFlags.TimelineStart | FrameFlags.TimelineEnd | FrameFlags.CompletedAfter },
+        { 1, 1, 1, true, true, 0, 0, FrameFlags.TimelineStart | FrameFlags.TimelineEnd | FrameFlags.CompletedBefore | FrameFlags.Reverse },
         { 65_536, uint.MaxValue - 1, uint.MaxValue, false, true, uint.MaxValue, uint.MaxValue - 1, FrameFlags.TimelineEnd | FrameFlags.CompletedAfter },
     };
 
@@ -153,6 +155,11 @@ public class TotalMovementTests
         var state = new TimelineState(1);
         var gameTick = uint.MaxValue;
 
+        var unchanged = state;
+        Assert.Equal(0, Replay(ref state, 5, false, 0, ref gameTick, ticks, gameTicks));
+        AssertState(unchanged, state);
+        Assert.Equal(uint.MaxValue, gameTick);
+
         var count = Replay(ref state, 5, false, int.MaxValue, ref gameTick, ticks, gameTicks);
         Assert.Equal(5, count);
         Assert.Equal(new uint[] { 0, 1, 2, 3, 4 }, ticks[..count].ToArray());
@@ -171,6 +178,20 @@ public class TotalMovementTests
         count = Replay(ref empty, uint.MaxValue, false, int.MinValue, ref gameTick, ticks, gameTicks);
         Assert.Equal(0, count);
         Assert.Equal(uint.MaxValue, gameTick);
+    }
+
+    [Fact]
+    public void CatalogRouteDomainIncludesEmptyAndSixtyFiveThousandFiveHundredThirtySixAssets()
+    {
+        var empty = default(TimelineState);
+        AssertInactive(empty, 1, false, false);
+
+        for (uint asset = 1; asset <= 65_536; asset++)
+        {
+            var state = new TimelineState(asset);
+            Assert.True(TimelineMovement.Select(in state, 1, false, false, out var next, out _, out _, out _));
+            Assert.Equal(asset, next.Asset);
+        }
     }
 
     [Fact]
@@ -207,6 +228,34 @@ public class TotalMovementTests
         Assert.Equal(2, Replay(ref state, 3, false, 10, ref gameTick, ticks, gameTicks));
         Assert.Equal(3, Replay(ref state, 3, false, -10, ref gameTick, ticks, gameTicks));
         Assert.Equal(0u, state.Position);
+    }
+
+    [Fact]
+    public void LoopReplayCrossesMultipleCyclesAndImmediateReverseRestoresWrap()
+    {
+        Span<uint> ticks = stackalloc uint[8];
+        Span<uint> gameTicks = stackalloc uint[8];
+        var state = new TimelineState(1, 0, -1);
+        var gameTick = 10u;
+
+        Assert.Equal(5, Replay(ref state, 2, true, 5, ref gameTick, ticks, gameTicks));
+        Assert.Equal(new uint[] { 0, 1, 0, 1, 0 }, ticks[..5].ToArray());
+        Assert.Equal(1u, state.Position);
+        Assert.Equal(1, state.Cycle);
+
+        Assert.Equal(5, Replay(ref state, 2, true, -5, ref gameTick, ticks, gameTicks));
+        Assert.Equal(new uint[] { 0, 1, 0, 1, 0 }, ticks[..5].ToArray());
+        Assert.Equal(0u, state.Position);
+        Assert.Equal(-1, state.Cycle);
+
+        state = new TimelineState(1, 1, long.MaxValue);
+        Assert.True(TimelineMovement.Select(in state, 2, true, false, out var wrapped, out var forwardTick, out var forwardCycle, out _));
+        Assert.True(TimelineMovement.Select(in wrapped, 2, true, true, out var restored, out var reverseTick, out var reverseCycle, out _));
+        Assert.Equal(1u, forwardTick);
+        Assert.Equal(long.MaxValue, forwardCycle);
+        Assert.Equal(forwardTick, reverseTick);
+        Assert.Equal(forwardCycle, reverseCycle);
+        AssertState(state, restored);
     }
 
     [Fact]
@@ -294,10 +343,36 @@ public class TotalMovementTests
         Assert.Equal(typeof(SchemaBuilder<Rows>), asset.ReturnType);
         Assert.Equal(typeof(TrackRef<JobTrack, Job>), typeof(TrackRef<JobTrack>).GetMethod(nameof(TrackRef<JobTrack>.Use))!.MakeGenericMethod(typeof(Job)).ReturnType);
 
+        var stateType = typeof(TimelineState);
+        Assert.True(stateType.IsDefined(typeof(IsReadOnlyAttribute), false));
+        Assert.Equal(LayoutKind.Sequential, stateType.StructLayoutAttribute!.Value);
+        Assert.All(stateType.GetFields(), static field => Assert.True(field.IsInitOnly));
+
+        var hookType = typeof(TimelineFrame);
+        Assert.True(hookType.IsDefined(typeof(IsReadOnlyAttribute), false));
+        Assert.Equal(LayoutKind.Sequential, hookType.StructLayoutAttribute!.Value);
+        var hookConstructor = Assert.Single(hookType.GetConstructors());
+        Assert.Equal(
+            new[] { typeof(uint), typeof(uint), typeof(long), typeof(FrameFlags) },
+            hookConstructor.GetParameters().Select(static parameter => parameter.ParameterType));
+
         var parameters = typeof(TimelineMovement).GetMethod(nameof(TimelineMovement.Select))!.GetParameters();
         Assert.Equal(8, parameters.Length);
         Assert.True(parameters[0].IsIn);
         Assert.Equal(typeof(TimelineState).MakeByRefType(), parameters[0].ParameterType);
+        Assert.Equal(
+            new[]
+            {
+                typeof(TimelineState).MakeByRefType(),
+                typeof(uint),
+                typeof(bool),
+                typeof(bool),
+                typeof(TimelineState).MakeByRefType(),
+                typeof(uint).MakeByRefType(),
+                typeof(long).MakeByRefType(),
+                typeof(FrameFlags).MakeByRefType(),
+            },
+            parameters.Select(static parameter => parameter.ParameterType));
         Assert.All(parameters[4..], static parameter => Assert.True(parameter.IsOut));
     }
 

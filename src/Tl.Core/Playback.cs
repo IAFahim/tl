@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -40,6 +41,7 @@ public readonly struct TimelineState
     }
 }
 
+[EditorBrowsable(EditorBrowsableState.Never)]
 public static class TimelineMovement
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -57,7 +59,7 @@ public static class TimelineMovement
         tick = 0;
         cycle = 0;
         flags = FrameFlags.None;
-        if (state.Asset == 0 || duration == 0 || state.Position > duration || looping && state.Position == duration)
+        if (state.Asset == 0 || duration == 0 || state.Position > duration || (looping && state.Position == duration))
             return false;
 
         if (looping)
