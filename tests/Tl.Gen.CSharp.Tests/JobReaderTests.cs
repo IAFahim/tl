@@ -10,6 +10,14 @@ namespace Tl.Gen.CSharp.Tests;
 public sealed class JobReaderTests
 {
     [Fact]
+    public void DeclarationDiagnosticFormatsCompilerStyleLocation()
+    {
+        var diagnostic = new DeclarationDiagnostic("Source.cs", 7, 11, "TLGEN42", "broken declaration");
+
+        Assert.Equal("Source.cs(7,11): error TLGEN42: broken declaration", diagnostic.ToString());
+    }
+
+    [Fact]
     public void ReadsFiniteJobsAndCatalogSchemas()
     {
         var compilation = Compile(Runtime + """

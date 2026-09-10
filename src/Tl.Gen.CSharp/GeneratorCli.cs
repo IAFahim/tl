@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -91,6 +93,12 @@ public static class GeneratorCli
             throw new ArgumentException($"Invalid C# language version '{configured}'.");
         var parse = new CSharpParseOptions(language, preprocessorSymbols: symbols);
         var trees = sources.Select(source => CSharpSyntaxTree.ParseText(source.Content, parse, source.Path));
+        foreach (var reference in references)
+        {
+            using var stream = File.OpenRead(reference.Path);
+            using var image = new PEReader(stream);
+            _ = image.GetMetadataReader();
+        }
         var metadata = references.Select(static reference => MetadataReference.CreateFromFile(
             reference.Path,
             new MetadataReferenceProperties(

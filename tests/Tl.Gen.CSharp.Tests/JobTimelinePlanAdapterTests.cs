@@ -7,6 +7,36 @@ namespace Tl.Gen.CSharp.Tests;
 public sealed class JobTimelinePlanAdapterTests
 {
     [Fact]
+    public void RejectsNullTimeline()
+    {
+        var error = Assert.Throws<ArgumentNullException>(() => JobTimelinePlanAdapter.Create(null!));
+
+        Assert.Equal("timeline", error.ParamName);
+    }
+
+    [Fact]
+    public void RejectsInconsistentSlotsForOneOperationType()
+    {
+        var timeline = new JobTimeline(
+            "Asset",
+            "Game",
+            false,
+            [],
+            [
+                new(0, "global::Game.Track", "global::Game.Clip", "default", new("global::Game.Job", [])),
+                new(1, "global::Game.Track", "global::Game.Clip", "default", new("global::Game.Job", [new("value", "int", SlotMode.Reference)])),
+            ],
+            [],
+            [],
+            []);
+
+        var error = Assert.Throws<ArgumentException>(() => JobTimelinePlanAdapter.Create(timeline));
+
+        Assert.Equal("timeline", error.ParamName);
+        Assert.Contains("global::Game.Job", error.Message);
+    }
+
+    [Fact]
     public void CreatesValidatedPlanWithIndexAlignedBindings()
     {
         var state = new TimelineSlot("state", "global::Game.State", SlotMode.Input);
