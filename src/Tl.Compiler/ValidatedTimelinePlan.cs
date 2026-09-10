@@ -92,7 +92,7 @@ public sealed record ValidatedTimelinePlan
             .Append(0u)
             .Append(plan.Duration)
             .Distinct()
-            .Order()
+            .OrderBy(static tick => tick)
             .ToArray();
         var clips = plan.Clips
             .Select(static (clip, authored) => (Clip: clip, Authored: authored))

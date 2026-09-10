@@ -24,7 +24,10 @@ PACKAGE_FILES = {
         "tools/net10.0/any/Tl.Gen.CSharp.pdb",
         "tools/net10.0/any/Tl.Gen.CSharp.runtimeconfig.json",
     },
-    "Tl.Compiler": {"lib/net10.0/Tl.Compiler.dll"},
+    "Tl.Compiler": {
+        "lib/net10.0/Tl.Compiler.dll",
+        "lib/netstandard2.0/Tl.Compiler.dll",
+    },
     "Tl.Gen.C": {"lib/net10.0/Tl.Gen.C.dll"},
     "Tl.Gen.CSharp": {
         "analyzers/dotnet/cs/Tl.Gen.CSharp.dll",
@@ -42,7 +45,19 @@ PACKAGE_FILES = {
 
 PACKAGE_DEPENDENCY_GROUPS = {
     "Tl.CSharp": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": [{"id": "Tl.Runtime", "exclude": "Build,Analyzers"}]}],
-    "Tl.Compiler": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": []}],
+    "Tl.Compiler": [
+        {"attributes": {"targetFramework": "net10.0"}, "dependencies": []},
+        {
+            "attributes": {"targetFramework": ".NETStandard2.0"},
+            "dependencies": [
+                {
+                    "id": "System.Collections.Immutable",
+                    "version": "10.0.1",
+                    "exclude": "Build,Analyzers",
+                }
+            ],
+        },
+    ],
     "Tl.Gen.C": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": [{"id": "Tl.Compiler", "exclude": "Build,Analyzers"}]}],
     "Tl.Gen.CSharp": [],
     "Tl.Runtime": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": []}],
@@ -57,9 +72,12 @@ PACKAGE_FORBIDDEN_FILES = {
 }
 
 SYMBOL_FILES = {
-    "Tl.Compiler": "lib/net10.0/Tl.Compiler.pdb",
-    "Tl.Gen.C": "lib/net10.0/Tl.Gen.C.pdb",
-    "Tl.Runtime": "lib/net10.0/Tl.Core.pdb",
+    "Tl.Compiler": {
+        "lib/net10.0/Tl.Compiler.pdb",
+        "lib/netstandard2.0/Tl.Compiler.pdb",
+    },
+    "Tl.Gen.C": {"lib/net10.0/Tl.Gen.C.pdb"},
+    "Tl.Runtime": {"lib/net10.0/Tl.Core.pdb"},
 }
 
 PACKAGE_METADATA_FILES = {
@@ -196,7 +214,10 @@ def verify_nupkg(path, package_id, version, commit, repository_ref):
         expected_groups = [
             {
                 "attributes": group["attributes"],
-                "dependencies": [dependency | {"version": version} for dependency in group["dependencies"]],
+                "dependencies": [
+                    dependency if "version" in dependency else dependency | {"version": version}
+                    for dependency in group["dependencies"]
+                ],
             }
             for group in PACKAGE_DEPENDENCY_GROUPS[package_id]
         ]
@@ -210,12 +231,13 @@ def verify_nupkg(path, package_id, version, commit, repository_ref):
 
 def verify_snupkg(path, package_id, version, commit, repository_ref):
     with zipfile.ZipFile(path) as archive:
-        symbol_file = SYMBOL_FILES[package_id]
-        expected_names = SYMBOL_METADATA_FILES | {f"{package_id}.nuspec", symbol_file}
+        symbol_files = SYMBOL_FILES[package_id]
+        expected_names = SYMBOL_METADATA_FILES | {f"{package_id}.nuspec"} | symbol_files
         names = set(archive.namelist())
         if names != expected_names:
             fail(f"{path.name} files are {sorted(names)}, expected {sorted(expected_names)}")
-        verify_portable_embedded_pdb(archive.read(symbol_file), f"{path.name}:{symbol_file}")
+        for symbol_file in sorted(symbol_files):
+            verify_portable_embedded_pdb(archive.read(symbol_file), f"{path.name}:{symbol_file}")
         root = nuspec(archive)
         if metadata_value(root, "id") != package_id or metadata_value(root, "version") != version:
             fail(f"{path.name} symbol identity does not match its package")
