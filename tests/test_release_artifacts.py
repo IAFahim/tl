@@ -37,10 +37,10 @@ class ReleaseArtifactTests(unittest.TestCase):
             (root / "b.bin").write_bytes(b"b")
             (root / "a.bin").write_bytes(b"a")
 
-            RELEASE_ARTIFACTS.write_manifest(root, "candidate", "issue-8", "1.0.0-alpha.2", "a" * 40, "10.0.401", "linux-x64")
+            RELEASE_ARTIFACTS.write_manifest(root, "candidate", "issue-35", "1.0.0-alpha.3", "a" * 40, "10.0.401", "linux-x64")
             first_manifest = (root / "RELEASE-MANIFEST.json").read_bytes()
             first_checksums = (root / "SHA256SUMS").read_bytes()
-            RELEASE_ARTIFACTS.write_manifest(root, "candidate", "issue-8", "1.0.0-alpha.2", "a" * 40, "10.0.401", "linux-x64")
+            RELEASE_ARTIFACTS.write_manifest(root, "candidate", "issue-35", "1.0.0-alpha.3", "a" * 40, "10.0.401", "linux-x64")
 
             self.assertEqual(first_manifest, (root / "RELEASE-MANIFEST.json").read_bytes())
             self.assertEqual(first_checksums, (root / "SHA256SUMS").read_bytes())
@@ -132,10 +132,10 @@ class ReleaseArtifactTests(unittest.TestCase):
             (repository / "tracked").write_text("content\n", encoding="utf-8")
             self.git(repository, "add", "tracked")
             self.git(repository, "commit", "-qm", "initial")
-            self.git(repository, "branch", "v1.0.0-alpha.2")
+            self.git(repository, "branch", "v1.0.0-alpha.3")
 
             branch_only = subprocess.run(
-                [ROOT / "eng" / "release-ref", "v1.0.0-alpha.2", "1.0.0-alpha.2"],
+                [ROOT / "eng" / "release-ref", "v1.0.0-alpha.3", "1.0.0-alpha.3"],
                 cwd=repository,
                 capture_output=True,
                 text=True,
@@ -144,9 +144,9 @@ class ReleaseArtifactTests(unittest.TestCase):
             self.assertNotEqual(0, branch_only.returncode)
             self.assertIn("tag ref does not exist", branch_only.stderr)
 
-            self.git(repository, "tag", "v1.0.0-alpha.2")
+            self.git(repository, "tag", "v1.0.0-alpha.3")
             tagged = subprocess.run(
-                [ROOT / "eng" / "release-ref", "v1.0.0-alpha.2", "1.0.0-alpha.2"],
+                [ROOT / "eng" / "release-ref", "v1.0.0-alpha.3", "1.0.0-alpha.3"],
                 cwd=repository,
                 capture_output=True,
                 text=True,

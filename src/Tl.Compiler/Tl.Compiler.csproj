@@ -18,7 +18,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageReleaseNotes>v1.0.0-alpha.2: language-neutral immutable timeline plans with validation, deterministic region lowering, a versioned format, and stable operation and payload identities.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.3: validated ordered occurrences, deterministic regions, exact payload deduplication, and language-neutral operation schedules.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
