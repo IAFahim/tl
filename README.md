@@ -176,7 +176,7 @@ Generated source bytes, static payload bytes, registry allocation, managed assem
 - Finite playback positions remain within `0..Duration`; looping positions and cycles are signed.
 - Definitions and registry routes are immutable after publication.
 - Cross-assembly schema routing and declarations produced by another generator are outside this alpha.
-- The portable C and Unity/Burst targets have separate ABIs and release gates.
+- C ABI v2 has its own in-process signed-seek qualification; Unity/Burst remains a separate target and release gate.
 
 The [API contract](docs/v1.0-alpha-api.md), [semantics](docs/semantics.md), [migration guide](docs/v1.0-alpha-migration.md), [architecture](docs/architecture.md), and [implementation plan](plan.md) define the complete boundary.
 

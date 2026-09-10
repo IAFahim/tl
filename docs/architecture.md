@@ -59,11 +59,11 @@ The ID registry is a sparse two-level unmanaged table. Registration allocates an
 
 ## C11 boundary
 
-`Tl.Gen.C` emits a versioned C11 header and source pair from a neutral plan plus explicit symbol bindings. Consumer-owned `void*` context crosses only the C boundary; each bound operation interprets it.
+`Tl.Gen.C` emits an ABI v2 C11 header and source pair from a neutral plan plus explicit symbol bindings. Its caller-owned `tl_playback` is 16 bytes with 8-byte alignment, and its callback-scoped `tl_frame` is 40 bytes with 8-byte alignment. A supported target has 8-bit bytes, the asserted fixed-width integer layouts, 8-byte aggregate alignment, and IEEE binary32 storage characteristics.
 
-The present C package implements its own earlier versioned playback contract. Migration to the signed seek law requires a separate C ABI revision and conformance gate. C layout or timing evidence must not be used as evidence for the current C# ABI.
+`try_seek` accepts a signed delta and replays every crossed frame in forward order or its structural reverse. It snapshots playback and validates identity, ownership, lifecycle, source and target bounds, overflow, and required context before callbacks. Failure preserves playback and produces no effects; zero delta validates without callbacks. Consumer-owned `void*` context may alias playback and next, and `try_stop` also supports playback/output aliasing.
 
-The first C backend is an in-process ABI. It does not define an on-disk format or network byte order. A serialized plan will require a separate canonical format with explicit endianness and compatibility rules.
+The C ABI is in-process and uses native byte order plus native floating-point evaluation and rounding, as declared by its generated ABI macros. It does not define an on-disk format or network byte order. A serialized plan will require a separate canonical format with explicit endianness and compatibility rules. C layout or timing evidence does not establish the managed C# ABI.
 
 ## Extension invariants
 

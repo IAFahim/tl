@@ -5,8 +5,7 @@ namespace Tl.Gen.C;
 
 public readonly record struct COperationBinding(
     OperationId Operation,
-    string ForwardSymbol,
-    string BackwardSymbol);
+    string SeekSymbol);
 
 public sealed record CBinding
 {
