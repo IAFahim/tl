@@ -93,6 +93,10 @@ dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_art
 jit_output="$consumer_artifacts/bin/Tl.PackageConsumer/release"
 [[ "$("$jit_output/Tl.PackageConsumer")" == "7" ]]
 
+cache_log="$stage/Tl.PackageConsumer.cache.log"
+dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${properties[@]}" | tee "$cache_log"
+grep -F "TlGenCompile: cache hit" "$cache_log"
+
 for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do
     [[ ! -e "$jit_output/$forbidden" ]] || { printf '%s\n' "JIT output contains $forbidden" >&2; exit 2; }
 done
