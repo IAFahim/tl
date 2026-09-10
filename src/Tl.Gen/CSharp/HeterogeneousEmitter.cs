@@ -592,16 +592,39 @@ internal static class HeterogeneousEmitter
         Line(writer, "        }");
         Line(writer, "        global::System.Span<uint> stableTicks = stackalloc uint[ticks.Length];");
         Line(writer, "        ticks.CopyTo(stableTicks);");
-        Line(writer, "        var validated = playback;");
-        Line(writer, "        foreach (var tick in stableTicks)");
-        Line(writer, "        {");
-        Line(writer, $"            if (!Position{direction}(in validated, tick, out var effective, out _, out _, out var cycles))");
-        Line(writer, "            {");
-        Line(writer, "                next = playback;");
-        Line(writer, "                return false;");
-        Line(writer, "            }");
-        EmitNext(writer, timeline, backward, "tick", "effective", "cycles", 3, "validated");
-        Line(writer, "        }");
+        if (!timeline.Loops || timeline.Duration == 0)
+        {
+            Line(writer, "        if (stableTicks.IsEmpty)");
+            Line(writer, "        {");
+            Line(writer, "            next = playback;");
+            Line(writer, "            return true;");
+            Line(writer, "        }");
+            Line(writer, "        var effective = playback.Tick;");
+            Line(writer, "        var cycles = playback.Cycles;");
+            Line(writer, "        foreach (var tick in stableTicks)");
+            Line(writer, "        {");
+            Line(writer, "            var previousEffective = effective;");
+            Line(writer, "            effective = tick;");
+            Line(writer, $"            Apply{direction}(effective, previousEffective, 0u, in input, ref output);");
+            Line(writer, "        }");
+            EmitNext(writer, timeline, backward, "effective", "effective", "cycles", 2);
+            Line(writer, "        return true;");
+            Line(writer, "    }");
+            return;
+        }
+        if (timeline.Loops && timeline.Duration != 0)
+        {
+            Line(writer, "        var validated = playback;");
+            Line(writer, "        foreach (var tick in stableTicks)");
+            Line(writer, "        {");
+            Line(writer, $"            if (!Position{direction}(in validated, tick, out var effective, out _, out _, out var cycles))");
+            Line(writer, "            {");
+            Line(writer, "                next = playback;");
+            Line(writer, "                return false;");
+            Line(writer, "            }");
+            EmitNext(writer, timeline, backward, "tick", "effective", "cycles", 3, "validated");
+            Line(writer, "        }");
+        }
         Line(writer, "        var state = playback;");
         Line(writer, "        foreach (var tick in stableTicks)");
         Line(writer, "        {");
