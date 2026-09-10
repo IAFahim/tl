@@ -5,11 +5,6 @@ type Tl.Builder
   Method Void Include[TTimeline]()
   Method Void Looping()
   Method Tl.TrackRef`1[TTrack] Track[TTrack](TTrack ByRef)
-type Tl.ClipState
-  Field Tl.ClipState Enter
-  Field Tl.ClipState Exit
-  Field Tl.ClipState Stay
-  Field Byte value__
 type Tl.CompiledRoute
   Method Void Deconstruct(Byte ByRef, Byte ByRef)
   Method Boolean Equals(System.Object)
@@ -18,10 +13,25 @@ type Tl.CompiledRoute
   Property Byte Module
   Property Byte Ordinal
   Method System.String ToString()
+type Tl.FrameFlags
+  Field Tl.FrameFlags ClipEnd
+  Field Tl.FrameFlags ClipStart
+  Field Tl.FrameFlags CompletedAfter
+  Field Tl.FrameFlags CompletedBefore
+  Field Tl.FrameFlags Looping
+  Field Tl.FrameFlags None
+  Field Tl.FrameFlags Reverse
+  Field Tl.FrameFlags TimelineEnd
+  Field Tl.FrameFlags TimelineStart
+  Field Byte value__
 type Tl.Frame`2
   Property TClip& Clip
-  Property Tl.ClipState State
-  Property UInt32 Tick
+  Property Int64 Cycle
+  Property Int32 Direction
+  Property Tl.FrameFlags Flags
+  Property UInt32 GameTick
+  Method Boolean Has(Tl.FrameFlags)
+  Property UInt32 TimelineTick
   Property TTrack& Track
   Property UInt16 TrackIndex
 type Tl.IBlend`1
@@ -29,53 +39,44 @@ type Tl.IBlend`1
 type Tl.IHook
 type Tl.ITimeline
   Method Void Define(Tl.Builder)
-type Tl.ITimelineInput`2
-  Method Boolean TryBackward(UInt16, Tl.Playback ByRef, UInt32, TSelf ByRef, TOutput ByRef, Tl.Playback ByRef)
-  Method Boolean TryBackward(UInt16, Tl.Playback ByRef, System.ReadOnlySpan`1[System.UInt32], TSelf ByRef, TOutput ByRef, Tl.Playback ByRef)
-  Method Boolean TryForward(UInt16, Tl.Playback ByRef, UInt32, TSelf ByRef, TOutput ByRef, Tl.Playback ByRef)
-  Method Boolean TryForward(UInt16, Tl.Playback ByRef, System.ReadOnlySpan`1[System.UInt32], TSelf ByRef, TOutput ByRef, Tl.Playback ByRef)
+type Tl.ITimelineData`1
+  Method Boolean TrySeek(UInt16, TSelf ByRef, Int32)
 type Tl.ITrack`1
 type Tl.Playback
-  Field UInt16 Cycles
   Method Boolean Equals(Tl.Playback)
   Method Boolean Equals(System.Object)
   Field Tl.PlaybackFlags Flags
+  Field UInt32 GameTick
   Method Int32 GetHashCode()
   Method Boolean Has(Tl.PlaybackFlags)
   Field UInt16 Owner
-  Field UInt32 Tick
+  Field Int64 Position
   Method System.String ToString()
 type Tl.PlaybackFlags
-  Field Tl.PlaybackFlags Completed
-  Field Tl.PlaybackFlags LastLoopFrame
   Field Tl.PlaybackFlags None
   Field Tl.PlaybackFlags Started
   Field Tl.PlaybackFlags Stopped
-  Field UInt16 value__
+  Field Byte value__
+type Tl.Playback`1
+  Method Boolean Equals(Tl.Playback`1[TTimeline])
+  Method Boolean Equals(System.Object)
+  Field Tl.PlaybackFlags Flags
+  Field UInt32 GameTick
+  Method Int32 GetHashCode()
+  Method Boolean Has(Tl.PlaybackFlags)
+  Field Int64 Position
+  Method System.String ToString()
 type Tl.Timeline
-  Property Tl.TimelineCollection All
-  Method Tl.Playback CreateCompiledPlayback(UInt16, UInt32, UInt16, Tl.PlaybackFlags)
+  Method Tl.Playback CreateCompiledPlayback(UInt16, Int64, UInt32, Tl.PlaybackFlags)
+  Method Tl.Playback`1[TTimeline] CreateTypedPlayback[TTimeline](Int64, UInt32, Tl.PlaybackFlags)
   Method UInt32 Duration(UInt16)
   Method Boolean IsLooping(UInt16)
   Method Boolean IsValid(UInt16)
   Method UInt16 RegisterCompiled(UInt32, Boolean, Tl.CompiledRoute)
   Method Byte RegisterModule()
   Property Int64 RegistryRetainedBytes
-  Method Boolean TryBackward[TInput,TOutput](UInt16, Tl.Playback ByRef, UInt32, TInput ByRef, TOutput ByRef, Tl.Playback ByRef)
-  Method Boolean TryBackward[TInput,TOutput](UInt16, Tl.Playback ByRef, System.ReadOnlySpan`1[System.UInt32], TInput ByRef, TOutput ByRef, Tl.Playback ByRef)
-  Method Boolean TryForward[TInput,TOutput](UInt16, Tl.Playback ByRef, UInt32, TInput ByRef, TOutput ByRef, Tl.Playback ByRef)
-  Method Boolean TryForward[TInput,TOutput](UInt16, Tl.Playback ByRef, System.ReadOnlySpan`1[System.UInt32], TInput ByRef, TOutput ByRef, Tl.Playback ByRef)
   Method Boolean TryGetCompiledRoute(UInt16, Tl.CompiledRoute ByRef)
+  Method Boolean TrySeek[TData](UInt16, TData ByRef, Int32)
   Method Boolean TryStart(UInt16, UInt32, Tl.Playback ByRef)
-  Method Boolean TryStart(UInt16, Tl.Playback ByRef)
   Method Boolean TryStop(UInt16, Tl.Playback ByRef, Tl.Playback ByRef)
-type Tl.TimelineCollection
-  Property Tl.TimelineHandle Item [UInt16]
-type Tl.TimelineHandle
-  Property UInt16 Id
-  Method Boolean TryBackward[TInput,TOutput](Tl.Playback ByRef, UInt32, TInput ByRef, TOutput ByRef, Tl.Playback ByRef)
-  Method Boolean TryBackward[TInput,TOutput](Tl.Playback ByRef, System.ReadOnlySpan`1[System.UInt32], TInput ByRef, TOutput ByRef, Tl.Playback ByRef)
-  Method Boolean TryForward[TInput,TOutput](Tl.Playback ByRef, UInt32, TInput ByRef, TOutput ByRef, Tl.Playback ByRef)
-  Method Boolean TryForward[TInput,TOutput](Tl.Playback ByRef, System.ReadOnlySpan`1[System.UInt32], TInput ByRef, TOutput ByRef, Tl.Playback ByRef)
-  Method Boolean TryStop(Tl.Playback ByRef, Tl.Playback ByRef)
 type Tl.TrackRef`1

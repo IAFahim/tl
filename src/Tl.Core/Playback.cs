@@ -3,79 +3,88 @@ using System.Runtime.InteropServices;
 namespace Tl;
 
 [Flags]
-public enum PlaybackFlags : ushort
+public enum PlaybackFlags : byte
 {
-    None          = 0,
-    Started       = 1 << 0,
-    Stopped       = 1 << 1,
-    LastLoopFrame = 1 << 2,
-    Completed     = 1 << 3,
+    None = 0,
+    Started = 1 << 0,
+    Stopped = 1 << 1,
 }
 
-public enum ClipState : byte
+[Flags]
+public enum FrameFlags : byte
 {
-    Enter,
-    Stay,
-    Exit,
+    None = 0,
+    ClipStart = 1 << 0,
+    ClipEnd = 1 << 1,
+    TimelineStart = 1 << 2,
+    TimelineEnd = 1 << 3,
+    CompletedBefore = 1 << 4,
+    CompletedAfter = 1 << 5,
+    Looping = 1 << 6,
+    Reverse = 1 << 7,
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct Playback : IEquatable<Playback>
 {
-    public readonly uint Tick;
-    public readonly ushort Cycles;
+    public readonly long Position;
+    public readonly uint GameTick;
     public readonly ushort Owner;
     public readonly PlaybackFlags Flags;
 
-    internal Playback(uint tick, ushort cycles, ushort owner, PlaybackFlags flags)
+    internal Playback(long position, uint gameTick, ushort owner, PlaybackFlags flags)
     {
-        Tick = tick;
-        Cycles = cycles;
+        Position = position;
+        GameTick = gameTick;
         Owner = owner;
         Flags = flags;
     }
 
     public bool Has(PlaybackFlags flags) => (Flags & flags) == flags;
 
-    public bool Equals(Playback other) => Tick == other.Tick && Cycles == other.Cycles && Owner == other.Owner && Flags == other.Flags;
+    public bool Equals(Playback other)
+        => Position == other.Position && GameTick == other.GameTick && Owner == other.Owner && Flags == other.Flags;
 
     public override bool Equals(object? obj) => obj is Playback other && Equals(other);
 
-    public override int GetHashCode() => HashCode.Combine(Tick, Cycles, Owner, (ushort)Flags);
+    public override int GetHashCode() => HashCode.Combine(Position, GameTick, Owner, (byte)Flags);
 
     public static bool operator ==(Playback left, Playback right) => left.Equals(right);
 
     public static bool operator !=(Playback left, Playback right) => !left.Equals(right);
 
-    public override string ToString() => $"Playback {{ Tick = {Tick}, Cycles = {Cycles}, Owner = {Owner}, Flags = {Flags} }}";
+    public override string ToString()
+        => $"Playback {{ Position = {Position}, GameTick = {GameTick}, Owner = {Owner}, Flags = {Flags} }}";
 }
 
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct Playback<TTimeline> : IEquatable<Playback<TTimeline>>
     where TTimeline : unmanaged, ITimeline
 {
-    public readonly uint Tick;
-    public readonly ushort Cycles;
+    public readonly long Position;
+    public readonly uint GameTick;
     public readonly PlaybackFlags Flags;
 
-    internal Playback(uint tick, ushort cycles, PlaybackFlags flags)
+    internal Playback(long position, uint gameTick, PlaybackFlags flags)
     {
-        Tick = tick;
-        Cycles = cycles;
+        Position = position;
+        GameTick = gameTick;
         Flags = flags;
     }
 
     public bool Has(PlaybackFlags flags) => (Flags & flags) == flags;
 
-    public bool Equals(Playback<TTimeline> other) => Tick == other.Tick && Cycles == other.Cycles && Flags == other.Flags;
+    public bool Equals(Playback<TTimeline> other)
+        => Position == other.Position && GameTick == other.GameTick && Flags == other.Flags;
 
     public override bool Equals(object? obj) => obj is Playback<TTimeline> other && Equals(other);
 
-    public override int GetHashCode() => HashCode.Combine(Tick, Cycles, (ushort)Flags);
+    public override int GetHashCode() => HashCode.Combine(Position, GameTick, (byte)Flags);
 
     public static bool operator ==(Playback<TTimeline> left, Playback<TTimeline> right) => left.Equals(right);
 
     public static bool operator !=(Playback<TTimeline> left, Playback<TTimeline> right) => !left.Equals(right);
 
-    public override string ToString() => $"Playback<{typeof(TTimeline).Name}> {{ Tick = {Tick}, Cycles = {Cycles}, Flags = {Flags} }}";
+    public override string ToString()
+        => $"Playback<{typeof(TTimeline).Name}> {{ Position = {Position}, GameTick = {GameTick}, Flags = {Flags} }}";
 }
