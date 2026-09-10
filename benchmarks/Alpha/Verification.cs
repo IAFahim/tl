@@ -33,5 +33,17 @@ internal static class Verification
         if (allocated != 0)
             throw new InvalidOperationException($"Warm generated query benchmark allocated {allocated} B.");
         Console.WriteLine($"allocation: 128 x {ScalarCatalogQueryBenchmarks.Operations} scalar generated query ticks retained {allocated} B");
+
+        var batchAllocation = new BatchCatalogQueryBenchmarks { Rows = 10_000 };
+        batchAllocation.Setup();
+        for (var pass = 0; pass < 4; pass++)
+            _ = batchAllocation.GeneratedQueryBatch();
+        before = GC.GetAllocatedBytesForCurrentThread();
+        for (var pass = 0; pass < 16; pass++)
+            _ = batchAllocation.GeneratedQueryBatch();
+        allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        if (allocated != 0)
+            throw new InvalidOperationException($"Warm generated batch benchmark allocated {allocated} B.");
+        Console.WriteLine($"allocation: 16 x 64 x 10000 batch generated query ticks retained {allocated} B");
     }
 }
