@@ -130,7 +130,7 @@ internal static class HeterogeneousEmitter
             var key = SchemaKey(timeline);
             if (!byKey.TryGetValue(key, out var schema))
             {
-                schema = new Schema(schemas.Count, timeline, timeline.Inputs, timeline.Outputs);
+                schema = new Schema(schemas.Count, timeline, timeline.ReadOnlySlots, timeline.WritableSlots);
                 schemas.Add(schema);
                 byKey.Add(key, schema);
             }
@@ -336,7 +336,7 @@ internal static class HeterogeneousEmitter
 
     private static string SchemaKey(HeterogeneousTimeline timeline)
         => timeline.Namespace + "\n"
-            + string.Join("\n", timeline.Inputs.Concat(timeline.Outputs)
+            + string.Join("\n", timeline.ReadOnlySlots.Concat(timeline.WritableSlots)
                 .Select(slot => $"{(byte)slot.Mode}:{slot.Name}:{TypeKey(slot.TypeName)}"));
 
     private static string TypeKey(string type)
@@ -409,18 +409,18 @@ internal static class HeterogeneousEmitter
         Line(writer, "    public readonly ref struct Input : global::Tl.ITimelineInput<Input, Output>");
         Line(writer, "    {");
         Line(writer, $"        internal readonly {schema}.Input _context;");
-        if (timeline.Inputs.Count != 0)
+        if (timeline.ReadOnlySlots.Count != 0)
         {
             Line(writer);
             Line(writer, "        public Input(");
-            for (var index = 0; index < timeline.Inputs.Count; index++)
+            for (var index = 0; index < timeline.ReadOnlySlots.Count; index++)
             {
-                var slot = timeline.Inputs[index];
-                var suffix = index + 1 == timeline.Inputs.Count ? ")" : ",";
+                var slot = timeline.ReadOnlySlots[index];
+                var suffix = index + 1 == timeline.ReadOnlySlots.Count ? ")" : ",";
                 Line(writer, $"            ref readonly {slot.TypeName} {Escape(slot.Name)}{suffix}");
             }
             Line(writer, "        {");
-            Line(writer, $"            _context = new {schema}.Input({string.Join(", ", timeline.Inputs.Select(slot => $"in {Escape(slot.Name)}"))});");
+            Line(writer, $"            _context = new {schema}.Input({string.Join(", ", timeline.ReadOnlySlots.Select(slot => $"in {Escape(slot.Name)}"))});");
             Line(writer, "        }");
             Line(writer);
         }
@@ -488,18 +488,18 @@ internal static class HeterogeneousEmitter
         Line(writer, "    public ref struct Output");
         Line(writer, "    {");
         Line(writer, $"        internal {schema}.Output _context;");
-        if (timeline.Outputs.Count != 0)
+        if (timeline.WritableSlots.Count != 0)
         {
             Line(writer);
             Line(writer, "        public Output(");
-            for (var index = 0; index < timeline.Outputs.Count; index++)
+            for (var index = 0; index < timeline.WritableSlots.Count; index++)
             {
-                var slot = timeline.Outputs[index];
-                var suffix = index + 1 == timeline.Outputs.Count ? ")" : ",";
+                var slot = timeline.WritableSlots[index];
+                var suffix = index + 1 == timeline.WritableSlots.Count ? ")" : ",";
                 Line(writer, $"            ref {slot.TypeName} {Escape(slot.Name)}{suffix}");
             }
             Line(writer, "        {");
-            Line(writer, $"            _context = new {schema}.Output({string.Join(", ", timeline.Outputs.Select(slot => $"ref {Escape(slot.Name)}"))});");
+            Line(writer, $"            _context = new {schema}.Output({string.Join(", ", timeline.WritableSlots.Select(slot => $"ref {Escape(slot.Name)}"))});");
             Line(writer, "        }");
         }
         else
@@ -521,9 +521,9 @@ internal static class HeterogeneousEmitter
         Line(writer, "    {");
         Line(writer, "        if ((playback.Flags & (global::Tl.PlaybackFlags.Started | global::Tl.PlaybackFlags.Stopped)) != global::Tl.PlaybackFlags.Started)");
         Line(writer, "            return false;");
-        if (timeline.Inputs.Count != 0)
+        if (timeline.ReadOnlySlots.Count != 0)
             Line(writer, "        if (!input.IsValid) return false;");
-        if (timeline.Outputs.Count != 0)
+        if (timeline.WritableSlots.Count != 0)
             Line(writer, "        if (!output.IsValid) return false;");
         Line(writer, "        return true;");
         Line(writer, "    }");
@@ -842,7 +842,7 @@ internal static class HeterogeneousEmitter
             clip = $"clip_{suffix}";
         }
         Line(writer, $"            var frame_{suffix} = new global::Tl.Frame<{work.Track.TypeName}, {work.Track.ClipTypeName}>(in s_track{I(work.Track.Index)}, in {clip}, effective, state_{suffix}, {I(work.Track.Index)});");
-        var slots = backward ? work.Track.BackwardSlots : work.Track.ForwardSlots;
+        var slots = work.Track.SeekSlots;
         var arguments = new List<string> { $"in frame_{suffix}" };
         foreach (var slot in slots)
         {
