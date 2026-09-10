@@ -47,10 +47,10 @@ PACKAGE_DEPENDENCIES = {
 
 PACKAGE_FORBIDDEN_FILES = {
     "Tl.CSharp": {"Tl.Compiler.dll", "Tl.Gen.C.dll"},
-    "Tl.Compiler": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Gen.C.dll", "Tl.Gen.dll"},
-    "Tl.Gen.C": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Compiler.dll", "Tl.Gen.dll"},
+    "Tl.Compiler": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Gen.C.dll", "Tl.Gen.CSharp.dll", "Tl.Gen.dll"},
+    "Tl.Gen.C": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Compiler.dll", "Tl.Gen.CSharp.dll", "Tl.Gen.dll"},
     "Tl.Gen.CSharp": {"Tl.Compiler.dll", "Tl.Gen.C.dll"},
-    "Tl.Runtime": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Compiler.dll", "Tl.Gen.C.dll", "Tl.Gen.dll"},
+    "Tl.Runtime": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Compiler.dll", "Tl.Gen.C.dll", "Tl.Gen.CSharp.dll", "Tl.Gen.dll"},
 }
 
 SYMBOL_FILES = {
