@@ -3,6 +3,10 @@ using System.Runtime.InteropServices;
 
 namespace Tl
 {
+    public interface ITimeline
+    {
+    }
+
     [Flags]
     public enum PlaybackFlags : byte
     {
@@ -26,18 +30,17 @@ namespace Tl
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public readonly struct Playback : IEquatable<Playback>
+    public readonly struct Playback<TTimeline> : IEquatable<Playback<TTimeline>>
+        where TTimeline : unmanaged, ITimeline
     {
         public readonly long Position;
         public readonly uint GameTick;
-        public readonly ushort Owner;
         public readonly PlaybackFlags Flags;
 
-        public Playback(long position, uint gameTick, ushort owner, PlaybackFlags flags)
+        internal Playback(long position, uint gameTick, PlaybackFlags flags)
         {
             Position = position;
             GameTick = gameTick;
-            Owner = owner;
             Flags = flags;
         }
 
@@ -46,17 +49,16 @@ namespace Tl
             return (Flags & flags) == flags;
         }
 
-        public bool Equals(Playback other)
+        public bool Equals(Playback<TTimeline> other)
         {
             return Position == other.Position
                 && GameTick == other.GameTick
-                && Owner == other.Owner
                 && Flags == other.Flags;
         }
 
         public override bool Equals(object value)
         {
-            return value is Playback && Equals((Playback)value);
+            return value is Playback<TTimeline> && Equals((Playback<TTimeline>)value);
         }
 
         public override int GetHashCode()
@@ -65,17 +67,16 @@ namespace Tl
             {
                 var hash = Position.GetHashCode();
                 hash = hash * 397 ^ (int)GameTick;
-                hash = hash * 397 ^ Owner;
                 return hash * 397 ^ (byte)Flags;
             }
         }
 
-        public static bool operator ==(Playback left, Playback right)
+        public static bool operator ==(Playback<TTimeline> left, Playback<TTimeline> right)
         {
             return left.Equals(right);
         }
 
-        public static bool operator !=(Playback left, Playback right)
+        public static bool operator !=(Playback<TTimeline> left, Playback<TTimeline> right)
         {
             return !left.Equals(right);
         }
