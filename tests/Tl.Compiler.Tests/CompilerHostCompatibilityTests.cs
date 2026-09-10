@@ -27,9 +27,27 @@ public sealed class CompilerHostCompatibilityTests
         clips.SetValue(clip, 0);
         var plan = Activator.CreateInstance(planType, "host", (ushort)1, false, tracks, clips, (ushort)1)!;
         var validated = planType.GetMethod("Validate")!.Invoke(plan, null)!;
+        var orderedType = assembly.GetType("Tl.Compiler.OrderedTimelinePlan", true)!;
+        var operationPlanType = assembly.GetType("Tl.Compiler.OrderedOperationPlan", true)!;
+        var payloadPlanType = assembly.GetType("Tl.Compiler.PayloadPlan", true)!;
+        var orderedTrackType = assembly.GetType("Tl.Compiler.OrderedTrackPlan", true)!;
+        var orderedClipType = assembly.GetType("Tl.Compiler.OrderedClipPlan", true)!;
+        var hookType = assembly.GetType("Tl.Compiler.OrderedHookPlan", true)!;
+        var ordered = Activator.CreateInstance(
+            orderedType,
+            "host-ordered",
+            false,
+            Array.CreateInstance(operationPlanType, 0),
+            Array.CreateInstance(payloadPlanType, 0),
+            Array.CreateInstance(orderedTrackType, 0),
+            Array.CreateInstance(orderedClipType, 0),
+            Array.CreateInstance(hookType, 0),
+            (ushort)1)!;
+        var orderedValidated = orderedType.GetMethod("Validate")!.Invoke(ordered, null)!;
 
         Assert.Equal(".NETStandard,Version=v2.0", framework?.FrameworkName);
         Assert.Equal(1u, validated.GetType().GetProperty("Duration")!.GetValue(validated));
+        Assert.Equal(0u, orderedValidated.GetType().GetProperty("Duration")!.GetValue(orderedValidated));
     }
 
     private sealed class CompilerLoadContext : AssemblyLoadContext, IDisposable

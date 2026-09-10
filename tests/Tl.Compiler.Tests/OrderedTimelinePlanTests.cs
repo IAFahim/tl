@@ -103,9 +103,136 @@ public sealed class OrderedTimelinePlanTests
             "Clip [8, 2) is empty or reversed.");
     }
 
+    [Fact]
+    public void ExactDedupPreservesPayloadIdentityOrderAndFloatingPointBits()
+    {
+        var payloads = new[]
+        {
+            Payload(1, 0, 0, 0, 0),
+            Payload(2, 0, 0, 0, 0),
+            Payload(3, 0, 0, 0, 128),
+            Payload(4, 0, 0, 192, 127),
+            Payload(5, 1, 0, 192, 127),
+            Payload(6, 0, 0, 192, 127),
+        };
+        var source = new OrderedTimelinePlan(
+            "dedup",
+            false,
+            [Operation(A), Operation(B)],
+            payloads,
+            [new(0, new(1), A), new(1, new(1), B)],
+            [new(0, new(2), 0, 5), new(1, new(4), 1, 2), new(1, new(4), 3, 4)],
+            []);
+
+        var first = source.Validate();
+        var second = source.Validate();
+
+        Assert.Equal([1u, 2u, 3u, 4u, 5u, 6u], first.Payloads.Select(static payload => payload.Id.Value));
+        Assert.Equal("0,0,1,2,3,2", string.Join(",", first.PayloadStorageIndices));
+        Assert.Equal(4, first.UniquePayloads.Length);
+        Assert.Equal(16ul, first.PayloadBytes);
+        Assert.Equal(5, first.Regions.Length);
+        Assert.Equal(2, first.UniqueScheduleCount);
+        Assert.Equal(3, first.Occurrences.Length);
+        Assert.Equal([0u, 1u, 0u, 1u, 0u], first.Regions.Select(static region => region.OccurrenceOffset));
+        Assert.Equal(152ul, first.ScheduleBytes);
+        Assert.True(first.Regions.SequenceEqual(second.Regions));
+        Assert.True(first.Occurrences.SequenceEqual(second.Occurrences));
+        Assert.True(first.PayloadStorageIndices.SequenceEqual(second.PayloadStorageIndices));
+        Assert.Equal(3u, first.Occurrences[2].FirstPayloadIndex);
+        Assert.NotEqual(first.PayloadStorageIndices[2], first.PayloadStorageIndices[0]);
+        Assert.NotEqual(first.PayloadStorageIndices[4], first.PayloadStorageIndices[3]);
+    }
+
+    [Fact]
+    public void SlotEffectsJoinByRoleAndTypeAndRejectAmbiguousMappings()
+    {
+        var component = new TypeId("component");
+        var pose = new TypeId("pose");
+        var plan = new OrderedTimelinePlan(
+            "slots",
+            false,
+            [
+                new(A, [new("health", component, SlotAccess.Write), new("bodyPose", pose, SlotAccess.Read)]),
+                new(B, [new("health", component, SlotAccess.Read), new("aimPose", pose, SlotAccess.Write)])
+            ],
+            [],
+            [],
+            [],
+            []).Validate();
+
+        Assert.Equal(
+            [("health", SlotAccess.ReadWrite), ("bodyPose", SlotAccess.Read), ("aimPose", SlotAccess.Write)],
+            plan.Slots.Select(static slot => (slot.Role, slot.Access)));
+        AssertInvalid(
+            Empty(new OrderedOperationPlan(A, [new("health", component, SlotAccess.Read), new("health", component, SlotAccess.Write)])),
+            "Operation 'a' maps slot role 'health' more than once.");
+        AssertInvalid(
+            new("conflict", false,
+                [new(A, [new("health", component, SlotAccess.Read)]), new(B, [new("health", pose, SlotAccess.Read)])], [], [], [], []),
+            "Slot role 'health' maps to both 'component' and 'pose'.");
+        AssertInvalid(
+            Empty(new OrderedOperationPlan(A, [new("health", component, (SlotAccess)4)])),
+            "Operation 'a' slot 'health' has invalid access 4.");
+    }
+
+    [Fact]
+    public void MappingsConstantEncodingsOverlapAndOccurrenceCapacityFailBeforePlayback()
+    {
+        AssertInvalid(
+            new("operation", false, [Operation(A)], [Payload(1)], [new(0, new(1), B)], [], []),
+            "Track index 0 maps unknown operation 'b'.");
+        AssertInvalid(
+            new("clip-payload", false, [Operation(A)], [Payload(1)], [new(0, new(1), A)], [new(0, new(2), 0, 1)], []),
+            "Clip on track index 0 maps unknown payload 2.");
+        AssertInvalid(
+            new("hook", false, [Operation(A)], [], [], [], [new(B, HookPhase.Before)]),
+            "Before hook maps unknown operation 'b'.");
+        AssertInvalid(
+            new("encoding", false, [Operation(A)], [new(new(1), Data, [])], [], [], []),
+            "Payload 1 has an empty constant encoding.");
+        AssertInvalid(
+            new("type", false, [Operation(A)], [new(new(1), new(" "), [1])], [], [], []),
+            "Payload 1 has no type identity.");
+        AssertInvalid(
+            new("payload", false, [Operation(A)], [Payload(1), Payload(1)], [], [], []),
+            "Payload identity 1 is duplicated.");
+        AssertInvalid(
+            new(
+                "overlap",
+                false,
+                [Operation(A)],
+                [Payload(1), Payload(2), Payload(3), Payload(4)],
+                [new(0, new(1), A)],
+                [new(0, new(2), 0, 5), new(0, new(3), 1, 4), new(0, new(4), 2, 3)],
+                []),
+            "Authored track index 0 has more than two overlapping clips.");
+        AssertInvalid(
+            new(
+                "occurrences",
+                false,
+                [Operation(A)],
+                [Payload(1), Payload(2)],
+                [new(0, new(1), A)],
+                [new(0, new(2), 0, 1)],
+                Enumerable.Repeat(new OrderedHookPlan(A, HookPhase.Before), ushort.MaxValue)),
+            "Region [0, 1) has more than 65,535 operation occurrences.");
+    }
+
+    [Fact]
+    public void NeutralPlanAssemblyDoesNotReferenceRoslyn()
+        => Assert.DoesNotContain(
+            typeof(OrderedTimelinePlan).Assembly.GetReferencedAssemblies(),
+            static assembly => assembly.Name?.StartsWith("Microsoft.CodeAnalysis", StringComparison.Ordinal) == true);
+
     private static OrderedOperationPlan Operation(OperationId id) => new(id, []);
 
     private static PayloadPlan Payload(uint id) => new(new(id), Data, [unchecked((byte)id), 0, 0, 0]);
+
+    private static PayloadPlan Payload(uint id, params byte[] bytes) => new(new(id), new("float32"), bytes);
+
+    private static OrderedTimelinePlan Empty(OrderedOperationPlan operation)
+        => new("empty", false, [operation], [], [], [], []);
 
     private static IEnumerable<OrderedOccurrencePlan> Slice(
         ValidatedOrderedTimelinePlan plan,

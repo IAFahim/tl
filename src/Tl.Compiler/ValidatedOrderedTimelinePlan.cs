@@ -12,24 +12,27 @@ public sealed record ValidatedOrderedTimelinePlan
         OrderedTimelinePlan plan,
         uint duration,
         ImmutableArray<OperationSlotPlan> slots,
+        ImmutableArray<PayloadPlan> uniquePayloads,
+        ImmutableArray<uint> payloadStorageIndices,
         ImmutableArray<OrderedRegionPlan> regions,
-        ImmutableArray<OrderedOccurrencePlan> occurrences)
+        ImmutableArray<OrderedOccurrencePlan> occurrences,
+        int uniqueScheduleCount)
     {
         Identity = plan.Identity;
         Loops = plan.Loops;
         Duration = duration;
         Operations = plan.Operations;
         Payloads = plan.Payloads;
-        UniquePayloads = plan.Payloads;
-        PayloadStorageIndices = [.. Enumerable.Range(0, plan.Payloads.Length).Select(static index => (uint)index)];
+        UniquePayloads = uniquePayloads;
+        PayloadStorageIndices = payloadStorageIndices;
         Slots = slots;
         Tracks = plan.Tracks;
         Clips = plan.Clips;
         Hooks = plan.Hooks;
         Regions = regions;
         Occurrences = occurrences;
-        UniqueScheduleCount = regions.Length;
-        PayloadBytes = (ulong)plan.Payloads.Sum(static payload => payload.Bytes.Length);
+        UniqueScheduleCount = uniqueScheduleCount;
+        PayloadBytes = uniquePayloads.Aggregate(0UL, static (total, payload) => total + (ulong)payload.Bytes.Length);
         ScheduleBytes = (ulong)regions.Length * RegionBytes + (ulong)occurrences.Length * OccurrenceBytes;
         WorstCaseTraversal = "O(entities * operation kinds * stages)";
         FormatVersion = plan.FormatVersion;
@@ -135,8 +138,9 @@ public sealed record ValidatedOrderedTimelinePlan
         }
         ValidateOverlaps(plan);
         var duration = plan.Clips.IsEmpty ? 0u : plan.Clips.Max(static clip => clip.End);
-        var (regions, occurrences) = Lower(plan, duration, operationIndexes, payloadIndexes);
-        return new(plan, duration, [.. slots], regions, occurrences);
+        var (uniquePayloads, payloadStorageIndices) = DeduplicatePayloads(plan.Payloads);
+        var (regions, occurrences, uniqueScheduleCount) = Lower(plan, duration, operationIndexes, payloadIndexes);
+        return new(plan, duration, [.. slots], uniquePayloads, payloadStorageIndices, regions, occurrences, uniqueScheduleCount);
     }
 
     private static void ValidateOverlaps(OrderedTimelinePlan plan)
@@ -157,14 +161,31 @@ public sealed record ValidatedOrderedTimelinePlan
         }
     }
 
-    private static (ImmutableArray<OrderedRegionPlan>, ImmutableArray<OrderedOccurrencePlan>) Lower(
+    private static (ImmutableArray<PayloadPlan>, ImmutableArray<uint>) DeduplicatePayloads(ImmutableArray<PayloadPlan> payloads)
+    {
+        var unique = new List<PayloadPlan>();
+        var storage = ImmutableArray.CreateBuilder<uint>(payloads.Length);
+        foreach (var payload in payloads)
+        {
+            var index = unique.FindIndex(candidate => candidate.Type == payload.Type && candidate.Bytes.SequenceEqual(payload.Bytes));
+            if (index < 0)
+            {
+                index = unique.Count;
+                unique.Add(payload);
+            }
+            storage.Add((uint)index);
+        }
+        return ([.. unique], storage.MoveToImmutable());
+    }
+
+    private static (ImmutableArray<OrderedRegionPlan>, ImmutableArray<OrderedOccurrencePlan>, int) Lower(
         OrderedTimelinePlan plan,
         uint duration,
         IReadOnlyDictionary<string, ushort> operations,
         IReadOnlyDictionary<uint, uint> payloads)
     {
         if (duration == 0)
-            return ([], []);
+            return ([], [], 0);
         var cuts = new SortedSet<uint> { 0u, duration };
         foreach (var clip in plan.Clips)
         {
@@ -174,6 +195,7 @@ public sealed record ValidatedOrderedTimelinePlan
         var boundaries = cuts.ToArray();
         var regions = ImmutableArray.CreateBuilder<OrderedRegionPlan>(boundaries.Length - 1);
         var occurrences = ImmutableArray.CreateBuilder<OrderedOccurrencePlan>();
+        var schedules = new List<(uint Offset, ushort Count)>();
         for (var region = 0; region + 1 < boundaries.Length; region++)
         {
             var current = new List<OrderedOccurrencePlan>();
@@ -200,11 +222,34 @@ public sealed record ValidatedOrderedTimelinePlan
             AddHooks(current, plan.Hooks, HookPhase.After, operations, OrderedOccurrenceFlags.AfterHook);
             if (current.Count > ushort.MaxValue)
                 throw Error($"Region [{boundaries[region]}, {boundaries[region + 1]}) has more than 65,535 operation occurrences.");
-            var offset = (uint)occurrences.Count;
-            occurrences.AddRange(current);
+            var offset = FindSchedule(occurrences, schedules, current);
+            if (offset == uint.MaxValue)
+            {
+                offset = (uint)occurrences.Count;
+                occurrences.AddRange(current);
+                schedules.Add((offset, (ushort)current.Count));
+            }
             regions.Add(new(boundaries[region], boundaries[region + 1], offset, (ushort)current.Count));
         }
-        return (regions.MoveToImmutable(), occurrences.ToImmutable());
+        return (regions.MoveToImmutable(), occurrences.ToImmutable(), schedules.Count);
+    }
+
+    private static uint FindSchedule(
+        ImmutableArray<OrderedOccurrencePlan>.Builder occurrences,
+        IEnumerable<(uint Offset, ushort Count)> schedules,
+        IReadOnlyList<OrderedOccurrencePlan> candidate)
+    {
+        foreach (var schedule in schedules)
+        {
+            if (schedule.Count != candidate.Count)
+                continue;
+            var equal = true;
+            for (var index = 0; index < candidate.Count; index++)
+                equal &= occurrences[(int)schedule.Offset + index] == candidate[index];
+            if (equal)
+                return schedule.Offset;
+        }
+        return uint.MaxValue;
     }
 
     private static void AddHooks(
