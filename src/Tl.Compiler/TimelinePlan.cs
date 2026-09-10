@@ -27,9 +27,12 @@ public sealed record TimelinePlan
         IEnumerable<ClipPlan> clips,
         ushort formatVersion = CurrentFormatVersion)
     {
-        ArgumentNullException.ThrowIfNull(identity);
-        ArgumentNullException.ThrowIfNull(tracks);
-        ArgumentNullException.ThrowIfNull(clips);
+        if (identity is null)
+            throw new ArgumentNullException(nameof(identity));
+        if (tracks is null)
+            throw new ArgumentNullException(nameof(tracks));
+        if (clips is null)
+            throw new ArgumentNullException(nameof(clips));
         Identity = identity;
         RuntimeId = runtimeId;
         Loops = loops;
