@@ -10,13 +10,13 @@
 G_M000_IG01:                ;; offset=0x0000
  
 G_M000_IG02:                ;; offset=0x0000
-       mov      rax, 0x7F3BC4800B90
+       mov      rax, 0x7FA930200B90
        mov      byte  ptr [rax], 0
-       mov      rax, 0x7F3BC4800BA8
+       mov      rax, 0x7FA930200BA8
        mov      dword ptr [rax], 0x3F800000
-       mov      rax, 0x7F3BC4800BC0
+       mov      rax, 0x7FA930200BC0
        mov      dword ptr [rax], 0x40400000
-       mov      rax, 0x7F3BC4800BD8
+       mov      rax, 0x7FA930200BD8
        mov      dword ptr [rax], 0x40A00000
  
 G_M000_IG03:                ;; offset=0x003D

@@ -32,11 +32,11 @@ G_M000_IG03:                ;; offset=0x0031
        jmp      G_M000_IG19
  
 G_M000_IG04:                ;; offset=0x003C
-       test     byte  ptr [(reloc 0x7f80446f6678)], 1
+       test     byte  ptr [(reloc 0x7f59da8f6678)], 1
        je       G_M000_IG35
  
 G_M000_IG05:                ;; offset=0x0049
-       mov      rcx, 0x7F7083800C88
+       mov      rcx, 0x7F59D1C00C88
        vmovss   xmm1, dword ptr [rcx]
        vmovss   dword ptr [rbp-0x48], xmm1
        jmp      SHORT G_M000_IG10
@@ -47,13 +47,13 @@ G_M000_IG06:                ;; offset=0x005E
        vcvtsi2ss xmm1, xmm1, rcx
        vdivss   xmm1, xmm1, dword ptr [reloc @RWD00]
        vmovss   dword ptr [rbp-0x4C], xmm1
-       test     byte  ptr [(reloc 0x7f80446f6678)], 1
+       test     byte  ptr [(reloc 0x7f59da8f6678)], 1
        je       G_M000_IG34
  
 G_M000_IG07:                ;; offset=0x0086
-       mov      rcx, 0x7F7083800C70
+       mov      rcx, 0x7F59D1C00C70
        vmovss   xmm2, dword ptr [rcx]
-       mov      rcx, 0x7F7083800C88
+       mov      rcx, 0x7F59D1C00C88
        vmovss   xmm3, dword ptr [rcx]
        vsubss   xmm3, xmm3, xmm2
        vmulss   xmm1, xmm3, dword ptr [rbp-0x4C]
@@ -62,11 +62,11 @@ G_M000_IG07:                ;; offset=0x0086
        jmp      SHORT G_M000_IG10
  
 G_M000_IG08:                ;; offset=0x00B6
-       test     byte  ptr [(reloc 0x7f80446f6678)], 1
+       test     byte  ptr [(reloc 0x7f59da8f6678)], 1
        je       G_M000_IG33
  
 G_M000_IG09:                ;; offset=0x00C3
-       mov      rcx, 0x7F7083800C70
+       mov      rcx, 0x7F59D1C00C70
        vmovss   xmm2, dword ptr [rcx]
        vmovss   dword ptr [rbp-0x48], xmm2
  
@@ -165,11 +165,11 @@ G_M000_IG27:                ;; offset=0x01AE
        jb       G_M000_IG06
        cmp      r12d, 48
        jb       G_M000_IG04
-       test     byte  ptr [(reloc 0x7f80446f6678)], 1
+       test     byte  ptr [(reloc 0x7f59da8f6678)], 1
        je       G_M000_IG36
  
 G_M000_IG28:                ;; offset=0x01CF
-       mov      rcx, 0x7F7083800CA0
+       mov      rcx, 0x7F59D1C00CA0
        vmovss   xmm1, dword ptr [rcx]
        vmovss   dword ptr [rbp-0x48], xmm1
        jmp      G_M000_IG10
@@ -203,28 +203,28 @@ G_M000_IG32:                ;; offset=0x0215
  
 G_M000_IG33:                ;; offset=0x0224
        mov      dword ptr [rbp-0x3C], edi
-       mov      rdi, 0x7F80446F6610
+       mov      rdi, 0x7F59DA8F6610
        call     CORINFO_HELP_GET_GCSTATIC_BASE
        mov      edi, dword ptr [rbp-0x3C]
        jmp      G_M000_IG09
  
 G_M000_IG34:                ;; offset=0x023E
        mov      dword ptr [rbp-0x3C], edi
-       mov      rdi, 0x7F80446F6610
+       mov      rdi, 0x7F59DA8F6610
        call     CORINFO_HELP_GET_GCSTATIC_BASE
        mov      edi, dword ptr [rbp-0x3C]
        jmp      G_M000_IG07
  
 G_M000_IG35:                ;; offset=0x0258
        mov      dword ptr [rbp-0x3C], edi
-       mov      rdi, 0x7F80446F6610
+       mov      rdi, 0x7F59DA8F6610
        call     CORINFO_HELP_GET_GCSTATIC_BASE
        mov      edi, dword ptr [rbp-0x3C]
        jmp      G_M000_IG05
  
 G_M000_IG36:                ;; offset=0x0272
        mov      dword ptr [rbp-0x3C], edi
-       mov      rdi, 0x7F80446F6610
+       mov      rdi, 0x7F59DA8F6610
        call     CORINFO_HELP_GET_GCSTATIC_BASE
        mov      edi, dword ptr [rbp-0x3C]
        jmp      G_M000_IG28
@@ -349,7 +349,7 @@ G_M000_IG13:                ;; offset=0x00FC
        mov      edx, dword ptr [rbp-0x4C]
  
 G_M000_IG14:                ;; offset=0x010D
-       test     byte  ptr [(reloc 0x7f804442f988)], 1
+       test     byte  ptr [(reloc 0x7f59da62f988)], 1
        je       G_M000_IG43
  
 G_M000_IG15:                ;; offset=0x011A
@@ -365,7 +365,7 @@ G_M000_IG16:                ;; offset=0x012B
 G_M000_IG17:                ;; offset=0x0130
        vxorps   xmm1, xmm1, xmm1
        vcvtsi2ss xmm1, xmm1, edi
-       mov      rdi, 0x7F7083800BD8
+       mov      rdi, 0x7F59D1C00BD8
        vmulss   xmm1, xmm1, dword ptr [rdi]
        vaddss   xmm0, xmm1, xmm0
        vmovss   dword ptr [rbp-0x2C], xmm0
@@ -390,7 +390,7 @@ G_M000_IG19:                ;; offset=0x0167
        mov      edx, dword ptr [rbp-0x50]
  
 G_M000_IG20:                ;; offset=0x0178
-       test     byte  ptr [(reloc 0x7f804442f988)], 1
+       test     byte  ptr [(reloc 0x7f59da62f988)], 1
        je       G_M000_IG42
  
 G_M000_IG21:                ;; offset=0x0185
@@ -406,7 +406,7 @@ G_M000_IG22:                ;; offset=0x0196
 G_M000_IG23:                ;; offset=0x019B
        vxorps   xmm1, xmm1, xmm1
        vcvtsi2ss xmm1, xmm1, edi
-       mov      rdi, 0x7F7083800BC0
+       mov      rdi, 0x7F59D1C00BC0
        vmulss   xmm1, xmm1, dword ptr [rdi]
        vaddss   xmm0, xmm1, xmm0
        vmovss   dword ptr [rbp-0x2C], xmm0
@@ -441,13 +441,13 @@ G_M000_IG27:                ;; offset=0x01E7
        vcvtsi2ss xmm0, xmm0, rdi
        vdivss   xmm0, xmm0, dword ptr [reloc @RWD00]
        vmovss   dword ptr [rbp-0x58], xmm0
-       test     byte  ptr [(reloc 0x7f804442f988)], 1
+       test     byte  ptr [(reloc 0x7f59da62f988)], 1
        je       G_M000_IG41
  
 G_M000_IG28:                ;; offset=0x020F
-       mov      rdi, 0x7F7083800BA8
+       mov      rdi, 0x7F59D1C00BA8
        vmovss   xmm1, dword ptr [rdi]
-       mov      rdi, 0x7F7083800BC0
+       mov      rdi, 0x7F59D1C00BC0
        vmovss   xmm2, dword ptr [rdi]
        vsubss   xmm2, xmm2, xmm1
        vmulss   xmm0, xmm2, dword ptr [rbp-0x58]
@@ -481,7 +481,7 @@ G_M000_IG31:                ;; offset=0x026B
        mov      edx, dword ptr [rbp-0x64]
  
 G_M000_IG32:                ;; offset=0x027F
-       test     byte  ptr [(reloc 0x7f804442f988)], 1
+       test     byte  ptr [(reloc 0x7f59da62f988)], 1
        je       G_M000_IG40
  
 G_M000_IG33:                ;; offset=0x028C
@@ -497,7 +497,7 @@ G_M000_IG34:                ;; offset=0x029D
 G_M000_IG35:                ;; offset=0x02A2
        vxorps   xmm1, xmm1, xmm1
        vcvtsi2ss xmm1, xmm1, ecx
-       mov      rcx, 0x7F7083800BA8
+       mov      rcx, 0x7F59D1C00BA8
        vmovss   xmm2, dword ptr [rcx]
        vmulss   xmm1, xmm1, xmm2
        vaddss   xmm0, xmm1, xmm0
@@ -543,28 +543,28 @@ G_M000_IG39:                ;; offset=0x0315
  
 G_M000_IG40:                ;; offset=0x0324
        mov      dword ptr [rbp-0x64], edx
-       mov      rdi, 0x7F804442F910
+       mov      rdi, 0x7F59DA62F910
        call     CORINFO_HELP_GET_GCSTATIC_BASE
        mov      edx, dword ptr [rbp-0x64]
        jmp      G_M000_IG33
  
 G_M000_IG41:                ;; offset=0x033E
        mov      dword ptr [rbp-0x54], edx
-       mov      rdi, 0x7F804442F910
+       mov      rdi, 0x7F59DA62F910
        call     CORINFO_HELP_GET_GCSTATIC_BASE
        mov      edx, dword ptr [rbp-0x54]
        jmp      G_M000_IG28
  
 G_M000_IG42:                ;; offset=0x0358
        mov      dword ptr [rbp-0x50], edx
-       mov      rdi, 0x7F804442F910
+       mov      rdi, 0x7F59DA62F910
        call     CORINFO_HELP_GET_GCSTATIC_BASE
        mov      edx, dword ptr [rbp-0x50]
        jmp      G_M000_IG21
  
 G_M000_IG43:                ;; offset=0x0372
        mov      dword ptr [rbp-0x4C], edx
-       mov      rdi, 0x7F804442F910
+       mov      rdi, 0x7F59DA62F910
        call     CORINFO_HELP_GET_GCSTATIC_BASE
        mov      edx, dword ptr [rbp-0x4C]
        jmp      G_M000_IG15
@@ -1239,14 +1239,14 @@ G_M000_IG02:                ;; offset=0x0018
        xor      r14d, r14d
        vxorps   xmm0, xmm0, xmm0
        vmovss   dword ptr [rbp-0x1C], xmm0
-       test     byte  ptr [(reloc 0x7f8044888948)], 1
+       test     byte  ptr [(reloc 0x7f59daa88948)], 1
        je       G_M000_IG41
  
 G_M000_IG03:                ;; offset=0x0034
        mov      eax, 0x1000
  
 G_M000_IG04:                ;; offset=0x0039
-       mov      ecx, dword ptr [(reloc 0x7f804326b140)]
+       mov      ecx, dword ptr [(reloc 0x7f59d946b140)]
        test     ecx, ecx
        jle      SHORT G_M000_IG06
  
@@ -1427,7 +1427,7 @@ G_M000_IG40:                ;; offset=0x01AC
        ret      
  
 G_M000_IG41:                ;; offset=0x01B7
-       mov      rdi, 0x7F80448888E0
+       mov      rdi, 0x7F59DAA888E0
        call     CORINFO_HELP_GET_NONGCSTATIC_BASE
        jmp      G_M000_IG03
  
@@ -1470,7 +1470,7 @@ G_M000_IG05:                ;; offset=0x002A
        mov      ecx, 0x1000
  
 G_M000_IG06:                ;; offset=0x002F
-       mov      edx, dword ptr [(reloc 0x7f804326b140)]
+       mov      edx, dword ptr [(reloc 0x7f59d946b140)]
        mov      rsi, qword ptr [rbp-0x20]
        mov      r8d, dword ptr [rbp-0x18]
        movzx    r9, byte  ptr [rbp-0x14]
@@ -2360,7 +2360,7 @@ G_M000_IG06:                ;; offset=0x005F
  
 G_M000_IG07:                ;; offset=0x0078
        movzx    rdi, word  ptr [rbx+0x0C]
-       mov      edx, dword ptr [(reloc 0x7f804326b140)]
+       mov      edx, dword ptr [(reloc 0x7f59d946b140)]
        cmp      bword ptr [rbp-0x48], 0
        je       SHORT G_M000_IG09
  
@@ -2428,7 +2428,7 @@ G_M000_IG02:                ;; offset=0x0010
        mov      edx, 0x1000
  
 G_M000_IG03:                ;; offset=0x001D
-       mov      esi, dword ptr [(reloc 0x7f804326b144)]
+       mov      esi, dword ptr [(reloc 0x7f59d946b144)]
        test     esi, esi
        jle      SHORT G_M000_IG05
  
@@ -2643,7 +2643,7 @@ G_M000_IG05:                ;; offset=0x002A
        mov      ecx, 0x1000
  
 G_M000_IG06:                ;; offset=0x002F
-       mov      edx, dword ptr [(reloc 0x7f804326b144)]
+       mov      edx, dword ptr [(reloc 0x7f59d946b144)]
        mov      rsi, qword ptr [rbp-0x20]
        mov      r8d, dword ptr [rbp-0x18]
        movzx    r9, byte  ptr [rbp-0x14]
@@ -3533,7 +3533,7 @@ G_M000_IG06:                ;; offset=0x005F
  
 G_M000_IG07:                ;; offset=0x0078
        movzx    rdi, word  ptr [rbx+0x0C]
-       mov      edx, dword ptr [(reloc 0x7f804326b144)]
+       mov      edx, dword ptr [(reloc 0x7f59d946b144)]
        cmp      bword ptr [rbp-0x48], 0
        je       SHORT G_M000_IG09
  
@@ -3603,7 +3603,7 @@ G_M000_IG02:                ;; offset=0x000E
        mov      esi, 0x1000
  
 G_M000_IG03:                ;; offset=0x0020
-       mov      r8, 0x7F70A8000618
+       mov      r8, 0x7F4A3C000618
        mov      r8, gword ptr [r8]
        mov      r8d, dword ptr [r8+rdx]
        test     r8d, r8d
@@ -3822,7 +3822,7 @@ G_M000_IG05:                ;; offset=0x002A
        xor      ecx, ecx
  
 G_M000_IG06:                ;; offset=0x002C
-       mov      rdx, 0x7F70A8000618
+       mov      rdx, 0x7F4A3C000618
        mov      rdx, gword ptr [rdx]
        cmp      ecx, 0x1000
        jae      G_M000_IG139
@@ -4723,7 +4723,7 @@ G_M000_IG06:                ;; offset=0x0061
  
 G_M000_IG07:                ;; offset=0x0080
        movzx    rdi, word  ptr [rbx+0x0C]
-       mov      rcx, 0x7F70A8000618
+       mov      rcx, 0x7F4A3C000618
        mov      rcx, gword ptr [rcx]
        mov      edx, dword ptr [rcx+r13]
        cmp      bword ptr [rbp-0x50], 0
@@ -5924,7 +5924,7 @@ G_M000_IG02:                ;; offset=0x0010
        mov      edx, 0x1000
  
 G_M000_IG03:                ;; offset=0x001D
-       mov      esi, dword ptr [(reloc 0x7f804326b148)]
+       mov      esi, dword ptr [(reloc 0x7f59d946b148)]
        test     esi, esi
        jle      SHORT G_M000_IG05
  
@@ -6139,7 +6139,7 @@ G_M000_IG05:                ;; offset=0x002A
        mov      ecx, 0x1000
  
 G_M000_IG06:                ;; offset=0x002F
-       mov      edx, dword ptr [(reloc 0x7f804326b148)]
+       mov      edx, dword ptr [(reloc 0x7f59d946b148)]
        mov      rsi, qword ptr [rbp-0x20]
        mov      r8d, dword ptr [rbp-0x18]
        movzx    r9, byte  ptr [rbp-0x14]
@@ -7029,7 +7029,7 @@ G_M000_IG06:                ;; offset=0x005F
  
 G_M000_IG07:                ;; offset=0x0078
        movzx    rdi, word  ptr [rbx+0x0C]
-       mov      edx, dword ptr [(reloc 0x7f804326b148)]
+       mov      edx, dword ptr [(reloc 0x7f59d946b148)]
        cmp      bword ptr [rbp-0x48], 0
        je       SHORT G_M000_IG09
  
@@ -7097,7 +7097,7 @@ G_M000_IG02:                ;; offset=0x0010
        mov      edx, 0x1000
  
 G_M000_IG03:                ;; offset=0x001D
-       mov      esi, dword ptr [(reloc 0x7f804326b14c)]
+       mov      esi, dword ptr [(reloc 0x7f59d946b14c)]
        test     esi, esi
        jle      SHORT G_M000_IG05
  
@@ -7312,7 +7312,7 @@ G_M000_IG05:                ;; offset=0x002A
        mov      ecx, 0x1000
  
 G_M000_IG06:                ;; offset=0x002F
-       mov      edx, dword ptr [(reloc 0x7f804326b14c)]
+       mov      edx, dword ptr [(reloc 0x7f59d946b14c)]
        mov      rsi, qword ptr [rbp-0x20]
        mov      r8d, dword ptr [rbp-0x18]
        movzx    r9, byte  ptr [rbp-0x14]
@@ -8202,7 +8202,7 @@ G_M000_IG06:                ;; offset=0x005F
  
 G_M000_IG07:                ;; offset=0x0078
        movzx    rdi, word  ptr [rbx+0x0C]
-       mov      edx, dword ptr [(reloc 0x7f804326b14c)]
+       mov      edx, dword ptr [(reloc 0x7f59d946b14c)]
        cmp      bword ptr [rbp-0x48], 0
        je       SHORT G_M000_IG09
  
@@ -11455,7 +11455,7 @@ G_M000_IG02:                ;; offset=0x0010
        mov      edx, 0x1000
  
 G_M000_IG03:                ;; offset=0x001D
-       mov      esi, dword ptr [(reloc 0x7f804326b150)]
+       mov      esi, dword ptr [(reloc 0x7f59d946b150)]
        test     esi, esi
        jle      SHORT G_M000_IG05
  
@@ -11670,7 +11670,7 @@ G_M000_IG05:                ;; offset=0x002A
        mov      ecx, 0x1000
  
 G_M000_IG06:                ;; offset=0x002F
-       mov      edx, dword ptr [(reloc 0x7f804326b150)]
+       mov      edx, dword ptr [(reloc 0x7f59d946b150)]
        mov      rsi, qword ptr [rbp-0x20]
        mov      r8d, dword ptr [rbp-0x18]
        movzx    r9, byte  ptr [rbp-0x14]
@@ -12560,7 +12560,7 @@ G_M000_IG06:                ;; offset=0x005F
  
 G_M000_IG07:                ;; offset=0x0078
        movzx    rdi, word  ptr [rbx+0x0C]
-       mov      edx, dword ptr [(reloc 0x7f804326b150)]
+       mov      edx, dword ptr [(reloc 0x7f59d946b150)]
        cmp      bword ptr [rbp-0x48], 0
        je       SHORT G_M000_IG09
  

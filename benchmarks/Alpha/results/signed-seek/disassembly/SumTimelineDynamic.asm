@@ -40,14 +40,14 @@ G_M000_IG03:                ;; offset=0x0043
        call     [Tl.Timeline:TryGetCompiledRoute(ushort,byref):bool]
        test     eax, eax
        je       G_M000_IG101
-       test     byte  ptr [(reloc 0x7fdb602f7b58)], 1
+       test     byte  ptr [(reloc 0x7fd60a8f7b58)], 1
        je       G_M000_IG103
  
 G_M000_IG04:                ;; offset=0x0072
        movzx    rax, byte  ptr [rbp-0x28]
        cmp      eax, 256
        jae      G_M000_IG104
-       mov      rcx, 0x7FDB5CA00D48
+       mov      rcx, 0x7FD601C00D48
        cmp      word  ptr [rcx+2*rax], 1
        jne      G_M000_IG101
        cmp      byte  ptr [rbp-0x27], 1
@@ -827,7 +827,7 @@ G_M000_IG102:                ;; offset=0x0925
        ret      
  
 G_M000_IG103:                ;; offset=0x0932
-       mov      rdi, 0x7FDB602F7AF0
+       mov      rdi, 0x7FD60A8F7AF0
        call     CORINFO_HELP_GET_GCSTATIC_BASE
        jmp      G_M000_IG04
  
@@ -857,7 +857,7 @@ G_M000_IG01:                ;; offset=0x0000
 G_M000_IG02:                ;; offset=0x0007
        lea      rdi, [rsp+0x08]
        call     [__TlGeneratedSchema1:CreateModules():__TlGeneratedSchema1+ModuleMap]
-       mov      rdi, 0x7FDB5CA00D48
+       mov      rdi, 0x7FD601C00D48
        lea      rsi, [rsp+0x08]
        mov      edx, 512
        call     CORINFO_HELP_MEMCPY
