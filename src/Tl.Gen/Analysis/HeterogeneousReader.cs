@@ -190,6 +190,7 @@ public static class HeterogeneousReader
             var beforeHooks = new List<TimelineHook>();
             var afterHooks = new List<TimelineHook>();
             var locals = new Dictionary<ILocalSymbol, (HeterogeneousTrack Track, INamedTypeSymbol ClipType)>(SymbolEqualityComparer.Default);
+            var invalidLocals = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
             var included = new List<HeterogeneousTimeline>();
             var loopsDeclared = false;
             var includeDeclared = false;
@@ -218,12 +219,16 @@ public static class HeterogeneousReader
                     {
                         Add(diagnostics, expression, "TLGEN27", "Track values must be explicit unmanaged object constructions from compile-time constants.");
                         valid = false;
+                        if (model.GetDeclaredSymbol(variable) is ILocalSymbol invalidLocal)
+                            invalidLocals.Add(invalidLocal);
                         continue;
                     }
                     var contract = ReadTrack(trackType, declaration.Symbol, expression);
                     if (contract is null)
                     {
                         valid = false;
+                        if (model.GetDeclaredSymbol(variable) is ILocalSymbol invalidLocal)
+                            invalidLocals.Add(invalidLocal);
                         continue;
                     }
                     var track = new HeterogeneousTrack(
@@ -251,6 +256,8 @@ public static class HeterogeneousReader
 
                 if (BuilderCall(call, model, builderParameter, "Clip"))
                 {
+                    if (TrackLocal(call, model) is { } trackLocal && invalidLocals.Contains(trackLocal))
+                        continue;
                     if (!ReadClip(call, model, locals, clips))
                         valid = false;
                     continue;
@@ -353,6 +360,13 @@ public static class HeterogeneousReader
                 .Concat(beforeHooks.SelectMany(static hook => hook.ForwardSlots.Concat(hook.BackwardSlots)))
                 .Concat(afterHooks.SelectMany(static hook => hook.ForwardSlots.Concat(hook.BackwardSlots)))
                 .ToArray();
+            var protectedPlayback = Display(contracts.Playback);
+            var protectedTypedPlayback = Display(contracts.TypedPlayback.Construct(declaration.Symbol));
+            foreach (var slot in allSlots.Where(slot => slot.Mode != SlotMode.Input && (slot.TypeName == protectedPlayback || slot.TypeName == protectedTypedPlayback)))
+            {
+                Add(diagnostics, _slotSites[slot], "TLGEN51", $"Writable component slot '{slot.Name}' cannot use '{slot.TypeName}' because it can alias generated playback state.");
+                valid = false;
+            }
             var (readOnlySlots, writableSlots) = MergeSlots(allSlots, define, ref valid);
             if (!valid)
                 return null;
@@ -521,6 +535,16 @@ public static class HeterogeneousReader
             }
             clips.Add(new HeterogeneousClip(binding.Track.Index, binding.Track.ClipTypeName, Canonical(payload, model), start, end));
             return true;
+        }
+
+        private static ILocalSymbol? TrackLocal(InvocationExpressionSyntax call, SemanticModel model)
+        {
+            if (model.GetOperation(call) is not IInvocationOperation operation)
+                return null;
+            var argument = operation.Arguments.FirstOrDefault(static argument => argument.Parameter?.Ordinal == 0);
+            return argument?.Syntax is ArgumentSyntax syntax
+                ? model.GetSymbolInfo(syntax.Expression).Symbol as ILocalSymbol
+                : null;
         }
 
         private bool ValidateOverlaps(int trackCount, IReadOnlyList<HeterogeneousClip> clips, SyntaxNode site)
