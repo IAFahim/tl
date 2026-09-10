@@ -23,27 +23,27 @@ The package declares Unity 6000.0 and Entities 1.4.3. Passing the installed prev
 
 Each generated timeline exposes its own `Start(gameTick)`, `TrySeek(ref data, delta)`, and `TryStop` facade. `Start` anchors signed local position zero to the caller's external game tick. A positive delta executes every crossed frame in ascending order, a negative delta executes every crossed frame in descending order, and zero preserves playback and component storage.
 
-`Playback` is a 16-byte unmanaged value containing signed `Position`, `GameTick`, `Owner`, and lifecycle flags. Finite kernels reject an invalid origin, overflow, or a target outside `0..Duration` before effects. Looping kernels normalize negative positions into a local tick and signed cycle. Game tick arithmetic wraps as unsigned simulation time.
+`Playback<TTimeline>` is a 16-byte unmanaged value containing signed `Position`, `GameTick`, and lifecycle flags. Timeline identity lives in its generic type, so one generated facade cannot accept another timeline's playback. Finite kernels reject an invalid origin, overflow, or a target outside `0..Duration` before effects. Looping kernels normalize negative positions into a local tick and signed cycle. Explicit unchecked game-tick arithmetic wraps as unsigned simulation time, including when generated assemblies use checked compilation.
 
 One direction-aware track operation receives `Frame<TTrack,TClip>`. Its `Direction` is `1` or `-1`. `FrameFlags` independently records clip start, clip end, timeline start, timeline end, completion side, looping, and reverse movement. An interior frame has neither clip boundary flag.
 
-Generated data structs contain typed pointers to playback and caller-owned component fields. Create and consume one inside the same `IJobEntity.Execute` call. Do not retain it across a callback, structural change, job boundary, or storage relocation. Read-only input pointers stay live: when input and output alias, later ordered frames observe earlier writes.
+Generated data values are byref-like ref structs containing typed pointers to playback and caller-owned component fields. Create and consume one inside the same `IJobEntity.Execute` call. The type system prevents storing it in a component, class, array, or boxed value. Do not return it or retain it across a callback, structural change, job boundary, or storage relocation. Read-only input pointers stay live: when input and output alias, later ordered frames observe earlier writes.
 
 The scalar kernel uses immediate constants and direct static calls. It does not traverse the optional `TimelineBlob`, allocate, box, reflect, use a delegate, or consult a managed registry. The blob mirrors the language-neutral track and clip plan for ECS storage and tooling.
 
 ## Verification
 
-The committed project at `tests/Tl.Unity.Project` consumes only the local package. Its PlayMode suite covers Burst ECS execution, forward and reverse replay, zero delta, finite rejection, looping with negative cycles, game tick wrap, aliasing, ABI widths, blob layout, and zero managed allocation across 1,048,576 warm calls. Its EditMode suite freezes the public API and inspects the player compilation graph for compiler, generator, and Roslyn assemblies.
+The committed project at `tests/Tl.Unity.Project` consumes only the local package and owns the canonical external Burst Combat sample. The sample starts with a nonzero delta and its own ECS system runs forward and backward in PlayMode. The complete PlayMode suite covers Burst ECS execution, forward and reverse replay, zero delta, finite rejection, looping with negative cycles, checked-build game-tick wrap, aliasing, ABI widths, blob layout, and zero managed allocation across 1,048,576 warm calls. Its EditMode suite freezes modifiers, layouts, constraints, field order, and ref returns, and inspects the player compilation graph for compiler, generator, and Roslyn assemblies.
 
 ```sh
 unity --no-banner --format json test tests/Tl.Unity.Project --mode EditMode --output /tmp/tl-unity-editmode.xml --timeout 600
 unity --no-banner --format json test tests/Tl.Unity.Project --mode PlayMode --output /tmp/tl-unity-playmode.xml --timeout 600
 ```
 
-The standalone Linux gate builds `Assets/TlUnityPlayer.unity`, checks the Burst output and forbidden assemblies, and runs until the player prints `TL_UNITY_PLAYER_OK`:
+The standalone Linux gate builds `Assets/TlUnityPlayer.unity`, rejects forbidden toolchain assemblies, verifies Burst symbols for the gate and canonical sample, and runs until the player prints `TL_UNITY_PLAYER_OK`:
 
 ```sh
-unity --no-banner --format json build tests/Tl.Unity.Project --target StandaloneLinux64 --execute-method TlUnityBuild.Build --output-path /tmp/tl-unity-player -l /tmp/tl-unity-player-build.log
+eng/test-unity-player /tmp/tl-unity-player
 ```
 
-The local preview receipt passed all 3 EditMode tests and all 7 PlayMode tests. The Linux player contained `lib_burst_generated.so`, exported the Burst-compiled `TlUnity.PlayerProbe.AdvanceGateJob.Execute` symbol, contained none of the forbidden compiler, generator, or Roslyn assemblies, and printed the expected marker. This receipt does not cover IL2CPP or the unavailable stable editor.
+The local preview receipt passed all 4 EditMode tests and all 9 PlayMode tests. The Linux player contained `lib_burst_generated.so`, exported the Burst-compiled `AdvanceGateJob` and `AdvanceAttackJob` symbols, contained none of the forbidden compiler, generator, or Roslyn assemblies, and printed the expected marker. This receipt does not cover IL2CPP or the unavailable stable editor.
