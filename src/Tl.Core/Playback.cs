@@ -49,3 +49,33 @@ public readonly struct Playback : IEquatable<Playback>
 
     public override string ToString() => $"Playback {{ Tick = {Tick}, Cycles = {Cycles}, Owner = {Owner}, Flags = {Flags} }}";
 }
+
+[StructLayout(LayoutKind.Sequential)]
+public readonly struct Playback<TTimeline> : IEquatable<Playback<TTimeline>>
+    where TTimeline : unmanaged, ITimeline
+{
+    public readonly uint Tick;
+    public readonly ushort Cycles;
+    public readonly PlaybackFlags Flags;
+
+    internal Playback(uint tick, ushort cycles, PlaybackFlags flags)
+    {
+        Tick = tick;
+        Cycles = cycles;
+        Flags = flags;
+    }
+
+    public bool Has(PlaybackFlags flags) => (Flags & flags) == flags;
+
+    public bool Equals(Playback<TTimeline> other) => Tick == other.Tick && Cycles == other.Cycles && Flags == other.Flags;
+
+    public override bool Equals(object? obj) => obj is Playback<TTimeline> other && Equals(other);
+
+    public override int GetHashCode() => HashCode.Combine(Tick, Cycles, (ushort)Flags);
+
+    public static bool operator ==(Playback<TTimeline> left, Playback<TTimeline> right) => left.Equals(right);
+
+    public static bool operator !=(Playback<TTimeline> left, Playback<TTimeline> right) => !left.Equals(right);
+
+    public override string ToString() => $"Playback<{typeof(TTimeline).Name}> {{ Tick = {Tick}, Cycles = {Cycles}, Flags = {Flags} }}";
+}
