@@ -39,29 +39,37 @@ The generated `SeekCore` also preserves the alpha.2 behavior that alpha.3 replac
 
 ## Concrete source declaration
 
-The asset/schema set must be explicit at build time. A runtime asset handle cannot reveal arbitrary component types to Roslyn or Unity. The track binding must also compile before generation. C# cannot infer trailing generic arguments when the caller supplies only `TJob`, so the smallest ordinary-C# builder shape uses all three arguments:
+The asset/schema set must be explicit at build time. A runtime asset handle cannot reveal arbitrary component types to Roslyn or Unity. The track binding must also compile before generation. The smallest tested ordinary-C# shape infers settings at `Track`, selects the job at `Use`, and infers the clip later at `Clip`:
 
 ```csharp
 public readonly ref struct Builder
 {
-    public TrackRef<TJob, TTrack, TClip> Track<TJob, TTrack, TClip>(in TTrack track)
-        where TJob : unmanaged, ITimelineJob<TTrack, TClip>
-        where TTrack : unmanaged
-        where TClip : unmanaged => default;
+    public TrackRef<TTrack> Track<TTrack>(in TTrack track)
+        where TTrack : unmanaged => default;
 
-    public void Clip<TJob, TTrack, TClip>(
-        in TrackRef<TJob, TTrack, TClip> track,
+    public void Clip<TTrack, TJob, TClip>(
+        in TrackRef<TTrack, TJob> track,
         in TClip clip,
-        uint start,
-        uint end) { }
+        uint start, uint end)
+        where TTrack : unmanaged
+        where TClip : unmanaged
+        where TJob : unmanaged, ITimelineJob<TTrack, TClip> { }
 }
+
+public readonly ref struct TrackRef<TTrack> where TTrack : unmanaged
+{
+    public TrackRef<TTrack, TJob> Use<TJob>() where TJob : unmanaged => default;
+}
+
+public readonly ref struct TrackRef<TTrack, TJob>
+    where TTrack : unmanaged
+    where TJob : unmanaged { }
 
 public readonly partial struct DamageOnlyTimeline : ITimeline
 {
     public static void Define(scoped Builder builder)
     {
-        var damage = builder.Track<DamageJob, DamageTrack, DamageClip>(
-            new DamageTrack(2));
+        var damage = builder.Track(new DamageTrack(2)).Use<DamageJob>();
         builder.Clip(damage, new DamageClip(7), 0u, 10u);
     }
 }
@@ -70,17 +78,15 @@ public readonly partial struct DamageAnimationTimeline : ITimeline
 {
     public static void Define(scoped Builder builder)
     {
-        var damage = builder.Track<DamageJob, DamageTrack, DamageClip>(
-            new DamageTrack(2));
-        var animation = builder.Track<AnimationJob, AnimationTrack, AnimationClip>(
-            new AnimationTrack(1));
+        var damage = builder.Track(new DamageTrack(2)).Use<DamageJob>();
+        var animation = builder.Track(new AnimationTrack(1)).Use<AnimationJob>();
         builder.Clip(damage, new DamageClip(7), 0u, 10u);
         builder.Clip(animation, new AnimationClip(1), 0u, 10u);
     }
 }
 ```
 
-`ITimelineJob<TTrack,TClip>`, `Builder.Track`, and `Builder.Clip` are runtime declarations, so the first compiler pass never depends on a generated extension or a partial declaration in another assembly. A settings-first `Track(settings).Use<TJob>()` would need another way to name `TClip`; it does not reduce this contract yet.
+`ITimelineJob<TTrack,TClip>`, both `TrackRef` types, `Builder.Track`, and `Builder.Clip` are runtime declarations, so the first compiler pass never depends on a generated extension or a partial declaration in another assembly. The `Clip` constraint makes C# check the full pairing. The normal experiment build accepts `DamageJob + DamageTrack + DamageClip`; compiling with `INVALID_MAPPING` adds `DamageJob + DamageTrack + OtherClip` and fails with CS0315. The generator still diagnoses a track that is never bound to a clip and validates the supported static `Execute` signature.
 
 The smallest asset-set declaration accepts the manager's proposed `ITimelineSet`: `TimelineSetBuilder.Include<TTimeline>` is a runtime method with one inferred-free generic argument. The generator derives and groups the per-asset schemas:
 
@@ -225,7 +231,7 @@ That slice is small enough to demonstrate a real path through Core, Compiler, re
 
 The manager plan at `fb70db89e327f8d0c975eb729bc24e7a28a68d02` correctly separates selection, ordered typed execution, and completion; requires an explicit schema set; retains the full Frame question; rejects type-only ordering; and sequences Core/Compiler before generator execution. The implementation atoms are usable with these additions:
 
-- freeze the `ITimelineSet` declaration and its compiled full-generic track binding before Atom C;
+- freeze the `ITimelineSet` declaration and its compiled settings-first track binding before Atom C;
 - freeze the occurrence-slice/count representation proved by the ordering workstream before the selector and executor share a format;
 - retain `Cycle` and all current Frame boundary flags for the first migration, with exact compatibility receipts;
 - require a whole-schema gate before selection, including the valid damage-only and invalid mixed cases;
@@ -241,6 +247,9 @@ Run the current-path probe and retain both generation paths:
 
 ```sh
 dotnet run --project experiments/Alpha3/Generator/CurrentPath.csproj -c Release
+dotnet build experiments/Alpha3/Generator/CurrentPath.csproj -c Release \
+  -p:DefineConstants=INVALID_MAPPING -p:NuGetAudit=false -m:1
+# the preceding command must fail with CS0315 at the OtherClip call
 dotnet msbuild experiments/Alpha3/Generator/CurrentPath.csproj \
   -t:TlGenExport -p:Configuration=Release -p:NuGetAudit=false -m:1
 wc -c experiments/Alpha3/Generator/obj/generated/Tl.Gen.CSharp/\
@@ -252,9 +261,9 @@ The first command prints:
 ```text
 current generator: Start + borrowed Data + eager TrySeek
 generated schedule: 1 track, 1 clip, 1 region
-proposed authoring: explicit Track<TJob, TTrack, TClip> compiles
+proposed authoring: Track(settings).Use<TJob>() compiles
 ```
 
 The analyzer output lives under `obj/generated`; the explicit CLI export lives under `obj/Release/net10.0/TlGenCompile`. Both are disposable. This report claims a validated design path and current-generator evidence, not a production vertical slice or an alpha.3 release.
 
-At this checkpoint the exact probe passed, analyzer and CLI files compared byte-for-byte, all 65 focused generator tests passed, the preserved 10,000-row reference passed with 0 B over 2,560,000 entity-ticks, source remained 207,337/250,000 B, and `git diff --check` passed. The conditional `UnityProof.csproj` build could not run because this machine has no recorded `UnityProbe`, `UnityEditor`, or `UnityGenerators` paths; it failed at the project's explicit environment guard before compilation. No Unity execution claim is made here.
+At this checkpoint the exact probe and positive settings-first declaration passed; the negative mapping failed with the expected CS0315; analyzer and CLI files compared byte-for-byte; all 65 focused generator tests passed; the preserved 10,000-row reference passed with 0 B over 2,560,000 entity-ticks; source remained 207,337/250,000 B; and `git diff --check` passed. The conditional `UnityProof.csproj` build could not run because this machine has no recorded `UnityProbe`, `UnityEditor`, or `UnityGenerators` paths; it failed at the project's explicit environment guard before compilation. No Unity execution claim is made here.

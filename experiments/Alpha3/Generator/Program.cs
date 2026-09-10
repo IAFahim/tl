@@ -30,7 +30,7 @@ internal static class Program
 
         Console.WriteLine("current generator: Start + borrowed Data + eager TrySeek");
         Console.WriteLine($"generated schedule: {Attack.TrackCount} track, {Attack.ClipCount} clip, {Attack.RegionCount} region");
-        Console.WriteLine("proposed authoring: explicit Track<TJob, TTrack, TClip> compiles");
+        Console.WriteLine("proposed authoring: Track(settings).Use<TJob>() compiles");
     }
 
     private static void Require(bool condition, string message)

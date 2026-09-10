@@ -14,21 +14,26 @@ public interface ITimelineJob<TTrack, TClip>
     where TTrack : unmanaged
     where TClip : unmanaged;
 
-public readonly ref struct TrackRef<TJob, TTrack, TClip>
-    where TJob : unmanaged, ITimelineJob<TTrack, TClip>
+public readonly ref struct TrackRef<TTrack>
     where TTrack : unmanaged
-    where TClip : unmanaged;
+{
+    public TrackRef<TTrack, TJob> Use<TJob>()
+        where TJob : unmanaged
+        => default;
+}
+
+public readonly ref struct TrackRef<TTrack, TJob>
+    where TTrack : unmanaged
+    where TJob : unmanaged;
 
 public readonly ref struct Builder
 {
-    public TrackRef<TJob, TTrack, TClip> Track<TJob, TTrack, TClip>(in TTrack track)
-        where TJob : unmanaged, ITimelineJob<TTrack, TClip>
+    public TrackRef<TTrack> Track<TTrack>(in TTrack track)
         where TTrack : unmanaged
-        where TClip : unmanaged
         => default;
 
-    public void Clip<TJob, TTrack, TClip>(
-        in TrackRef<TJob, TTrack, TClip> track,
+    public void Clip<TTrack, TJob, TClip>(
+        in TrackRef<TTrack, TJob> track,
         in TClip clip,
         uint start,
         uint end)
@@ -49,6 +54,7 @@ public readonly ref struct TimelineSetBuilder
 
 public readonly record struct DamageTrack(int Multiplier);
 public readonly record struct DamageClip(int Amount);
+public readonly record struct OtherClip(int Amount);
 public readonly record struct AnimationTrack(int Layer);
 public readonly record struct AnimationClip(int Step);
 public readonly record struct Resistance(int Scale);
@@ -96,8 +102,11 @@ public readonly partial struct DamageOnlyTimeline : ITimeline
 {
     public static void Define(scoped Builder builder)
     {
-        var damage = builder.Track<DamageJob, DamageTrack, DamageClip>(new DamageTrack(2));
+        var damage = builder.Track(new DamageTrack(2)).Use<DamageJob>();
         builder.Clip(damage, new DamageClip(7), 0u, 10u);
+#if INVALID_MAPPING
+        builder.Clip(damage, new OtherClip(7), 0u, 10u);
+#endif
     }
 }
 
@@ -105,8 +114,8 @@ public readonly partial struct DamageAnimationTimeline : ITimeline
 {
     public static void Define(scoped Builder builder)
     {
-        var damage = builder.Track<DamageJob, DamageTrack, DamageClip>(new DamageTrack(2));
-        var animation = builder.Track<AnimationJob, AnimationTrack, AnimationClip>(new AnimationTrack(1));
+        var damage = builder.Track(new DamageTrack(2)).Use<DamageJob>();
+        var animation = builder.Track(new AnimationTrack(1)).Use<AnimationJob>();
         builder.Clip(damage, new DamageClip(7), 0u, 10u);
         builder.Clip(animation, new AnimationClip(1), 0u, 10u);
     }
