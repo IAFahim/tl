@@ -27,7 +27,14 @@ EVENTS = {
     "branches": 0xC4,
     "branch_misses": 0xC5,
 }
-SCENARIOS = ("sum-direct", "sum-public", "combat-direct", "combat-public")
+SCENARIOS = (
+    "sum-direct",
+    "sum-typed",
+    "sum-dynamic",
+    "combat-direct",
+    "combat-typed",
+    "combat-dynamic",
+)
 
 
 def open_counter(process_id, config, group):

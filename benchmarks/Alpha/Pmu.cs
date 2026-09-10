@@ -10,14 +10,20 @@ internal static class Pmu
             case "sum-direct":
                 RunSum(static benchmark => benchmark.DirectScalar());
                 return;
-            case "sum-public":
-                RunSum(static benchmark => benchmark.PublicScalar());
+            case "sum-typed":
+                RunSum(static benchmark => benchmark.TypedScalar());
+                return;
+            case "sum-dynamic":
+                RunSum(static benchmark => benchmark.DynamicScalar());
                 return;
             case "combat-direct":
                 RunCombat(static benchmark => benchmark.DirectScalar());
                 return;
-            case "combat-public":
-                RunCombat(static benchmark => benchmark.PublicScalar());
+            case "combat-typed":
+                RunCombat(static benchmark => benchmark.TypedScalar());
+                return;
+            case "combat-dynamic":
+                RunCombat(static benchmark => benchmark.DynamicScalar());
                 return;
             default:
                 throw new ArgumentOutOfRangeException(nameof(scenario));
@@ -26,7 +32,7 @@ internal static class Pmu
 
     private static void RunSum(Func<SumBenchmarks, SumReceipt> operation)
     {
-        var benchmark = new SumBenchmarks { Pattern = TickPattern.Sequential };
+        var benchmark = new SumBenchmarks { Pattern = SeekPattern.Forward };
         benchmark.Setup();
         for (var pass = 0; pass < WarmupPasses; pass++)
             _ = operation(benchmark);
@@ -42,7 +48,7 @@ internal static class Pmu
 
     private static void RunCombat(Func<CombatBenchmarks, CombatReceipt> operation)
     {
-        var benchmark = new CombatBenchmarks { Pattern = TickPattern.Sequential };
+        var benchmark = new CombatBenchmarks { Pattern = SeekPattern.Forward };
         benchmark.Setup();
         for (var pass = 0; pass < WarmupPasses; pass++)
             _ = operation(benchmark);
