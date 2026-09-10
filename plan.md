@@ -2,11 +2,13 @@
 
 Date: 2026-09-10
 Base: `5c05aa5`, released as v1.0.0-alpha.1.
-Status: v1.0.0-alpha.2 candidate in progress. The generated C# scalar target is met locally; C totality, complete release validation, Unity qualification, and publication remain open.
+Status: v1.0.0-alpha.2 candidate in progress. The generated C# scalar target is met; registry-free typed playback and signed simulation seek are active breaking API work. Complete release validation and publication remain open.
 Working branch: `codex/tl-v1-alpha-plan-20260910`.
 Target package version and immutable tag: `1.0.0-alpha.2` and `v1.0.0-alpha.2`.
 
 This file is the durable execution plan and design record. The [release issue](https://github.com/IAFahim/tl/issues/11) owns completion across machines, the [API contract](docs/v1.0-alpha-api.md) defines the surface, the [checklist](docs/v1.0-alpha-checklist.md) tracks proof, and the [alpha.1 record](docs/verification/v1.0-alpha.1/README.md) preserves the released baseline.
+
+Issues [#15](https://github.com/IAFahim/tl/issues/15) and [#16](https://github.com/IAFahim/tl/issues/16) contain newer owner-approved API decisions than the forward/backward, span-batch, runtime-ID, and 8-byte playback passages below. Their recorded contracts take precedence until the plan, API reference, generated code, tests, and measurements are migrated together.
 
 | Workstream | GitHub issue |
 | --- | --- |
@@ -19,6 +21,28 @@ This file is the durable execution plan and design record. The [release issue](h
 | One-install packages and artifacts | [#8](https://github.com/IAFahim/tl/issues/8) |
 | Multi-PC coordination | [#9](https://github.com/IAFahim/tl/issues/9) |
 | Physical-floor performance matrix | [#10](https://github.com/IAFahim/tl/issues/10) |
+| Registry-free typed playback | [#15](https://github.com/IAFahim/tl/issues/15) |
+| Signed simulation seek | [#16](https://github.com/IAFahim/tl/issues/16) |
+
+## Cold-start manager index
+
+The canonical live board is the [Project 6 Workflow view](https://github.com/users/IAFahim/projects/6/views/4). The [release issue #11](https://github.com/IAFahim/tl/issues/11) owns merge order and release completion. Issues own task detail and progress; pull requests own review; `refs/heads/claims/<issue>/...` own concurrent workstream publication.
+
+A new manager session recovers without chat history:
+
+```sh
+git clone https://github.com/IAFahim/tl.git
+cd tl
+git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+cat AGENTS.md
+cat docs/roadmap.md
+gh issue view 11 --comments
+gh pr list --state open
+gh project item-list 6 --owner IAFahim --limit 1000
+git ls-remote --heads origin 'refs/heads/claims/*'
+```
+
+For each active item, read the issue and linked pull request, verify its Project branch and checkpoint against origin, inspect its atomic claim, then use `eng/agent-work` to resume, hand off, or perform a compare-and-set takeover. Never infer current ownership or next work from this file's prose when GitHub has newer state.
 
 ## Objective and release gates
 

@@ -6,6 +6,14 @@ These rules apply to every human and automated contributor. More specific `AGENT
 
 GitHub Issues and the repository Project are the source of truth for all non-trivial work. `plan.md` defines architecture and release gates; it is not a shared mutable task queue.
 
+Agent chats and local worktrees are disposable. A machine must be able to lose power after any published checkpoint without losing the task, its reasoning, or its recovery path.
+
+- Put the complete task specification on GitHub before delegating it. The issue or a workstream comment contains the problem, invariants, owned files, dependencies, acceptance receipts, current checkpoint, material risks, and exact next atom.
+- A private agent prompt contains only the issue URL or number and the instruction to read and claim its recorded workstream. Do not place unique requirements, design reasoning, or handoff state only in chat.
+- Before acting, read this file, `plan.md`, `docs/roadmap.md`, the issue and its comments, linked issues and pull requests, Project 6 fields, and the remote atomic claim. If those sources do not define the work completely, update the issue before editing.
+- Post a changed decision, scope, dependency, or next atom to the issue before dependent work begins. An agent's final response links the durable issue comment and remote commit; it is never the only report.
+- Keep atoms short. Validate, commit, push, and record one atom before starting another. Prefer green checkpoints. If an atom cannot become green in the current session, push a clearly labeled recoverable checkpoint and record every known failing command; do not start the next atom from an unpublished or unexplained state.
+
 - Create or select an issue before editing. The issue contains the problem, constraints, acceptance receipts, affected boundaries, and dependencies.
 - Apply the `ai` label to AI-executed work plus one `area:*` and one `kind:*` label. Add the issue to the active GitHub Project.
 - Claim a bounded workstream by posting its machine, agent, branch, worktree, owned files, and owned receipts. One issue may contain several independent workstreams and pull requests. Every workstream has its own atomic claim, branch, worktree, and non-overlapping ownership. Split work into a child issue when it has an independent outcome, acceptance criteria, or release decision.
@@ -13,7 +21,7 @@ GitHub Issues and the repository Project are the source of truth for all non-tri
 - Several agents may work on one issue through separate claimed branches. Only one active owner may push a workstream branch. A handoff or compare-and-set takeover transfers that ownership; multiple PCs never push concurrently to the same branch. The integration manager reviews overlap and orders or combines the pull requests.
 - Rebase or merge the current default branch before final validation. Resolve semantic conflicts using the issue invariants, not by mechanically choosing one side.
 - Post concise progress only when evidence or scope changes. Record commands, receipts, measurements, generated-size changes, and blockers in the issue.
-- Push every green material checkpoint and before every handoff, shutdown, or machine change. The issue comment names the last pushed commit and any uncommitted work. Never leave another PC dependent on an unpushed checkout or private chat context.
+- Push every green material checkpoint and before every handoff, delegated wait, shutdown, machine change, or switch to another atom. The issue comment names the last pushed commit, validation state, and any uncommitted work. Never leave another PC dependent on an unpushed checkout or private chat context.
 - Open a linked pull request with `Refs #<issue>` when it completes one workstream and `Closes #<issue>` only when it satisfies every remaining acceptance criterion. The PR is the reviewable result; the issue remains the execution record.
 - Another agent reviews correctness, architecture boundaries, source budget, and benchmark validity. The implementer does not self-approve.
 - Merge only after required checks and review pass. Remove the worktree and branch after merge. Close abandoned experiments with their measurements and reason.
@@ -21,11 +29,13 @@ GitHub Issues and the repository Project are the source of truth for all non-tri
 
 Use `eng/agent-work` for issue creation, claims, checkpoints, handoffs, pull requests, and completion. Set `TL_AGENT` and `TL_MACHINE` to stable public team identifiers. The helper updates Project 6 and the issue while it pushes the branch. If GitHub is unavailable, keep working only within the claimed scope, then run the missing helper operation before handing off or starting another issue.
 
+The cold-start entry point is `docs/roadmap.md`. It points to the release issue and canonical Project view. Live status belongs in GitHub; repository roadmap files contain recovery procedure, architecture, gates, and links rather than a second mutable status board.
+
 Small typo-only documentation fixes may share their parent issue. Emergency release repairs still receive an issue immediately after containment. No agent creates an untracked private task list as an alternative authority.
 
 ## Product contract
 
-`tl` compiles immutable, heterogeneous timelines into deterministic playback kernels. The public runtime surface is a non-generic timeline ID, `Playback`, generated borrowed contexts, and total `Try` operations. Authoring is declarative syntax consumed at compilation. Runtime authoring, reflection, binding tables, hidden allocation, and implicit fallback are outside the compiled path.
+`tl` compiles immutable, heterogeneous timelines into deterministic playback kernels. The primary runtime surface is a generated typed timeline facade, timeline-typed playback, generated borrowed contexts, and total operations. A non-generic timeline ID is an explicit dynamic-routing fallback. The signed simulation-seek contract is owned by issue #16 and supersedes older forward/backward/span examples while that breaking migration is active. Authoring is declarative syntax consumed at compilation. Runtime authoring, reflection, binding tables, hidden allocation, and implicit fallback are outside the compiled path.
 
 Production source plus UTF-8 relative paths must remain at or below 200,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
 
