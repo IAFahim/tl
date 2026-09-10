@@ -265,7 +265,7 @@ public sealed class HeterogeneousCompositionTests
     }
 
     [Fact]
-    public void DataInitializationPrecedesTimelinePublication()
+    public void DataInitializationPrecedesLazyDynamicRegistration()
     {
         var (timelines, diagnostics) = HeterogeneousReader.Read([("Fix.cs", Contracts + """
 
@@ -282,9 +282,11 @@ public sealed class HeterogeneousCompositionTests
         Assert.Empty(diagnostics);
         var generated = HeterogeneousEmitter.Emit(Assert.Single(timelines));
         var data = generated.IndexOf("s_track0 =", StringComparison.Ordinal);
-        var publication = generated.IndexOf("s_id = global::Tl.Timeline.RegisterCompiled", StringComparison.Ordinal);
+        var holder = generated.IndexOf("private static class Dynamic", StringComparison.Ordinal);
+        var publication = generated.IndexOf("internal static readonly ushort Id = global::Tl.Timeline.RegisterCompiled", StringComparison.Ordinal);
 
-        Assert.True(data >= 0 && data < publication);
+        Assert.True(data >= 0 && data < holder && holder < publication);
+        Assert.Contains("public static ushort Id => Dynamic.Id", generated);
     }
 
     [Fact]
