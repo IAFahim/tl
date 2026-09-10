@@ -12,13 +12,31 @@ public interface ITimeline
 public interface ITrack<TClip> : IBlend<TClip>
     where TClip : unmanaged;
 
+public interface ITimelineJob<TTrack, TClip>
+    where TTrack : unmanaged, IBlend<TClip>
+    where TClip : unmanaged;
+
+public interface ITimelineCatalog
+{
+    static abstract void Define(scoped CatalogBuilder builder);
+}
+
 public interface IHook;
 
 [EditorBrowsable(EditorBrowsableState.Never)]
 public readonly record struct CompiledRoute(byte Module, byte Ordinal);
 
 public readonly ref struct TrackRef<TTrack>
-    where TTrack : unmanaged;
+    where TTrack : unmanaged
+{
+    public TrackRef<TTrack, TJob> Use<TJob>()
+        where TJob : unmanaged
+        => default;
+}
+
+public readonly ref struct TrackRef<TTrack, TJob>
+    where TTrack : unmanaged
+    where TJob : unmanaged;
 
 public readonly ref struct Builder
 {
@@ -28,6 +46,13 @@ public readonly ref struct Builder
 
     public void Clip<TTrack, TClip>(in TrackRef<TTrack> track, in TClip clip, uint start, uint end)
         where TTrack : unmanaged, ITrack<TClip>
+        where TClip : unmanaged
+    {
+    }
+
+    public void Clip<TTrack, TJob, TClip>(in TrackRef<TTrack, TJob> track, in TClip clip, uint start, uint end)
+        where TTrack : unmanaged, IBlend<TClip>
+        where TJob : unmanaged, ITimelineJob<TTrack, TClip>
         where TClip : unmanaged
     {
     }
@@ -49,8 +74,43 @@ public readonly ref struct Builder
     }
 }
 
+public readonly ref struct CatalogBuilder
+{
+    public SchemaBuilder<TSchema> Schema<TSchema>()
+        where TSchema : unmanaged
+        => default;
+}
+
+public readonly ref struct SchemaBuilder<TSchema>
+    where TSchema : unmanaged
+{
+    public SchemaBuilder<TSchema> Asset<TTimeline>()
+        where TTimeline : unmanaged, ITimeline
+        => this;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public readonly struct TimelineFrame
+{
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public TimelineFrame(uint gameTick, uint timelineTick, long cycle, FrameFlags flags)
+    {
+        GameTick = gameTick;
+        TimelineTick = timelineTick;
+        Cycle = cycle;
+        Flags = flags;
+    }
+
+    public uint GameTick { get; }
+    public uint TimelineTick { get; }
+    public long Cycle { get; }
+    public FrameFlags Flags { get; }
+    public int Direction => Has(FrameFlags.Reverse) ? -1 : 1;
+    public bool Has(FrameFlags flags) => (Flags & flags) == flags;
+}
+
 public readonly ref struct Frame<TTrack, TClip>
-    where TTrack : unmanaged, ITrack<TClip>
+    where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
     private readonly ref readonly TTrack _track;
