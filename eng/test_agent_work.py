@@ -334,6 +334,36 @@ class AgentWorkTests(unittest.TestCase):
         self.assertEqual(0, beta_handoff.returncode, beta_handoff.stdout)
         self.assertEqual("Ready", self.read_state()["project"]["status"])
 
+    def test_start_accepts_an_explicit_stacked_base(self):
+        self.run_raw(["git", "switch", "-c", "stacked"], self.seed)
+        (self.seed / "stacked.txt").write_text("stacked\n")
+        self.run_raw(["git", "add", "stacked.txt"], self.seed)
+        self.run_raw(["git", "commit", "-m", "stacked"], self.seed)
+        expected = self.run_raw(["git", "rev-parse", "HEAD"], self.seed).stdout.strip()
+        self.run_raw(["git", "push", "origin", "stacked"], self.seed)
+        self.run_raw(["git", "switch", "main"], self.seed)
+
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope", "origin/stacked")
+
+        self.assertEqual(0, started.returncode, started.stdout)
+        actual = self.run_raw(["git", "rev-parse", "HEAD"], self.worktree(repo)).stdout.strip()
+        self.assertEqual(expected, actual)
+        claim_parent = self.run_raw([
+            "git", "--git-dir", str(self.remote), "rev-parse", "refs/heads/claims/41/feat/atomic^"
+        ]).stdout.strip()
+        self.assertEqual(expected, claim_parent)
+
+    def test_start_rejects_a_missing_explicit_base_before_claiming(self):
+        repo = self.clone("owner")
+
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope", "origin/missing")
+
+        self.assertNotEqual(0, started.returncode)
+        self.assertIn("does not exist", started.stdout)
+        self.assertFalse(self.claim())
+        self.assertFalse(self.worktree(repo).exists())
+
     def test_interrupted_start_repairs_the_same_claim(self):
         repo = self.clone("owner")
         self.write_state(fail="project item-edit")

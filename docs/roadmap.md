@@ -18,6 +18,8 @@ git ls-remote --heads origin 'refs/heads/claims/*'
 
 Resume only the branch and exact checkpoint recorded by its issue and Project fields. Use `eng/agent-work` to claim it before editing. Put the complete instruction on the issue before delegating; a private agent message needs only the issue reference. Record each changed decision before dependent edits, and publish one validated atom before beginning the next. If work must stop red, publish a recoverable checkpoint with the exact failures.
 
+For a stacked change, pass its published dependency explicitly: `eng/agent-work start <issue> <kind> <scope> <description> origin/<dependency-branch>`. The claim records the resolved commit, so a new machine never guesses which parent was intended.
+
 The repository roadmap records architecture, release gates, recovery procedure, and durable links. It does not duplicate the Project's mutable status columns.
 
 v0.6 is the released baseline. Its implementation, measurements and verification remain in the [archived report](verification/v0.6/plan.md) and [verification record](verification/v0.6/README.md).

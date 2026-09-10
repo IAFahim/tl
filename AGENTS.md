@@ -29,6 +29,8 @@ Agent chats and local worktrees are disposable. A machine must be able to lose p
 
 Use `eng/agent-work` for issue creation, claims, checkpoints, handoffs, pull requests, and completion. Set `TL_AGENT` and `TL_MACHINE` to stable public team identifiers. The helper updates Project 6 and the issue while it pushes the branch. If GitHub is unavailable, keep working only within the claimed scope, then run the missing helper operation before handing off or starting another issue.
 
+Start a stacked workstream with the optional explicit base, such as `eng/agent-work start 16 feat runtime-state "runtime state ABI" origin/feat/15-typed-playback`. The helper resolves and records the exact base commit before publishing its atomic claim. Omit the base only when `origin/main` is correct or when resuming an existing claim.
+
 The cold-start entry point is `docs/roadmap.md`. It points to the release issue and canonical Project view. Live status belongs in GitHub; repository roadmap files contain recovery procedure, architecture, gates, and links rather than a second mutable status board.
 
 Small typo-only documentation fixes may share their parent issue. Emergency release repairs still receive an issue immediately after containment. No agent creates an untracked private task list as an alternative authority.

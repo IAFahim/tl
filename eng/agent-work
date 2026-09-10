@@ -296,12 +296,27 @@ ensure_worktree() {
     fi
 }
 
+resolve_start_base() {
+    local requested="$1"
+    local target="$2"
+    local remote_branch
+    local commit
+    if [[ "$requested" == origin/* ]]; then
+        remote_branch="${requested#origin/}"
+        git check-ref-format --branch "$remote_branch" >/dev/null 2>&1 || fail "invalid remote start base '$requested'"
+        git fetch origin "$remote_branch" >/dev/null 2>&1 || fail "remote start base '$requested' does not exist"
+    fi
+    commit="$(git rev-parse --verify "$requested^{commit}" 2>/dev/null)" || fail "start base '$requested' is not a commit"
+    printf -v "$target" '%s' "$commit"
+}
+
 publish_claim() {
     local issue="$1"
     local branch="$2"
     local worktree="$3"
     local scope="$4"
     local state="$5"
+    local requested_base="${6:-recorded checkpoint}"
     local item
     gh issue edit "$issue" --add-assignee "@me" >/dev/null
     item="$(project_item "$issue")"
@@ -316,7 +331,8 @@ publish_claim() {
 - Machine: $machine_name
 - Branch: \`$branch\`
 - Worktree: \`$worktree\`
-- Base: \`$(git -C "$worktree" rev-parse HEAD)\`
+- Requested base: \`$requested_base\`
+- Exact checkpoint: \`$(git -C "$worktree" rev-parse HEAD)\`
 - Claim: \`$remote_claim_commit\`
 - Scope: $scope
 - State: $state"
@@ -332,6 +348,7 @@ start_work() {
     local worktree
     local branch
     local base
+    local requested_base="${5:-origin/main}"
     local claim_commit
     local existing_claim
     local -a claim=()
@@ -349,21 +366,21 @@ start_work() {
         assert_remote_claim "$issue" "$branch"
         base="$(git rev-parse "refs/tl/claims/$issue/$(printf '%s' "$branch" | tr / -)^")"
         ensure_worktree "$worktree" "$branch" "$base"
-        publish_claim "$issue" "$branch" "$worktree" "$scope" "In progress"
+        publish_claim "$issue" "$branch" "$worktree" "$scope" "In progress" "recorded claim checkpoint"
         printf '%s\n' "$worktree"
         return
     fi
     [[ ! -e "$worktree" ]] || fail "worktree already exists without a remote claim: $worktree"
-    git fetch origin main
-    base="origin/main"
+    resolve_start_base "$requested_base" base
     if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
         git fetch origin "$branch"
-        base="origin/$branch"
+        resolve_start_base "origin/$branch" base
+        requested_base="origin/$branch"
     fi
     claim_commit="$(acquire_claim "$issue" "$branch" "$base")"
     remote_claim_commit="$claim_commit"
     ensure_worktree "$worktree" "$branch" "$base"
-    publish_claim "$issue" "$branch" "$worktree" "$scope" "In progress"
+    publish_claim "$issue" "$branch" "$worktree" "$scope" "In progress" "$requested_base"
     printf '%s\n' "$worktree"
 }
 
@@ -652,7 +669,7 @@ finish_work() {
 usage() {
     printf '%s\n' \
         "eng/agent-work issue <title> <area-label> <kind-label> <body-file> [milestone]" \
-        "eng/agent-work start <issue> <kind> <slug> <scope>" \
+        "eng/agent-work start <issue> <kind> <slug> <scope> [base]" \
         "eng/agent-work adopt <issue>" \
         "eng/agent-work takeover <issue> <kind> <slug> <reason> <expected-claim>" \
         "eng/agent-work checkpoint <issue> <summary> <validation> [risks]" \
