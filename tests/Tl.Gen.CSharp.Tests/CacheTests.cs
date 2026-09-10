@@ -36,6 +36,7 @@ public sealed class CacheTests : IDisposable
         File.Delete(Path.Combine(_directory, CompileGenerationCache.ReportFileName));
 
         Assert.False(CompileGenerationCache.IsHit(_directory, key, manifest));
+        Assert.Equal("report missing", CompileGenerationCache.MissReason(_directory, key, manifest));
     }
 
     [Fact]
@@ -68,6 +69,7 @@ public sealed class CacheTests : IDisposable
         File.WriteAllText(reportPath, "changed\n");
 
         Assert.False(CompileGenerationCache.IsHit(_directory, key, manifest));
+        Assert.Equal("report changed", CompileGenerationCache.MissReason(_directory, key, manifest));
         CompileGenerationCache.Synchronize(_directory, key, [], "report\n", manifest);
         Assert.Equal("report\n", File.ReadAllText(reportPath));
     }
@@ -82,6 +84,7 @@ public sealed class CacheTests : IDisposable
         Assert.NotEqual(key, CompileGenerationCache.GetKey([source], ["B"], ["reference=first", "nullable=enable"]));
         Assert.NotEqual(key, CompileGenerationCache.GetKey([source], ["A"], ["reference=second", "nullable=enable"]));
         Assert.NotEqual(key, CompileGenerationCache.GetKey([source], ["A"], ["reference=first", "nullable=disable"]));
+        Assert.Equal("manifest missing", CompileGenerationCache.MissReason(_directory, key, null));
     }
 
     [Fact]

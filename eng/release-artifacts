@@ -99,8 +99,11 @@ dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_art
 jit_output="$consumer_artifacts/bin/Tl.PackageConsumer/release"
 [[ "$("$jit_output/Tl.PackageConsumer")" == "7" ]]
 
+export_log="$stage/Tl.PackageConsumer.export.log"
+dotnet msbuild "$consumer" -t:TlGenExport -p:Configuration=Release -p:ArtifactsPath="$consumer_artifacts" "${consumer_properties[@]}" | tee "$export_log"
+grep -F "TlGenCompile: cache miss" "$export_log"
 cache_log="$stage/Tl.PackageConsumer.cache.log"
-dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${consumer_properties[@]}" | tee "$cache_log"
+dotnet msbuild "$consumer" -t:TlGenExport -p:Configuration=Release -p:ArtifactsPath="$consumer_artifacts" "${consumer_properties[@]}" | tee "$cache_log"
 grep -F "TlGenCompile: cache hit" "$cache_log"
 
 for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do

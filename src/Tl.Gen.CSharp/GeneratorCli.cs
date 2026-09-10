@@ -15,7 +15,7 @@ public static class GeneratorCli
 
         string? output = null;
         var paths = new List<string>();
-        var references = new List<string>();
+        var references = new List<CompilationReference>();
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
         var symbols = new SortedSet<string>(StringComparer.Ordinal);
         for (var index = 1; index < args.Length; index++)
@@ -27,7 +27,7 @@ public static class GeneratorCli
             else if (args[index] == "--source-list" && index + 1 < args.Length)
                 paths.AddRange(File.ReadAllLines(args[++index]));
             else if (args[index] == "--reference-list" && index + 1 < args.Length)
-                references.AddRange(File.ReadAllLines(args[++index]));
+                ReadReferences(args[++index], references);
             else if (args[index] == "--option-list" && index + 1 < args.Length)
                 ReadOptions(args[++index], options);
             else if (args[index] == "--define" && index + 1 < args.Length)
@@ -53,23 +53,23 @@ public static class GeneratorCli
             .ToArray();
         var defines = symbols.ToArray();
         var semanticInputs = references
-            .Select(Path.GetFullPath)
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)
-            .Select(static path => path + "=" + ReferenceIdentity(path))
+            .Select(static reference => ReferenceIdentity(reference))
             .Concat(options.OrderBy(static pair => pair.Key, StringComparer.Ordinal).Select(static pair => pair.Key + "=" + pair.Value))
             .ToArray();
         var key = CompileGenerationCache.GetKey(sources, defines, semanticInputs);
         var previous = CompileGenerationCache.Load(output);
-        if (CompileGenerationCache.IsHit(output, key, previous))
+        var missReason = CompileGenerationCache.MissReason(output, key, previous);
+        if (missReason is null)
         {
             Console.WriteLine($"TlGenCompile: cache hit; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
             return 0;
         }
+        Console.WriteLine($"TlGenCompile: cache miss ({missReason})");
 
         var settings = new HeterogeneousCompilationSettings
         {
-            ReferencePaths = references,
+            ReferencePaths = references.Select(static reference => reference.Path).ToArray(),
+            MetadataReferences = references,
             LanguageVersion = options.GetValueOrDefault("language-version", "preview"),
             Nullable = options.GetValueOrDefault("nullable", "enable"),
             AllowUnsafe = Boolean(options.GetValueOrDefault("allow-unsafe")),
@@ -154,15 +154,30 @@ public static class GeneratorCli
         }
     }
 
+    private static void ReadReferences(string path, ICollection<CompilationReference> references)
+    {
+        foreach (var line in File.ReadAllLines(path))
+        {
+            var fields = line.Split('\t');
+            var referencePath = Path.GetFullPath(fields[0]);
+            var aliases = fields.Length > 1
+                ? fields[1].Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                : [];
+            var embedInteropTypes = fields.Length > 2 && Boolean(fields[2]);
+            references.Add(new CompilationReference(referencePath, aliases, embedInteropTypes));
+        }
+    }
+
     private static bool Boolean(string? value)
         => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 
-    private static string ReferenceIdentity(string path)
+    private static string ReferenceIdentity(CompilationReference reference)
     {
+        var path = reference.Path;
         try
         {
             using var stream = File.OpenRead(path);
-            return Convert.ToHexString(SHA256.HashData(stream));
+            return path + "\t" + string.Join(",", reference.Aliases) + "\t" + reference.EmbedInteropTypes + "=" + Convert.ToHexString(SHA256.HashData(stream));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

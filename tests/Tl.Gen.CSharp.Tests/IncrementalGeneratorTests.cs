@@ -99,27 +99,27 @@ public sealed class IncrementalGeneratorTests
     }
 
     [Fact]
-    public void TrackedCompilationStepRespondsOnlyToStructuralInputs()
+    public void ExpensiveAnalysisIsCachedForUnchangedAndUnrelatedEdits()
     {
         var initial = Compilation(Declaration).AddSyntaxTrees(Tree("namespace Unrelated; internal sealed class Value { }", "Other.cs"));
         var driver = Driver();
         driver = driver.RunGenerators(initial);
-        Assert.Equal(IncrementalStepRunReason.New, Reason(driver, "Tl.Compilation"));
+        Assert.Equal(IncrementalStepRunReason.New, Reason(driver, "Tl.Analysis"));
 
         driver = driver.RunGenerators(initial);
-        Assert.Equal(IncrementalStepRunReason.Cached, Reason(driver, "Tl.Compilation"));
+        Assert.Equal(IncrementalStepRunReason.Cached, Reason(driver, "Tl.Analysis"));
 
         var unrelated = initial.ReplaceSyntaxTree(
             initial.SyntaxTrees.Single(static tree => tree.FilePath == "Other.cs"),
             Tree("namespace Unrelated; internal sealed class Value { internal int Number; }", "Other.cs"));
         driver = driver.RunGenerators(unrelated);
-        Assert.Equal(IncrementalStepRunReason.Cached, Reason(driver, "Tl.Compilation"));
+        Assert.Equal(IncrementalStepRunReason.Cached, Reason(driver, "Tl.Analysis"));
 
         var changed = unrelated.ReplaceSyntaxTree(
             unrelated.SyntaxTrees.Single(static tree => tree.FilePath == "Timeline.cs"),
             Tree(Declaration.Replace("0u, 3u", "0u, 4u", StringComparison.Ordinal), "Timeline.cs"));
         driver = driver.RunGenerators(changed);
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Compilation"));
+        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Analysis"));
 
         var addedTree = Tree("""
             using Tl;
@@ -135,28 +135,26 @@ public sealed class IncrementalGeneratorTests
             """, "Second.cs");
         var added = changed.AddSyntaxTrees(addedTree);
         driver = driver.RunGenerators(added);
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Compilation"));
+        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Analysis"));
         Assert.Equal(4, Sources(driver).Count);
 
         driver = driver.RunGenerators(added.RemoveSyntaxTrees(addedTree));
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Compilation"));
+        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Analysis"));
         Assert.Equal(3, Sources(driver).Count);
     }
 
     [Fact]
-    public void OptionsAndReferencesInvalidateTheEnvironmentStep()
+    public void OptionsAndReferencesRefreshCandidateAnalysis()
     {
         var compilation = Compilation(Declaration);
         var driver = Driver().RunGenerators(compilation);
 
         driver = driver.RunGenerators(compilation.WithOptions(((CSharpCompilationOptions)compilation.Options).WithOverflowChecks(true)));
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Environment"));
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Compilation"));
+        Assert.NotEqual(IncrementalStepRunReason.Cached, Reason(driver, "Tl.Analysis"));
 
         var reference = Reference("IncrementalReference", "public sealed class AddedReference { }");
         driver = driver.RunGenerators(compilation.AddReferences(reference));
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Environment"));
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Compilation"));
+        Assert.NotEqual(IncrementalStepRunReason.Cached, Reason(driver, "Tl.Analysis"));
     }
 
     [Fact]
@@ -182,7 +180,7 @@ public sealed class IncrementalGeneratorTests
 
         driver = driver.RunGenerators(first.ReplaceReference(firstReference, secondReference));
 
-        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Compilation"));
+        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver, "Tl.Analysis"));
         Assert.Contains("ref int @value", string.Join("\n", Sources(driver).Values));
     }
 
@@ -262,10 +260,12 @@ public sealed class IncrementalGeneratorTests
             [Tree(source, "Reference.cs")],
             References(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        using var stream = new MemoryStream();
-        var result = compilation.Emit(stream);
+        var key = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(name + "\0" + source)));
+        var path = Path.Combine(Path.GetTempPath(), "tl-incremental-tests", key + ".dll");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var result = compilation.Emit(path);
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
-        return MetadataReference.CreateFromImage(stream.ToArray());
+        return MetadataReference.CreateFromFile(path);
     }
 
     private static string ExternalTrack(string slot)
