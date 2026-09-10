@@ -45,6 +45,12 @@ The repository helper performs remote preflight, an atomic Git-ref claim, worktr
 TL_AGENT=Curie TL_MACHINE=office-1 ./eng/agent-work start 123 c-backend "C validation and mirror receipts"
 ```
 
+Claims created before the atomic protocol can be migrated only from their exact pushed branch, machine, and agent identity:
+
+```sh
+TL_AGENT=Curie TL_MACHINE=office-1 ./eng/agent-work adopt 123
+```
+
 After committing a tested change from that worktree, publish it and its evidence with:
 
 ```sh

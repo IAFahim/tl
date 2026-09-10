@@ -261,6 +261,38 @@ start_work() {
     printf '%s\n' "$worktree"
 }
 
+adopt_work() {
+    require_count 1 "$#"
+    local issue="$1"
+    local branch
+    local claim_commit
+    local -a claim=()
+    validate_issue "$issue"
+    validate_identity
+    assert_clean
+    assert_issue_open "$issue"
+    assert_issue_taxonomy "$issue"
+    assert_assigned "$issue"
+    branch="$(git branch --show-current)"
+    load_project_claim "$issue" claim
+    [[ "${#claim[@]}" -eq 6 ]] || fail "issue #$issue is not attached to Project $project_number"
+    [[ "${claim[1]}" == "In progress" || "${claim[1]}" == "In review" ]] || fail "issue #$issue has no active pre-lock claim"
+    [[ "${claim[2]}" == "$agent_name" ]] || fail "issue #$issue is claimed by agent '${claim[2]}'"
+    [[ "${claim[3]}" == "$machine_name" ]] || fail "issue #$issue is claimed on machine '${claim[3]}'"
+    [[ "${claim[4]}" == "$branch" ]] || fail "issue #$issue owns branch '${claim[4]}', not '$branch'"
+    git fetch origin "$branch"
+    [[ "$(git rev-parse "origin/$branch")" == "$(git rev-parse HEAD)" ]] || fail "push the exact clean checkpoint before adopting a legacy claim"
+    claim_commit="$(acquire_claim "$issue" "$branch" HEAD)"
+    post "$issue" "### Atomic claim migration
+
+- Agent: $agent_name
+- Machine: $machine_name
+- Branch: \`$branch\`
+- Checkpoint: \`$(git rev-parse HEAD)\`
+- Claim: \`$claim_commit\`
+- State: ${claim[1]}"
+}
+
 checkpoint_work() {
     require_count 3 "$#"
     local issue="$1"
@@ -394,6 +426,7 @@ usage() {
     printf '%s\n' \
         "eng/agent-work issue <title> <area-label> <kind-label> <body-file> [milestone]" \
         "eng/agent-work start <issue> <slug> <scope>" \
+        "eng/agent-work adopt <issue>" \
         "eng/agent-work checkpoint <issue> <summary> <validation> [risks]" \
         "eng/agent-work handoff <issue> <remaining> <next-command>" \
         "eng/agent-work pr <issue> <title> <body-file>" \
@@ -407,6 +440,7 @@ shift
 case "$command" in
     issue) create_issue "$@" ;;
     start) start_work "$@" ;;
+    adopt) adopt_work "$@" ;;
     checkpoint) checkpoint_work "$@" ;;
     handoff) handoff_work "$@" ;;
     pr) open_pr "$@" ;;
