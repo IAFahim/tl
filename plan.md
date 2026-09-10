@@ -172,7 +172,7 @@ The alpha gate measures a predictable runtime ID loaded from benchmark state, a 
 
 Both cases must pass an independent exact receipt before timing, allocate zero managed bytes, and retain public scalar, indexed, public batch, indexed batch, and handwritten scalar-oracle measurements. Random ticks are a separately reported stress case. NativeAOT correctness is an alpha gate; NativeAOT throughput is not claimed.
 
-The current alpha.2 median across three independent run medians on .NET 10.0.12 is 1.383 ns/tick for Sum scalar and 2.188 ns/tick for Combat scalar. Random scalar results are 4.786 and 7.015 ns/tick. Every arm allocates 0 B. The alias-safe batch kernel must be remeasured before alpha.2 claims batch values; alpha.1 measured 1.384 ns/tick for Sum batch-8 and 2.033 ns/tick for Combat batch-8 under the earlier implementation.
+The current alpha.2 median across three independent run medians on .NET 10.0.12 is 1.396 ns/tick for Sum scalar and 2.247 ns/tick for Combat scalar. Alias-safe batch-8 measures 1.436 and 2.870 ns/tick. Random scalar results are 4.972 and 7.085 ns/tick; random batch-8 results are 5.206 and 7.999 ns/tick. Every arm allocates 0 B. [Raw evidence](benchmarks/Alpha/results/v1.0.0-alpha.2/README.md) identifies the exact source and retains all samples, logs, generated hashes, assembly, and PMU counters.
 
 ### Maximum matrix
 

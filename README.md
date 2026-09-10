@@ -7,7 +7,7 @@ Compile gameplay timelines into tiny, allocation-free playback kernels. Author a
 - 0 B warm playback allocation and NativeAOT support
 - `ushort` runtime IDs for up to 65,536 compiled timelines
 - Explicit Before/After hooks and timeline composition
-- 1.383 ns simple and 2.188 ns heterogeneous sequential public calls on the reference machine
+- 1.396 ns simple and 2.247 ns heterogeneous sequential public calls on the reference machine
 
 **Status: v1.0.0-alpha.2 candidate.** This is a breaking alpha for .NET 10 and C# 14.
 
@@ -239,12 +239,12 @@ The alpha benchmark measures a full public call and complete receipts with 65,53
 
 | Workload | Pattern | Handwritten oracle | `Timeline.TryForward` | Public batch 8 |
 | --- | --- | ---: | ---: | ---: |
-| One-track sum | Sequential | 0.609 ns/tick | 1.383 ns/tick | 1.384 ns/tick |
-| Two-kind combat | Sequential | 1.512 ns/tick | 2.188 ns/tick | 2.033 ns/tick |
-| One-track sum | Random | 3.530 ns/tick | 4.786 ns/tick | 4.854 ns/tick |
-| Two-kind combat | Random | 6.826 ns/tick | 7.015 ns/tick | 6.633 ns/tick |
+| One-track sum | Sequential | 0.609 ns/tick | 1.396 ns/tick | 1.436 ns/tick |
+| Two-kind combat | Sequential | 1.512 ns/tick | 2.247 ns/tick | 2.870 ns/tick |
+| One-track sum | Random | 3.530 ns/tick | 4.972 ns/tick | 5.206 ns/tick |
+| Two-kind combat | Random | 6.826 ns/tick | 7.085 ns/tick | 7.999 ns/tick |
 
-Every measured arm allocates 0 B. Scalar public values are the median of three independent alpha.2 run medians on an i9-14900K with .NET 10.0.12; oracle and batch values are the alpha.1 reference until the alias-safe batch kernel is remeasured. Each benchmark uses one runtime-loaded ID in its hot stream. Random seeking costs more because region selection and branch prediction are real work; a stream switching among many compatible IDs is not part of this alpha claim. Exact alpha.1 reports, disassembly, environment, and limits remain in [the historical verification record](docs/verification/v1.0-alpha.1/README.md); alpha.2 candidate measurements are recorded in [the release notes](docs/v1.0-alpha.2.md).
+Every measured arm allocates 0 B. Public scalar and batch values are the median of three independent alpha.2 run medians on an i9-14900K with .NET 10.0.12; handwritten oracle values are the unchanged alpha.1 reference. Batch values are throughput per tick across eight-tick calls. Each benchmark uses one runtime-loaded ID in its hot stream. Random seeking costs more because region selection and branch prediction are real work; a stream switching among many compatible IDs is not part of this alpha claim. Exact alpha.2 raw JSON, logs, environment, generated hashes, PMU counters, assembly, and limitations are retained in [the performance evidence](benchmarks/Alpha/results/v1.0.0-alpha.2/README.md). The [historical verification record](docs/verification/v1.0-alpha.1/README.md) preserves alpha.1.
 
 ## Limits
 

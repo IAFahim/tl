@@ -37,7 +37,7 @@ The current exact-schema C# path retains no frame, input, output, or playback re
 
 The reference-machine sequential results are below the 3 ns gate. Random seeking is slower because region selection is data dependent. Batch operations amortize validation and route selection and are reported as throughput.
 
-Linux PMU measurements show negligible branch-miss rates on the sequential fixtures. This means branch hints are not a useful blanket optimization. The retained lifecycle-mask change was accepted because it removes about one branch per tick, preserves exact receipts, and improves the complete public benchmark.
+Linux PMU measurements show negligible branch-miss rates on the sequential fixtures. This means branch hints are not a useful blanket optimization. The retained lifecycle-mask change was accepted because it removes about one branch per tick, preserves exact receipts, and improves the complete public benchmark. [Raw alpha.2 performance evidence](../benchmarks/Alpha/results/v1.0.0-alpha.2/README.md) records the exact source, environment, generated hashes, JIT assembly, counters, and three BenchmarkDotNet processes.
 
 ## No-spike policy
 
