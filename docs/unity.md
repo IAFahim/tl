@@ -15,7 +15,7 @@ The .NET `Tl.CSharp` package targets .NET 10 and runs its generator through MSBu
 | Lane | Editor | Entities | Collections | Burst | Status |
 | --- | --- | --- | --- | --- | --- |
 | Stable floor | 6000.0 | 1.4.3 | resolved by Entities | resolved by Entities | Required; editor unavailable on the current machine |
-| Preview | 6000.7.0a5 (`a15235a53881`) | 6.7.0 | 6.7.0 | 2.0.0 | Local qualification lane |
+| Preview | 6000.7.0a5 (`a15235a53881`) | 6.7.0 | 6.7.0 | 2.0.0 | Passed locally |
 
 The package declares Unity 6000.0 and Entities 1.4.3. Passing the installed preview editor does not establish the stable compatibility floor.
 
@@ -40,4 +40,10 @@ unity --no-banner --format json test tests/Tl.Unity.Project --mode EditMode --ou
 unity --no-banner --format json test tests/Tl.Unity.Project --mode PlayMode --output /tmp/tl-unity-playmode.xml --timeout 600
 ```
 
-The standalone Linux gate builds `Assets/TlUnityPlayer.unity`, checks the Burst output and forbidden assemblies, and runs until the player prints `TL_UNITY_PLAYER_OK`.
+The standalone Linux gate builds `Assets/TlUnityPlayer.unity`, checks the Burst output and forbidden assemblies, and runs until the player prints `TL_UNITY_PLAYER_OK`:
+
+```sh
+unity --no-banner --format json build tests/Tl.Unity.Project --target StandaloneLinux64 --execute-method TlUnityBuild.Build --output-path /tmp/tl-unity-player -l /tmp/tl-unity-player-build.log
+```
+
+The local preview receipt passed all 3 EditMode tests and all 7 PlayMode tests. The Linux player contained `lib_burst_generated.so`, exported the Burst-compiled `TlUnity.PlayerProbe.AdvanceGateJob.Execute` symbol, contained none of the forbidden compiler, generator, or Roslyn assemblies, and printed the expected marker. This receipt does not cover IL2CPP or the unavailable stable editor.
