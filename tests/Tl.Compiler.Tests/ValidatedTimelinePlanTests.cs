@@ -8,6 +8,14 @@ public sealed class ValidatedTimelinePlanTests
     private static readonly OperationId Second = new("second");
 
     [Fact]
+    public void ConstructorRejectsMissingIdentityTracksAndClips()
+    {
+        Assert.Throws<ArgumentNullException>(() => new TimelinePlan(null!, 0, false, [], []));
+        Assert.Throws<ArgumentNullException>(() => new TimelinePlan("plan", 0, false, null!, []));
+        Assert.Throws<ArgumentNullException>(() => new TimelinePlan("plan", 0, false, [], null!));
+    }
+
+    [Fact]
     public void ValidationUsesTheAuthoredRuleOrderAndExactDiagnostics()
     {
         AssertInvalid(

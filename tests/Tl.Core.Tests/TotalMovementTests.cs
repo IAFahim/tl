@@ -39,6 +39,30 @@ public class TotalMovementTests
             => builder.Schema<Rows>().Asset<JobTimeline>();
     }
 
+    [Fact]
+    public void DeclarationSurfaceIsTotalWhenInvoked()
+    {
+        var builder = default(Builder);
+        builder.Looping();
+        builder.Before<Hook>();
+        builder.After<Hook>();
+        builder.Include<JobTimeline>();
+
+        var track = new JobTrack();
+        var clip = new JobClip(7);
+        var frame = new Frame<JobTrack, JobClip>(in track, in clip, 11, 13, -2, 17, FrameFlags.Reverse);
+        var timelineFrame = new TimelineFrame(11, 13, -2, FrameFlags.Reverse);
+
+        Assert.Equal((ushort)17, frame.TrackIndex);
+        Assert.Equal(-1, frame.Direction);
+        Assert.True(frame.Has(FrameFlags.Reverse));
+        Assert.False(frame.Has(FrameFlags.TimelineStart));
+        Assert.Equal(-1, timelineFrame.Direction);
+        Assert.True(timelineFrame.Has(FrameFlags.Reverse));
+        Assert.False(timelineFrame.Has(FrameFlags.TimelineStart));
+        Assert.Equal(1, new TimelineFrame(11, 13, -2, FrameFlags.None).Direction);
+    }
+
     public static TheoryData<uint, uint, uint, bool, bool, uint, uint, FrameFlags> FiniteCases => new()
     {
         { 0, 7, 3, false, false, 7, 0, FrameFlags.None },
