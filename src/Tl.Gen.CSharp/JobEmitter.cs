@@ -76,6 +76,7 @@ internal static class JobEmitter
         bool reverse)
     {
         var direction = reverse ? "Reverse" : "Forward";
+        Line(writer, "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
         Line(writer, $"internal static void Execute{direction}(uint __tlTick, uint __tlGameTick, long __tlCycle, global::Tl.FrameFlags __tlFlags{Parameters(slots)})");
         Line(writer, "{");
         for (var regionIndex = 0; regionIndex < regions.Count; regionIndex++)
@@ -230,7 +231,30 @@ internal static class JobEmitter
         Line(writer, "default: throw new global::System.ArgumentException(\"Timeline does not belong to this query schema.\");");
         Line(writer, "}");
         Line(writer, "}");
-        Line(writer, "public void Tick(uint gameTick, int delta = 1)");
+        Line(writer, "public void Tick(uint gameTick)");
+        Line(writer, "{");
+        Line(writer, "if (__tlStates.IsEmpty) return;");
+        Line(writer, "if (__tlStates.Length != 1)");
+        Line(writer, "{");
+        Line(writer, "Tick(gameTick, 1);");
+        Line(writer, "return;");
+        Line(writer, "}");
+        Line(writer, "ref var __tlState = ref __tlStates[0];");
+        Line(writer, "switch (__tlState.Value.Asset)");
+        Line(writer, "{");
+        Line(writer, "case 0:");
+        Line(writer, "__tlState.Pending = false;");
+        Line(writer, "return;");
+        foreach (var asset in assets)
+        {
+            Line(writer, $"case {ids[Qualified(asset)]}:");
+            Line(writer, $"__tlForward{ids[Qualified(asset)]}(ref __tlState, gameTick);");
+            Line(writer, "return;");
+        }
+        Line(writer, "default: throw new global::System.ArgumentException(\"Timeline does not belong to this query schema.\");");
+        Line(writer, "}");
+        Line(writer, "}");
+        Line(writer, "public void Tick(uint gameTick, int delta)");
         Line(writer, "{");
         Line(writer, "if (delta == 0 || __tlStates.IsEmpty) return;");
         Line(writer, "if (__tlStates.Length == 1)");
@@ -245,7 +269,7 @@ internal static class JobEmitter
         {
             Line(writer, $"case {ids[Qualified(asset)]}:");
             Line(writer, "{");
-            EmitSingleRowTick(writer, asset, Slots([asset]));
+            EmitSingleRowTick(writer, ids[Qualified(asset)]);
             Line(writer, "return;");
             Line(writer, "}");
         }
@@ -320,20 +344,24 @@ internal static class JobEmitter
         Line(writer, "if (!__tlReverse) gameTick = unchecked(gameTick + 1);");
         Line(writer, "}");
         Line(writer, "}");
+        foreach (var asset in assets)
+        {
+            EmitSingleRowMove(writer, asset, ids[Qualified(asset)], Slots([asset]), false);
+            EmitSingleRowMove(writer, asset, ids[Qualified(asset)], Slots([asset]), true);
+        }
         Line(writer, "}");
     }
 
-    private static void EmitSingleRowTick(StringBuilder writer, JobTimeline asset, IReadOnlyList<TimelineSlot> slots)
+    private static void EmitSingleRowTick(StringBuilder writer, int asset)
     {
-        var name = Qualified(asset);
         Line(writer, "if (delta == 1)");
         Line(writer, "{");
-        EmitSingleRowMove(writer, name, slots, false, false);
+        Line(writer, $"__tlForward{asset}(ref __tlState, gameTick);");
         Line(writer, "return;");
         Line(writer, "}");
         Line(writer, "if (delta == -1)");
         Line(writer, "{");
-        EmitSingleRowMove(writer, name, slots, true, false);
+        Line(writer, $"__tlReverse{asset}(ref __tlState, unchecked(gameTick - 1u));");
         Line(writer, "return;");
         Line(writer, "}");
         Line(writer, "bool __tlSingleReverse = delta < 0;");
@@ -342,34 +370,34 @@ internal static class JobEmitter
         Line(writer, "{");
         Line(writer, "if (__tlSingleReverse)");
         Line(writer, "{");
-        EmitSingleRowMove(writer, name, slots, true, true);
+        Line(writer, "gameTick = unchecked(gameTick - 1u);");
+        Line(writer, $"if (!__tlReverse{asset}(ref __tlState, gameTick)) break;");
         Line(writer, "}");
         Line(writer, "else");
         Line(writer, "{");
-        EmitSingleRowMove(writer, name, slots, false, true);
+        Line(writer, $"if (!__tlForward{asset}(ref __tlState, gameTick)) break;");
+        Line(writer, "gameTick = unchecked(gameTick + 1u);");
         Line(writer, "}");
         Line(writer, "}");
     }
 
     private static void EmitSingleRowMove(
         StringBuilder writer,
-        string asset,
+        JobTimeline asset,
+        int assetIndex,
         IReadOnlyList<TimelineSlot> slots,
-        bool reverse,
-        bool repeated)
+        bool reverse)
     {
-        if (reverse)
-            Line(writer, "gameTick = unchecked(gameTick - 1u);");
-        Line(writer, "__tlState.Pending = false;");
-        Line(writer, $"if (!{asset}.Select(in __tlState.Value, {Bool(reverse)}, out var __tlNext, out var __tlTick, out var __tlCycle, out var __tlFlags)) {(repeated ? "break" : "return")};");
-        Line(writer, "__tlState.PendingTick = __tlTick;");
-        Line(writer, "__tlState.PendingFlags = __tlFlags;");
-        Line(writer, "__tlState.Pending = true;");
-        Line(writer, $"{asset}.Execute{(reverse ? "Reverse" : "Forward")}(__tlTick, gameTick, __tlCycle, __tlFlags{Arguments(slots, "[0]")});");
+        var direction = reverse ? "Reverse" : "Forward";
+        var name = Qualified(asset);
+        Line(writer, "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]");
+        Line(writer, $"private bool __tl{direction}{assetIndex}(ref State __tlState, uint gameTick)");
+        Line(writer, "{");
+        Line(writer, $"if (!{name}.Select(in __tlState.Value, {Bool(reverse)}, out var __tlNext, out var __tlTick, out var __tlCycle, out var __tlFlags)) return false;");
+        Line(writer, $"{name}.Execute{direction}(__tlTick, gameTick, __tlCycle, __tlFlags{Arguments(slots, "[0]")});");
         Line(writer, "__tlState.Value = __tlNext;");
-        Line(writer, "__tlState.Pending = false;");
-        if (!reverse)
-            Line(writer, "gameTick = unchecked(gameTick + 1u);");
+        Line(writer, "return true;");
+        Line(writer, "}");
     }
 
     private static IReadOnlyList<ScheduledRegion> Regions(JobTimeline timeline, BoundOrderedTimelinePlan bound)
