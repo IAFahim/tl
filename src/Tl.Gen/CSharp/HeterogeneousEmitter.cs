@@ -663,6 +663,8 @@ internal static class HeterogeneousEmitter
             EmitNext(writer, timeline, backward, "effective", "effective", "cycles", 2);
             Line(writer, "        return true;");
             Line(writer, "    }");
+            Line(writer);
+            EmitDynamicKernel(writer, timeline, schema, backward, true);
             return;
         }
         if (timeline.Loops && timeline.Duration != 0)

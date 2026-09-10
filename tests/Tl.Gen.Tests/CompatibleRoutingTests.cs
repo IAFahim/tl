@@ -49,6 +49,7 @@ public sealed class CompatibleRoutingTests
         Assert.Contains("Timeline.TryGetCompiledRoute(id, out var route)", largeKernel);
         Assert.DoesNotContain("id == Id", largeKernel);
         Assert.Equal(2, Occurrences(smallKernel, "internal static bool ForwardKernel("));
+        Assert.Equal(2, Occurrences(smallKernel, "private static bool ForwardTypedKernel("));
     }
 
     private static HeterogeneousTimeline Timeline(
