@@ -4,22 +4,22 @@ using Tl;
 internal static class Direct
 {
     private const long Duration = 64;
-    private static readonly SumTrack s_sumTrack = new();
-    private static readonly SumClip s_sumFirst = new(1f);
-    private static readonly SumClip s_sumSecond = new(3f);
-    private static readonly SumClip s_sumLast = new(5f);
-    private static readonly AnimationTrack s_animationTrack = new();
-    private static readonly DamageTrack s_damageTrack = new();
-    private static readonly AnimationClip s_animationFirst = new(2f, 1f);
-    private static readonly AnimationClip s_animationSecond = new(6f, 3f);
-    private static readonly DamageClip s_damage = new(5f);
-    private static readonly DamageClip s_zeroDamage = new(0f);
+    private static readonly SumTrack SSumTrack = new();
+    private static readonly SumClip SSumFirst = new(1f);
+    private static readonly SumClip SSumSecond = new(3f);
+    private static readonly SumClip SSumLast = new(5f);
+    private static readonly AnimationTrack SAnimationTrack = new();
+    private static readonly DamageTrack SDamageTrack = new();
+    private static readonly AnimationClip SAnimationFirst = new(2f, 1f);
+    private static readonly AnimationClip SAnimationSecond = new(6f, 3f);
+    private static readonly DamageClip SDamage = new(5f);
+    private static readonly DamageClip SZeroDamage = new(0f);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Sum(int delta, ref long position, ref uint gameTick, ref float sum)
     {
         var direction = delta > 0 ? 1 : -1;
-        var remaining = delta > 0 ? (long)delta : -(long)delta;
+        var remaining = delta > 0 ? delta : -(long)delta;
         while (remaining-- != 0)
             SumFrame(direction, ref position, ref gameTick, ref sum);
     }
@@ -30,21 +30,21 @@ internal static class Direct
         Locate(direction, position, gameTick, out var local, out var cycle, out var frameGameTick, out var flags);
         SumClip clip;
         if (local < 16u)
-            clip = s_sumFirst;
+            clip = SSumFirst;
         else if (local < 32u)
         {
             var factor = (local - 16u) / 15f;
-            s_sumTrack.Blend(in s_sumFirst, in s_sumSecond, factor, out clip);
+            SSumTrack.Blend(in SSumFirst, in SSumSecond, factor, out clip);
         }
         else if (local < 48u)
-            clip = s_sumSecond;
+            clip = SSumSecond;
         else
-            clip = s_sumLast;
+            clip = SSumLast;
         if (local is 0u or 16u or 48u)
             flags |= FrameFlags.ClipStart;
         if (local is 31u or 47u or 63u)
             flags |= FrameFlags.ClipEnd;
-        var frame = new Frame<SumTrack, SumClip>(in s_sumTrack, in clip, frameGameTick, local, cycle, 0, flags);
+        var frame = new Frame<SumTrack, SumClip>(in SSumTrack, in clip, frameGameTick, local, cycle, 0, flags);
         SumTrack.Seek(in frame, ref sum);
         Advance(direction, ref position, ref gameTick);
     }
@@ -63,7 +63,7 @@ internal static class Direct
         ref Health nextHealth)
     {
         var direction = delta > 0 ? 1 : -1;
-        var remaining = delta > 0 ? (long)delta : -(long)delta;
+        var remaining = delta > 0 ? delta : -(long)delta;
         while (remaining-- != 0)
             CombatFrame(
                 direction,
@@ -96,21 +96,21 @@ internal static class Direct
         {
             AnimationClip clip;
             if (local < 16u)
-                clip = s_animationFirst;
+                clip = SAnimationFirst;
             else if (local < 32u)
             {
                 var factor = (local - 16u) / 15f;
-                s_animationTrack.Blend(in s_animationFirst, in s_animationSecond, factor, out clip);
+                SAnimationTrack.Blend(in SAnimationFirst, in SAnimationSecond, factor, out clip);
             }
             else
-                clip = s_animationSecond;
+                clip = SAnimationSecond;
             var animationFlags = flags;
             if (local is 0u or 16u)
                 animationFlags |= FrameFlags.ClipStart;
             if (local is 31u or 47u)
                 animationFlags |= FrameFlags.ClipEnd;
             var frame = new Frame<AnimationTrack, AnimationClip>(
-                in s_animationTrack,
+                in SAnimationTrack,
                 in clip,
                 frameGameTick,
                 local,
@@ -128,8 +128,8 @@ internal static class Direct
             if (local == 55u)
                 damageFlags |= FrameFlags.ClipEnd;
             var frame = new Frame<DamageTrack, DamageClip>(
-                in s_damageTrack,
-                in s_damage,
+                in SDamageTrack,
+                in SDamage,
                 frameGameTick,
                 local,
                 cycle,
@@ -140,8 +140,8 @@ internal static class Direct
         else if (local == 63u)
         {
             var frame = new Frame<DamageTrack, DamageClip>(
-                in s_damageTrack,
-                in s_zeroDamage,
+                in SDamageTrack,
+                in SZeroDamage,
                 frameGameTick,
                 local,
                 cycle,

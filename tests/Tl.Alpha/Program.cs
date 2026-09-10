@@ -368,13 +368,11 @@ public readonly record struct Trace(int Calls, int Starts, int Interior, int End
     public Trace Add(FrameFlags flags)
     {
         var boundary = flags & (FrameFlags.ClipStart | FrameFlags.ClipEnd);
-        return this with
-        {
-            Calls = Calls + 1,
-            Starts = Starts + ((flags & FrameFlags.ClipStart) != 0 ? 1 : 0),
-            Interior = Interior + (boundary == 0 ? 1 : 0),
-            Ends = Ends + ((flags & FrameFlags.ClipEnd) != 0 ? 1 : 0),
-        };
+        return new(
+            Calls + 1,
+            Starts + ((flags & FrameFlags.ClipStart) != 0 ? 1 : 0),
+            Interior + (boundary == 0 ? 1 : 0),
+            Ends + ((flags & FrameFlags.ClipEnd) != 0 ? 1 : 0));
     }
 }
 
@@ -432,7 +430,10 @@ public readonly struct HookTrack : ITrack<HookClip>
         => result = factor < 0.5f ? first : second;
 
     public static void Seek(in Frame<HookTrack, HookClip> frame, in DateTime timestamp, ref HookReceipt hookReceipt)
-        => hookReceipt = hookReceipt with { Track = hookReceipt.Track + frame.Direction * timestamp.Day };
+        => hookReceipt = new(
+            hookReceipt.Before,
+            hookReceipt.Track + frame.Direction * timestamp.Day * frame.Clip.Value,
+            hookReceipt.After);
 }
 
 public readonly struct BeforeHook : IHook

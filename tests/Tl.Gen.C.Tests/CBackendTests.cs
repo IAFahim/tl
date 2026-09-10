@@ -53,6 +53,7 @@ public sealed class CBackendTests
         Assert.Equal(6, emission.Report.RegionCount);
         Assert.Equal(8u, emission.Report.Duration);
         Assert.True(emission.Report.Loops);
+        Assert.Equal(emission.Artifacts.Length, emission.Report.SourceFileCount);
         Assert.Equal(emission.Artifacts.Sum(static artifact => artifact.Utf8Bytes), emission.Report.SourceUtf8Bytes);
         Assert.Equal(14_627, emission.Report.SourceUtf8Bytes);
         Assert.Equal(0, emission.Report.StaticDataBytes);

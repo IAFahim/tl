@@ -99,13 +99,13 @@ public static unsafe class Timeline
     private const int CompiledRouteShift = 34;
     private const nint CompiledLoopMask = 2;
 
-    private static nint s_pages;
-    private static int s_nextIndex;
-    private static int s_nextModule;
-    private static int s_gate;
-    private static long s_registryRetainedBytes;
+    private static nint _sPages;
+    private static int _sNextIndex;
+    private static int _sNextModule;
+    private static int _sGate;
+    private static long _sRegistryRetainedBytes;
 
-    public static long RegistryRetainedBytes => Volatile.Read(ref s_registryRetainedBytes);
+    public static long RegistryRetainedBytes => Volatile.Read(ref _sRegistryRetainedBytes);
 
     [EditorBrowsable(EditorBrowsableState.Never)]
     public static byte RegisterModule()
@@ -113,11 +113,11 @@ public static unsafe class Timeline
         int next;
         do
         {
-            next = Volatile.Read(ref s_nextModule);
+            next = Volatile.Read(ref _sNextModule);
             if (next > byte.MaxValue)
                 throw new InvalidOperationException("Timeline module capacity exceeded.");
         }
-        while (Interlocked.CompareExchange(ref s_nextModule, next + 1, next) != next);
+        while (Interlocked.CompareExchange(ref _sNextModule, next + 1, next) != next);
 
         return (byte)next;
     }
@@ -138,7 +138,7 @@ public static unsafe class Timeline
         try
         {
             var index = RegisterSlot((nint)metadata | CompiledTag);
-            Interlocked.Add(ref s_registryRetainedBytes, sizeof(CompiledMetadata));
+            Interlocked.Add(ref _sRegistryRetainedBytes, sizeof(CompiledMetadata));
             return index;
         }
         catch
@@ -221,28 +221,28 @@ public static unsafe class Timeline
         int next;
         do
         {
-            next = Volatile.Read(ref s_nextIndex);
+            next = Volatile.Read(ref _sNextIndex);
             if (next > ushort.MaxValue)
                 throw new InvalidOperationException("Timeline index capacity exceeded.");
         }
-        while (Interlocked.CompareExchange(ref s_nextIndex, next + 1, next) != next);
+        while (Interlocked.CompareExchange(ref _sNextIndex, next + 1, next) != next);
 
         return (ushort)next;
     }
 
     private static void PublishSlot(ushort index, nint slot)
     {
-        Acquire(ref s_gate);
+        Acquire(ref _sGate);
         try
         {
-            var pages = (nint*)s_pages;
+            var pages = (nint*)_sPages;
             if (pages == null)
             {
                 pages = (nint*)NativeMemory.AllocZeroed(256, (nuint)sizeof(nint));
                 if (pages == null)
                     throw new OutOfMemoryException();
-                Interlocked.Add(ref s_registryRetainedBytes, 256L * sizeof(nint));
-                Volatile.Write(ref s_pages, (nint)pages);
+                Interlocked.Add(ref _sRegistryRetainedBytes, 256L * sizeof(nint));
+                Volatile.Write(ref _sPages, (nint)pages);
             }
 
             var pageIndex = index >> 8;
@@ -252,7 +252,7 @@ public static unsafe class Timeline
                 page = (nint*)NativeMemory.AllocZeroed(256, (nuint)sizeof(nint));
                 if (page == null)
                     throw new OutOfMemoryException();
-                Interlocked.Add(ref s_registryRetainedBytes, 256L * sizeof(nint));
+                Interlocked.Add(ref _sRegistryRetainedBytes, 256L * sizeof(nint));
                 Volatile.Write(ref pages[pageIndex], (nint)page);
             }
 
@@ -260,13 +260,13 @@ public static unsafe class Timeline
         }
         finally
         {
-            Release(ref s_gate);
+            Release(ref _sGate);
         }
     }
 
     private static bool TryReadSlot(ushort id, out nint slot)
     {
-        var pages = (nint*)Volatile.Read(ref s_pages);
+        var pages = (nint*)Volatile.Read(ref _sPages);
         if (pages == null)
         {
             slot = 0;

@@ -39,6 +39,25 @@ public sealed class CacheTests : IDisposable
     }
 
     [Fact]
+    public void NullOutputInvalidatesTheManifest()
+    {
+        var key = CompileGenerationCache.GetKey([], [], []);
+        CompileGenerationCache.Synchronize(
+            _directory,
+            key,
+            [new CompileArtifact("Tl0.g.cs", "content\n")],
+            "report\n",
+            null);
+        var path = Path.Combine(_directory, CompileGenerationCache.ManifestFileName);
+        var content = File.ReadAllText(path);
+        var malformed = content.Replace("\"outputs\": [", "\"outputs\": [\n    null,", StringComparison.Ordinal);
+        Assert.NotEqual(content, malformed);
+        File.WriteAllText(path, malformed);
+
+        Assert.Null(CompileGenerationCache.Load(_directory));
+    }
+
+    [Fact]
     public void ChangedReportInvalidatesAndRestoresTheCache()
     {
         var key = CompileGenerationCache.GetKey([], [], []);

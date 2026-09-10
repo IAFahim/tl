@@ -11,22 +11,37 @@ internal static class DataAliasingReceipt
 
         if (!AliasingTimeline.TrySeek(ref data, 2))
             throw new InvalidOperationException();
-        if (playback.Position != 2L || playback.GameTick != 2u || value != 3u || calls != 2)
-            throw new InvalidOperationException();
+        RequireState(in playback, value, calls, 2L, 2u, 3u, 2);
 
         if (!AliasingTimeline.TrySeek(ref data, -2))
             throw new InvalidOperationException();
-        if (playback.Position != 0L || playback.GameTick != 0u || value != 1u || calls != 0)
-            throw new InvalidOperationException();
+        RequireState(in playback, value, calls, 0L, 0u, 1u, 0);
 
         var before = playback;
         if (AliasingTimeline.TrySeek(ref data, -1))
             throw new InvalidOperationException();
-        if (playback != before || value != 1u || calls != 0)
+        if (playback != before)
             throw new InvalidOperationException();
+        RequireState(in playback, value, calls, 0L, 0u, 1u, 0);
 
         var empty = default(AliasingTimeline.Data);
         if (AliasingTimeline.TrySeek(ref empty, 0))
+            throw new InvalidOperationException();
+    }
+
+    private static void RequireState(
+        in Playback<AliasingTimeline> playback,
+        uint value,
+        int calls,
+        long position,
+        uint gameTick,
+        uint expectedValue,
+        int expectedCalls)
+    {
+        if (playback.Position != position
+            || playback.GameTick != gameTick
+            || value != expectedValue
+            || calls != expectedCalls)
             throw new InvalidOperationException();
     }
 }
@@ -40,8 +55,9 @@ public readonly struct AliasingTrack : ITrack<AliasingClip>
 
     public static void Seek(in Frame<AliasingTrack, AliasingClip> frame, in uint currentTick, ref uint nextTick, ref int calls)
     {
-        calls += frame.Direction;
-        nextTick = unchecked((uint)((long)currentTick + frame.Direction));
+        var movement = frame.Direction * checked((int)frame.Clip.Value);
+        calls += movement;
+        nextTick = unchecked((uint)(currentTick + movement));
     }
 }
 

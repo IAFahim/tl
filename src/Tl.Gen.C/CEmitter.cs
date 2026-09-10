@@ -222,9 +222,9 @@ public static class CEmitter
         Line(writer);
         if (plan.Duration != 0)
         {
-            EmitApply(writer, plan, prefix, operations, regions, false);
+            EmitApply(writer, prefix, operations, regions, false);
             Line(writer);
-            EmitApply(writer, plan, prefix, operations, regions, true);
+            EmitApply(writer, prefix, operations, regions, true);
             Line(writer);
         }
         Line(writer, $"bool {prefix}_try_start(uint16_t id, uint32_t game_tick, tl_playback *playback)");
@@ -252,7 +252,6 @@ public static class CEmitter
 
     private static void EmitApply(
         StringBuilder writer,
-        TimelinePlan plan,
         string prefix,
         IReadOnlyDictionary<OperationId, COperationBinding> operations,
         ImmutableArray<Region> regions,

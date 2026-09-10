@@ -18,7 +18,7 @@ internal sealed class CompileGenerationManifest
     public string CacheKey { get; set; } = "";
     public string SourceListHash { get; set; } = "";
     public string ReportHash { get; set; } = "";
-    public List<CompileGenerationOutput>? Outputs { get; set; }
+    public List<CompileGenerationOutput?>? Outputs { get; set; }
 }
 
 internal sealed class CompileGenerationOutput
@@ -109,7 +109,10 @@ internal static class CompileGenerationCache
         if (manifest?.CacheKey != cacheKey || manifest.Outputs == null)
             return false;
 
-        var expectedSourceList = GetSourceList(manifest.Outputs.Select(static output => output.RelativePath));
+        if (manifest.Outputs.Any(static output => output == null))
+            return false;
+
+        var expectedSourceList = GetSourceList(manifest.Outputs.Select(static output => output!.RelativePath));
         var expectedSourceListHash = HashContent(expectedSourceList);
         var sourceListPath = Path.Combine(outputDirectory, SourceListFileName);
         var reportPath = Path.Combine(outputDirectory, ReportFileName);
@@ -120,8 +123,9 @@ internal static class CompileGenerationCache
             || HashFile(reportPath) != manifest.ReportHash)
             return false;
 
-        foreach (var output in manifest.Outputs)
+        foreach (var nullableOutput in manifest.Outputs)
         {
+            var output = nullableOutput!;
             var path = Path.Combine(outputDirectory, output.RelativePath);
             if (!File.Exists(path) || HashFile(path) != output.ContentHash)
                 return false;
@@ -153,6 +157,8 @@ internal static class CompileGenerationCache
         {
             foreach (var output in previous.Outputs)
             {
+                if (output == null)
+                    continue;
                 if (!expected.ContainsKey(output.RelativePath))
                 {
                     var path = Path.Combine(outputDirectory, output.RelativePath);
@@ -175,7 +181,7 @@ internal static class CompileGenerationCache
             ReportHash = HashContent(normalizedReport),
             Outputs = expected.Values
                 .OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal)
-                .Select(static artifact => new CompileGenerationOutput
+                .Select(static artifact => (CompileGenerationOutput?)new CompileGenerationOutput
                 {
                     RelativePath = artifact.RelativePath,
                     ContentHash = HashContent(artifact.Content),

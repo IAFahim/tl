@@ -162,7 +162,7 @@ public class SignedSeekRuntimeTests
         Assert.True(dataContract.IsAbstract);
         Assert.Equal(typeof(bool), dataContract.ReturnType);
         Assert.Equal(typeof(ushort), dataContract.GetParameters()[0].ParameterType);
-        AssertScopedRefParameter(dataContract.GetParameters()[1], typeof(TestData));
+        AssertScopedRefParameter<TestData>(dataContract.GetParameters()[1]);
         Assert.Equal(typeof(int), dataContract.GetParameters()[2].ParameterType);
 
         var timelineSeek = typeof(Timeline).GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -288,9 +288,10 @@ public class SignedSeekRuntimeTests
         Assert.False(parameter.IsOut);
     }
 
-    private static void AssertScopedRefParameter(ParameterInfo parameter, Type elementType)
+    private static void AssertScopedRefParameter<T>(ParameterInfo parameter)
+        where T : allows ref struct
     {
-        Assert.Equal(elementType.MakeByRefType(), parameter.ParameterType);
+        Assert.Equal(typeof(T).MakeByRefType(), parameter.ParameterType);
         Assert.False(parameter.IsIn);
         Assert.False(parameter.IsOut);
         Assert.True(HasScopedRef(parameter));
