@@ -17,6 +17,7 @@ internal sealed class CompileGenerationManifest
     public int FormatVersion { get; set; }
     public string CacheKey { get; set; } = "";
     public string SourceListHash { get; set; } = "";
+    public string ReportHash { get; set; } = "";
     public List<CompileGenerationOutput>? Outputs { get; set; }
 }
 
@@ -35,7 +36,7 @@ internal static class CompileGenerationCache
     internal const string ManifestFileName = "TlGenCompile.manifest.json";
     internal const string SourceListFileName = "TlGenCompile.sources";
     internal const string ReportFileName = "TlGenCompile.report.txt";
-    private const int FormatVersion = 4;
+    private const int FormatVersion = 5;
 
     internal static string GetKey(
         IReadOnlyList<CompileSource> sources,
@@ -77,7 +78,8 @@ internal static class CompileGenerationCache
             var manifest = JsonSerializer.Deserialize(File.ReadAllText(path), CompileManifestJsonContext.Default.CompileGenerationManifest);
             if (manifest?.FormatVersion != FormatVersion
                 || manifest.Outputs == null
-                || manifest.SourceListHash is not { Length: 64 })
+                || manifest.SourceListHash is not { Length: 64 }
+                || manifest.ReportHash is not { Length: 64 })
                 return null;
 
             var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -114,7 +116,8 @@ internal static class CompileGenerationCache
         if (manifest.SourceListHash != expectedSourceListHash
             || !File.Exists(sourceListPath)
             || !File.Exists(reportPath)
-            || HashFile(sourceListPath) != expectedSourceListHash)
+            || HashFile(sourceListPath) != expectedSourceListHash
+            || HashFile(reportPath) != manifest.ReportHash)
             return false;
 
         foreach (var output in manifest.Outputs)
@@ -161,13 +164,15 @@ internal static class CompileGenerationCache
 
         var sourceList = GetSourceList(expected.Keys);
         WriteIfChanged(Path.Combine(outputDirectory, SourceListFileName), sourceList);
-        WriteIfChanged(Path.Combine(outputDirectory, ReportFileName), NormalizeSource(report));
+        var normalizedReport = NormalizeSource(report);
+        WriteIfChanged(Path.Combine(outputDirectory, ReportFileName), normalizedReport);
 
         var manifest = new CompileGenerationManifest
         {
             FormatVersion = FormatVersion,
             CacheKey = cacheKey,
             SourceListHash = HashContent(sourceList),
+            ReportHash = HashContent(normalizedReport),
             Outputs = expected.Values
                 .OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal)
                 .Select(static artifact => new CompileGenerationOutput

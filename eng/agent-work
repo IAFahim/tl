@@ -14,6 +14,10 @@ require_count() {
     [[ "$2" -ge "$1" ]] || fail "missing arguments"
 }
 
+validate_issue() {
+    [[ "$1" =~ ^[1-9][0-9]*$ ]] || fail "issue must be a positive integer"
+}
+
 owner() {
     gh repo view --json owner --jq .owner.login
 }
@@ -50,8 +54,13 @@ post() {
     local body
     body="$(mktemp)"
     printf '%s\n' "$2" >"$body"
-    gh issue comment "$1" --body-file "$body"
-    rm -f "$body"
+    if gh issue comment "$1" --body-file "$body"; then
+        rm -f "$body"
+    else
+        local status="$?"
+        rm -f "$body"
+        return "$status"
+    fi
 }
 
 assert_clean() {
@@ -67,6 +76,8 @@ start_work() {
     local worktree
     local branch
     local item
+    validate_issue "$issue"
+    [[ "$slug" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || fail "slug must contain lowercase words separated by hyphens"
     repository_root="$(git rev-parse --show-toplevel)"
     worktree="$(dirname "$repository_root")/tl-issue-$issue-$slug"
     branch="ai/$issue-$slug"
@@ -99,6 +110,7 @@ checkpoint_work() {
     local branch
     local commit
     local item
+    validate_issue "$issue"
     assert_clean
     branch="$(git branch --show-current)"
     commit="$(git rev-parse HEAD)"
@@ -126,6 +138,7 @@ handoff_work() {
     local remaining="$2"
     local next_command="$3"
     local item
+    validate_issue "$issue"
     checkpoint_work "$issue" "Handoff checkpoint" "working tree clean and commit pushed" "$remaining"
     item="$(project_item "$issue")"
     set_stage "$item" Ready
@@ -146,7 +159,9 @@ open_pr() {
     local body_file="$3"
     local branch
     local item
+    validate_issue "$issue"
     [[ -f "$body_file" ]] || fail "pull request body file does not exist"
+    grep -Eq "(^|[^0-9])#$issue([^0-9]|$)" "$body_file" || fail "pull request body must link issue #$issue"
     assert_clean
     branch="$(git branch --show-current)"
     git push --set-upstream origin HEAD
@@ -161,6 +176,10 @@ finish_work() {
     local issue="$1"
     local evidence="$2"
     local item
+    validate_issue "$issue"
+    assert_clean
+    git fetch origin main
+    git merge-base --is-ancestor HEAD origin/main || fail "the current commit is not merged into origin/main"
     item="$(project_item "$issue")"
     set_stage "$item" Done
     set_text "$item" Checkpoint "$(git rev-parse HEAD)"

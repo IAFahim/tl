@@ -39,6 +39,21 @@ public sealed class CacheTests : IDisposable
     }
 
     [Fact]
+    public void ChangedReportInvalidatesAndRestoresTheCache()
+    {
+        var key = CompileGenerationCache.GetKey([], [], []);
+        CompileGenerationCache.Synchronize(_directory, key, [], "report\n", null);
+        var manifest = CompileGenerationCache.Load(_directory);
+        var reportPath = Path.Combine(_directory, CompileGenerationCache.ReportFileName);
+
+        File.WriteAllText(reportPath, "changed\n");
+
+        Assert.False(CompileGenerationCache.IsHit(_directory, key, manifest));
+        CompileGenerationCache.Synchronize(_directory, key, [], "report\n", manifest);
+        Assert.Equal("report\n", File.ReadAllText(reportPath));
+    }
+
+    [Fact]
     public void SourcesDefinesReferencesAndOptionsChangeTheKey()
     {
         var source = new CompileSource("/src/Timeline.cs", "source");

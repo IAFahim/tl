@@ -358,7 +358,7 @@ public static unsafe class Timeline
                 pages = (nint*)NativeMemory.AllocZeroed(256, (nuint)sizeof(nint));
                 if (pages == null)
                     throw new OutOfMemoryException();
-                s_registryRetainedBytes += 256L * sizeof(nint);
+                Interlocked.Add(ref s_registryRetainedBytes, 256L * sizeof(nint));
                 Volatile.Write(ref s_pages, (nint)pages);
             }
 
@@ -369,7 +369,7 @@ public static unsafe class Timeline
                 page = (nint*)NativeMemory.AllocZeroed(256, (nuint)sizeof(nint));
                 if (page == null)
                     throw new OutOfMemoryException();
-                s_registryRetainedBytes += 256L * sizeof(nint);
+                Interlocked.Add(ref s_registryRetainedBytes, 256L * sizeof(nint));
                 Volatile.Write(ref pages[pageIndex], (nint)page);
             }
 
