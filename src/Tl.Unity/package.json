@@ -1,0 +1,33 @@
+{
+  "name": "com.iafahim.tl",
+  "version": "1.0.0-alpha.2",
+  "displayName": "Tl",
+  "description": "Compiled heterogeneous timelines for Unity ECS and Burst.",
+  "unity": "6000.0",
+  "documentationUrl": "https://github.com/IAFahim/tl/blob/main/src/Tl.Unity/README.md",
+  "changelogUrl": "https://github.com/IAFahim/tl/blob/main/src/Tl.Unity/CHANGELOG.md",
+  "author": {
+    "name": "IAFahim",
+    "url": "https://github.com/IAFahim"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IAFahim/tl.git"
+  },
+  "dependencies": {
+    "com.unity.entities": "1.4.3"
+  },
+  "keywords": [
+    "timeline",
+    "ecs",
+    "burst",
+    "dots"
+  ],
+  "samples": [
+    {
+      "displayName": "Burst Combat",
+      "description": "A heterogeneous animation and damage timeline running in an ECS job.",
+      "path": "Samples~/BurstCombat"
+    }
+  ]
+}

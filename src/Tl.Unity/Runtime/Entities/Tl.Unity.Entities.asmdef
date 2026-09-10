@@ -1,0 +1,10 @@
+{
+  "name": "Tl.Unity.Entities",
+  "rootNamespace": "Tl",
+  "references": [
+    "Tl.Unity",
+    "Unity.Collections",
+    "Unity.Entities"
+  ],
+  "allowUnsafeCode": true
+}

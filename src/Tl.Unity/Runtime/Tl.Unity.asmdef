@@ -1,0 +1,6 @@
+{
+  "name": "Tl.Unity",
+  "rootNamespace": "Tl",
+  "allowUnsafeCode": true,
+  "noEngineReferences": true
+}

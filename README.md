@@ -18,6 +18,7 @@ Compile gameplay timelines into tiny, allocation-free playback kernels. Author a
 | `Tl.Gen.CSharp` | Standalone automatic C# frontend and build-time kernel generator |
 | `Tl.Compiler` | Versioned language-neutral immutable plan for backend and tooling authors |
 | `Tl.Gen.C` | Portable C11 backend with a fixed-width ABI |
+| `Tl.Unity` | Native UPM runtime for C# 9, Unity ECS, and Burst |
 
 ## Install
 
@@ -111,7 +112,13 @@ The generated contexts are stack-only ref structs. They retain managed byrefs co
 
 ## Unity ECS target
 
-The ECS ownership boundary is one `Playback` value per entity. Query the required components directly, construct the borrowed generated contexts inside `Execute`, advance once, and write the returned playback back only when the operation succeeds. A Unity backend should make this job the complete call site:
+Install the native UPM package through Unity Package Manager:
+
+```text
+https://github.com/IAFahim/tl.git?path=/src/Tl.Unity
+```
+
+The ECS ownership boundary is one `Playback` value per entity. Query the required components directly, construct the borrowed generated contexts inside `Execute`, advance once, and write the returned playback back only when the operation succeeds. The included Burst Combat sample uses this complete call site:
 
 ```cs
 using Tl;
@@ -148,10 +155,9 @@ public partial struct AdvanceAttackJob : IJobEntity
         ref NextPose nextPose,
         ref BossCombatStats boss)
     {
-        var playback = state.Value;
-        if (!playback.Has(PlaybackFlags.Started)
-            && !Timeline.TryStart(Attack.Id, out playback))
-            return;
+        var playback = state.Value.Has(PlaybackFlags.Started)
+            ? state.Value
+            : Timeline.Start(Attack.Id);
 
         var input = new Attack.Input(currentPose: in currentPose.Value);
         var output = new Attack.Output(
@@ -183,7 +189,7 @@ public partial struct AttackSystem : ISystem
 
 `CurrentPose` and `NextPose` are separate component types because an entity cannot carry two components of the same type. A `ref` callback parameter aliases the queried component storage; an `in` parameter reads it without creating mutable output state. Generated contexts must be created and consumed inside the job invocation, never stored in a component, captured, or retained across a structural change.
 
-This is the required Unity integration shape, but the current package is not Unity-compatible. It targets .NET 10/C# 14, while Unity uses a different API and compiler profile, and the runtime registry has not passed Burst compilation. NuGetForUnity can copy NuGet assemblies into a Unity project, but it cannot make this target framework or the MSBuild generator Burst-compatible. A production `Tl.Unity` UPM package must emit Unity-compatible kernels, store immutable timeline data in Burst-supported native storage, and pass Burst, Entities, IL2CPP, player-content, and allocation gates. See Unity's [API compatibility](https://docs.unity3d.com/6000.0/Documentation/Manual/dotnet-profile-support.html), [C# compiler](https://docs.unity3d.com/6000.0/Documentation/Manual/csharp-compiler.html), [Entities `ISystem`](https://docs.unity.cn/Packages/com.unity.entities%401.2/manual/systems-isystem.html), and [Burst type support](https://docs.unity3d.com/Packages/com.unity.burst%401.8/manual/csharp-type-support.html) documentation.
+`Tl.Unity` is a separate C# 9 assembly with an unmanaged 12-byte playback value, pointer-backed generated contexts, direct scalar kernels, and BlobAsset-compatible inspection data. It passed EditMode, PlayMode, Burst AOT, a Standalone Linux player build, and a 1,048,576-call zero-allocation receipt on Unity 6000.7.0a5, Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0. Unity 6000.0 with Entities 1.4.3 is the declared stable compatibility floor and remains a separate CI lane. NuGetForUnity cannot run the Tl build generator and is not the supported install path. See the [Unity package guide](docs/unity.md) and Unity's [Burst type support](https://docs.unity3d.com/Packages/com.unity.burst%401.8/manual/csharp-type-support.html) documentation.
 
 ## Emit portable C11
 
@@ -257,7 +263,7 @@ Every measured arm allocates 0 B. Scalar public values are the median of three i
 - Runtime topology mutation and arbitrary managed plugin loading are outside this alpha.
 - Context routing and `Include` resolve definitions from the same compilation. Cross-assembly schema routing is outside this alpha.
 - Timeline declarations emitted by another source generator are not visible to this pre-compilation generator pass.
-- NativeAOT is supported. Unity Burst requires its own backend and qualification.
+- NativeAOT is supported by `Tl.CSharp`. Unity ECS and Burst use the separate `Tl.Unity` UPM package.
 
 The [API contract](docs/v1.0-alpha-api.md), [migration guide](docs/v1.0-alpha-migration.md), [implementation plan](plan.md), [architecture](docs/architecture.md), and [extension contract](docs/extending.md) contain the complete design and verification rules.
 
@@ -270,11 +276,13 @@ The [API contract](docs/v1.0-alpha-api.md), [migration guide](docs/v1.0-alpha-mi
 | `src/Tl.Compiler` | Language-neutral immutable plan |
 | `src/Tl.Gen.C` | Portable C11 backend and ABI reporting |
 | `src/Tl.CSharp` | One-package C# installation |
+| `src/Tl.Unity` | Native UPM runtime, Entities blob boundary, and Burst sample |
 | `samples/Mixed` | Small heterogeneous attack that builds and runs generated code |
 | `benchmarks/Alpha` | Public-path BenchmarkDotNet suite, exact oracle, and disassembly inputs |
 | `tests/Tl.Alpha` | JIT and NativeAOT behavioral, capacity, allocation, and lifetime receipts |
 | `tests/Tl.Core.Tests` | Approved public runtime surface |
 | `tests/Tl.Gen.Tests` | Semantic analysis, generation, routing, caching, and diagnostics |
+| `tests/Tl.Unity.Project` | Unity EditMode, PlayMode, Burst, player, and package-isolation gates |
 | `docs/verification` | Frozen measurements, environment identity, decisions, and limits |
 
 ## Build
