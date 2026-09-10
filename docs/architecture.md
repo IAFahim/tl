@@ -63,7 +63,7 @@ The ID registry is a sparse two-level unmanaged table. Registration allocates an
 
 `try_seek` accepts a signed delta and replays every crossed frame in forward order or its structural reverse. It snapshots playback and validates identity, ownership, lifecycle, source and target bounds, overflow, and required context before callbacks. Failure preserves playback and produces no effects; zero delta validates without callbacks. Consumer-owned `void*` context may alias playback and next, and `try_stop` also supports playback/output aliasing.
 
-The C ABI is in-process and uses native byte order plus native floating-point evaluation and rounding, as declared by its generated ABI macros. It does not define an on-disk format or network byte order. `TimelinePlanCodec` separately defines the canonical plan interchange bytes and hash; target ABIs never reinterpret those bytes as native structs. C layout or timing evidence does not establish the managed C# ABI.
+The C ABI is in-process and uses native byte order plus native floating-point evaluation and rounding, as declared by its generated ABI macros. It does not define an on-disk format or network byte order. A serialized plan will require a separate canonical format with explicit endianness and compatibility rules. C layout or timing evidence does not establish the managed C# ABI.
 
 ## Extension invariants
 

@@ -29,10 +29,6 @@ The plan schema, runtime ABI, and each backend version independently. A frontend
 
 Backend packages can move to their own repositories after the neutral plan has a released schema, canonical serializer, compatibility matrix, and fixture package. The repository split is then mechanical: depend on `Tl.Compiler`, import the fixtures, retain package provenance, and run conformance in CI.
 
-## Canonical plan bytes
-
-`TimelinePlanCodec` begins with ASCII `TLPL`, then writes minimal unsigned LEB128 values for the plan format, runtime ID, loop flag, and length-prefixed UTF-8 data. Operation IDs are unique and ordinal-sorted. Tracks and clips retain authored order because equal-start effect order is semantic. Track records contain index, payload ID, and operation-table index. Clip records contain track index, payload ID, start, and exclusive end. Decoding rejects invalid UTF-8, overlong integers, unsupported formats, unsorted or duplicate operations, invalid plans, and trailing bytes. The canonical hash is SHA-256 over exactly these bytes.
-
 ## Pull request evidence
 
 An extension contribution includes its package boundary, supported targets, deterministic-output test, negative validation tests, native compiler or runtime receipt, artifact-size report, allocation result where applicable, and unsupported-feature list. Hot-path changes also include an exact baseline/candidate comparison and generated or native assembly evidence.
