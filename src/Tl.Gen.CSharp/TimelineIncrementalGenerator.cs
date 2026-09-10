@@ -55,10 +55,8 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
         }
         else if (!symbol.AllInterfaces.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, contract)))
             return null;
-        var result = HeterogeneousReader.ReadCandidate((CSharpCompilation)context.SemanticModel.Compilation, syntax);
-        cancellationToken.ThrowIfCancellationRequested();
         var identity = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        return CandidateInput.Create(identity, result.Timelines.SingleOrDefault(), result.Diagnostics);
+        return new CandidateInput(identity);
     }
 
     private static void Produce(SourceProductionContext context, CompilationInput input)
@@ -94,46 +92,23 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
 
     private sealed class CandidateInput
     {
-        private CandidateInput(string identity, HeterogeneousTimeline? timeline, ImmutableArray<DeclarationDiagnostic> diagnostics, string key)
-        {
-            Identity = identity;
-            Timeline = timeline;
-            Diagnostics = diagnostics;
-            Key = key;
-        }
+        internal CandidateInput(string identity) => Identity = identity;
 
         internal string Identity { get; }
-        internal HeterogeneousTimeline? Timeline { get; }
-        internal ImmutableArray<DeclarationDiagnostic> Diagnostics { get; }
-        internal string Key { get; }
-
-        internal static CandidateInput Create(string identity, HeterogeneousTimeline? timeline, IReadOnlyList<DeclarationDiagnostic> diagnostics)
-        {
-            var ordered = diagnostics
-                .OrderBy(static diagnostic => diagnostic.File, StringComparer.Ordinal)
-                .ThenBy(static diagnostic => diagnostic.SpanStart)
-                .ThenBy(static diagnostic => diagnostic.Code, StringComparer.Ordinal)
-                .ToImmutableArray();
-            var key = new StringBuilder();
-            Append(key, identity);
-            if (timeline is not null)
-                Append(key, HeterogeneousEmitter.NormalizeSource(HeterogeneousEmitter.Emit(timeline)));
-            foreach (var diagnostic in ordered)
-            {
-                Append(key, diagnostic.File);
-                Append(key, diagnostic.SpanStart);
-                Append(key, diagnostic.SpanLength);
-                Append(key, diagnostic.Code);
-                Append(key, diagnostic.Message);
-            }
-            return new CandidateInput(identity, timeline, ordered, key.ToString());
-        }
+        internal string Key => Identity;
     }
 
     private sealed class EnvironmentInput
     {
-        private EnvironmentInput(string key) => Key = key;
+        private EnvironmentInput(ImmutableArray<HeterogeneousTimeline> timelines, ImmutableArray<DeclarationDiagnostic> diagnostics, string key)
+        {
+            Timelines = timelines;
+            Diagnostics = diagnostics;
+            Key = key;
+        }
 
+        internal ImmutableArray<HeterogeneousTimeline> Timelines { get; }
+        internal ImmutableArray<DeclarationDiagnostic> Diagnostics { get; }
         internal string Key { get; }
 
         internal static EnvironmentInput Create(Compilation compilation, ParseOptions parseOptions, CancellationToken cancellationToken)
@@ -178,7 +153,24 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
                 var symbol = compilation.GetAssemblyOrModuleSymbol(reference);
                 Append(key, symbol is IAssemblySymbol assembly ? assembly.Identity.ToString() : symbol?.Name ?? "");
             }
-            return new EnvironmentInput(key.ToString());
+            var result = HeterogeneousReader.ReadCompilation((CSharpCompilation)compilation);
+            cancellationToken.ThrowIfCancellationRequested();
+            var timelines = result.Timelines
+                .OrderBy(static timeline => timeline.Namespace, StringComparer.Ordinal)
+                .ThenBy(static timeline => timeline.Name, StringComparer.Ordinal)
+                .ToImmutableArray();
+            var diagnostics = result.Diagnostics
+                .GroupBy(static diagnostic => DiagnosticKey(diagnostic), StringComparer.Ordinal)
+                .Select(static group => group.First())
+                .OrderBy(static diagnostic => diagnostic.File, StringComparer.Ordinal)
+                .ThenBy(static diagnostic => diagnostic.SpanStart)
+                .ThenBy(static diagnostic => diagnostic.Code, StringComparer.Ordinal)
+                .ToImmutableArray();
+            foreach (var timeline in timelines)
+                Append(key, HeterogeneousEmitter.NormalizeSource(HeterogeneousEmitter.Emit(timeline)));
+            foreach (var diagnostic in diagnostics)
+                Append(key, DiagnosticKey(diagnostic));
+            return new EnvironmentInput(timelines, diagnostics, key.ToString());
         }
     }
 
@@ -202,28 +194,13 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
                 .GroupBy(static candidate => candidate.Identity, StringComparer.Ordinal)
                 .Select(static group => group.First())
                 .ToArray();
-            var timelines = unique
-                .Select(static candidate => candidate.Timeline)
-                .Where(static timeline => timeline is not null)
-                .Cast<HeterogeneousTimeline>()
-                .OrderBy(static timeline => timeline.Namespace, StringComparer.Ordinal)
-                .ThenBy(static timeline => timeline.Name, StringComparer.Ordinal)
-                .ToImmutableArray();
-            var diagnostics = unique
-                .SelectMany(static candidate => candidate.Diagnostics)
-                .GroupBy(static diagnostic => DiagnosticKey(diagnostic), StringComparer.Ordinal)
-                .Select(static group => group.First())
-                .OrderBy(static diagnostic => diagnostic.File, StringComparer.Ordinal)
-                .ThenBy(static diagnostic => diagnostic.SpanStart)
-                .ThenBy(static diagnostic => diagnostic.Code, StringComparer.Ordinal)
-                .ToImmutableArray();
             var key = new StringBuilder(environment.Key);
             foreach (var candidate in unique)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Append(key, candidate.Key);
             }
-            return new CompilationInput(timelines, diagnostics, key.ToString());
+            return new CompilationInput(environment.Timelines, environment.Diagnostics, key.ToString());
         }
     }
 

@@ -15,4 +15,5 @@
     <ProjectReference Include="..\..\src\Tl.Gen.CSharp\Tl.Gen.CSharp.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" AdditionalProperties="TargetFramework=netstandard2.0"
                       GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
   </ItemGroup>
+  <Import Project="..\..\src\Tl.Gen.CSharp\build\Tl.Gen.CSharp.targets" />
 </Project>

@@ -26,7 +26,7 @@
 dotnet add package Tl.CSharp --prerelease
 ```
 
-Normal builds and IDE design-time builds discover `ITimeline` declarations automatically. Generated files are deterministic cache outputs under `obj/<configuration>/<tfm>/TlGenCompile`. Applications ship `Tl.Runtime`; the package-only checks prove that the generator, compiler, and Roslyn assemblies do not enter managed or NativeAOT output.
+Normal builds and IDE design-time builds discover `ITimeline` declarations through the incremental Roslyn generator. The compiler owns generated sources and reuses structurally equal inputs across edits. Run `dotnet msbuild -t:TlGenExport` when deterministic standalone source files and a generation report are needed under `obj/<configuration>/<tfm>/TlGenCompile`. Applications ship `Tl.Runtime`; the package-only checks prove that the generator, compiler, and Roslyn assemblies do not enter managed or NativeAOT output.
 
 ## Build a combo attack
 

@@ -83,13 +83,8 @@ public static class HeterogeneousReader
 #endif
 
     internal static (IReadOnlyList<HeterogeneousTimeline> Timelines, IReadOnlyList<DeclarationDiagnostic> Diagnostics)
-        ReadCandidate(CSharpCompilation compilation, TypeDeclarationSyntax candidate)
-    {
-        var symbol = compilation.GetSemanticModel(candidate.SyntaxTree).GetDeclaredSymbol(candidate);
-        return symbol is null
-            ? ([], [])
-            : Read(compilation, compilation.SyntaxTrees, symbol, []);
-    }
+        ReadCompilation(CSharpCompilation compilation)
+        => Read(compilation, compilation.SyntaxTrees, null, []);
 
     private static (IReadOnlyList<HeterogeneousTimeline> Timelines, IReadOnlyList<DeclarationDiagnostic> Diagnostics)
         Read(
