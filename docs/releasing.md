@@ -1,8 +1,8 @@
 # Release artifacts
 
-`release-artifacts` and `publish-nuget` are separate manual workflows. Building a GitHub prerelease cannot publish a NuGet package. NuGet publication requires its own dispatch with `license_and_owner_decisions` set to true.
+`release-artifacts` and `publish-nuget` are separate manual workflows. Building a GitHub prerelease cannot publish a NuGet package. NuGet publication requires a repository-owner dispatch and approval through the protected `nuget-production` environment. Configure that environment with the repository owner as a required reviewer before enabling publication. The repository's unresolved license decision still blocks using this workflow.
 
-The artifact workflow accepts an existing tag. It checks that the tag is `v` plus the package version and that the checked-out commit is the tag target. It builds with the repository commit and tag ref supplied explicitly to MSBuild, packs every package twice, normalizes ZIP timestamps without recompressing entries, and requires the two normalized package sets to be byte-identical.
+The artifact workflow checks out the fully qualified `refs/tags/<tag>` ref. It rejects a branch with the same short name, checks that the tag is `v` plus the package version, and requires the checked-out commit to be the tag target. It rejects tracked and untracked source changes, builds with the repository commit and tag ref supplied explicitly to MSBuild, packs every package twice, normalizes ZIP timestamps without recompressing entries, and requires the two normalized package sets to be byte-identical.
 
 The package contract verifies:
 
@@ -15,6 +15,8 @@ The package contract verifies:
 - Generator, compiler, Roslyn, and C backend assemblies do not enter either application output.
 
 The workflow uploads one uncompressed Actions artifact containing the five packages, three symbol packages, a deterministic archive of the package-only NativeAOT smoke executable, the generation report, `RELEASE-MANIFEST.json`, and `SHA256SUMS`. The executable archive preserves its mode through GitHub artifact download. The manifest contains no wall-clock time and orders files by ordinal name.
+
+The NuGet workflow rebuilds and verifies that exact tagged input in an unprivileged job. It then uploads one immutable Actions artifact scoped to the workflow run. Only the protected publish job receives an OpenID Connect token. That job downloads the same-run artifact, verifies its checksums, rejects any package outside the fixed five-package and three-symbol-package sets, and pushes each named package explicitly.
 
 Run the same pipeline on a branch before tagging:
 

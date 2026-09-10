@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+tag="${1:-}"
+version="${2:-}"
+
+[[ -n "$tag" && -n "$version" ]] || { printf '%s\n' "usage: eng/release-ref <tag> <version>" >&2; exit 2; }
+[[ "$tag" == "v$version" ]] || { printf '%s\n' "tag $tag does not match package version $version" >&2; exit 2; }
+
+tag_ref="refs/tags/$tag"
+git show-ref --verify --quiet "$tag_ref" || { printf '%s\n' "tag ref does not exist: $tag_ref" >&2; exit 2; }
+tag_commit="$(git rev-parse "$tag_ref^{commit}")"
+head_commit="$(git rev-parse HEAD)"
+[[ "$tag_commit" == "$head_commit" ]] || { printf '%s\n' "$tag_ref does not point to HEAD $head_commit" >&2; exit 2; }
+printf '%s\n' "$tag_commit"

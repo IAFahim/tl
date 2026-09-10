@@ -7,41 +7,26 @@ on:
         description: Existing v-prefixed release tag
         required: true
         type: string
-      license_and_owner_decisions:
-        description: The repository owner approved the license and NuGet package ownership
-        required: true
-        default: false
-        type: boolean
 
 permissions:
-  id-token: write
   contents: read
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
 jobs:
-  publish:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
-          ref: ${{ inputs.tag }}
+          ref: refs/tags/${{ inputs.tag }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
         with:
-          dotnet-version: 10.0.x
-      - name: Validate release identity
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-          PUBLISH_APPROVED: ${{ inputs.license_and_owner_decisions }}
-        run: |
-          set -euo pipefail
-          test "$PUBLISH_APPROVED" = "true"
-          version="$(dotnet msbuild src/Tl.Core/Tl.Core.csproj -getProperty:Version -nologo)"
-          test "$RELEASE_TAG" = "v$version"
-          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
+          dotnet-version: 10.0.401
+      - run: python3 -m unittest discover -s tests -p test_release_artifacts.py
       - run: python3 benchmarks/source_budget.py
       - run: python3 -m unittest discover -s benchmarks -p test_collect.py
       - run: dotnet build tl.slnx -c Release -m:1
@@ -55,53 +40,71 @@ jobs:
       - run: ./artifacts/aot/Tl.Alpha
       - run: ./artifacts/aot/Tl.Alpha --capacity
       - run: ./artifacts/aot/Tl.Alpha --module-capacity
-      - name: Verify NativeAOT runtime isolation
-        run: |
-          test -z "$(find artifacts/aot -type f \( -name 'Tl.Gen*' -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
-      - name: Download and verify release assets
+      - name: Build and verify exact tagged artifacts
         env:
-          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: eng/release-artifacts --tag "$RELEASE_TAG" artifacts/release
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nuget-${{ inputs.tag }}-${{ github.run_id }}
+          path: artifacts/release/*
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    needs: validate
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    environment: nuget-production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: nuget-${{ inputs.tag }}-${{ github.run_id }}
+          path: artifacts/release
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
+        with:
+          dotnet-version: 10.0.401
+      - name: Verify immutable package set
+        env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          mkdir -p artifacts/release
-          gh release download "$RELEASE_TAG" --dir artifacts/release
+          version="${RELEASE_TAG#v}"
           cd artifacts/release
           sha256sum --check SHA256SUMS
-          version="${RELEASE_TAG#v}"
-          test -f "Tl.Runtime.$version.nupkg"
-          test -f "Tl.Gen.CSharp.$version.nupkg"
-          test -f "Tl.CSharp.$version.nupkg"
-          test -f "Tl.Compiler.$version.nupkg"
-          test -f "Tl.Gen.C.$version.nupkg"
-          commit="$(git -C ../.. rev-parse HEAD)"
-          unzip -p "Tl.Runtime.$version.nupkg" Tl.Runtime.nuspec | grep -F "commit=\"$commit\""
-          unzip -p "Tl.Gen.CSharp.$version.nupkg" Tl.Gen.CSharp.nuspec | grep -F "commit=\"$commit\""
-          unzip -p "Tl.CSharp.$version.nupkg" Tl.CSharp.nuspec | grep -F "commit=\"$commit\""
-          unzip -p "Tl.Compiler.$version.nupkg" Tl.Compiler.nuspec | grep -F "commit=\"$commit\""
-          unzip -p "Tl.Gen.C.$version.nupkg" Tl.Gen.C.nuspec | grep -F "commit=\"$commit\""
-      - name: Verify package consumer
-        env:
-          NUGET_PACKAGES: ${{ runner.temp }}/tl-package-consumer
-        run: |
-          set -euo pipefail
-          dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj --source artifacts/release
-          dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore
-          test "$(./tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.PackageConsumer)" = "7"
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.CSharp.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.CSharp.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Compiler.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.C.dll
-          dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore | tee artifacts/package-cache.log
-          grep -F "TlGenCompile: cache hit" artifacts/package-cache.log
-          dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -r linux-x64 -p:PublishAot=true --source artifacts/release --source https://api.nuget.org/v3/index.json
-          dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
-          test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"
-          test -z "$(find artifacts/package-aot -type f \( -name 'Tl.Gen*' -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
+          expected_packages=(
+            "Tl.CSharp.$version.nupkg"
+            "Tl.Compiler.$version.nupkg"
+            "Tl.Gen.C.$version.nupkg"
+            "Tl.Gen.CSharp.$version.nupkg"
+            "Tl.Runtime.$version.nupkg"
+          )
+          expected_symbols=(
+            "Tl.Compiler.$version.snupkg"
+            "Tl.Gen.C.$version.snupkg"
+            "Tl.Runtime.$version.snupkg"
+          )
+          mapfile -t actual_packages < <(find . -maxdepth 1 -type f -name '*.nupkg' -printf '%f\n' | LC_ALL=C sort)
+          mapfile -t actual_symbols < <(find . -maxdepth 1 -type f -name '*.snupkg' -printf '%f\n' | LC_ALL=C sort)
+          [[ "${actual_packages[*]}" == "${expected_packages[*]}" ]]
+          [[ "${actual_symbols[*]}" == "${expected_symbols[*]}" ]]
       - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841
         id: login
         with:
           user: iafahim
-      - run: dotnet nuget push "artifacts/release/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+      - name: Publish exact packages
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          source=https://api.nuget.org/v3/index.json
+          dotnet nuget push "artifacts/release/Tl.Runtime.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source" --skip-duplicate
+          dotnet nuget push "artifacts/release/Tl.Gen.CSharp.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source" --skip-duplicate
+          dotnet nuget push "artifacts/release/Tl.CSharp.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source" --skip-duplicate
+          dotnet nuget push "artifacts/release/Tl.Compiler.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source" --skip-duplicate
+          dotnet nuget push "artifacts/release/Tl.Gen.C.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source" --skip-duplicate

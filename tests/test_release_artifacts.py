@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -49,9 +50,66 @@ class ReleaseArtifactTests(unittest.TestCase):
     def test_nuget_publish_requires_manual_dispatch(self):
         workflow = (ROOT / ".github" / "workflows" / "publish-nuget.yml").read_text(encoding="utf-8")
         trigger = workflow.split("permissions:", 1)[0]
+        validate = workflow.split("  validate:", 1)[1].split("  publish:", 1)[0]
+        publish = workflow.split("  publish:", 1)[1]
         self.assertIn("workflow_dispatch:", trigger)
         self.assertNotIn("release:", trigger)
-        self.assertIn("license_and_owner_decisions", trigger)
+        self.assertIn("ref: refs/tags/${{ inputs.tag }}", validate)
+        self.assertNotIn("id-token: write", validate)
+        self.assertIn("environment: nuget-production", workflow)
+        self.assertIn("github.actor == github.repository_owner", workflow)
+        self.assertIn("id-token: write", publish)
+        self.assertIn("actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0", publish)
+        self.assertIn("Tl.Runtime.$version.nupkg", publish)
+        self.assertNotIn("*.nupkg\" --api-key", publish)
+        self.assertNotIn("gh release download", workflow)
+        self.assertNotIn("license_and_owner_decisions", workflow)
+
+    def test_artifact_workflow_checks_out_the_tag_namespace(self):
+        workflow = (ROOT / ".github" / "workflows" / "release-artifacts.yml").read_text(encoding="utf-8")
+        self.assertIn("ref: refs/tags/${{ inputs.tag }}", workflow)
+
+    def test_branch_with_release_name_is_not_a_tag(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repository = Path(temporary)
+            self.git(repository, "init", "-q")
+            self.git(repository, "config", "user.name", "release-test")
+            self.git(repository, "config", "user.email", "release-test@example.invalid")
+            (repository / "tracked").write_text("content\n", encoding="utf-8")
+            self.git(repository, "add", "tracked")
+            self.git(repository, "commit", "-qm", "initial")
+            self.git(repository, "branch", "v1.0.0-alpha.2")
+
+            branch_only = subprocess.run(
+                [ROOT / "eng" / "release-ref", "v1.0.0-alpha.2", "1.0.0-alpha.2"],
+                cwd=repository,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(0, branch_only.returncode)
+            self.assertIn("tag ref does not exist", branch_only.stderr)
+
+            self.git(repository, "tag", "v1.0.0-alpha.2")
+            tagged = subprocess.run(
+                [ROOT / "eng" / "release-ref", "v1.0.0-alpha.2", "1.0.0-alpha.2"],
+                cwd=repository,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(0, tagged.returncode, tagged.stderr)
+            self.assertEqual(self.git(repository, "rev-parse", "HEAD"), tagged.stdout.strip())
+
+    @staticmethod
+    def git(repository, *arguments):
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=repository,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
 
     @staticmethod
     def write_archive(path, timestamp):
