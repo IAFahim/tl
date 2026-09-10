@@ -92,6 +92,17 @@ In Unity, separate typed jobs/systems participate in one dependency chain. Selec
 
 Local uint position is separate from signed long Cycle. Finite assets have Cycle zero. Looped playback increments or decrements the cycle only when crossing its boundary; at the signed counter limits arithmetic wraps explicitly in two's complement. This total policy replaces the old checked-overflow rejection and needs production min/max, wrap and rewind receipts. Preserve the complete current clip/timeline/completion flags while migrating. The prototype's four-byte Playback is not the production size promise.
 
+For a loop of duration D > 0, cursor position p in [0,D), and cycle c, Frame.Cycle identifies the cycle of the emitted frame, not the cursor after commit:
+
+| Movement | Emitted (TimelineTick, Cycle) | Committed (position, cycle) |
+| --- | --- | --- |
+| Forward, p+1 < D | (p, c) | (p+1, c) |
+| Forward, p+1 = D | (p, c) | (0, unchecked(c+1)) |
+| Reverse, p > 0 | (p-1, c) | (p-1, c) |
+| Reverse, p = 0 | (D-1, unchecked(c-1)) | (D-1, unchecked(c-1)) |
+
+A forward last frame at long.MaxValue reports that cycle and commits long.MinValue. Reversing immediately reports the same last frame at long.MaxValue and restores the old cursor. Duration one follows the same rules; duration zero emits no frame. Production tests must cover these exact coordinates, signed counter limits, uint.MaxValue duration and multi-loop walks.
+
 Do not negate `int.MinValue` in `int`, iterate billions of empty steps, or schedule billions of empty Unity job chains. Finite work bounds come from the longest remaining live timeline. Looping replay with real effects is inherently proportional to the requested work; only a separately proven algebraic operation may collapse it.
 
 Clamping loses overshoot information. Therefore `Tick(+n); Tick(-n)` is not universally identity. Exact restoration additionally requires the same executed frames, reverse operation order, reversible consumer operations, and appropriate event history. Floating-point subtraction is not a general inverse of floating-point addition.
