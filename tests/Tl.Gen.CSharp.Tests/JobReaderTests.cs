@@ -18,6 +18,18 @@ public sealed class JobReaderTests
     }
 
     [Fact]
+    public void CatalogAssetCapacityReservesOnlyRouteZero()
+    {
+        Assert.NotNull(JobReader.CatalogAssetCapacityDiagnostic(-1));
+        Assert.Null(JobReader.CatalogAssetCapacityDiagnostic(0));
+        Assert.Null(JobReader.CatalogAssetCapacityDiagnostic(65_536));
+        Assert.Equal(
+            ("TLGEN78", "A catalog may contain at most 65,536 nonempty assets because route zero is reserved."),
+            JobReader.CatalogAssetCapacityDiagnostic(65_537));
+        Assert.NotNull(JobReader.CatalogAssetCapacityDiagnostic(int.MaxValue));
+    }
+
+    [Fact]
     public void ReadsFiniteJobsAndCatalogSchemas()
     {
         var compilation = Compile(Runtime + """

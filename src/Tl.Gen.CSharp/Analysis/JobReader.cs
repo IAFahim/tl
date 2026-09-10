@@ -301,6 +301,12 @@ public static class JobReader
                         valid = false;
                         continue;
                     }
+                    if (CatalogAssetCapacityDiagnostic(assetNames.Count) is { } capacity)
+                    {
+                        Error(errors, assetSite, capacity.Code, capacity.Message);
+                        valid = false;
+                        continue;
+                    }
                     var slots = Joined(timeline);
                     expected ??= slots;
                     if (!expected.SequenceEqual(slots, StringComparer.Ordinal))
@@ -490,6 +496,10 @@ public static class JobReader
     private static bool Overlaps(int count, IReadOnlyCollection<HeterogeneousClip> clips)
         => Enumerable.Range(0, count).All(index => clips.Where(clip => clip.TrackIndex == index).ToArray() is var own
             && own.SelectMany(static clip => new[] { clip.Start, clip.End }).Distinct().All(cut => own.Count(clip => clip.Start <= cut && cut < clip.End) <= 2));
+    internal static (string Code, string Message)? CatalogAssetCapacityDiagnostic(int count)
+        => (uint)count <= ushort.MaxValue + 1u
+            ? null
+            : ("TLGEN78", "A catalog may contain at most 65,536 nonempty assets because route zero is reserved.");
     private static string Canonical(ExpressionSyntax expression, SemanticModel model) => new Qualifier(model).Visit(expression)!.WithoutTrivia().ToFullString();
     private static MethodDeclarationSyntax? Method(IMethodSymbol method) => method.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).OfType<MethodDeclarationSyntax>().SingleOrDefault();
     private static SyntaxNode Site(ISymbol symbol, SyntaxNode fallback) => symbol.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).FirstOrDefault() ?? fallback;
