@@ -36,11 +36,22 @@ internal static class BatchAliasingReceipt
         if (next != playback || calls != 0 || mutation != 17u)
             throw new InvalidOperationException();
 
+        ticks = [1u, ((uint)ushort.MaxValue + 1u) * 2u];
+        mutation = 23u;
+        calls = 0;
+        output = new BatchMutationTimeline.Output(nextTick: ref mutation, calls: ref calls);
+        if (!Timeline.TryStart(BatchMutationTimeline.Id, out playback))
+            throw new InvalidOperationException();
+        if (Timeline.TryForward(BatchMutationTimeline.Id, in playback, ticks, in input, ref output, out next))
+            throw new InvalidOperationException();
+        if (next != playback || calls != 0 || mutation != 23u)
+            throw new InvalidOperationException();
+
         if (!Timeline.TryStart(BatchMutationTimeline.Id, 1u, out playback))
             throw new InvalidOperationException();
         if (Timeline.TryBackward(BatchMutationTimeline.Id, in playback, oversized, in input, ref output, out next))
             throw new InvalidOperationException();
-        if (next != playback || calls != 0 || mutation != 17u)
+        if (next != playback || calls != 0 || mutation != 23u)
             throw new InvalidOperationException();
     }
 }
