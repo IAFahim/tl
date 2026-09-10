@@ -7,7 +7,6 @@ using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Toolchains.InProcess.NoEmit;
 using Perfolizer.Horology;
-using Tl;
 
 public sealed class AlphaConfig : ManualConfig
 {
@@ -30,167 +29,102 @@ public sealed class AlphaConfig : ManualConfig
 }
 
 [Config(typeof(AlphaConfig))]
-public class SumBenchmarks
+public class ScalarCatalogQueryBenchmarks
 {
-    public const int Operations = 65536;
+    public const int Operations = 4096;
     private readonly int[] _deltas = new int[Operations];
-    private ushort _id;
+    private readonly ReferenceState[] _directStates = new ReferenceState[1];
+    private readonly Accumulator[] _directAccumulators = new Accumulator[1];
+    private readonly BenchmarkCatalog.State[] _queryStates = new BenchmarkCatalog.State[1];
+    private readonly Accumulator[] _queryAccumulators = new Accumulator[1];
 
-    [Params(SeekPattern.Forward, SeekPattern.Alternating)]
-    public SeekPattern Pattern { get; set; }
+    [Params(TickPattern.Forward, TickPattern.Alternating)]
+    public TickPattern Pattern { get; set; }
 
     [GlobalSetup]
     public void Setup()
     {
-        _id = SumTimeline.Id;
-        FillDeltas(_deltas, Pattern);
-        var expected = DirectScalar();
-        Require(expected, TypedScalar(), nameof(TypedScalar));
-        Require(expected, DynamicScalar(), nameof(DynamicScalar));
+        TickPatterns.Fill(_deltas, Pattern);
+        Require(DirectScalar(), GeneratedQueryScalar(), nameof(GeneratedQueryScalar));
     }
 
     [Benchmark(Baseline = true, OperationsPerInvoke = Operations)]
-    public SumReceipt DirectScalar()
+    public BenchmarkReceipt DirectScalar()
     {
-        long position = 0;
-        uint gameTick = 0;
-        var sum = 0f;
-        foreach (var delta in _deltas)
-            Direct.Sum(delta, ref position, ref gameTick, ref sum);
-        return SumReceipt.Capture(position, gameTick, PlaybackFlags.Started, sum, Operations);
+        _directStates[0] = default;
+        _directAccumulators[0] = default;
+        for (var index = 0; index < _deltas.Length; index++)
+            Direct.Tick((uint)index, _deltas[index], ref _directStates[0], ref _directAccumulators[0]);
+        return Direct.Capture(_directStates, _directAccumulators);
     }
 
     [Benchmark(OperationsPerInvoke = Operations)]
-    public SumReceipt TypedScalar()
+    public BenchmarkReceipt GeneratedQueryScalar()
     {
-        var sum = 0f;
-        var playback = SumTimeline.Start(0u);
-        var data = new SumTimeline.Data(ref playback, ref sum);
-        var successes = 0;
-        foreach (var delta in _deltas)
-            successes += SumTimeline.TrySeek(ref data, delta) ? 1 : 0;
-        return SumReceipt.Capture(playback.Position, playback.GameTick, playback.Flags, sum, successes);
+        _queryStates[0] = new BenchmarkCatalog.State(BenchmarkCatalog.Asset.MixedTimeline);
+        _queryAccumulators[0] = default;
+        var query = new BenchmarkCatalog.Query().BenchmarkRows(_queryStates, _queryAccumulators);
+        for (var index = 0; index < _deltas.Length; index++)
+            query.Tick((uint)index, _deltas[index]);
+        return Direct.Capture(_queryStates, _queryAccumulators);
     }
 
-    [Benchmark(OperationsPerInvoke = Operations)]
-    public SumReceipt DynamicScalar()
+    internal static void Require(BenchmarkReceipt expected, BenchmarkReceipt actual, string method)
     {
-        var sum = 0f;
-        Timeline.TryStart(_id, 0u, out var playback);
-        var data = new SumTimeline.DynamicData(ref playback, ref sum);
-        var successes = 0;
-        foreach (var delta in _deltas)
-            successes += Timeline.TrySeek(_id, ref data, delta) ? 1 : 0;
-        return SumReceipt.Capture(playback.Position, playback.GameTick, playback.Flags, sum, successes);
-    }
-
-    internal static void FillDeltas(int[] deltas, SeekPattern pattern)
-    {
-        uint random = 0xA312AFD5;
-        for (var index = 0; index < deltas.Length; index++)
-        {
-            random ^= random << 13;
-            random ^= random >> 17;
-            random ^= random << 5;
-            deltas[index] = pattern == SeekPattern.Forward || (random & 1u) == 0u ? 1 : -1;
-        }
-    }
-
-    internal static void Require<T>(T expected, T actual, string method) where T : IEquatable<T>
-    {
-        if (!expected.Equals(actual))
+        if (actual != expected)
             throw new InvalidOperationException($"{method}: {actual} != {expected}");
     }
 }
 
 [Config(typeof(AlphaConfig))]
-public class CombatBenchmarks
+public class BatchCatalogQueryBenchmarks
 {
-    public const int Operations = 65536;
-    private readonly int[] _deltas = new int[Operations];
-    private readonly Pose _currentPose = new(10f, 20f);
-    private readonly AnimationSettings _animationSettings = new(0.5f);
-    private readonly Health _currentHealth = new(100f);
-    private readonly DamageSettings _damageSettings = new(2f);
-    private ushort _id;
+    public const int Frames = 64;
+    private ReferenceState[] _directStates = null!;
+    private Accumulator[] _directAccumulators = null!;
+    private BenchmarkCatalog.State[] _queryStates = null!;
+    private Accumulator[] _queryAccumulators = null!;
 
-    [Params(SeekPattern.Forward, SeekPattern.Alternating)]
-    public SeekPattern Pattern { get; set; }
+    [Params(1, 32, 10_000)]
+    public int Rows { get; set; }
 
     [GlobalSetup]
     public void Setup()
     {
-        _id = CombatTimeline.Id;
-        SumBenchmarks.FillDeltas(_deltas, Pattern);
-        var expected = DirectScalar();
-        SumBenchmarks.Require(expected, TypedScalar(), nameof(TypedScalar));
-        SumBenchmarks.Require(expected, DynamicScalar(), nameof(DynamicScalar));
+        _directStates = new ReferenceState[Rows];
+        _directAccumulators = new Accumulator[Rows];
+        _queryStates = new BenchmarkCatalog.State[Rows];
+        _queryAccumulators = new Accumulator[Rows];
+        ScalarCatalogQueryBenchmarks.Require(DirectBatch(), GeneratedQueryBatch(), nameof(GeneratedQueryBatch));
     }
 
-    [Benchmark(Baseline = true, OperationsPerInvoke = Operations)]
-    public CombatReceipt DirectScalar()
+    [Benchmark(Baseline = true)]
+    public BenchmarkReceipt DirectBatch()
     {
-        long position = 0;
-        uint gameTick = 0;
-        var pose = _currentPose;
-        var health = _currentHealth;
-        var trace = default(Trace);
-        foreach (var delta in _deltas)
-            Direct.Combat(
-                delta,
-                ref position,
-                ref gameTick,
-                in _currentPose,
-                in _animationSettings,
-                in _currentHealth,
-                in _damageSettings,
-                ref pose,
-                ref trace,
-                ref health);
-        return CombatReceipt.Capture(position, gameTick, PlaybackFlags.Started, in pose, in health, in trace, Operations);
+        Array.Clear(_directStates);
+        Array.Clear(_directAccumulators);
+        for (var tick = 0; tick < Frames; tick++)
+            for (var row = 0; row < _directStates.Length; row++)
+                Direct.Tick((uint)tick, 1, ref _directStates[row], ref _directAccumulators[row]);
+        return Direct.Capture(_directStates, _directAccumulators);
     }
 
-    [Benchmark(OperationsPerInvoke = Operations)]
-    public CombatReceipt TypedScalar()
+    [Benchmark]
+    public BenchmarkReceipt GeneratedQueryBatch()
     {
-        var pose = _currentPose;
-        var health = _currentHealth;
-        var trace = default(Trace);
-        var playback = CombatTimeline.Start(0u);
-        var data = new CombatTimeline.Data(
-            ref playback,
-            in _animationSettings,
-            in _currentHealth,
-            in _currentPose,
-            in _damageSettings,
-            ref health,
-            ref pose,
-            ref trace);
-        var successes = 0;
-        foreach (var delta in _deltas)
-            successes += CombatTimeline.TrySeek(ref data, delta) ? 1 : 0;
-        return CombatReceipt.Capture(playback.Position, playback.GameTick, playback.Flags, in pose, in health, in trace, successes);
+        Array.Fill(_queryStates, new BenchmarkCatalog.State(BenchmarkCatalog.Asset.MixedTimeline));
+        Array.Clear(_queryAccumulators);
+        var query = new BenchmarkCatalog.Query().BenchmarkRows(_queryStates, _queryAccumulators);
+        query.Tick(0u, Frames);
+        return Direct.Capture(_queryStates, _queryAccumulators);
     }
+}
 
-    [Benchmark(OperationsPerInvoke = Operations)]
-    public CombatReceipt DynamicScalar()
+internal static class TickPatterns
+{
+    internal static void Fill(Span<int> deltas, TickPattern pattern)
     {
-        var pose = _currentPose;
-        var health = _currentHealth;
-        var trace = default(Trace);
-        Timeline.TryStart(_id, 0u, out var playback);
-        var data = new CombatTimeline.DynamicData(
-            ref playback,
-            in _animationSettings,
-            in _currentHealth,
-            in _currentPose,
-            in _damageSettings,
-            ref health,
-            ref pose,
-            ref trace);
-        var successes = 0;
-        foreach (var delta in _deltas)
-            successes += Timeline.TrySeek(_id, ref data, delta) ? 1 : 0;
-        return CombatReceipt.Capture(playback.Position, playback.GameTick, playback.Flags, in pose, in health, in trace, successes);
+        for (var index = 0; index < deltas.Length; index++)
+            deltas[index] = pattern == TickPattern.Forward || (index & 1) == 0 ? 1 : -1;
     }
 }
