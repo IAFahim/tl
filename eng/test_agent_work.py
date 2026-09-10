@@ -52,12 +52,16 @@ with lock_path.open("a+") as lock:
         elif field == "closedByPullRequestsReferences":
             if state.get("linked_pr"):
                 print(state["linked_pr"])
+        elif field == "comments":
+            print("\n".join(state.get("comment_bodies", [])))
         else:
             sys.exit(1)
     elif command == "issue edit":
         state["assigned"] = True
     elif command == "issue comment":
         state["comments"] += 1
+        body_file = value("--body-file")
+        state.setdefault("comment_bodies", []).append(Path(body_file).read_text())
     elif command == "issue close":
         state["issue_state"] = "CLOSED"
     elif command == "project item-list":
@@ -116,7 +120,8 @@ with lock_path.open("a+") as lock:
     elif command == "pr create":
         branch = value("--head")
         head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-        state["pr"] = {"state": "OPEN", "branch": branch, "head": head, "merge": ""}
+        body = Path(value("--body-file")).read_text()
+        state["pr"] = {"state": "OPEN", "branch": branch, "head": head, "merge": "", "body": body}
         state["linked_pr"] = 12
         print("https://example.invalid/pull/12")
     elif command == "pr view":
@@ -127,6 +132,7 @@ with lock_path.open("a+") as lock:
             ".headRefName": pull["branch"],
             ".headRefOid": pull["head"],
             ".mergeCommit.oid // \"\"": pull["merge"],
+            ".body": pull["body"],
         }
         print(outputs[query])
     else:
@@ -151,6 +157,10 @@ is_branch_push = bool(arguments) and arguments[0] == "push" and any(
     argument == "HEAD" or argument.startswith("HEAD:refs/heads/")
     for argument in arguments
 )
+is_claim_delete = bool(arguments) and arguments[0] == "push" and any(
+    argument.startswith(":refs/heads/workstream-claims/") or argument.startswith(":refs/heads/claims/")
+    for argument in arguments
+)
 
 def wait():
     ready.touch()
@@ -169,6 +179,10 @@ if pause == "after-branch-push" and is_branch_push:
     if result.returncode == 0:
         wait()
     sys.exit(result.returncode)
+
+if pause == "before-claim-delete" and is_claim_delete:
+    wait()
+    os.execv(real_git, [real_git, *arguments])
 
 os.execv(real_git, [real_git, *arguments])
 '''
@@ -209,6 +223,7 @@ class AgentWorkTests(unittest.TestCase):
             "issue_state": "OPEN",
             "assigned": False,
             "comments": 0,
+            "comment_bodies": [],
             "project": {
                 "status": "Ready",
                 "agent": "",
@@ -260,7 +275,7 @@ class AgentWorkTests(unittest.TestCase):
         return subprocess.run(arguments, cwd=cwd, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def claim(self, kind="feat", slug="atomic"):
-        result = self.run_raw(["git", "ls-remote", "--heads", str(self.remote), f"refs/heads/claims/41/{kind}/{slug}"])
+        result = self.run_raw(["git", "ls-remote", "--heads", str(self.remote), f"refs/heads/workstream-claims/41/{kind}/{slug}"])
         return result.stdout.split()[0] if result.stdout else ""
 
     def branch(self, kind="feat", slug="atomic"):
@@ -314,6 +329,45 @@ class AgentWorkTests(unittest.TestCase):
         self.assertEqual(1, statuses.count(0))
         self.assertTrue(self.claim())
 
+    def test_scoped_claim_coexists_with_legacy_issue_claim(self):
+        legacy = self.run_raw(["git", "rev-parse", "HEAD"], self.seed).stdout.strip()
+        self.run_raw(["git", "push", "origin", f"{legacy}:refs/heads/claims/41"], self.seed)
+        repo = self.clone("owner")
+
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+
+        self.assertEqual(0, started.returncode, started.stdout)
+        self.assertTrue(self.claim())
+        self.assertEqual(
+            legacy,
+            self.run_raw(["git", "ls-remote", "--heads", str(self.remote), "refs/heads/claims/41"]).stdout.split()[0],
+        )
+
+    def test_start_resumes_legacy_scoped_claim(self):
+        repo = self.clone("owner")
+        base = self.run_raw(["git", "rev-parse", "HEAD"], repo).stdout.strip()
+        tree = self.run_raw(["git", "rev-parse", "HEAD^{tree}"], repo).stdout.strip()
+        message = "issue=41\nagent=Alpha\nmachine=pc-a\nbranch=feat/41-atomic\nnonce=legacy\n"
+        claim = subprocess.run(
+            ["git", "commit-tree", tree, "-p", base],
+            cwd=repo,
+            input=message,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        ).stdout.strip()
+        self.run_raw(["git", "push", "origin", f"{claim}:refs/heads/claims/41/feat/atomic"], repo)
+
+        resumed = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+
+        self.assertEqual(0, resumed.returncode, resumed.stdout)
+        self.assertTrue(self.worktree(repo).exists())
+        self.assertEqual(
+            claim,
+            self.run_raw(["git", "ls-remote", "--heads", str(self.remote), "refs/heads/claims/41/feat/atomic"]).stdout.split()[0],
+        )
+
     def test_one_issue_accepts_independent_workstreams(self):
         first = self.clone("first")
         second = self.clone("second")
@@ -350,7 +404,7 @@ class AgentWorkTests(unittest.TestCase):
         actual = self.run_raw(["git", "rev-parse", "HEAD"], self.worktree(repo)).stdout.strip()
         self.assertEqual(expected, actual)
         claim_parent = self.run_raw([
-            "git", "--git-dir", str(self.remote), "rev-parse", "refs/heads/claims/41/feat/atomic^"
+            "git", "--git-dir", str(self.remote), "rev-parse", "refs/heads/workstream-claims/41/feat/atomic^"
         ]).stdout.strip()
         self.assertEqual(expected, claim_parent)
 
@@ -392,6 +446,28 @@ class AgentWorkTests(unittest.TestCase):
         self.assertEqual(0, repeated.returncode, repeated.stdout)
         self.assertEqual(replacement, self.claim())
         self.assertEqual("Beta", self.read_state()["project"]["agent"])
+
+    def test_takeover_retry_preserves_and_publishes_original_audit(self):
+        repo = self.clone("owner")
+        replacement_repo = self.clone("replacement")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        previous = self.claim()
+        self.write_state(fail="project item-edit")
+
+        interrupted = self.command(replacement_repo, "Beta", "pc-b", "takeover", "41", "feat", "atomic", "power lost", previous)
+
+        self.assertNotEqual(0, interrupted.returncode)
+        replacement = self.claim()
+        self.assertNotEqual(previous, replacement)
+        recovered = self.command(replacement_repo, "Beta", "pc-b", "takeover", "41", "feat", "atomic", "power lost", previous)
+        self.assertEqual(0, recovered.returncode, recovered.stdout)
+        audits = [body for body in self.read_state()["comment_bodies"] if body.startswith("### Claim takeover")]
+        self.assertEqual(1, len(audits))
+        self.assertIn("- Previous agent: Alpha", audits[0])
+        self.assertIn("- Previous machine: pc-a", audits[0])
+        self.assertIn(f"- Previous claim: `{previous}`", audits[0])
+        self.assertIn(f"- New claim: `{replacement}`", audits[0])
 
     def test_takeover_fences_stale_checkpoint_branch_push(self):
         repo = self.clone("owner")
@@ -463,7 +539,7 @@ class AgentWorkTests(unittest.TestCase):
         marker = self.root / "delete-failed"
         hook.write_text(
             "#!/usr/bin/env bash\n"
-            f"if [[ \"$1\" == refs/heads/claims/41/feat/atomic && \"$3\" == 0000000000000000000000000000000000000000 && ! -e \"{marker}\" ]]; then touch \"{marker}\"; exit 1; fi\n"
+            f"if [[ \"$1\" == refs/heads/workstream-claims/41/feat/atomic && \"$3\" == 0000000000000000000000000000000000000000 && ! -e \"{marker}\" ]]; then touch \"{marker}\"; exit 1; fi\n"
             "exit 0\n"
         )
         hook.chmod(hook.stat().st_mode | stat.S_IXUSR)
@@ -510,6 +586,70 @@ class AgentWorkTests(unittest.TestCase):
         third = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
         self.assertEqual(0, third.returncode, third.stdout)
         self.assertFalse(self.claim())
+
+    def test_done_rejects_merged_pr_without_exact_issue_link(self):
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        worktree = self.worktree(repo)
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+        opened = self.command(worktree, "Alpha", "pc-a", "pr", "41", "title", str(body))
+        self.assertEqual(0, opened.returncode, opened.stdout)
+        state = self.read_state()
+        state["pr"]["state"] = "MERGED"
+        state["pr"]["merge"] = state["pr"]["head"]
+        state["pr"]["body"] = "Refs #42\n"
+        self.state.write_text(json.dumps(state))
+        previous_claim = self.claim()
+        previous_project = self.read_state()["project"].copy()
+
+        refused = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
+
+        self.assertNotEqual(0, refused.returncode)
+        self.assertEqual(previous_claim, self.claim())
+        self.assertEqual(previous_project, self.read_state()["project"])
+        self.assertFalse(any("Merged by #12." in body for body in self.read_state()["comment_bodies"]))
+
+    def test_takeover_fences_done_before_completion_publication(self):
+        repo = self.clone("owner")
+        replacement_repo = self.clone("replacement")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        worktree = self.worktree(repo)
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+        opened = self.command(worktree, "Alpha", "pc-a", "pr", "41", "title", str(body))
+        self.assertEqual(0, opened.returncode, opened.stdout)
+        state = self.read_state()
+        state["pr"]["state"] = "MERGED"
+        state["pr"]["merge"] = state["pr"]["head"]
+        self.state.write_text(json.dumps(state))
+        ready = self.root / "done-ready"
+        resume = self.root / "done-resume"
+        done = self.paused_command(
+            worktree,
+            "Alpha",
+            "pc-a",
+            "before-claim-delete",
+            ready,
+            resume,
+            "done",
+            "41",
+            "evidence",
+        )
+        self.wait_until_paused(done, ready)
+        published_claim = self.claim()
+        taken = self.command(replacement_repo, "Beta", "pc-b", "takeover", "41", "feat", "atomic", "power lost", published_claim)
+        self.assertEqual(0, taken.returncode, taken.stdout)
+        replacement = self.claim()
+
+        status, output = self.resume(done, resume)
+
+        self.assertNotEqual(0, status, output)
+        self.assertIn("claim changed before release", output)
+        self.assertEqual(replacement, self.claim())
+        self.assertFalse(any("Merged by #12." in body for body in self.read_state()["comment_bodies"]))
 
 
 if __name__ == "__main__":
