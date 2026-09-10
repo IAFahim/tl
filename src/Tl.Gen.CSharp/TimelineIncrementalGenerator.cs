@@ -28,8 +28,8 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
         var artifacts = model.Diagnostics.Count == 0
             ? JobEmitter.Emit(model).OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal).ToArray()
             : [];
-        var key = string.Join("\0", model.Diagnostics.Select(Key).Concat(artifacts.Select(static artifact => artifact.RelativePath + "\0" + artifact.Content)));
-        return new Analysis(model.Diagnostics.ToArray(), artifacts, key);
+        var fingerprint = string.Join("\0", model.Diagnostics.Select(DiagnosticFingerprint).Concat(artifacts.Select(static artifact => artifact.RelativePath + "\0" + artifact.Content)));
+        return new Analysis(model.Diagnostics.ToArray(), artifacts, fingerprint);
     }
 
     private static void Produce(SourceProductionContext context, Analysis analysis)
@@ -52,18 +52,18 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
                     new LinePosition(diagnostic.Line - 1, diagnostic.Column - 1),
                     new LinePosition(diagnostic.EndLine - 1, diagnostic.EndColumn - 1)));
 
-    private static string Key(DeclarationDiagnostic diagnostic)
+    private static string DiagnosticFingerprint(DeclarationDiagnostic diagnostic)
         => diagnostic.File + "\0" + diagnostic.Line + "\0" + diagnostic.Column + "\0" + diagnostic.Code + "\0" + diagnostic.Message;
 
     private sealed record Analysis(
         IReadOnlyList<DeclarationDiagnostic> Diagnostics,
         IReadOnlyList<CompileArtifact> Artifacts,
-        string Key);
+        string Fingerprint);
 
     private sealed class AnalysisComparer : IEqualityComparer<Analysis>
     {
         internal static readonly AnalysisComparer Instance = new();
-        public bool Equals(Analysis? left, Analysis? right) => ReferenceEquals(left, right) || left is not null && right is not null && left.Key == right.Key;
-        public int GetHashCode(Analysis value) => StringComparer.Ordinal.GetHashCode(value.Key);
+        public bool Equals(Analysis? left, Analysis? right) => ReferenceEquals(left, right) || left is not null && right is not null && left.Fingerprint == right.Fingerprint;
+        public int GetHashCode(Analysis value) => StringComparer.Ordinal.GetHashCode(value.Fingerprint);
     }
 }
