@@ -110,63 +110,6 @@ public interface ITimelineInput<TSelf, TOutput>
         out Playback next);
 }
 
-public readonly struct TimelineHandle(ushort id)
-{
-    public ushort Id { get; } = id;
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryForward<TInput, TOutput>(
-        in Playback playback,
-        uint tick,
-        scoped in TInput input,
-        scoped ref TOutput output,
-        out Playback next)
-        where TInput : ITimelineInput<TInput, TOutput>, allows ref struct
-        where TOutput : allows ref struct
-        => Timeline.TryForward(Id, in playback, tick, in input, ref output, out next);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryBackward<TInput, TOutput>(
-        in Playback playback,
-        uint tick,
-        scoped in TInput input,
-        scoped ref TOutput output,
-        out Playback next)
-        where TInput : ITimelineInput<TInput, TOutput>, allows ref struct
-        where TOutput : allows ref struct
-        => Timeline.TryBackward(Id, in playback, tick, in input, ref output, out next);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryForward<TInput, TOutput>(
-        in Playback playback,
-        ReadOnlySpan<uint> ticks,
-        scoped in TInput input,
-        scoped ref TOutput output,
-        out Playback next)
-        where TInput : ITimelineInput<TInput, TOutput>, allows ref struct
-        where TOutput : allows ref struct
-        => Timeline.TryForward(Id, in playback, ticks, in input, ref output, out next);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryBackward<TInput, TOutput>(
-        in Playback playback,
-        ReadOnlySpan<uint> ticks,
-        scoped in TInput input,
-        scoped ref TOutput output,
-        out Playback next)
-        where TInput : ITimelineInput<TInput, TOutput>, allows ref struct
-        where TOutput : allows ref struct
-        => Timeline.TryBackward(Id, in playback, ticks, in input, ref output, out next);
-
-    public bool TryStop(in Playback playback, out Playback stopped)
-        => Timeline.TryStop(Id, in playback, out stopped);
-}
-
-public readonly struct TimelineCollection
-{
-    public TimelineHandle this[ushort id] => new(id);
-}
-
 public static unsafe class Timeline
 {
     private const nint CompiledTag = 1;
@@ -180,7 +123,6 @@ public static unsafe class Timeline
     private static int s_gate;
     private static long s_registryRetainedBytes;
 
-    public static TimelineCollection All => default;
     public static long RegistryRetainedBytes => Volatile.Read(ref s_registryRetainedBytes);
 
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -248,6 +190,11 @@ public static unsafe class Timeline
     [EditorBrowsable(EditorBrowsableState.Never)]
     public static Playback CreateCompiledPlayback(ushort owner, uint tick, ushort cycles, PlaybackFlags flags)
         => new(tick, cycles, owner, flags);
+
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static Playback<TTimeline> CreateTypedPlayback<TTimeline>(uint tick, ushort cycles, PlaybackFlags flags)
+        where TTimeline : unmanaged, ITimeline
+        => new(tick, cycles, flags);
 
     public static bool TryStart(ushort id, uint at, out Playback playback)
     {

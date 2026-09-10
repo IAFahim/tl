@@ -83,8 +83,13 @@ internal static class HeterogeneousEmitter
         Line(writer, "    public const int MaxBatchLength = 256;");
         Line(writer, $"    public static nuint StaticDataBytes => {StaticDataBytes(timeline)};");
         EmitData(writer, timeline);
-        Line(writer, $"    private static readonly ushort s_id = global::Tl.Timeline.RegisterCompiled(Duration, Loops, new global::Tl.CompiledRoute(global::__TlGeneratedModules.Module{I(routed.Module)}, {I(routed.Ordinal)}));");
-        Line(writer, "    public static ushort Id => s_id;");
+        Line(writer, "    private static class Dynamic");
+        Line(writer, "    {");
+        Line(writer, $"        internal static readonly ushort Id = global::Tl.Timeline.RegisterCompiled(Duration, Loops, new global::Tl.CompiledRoute(global::__TlGeneratedModules.Module{I(routed.Module)}, {I(routed.Ordinal)}));");
+        Line(writer, "    }");
+        Line(writer, "    public static ushort Id => Dynamic.Id;");
+        Line(writer);
+        EmitFacade(writer, timeline);
         Line(writer);
         EmitInput(writer, routed, schema, HasCompatibleAlternate(compilation, routed));
         Line(writer);
@@ -343,6 +348,9 @@ internal static class HeterogeneousEmitter
     private static string Qualified(HeterogeneousTimeline timeline)
         => Qualified(timeline.Namespace, timeline.Name);
 
+    private static string TypedPlayback(HeterogeneousTimeline timeline)
+        => $"global::Tl.Playback<{Qualified(timeline)}>";
+
     private static string Qualified(string ns, string name)
         => ns.Length == 0 ? $"global::{name}" : $"global::{ns}.{name}";
 
@@ -366,6 +374,29 @@ internal static class HeterogeneousEmitter
             .Select(static group => $"(nuint)global::System.Runtime.CompilerServices.Unsafe.SizeOf<{group.Key}>() * (nuint){I(group.Count())}")
             .ToArray();
         return values.Length == 0 ? "0u" : string.Join(" + ", values);
+    }
+
+    private static void EmitFacade(StringBuilder writer, HeterogeneousTimeline timeline)
+    {
+        var playback = TypedPlayback(timeline);
+        Line(writer, $"    public static {playback} Start(uint at = 0u)");
+        Line(writer, $"        => global::Tl.Timeline.CreateTypedPlayback<{Qualified(timeline)}>(at, 0, global::Tl.PlaybackFlags.Started);");
+        Line(writer);
+        Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        Line(writer, "    public static bool TryStop(");
+        Line(writer, $"        in {playback} playback,");
+        Line(writer, $"        out {playback} stopped)");
+        Line(writer, "    {");
+        Line(writer, "        if (!playback.Has(global::Tl.PlaybackFlags.Started))");
+        Line(writer, "        {");
+        Line(writer, "            stopped = playback;");
+        Line(writer, "            return false;");
+        Line(writer, "        }");
+        Line(writer, "        stopped = playback.Has(global::Tl.PlaybackFlags.Stopped)");
+        Line(writer, "            ? playback");
+        Line(writer, $"            : global::Tl.Timeline.CreateTypedPlayback<{Qualified(timeline)}>(playback.Tick, playback.Cycles, playback.Flags | global::Tl.PlaybackFlags.Stopped);");
+        Line(writer, "        return true;");
+        Line(writer, "    }");
     }
 
     private static void EmitInput(
@@ -442,7 +473,7 @@ internal static class HeterogeneousEmitter
         }
         else
         {
-            Line(writer, "            if (id != s_id)");
+            Line(writer, "            if (id != Id)");
             Line(writer, "            {");
             Line(writer, "                next = playback;");
             Line(writer, "                return false;");
@@ -484,10 +515,11 @@ internal static class HeterogeneousEmitter
 
     private static void EmitValidation(StringBuilder writer, HeterogeneousTimeline timeline, string schema)
     {
+        var playback = TypedPlayback(timeline);
         Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
-        Line(writer, $"    private static bool CanRun(ushort id, in global::Tl.Playback playback, in {schema}.Input input, ref {schema}.Output output)");
+        Line(writer, $"    private static bool CanRun(in {playback} playback, in {schema}.Input input, ref {schema}.Output output)");
         Line(writer, "    {");
-        Line(writer, "        if (id != s_id || playback.Owner != id || (playback.Flags & (global::Tl.PlaybackFlags.Started | global::Tl.PlaybackFlags.Stopped)) != global::Tl.PlaybackFlags.Started)");
+        Line(writer, "        if ((playback.Flags & (global::Tl.PlaybackFlags.Started | global::Tl.PlaybackFlags.Stopped)) != global::Tl.PlaybackFlags.Started)");
         Line(writer, "            return false;");
         if (timeline.Inputs.Count != 0)
             Line(writer, "        if (!input.IsValid) return false;");
@@ -500,9 +532,10 @@ internal static class HeterogeneousEmitter
     private static void EmitPosition(StringBuilder writer, HeterogeneousTimeline timeline, bool backward)
     {
         var direction = backward ? "Backward" : "Forward";
+        var playback = TypedPlayback(timeline);
         Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
         Line(writer, $"    private static bool Position{direction}(");
-        Line(writer, "        in global::Tl.Playback from,");
+        Line(writer, $"        in {playback} from,");
         Line(writer, "        uint tick,");
         Line(writer, "        out uint effective,");
         Line(writer, "        out uint previousEffective,");
@@ -549,16 +582,25 @@ internal static class HeterogeneousEmitter
     private static void EmitScalar(StringBuilder writer, HeterogeneousTimeline timeline, string schema, bool backward)
     {
         var direction = backward ? "Backward" : "Forward";
+        var playback = TypedPlayback(timeline);
         Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
-        Line(writer, $"    internal static bool {direction}Kernel(");
-        Line(writer, "        ushort id,");
-        Line(writer, "        in global::Tl.Playback playback,");
+        Line(writer, $"    public static bool Try{direction}(");
+        Line(writer, $"        in {playback} playback,");
+        Line(writer, "        uint tick,");
+        Line(writer, "        scoped in Input input,");
+        Line(writer, "        scoped ref Output output,");
+        Line(writer, $"        out {playback} next)");
+        Line(writer, $"        => {direction}TypedKernel(in playback, tick, in input._context, ref output._context, out next);");
+        Line(writer);
+        Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        Line(writer, $"    private static bool {direction}TypedKernel(");
+        Line(writer, $"        in {playback} playback,");
         Line(writer, "        uint tick,");
         Line(writer, $"        in {schema}.Input input,");
         Line(writer, $"        ref {schema}.Output output,");
-        Line(writer, "        out global::Tl.Playback next)");
+        Line(writer, $"        out {playback} next)");
         Line(writer, "    {");
-        Line(writer, $"        if (!CanRun(id, in playback, in input, ref output) || !Position{direction}(in playback, tick, out var effective, out var previousEffective, out var crossedCycles, out var cycles))");
+        Line(writer, $"        if (!CanRun(in playback, in input, ref output) || !Position{direction}(in playback, tick, out var effective, out var previousEffective, out var crossedCycles, out var cycles))");
         Line(writer, "        {");
         Line(writer, "            next = playback;");
         Line(writer, "            return false;");
@@ -567,20 +609,31 @@ internal static class HeterogeneousEmitter
         EmitNext(writer, timeline, backward, "tick", "effective", "cycles", 2);
         Line(writer, "        return true;");
         Line(writer, "    }");
+        Line(writer);
+        EmitDynamicKernel(writer, timeline, schema, backward, false);
     }
 
     private static void EmitBatch(StringBuilder writer, HeterogeneousTimeline timeline, string schema, bool backward)
     {
         var direction = backward ? "Backward" : "Forward";
-        Line(writer, $"    internal static bool {direction}Kernel(");
-        Line(writer, "        ushort id,");
-        Line(writer, "        in global::Tl.Playback playback,");
+        var playback = TypedPlayback(timeline);
+        Line(writer, "    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        Line(writer, $"    public static bool Try{direction}(");
+        Line(writer, $"        in {playback} playback,");
+        Line(writer, "        global::System.ReadOnlySpan<uint> ticks,");
+        Line(writer, "        scoped in Input input,");
+        Line(writer, "        scoped ref Output output,");
+        Line(writer, $"        out {playback} next)");
+        Line(writer, $"        => {direction}TypedKernel(in playback, ticks, in input._context, ref output._context, out next);");
+        Line(writer);
+        Line(writer, $"    private static bool {direction}TypedKernel(");
+        Line(writer, $"        in {playback} playback,");
         Line(writer, "        global::System.ReadOnlySpan<uint> ticks,");
         Line(writer, $"        in {schema}.Input input,");
         Line(writer, $"        ref {schema}.Output output,");
-        Line(writer, "        out global::Tl.Playback next)");
+        Line(writer, $"        out {playback} next)");
         Line(writer, "    {");
-        Line(writer, "        if (!CanRun(id, in playback, in input, ref output))");
+        Line(writer, "        if (!CanRun(in playback, in input, ref output))");
         Line(writer, "        {");
         Line(writer, "            next = playback;");
         Line(writer, "            return false;");
@@ -639,6 +692,42 @@ internal static class HeterogeneousEmitter
         Line(writer, "        next = state;");
         Line(writer, "        return true;");
         Line(writer, "    }");
+        Line(writer);
+        EmitDynamicKernel(writer, timeline, schema, backward, true);
+    }
+
+    private static void EmitDynamicKernel(
+        StringBuilder writer,
+        HeterogeneousTimeline timeline,
+        string schema,
+        bool backward,
+        bool batch)
+    {
+        var direction = backward ? "Backward" : "Forward";
+        var tickType = batch ? "global::System.ReadOnlySpan<uint> ticks" : "uint tick";
+        var tickValue = batch ? "ticks" : "tick";
+        Line(writer, $"    internal static bool {direction}Kernel(");
+        Line(writer, "        ushort id,");
+        Line(writer, "        in global::Tl.Playback playback,");
+        Line(writer, $"        {tickType},");
+        Line(writer, $"        in {schema}.Input input,");
+        Line(writer, $"        ref {schema}.Output output,");
+        Line(writer, "        out global::Tl.Playback next)");
+        Line(writer, "    {");
+        Line(writer, "        if (id != Id || playback.Owner != id || (playback.Flags & (global::Tl.PlaybackFlags.Started | global::Tl.PlaybackFlags.Stopped)) != global::Tl.PlaybackFlags.Started)");
+        Line(writer, "        {");
+        Line(writer, "            next = playback;");
+        Line(writer, "            return false;");
+        Line(writer, "        }");
+        Line(writer, $"        var typed = global::Tl.Timeline.CreateTypedPlayback<{Qualified(timeline)}>(playback.Tick, playback.Cycles, playback.Flags);");
+        Line(writer, $"        if (!{direction}TypedKernel(in typed, {tickValue}, in input, ref output, out var typedNext))");
+        Line(writer, "        {");
+        Line(writer, "            next = playback;");
+        Line(writer, "            return false;");
+        Line(writer, "        }");
+        Line(writer, "        next = global::Tl.Timeline.CreateCompiledPlayback(id, typedNext.Tick, typedNext.Cycles, typedNext.Flags);");
+        Line(writer, "        return true;");
+        Line(writer, "    }");
     }
 
     private static void EmitNext(
@@ -666,7 +755,7 @@ internal static class HeterogeneousEmitter
             Line(writer, $"{indent}if ({completed})");
             Line(writer, $"{indent}    flags |= global::Tl.PlaybackFlags.Completed;");
         }
-        Line(writer, $"{indent}{destination} = global::Tl.Timeline.CreateCompiledPlayback(id, {tick}, {cycles}, flags);");
+        Line(writer, $"{indent}{destination} = global::Tl.Timeline.CreateTypedPlayback<{Qualified(timeline)}>({tick}, {cycles}, flags);");
     }
 
     private static void EmitApply(
