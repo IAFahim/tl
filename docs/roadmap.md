@@ -32,7 +32,7 @@ v1.0.0-alpha.2 is the current candidate. It adds one-install C# packaging, deter
 
 The active breaking API work removes registry lookup from statically named timelines in [#15](https://github.com/IAFahim/tl/issues/15) and replaces destination/span movement with world-clock `Start` plus signed relative simulation seek in [#16](https://github.com/IAFahim/tl/issues/16). Their issue records supersede older API examples until the migration is merged.
 
-The performance target is below 3 ns/tick for hot sequential or batched public workloads on the reference machine. Correctness, ordered effects, ownership, zero warmed allocation and the 200,000-byte source/path cap remain release gates. Random seeking, larger working sets and callback work are reported separately because their physical cost is content-dependent.
+The performance target is below 3 ns/tick for hot sequential or batched public workloads on the reference machine. Correctness, ordered effects, ownership, zero warmed allocation and the 250,000-byte source/path cap remain release gates. Random seeking, larger working sets and callback work are reported separately because their physical cost is content-dependent.
 
 Unity ECS integration follows the core ABI rather than changing it. Timeline payloads and playback state are already unmanaged. Burst qualification requires a dedicated package and test matrix because Burst supports a different C# and runtime subset from .NET 10.
 

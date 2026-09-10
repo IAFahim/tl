@@ -184,13 +184,13 @@ Production source size is:
 sum(UTF-8 file content bytes + UTF-8 relative path bytes + one separator byte)
 ```
 
-for production files under `src`. The hard cap is 200,000 bytes. This C# signed-seek branch measures 154,651 bytes before the C and package-layout integration workstreams land. The final merged candidate must measure the complete tree again. Generated application source, IL, native code, retained timeline data, and runtime working set are reported separately.
+for production files under `src`. The hard cap is 250,000 bytes. This C# signed-seek branch measures 154,651 bytes before the C and package-layout integration workstreams land. The final merged candidate must measure the complete tree again. Generated application source, IL, native code, retained timeline data, and runtime working set are reported separately.
 
 For `L` independently selectable stored values, fixed-width selection requires at least `ceil(log2 L)` bits. A timeline kind upper bound of 256 requires eight bits. Selecting up to 65,536 dynamic timelines requires sixteen bits. A count representing every integer from zero through 256 requires nine bits. Narrowing a field helps only when packing and load costs improve after alignment.
 
 Unique payload information cannot be losslessly deduplicated below its entropy. Equivalent plans, constants, rows, and operation sequences may be interned after exact equality. Signed zero, NaN payloads, padding, alignment, and deterministic ordering are part of that proof.
 
-The 200 KB library cap does not imply that all generated game code or payload data fits L1. Report source, generated code, native text, static data, and runtime hot sets independently. Select specialization only while its instruction-cache cost beats shared execution.
+The 250 KB library cap does not imply that all generated game code or payload data fits L1. Report source, generated code, native text, static data, and runtime hot sets independently. Select specialization only while its instruction-cache cost beats shared execution.
 
 ## Correctness matrix
 

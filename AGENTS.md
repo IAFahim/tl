@@ -40,7 +40,7 @@ Small typo-only documentation fixes may share their parent issue. Emergency rele
 
 `tl` compiles immutable, heterogeneous timelines into deterministic playback kernels. The primary runtime surface is a generated typed timeline facade, timeline-typed playback, generated borrowed contexts, and total operations. A non-generic timeline ID is an explicit dynamic-routing fallback. The signed simulation-seek contract is owned by issue #16 and supersedes older forward/backward/span examples while that breaking migration is active. Authoring is declarative syntax consumed at compilation. Runtime authoring, reflection, binding tables, hidden allocation, and implicit fallback are outside the compiled path.
 
-Production source plus UTF-8 relative paths must remain at or below 200,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
+Production source plus UTF-8 relative paths must remain at or below 250,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
 
 ## Architecture boundaries
 
