@@ -34,6 +34,9 @@ with lock_path.open("a+") as lock:
     def value(name):
         return args[args.index(name) + 1]
 
+    if os.environ.get("TL_GH_FAIL_STATE_READ") == "1" and command == "issue view" and value("--json") == "state":
+        sys.exit(89)
+
     if command == "repo view":
         print("OWNER")
     elif command == "api user":
@@ -161,6 +164,14 @@ is_claim_delete = bool(arguments) and arguments[0] == "push" and any(
     argument.startswith(":refs/heads/workstream-claims/") or argument.startswith(":refs/heads/claims/")
     for argument in arguments
 )
+is_claim_create = bool(arguments) and arguments[0] == "push" and any(
+    ":refs/heads/workstream-claims/" in argument and not argument.startswith(":")
+    for argument in arguments
+)
+is_transaction_push = bool(arguments) and arguments[0] == "push" and any(
+    ":refs/heads/issue-transactions/" in argument and not argument.startswith(":")
+    for argument in arguments
+)
 is_claim_enumeration = bool(arguments) and arguments[0] == "ls-remote" and any(
     argument.endswith("/*") for argument in arguments
 )
@@ -191,6 +202,18 @@ if pause == "before-claim-delete" and is_claim_delete:
     os.execv(real_git, [real_git, *arguments])
 
 if pause == "after-claim-delete" and is_claim_delete:
+    result = subprocess.run([real_git, *arguments])
+    if result.returncode == 0:
+        wait()
+    sys.exit(result.returncode)
+
+if pause == "after-claim-create" and is_claim_create:
+    result = subprocess.run([real_git, *arguments])
+    if result.returncode == 0:
+        wait()
+    sys.exit(result.returncode)
+
+if pause == "after-transaction-push" and is_transaction_push:
     result = subprocess.run([real_git, *arguments])
     if result.returncode == 0:
         wait()
@@ -479,6 +502,44 @@ class AgentWorkTests(unittest.TestCase):
         cleanups = [body for body in self.read_state()["comment_bodies"] if body.startswith("### Closed issue claim cleanup")]
         self.assertEqual(1, len(cleanups))
 
+    def test_start_state_read_failure_preserves_live_claim(self):
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        claim = self.claim()
+        failed = subprocess.run(
+            [str(repo / "eng" / "agent-work"), "start", "41", "feat", "atomic", "scope"],
+            cwd=repo,
+            env=self.environment("Alpha", "pc-a", TL_GH_FAIL_STATE_READ="1"),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+
+        self.assertNotEqual(0, failed.returncode)
+        self.assertIn("could not read issue #41 state", failed.stdout)
+        self.assertEqual(claim, self.claim())
+        self.assertEqual("In progress", self.read_state()["project"]["status"])
+
+    def test_takeover_releases_closed_claim_from_another_machine(self):
+        repo = self.clone("owner")
+        replacement = self.clone("replacement")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        claim = self.claim()
+        state = self.read_state()
+        state["issue_state"] = "CLOSED"
+        self.state.write_text(json.dumps(state))
+
+        recovered = self.command(replacement, "Beta", "pc-b", "takeover", "41", "feat", "atomic", "owner machine lost", claim)
+
+        self.assertEqual(0, recovered.returncode, recovered.stdout)
+        self.assertFalse(self.claim())
+        self.assertEqual("Done", self.read_state()["project"]["status"])
+        cleanup = next(body for body in self.read_state()["comment_bodies"] if body.startswith("### Closed issue claim cleanup"))
+        self.assertIn("- Previous agent: Alpha", cleanup)
+        self.assertIn("- Released by: Beta on pc-b", cleanup)
+
     def test_interrupted_start_repairs_the_same_claim(self):
         repo = self.clone("owner")
         self.write_state(fail="project item-edit")
@@ -601,6 +662,40 @@ class AgentWorkTests(unittest.TestCase):
         bodies = self.read_state()["comment_bodies"]
         self.assertEqual(1, len([body for body in bodies if body.startswith("### Handoff")]))
         self.assertEqual("Ready", self.read_state()["project"]["status"])
+
+    def test_issue_transaction_serializes_new_claim_and_handoff_snapshot(self):
+        owner = self.clone("owner")
+        newcomer = self.clone("newcomer")
+        started = self.command(owner, "Alpha", "pc-a", "start", "41", "perf", "scalar-kernel", "scalar")
+        self.assertEqual(0, started.returncode, started.stdout)
+        owner_tree = self.worktree(owner, "scalar-kernel")
+        ready = self.root / "claim-ready"
+        resume = self.root / "claim-resume"
+        joining = self.paused_command(
+            newcomer,
+            "Beta",
+            "pc-b",
+            "after-claim-create",
+            ready,
+            resume,
+            "start",
+            "41",
+            "docs",
+            "unity-guide",
+            "Unity guide",
+        )
+        self.wait_until_paused(joining, ready)
+        self.assertTrue(self.claim("docs", "unity-guide"))
+
+        handoff = self.command(owner_tree, "Alpha", "pc-a", "handoff", "41", "remaining", "next")
+
+        self.assertNotEqual(0, handoff.returncode)
+        self.assertIn("active transaction", handoff.stdout)
+        status, output = self.resume(joining, resume)
+        self.assertEqual(0, status, output)
+        handoff = self.command(owner_tree, "Alpha", "pc-a", "handoff", "41", "remaining", "next")
+        self.assertEqual(0, handoff.returncode, handoff.stdout)
+        self.assertEqual("In progress", self.read_state()["project"]["status"])
 
     def install_one_delete_failure(self):
         hook = self.remote / "hooks" / "update"
@@ -904,8 +999,50 @@ class AgentWorkTests(unittest.TestCase):
         self.assertNotEqual(0, interrupted.returncode)
         self.assertTrue(recovery_lock)
         self.assertNotEqual(transaction, recovery_lock)
-        resumed = self.command(repo, "Beta", "pc-b", "recover-lock", "41", transaction, "power lost")
+        resumed = self.command(repo, "Beta", "pc-b", "recover-lock", "41", recovery_lock, "power lost")
         self.assertEqual(0, resumed.returncode, resumed.stdout)
+        self.assertFalse(self.transaction())
+        audits = [body for body in self.read_state()["comment_bodies"] if body.startswith("### Transaction recovery")]
+        self.assertEqual(1, len(audits))
+        self.assertIn(f"- Recovered transaction: `{transaction}`", audits[0])
+
+    def test_concurrent_transaction_recovery_has_one_audit_owner(self):
+        repo = self.clone("owner")
+        competitor = self.clone("competitor")
+        base = self.run_raw(["git", "rev-parse", "HEAD"], repo).stdout.strip()
+        tree = self.run_raw(["git", "rev-parse", "HEAD^{tree}"], repo).stdout.strip()
+        transaction = subprocess.run(
+            ["git", "commit-tree", tree, "-p", base],
+            cwd=repo,
+            input="issue=41\nagent=Lost\nmachine=pc-lost\noperation=checkpoint\nnonce=lost\n",
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        ).stdout.strip()
+        self.run_raw(["git", "push", "origin", f"{transaction}:refs/heads/issue-transactions/41"], repo)
+        ready = self.root / "recovery-ready"
+        resume = self.root / "recovery-resume"
+        first = self.paused_command(
+            repo,
+            "Beta",
+            "pc-b",
+            "after-transaction-push",
+            ready,
+            resume,
+            "recover-lock",
+            "41",
+            transaction,
+            "power lost",
+        )
+        self.wait_until_paused(first, ready)
+
+        second = self.command(competitor, "Gamma", "pc-c", "recover-lock", "41", transaction, "power lost")
+
+        self.assertNotEqual(0, second.returncode)
+        self.assertIn("transaction changed", second.stdout)
+        status, output = self.resume(first, resume)
+        self.assertEqual(0, status, output)
         self.assertFalse(self.transaction())
         audits = [body for body in self.read_state()["comment_bodies"] if body.startswith("### Transaction recovery")]
         self.assertEqual(1, len(audits))
