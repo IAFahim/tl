@@ -116,6 +116,18 @@ public sealed class GeneratedSeekRuntimeTests
                 Check(!Finite.TrySeek(ref data, int.MinValue), 18);
                 Check(playback == unchanged && trace.Value == 0, 19);
 
+                var validPlayback = playback;
+                playback = global::Tl.Timeline.CreateTypedPlayback<Finite>(-1L, 31u, PlaybackFlags.Started);
+                var invalidTyped = playback;
+                trace.Value = 0;
+                Check(!Finite.TrySeek(ref data, 1), 41);
+                Check(playback == invalidTyped && trace.Value == 0, 42);
+                playback = global::Tl.Timeline.CreateTypedPlayback<Finite>((long)Finite.Duration + 1L, 32u, PlaybackFlags.Started);
+                invalidTyped = playback;
+                Check(!Finite.TrySeek(ref data, -1), 43);
+                Check(playback == invalidTyped && trace.Value == 0, 44);
+                playback = validPlayback;
+
                 input.Throw = 1;
                 trace.Value = 0;
                 var threw = false;
@@ -141,6 +153,17 @@ public sealed class GeneratedSeekRuntimeTests
                 unchanged = global::Tl.Timeline.CreateTypedPlayback<Finite>(dynamicPlayback.Position, dynamicPlayback.GameTick, dynamicPlayback.Flags);
                 Check(!global::Tl.Timeline.TrySeek(Loop.Id, ref dynamicData, 1), 27);
                 Check(dynamicPlayback.Position == unchanged.Position && trace.Value == 0, 28);
+
+                var validDynamicPlayback = dynamicPlayback;
+                dynamicPlayback = global::Tl.Timeline.CreateCompiledPlayback(Finite.Id, -1L, 33u, PlaybackFlags.Started);
+                var invalidDynamic = dynamicPlayback;
+                Check(!global::Tl.Timeline.TrySeek(Finite.Id, ref dynamicData, 1), 45);
+                Check(dynamicPlayback == invalidDynamic && trace.Value == 0, 46);
+                dynamicPlayback = global::Tl.Timeline.CreateCompiledPlayback(Finite.Id, (long)Finite.Duration + 1L, 34u, PlaybackFlags.Started);
+                invalidDynamic = dynamicPlayback;
+                Check(!global::Tl.Timeline.TrySeek(Finite.Id, ref dynamicData, -1), 47);
+                Check(dynamicPlayback == invalidDynamic && trace.Value == 0, 48);
+                dynamicPlayback = validDynamicPlayback;
                 var emptyDynamic = default(Finite.DynamicData);
                 Check(!global::Tl.Timeline.TrySeek(Finite.Id, ref emptyDynamic, 0), 29);
 
@@ -183,7 +206,7 @@ public sealed class GeneratedSeekRuntimeTests
         Assert.Empty(diagnostics);
         var artifacts = HeterogeneousEmitter.EmitCompilation(timelines);
         var generatedBytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
-        Assert.Equal(24_295, generatedBytes);
+        Assert.Equal(24_359, generatedBytes);
         var assembly = Compile(Source, artifacts);
 
         var result = assembly.GetType("RuntimeReceipt.Receipt")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, null);
@@ -197,7 +220,7 @@ public sealed class GeneratedSeekRuntimeTests
         var trees = new[] { CSharpSyntaxTree.ParseText(source, parseOptions, "Receipt.cs") }
             .Concat(artifacts.Select(artifact => CSharpSyntaxTree.ParseText(artifact.Content, parseOptions, artifact.RelativePath)));
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Append(typeof(Tl.ITimeline).Assembly.Location)
+            .Append(typeof(ITimeline).Assembly.Location)
             .Distinct(StringComparer.Ordinal)
             .Select(static path => MetadataReference.CreateFromFile(path));
         var compilation = CSharpCompilation.Create(

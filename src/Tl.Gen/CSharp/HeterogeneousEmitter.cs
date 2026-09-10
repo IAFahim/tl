@@ -398,6 +398,8 @@ internal static class HeterogeneousEmitter
         Line(writer, "    {");
         Line(writer, "        var distance = (long)delta;");
         Line(writer, "        if ((playbackFlags & (global::Tl.PlaybackFlags.Started | global::Tl.PlaybackFlags.Stopped)) != global::Tl.PlaybackFlags.Started");
+        if (!timeline.Loops || timeline.Duration == 0)
+            Line(writer, "            || beforePosition < 0L || beforePosition > Duration");
         Line(writer, "            || distance > 0L && beforePosition > long.MaxValue - distance");
         Line(writer, "            || distance < 0L && beforePosition < long.MinValue - distance)");
         Line(writer, "        {");
