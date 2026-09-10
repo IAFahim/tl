@@ -2,9 +2,12 @@ type Tl.Builder
   Method Void After[THook]()
   Method Void Before[THook]()
   Method Void Clip[TTrack,TClip](Tl.TrackRef`1[TTrack] ByRef, TClip ByRef, UInt32, UInt32)
+  Method Void Clip[TTrack,TJob,TClip](Tl.TrackRef`2[TTrack,TJob] ByRef, TClip ByRef, UInt32, UInt32)
   Method Void Include[TTimeline]()
   Method Void Looping()
   Method Tl.TrackRef`1[TTrack] Track[TTrack](TTrack ByRef)
+type Tl.CatalogBuilder
+  Method Tl.SchemaBuilder`1[TSchema] Schema[TSchema]()
 type Tl.CompiledRoute
   Method Void Deconstruct(Byte ByRef, Byte ByRef)
   Method Boolean Equals(System.Object)
@@ -39,8 +42,11 @@ type Tl.IBlend`1
 type Tl.IHook
 type Tl.ITimeline
   Method Void Define(Tl.Builder)
+type Tl.ITimelineCatalog
+  Method Void Define(Tl.CatalogBuilder)
 type Tl.ITimelineData`1
   Method Boolean TrySeek(UInt16, TSelf ByRef, Int32)
+type Tl.ITimelineJob`2
 type Tl.ITrack`1
 type Tl.Playback
   Method Boolean Equals(Tl.Playback)
@@ -66,6 +72,8 @@ type Tl.Playback`1
   Method Boolean Has(Tl.PlaybackFlags)
   Field Int64 Position
   Method System.String ToString()
+type Tl.SchemaBuilder`1
+  Method Tl.SchemaBuilder`1[TSchema] Asset[TTimeline]()
 type Tl.Timeline
   Method Tl.Playback CreateCompiledPlayback(UInt16, Int64, UInt32, Tl.PlaybackFlags)
   Method Tl.Playback`1[TTimeline] CreateTypedPlayback[TTimeline](Int64, UInt32, Tl.PlaybackFlags)
@@ -79,4 +87,19 @@ type Tl.Timeline
   Method Boolean TrySeek[TData](UInt16, TData ByRef, Int32)
   Method Boolean TryStart(UInt16, UInt32, Tl.Playback ByRef)
   Method Boolean TryStop(UInt16, Tl.Playback ByRef, Tl.Playback ByRef)
+type Tl.TimelineFrame
+  Property Int64 Cycle
+  Property Int32 Direction
+  Property Tl.FrameFlags Flags
+  Property UInt32 GameTick
+  Method Boolean Has(Tl.FrameFlags)
+  Property UInt32 TimelineTick
+type Tl.TimelineMovement
+  Method Boolean Select(Tl.TimelineState ByRef, UInt32, Boolean, Boolean, Tl.TimelineState ByRef, UInt32 ByRef, Int64 ByRef, Tl.FrameFlags ByRef)
+type Tl.TimelineState
+  Field UInt32 Asset
+  Field Int64 Cycle
+  Field UInt32 Position
 type Tl.TrackRef`1
+  Method Tl.TrackRef`2[TTrack,TJob] Use[TJob]()
+type Tl.TrackRef`2
