@@ -1,8 +1,83 @@
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Tl
 {
+    public interface ITimeline
+    {
+    }
+
+    [Flags]
+    public enum FrameFlags : byte
+    {
+        None = 0,
+        ClipStart = 1 << 0,
+        ClipEnd = 1 << 1,
+        TimelineStart = 1 << 2,
+        TimelineEnd = 1 << 3,
+        CompletedBefore = 1 << 4,
+        CompletedAfter = 1 << 5,
+        Looping = 1 << 6,
+        Reverse = 1 << 7
+    }
+
+    public unsafe readonly ref struct Frame<TTrack, TClip>
+        where TTrack : unmanaged
+        where TClip : unmanaged
+    {
+        private readonly TTrack* _track;
+        private readonly TClip* _clip;
+
+        public Frame(
+            in TTrack track,
+            in TClip clip,
+            uint gameTick,
+            uint timelineTick,
+            long cycle,
+            ushort trackIndex,
+            FrameFlags flags)
+        {
+            _track = (TTrack*)UnsafeUtilityExtensions.AddressOf(in track);
+            _clip = (TClip*)UnsafeUtilityExtensions.AddressOf(in clip);
+            GameTick = gameTick;
+            TimelineTick = timelineTick;
+            Cycle = cycle;
+            TrackIndex = trackIndex;
+            Flags = flags;
+        }
+
+        public ref readonly TTrack Track
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return ref *_track; }
+        }
+
+        public ref readonly TClip Clip
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return ref *_clip; }
+        }
+
+        public uint GameTick { get; }
+        public uint TimelineTick { get; }
+        public long Cycle { get; }
+        public ushort TrackIndex { get; }
+        public FrameFlags Flags { get; }
+        public int Direction
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return Has(FrameFlags.Reverse) ? -1 : 1; }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Has(FrameFlags flags)
+        {
+            return (Flags & flags) == flags;
+        }
+    }
+
     public interface IBlend<TClip>
         where TClip : unmanaged
     {

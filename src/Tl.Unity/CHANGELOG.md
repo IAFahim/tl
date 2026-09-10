@@ -1,9 +1,8 @@
 # Changelog
 
-## 1.0.0-alpha.2
+## 1.0.0-alpha.3
 
-- Added the 16-byte signed-position playback ABI with an external game-tick anchor.
-- Added generated typed `Start(gameTick)` and signed `TrySeek(ref data, delta)` facades.
-- Added direction-aware frames, ordered multi-frame replay, finite rejection, and looping normalization.
-- Added BlobAsset-compatible timeline records and generated memory reports.
-- Added a separately qualified heterogeneous Burst Combat ECS project.
+- Replaced the alpha.2 `Start`/`TrySeek` playback facade with catalog-owned selection, ordered typed operation jobs, and commit.
+- Added C# 9 timeline/catalog declarations, total finite and looping movement, shared state, and borrowed operation frames.
+- Added deterministic physical Unity source materialization for the Entities source generator and Burst compilation.
+- Kept compiler, generator, Roslyn, authoring, and sample assemblies outside the runtime/player package.

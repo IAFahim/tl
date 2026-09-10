@@ -1,19 +1,36 @@
 # Tl for Unity
 
-`Tl.Unity` is the C# 9 runtime boundary for checked-in Unity ECS and Burst kernels. Add it through Unity Package Manager:
+`Tl.Unity` is the C# 9 runtime boundary for materialized Unity ECS and Burst timeline jobs. Add it through Unity Package Manager:
 
 ```text
 https://github.com/IAFahim/tl.git?path=/src/Tl.Unity
 ```
 
-The package declares Unity 6000.0 and Entities 1.4.3. Unity 6000.7.0a5 with Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0 passes the local EditMode, PlayMode, Burst AOT, and Standalone Linux player gates. The stable 6000.0 editor was unavailable and must be tested separately.
+The package declares Unity 6000.0 and Entities 1.4.3. The current generated-jobs receipt uses Unity 6000.7.0a5, Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0. That preview receipt does not qualify the declared stable package range.
 
-Generated timeline facades expose `Start(gameTick)`, one signed `TrySeek(ref data, delta)`, and `TryStop`. `Playback<TTimeline>` is a 16-byte unmanaged value whose type prevents mixing timeline state and whose fields contain signed position, external game-tick anchor, and lifecycle flags. Multi-frame deltas replay every crossed frame. Direction and independent start, interior, end, completion, and loop facts reach one track operation through `Frame<TTrack,TClip>`.
+Author timelines and catalogs with the shared declarations:
 
-Generated data values are ref structs that borrow typed component storage for one synchronous call. Create and consume them inside `IJobEntity.Execute`; do not retain them across callbacks, structural changes, scheduling boundaries, or storage relocation. Ordered operations preserve live aliasing.
+```csharp
+public readonly partial struct Attack : ITimeline
+{
+    public static void Define(scoped Builder builder)
+    {
+        var damage = builder.Track(new DamageTrack()).Use<DamageJob>();
+        builder.Clip(damage, new DamageClip(10), 0u, 3u);
+    }
+}
 
-The package contains no runtime authoring API, managed registry, Tl compiler, Tl generator, or Roslyn assembly. The checked-in kernels use immediate constants and direct calls. Optional `TimelineBlob` data mirrors neutral track and clip records for ECS storage and tooling and is absent from the hot path.
+public readonly partial struct Combat : ITimelineCatalog
+{
+    public static void Define(scoped CatalogBuilder builder)
+        => builder.Schema<DamageRows>().Asset<Attack>();
+}
+```
 
-`TimelineReport.GeneratedSourceBytes` counts generated UTF-8 source. `StaticDataBytes` counts immediate track and clip values. `BlobBytes` counts the typed root and array elements without allocator headers. `RuntimeHeapBytes` is zero. Dispose persistent blob assets with their owning world or baking artifact.
+Run the Tl C# materializer with `--backend unity-entities` before Unity imports scripts. The physical `.g.cs` outputs contain immutable timeline data, one shared catalog state component, schema and stage markers, Burst-compatible selection, typed operation jobs, and commit scheduling. A system owns the external game clock and calls the generated catalog `Tick`; operation jobs borrow only the components named by their authored `Execute(in Frame<TTrack,TClip>, in inputs..., ref results...)` signature.
 
-The canonical Burst Combat sample and its executable receipts live in the external project at `tests/Tl.Unity.Project`; they are not shipped as production package source.
+`TimelineState` stores stable asset identity, local position, and signed loop cycle. Selection is total for zero, forward, and reverse movement. Finite timelines clamp independently and looping timelines carry cycle and boundary flags. `Frame<TTrack,TClip>` and `TimelineFrame` are call-scoped borrowed values; generated jobs never retain them in scheduled fields.
+
+The runtime/player package contains no Tl compiler, generator, Roslyn assembly, reflection binding, managed registry, or runtime compilation. Authoring and materialization tooling stay outside player assemblies. Generated files are deterministic physical inputs to Unity's Entities source generator and Burst pipeline.
+
+The canonical generated ECS sample and its executable receipts live in `tests/Tl.Unity.Project`; sample and test source is not shipped in this package.
