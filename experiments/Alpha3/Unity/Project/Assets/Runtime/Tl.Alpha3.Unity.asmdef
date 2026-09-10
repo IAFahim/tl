@@ -1,0 +1,9 @@
+{
+  "name": "Tl.Alpha3.Unity",
+  "rootNamespace": "UnifiedTimelineProof",
+  "references": [
+    "Unity.Burst",
+    "Unity.Collections",
+    "Unity.Entities"
+  ]
+}
