@@ -63,8 +63,9 @@ for package_pass in raw-a raw-b; do
     solution_properties=(
         "${properties[@]}"
         -p:PathMap="$root=/_/%2C$solution_artifacts=/_build/"
-        -p:TlGenAssembly="$solution_artifacts/bin/Tl.Gen.CSharp/release/Tl.Gen.CSharp.dll"
-        -p:TlGenPackOutput="$solution_artifacts/bin/Tl.Gen.CSharp/release/"
+        -p:TlGenAssembly="$solution_artifacts/bin/Tl.Gen.CSharp/release_net10.0/Tl.Gen.CSharp.dll"
+        -p:TlGenPackOutput="$solution_artifacts/bin/Tl.Gen.CSharp/release_net10.0/"
+        -p:TlGenAnalyzerPackOutput="$solution_artifacts/bin/Tl.Gen.CSharp/release_netstandard2.0/"
     )
     dotnet restore "$root/tl.slnx" -p:NuGetAudit=false --artifacts-path "$solution_artifacts"
     dotnet build "$root/tl.slnx" -c Release -m:1 --no-restore --artifacts-path "$solution_artifacts" "${solution_properties[@]}"
