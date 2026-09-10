@@ -1,11 +1,11 @@
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Tl.Gen.Analysis;
+using Tl.Gen.CSharp.Analysis;
 using Tl.Gen.CSharp;
 using Xunit;
 
-namespace Tl.Gen.Tests;
+namespace Tl.Gen.CSharp.Tests;
 
 public sealed class GeneratedSeekRuntimeTests
 {

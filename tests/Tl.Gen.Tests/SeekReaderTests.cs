@@ -1,8 +1,8 @@
-using Tl.Gen.Analysis;
-using Tl.Gen.Model;
+using Tl.Gen.CSharp.Analysis;
+using Tl.Gen.CSharp.Model;
 using Xunit;
 
-namespace Tl.Gen.Tests;
+namespace Tl.Gen.CSharp.Tests;
 
 public sealed class SeekReaderTests
 {

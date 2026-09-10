@@ -2,9 +2,9 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
-using Tl.Gen.Model;
+using Tl.Gen.CSharp.Model;
 
-namespace Tl.Gen.Analysis;
+namespace Tl.Gen.CSharp.Analysis;
 
 public sealed record DeclarationDiagnostic(
     string File,

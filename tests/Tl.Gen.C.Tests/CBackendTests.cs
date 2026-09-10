@@ -3,7 +3,7 @@ using Tl.Compiler;
 using Tl.Gen.C;
 using Xunit;
 
-namespace Tl.Gen.Tests;
+namespace Tl.Gen.C.Tests;
 
 public sealed class CBackendTests
 {

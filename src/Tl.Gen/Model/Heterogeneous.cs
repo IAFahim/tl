@@ -1,4 +1,4 @@
-namespace Tl.Gen.Model;
+namespace Tl.Gen.CSharp.Model;
 
 public enum SlotMode : byte
 {

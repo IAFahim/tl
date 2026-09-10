@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text;
-using Tl.Gen.Model;
+using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp;
 

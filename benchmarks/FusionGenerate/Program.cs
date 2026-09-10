@@ -4,8 +4,8 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Tl.Gen.Analysis;
-using Tl.Gen.Model;
+using Tl.Gen.CSharp.Analysis;
+using Tl.Gen.CSharp.Model;
 
 var options = Options.Parse(args);
 var repository = FindRepositoryRoot(Directory.GetCurrentDirectory());

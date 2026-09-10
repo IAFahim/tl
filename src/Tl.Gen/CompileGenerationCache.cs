@@ -6,7 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace Tl.Gen;
+namespace Tl.Gen.CSharp;
 
 internal sealed record CompileSource(string Path, string Content);
 

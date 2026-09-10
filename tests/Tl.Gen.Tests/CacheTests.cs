@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace Tl.Gen.Tests;
+namespace Tl.Gen.CSharp.Tests;
 
 public sealed class CacheTests : IDisposable
 {

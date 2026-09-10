@@ -1,8 +1,7 @@
-using Tl.Gen.Analysis;
-using Tl.Gen.CSharp;
+using Tl.Gen.CSharp.Analysis;
 using System.Security.Cryptography;
 
-namespace Tl.Gen;
+namespace Tl.Gen.CSharp;
 
 public static class GeneratorCli
 {
@@ -108,7 +107,7 @@ public static class GeneratorCli
     }
 
     private static string Report(
-        IReadOnlyList<Tl.Gen.Model.HeterogeneousTimeline> timelines,
+        IReadOnlyList<Tl.Gen.CSharp.Model.HeterogeneousTimeline> timelines,
         IReadOnlyList<CompileArtifact> artifacts)
     {
         var writer = new System.Text.StringBuilder();
