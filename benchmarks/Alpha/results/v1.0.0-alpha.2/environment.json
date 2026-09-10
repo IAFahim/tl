@@ -47,6 +47,7 @@
   },
   "limitations": [
     "BenchmarkDotNet could not elevate process priority.",
+    "BenchmarkDotNet processes were not pinned to a logical CPU.",
     "Frequency was controlled by the operating system.",
     "Results describe this machine and runtime, not a universal latency bound.",
     "Batch measurements are throughput per tick across eight-tick calls."

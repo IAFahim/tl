@@ -33,7 +33,7 @@ public sealed class PublicApiTests
             result.AppendLine($"type {type.FullName}");
             foreach (var member in type
                 .GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
-                .Where(static member => member is not MethodBase { IsSpecialName: true })
+                .Where(static member => member is not MethodInfo { IsSpecialName: true })
                 .OrderBy(static member => member.Name, StringComparer.Ordinal)
                 .ThenBy(static member => member.ToString(), StringComparer.Ordinal))
                 result.AppendLine($"  {member.MemberType} {member}");

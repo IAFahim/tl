@@ -1,4 +1,5 @@
 type Tl.Gen.C.CArtifact
+  Constructor Void .ctor(System.String, System.String)
   Property System.String Content
   Method Void Deconstruct(System.String ByRef, System.String ByRef)
   Method Boolean Equals(System.Object)
@@ -8,6 +9,7 @@ type Tl.Gen.C.CArtifact
   Method System.String ToString()
   Property Int32 Utf8Bytes
 type Tl.Gen.C.CBinding
+  Constructor Void .ctor(System.String, System.String, System.Collections.Generic.IEnumerable`1[Tl.Gen.C.COperationBinding])
   Method Tl.Gen.C.CBinding <Clone>$()
   Method Boolean Equals(System.Object)
   Method Boolean Equals(Tl.Gen.C.CBinding)
@@ -17,6 +19,7 @@ type Tl.Gen.C.CBinding
   Property System.String SymbolPrefix
   Method System.String ToString()
 type Tl.Gen.C.CEmission
+  Constructor Void .ctor(System.Collections.Immutable.ImmutableArray`1[Tl.Gen.C.CArtifact], Tl.Gen.C.CEmissionReport)
   Method Tl.Gen.C.CEmission <Clone>$()
   Property System.Collections.Immutable.ImmutableArray`1[Tl.Gen.C.CArtifact] Artifacts
   Method Void Deconstruct(System.Collections.Immutable.ImmutableArray`1[Tl.Gen.C.CArtifact] ByRef, Tl.Gen.C.CEmissionReport ByRef)
@@ -26,6 +29,7 @@ type Tl.Gen.C.CEmission
   Property Tl.Gen.C.CEmissionReport Report
   Method System.String ToString()
 type Tl.Gen.C.CEmissionReport
+  Constructor Void .ctor(UInt16, UInt16, Int32, Int32, Int32, UInt32, Boolean, Int32, Int32, Int32, Int32, Int32, Int32, Int32, Int32)
   Property UInt16 AbiVersion
   Property Int32 ClipCount
   Method Void Deconstruct(UInt16 ByRef, UInt16 ByRef, Int32 ByRef, Int32 ByRef, Int32 ByRef, UInt32 ByRef, Boolean ByRef, Int32 ByRef, Int32 ByRef, Int32 ByRef, Int32 ByRef, Int32 ByRef, Int32 ByRef, Int32 ByRef, Int32 ByRef)
@@ -50,6 +54,7 @@ type Tl.Gen.C.CEmitter
   Method System.Collections.Immutable.ImmutableArray`1[Tl.Gen.C.CArtifact] Emit(Tl.Compiler.TimelinePlan, Tl.Gen.C.CBinding)
   Method Tl.Gen.C.CEmission Generate(Tl.Compiler.TimelinePlan, Tl.Gen.C.CBinding)
 type Tl.Gen.C.COperationBinding
+  Constructor Void .ctor(Tl.Compiler.OperationId, System.String, System.String)
   Property System.String BackwardSymbol
   Method Void Deconstruct(Tl.Compiler.OperationId ByRef, System.String ByRef, System.String ByRef)
   Method Boolean Equals(System.Object)
