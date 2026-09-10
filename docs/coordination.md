@@ -33,7 +33,13 @@ Every green material checkpoint is committed and pushed. Before a handoff, shutd
 
 ## Worktree protocol
 
-The repository helper performs the claim, worktree creation, Project update, and issue report as one operation:
+Create a fully labeled issue from a prepared body and place it in Ready before claiming it:
+
+```sh
+./eng/agent-work issue "Add a C ABI receipt" area:c kind:feature /tmp/issue.md v1.0.0-alpha.2
+```
+
+The repository helper performs remote preflight, an atomic Git-ref claim, worktree creation, assignment, Project update, and issue report as one operation:
 
 ```sh
 TL_AGENT=Curie TL_MACHINE=office-1 ./eng/agent-work start 123 c-backend "C validation and mirror receipts"
@@ -45,7 +51,7 @@ After committing a tested change from that worktree, publish it and its evidence
 TL_AGENT=Curie TL_MACHINE=office-1 ./eng/agent-work checkpoint 123 "C identifiers are total" "dotnet test; gcc and clang strict C11" "second architecture remains"
 ```
 
-`handoff`, `pr`, and `done` move the Project through Ready, In review, and Done. The helper refuses to publish a checkpoint with uncommitted files. It adds the issue to Project 6 idempotently, records Agent, Machine, Branch, and Checkpoint fields, pushes the commit, and posts the same recovery data on the issue.
+`handoff`, `pr`, and `done` move the Project through Ready, In review, and Done. The helper refuses to publish a checkpoint with uncommitted files or from a machine, agent, or branch that does not own the remote claim. It adds the issue to Project 6 idempotently, records Agent, Machine, Branch, and Checkpoint fields, pushes the commit, and posts the same recovery data on the issue. A `claims/<issue>` remote ref is the compare-and-set lock: concurrent starts race at the Git server and exactly one can create it. Handoff releases the lock after publishing a recoverable checkpoint. Completion releases it only after GitHub links the issue to a merged pull request whose reviewed head is the claimed commit and whose merge commit is present on `origin/main`.
 
 The equivalent manual protocol remains valid:
 

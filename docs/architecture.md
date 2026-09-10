@@ -56,7 +56,7 @@ The ID registry is a sparse two-level unmanaged table. Registration allocates an
 
 ## C11 boundary
 
-`Tl.Gen.C` emits a versioned C11 header and source pair from a neutral plan plus explicit symbol bindings. The header fixes integer widths, lifecycle flags, clip states, `tl_playback`, `tl_frame`, layout assertions, and total `try` operations. Consumer-owned `void*` context crosses only the C boundary; each bound operation interprets it.
+`Tl.Gen.C` emits a versioned C11 header and source pair from a neutral plan plus explicit symbol bindings. The header fixes integer widths, lifecycle flags, clip states, a 12-byte and 4-aligned `tl_playback`, a 24-byte and 4-aligned `tl_frame`, compilation-time layout assertions, and total `try` operations. Consumer-owned `void*` context crosses only the C boundary; each bound operation interprets it.
 
 The first C backend is an in-process ABI. It does not define an on-disk format or network byte order. A serialized plan will require a separate canonical format with explicit endianness and compatibility rules.
 

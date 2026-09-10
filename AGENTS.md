@@ -18,7 +18,7 @@ GitHub Issues and the repository Project are the source of truth for all non-tri
 - Merge only after required checks and review pass. Remove the worktree and branch after merge. Close abandoned experiments with their measurements and reason.
 - On startup, every agent fetches origin and reads this file, the issue, linked dependencies, active claims, and open pull requests touching the same paths. On shutdown, it pushes its branch and leaves the issue sufficient for another machine to resume without private context.
 
-Use `eng/agent-work` for claims, checkpoints, handoffs, pull requests, and completion. Set `TL_AGENT` and `TL_MACHINE` to stable public team identifiers. The helper updates Project 6 and the issue while it pushes the branch. If GitHub is unavailable, keep working only within the claimed scope, then run the missing helper operation before handing off or starting another issue.
+Use `eng/agent-work` for issue creation, claims, checkpoints, handoffs, pull requests, and completion. Set `TL_AGENT` and `TL_MACHINE` to stable public team identifiers. The helper updates Project 6 and the issue while it pushes the branch. If GitHub is unavailable, keep working only within the claimed scope, then run the missing helper operation before handing off or starting another issue.
 
 Small typo-only documentation fixes may share their parent issue. Emergency release repairs still receive an issue immediately after containment. No agent creates an untracked private task list as an alternative authority.
 

@@ -34,9 +34,14 @@ public sealed class CBackendTests
         Assert.Equal(8u, emission.Report.Duration);
         Assert.True(emission.Report.Loops);
         Assert.Equal(emission.Artifacts.Sum(static artifact => artifact.Utf8Bytes), emission.Report.SourceUtf8Bytes);
+        Assert.Equal(0, emission.Report.StaticDataBytes);
         Assert.Equal(12, emission.Report.PlaybackBytes);
+        Assert.Equal(4, emission.Report.PlaybackAlignment);
         Assert.Equal(24, emission.Report.FrameBytes);
+        Assert.Equal(4, emission.Report.FrameAlignment);
         Assert.Equal(0, emission.Report.RuntimeHeapBytes);
+        Assert.Contains("_Static_assert(_Alignof(tl_playback) == 4", first[0].Content);
+        Assert.Contains("_Static_assert(_Alignof(tl_frame) == 4", first[0].Content);
     }
 
     [Fact]

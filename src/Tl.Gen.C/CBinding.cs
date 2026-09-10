@@ -43,8 +43,11 @@ public readonly record struct CEmissionReport(
     bool Loops,
     int SourceFileCount,
     int SourceUtf8Bytes,
+    int StaticDataBytes,
     int PlaybackBytes,
+    int PlaybackAlignment,
     int FrameBytes,
+    int FrameAlignment,
     int RuntimeHeapBytes);
 
 public sealed record CEmission(

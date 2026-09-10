@@ -53,8 +53,11 @@ public static class CEmitter
                 plan.Loops,
                 artifacts.Length,
                 artifacts.Sum(static artifact => artifact.Utf8Bytes),
+                0,
                 12,
+                4,
                 24,
+                4,
                 0));
     }
 
@@ -149,8 +152,10 @@ public static class CEmitter
         Line(writer, "typedef struct { uint32_t tick; uint32_t track_payload; uint32_t first_payload; uint32_t second_payload; float factor; uint16_t track_index; tl_clip_state state; uint8_t payload_count; } tl_frame;");
         Line(writer, "_Static_assert(sizeof(float) == 4, \"tl requires 32-bit float\");");
         Line(writer, "_Static_assert(sizeof(tl_playback) == 12, \"tl_playback ABI mismatch\");");
+        Line(writer, "_Static_assert(_Alignof(tl_playback) == 4, \"tl_playback alignment mismatch\");");
         Line(writer, "_Static_assert(offsetof(tl_playback, flags) == 8, \"tl_playback ABI mismatch\");");
         Line(writer, "_Static_assert(sizeof(tl_frame) == 24, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(_Alignof(tl_frame) == 4, \"tl_frame alignment mismatch\");");
         Line(writer, "_Static_assert(offsetof(tl_frame, track_index) == 20, \"tl_frame ABI mismatch\");");
         Line(writer, "#endif");
         Line(writer);
