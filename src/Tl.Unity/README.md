@@ -27,7 +27,7 @@ public readonly partial struct Combat : ITimelineCatalog
 }
 ```
 
-Run the Tl C# materializer with `--backend unity-entities` before Unity imports scripts. The physical `.g.cs` outputs contain immutable timeline data, one shared catalog state component, schema and stage markers, Burst-compatible selection, typed operation jobs, and commit scheduling. A system owns the external game clock and calls the generated catalog `Tick`; operation jobs borrow only the components named by their authored `Execute(in Frame<TTrack,TClip>, in inputs..., ref results...)` signature.
+Run the Tl C# materializer with `--backend unity-entities` before Unity imports scripts. The physical `.g.cs` outputs contain immutable timeline data, one shared catalog state component, enableable schema markers, logical-slot component wrappers, Burst-compatible selection, typed operation jobs, and commit scheduling. A system owns the external game clock, initializes the generated catalog scheduler in `OnCreate`, and calls its `Tick`; operation jobs borrow only the values named by their authored `Execute(in Frame<TTrack,TClip>, in inputs..., ref results...)` signature. Slot wrappers are keyed by parameter name and value type, so two roles with the same value type remain separate ECS columns.
 
 `TimelineState` stores stable asset identity, local position, and signed loop cycle. Selection is total for zero, forward, and reverse movement. Finite timelines clamp independently and looping timelines carry cycle and boundary flags. `Frame<TTrack,TClip>` and `TimelineFrame` are call-scoped borrowed values; generated jobs never retain them in scheduled fields.
 
