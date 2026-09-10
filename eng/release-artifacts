@@ -16,34 +16,41 @@ version="$(dotnet msbuild "$root/src/Tl.Core/Tl.Core.csproj" -getProperty:Versio
 sdk="$(dotnet --version)"
 runtime_identifier="linux-x64"
 
-git -C "$root" diff --quiet
-git -C "$root" diff --cached --quiet
+worktree_status="$(git -C "$root" status --porcelain --untracked-files=all)"
+[[ -z "$worktree_status" ]] || { printf '%s\n' "release input contains tracked or untracked changes" >&2; printf '%s\n' "$worktree_status" >&2; exit 2; }
 
 if [[ "$mode" == "--tag" ]]; then
-    [[ "$reference" == "v$version" ]] || { printf '%s\n' "tag $reference does not match package version $version" >&2; exit 2; }
-    tag_commit="$(git -C "$root" rev-parse "$reference^{commit}")"
-    [[ "$tag_commit" == "$head_commit" ]] || { printf '%s\n' "tag $reference does not point to HEAD $head_commit" >&2; exit 2; }
+    tag_commit="$("$root/eng/release-ref" "$reference" "$version")"
+    [[ "$tag_commit" == "$head_commit" ]]
     phase="tagged"
     tag="$reference"
     repository_ref="refs/tags/$reference"
 else
     phase="candidate"
     tag="$reference"
-    branch="${GITHUB_HEAD_REF:-$(git -C "$root" branch --show-current)}"
-    [[ -n "$branch" ]] || { printf '%s\n' "candidate artifacts require a named branch" >&2; exit 2; }
-    git check-ref-format --branch "$branch" >/dev/null
-    repository_ref="refs/heads/$branch"
+    if [[ -n "${GITHUB_REF:-}" ]]; then
+        repository_ref="$GITHUB_REF"
+        git check-ref-format "$repository_ref" >/dev/null
+    else
+        branch="$(git -C "$root" branch --show-current)"
+        [[ -n "$branch" ]] || { printf '%s\n' "candidate artifacts require a named branch or GITHUB_REF" >&2; exit 2; }
+        git check-ref-format --branch "$branch" >/dev/null
+        repository_ref="refs/heads/$branch"
+    fi
 fi
 
 stage="$(mktemp -d /tmp/tl-release-artifacts.XXXXXX)"
 trap 'rm -rf -- "$stage"' EXIT
 mkdir -p "$stage/raw-a" "$stage/raw-b"
+export NUGET_PACKAGES="$stage/nuget"
+path_map="$root=/_/%2C$stage=/_release/"
 
 properties=(
     -p:ContinuousIntegrationBuild=true
     -p:RepositoryCommit="$head_commit"
     -p:RepositoryBranch="$repository_ref"
     -p:NuGetAudit=false
+    -p:PathMap="$path_map"
 )
 projects=(
     src/Tl.Core/Tl.Core.csproj
@@ -53,12 +60,18 @@ projects=(
     src/Tl.CSharp/Tl.CSharp.csproj
 )
 
-dotnet restore "$root/tl.slnx" -p:NuGetAudit=false
-dotnet build "$root/tl.slnx" -c Release -m:1 --no-restore "${properties[@]}"
+solution_artifacts="$stage/solution-artifacts"
+solution_properties=(
+    "${properties[@]}"
+    -p:TlGenAssembly="$solution_artifacts/bin/Tl.Gen/release/Tl.Gen.dll"
+    -p:TlGenPackOutput="$solution_artifacts/bin/Tl.Gen/release/"
+)
+dotnet restore "$root/tl.slnx" -p:NuGetAudit=false --artifacts-path "$solution_artifacts"
+dotnet build "$root/tl.slnx" -c Release -m:1 --no-restore --artifacts-path "$solution_artifacts" "${solution_properties[@]}"
 
 for package_pass in raw-a raw-b; do
     for project in "${projects[@]}"; do
-        dotnet pack "$root/$project" -c Release --no-build --no-restore -m:1 -o "$stage/$package_pass" "${properties[@]}"
+        dotnet pack "$root/$project" -c Release --no-build --no-restore -m:1 --artifacts-path "$solution_artifacts" -o "$stage/$package_pass" "${solution_properties[@]}"
     done
     python3 "$root/eng/release_artifacts.py" canonicalize "$stage/$package_pass" "$stage/$package_pass-normalized"
 done
@@ -73,19 +86,19 @@ mkdir "$output"
 cp "$stage/raw-a-normalized"/* "$output/"
 python3 "$root/eng/release_artifacts.py" verify "$output" "$version" "$head_commit" "$repository_ref"
 
-export NUGET_PACKAGES="$stage/nuget"
 consumer="$root/tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj"
-dotnet restore "$consumer" --force --no-cache --source "$output"
-dotnet build "$consumer" -c Release --no-restore "${properties[@]}"
-jit_output="$root/tests/Tl.PackageConsumer/bin/Release/net10.0"
+consumer_artifacts="$stage/consumer-artifacts"
+dotnet restore "$consumer" --force --no-cache --source "$output" --artifacts-path "$consumer_artifacts"
+dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${properties[@]}"
+jit_output="$consumer_artifacts/bin/Tl.PackageConsumer/release"
 [[ "$("$jit_output/Tl.PackageConsumer")" == "7" ]]
 
 for forbidden in Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do
     [[ ! -e "$jit_output/$forbidden" ]] || { printf '%s\n' "JIT output contains $forbidden" >&2; exit 2; }
 done
 
-dotnet restore "$consumer" -r "$runtime_identifier" -p:PublishAot=true --force --no-cache --source "$output" --source https://api.nuget.org/v3/index.json
-dotnet publish "$consumer" -c Release -r "$runtime_identifier" --self-contained true -p:PublishAot=true -p:StripSymbols=true --no-restore -o "$stage/aot" "${properties[@]}"
+dotnet restore "$consumer" -r "$runtime_identifier" -p:PublishAot=true --force --no-cache --source "$output" --source https://api.nuget.org/v3/index.json --artifacts-path "$consumer_artifacts"
+dotnet publish "$consumer" -c Release -r "$runtime_identifier" --self-contained true -p:PublishAot=true -p:StripSymbols=true --no-restore --artifacts-path "$consumer_artifacts" -o "$stage/aot" "${properties[@]}"
 [[ "$("$stage/aot/Tl.PackageConsumer")" == "7" ]]
 
 for forbidden in Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do
@@ -98,7 +111,7 @@ cp "$stage/Tl.PackageConsumer-$runtime_identifier.tar.gz" "$output/"
 mkdir "$stage/aot-archive-check"
 tar -xzf "$output/Tl.PackageConsumer-$runtime_identifier.tar.gz" -C "$stage/aot-archive-check"
 [[ "$("$stage/aot-archive-check/Tl.PackageConsumer")" == "7" ]]
-generation_report="$(find "$root/tests/Tl.PackageConsumer/obj/Release" -path '*/TlGenCompile/TlGenCompile.report.txt' -print | sort | tail -n 1)"
+generation_report="$(find "$consumer_artifacts/obj/Tl.PackageConsumer/release" -path '*/TlGenCompile/TlGenCompile.report.txt' -print | sort | tail -n 1)"
 [[ -n "$generation_report" ]] || { printf '%s\n' "package consumer generation report was not produced" >&2; exit 2; }
 cp "$generation_report" "$output/Tl.PackageConsumer.generation-report.txt"
 
