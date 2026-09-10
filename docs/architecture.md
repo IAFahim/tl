@@ -59,7 +59,7 @@ The ID registry is a sparse two-level unmanaged table. Registration allocates an
 
 ## C11 boundary
 
-`Tl.Gen.C` emits an ABI v2 C11 header and source pair from a format-v1 validated neutral plan plus explicit symbol bindings. Plan-format and C-ABI versions advance independently. Its caller-owned `tl_playback` is 16 bytes with 8-byte alignment, and its callback-scoped `tl_frame` is 40 bytes with 8-byte alignment. A supported target has 8-bit bytes, the asserted fixed-width integer layouts, 8-byte aggregate alignment, and IEEE binary32 storage characteristics.
+`Tl.Gen.C` emits an ABI v2 C11 header and source pair from a format-v1 validated neutral plan plus explicit symbol bindings. The frontend embeds a plan-format value at its call site, validation preserves it, and the C backend rejects a value other than its independently compiled supported version before emission. Plan-format and C-ABI versions advance independently. Its caller-owned `tl_playback` is 16 bytes with 8-byte alignment, and its callback-scoped `tl_frame` is 40 bytes with 8-byte alignment. A supported target has 8-bit bytes, the asserted fixed-width integer layouts, 8-byte aggregate alignment, and IEEE binary32 storage characteristics.
 
 `try_seek` accepts a signed delta and replays every crossed frame in forward order or its structural reverse. It snapshots playback and validates identity, ownership, lifecycle, source and target bounds, overflow, and required context before callbacks. Failure preserves playback and produces no effects; zero delta validates without callbacks. Consumer-owned `void*` context may alias playback and next, and `try_stop` also supports playback/output aliasing.
 

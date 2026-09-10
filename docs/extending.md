@@ -25,7 +25,7 @@ Operation IDs name behavior without embedding a source language. Use stable reve
 
 ## Versioning
 
-The plan schema, runtime ABI, and each backend version independently. A backend declares which plan versions and features it accepts. Unknown required features fail before emission. Optional metadata may be ignored only when the plan marks it non-semantic.
+The plan schema, runtime ABI, and each backend version independently. A frontend writes its compile-time `TimelinePlan.CurrentFormatVersion` into every plan. Validation preserves that instance value, and a backend compares it with its own supported-format constant before emission. This detects both an older frontend loaded with a newer compiler and a newer plan passed to an older backend. Unknown required features fail before emission. Optional metadata may be ignored only when the plan marks it non-semantic.
 
 Backend packages can move to their own repositories after the neutral plan has a released schema, canonical serializer, compatibility matrix, and fixture package. The repository split is then mechanical: depend on `Tl.Compiler`, import the fixtures, retain package provenance, and run conformance in CI.
 
