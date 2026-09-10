@@ -103,8 +103,8 @@ jobs:
           set -euo pipefail
           version="${RELEASE_TAG#v}"
           source=https://api.nuget.org/v3/index.json
-          dotnet nuget push "artifacts/release/Tl.Runtime.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source" --skip-duplicate
-          dotnet nuget push "artifacts/release/Tl.Gen.CSharp.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source" --skip-duplicate
-          dotnet nuget push "artifacts/release/Tl.CSharp.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source" --skip-duplicate
-          dotnet nuget push "artifacts/release/Tl.Compiler.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source" --skip-duplicate
-          dotnet nuget push "artifacts/release/Tl.Gen.C.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source" --skip-duplicate
+          dotnet nuget push "artifacts/release/Tl.Runtime.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
+          dotnet nuget push "artifacts/release/Tl.Gen.CSharp.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
+          dotnet nuget push "artifacts/release/Tl.CSharp.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
+          dotnet nuget push "artifacts/release/Tl.Compiler.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
+          dotnet nuget push "artifacts/release/Tl.Gen.C.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"

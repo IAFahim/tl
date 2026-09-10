@@ -65,6 +65,12 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertNotIn("gh release download", workflow)
         self.assertNotIn("license_and_owner_decisions", workflow)
 
+    def test_nuget_publish_fails_on_an_existing_package(self):
+        workflow = (ROOT / ".github" / "workflows" / "publish-nuget.yml").read_text(encoding="utf-8")
+        publish = workflow.split("  publish:", 1)[1]
+        self.assertEqual(5, publish.count("dotnet nuget push "))
+        self.assertNotIn("--skip-duplicate", publish)
+
     def test_artifact_workflow_checks_out_the_tag_namespace(self):
         workflow = (ROOT / ".github" / "workflows" / "release-artifacts.yml").read_text(encoding="utf-8")
         self.assertIn("ref: refs/tags/${{ inputs.tag }}", workflow)
