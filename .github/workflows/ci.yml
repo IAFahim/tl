@@ -23,6 +23,7 @@ jobs:
         with:
           persist-credentials: false
       - run: bash -n eng/agent-work
+      - run: python3 eng/test_agent_work.py
       - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
         with:
           dotnet-version: 10.0.x
