@@ -11,8 +11,6 @@ public static class CEmitter
         TrackPlan Track,
         ClipPlan First,
         ClipPlan? Second,
-        uint EnterForward,
-        uint EnterBackward,
         uint FactorStart,
         uint FactorLength);
 
@@ -45,7 +43,7 @@ public static class CEmitter
             artifacts,
             new(
                 TimelinePlan.FormatVersion,
-                1,
+                2,
                 plan.Tracks.Length,
                 plan.Clips.Length,
                 regions.Length,
@@ -54,10 +52,10 @@ public static class CEmitter
                 artifacts.Length,
                 artifacts.Sum(static artifact => artifact.Utf8Bytes),
                 0,
-                12,
-                4,
-                24,
-                4,
+                16,
+                8,
+                40,
+                8,
                 0));
     }
 
@@ -110,8 +108,7 @@ public static class CEmitter
         {
             if (string.IsNullOrWhiteSpace(operation.Operation.Value))
                 throw new ArgumentException("An operation binding has no operation ID.", nameof(binding));
-            ValidateCallbackIdentifier(operation.ForwardSymbol, reservedSymbols, nameof(binding));
-            ValidateCallbackIdentifier(operation.BackwardSymbol, reservedSymbols, nameof(binding));
+            ValidateCallbackIdentifier(operation.SeekSymbol, reservedSymbols, nameof(binding));
             if (!operations.TryAdd(operation.Operation, operation))
                 throw new ArgumentException($"Operation '{operation.Operation.Value}' is bound more than once.", nameof(binding));
         }
@@ -134,34 +131,50 @@ public static class CEmitter
         Line(writer, $"#define {guard}");
         Line(writer);
         Line(writer, "#include <stdbool.h>");
+        Line(writer, "#include <limits.h>");
         Line(writer, "#include <stddef.h>");
         Line(writer, "#include <stdint.h>");
         Line(writer);
         Line(writer, "#ifndef TL_C_ABI_VERSION");
-        Line(writer, "#define TL_C_ABI_VERSION 1");
-        Line(writer, "#elif TL_C_ABI_VERSION != 1");
+        Line(writer, "#define TL_C_ABI_VERSION 2");
+        Line(writer, "#elif TL_C_ABI_VERSION != 2");
         Line(writer, "#error \"incompatible tl C ABI version\"");
         Line(writer, "#endif");
-        Line(writer, "#ifndef TL_C_ABI_V1_TYPES");
-        Line(writer, "#define TL_C_ABI_V1_TYPES 1");
-        Line(writer, "typedef uint16_t tl_playback_flags;");
-        Line(writer, "typedef uint8_t tl_clip_state;");
-        Line(writer, "enum { TL_PLAYBACK_STARTED = 1u, TL_PLAYBACK_STOPPED = 2u, TL_PLAYBACK_LAST_LOOP_FRAME = 4u, TL_PLAYBACK_COMPLETED = 8u };");
-        Line(writer, "enum { TL_CLIP_ENTER = 0u, TL_CLIP_STAY = 1u, TL_CLIP_EXIT = 2u };");
-        Line(writer, "typedef struct { uint32_t tick; uint16_t cycles; uint16_t owner; tl_playback_flags flags; uint16_t reserved; } tl_playback;");
-        Line(writer, "typedef struct { uint32_t tick; uint32_t track_payload; uint32_t first_payload; uint32_t second_payload; float factor; uint16_t track_index; tl_clip_state state; uint8_t payload_count; } tl_frame;");
+        Line(writer, "#ifndef TL_C_ABI_V2_TYPES");
+        Line(writer, "#define TL_C_ABI_V2_TYPES 1");
+        Line(writer, "typedef uint8_t tl_playback_flags;");
+        Line(writer, "typedef uint8_t tl_frame_flags;");
+        Line(writer, "enum { TL_PLAYBACK_STARTED = 1u, TL_PLAYBACK_STOPPED = 2u };");
+        Line(writer, "enum { TL_FRAME_CLIP_START = 1u, TL_FRAME_CLIP_END = 2u, TL_FRAME_TIMELINE_START = 4u, TL_FRAME_TIMELINE_END = 8u, TL_FRAME_COMPLETED_BEFORE = 16u, TL_FRAME_COMPLETED_AFTER = 32u, TL_FRAME_LOOPING = 64u, TL_FRAME_REVERSE = 128u };");
+        Line(writer, "typedef struct { _Alignas(8) int64_t position; uint32_t game_tick; uint16_t owner; tl_playback_flags flags; uint8_t reserved; } tl_playback;");
+        Line(writer, "typedef struct { _Alignas(8) int64_t cycle; uint32_t game_tick; uint32_t timeline_tick; uint32_t track_payload; uint32_t first_payload; uint32_t second_payload; float factor; uint16_t track_index; tl_frame_flags flags; uint8_t payload_count; uint32_t reserved; } tl_frame;");
+        Line(writer, "_Static_assert(CHAR_BIT == 8, \"tl requires 8-bit bytes\");");
         Line(writer, "_Static_assert(sizeof(float) == 4, \"tl requires 32-bit float\");");
-        Line(writer, "_Static_assert(sizeof(tl_playback) == 12, \"tl_playback ABI mismatch\");");
-        Line(writer, "_Static_assert(_Alignof(tl_playback) == 4, \"tl_playback alignment mismatch\");");
-        Line(writer, "_Static_assert(offsetof(tl_playback, flags) == 8, \"tl_playback ABI mismatch\");");
-        Line(writer, "_Static_assert(sizeof(tl_frame) == 24, \"tl_frame ABI mismatch\");");
-        Line(writer, "_Static_assert(_Alignof(tl_frame) == 4, \"tl_frame alignment mismatch\");");
-        Line(writer, "_Static_assert(offsetof(tl_frame, track_index) == 20, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(sizeof(tl_playback) == 16, \"tl_playback ABI mismatch\");");
+        Line(writer, "_Static_assert(_Alignof(tl_playback) == 8, \"tl_playback alignment mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_playback, position) == 0, \"tl_playback ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_playback, game_tick) == 8, \"tl_playback ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_playback, owner) == 12, \"tl_playback ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_playback, flags) == 14, \"tl_playback ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_playback, reserved) == 15, \"tl_playback ABI mismatch\");");
+        Line(writer, "_Static_assert(sizeof(tl_frame) == 40, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(_Alignof(tl_frame) == 8, \"tl_frame alignment mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, cycle) == 0, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, game_tick) == 8, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, timeline_tick) == 12, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, track_payload) == 16, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, first_payload) == 20, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, second_payload) == 24, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, factor) == 28, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, track_index) == 32, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, flags) == 34, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, payload_count) == 35, \"tl_frame ABI mismatch\");");
+        Line(writer, "_Static_assert(offsetof(tl_frame, reserved) == 36, \"tl_frame ABI mismatch\");");
         Line(writer, "#endif");
         Line(writer);
         foreach (var symbol in plan.Tracks
             .Select(track => operations[track.Operation])
-            .SelectMany(static operation => new[] { operation.ForwardSymbol, operation.BackwardSymbol })
+            .Select(static operation => operation.SeekSymbol)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal))
             Line(writer, $"void {symbol}(void *context, const tl_frame *frame);");
@@ -170,10 +183,9 @@ public static class CEmitter
         Line(writer, $"uint16_t {prefix}_id(void);");
         Line(writer, $"uint32_t {prefix}_duration(void);");
         Line(writer, $"bool {prefix}_is_looping(void);");
-        Line(writer, $"bool {prefix}_try_start(uint16_t id, uint32_t at, tl_playback *playback);");
+        Line(writer, $"bool {prefix}_try_start(uint16_t id, uint32_t game_tick, tl_playback *playback);");
         Line(writer, $"bool {prefix}_try_stop(uint16_t id, const tl_playback *playback, tl_playback *stopped);");
-        Line(writer, $"bool {prefix}_try_forward(uint16_t id, const tl_playback *playback, uint32_t tick, void *context, tl_playback *next);");
-        Line(writer, $"bool {prefix}_try_backward(uint16_t id, const tl_playback *playback, uint32_t tick, void *context, tl_playback *next);");
+        Line(writer, $"bool {prefix}_try_seek(uint16_t id, const tl_playback *playback, int32_t delta, void *restrict context, tl_playback *next);");
         Line(writer);
         Line(writer, "#endif");
         return writer.ToString();
@@ -193,76 +205,41 @@ public static class CEmitter
         Line(writer, $"uint32_t {prefix}_duration(void) {{ return (uint32_t){U(plan.Duration)}; }}");
         Line(writer, $"bool {prefix}_is_looping(void) {{ return {Bool(plan.Loops)}; }}");
         Line(writer);
-        Line(writer, $"static bool {prefix}_can_run(uint16_t id, const tl_playback *playback, tl_playback *next)");
+        Line(writer, $"static bool {prefix}_can_run(uint16_t id, const tl_playback *playback, tl_playback *before)");
         Line(writer, "{");
-        Line(writer, $"    return playback != NULL && next != NULL && id == (uint16_t){I(plan.RuntimeId)}u && playback->owner == id && (playback->flags & TL_PLAYBACK_STARTED) != 0u && (playback->flags & TL_PLAYBACK_STOPPED) == 0u;");
+        Line(writer, "    if (playback == NULL) return false;");
+        Line(writer, "    *before = *playback;");
+        Line(writer, $"    return id == (uint16_t){I(plan.RuntimeId)}u && before->owner == id && (before->flags & (TL_PLAYBACK_STARTED | TL_PLAYBACK_STOPPED)) == TL_PLAYBACK_STARTED;");
         Line(writer, "}");
         Line(writer);
-        EmitPosition(writer, plan, prefix, false);
-        Line(writer);
-        EmitPosition(writer, plan, prefix, true);
-        Line(writer);
-        EmitApply(writer, plan, prefix, operations, regions, false);
-        Line(writer);
-        EmitApply(writer, plan, prefix, operations, regions, true);
-        Line(writer);
-        Line(writer, $"bool {prefix}_try_start(uint16_t id, uint32_t at, tl_playback *playback)");
+        if (plan.Duration != 0)
+        {
+            EmitApply(writer, plan, prefix, operations, regions, false);
+            Line(writer);
+            EmitApply(writer, plan, prefix, operations, regions, true);
+            Line(writer);
+        }
+        Line(writer, $"bool {prefix}_try_start(uint16_t id, uint32_t game_tick, tl_playback *playback)");
         Line(writer, "{");
         Line(writer, "    if (playback == NULL) return false;");
         Line(writer, "    *playback = (tl_playback){ 0u, 0u, 0u, 0u, 0u };");
         Line(writer, $"    if (id != (uint16_t){I(plan.RuntimeId)}u) return false;");
-        Line(writer, "    *playback = (tl_playback){ at, 0u, id, TL_PLAYBACK_STARTED, 0u };");
+        Line(writer, "    *playback = (tl_playback){ INT64_C(0), game_tick, id, TL_PLAYBACK_STARTED, 0u };");
         Line(writer, "    return true;");
         Line(writer, "}");
         Line(writer);
         Line(writer, $"bool {prefix}_try_stop(uint16_t id, const tl_playback *playback, tl_playback *stopped)");
         Line(writer, "{");
         Line(writer, "    if (playback == NULL || stopped == NULL) return false;");
-        Line(writer, "    *stopped = *playback;");
-        Line(writer, $"    if (id != (uint16_t){I(plan.RuntimeId)}u || playback->owner != id || (playback->flags & TL_PLAYBACK_STARTED) == 0u) return false;");
+        Line(writer, "    tl_playback before = *playback;");
+        Line(writer, "    *stopped = before;");
+        Line(writer, $"    if (id != (uint16_t){I(plan.RuntimeId)}u || before.owner != id || (before.flags & TL_PLAYBACK_STARTED) == 0u) return false;");
         Line(writer, "    stopped->flags = (tl_playback_flags)(stopped->flags | TL_PLAYBACK_STOPPED);");
         Line(writer, "    return true;");
         Line(writer, "}");
         Line(writer);
-        EmitAdvance(writer, plan, prefix, false);
-        Line(writer);
-        EmitAdvance(writer, plan, prefix, true);
+        EmitSeek(writer, plan, prefix);
         return writer.ToString();
-    }
-
-    private static void EmitPosition(StringBuilder writer, TimelinePlan plan, string prefix, bool backward)
-    {
-        var direction = backward ? "backward" : "forward";
-        Line(writer, $"static bool {prefix}_position_{direction}(const tl_playback *from, uint32_t tick, uint32_t *effective, uint32_t *previous_effective, uint32_t *crossed_cycles, uint16_t *cycles)");
-        Line(writer, "{");
-        if (!plan.Loops || plan.Duration == 0)
-        {
-            Line(writer, "    *effective = tick;");
-            Line(writer, "    *previous_effective = from->tick;");
-            Line(writer, "    *crossed_cycles = 0u;");
-            Line(writer, "    *cycles = from->cycles;");
-            Line(writer, "    return true;");
-            Line(writer, "}");
-            return;
-        }
-
-        Line(writer, $"    uint32_t previous_quotient = from->tick / {U(plan.Duration)};");
-        Line(writer, $"    *previous_effective = from->tick - previous_quotient * {U(plan.Duration)};");
-        Line(writer, $"    uint32_t quotient = tick / {U(plan.Duration)};");
-        Line(writer, $"    *effective = tick - quotient * {U(plan.Duration)};");
-        if (!backward)
-        {
-            Line(writer, "    *crossed_cycles = tick >= from->tick ? quotient - previous_quotient : (*effective < *previous_effective ? 1u : 0u);");
-            Line(writer, "    if (*crossed_cycles > (uint32_t)UINT16_MAX - from->cycles) { *cycles = from->cycles; return false; }");
-            Line(writer, "    *cycles = (uint16_t)(from->cycles + *crossed_cycles);");
-        }
-        else
-        {
-            Line(writer, "    *crossed_cycles = tick <= from->tick ? previous_quotient - quotient : (*effective > *previous_effective ? 1u : 0u);");
-            Line(writer, "    *cycles = *crossed_cycles >= from->cycles ? 0u : (uint16_t)(from->cycles - *crossed_cycles);");
-        }
-        Line(writer, "    return true;");
-        Line(writer, "}");
     }
 
     private static void EmitApply(
@@ -274,94 +251,202 @@ public static class CEmitter
         bool backward)
     {
         var direction = backward ? "backward" : "forward";
-        Line(writer, $"static bool {prefix}_apply_{direction}(uint32_t effective, uint32_t previous_effective, uint32_t crossed_cycles, void *context)");
+        Line(writer, $"static void {prefix}_apply_{direction}(uint32_t local, uint32_t game_tick, int64_t cycle, tl_frame_flags frame_flags, void *context)");
         Line(writer, "{");
         Line(writer, "    (void)context;");
-        Line(writer, "    (void)effective;");
-        Line(writer, "    (void)previous_effective;");
-        Line(writer, "    (void)crossed_cycles;");
+        Line(writer, "    (void)local;");
+        Line(writer, "    (void)game_tick;");
+        Line(writer, "    (void)cycle;");
+        Line(writer, "    (void)frame_flags;");
         for (var regionIndex = 0; regionIndex < regions.Length; regionIndex++)
         {
             var region = regions[regionIndex];
             var branch = regionIndex == 0 ? "if" : "else if";
             var condition = region.Start == 0u
-                ? $"effective < {U(region.End)}"
-                : $"effective >= {U(region.Start)} && effective < {U(region.End)}";
+                ? $"local < {U(region.End)}"
+                : $"local >= {U(region.Start)} && local < {U(region.End)}";
             Line(writer, $"    {branch} ({condition})");
             Line(writer, "    {");
-            if (!region.Works.IsEmpty)
-                Line(writer, "        if (context == NULL) return false;");
-            for (var workIndex = 0; workIndex < region.Works.Length; workIndex++)
-                EmitWork(writer, plan, operations, region.Works[workIndex], backward);
+            var works = backward ? region.Works.Reverse() : region.Works;
+            foreach (var work in works)
+                EmitWork(writer, operations, work);
             Line(writer, "    }");
         }
-        Line(writer, "    return true;");
         Line(writer, "}");
     }
 
     private static void EmitWork(
         StringBuilder writer,
-        TimelinePlan plan,
         IReadOnlyDictionary<OperationId, COperationBinding> operations,
-        Work work,
-        bool backward)
+        Work work)
     {
-        var exit = backward ? work.EnterForward : work.EnterBackward - 1u;
-        var crossed = backward
-            ? $"previous_effective >= {U(work.EnterBackward)}"
-            : $"previous_effective < {U(work.EnterForward)}";
-        var enterPossible = backward
-            ? !plan.Loops || work.EnterBackward < plan.Duration
-            : work.EnterForward != 0;
-        var enter = plan.Loops
-            ? enterPossible ? $"crossed_cycles != 0u || {crossed}" : "crossed_cycles != 0u"
-            : enterPossible ? crossed : "false";
-        var state = enter == "false"
-            ? $"effective == {U(exit)} ? TL_CLIP_EXIT : TL_CLIP_STAY"
-            : $"effective == {U(exit)} ? TL_CLIP_EXIT : ({enter} ? TL_CLIP_ENTER : TL_CLIP_STAY)";
         var second = work.Second;
         var factor = second is null
             ? "0.0f"
             : work.FactorLength <= 1
                 ? "0.5f"
-                : $"(float)(effective - {U(work.FactorStart)}) / {I(work.FactorLength - 1)}.0f";
+                : $"(float)(local - {U(work.FactorStart)}) / {I(work.FactorLength - 1)}.0f";
         var secondPayload = second?.Payload ?? 0u;
         var payloadCount = second is null ? 1 : 2;
         Line(writer, "        {");
-        Line(writer, $"            tl_frame frame = {{ effective, {U(work.Track.Payload)}, {U(work.First.Payload)}, {U(secondPayload)}, {factor}, (uint16_t){I(work.Track.Index)}u, (tl_clip_state)({state}), (uint8_t){I(payloadCount)}u }};");
+        Line(writer, "            tl_frame_flags work_flags = frame_flags;");
+        var starts = second is null
+            ? $"local == {U(work.First.Start)}"
+            : $"local == {U(work.First.Start)} || local == {U(second.Value.Start)}";
+        var ends = second is null
+            ? $"local == {U(work.First.End - 1u)}"
+            : $"local == {U(work.First.End - 1u)} || local == {U(second.Value.End - 1u)}";
+        Line(writer, $"            if ({starts}) work_flags = (tl_frame_flags)(work_flags | TL_FRAME_CLIP_START);");
+        Line(writer, $"            if ({ends}) work_flags = (tl_frame_flags)(work_flags | TL_FRAME_CLIP_END);");
+        Line(writer, $"            tl_frame frame = {{ cycle, game_tick, local, {U(work.Track.Payload)}, {U(work.First.Payload)}, {U(secondPayload)}, {factor}, (uint16_t){I(work.Track.Index)}u, work_flags, (uint8_t){I(payloadCount)}u, 0u }};");
         var operation = operations[work.Track.Operation];
-        Line(writer, $"            {(backward ? operation.BackwardSymbol : operation.ForwardSymbol)}(context, &frame);");
+        Line(writer, $"            {operation.SeekSymbol}(context, &frame);");
         Line(writer, "        }");
     }
 
-    private static void EmitAdvance(StringBuilder writer, TimelinePlan plan, string prefix, bool backward)
+    private static void EmitSeek(StringBuilder writer, TimelinePlan plan, string prefix)
     {
-        var direction = backward ? "backward" : "forward";
-        Line(writer, $"bool {prefix}_try_{direction}(uint16_t id, const tl_playback *playback, uint32_t tick, void *context, tl_playback *next)");
+        Line(writer, $"bool {prefix}_try_seek(uint16_t id, const tl_playback *playback, int32_t delta, void *restrict context, tl_playback *next)");
         Line(writer, "{");
-        Line(writer, $"    if (!{prefix}_can_run(id, playback, next))");
+        if (plan.Duration == 0)
+            Line(writer, "    (void)context;");
+        Line(writer, "    if (next == NULL) return false;");
+        Line(writer, "    tl_playback before;");
+        Line(writer, $"    if (!{prefix}_can_run(id, playback, &before))");
         Line(writer, "    {");
-        Line(writer, "        if (playback != NULL && next != NULL) *next = *playback;");
+        Line(writer, "        if (playback != NULL) *next = *playback;");
         Line(writer, "        return false;");
         Line(writer, "    }");
-        Line(writer, "    uint32_t effective;");
-        Line(writer, "    uint32_t previous_effective;");
-        Line(writer, "    uint32_t crossed_cycles;");
-        Line(writer, "    uint16_t cycles;");
-        Line(writer, $"    if (!{prefix}_position_{direction}(playback, tick, &effective, &previous_effective, &crossed_cycles, &cycles)) {{ *next = *playback; return false; }}");
-        Line(writer, $"    if (!{prefix}_apply_{direction}(effective, previous_effective, crossed_cycles, context)) {{ *next = *playback; return false; }}");
-        Line(writer, "    tl_playback_flags flags = TL_PLAYBACK_STARTED;");
-        if (plan.Loops && plan.Duration != 0)
-            Line(writer, $"    if (effective == {U(plan.Duration - 1u)}) flags = (tl_playback_flags)(flags | TL_PLAYBACK_LAST_LOOP_FRAME);");
-        else if (plan.Duration == 0)
-            Line(writer, "    flags = (tl_playback_flags)(flags | TL_PLAYBACK_COMPLETED);");
-        else if (backward)
-            Line(writer, "    if (effective == 0u) flags = (tl_playback_flags)(flags | TL_PLAYBACK_COMPLETED);");
-        else
-            Line(writer, $"    if (effective >= {U(plan.Duration - 1u)}) flags = (tl_playback_flags)(flags | TL_PLAYBACK_COMPLETED);");
-        Line(writer, "    *next = (tl_playback){ tick, cycles, id, flags, 0u };");
+        Line(writer, "    int64_t distance = (int64_t)delta;");
+        var finite = !plan.Loops || plan.Duration == 0;
+        if (finite)
+            Line(writer, $"    if (before.position < INT64_C(0) || before.position > INT64_C({I(plan.Duration)})) {{ *next = before; return false; }}");
+        Line(writer, "    if ((distance > INT64_C(0) && before.position > INT64_MAX - distance) || (distance < INT64_C(0) && before.position < INT64_MIN - distance)) { *next = before; return false; }");
+        Line(writer, "    int64_t target_position = before.position + distance;");
+        if (finite)
+            Line(writer, $"    if (target_position < INT64_C(0) || target_position > INT64_C({I(plan.Duration)})) {{ *next = before; return false; }}");
+        Line(writer, "    if (delta == 0) { *next = before; return true; }");
+        if (plan.Duration == 0)
+        {
+            Line(writer, "    *next = before;");
+            Line(writer, "    return false;");
+            Line(writer, "}");
+            return;
+        }
+        if (!plan.Clips.IsEmpty)
+            Line(writer, "    if (context == NULL) { *next = before; return false; }");
+        Line(writer, "    uint32_t target_game_tick = before.game_tick + (uint32_t)delta;");
+        EmitInitialPosition(writer, plan);
+        Line(writer, "    if (delta == 1)");
+        Line(writer, "    {");
+        EmitFrameFlags(writer, plan, false, "local", "before.position", 2);
+        Line(writer, $"        {prefix}_apply_forward(local, before.game_tick, cycle, frame_flags, context);");
+        Line(writer, "    }");
+        Line(writer, "    else if (delta == -1)");
+        Line(writer, "    {");
+        Line(writer, "        uint32_t game_tick = before.game_tick;");
+        EmitReverseStep(writer, plan, 2);
+        EmitFrameFlags(writer, plan, true, "local", "target_position", 2);
+        Line(writer, $"        {prefix}_apply_backward(local, game_tick, cycle, frame_flags, context);");
+        Line(writer, "    }");
+        Line(writer, "    else if (delta > 1)");
+        Line(writer, "    {");
+        Line(writer, "        int64_t position = before.position;");
+        Line(writer, "        uint32_t game_tick = before.game_tick;");
+        Line(writer, "        while (position < target_position)");
+        Line(writer, "        {");
+        EmitFrameFlags(writer, plan, false, "local", "position", 3);
+        Line(writer, $"            {prefix}_apply_forward(local, game_tick, cycle, frame_flags, context);");
+        Line(writer, "            position++;");
+        Line(writer, "            game_tick++;");
+        EmitForwardStep(writer, plan, 3);
+        Line(writer, "        }");
+        Line(writer, "    }");
+        Line(writer, "    else");
+        Line(writer, "    {");
+        Line(writer, "        int64_t position = before.position;");
+        Line(writer, "        uint32_t game_tick = before.game_tick;");
+        Line(writer, "        while (position > target_position)");
+        Line(writer, "        {");
+        EmitReverseStep(writer, plan, 3);
+        Line(writer, "            position--;");
+        EmitFrameFlags(writer, plan, true, "local", "position", 3);
+        Line(writer, $"            {prefix}_apply_backward(local, game_tick, cycle, frame_flags, context);");
+        Line(writer, "        }");
+        Line(writer, "    }");
+        Line(writer, "    *next = (tl_playback){ target_position, target_game_tick, id, before.flags, 0u };");
         Line(writer, "    return true;");
         Line(writer, "}");
+    }
+
+    private static void EmitInitialPosition(StringBuilder writer, TimelinePlan plan)
+    {
+        if (plan.Loops)
+        {
+            Line(writer, $"    int64_t cycle = before.position / INT64_C({I(plan.Duration)});");
+            Line(writer, $"    int64_t remainder = before.position - cycle * INT64_C({I(plan.Duration)});");
+            Line(writer, "    if (remainder < INT64_C(0))");
+            Line(writer, "    {");
+            Line(writer, $"        remainder += INT64_C({I(plan.Duration)});");
+            Line(writer, "        cycle--;");
+            Line(writer, "    }");
+            Line(writer, "    uint32_t local = (uint32_t)remainder;");
+        }
+        else
+        {
+            Line(writer, "    int64_t cycle = INT64_C(0);");
+            Line(writer, "    uint32_t local = (uint32_t)before.position;");
+        }
+    }
+
+    private static void EmitForwardStep(StringBuilder writer, TimelinePlan plan, int depth)
+    {
+        var indent = new string(' ', depth * 4);
+        if (plan.Loops)
+        {
+            Line(writer, $"{indent}if (local == {U(plan.Duration - 1u)})");
+            Line(writer, $"{indent}{{");
+            Line(writer, $"{indent}    local = 0u;");
+            Line(writer, $"{indent}    cycle++;");
+            Line(writer, $"{indent}}}");
+            Line(writer, $"{indent}else");
+            Line(writer, $"{indent}    local++;");
+        }
+        else
+            Line(writer, $"{indent}local++;");
+    }
+
+    private static void EmitReverseStep(StringBuilder writer, TimelinePlan plan, int depth)
+    {
+        var indent = new string(' ', depth * 4);
+        Line(writer, $"{indent}game_tick--;");
+        if (plan.Loops)
+        {
+            Line(writer, $"{indent}if (local == 0u)");
+            Line(writer, $"{indent}{{");
+            Line(writer, $"{indent}    local = {U(plan.Duration - 1u)};");
+            Line(writer, $"{indent}    cycle--;");
+            Line(writer, $"{indent}}}");
+            Line(writer, $"{indent}else");
+            Line(writer, $"{indent}    local--;");
+        }
+        else
+            Line(writer, $"{indent}local--;");
+    }
+
+    private static void EmitFrameFlags(StringBuilder writer, TimelinePlan plan, bool reverse, string local, string position, int depth)
+    {
+        var indent = new string(' ', depth * 4);
+        var initial = new List<string>();
+        if (plan.Loops)
+            initial.Add("TL_FRAME_LOOPING");
+        if (reverse)
+            initial.Add("TL_FRAME_REVERSE");
+        Line(writer, $"{indent}tl_frame_flags frame_flags = (tl_frame_flags){(initial.Count == 0 ? "0u" : $"({string.Join(" | ", initial)})")};");
+        Line(writer, $"{indent}if ({local} == 0u) frame_flags = (tl_frame_flags)(frame_flags | TL_FRAME_TIMELINE_START);");
+        Line(writer, $"{indent}if ({local} == {U(plan.Duration - 1u)}) frame_flags = (tl_frame_flags)(frame_flags | TL_FRAME_TIMELINE_END);");
+        if (!plan.Loops)
+            Line(writer, $"{indent}if ({position} == INT64_C({I(plan.Duration - 1u)})) frame_flags = (tl_frame_flags)(frame_flags | {(reverse ? "TL_FRAME_COMPLETED_BEFORE" : "TL_FRAME_COMPLETED_AFTER")});");
     }
 
     private static ImmutableArray<Region> Regions(TimelinePlan plan)
@@ -393,7 +478,7 @@ public static class CEmitter
                 if (active.Length == 1)
                 {
                     var clip = active[0];
-                    works.Add(new Work(track, clip, null, clip.Start, clip.End, 0u, 0u));
+                    works.Add(new Work(track, clip, null, 0u, 0u));
                 }
                 else if (active.Length == 2)
                 {
@@ -405,8 +490,6 @@ public static class CEmitter
                         track,
                         first,
                         second,
-                        Math.Min(first.Start, second.Start),
-                        Math.Max(first.End, second.End),
                         factorStart,
                         factorEnd - factorStart));
                 }
@@ -530,17 +613,20 @@ public static class CEmitter
             "UINT64_C",
             "INTMAX_C",
             "UINTMAX_C",
-            "tl_clip_state",
+            "tl_frame_flags",
             "tl_frame",
             "tl_playback",
             "tl_playback_flags",
-            "TL_C_ABI_V1_TYPES",
+            "TL_C_ABI_V2_TYPES",
             "TL_C_ABI_VERSION",
-            "TL_CLIP_ENTER",
-            "TL_CLIP_EXIT",
-            "TL_CLIP_STAY",
-            "TL_PLAYBACK_COMPLETED",
-            "TL_PLAYBACK_LAST_LOOP_FRAME",
+            "TL_FRAME_CLIP_END",
+            "TL_FRAME_CLIP_START",
+            "TL_FRAME_COMPLETED_AFTER",
+            "TL_FRAME_COMPLETED_BEFORE",
+            "TL_FRAME_LOOPING",
+            "TL_FRAME_REVERSE",
+            "TL_FRAME_TIMELINE_END",
+            "TL_FRAME_TIMELINE_START",
             "TL_PLAYBACK_STARTED",
             "TL_PLAYBACK_STOPPED",
             "TL_" + prefix + "_H",
@@ -550,10 +636,7 @@ public static class CEmitter
             prefix + "_duration",
             prefix + "_id",
             prefix + "_is_looping",
-            prefix + "_position_backward",
-            prefix + "_position_forward",
-            prefix + "_try_backward",
-            prefix + "_try_forward",
+            prefix + "_try_seek",
             prefix + "_try_start",
             prefix + "_try_stop"
         };
