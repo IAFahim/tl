@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType Condition="'$(TargetFramework)' == 'net10.0'">Exe</OutputType>
+    <OutputType Condition="'$(TargetFramework)' == 'netstandard2.0'">Library</OutputType>
     <ShouldBeValidatedAsExecutableReference>false</ShouldBeValidatedAsExecutableReference>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -18,15 +19,21 @@
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>v1.0.0-alpha.2: deterministic generation reports, editor design-time build fixes, and reduced lifecycle branches in compiled kernels.</PackageReleaseNotes>
+    <EnforceExtendedAnalyzerRules Condition="'$(TargetFramework)' == 'netstandard2.0'">true</EnforceExtendedAnalyzerRules>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <Compile Remove="CompileGenerationCache.cs;GeneratorCli.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="build\Tl.Gen.CSharp.targets" Pack="true" PackagePath="build\Tl.Gen.CSharp.targets;buildTransitive\Tl.Gen.CSharp.targets" />
+    <None Include="$(MSBuildProjectDirectory)\bin\$(Configuration)\netstandard2.0\Tl.Gen.CSharp.dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
     <None Include="$(OutputPath)Tl.Gen.CSharp.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(OutputPath)Tl.Gen.CSharp.pdb" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
     <None Include="$(OutputPath)Tl.Gen.CSharp.deps.json" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />

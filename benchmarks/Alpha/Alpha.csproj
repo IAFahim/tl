@@ -7,14 +7,15 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <TlGenAssembly>$(MSBuildProjectDirectory)/../../src/Tl.Gen.CSharp/bin/$(Configuration)/net10.0/Tl.Gen.CSharp.dll</TlGenAssembly>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" />
     <ProjectReference Include="../../src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj"
                       ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer"
+                      PrivateAssets="all"
+                      AdditionalProperties="TargetFramework=netstandard2.0"
                       GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
   </ItemGroup>
-  <Import Project="../../src/Tl.Gen.CSharp/build/Tl.Gen.CSharp.targets" />
 </Project>
