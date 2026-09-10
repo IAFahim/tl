@@ -5,7 +5,7 @@
 **Status: v1.0.0-alpha.3 candidate.** The C# API is a breaking prerelease for .NET 10 and C# 14. Unity qualification is tracked separately and must pass before the release is tagged.
 
 - Heterogeneous tracks and clips in one timeline
-- One operation type for each `(track, clip)` pair
+- Each authored track binds one typed operation to its `(track, clip)` pair
 - Any finite set of unmanaged `in` and `ref` component slots
 - Deterministic forward and reverse occurrence order
 - Generated schema queries over borrowed component columns
