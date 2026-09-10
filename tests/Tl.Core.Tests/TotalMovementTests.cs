@@ -337,7 +337,6 @@ public class TotalMovementTests
         var frameType = typeof(Frame<JobTrack, JobClip>);
         Assert.True(frameType.IsByRefLike);
         Assert.Equal(typeof(IBlend<JobClip>), typeof(JobTrack).GetInterfaces().Single());
-        Assert.DoesNotContain(typeof(ITrack<JobClip>), typeof(JobTrack).GetInterfaces());
 
         var asset = typeof(SchemaBuilder<Rows>).GetMethod(nameof(SchemaBuilder<Rows>.Asset))!;
         Assert.Equal(typeof(SchemaBuilder<Rows>), asset.ReturnType);
