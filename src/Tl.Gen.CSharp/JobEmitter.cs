@@ -395,7 +395,6 @@ internal static class JobEmitter
     {
         var direction = reverse ? "Reverse" : "Forward";
         var name = Qualified(asset);
-        Line(writer, "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]");
         Line(writer, $"private bool __tl{direction}{assetIndex}(ref State __tlState, uint gameTick)");
         Line(writer, "{");
         Line(writer, $"if (!{name}.Select(in __tlState.Value, {Bool(reverse)}, out var __tlNext, out var __tlTick, out var __tlCycle, out var __tlFlags)) return false;");
