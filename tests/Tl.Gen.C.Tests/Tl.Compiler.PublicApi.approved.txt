@@ -1,0 +1,39 @@
+type Tl.Compiler.ClipPlan
+  Method Void Deconstruct(UInt16 ByRef, UInt32 ByRef, UInt32 ByRef, UInt32 ByRef)
+  Property UInt32 End
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Compiler.ClipPlan)
+  Method Int32 GetHashCode()
+  Property UInt32 Payload
+  Property UInt32 Start
+  Method System.String ToString()
+  Property UInt16 TrackIndex
+type Tl.Compiler.OperationId
+  Method Void Deconstruct(System.String ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Compiler.OperationId)
+  Method Int32 GetHashCode()
+  Method System.String ToString()
+  Property System.String Value
+type Tl.Compiler.TimelinePlan
+  Method Tl.Compiler.TimelinePlan <Clone>$()
+  Property System.Collections.Immutable.ImmutableArray`1[Tl.Compiler.ClipPlan] Clips
+  Property UInt32 Duration
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Compiler.TimelinePlan)
+  Field UInt16 FormatVersion
+  Method Int32 GetHashCode()
+  Property System.String Identity
+  Property Boolean Loops
+  Property UInt16 RuntimeId
+  Method System.String ToString()
+  Property System.Collections.Immutable.ImmutableArray`1[Tl.Compiler.TrackPlan] Tracks
+type Tl.Compiler.TrackPlan
+  Method Void Deconstruct(UInt16 ByRef, UInt32 ByRef, Tl.Compiler.OperationId ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Compiler.TrackPlan)
+  Method Int32 GetHashCode()
+  Property UInt16 Index
+  Property Tl.Compiler.OperationId Operation
+  Property UInt32 Payload
+  Method System.String ToString()
