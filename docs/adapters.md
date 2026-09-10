@@ -1,48 +1,22 @@
-# Build-time adapters
+# Frontends and backends
 
-The C# adapter is the first backend. Waffle belongs in the build pipeline;
-playback consumes ordinary compiled C# and has no Waffle dependency.
+`Tl.Gen.CSharp`, `Tl.Compiler`, and `Tl.Gen.C` are separate projects and packages.
 
-```text
-designer / application input
-          |
-          v
-      Definition
-          |
-     validate + plan
-          |
-          v
-        IAdapter
-          |
-          v
-   C# source files -> normal C# build -> application playback
-```
+| Package | Responsibility |
+|---|---|
+| `Tl.Compiler` | Language-neutral immutable plan, validation, normalization, and format contract |
+| `Tl.Gen.CSharp` | C# syntax discovery, diagnostics, C# binding, and C# kernel emission |
+| `Tl.Gen.C` | C11 binding and kernel emission from `Tl.Compiler` plans |
+| `Tl.CSharp` | One-reference C# installation that carries the build-only C# generator |
 
-`Definition` describes authored tracks, clip windows and typed payload input.
-`Plan` holds validated regions, active rows, blend information and the selected
-emission strategy. Keep timeline analysis separate from C# syntax emission.
-`SourceFile` describes an output name and source text. These are responsibilities
-for extraction, not a claim that the empty `src` placeholders implement them.
+The packages remain in one repository while the neutral format and conformance fixtures are changing together. Their dependency direction already permits independent versioning and later repository extraction. `Tl.Gen.CSharp` is a sibling of `Tl.Gen.C`; no generic `Tl.Gen` assembly exists.
 
-The initial delivery needs one real C# adapter with a documented build-time
-entry point and an external consuming sample. Do not add other language backends
-or a complex plugin system now. C# expressions, managed types and emitted names
-are C# adapter concerns; another backend will need its own payload mapping.
+The C# package currently keeps a private language-specific model for typed slots, constants, includes, hooks, and routes that the neutral format does not yet express. Moving those semantic facts into `Tl.Compiler` is required before the C# and C backends can consume the same complete plan.
 
-General generated tables provide the behavior-preserving path. Specialized bake
-strategies may emit precomputed tables and straight-line operations only when
-valid for the supported consumer and within code/data budgets. The current
-FrozenSink benchmark emitter is not a general adapter for arbitrary user hooks.
-Unsupported specialization must fall back or diagnose, never silently drop work.
+Waffle was evaluated and excluded. A template layer does not improve emitted code, runtime speed, plan portability, or output determinism. Each backend writes target source directly from validated immutable data.
 
-Generated files belong to the consuming build's output directory. Track authoring
-inputs, generator/adapter versions and output identity so edits regenerate even
-when an old file exists. Output must be deterministic and parallel builds must
-not write to the same fixture directory.
+Generated files belong to the consuming build output. Normal C# compilation runs the incremental analyzer; explicit export produces inspectable source, a manifest, and a generation report. The generator and Roslyn remain build-time assets and never enter application or NativeAOT output.
 
-Explicit closed-type bindings must be reachable to AOT compilation. A guarded
-JIT reflection convenience path does not establish AOT support. NativeAOT and
-future Unity/WASM targets need tests on their actual toolchains, including the
-consumer code; generating valid C# alone is insufficient.
+A new backend consumes the public versioned `Tl.Compiler` contract, supplies a target binding for operation and payload IDs, rejects unsupported plan features before emission, and passes the shared semantic fixtures on its real toolchain. Backend representation stays private; observable receipts, generated sizes, ABI layout, and compatibility are public evidence.
 
-See the [v0.1 handoff](v0.1.md) for project boundaries and acceptance checks.
+See [architecture.md](architecture.md), [extending.md](extending.md), and [v1.0-alpha-checklist.md](v1.0-alpha-checklist.md).
