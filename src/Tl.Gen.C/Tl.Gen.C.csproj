@@ -4,17 +4,20 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Version>$(TlVersion)</Version>
-    <PackageId>Tl.Runtime</PackageId>
+    <PackageId>Tl.Gen.C</PackageId>
     <Authors>IAFahim</Authors>
-    <Description>Heterogeneous timelines compiled into direct C# kernels with borrowed typed contexts.</Description>
+    <Description>Portable C11 backend for language-neutral compiled timelines.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.0.0-alpha.2: C11 portability contracts, generation and memory reports, editor build fixes, stronger inverse receipts, and a smaller compiled lifecycle check.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.2: deterministic C11 kernels, fixed-width ABI assertions, direct consumer operations, and explicit artifact and memory reports.</PackageReleaseNotes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Tl.Compiler\Tl.Compiler.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />

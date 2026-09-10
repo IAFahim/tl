@@ -60,6 +60,7 @@ type Tl.Timeline
   Method Boolean IsValid(UInt16)
   Method UInt16 RegisterCompiled(UInt32, Boolean, Tl.CompiledRoute)
   Method Byte RegisterModule()
+  Property Int64 RegistryRetainedBytes
   Method Boolean TryBackward[TInput,TOutput](UInt16, Tl.Playback ByRef, UInt32, TInput ByRef, TOutput ByRef, Tl.Playback ByRef)
   Method Boolean TryBackward[TInput,TOutput](UInt16, Tl.Playback ByRef, System.ReadOnlySpan`1[System.UInt32], TInput ByRef, TOutput ByRef, Tl.Playback ByRef)
   Method Boolean TryForward[TInput,TOutput](UInt16, Tl.Playback ByRef, UInt32, TInput ByRef, TOutput ByRef, Tl.Playback ByRef)

@@ -55,7 +55,7 @@ public sealed class CompatibleRoutingTests
         string name,
         IReadOnlyList<TimelineSlot> inputs,
         IReadOnlyList<TimelineSlot> outputs)
-        => new(name, "Fix", "Fix.cs", 1, false, [], [], [], [], [], inputs, outputs);
+        => new(name, "Fix", false, [], [], [], [], [], inputs, outputs);
 
     private static int Occurrences(string source, string value)
     {

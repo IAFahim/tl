@@ -1,5 +1,3 @@
-using Tl;
-
 internal static class Verification
 {
     public static void Run()

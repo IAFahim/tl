@@ -167,7 +167,7 @@ public readonly struct TimelineCollection
     public TimelineHandle this[ushort id] => new(id);
 }
 
-public static unsafe partial class Timeline
+public static unsafe class Timeline
 {
     private const nint CompiledTag = 1;
     private const int CompiledDurationShift = 2;
@@ -178,8 +178,10 @@ public static unsafe partial class Timeline
     private static int s_nextIndex;
     private static int s_nextModule;
     private static int s_gate;
+    private static long s_registryRetainedBytes;
 
     public static TimelineCollection All => default;
+    public static long RegistryRetainedBytes => Volatile.Read(ref s_registryRetainedBytes);
 
     [EditorBrowsable(EditorBrowsableState.Never)]
     public static byte RegisterModule()
@@ -205,13 +207,15 @@ public static unsafe partial class Timeline
         var metadata = (CompiledMetadata*)NativeMemory.Alloc((nuint)sizeof(CompiledMetadata));
         if (metadata == null)
             throw new OutOfMemoryException();
-        metadata->Duration = duration;
+        metadata->TimelineDuration = duration;
         metadata->Loops = loops ? (byte)1 : (byte)0;
         metadata->Module = route.Module;
         metadata->Ordinal = route.Ordinal;
         try
         {
-            return RegisterSlot((nint)metadata | CompiledTag);
+            var index = RegisterSlot((nint)metadata | CompiledTag);
+            Interlocked.Add(ref s_registryRetainedBytes, sizeof(CompiledMetadata));
+            return index;
         }
         catch
         {
@@ -354,6 +358,7 @@ public static unsafe partial class Timeline
                 pages = (nint*)NativeMemory.AllocZeroed(256, (nuint)sizeof(nint));
                 if (pages == null)
                     throw new OutOfMemoryException();
+                s_registryRetainedBytes += 256L * sizeof(nint);
                 Volatile.Write(ref s_pages, (nint)pages);
             }
 
@@ -364,6 +369,7 @@ public static unsafe partial class Timeline
                 page = (nint*)NativeMemory.AllocZeroed(256, (nuint)sizeof(nint));
                 if (page == null)
                     throw new OutOfMemoryException();
+                s_registryRetainedBytes += 256L * sizeof(nint);
                 Volatile.Write(ref pages[pageIndex], (nint)page);
             }
 
@@ -413,7 +419,7 @@ public static unsafe partial class Timeline
     private static uint CompiledDuration(nint slot)
         => sizeof(nint) == sizeof(long)
             ? (uint)((ulong)slot >> CompiledDurationShift)
-            : ((CompiledMetadata*)(slot & ~CompiledTag))->Duration;
+            : ((CompiledMetadata*)(slot & ~CompiledTag))->TimelineDuration;
 
     private static bool CompiledLoops(nint slot)
         => sizeof(nint) == sizeof(long)
@@ -440,7 +446,7 @@ public static unsafe partial class Timeline
     [StructLayout(LayoutKind.Sequential)]
     private struct CompiledMetadata
     {
-        public uint Duration;
+        public uint TimelineDuration;
         public byte Module;
         public byte Ordinal;
         public byte Loops;

@@ -34,7 +34,8 @@ internal static class CompileGenerationCache
 {
     internal const string ManifestFileName = "TlGenCompile.manifest.json";
     internal const string SourceListFileName = "TlGenCompile.sources";
-    private const int FormatVersion = 3;
+    internal const string ReportFileName = "TlGenCompile.report.txt";
+    private const int FormatVersion = 4;
 
     internal static string GetKey(
         IReadOnlyList<CompileSource> sources,
@@ -109,8 +110,10 @@ internal static class CompileGenerationCache
         var expectedSourceList = GetSourceList(manifest.Outputs.Select(static output => output.RelativePath));
         var expectedSourceListHash = HashContent(expectedSourceList);
         var sourceListPath = Path.Combine(outputDirectory, SourceListFileName);
+        var reportPath = Path.Combine(outputDirectory, ReportFileName);
         if (manifest.SourceListHash != expectedSourceListHash
             || !File.Exists(sourceListPath)
+            || !File.Exists(reportPath)
             || HashFile(sourceListPath) != expectedSourceListHash)
             return false;
 
@@ -128,6 +131,7 @@ internal static class CompileGenerationCache
         string outputDirectory,
         string cacheKey,
         IReadOnlyList<CompileArtifact> artifacts,
+        string report,
         CompileGenerationManifest? previous)
     {
         var expected = new Dictionary<string, CompileArtifact>(StringComparer.OrdinalIgnoreCase);
@@ -157,6 +161,7 @@ internal static class CompileGenerationCache
 
         var sourceList = GetSourceList(expected.Keys);
         WriteIfChanged(Path.Combine(outputDirectory, SourceListFileName), sourceList);
+        WriteIfChanged(Path.Combine(outputDirectory, ReportFileName), NormalizeSource(report));
 
         var manifest = new CompileGenerationManifest
         {

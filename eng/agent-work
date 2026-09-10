@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_number="${TL_PROJECT_NUMBER:-6}"
+agent_name="${TL_AGENT:-${USER:-agent}}"
+machine_name="${TL_MACHINE:-$(hostname)}"
+
+fail() {
+    printf '%s\n' "$1" >&2
+    exit 2
+}
+
+require_count() {
+    [[ "$2" -ge "$1" ]] || fail "missing arguments"
+}
+
+owner() {
+    gh repo view --json owner --jq .owner.login
+}
+
+issue_url() {
+    gh issue view "$1" --json url --jq .url
+}
+
+project_id() {
+    gh project view "$project_number" --owner "$(owner)" --format json --jq .id
+}
+
+project_item() {
+    gh project item-add "$project_number" --owner "$(owner)" --url "$(issue_url "$1")" --format json --jq .id
+}
+
+field_id() {
+    gh project field-list "$project_number" --owner "$(owner)" --format json --jq ".fields[] | select(.name == \"$1\") | .id"
+}
+
+stage_id() {
+    gh project field-list "$project_number" --owner "$(owner)" --format json --jq ".fields[] | select(.name == \"Stage\") | .options[] | select(.name == \"$1\") | .id"
+}
+
+set_text() {
+    gh project item-edit --id "$1" --project-id "$(project_id)" --field-id "$(field_id "$2")" --text "$3" >/dev/null
+}
+
+set_stage() {
+    gh project item-edit --id "$1" --project-id "$(project_id)" --field-id "$(field_id Stage)" --single-select-option-id "$(stage_id "$2")" >/dev/null
+}
+
+post() {
+    local body
+    body="$(mktemp)"
+    printf '%s\n' "$2" >"$body"
+    gh issue comment "$1" --body-file "$body"
+    rm -f "$body"
+}
+
+assert_clean() {
+    [[ -z "$(git status --porcelain)" ]] || fail "commit the owned changes before publishing a checkpoint"
+}
+
+start_work() {
+    require_count 3 "$#"
+    local issue="$1"
+    local slug="$2"
+    local scope="$3"
+    local repository_root
+    local worktree
+    local branch
+    local item
+    repository_root="$(git rev-parse --show-toplevel)"
+    worktree="$(dirname "$repository_root")/tl-issue-$issue-$slug"
+    branch="ai/$issue-$slug"
+    [[ ! -e "$worktree" ]] || fail "worktree already exists: $worktree"
+    git fetch origin main
+    git worktree add "$worktree" -b "$branch" origin/main
+    item="$(project_item "$issue")"
+    set_stage "$item" "In progress"
+    set_text "$item" Agent "$agent_name"
+    set_text "$item" Machine "$machine_name"
+    set_text "$item" Branch "$branch"
+    post "$issue" "### Work claim
+
+- Agent: $agent_name
+- Machine: $machine_name
+- Branch: \`$branch\`
+- Worktree: \`$worktree\`
+- Base: \`$(git -C "$worktree" rev-parse HEAD)\`
+- Scope: $scope
+- State: In progress"
+    printf '%s\n' "$worktree"
+}
+
+checkpoint_work() {
+    require_count 3 "$#"
+    local issue="$1"
+    local summary="$2"
+    local validation="$3"
+    local risks="${4:-none reported}"
+    local branch
+    local commit
+    local item
+    assert_clean
+    branch="$(git branch --show-current)"
+    commit="$(git rev-parse HEAD)"
+    git push --set-upstream origin HEAD
+    item="$(project_item "$issue")"
+    set_stage "$item" "In progress"
+    set_text "$item" Agent "$agent_name"
+    set_text "$item" Machine "$machine_name"
+    set_text "$item" Branch "$branch"
+    set_text "$item" Checkpoint "$commit"
+    post "$issue" "### Green checkpoint
+
+- Agent: $agent_name
+- Machine: $machine_name
+- Branch: \`$branch\`
+- Commit: \`$commit\`
+- Result: $summary
+- Validation: $validation
+- Remaining risks: $risks"
+}
+
+handoff_work() {
+    require_count 3 "$#"
+    local issue="$1"
+    local remaining="$2"
+    local next_command="$3"
+    local item
+    checkpoint_work "$issue" "Handoff checkpoint" "working tree clean and commit pushed" "$remaining"
+    item="$(project_item "$issue")"
+    set_stage "$item" Ready
+    post "$issue" "### Handoff
+
+- Agent: $agent_name
+- Machine: $machine_name
+- Commit: \`$(git rev-parse HEAD)\`
+- Remaining work: $remaining
+- Exact next command: \`$next_command\`
+- State: Ready"
+}
+
+open_pr() {
+    require_count 3 "$#"
+    local issue="$1"
+    local title="$2"
+    local body_file="$3"
+    local branch
+    local item
+    [[ -f "$body_file" ]] || fail "pull request body file does not exist"
+    assert_clean
+    branch="$(git branch --show-current)"
+    git push --set-upstream origin HEAD
+    gh pr create --base main --head "$branch" --title "$title" --body-file "$body_file"
+    item="$(project_item "$issue")"
+    set_stage "$item" "In review"
+    set_text "$item" Checkpoint "$(git rev-parse HEAD)"
+}
+
+finish_work() {
+    require_count 2 "$#"
+    local issue="$1"
+    local evidence="$2"
+    local item
+    item="$(project_item "$issue")"
+    set_stage "$item" Done
+    set_text "$item" Checkpoint "$(git rev-parse HEAD)"
+    gh issue close "$issue" --comment "$evidence"
+}
+
+usage() {
+    printf '%s\n' \
+        "eng/agent-work start <issue> <slug> <scope>" \
+        "eng/agent-work checkpoint <issue> <summary> <validation> [risks]" \
+        "eng/agent-work handoff <issue> <remaining> <next-command>" \
+        "eng/agent-work pr <issue> <title> <body-file>" \
+        "eng/agent-work done <issue> <evidence>"
+}
+
+command="${1:-}"
+[[ -n "$command" ]] || { usage; exit 2; }
+shift
+
+case "$command" in
+    start) start_work "$@" ;;
+    checkpoint) checkpoint_work "$@" ;;
+    handoff) handoff_work "$@" ;;
+    pr) open_pr "$@" ;;
+    done) finish_work "$@" ;;
+    *) usage; exit 2 ;;
+esac

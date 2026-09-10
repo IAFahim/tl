@@ -1,0 +1,96 @@
+# Repository rules
+
+These rules apply to every human and automated contributor. More specific `AGENTS.md` files may strengthen them for a subtree but may not weaken the invariants below.
+
+## Work coordination
+
+GitHub Issues and the repository Project are the source of truth for all non-trivial work. `plan.md` defines architecture and release gates; it is not a shared mutable task queue.
+
+- Create or select an issue before editing. The issue contains the problem, constraints, acceptance receipts, affected boundaries, and dependencies.
+- Apply the `ai` label to AI-executed work plus one `area:*` and one `kind:*` label. Add the issue to the active GitHub Project.
+- Claim work by assigning the issue and posting the machine name, agent name, branch, worktree path, owned files, and owned receipts. Do not start when another active claim covers the same files or invariant.
+- One issue may have several agents only after one coordinator records non-overlapping sub-scopes in the issue. Each agent uses its own branch and worktree. Branches use `ai/<issue>-<short-name>-<agent>`. Multiple PCs never push independently to the same branch; the coordinator integrates reviewed commits.
+- Rebase or merge the current default branch before final validation. Resolve semantic conflicts using the issue invariants, not by mechanically choosing one side.
+- Post concise progress only when evidence or scope changes. Record commands, receipts, measurements, generated-size changes, and blockers in the issue.
+- Push every green material checkpoint and before every handoff, shutdown, or machine change. The issue comment names the last pushed commit and any uncommitted work. Never leave another PC dependent on an unpushed checkout or private chat context.
+- Open a linked pull request with `Closes #<issue>`. The PR is the reviewable result; the issue remains the execution record.
+- Another agent reviews correctness, architecture boundaries, source budget, and benchmark validity. The implementer does not self-approve.
+- Merge only after required checks and review pass. Remove the worktree and branch after merge. Close abandoned experiments with their measurements and reason.
+- On startup, every agent fetches origin and reads this file, the issue, linked dependencies, active claims, and open pull requests touching the same paths. On shutdown, it pushes its branch and leaves the issue sufficient for another machine to resume without private context.
+
+Use `eng/agent-work` for claims, checkpoints, handoffs, pull requests, and completion. Set `TL_AGENT` and `TL_MACHINE` to stable public team identifiers. The helper updates Project 6 and the issue while it pushes the branch. If GitHub is unavailable, keep working only within the claimed scope, then run the missing helper operation before handing off or starting another issue.
+
+Small typo-only documentation fixes may share their parent issue. Emergency release repairs still receive an issue immediately after containment. No agent creates an untracked private task list as an alternative authority.
+
+## Product contract
+
+`tl` compiles immutable, heterogeneous timelines into deterministic playback kernels. The public runtime surface is a non-generic timeline ID, `Playback`, generated borrowed contexts, and total `Try` operations. Authoring is declarative syntax consumed at compilation. Runtime authoring, reflection, binding tables, hidden allocation, and implicit fallback are outside the compiled path.
+
+Production source plus UTF-8 relative paths must remain at or below 200,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
+
+## Architecture boundaries
+
+- `Tl.Runtime` owns the stable playback ABI, frame contract, syntax surface, IDs, and compact registry.
+- `Tl.Compiler` owns the language-neutral immutable plan and versioned extension contract.
+- A frontend translates one language into the neutral plan plus a language binding.
+- A backend consumes the neutral plan and its binding. It must not introduce assumptions into `Tl.Runtime` for its own convenience.
+- `Tl.Gen.CSharp`, `Tl.Gen.C`, Unity/Burst, analyzers, editor tools, visualization, networking, banking, and other integrations are independently versioned packages.
+- Language-specific type names, expressions, syntax nodes, and compiler objects never enter the neutral plan.
+- Arbitrary behavior is represented by stable operation IDs. Each language binding supplies its implementation. No backend pretends to translate arbitrary code from another language.
+
+## Code rules
+
+- Production code contains no explanatory comments. Names, types, file boundaries, and tests carry the design.
+- Prefer immutable values, pure transformations, total functions, explicit ownership, and deterministic order.
+- Keep data separate from behavior. Validate once before emission; emit code whose legal states are already constrained.
+- Do not add reflection, `dynamic`, boxing, delegates, LINQ, exceptions, managed allocation, locks, or indirect calls to a warm playback path without measured proof and explicit review.
+- Unsafe code requires a stated lifetime, aliasing, alignment, and concurrency proof in `docs/architecture.md` or `docs/memory-and-performance.md`.
+- Do not retain a managed reference, span, ref struct, generated input/output context, or callback frame beyond its call.
+- Do not change ordered effects or floating-point evaluation to win a benchmark.
+- Generated files must be deterministic, content-stable, and culture-independent. A cache hit preserves timestamps.
+- Diagnostics identify the source location, invariant, and repair. Unsupported input fails compilation; it never silently selects a slower runtime.
+
+## Performance rules
+
+- Correctness receipts precede timing. Every benchmark consumes success, playback, and output state.
+- Warm scalar playback must allocate 0 B. Batch results are labeled throughput and never presented as scalar latency.
+- Compare one-variable baseline and candidate builds on the same machine. Retain raw BenchmarkDotNet JSON, Tier-1 or NativeAOT assembly, and PMU counters when available.
+- Record cycles, instructions, branches, branch misses, code bytes, generated bytes, static data, registry bytes, and managed allocation as distinct quantities.
+- Do not use constant folding, dead output, unchecked failure, different fixtures, best-sample selection, timer subtraction, or hidden setup to improve a result.
+- Keep a change only when exact receipts pass and evidence supports it. Record meaningful dead ends so they are not repeated blindly.
+
+## Memory and concurrency rules
+
+- Compiled definitions are immutable and live for the registry lifetime. This intentional retention must remain bounded and reported.
+- Publication must expose a complete descriptor. Playback may read concurrently after publication.
+- Any future destruction or ID reuse requires a generation token and a safe-reclamation proof.
+- Runtime and generated data layouts use explicit widths where they cross an ABI. Each native ABI defines size, alignment, version, ownership, failure behavior, and endianness scope.
+- Add stress receipts for allocation, retained memory, compacting GC, aliasing, concurrent publication, maximum capacity, and NativeAOT whenever the affected boundary changes.
+
+## Required validation
+
+Run the smallest relevant checks during development and the complete gate before release:
+
+```sh
+python3 benchmarks/source_budget.py
+python3 -m unittest discover -s benchmarks -p test_collect.py
+dotnet build tl.slnx -c Release -m:1 -p:NuGetAudit=false
+dotnet test tl.slnx -c Release --no-build -p:NuGetAudit=false
+dotnet run --project tests/Tl.Alpha -c Release --no-build
+dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
+dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
+dotnet run --project samples/Mixed -c Release --no-build
+dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
+dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
+```
+
+Run JetBrains Inspect Code when available. Classify remaining findings explicitly; do not suppress a real defect or add configuration solely to make a count zero.
+
+## Public API and release rules
+
+- Public API changes require approval-file updates, migration documentation, package version review, and package-only consumer validation.
+- A release tag points to the exact validated commit. Package versions, tag, release title, generated checksums, and repository commit metadata agree.
+- Never move a published tag. Use the next prerelease identifier.
+- Do not choose a license, publish to NuGet, or make legal compatibility claims without the repository owner's explicit decision.
+- Do not commit credentials, machine-local settings, generated benchmark scratch, or unreviewed binary artifacts.
+- Release readiness is tracked by one milestone and one release issue whose checklist links every blocking issue and exact artifact workflow run.

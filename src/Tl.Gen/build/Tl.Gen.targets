@@ -2,6 +2,8 @@
   <PropertyGroup>
     <_TlGenPkgTool>$(MSBuildThisFileDirectory)../tools/net10.0/any/Tl.Gen.dll</_TlGenPkgTool>
     <_TlGenProjBin>$(MSBuildThisFileDirectory)../bin/$(Configuration)/net10.0/Tl.Gen.dll</_TlGenProjBin>
+    <_TlGenDotNet Condition="'$(DotNetHostPath)' != ''">$(DotNetHostPath)</_TlGenDotNet>
+    <_TlGenDotNet Condition="'$(_TlGenDotNet)' == ''">dotnet</_TlGenDotNet>
     <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenPkgTool)')">$(_TlGenPkgTool)</TlGenAssembly>
     <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenProjBin)')">$(_TlGenProjBin)</TlGenAssembly>
     <TlGenAssembly Condition="'$(TlGenAssembly)' == ''">$(MSBuildThisFileDirectory)../bin/Release/net10.0/Tl.Gen.dll</TlGenAssembly>
@@ -9,7 +11,7 @@
 
   <Target Name="TlGenCompileTimelines"
           BeforeTargets="BeforeCompile;CoreCompile"
-          DependsOnTargets="ResolveReferences;GenerateGlobalUsings"
+          DependsOnTargets="ResolveProjectReferences;ResolveAssemblyReferences;ResolveReferences;GenerateGlobalUsings"
           Condition="'@(Compile)' != '' Or Exists('$(IntermediateOutputPath)TlGenCompile\TlGenCompile.manifest.json')">
     <PropertyGroup>
       <_TlGenCompileOut>$(IntermediateOutputPath)TlGenCompile\</_TlGenCompileOut>
@@ -22,6 +24,8 @@
       <_TlGenCompileInputs Include="@(Compile)"
                            Exclude="$(_TlGenCompileOut)**\*" />
       <_TlGenCompileReferences Include="@(ReferencePathWithRefAssemblies)" />
+      <_TlGenCompileReferences Include="@(ReferencePath)"
+                               Condition="'@(_TlGenCompileReferences)' == ''" />
       <_TlGenCompileOptions Include="language-version=$(LangVersion)" />
       <_TlGenCompileOptions Include="nullable=$(Nullable)" />
       <_TlGenCompileOptions Include="allow-unsafe=$(AllowUnsafeBlocks)" />
@@ -40,7 +44,7 @@
                       Lines="@(_TlGenCompileOptions)"
                       Overwrite="true"
                       WriteOnlyWhenDifferent="true" />
-    <Exec Command="dotnet &quot;$(TlGenAssembly)&quot; --compile --output &quot;$(_TlGenCompileOut)&quot; --define &quot;$(DefineConstants)&quot; --source-list &quot;$(_TlGenCompileInputList)&quot; --reference-list &quot;$(_TlGenCompileReferenceList)&quot; --option-list &quot;$(_TlGenCompileOptionList)&quot;" />
+    <Exec Command="&quot;$(_TlGenDotNet)&quot; &quot;$(TlGenAssembly)&quot; --compile --output &quot;$(_TlGenCompileOut)&quot; --define &quot;$(DefineConstants)&quot; --source-list &quot;$(_TlGenCompileInputList)&quot; --reference-list &quot;$(_TlGenCompileReferenceList)&quot; --option-list &quot;$(_TlGenCompileOptionList)&quot;" />
     <ReadLinesFromFile File="$(_TlGenCompileSourceList)">
       <Output TaskParameter="Lines" ItemName="_TlGenCompileSources" />
     </ReadLinesFromFile>
@@ -52,6 +56,7 @@
       <FileWrites Include="$(_TlGenCompileReferenceList)" />
       <FileWrites Include="$(_TlGenCompileOptionList)" />
       <FileWrites Include="$(_TlGenCompileOut)TlGenCompile.manifest.json" />
+      <FileWrites Include="$(_TlGenCompileOut)TlGenCompile.report.txt" />
     </ItemGroup>
   </Target>
 </Project>

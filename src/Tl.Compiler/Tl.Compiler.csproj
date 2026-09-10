@@ -4,16 +4,15 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Version>$(TlVersion)</Version>
-    <PackageId>Tl.Runtime</PackageId>
+    <PackageId>Tl.Compiler</PackageId>
     <Authors>IAFahim</Authors>
-    <Description>Heterogeneous timelines compiled into direct C# kernels with borrowed typed contexts.</Description>
+    <Description>Language-neutral immutable timeline compilation plans.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.0.0-alpha.2: C11 portability contracts, generation and memory reports, editor build fixes, stronger inverse receipts, and a smaller compiled lifecycle check.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.2: language-neutral immutable timeline plans with a versioned format and stable operation and payload identities.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

@@ -36,9 +36,7 @@ public static class HeterogeneousReader
 
     private sealed record TimelineEntry(
         INamedTypeSymbol Symbol,
-        TypeDeclarationSyntax Syntax,
-        SemanticModel Model,
-        string Path);
+        TypeDeclarationSyntax Syntax);
 
     public static (IReadOnlyList<HeterogeneousTimeline> Timelines, IReadOnlyList<DeclarationDiagnostic> Diagnostics)
         Read(IReadOnlyList<(string Path, string Source)> sources, IReadOnlyList<string>? symbols = null)
@@ -98,9 +96,7 @@ public static class HeterogeneousReader
                 && Same(candidate, contracts.Timeline)) == true) ?? declarations[0];
             bySymbol[pair.Symbol] = new TimelineEntry(
                 pair.Symbol,
-                declaration,
-                compilation.GetSemanticModel(declaration.SyntaxTree),
-                declaration.SyntaxTree.FilePath);
+                declaration);
         }
 
         var resolver = new Resolver(compilation, contracts, bySymbol, diagnostics);
@@ -358,12 +354,9 @@ public static class HeterogeneousReader
             if (!valid)
                 return null;
 
-            var position = declaration.Syntax.GetLocation().GetLineSpan().StartLinePosition;
             return new HeterogeneousTimeline(
                 declaration.Symbol.Name,
                 declaration.Symbol.ContainingNamespace.IsGlobalNamespace ? "" : declaration.Symbol.ContainingNamespace.ToDisplayString(),
-                declaration.Path,
-                position.Line + 1,
                 loops,
                 [],
                 tracks,
@@ -598,34 +591,34 @@ public static class HeterogeneousReader
 
     private sealed class ExpressionCanonicalizer(SemanticModel model) : CSharpSyntaxRewriter
     {
-        public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
+        public override SyntaxNode VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
         {
-            var visited = (ObjectCreationExpressionSyntax)base.VisitObjectCreationExpression(node)!;
-            return model.GetTypeInfo(node).Type is ITypeSymbol type
+            var visited = base.VisitObjectCreationExpression(node) as ObjectCreationExpressionSyntax ?? node;
+            return model.GetTypeInfo(node).Type is { } type
                 ? visited.WithType(SyntaxFactory.ParseTypeName(Display(type)))
                 : visited;
         }
 
-        public override SyntaxNode? VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
+        public override SyntaxNode VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
         {
-            var arguments = (ArgumentListSyntax)Visit(node.ArgumentList)!;
-            return model.GetTypeInfo(node).Type is ITypeSymbol type
+            var arguments = Visit(node.ArgumentList) as ArgumentListSyntax ?? node.ArgumentList;
+            return model.GetTypeInfo(node).Type is { } type
                 ? SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName(Display(type)), arguments, null)
-                : base.VisitImplicitObjectCreationExpression(node);
+                : base.VisitImplicitObjectCreationExpression(node) ?? node;
         }
 
-        public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
+        public override SyntaxNode VisitCastExpression(CastExpressionSyntax node)
         {
-            var expression = (ExpressionSyntax)Visit(node.Expression)!;
-            return model.GetTypeInfo(node.Type).Type is ITypeSymbol type
+            var expression = Visit(node.Expression) as ExpressionSyntax ?? node.Expression;
+            return model.GetTypeInfo(node.Type).Type is { } type
                 ? node.WithType(SyntaxFactory.ParseTypeName(Display(type))).WithExpression(expression)
-                : base.VisitCastExpression(node);
+                : base.VisitCastExpression(node) ?? node;
         }
 
-        public override SyntaxNode? VisitDefaultExpression(DefaultExpressionSyntax node)
-            => model.GetTypeInfo(node.Type).Type is ITypeSymbol type
+        public override SyntaxNode VisitDefaultExpression(DefaultExpressionSyntax node)
+            => model.GetTypeInfo(node.Type).Type is { } type
                 ? node.WithType(SyntaxFactory.ParseTypeName(Display(type)))
-                : base.VisitDefaultExpression(node);
+                : base.VisitDefaultExpression(node) ?? node;
 
         public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
         {
@@ -662,7 +655,7 @@ public static class HeterogeneousReader
         {
             var model = compilation.GetSemanticModel(tree);
             foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>())
-                if (model.GetDeclaredSymbol(syntax) is INamedTypeSymbol symbol && seen.Add(symbol))
+                if (model.GetDeclaredSymbol(syntax) is { } symbol && seen.Add(symbol))
                     result.Add((symbol, syntax));
         }
         return result;
@@ -779,7 +772,7 @@ public static class HeterogeneousReader
     }
 
     private static string Canonical(ExpressionSyntax expression, SemanticModel model)
-        => new ExpressionCanonicalizer(model).Visit(expression)!.WithoutTrivia().ToFullString();
+        => new ExpressionCanonicalizer(model).Visit(expression).WithoutTrivia().ToFullString();
 
     private static bool Implements(INamedTypeSymbol type, INamedTypeSymbol contract)
         => type.AllInterfaces.Any(candidate => Same(candidate.OriginalDefinition, contract));
@@ -792,9 +785,6 @@ public static class HeterogeneousReader
 
     private static string Display(ITypeSymbol symbol)
         => symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-
-    private static string MetadataName(string display)
-        => display.StartsWith("global::", StringComparison.Ordinal) ? display[8..] : display;
 
     private static string Escape(string value)
         => SyntaxFacts.GetKeywordKind(value) == SyntaxKind.None ? value : "@" + value;
