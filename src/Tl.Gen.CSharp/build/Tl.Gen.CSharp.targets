@@ -46,7 +46,7 @@
                       Overwrite="true"
                       WriteOnlyWhenDifferent="true" />
     <WriteLinesToFile File="$(_TlGenCompileReferenceList)"
-                      Lines="@(_TlGenCompileReferences->'%(FullPath)')"
+                      Lines="@(_TlGenCompileReferences->'%(FullPath)&#x9;%(Aliases)&#x9;%(EmbedInteropTypes)')"
                       Overwrite="true"
                       WriteOnlyWhenDifferent="true" />
     <WriteLinesToFile File="$(_TlGenCompileOptionList)"

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -26,18 +27,18 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
             .Select(static (candidate, _) => candidate!)
             .WithComparer(CandidateComparer.Instance)
             .WithTrackingName("Tl.Candidates");
-        var environment = context.CompilationProvider
+        var inputs = context.CompilationProvider
             .Combine(context.ParseOptionsProvider)
-            .Select(static (pair, cancellationToken) => EnvironmentInput.Create(pair.Left, pair.Right, cancellationToken))
-            .WithComparer(EnvironmentComparer.Instance)
-            .WithTrackingName("Tl.Environment");
-        var compilation = candidates
+            .Select(static (pair, cancellationToken) => CompilerInput.Create(pair.Left, pair.Right, cancellationToken))
+            .WithComparer(CompilerInputComparer.Instance)
+            .WithTrackingName("Tl.Inputs");
+        var analysis = candidates
             .Collect()
-            .Combine(environment)
-            .Select(static (pair, cancellationToken) => CompilationInput.Create(pair.Left, pair.Right, cancellationToken))
-            .WithComparer(CompilationComparer.Instance)
-            .WithTrackingName("Tl.Compilation");
-        context.RegisterSourceOutput(compilation, static (production, input) => Produce(production, input));
+            .Combine(inputs)
+            .Select(static (pair, cancellationToken) => AnalysisInput.Create(pair.Left, pair.Right, cancellationToken))
+            .WithComparer(AnalysisComparer.Instance)
+            .WithTrackingName("Tl.Analysis");
+        context.RegisterSourceOutput(analysis, static (production, input) => Produce(production, input));
     }
 
     private static CandidateInput? ReadCandidate(GeneratorSyntaxContext context, CancellationToken cancellationToken)
@@ -47,7 +48,8 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
         var symbol = context.SemanticModel.GetDeclaredSymbol(syntax, cancellationToken);
         if (symbol is null)
             return null;
-        var contract = context.SemanticModel.Compilation.GetTypeByMetadataName("Tl.ITimeline");
+        var compilation = (CSharpCompilation)context.SemanticModel.Compilation;
+        var contract = compilation.GetTypeByMetadataName("Tl.ITimeline");
         if (contract is null)
         {
             if (!syntax.BaseList!.Types.Any(static type => type.Type.ToString().IndexOf("ITimeline", StringComparison.Ordinal) >= 0))
@@ -55,11 +57,104 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
         }
         else if (!symbol.AllInterfaces.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, contract)))
             return null;
+        var sources = RelevantSources(compilation, symbol, cancellationToken);
         var identity = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        return new CandidateInput(identity);
+        var key = new StringBuilder();
+        Append(key, identity);
+        foreach (var source in sources)
+        {
+            Append(key, source.Path);
+            Append(key, source.Content);
+        }
+        return new CandidateInput(identity, sources, key.ToString());
     }
 
-    private static void Produce(SourceProductionContext context, CompilationInput input)
+    private static ImmutableArray<SourceInput> RelevantSources(
+        CSharpCompilation compilation,
+        INamedTypeSymbol timeline,
+        CancellationToken cancellationToken)
+    {
+        var queued = new HashSet<SyntaxTree>();
+        var queue = new Queue<SyntaxTree>();
+        void AddTree(SyntaxTree tree)
+        {
+            if (queued.Add(tree))
+                queue.Enqueue(tree);
+        }
+        void AddSymbol(ISymbol? symbol)
+        {
+            if (symbol is null)
+                return;
+            foreach (var reference in symbol.DeclaringSyntaxReferences)
+                AddTree(reference.SyntaxTree);
+            switch (symbol)
+            {
+                case IMethodSymbol method:
+                    AddSymbol(method.ContainingType);
+                    AddSymbol(method.ReturnType);
+                    foreach (var parameter in method.Parameters)
+                        AddSymbol(parameter.Type);
+                    foreach (var argument in method.TypeArguments)
+                        AddSymbol(argument);
+                    break;
+                case IPropertySymbol property:
+                    AddSymbol(property.ContainingType);
+                    AddSymbol(property.Type);
+                    break;
+                case IFieldSymbol field:
+                    AddSymbol(field.ContainingType);
+                    AddSymbol(field.Type);
+                    break;
+                case IEventSymbol eventSymbol:
+                    AddSymbol(eventSymbol.ContainingType);
+                    AddSymbol(eventSymbol.Type);
+                    break;
+                case ILocalSymbol local:
+                    AddSymbol(local.Type);
+                    break;
+                case IParameterSymbol parameter:
+                    AddSymbol(parameter.Type);
+                    break;
+                case IArrayTypeSymbol array:
+                    AddSymbol(array.ElementType);
+                    break;
+                case IPointerTypeSymbol pointer:
+                    AddSymbol(pointer.PointedAtType);
+                    break;
+                case INamedTypeSymbol type:
+                    foreach (var argument in type.TypeArguments)
+                        AddSymbol(argument);
+                    break;
+            }
+        }
+        AddSymbol(timeline);
+        foreach (var tree in compilation.SyntaxTrees)
+            if (tree.GetRoot(cancellationToken).DescendantNodes().OfType<UsingDirectiveSyntax>().Any(static usingDirective => usingDirective.GlobalKeyword.RawKind != 0))
+                AddTree(tree);
+        while (queue.Count != 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var tree = queue.Dequeue();
+            var model = compilation.GetSemanticModel(tree);
+            foreach (var node in tree.GetRoot(cancellationToken).DescendantNodesAndSelf())
+            {
+                var symbol = model.GetSymbolInfo(node, cancellationToken);
+                AddSymbol(symbol.Symbol);
+                foreach (var candidate in symbol.CandidateSymbols)
+                    AddSymbol(candidate);
+                var type = model.GetTypeInfo(node, cancellationToken);
+                AddSymbol(type.Type);
+                AddSymbol(type.ConvertedType);
+            }
+        }
+        return queued
+            .Select(tree => new SourceInput(tree.FilePath, tree.GetText(cancellationToken).ToString()))
+            .OrderBy(static source => source.Path, StringComparer.Ordinal)
+            .ThenBy(static source => source.Content, StringComparer.Ordinal)
+            .ToImmutableArray();
+    }
+
+    private static void Produce(SourceProductionContext context, AnalysisInput input)
     {
         foreach (var diagnostic in input.Diagnostics)
             context.ReportDiagnostic(Diagnostic.Create(Descriptor(diagnostic.Code), Location(diagnostic), diagnostic.Message));
@@ -90,17 +185,119 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
                 new LinePosition(diagnostic.EndLine - 1, diagnostic.EndColumn - 1)));
     }
 
-    private sealed class CandidateInput
-    {
-        internal CandidateInput(string identity) => Identity = identity;
+    private sealed record SourceInput(string Path, string Content);
 
-        internal string Identity { get; }
-        internal string Key => Identity;
+    private sealed class CandidateInput(
+        string identity,
+        ImmutableArray<SourceInput> sources,
+        string key)
+    {
+        internal string Identity { get; } = identity;
+        internal ImmutableArray<SourceInput> Sources { get; } = sources;
+        internal string Key { get; } = key;
     }
 
-    private sealed class EnvironmentInput
+    private sealed class ReferenceInput(
+        string path,
+        ImmutableArray<string> aliases,
+        bool embedInteropTypes,
+        MetadataImageKind kind,
+        string key)
     {
-        private EnvironmentInput(ImmutableArray<HeterogeneousTimeline> timelines, ImmutableArray<DeclarationDiagnostic> diagnostics, string key)
+        internal string Path { get; } = path;
+        internal ImmutableArray<string> Aliases { get; } = aliases;
+        internal bool EmbedInteropTypes { get; } = embedInteropTypes;
+        internal MetadataImageKind Kind { get; } = kind;
+        internal string Key { get; } = key;
+    }
+
+    private sealed class CompilerInput(
+        string assemblyName,
+        LanguageVersion languageVersion,
+        DocumentationMode documentationMode,
+        SourceCodeKind sourceKind,
+        ImmutableArray<string> symbols,
+        bool allowUnsafe,
+        bool checkOverflow,
+        NullableContextOptions nullable,
+        ImmutableArray<ReferenceInput> references,
+        string key)
+    {
+        internal string AssemblyName { get; } = assemblyName;
+        internal LanguageVersion LanguageVersion { get; } = languageVersion;
+        internal DocumentationMode DocumentationMode { get; } = documentationMode;
+        internal SourceCodeKind SourceKind { get; } = sourceKind;
+        internal ImmutableArray<string> Symbols { get; } = symbols;
+        internal bool AllowUnsafe { get; } = allowUnsafe;
+        internal bool CheckOverflow { get; } = checkOverflow;
+        internal NullableContextOptions Nullable { get; } = nullable;
+        internal ImmutableArray<ReferenceInput> References { get; } = references;
+        internal string Key { get; } = key;
+
+        internal static CompilerInput Create(Compilation compilation, ParseOptions parseOptions, CancellationToken cancellationToken)
+        {
+            var csharp = (CSharpParseOptions)parseOptions;
+            var options = (CSharpCompilationOptions)compilation.Options;
+            var references = compilation.References
+                .OfType<PortableExecutableReference>()
+                .Select(reference => ReadReference(reference, cancellationToken))
+                .Where(static reference => reference is not null)
+                .Select(static reference => reference!)
+                .ToImmutableArray();
+            var symbols = csharp.PreprocessorSymbolNames.OrderBy(static symbol => symbol, StringComparer.Ordinal).ToImmutableArray();
+            var key = new StringBuilder();
+            Append(key, compilation.AssemblyName ?? "Tl.Generated.Analysis");
+            Append(key, csharp.LanguageVersion.ToString());
+            Append(key, csharp.DocumentationMode.ToString());
+            Append(key, csharp.Kind.ToString());
+            foreach (var symbol in symbols)
+                Append(key, symbol);
+            Append(key, options.AllowUnsafe ? "true" : "false");
+            Append(key, options.CheckOverflow ? "true" : "false");
+            Append(key, options.NullableContextOptions.ToString());
+            foreach (var reference in references)
+                Append(key, reference.Key);
+            return new CompilerInput(
+                compilation.AssemblyName ?? "Tl.Generated.Analysis",
+                csharp.LanguageVersion,
+                csharp.DocumentationMode,
+                csharp.Kind,
+                symbols,
+                options.AllowUnsafe,
+                options.CheckOverflow,
+                options.NullableContextOptions,
+                references,
+                key.ToString());
+        }
+
+        private static ReferenceInput? ReadReference(PortableExecutableReference reference, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var path = reference.FilePath ?? reference.Display;
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                return null;
+            path = Path.GetFullPath(path);
+            using var hash = SHA256.Create();
+            using var stream = File.OpenRead(path);
+            var contentHash = Hex(hash.ComputeHash(stream));
+            var aliases = reference.Properties.Aliases;
+            var key = new StringBuilder();
+            Append(key, path);
+            Append(key, contentHash);
+            Append(key, reference.Properties.Kind.ToString());
+            Append(key, reference.Properties.EmbedInteropTypes ? "true" : "false");
+            foreach (var alias in aliases)
+                Append(key, alias);
+            return new ReferenceInput(path, aliases, reference.Properties.EmbedInteropTypes, reference.Properties.Kind, key.ToString());
+        }
+    }
+
+    private sealed class AnalysisInput
+    {
+        private AnalysisInput(
+            ImmutableArray<HeterogeneousTimeline> timelines,
+            ImmutableArray<DeclarationDiagnostic> diagnostics,
+            string key)
         {
             Timelines = timelines;
             Diagnostics = diagnostics;
@@ -111,49 +308,39 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
         internal ImmutableArray<DeclarationDiagnostic> Diagnostics { get; }
         internal string Key { get; }
 
-        internal static EnvironmentInput Create(Compilation compilation, ParseOptions parseOptions, CancellationToken cancellationToken)
+        internal static AnalysisInput Create(
+            ImmutableArray<CandidateInput> candidates,
+            CompilerInput compiler,
+            CancellationToken cancellationToken)
         {
-            var key = new StringBuilder();
-            if (parseOptions is CSharpParseOptions csharp)
-            {
-                Append(key, csharp.LanguageVersion.ToString());
-                Append(key, csharp.DocumentationMode.ToString());
-                Append(key, csharp.Kind.ToString());
-                foreach (var symbol in csharp.PreprocessorSymbolNames.OrderBy(static value => value, StringComparer.Ordinal))
-                    Append(key, symbol);
-                foreach (var feature in csharp.Features.OrderBy(static value => value.Key, StringComparer.Ordinal))
-                {
-                    Append(key, feature.Key);
-                    Append(key, feature.Value);
-                }
-            }
-            if (compilation.Options is CSharpCompilationOptions options)
-            {
-                Append(key, options.OutputKind.ToString());
-                Append(key, options.OptimizationLevel.ToString());
-                Append(key, options.CheckOverflow);
-                Append(key, options.AllowUnsafe);
-                Append(key, options.Platform.ToString());
-                Append(key, options.NullableContextOptions.ToString());
-                Append(key, options.WarningLevel);
-                foreach (var diagnostic in options.SpecificDiagnosticOptions.OrderBy(static value => value.Key, StringComparer.Ordinal))
-                {
-                    Append(key, diagnostic.Key);
-                    Append(key, diagnostic.Value.ToString());
-                }
-            }
-            foreach (var reference in compilation.References)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                Append(key, reference.Display ?? "");
-                Append(key, reference.Properties.Kind.ToString());
-                Append(key, reference.Properties.EmbedInteropTypes);
-                foreach (var alias in reference.Properties.Aliases)
-                    Append(key, alias);
-                var symbol = compilation.GetAssemblyOrModuleSymbol(reference);
-                Append(key, symbol is IAssemblySymbol assembly ? assembly.Identity.ToString() : symbol?.Name ?? "");
-            }
-            var result = HeterogeneousReader.ReadCompilation((CSharpCompilation)compilation);
+            var unique = candidates
+                .OrderBy(static candidate => candidate.Identity, StringComparer.Ordinal)
+                .GroupBy(static candidate => candidate.Identity, StringComparer.Ordinal)
+                .Select(static group => group.First())
+                .ToArray();
+            var sources = unique
+                .SelectMany(static candidate => candidate.Sources)
+                .GroupBy(static source => source.Path + "\0" + source.Content, StringComparer.Ordinal)
+                .Select(static group => group.First())
+                .OrderBy(static source => source.Path, StringComparer.Ordinal)
+                .ThenBy(static source => source.Content, StringComparer.Ordinal)
+                .ToArray();
+            var parseOptions = CSharpParseOptions.Default
+                .WithLanguageVersion(compiler.LanguageVersion)
+                .WithDocumentationMode(compiler.DocumentationMode)
+                .WithKind(compiler.SourceKind)
+                .WithPreprocessorSymbols(compiler.Symbols);
+            var trees = sources.Select(source => CSharpSyntaxTree.ParseText(source.Content, parseOptions, source.Path)).ToArray();
+            var references = compiler.References.Select(reference => MetadataReference.CreateFromFile(
+                reference.Path,
+                new MetadataReferenceProperties(reference.Kind, reference.Aliases, reference.EmbedInteropTypes)));
+            var options = new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                allowUnsafe: compiler.AllowUnsafe,
+                checkOverflow: compiler.CheckOverflow,
+                nullableContextOptions: compiler.Nullable);
+            var compilation = CSharpCompilation.Create(compiler.AssemblyName, trees, references, options);
+            var result = HeterogeneousReader.ReadCompilation(compilation);
             cancellationToken.ThrowIfCancellationRequested();
             var timelines = result.Timelines
                 .OrderBy(static timeline => timeline.Namespace, StringComparer.Ordinal)
@@ -166,41 +353,12 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
                 .ThenBy(static diagnostic => diagnostic.SpanStart)
                 .ThenBy(static diagnostic => diagnostic.Code, StringComparer.Ordinal)
                 .ToImmutableArray();
+            var key = new StringBuilder();
             foreach (var timeline in timelines)
                 Append(key, HeterogeneousEmitter.NormalizeSource(HeterogeneousEmitter.Emit(timeline)));
             foreach (var diagnostic in diagnostics)
                 Append(key, DiagnosticKey(diagnostic));
-            return new EnvironmentInput(timelines, diagnostics, key.ToString());
-        }
-    }
-
-    private sealed class CompilationInput
-    {
-        private CompilationInput(ImmutableArray<HeterogeneousTimeline> timelines, ImmutableArray<DeclarationDiagnostic> diagnostics, string key)
-        {
-            Timelines = timelines;
-            Diagnostics = diagnostics;
-            Key = key;
-        }
-
-        internal ImmutableArray<HeterogeneousTimeline> Timelines { get; }
-        internal ImmutableArray<DeclarationDiagnostic> Diagnostics { get; }
-        internal string Key { get; }
-
-        internal static CompilationInput Create(ImmutableArray<CandidateInput> candidates, EnvironmentInput environment, CancellationToken cancellationToken)
-        {
-            var unique = candidates
-                .OrderBy(static candidate => candidate.Identity, StringComparer.Ordinal)
-                .GroupBy(static candidate => candidate.Identity, StringComparer.Ordinal)
-                .Select(static group => group.First())
-                .ToArray();
-            var key = new StringBuilder(environment.Key);
-            foreach (var candidate in unique)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                Append(key, candidate.Key);
-            }
-            return new CompilationInput(environment.Timelines, environment.Diagnostics, key.ToString());
+            return new AnalysisInput(timelines, diagnostics, key.ToString());
         }
     }
 
@@ -211,24 +369,30 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
         public int GetHashCode(CandidateInput obj) => StringComparer.Ordinal.GetHashCode(obj.Key);
     }
 
-    private sealed class EnvironmentComparer : IEqualityComparer<EnvironmentInput>
+    private sealed class CompilerInputComparer : IEqualityComparer<CompilerInput>
     {
-        internal static readonly EnvironmentComparer Instance = new();
-        public bool Equals(EnvironmentInput? x, EnvironmentInput? y) => ReferenceEquals(x, y) || x is not null && y is not null && x.Key == y.Key;
-        public int GetHashCode(EnvironmentInput obj) => StringComparer.Ordinal.GetHashCode(obj.Key);
+        internal static readonly CompilerInputComparer Instance = new();
+        public bool Equals(CompilerInput? x, CompilerInput? y) => ReferenceEquals(x, y) || x is not null && y is not null && x.Key == y.Key;
+        public int GetHashCode(CompilerInput obj) => StringComparer.Ordinal.GetHashCode(obj.Key);
     }
 
-    private sealed class CompilationComparer : IEqualityComparer<CompilationInput>
+    private sealed class AnalysisComparer : IEqualityComparer<AnalysisInput>
     {
-        internal static readonly CompilationComparer Instance = new();
-        public bool Equals(CompilationInput? x, CompilationInput? y) => ReferenceEquals(x, y) || x is not null && y is not null && x.Key == y.Key;
-        public int GetHashCode(CompilationInput obj) => StringComparer.Ordinal.GetHashCode(obj.Key);
+        internal static readonly AnalysisComparer Instance = new();
+        public bool Equals(AnalysisInput? x, AnalysisInput? y) => ReferenceEquals(x, y) || x is not null && y is not null && x.Key == y.Key;
+        public int GetHashCode(AnalysisInput obj) => StringComparer.Ordinal.GetHashCode(obj.Key);
     }
 
     private static string DiagnosticKey(DeclarationDiagnostic diagnostic)
-        => diagnostic.File + "\0" + diagnostic.SpanStart + "\0" + diagnostic.SpanLength + "\0" + diagnostic.Code + "\0" + diagnostic.Message;
+        => diagnostic.File + "\0" + diagnostic.Line + "\0" + diagnostic.Column + "\0" + diagnostic.EndLine + "\0" + diagnostic.EndColumn + "\0" + diagnostic.SpanStart + "\0" + diagnostic.SpanLength + "\0" + diagnostic.Code + "\0" + diagnostic.Message;
+
+    private static string Hex(byte[] bytes)
+    {
+        var writer = new StringBuilder(bytes.Length * 2);
+        foreach (var value in bytes)
+            writer.Append(value.ToString("X2", System.Globalization.CultureInfo.InvariantCulture));
+        return writer.ToString();
+    }
 
     private static void Append(StringBuilder writer, string value) => writer.Append(value.Length).Append(':').Append(value);
-    private static void Append(StringBuilder writer, int value) => Append(writer, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
-    private static void Append(StringBuilder writer, bool value) => writer.Append(value ? "1:" : "0:");
 }

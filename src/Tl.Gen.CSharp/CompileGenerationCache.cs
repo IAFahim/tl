@@ -103,33 +103,43 @@ internal static class CompileGenerationCache
     }
 
     internal static bool IsHit(string outputDirectory, string cacheKey, CompileGenerationManifest? manifest)
-    {
-        if (manifest?.CacheKey != cacheKey || manifest.Outputs == null)
-            return false;
+        => MissReason(outputDirectory, cacheKey, manifest) is null;
 
-        if (manifest.Outputs.Any(static output => output == null))
-            return false;
+    internal static string? MissReason(string outputDirectory, string cacheKey, CompileGenerationManifest? manifest)
+    {
+        if (manifest is null)
+            return File.Exists(Path.Combine(outputDirectory, ManifestFileName)) ? "manifest invalid" : "manifest missing";
+        if (manifest.CacheKey != cacheKey)
+            return "inputs changed";
+        if (manifest.Outputs == null || manifest.Outputs.Any(static output => output == null))
+            return "manifest outputs invalid";
 
         var expectedSourceList = GetSourceList(manifest.Outputs.Select(static output => output!.RelativePath));
         var expectedSourceListHash = HashContent(expectedSourceList);
         var sourceListPath = Path.Combine(outputDirectory, SourceListFileName);
         var reportPath = Path.Combine(outputDirectory, ReportFileName);
-        if (manifest.SourceListHash != expectedSourceListHash
-            || !File.Exists(sourceListPath)
-            || !File.Exists(reportPath)
-            || HashFile(sourceListPath) != expectedSourceListHash
-            || HashFile(reportPath) != manifest.ReportHash)
-            return false;
+        if (manifest.SourceListHash != expectedSourceListHash)
+            return "source list manifest changed";
+        if (!File.Exists(sourceListPath))
+            return "source list missing";
+        if (HashFile(sourceListPath) != expectedSourceListHash)
+            return "source list changed";
+        if (!File.Exists(reportPath))
+            return "report missing";
+        if (HashFile(reportPath) != manifest.ReportHash)
+            return "report changed";
 
-        foreach (var nullableOutput in manifest.Outputs)
+        foreach (var nullableOutput in manifest.Outputs.OrderBy(static output => output!.RelativePath, StringComparer.Ordinal))
         {
             var output = nullableOutput!;
             var path = Path.Combine(outputDirectory, output.RelativePath);
-            if (!File.Exists(path) || HashFile(path) != output.ContentHash)
-                return false;
+            if (!File.Exists(path))
+                return $"artifact missing: {output.RelativePath}";
+            if (HashFile(path) != output.ContentHash)
+                return $"artifact changed: {output.RelativePath}";
         }
 
-        return true;
+        return null;
     }
 
     internal static void Synchronize(

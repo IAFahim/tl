@@ -62,7 +62,9 @@ jobs:
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.CSharp.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Compiler.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.C.dll
-          dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore | tee artifacts/package-cache.log
+          dotnet msbuild tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -t:TlGenExport -p:Configuration=Release | tee artifacts/package-export.log
+          grep -F "TlGenCompile: cache miss" artifacts/package-export.log
+          dotnet msbuild tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -t:TlGenExport -p:Configuration=Release | tee artifacts/package-cache.log
           grep -F "TlGenCompile: cache hit" artifacts/package-cache.log
           dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -r linux-x64 -p:PublishAot=true --source artifacts/packages --source https://api.nuget.org/v3/index.json
           dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot

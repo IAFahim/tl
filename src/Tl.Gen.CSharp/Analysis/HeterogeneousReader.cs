@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -5,6 +6,11 @@ using Microsoft.CodeAnalysis.Operations;
 using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp.Analysis;
+
+internal sealed record CompilationReference(
+    string Path,
+    IReadOnlyList<string> Aliases,
+    bool EmbedInteropTypes);
 
 public sealed record DeclarationDiagnostic(
     string File,
@@ -24,6 +30,7 @@ public sealed record DeclarationDiagnostic(
 public sealed record HeterogeneousCompilationSettings
 {
     public IReadOnlyList<string> ReferencePaths { get; init; } = [];
+    internal IReadOnlyList<CompilationReference>? MetadataReferences { get; init; }
     public string LanguageVersion { get; init; } = "preview";
     public string Nullable { get; init; } = "enable";
     public bool AllowUnsafe { get; init; }
@@ -71,7 +78,9 @@ public static class HeterogeneousReader
         var trees = sources
             .Select(source => CSharpSyntaxTree.ParseText(source.Source, parseOptions, source.Path))
             .ToArray();
-        var references = References(settings.ReferencePaths, diagnostics);
+        var references = References(
+            settings.MetadataReferences ?? settings.ReferencePaths.Select(static path => new CompilationReference(path, [], false)),
+            diagnostics);
         var options = new CSharpCompilationOptions(
             OutputKind.DynamicallyLinkedLibrary,
             allowUnsafe: settings.AllowUnsafe,
@@ -758,15 +767,25 @@ public static class HeterogeneousReader
 
 #if NET10_0
     private static IReadOnlyList<MetadataReference> References(
-        IEnumerable<string> paths,
+        IEnumerable<CompilationReference> inputs,
         ICollection<DeclarationDiagnostic> diagnostics)
     {
         var references = new List<MetadataReference>();
-        foreach (var path in paths.Where(static path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.Ordinal))
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var input in inputs.Where(static input => !string.IsNullOrWhiteSpace(input.Path)))
         {
+            var path = Path.GetFullPath(input.Path);
+            var key = path + "\0" + string.Join("\0", input.Aliases) + "\0" + input.EmbedInteropTypes;
+            if (!seen.Add(key))
+                continue;
             try
             {
-                references.Add(MetadataReference.CreateFromFile(Path.GetFullPath(path)));
+                references.Add(MetadataReference.CreateFromFile(
+                    path,
+                    new MetadataReferenceProperties(
+                        MetadataImageKind.Assembly,
+                        input.Aliases.ToImmutableArray(),
+                        input.EmbedInteropTypes)));
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or BadImageFormatException or ArgumentException)
             {
