@@ -148,7 +148,7 @@ Use `Attack.Start` and `Attack.TrySeek` when the definition is known in source. 
 
 ## Unity ECS target
 
-Unity projects consume the separate `Tl.Unity` UPM package and checked-in generated kernels. An ECS job owns one 16-byte playback value per entity, borrows queried components for one invocation, calls the generated signed `TrySeek`, and writes the playback back after success. The package contains no .NET 10 runtime, Tl compiler or generator, Roslyn assembly, managed registry, or runtime compilation.
+Unity projects consume the separate `Tl.Unity` UPM package and checked-in generated kernels. An ECS job owns one 16-byte `Playback<TTimeline>` value per entity, borrows queried components through a generated ref struct for one invocation, calls the generated signed `TrySeek`, and writes the playback back after success. The package contains no .NET 10 runtime, Tl compiler or generator, Roslyn assembly, managed registry, runtime compilation, or bundled sample source. The external `tests/Tl.Unity.Project` project owns the canonical Burst Combat sample and its receipts.
 
 The installed Unity 6000.7.0a5 preview editor passes EditMode, PlayMode, Burst AOT, zero-allocation, player-content, and Standalone Linux player gates. Unity 6000.0 with Entities 1.4.3 remains the declared compatibility floor and was unavailable on the validation machine. IL2CPP has not been qualified. See the [Unity guide](docs/unity.md) for the package contract and commands.
 
