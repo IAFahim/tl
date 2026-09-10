@@ -51,8 +51,7 @@ jobs:
       - run: ./artifacts/aot/Tl.Alpha --module-capacity
       - name: Verify NativeAOT runtime isolation
         run: |
-          generator_segment=Gen
-          test -z "$(find artifacts/aot -type f \( -name "Tl.${generator_segment}*" -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
+          test -z "$(find artifacts/aot -type f \( -name 'Tl.Gen*' -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
       - name: Download and verify release assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -80,12 +79,11 @@ jobs:
           NUGET_PACKAGES: ${{ runner.temp }}/tl-package-consumer
         run: |
           set -euo pipefail
-          generator_segment=Gen
           dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj --source artifacts/release
           dotnet build tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release --no-restore
           test "$(./tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.PackageConsumer)" = "7"
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.CSharp.dll
-          test ! -e "tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.${generator_segment}.dll"
+          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.CSharp.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Compiler.dll
@@ -95,7 +93,7 @@ jobs:
           dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -r linux-x64 -p:PublishAot=true --source artifacts/release --source https://api.nuget.org/v3/index.json
           dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
           test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"
-          test -z "$(find artifacts/package-aot -type f \( -name "Tl.${generator_segment}*" -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
+          test -z "$(find artifacts/package-aot -type f \( -name 'Tl.Gen*' -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
       - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841
         id: login
         with:
