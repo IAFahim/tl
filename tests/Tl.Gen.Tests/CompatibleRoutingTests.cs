@@ -43,13 +43,13 @@ public sealed class CompatibleRoutingTests
         var smallRouter = Assert.Single(artifacts, static artifact => artifact.RelativePath == "TlSchema1.g.cs").Content;
         var smallKernel = Assert.Single(artifacts, static artifact => artifact.RelativePath == "Tl1.g.cs").Content;
 
-        Assert.Contains("new global::Fix.__TlGeneratedSchema1.Input(in input._pose)", largeRouter);
-        Assert.Contains("global::Fix.Small.ForwardKernel", largeRouter);
-        Assert.DoesNotContain("global::Fix.Large.ForwardKernel", smallRouter);
-        Assert.Contains("Timeline.TryGetCompiledRoute(id, out var route)", largeKernel);
-        Assert.DoesNotContain("id == Id", largeKernel);
-        Assert.Equal(2, Occurrences(smallKernel, "internal static bool ForwardKernel("));
-        Assert.Equal(2, Occurrences(smallKernel, "private static bool ForwardTypedKernel("));
+        Assert.Contains("new global::Fix.__TlGeneratedSchema1.Data(in data._pose, ref data._nextPose)", largeRouter);
+        Assert.Contains("global::Fix.Small.DynamicSeekKernel", largeRouter);
+        Assert.DoesNotContain("global::Fix.Large.DynamicSeekKernel", smallRouter);
+        Assert.Equal(1, Occurrences(largeRouter, "Timeline.TryGetCompiledRoute(id, out var route)"));
+        Assert.DoesNotContain("TryGetCompiledRoute", largeKernel);
+        Assert.Equal(1, Occurrences(smallKernel, "internal static bool DynamicSeekKernel("));
+        Assert.Equal(1, Occurrences(smallKernel, "private static bool SeekCore("));
     }
 
     private static HeterogeneousTimeline Timeline(

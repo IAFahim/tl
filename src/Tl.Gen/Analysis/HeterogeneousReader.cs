@@ -551,7 +551,8 @@ public static class HeterogeneousReader
                 var types = variants.Select(static slot => slot.TypeName).Distinct(StringComparer.Ordinal).ToArray();
                 if (types.Length != 1)
                 {
-                    Add(diagnostics, _slotSites[variants[1]], "TLGEN38", $"Slot '{group.Key}' has incompatible type declarations.");
+                    var conflict = variants.First(slot => slot.TypeName != variants[0].TypeName);
+                    Add(diagnostics, _slotSites[conflict], "TLGEN38", $"Slot '{group.Key}' has incompatible type declarations.");
                     valid = false;
                     continue;
                 }
