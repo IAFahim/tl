@@ -1,28 +1,37 @@
 internal static class Verification
 {
-    public static void Run()
+    internal static void Run()
     {
-        foreach (var pattern in Enum.GetValues<SeekPattern>())
+        foreach (var pattern in Enum.GetValues<TickPattern>())
         {
-            var sum = new SumBenchmarks { Pattern = pattern };
-            sum.Setup();
-            Console.WriteLine($"sum/{pattern}: typed={sum.TypedScalar()} dynamic={sum.DynamicScalar()}");
-
-            var combat = new CombatBenchmarks { Pattern = pattern };
-            combat.Setup();
-            Console.WriteLine($"combat/{pattern}: typed={combat.TypedScalar()} dynamic={combat.DynamicScalar()}");
-        }
-
-        RunMatrix();
-    }
-
-    public static void RunMatrix()
-    {
-        foreach (var seekCase in Enum.GetValues<SeekCase>())
-        {
-            var benchmark = new SignedSeekBenchmarks { Case = seekCase };
+            var benchmark = new ScalarCatalogQueryBenchmarks { Pattern = pattern };
             benchmark.Setup();
-            Console.WriteLine($"matrix/{seekCase}: typed={benchmark.Typed()} dynamic={benchmark.Dynamic()}");
+            var direct = benchmark.DirectScalar();
+            var query = benchmark.GeneratedQueryScalar();
+            ScalarCatalogQueryBenchmarks.Require(direct, query, $"scalar/{pattern}");
+            Console.WriteLine($"scalar/{pattern}: direct={direct} query={query}");
         }
+
+        foreach (var rows in new[] { 1, 32, 10_000 })
+        {
+            var benchmark = new BatchCatalogQueryBenchmarks { Rows = rows };
+            benchmark.Setup();
+            var direct = benchmark.DirectBatch();
+            var query = benchmark.GeneratedQueryBatch();
+            ScalarCatalogQueryBenchmarks.Require(direct, query, $"batch/{rows}");
+            Console.WriteLine($"batch/{rows}: direct={direct} query={query}");
+        }
+
+        var allocation = new ScalarCatalogQueryBenchmarks { Pattern = TickPattern.Alternating };
+        allocation.Setup();
+        for (var pass = 0; pass < 16; pass++)
+            _ = allocation.GeneratedQueryScalar();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var pass = 0; pass < 128; pass++)
+            _ = allocation.GeneratedQueryScalar();
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        if (allocated != 0)
+            throw new InvalidOperationException($"Warm generated query benchmark allocated {allocated} B.");
+        Console.WriteLine($"allocation: 128 x {ScalarCatalogQueryBenchmarks.Operations} scalar generated query ticks retained {allocated} B");
     }
 }

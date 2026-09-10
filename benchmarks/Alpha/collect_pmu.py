@@ -27,33 +27,11 @@ EVENTS = {
     "branches": 0xC4,
     "branch_misses": 0xC5,
 }
-BASE_SCENARIOS = (
-    "sum-direct",
-    "sum-typed",
-    "sum-dynamic",
-    "combat-direct",
-    "combat-typed",
-    "combat-dynamic",
-)
-SEEK_CASES = (
-    "LiteralPositiveOne",
-    "LiteralNegativeOne",
-    "RuntimePositiveOne",
-    "RuntimeNegativeOne",
-    "AlternatingOne",
-    "LiteralPositiveFive",
-    "LiteralNegativeFive",
-    "RuntimePositiveFive",
-    "RuntimeNegativeFive",
-    "RepeatedPositiveOneFive",
-    "RepeatedNegativeOneFive",
-    "LiteralPositiveSixtyFour",
-    "RuntimePositiveSixtyFour",
-)
-SCENARIOS = BASE_SCENARIOS + tuple(
-    f"matrix-{facade}-{seek_case}"
-    for facade in ("direct", "typed", "dynamic")
-    for seek_case in SEEK_CASES
+SCENARIOS = (
+    "scalar-direct",
+    "scalar-query",
+    "batch-direct",
+    "batch-query",
 )
 
 
