@@ -123,7 +123,7 @@ post_once() {
     local marker="$2"
     local body="$3"
     local comments
-    comments="$(gh issue view "$issue" --json comments --jq '.comments[].body')" || fail "could not read issue #$issue comments"
+    comments="$(gh issue view "$issue" --json comments --jq '.comments[].body')" || return 1
     grep -Fq -- "$marker" <<<"$comments" || post "$issue" "$body"
 }
 
@@ -218,36 +218,59 @@ legacy_claim_ref() {
     fi
 }
 
-read_claim_ref() {
+load_claim_pointer() {
     local issue="$1"
     local branch="$2"
+    local ref_target="$3"
+    local commit_target="$4"
     local current
     local legacy
+    local output
+    local row_commit
+    local row_ref
+    local found_ref=""
+    local found_commit=""
     current="$(claim_ref "$issue" "$branch")"
-    if git ls-remote --exit-code --heads origin "$current" >/dev/null 2>&1; then
-        printf '%s\n' "$current"
-        return
-    fi
     legacy="$(legacy_claim_ref "$issue" "$branch")"
-    if [[ "$legacy" != "$current" ]] && git ls-remote --exit-code --heads origin "$legacy" >/dev/null 2>&1; then
-        printf '%s\n' "$legacy"
-        return
-    fi
-    return 1
+    output="$(git ls-remote --heads origin "$current" "$legacy" 2>/dev/null)" || fail "could not read workstream '$branch' claim"
+    while read -r row_commit row_ref; do
+        [[ -n "$row_commit" && -n "$row_ref" ]] || continue
+        [[ -z "$found_ref" ]] || fail "workstream '$branch' has both current and legacy claims"
+        found_ref="$row_ref"
+        found_commit="$row_commit"
+    done <<<"$output"
+    printf -v "$ref_target" '%s' "$found_ref"
+    printf -v "$commit_target" '%s' "$found_commit"
 }
 
-read_claim_commit() {
+load_claim_commit() {
+    local issue="$1"
+    local branch="$2"
+    local target="$3"
     local ref
-    ref="$(read_claim_ref "$1" "$2")" || return 1
-    git ls-remote --exit-code --heads origin "$ref" 2>/dev/null | awk 'NR == 1 { print $1 }'
+    local commit
+    load_claim_pointer "$issue" "$branch" ref commit
+    printf -v "$target" '%s' "$commit"
+}
+
+load_remote_branch() {
+    local branch="$1"
+    local target="$2"
+    local output
+    local found_commit
+    output="$(git ls-remote --heads origin "refs/heads/$branch" 2>/dev/null)" || fail "could not read remote branch '$branch'"
+    found_commit="$(awk 'NR == 1 { print $1 }' <<<"$output")"
+    printf -v "$target" '%s' "$found_commit"
 }
 
 claim_message() {
     local issue="$1"
     local branch="$2"
     local ref="$3"
+    local expected="$4"
     local local_ref="refs/tl/claims/$issue/$(printf '%s' "$branch" | tr / -)"
-    git fetch --quiet origin "+$ref:$local_ref"
+    git fetch --quiet origin "+$ref:$local_ref" || fail "could not load workstream '$branch' claim object"
+    [[ "$(git rev-parse "$local_ref")" == "$expected" ]] || fail "workstream '$branch' claim changed while loading its object"
     git show -s --format=%B "$local_ref"
 }
 
@@ -263,10 +286,9 @@ load_remote_claim() {
     local issue="$1"
     local branch="$2"
     local message
-    remote_claim_ref="$(read_claim_ref "$issue" "$branch")" || return 1
-    remote_claim_commit="$(git ls-remote --exit-code --heads origin "$remote_claim_ref" 2>/dev/null | awk 'NR == 1 { print $1 }')" || return 1
+    load_claim_pointer "$issue" "$branch" remote_claim_ref remote_claim_commit
     [[ -n "$remote_claim_commit" ]] || return 1
-    message="$(claim_message "$issue" "$branch" "$remote_claim_ref")"
+    message="$(claim_message "$issue" "$branch" "$remote_claim_ref" "$remote_claim_commit")"
     remote_claim_issue="$(claim_value "$message" issue)"
     remote_claim_agent="$(claim_value "$message" agent)"
     remote_claim_machine="$(claim_value "$message" machine)"
@@ -276,7 +298,7 @@ load_remote_claim() {
     remote_claim_previous_claim="$(claim_value "$message" previous_claim)"
     remote_claim_takeover_reason="$(claim_value "$message" takeover_reason)"
     remote_claim_checkpoint="$(git rev-parse "$(claim_local_ref "$issue" "$branch")^")"
-    [[ "$remote_claim_issue" == "$issue" && -n "$remote_claim_agent" && -n "$remote_claim_machine" && -n "$remote_claim_branch" ]] || fail "issue #$issue has a malformed atomic claim"
+    [[ "$remote_claim_issue" == "$issue" && -n "$remote_claim_agent" && -n "$remote_claim_machine" && "$remote_claim_branch" == "$branch" ]] || fail "issue #$issue has a malformed atomic claim"
 }
 
 assert_remote_claim() {
@@ -327,7 +349,9 @@ acquire_claim() {
     local branch="$2"
     local base="$3"
     local commit
-    [[ -z "$(read_claim_commit "$issue" "$branch" || true)" ]] || fail "workstream '$branch' already has an atomic remote claim"
+    local existing
+    load_claim_commit "$issue" "$branch" existing
+    [[ -z "$existing" ]] || fail "workstream '$branch' already has an atomic remote claim"
     commit="$(new_claim_commit "$issue" "$branch" "$base")"
     git push origin "$commit:$(claim_ref "$issue" "$branch")" >/dev/null || fail "workstream '$branch' was claimed concurrently"
     printf '%s\n' "$commit"
@@ -338,8 +362,16 @@ release_claim() {
     local branch="$2"
     local expected="$3"
     local ref
-    ref="$(read_claim_ref "$issue" "$branch")" || return 1
-    git push --force-with-lease="$ref:$expected" origin ":$ref" >/dev/null
+    local commit
+    load_claim_pointer "$issue" "$branch" ref commit
+    [[ -n "$ref" && "$commit" == "$expected" ]] || return 1
+    if git push --force-with-lease="$ref:$expected" origin ":$ref" >/dev/null; then
+        return
+    fi
+    local remaining_ref
+    local remaining_commit
+    load_claim_pointer "$issue" "$branch" remaining_ref remaining_commit
+    [[ -z "$remaining_ref" ]]
 }
 
 publish_branch() {
@@ -348,7 +380,9 @@ publish_branch() {
     local expected="$3"
     local replacement
     local ref
-    ref="$(read_claim_ref "$issue" "$branch")" || fail "workstream '$branch' has no atomic remote claim"
+    local commit
+    load_claim_pointer "$issue" "$branch" ref commit
+    [[ -n "$ref" ]] || fail "workstream '$branch' has no atomic remote claim"
     replacement="$(new_claim_commit "$issue" "$branch" HEAD)"
     git push --atomic --set-upstream --force-with-lease="$ref:$expected" origin \
         "HEAD:refs/heads/$branch" "$replacement:$ref" >/dev/null || fail "workstream '$branch' claim changed while publishing"
@@ -471,6 +505,13 @@ recover_issue_transaction() {
     [[ "$expected" =~ ^[0-9a-f]{40,64}$ ]] || fail "expected transaction must be a full Git object ID"
     [[ -n "$reason" && "$reason" != *$'\n'* ]] || fail "recovery reason must be one nonempty line"
     load_issue_transaction "$issue" current
+    if [[ -z "$current" ]]; then
+        if gh issue view "$issue" --json comments --jq '.comments[].body' | grep -Eq -- "- (Recovered transaction|Recovery predecessor|Recovery lock): \`$expected\`"; then
+            printf 'issue #%s transaction %s is already recovered\n' "$issue" "$expected"
+            return
+        fi
+        fail "issue #$issue transaction changed; expected $expected, found none"
+    fi
     [[ "$current" == "$expected" ]] || fail "issue #$issue transaction changed; expected $expected, found ${current:-none}"
     ref="$(issue_transaction_ref "$issue")"
     message="$(issue_transaction_message "$issue" "$expected")"
@@ -585,6 +626,10 @@ ensure_worktree() {
     fi
 }
 
+worktree_path() {
+    printf '%s/%s-%s-%s-%s\n' "$(dirname "$1")" "$(basename "$1")" "$2" "$3" "$4"
+}
+
 resolve_start_base() {
     local requested="$1"
     local target="$2"
@@ -627,6 +672,46 @@ publish_claim() {
 - State: $state"
 }
 
+load_closed_cleanup_checkpoint() {
+    local issue="$1"
+    local branch="$2"
+    local claim="$3"
+    local target="$4"
+    local comments
+    local line
+    local recent_checkpoint=""
+    local marker="- Released closed-issue workstream: \`$branch@$claim\`"
+    comments="$(gh issue view "$issue" --json comments --jq '.comments[].body')" || fail "could not read issue #$issue cleanup audit"
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^-\ Checkpoint:\ \`([0-9a-f]{40,64})\`$ ]]; then
+            recent_checkpoint="${BASH_REMATCH[1]}"
+        elif [[ "$line" == "$marker" ]]; then
+            [[ -n "$recent_checkpoint" ]] || fail "issue #$issue has a malformed cleanup audit for workstream '$branch'"
+            printf -v "$target" '%s' "$recent_checkpoint"
+            return
+        fi
+    done <<<"$comments"
+    return 1
+}
+
+publish_terminal_projection() {
+    local issue="$1"
+    local branch="$2"
+    local checkpoint="$3"
+    local terminal_status="$4"
+    local item
+    item="$(project_item "$issue")"
+    set_text "$item" Agent "$agent_name"
+    set_text "$item" Machine "$machine_name"
+    set_text "$item" Branch "$branch"
+    set_text "$item" Checkpoint "$checkpoint"
+    if has_other_active_claims "$issue" ""; then
+        set_status "$item" "In progress"
+    else
+        set_status "$item" "$terminal_status"
+    fi
+}
+
 release_closed_start_claim() {
     local issue="$1"
     local branch="$2"
@@ -638,7 +723,7 @@ release_closed_start_claim() {
     local previous_status
     local -a project=()
     load_project_claim "$issue" project
-    previous_status="${project[1]}"
+    previous_status="${project[1]:-In progress}"
     item="$(project_item "$issue")"
     set_text "$item" Agent "$agent_name"
     set_text "$item" Machine "$machine_name"
@@ -650,7 +735,7 @@ release_closed_start_claim() {
         status="Done"
     fi
     set_status "$item" "$status"
-    post_once "$issue" "- Released closed-issue claim: \`$expected\`" "### Closed issue claim cleanup
+    post_once "$issue" "- Released closed-issue workstream: \`$branch@$expected\`" "### Closed issue claim cleanup
 
 - Previous agent: ${remote_claim_agent:-$agent_name}
 - Previous machine: ${remote_claim_machine:-$machine_name}
@@ -658,6 +743,7 @@ release_closed_start_claim() {
 - Branch: \`$branch\`
 - Checkpoint: \`$checkpoint\`
 - Released closed-issue claim: \`$expected\`
+- Released closed-issue workstream: \`$branch@$expected\`
 - Reason: $reason
 - State: $status"
     if ! release_claim "$issue" "$branch" "$expected"; then
@@ -679,6 +765,7 @@ start_work() {
     local requested_base="${5:-origin/main}"
     local claim_commit
     local existing_claim
+    local remote_branch_commit
     local issue_state
     local -a claim=()
     validate_issue "$issue"
@@ -686,10 +773,10 @@ start_work() {
     validate_workstream "$kind" "$slug"
     assert_issue_taxonomy "$issue"
     repository_root="$(git rev-parse --show-toplevel)"
-    worktree="$(dirname "$repository_root")/$(basename "$repository_root")-$issue-$slug"
+    worktree="$(worktree_path "$repository_root" "$issue" "$kind" "$slug")"
     branch="$(workstream_branch "$issue" "$kind" "$slug")"
     load_project_claim "$issue" claim
-    existing_claim="$(read_claim_commit "$issue" "$branch" || true)"
+    load_claim_commit "$issue" "$branch" existing_claim
     if [[ -n "$existing_claim" ]]; then
         assert_remote_claim "$issue" "$branch"
         base="$(git rev-parse "refs/tl/claims/$issue/$(printf '%s' "$branch" | tr / -)^")"
@@ -709,7 +796,8 @@ start_work() {
     fi
     [[ ! -e "$worktree" ]] || fail "worktree already exists without a remote claim: $worktree"
     resolve_start_base "$requested_base" base
-    if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+    load_remote_branch "$branch" remote_branch_commit
+    if [[ -n "$remote_branch_commit" ]]; then
         git fetch origin "$branch"
         resolve_start_base "origin/$branch" base
         requested_base="origin/$branch"
@@ -764,21 +852,29 @@ adopt_work() {
     if [[ -n "${claim[5]}" ]]; then
         [[ "${claim[5]}" == "$(git rev-parse HEAD)" ]] || fail "the pushed branch does not match the recorded Project checkpoint"
     fi
-    existing_claim="$(read_claim_commit "$issue" "$branch" || true)"
+    load_claim_commit "$issue" "$branch" existing_claim
     if [[ -n "$existing_claim" ]]; then
         assert_remote_claim "$issue" "$branch"
-        end_issue_transaction
-        printf 'issue #%s already has atomic claim %s\n' "$issue" "$remote_claim_commit"
-        return
-    fi
-    claim_commit="$(acquire_claim "$issue" "$branch" HEAD)"
-    post "$issue" "### Atomic claim migration
+        post_once "$issue" "- Atomic migration claim: \`$remote_claim_commit\`" "### Atomic claim migration
 
 - Agent: $agent_name
 - Machine: $machine_name
 - Branch: \`$branch\`
 - Checkpoint: \`$(git rev-parse HEAD)\`
-- Claim: \`$claim_commit\`
+- Atomic migration claim: \`$remote_claim_commit\`
+- State: ${claim[1]}"
+        end_issue_transaction
+        printf 'issue #%s already has atomic claim %s\n' "$issue" "$remote_claim_commit"
+        return
+    fi
+    claim_commit="$(acquire_claim "$issue" "$branch" HEAD)"
+    post_once "$issue" "- Atomic migration claim: \`$claim_commit\`" "### Atomic claim migration
+
+- Agent: $agent_name
+- Machine: $machine_name
+- Branch: \`$branch\`
+- Checkpoint: \`$(git rev-parse HEAD)\`
+- Atomic migration claim: \`$claim_commit\`
 - State: ${claim[1]}"
     end_issue_transaction
 }
@@ -821,6 +917,8 @@ takeover_work() {
     local previous_machine
     local claim_ref_path
     local issue_state
+    local remote_branch_commit
+    local released_checkpoint
     validate_issue "$issue"
     validate_identity
     validate_workstream "$kind" "$slug"
@@ -829,14 +927,25 @@ takeover_work() {
     assert_issue_taxonomy "$issue"
     begin_issue_transaction "$issue" "take over $kind/$issue-$slug"
     repository_root="$(git rev-parse --show-toplevel)"
-    worktree="$(dirname "$repository_root")/$(basename "$repository_root")-$issue-$slug"
+    worktree="$(worktree_path "$repository_root" "$issue" "$kind" "$slug")"
     branch="$(workstream_branch "$issue" "$kind" "$slug")"
-    load_remote_claim "$issue" "$branch" || fail "workstream '$branch' has no atomic remote claim"
     read_issue_state "$issue" issue_state
+    if ! load_remote_claim "$issue" "$branch"; then
+        if [[ "$issue_state" == "CLOSED" ]] && load_closed_cleanup_checkpoint "$issue" "$branch" "$expected" released_checkpoint; then
+            load_remote_branch "$branch" remote_branch_commit
+            [[ -z "$remote_branch_commit" || "$remote_branch_commit" == "$released_checkpoint" ]] || fail "workstream '$branch' branch and cleanup checkpoints differ"
+            publish_terminal_projection "$issue" "$branch" "$released_checkpoint" Done
+            end_issue_transaction
+            printf 'closed issue #%s workstream %s was already released\n' "$issue" "$branch"
+            return
+        fi
+        fail "workstream '$branch' has no atomic remote claim"
+    fi
     if [[ "$issue_state" == "CLOSED" ]]; then
         [[ "$remote_claim_commit" == "$expected" ]] || fail "workstream '$branch' claim changed; expected $expected, found $remote_claim_commit"
         base="$remote_claim_checkpoint"
-        if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+        load_remote_branch "$branch" remote_branch_commit
+        if [[ -n "$remote_branch_commit" ]]; then
             git fetch origin "$branch"
             [[ "$(git rev-parse "origin/$branch")" == "$base" ]] || fail "workstream '$branch' branch and claim checkpoints differ"
         fi
@@ -862,7 +971,8 @@ takeover_work() {
     previous_machine="$remote_claim_machine"
     claim_ref_path="$remote_claim_ref"
     base="$(git rev-parse "refs/tl/claims/$issue/$(printf '%s' "$branch" | tr / -)^")"
-    if git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+    load_remote_branch "$branch" remote_branch_commit
+    if [[ -n "$remote_branch_commit" ]]; then
         git fetch origin "$branch"
         base="origin/$branch"
         [[ "$(git rev-parse "$base")" == "$remote_claim_checkpoint" ]] || fail "workstream '$branch' branch and claim checkpoints differ"
@@ -911,6 +1021,7 @@ handoff_work() {
     local existing_claim
     local status
     local previous_status
+    local remote_branch_commit
     local -a project=()
     validate_issue "$issue"
     validate_identity
@@ -919,11 +1030,22 @@ handoff_work() {
     branch="$(git branch --show-current)"
     head="$(git rev-parse HEAD)"
     begin_issue_transaction "$issue" "hand off $branch"
-    existing_claim="$(read_claim_commit "$issue" "$branch" || true)"
+    load_claim_commit "$issue" "$branch" existing_claim
     if [[ -z "$existing_claim" ]]; then
-        git fetch --quiet origin "$branch"
-        [[ "$(git rev-parse "origin/$branch")" == "$head" ]] || fail "the handed-off checkpoint is not the remote branch head"
+        load_remote_branch "$branch" remote_branch_commit
+        [[ "$remote_branch_commit" == "$head" ]] || fail "the handed-off checkpoint is not the remote branch head"
         gh issue view "$issue" --json comments --jq '.comments[].body' | grep -Fq -- "- Handoff checkpoint: \`$head\`" || fail "workstream '$branch' has no durable handoff record at $head"
+        item="$(project_item "$issue")"
+        set_text "$item" Agent "$agent_name"
+        set_text "$item" Machine "$machine_name"
+        set_text "$item" Branch "$branch"
+        set_text "$item" Checkpoint "$head"
+        if has_other_active_claims "$issue" ""; then
+            status="In progress"
+        else
+            status="Ready"
+        fi
+        set_status "$item" "$status"
         end_issue_transaction
         printf 'workstream %s is already handed off at %s\n' "$branch" "$head"
         return
@@ -931,8 +1053,8 @@ handoff_work() {
     assert_claim "$issue" handoff
     load_project_claim "$issue" project
     previous_status="${project[1]}"
-    if [[ "$remote_claim_checkpoint" != "$head" ]] ||
-        ! git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+    load_remote_branch "$branch" remote_branch_commit
+    if [[ "$remote_claim_checkpoint" != "$head" || -z "$remote_branch_commit" ]]; then
         publish_branch "$issue" "$branch" "$remote_claim_commit"
     else
         assert_claimed_checkpoint "$branch" "$head"
@@ -1035,6 +1157,7 @@ finish_work() {
     local state
     local existing_claim
     local previous_status
+    local remote_branch_commit
     local -a project=()
     validate_issue "$issue"
     validate_identity
@@ -1043,12 +1166,25 @@ finish_work() {
     head="$(git rev-parse HEAD)"
     begin_issue_transaction "$issue" "complete $branch"
     git fetch origin main
-    existing_claim="$(read_claim_commit "$issue" "$branch" || true)"
+    load_claim_commit "$issue" "$branch" existing_claim
     if [[ -z "$existing_claim" ]]; then
-        git fetch --quiet origin "$branch" || fail "workstream '$branch' has no published remote branch"
-        [[ "$(git rev-parse "origin/$branch")" == "$head" ]] || fail "local HEAD $head is not the remote branch checkpoint"
+        load_remote_branch "$branch" remote_branch_commit
+        [[ "$remote_branch_commit" == "$head" ]] || fail "local HEAD $head is not the remote branch checkpoint"
         pr="$(merged_pr_for_claim "$issue" "$branch" "$head")" || fail "issue #$issue has no linked merged PR for branch '$branch' at commit $head"
         gh issue view "$issue" --json comments --jq '.comments[].body' | grep -Fq -- "Merged by #$pr." || fail "workstream '$branch' has no durable completion record for PR #$pr"
+        item="$(project_item "$issue")"
+        set_text "$item" Agent "$agent_name"
+        set_text "$item" Machine "$machine_name"
+        set_text "$item" Branch "$branch"
+        set_text "$item" Checkpoint "$head"
+        state="$(gh issue view "$issue" --json state --jq .state)"
+        if has_other_active_claims "$issue" ""; then
+            set_status "$item" "In progress"
+        elif [[ "$state" == "CLOSED" ]]; then
+            set_status "$item" Done
+        else
+            set_status "$item" Ready
+        fi
         end_issue_transaction
         printf 'workstream %s is complete through PR #%s\n' "$branch" "$pr"
         return
