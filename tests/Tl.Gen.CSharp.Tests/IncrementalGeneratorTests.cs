@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Tl;
+using Tl.Gen.CSharp.Analysis;
 using Xunit;
 
 namespace Tl.Gen.CSharp.Tests;
@@ -48,6 +49,14 @@ public sealed class IncrementalGeneratorTests
         Assert.True(comparer.Equals(null, null));
         Assert.Equal(comparer.GetHashCode(first), comparer.GetHashCode(equivalent));
         Assert.NotEqual(comparer.GetHashCode(first), comparer.GetHashCode(different));
+    }
+
+    [Fact]
+    public void SourceLessDiagnosticsUseNoLocation()
+    {
+        var diagnostic = new DeclarationDiagnostic("", 0, 0, "TLGEN00", "source unavailable");
+
+        Assert.Equal(Location.None, TimelineIncrementalGenerator.Location(diagnostic));
     }
 
     [Fact]

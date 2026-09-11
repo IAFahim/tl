@@ -13,7 +13,7 @@ internal static class JobEmitter
     internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model)
     {
         var timelines = model.Timelines.OrderBy(Qualified, StringComparer.Ordinal).ToArray();
-        var plans = timelines.ToDictionary(Qualified, JobTimelinePlanAdapter.Create, StringComparer.Ordinal);
+        var plans = Plans(timelines);
         var files = timelines.Select((timeline, index) => new CompileArtifact($"TlJob{index}.g.cs", Timeline(timeline, plans[Qualified(timeline)]))).ToList();
         files.AddRange(model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal)
             .Select((catalog, index) => new CompileArtifact($"TlCatalog{index}.g.cs", Catalog(catalog, timelines, plans))));
@@ -109,7 +109,7 @@ internal static class JobEmitter
         IReadOnlyList<JobTimeline> timelines,
         IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
     {
-        var byName = timelines.ToDictionary(Qualified, StringComparer.Ordinal);
+        var byName = Timelines(timelines);
         var assets = catalog.Schemas.SelectMany(static schema => schema.Assets).Distinct(StringComparer.Ordinal)
             .OrderBy(static asset => asset, StringComparer.Ordinal).Select(asset => byName[asset]).ToArray();
         var ids = assets.Select((asset, index) => (Name: Qualified(asset), Id: index + 1))
@@ -356,6 +356,22 @@ internal static class JobEmitter
 
     private static string Mode(TimelineSlot slot) => slot.Mode == SlotMode.Input ? "in" : "ref";
     private static string Qualified(JobTimeline timeline) => "global::" + (timeline.Namespace.Length == 0 ? "" : timeline.Namespace + ".") + timeline.Name;
+
+    private static Dictionary<string, BoundOrderedTimelinePlan> Plans(IReadOnlyList<JobTimeline> timelines)
+    {
+        var result = new Dictionary<string, BoundOrderedTimelinePlan>(timelines.Count, StringComparer.Ordinal);
+        foreach (var timeline in timelines)
+            result.Add(Qualified(timeline), JobTimelinePlanAdapter.Create(timeline));
+        return result;
+    }
+
+    private static Dictionary<string, JobTimeline> Timelines(IReadOnlyList<JobTimeline> timelines)
+    {
+        var result = new Dictionary<string, JobTimeline>(timelines.Count, StringComparer.Ordinal);
+        foreach (var timeline in timelines)
+            result.Add(Qualified(timeline), timeline);
+        return result;
+    }
     private static string U(uint value) => value.ToString(CultureInfo.InvariantCulture) + "u";
     private static string Bool(bool value) => value ? "true" : "false";
     private static void Line(StringBuilder writer, string text) => writer.Append(text).Append('\n');

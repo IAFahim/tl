@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Tl.Gen.CSharp.Analysis;
 using Tl.Gen.CSharp.Model;
 using Xunit;
@@ -78,6 +79,94 @@ public sealed class JobReaderTests
         Assert.False(JobReader.TryUnsignedConstant(null, out var missing));
 
         Assert.Equal([1u, 2u, 3u, 4u, 5u, 0u, 0u, 0u], [fromByte, fromUshort, fromChar, fromInt, fromUint, negative, fromLong, missing]);
+    }
+
+    [Fact]
+    public void ReaderHelpersRemainTotalOutsideBoundDeclarations()
+    {
+        var compilation = Compile(Runtime);
+        var integer = compilation.GetSpecialType(SpecialType.System_Int32);
+        var builder = compilation.GetTypeByMetadataName("Tl.Builder")!;
+        var timeline = compilation.GetTypeByMetadataName("Tl.ITimeline")!;
+        var track = Assert.Single(builder.GetMembers("Track").OfType<IMethodSymbol>());
+        var expression = SyntaxFactory.ParseExpression("value");
+
+        Assert.Same(integer, JobReader.ResolvedType(integer, null));
+        Assert.Same(integer, JobReader.ResolvedType(null, integer));
+        Assert.Null(JobReader.ResolvedType(null, null));
+        Assert.True(JobReader.MethodOn(track, "Track", builder));
+        Assert.False(JobReader.MethodOn(track, "Clip", builder));
+        Assert.False(JobReader.MethodOn(track, "Track", timeline));
+        Assert.Equal([expression], JobReader.CompleteArguments([expression]));
+        Assert.Null(JobReader.CompleteArguments([expression, null]));
+        Assert.True(JobReader.BoundedConstant(SyntaxFactory.ParseExpression("1")));
+        Assert.True(JobReader.BoundedConstant(SyntaxFactory.ParseExpression("nameof(Value)")));
+        Assert.False(JobReader.BoundedConstant(SyntaxFactory.ParseExpression("Value()")));
+        Assert.False(JobReader.BoundedConstant(SyntaxFactory.ParseExpression("Value.Create()")));
+        Assert.Equal("Fallback", JobReader.QualifiedType(null, SyntaxFactory.ParseTypeName("Fallback")).ToString());
+        Assert.Equal("int", JobReader.QualifiedType(integer, SyntaxFactory.ParseTypeName("Fallback")).ToString());
+        var implicitCreation = Assert.IsType<ImplicitObjectCreationExpressionSyntax>(SyntaxFactory.ParseExpression("new()"));
+        Assert.Same(implicitCreation, JobReader.QualifiedImplicit(null, implicitCreation));
+        Assert.Equal("new int()", JobReader.QualifiedImplicit(integer, implicitCreation).ToFullString());
+        Assert.Same(expression, JobReader.Rewritten<ExpressionSyntax>(null, expression));
+        Assert.Same(expression, JobReader.Rewritten(SyntaxFactory.ParseStatement("value;"), expression));
+        Assert.Equal("other", JobReader.Rewritten(SyntaxFactory.ParseExpression("other"), expression).ToString());
+    }
+
+    [Fact]
+    public void CanonicalizationPreservesUnsupportedAndUnresolvedForms()
+    {
+        var compilation = Compile(Runtime + """
+            namespace Canonical
+            {
+                public struct Value
+                {
+                    public int Field;
+                    public static int Mutable;
+                    public const int Constant = 1;
+                }
+                public sealed class Source
+                {
+                    public void Call()
+                    {
+                        Value value = default;
+                        Value typed = new();
+                        _ = new();
+                        _ = new Value();
+                        _ = (Value)value;
+                        _ = default(Value);
+                        _ = Value.Constant;
+                        _ = Value.Mutable;
+                        _ = value.Field;
+                        _ = nameof(Value);
+                        _ = value.ToString();
+                        _ = Missing.Value;
+                    }
+                }
+            }
+            """);
+        var tree = compilation.SyntaxTrees.Single();
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var expressions = root.DescendantNodes().OfType<ExpressionSyntax>();
+        var typed = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(static item => item.Identifier.ValueText == "typed").Initializer!.Value;
+        var targetless = root.DescendantNodes().OfType<AssignmentExpressionSyntax>().First(static item => item.Right.ToString() == "new()").Right;
+
+        Assert.Equal("new global::Canonical.Value()", JobReader.Canonical(typed, model));
+        Assert.Equal("new ()", JobReader.Canonical(targetless, model));
+        Assert.Equal("new global::Canonical.Value()", JobReader.Canonical(expressions.First(static item => item.ToString() == "new Value()"), model));
+        Assert.Equal("(global::Canonical.Value)value", JobReader.Canonical(expressions.First(static item => item.ToString() == "(Value)value"), model));
+        Assert.Equal("default(global::Canonical.Value)", JobReader.Canonical(expressions.First(static item => item.ToString() == "default(Value)"), model));
+        Assert.Equal("global::Canonical.Value.Constant", JobReader.Canonical(expressions.First(static item => item.ToString() == "Value.Constant"), model));
+        Assert.Equal("Value.Mutable", JobReader.Canonical(expressions.First(static item => item.ToString() == "Value.Mutable"), model));
+        Assert.Equal("value.Field", JobReader.Canonical(expressions.First(static item => item.ToString() == "value.Field"), model));
+        Assert.Equal("\"Value\"", JobReader.Canonical(expressions.First(static item => item.ToString() == "nameof(Value)"), model));
+        Assert.Equal("value.ToString()", JobReader.Canonical(expressions.First(static item => item.ToString() == "value.ToString()"), model));
+        Assert.Equal("Missing.Value", JobReader.Canonical(expressions.First(static item => item.ToString() == "Missing.Value"), model));
+
+        var creation = SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName("Missing"));
+        Assert.Null(creation.ArgumentList);
+        Assert.True(JobReader.BoundedObject(creation, model));
     }
 
     [Fact]
@@ -357,6 +446,7 @@ public sealed class JobReaderTests
         Assert.Contains("global::Game.Track.DefaultValue", timeline.Tracks[0].Expression);
         Assert.Contains("global::Game.Track.@class", timeline.Tracks[0].Expression);
         Assert.Contains("global::Game.Asset.Value", timeline.Tracks[0].Expression);
+        Assert.Equal("new global::Game.Track(8)", timeline.Tracks[1].Expression);
         Assert.Contains("\"Asset\"", timeline.Clips[0].Expression);
         Assert.Contains("default(global::Game.Clip)", timeline.Clips[2].Expression);
     }
@@ -1270,6 +1360,18 @@ public sealed class JobReaderTests
             }
             """,
             "TLGEN73"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly partial record struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder) { }
+                }
+            }
+            """,
+            "TLGEN61"
         },
     };
 

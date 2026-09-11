@@ -134,6 +134,13 @@ public sealed class CacheTests : IDisposable
     }
 
     [Fact]
+    public void AssemblyIdentityIsTotalForIncompleteMetadata()
+    {
+        Assert.Equal(("", ""), CompileGenerationCache.AssemblyIdentity(new System.Reflection.AssemblyName()));
+        Assert.Equal(("Tl.Tests", "1.2.3.4"), CompileGenerationCache.AssemblyIdentity(new System.Reflection.AssemblyName("Tl.Tests, Version=1.2.3.4")));
+    }
+
+    [Fact]
     public void EveryCachedFileParticipatesInTheHitDecision()
     {
         Directory.CreateDirectory(_directory);

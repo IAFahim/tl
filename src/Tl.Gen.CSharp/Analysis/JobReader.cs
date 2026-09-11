@@ -193,7 +193,7 @@ public static class JobReader
                 return null;
             var expression = track.ArgumentList.Arguments[0].Expression;
             var info = model.GetTypeInfo(expression);
-            if ((info.ConvertedType ?? info.Type) is not INamedTypeSymbol settings || !settings.IsUnmanagedType || !Bounded(expression, model))
+            if (ResolvedType(info.ConvertedType, info.Type) is not INamedTypeSymbol settings || !settings.IsUnmanagedType || !Bounded(expression, model))
             {
                 Error(errors, expression, "TLGEN64", "Track settings must be an unmanaged bounded constructor, literal, or constant expression.");
                 return null;
@@ -255,7 +255,8 @@ public static class JobReader
                 Error(errors, call, "TLGEN68", "Clip requires a track local declared earlier in Define.");
                 return false;
             }
-            var type = model.GetTypeInfo(args[1]).ConvertedType ?? model.GetTypeInfo(args[1]).Type;
+            var info = model.GetTypeInfo(args[1]);
+            var type = ResolvedType(info.ConvertedType, info.Type);
             if (!Same(type, binding.Clip) || !Bounded(args[1], model) || !Unsigned(args[2], model, out var start)
                 || !Unsigned(args[3], model, out var end) || start >= end)
             {
@@ -381,13 +382,24 @@ public static class JobReader
     private sealed class Qualifier(SemanticModel model) : CSharpSyntaxRewriter
     {
         public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
-            => model.GetTypeInfo(node).Type is { } type ? ((ObjectCreationExpressionSyntax)base.VisitObjectCreationExpression(node)!).WithType(SyntaxFactory.ParseTypeName(Name(type))) : base.VisitObjectCreationExpression(node);
+        {
+            var rewritten = Rewritten(base.VisitObjectCreationExpression(node), node);
+            return rewritten.WithType(QualifiedType(model.GetTypeInfo(node).Type, rewritten.Type));
+        }
         public override SyntaxNode? VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
-            => model.GetTypeInfo(node).Type is { } type ? SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName(Name(type)), (ArgumentListSyntax)Visit(node.ArgumentList)!, null) : base.VisitImplicitObjectCreationExpression(node);
+            => QualifiedImplicit(
+                model.GetTypeInfo(node).Type,
+                Rewritten(base.VisitImplicitObjectCreationExpression(node), node));
         public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
-            => model.GetTypeInfo(node.Type).Type is { } type ? node.WithType(SyntaxFactory.ParseTypeName(Name(type))).WithExpression((ExpressionSyntax)Visit(node.Expression)!) : base.VisitCastExpression(node);
+        {
+            var rewritten = Rewritten(base.VisitCastExpression(node), node);
+            return rewritten.WithType(QualifiedType(model.GetTypeInfo(node.Type).Type, rewritten.Type));
+        }
         public override SyntaxNode? VisitDefaultExpression(DefaultExpressionSyntax node)
-            => model.GetTypeInfo(node.Type).Type is { } type ? node.WithType(SyntaxFactory.ParseTypeName(Name(type))) : base.VisitDefaultExpression(node);
+        {
+            var rewritten = Rewritten(base.VisitDefaultExpression(node), node);
+            return rewritten.WithType(QualifiedType(model.GetTypeInfo(node.Type).Type, rewritten.Type));
+        }
         public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
             => model.GetSymbolInfo(node).Symbol is IFieldSymbol { IsStatic: true } field && (field.HasConstantValue || field.ContainingType.TypeKind == TypeKind.Enum)
                 ? SyntaxFactory.ParseExpression($"{Name(field.ContainingType)}.{Escape(field.Name)}") : base.VisitMemberAccessExpression(node);
@@ -442,8 +454,8 @@ public static class JobReader
     private static bool On(InvocationExpressionSyntax call, SemanticModel model, string name, ITypeSymbol type)
     {
         var info = model.GetSymbolInfo(call);
-        return info.Symbol is IMethodSymbol method && method.Name == name && Same(method.ContainingType.OriginalDefinition, type.OriginalDefinition)
-            || info.CandidateSymbols.OfType<IMethodSymbol>().Any(candidate => candidate.Name == name && Same(candidate.ContainingType.OriginalDefinition, type.OriginalDefinition));
+        return info.Symbol is IMethodSymbol method && MethodOn(method, name, type)
+            || info.CandidateSymbols.OfType<IMethodSymbol>().Any(candidate => MethodOn(candidate, name, type));
     }
 
     private static ExpressionSyntax[]? Args(InvocationExpressionSyntax call, SemanticModel model, int count)
@@ -454,16 +466,16 @@ public static class JobReader
         foreach (var argument in operation.Arguments)
             if (argument.Parameter is { Ordinal: >= 0 } parameter && parameter.Ordinal < count && argument.Syntax is ArgumentSyntax syntax)
                 result[parameter.Ordinal] = syntax.Expression;
-        return result.Any(static item => item is null) ? null : result.Cast<ExpressionSyntax>().ToArray();
+        return CompleteArguments(result);
     }
 
-    private static bool Bounded(ExpressionSyntax expression, SemanticModel model)
+    internal static bool Bounded(ExpressionSyntax expression, SemanticModel model)
     {
         if (model.GetConstantValue(expression).HasValue)
-            return expression is not InvocationExpressionSyntax || expression is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } };
+            return BoundedConstant(expression);
         return expression switch
         {
-            ObjectCreationExpressionSyntax item => item.Initializer is null && item.ArgumentList?.Arguments.All(argument => Bounded(argument.Expression, model)) != false,
+            ObjectCreationExpressionSyntax item => BoundedObject(item, model),
             ImplicitObjectCreationExpressionSyntax item => item.Initializer is null && item.ArgumentList.Arguments.All(argument => Bounded(argument.Expression, model)),
             ParenthesizedExpressionSyntax item => Bounded(item.Expression, model),
             CastExpressionSyntax item => Bounded(item.Expression, model),
@@ -504,7 +516,26 @@ public static class JobReader
         Error(errors, site, diagnostic.Code, diagnostic.Message);
         return false;
     }
-    private static string Canonical(ExpressionSyntax expression, SemanticModel model) => new Qualifier(model).Visit(expression)!.WithoutTrivia().ToFullString();
+    internal static ITypeSymbol? ResolvedType(ITypeSymbol? converted, ITypeSymbol? natural) => converted ?? natural;
+    internal static bool MethodOn(IMethodSymbol method, string name, ITypeSymbol type)
+        => method.Name == name && Same(method.ContainingType.OriginalDefinition, type.OriginalDefinition);
+    internal static ExpressionSyntax[]? CompleteArguments(ExpressionSyntax?[] arguments)
+        => arguments.Any(static item => item is null) ? null : arguments.Cast<ExpressionSyntax>().ToArray();
+    internal static bool BoundedConstant(ExpressionSyntax expression)
+        => expression is not InvocationExpressionSyntax || expression is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } };
+    internal static bool BoundedObject(ObjectCreationExpressionSyntax expression, SemanticModel model)
+        => expression.Initializer is null && (expression.ArgumentList is null || expression.ArgumentList.Arguments.All(argument => Bounded(argument.Expression, model)));
+    internal static TypeSyntax QualifiedType(ITypeSymbol? type, TypeSyntax original)
+        => type is null ? original : SyntaxFactory.ParseTypeName(Name(type));
+    internal static ExpressionSyntax QualifiedImplicit(ITypeSymbol? type, ImplicitObjectCreationExpressionSyntax original)
+        => type is null
+            ? original
+            : SyntaxFactory.ObjectCreationExpression(SyntaxFactory.ParseTypeName(Name(type)), original.ArgumentList, null)
+                .WithNewKeyword(SyntaxFactory.Token(SyntaxKind.NewKeyword).WithTrailingTrivia(SyntaxFactory.Space));
+    internal static T Rewritten<T>(SyntaxNode? rewritten, T original) where T : SyntaxNode
+        => rewritten as T ?? original;
+    internal static string Canonical(ExpressionSyntax expression, SemanticModel model)
+        => Rewritten(new Qualifier(model).Visit(expression), expression).WithoutTrivia().ToFullString();
     private static MethodDeclarationSyntax? Method(IMethodSymbol method) => method.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).OfType<MethodDeclarationSyntax>().SingleOrDefault();
     private static SyntaxNode Site(ISymbol symbol, SyntaxNode fallback) => symbol.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).FirstOrDefault() ?? fallback;
     private static bool Implements(INamedTypeSymbol type, INamedTypeSymbol contract) => type.AllInterfaces.Any(item => Same(item.OriginalDefinition, contract));

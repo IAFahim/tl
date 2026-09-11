@@ -42,7 +42,7 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
             context.AddSource(artifact.RelativePath, SourceText.From(JobEmitter.Normalize(artifact.Content), new UTF8Encoding(false)));
     }
 
-    private static Location Location(DeclarationDiagnostic diagnostic)
+    internal static Location Location(DeclarationDiagnostic diagnostic)
         => diagnostic.SpanStart < 0
             ? Microsoft.CodeAnalysis.Location.None
             : Microsoft.CodeAnalysis.Location.Create(

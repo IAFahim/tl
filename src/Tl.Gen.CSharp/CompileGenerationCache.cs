@@ -228,10 +228,14 @@ internal static class CompileGenerationCache
 
     private static void Append(IncrementalHash hash, Assembly assembly)
     {
-        Append(hash, assembly.GetName().Name ?? "");
-        Append(hash, assembly.GetName().Version?.ToString() ?? "");
+        var identity = AssemblyIdentity(assembly.GetName());
+        Append(hash, identity.Name);
+        Append(hash, identity.Version);
         Append(hash, assembly.ManifestModule.ModuleVersionId.ToString("N"));
     }
+
+    internal static (string Name, string Version) AssemblyIdentity(AssemblyName assembly)
+        => (assembly.Name ?? "", assembly.Version?.ToString() ?? "");
 
     private static string HashContent(string content) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
