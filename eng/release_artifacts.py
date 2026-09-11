@@ -295,9 +295,12 @@ def verify_unity_package(directory, version):
         fail(f"{expected_name} has a non-deterministic gzip timestamp")
     with tarfile.open(archive, "r:gz") as package:
         members = package.getmembers()
-        names = {member.name + ("/" if member.isdir() and not member.name.endswith("/") else "") for member in members}
-        if names != UNITY_PACKAGE_FILES:
-            fail(f"{expected_name} files are {sorted(names)}, expected {sorted(UNITY_PACKAGE_FILES)}")
+        names = [member.name + ("/" if member.isdir() and not member.name.endswith("/") else "") for member in members]
+        unique_names = set(names)
+        if len(names) != len(unique_names):
+            fail(f"{expected_name} contains duplicate archive paths")
+        if len(names) != len(UNITY_PACKAGE_FILES) or unique_names != UNITY_PACKAGE_FILES:
+            fail(f"{expected_name} files are {sorted(unique_names)}, expected {sorted(UNITY_PACKAGE_FILES)}")
         if any(not (member.isdir() or member.isfile()) for member in members):
             fail(f"{expected_name} contains a non-file archive entry")
         descriptor = package.extractfile("package/package.json")

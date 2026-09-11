@@ -68,6 +68,11 @@ class ReleaseArtifactTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "identity"):
                 RELEASE_ARTIFACTS.verify_unity_package(root, "1.2.3")
 
+            for duplicate in ("package/README.md", "package/package.json"):
+                self.write_unity_package(valid, duplicates=[duplicate])
+                with self.assertRaisesRegex(ValueError, "duplicate archive paths"):
+                    RELEASE_ARTIFACTS.verify_unity_package(root, "1.2.3")
+
     def test_release_pipeline_builds_and_verifies_two_unity_packages(self):
         script = (ROOT / "eng" / "release-artifacts").read_text(encoding="utf-8")
         first = script.index('"$root/eng/package-unity" "$stage/unity-a"')
@@ -252,13 +257,13 @@ class ReleaseArtifactTests(unittest.TestCase):
             archive.writestr(entry, b"same")
 
     @staticmethod
-    def write_unity_package(path, descriptor_version="1.2.3", extra=None):
+    def write_unity_package(path, descriptor_version="1.2.3", extra=None, duplicates=()):
         entries = set(RELEASE_ARTIFACTS.UNITY_PACKAGE_FILES)
         if extra is not None:
             entries.add(extra)
         tar_bytes = io.BytesIO()
         with tarfile.open(fileobj=tar_bytes, mode="w", format=tarfile.USTAR_FORMAT) as archive:
-            for name in sorted(entries):
+            for name in [*sorted(entries), *duplicates]:
                 directory = name.endswith("/")
                 entry = tarfile.TarInfo(name.rstrip("/") if directory else name)
                 entry.type = tarfile.DIRTYPE if directory else tarfile.REGTYPE
