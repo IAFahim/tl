@@ -11,7 +11,7 @@ Domain libraries such as animation, combat, audio, transactions, networking, or 
 A backend receives an immutable plan and a target binding. It must:
 
 - validate its ABI and target restrictions before writing output;
-- preserve authored track order, half-open windows, blend factors, direction, lifecycle, loops, and failure-before-effects;
+- preserve authored track order, half-open windows, blend factors, direction, lifecycle, loops, and pre-effect import/schema/configuration validation; user-operation exceptions preserve the already executed effect prefix;
 - emit deterministic, culture-independent artifacts;
 - report every artifact byte count and target data-layout cost;
 - keep unsupported features explicit;

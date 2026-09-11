@@ -1,22 +1,24 @@
 # Frontends and backends
 
-`Tl.Gen.CSharp`, `Tl.Compiler`, and `Tl.Gen.C` are separate projects and packages.
+The repository keeps runtime, compiler, language binding, and target emission separate.
 
 | Package | Responsibility |
-|---|---|
-| `Tl.Compiler` | Language-neutral immutable plan, validation, normalization, and format contract |
-| `Tl.Gen.CSharp` | C# syntax discovery, diagnostics, C# binding, and C# kernel emission |
-| `Tl.Gen.C` | C11 binding and kernel emission from `Tl.Compiler` plans |
-| `Tl.CSharp` | One-reference C# installation that carries the build-only C# generator |
+| --- | --- |
+| `Tl.Runtime` | Declaration, frame, flags, state, and total movement ABI |
+| `Tl.Compiler` | Language-neutral immutable ordered plan and validation |
+| `Tl.Gen.CSharp` | C# discovery, diagnostics, typed binding, .NET query emission, and Unity materialization |
+| `Tl.Gen.C` | Existing C11 ABI v2 binding and emission from compiler plans |
+| `Tl.CSharp` | One-reference C# install containing runtime plus build-only generator assets |
+| `Tl.Unity` | Unity ECS/Burst runtime boundary; no compiler or Roslyn payload |
 
-The packages remain in one repository while the neutral format and conformance fixtures are changing together. Their dependency direction already permits independent versioning and later repository extraction. `Tl.Gen.CSharp` is a sibling of `Tl.Gen.C`; no generic `Tl.Gen` assembly exists.
+The neutral plan owns operation identities and slots, tracks, clips, hooks, regions, ordered occurrences, payload identities, deduplication, and validation. A language binding owns concrete type names, constant expressions, and operation symbols. The C# and Unity emitters consume the same validated ordered plan plus C# binding; they do not derive schedule semantics independently.
 
-The C# package currently keeps a private language-specific model for typed slots, constants, includes, hooks, and routes that the neutral format does not yet express. Moving those semantic facts into `Tl.Compiler` is required before the C# and C backends can consume the same complete plan.
+Normal C# and supporting IDE builds run the incremental analyzer. `TlGenExport` runs the same frontend and backend when a physical, deterministic source snapshot is needed. Unity uses that export before script compilation so the Entities generator can discover the materialized jobs. Generator, compiler, and Roslyn assemblies never enter .NET application, NativeAOT, Unity runtime, or player output.
 
-Waffle was evaluated and excluded. A template layer does not improve emitted code, runtime speed, plan portability, or output determinism. Each backend writes target source directly from validated immutable data.
+The existing C backend consumes `Tl.Compiler` as a sibling of the C# frontend. Its ABI v2 does not yet support alpha.3 heterogeneous catalogs. A C catalog migration must add a target binding for every required operation and payload while preserving the neutral order; it must never claim to translate arbitrary C# bodies.
 
-Generated files belong to the consuming build output. Normal C# compilation runs the incremental analyzer; explicit export produces inspectable source, a manifest, and a generation report. The generator and Roslyn remain build-time assets and never enter application or NativeAOT output.
+Waffle was evaluated and excluded. A template layer does not improve runtime code, plan portability, deterministic output, or target diagnostics. Each backend emits directly from validated immutable data.
 
-A new backend consumes the public versioned `Tl.Compiler` contract, supplies a target binding for operation and payload IDs, rejects unsupported plan features before emission, and passes the shared semantic fixtures on its real toolchain. Backend representation stays private; observable receipts, generated sizes, ABI layout, and compatibility are public evidence.
+A new backend must reject unsupported features before writing output, preserve every observable schedule and movement rule, emit deterministic artifacts, report code and data size, and execute shared semantic fixtures on its real toolchain. Backend representation stays private; ABI and receipts are public.
 
-See [architecture.md](architecture.md), [extending.md](extending.md), and [v1.0-alpha-checklist.md](v1.0-alpha-checklist.md).
+See the [architecture](architecture.md), [extension contract](extending.md), [alpha.3 API](v1.0-alpha-api.md), and [release qualification](https://github.com/IAFahim/tl/issues/35).

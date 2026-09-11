@@ -2,7 +2,7 @@
 
 `tl` turns immutable gameplay timelines into typed C# programs. One timeline can contain many track and clip types, and one generated query advances thousands of entities through the same ordered schedule without reflection, delegates, runtime compilation, or warm-path allocation.
 
-**Status: v1.0.0-alpha.3 candidate.** The C# API is a breaking prerelease for .NET 10 and C# 14. Unity qualification is tracked separately and must pass before the release is tagged.
+**Status: v1.0.0-alpha.3 prerelease.** The C# API is a breaking prerelease for .NET 10 and C# 14. Unity ECS is qualified on the stable and preview lanes listed below.
 
 - Heterogeneous tracks and clips in one timeline
 - Each authored track binds one typed operation to its `(track, clip)` pair
@@ -27,9 +27,13 @@
 
 ## Install
 
+Download `Tl.CSharp.1.0.0-alpha.3.nupkg` and `Tl.Runtime.1.0.0-alpha.3.nupkg` from the [GitHub prerelease](https://github.com/IAFahim/tl/releases/tag/v1.0.0-alpha.3) into `packages`, then install from that local source:
+
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.3
+dotnet add package Tl.CSharp --version 1.0.0-alpha.3 --source ./packages
 ```
+
+The packages are not published to nuget.org.
 
 The package generator runs whenever Roslyn compiles the project, including supporting IDE design-time builds. There is no `Build`, `Compile`, `InMemory`, `Bind`, registry, or interpreted fallback in the alpha.3 execution path.
 
@@ -199,7 +203,7 @@ The repository enforces a 250,000-byte budget over production source contents pl
 
 ## Unity ECS
 
-Unity uses the same authored jobs and neutral ordered schedule with host-specific storage and scheduling. Generated Unity selectors and typed operation jobs operate over ECS columns, followed by one state commit. Unity source must be materialized before Unity script compilation so Entities can generate its own jobs. The alpha.3 Unity package, Burst execution, player isolation, and supported editor matrix remain release gates in [issue #34](https://github.com/IAFahim/tl/issues/34); the older alpha.2 Unity guide is not evidence for this API.
+Unity uses the same authored jobs and neutral ordered schedule with host-specific storage and scheduling. Generated Unity selectors and typed operation jobs operate over ECS columns, followed by one state commit. Unity source is materialized before Unity script compilation so Entities can generate its own jobs. The qualified stable lane is Unity 6000.0.83f1, Entities 1.4.3, and Burst 1.8.30; the preview lane is Unity 6000.7.0a5, Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0. EditMode and PlayMode pass 4/4 on both lanes. Stable Mono and IL2CPP players execute the generated Burst jobs, print the expected marker, contain Burst symbols, and exclude compiler, generator, and Roslyn assemblies. The 10,000-row stable fixture measures 18.006 ns/entity-step, 20 scheduled jobs/step, and 0 main-thread managed B after warmup. See the [Unity guide](docs/unity.md).
 
 ## Limits
 
@@ -221,7 +225,7 @@ Unity uses the same authored jobs and neutral ordered schedule with host-specifi
 | `src/Tl.Gen.CSharp` | C# frontend, generated query backend, and export tool |
 | `src/Tl.CSharp` | One-package C# installation |
 | `src/Tl.Gen.C` | Existing portable C11 backend |
-| `src/Tl.Unity` | Unity package under alpha.3 migration |
+| `src/Tl.Unity` | Qualified Unity ECS/Burst runtime package |
 | `samples/Mixed` | Heterogeneous A→B→A catalog/query sample |
 | `tests/Tl.Alpha` | Generated behavior, schema, scale, and allocation receipts |
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |

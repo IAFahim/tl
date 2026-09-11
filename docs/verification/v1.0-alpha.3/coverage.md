@@ -1,26 +1,25 @@
 # Alpha.3 coverage evidence
 
-`dotnet-coverage` 18.11.0 collected Release coverage on Linux with strict production-only settings. All 172 tests passed: 36 core, 16 compiler, 62 C# generator, and 58 C generator tests.
+Microsoft `dotnet-coverage` 18.11.0 collected Release coverage with the production-only filters in `eng/coverage.settings.xml` at commit `849b73b109fd58d2819d2be6070821ccba46d168`.
 
 ```sh
-dotnet-coverage collect "dotnet test tl.slnx -c Release --no-build --no-restore -p:NuGetAudit=false -m:1" -f cobertura -s eng/coverage.settings.xml
+dotnet-coverage collect "dotnet test tl.slnx -c Release --no-build --no-restore -p:NuGetAudit=false -m:1" -f cobertura -s eng/coverage.settings.xml -o /tmp/tl-alpha3-coverage.xml
 ```
 
+All 221 tests passed: 36 core, 16 compiler, 58 C backend, and 111 C# generator tests.
+
 | Assembly | Lines | Branches |
-|---|---:|---:|
-| `Tl.Core` | 77 / 77 (100%) | 46 / 46 (100%) |
-| `Tl.Compiler` | 330 / 330 (100%) | 238 / 238 (100%) |
-| `Tl.Gen.CSharp` | 1,095 / 1,150 (95.22%) | 861 / 982 (87.68%) |
-| `Tl.Gen.C` | 565 / 565 (100%) | 116 / 116 (100%) |
-| Total | 2,067 / 2,122 (97.41%) | 1,261 / 1,382 (91.24%) |
+| --- | ---: | ---: |
+| `Tl.Core` | 100% | 100% |
+| `Tl.Compiler` | 100% | 100% |
+| `Tl.Gen.C` | 100% | 100% |
+| `Tl.Gen.CSharp` | 100% | 100% |
+| Total | 2,740 / 2,740 (100%) | 1,628 / 1,628 (100%) |
 
-The retained Cobertura report has SHA-256 `65527594f84ec168614b0620965af9b764544cf93f3e7a4424eced4747b719ac`. The production-only settings have SHA-256 `ac6f6eaa04abe0f4929219523d0f2c0c204cef68e0ffc4f0ce87696fdaa63aa2`.
+Cobertura SHA-256: `23be4fff49a17d34c588cb6347271f94a9c553e9a2cc0095f61ca92d9f10af31`.
 
-The 100% gate is open. Uncovered sequence points and branches remain in:
+Settings SHA-256: `ac6f6eaa04abe0f4929219523d0f2c0c204cef68e0ffc4f0ce87696fdaa63aa2`.
 
-- `src/Tl.Gen.CSharp/Analysis/JobReader.cs`
-- `src/Tl.Gen.CSharp/CompileGenerationCache.cs`
-- `src/Tl.Gen.CSharp/JobEmitter.cs`
-- `src/Tl.Gen.CSharp/TimelineIncrementalGenerator.cs`
+The final receipts close Unity backend selection, no-catalog CLI failure, cross-asset operation-slot consistency, multi-region emission, and one-frame blend factors. Structurally impossible branches were removed only where earlier validated reader invariants make the alternate state unrepresentable. No production assembly, source path, line, branch, or file is excluded to raise the result.
 
-This is a measured release blocker. The candidate does not claim 100% coverage.
+Coverage is one release receipt. It does not prove semantic correctness, concurrency, allocation, determinism, package contents, NativeAOT, Unity/Burst compatibility, or performance; those gates retain independent oracles and artifacts.

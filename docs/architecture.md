@@ -42,12 +42,13 @@ flowchart TD
     Install -. embeds .-> CSharp
     C --> Compiler
     Unity --> Runtime
-    Unity --> Compiler
+    Unity --> Entities[Unity Entities]
+    CSharp -. materializes .-> Unity
 ```
 
-`Tl.Runtime` is the only C# application dependency. It contains declarations, borrowed frames, flags, state, and total movement. It has no Roslyn, compiler, registry, reflection, delegate dispatch, runtime authoring graph, or generated asset data.
+`Tl.Runtime` is the only .NET application dependency. It contains declarations, borrowed frames, flags, state, and total movement. `Tl.Unity` is the Unity application package and depends on `Tl.Runtime` source plus Entities. Neither application boundary contains Roslyn, the neutral compiler, a registry, reflection binding, delegate dispatch, a runtime authoring graph, or generated asset data.
 
-`Tl.Gen.CSharp` targets netstandard2.0 for Roslyn analyzer hosts and net10.0 for explicit export. The package places the compatible `Tl.Compiler.dll` beside the analyzer. The tool directory contains its own compiler and Roslyn assemblies. `Tl.CSharp` embeds those same build assets and depends only on `Tl.Runtime`; build assets never become application references.
+`Tl.Gen.CSharp` targets netstandard2.0 for Roslyn analyzer hosts and net10.0 for explicit export. The package places the compatible `Tl.Compiler.dll` beside the analyzer. The tool directory contains its own compiler and Roslyn assemblies. `Tl.CSharp` embeds those build assets and depends only on `Tl.Runtime`; build assets never become application references. Unity materialization runs in a separate .NET authoring process and writes physical C# for the Unity compiler, Entities generator, and Burst pipeline.
 
 `Tl.Gen.C` consumes `Tl.Compiler` as a normal package dependency. Its existing C ABI v2 remains separate from the alpha.3 C# catalog API. C catalog generation requires its own reviewed migration.
 
@@ -89,7 +90,7 @@ Static data and state are reported separately:
 - native text bytes
 - warm managed allocation
 
-Exact deduplication is semantic and bit-sensitive at the language binding. A hash match alone never establishes equality.
+The neutral plan deduplicates exact type identity plus canonical payload bytes. The C# binding currently deduplicates identical normalized type and expression bindings. A hash match alone never establishes equality.
 
 ## Execution
 

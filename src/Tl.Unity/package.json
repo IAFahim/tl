@@ -4,8 +4,8 @@
   "displayName": "Tl",
   "description": "Compiled heterogeneous timelines for Unity ECS and Burst.",
   "unity": "6000.0",
-  "documentationUrl": "https://github.com/IAFahim/tl/blob/main/src/Tl.Unity/README.md",
-  "changelogUrl": "https://github.com/IAFahim/tl/blob/main/src/Tl.Unity/CHANGELOG.md",
+  "documentationUrl": "https://github.com/IAFahim/tl/blob/v1.0.0-alpha.3/src/Tl.Unity/README.md",
+  "changelogUrl": "https://github.com/IAFahim/tl/blob/v1.0.0-alpha.3/src/Tl.Unity/CHANGELOG.md",
   "author": {
     "name": "IAFahim",
     "url": "https://github.com/IAFahim"
