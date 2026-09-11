@@ -2,7 +2,7 @@
 
 Approved by the owner on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns implementation and live acceptance status. This document freezes the next consumer API direction. It does not describe implemented alpha.3 functionality, qualify a new release, or freeze a binary ABI.
 
-The owner subsequently paused work to continue API discussion and move to another PC. This documentation-only handoff preserves the discussion on main; publishing it does not authorize implementation. Do not start prototypes or production implementation until the owner explicitly requests it. Read the latest issue comments before treating any checklist item as authorization to work.
+The owner subsequently paused work; implementation has since resumed on `feat/56-data-authored-api`. Gates 1 through 4 receipts — generated facade and column binding, the TLB1 native format with ownership and safe publication, oracle-traced select/query/execute/commit semantics including A-B-A, opposing orders, blends, crossed frames and reverse movement, and complete-row compatibility diagnostics — plus the gate-7 first-pass shape benchmarks have landed at commit `548c802022a9e12eb4ab65da4fad6d94d8876b4a`. Remaining work: the consumer-chain reverse order tail of gate 4, Unity parity (gate 5), designer import (gate 6), standalone job discovery, and removal of the superseded alpha.3 surface. The contract body below remains frozen as approved; read the latest issue comments before treating any checklist item as authorization to work.
 
 The [alpha.3 API](v1.0-alpha-api.md) remains the shipped contract. New APIs below require a generator and runtime implementation with executable receipts before being advertised as available.
 
