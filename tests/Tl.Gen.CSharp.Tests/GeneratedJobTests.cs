@@ -1,7 +1,6 @@
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Tl;
 using Xunit;
 
 namespace Tl.Gen.CSharp.Tests;

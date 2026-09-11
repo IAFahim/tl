@@ -108,7 +108,7 @@ public sealed class JobReaderTests
         var implicitCreation = Assert.IsType<ImplicitObjectCreationExpressionSyntax>(SyntaxFactory.ParseExpression("new()"));
         Assert.Same(implicitCreation, JobReader.QualifiedImplicit(null, implicitCreation));
         Assert.Equal("new int()", JobReader.QualifiedImplicit(integer, implicitCreation).ToFullString());
-        Assert.Same(expression, JobReader.Rewritten<ExpressionSyntax>(null, expression));
+        Assert.Same(expression, JobReader.Rewritten(null, expression));
         Assert.Same(expression, JobReader.Rewritten(SyntaxFactory.ParseStatement("value;"), expression));
         Assert.Equal("other", JobReader.Rewritten(SyntaxFactory.ParseExpression("other"), expression).ToString());
     }
@@ -148,7 +148,7 @@ public sealed class JobReaderTests
         var tree = compilation.SyntaxTrees.Single();
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
-        var expressions = root.DescendantNodes().OfType<ExpressionSyntax>();
+        var expressions = root.DescendantNodes().OfType<ExpressionSyntax>().ToArray();
         var typed = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(static item => item.Identifier.ValueText == "typed").Initializer!.Value;
         var targetless = root.DescendantNodes().OfType<AssignmentExpressionSyntax>().First(static item => item.Right.ToString() == "new()").Right;
 
@@ -492,12 +492,12 @@ public sealed class JobReaderTests
         Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN67");
         Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN68");
         Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN69");
-        Assert.All(result.Diagnostics, static item =>
+        foreach (var item in result.Diagnostics)
         {
             Assert.Equal("Jobs.cs", item.File);
             Assert.True(item.Line > 1);
             Assert.True(item.Column > 0);
-        });
+        }
     }
 
     [Fact]
@@ -536,12 +536,12 @@ public sealed class JobReaderTests
         Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN74");
         Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN75");
         Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN76");
-        Assert.All(result.Diagnostics, static item =>
+        foreach (var item in result.Diagnostics)
         {
             Assert.Equal("Jobs.cs", item.File);
             Assert.True(item.Line > 1);
             Assert.True(item.Column > 0);
-        });
+        }
         Assert.Empty(result.Catalogs);
     }
 
@@ -1455,7 +1455,7 @@ public sealed class JobReaderTests
         var compilation = CSharpCompilation.Create(
             "ExternalJobs",
             [CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "External.cs")],
-            References.Add(MetadataReference.CreateFromFile(typeof(global::Tl.ITimeline).Assembly.Location)),
+            References.Add(MetadataReference.CreateFromFile(typeof(ITimeline).Assembly.Location)),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);

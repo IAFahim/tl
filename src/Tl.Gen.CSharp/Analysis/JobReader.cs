@@ -389,21 +389,21 @@ public static class JobReader
 
     private sealed class Qualifier(SemanticModel model) : CSharpSyntaxRewriter
     {
-        public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
+        public override SyntaxNode VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
         {
             var rewritten = Rewritten(base.VisitObjectCreationExpression(node), node);
             return rewritten.WithType(QualifiedType(model.GetTypeInfo(node).Type, rewritten.Type));
         }
-        public override SyntaxNode? VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
+        public override SyntaxNode VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
             => QualifiedImplicit(
                 model.GetTypeInfo(node).Type,
                 Rewritten(base.VisitImplicitObjectCreationExpression(node), node));
-        public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
+        public override SyntaxNode VisitCastExpression(CastExpressionSyntax node)
         {
             var rewritten = Rewritten(base.VisitCastExpression(node), node);
             return rewritten.WithType(QualifiedType(model.GetTypeInfo(node.Type).Type, rewritten.Type));
         }
-        public override SyntaxNode? VisitDefaultExpression(DefaultExpressionSyntax node)
+        public override SyntaxNode VisitDefaultExpression(DefaultExpressionSyntax node)
         {
             var rewritten = Rewritten(base.VisitDefaultExpression(node), node);
             return rewritten.WithType(QualifiedType(model.GetTypeInfo(node.Type).Type, rewritten.Type));

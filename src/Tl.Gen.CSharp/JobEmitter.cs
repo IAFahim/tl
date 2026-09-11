@@ -457,14 +457,14 @@ internal static class JobEmitter
             {
                 var occurrence = bound.Plan.Occurrences[(int)region.OccurrenceOffset + stage];
                 var job = bound.OperationBindings[occurrence.OperationIndex];
-                if ((occurrence.Flags & (global::Tl.Compiler.OrderedOccurrenceFlags.BeforeHook | global::Tl.Compiler.OrderedOccurrenceFlags.AfterHook)) != 0)
+                if ((occurrence.Flags & (Compiler.OrderedOccurrenceFlags.BeforeHook | Compiler.OrderedOccurrenceFlags.AfterHook)) != 0)
                 {
                     occurrences.Add(new(job, null, -1, -1, -1, 0, 0, 0, 0));
                     continue;
                 }
                 var track = timeline.Tracks.Single(candidate => candidate.Index == occurrence.TrackIndex);
                 var firstIndex = checked((int)occurrence.FirstPayloadIndex - timeline.Tracks.Count);
-                var secondIndex = occurrence.SecondPayloadIndex == global::Tl.Compiler.ValidatedOrderedTimelinePlan.NoPayload
+                var secondIndex = occurrence.SecondPayloadIndex == Compiler.ValidatedOrderedTimelinePlan.NoPayload
                     ? -1
                     : checked((int)occurrence.SecondPayloadIndex - timeline.Tracks.Count);
                 var first = timeline.Clips[firstIndex];

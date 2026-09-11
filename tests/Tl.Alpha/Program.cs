@@ -135,13 +135,13 @@ static void RunSchemaReceipt()
     Require(receipts[0] == default && receipts[1] == default);
 
     var aliasState = new[] { new ReceiptCatalog.State(ReceiptCatalog.Asset.AliasingTimeline) };
-    var aliased = new uint[] { 5u };
+    uint[] aliased = [5u];
     var calls = new uint[1];
     RequireThrowsArgument(() => _ = new ReceiptCatalog.Query().AliasRows(aliasState, aliased, aliased, calls));
     Require(aliasState[0].Position == 0u && aliased[0] == 5u && calls[0] == 0u);
 
-    var source = new uint[] { 5u };
-    var target = new uint[] { 1u };
+    uint[] source = [5u];
+    uint[] target = [1u];
     var aliasQuery = new ReceiptCatalog.Query().AliasRows(aliasState, source, target, calls);
     aliasQuery.Tick(20u, 2);
     Require(aliasState[0].Position == 2u && target[0] == 13u && calls[0] == 2u);

@@ -60,7 +60,7 @@ public sealed class OrderedTimelinePlanTests
             new("missing-track", false, [Operation(A)], [Payload(1)], [], [new(0, new(1), 0, 1)], []),
             "Clip track index 0 does not exist.");
         AssertInvalid(
-            new("hook-phase", false, [Operation(A)], [], [], [], [new(A, (HookPhase)0)]),
+            new("hook-phase", false, [Operation(A)], [], [], [], [new(A, default)]),
             "Hook operation 'a' has invalid phase 0.");
     }
 
@@ -77,6 +77,9 @@ public sealed class OrderedTimelinePlanTests
             [new(Before, HookPhase.Before), new(Before, HookPhase.Before), new(After, HookPhase.After)]).Validate();
 
         Assert.Equal(5u, plan.Duration);
+        Assert.Equal(OrderedTimelinePlan.CurrentFormatVersion, plan.FormatVersion);
+        Assert.Equal([0, 1, 2], plan.Tracks.Select(static track => (int)track.Index));
+        Assert.Equal([0, 1, 2, 2], plan.Clips.Select(static clip => (int)clip.TrackIndex));
         Assert.Equal([(0u, 2u), (2u, 3u), (3u, 4u), (4u, 5u)], plan.Regions.Select(static region => (region.Start, region.End)));
         Assert.Equal(["before", "before", "after"], Describe(plan, plan.Regions[0], false));
         Assert.Equal(["before", "before", "a", "b", "a", "after"], Describe(plan, plan.Regions[2], false));

@@ -129,7 +129,7 @@ public sealed class CacheTests : IDisposable
         Assert.NotEqual(key, CompileGenerationCache.GetKey([source], ["B"], ["reference=first", "nullable=enable"]));
         Assert.NotEqual(key, CompileGenerationCache.GetKey([source], ["A"], ["reference=second", "nullable=enable"]));
         Assert.NotEqual(key, CompileGenerationCache.GetKey([source], ["A"], ["reference=first", "nullable=disable"]));
-        Assert.Equal(CompileGenerationCache.GetKey([], [], []), CompileGenerationCache.GetKey([], [], null!));
+        Assert.Equal(CompileGenerationCache.GetKey([], [], []), CompileGenerationCache.GetKey([], []));
         Assert.Equal("manifest missing", CompileGenerationCache.MissReason(_directory, key, null));
     }
 

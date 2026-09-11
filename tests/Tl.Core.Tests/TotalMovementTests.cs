@@ -36,7 +36,10 @@ public class TotalMovementTests
     public readonly struct Catalog : ITimelineCatalog
     {
         public static void Define(scoped CatalogBuilder builder)
-            => builder.Schema<Rows>().Asset<JobTimeline>();
+        {
+            var schema = builder.Schema<Rows>();
+            schema.Asset<JobTimeline>();
+        }
     }
 
     [Fact]
@@ -321,7 +324,6 @@ public class TotalMovementTests
         AssertState(pending, repeated);
         Assert.Equal(tick, repeatedTick);
 
-        committed = pending;
         committed = pending;
         Assert.Equal(1u, committed.Position);
     }
