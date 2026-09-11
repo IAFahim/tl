@@ -8,12 +8,7 @@ static class Keying
 {
 	const ulong Seed = 14695981039346656037, Prime = 1099511628211;
 
-	internal static ulong Of(string text)
-	{
-		var hash = Seed;
-		foreach (var c in text) hash = (hash ^ c) * Prime;
-		return hash;
-	}
+	internal static ulong Of(string text) { var hash = Seed; foreach (var c in text) hash = (hash ^ c) * Prime; return hash | 1; }
 }
 
 public static class TypeKey<T>
@@ -59,6 +54,8 @@ public readonly unsafe struct TimelineRef
 
 	NativeHeader* Header => (NativeHeader*)_p;
 	internal NativePair* Pairs => (NativePair*)(_p + Header->PairOffset);
+	internal nint Address => (nint)_p;
+	internal uint PairCount => _p == null ? 0 : Header->PairCount;
 
 	internal static byte* Load(ReadOnlySpan<byte> baked)
 	{
@@ -84,17 +81,33 @@ public readonly unsafe struct TimelineRef
 		return null;
 	}
 
-	internal void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, in TimelineQuery q)
+	internal bool Uses(ulong key)
+	{
+		var pairs = Pairs;
+		for (var i = 0; i < PairCount; i++) if (pairs[i].Key == key) return true;
+		return false;
+	}
+
+	internal void Resolve(Span<int> chains)
+	{
+		var pairs = Pairs;
+		for (var i = 0; i < PairCount; i++) chains[i] = PairTable.Head(pairs[i].Key);
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+	internal void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, Span<int> chains, in TimelineQuery q)
 	{
 		var stage = StageOf(tick);
 		if (stage == null) return;
 		var steps = (NativeStep*)(_p + stage->ProgramOffset);
-		var pairs = Pairs;
+		var consumers = PairTable.ConsumerAt;
 		var count = (int)stage->ProgramCount;
 		for (var i = 0; i < count; i++)
 		{
 			var index = reverse ? count - 1 - i : i;
-			PairTable.Dispatch(pairs[steps[index].Pair].Key, new TickFrame(_p + steps[index].Slot, gameTick, tick, cycle, flags), row, in q);
+			var step = steps[index];
+			var frame = new TickFrame(_p + step.Slot, gameTick, tick, cycle, flags);
+			for (var entry = chains[(int)step.Pair]; entry >= 0; entry = consumers[entry].Next) consumers[entry].Execute(in frame, in q, row);
 		}
 	}
 
@@ -138,20 +151,14 @@ public sealed unsafe class TimelineAsset : IDisposable
 
 	public TimelineRef Reference => new((void*)_p);
 
-	public void Dispose()
-	{
-		var p = Interlocked.Exchange(ref _p, 0);
-		if (p != 0) NativeMemory.AlignedFree((void*)p);
-	}
+	public void Dispose() { var p = Interlocked.Exchange(ref _p, 0); if (p != 0) NativeMemory.AlignedFree((void*)p); }
 }
 
-public struct TimelineComponent
+public struct TimelineComponent(TimelineRef reference)
 {
-	public TimelineRef Reference;
+	public TimelineRef Reference = reference;
 	public uint Position;
 	public long Cycle;
-
-	public TimelineComponent(TimelineRef reference) { Reference = reference; }
 }
 
 public readonly unsafe struct TickFrame
@@ -176,59 +183,67 @@ public readonly unsafe struct TickFrame
 
 static unsafe class PairTable
 {
-	struct Pair { public ulong Key; public int Head; }
-	struct Consumer { public int Next; public delegate*<in TickFrame, in TimelineQuery, int, void> Execute; public delegate*<in TimelineQuery, void> Bind; }
+	internal struct Consumer { public int Next, Pair; public delegate*<in TickFrame, in TimelineQuery, int, void> Execute; public delegate*<in TimelineQuery, void> Bind; }
+	struct Slot { public ulong Key; public int Head; }
 
-	static readonly Pair[] Pairs = new Pair[512];
-	static readonly Consumer[] Consumers = new Consumer[1024];
-	static volatile int _pairCount, _consumerCount;
+	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024;
+	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + 24 * ConsumerCapacity), 64);
+	static volatile int _pairs, _consumers, _gate;
+
+	static Slot* SlotAt => (Slot*)_block;
+	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
 
 	internal static void Install(ulong key, delegate*<in TickFrame, in TimelineQuery, int, void> e, delegate*<in TimelineQuery, void> b)
 	{
-		lock (Pairs)
+		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
+		try
 		{
-			var index = Search(key);
-			if (index < 0)
+			var slot = Probe(key);
+			var slots = SlotAt;
+			if (slots[slot].Key == 0)
 			{
-				if (_pairCount == 512) throw new InvalidOperationException("Pair capacity exhausted.");
-				index = ~index;
-				for (var i = _pairCount; i > index; i--) Pairs[i] = Pairs[i - 1];
-				Pairs[index] = new Pair { Key = key, Head = -1 };
-				_pairCount++;
+				if (_pairs == PairCapacity) throw new InvalidOperationException("Pair capacity exhausted.");
+				slots[slot].Head = -1;
+				Volatile.Write(ref slots[slot].Key, key);
+				_pairs++;
 			}
-			if (_consumerCount == 1024) throw new InvalidOperationException("Consumer capacity exhausted.");
-			Consumers[_consumerCount] = new Consumer { Next = Pairs[index].Head, Execute = e, Bind = b };
-			Pairs[index].Head = _consumerCount;
-			_consumerCount++;
+			if (_consumers == ConsumerCapacity) throw new InvalidOperationException("Consumer capacity exhausted.");
+			var consumers = ConsumerAt;
+			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Bind = b };
+			Volatile.Write(ref slots[slot].Head, _consumers);
+			_consumers++;
 		}
-	}
-
-	static int Search(ulong key)
-	{
-		var low = 0;
-		var high = _pairCount - 1;
-		while (low <= high)
+		finally
 		{
-			var middle = low + (high - low) / 2;
-			var candidate = Pairs[middle].Key;
-			if (candidate == key) return middle;
-			if (candidate < key) low = middle + 1;
-			else high = middle - 1;
+			_gate = 0;
 		}
-		return ~low;
 	}
 
-	internal static void Dispatch(ulong key, in TickFrame f, int row, in TimelineQuery q)
+	static int Probe(ulong key)
 	{
-		var index = Search(key);
-		if (index < 0) return;
-		for (var entry = Pairs[index].Head; entry >= 0; entry = Consumers[entry].Next) Consumers[entry].Execute(in f, in q, row);
+		var slots = SlotAt;
+		var slot = (int)key & (SlotCount - 1);
+		while (true)
+		{
+			var candidate = Volatile.Read(ref slots[slot].Key);
+			if (candidate == 0 || candidate == key) return slot;
+			slot = (slot + 1) & (SlotCount - 1);
+		}
 	}
 
-	internal static void Bind(in TimelineQuery columns)
+	internal static int Head(ulong key)
 	{
-		var count = _consumerCount;
-		for (var entry = 0; entry < count; entry++) Consumers[entry].Bind(in columns);
+		var slots = SlotAt;
+		var slot = Probe(key);
+		return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
+	}
+
+	internal static void Bind(TimelineRef asset, in TimelineQuery columns)
+	{
+		var slots = SlotAt;
+		var consumers = ConsumerAt;
+		for (var entry = 0; entry < _consumers; entry++)
+			if (asset.Uses(slots[consumers[entry].Pair].Key)) consumers[entry].Bind(in columns);
 	}
 }
 
@@ -252,6 +267,7 @@ public ref struct TimelineQuery
 
 	Span<TimelineComponent> _rows;
 	Column _a, _b, _c, _d;
+	bool _bound;
 	int _count;
 
 	internal TimelineQuery(Span<TimelineComponent> rows) { _rows = rows; }
@@ -287,10 +303,23 @@ public ref struct TimelineQuery
 
 	public unsafe Span<T> Span<T>(int index) where T : unmanaged => new(Unsafe.AsPointer(ref MemoryMarshal.GetReference(DataOf(index))), DataOf(index).Length / sizeof(T));
 
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 	public void Tick(uint gameTick, int delta = 1)
 	{
 		if (delta == 0 || _rows.IsEmpty) return;
-		PairTable.Bind(in this);
+		if (!_bound)
+		{
+			for (var row = 0; row < _rows.Length; row++)
+			{
+				var reference = _rows[row].Reference;
+				if (reference.Address != 0) PairTable.Bind(reference, in this);
+			}
+			_bound = true;
+		}
+		var pairs = 0;
+		for (var row = 0; row < _rows.Length; row++) pairs = Math.Max(pairs, (int)_rows[row].Reference.PairCount);
+		Span<int> chains = stackalloc int[pairs];
+		nint attached = 0;
 		var reverse = delta < 0;
 		long remaining = reverse ? -(long)delta : delta;
 		var moved = true;
@@ -304,7 +333,13 @@ public ref struct TimelineQuery
 				var reference = c.Reference;
 				if (!reference.Select(reverse, c.Position, c.Cycle, out _, out var tick, out var cycle, out var flags)) continue;
 				moved = true;
-				reference.Execute(reverse, tick, gameTick, cycle, flags, row, in this);
+				var address = reference.Address;
+				if (address != attached)
+				{
+					attached = address;
+					reference.Resolve(chains);
+				}
+				reference.Execute(reverse, tick, gameTick, cycle, flags, row, chains, in this);
 			}
 			if (!moved) break;
 			for (var row = 0; row < _rows.Length; row++)
@@ -342,11 +377,7 @@ public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBl
 		}
 	}
 
-	public FrameQuery<TTrack, TClip> GetEnumerator()
-	{
-		var copy = this;
-		return copy;
-	}
+	public FrameQuery<TTrack, TClip> GetEnumerator() { var copy = this; return copy; }
 
 	public bool MoveNext()
 	{

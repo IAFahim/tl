@@ -208,9 +208,6 @@ internal sealed class DataAuthoredCase : IDisposable
     private readonly TimelineAsset _asset;
     private readonly TimelineComponent[] _rows = new TimelineComponent[1];
     private readonly Accumulator[] _accumulators = new Accumulator[1];
-    private readonly FirstInput[] _first = [new(2)];
-    private readonly SecondInput[] _second = [new(3)];
-    private readonly ThirdInput[] _third = [new(-5)];
     private readonly TickPattern _pattern;
 
     internal DataAuthoredCase(TimelineShape shape, TickPattern pattern)
@@ -228,7 +225,7 @@ internal sealed class DataAuthoredCase : IDisposable
     {
         _rows[0] = new TimelineComponent(_asset.Reference);
         _accumulators[0] = default;
-        var query = Timeline.Rows(_rows).Read(_first).Read(_second).Read(_third).Write(_accumulators);
+        var query = Timeline.Rows(_rows).Write(_accumulators);
         if (_pattern == TickPattern.Forward)
             for (var index = 0; index < _deltas.Length; index++)
                 query.Tick((uint)index);

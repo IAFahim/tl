@@ -474,9 +474,14 @@ public unsafe class DataTests
     }
 
     [Fact]
-    public void TickBindsConsumerColumnsBeforeEffects()
+    public void TickBindsRelevantConsumerColumnsBeforeEffects()
     {
-        using var asset = TimelineAsset.Load(FiniteBake());
+        using var asset = TimelineAsset.Load(new Baker()
+            .Track<AlphaTrack, AlphaClip>(new AlphaTrack(3))
+            .Track<DeltaTrack, DeltaClip>(new DeltaTrack(1))
+            .Clip(0, 0, 1, new AlphaClip(5))
+            .Clip(1, 0, 1, new DeltaClip(4))
+            .Bake());
         var rows = new[] { new TimelineComponent(asset.Reference) };
 
         MarkerRequired = true;
@@ -487,8 +492,14 @@ public unsafe class DataTests
             Assert.Empty(Records);
             Assert.Equal(0u, rows[0].Position);
 
-            Timeline.Rows(rows).Read(new Resistance[1]).Read(new Marker[1]).Tick(9u, 1);
+            using var foreign = TimelineAsset.Load(FiniteBake());
+            var foreignRows = new[] { new TimelineComponent(foreign.Reference) };
+            Timeline.Rows(foreignRows).Read(new Resistance[1]).Tick(9u, 1);
             Assert.Single(Records);
+            Assert.Equal(1u, foreignRows[0].Position);
+
+            Timeline.Rows(rows).Read(new Resistance[1]).Read(new Marker[1]).Tick(9u, 1);
+            Assert.Equal(2, Records.Count);
             Assert.Equal(1u, rows[0].Position);
         }
         finally
