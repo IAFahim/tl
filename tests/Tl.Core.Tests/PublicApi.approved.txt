@@ -18,6 +18,10 @@ type Tl.FrameFlags
   Field Tl.FrameFlags TimelineEnd
   Field Tl.FrameFlags TimelineStart
   Field Byte value__
+type Tl.FrameQuery`2
+  Property Tl.Frame`2[TTrack,TClip] Current
+  Method Tl.FrameQuery`2[TTrack,TClip] GetEnumerator()
+  Method Boolean MoveNext()
 type Tl.Frame`2
   Property TClip& Clip
   Property Int64 Cycle
@@ -37,8 +41,29 @@ type Tl.ITimeline
 type Tl.ITimelineCatalog
   Method Void Define(Tl.CatalogBuilder)
 type Tl.ITimelineJob`2
+type Tl.PairRuntime`2
+  Method Void Consume(System.Void(Tl.TickFrame&, Tl.TimelineQuery&, System.Int32), System.Void(Tl.TimelineQuery&))
+  Field UInt64 Key
 type Tl.SchemaBuilder`1
   Method Tl.SchemaBuilder`1[TSchema] Asset[TTimeline]()
+type Tl.TickFrame
+  Field Int64 Cycle
+  Field Tl.FrameFlags Flags
+  Field UInt32 GameTick
+  Field Void* Slot
+  Field UInt32 TimelineTick
+  Method Tl.Frame`2[TTrack,TClip] ToFrame[TTrack,TClip](TClip ByRef)
+type Tl.Timeline
+  Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
+  Method Tl.TimelineQuery Rows(Tl.TimelineComponent[])
+type Tl.TimelineAsset
+  Method Void Dispose()
+  Method Tl.TimelineAsset Load(System.ReadOnlySpan`1[System.Byte])
+  Property Tl.TimelineRef Reference
+type Tl.TimelineComponent
+  Field Int64 Cycle
+  Field UInt32 Position
+  Field Tl.TimelineRef Reference
 type Tl.TimelineFrame
   Property Int64 Cycle
   Property Int32 Direction
@@ -48,6 +73,13 @@ type Tl.TimelineFrame
   Property UInt32 TimelineTick
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt32, Boolean, Boolean, Tl.TimelineState ByRef, UInt32 ByRef, Int64 ByRef, Tl.FrameFlags ByRef)
+type Tl.TimelineQuery
+  Method Int32 Find(UInt64)
+  Method Tl.TimelineQuery Read[T](System.ReadOnlySpan`1[T])
+  Method System.Span`1[T] Span[T](Int32)
+  Method Void Tick(UInt32, Int32)
+  Method Tl.TimelineQuery Write[T](System.Span`1[T])
+type Tl.TimelineRef
 type Tl.TimelineState
   Field UInt32 Asset
   Field Int64 Cycle
@@ -55,3 +87,5 @@ type Tl.TimelineState
 type Tl.TrackRef`1
   Method Tl.TrackRef`2[TTrack,TJob] Use[TJob]()
 type Tl.TrackRef`2
+type Tl.TypeKey`1
+  Field UInt64 Value
