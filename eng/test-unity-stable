@@ -1,23 +1,49 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+tests_gate=true
 player_gate=false
-if [[ "${1:-}" == "--player" ]]; then
-    player_gate=true
-    shift
-fi
-[[ "$#" -le 1 ]] || { printf '%s\n' "usage: eng/test-unity-stable [--player] [empty-output-directory]" >&2; exit 2; }
+player_backend=all
+output=""
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --player)
+            player_gate=true
+            shift
+            ;;
+        --player-only)
+            tests_gate=false
+            player_gate=true
+            shift
+            ;;
+        --player-backend)
+            [[ "$#" -ge 2 ]] || { printf '%s\n' "missing --player-backend value" >&2; exit 2; }
+            player_backend="$2"
+            shift 2
+            ;;
+        --*)
+            printf '%s\n' "usage: eng/test-unity-stable [--player|--player-only] [--player-backend mono|il2cpp|all] [empty-output-directory]" >&2
+            exit 2
+            ;;
+        *)
+            [[ -z "$output" ]] || { printf '%s\n' "usage: eng/test-unity-stable [--player|--player-only] [--player-backend mono|il2cpp|all] [empty-output-directory]" >&2; exit 2; }
+            output="$1"
+            shift
+            ;;
+    esac
+done
+[[ "$player_backend" == "mono" || "$player_backend" == "il2cpp" || "$player_backend" == "all" ]] || { printf '%s\n' "invalid player backend: $player_backend" >&2; exit 2; }
 
 root="$(git rev-parse --show-toplevel)"
 project="$root/tests/Tl.Unity.Project"
 temporary=false
-if [[ "$#" -eq 0 ]]; then
+if [[ -z "$output" ]]; then
     receipt="$(mktemp -d /tmp/tl-unity-stable-receipt.XXXXXX)"
     temporary=true
 else
-    [[ ! -e "$1" ]] || { printf '%s\n' "output already exists: $1" >&2; exit 2; }
-    mkdir -p "$1"
-    receipt="$(cd "$1" && pwd)"
+    [[ ! -e "$output" ]] || { printf '%s\n' "output already exists: $output" >&2; exit 2; }
+    mkdir -p "$output"
+    receipt="$(cd "$output" && pwd)"
 fi
 stage="$(mktemp -d /tmp/tl-unity-stable-project.XXXXXX)"
 cache="${TL_UNITY_STABLE_CACHE:-/tmp/tl-unity-stable-cache}"
@@ -93,20 +119,22 @@ run_test() {
     fi
 }
 
-run_test EditMode "$receipt/editmode.xml"
-run_test PlayMode "$receipt/playmode.xml"
+if "$tests_gate"; then
+    run_test EditMode "$receipt/editmode.xml"
+    run_test PlayMode "$receipt/playmode.xml"
+fi
 if "$player_gate"; then
     "$root/eng/test-unity-player" \
         --project "$stable" \
         --editor-version 6000.0.83f1 \
-        --backend all \
+        --backend "$player_backend" \
         "$receipt/player"
 fi
-python3 - "$stable/Packages/packages-lock.json" "$receipt/packages.txt" "$receipt/editmode.xml" "$receipt/playmode.xml" <<'PY'
+python3 - "$stable/Packages/packages-lock.json" "$receipt/packages.txt" "$receipt/editmode.xml" "$receipt/playmode.xml" "$tests_gate" <<'PY'
 import json
 import sys
 import xml.etree.ElementTree as ET
-lock, output, edit, play = sys.argv[1:]
+lock, output, edit, play, tests_gate = sys.argv[1:]
 with open(lock, encoding="utf-8") as stream:
     packages = json.load(stream)["dependencies"]
 lines = [
@@ -119,9 +147,10 @@ lines = [
     "system-io-hashing\t8.0.0\tb33386b744cd068e9d11d0b781fe87f9ef585b7370d30a1ae949c218618ae5c1",
     "unsafe\t6.0.0\t6c41b53e70e9eee298cff3a02ce5acdd15b04125589be0273f0566026720a762",
 ]
-for name, path in (("editmode", edit), ("playmode", play)):
-    result = ET.parse(path).getroot().attrib
-    lines.append("\t".join((name, result["result"], result["passed"], result["total"])))
+if tests_gate == "true":
+    for name, path in (("editmode", edit), ("playmode", play)):
+        result = ET.parse(path).getroot().attrib
+        lines.append("\t".join((name, result["result"], result["passed"], result["total"])))
 with open(output, "w", encoding="utf-8", newline="\n") as stream:
     stream.write("\n".join(lines) + "\n")
 print("; ".join(lines))
