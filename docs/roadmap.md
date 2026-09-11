@@ -2,7 +2,7 @@
 
 ## Start on any machine
 
-GitHub is the live source of truth. Read [Project 6](https://github.com/users/IAFahim/projects/6/views/4), [design issue #27](https://github.com/IAFahim/tl/issues/27), [release issue #35](https://github.com/IAFahim/tl/issues/35), linked workstream issues and pull requests, and the remote atomic claim before editing.
+GitHub is the live source of truth. Read [Project 6](https://github.com/users/IAFahim/projects/6/views/4), [approved next API issue #56](https://github.com/IAFahim/tl/issues/56), linked workstream issues and pull requests, and the remote atomic claim before editing. [Design issue #27](https://github.com/IAFahim/tl/issues/27) and [release issue #35](https://github.com/IAFahim/tl/issues/35) preserve the released alpha.3 baseline.
 
 ```sh
 git clone https://github.com/IAFahim/tl.git
@@ -10,7 +10,7 @@ cd tl
 git fetch origin '+refs/heads/*:refs/remotes/origin/*'
 cat AGENTS.md
 cat plan.md
-gh issue view 35 --comments
+gh issue view 56 --comments
 gh pr list --state open
 gh project item-list 6 --owner IAFahim --limit 1000
 git ls-remote --heads origin 'refs/heads/workstream-claims/*' 'refs/heads/issue-transactions/*'
@@ -38,6 +38,10 @@ Production workstreams [#31](https://github.com/IAFahim/tl/issues/31), [#32](htt
 The measured `<3 ns` result is deliberately narrow. Full generated `Catalog.Query.Tick` reaches 1.804 ns for one track, 1.997 ns for a gap, 2.555 ns for a blend, and 2.256 ns for three input columns on the reference machine. A-B-A is 3.754 ns, 16 tracks is 21.230 ns, mixed routing is 34.650 ns/entity-tick, and the 256-track staged fallback is 34,250.868 ns. [Issue #10](https://github.com/IAFahim/tl/issues/10) remains open for the 256-track code-size and scheduler cliff. No universal 3 ns claim is valid.
 
 ## Next work
+
+The owner approved [data-authored timelines and typed frame queries](data-authored-api.md) on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns the live implementation checklist. Freeze the intended consumer surface before production edits: data-only assets without mandatory names or job bindings, build-known type pairs, borrowed .NET rows, nested Unity queries, direct and job runners, and a coordinator that preserves ordered stages and explicit job dependencies. Resolve the documented implementation gates with executable evidence; this proposal is not part of the alpha.3 package.
+
+The owner has paused implementation and will continue discussion from the office PC. Fetch `origin/docs/56-data-authored-api` and read issue #56 before doing anything with the proposal. No prototype, production change, merge or release is authorized by this handoff alone.
 
 - Reduce large-stage generated code and route overhead without changing ordered effects.
 - Add ARM64 performance and code-generation evidence.

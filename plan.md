@@ -4,6 +4,14 @@ Design record: [issue #27](https://github.com/IAFahim/tl/issues/27). Release gat
 
 This file is the enduring architecture, evidence, and release-gate plan. GitHub issues and Project fields own mutable status. The production implementation contains the alpha.3 catalog/query architecture; earlier prototypes and preimplementation decisions remain in Git history and `docs/alpha3`.
 
+## Approved next API
+
+The owner approved [data-authored timelines and typed frame queries](docs/data-authored-api.md) on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns its implementation checklist and recoverable workstreams. Assets contain track and clip `data`, timing and order, without mandatory names or per-asset job bindings. Known type pairs drive `Timeline.Query` inside ECS loops or jobs, while a coordinator preserves signed selection, ordered consumers and delayed commit. The .NET entry is `Timeline.Rows(...).Read(...).Write(...).Tick(...)` over borrowed columns.
+
+That document is the approved direction for the next breaking implementation. The remainder of this file describes the released alpha.3 architecture and its evidence. Do not advertise the proposed API as available or transfer alpha.3 performance receipts to it. A separate qualified version is required; the published alpha.3 tag stays fixed.
+
+Implementation is paused by the owner while discussion continues. This checkpoint records the proposal for the office PC; the next action is discussion, not prototype or production work. Issue #56 contains the latest authorization and handoff.
+
 ## Product contract
 
 A timeline is immutable authored data that selects an ordered set of typed operations. Selection reads no gameplay component and performs no gameplay effect. Generated jobs execute that selection over compatible rows of borrowed storage. A catalog closes asset membership and derives schema-specific component columns from operation signatures.
