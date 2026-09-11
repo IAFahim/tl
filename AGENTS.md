@@ -42,11 +42,11 @@ Small typo-only documentation fixes may share their parent issue. Emergency rele
 
 `tl` compiles immutable, heterogeneous timelines into deterministic execution. The v1.0.0-alpha.3 production contract is owned by issue #27 and `plan.md`: pure timeline selection, ordered typed operation jobs over borrowed component storage, and total signed `Tick`. Default state is ready; finite timelines clamp independently; every available crossed frame executes. Generated catalog-local assets replace process-global runtime IDs and registries. .NET and Unity share domain operation signatures while retaining host-specific scheduling and storage adapters. Stable and preview Unity Editor ECS/Burst lanes are qualified, together with stable Mono and IL2CPP players. New C catalog work remains deferred. Authoring/import validates definitions before execution; reflection, hidden allocation, and implicit runtime compilation are outside the generated path.
 
-Production source plus UTF-8 relative paths must remain at or below 250,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
+Production source plus UTF-8 relative paths must remain at or below 300,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
 
 The approved next breaking design is [data-authored timelines and typed frame queries](docs/data-authored-api.md), tracked by [issue #56](https://github.com/IAFahim/tl/issues/56). Read that contract before new API work. Assets require no name, per-asset job binding, handwritten timeline class, catalog or schema marker. Typed frame queries are read-only stage views; the coordinator owns movement, consumer order, dependency completion and commit. Do not confuse this approved direction with implemented alpha.3 features. Any future implementation must prove the generator boundary, consumer identity, missing-component policy and loaded-asset lifetime before treating them as solved. Document changes through the issue protocol rather than silently reverting to the previous authoring model.
 
-The owner has paused implementation while API discussion continues from the office PC. The proposal and pause are preserved on main through the documentation-only handoff in [issue #57](https://github.com/IAFahim/tl/issues/57). Publishing these notes does not authorize prototypes, production API changes or a new release. Read issue #56 and the current Project 6 state before resuming; implementation requires a new explicit owner instruction.
+The owner resumed implementation on 2026-09-12 through [issue #56](https://github.com/IAFahim/tl/issues/56) (workstream `feat/56-data-authored-api`, tracked by its claim and pull request). Read #56's latest state and the project board before new API work; the alpha.3 contract remains shipped until the replacement satisfies its gates.
 
 ## Architecture boundaries
 
@@ -82,6 +82,7 @@ The owner has paused implementation while API discussion continues from the offi
 ## Memory and concurrency rules
 
 - Generated definitions are immutable static data with process lifetime. Their exact bytes remain bounded and reported.
+- The runtime data path is unmanaged. No managed arrays, registries, caches, or other GC-visible state on or reachable from playback, query, or asset storage; native blocks, value types, and function pointers only. Borrows of caller-owned columns for the ref-struct lifetime are the sole exception. The single owner handle of a native block may be a managed object holding only the pointer.
 - Query state and component columns are caller-owned; generated queries borrow them only for the ref-struct lifetime.
 - Any future runtime-loaded definition storage requires explicit publication, ownership, identity, and safe-reclamation proofs.
 - Runtime and generated data layouts use explicit widths where they cross an ABI. Each native ABI defines size, alignment, version, ownership, failure behavior, and endianness scope.

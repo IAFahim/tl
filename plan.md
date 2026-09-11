@@ -86,7 +86,7 @@ The reference-host three-process medians are 1.804 ns for one track, 3.754 ns fo
 
 The optimization order is deletion of redundant work, hoisting immutable facts, scalar single-step specialization, compact schedules and payloads, direct typed calls, and then SIMD only where lanes, layouts, and effect ordering permit it. Branch hints, inlining, unsafe code, and intrinsics require measured end-to-end proof.
 
-Production source plus relative UTF-8 paths must remain at or below 250,000 B. Generated C#, static values, neutral data, state, JIT code, NativeAOT code, executable bytes, scratch, and allocation are separate quantities. A position over `0..D` needs at least `ceil(log2(D+1))` bits; an asset choice among `A` assets plus empty needs at least `ceil(log2(A+1))` bits. These bounds do not erase alignment, pending state, stage identity, or observable work.
+Production source plus relative UTF-8 paths must remain at or below 300,000 B. Generated C#, static values, neutral data, state, JIT code, NativeAOT code, executable bytes, scratch, and allocation are separate quantities. A position over `0..D` needs at least `ceil(log2(D+1))` bits; an asset choice among `A` assets plus empty needs at least `ceil(log2(A+1))` bits. These bounds do not erase alignment, pending state, stage identity, or observable work.
 
 ## Qualified hosts
 

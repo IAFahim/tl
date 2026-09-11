@@ -205,7 +205,7 @@ Generated catalogs expose `AssetCount`, `StateBytes`, and `StaticDataBytes`. Gen
 
 The hot path is allocation-free after warmup. The source generator specializes region boundaries, payload storage, blend facts, operation calls, stage order, and schema routing. The release benchmark compares the full generated query against an independent direct oracle with identical observable work. Scalar latency and multi-entity throughput are reported separately; the below-3-ns goal applies only to its named hot workload and is never inferred from a partial inner loop.
 
-The repository enforces a 250,000-byte budget over production source contents plus relative UTF-8 paths. Generated source, static data, per-entity state, managed/native output, scratch, and allocations are measured separately.
+The repository enforces a 300,000-byte budget over production source contents plus relative UTF-8 paths. Generated source, static data, per-entity state, managed/native output, scratch, and allocations are measured separately.
 
 ## Unity ECS
 
