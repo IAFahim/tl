@@ -4,6 +4,8 @@
 
 **Status: v1.0.0-alpha.3 prerelease.** The C# API is a breaking prerelease for .NET 10 and C# 14. Unity ECS is qualified on the stable and preview lanes listed below.
 
+The approved next API uses [designer-authored data assets and typed frame queries](docs/data-authored-api.md). It is not implemented in alpha.3; the working examples below describe the released API. [Issue #56](https://github.com/IAFahim/tl/issues/56) tracks the transition.
+
 - Heterogeneous tracks and clips in one timeline
 - Each authored track binds one typed operation to its `(track, clip)` pair
 - Any finite set of unmanaged `in` and `ref` component slots
