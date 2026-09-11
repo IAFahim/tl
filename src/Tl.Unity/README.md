@@ -6,7 +6,7 @@
 https://github.com/IAFahim/tl.git?path=/src/Tl.Unity
 ```
 
-The package declares Unity 6000.0 and Entities 1.4.3. The current generated-jobs receipt uses Unity 6000.7.0a5, Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0. That preview receipt does not qualify the declared stable package range.
+The package declares Unity 6000.0 and Entities 1.4.3. The stable generated-jobs receipt uses Unity 6000.0.83f1, Entities 1.4.3, and Burst 1.8.30; `eng/test-unity-stable` recreates its isolated project and exact package inputs. A separate preview receipt uses Unity 6000.7.0a5, Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0.
 
 Author timelines and catalogs with the shared declarations:
 
@@ -32,5 +32,7 @@ Run the Tl C# materializer with `--backend unity-entities` before Unity imports 
 `TimelineState` stores stable asset identity, local position, and signed loop cycle. Selection is total for zero, forward, and reverse movement. Finite timelines clamp independently and looping timelines carry cycle and boundary flags. `Frame<TTrack,TClip>` and `TimelineFrame` are call-scoped borrowed values; generated jobs never retain them in scheduled fields.
 
 The runtime/player package contains no Tl compiler, generator, Roslyn assembly, reflection binding, managed registry, or runtime compilation. Authoring and materialization tooling stay outside player assemblies. Generated files are deterministic physical inputs to Unity's Entities source generator and Burst pipeline.
+
+Entities 1.4.3 imports `System.IO.Hashing` from one editor-only source file but omits the assembly dependency. The stable gate injects hash-pinned `System.IO.Hashing` and `System.Runtime.CompilerServices.Unsafe` assemblies into its isolated test project's editor plug-ins. This works around the upstream editor-package defect without adding either assembly to `Tl.Unity` or the player graph; a plain Entities 1.4.3 install on this editor is not turnkey.
 
 The canonical generated ECS sample and its executable receipts live in `tests/Tl.Unity.Project`; sample and test source is not shipped in this package.
