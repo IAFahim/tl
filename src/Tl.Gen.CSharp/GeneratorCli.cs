@@ -19,6 +19,7 @@ public static class GeneratorCli
             return Error("TLGEN00: --compile is required.");
 
         string? output = null;
+        var backend = "csharp";
         var paths = new List<string>();
         var references = new List<CompilationReference>();
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -27,6 +28,8 @@ public static class GeneratorCli
         {
             if (args[index] == "--output" && index + 1 < args.Length)
                 output = args[++index];
+            else if (args[index] == "--backend" && index + 1 < args.Length)
+                backend = args[++index];
             else if (args[index] == "--source" && index + 1 < args.Length)
                 paths.Add(args[++index]);
             else if (args[index] == "--source-list" && index + 1 < args.Length)
@@ -43,10 +46,12 @@ public static class GeneratorCli
 
         if (string.IsNullOrWhiteSpace(output))
             return Error("TLGEN00: --output is required.");
+        if (backend is not ("csharp" or "unity-entities"))
+            return Error($"TLGEN00: unsupported backend '{backend}'.");
 
         var sources = paths.Select(Path.GetFullPath).Distinct(StringComparer.Ordinal).OrderBy(static path => path, StringComparer.Ordinal)
             .Select(static path => new CompileSource(path, File.ReadAllText(path))).ToArray();
-        var semanticInputs = references.Select(ReferenceIdentity)
+        var semanticInputs = new[] { "backend=" + backend }.Concat(references.Select(ReferenceIdentity))
             .Concat(options.OrderBy(static pair => pair.Key, StringComparer.Ordinal).Select(static pair => pair.Key + "=" + pair.Value)).ToArray();
         var key = CompileGenerationCache.GetKey(sources, symbols.ToArray(), semanticInputs);
         var previous = CompileGenerationCache.Load(output);
@@ -74,8 +79,17 @@ public static class GeneratorCli
         if (model.Diagnostics.Count != 0)
             return 2;
 
-        var artifacts = JobEmitter.Emit(model).Select(static artifact => artifact with { Content = JobEmitter.Normalize(artifact.Content) }).ToArray();
-        var report = Report(model, artifacts);
+        CompileArtifact[] artifacts;
+        try
+        {
+            artifacts = (backend == "unity-entities" ? UnityJobEmitter.Emit(model) : JobEmitter.Emit(model))
+                .Select(static artifact => artifact with { Content = JobEmitter.Normalize(artifact.Content) }).ToArray();
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Error($"TLUNITY01: {exception.Message}", 2);
+        }
+        var report = Report(model, artifacts, backend);
         CompileGenerationCache.Synchronize(output, key, artifacts, report, previous);
         var bytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
         Console.WriteLine($"TlGenCompile: {model.Timelines.Count} timeline(s), {model.Catalogs.Count} catalog(s), {artifacts.Length} source file(s), {bytes:N0} UTF-8 B; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
@@ -124,12 +138,12 @@ public static class GeneratorCli
             _ => throw new ArgumentException($"Invalid nullable mode '{value}'."),
         };
 
-    private static string Report(JobReadResult model, IReadOnlyList<CompileArtifact> artifacts)
+    private static string Report(JobReadResult model, IReadOnlyList<CompileArtifact> artifacts, string backend)
     {
         var writer = new System.Text.StringBuilder();
         var sourceBytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
         writer.AppendLine("format\t2");
-        writer.AppendLine("backend\tcsharp");
+        writer.Append("backend\t").AppendLine(backend);
         writer.AppendLine($"timelines\t{model.Timelines.Count}");
         writer.AppendLine($"catalogs\t{model.Catalogs.Count}");
         writer.AppendLine($"generated-source-files\t{artifacts.Count}");
@@ -158,8 +172,25 @@ public static class GeneratorCli
             var qualified = Qualified(catalog);
             writer.Append("catalog\t").Append(qualified)
                 .Append("\tschemas=").Append(catalog.Schemas.Count)
-                .Append("\tassets=").Append(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture))
-                .Append("\tstate-bytes=").Append(qualified).AppendLine(".StateBytes");
+                .Append("\tassets=").Append(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (backend == "unity-entities")
+            {
+                var timelines = model.Timelines.ToDictionary(Qualified, StringComparer.Ordinal);
+                var catalogAssets = catalog.Schemas.SelectMany(static schema => schema.Assets)
+                    .Distinct(StringComparer.Ordinal)
+                    .Select(asset => timelines[asset.StartsWith("global::", StringComparison.Ordinal) ? asset.Substring("global::".Length) : asset])
+                    .ToArray();
+                var operationKinds = catalogAssets.SelectMany(asset => JobTimelinePlanAdapter.Create(asset).OperationBindings)
+                    .Select(static operation => operation.TypeName).Distinct(StringComparer.Ordinal).Count();
+                var maxStages = catalogAssets.Select(asset => JobTimelinePlanAdapter.Create(asset).Plan.Regions
+                        .Select(static region => (int)region.OccurrenceCount).DefaultIfEmpty().Max())
+                    .DefaultIfEmpty().Max();
+                var scheduledJobs = 2 + catalog.Schemas.Count + maxStages * operationKinds;
+                writer.Append("\toperation-kinds=").Append(operationKinds.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                     .Append("\tmax-stages=").Append(maxStages.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                     .Append("\tscheduled-jobs-per-step=").Append(scheduledJobs.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            writer.Append("\tstate-bytes=").Append(qualified).AppendLine(".StateBytes");
         }
         foreach (var artifact in artifacts.OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal))
             writer.Append("artifact\t").Append(artifact.RelativePath).Append("\tutf8-bytes=")

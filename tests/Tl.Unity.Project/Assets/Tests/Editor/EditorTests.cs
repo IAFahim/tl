@@ -11,28 +11,32 @@ namespace Tl.Unity.Tests
         [Test]
         public void PlayerGraphContainsRuntimeWithoutCompilerOrRoslyn()
         {
-            var runtime = false;
-            var entities = false;
+            Assembly runtime = null;
             foreach (var assembly in CompilationPipeline.GetAssemblies(AssembliesType.PlayerWithoutTestAssemblies))
             {
-                runtime |= assembly.name == "Tl.Unity";
-                entities |= assembly.name == "Tl.Unity.Entities";
+                if (assembly.name == "Tl.Unity")
+                    runtime = assembly;
                 Assert.IsFalse(Forbidden(assembly.outputPath), assembly.outputPath);
                 foreach (var reference in assembly.compiledAssemblyReferences)
                     Assert.IsFalse(Forbidden(reference), reference);
             }
-            Assert.IsTrue(runtime);
-            Assert.IsTrue(entities);
+            Assert.IsNotNull(runtime);
+            Assert.IsTrue(runtime.sourceFiles.Any(path => path.Replace('\\', '/').EndsWith("/Runtime/Jobs.cs")));
+            Assert.IsFalse(runtime.sourceFiles.Any(path => path.Replace('\\', '/').EndsWith("/Runtime/Playback.cs")));
+            Assert.IsFalse(runtime.sourceFiles.Any(path => path.Replace('\\', '/').EndsWith("/Runtime/Timeline.cs")));
         }
 
         [Test]
-        public void ExternalBurstCombatIsCanonicalAndCompilesForPlayer()
+        public void MaterializedJobsAreCanonicalAndCompileForPlayer()
         {
             var package = PackageInfo.FindForAssetPath("Packages/com.iafahim.tl/package.json");
             Assert.IsNotNull(package);
+            Assert.AreEqual("1.0.0-alpha.3", package.version);
             Assert.IsFalse(Directory.Exists(Path.Combine(package.resolvedPath, "Samples~")));
             Assert.IsTrue(CompilationPipeline.GetAssemblies(AssembliesType.PlayerWithoutTestAssemblies)
-                .Any(assembly => assembly.name == "Tl.Unity.BurstCombat"));
+                .Any(assembly => assembly.name == "Tl.Unity.GeneratedJobs"));
+            var report = File.ReadAllText("Assets/Samples/GeneratedJobs/Generated/TlGenCompile.report.txt");
+            StringAssert.Contains("catalog\tTl.Samples.GeneratedJobs.Combat\tschemas=3\tassets=4\toperation-kinds=3\tmax-stages=5\tscheduled-jobs-per-step=20", report);
         }
 
         [Test]
@@ -42,7 +46,6 @@ namespace Tl.Unity.Tests
             var files = new[]
             {
                 "Player/csc.rsp",
-                "Samples/BurstCombat/csc.rsp",
                 "Tests/Runtime/csc.rsp"
             };
             foreach (var file in files)

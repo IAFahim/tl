@@ -81,7 +81,7 @@ with lock_path.open("a+") as lock:
             print("TL_CLAIM_END")
     elif command == "project item-add":
         state["project_present"] = True
-        print("ITEM")
+        print("PULL" if "/pull/" in value("--url") else "ITEM")
     elif command == "project view":
         print("PROJECT")
     elif command == "project field-list":
@@ -97,7 +97,7 @@ with lock_path.open("a+") as lock:
         print("STATUS\tDone\tstatus-done")
     elif command == "project item-edit":
         field = value("--field-id")
-        project = state["project"]
+        project = state["pull_project"] if value("--id") == "PULL" else state["project"]
         if "--text" in args:
             text = value("--text")
             names = {
@@ -119,16 +119,18 @@ with lock_path.open("a+") as lock:
             project["status"] = statuses[option]
     elif command == "pr list":
         requested = value("--state")
-        if state.get("pr") and state["pr"]["state"].lower() == requested:
+        base = value("--base") if "--base" in args else None
+        if state.get("pr") and state["pr"]["state"].lower() == requested and (base is None or state["pr"]["base"] == base):
             if requested == "open":
                 print("https://example.invalid/pull/12")
             else:
                 print("12")
     elif command == "pr create":
         branch = value("--head")
+        base = value("--base")
         head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
         body = Path(value("--body-file")).read_text()
-        state["pr"] = {"state": "OPEN", "branch": branch, "head": head, "merge": "", "body": body}
+        state["pr"] = {"state": "OPEN", "branch": branch, "base": base, "head": head, "merge": "", "body": body}
         state["linked_pr"] = 12
         print("https://example.invalid/pull/12")
     elif command == "pr view":
@@ -138,8 +140,10 @@ with lock_path.open("a+") as lock:
             ".state": pull["state"],
             ".headRefName": pull["branch"],
             ".headRefOid": pull["head"],
+            ".baseRefName": pull["base"],
             ".mergeCommit.oid // \"\"": pull["merge"],
             ".body": pull["body"],
+            ".url": "https://example.invalid/pull/12",
         }
         print(outputs[query])
     else:
@@ -299,6 +303,13 @@ class AgentWorkTests(unittest.TestCase):
                 "branch": "",
                 "checkpoint": "",
             },
+            "pull_project": {
+                "status": "Backlog",
+                "agent": "",
+                "machine": "",
+                "branch": "",
+                "checkpoint": "",
+            },
         }
         if self.state.exists():
             state = json.loads(self.state.read_text())
@@ -345,6 +356,10 @@ class AgentWorkTests(unittest.TestCase):
     def claim(self, kind="feat", slug="atomic"):
         result = self.run_raw(["git", "ls-remote", "--heads", str(self.remote), f"refs/heads/workstream-claims/41/{kind}/{slug}"])
         return result.stdout.split()[0] if result.stdout else ""
+
+    def claim_message(self, kind="feat", slug="atomic"):
+        claim = self.claim(kind, slug)
+        return self.run_raw(["git", "--git-dir", str(self.remote), "show", "-s", "--format=%B", claim]).stdout if claim else ""
 
     def branch(self, kind="feat", slug="atomic"):
         result = self.run_raw(["git", "ls-remote", "--heads", str(self.remote), f"refs/heads/{kind}/41-{slug}"])
@@ -520,6 +535,70 @@ class AgentWorkTests(unittest.TestCase):
             "git", "--git-dir", str(self.remote), "rev-parse", "refs/heads/workstream-claims/41/feat/atomic^"
         ]).stdout.strip()
         self.assertEqual(expected, claim_parent)
+
+    def test_pr_targets_explicit_stacked_base_and_projects_review(self):
+        self.run_raw(["git", "switch", "-c", "integration"], self.seed)
+        self.run_raw(["git", "push", "origin", "integration"], self.seed)
+        self.run_raw(["git", "switch", "main"], self.seed)
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope", "origin/integration")
+        self.assertEqual(0, started.returncode, started.stdout)
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+
+        opened = self.command(self.worktree(repo), "Alpha", "pc-a", "pr", "41", "title", str(body), "integration")
+
+        self.assertEqual(0, opened.returncode, opened.stdout)
+        state = self.read_state()
+        self.assertEqual("integration", state["pr"]["base"])
+        self.assertEqual("In review", state["project"]["status"])
+        self.assertEqual(
+            {
+                "status": "In review",
+                "agent": "Alpha",
+                "machine": "pc-a",
+                "branch": "feat/41-atomic",
+                "checkpoint": state["pr"]["head"],
+            },
+            state["pull_project"],
+        )
+        review = next(body for body in state["comment_bodies"] if body.startswith("### Review"))
+        self.assertIn("- Target: `integration` at `", review)
+        self.assertIn("review_base=integration", self.claim_message())
+
+    def test_pr_rejects_missing_base_without_changing_claim_or_projection(self):
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope")
+        self.assertEqual(0, started.returncode, started.stdout)
+        claim = self.claim()
+        project = self.read_state()["project"].copy()
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+
+        opened = self.command(self.worktree(repo), "Alpha", "pc-a", "pr", "41", "title", str(body), "missing")
+
+        self.assertNotEqual(0, opened.returncode)
+        self.assertIn("does not exist on origin", opened.stdout)
+        self.assertEqual(claim, self.claim())
+        self.assertEqual(project, self.read_state()["project"])
+        self.assertEqual("Backlog", self.read_state()["pull_project"]["status"])
+        self.assertNotIn("pr", self.read_state())
+
+    def test_pr_keeps_issue_in_progress_while_another_workstream_is_active(self):
+        first = self.clone("first")
+        second = self.clone("second")
+        alpha = self.command(first, "Alpha", "pc-a", "start", "41", "feat", "atomic", "first")
+        beta = self.command(second, "Beta", "pc-b", "start", "41", "test", "receipts", "second")
+        self.assertEqual(0, alpha.returncode, alpha.stdout)
+        self.assertEqual(0, beta.returncode, beta.stdout)
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+
+        opened = self.command(self.worktree(first), "Alpha", "pc-a", "pr", "41", "title", str(body))
+
+        self.assertEqual(0, opened.returncode, opened.stdout)
+        self.assertEqual("In progress", self.read_state()["project"]["status"])
+        self.assertEqual("In review", self.read_state()["pull_project"]["status"])
 
     def test_start_rejects_a_missing_explicit_base_before_claiming(self):
         repo = self.clone("owner")
@@ -1079,6 +1158,64 @@ class AgentWorkTests(unittest.TestCase):
         third = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
         self.assertEqual(0, third.returncode, third.stdout)
         self.assertFalse(self.claim())
+
+    def test_done_completes_a_pr_merged_into_a_stacked_base(self):
+        self.run_raw(["git", "switch", "-c", "integration"], self.seed)
+        self.run_raw(["git", "push", "origin", "integration"], self.seed)
+        self.run_raw(["git", "switch", "main"], self.seed)
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope", "origin/integration")
+        self.assertEqual(0, started.returncode, started.stdout)
+        worktree = self.worktree(repo)
+        (worktree / "change.txt").write_text("stacked\n")
+        self.run_raw(["git", "add", "change.txt"], worktree)
+        self.run_raw(["git", "commit", "-m", "stacked change"], worktree)
+        checkpoint = self.command(worktree, "Alpha", "pc-a", "checkpoint", "41", "green", "tests")
+        self.assertEqual(0, checkpoint.returncode, checkpoint.stdout)
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+        opened = self.command(worktree, "Alpha", "pc-a", "pr", "41", "title", str(body), "integration")
+        self.assertEqual(0, opened.returncode, opened.stdout)
+        state = self.read_state()
+        state["pr"]["state"] = "MERGED"
+        state["pr"]["merge"] = state["pr"]["head"]
+        self.state.write_text(json.dumps(state))
+
+        done = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
+
+        self.assertEqual(0, done.returncode, done.stdout)
+        self.assertFalse(self.claim())
+        self.assertEqual("Ready", self.read_state()["project"]["status"])
+        self.assertEqual("Done", self.read_state()["pull_project"]["status"])
+
+    def test_done_rejects_a_pr_retargeted_after_review_started(self):
+        self.run_raw(["git", "switch", "-c", "integration"], self.seed)
+        self.run_raw(["git", "push", "origin", "integration"], self.seed)
+        self.run_raw(["git", "switch", "main"], self.seed)
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope", "origin/integration")
+        self.assertEqual(0, started.returncode, started.stdout)
+        worktree = self.worktree(repo)
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+        opened = self.command(worktree, "Alpha", "pc-a", "pr", "41", "title", str(body), "integration")
+        self.assertEqual(0, opened.returncode, opened.stdout)
+        state = self.read_state()
+        state["pr"]["state"] = "MERGED"
+        state["pr"]["merge"] = state["pr"]["head"]
+        state["pr"]["base"] = "main"
+        self.state.write_text(json.dumps(state))
+        claim = self.claim()
+        issue_project = self.read_state()["project"].copy()
+        pull_project = self.read_state()["pull_project"].copy()
+
+        done = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
+
+        self.assertNotEqual(0, done.returncode)
+        self.assertIn("review base 'integration'", done.stdout)
+        self.assertEqual(claim, self.claim())
+        self.assertEqual(issue_project, self.read_state()["project"])
+        self.assertEqual(pull_project, self.read_state()["pull_project"])
 
     def test_done_reconciles_terminal_projection_from_another_machine(self):
         repo = self.clone("owner")

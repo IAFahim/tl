@@ -1,6 +1,6 @@
 {
   "name": "com.iafahim.tl",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "displayName": "Tl",
   "description": "Compiled heterogeneous timelines for Unity ECS and Burst.",
   "unity": "6000.0",

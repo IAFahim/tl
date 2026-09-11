@@ -802,6 +802,56 @@ public sealed class JobReaderTests
         Assert.Empty(required.Catalogs);
     }
 
+    [Fact]
+    public void DiagnosesCatalogAssetsWithTheSameSimpleName()
+    {
+        var result = Read("""
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly struct Rows;
+                public readonly partial struct Catalog : Tl.ITimelineCatalog
+                {
+                    public static void Define(scoped Tl.CatalogBuilder builder)
+                    {
+                        builder.Schema<Rows>().Asset<First.Attack>().Asset<Second.Attack>();
+                    }
+                }
+            }
+            namespace First
+            {
+                public readonly partial struct Attack : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Game.Track()).Use<Game.Job>();
+                        builder.Clip(track, new Game.Clip(), 0u, 1u);
+                    }
+                }
+            }
+            namespace Second
+            {
+                public readonly partial struct Attack : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Game.Track()).Use<Game.Job>();
+                        builder.Clip(track, new Game.Clip(), 0u, 1u);
+                    }
+                }
+            }
+            """);
+
+        var diagnostic = Assert.Single(result.Diagnostics, static item => item.Code == "TLGEN78");
+        Assert.Equal("Asset 'global::Second.Attack' conflicts with 'global::First.Attack'; catalog asset simple names must be unique.", diagnostic.Message);
+        Assert.Empty(result.Catalogs);
+    }
+
     [Theory]
     [MemberData(nameof(InvalidDeclarations))]
     public void DiagnosesUnsupportedAuthoredShapes(string declaration, string code)
