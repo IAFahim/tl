@@ -160,10 +160,29 @@ public static class GeneratorCli
                 .Append("\tstatic-data-bytes=").Append(qualified).AppendLine(".StaticDataBytes");
         }
         foreach (var catalog in model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal))
+        {
             writer.Append("catalog\t").Append(catalog.Namespace).Append('.').Append(catalog.Name)
                 .Append("\tschemas=").Append(catalog.Schemas.Count)
-                .Append("\tassets=").Append(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture))
-                .Append("\tstate-bytes=").Append(catalog.Namespace).Append('.').Append(catalog.Name).AppendLine(".StateBytes");
+                .Append("\tassets=").Append(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (backend == "unity-entities")
+            {
+                var timelines = model.Timelines.ToDictionary(Qualified, StringComparer.Ordinal);
+                var catalogAssets = catalog.Schemas.SelectMany(static schema => schema.Assets)
+                    .Distinct(StringComparer.Ordinal)
+                    .Select(asset => timelines[asset.StartsWith("global::", StringComparison.Ordinal) ? asset.Substring("global::".Length) : asset])
+                    .ToArray();
+                var operationKinds = catalogAssets.SelectMany(asset => JobTimelinePlanAdapter.Create(asset).OperationBindings)
+                    .Select(static operation => operation.TypeName).Distinct(StringComparer.Ordinal).Count();
+                var maxStages = catalogAssets.Select(asset => JobTimelinePlanAdapter.Create(asset).Plan.Regions
+                        .Select(static region => (int)region.OccurrenceCount).DefaultIfEmpty().Max())
+                    .DefaultIfEmpty().Max();
+                var scheduledJobs = 2 + catalog.Schemas.Count + maxStages * operationKinds;
+                writer.Append("\toperation-kinds=").Append(operationKinds.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Append("\tmax-stages=").Append(maxStages.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .Append("\tscheduled-jobs-per-step=").Append(scheduledJobs.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            writer.Append("\tstate-bytes=").Append(catalog.Namespace).Append('.').Append(catalog.Name).AppendLine(".StateBytes");
+        }
         foreach (var artifact in artifacts.OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal))
             writer.Append("artifact\t").Append(artifact.RelativePath).Append("\tutf8-bytes=")
                 .AppendLine(System.Text.Encoding.UTF8.GetByteCount(artifact.Content).ToString(System.Globalization.CultureInfo.InvariantCulture));

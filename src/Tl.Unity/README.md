@@ -8,26 +8,118 @@ https://github.com/IAFahim/tl.git?path=/src/Tl.Unity
 
 The package declares Unity 6000.0 and Entities 1.4.3. The stable generated-jobs receipt uses Unity 6000.0.83f1, Entities 1.4.3, and Burst 1.8.30; `eng/test-unity-stable` recreates its isolated project and exact package inputs. A separate preview receipt uses Unity 6000.7.0a5, Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0.
 
-Author timelines and catalogs with the shared declarations:
+This complete path uses one shared job declaration for generated .NET and Unity execution:
 
 ```csharp
+using Tl;
+
+public readonly struct DamageClip
+{
+    public readonly int Value;
+    public DamageClip(int value) => Value = value;
+}
+public readonly struct DamageTrack : IBlend<DamageClip>
+{
+    public void Blend(
+        in DamageClip first,
+        in DamageClip second,
+        float factor,
+        out DamageClip result)
+        => result = new DamageClip((int)(first.Value + (second.Value - first.Value) * factor));
+}
+public struct Bias { public int Value; }
+public struct Trace { public int Total; }
+
+public readonly struct ApplyDamage : ITimelineJob<DamageTrack, DamageClip>
+{
+    public static void Execute(
+        in Frame<DamageTrack, DamageClip> frame,
+        in Bias bias,
+        ref Trace trace)
+        => trace.Total += frame.Clip.Value + bias.Value;
+}
+
 public readonly partial struct Attack : ITimeline
 {
     public static void Define(scoped Builder builder)
     {
-        var damage = builder.Track(new DamageTrack()).Use<DamageJob>();
-        builder.Clip(damage, new DamageClip(10), 0u, 3u);
+        var damage = builder.Track(new DamageTrack()).Use<ApplyDamage>();
+        builder.Clip(damage, new DamageClip(10), 0u, 2u);
     }
 }
+
+public readonly struct DamageRows { }
 
 public readonly partial struct Combat : ITimelineCatalog
 {
     public static void Define(scoped CatalogBuilder builder)
-        => builder.Schema<DamageRows>().Asset<Attack>();
+    {
+        builder.Schema<DamageRows>().Asset<Attack>();
+    }
 }
 ```
 
-Run the Tl C# materializer with `--backend unity-entities` before Unity imports scripts. The physical `.g.cs` outputs contain immutable timeline data, one shared catalog state component, enableable schema markers, logical-slot component wrappers, Burst-compatible selection, typed operation jobs, and commit scheduling. A system owns the external game clock, initializes the generated catalog scheduler in `OnCreate`, and calls its `Tick`; operation jobs borrow only the values named by their authored `Execute(in Frame<TTrack,TClip>, in inputs..., ref results...)` signature. Slot wrappers are keyed by parameter name and value type, so two roles with the same value type remain separate ECS columns.
+Materialize those authoring sources outside Unity before script import:
+
+```sh
+dotnet Tl.Gen.CSharp.dll --compile --backend unity-entities \
+  --output Assets/Timelines/Generated \
+  --source Assets/Timelines/Combat.tl \
+  --reference-list Library/TlMaterializer.references
+```
+
+The generated catalog owns the state, enableable schema marker, logical-slot wrappers, and scheduler. Create an entity with the complete generated schema and drive the scheduler from one external clock:
+
+```csharp
+using Unity.Burst;
+using Unity.Entities;
+
+public struct TimelineClock : IComponentData
+{
+    public uint GameTick;
+    public int Delta;
+}
+
+[BurstCompile]
+public partial struct CombatTimelineSystem : ISystem
+{
+    private Combat.Scheduler _scheduler;
+
+    public void OnCreate(ref SystemState state)
+    {
+        _scheduler.OnCreate(ref state);
+        state.RequireForUpdate<TimelineClock>();
+    }
+
+    [BurstCompile]
+    public void OnUpdate(ref SystemState state)
+    {
+        var clock = SystemAPI.GetSingleton<TimelineClock>();
+        _scheduler.Tick(ref state, clock.GameTick, clock.Delta);
+    }
+}
+
+public static class TimelineBootstrap
+{
+    public static Entity CreateAttack(EntityManager manager)
+    {
+        var entity = manager.CreateEntity(
+            typeof(Combat.TimelineComponent),
+            typeof(Combat.DamageRows),
+            typeof(Combat.Role0Bias),
+            typeof(Combat.Role1Trace));
+        manager.SetComponentData(entity, new Combat.TimelineComponent
+        {
+            Value = new Combat.State(Combat.Asset.Attack)
+        });
+        manager.SetComponentData(entity, new Combat.Role0Bias(new Bias { Value = 2 }));
+        manager.SetComponentData(entity, new Combat.Role1Trace(new Trace()));
+        return entity;
+    }
+}
+```
+
+The physical `.g.cs` outputs contain immutable timeline data, one shared catalog state component, enableable schema markers, logical-slot component wrappers, Burst-compatible selection, typed operation jobs, and commit scheduling. Operation jobs borrow only the values named by their authored `Execute(in Frame<TTrack,TClip>, in inputs..., ref results...)` signature. Slot wrappers are ordered by parameter name and type, so the example generates `Role0Bias` and `Role1Trace`; two roles with the same value type remain separate ECS columns.
 
 `TimelineState` stores stable asset identity, local position, and signed loop cycle. Selection is total for zero, forward, and reverse movement. Finite timelines clamp independently and looping timelines carry cycle and boundary flags. `Frame<TTrack,TClip>` and `TimelineFrame` are call-scoped borrowed values; generated jobs never retain them in scheduled fields.
 

@@ -138,6 +138,10 @@ run_backend() {
 
     timeout 60 "$player" -batchmode -nographics -logFile - | tee "$player_log"
     grep -Fq 'TL_UNITY_PLAYER_OK' "$player_log" || { printf '%s\n' "$name player did not print TL_UNITY_PLAYER_OK" >&2; exit 2; }
+    if rg -n 'A Native Collection has not been disposed|Found [1-9][0-9]* leaked weakptrs|Internal: JobTempAlloc has allocations' "$player_log"; then
+        printf '%s\n' "$name player reported a native allocation leak" >&2
+        exit 2
+    fi
     printf '%s\t%s\t%s\t%s\t%s\n' \
         "$name" \
         "$(sha256sum "$player" | cut -d' ' -f1)" \

@@ -71,7 +71,9 @@ public sealed class UnityMaterializationTests : IDisposable
         Assert.DoesNotContain("namespace UnityFixture;", content);
         Assert.DoesNotContain("scoped", content);
         Assert.DoesNotContain("record struct", content);
-        Assert.Equal("unity-entities", File.ReadLines(Path.Combine(output, CompileGenerationCache.ReportFileName))
+        var report = File.ReadAllText(Path.Combine(output, CompileGenerationCache.ReportFileName));
+        Assert.Contains("catalog\tUnityFixture.Catalog\tschemas=2\tassets=3\toperation-kinds=3\tmax-stages=5\tscheduled-jobs-per-step=19", report);
+        Assert.Equal("unity-entities", report.Split('\n')
             .Single(static line => line.StartsWith("backend\t", StringComparison.Ordinal)).Split('\t')[1]);
 
         var timestamp = new DateTime(2020, 1, 2, 3, 4, 5, DateTimeKind.Utc);
@@ -82,6 +84,38 @@ public sealed class UnityMaterializationTests : IDisposable
             "--source", source, "--reference-list", references,
         ]));
         Assert.All(generated, path => Assert.Equal(timestamp, File.GetLastWriteTimeUtc(path)));
+    }
+
+    [Fact]
+    public void PackageReadmeAuthoringSampleCompilesAndMaterializesItsDocumentedSlots()
+    {
+        Directory.CreateDirectory(_directory);
+        var readme = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Tl.Unity.README.md"));
+        const string fence = "```csharp\n";
+        var sourceStart = readme.IndexOf(fence, StringComparison.Ordinal);
+        Assert.True(sourceStart >= 0);
+        sourceStart += fence.Length;
+        var sourceEnd = readme.IndexOf("\n```", sourceStart, StringComparison.Ordinal);
+        Assert.True(sourceEnd >= 0);
+
+        var source = Path.Combine(_directory, "Combat.tl");
+        var output = Path.Combine(_directory, "Generated");
+        var references = Path.Combine(_directory, "references.txt");
+        File.WriteAllText(source, readme.Substring(sourceStart, sourceEnd - sourceStart));
+        File.WriteAllLines(references,
+            ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+                .Append(typeof(ITimeline).Assembly.Location).Distinct(StringComparer.Ordinal));
+
+        Assert.Equal(0, GeneratorCli.Main([
+            "--compile", "--backend", "unity-entities", "--output", output,
+            "--source", source, "--reference-list", references,
+        ]));
+
+        var content = string.Join("\n", Directory.GetFiles(output, "*.g.cs").OrderBy(static path => path, StringComparer.Ordinal).Select(File.ReadAllText));
+        Assert.Contains("public struct Role0Bias : global::Unity.Entities.IComponentData", content);
+        Assert.Contains("public struct Role1Trace : global::Unity.Entities.IComponentData", content);
+        Assert.Contains("in Combat.Role0Bias @bias", content);
+        Assert.Contains("ref Combat.Role1Trace @trace", content);
     }
 
     public void Dispose()
