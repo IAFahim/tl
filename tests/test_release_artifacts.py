@@ -1,8 +1,11 @@
+import gzip
 import importlib.util
+import io
 import json
 import shutil
 import subprocess
 import tempfile
+import tarfile
 import time
 import unittest
 import zipfile
@@ -49,6 +52,33 @@ class ReleaseArtifactTests(unittest.TestCase):
             manifest = (first / "package.txt").read_text(encoding="utf-8")
             self.assertIn("archive-entries\t", manifest)
             self.assertNotIn("\nfiles\t", manifest)
+
+    def test_unity_package_verifier_requires_exact_name_content_and_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            valid = root / "com.iafahim.tl-1.2.3.tgz"
+            self.write_unity_package(valid)
+            RELEASE_ARTIFACTS.verify_unity_package(root, "1.2.3")
+
+            self.write_unity_package(valid, extra="package/Editor/Compiler.dll")
+            with self.assertRaisesRegex(ValueError, "files are"):
+                RELEASE_ARTIFACTS.verify_unity_package(root, "1.2.3")
+
+            self.write_unity_package(valid, descriptor_version="1.2.4")
+            with self.assertRaisesRegex(ValueError, "identity"):
+                RELEASE_ARTIFACTS.verify_unity_package(root, "1.2.3")
+
+    def test_release_pipeline_builds_and_verifies_two_unity_packages(self):
+        script = (ROOT / "eng" / "release-artifacts").read_text(encoding="utf-8")
+        first = script.index('"$root/eng/package-unity" "$stage/unity-a"')
+        second = script.index('"$root/eng/package-unity" "$stage/unity-b"')
+        compare = script.index('cmp "$stage/unity-a/com.iafahim.tl-$version.tgz"')
+        copy = script.index('cp "$stage/unity-a/com.iafahim.tl-$version.tgz" "$output/"')
+        verify = script.index('release_artifacts.py" verify "$output"')
+        self.assertLess(first, second)
+        self.assertLess(second, compare)
+        self.assertLess(compare, copy)
+        self.assertLess(copy, verify)
 
     def test_canonical_packages_are_byte_identical(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -97,6 +127,8 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertIn("id-token: write", publish)
         self.assertIn("actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0", publish)
         self.assertIn("Tl.Runtime.$version.nupkg", publish)
+        self.assertIn('expected_unity=("com.iafahim.tl-$version.tgz")', publish)
+        self.assertIn("actual_unity", publish)
         self.assertNotIn("*.nupkg\" --api-key", publish)
         self.assertNotIn("gh release download", workflow)
         self.assertNotIn("license_and_owner_decisions", workflow)
@@ -158,6 +190,7 @@ class ReleaseArtifactTests(unittest.TestCase):
     def test_artifact_workflow_checks_out_the_tag_namespace(self):
         workflow = (ROOT / ".github" / "workflows" / "release-artifacts.yml").read_text(encoding="utf-8")
         self.assertIn("ref: refs/tags/${{ inputs.tag }}", workflow)
+        self.assertIn("path: artifacts/release/*", workflow)
 
     def test_branch_with_release_name_is_not_a_tag(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -217,6 +250,29 @@ class ReleaseArtifactTests(unittest.TestCase):
             entry = zipfile.ZipInfo("data.txt", timestamp)
             entry.compress_type = zipfile.ZIP_DEFLATED
             archive.writestr(entry, b"same")
+
+    @staticmethod
+    def write_unity_package(path, descriptor_version="1.2.3", extra=None):
+        entries = set(RELEASE_ARTIFACTS.UNITY_PACKAGE_FILES)
+        if extra is not None:
+            entries.add(extra)
+        tar_bytes = io.BytesIO()
+        with tarfile.open(fileobj=tar_bytes, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+            for name in sorted(entries):
+                directory = name.endswith("/")
+                entry = tarfile.TarInfo(name.rstrip("/") if directory else name)
+                entry.type = tarfile.DIRTYPE if directory else tarfile.REGTYPE
+                entry.mode = 0o755 if directory else 0o644
+                entry.mtime = 0
+                content = b"" if directory else (
+                    json.dumps({"name": "com.iafahim.tl", "version": descriptor_version}).encode()
+                    if name == "package/package.json" else b"content"
+                )
+                entry.size = len(content)
+                archive.addfile(entry, None if directory else io.BytesIO(content))
+        with path.open("wb") as stream:
+            with gzip.GzipFile(filename="", mode="wb", fileobj=stream, mtime=0) as compressed:
+                compressed.write(tar_bytes.getvalue())
 
     @staticmethod
     def write_c_package(path, exclude="Build,Analyzers", extra=None):

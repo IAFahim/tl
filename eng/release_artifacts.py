@@ -5,6 +5,7 @@ import hashlib
 import json
 import struct
 import sys
+import tarfile
 import uuid
 import zipfile
 from pathlib import Path
@@ -98,6 +99,22 @@ SYMBOL_METADATA_FILES = {
 }
 
 EMBEDDED_SOURCE_GUID = uuid.UUID("0e8a571b-6926-466e-b4ad-8ab04611f5fe").bytes_le
+
+UNITY_PACKAGE_FILES = {
+    "package/",
+    "package/CHANGELOG.md",
+    "package/CHANGELOG.md.meta",
+    "package/README.md",
+    "package/README.md.meta",
+    "package/Runtime/",
+    "package/Runtime.meta",
+    "package/Runtime/Jobs.cs",
+    "package/Runtime/Jobs.cs.meta",
+    "package/Runtime/Tl.Unity.asmdef",
+    "package/Runtime/Tl.Unity.asmdef.meta",
+    "package/package.json",
+    "package/package.json.meta",
+}
 
 
 def fail(message):
@@ -268,6 +285,29 @@ def verify_packages(directory, version, commit, repository_ref):
         verify_snupkg(snupkgs[f"{package_id}.{version}.snupkg"], package_id, version, commit, repository_ref)
 
 
+def verify_unity_package(directory, version):
+    expected_name = f"com.iafahim.tl-{version}.tgz"
+    archives = {path.name: path for path in directory.glob("*.tgz")}
+    if set(archives) != {expected_name}:
+        fail(f"Unity package set is {sorted(archives)}, expected {[expected_name]}")
+    archive = archives[expected_name]
+    if archive.read_bytes()[4:8] != b"\0\0\0\0":
+        fail(f"{expected_name} has a non-deterministic gzip timestamp")
+    with tarfile.open(archive, "r:gz") as package:
+        members = package.getmembers()
+        names = {member.name + ("/" if member.isdir() and not member.name.endswith("/") else "") for member in members}
+        if names != UNITY_PACKAGE_FILES:
+            fail(f"{expected_name} files are {sorted(names)}, expected {sorted(UNITY_PACKAGE_FILES)}")
+        if any(not (member.isdir() or member.isfile()) for member in members):
+            fail(f"{expected_name} contains a non-file archive entry")
+        descriptor = package.extractfile("package/package.json")
+        if descriptor is None:
+            fail(f"{expected_name} has no package descriptor")
+        metadata = json.load(descriptor)
+        if metadata.get("name") != "com.iafahim.tl" or metadata.get("version") != version:
+            fail(f"{expected_name} package identity does not match its archive name")
+
+
 def digest(path):
     checksum = hashlib.sha256()
     with path.open("rb") as stream:
@@ -328,6 +368,7 @@ def main():
         canonicalize_directory(arguments.source, arguments.destination)
     elif arguments.command == "verify":
         verify_packages(arguments.directory, arguments.version, arguments.commit, arguments.repository_ref)
+        verify_unity_package(arguments.directory, arguments.version)
     else:
         write_manifest(
             arguments.directory,

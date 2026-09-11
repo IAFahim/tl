@@ -83,9 +83,15 @@ for artifact in "$stage/raw-a-normalized"/*; do
     cmp "$artifact" "$stage/raw-b-normalized/$name"
 done
 
+"$root/eng/package-unity" "$stage/unity-a"
+"$root/eng/package-unity" "$stage/unity-b"
+cmp "$stage/unity-a/com.iafahim.tl-$version.tgz" "$stage/unity-b/com.iafahim.tl-$version.tgz"
+cmp "$stage/unity-a/package.txt" "$stage/unity-b/package.txt"
+
 mkdir -p "$(dirname -- "$output")"
 mkdir "$output"
 cp "$stage/raw-a-normalized"/* "$output/"
+cp "$stage/unity-a/com.iafahim.tl-$version.tgz" "$output/"
 python3 "$root/eng/release_artifacts.py" verify "$output" "$version" "$head_commit" "$repository_ref"
 
 consumer="$root/tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj"
