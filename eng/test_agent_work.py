@@ -357,6 +357,10 @@ class AgentWorkTests(unittest.TestCase):
         result = self.run_raw(["git", "ls-remote", "--heads", str(self.remote), f"refs/heads/workstream-claims/41/{kind}/{slug}"])
         return result.stdout.split()[0] if result.stdout else ""
 
+    def claim_message(self, kind="feat", slug="atomic"):
+        claim = self.claim(kind, slug)
+        return self.run_raw(["git", "--git-dir", str(self.remote), "show", "-s", "--format=%B", claim]).stdout if claim else ""
+
     def branch(self, kind="feat", slug="atomic"):
         result = self.run_raw(["git", "ls-remote", "--heads", str(self.remote), f"refs/heads/{kind}/41-{slug}"])
         return result.stdout.split()[0] if result.stdout else ""
@@ -560,6 +564,7 @@ class AgentWorkTests(unittest.TestCase):
         )
         review = next(body for body in state["comment_bodies"] if body.startswith("### Review"))
         self.assertIn("- Target: `integration` at `", review)
+        self.assertIn("review_base=integration", self.claim_message())
 
     def test_pr_rejects_missing_base_without_changing_claim_or_projection(self):
         repo = self.clone("owner")
@@ -1182,6 +1187,35 @@ class AgentWorkTests(unittest.TestCase):
         self.assertFalse(self.claim())
         self.assertEqual("Ready", self.read_state()["project"]["status"])
         self.assertEqual("Done", self.read_state()["pull_project"]["status"])
+
+    def test_done_rejects_a_pr_retargeted_after_review_started(self):
+        self.run_raw(["git", "switch", "-c", "integration"], self.seed)
+        self.run_raw(["git", "push", "origin", "integration"], self.seed)
+        self.run_raw(["git", "switch", "main"], self.seed)
+        repo = self.clone("owner")
+        started = self.command(repo, "Alpha", "pc-a", "start", "41", "feat", "atomic", "scope", "origin/integration")
+        self.assertEqual(0, started.returncode, started.stdout)
+        worktree = self.worktree(repo)
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+        opened = self.command(worktree, "Alpha", "pc-a", "pr", "41", "title", str(body), "integration")
+        self.assertEqual(0, opened.returncode, opened.stdout)
+        state = self.read_state()
+        state["pr"]["state"] = "MERGED"
+        state["pr"]["merge"] = state["pr"]["head"]
+        state["pr"]["base"] = "main"
+        self.state.write_text(json.dumps(state))
+        claim = self.claim()
+        issue_project = self.read_state()["project"].copy()
+        pull_project = self.read_state()["pull_project"].copy()
+
+        done = self.command(worktree, "Alpha", "pc-a", "done", "41", "evidence")
+
+        self.assertNotEqual(0, done.returncode)
+        self.assertIn("review base 'integration'", done.stdout)
+        self.assertEqual(claim, self.claim())
+        self.assertEqual(issue_project, self.read_state()["project"])
+        self.assertEqual(pull_project, self.read_state()["pull_project"])
 
     def test_done_reconciles_terminal_projection_from_another_machine(self):
         repo = self.clone("owner")
