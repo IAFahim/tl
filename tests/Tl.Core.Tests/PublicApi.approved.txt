@@ -25,6 +25,7 @@ type Tl.Frame`2
   Property Tl.FrameFlags Flags
   Property UInt32 GameTick
   Method Boolean Has(Tl.FrameFlags)
+  Property Boolean IsBackward
   Property UInt32 TimelineTick
   Property TTrack& Track
   Property UInt16 TrackIndex
