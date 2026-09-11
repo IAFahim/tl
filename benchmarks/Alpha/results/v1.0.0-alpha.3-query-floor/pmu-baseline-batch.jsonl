@@ -1,0 +1,2 @@
+{"per_tick": {"branch_misses": 0.00027003654534606207, "branches": 4.072997296390215, "cycles": 10.363259971658712, "instructions": 63.62893122016707}, "receipt": "5719309657626816160 268160000", "running_fraction": 1.0, "scenario": "batch-direct", "ticks": 268160000}
+{"per_tick": {"branch_misses": 0.0019484449582338902, "branches": 77.22381308174225, "cycles": 52.4985756153043, "instructions": 332.49368192124103}, "receipt": "5719309657626816160 268160000", "running_fraction": 1.0, "scenario": "batch-query", "ticks": 268160000}

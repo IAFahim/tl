@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -68,6 +69,7 @@ public sealed class IncrementalGeneratorTests
         Assert.Empty(diagnostics);
         Assert.Empty(output.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
         var analyzer = Sources(driver);
+        Assert.DoesNotContain("internal static void ExecuteForward(uint", string.Join("\n", analyzer.Values));
         var directory = Path.Combine(Path.GetTempPath(), "tl-incremental-tests", Guid.NewGuid().ToString("N"));
         try
         {
@@ -161,6 +163,53 @@ public sealed class IncrementalGeneratorTests
 
         Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver));
         Assert.Contains("ref int @value", string.Join("\n", Sources(driver).Values));
+    }
+
+    [Fact]
+    public void FusedRowsRespectTheGeneratedSourceBudget()
+    {
+        var small = Sources(Driver().RunGenerators(Compilation(GeneratedJobTests.Source)));
+        Assert.Contains(small.Values, static source => source.Contains("internal static void ExecuteForward(uint", StringComparison.Ordinal));
+
+        var tracks = new StringBuilder();
+        for (var index = 0; index < 256; index++)
+            tracks.AppendLine($"var track{index} = builder.Track(new Track({index})).Use<Job>(); builder.Clip(track{index}, new Clip({index}), 0u, 2u);");
+        var source = $$"""
+            using Tl;
+            namespace WideFixture;
+            public readonly record struct Clip(int Value);
+            public readonly record struct Track(int Value) : IBlend<Clip>
+            {
+                public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
+            }
+            public readonly struct Job : ITimelineJob<Track, Clip>
+            {
+                public static void Execute(in Frame<Track, Clip> frame) { }
+            }
+            public readonly partial struct Wide : ITimeline
+            {
+                public static void Define(scoped Builder builder)
+                {
+                    {{tracks}}
+                }
+            }
+            public readonly struct Rows;
+            public readonly partial struct Catalog : ITimelineCatalog
+            {
+                public static void Define(scoped CatalogBuilder builder)
+                {
+                    builder.Schema<Rows>().Asset<Wide>();
+                }
+            }
+            """;
+        var compilation = Compilation(source);
+        var driver = Driver().RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+        Assert.Empty(diagnostics);
+        Assert.Empty(output.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        var large = Sources(driver);
+        Assert.DoesNotContain(large.Values, static generated => generated.Contains("internal static void ExecuteForward(uint", StringComparison.Ordinal));
+        Assert.DoesNotContain(large.Values, static generated => generated.Contains("private bool __tlForward1", StringComparison.Ordinal));
     }
 
     [Fact]

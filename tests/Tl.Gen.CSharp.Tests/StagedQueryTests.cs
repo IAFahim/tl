@@ -78,14 +78,24 @@ public sealed class StagedQueryTests
                 builder.Looping();
             }
         }
+        public readonly partial struct Gap : ITimeline
+        {
+            public static void Define(scoped Builder builder)
+            {
+                var track = builder.Track(new Track(4)).Use<A>();
+                builder.Clip(track, new Clip(9), 2u, 3u);
+            }
+        }
         public readonly struct OrderedRows;
         public readonly struct LoopRows;
+        public readonly struct GapRows;
         public readonly partial struct Catalog : ITimelineCatalog
         {
             public static void Define(scoped CatalogBuilder builder)
             {
                 builder.Schema<OrderedRows>().Asset<Ordered>();
                 builder.Schema<LoopRows>().Asset<Loop>();
+                builder.Schema<GapRows>().Asset<Gap>();
             }
         }
         public static class Receipt
@@ -133,7 +143,30 @@ public sealed class StagedQueryTests
                 loopTraces[0] = default;
                 loopQuery.Tick(303u, -3);
                 Require(loopStates[0].Position == 0u && loopStates[0].Cycle == 0 && loopTraces[0].CycleOrder == 210, "reverse loop coordinates");
-                Require(Catalog.AssetCount == 2 && Catalog.StateBytes == 24 && Catalog.StaticDataBytes > 0, "generated memory report");
+
+                var gapStates = new[] { new Catalog.State(Catalog.Asset.Gap) };
+                var gapTraces = new Trace[1];
+                var gapQuery = new Catalog.Query().GapRows(gapStates, bias, gapTraces);
+                gapQuery.Tick(400u, 2);
+                Require(gapStates[0].Position == 2u && gapTraces[0].Order == 0, "forward gap");
+                gapQuery.Tick(402u);
+                Require(gapStates[0].Position == 3u && gapTraces[0].Order == 4 && gapTraces[0].ClipSum == 9, "forward gap exit");
+                gapTraces[0] = default;
+                gapQuery.Tick(403u, -1);
+                Require(gapStates[0].Position == 2u && gapTraces[0].Order == 4 && gapTraces[0].LastGameTick == 402u, "reverse gap entry");
+                for (var warmup = 0; warmup < 16; warmup++)
+                {
+                    gapQuery.Tick(402u, -1);
+                    gapQuery.Tick(401u, 1);
+                }
+                long before = GC.GetAllocatedBytesForCurrentThread();
+                for (var repeat = 0; repeat < 128; repeat++)
+                {
+                    gapQuery.Tick(402u, -1);
+                    gapQuery.Tick(401u, 1);
+                }
+                Require(GC.GetAllocatedBytesForCurrentThread() == before, "one-row allocation");
+                Require(Catalog.AssetCount == 3 && Catalog.StateBytes == 24 && Catalog.StaticDataBytes > 0, "generated memory report");
                 return traces[0].Order + loopTraces[0].Order;
             }
             private static void Require(bool value, string name)
