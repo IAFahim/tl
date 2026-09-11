@@ -84,13 +84,18 @@ public readonly unsafe struct TimelineRef
 		return null;
 	}
 
-	internal void Execute(uint tick, uint gameTick, long cycle, FrameFlags flags, int row, in TimelineQuery q)
+	internal void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, in TimelineQuery q)
 	{
 		var stage = StageOf(tick);
 		if (stage == null) return;
 		var steps = (NativeStep*)(_p + stage->ProgramOffset);
 		var pairs = Pairs;
-		for (var i = 0; i < stage->ProgramCount; i++) PairTable.Dispatch(pairs[steps[i].Pair].Key, new TickFrame(_p + steps[i].Slot, gameTick, tick, cycle, flags), row, in q);
+		var count = (int)stage->ProgramCount;
+		for (var i = 0; i < count; i++)
+		{
+			var index = reverse ? count - 1 - i : i;
+			PairTable.Dispatch(pairs[steps[index].Pair].Key, new TickFrame(_p + steps[index].Slot, gameTick, tick, cycle, flags), row, in q);
+		}
 	}
 
 	static void Validate(ReadOnlySpan<byte> baked)
@@ -299,7 +304,7 @@ public ref struct TimelineQuery
 				var reference = c.Reference;
 				if (!reference.Select(reverse, c.Position, c.Cycle, out _, out var tick, out var cycle, out var flags)) continue;
 				moved = true;
-				reference.Execute(tick, gameTick, cycle, flags, row, in this);
+				reference.Execute(reverse, tick, gameTick, cycle, flags, row, in this);
 			}
 			if (!moved) break;
 			for (var row = 0; row < _rows.Length; row++)

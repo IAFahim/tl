@@ -19,6 +19,7 @@ RunLoopReceipt();
 RunSchemaReceipt();
 RunBatchReceipt();
 RunAllocationReceipt();
+RunDataAuthoredReceipt();
 Console.WriteLine($"memory: state={Unsafe.SizeOf<ReceiptCatalog.State>()} B static={Combo.StaticDataBytes + Short.StaticDataBytes + Cycle.StaticDataBytes + CycleOne.StaticDataBytes + AliasingTimeline.StaticDataBytes} B");
 return 0;
 
@@ -170,6 +171,8 @@ static void RunBatchReceipt()
 
     Console.WriteLine($"batch: {count} mixed rows matched the independent finite oracle");
 }
+
+static void RunDataAuthoredReceipt() => DataAuthoredReceipts.All();
 
 static void RunAllocationReceipt()
 {
