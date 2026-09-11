@@ -30,8 +30,9 @@ class ReleaseArtifactTests(unittest.TestCase):
         script = (ROOT / "eng" / "test-isolated-output").read_text(encoding="utf-8")
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         self.assertIn("git -C \"$root\" ls-files -z", script)
-        self.assertEqual(3, script.count('--artifacts-path "$artifacts"'))
+        self.assertEqual(4, script.count('--artifacts-path "$artifacts"'))
         self.assertIn("-t:TlGenExport", script)
+        self.assertIn("stale/Tl.Gen.CSharp.dll", script)
         self.assertIn('find "$source" -type d', script)
         self.assertIn("- run: eng/test-isolated-output", workflow)
 

@@ -2,11 +2,9 @@
   <PropertyGroup>
     <_TlGenProject>$(MSBuildThisFileDirectory)..\Tl.Gen.CSharp.csproj</_TlGenProject>
     <_TlGenPkgTool>$(MSBuildThisFileDirectory)../tools/net10.0/any/Tl.Gen.CSharp.dll</_TlGenPkgTool>
-    <_TlGenProjBin>$(MSBuildThisFileDirectory)../bin/$(Configuration)/net10.0/Tl.Gen.CSharp.dll</_TlGenProjBin>
     <_TlGenDotNet Condition="'$(DotNetHostPath)' != ''">$(DotNetHostPath)</_TlGenDotNet>
     <_TlGenDotNet Condition="'$(_TlGenDotNet)' == ''">dotnet</_TlGenDotNet>
     <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenPkgTool)')">$(_TlGenPkgTool)</TlGenAssembly>
-    <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenProjBin)')">$(_TlGenProjBin)</TlGenAssembly>
     <TlGenBackend Condition="'$(TlGenBackend)' == ''">csharp</TlGenBackend>
   </PropertyGroup>
 

@@ -8,8 +8,15 @@ source="$stage/source"
 artifacts="$stage/artifacts"
 mkdir "$source"
 git -C "$root" ls-files -z | tar --null -C "$root" -T - -cf - | tar -C "$source" -xf -
+test -z "$(find "$source" -type d \( -name bin -o -name obj -o -name TlGenCompile \) -print -quit)"
 dotnet restore "$source/tl.slnx" -m:1 -p:NuGetAudit=false --artifacts-path "$artifacts"
 dotnet build "$source/samples/Mixed/Mixed.csproj" -c Release -m:1 -p:NuGetAudit=false --no-restore --artifacts-path "$artifacts" -t:TlGenExport
+stale="$source/src/Tl.Gen.CSharp/bin/Release/net10.0"
+mkdir -p "$stale"
+printf '%s\n' stale > "$stale/Tl.Gen.CSharp.dll"
+dotnet build "$source/samples/Mixed/Mixed.csproj" -c Release -m:1 -p:NuGetAudit=false --no-restore --artifacts-path "$artifacts" -p:TlGenOutput="$artifacts/stale-export" -t:TlGenExport
+test -f "$artifacts/stale-export/TlGenCompile.report.txt"
+rm -rf -- "$source/src/Tl.Gen.CSharp/bin"
 dotnet build "$source/tl.slnx" -c Release -m:1 -p:NuGetAudit=false --no-restore --artifacts-path "$artifacts"
 test -f "$artifacts/bin/Tl.Gen.CSharp/release_netstandard2.0/Tl.Gen.CSharp.dll"
 test -f "$artifacts/bin/Tl.Gen.CSharp/release_netstandard2.0/Tl.Compiler.dll"
