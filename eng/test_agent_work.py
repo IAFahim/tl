@@ -548,7 +548,16 @@ class AgentWorkTests(unittest.TestCase):
         state = self.read_state()
         self.assertEqual("integration", state["pr"]["base"])
         self.assertEqual("In review", state["project"]["status"])
-        self.assertEqual("In review", state["pull_project"]["status"])
+        self.assertEqual(
+            {
+                "status": "In review",
+                "agent": "Alpha",
+                "machine": "pc-a",
+                "branch": "feat/41-atomic",
+                "checkpoint": state["pr"]["head"],
+            },
+            state["pull_project"],
+        )
         review = next(body for body in state["comment_bodies"] if body.startswith("### Review"))
         self.assertIn("- Target: `integration` at `", review)
 
@@ -569,6 +578,22 @@ class AgentWorkTests(unittest.TestCase):
         self.assertEqual(project, self.read_state()["project"])
         self.assertEqual("Backlog", self.read_state()["pull_project"]["status"])
         self.assertNotIn("pr", self.read_state())
+
+    def test_pr_keeps_issue_in_progress_while_another_workstream_is_active(self):
+        first = self.clone("first")
+        second = self.clone("second")
+        alpha = self.command(first, "Alpha", "pc-a", "start", "41", "feat", "atomic", "first")
+        beta = self.command(second, "Beta", "pc-b", "start", "41", "test", "receipts", "second")
+        self.assertEqual(0, alpha.returncode, alpha.stdout)
+        self.assertEqual(0, beta.returncode, beta.stdout)
+        body = self.root / "pull.md"
+        body.write_text("Refs #41\n")
+
+        opened = self.command(self.worktree(first), "Alpha", "pc-a", "pr", "41", "title", str(body))
+
+        self.assertEqual(0, opened.returncode, opened.stdout)
+        self.assertEqual("In progress", self.read_state()["project"]["status"])
+        self.assertEqual("In review", self.read_state()["pull_project"]["status"])
 
     def test_start_rejects_a_missing_explicit_base_before_claiming(self):
         repo = self.clone("owner")

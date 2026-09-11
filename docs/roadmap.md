@@ -18,6 +18,10 @@ git ls-remote --heads origin 'refs/heads/workstream-claims/*' 'refs/heads/claims
 
 Resume only the branch and exact checkpoint recorded by its issue and Project fields. Use `eng/agent-work` to claim it before editing. Put the complete instruction on the issue before delegating; a private agent message needs only the issue reference. Record each changed decision before dependent edits, and publish one validated atom before beginning the next. If work must stop red, publish a recoverable checkpoint with the exact failures.
 
+Project states are Backlog, Ready, In progress, In review, and Done. The issue card summarizes the active claim set; each pull-request card enters In review while open and Done after its exact merged head is verified. Use `eng/agent-work pr <issue> <title> <body-file> <base>` for a stacked review. Merging it completes that workstream on its base and does not claim that the base reached `main` or passed release gates.
+
+If the Project GraphQL query is temporarily unavailable, read the issue through REST, inspect its linked pull requests, and list the atomic remote refs. Do not copy that transient state into this file, infer ownership from an old branch name, or take over until Project access returns and the compare-and-set claim can be checked.
+
 An issue transaction normally lives only for one helper command. If one remains after confirmed process or machine loss, recover its exact object with `eng/agent-work recover-lock <issue> <exact-transaction> <reason>`. Never recover a transaction while its owner process may still be running.
 
 For a stacked change, pass its published dependency explicitly: `eng/agent-work start <issue> <kind> <scope> <description> origin/<dependency-branch>`. The claim records the resolved commit, so a new machine never guesses which parent was intended.

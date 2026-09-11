@@ -1102,6 +1102,7 @@ open_pr() {
     local item
     local pr_item
     local pr_url
+    local status
     validate_issue "$issue"
     validate_identity
     git check-ref-format --branch "$base" >/dev/null 2>&1 || fail "invalid pull request base '$base'"
@@ -1119,13 +1120,22 @@ open_pr() {
         pr_url="$(gh pr create --base "$base" --head "$branch" --title "$title" --body-file "$body_file")"
     fi
     pr_item="$(project_url_item "$pr_url")"
+    set_text "$pr_item" Agent "$agent_name"
+    set_text "$pr_item" Machine "$machine_name"
+    set_text "$pr_item" Branch "$branch"
+    set_text "$pr_item" Checkpoint "$(git rev-parse HEAD)"
     set_status "$pr_item" "In review"
     item="$(project_item "$issue")"
     set_text "$item" Agent "$agent_name"
     set_text "$item" Machine "$machine_name"
     set_text "$item" Branch "$branch"
     set_text "$item" Checkpoint "$(git rev-parse HEAD)"
-    set_status "$item" "In review"
+    if has_other_active_claims "$issue" "$remote_claim_ref"; then
+        status="In progress"
+    else
+        status="In review"
+    fi
+    set_status "$item" "$status"
     post_once "$issue" "- Pull request: $pr_url" "### Review
 
 - Agent: $agent_name
@@ -1134,7 +1144,8 @@ open_pr() {
 - Exact head: \`$(git rev-parse HEAD)\`
 - Target: \`$base\` at \`$base_commit\`
 - Pull request: $pr_url
-- State: In review"
+- Pull request state: In review
+- Issue state: $status"
     end_issue_transaction
     printf '%s\n' "$pr_url"
 }
@@ -1199,6 +1210,10 @@ finish_work() {
         item="$(project_item "$issue")"
         pr_url="$(gh pr view "$pr" --json url --jq .url)"
         pr_item="$(project_url_item "$pr_url")"
+        set_text "$pr_item" Agent "$agent_name"
+        set_text "$pr_item" Machine "$machine_name"
+        set_text "$pr_item" Branch "$branch"
+        set_text "$pr_item" Checkpoint "$head"
         set_status "$pr_item" Done
         set_text "$item" Agent "$agent_name"
         set_text "$item" Machine "$machine_name"
@@ -1224,6 +1239,10 @@ finish_work() {
     item="$(project_item "$issue")"
     pr_url="$(gh pr view "$pr" --json url --jq .url)"
     pr_item="$(project_url_item "$pr_url")"
+    set_text "$pr_item" Agent "$agent_name"
+    set_text "$pr_item" Machine "$machine_name"
+    set_text "$pr_item" Branch "$branch"
+    set_text "$pr_item" Checkpoint "$head"
     set_status "$pr_item" Done
     set_text "$item" Agent "$agent_name"
     set_text "$item" Machine "$machine_name"
