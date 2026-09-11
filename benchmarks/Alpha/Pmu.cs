@@ -35,9 +35,69 @@ internal static class Pmu
                 Measure(BatchCatalogQueryBenchmarks.Frames * (long)benchmark.Rows, benchmark.GeneratedQueryBatch);
                 return;
             }
+            case "shape-one-direct":
+                MeasureShape(TimelineShape.OneTrack, false);
+                return;
+            case "shape-one-query":
+                MeasureShape(TimelineShape.OneTrack, true);
+                return;
+            case "shape-three-direct":
+                MeasureShape(TimelineShape.ThreeTracks, false);
+                return;
+            case "shape-three-query":
+                MeasureShape(TimelineShape.ThreeTracks, true);
+                return;
+            case "shape-sixteen-direct":
+                MeasureShape(TimelineShape.SixteenTracks, false);
+                return;
+            case "shape-sixteen-query":
+                MeasureShape(TimelineShape.SixteenTracks, true);
+                return;
+            case "shape-gap-direct":
+                MeasureShape(TimelineShape.Gap, false);
+                return;
+            case "shape-gap-query":
+                MeasureShape(TimelineShape.Gap, true);
+                return;
+            case "shape-blend-direct":
+                MeasureShape(TimelineShape.Blend, false);
+                return;
+            case "shape-blend-query":
+                MeasureShape(TimelineShape.Blend, true);
+                return;
+            case "component-direct":
+            {
+                var benchmark = new ComponentCase(TickPattern.Forward);
+                Measure(ComponentCase.Operations, benchmark.Direct);
+                return;
+            }
+            case "component-query":
+            {
+                var benchmark = new ComponentCase(TickPattern.Forward);
+                Measure(ComponentCase.Operations, benchmark.Generated);
+                return;
+            }
+            case "mixed-assets-direct":
+            {
+                var benchmark = new MixedAssetCase();
+                Measure(MixedAssetCase.Rows * MixedAssetCase.Frames, benchmark.Direct);
+                return;
+            }
+            case "mixed-assets-query":
+            {
+                var benchmark = new MixedAssetCase();
+                Measure(MixedAssetCase.Rows * MixedAssetCase.Frames, benchmark.Generated);
+                return;
+            }
             default:
                 throw new ArgumentOutOfRangeException(nameof(scenario));
         }
+    }
+
+    private static void MeasureShape(TimelineShape shape, bool generated)
+    {
+        var benchmark = new ShapeCase(shape, TickPattern.Forward);
+        Measure(ShapeCase.Operations, generated ? benchmark.Generated : benchmark.Direct);
     }
 
     private static void Measure(long framesPerPass, Func<BenchmarkReceipt> operation)

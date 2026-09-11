@@ -181,8 +181,13 @@ public readonly partial struct ComponentTimeline : ITimeline
 }
 
 public readonly struct BenchmarkRows;
-public readonly struct ShapeRows;
+public readonly struct OneTrackRows;
+public readonly struct ThreeTrackRows;
+public readonly struct SixteenTrackRows;
+public readonly struct GapRows;
+public readonly struct BlendRows;
 public readonly struct ComponentRows;
+public readonly struct MixedShapeRows;
 
 public readonly partial struct BenchmarkCatalog : ITimelineCatalog
 {
@@ -196,13 +201,25 @@ public readonly partial struct ShapeCatalog : ITimelineCatalog
 {
     public static void Define(scoped CatalogBuilder builder)
     {
-        builder.Schema<ShapeRows>()
+        builder.Schema<OneTrackRows>().Asset<OneTrackTimeline>();
+        builder.Schema<ThreeTrackRows>().Asset<MixedTimeline>();
+        builder.Schema<SixteenTrackRows>().Asset<SixteenTrackTimeline>();
+        builder.Schema<GapRows>().Asset<GapTimeline>();
+        builder.Schema<BlendRows>().Asset<BlendTimeline>();
+        builder.Schema<ComponentRows>().Asset<ComponentTimeline>();
+    }
+}
+
+public readonly partial struct MixedShapeCatalog : ITimelineCatalog
+{
+    public static void Define(scoped CatalogBuilder builder)
+    {
+        builder.Schema<MixedShapeRows>()
             .Asset<OneTrackTimeline>()
             .Asset<MixedTimeline>()
             .Asset<SixteenTrackTimeline>()
             .Asset<GapTimeline>()
             .Asset<BlendTimeline>();
-        builder.Schema<ComponentRows>().Asset<ComponentTimeline>();
     }
 }
 

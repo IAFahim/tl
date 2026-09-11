@@ -101,6 +101,24 @@ internal static class Direct
         }
         return new(stateHash, valueHash, orderHash, gameTickHash, calls);
     }
+
+    internal static BenchmarkReceipt Capture(ReadOnlySpan<MixedShapeCatalog.State> states, ReadOnlySpan<Accumulator> accumulators)
+    {
+        long stateHash = 0;
+        long valueHash = 0;
+        long orderHash = 0;
+        long gameTickHash = 0;
+        long calls = 0;
+        for (var row = 0; row < states.Length; row++)
+        {
+            stateHash = unchecked((stateHash * 397 + states[row].Position) * 397 + states[row].Cycle);
+            valueHash = unchecked(valueHash * 397 + accumulators[row].Value);
+            orderHash = unchecked(orderHash * 397 + accumulators[row].Order);
+            gameTickHash = unchecked(gameTickHash * 397 + accumulators[row].GameTickSum);
+            calls += accumulators[row].Calls;
+        }
+        return new(stateHash, valueHash, orderHash, gameTickHash, calls);
+    }
 }
 
 internal static class DirectShapes

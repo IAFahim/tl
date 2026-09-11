@@ -32,6 +32,20 @@ SCENARIOS = (
     "scalar-query",
     "batch-direct",
     "batch-query",
+    "shape-one-direct",
+    "shape-one-query",
+    "shape-three-direct",
+    "shape-three-query",
+    "shape-sixteen-direct",
+    "shape-sixteen-query",
+    "shape-gap-direct",
+    "shape-gap-query",
+    "shape-blend-direct",
+    "shape-blend-query",
+    "component-direct",
+    "component-query",
+    "mixed-assets-direct",
+    "mixed-assets-query",
 )
 
 
