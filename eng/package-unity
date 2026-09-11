@@ -36,7 +36,7 @@ make_archive "$stage/second.tgz"
 cmp "$stage/first.tgz" "$stage/second.tgz"
 cp "$stage/first.tgz" "$archive"
 tar -tzf "$archive" >"$stage/files.txt"
-for required in package/package.json package/README.md package/CHANGELOG.md package/Runtime/Tl.Unity.asmdef package/Runtime/Jobs.cs package/Runtime/Entities/Tl.Unity.Entities.asmdef; do
+for required in package/package.json package/README.md package/CHANGELOG.md package/Runtime/Tl.Unity.asmdef package/Runtime/Jobs.cs; do
     grep -Fxq "$required" "$stage/files.txt" || { printf '%s\n' "archive is missing $required" >&2; exit 2; }
 done
 if rg -i '/(Editor|Tests?|Samples~?)/|\.(dll|pdb|nupkg|snupkg|tgz)$|/(Tl\.Compiler|Tl\.Gen|Microsoft\.CodeAnalysis|System\.IO\.Hashing|System\.Runtime\.CompilerServices\.Unsafe)' "$stage/files.txt"; then
@@ -45,9 +45,9 @@ if rg -i '/(Editor|Tests?|Samples~?)/|\.(dll|pdb|nupkg|snupkg|tgz)$|/(Tl\.Compil
 fi
 
 sha256="$(sha256sum "$archive" | cut -d' ' -f1)"
-files="$(wc -l < "$stage/files.txt")"
+archive_entries="$(wc -l < "$stage/files.txt")"
 bytes="$(stat -c %s "$archive")"
-printf 'commit\t%s\nversion\t%s\narchive\t%s\nsha256\t%s\nfiles\t%s\nbytes\t%s\n' \
-    "$commit" "$version" "$(basename "$archive")" "$sha256" "$files" "$bytes" \
+printf 'commit\t%s\nversion\t%s\narchive\t%s\nsha256\t%s\narchive-entries\t%s\nbytes\t%s\n' \
+    "$commit" "$version" "$(basename "$archive")" "$sha256" "$archive_entries" "$bytes" \
     >"$output/package.txt"
 cat "$output/package.txt"

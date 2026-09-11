@@ -116,6 +116,33 @@ public sealed class UnityMaterializationTests : IDisposable
         Assert.Contains("ref Combat.Role1Trace @trace", content);
     }
 
+    [Fact]
+    public void UnityCatalogQualifiesTimelineReferencesAcrossNamespaces()
+    {
+        Directory.CreateDirectory(_directory);
+        var source = Path.Combine(_directory, "CrossNamespace.tl");
+        var output = Path.Combine(_directory, "Generated");
+        var references = Path.Combine(_directory, "references.txt");
+        File.WriteAllText(source, CrossNamespaceSource);
+        File.WriteAllLines(references,
+            ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+                .Append(typeof(ITimeline).Assembly.Location).Distinct(StringComparer.Ordinal));
+
+        Assert.Equal(0, GeneratorCli.Main([
+            "--compile", "--backend", "unity-entities", "--output", output,
+            "--source", source, "--reference-list", references,
+        ]));
+
+        var catalog = File.ReadAllText(Directory.GetFiles(output, "TlUnityCatalog*.g.cs").Single());
+        Assert.Contains("global::External.Attack.StaticDataBytes", catalog);
+        Assert.Contains("global::External.Attack.Select", catalog);
+        Assert.Contains("global::External.Attack.ExecuteForward0", catalog);
+        Assert.Contains("global::External.Attack.ExecuteReverse0", catalog);
+        Assert.Contains("global::External.Attack.FrameCycle", catalog);
+        Assert.Contains("global::External.Attack.Commit", catalog);
+        Assert.DoesNotContain("if (Attack.Select", catalog);
+    }
+
     private static IReadOnlyList<string> CSharpBlocks(string markdown)
     {
         const string fence = "```csharp\n";
@@ -211,6 +238,44 @@ public sealed class UnityMaterializationTests : IDisposable
             {
                 builder.Schema<Rows>().Asset<Attack>().Asset<Defense>();
                 builder.Schema<LoopRows>().Asset<Loop>();
+            }
+        }
+        """;
+
+    private const string CrossNamespaceSource = """
+        using Tl;
+        namespace Shared
+        {
+            public readonly struct Clip;
+            public readonly struct Track : IBlend<Clip>
+            {
+                public void Blend(in Clip first, in Clip second, float factor, out Clip result) { result = first; }
+            }
+            public readonly struct Job : ITimelineJob<Track, Clip>
+            {
+                public static void Execute(in Frame<Track, Clip> frame) { }
+            }
+        }
+        namespace External
+        {
+            public readonly partial struct Attack : ITimeline
+            {
+                public static void Define(scoped Builder builder)
+                {
+                    var track = builder.Track(new Shared.Track()).Use<Shared.Job>();
+                    builder.Clip(track, new Shared.Clip(), 0u, 1u);
+                }
+            }
+        }
+        namespace Game
+        {
+            public readonly struct Rows;
+            public readonly partial struct Catalog : ITimelineCatalog
+            {
+                public static void Define(scoped CatalogBuilder builder)
+                {
+                    builder.Schema<Rows>().Asset<External.Attack>();
+                }
             }
         }
         """;

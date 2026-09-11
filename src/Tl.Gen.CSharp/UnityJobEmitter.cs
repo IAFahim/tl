@@ -178,7 +178,7 @@ internal static class UnityJobEmitter
         Line(writer, "public long Cycle { get { return Value.Cycle; } }");
         Line(writer, "}");
         Line(writer, "public static int StateBytes => global::Unity.Collections.LowLevel.Unsafe.UnsafeUtility.SizeOf<State>();");
-        Line(writer, $"public static int StaticDataBytes => {string.Join(" + ", assets.Select(asset => asset.Name + ".StaticDataBytes").DefaultIfEmpty("0"))};");
+        Line(writer, $"public static int StaticDataBytes => {string.Join(" + ", assets.Select(asset => Qualified(asset) + ".StaticDataBytes").DefaultIfEmpty("0"))};");
         Line(writer, "public struct TimelineComponent : global::Unity.Entities.IComponentData");
         Line(writer, "{");
         Line(writer, "public State Value;");
@@ -344,7 +344,7 @@ internal static class UnityJobEmitter
             {
                 var asset = byName[assetName];
                 Line(writer, $"case {ids[Qualified(asset)].ToString(CultureInfo.InvariantCulture)}u:");
-                Line(writer, $"if ({asset.Name}.Select(in timeline.Value.Value, Reverse, out _, out timeline.Value.PendingTick, out _, out timeline.Value.PendingFlags))");
+                Line(writer, $"if ({Qualified(asset)}.Select(in timeline.Value.Value, Reverse, out _, out timeline.Value.PendingTick, out _, out timeline.Value.PendingFlags))");
                 Line(writer, "{");
                 Line(writer, "timeline.Value.Pending = true;");
                 Line(writer, "timelines[index] = timeline;");
@@ -377,8 +377,8 @@ internal static class UnityJobEmitter
                 var local = plans[Qualified(asset)].OperationBindings.Select((candidate, index) => (candidate, index))
                     .Single(pair => pair.candidate.TypeName == definition.TypeName);
                 Line(writer, $"case {ids[Qualified(asset)].ToString(CultureInfo.InvariantCulture)}u:");
-                Line(writer, $"if (Reverse) {asset.Name}.ExecuteReverse{local.index}(Stage, timeline.Value.PendingTick, GameTick, {asset.Name}.FrameCycle(in timeline.Value.Value, timeline.Value.PendingFlags), timeline.Value.PendingFlags{WrapperArguments(definition.Slots)});");
-                Line(writer, $"else {asset.Name}.ExecuteForward{local.index}(Stage, timeline.Value.PendingTick, GameTick, {asset.Name}.FrameCycle(in timeline.Value.Value, timeline.Value.PendingFlags), timeline.Value.PendingFlags{WrapperArguments(definition.Slots)});");
+                Line(writer, $"if (Reverse) {Qualified(asset)}.ExecuteReverse{local.index}(Stage, timeline.Value.PendingTick, GameTick, {Qualified(asset)}.FrameCycle(in timeline.Value.Value, timeline.Value.PendingFlags), timeline.Value.PendingFlags{WrapperArguments(definition.Slots)});");
+                Line(writer, $"else {Qualified(asset)}.ExecuteForward{local.index}(Stage, timeline.Value.PendingTick, GameTick, {Qualified(asset)}.FrameCycle(in timeline.Value.Value, timeline.Value.PendingFlags), timeline.Value.PendingFlags{WrapperArguments(definition.Slots)});");
                 Line(writer, "break;");
             }
             Line(writer, "}");
@@ -398,7 +398,7 @@ internal static class UnityJobEmitter
         foreach (var asset in assets)
         {
             Line(writer, $"case {ids[Qualified(asset)].ToString(CultureInfo.InvariantCulture)}u:");
-            Line(writer, $"timeline.Value.Value = {asset.Name}.Commit(in timeline.Value.Value, timeline.Value.PendingTick, timeline.Value.PendingFlags);");
+            Line(writer, $"timeline.Value.Value = {Qualified(asset)}.Commit(in timeline.Value.Value, timeline.Value.PendingTick, timeline.Value.PendingFlags);");
             Line(writer, "break;");
         }
         Line(writer, "}");

@@ -113,6 +113,11 @@ cache_log="$stage/Tl.PackageConsumer.cache.log"
 dotnet msbuild "$consumer" -t:TlGenExport -p:Configuration=Release -p:ArtifactsPath="$consumer_artifacts" "${consumer_properties[@]}" | tee "$cache_log"
 grep -F "TlGenCompile: cache hit" "$cache_log"
 
+unity_export="$stage/Tl.PackageConsumer.unity"
+dotnet msbuild "$consumer" -t:TlGenExport -p:Configuration=Release -p:ArtifactsPath="$consumer_artifacts" \
+    -p:TlGenBackend=unity-entities -p:TlGenOutput="$unity_export" "${consumer_properties[@]}"
+grep -F $'backend\tunity-entities' "$unity_export/TlGenCompile.report.txt"
+
 for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do
     [[ ! -e "$jit_output/$forbidden" ]] || { printf '%s\n' "JIT output contains $forbidden" >&2; exit 2; }
 done

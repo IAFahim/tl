@@ -65,15 +65,33 @@ public readonly partial struct Combat : ITimelineCatalog
 }
 ```
 
-Materialize those authoring sources outside Unity before script import:
+Download the matching `Tl.CSharp` and `Tl.Runtime` `.nupkg` files from the GitHub prerelease into `tools/packages`, then create a small .NET 10 authoring project beside the Unity project. `Tl.CSharp` supplies the materializer, resolves the compilation references, and imports the `TlGenExport` target. The local package source is required because alpha.3 is distributed through the GitHub prerelease rather than a public NuGet feed. This project is an authoring tool and does not enter the Unity or player assembly graph:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Nullable>enable</Nullable>
+    <TlGenBackend>unity-entities</TlGenBackend>
+    <TlGenOutput>$(MSBuildThisFileDirectory)../Game/Assets/Timelines/Generated</TlGenOutput>
+    <RestoreSources>$(MSBuildThisFileDirectory)../tools/packages;https://api.nuget.org/v3/index.json</RestoreSources>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Game/Assets/Timelines/DomainJobs.cs" />
+    <Compile Include="../Game/Assets/Timelines/Combat.tl" />
+    <PackageReference Include="Tl.CSharp" Version="1.0.0-alpha.3" />
+  </ItemGroup>
+</Project>
+```
+
+Materialize before Unity script import:
 
 ```sh
-dotnet Tl.Gen.CSharp.dll --compile --backend unity-entities \
-  --output Assets/Timelines/Generated \
-  --source Assets/Timelines/DomainJobs.cs \
-  --source Assets/Timelines/Combat.tl \
-  --reference-list Library/TlMaterializer.references
+dotnet msbuild Timeline.Authoring.csproj -restore -t:TlGenExport
 ```
+
+`TlGenBackend` defaults to `csharp`, and `TlGenOutput` defaults to the project's intermediate `TlGenCompile` directory. The project above selects the Unity backend and writes the deterministic `.g.cs` files and cache/report sidecars directly to the Unity Assets directory.
 
 The generated catalog owns the state, enableable schema marker, logical-slot wrappers, and scheduler. Create an entity with the complete generated schema and drive the scheduler from one external clock:
 

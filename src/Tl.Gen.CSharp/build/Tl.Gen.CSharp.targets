@@ -9,6 +9,8 @@
     <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenPkgTool)')">$(_TlGenPkgTool)</TlGenAssembly>
     <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenProjBin)')">$(_TlGenProjBin)</TlGenAssembly>
     <TlGenAssembly Condition="'$(TlGenAssembly)' == ''">$(MSBuildThisFileDirectory)../bin/Release/net10.0/Tl.Gen.CSharp.dll</TlGenAssembly>
+    <TlGenBackend Condition="'$(TlGenBackend)' == ''">csharp</TlGenBackend>
+    <TlGenOutput Condition="'$(TlGenOutput)' == ''">$(IntermediateOutputPath)TlGenCompile\</TlGenOutput>
   </PropertyGroup>
 
   <ItemGroup Condition="Exists('$(_TlGenProject)')">
@@ -26,9 +28,9 @@
 
   <Target Name="TlGenExport"
           DependsOnTargets="ResolveProjectReferences;ResolveAssemblyReferences;ResolveReferences;GenerateGlobalUsings"
-          Condition="'@(Compile)' != '' Or Exists('$(IntermediateOutputPath)TlGenCompile\TlGenCompile.manifest.json')">
+          Condition="'@(Compile)' != '' Or Exists('$(TlGenOutput)\TlGenCompile.manifest.json')">
     <PropertyGroup>
-      <_TlGenCompileOut>$(IntermediateOutputPath)TlGenCompile\</_TlGenCompileOut>
+      <_TlGenCompileOut>$([MSBuild]::EnsureTrailingSlash('$(TlGenOutput)'))</_TlGenCompileOut>
       <_TlGenCompileSourceList>$(_TlGenCompileOut)TlGenCompile.sources</_TlGenCompileSourceList>
       <_TlGenCompileInputList>$(_TlGenCompileOut)TlGenCompile.inputs</_TlGenCompileInputList>
       <_TlGenCompileReferenceList>$(_TlGenCompileOut)TlGenCompile.references</_TlGenCompileReferenceList>
@@ -58,7 +60,7 @@
                       Lines="@(_TlGenCompileOptions)"
                       Overwrite="true"
                       WriteOnlyWhenDifferent="true" />
-    <Exec Command="&quot;$(_TlGenDotNet)&quot; &quot;$(TlGenAssembly)&quot; --compile --output &quot;$(_TlGenCompileOut)&quot; --define &quot;$(DefineConstants)&quot; --source-list &quot;$(_TlGenCompileInputList)&quot; --reference-list &quot;$(_TlGenCompileReferenceList)&quot; --option-list &quot;$(_TlGenCompileOptionList)&quot;" />
+    <Exec Command="&quot;$(_TlGenDotNet)&quot; &quot;$(TlGenAssembly)&quot; --compile --backend &quot;$(TlGenBackend)&quot; --output &quot;$(_TlGenCompileOut)&quot; --define &quot;$(DefineConstants)&quot; --source-list &quot;$(_TlGenCompileInputList)&quot; --reference-list &quot;$(_TlGenCompileReferenceList)&quot; --option-list &quot;$(_TlGenCompileOptionList)&quot;" />
     <ItemGroup>
       <FileWrites Include="$(_TlGenCompileOut)**\*.g.cs" />
       <FileWrites Include="$(_TlGenCompileSourceList)" />

@@ -16,6 +16,13 @@ SPEC.loader.exec_module(RELEASE_ARTIFACTS)
 
 
 class ReleaseArtifactTests(unittest.TestCase):
+    def test_tlgen_export_exposes_defaulted_backend_and_output(self):
+        targets = (ROOT / "src" / "Tl.Gen.CSharp" / "build" / "Tl.Gen.CSharp.targets").read_text(encoding="utf-8")
+        self.assertIn('<TlGenBackend Condition="\'$(TlGenBackend)\' == \'\'">csharp</TlGenBackend>', targets)
+        self.assertIn('<TlGenOutput Condition="\'$(TlGenOutput)\' == \'\'">$(IntermediateOutputPath)TlGenCompile\\</TlGenOutput>', targets)
+        self.assertIn('--backend &quot;$(TlGenBackend)&quot;', targets)
+        self.assertIn("EnsureTrailingSlash(\'$(TlGenOutput)\')", targets)
+
     def test_unity_package_separate_invocations_are_byte_identical(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -39,6 +46,9 @@ class ReleaseArtifactTests(unittest.TestCase):
             first_archive = next(first.glob("*.tgz"))
             second_archive = next(second.glob("*.tgz"))
             self.assertEqual(first_archive.read_bytes(), second_archive.read_bytes())
+            manifest = (first / "package.txt").read_text(encoding="utf-8")
+            self.assertIn("archive-entries\t", manifest)
+            self.assertNotIn("\nfiles\t", manifest)
 
     def test_canonical_packages_are_byte_identical(self):
         with tempfile.TemporaryDirectory() as temporary:
