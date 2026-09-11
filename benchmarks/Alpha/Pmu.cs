@@ -1,128 +1,144 @@
 internal static class Pmu
 {
-    private const int WarmupPasses = 1024;
-    private const int MeasuredPasses = 32768;
+    private const long WarmupFrames = 4_194_304L;
+    private const long MeasuredFrames = 268_435_456L;
+    private const long WideWarmupFrames = 8_192L;
+    private const long WideMeasuredFrames = 262_144L;
 
-    public static void Run(string scenario)
+    internal static void Run(string scenario)
     {
-        if (scenario.StartsWith("matrix-", StringComparison.Ordinal))
-        {
-            RunMatrix(scenario);
-            return;
-        }
-
         switch (scenario)
         {
-            case "sum-direct":
-                RunSum(static benchmark => benchmark.DirectScalar());
+            case "scalar-direct":
+            {
+                var benchmark = new ScalarCatalogQueryBenchmarks { Pattern = TickPattern.Forward };
+                benchmark.Setup();
+                Measure(ScalarCatalogQueryBenchmarks.Operations, benchmark.DirectScalar);
                 return;
-            case "sum-typed":
-                RunSum(static benchmark => benchmark.TypedScalar());
+            }
+            case "scalar-query":
+            {
+                var benchmark = new ScalarCatalogQueryBenchmarks { Pattern = TickPattern.Forward };
+                benchmark.Setup();
+                Measure(ScalarCatalogQueryBenchmarks.Operations, benchmark.GeneratedQueryScalar);
                 return;
-            case "sum-dynamic":
-                RunSum(static benchmark => benchmark.DynamicScalar());
+            }
+            case "batch-direct":
+            {
+                var benchmark = new BatchCatalogQueryBenchmarks { Rows = 10_000 };
+                benchmark.Setup();
+                Measure(BatchCatalogQueryBenchmarks.Frames * (long)benchmark.Rows, benchmark.DirectBatch);
                 return;
-            case "combat-direct":
-                RunCombat(static benchmark => benchmark.DirectScalar());
+            }
+            case "batch-query":
+            {
+                var benchmark = new BatchCatalogQueryBenchmarks { Rows = 10_000 };
+                benchmark.Setup();
+                Measure(BatchCatalogQueryBenchmarks.Frames * (long)benchmark.Rows, benchmark.GeneratedQueryBatch);
                 return;
-            case "combat-typed":
-                RunCombat(static benchmark => benchmark.TypedScalar());
+            }
+            case "shape-one-direct":
+                MeasureShape(TimelineShape.OneTrack, false);
                 return;
-            case "combat-dynamic":
-                RunCombat(static benchmark => benchmark.DynamicScalar());
+            case "shape-one-query":
+                MeasureShape(TimelineShape.OneTrack, true);
                 return;
+            case "shape-three-direct":
+                MeasureShape(TimelineShape.ThreeTracks, false);
+                return;
+            case "shape-three-query":
+                MeasureShape(TimelineShape.ThreeTracks, true);
+                return;
+            case "shape-sixteen-direct":
+                MeasureShape(TimelineShape.SixteenTracks, false);
+                return;
+            case "shape-sixteen-query":
+                MeasureShape(TimelineShape.SixteenTracks, true);
+                return;
+            case "shape-256-direct":
+                MeasureShape(TimelineShape.TwoHundredFiftySixTracks, false);
+                return;
+            case "shape-256-query":
+                MeasureShape(TimelineShape.TwoHundredFiftySixTracks, true);
+                return;
+            case "shape-gap-direct":
+                MeasureShape(TimelineShape.Gap, false);
+                return;
+            case "shape-gap-query":
+                MeasureShape(TimelineShape.Gap, true);
+                return;
+            case "shape-blend-direct":
+                MeasureShape(TimelineShape.Blend, false);
+                return;
+            case "shape-blend-query":
+                MeasureShape(TimelineShape.Blend, true);
+                return;
+            case "component-direct":
+            {
+                var benchmark = new ComponentCase(TickPattern.Forward);
+                Measure(ComponentCase.Operations, benchmark.Direct);
+                return;
+            }
+            case "component-query":
+            {
+                var benchmark = new ComponentCase(TickPattern.Forward);
+                Measure(ComponentCase.Operations, benchmark.Generated);
+                return;
+            }
+            case "mixed-assets-direct":
+            {
+                var benchmark = new MixedAssetCase();
+                Measure(MixedAssetCase.Rows * MixedAssetCase.Frames, benchmark.Direct);
+                return;
+            }
+            case "mixed-assets-query":
+            {
+                var benchmark = new MixedAssetCase();
+                Measure(MixedAssetCase.Rows * MixedAssetCase.Frames, benchmark.Generated);
+                return;
+            }
             default:
                 throw new ArgumentOutOfRangeException(nameof(scenario));
         }
     }
 
-    private static void RunSum(Func<SumBenchmarks, SumReceipt> operation)
+    private static void MeasureShape(TimelineShape shape, bool generated)
     {
-        var benchmark = new SumBenchmarks { Pattern = SeekPattern.Forward };
-        benchmark.Setup();
-        for (var pass = 0; pass < WarmupPasses; pass++)
-            _ = operation(benchmark);
-        Console.WriteLine($"ready {MeasuredPasses * (long)SumBenchmarks.Operations}");
-        if (Console.ReadLine() != "go")
-            throw new InvalidOperationException();
-        long receipt = 0;
-        for (var pass = 0; pass < MeasuredPasses; pass++)
-            receipt = Fold(receipt, operation(benchmark));
-        Console.WriteLine($"{receipt} {MeasuredPasses * (long)SumBenchmarks.Operations}");
-        Console.ReadLine();
+        var benchmark = new ShapeCase(shape, TickPattern.Forward);
+        Func<BenchmarkReceipt> operation = generated ? benchmark.Generated : benchmark.Direct;
+        if (shape == TimelineShape.TwoHundredFiftySixTracks)
+            Measure(ShapeCase.Operations, operation, WideWarmupFrames, WideMeasuredFrames);
+        else
+            Measure(ShapeCase.Operations, operation);
     }
 
-    private static void RunCombat(Func<CombatBenchmarks, CombatReceipt> operation)
+    private static void Measure(
+        long framesPerPass,
+        Func<BenchmarkReceipt> operation,
+        long warmupFrames = WarmupFrames,
+        long measuredFrames = MeasuredFrames)
     {
-        var benchmark = new CombatBenchmarks { Pattern = SeekPattern.Forward };
-        benchmark.Setup();
-        for (var pass = 0; pass < WarmupPasses; pass++)
-            _ = operation(benchmark);
-        Console.WriteLine($"ready {MeasuredPasses * (long)CombatBenchmarks.Operations}");
-        if (Console.ReadLine() != "go")
-            throw new InvalidOperationException();
-        long receipt = 0;
-        for (var pass = 0; pass < MeasuredPasses; pass++)
-            receipt = Fold(receipt, operation(benchmark));
-        Console.WriteLine($"{receipt} {MeasuredPasses * (long)CombatBenchmarks.Operations}");
-        Console.ReadLine();
-    }
-
-    private static void RunMatrix(string scenario)
-    {
-        var separator = scenario.IndexOf('-', "matrix-".Length);
-        if (separator < 0 || !Enum.TryParse<SeekCase>(scenario[(separator + 1)..], out var seekCase))
-            throw new ArgumentOutOfRangeException(nameof(scenario));
-
-        var facade = scenario["matrix-".Length..separator];
-        var benchmark = new SignedSeekBenchmarks { Case = seekCase };
-        benchmark.Setup();
-        Func<SignedSeekBenchmarks, SumReceipt> operation = facade switch
-        {
-            "direct" => static value => value.Direct(),
-            "typed" => static value => value.Typed(),
-            "dynamic" => static value => value.Dynamic(),
-            _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
-        };
-
-        var framesPerPass = SignedSeekBenchmarks.Calls * (long)benchmark.FramesPerCall;
-        var warmupPasses = Math.Max(1L, 4_194_304L / framesPerPass);
-        var measuredPasses = Math.Max(1L, 268_435_456L / framesPerPass);
+        var warmupPasses = Math.Max(1L, warmupFrames / framesPerPass);
+        var measuredPasses = Math.Max(1L, measuredFrames / framesPerPass);
         for (long pass = 0; pass < warmupPasses; pass++)
-            _ = operation(benchmark);
-        var measuredFrames = measuredPasses * framesPerPass;
-        Console.WriteLine($"ready {measuredFrames}");
+            _ = operation();
+        var totalFrames = measuredPasses * framesPerPass;
+        Console.WriteLine($"ready {totalFrames}");
         if (Console.ReadLine() != "go")
             throw new InvalidOperationException();
         long receipt = 0;
         for (long pass = 0; pass < measuredPasses; pass++)
-            receipt = Fold(receipt, operation(benchmark));
-        Console.WriteLine($"{receipt} {measuredFrames}");
-        Console.ReadLine();
+            receipt = Fold(receipt, operation());
+        Console.WriteLine($"{receipt} {totalFrames}");
+        _ = Console.ReadLine();
     }
 
-    private static long Fold(long value, SumReceipt receipt)
+    private static long Fold(long value, BenchmarkReceipt receipt)
     {
-        value = unchecked(value * 397L + receipt.Position);
-        value = unchecked(value * 397L + receipt.GameTick);
-        value = unchecked(value * 397L + (byte)receipt.Flags);
-        value = unchecked(value * 397L + receipt.SumBits);
-        return unchecked(value * 397L + receipt.Successes);
-    }
-
-    private static long Fold(long value, CombatReceipt receipt)
-    {
-        value = unchecked(value * 397L + receipt.Position);
-        value = unchecked(value * 397L + receipt.GameTick);
-        value = unchecked(value * 397L + (byte)receipt.Flags);
-        value = unchecked(value * 397L + receipt.PoseXBits);
-        value = unchecked(value * 397L + receipt.PoseYBits);
-        value = unchecked(value * 397L + receipt.HealthBits);
-        value = unchecked(value * 397L + receipt.TickSum);
-        value = unchecked(value * 397L + receipt.Calls);
-        value = unchecked(value * 397L + receipt.Starts);
-        value = unchecked(value * 397L + receipt.Interior);
-        value = unchecked(value * 397L + receipt.Ends);
-        return unchecked(value * 397L + receipt.Successes);
+        value = unchecked(value * 397L + receipt.StateHash);
+        value = unchecked(value * 397L + receipt.ValueHash);
+        value = unchecked(value * 397L + receipt.OrderHash);
+        value = unchecked(value * 397L + receipt.GameTickHash);
+        return unchecked(value * 397L + receipt.Calls);
     }
 }

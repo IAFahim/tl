@@ -1,24 +1,31 @@
 # Architecture
 
-## System shape
-
-`tl` has four boundaries: declaration, plan, backend, and playback.
+## One semantic plan, separate hosts
 
 ```mermaid
 flowchart LR
-    A[Typed declaration] --> F[Language frontend]
-    F --> P[Neutral immutable plan]
-    F --> B[Language binding]
-    P --> E[Backend]
-    B --> E
-    E --> K[Generated kernel and data]
-    K --> R[Small runtime ABI]
-    R --> G[Game or simulation state]
+    CS[C# declarations] --> FE[C# frontend]
+    GUI[Designer asset data] -. future frontend .-> PLAN
+    FE --> PLAN[Validated neutral ordered plan]
+    FE --> BIND[C# type and expression binding]
+    PLAN --> GEN[C# query backend]
+    BIND --> GEN
+    GEN --> CODE[Generated timelines and catalogs]
+    CODE --> ABI[Tl.Runtime ABI]
+    CODE --> NET[.NET span query]
+    PLAN --> UNITY[Unity source materializer]
+    BIND --> UNITY
+    UNITY --> ECS[Entities and Burst jobs]
+    PLAN --> C11[Existing C11 ABI v2 backend]
 ```
 
-The current plan contains identity, fixed-width track and clip records, half-open windows, operation IDs, and lifecycle traits. Backends derive regions and movement facts deterministically. It contains no syntax tree, C# type spelling, constructor expression, callback body, or runtime object. A language binding maps payload IDs and operation IDs to constructs available in that language.
+`Tl.Compiler` owns language-neutral identity, payload encoding identities, operation slots, tracks, clips, hooks, half-open regions, ordered occurrences, exact payload deduplication, and validation. Its public records contain no Roslyn symbol, C# type spelling, constructor expression, callback body, or Unity type.
 
-This separation allows a C# frontend to feed C#, C11, Unity/Burst, C++, Rust, visualization, validation, and asset tooling without forcing those consumers to understand Roslyn. Arbitrary C# behavior is never translated implicitly. A backend invokes the operation implementation supplied by its own language binding.
+`Tl.Gen.CSharp` owns Roslyn discovery, C# semantic binding, constant expressions, operation signatures, diagnostics, and C# source emission. The adapter converts each valid C# declaration into a neutral plan plus index-aligned C# bindings. Backends consume the validated plan rather than rebuilding regions or ordering independently.
+
+The Unity backend consumes the same plan and binding but materializes source before Unity script compilation. This lets the Entities generator discover physical job declarations in the following compiler pass. Host storage differs: .NET borrows spans; Unity queries ECS chunks and components. Their authored operation semantics and occurrence schedule remain shared.
+
+Designer GUI authoring is a future frontend. It must produce the same validated plan rather than introduce a second execution model.
 
 ## Package direction
 
@@ -27,43 +34,82 @@ flowchart TD
     Runtime[Tl.Runtime]
     Compiler[Tl.Compiler]
     CSharp[Tl.Gen.CSharp]
+    Install[Tl.CSharp]
     C[Tl.Gen.C]
     Unity[Tl.Unity]
-    Tools[Tl.Tools]
-    CSharp --> Runtime
     CSharp --> Compiler
+    Install --> Runtime
+    Install -. embeds .-> CSharp
     C --> Compiler
-    Unity --> Compiler
     Unity --> Runtime
-    Tools --> Compiler
+    Unity --> Entities[Unity Entities]
+    CSharp -. materializes .-> Unity
 ```
 
-`Tl.Runtime` remains the only required game-output dependency for the current .NET path. Compiler and backend packages run during development or build. Future editor, asset, visualization, networking, and domain packages depend inward on the plan or runtime contract; the core never depends on them.
+`Tl.Runtime` is the only .NET application dependency. It contains declarations, borrowed frames, flags, state, and total movement. `Tl.Unity` is the Unity application package and depends on `Tl.Runtime` source plus Entities. Neither application boundary contains Roslyn, the neutral compiler, a registry, reflection binding, delegate dispatch, a runtime authoring graph, or generated asset data.
 
-Backend repositories may split out after the plan format and compatibility suite reach a stable version. Until then, the monorepo keeps atomic changes testable. A split backend must consume a released `Tl.Compiler` package and pass the same conformance fixtures; it may not copy private compiler models.
+`Tl.Gen.CSharp` targets netstandard2.0 for Roslyn analyzer hosts and net10.0 for explicit export. The package places the compatible `Tl.Compiler.dll` beside the analyzer. The tool directory contains its own compiler and Roslyn assemblies. `Tl.CSharp` embeds those build assets and depends only on `Tl.Runtime`; build assets never become application references. Unity materialization runs in a separate .NET authoring process and writes physical C# for the Unity compiler, Entities generator, and Burst pipeline.
 
-## C# compilation
+`Tl.Gen.C` consumes `Tl.Compiler` as a normal package dependency. Its existing C ABI v2 remains separate from the alpha.3 C# catalog API. C catalog generation requires its own reviewed migration.
 
-The C# package runs before compilation for normal and IDE design-time builds. It reads normal compile items with Roslyn, validates declarations, lowers them deterministically, writes content-stable generated files, and records a manifest and report under `obj/<configuration>/<tfm>/TlGenCompile`.
+## Compilation
 
-The generated timeline owns static payload values, direct signed-seek region blocks, one generated borrowed `Data` context, a dynamic-context adapter, and one module/ordinal route. Exact-schema public calls inline through the generated context protocol. Registry lookup, reflection, binding, callback interfaces, and a generic interpreter do not appear in the typed hot body.
+The incremental generator discovers partial `ITimeline` and `ITimelineCatalog` declarations already present in the compilation. It reads only supported declarative builder syntax, resolves job signatures and schema slots, validates the complete graph, adapts it to the neutral ordered plan, then emits deterministic timeline and catalog sources.
 
-## Runtime ownership
+```mermaid
+sequenceDiagram
+    participant Roslyn
+    participant Frontend
+    participant Compiler
+    participant Backend
+    Roslyn->>Frontend: syntax and semantic candidates
+    Frontend->>Compiler: neutral plan
+    Compiler-->>Frontend: validated regions and occurrences
+    Frontend->>Backend: validated plan plus C# bindings
+    Backend-->>Roslyn: deterministic generated sources
+```
 
-`Playback` and `Playback<TTimeline>` are 16-byte caller-owned readonly sequential values containing signed position, game tick, lifecycle flags, and dynamic owner where required. Generated contexts are stack-only borrowed views over caller storage. `Frame<TTrack,TClip>` is a readonly ref struct scoped to the operation call. The runtime retains none of these values.
+Normal and supporting IDE design-time builds run this pipeline automatically. Another generator's ordinary `RegisterSourceOutput` cannot feed these declarations into the same compilation. The explicit `TlGenExport` target runs the same reader and emitter when physical source, a deterministic manifest, and a generation report are required.
 
-`Start(gameTick)` anchors timeline position zero to simulation time. Signed seek replays every crossed local frame. Positive execution applies authored effects in order; negative execution applies the structurally reversed schedule. Finite validation completes before effects, and zero delta performs validation without callbacks.
+The export cache hashes source contents, references, compiler options, and generator identity. A hit preserves files and timestamps. A miss atomically replaces owned content and removes stale owned outputs. No benchmark autotuning occurs during generation.
 
-The ID registry is a sparse two-level unmanaged table. Registration allocates and publishes complete immutable entries under a small construction gate. Playback performs read-only access after publication. IDs are never reused and compiled definitions live for the process lifetime, so stale handles cannot alias a new definition and playback needs no reclamation protocol.
+## Generated data
 
-## C11 boundary
+Each timeline contains compile-time duration, loop mode, track count, clip count, maximum stage count, and exact static track/clip payloads. Structurally equal payload expressions share one static storage slot. Region branches encode the active occurrence slice and blend facts.
 
-`Tl.Gen.C` emits a versioned C11 header and source pair from a neutral plan plus explicit symbol bindings. Consumer-owned `void*` context crosses only the C boundary; each bound operation interprets it.
+Each catalog contains deterministic local asset routes and schema query types. Per row, generated state holds committed asset/position/cycle plus bounded pending selection. Query instances borrow state and component columns and retain no heap object or frame queue.
 
-The present C package implements its own earlier versioned playback contract. Migration to the signed seek law requires a separate C ABI revision and conformance gate. C layout or timing evidence must not be used as evidence for the current C# ABI.
+Static data and state are reported separately:
 
-The first C backend is an in-process ABI. It does not define an on-disk format or network byte order. A serialized plan will require a separate canonical format with explicit endianness and compatibility rules.
+- neutral payload bytes
+- neutral schedule bytes
+- generated C# UTF-8 bytes
+- generated static data bytes
+- catalog state bytes per row
+- managed and NativeAOT output bytes
+- native text bytes
+- warm managed allocation
 
-## Extension invariants
+The neutral plan deduplicates exact type identity plus canonical payload bytes. The C# binding currently deduplicates identical normalized type and expression bindings. A hash match alone never establishes equality.
 
-An extension may add a frontend, backend, operation library, analyzer, editor, importer, exporter, profiler, or scheduler. It earns compatibility by consuming public versioned contracts and passing conformance receipts. It never patches generated text, reaches into private Roslyn models, mutates a published plan, or inserts work into playback without appearing in the authored operation graph.
+## Execution
+
+For each requested simulation step, a generated .NET query validates routes, selects every row once, runs typed operation passes in stage order, then commits each selected row once. One row may execute animation→damage→animation while another executes damage→animation. Reverse movement traverses each row's occurrence slice backward.
+
+The generated operation entry selects a region, checks the current stage, resolves at most one blend, constructs a borrowed frame, and calls the concrete static job directly. The hot body has no interface dispatch, function pointer, runtime lookup, reflection, boxing, or allocation.
+
+The generated schema query keeps operation types separate across rows. This is the seam for vectorization and Unity job scheduling, but arbitrary C# operations are not assumed pure, lane-independent, or vectorizable. The supported parallel domain is row-local mutable components plus immutable shared data.
+
+## State and lifetime
+
+Catalog state is caller-owned. Default state selects empty route zero. A nonempty state carries a generated catalog asset, unsigned local position, and signed loop cycle. Game time is supplied to each `Tick` call.
+
+Finite movement clamps at zero and duration. Nonempty looping movement wraps position and changes cycle with explicit two's-complement overflow. Selection is pure and invokes no user code. Commit occurs only after all selected stages complete.
+
+Query and frame values borrow caller storage through spans and ref structs. They cannot escape to the heap or cross asynchronous suspension. Generated static definitions live for the process and need no publication lock or reclamation protocol.
+
+Unity owns ECS component and dependency lifetime. Generated Unity selection, typed operation, and commit jobs must respect host fences before replacing definition data. No per-frame lock belongs in the common path.
+
+## Extension boundary
+
+An extension may add a frontend, backend, importer, editor, operation library, analyzer, visualizer, profiler, or scheduler. It earns compatibility by consuming the public versioned plan or runtime ABI and passing conformance receipts. It does not patch generated text, reach into private Roslyn models, mutate a validated plan, or insert effects outside the ordered occurrence graph.

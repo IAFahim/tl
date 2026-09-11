@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <NuGetAudit>false</NuGetAudit>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <WarningsAsErrors>CS8785;CS8784</WarningsAsErrors>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>obj/UnityGenerated</CompilerGeneratedFilesOutputPath>
+  </PropertyGroup>
+  <Target Name="ValidateUnityPaths" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(UnityProbe)' == '' Or '$(UnityEditor)' == '' Or '$(UnityGenerators)' == ''" Text="Supply UnityProbe, UnityEditor, and UnityGenerators paths for the installed Unity environment." />
+  </Target>
+  <ItemGroup>
+    <Compile Include="State.cs" />
+    <Compile Include="Gameplay.cs" />
+    <Compile Include="Dispatch.cs" />
+    <Compile Include="Unity.cs" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(UnityEditor)/Data/Managed/UnityEngine/UnityEngine.CoreModule.dll" />
+    <Reference Include="UnityEngine.BurstModule" HintPath="$(UnityEditor)/Data/Managed/UnityEngine/UnityEngine.BurstModule.dll" />
+    <Reference Include="UnityEngine.MathematicsModule" HintPath="$(UnityEditor)/Data/Managed/UnityEngine/UnityEngine.MathematicsModule.dll" />
+    <Reference Include="Unity.Entities" HintPath="$(UnityProbe)/Library/ScriptAssemblies/Unity.Entities.dll" />
+    <Reference Include="Unity.Collections" HintPath="$(UnityProbe)/Library/ScriptAssemblies/Unity.Collections.dll" />
+    <Reference Include="Unity.Burst" HintPath="$(UnityProbe)/Library/ScriptAssemblies/Unity.Burst.dll" />
+    <Analyzer Include="$(UnityGenerators)/*.dll" Exclude="$(UnityGenerators)/Unity.Entities.Analyzer*.dll" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+configuration,shape,count,generated_utf8_bytes,tier1_generated_code_bytes,nativeaot_generated_code_bytes,nativeaot_executable_bytes
+baseline,assets,1,6763,1292,1160,3729824
+candidate,assets,1,10213,2848,2078,3734856
+baseline,assets,16,63972,11146,10412,3752976
+candidate,assets,16,107064,22291,22048,3775488
+baseline,assets,256,983996,229442,202982,4185336
+candidate,assets,256,984305,229413,202954,4185192
+baseline,tracks,1,6745,1292,1160,3729816
+candidate,tracks,1,10187,2848,2078,3734864
+baseline,tracks,16,23668,6201,5107,3735440
+candidate,tracks,16,38686,18328,9900,3744664
+baseline,tracks,256,297766,87978,75566,3837480
+candidate,tracks,256,298075,87959,75547,3837488

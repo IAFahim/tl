@@ -10,9 +10,11 @@ The Project uses these states:
 | --- | --- |
 | Backlog | Defined but not ready or scheduled |
 | Ready | Dependencies settled and acceptance receipts written |
-| In progress | One or more claimed workstreams are active |
-| In review | Pull request open and complete checks running |
-| Done | Merged with evidence |
+| In progress | One or more workstreams are still changing |
+| In review | The only active workstream has an open pull request |
+| Done | Issue closed with no active claim |
+
+Pull-request cards use In review while checks and review are open, then Done after the exact head merges. A merged stacked pull request can complete its bounded workstream while its open issue returns to Ready for later integration or release work.
 
 Recommended labels are `ai`, `area:runtime`, `area:compiler`, `area:csharp`, `area:c`, `area:unity`, `area:tooling`, `area:docs`, `area:ci`, `kind:bug`, `kind:feature`, `kind:performance`, `kind:architecture`, `kind:release`, `blocked`, and `experiment`.
 
@@ -35,12 +37,18 @@ Every green material checkpoint is committed and pushed. Before a handoff, shutd
 
 Each pull request links its workstream with `Refs #<issue>`. The final pull request uses `Closes #<issue>` only when every acceptance receipt on the issue is complete.
 
+Pass a stacked target explicitly. Omitting it targets `main`:
+
+```sh
+TL_AGENT=Curie TL_MACHINE=office-1 ./eng/agent-work pr 123 "Emit the C backend" /tmp/pr.md docs/27-alpha3-plan
+```
+
 ## Worktree protocol
 
 Create a fully labeled issue from a prepared body and place it in Ready before claiming it:
 
 ```sh
-./eng/agent-work issue "Add a C ABI receipt" area:c kind:feature /tmp/issue.md v1.0.0-alpha.2
+./eng/agent-work issue "Add a C catalog receipt" area:c kind:feature /tmp/issue.md
 ```
 
 The repository helper performs remote preflight, an atomic Git-ref claim, worktree creation at `../<repo>-<issue>-<kind>-<scope>`, assignment, Project update, and issue report as one operation:
@@ -61,9 +69,9 @@ After committing a tested change from that worktree, publish it and its evidence
 TL_AGENT=Curie TL_MACHINE=office-1 ./eng/agent-work checkpoint 123 "C identifiers are total" "dotnet test; gcc and clang strict C11" "second architecture remains"
 ```
 
-`handoff`, `pr`, and `done` update the Project summary. The helper refuses to publish a checkpoint with uncommitted files or from a machine, agent, or branch that does not own its remote claim. It adds the issue to Project 6 idempotently, records the latest Agent, Machine, Branch, and Checkpoint activity, pushes the commit, and posts the same recovery data on the issue. A `refs/heads/workstream-claims/<issue>/<kind>/<scope>` remote ref is the compare-and-set lock for one workstream. Legacy `refs/heads/claims/<issue>` and `refs/heads/claims/<issue>/<kind>/<scope>` refs remain readable during migration. Concurrent starts of the same workstream race at the Git server and exactly one can create it; different workstreams under the same issue can proceed independently. Every branch publication atomically advances the branch and rotates the claim under a lease on the claim object observed during validation.
+`handoff`, `pr`, and `done` update the Project summary. `pr` also records its exact base and moves its own Project card to In review. The helper refuses to publish a checkpoint with uncommitted files or from a machine, agent, or branch that does not own its remote claim. It adds the issue to Project 6 idempotently, records the latest Agent, Machine, Branch, and Checkpoint activity, pushes the commit, and posts the same recovery data on the issue. A `refs/heads/workstream-claims/<issue>/<kind>/<scope>` remote ref is the compare-and-set lock for one workstream. Legacy `refs/heads/claims/<issue>` and `refs/heads/claims/<issue>/<kind>/<scope>` refs remain readable during migration. Concurrent starts of the same workstream race at the Git server and exactly one can create it; different workstreams under the same issue can proceed independently. Every branch publication atomically advances the branch and rotates the claim under a lease on the claim object observed during validation.
 
-The single Project row and ordered issue record are shared by all workstreams, so every helper command that creates a claim or projects state holds `refs/heads/issue-transactions/<issue>`. This issue-level compare-and-set lock serializes the active claim set, Project fields, comments, workstream takeover, handoff, and completion. Agent, Machine, Branch, and Checkpoint are one coherent latest-activity projection; scoped Git refs remain the authoritative list of concurrent owners. A missing transaction or claim is accepted only after a successful remote query returns no matching ref; transport and authentication failures abort. Handoff and completion publish their terminal projection while holding the transaction, delete the exact observed workstream claim, then release the issue transaction as their final action; they perform no later Project or comment write. A successor cannot expose a new claim while a terminal transition is deciding whether other claims exist. Completion also requires local HEAD, the claim parent, the remote branch head, and the linked merged pull-request head to be identical, with the merge commit present on `origin/main`.
+The single Project issue row and ordered issue record are shared by all workstreams, so every helper command that creates a claim or projects state holds `refs/heads/issue-transactions/<issue>`. This issue-level compare-and-set lock serializes the active claim set, Project fields, comments, workstream takeover, handoff, and completion. Agent, Machine, Branch, and Checkpoint are one coherent latest-activity projection; scoped Git refs remain the authoritative list of concurrent owners. A missing transaction or claim is accepted only after a successful remote query returns no matching ref; transport and authentication failures abort. Handoff and completion publish their terminal projection while holding the transaction, delete the exact observed workstream claim, then release the issue transaction as their final action; they perform no later Project or comment write. A successor cannot expose a new claim while a terminal transition is deciding whether other claims exist. Completion requires local HEAD, the claim parent, the remote branch head, and the linked merged pull-request head to be identical. GitHub must report that exact PR merged into its recorded base. A stacked merge completes only that workstream; the issue and integration branch retain their own gates.
 
 Every transition is restartable. The same owner reruns `start` to repair a claim whose worktree, assignment, Project fields, or issue comment was interrupted. A closed issue causes an interrupted start claim to be released under the issue transaction; another machine can perform the same cleanup through an exact-claim `takeover`. Repeating `handoff`, `pr`, or `done` completes the remaining transition without publishing a second branch or closing unrelated work. Handoff accepts its own already-published Ready projection, and completion accepts Ready or Done after re-proving the exact merged commit. Any machine may finish that proven completion cleanup; it cannot alter or release unmerged work. A coordinator recovers a stale claim from its last Project checkpoint by naming the exact current claim object; Git rejects the replacement if ownership changed between inspection and takeover:
 

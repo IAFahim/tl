@@ -12,7 +12,9 @@
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.0.0-alpha.2: deterministic C11 kernels, fixed-width ABI assertions, direct consumer operations, and explicit artifact and memory reports.</PackageReleaseNotes>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReleaseNotes>v1.0.0-alpha.3: the existing C ABI v2 backend packaged against the versioned neutral compiler; heterogeneous catalog jobs remain C#-only in this alpha.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

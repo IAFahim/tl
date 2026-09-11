@@ -24,6 +24,8 @@ Agent chats and local worktrees are disposable. A machine must be able to lose p
 - Post concise progress only when evidence or scope changes. Record commands, receipts, measurements, generated-size changes, and blockers in the issue.
 - Push every green material checkpoint and before every handoff, delegated wait, shutdown, machine change, or switch to another atom. The issue comment names the last pushed commit, validation state, and any uncommitted work. Never leave another PC dependent on an unpushed checkout or private chat context.
 - Open a linked pull request with `Refs #<issue>` when it completes one workstream and `Closes #<issue>` only when it satisfies every remaining acceptance criterion. The PR is the reviewable result; the issue remains the execution record.
+- Pass the intended target branch to `eng/agent-work pr` for a stacked review. A workstream PR merged into that branch is complete and releases its claim; this does not imply that the integration branch reached `main`, that the parent issue is complete, or that a release is ready.
+- Project issue states mean Backlog for work without settled acceptance, Ready for resumable unclaimed work, In progress while any workstream is active, In review when the only active workstream has an open PR, and Done only for a closed issue with no active claim. Pull-request cards move to In review when opened and Done after their exact merged head is verified.
 - Another agent reviews correctness, architecture boundaries, source budget, and benchmark validity. The implementer does not self-approve.
 - Merge only after required checks and review pass. Remove the worktree and branch after merge. Close abandoned experiments with their measurements and reason.
 - On startup, every agent fetches origin and reads this file, the issue, linked dependencies, active claims, and open pull requests touching the same paths. On shutdown, it pushes its branch and leaves the issue sufficient for another machine to resume without private context.
@@ -38,13 +40,13 @@ Small typo-only documentation fixes may share their parent issue. Emergency rele
 
 ## Product contract
 
-`tl` compiles immutable, heterogeneous timelines into deterministic playback kernels. The primary runtime surface is a generated typed timeline facade, timeline-typed playback, generated borrowed contexts, and total operations. A non-generic timeline ID is an explicit dynamic-routing fallback. The signed simulation-seek contract is owned by issue #16 and supersedes older forward/backward/span examples while that breaking migration is active. Authoring is declarative syntax consumed at compilation. Runtime authoring, reflection, binding tables, hidden allocation, and implicit fallback are outside the compiled path.
+`tl` compiles immutable, heterogeneous timelines into deterministic execution. The v1.0.0-alpha.3 production contract is owned by issue #27 and `plan.md`: pure timeline selection, ordered typed operation jobs over borrowed component storage, and total signed `Tick`. Default state is ready; finite timelines clamp independently; every available crossed frame executes. Generated catalog-local assets replace process-global runtime IDs and registries. .NET and Unity share domain operation signatures while retaining host-specific scheduling and storage adapters. Stable and preview Unity Editor ECS/Burst lanes are qualified, together with stable Mono and IL2CPP players. New C catalog work remains deferred. Authoring/import validates definitions before execution; reflection, hidden allocation, and implicit runtime compilation are outside the generated path.
 
-Production source plus UTF-8 relative paths must remain at or below 200,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
+Production source plus UTF-8 relative paths must remain at or below 250,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
 
 ## Architecture boundaries
 
-- `Tl.Runtime` owns the stable playback ABI, frame contract, syntax surface, IDs, and compact registry.
+- `Tl.Runtime` owns the stable state, movement, frame, flags, and declaration ABI. It contains no registry.
 - `Tl.Compiler` owns the language-neutral immutable plan and versioned extension contract.
 - A frontend translates one language into the neutral plan plus a language binding.
 - A backend consumes the neutral plan and its binding. It must not introduce assumptions into `Tl.Runtime` for its own convenience.
@@ -69,15 +71,15 @@ Production source plus UTF-8 relative paths must remain at or below 200,000 byte
 - Correctness receipts precede timing. Every benchmark consumes success, playback, and output state.
 - Warm scalar playback must allocate 0 B. Batch results are labeled throughput and never presented as scalar latency.
 - Compare one-variable baseline and candidate builds on the same machine. Retain raw BenchmarkDotNet JSON, Tier-1 or NativeAOT assembly, and PMU counters when available.
-- Record cycles, instructions, branches, branch misses, code bytes, generated bytes, static data, registry bytes, and managed allocation as distinct quantities.
+- Record cycles, instructions, branches, branch misses, code bytes, generated bytes, static data, per-row state, and managed allocation as distinct quantities.
 - Do not use constant folding, dead output, unchecked failure, different fixtures, best-sample selection, timer subtraction, or hidden setup to improve a result.
 - Keep a change only when exact receipts pass and evidence supports it. Record meaningful dead ends so they are not repeated blindly.
 
 ## Memory and concurrency rules
 
-- Compiled definitions are immutable and live for the registry lifetime. This intentional retention must remain bounded and reported.
-- Publication must expose a complete descriptor. Playback may read concurrently after publication.
-- Any future destruction or ID reuse requires a generation token and a safe-reclamation proof.
+- Generated definitions are immutable static data with process lifetime. Their exact bytes remain bounded and reported.
+- Query state and component columns are caller-owned; generated queries borrow them only for the ref-struct lifetime.
+- Any future runtime-loaded definition storage requires explicit publication, ownership, identity, and safe-reclamation proofs.
 - Runtime and generated data layouts use explicit widths where they cross an ABI. Each native ABI defines size, alignment, version, ownership, failure behavior, and endianness scope.
 - Add stress receipts for allocation, retained memory, compacting GC, aliasing, concurrent publication, maximum capacity, and NativeAOT whenever the affected boundary changes.
 

@@ -1,0 +1,16 @@
+{
+  "name": "Tl.Alpha3.Unity.Tests",
+  "rootNamespace": "UnifiedTimelineProof.Tests",
+  "references": [
+    "Tl.Alpha3.Unity",
+    "Unity.Burst",
+    "Unity.Collections",
+    "Unity.Entities"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

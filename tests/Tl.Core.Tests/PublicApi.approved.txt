@@ -1,18 +1,12 @@
 type Tl.Builder
   Method Void After[THook]()
   Method Void Before[THook]()
-  Method Void Clip[TTrack,TClip](Tl.TrackRef`1[TTrack] ByRef, TClip ByRef, UInt32, UInt32)
+  Method Void Clip[TTrack,TJob,TClip](Tl.TrackRef`2[TTrack,TJob] ByRef, TClip ByRef, UInt32, UInt32)
   Method Void Include[TTimeline]()
   Method Void Looping()
   Method Tl.TrackRef`1[TTrack] Track[TTrack](TTrack ByRef)
-type Tl.CompiledRoute
-  Method Void Deconstruct(Byte ByRef, Byte ByRef)
-  Method Boolean Equals(System.Object)
-  Method Boolean Equals(Tl.CompiledRoute)
-  Method Int32 GetHashCode()
-  Property Byte Module
-  Property Byte Ordinal
-  Method System.String ToString()
+type Tl.CatalogBuilder
+  Method Tl.SchemaBuilder`1[TSchema] Schema[TSchema]()
 type Tl.FrameFlags
   Field Tl.FrameFlags ClipEnd
   Field Tl.FrameFlags ClipStart
@@ -39,44 +33,24 @@ type Tl.IBlend`1
 type Tl.IHook
 type Tl.ITimeline
   Method Void Define(Tl.Builder)
-type Tl.ITimelineData`1
-  Method Boolean TrySeek(UInt16, TSelf ByRef, Int32)
-type Tl.ITrack`1
-type Tl.Playback
-  Method Boolean Equals(Tl.Playback)
-  Method Boolean Equals(System.Object)
-  Field Tl.PlaybackFlags Flags
-  Field UInt32 GameTick
-  Method Int32 GetHashCode()
-  Method Boolean Has(Tl.PlaybackFlags)
-  Field UInt16 Owner
-  Field Int64 Position
-  Method System.String ToString()
-type Tl.PlaybackFlags
-  Field Tl.PlaybackFlags None
-  Field Tl.PlaybackFlags Started
-  Field Tl.PlaybackFlags Stopped
-  Field Byte value__
-type Tl.Playback`1
-  Method Boolean Equals(Tl.Playback`1[TTimeline])
-  Method Boolean Equals(System.Object)
-  Field Tl.PlaybackFlags Flags
-  Field UInt32 GameTick
-  Method Int32 GetHashCode()
-  Method Boolean Has(Tl.PlaybackFlags)
-  Field Int64 Position
-  Method System.String ToString()
-type Tl.Timeline
-  Method Tl.Playback CreateCompiledPlayback(UInt16, Int64, UInt32, Tl.PlaybackFlags)
-  Method Tl.Playback`1[TTimeline] CreateTypedPlayback[TTimeline](Int64, UInt32, Tl.PlaybackFlags)
-  Method UInt32 Duration(UInt16)
-  Method Boolean IsLooping(UInt16)
-  Method Boolean IsValid(UInt16)
-  Method UInt16 RegisterCompiled(UInt32, Boolean, Tl.CompiledRoute)
-  Method Byte RegisterModule()
-  Property Int64 RegistryRetainedBytes
-  Method Boolean TryGetCompiledRoute(UInt16, Tl.CompiledRoute ByRef)
-  Method Boolean TrySeek[TData](UInt16, TData ByRef, Int32)
-  Method Boolean TryStart(UInt16, UInt32, Tl.Playback ByRef)
-  Method Boolean TryStop(UInt16, Tl.Playback ByRef, Tl.Playback ByRef)
+type Tl.ITimelineCatalog
+  Method Void Define(Tl.CatalogBuilder)
+type Tl.ITimelineJob`2
+type Tl.SchemaBuilder`1
+  Method Tl.SchemaBuilder`1[TSchema] Asset[TTimeline]()
+type Tl.TimelineFrame
+  Property Int64 Cycle
+  Property Int32 Direction
+  Property Tl.FrameFlags Flags
+  Property UInt32 GameTick
+  Method Boolean Has(Tl.FrameFlags)
+  Property UInt32 TimelineTick
+type Tl.TimelineMovement
+  Method Boolean Select(Tl.TimelineState ByRef, UInt32, Boolean, Boolean, Tl.TimelineState ByRef, UInt32 ByRef, Int64 ByRef, Tl.FrameFlags ByRef)
+type Tl.TimelineState
+  Field UInt32 Asset
+  Field Int64 Cycle
+  Field UInt32 Position
 type Tl.TrackRef`1
+  Method Tl.TrackRef`2[TTrack,TJob] Use[TJob]()
+type Tl.TrackRef`2

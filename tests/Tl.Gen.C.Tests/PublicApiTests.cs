@@ -1,17 +1,11 @@
 using System.Reflection;
 using System.Text;
-using Tl.Compiler;
-using Tl.Gen.C;
 using Xunit;
 
-namespace Tl.Gen.Tests;
+namespace Tl.Gen.C.Tests;
 
 public sealed class PublicApiTests
 {
-    [Fact]
-    public void CompilerPublicApiMatchesApproval()
-        => AssertPublicApi(typeof(TimelinePlan).Assembly, "Tl.Compiler.PublicApi.approved.txt");
-
     [Fact]
     public void CBackendPublicApiMatchesApproval()
         => AssertPublicApi(typeof(CEmitter).Assembly, "Tl.Gen.C.PublicApi.approved.txt");

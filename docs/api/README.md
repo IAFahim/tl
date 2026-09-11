@@ -115,7 +115,7 @@ var result = Generator.Generate(
 
 The authoring `Pose` and `Hit` types are generation inputs. The example C# output declares corresponding runtime payload types in `Game.Timelines`. The shared model contains logical schemas and values, with no CLR `Type` dependency. Numeric `Value.Bits` preserves the primitive bit pattern; record values contain ordered fields.
 
-The shared generator validates definitions and creates a plan before calling the language adapter. Its plan carries track regions and boundary actions. The adapter chooses its emitted representations and uses Waffle templates to produce source files. A region with `ClipA == -1` is inactive; `ClipB == null` means there is no second active clip.
+The generator validates definitions and creates an immutable plan before target emission. The backend chooses its representation and writes deterministic source directly from validated data. A region with `ClipA == -1` is inactive; `ClipB == null` means there is no second active clip.
 
 `Result.IsSuccess` is intended to mean no error diagnostics. Invalid definitions produce diagnostics and no source files. These behaviors are declarations of intent; the mock methods still throw.
 

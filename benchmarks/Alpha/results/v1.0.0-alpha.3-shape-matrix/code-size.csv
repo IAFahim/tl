@@ -1,0 +1,4 @@
+fixture,shape,count,generated_utf8_bytes,declared_static_data_bytes,fullopts_jit_generated_code_bytes,nativeaot_generated_code_bytes,nativeaot_executable_bytes
+current,tracks,1,10187,8,2848,2078,3734856
+current,tracks,16,38686,128,18328,9900,3744672
+current,tracks,256,298075,2048,87959,75547,3837488

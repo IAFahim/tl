@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+[[ "$#" -eq 1 ]] || { printf '%s\n' "usage: eng/package-unity <empty-output-directory>" >&2; exit 2; }
+[[ ! -e "$1" ]] || { printf '%s\n' "output already exists: $1" >&2; exit 2; }
+
+root="$(git rev-parse --show-toplevel)"
+commit="$(git -C "$root" rev-parse HEAD)"
+archive_mtime="$(git -C "$root" show -s --format=%cI "$commit")"
+[[ -z "$(git -C "$root" status --porcelain)" ]] || { printf '%s\n' "repository must be clean" >&2; exit 2; }
+output="$(mkdir -p "$1" && cd "$1" && pwd)"
+stage="$(mktemp -d /tmp/tl-unity-package.XXXXXX)"
+trap 'rm -rf -- "$stage"' EXIT
+
+git -C "$root" show "$commit:src/Tl.Unity/package.json" >"$stage/package.json"
+version="$(python3 - "$stage/package.json" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as stream:
+    package = json.load(stream)
+assert package["name"] == "com.iafahim.tl"
+print(package["version"])
+PY
+)"
+archive="$output/com.iafahim.tl-$version.tgz"
+
+make_archive() {
+    local destination="$1"
+    local tar_path="$stage/package.tar"
+    git -C "$root" archive --format=tar --prefix=package/ --mtime="$archive_mtime" "$commit:src/Tl.Unity" -o "$tar_path"
+    gzip -n -9 <"$tar_path" >"$destination"
+}
+
+make_archive "$stage/first.tgz"
+make_archive "$stage/second.tgz"
+cmp "$stage/first.tgz" "$stage/second.tgz"
+cp "$stage/first.tgz" "$archive"
+tar -tzf "$archive" >"$stage/files.txt"
+for required in package/package.json package/README.md package/CHANGELOG.md package/Runtime/Tl.Unity.asmdef package/Runtime/Jobs.cs; do
+    grep -Fxq "$required" "$stage/files.txt" || { printf '%s\n' "archive is missing $required" >&2; exit 2; }
+done
+if rg -i '/(Editor|Tests?|Samples~?)/|\.(dll|pdb|nupkg|snupkg|tgz)$|/(Tl\.Compiler|Tl\.Gen|Microsoft\.CodeAnalysis|System\.IO\.Hashing|System\.Runtime\.CompilerServices\.Unsafe)' "$stage/files.txt"; then
+    printf '%s\n' "archive contains a forbidden package/player path" >&2
+    exit 2
+fi
+
+sha256="$(sha256sum "$archive" | cut -d' ' -f1)"
+archive_entries="$(wc -l < "$stage/files.txt")"
+bytes="$(stat -c %s "$archive")"
+printf 'commit\t%s\nversion\t%s\narchive\t%s\nsha256\t%s\narchive-entries\t%s\nbytes\t%s\n' \
+    "$commit" "$version" "$(basename "$archive")" "$sha256" "$archive_entries" "$bytes" \
+    >"$output/package.txt"
+cat "$output/package.txt"

@@ -1,0 +1,39 @@
+name: release-artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v-prefixed release tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
+        with:
+          dotnet-version: 10.0.401
+      - run: python3 -m unittest discover -s tests -p test_release_artifacts.py
+      - name: Build exact tagged artifacts
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: eng/release-artifacts --tag "$RELEASE_TAG" artifacts/release
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tl-${{ inputs.tag }}-release-assets
+          path: artifacts/release/*
+          if-no-files-found: error
+          compression-level: 0

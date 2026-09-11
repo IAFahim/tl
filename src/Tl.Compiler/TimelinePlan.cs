@@ -17,23 +17,28 @@ public readonly record struct ClipPlan(
 
 public sealed record TimelinePlan
 {
-    public const ushort FormatVersion = 1;
+    public const ushort CurrentFormatVersion = 1;
 
     public TimelinePlan(
         string identity,
         ushort runtimeId,
         bool loops,
         IEnumerable<TrackPlan> tracks,
-        IEnumerable<ClipPlan> clips)
+        IEnumerable<ClipPlan> clips,
+        ushort formatVersion = CurrentFormatVersion)
     {
-        ArgumentNullException.ThrowIfNull(identity);
-        ArgumentNullException.ThrowIfNull(tracks);
-        ArgumentNullException.ThrowIfNull(clips);
+        if (identity is null)
+            throw new ArgumentNullException(nameof(identity));
+        if (tracks is null)
+            throw new ArgumentNullException(nameof(tracks));
+        if (clips is null)
+            throw new ArgumentNullException(nameof(clips));
         Identity = identity;
         RuntimeId = runtimeId;
         Loops = loops;
         Tracks = [.. tracks];
         Clips = [.. clips];
+        FormatVersion = formatVersion;
     }
 
     public string Identity { get; }
@@ -41,5 +46,7 @@ public sealed record TimelinePlan
     public bool Loops { get; }
     public ImmutableArray<TrackPlan> Tracks { get; }
     public ImmutableArray<ClipPlan> Clips { get; }
+    public ushort FormatVersion { get; }
     public uint Duration => Clips.IsEmpty ? 0u : Clips.Max(static clip => clip.End);
+    public ValidatedTimelinePlan Validate() => ValidatedTimelinePlan.Create(this);
 }

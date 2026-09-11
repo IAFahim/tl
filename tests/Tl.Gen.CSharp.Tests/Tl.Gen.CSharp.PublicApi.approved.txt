@@ -1,0 +1,110 @@
+type Tl.Gen.CSharp.Analysis.DeclarationDiagnostic
+  Method Tl.Gen.CSharp.Analysis.DeclarationDiagnostic <Clone>$()
+  Property System.String Code
+  Property Int32 Column
+  Method Void Deconstruct(System.String ByRef, Int32 ByRef, Int32 ByRef, System.String ByRef, System.String ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Analysis.DeclarationDiagnostic)
+  Property System.String File
+  Method Int32 GetHashCode()
+  Property Int32 Line
+  Property System.String Message
+  Method System.String ToString()
+type Tl.Gen.CSharp.Analysis.JobReader
+  Method Tl.Gen.CSharp.Model.JobReadResult Read(Microsoft.CodeAnalysis.CSharp.CSharpCompilation)
+type Tl.Gen.CSharp.GeneratorCli
+  Method Int32 Main(System.String[])
+type Tl.Gen.CSharp.Model.HeterogeneousClip
+  Method Tl.Gen.CSharp.Model.HeterogeneousClip <Clone>$()
+  Method Void Deconstruct(Int32 ByRef, System.String ByRef, System.String ByRef, UInt32 ByRef, UInt32 ByRef)
+  Property UInt32 End
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.HeterogeneousClip)
+  Property System.String Expression
+  Method Int32 GetHashCode()
+  Property UInt32 Start
+  Method System.String ToString()
+  Property Int32 TrackIndex
+  Property System.String TypeName
+type Tl.Gen.CSharp.Model.JobCatalog
+  Method Tl.Gen.CSharp.Model.JobCatalog <Clone>$()
+  Method Void Deconstruct(System.String ByRef, System.String ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobSchema] ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobCatalog)
+  Method Int32 GetHashCode()
+  Property System.String Name
+  Property System.String Namespace
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobSchema] Schemas
+  Method System.String ToString()
+type Tl.Gen.CSharp.Model.JobDefinition
+  Method Tl.Gen.CSharp.Model.JobDefinition <Clone>$()
+  Method Void Deconstruct(System.String ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobDefinition)
+  Method Int32 GetHashCode()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] Slots
+  Method System.String ToString()
+  Property System.String TypeName
+type Tl.Gen.CSharp.Model.JobReadResult
+  Method Tl.Gen.CSharp.Model.JobReadResult <Clone>$()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobCatalog] Catalogs
+  Method Void Deconstruct(System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobTimeline] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobCatalog] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic] ByRef)
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic] Diagnostics
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobReadResult)
+  Method Int32 GetHashCode()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobTimeline] Timelines
+  Method System.String ToString()
+type Tl.Gen.CSharp.Model.JobSchema
+  Method Tl.Gen.CSharp.Model.JobSchema <Clone>$()
+  Property System.Collections.Generic.IReadOnlyList`1[System.String] Assets
+  Method Void Deconstruct(System.String ByRef, System.Collections.Generic.IReadOnlyList`1[System.String] ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobSchema)
+  Method Int32 GetHashCode()
+  Property System.String Name
+  Method System.String ToString()
+type Tl.Gen.CSharp.Model.JobTimeline
+  Method Tl.Gen.CSharp.Model.JobTimeline <Clone>$()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobDefinition] After
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobDefinition] Before
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.HeterogeneousClip] Clips
+  Method Void Deconstruct(System.String ByRef, System.String ByRef, Boolean ByRef, System.Collections.Generic.IReadOnlyList`1[System.String] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobTrack] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.HeterogeneousClip] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobDefinition] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobDefinition] ByRef)
+  Property UInt32 Duration
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobTimeline)
+  Method Int32 GetHashCode()
+  Property Boolean Loops
+  Property System.String Name
+  Property System.String Namespace
+  Method System.String ToString()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobTrack] Tracks
+  Property System.Collections.Generic.IReadOnlyList`1[System.String] Usings
+type Tl.Gen.CSharp.Model.JobTrack
+  Method Tl.Gen.CSharp.Model.JobTrack <Clone>$()
+  Property System.String ClipTypeName
+  Method Void Deconstruct(Int32 ByRef, System.String ByRef, System.String ByRef, System.String ByRef, Tl.Gen.CSharp.Model.JobDefinition ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.JobTrack)
+  Property System.String Expression
+  Method Int32 GetHashCode()
+  Property Int32 Index
+  Property Tl.Gen.CSharp.Model.JobDefinition Job
+  Method System.String ToString()
+  Property System.String TypeName
+type Tl.Gen.CSharp.Model.SlotMode
+  Field Tl.Gen.CSharp.Model.SlotMode Input
+  Field Tl.Gen.CSharp.Model.SlotMode Reference
+  Field Byte value__
+type Tl.Gen.CSharp.Model.TimelineSlot
+  Method Tl.Gen.CSharp.Model.TimelineSlot <Clone>$()
+  Method Void Deconstruct(System.String ByRef, System.String ByRef, Tl.Gen.CSharp.Model.SlotMode ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.TimelineSlot)
+  Method Int32 GetHashCode()
+  Property Tl.Gen.CSharp.Model.SlotMode Mode
+  Property System.String Name
+  Method System.String ToString()
+  Property System.String TypeName
+type Tl.Gen.CSharp.TimelineIncrementalGenerator
+  Method Void Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext)

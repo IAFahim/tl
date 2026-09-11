@@ -53,13 +53,13 @@ type Tl.Gen.C.CEmissionReport
 type Tl.Gen.C.CEmitter
   Method System.Collections.Immutable.ImmutableArray`1[Tl.Gen.C.CArtifact] Emit(Tl.Compiler.TimelinePlan, Tl.Gen.C.CBinding)
   Method Tl.Gen.C.CEmission Generate(Tl.Compiler.TimelinePlan, Tl.Gen.C.CBinding)
+  Field UInt16 SupportedPlanFormatVersion
 type Tl.Gen.C.COperationBinding
-  Constructor Void .ctor(Tl.Compiler.OperationId, System.String, System.String)
-  Property System.String BackwardSymbol
-  Method Void Deconstruct(Tl.Compiler.OperationId ByRef, System.String ByRef, System.String ByRef)
+  Constructor Void .ctor(Tl.Compiler.OperationId, System.String)
+  Method Void Deconstruct(Tl.Compiler.OperationId ByRef, System.String ByRef)
   Method Boolean Equals(System.Object)
   Method Boolean Equals(Tl.Gen.C.COperationBinding)
-  Property System.String ForwardSymbol
   Method Int32 GetHashCode()
   Property Tl.Compiler.OperationId Operation
+  Property System.String SeekSymbol
   Method System.String ToString()
