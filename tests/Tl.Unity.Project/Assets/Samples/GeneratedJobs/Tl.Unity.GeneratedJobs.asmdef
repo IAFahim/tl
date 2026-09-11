@@ -1,13 +1,12 @@
 {
-  "name": "Tl.Unity.BurstCombat",
-  "rootNamespace": "Tl.Samples.BurstCombat",
+  "name": "Tl.Unity.GeneratedJobs",
+  "rootNamespace": "Tl.Samples.GeneratedJobs",
   "references": [
     "Tl.Unity",
-    "Tl.Unity.Entities",
     "Unity.Burst",
     "Unity.Collections",
     "Unity.Entities",
-    "Unity.Entities.Hybrid"
+    "Unity.Mathematics"
   ],
   "allowUnsafeCode": true
 }

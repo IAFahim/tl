@@ -275,6 +275,7 @@ public static class JobReader
             var schemas = new List<JobSchema>();
             var schemaNames = new HashSet<string>(StringComparer.Ordinal);
             var assetNames = new HashSet<string>(StringComparer.Ordinal);
+            var assetMembers = new Dictionary<string, string>(StringComparer.Ordinal);
             var valid = true;
             foreach (var statement in syntax.Body!.Statements)
             {
@@ -301,6 +302,13 @@ public static class JobReader
                         valid = false;
                         continue;
                     }
+                    if (assetMembers.TryGetValue(asset.Name, out var prior))
+                    {
+                        Error(errors, assetSite, "TLGEN78", $"Asset '{Name(asset)}' conflicts with '{prior}'; catalog asset simple names must be unique.");
+                        valid = false;
+                        continue;
+                    }
+                    assetMembers.Add(asset.Name, Name(asset));
                     var slots = Joined(timeline);
                     expected ??= slots;
                     if (!expected.SequenceEqual(slots, StringComparer.Ordinal))
