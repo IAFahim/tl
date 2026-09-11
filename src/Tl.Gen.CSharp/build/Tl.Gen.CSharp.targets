@@ -2,34 +2,46 @@
   <PropertyGroup>
     <_TlGenProject>$(MSBuildThisFileDirectory)..\Tl.Gen.CSharp.csproj</_TlGenProject>
     <_TlGenPkgTool>$(MSBuildThisFileDirectory)../tools/net10.0/any/Tl.Gen.CSharp.dll</_TlGenPkgTool>
-    <_TlGenProjBin>$(MSBuildThisFileDirectory)../bin/$(Configuration)/net10.0/Tl.Gen.CSharp.dll</_TlGenProjBin>
-    <_TlGenProjCompiler>$(MSBuildThisFileDirectory)../bin/$(Configuration)/netstandard2.0/Tl.Compiler.dll</_TlGenProjCompiler>
     <_TlGenDotNet Condition="'$(DotNetHostPath)' != ''">$(DotNetHostPath)</_TlGenDotNet>
     <_TlGenDotNet Condition="'$(_TlGenDotNet)' == ''">dotnet</_TlGenDotNet>
     <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenPkgTool)')">$(_TlGenPkgTool)</TlGenAssembly>
-    <TlGenAssembly Condition="'$(TlGenAssembly)' == '' and Exists('$(_TlGenProjBin)')">$(_TlGenProjBin)</TlGenAssembly>
-    <TlGenAssembly Condition="'$(TlGenAssembly)' == ''">$(MSBuildThisFileDirectory)../bin/Release/net10.0/Tl.Gen.CSharp.dll</TlGenAssembly>
     <TlGenBackend Condition="'$(TlGenBackend)' == ''">csharp</TlGenBackend>
-    <TlGenOutput Condition="'$(TlGenOutput)' == ''">$(IntermediateOutputPath)TlGenCompile\</TlGenOutput>
   </PropertyGroup>
 
-  <ItemGroup Condition="Exists('$(_TlGenProject)')">
-    <Analyzer Include="$(_TlGenProjCompiler)" />
-  </ItemGroup>
+  <Target Name="_TlGenResolveProjectAnalyzerDependency"
+          BeforeTargets="CoreCompile"
+          DependsOnTargets="ResolveProjectReferences"
+          Condition="Exists('$(_TlGenProject)')">
+    <ItemGroup>
+      <_TlGenProjectAnalyzer Include="@(Analyzer)"
+                             Condition="'%(Analyzer.Filename)' == 'Tl.Gen.CSharp'" />
+      <Analyzer Include="@(_TlGenProjectAnalyzer->'%(RootDir)%(Directory)Tl.Compiler.dll')" />
+    </ItemGroup>
+  </Target>
 
   <Target Name="_TlGenBuildExportTool"
           BeforeTargets="TlGenExport"
-          Condition="Exists('$(_TlGenProject)') And !Exists('$(_TlGenProjBin)')">
+          Condition="Exists('$(_TlGenProject)') And '$(TlGenAssembly)' == ''">
     <MSBuild Projects="$(_TlGenProject)"
              Targets="Build"
              BuildInParallel="false"
              Properties="Configuration=$(Configuration);TargetFramework=net10.0" />
+    <MSBuild Projects="$(_TlGenProject)"
+             Targets="GetTargetPath"
+             BuildInParallel="false"
+             Properties="Configuration=$(Configuration);TargetFramework=net10.0">
+      <Output TaskParameter="TargetOutputs" ItemName="_TlGenBuiltTool" />
+    </MSBuild>
+    <PropertyGroup>
+      <TlGenAssembly>@(_TlGenBuiltTool)</TlGenAssembly>
+    </PropertyGroup>
   </Target>
 
   <Target Name="TlGenExport"
           DependsOnTargets="ResolveProjectReferences;ResolveAssemblyReferences;ResolveReferences;GenerateGlobalUsings"
-          Condition="'@(Compile)' != '' Or Exists('$(TlGenOutput)\TlGenCompile.manifest.json')">
+          Condition="'@(Compile)' != '' Or ('$(TlGenOutput)' != '' And Exists('$(TlGenOutput)\TlGenCompile.manifest.json')) Or ('$(TlGenOutput)' == '' And Exists('$(IntermediateOutputPath)TlGenCompile\TlGenCompile.manifest.json'))">
     <PropertyGroup>
+      <TlGenOutput Condition="'$(TlGenOutput)' == ''">$(IntermediateOutputPath)TlGenCompile\</TlGenOutput>
       <_TlGenCompileOut>$([MSBuild]::EnsureTrailingSlash('$(TlGenOutput)'))</_TlGenCompileOut>
       <_TlGenCompileSourceList>$(_TlGenCompileOut)TlGenCompile.sources</_TlGenCompileSourceList>
       <_TlGenCompileInputList>$(_TlGenCompileOut)TlGenCompile.inputs</_TlGenCompileInputList>

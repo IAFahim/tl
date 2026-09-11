@@ -26,6 +26,16 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertIn('--backend &quot;$(TlGenBackend)&quot;', targets)
         self.assertIn("EnsureTrailingSlash(\'$(TlGenOutput)\')", targets)
 
+    def test_ci_proves_a_clean_isolated_output_build(self):
+        script = (ROOT / "eng" / "test-isolated-output").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn("git -C \"$root\" ls-files -z", script)
+        self.assertEqual(4, script.count('--artifacts-path "$artifacts"'))
+        self.assertIn("-t:TlGenExport", script)
+        self.assertIn("stale/Tl.Gen.CSharp.dll", script)
+        self.assertIn('find "$source" -type d', script)
+        self.assertIn("- run: eng/test-isolated-output", workflow)
+
     def test_unity_package_separate_invocations_are_byte_identical(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
