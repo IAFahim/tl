@@ -1,7 +1,9 @@
 import importlib.util
 import json
+import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 import zipfile
 from pathlib import Path
@@ -14,6 +16,30 @@ SPEC.loader.exec_module(RELEASE_ARTIFACTS)
 
 
 class ReleaseArtifactTests(unittest.TestCase):
+    def test_unity_package_separate_invocations_are_byte_identical(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            repository = directory / "repository"
+            (repository / "eng").mkdir(parents=True)
+            shutil.copy2(ROOT / "eng" / "package-unity", repository / "eng" / "package-unity")
+            shutil.copytree(ROOT / "src" / "Tl.Unity", repository / "src" / "Tl.Unity")
+            self.git(repository, "init", "-q")
+            self.git(repository, "config", "user.name", "package-test")
+            self.git(repository, "config", "user.email", "package-test@example.invalid")
+            self.git(repository, "config", "commit.gpgsign", "false")
+            self.git(repository, "add", ".")
+            self.git(repository, "commit", "-qm", "fixture")
+
+            first = directory / "first"
+            second = directory / "second"
+            self.package_unity(repository, first)
+            time.sleep(1.1)
+            self.package_unity(repository, second)
+
+            first_archive = next(first.glob("*.tgz"))
+            second_archive = next(second.glob("*.tgz"))
+            self.assertEqual(first_archive.read_bytes(), second_archive.read_bytes())
+
     def test_canonical_packages_are_byte_identical(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -164,6 +190,16 @@ class ReleaseArtifactTests(unittest.TestCase):
             text=True,
             check=True,
         ).stdout.strip()
+
+    @staticmethod
+    def package_unity(repository, output):
+        subprocess.run(
+            [repository / "eng" / "package-unity", output],
+            cwd=repository,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
 
     @staticmethod
     def write_archive(path, timestamp):

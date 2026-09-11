@@ -8,7 +8,7 @@ https://github.com/IAFahim/tl.git?path=/src/Tl.Unity
 
 The package declares Unity 6000.0 and Entities 1.4.3. The stable generated-jobs receipt uses Unity 6000.0.83f1, Entities 1.4.3, and Burst 1.8.30; `eng/test-unity-stable` recreates its isolated project and exact package inputs. A separate preview receipt uses Unity 6000.7.0a5, Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0.
 
-This complete path uses one shared job declaration for generated .NET and Unity execution:
+Keep the C# 9 domain and shared job declarations in `Assets/Timelines/DomainJobs.cs` so Unity compiles them:
 
 ```csharp
 using Tl;
@@ -38,6 +38,12 @@ public readonly struct ApplyDamage : ITimelineJob<DamageTrack, DamageClip>
         ref Trace trace)
         => trace.Total += frame.Clip.Value + bias.Value;
 }
+```
+
+Keep the builder declarations in `Assets/Timelines/Combat.tl`. The materializer reads this file, while Unity does not import its newer declaration syntax:
+
+```csharp
+using Tl;
 
 public readonly partial struct Attack : ITimeline
 {
@@ -64,6 +70,7 @@ Materialize those authoring sources outside Unity before script import:
 ```sh
 dotnet Tl.Gen.CSharp.dll --compile --backend unity-entities \
   --output Assets/Timelines/Generated \
+  --source Assets/Timelines/DomainJobs.cs \
   --source Assets/Timelines/Combat.tl \
   --reference-list Library/TlMaterializer.references
 ```

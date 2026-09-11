@@ -82,6 +82,7 @@ tar -xzf "$cache/entities-1.4.3.tgz" --strip-components=1 -C "$packages/entities
 tar -xzf "$cache/sbp-1.21.25.tgz" --strip-components=1 -C "$packages/sbp"
 "$project/materialize-alpha3.sh"
 rsync -a --exclude Library --exclude Packages/packages-lock.json "$project/" "$stable/"
+"$project/materialize-readme.sh" "$stable/Assets/ReadmeReceipt"
 cp "$stable/Packages/manifest.stable.json" "$stable/Packages/manifest.json"
 unzip -p "$cache/hashing-8.0.0.nupkg" lib/netstandard2.0/System.IO.Hashing.dll > "$stable/Assets/Plugins/Editor/System.IO.Hashing.dll"
 unzip -p "$cache/unsafe-6.0.0.nupkg" lib/netstandard2.0/System.Runtime.CompilerServices.Unsafe.dll > "$stable/Assets/Plugins/Editor/System.Runtime.CompilerServices.Unsafe.dll"
@@ -122,6 +123,7 @@ run_test() {
 if "$tests_gate"; then
     run_test EditMode "$receipt/editmode.xml"
     run_test PlayMode "$receipt/playmode.xml"
+    cp "$stable/Assets/ReadmeReceipt/receipt.txt" "$receipt/readme.txt"
 fi
 if "$player_gate"; then
     "$root/eng/test-unity-player" \
@@ -151,6 +153,7 @@ if tests_gate == "true":
     for name, path in (("editmode", edit), ("playmode", play)):
         result = ET.parse(path).getroot().attrib
         lines.append("\t".join((name, result["result"], result["passed"], result["total"])))
+    lines.append("readme-ecs\tcompiled")
 with open(output, "w", encoding="utf-8", newline="\n") as stream:
     stream.write("\n".join(lines) + "\n")
 print("; ".join(lines))
