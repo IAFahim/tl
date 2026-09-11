@@ -109,7 +109,7 @@ internal static class Pmu
         if (shape == TimelineShape.TwoHundredFiftySixTracks)
             Measure(ShapeCase.Operations, operation, WideWarmupFrames, WideMeasuredFrames);
         else
-            Measure(ShapeCase.Operations, operation, WarmupFrames, MeasuredFrames);
+            Measure(ShapeCase.Operations, operation);
     }
 
     private static void Measure(

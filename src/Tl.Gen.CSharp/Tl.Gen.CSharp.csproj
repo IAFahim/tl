@@ -22,7 +22,7 @@
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.0.0-alpha.2: deterministic generation reports, editor design-time build fixes, and reduced lifecycle branches in compiled kernels.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.3: heterogeneous timeline jobs, generated catalog queries, ordered staged execution, delayed state commit, and bundled compiler dependencies.</PackageReleaseNotes>
     <EnforceExtendedAnalyzerRules Condition="'$(TargetFramework)' == 'netstandard2.0'">true</EnforceExtendedAnalyzerRules>
   </PropertyGroup>
 

@@ -11,6 +11,60 @@ public sealed class OrderedTimelinePlanTests
     private static readonly TypeId Data = new("data");
 
     [Fact]
+    public void ConstructorsRejectMissingSequences()
+    {
+        Assert.Throws<ArgumentNullException>(() => new OrderedOperationPlan(A, null!));
+        Assert.Throws<ArgumentNullException>(() => new PayloadPlan(new(1), Data, null!));
+        Assert.Throws<ArgumentNullException>(() => new OrderedTimelinePlan(null!, false, [], [], [], [], []));
+        Assert.Throws<ArgumentNullException>(() => new OrderedTimelinePlan("plan", false, null!, [], [], [], []));
+        Assert.Throws<ArgumentNullException>(() => new OrderedTimelinePlan("plan", false, [], null!, [], [], []));
+        Assert.Throws<ArgumentNullException>(() => new OrderedTimelinePlan("plan", false, [], [], null!, [], []));
+        Assert.Throws<ArgumentNullException>(() => new OrderedTimelinePlan("plan", false, [], [], [], null!, []));
+        Assert.Throws<ArgumentNullException>(() => new OrderedTimelinePlan("plan", false, [], [], [], [], null!));
+    }
+
+    [Fact]
+    public void ValidationRejectsEveryInvalidIdentityAndReferenceBoundary()
+    {
+        AssertInvalid(
+            new("plan", false, [], [], [], [], [], formatVersion: 2),
+            "Ordered timeline plan format 2 is not supported. Expected 1.");
+        AssertInvalid(
+            new(" ", false, [], [], [], [], []),
+            "Ordered timeline identity cannot be empty.");
+        AssertInvalid(
+            new("operations", false, Enumerable.Repeat(Operation(A), ushort.MaxValue + 2), [], [], [], []),
+            "An ordered timeline may contain at most 65,536 operations.");
+        AssertInvalid(
+            new("null-operation", false, [null!], [], [], [], []),
+            "Operation at index 0 is null.");
+        AssertInvalid(
+            new("empty-operation", false, [Operation(default)], [], [], [], []),
+            "Operation at index 0 has no identity.");
+        AssertInvalid(
+            new("duplicate-operation", false, [Operation(A), Operation(A)], [], [], [], []),
+            "Operation 'a' is duplicated.");
+        AssertInvalid(
+            new("null-payload", false, [], [null!], [], [], []),
+            "Payload at index 0 is null.");
+        AssertInvalid(
+            Empty(new OrderedOperationPlan(A, [new(" ", Data, SlotAccess.Read)])),
+            "Operation 'a' has an empty slot role.");
+        AssertInvalid(
+            Empty(new OrderedOperationPlan(A, [new("value", new(" "), SlotAccess.Read)])),
+            "Operation 'a' slot 'value' has no type identity.");
+        AssertInvalid(
+            new("duplicate-track", false, [Operation(A)], [Payload(1)], [new(0, new(1), A), new(0, new(1), A)], [], []),
+            "Authored track index 0 is duplicated.");
+        AssertInvalid(
+            new("missing-track", false, [Operation(A)], [Payload(1)], [], [new(0, new(1), 0, 1)], []),
+            "Clip track index 0 does not exist.");
+        AssertInvalid(
+            new("hook-phase", false, [Operation(A)], [], [], [], [new(A, default)]),
+            "Hook operation 'a' has invalid phase 0.");
+    }
+
+    [Fact]
     public void SparseRegionsPreserveHooksAuthoredOrderBlendsGapsAndReverseOrder()
     {
         var plan = new OrderedTimelinePlan(
@@ -23,6 +77,9 @@ public sealed class OrderedTimelinePlanTests
             [new(Before, HookPhase.Before), new(Before, HookPhase.Before), new(After, HookPhase.After)]).Validate();
 
         Assert.Equal(5u, plan.Duration);
+        Assert.Equal(OrderedTimelinePlan.CurrentFormatVersion, plan.FormatVersion);
+        Assert.Equal([0, 1, 2], plan.Tracks.Select(static track => (int)track.Index));
+        Assert.Equal([0, 1, 2, 2], plan.Clips.Select(static clip => (int)clip.TrackIndex));
         Assert.Equal([(0u, 2u), (2u, 3u), (3u, 4u), (4u, 5u)], plan.Regions.Select(static region => (region.Start, region.End)));
         Assert.Equal(["before", "before", "after"], Describe(plan, plan.Regions[0], false));
         Assert.Equal(["before", "before", "a", "b", "a", "after"], Describe(plan, plan.Regions[2], false));

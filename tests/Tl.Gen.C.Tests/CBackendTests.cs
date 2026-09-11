@@ -90,6 +90,73 @@ public sealed class CBackendTests
         Assert.Equal("'while' is not a portable C identifier. (Parameter 'binding')", bindingError.Message);
     }
 
+    [Fact]
+    public void OperationBindingsAreCompleteAndUnique()
+    {
+        var plan = CreatePlan("battle", 42, true);
+        var missingId = Assert.Throws<ArgumentException>(() => CEmitter.Emit(
+            plan,
+            new CBinding("battle", "battle.h", [new COperationBinding(new OperationId(""), "empty_seek")])));
+        var duplicate = Assert.Throws<ArgumentException>(() => CEmitter.Emit(
+            plan,
+            new CBinding("battle", "battle.h",
+            [
+                new COperationBinding(Combat, "combat_seek"),
+                new COperationBinding(Combat, "combat_seek_again"),
+            ])));
+        var missing = Assert.Throws<ArgumentException>(() => CEmitter.Emit(
+            plan,
+            new CBinding("battle", "battle.h", [new COperationBinding(Combat, "combat_seek")])));
+
+        Assert.Equal("binding", missingId.ParamName);
+        Assert.Contains("bound more than once", duplicate.Message);
+        Assert.Contains("'audit' is not bound", missing.Message);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("battle")]
+    [InlineData("battle.hpp")]
+    [InlineData("../battle.h")]
+    [InlineData("battle/name.h")]
+    [InlineData("battle?.h")]
+    public void HeaderFileNamesMustBePortable(string fileName)
+    {
+        var error = Assert.Throws<ArgumentException>(() => CEmitter.Emit(
+            new TimelinePlan("empty", 1, false, [], []),
+            new CBinding("empty", fileName, [])));
+
+        Assert.Equal("binding", error.ParamName);
+        Assert.Contains("portable header file name", error.Message);
+    }
+
+    [Fact]
+    public void PortableHeaderNamesAcceptEverySupportedCharacterClass()
+    {
+        var artifacts = CEmitter.Emit(
+            new TimelinePlan("empty", 1, false, [], []),
+            new CBinding("empty", "A1_a-b.h", []));
+
+        Assert.Equal("A1_a-b.h", artifacts[0].RelativePath);
+    }
+
+    [Fact]
+    public void MultiTickBlendEmitsAComputedFactor()
+    {
+        var plan = new TimelinePlan(
+            "blend",
+            1,
+            false,
+            [new TrackPlan(0, 0, Combat)],
+            [new ClipPlan(0, 1, 0, 4), new ClipPlan(0, 2, 0, 4)]);
+
+        var source = CEmitter.Emit(
+            plan,
+            new CBinding("blend", "blend.h", [new COperationBinding(Combat, "blend_seek")]))[1].Content;
+
+        Assert.Contains("(float)(local - 0u) / 3.0f", source);
+    }
+
     [Theory]
     [InlineData("reserved_try_seek")]
     [InlineData("reserved_apply_backward")]

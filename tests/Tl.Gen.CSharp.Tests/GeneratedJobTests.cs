@@ -1,7 +1,6 @@
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Tl;
 using Xunit;
 
 namespace Tl.Gen.CSharp.Tests;
@@ -191,6 +190,37 @@ public sealed class GeneratedJobTests
         var assembly = Generate(source);
 
         Assert.NotNull(assembly.GetType("Consumer.Qualified"));
+    }
+
+    [Fact]
+    public void OneTickOverlapEmitsTheDefinedMidpointBlend()
+    {
+        const string source = """
+            using Tl;
+            namespace OneTick;
+            public readonly record struct Clip(int Value);
+            public readonly struct Track : IBlend<Clip>
+            {
+                public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
+            }
+            public readonly struct Job : ITimelineJob<Track, Clip>
+            {
+                public static void Execute(in Frame<Track, Clip> frame) { }
+            }
+            public readonly partial struct Asset : ITimeline
+            {
+                public static void Define(scoped Builder builder)
+                {
+                    var track = builder.Track(new Track()).Use<Job>();
+                    builder.Clip(track, new Clip(1), 0u, 1u);
+                    builder.Clip(track, new Clip(2), 0u, 1u);
+                }
+            }
+            """;
+
+        var assembly = Generate(source);
+
+        Assert.NotNull(assembly.GetType("OneTick.Asset"));
     }
 
     internal static Assembly Generate(string source)

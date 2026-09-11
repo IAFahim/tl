@@ -48,7 +48,7 @@ TL_AGENT=Curie TL_MACHINE=office-1 ./eng/agent-work pr 123 "Emit the C backend" 
 Create a fully labeled issue from a prepared body and place it in Ready before claiming it:
 
 ```sh
-./eng/agent-work issue "Add a C ABI receipt" area:c kind:feature /tmp/issue.md v1.0.0-alpha.2
+./eng/agent-work issue "Add a C catalog receipt" area:c kind:feature /tmp/issue.md
 ```
 
 The repository helper performs remote preflight, an atomic Git-ref claim, worktree creation at `../<repo>-<issue>-<kind>-<scope>`, assignment, Project update, and issue report as one operation:

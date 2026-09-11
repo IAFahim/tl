@@ -7,6 +7,64 @@ namespace Tl.Gen.CSharp.Tests;
 public sealed class JobTimelinePlanAdapterTests
 {
     [Fact]
+    public void EmptyTimelineEmitsItsAuthoredUsingDirective()
+    {
+        var timeline = new JobTimeline(
+            "Empty",
+            "Game",
+            false,
+            ["using Game.Support;"],
+            [],
+            [],
+            [],
+            []);
+
+        Assert.Equal(0u, timeline.Duration);
+        var artifact = Assert.Single(JobEmitter.Emit(new JobReadResult([timeline], [], [])));
+        Assert.Contains("#nullable enable\nusing Game.Support;\nnamespace Game;", artifact.Content);
+        Assert.Contains("public const uint Duration = 0u;", artifact.Content);
+
+        Assert.Empty(JobEmitter.Emit(new JobReadResult([], [], [])));
+        var alpha = new JobCatalog("Alpha", "Game", []);
+        var zeta = new JobCatalog("Zeta", "Game", []);
+        var catalogArtifacts = JobEmitter.Emit(new JobReadResult([], [zeta, alpha], []));
+        Assert.Equal(2, catalogArtifacts.Count);
+        Assert.Contains("partial struct Alpha", catalogArtifacts[0].Content);
+        Assert.Contains("partial struct Zeta", catalogArtifacts[1].Content);
+        Assert.All(catalogArtifacts, static item => Assert.Contains("public const int AssetCount = 0;", item.Content));
+    }
+
+    [Fact]
+    public void RejectsNullTimeline()
+    {
+        var error = Assert.Throws<ArgumentNullException>(() => JobTimelinePlanAdapter.Create(null!));
+
+        Assert.Equal("timeline", error.ParamName);
+    }
+
+    [Fact]
+    public void RejectsInconsistentSlotsForOneOperationType()
+    {
+        var timeline = new JobTimeline(
+            "Asset",
+            "Game",
+            false,
+            [],
+            [
+                new(0, "global::Game.Track", "global::Game.Clip", "default", new("global::Game.Job", [])),
+                new(1, "global::Game.Track", "global::Game.Clip", "default", new("global::Game.Job", [new("value", "int", SlotMode.Reference)])),
+            ],
+            [],
+            [],
+            []);
+
+        var error = Assert.Throws<ArgumentException>(() => JobTimelinePlanAdapter.Create(timeline));
+
+        Assert.Equal("timeline", error.ParamName);
+        Assert.Contains("global::Game.Job", error.Message);
+    }
+
+    [Fact]
     public void CreatesValidatedPlanWithIndexAlignedBindings()
     {
         var state = new TimelineSlot("state", "global::Game.State", SlotMode.Input);

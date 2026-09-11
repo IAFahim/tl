@@ -1,0 +1,17 @@
+<Configuration>
+  <CodeCoverage>
+    <ModulePaths>
+      <Include>
+        <ModulePath>.*[\\/]Tl\.Core\.dll$</ModulePath>
+        <ModulePath>.*[\\/]Tl\.Compiler\.dll$</ModulePath>
+        <ModulePath>.*[\\/]Tl\.Gen\.C\.dll$</ModulePath>
+        <ModulePath>.*[\\/]Tl\.Gen\.CSharp\.dll$</ModulePath>
+      </Include>
+    </ModulePaths>
+    <Sources>
+      <Exclude>
+        <Source>.*[\\/]obj[\\/].*</Source>
+      </Exclude>
+    </Sources>
+  </CodeCoverage>
+</Configuration>

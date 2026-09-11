@@ -1,51 +1,109 @@
-# v1 signed seek semantics
+# Timeline execution semantics
 
-This contract applies to the generated C# v1 alpha path. Released v0.6 behavior remains archived under [verification/v0.6](verification/v0.6/README.md).
+This contract applies to generated C# v1.0.0-alpha.3 catalog queries.
 
 ## Definitions
 
-A public readonly partial struct implementing `ITimeline` declares one static `Define(scoped Builder builder)` method. The build compiler interprets its supported declarative syntax and emits an immutable kernel. A definition may contain up to 256 closed track/clip kinds and 65,536 authored track instances. A clip occupies a half-open `[start, end)` window with `end > start`; at most two clips overlap on one track.
+A timeline is an immutable ordered collection of tracks, clips, and hooks. Each track binds immutable settings to one typed job. Each clip binds an immutable payload to a half-open `[start, end)` window. A track has at most two active clips at any tick.
 
-## Position and time
+A catalog contains closed schemas. A schema names the timeline assets permitted in one component-column layout. A row selects an asset through generated catalog-local state. Route zero is empty.
 
-`Start(gameTick)` creates playback at signed position zero and the supplied simulation tick. Position is a boundary between frames. `GameTick` uses unchecked `uint` arithmetic. Finite positions are valid in `0..Duration`. Looping positions and cycles may be negative.
+## State and clock
 
-For current position `P`, game tick `G`, and signed delta `d`:
+Public timeline state is the triple `(asset, position, cycle)`:
 
-| Delta | Executed positions | Final position | Final game tick |
-| --- | --- | --- | --- |
-| `d > 0` | `P, P + 1, ..., P + d - 1` | `P + d` | `G + d` |
-| `d < 0` | `P - 1, P - 2, ..., P + d` | `P + d` | `G + d` |
-| `d = 0` | none | `P` | `G` |
+- `asset` selects one generated catalog asset or empty.
+- `position` is the next forward boundary.
+- `cycle` is the signed loop cycle.
 
-Every crossed local frame is executed. `TrySeek(5)` and five consecutive `TrySeek(1)` calls have the same ordered effects. `TrySeek(-5)` and five consecutive `TrySeek(-1)` calls have the same ordered effects. A seek never samples only its destination.
+The generated query also carries pending selection inside each state value between selection and commit. The game tick remains caller-owned and is never persisted by the timeline.
 
-For a finite definition, any target outside `0..Duration` rejects before effects. Empty finite definitions accept only zero. A looping nonempty definition maps each executed signed position to a local tick in `0..Duration-1` and a signed cycle using floor-style normalization.
+For `Tick(G, d)`:
 
-## Ordered effects
+| Movement | Emitted game ticks |
+| --- | --- |
+| `d > 0` | `G, G + 1, ..., G + d - 1` |
+| `d < 0` | `G - 1, G - 2, ..., G + d` |
+| `d = 0` | none |
 
-At an executed local frame, zero active clips invoke no track operation. One active clip is borrowed directly. Two active clips resolve once through `Blend`; the factor uses their intersection, with `0.5f` for a one-frame intersection. Equal-start clips retain authored order. Active tracks execute in authored order while moving forward and reverse authored order while moving backward.
+Game-tick arithmetic is unchecked `uint` arithmetic. A delta represents work to replay, not a destination sample. `Tick(G, 5)` is observationally equal to five forward unit calls with consecutive game ticks when no operation throws. The reverse law is analogous.
 
-Forward order is Before hooks, tracks, then After hooks. Reverse order is After hooks reversed, tracks reversed, then Before hooks reversed. This makes the generated schedule structurally invertible; application operations remain responsible for making their state changes invertible.
+## Finite movement
 
-`FrameFlags` are independent facts. `ClipStart` and `ClipEnd` describe clip boundaries. `TimelineStart` and `TimelineEnd` describe local definition boundaries. `CompletedBefore` and `CompletedAfter` describe finite completion sides. `Looping` marks a looping definition and `Reverse` marks reverse execution. `Frame.Direction` derives `-1` from `Reverse` and otherwise returns `1`.
+For duration `D`, valid positions are `0..D`. Forward selection at `p < D` emits local tick `p` and commits `p + 1`. Reverse selection at `p > 0` emits `p - 1` and commits `p - 1`.
 
-`Frame.GameTick` is the simulation tick of the executed frame. `Frame.TimelineTick` is its normalized local tick. `Frame.Cycle` is signed. `Frame.TrackIndex` is the stable authored track identity.
+Forward selection at `D` and reverse selection at zero emit nothing. Empty timelines emit nothing. Finite rows clamp independently, so completion of one row does not stop another row that can still move. A query stops a multi-step call once no row can move further in that direction.
 
-## Borrowed data
+The last forward frame carries `TimelineEnd | CompletedAfter`. Reversing from completed state emits that same last local frame with `TimelineEnd | CompletedBefore | Reverse`. The first local frame carries `TimelineStart`; a reverse frame arriving at zero also carries `Reverse`.
 
-The generated `Data` and `DynamicData` ref structs borrow playback and every component slot. Callback `in` parameters produce read-only aliases; `ref` and `out` parameters produce writable aliases. The engine stores none of these references. Contexts cannot outlive their caller scope, cross asynchronous suspension, survive ECS structural changes, or be recursively reused with overlapping writable aliases.
+## Loop movement
 
-An `in` alias does not freeze storage against mutation through another alias. Callers that need a snapshot create separate storage explicitly. User exceptions propagate and preserve the already-executed effect prefix.
+For nonzero duration `D`, looping positions stay in `0..D-1`.
 
-## Total failure
+| Movement | Emitted `(tick, cycle)` | Committed `(position, cycle)` |
+| --- | --- | --- |
+| forward, `p + 1 < D` | `(p, c)` | `(p + 1, c)` |
+| forward, `p + 1 = D` | `(p, c)` | `(0, unchecked(c + 1))` |
+| reverse, `p > 0` | `(p - 1, c)` | `(p - 1, c)` |
+| reverse, `p = 0` | `(D - 1, unchecked(c - 1))` | `(D - 1, unchecked(c - 1))` |
 
-The typed facade validates lifecycle, current position, arithmetic, and finite target before effects. The dynamic facade additionally validates live ID, owner, route, and generated schema. Engine rejection returns `false` and preserves playback and component storage. A zero delta still validates its context and playback before succeeding without effects.
+Every looping frame carries `Looping`; reverse frames also carry `Reverse`. `TimelineStart` and `TimelineEnd` identify normalized local boundaries. Cycle arithmetic wraps explicitly in two's complement. Duration one follows the same law. A zero-duration looping timeline emits nothing.
 
-`TryStop` requires the matching owner on the dynamic path and is idempotent after a valid stop. Stopped and default playback cannot seek. Definitions and dynamic registry entries are immutable after publication and safe for concurrent reads; caller-owned mutable components retain the caller's synchronization responsibility.
+An arbitrary effectful looping delta performs every requested occurrence. Its time is proportional to observable work. The implementation does not collapse effects algebraically.
 
-## Allocation and portability
+## Clip resolution
 
-Warm typed and dynamic seek allocate zero managed bytes. Static payload storage, generated source, registry allocation, managed assembly size, NativeAOT image size, and native code size are separate reported quantities.
+At one local tick:
 
-The generated C# path is verified under .NET JIT and NativeAOT. The portable C backend and Unity/Burst target have independent ABIs and qualification workstreams; their current state is not evidence for this C# contract.
+- No active clip on a track produces no occurrence.
+- One active clip is borrowed directly.
+- Two active clips resolve once through the track's `Blend` method and produce one occurrence.
+
+The blend factor covers the clips' intersection. For intersection start `S`, length `L > 1`, factor is `(tick - S) / (L - 1)`. A one-frame intersection uses `0.5f`. Equal-start clips retain authored order.
+
+`ClipStart` and `ClipEnd` describe the outer resolved window. A one-frame window carries both. These flags are independent of timeline boundary and completion flags.
+
+## Ordered stages
+
+Each region owns one immutable occurrence slice. Array position is stage identity. Forward order is before hooks, authored tracks, then after hooks. Reverse order is the exact reverse slice: after hooks, tracks, then before hooks, each reversed internally.
+
+For every requested simulation step, a query performs:
+
+1. Validate every mutable route against the schema.
+2. Select at most one frame for each row without invoking user code.
+3. For each stage in order, execute every compatible row through its typed operation kind.
+4. Commit every selected row once after all stages finish.
+
+Rows can carry different assets and reach different completion points while sharing the same call. An A→B→A asset and a B→A asset both retain their own order. Grouping the entire call by operation type is invalid because a type set cannot encode repeated or opposing occurrence order.
+
+Delayed commit keeps every operation in one selected frame on the same pre-commit timeline state. A user exception propagates immediately. Effects already executed remain visible, no selected state is committed for that step, and a later call replaces pending selection before executing.
+
+## Borrowed component columns
+
+An operation's required unmanaged parameters define logical component slots. Name and type together identify a slot. `in` is a read-only borrowed alias; `ref` is a writable borrowed alias. When any operation writes a shared slot, the generated schema exposes one writable column.
+
+All schema columns have equal row count. Query construction rejects prohibited overlap whenever either column is writable, including overlap with state storage. Read-only columns may alias each other. An `in` alias does not freeze underlying storage against a write through another independently obtained alias.
+
+The query is a ref struct and cannot escape to the heap, cross asynchronous suspension, or survive storage relocation. Frames are ref structs scoped to operation execution. The timeline retains no component, span, track, clip, or frame reference.
+
+The parallel model permits row-local effects and immutable shared data. A method that mutates global state, follows a shared mutable pointer, or writes another row introduces a dependency outside this contract and requires an explicitly ordered phase or proven reduction.
+
+## Errors and total behavior
+
+Ordinary movement has no failure result. Default query, default state, empty asset, gap, empty timeline, zero delta, and finite completion are no-ops.
+
+Schema construction rejects unequal lengths, invalid current routes, and prohibited aliases before execution. Every nonzero tick rechecks mutable routes before any effect. The generator rejects malformed definitions, incompatible slots, invalid windows, excess tracks, excess overlap, unsupported operation signatures, and invalid include graphs during compilation.
+
+An invalid manually constructed position outside the asset's domain emits nothing. Consumers should create state with generated asset identity and a valid position. User exceptions are never converted into timeline status.
+
+## Determinism and inversion
+
+Given equal immutable definitions, equal initial component bytes, equal state, equal game ticks, and deterministic operations, execution order and outputs are deterministic.
+
+Structural reverse guarantees reversed occurrence order and mirrored movement coordinates. It does not prove that arbitrary user operations are mathematical inverses. Exact restoration additionally requires reversible operations, matching external inputs, suitable event history, and arithmetic whose reverse is exact. Floating-point subtraction is not a universal inverse of addition.
+
+## Allocation and ownership
+
+Generated query execution allocates zero managed bytes after warmup. Timeline and catalog definitions are static immutable data. Callers own state and component columns. There is no runtime registry, binding cache, playback object, destruction protocol, or hidden frame queue.
+
+Generated source bytes, neutral payload and schedule bytes, static data, per-row state, managed assembly size, NativeAOT image size, native text, scratch, and allocations are reported separately.

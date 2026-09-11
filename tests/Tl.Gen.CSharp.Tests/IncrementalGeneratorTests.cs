@@ -1,10 +1,11 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Tl;
+using Tl.Gen.CSharp.Analysis;
 using Xunit;
 
 namespace Tl.Gen.CSharp.Tests;
@@ -32,6 +33,32 @@ public sealed class IncrementalGeneratorTests
             }
         }
         """;
+
+    [Fact]
+    public void AnalysisComparerUsesOnlyTheStableFingerprint()
+    {
+        var first = new TimelineIncrementalGenerator.Analysis([], [], "same");
+        var equivalent = new TimelineIncrementalGenerator.Analysis([], [], "same");
+        var different = new TimelineIncrementalGenerator.Analysis([], [], "different");
+        var comparer = TimelineIncrementalGenerator.AnalysisComparer.Instance;
+
+        Assert.True(comparer.Equals(first, first));
+        Assert.True(comparer.Equals(first, equivalent));
+        Assert.False(comparer.Equals(first, different));
+        Assert.False(comparer.Equals(first, null));
+        Assert.False(comparer.Equals(null, first));
+        Assert.True(comparer.Equals(null, null));
+        Assert.Equal(comparer.GetHashCode(first), comparer.GetHashCode(equivalent));
+        Assert.NotEqual(comparer.GetHashCode(first), comparer.GetHashCode(different));
+    }
+
+    [Fact]
+    public void SourceLessDiagnosticsUseNoLocation()
+    {
+        var diagnostic = new DeclarationDiagnostic("", 0, 0, "TLGEN00", "source unavailable");
+
+        Assert.Equal(Location.None, TimelineIncrementalGenerator.Location(diagnostic));
+    }
 
     [Fact]
     public void GeneratedOutputBindsAndMatchesTheCliByteForByte()
@@ -247,7 +274,7 @@ public sealed class IncrementalGeneratorTests
             [Tree(source, "Reference.cs")],
             References(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        var key = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(name + "\0" + source)));
+        var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(name + "\0" + source)));
         var path = Path.Combine(Path.GetTempPath(), "tl-incremental-tests", key + ".dll");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var result = compilation.Emit(path);

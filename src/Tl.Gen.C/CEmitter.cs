@@ -26,8 +26,6 @@ public static class CEmitter
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(binding);
         var (validated, operations) = Validate(plan, binding);
-        if (validated.FormatVersion != SupportedPlanFormatVersion)
-            throw new NotSupportedException($"Timeline plan format {validated.FormatVersion} is not supported. Expected {SupportedPlanFormatVersion}.");
         ImmutableArray<CArtifact> artifacts =
         [
             new CArtifact(binding.HeaderFileName, EmitHeader(validated, binding, operations)),

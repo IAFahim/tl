@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -105,6 +107,12 @@ public static class GeneratorCli
             throw new ArgumentException($"Invalid C# language version '{configured}'.");
         var parse = new CSharpParseOptions(language, preprocessorSymbols: symbols);
         var trees = sources.Select(source => CSharpSyntaxTree.ParseText(source.Content, parse, source.Path));
+        foreach (var reference in references)
+        {
+            using var stream = File.OpenRead(reference.Path);
+            using var image = new PEReader(stream);
+            _ = image.GetMetadataReader();
+        }
         var metadata = references.Select(static reference => MetadataReference.CreateFromFile(
             reference.Path,
             new MetadataReferenceProperties(
@@ -159,17 +167,20 @@ public static class GeneratorCli
                 .Append("\tneutral-schedule-bytes=").Append(plan.ScheduleBytes)
                 .Append("\tstatic-data-bytes=").Append(qualified).AppendLine(".StaticDataBytes");
         }
-        foreach (var catalog in model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal))
+        foreach (var catalog in model.Catalogs.OrderBy(Qualified, StringComparer.Ordinal))
         {
-            writer.Append("catalog\t").Append(catalog.Namespace).Append('.').Append(catalog.Name)
+            var qualified = Qualified(catalog);
+            writer.Append("catalog\t").Append(qualified)
                 .Append("\tschemas=").Append(catalog.Schemas.Count)
                 .Append("\tassets=").Append(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (backend == "unity-entities")
             {
-                var timelines = model.Timelines.ToDictionary(Qualified, StringComparer.Ordinal);
+                var timelines = new Dictionary<string, JobTimeline>(model.Timelines.Count, StringComparer.Ordinal);
+                foreach (var timeline in model.Timelines)
+                    timelines.Add("global::" + Qualified(timeline), timeline);
                 var catalogAssets = catalog.Schemas.SelectMany(static schema => schema.Assets)
                     .Distinct(StringComparer.Ordinal)
-                    .Select(asset => timelines[asset.StartsWith("global::", StringComparison.Ordinal) ? asset.Substring("global::".Length) : asset])
+                    .Select(asset => timelines[asset])
                     .ToArray();
                 var operationKinds = catalogAssets.SelectMany(asset => JobTimelinePlanAdapter.Create(asset).OperationBindings)
                     .Select(static operation => operation.TypeName).Distinct(StringComparer.Ordinal).Count();
@@ -178,10 +189,10 @@ public static class GeneratorCli
                     .DefaultIfEmpty().Max();
                 var scheduledJobs = 2 + catalog.Schemas.Count + maxStages * operationKinds;
                 writer.Append("\toperation-kinds=").Append(operationKinds.ToString(System.Globalization.CultureInfo.InvariantCulture))
-                    .Append("\tmax-stages=").Append(maxStages.ToString(System.Globalization.CultureInfo.InvariantCulture))
-                    .Append("\tscheduled-jobs-per-step=").Append(scheduledJobs.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                     .Append("\tmax-stages=").Append(maxStages.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                     .Append("\tscheduled-jobs-per-step=").Append(scheduledJobs.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
-            writer.Append("\tstate-bytes=").Append(catalog.Namespace).Append('.').Append(catalog.Name).AppendLine(".StateBytes");
+            writer.Append("\tstate-bytes=").Append(qualified).AppendLine(".StateBytes");
         }
         foreach (var artifact in artifacts.OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal))
             writer.Append("artifact\t").Append(artifact.RelativePath).Append("\tutf8-bytes=")
@@ -191,6 +202,9 @@ public static class GeneratorCli
 
     private static string Qualified(JobTimeline timeline)
         => (timeline.Namespace.Length == 0 ? "" : timeline.Namespace + ".") + timeline.Name;
+
+    private static string Qualified(JobCatalog catalog)
+        => (catalog.Namespace.Length == 0 ? "" : catalog.Namespace + ".") + catalog.Name;
 
     private static void AddSymbols(string value, ISet<string> symbols)
     {

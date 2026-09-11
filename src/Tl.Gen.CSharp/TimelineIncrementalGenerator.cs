@@ -42,7 +42,7 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
             context.AddSource(artifact.RelativePath, SourceText.From(JobEmitter.Normalize(artifact.Content), new UTF8Encoding(false)));
     }
 
-    private static Location Location(DeclarationDiagnostic diagnostic)
+    internal static Location Location(DeclarationDiagnostic diagnostic)
         => diagnostic.SpanStart < 0
             ? Microsoft.CodeAnalysis.Location.None
             : Microsoft.CodeAnalysis.Location.Create(
@@ -55,12 +55,12 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
     private static string DiagnosticFingerprint(DeclarationDiagnostic diagnostic)
         => diagnostic.File + "\0" + diagnostic.Line + "\0" + diagnostic.Column + "\0" + diagnostic.Code + "\0" + diagnostic.Message;
 
-    private sealed record Analysis(
+    internal sealed record Analysis(
         IReadOnlyList<DeclarationDiagnostic> Diagnostics,
         IReadOnlyList<CompileArtifact> Artifacts,
         string Fingerprint);
 
-    private sealed class AnalysisComparer : IEqualityComparer<Analysis>
+    internal sealed class AnalysisComparer : IEqualityComparer<Analysis>
     {
         internal static readonly AnalysisComparer Instance = new();
         public bool Equals(Analysis? left, Analysis? right) => ReferenceEquals(left, right) || left is not null && right is not null && left.Fingerprint == right.Fingerprint;
