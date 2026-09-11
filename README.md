@@ -39,6 +39,8 @@ The package generator runs whenever Roslyn compiles the project, including suppo
 
 ## Define gameplay operations
 
+The quick start separates code you author from code the compiler generates. You author the domain values, jobs, timeline `Attack`, schema marker `CombatRows`, and catalog `Combat`. `Tl` supplies `IBlend<TClip>`, `ITimelineJob<TTrack,TClip>`, `Frame<TTrack,TClip>`, `ITimeline`, `Builder`, `ITimelineCatalog`, and `CatalogBuilder`. Compilation then completes the two `partial` declarations and creates the catalog API used below.
+
 Track values hold immutable settings. Clip values hold immutable authored payload. A job describes what one active `(track, clip)` pair does to borrowed component storage.
 
 ```cs
@@ -98,7 +100,7 @@ public readonly struct DamageJob : ITimelineJob<DamageTrack, DamageClip>
 
 ## Author one heterogeneous timeline
 
-`Use<TJob>()` binds behavior to a track. Authored order is semantic, so the following timeline executes animation, damage, animation at every frame where all three are active.
+`Attack` is an authored partial timeline declaration. `Use<TJob>()` binds behavior to a track. Authored order is semantic, so the following timeline executes animation, damage, animation at every frame where all three are active. The compiler completes `Attack` with immutable timeline data, count and size metadata, and the internal selection, execution, and commit code.
 
 ```cs
 public readonly partial struct Attack : ITimeline
@@ -118,9 +120,9 @@ public readonly partial struct Attack : ITimeline
 
 Two clips may overlap on one track. The generated kernel calls `Blend` once and passes one resolved frame to that track's job. `builder.Before<THook>()`, `builder.After<THook>()`, `builder.Include<TTimeline>()`, and `builder.Looping()` add explicit composition and lifecycle semantics.
 
-## Generate a catalog query
+## Declare a catalog and use its generated .NET query
 
-A catalog gives each schema a closed set of valid assets. The generator derives the component columns from the jobs in those assets.
+`CombatRows` and `Combat` are authored declarations. A schema is a user-named empty unmanaged marker such as `CombatRows`; it does not implement an interface, and there is no `ITimelineSchema`. The catalog gives each schema a closed set of valid timelines, and the generator derives its component columns from the jobs in those timelines.
 
 ```cs
 public readonly struct CombatRows;
@@ -134,7 +136,9 @@ public readonly partial struct Combat : ITimelineCatalog
 }
 ```
 
-The generated API is typed and contains no process-global ID:
+`Asset<Attack>()` closes `CombatRows` membership at compile time and causes the compiler to create a catalog-local route for `Attack`. It does not allocate an asset or register one at runtime.
+
+Together, the declarations above form `Timelines.cs`; the following generated API use can live in `Program.cs`. Compilation adds `Combat.Asset` with `None` and `Attack` routes, `Combat.State` for each row's playback state, `Combat.Query`, and its `CombatRows(...)` query-construction method. The application owns the state and component arrays passed to that generated query.
 
 ```cs
 var states = new[]
