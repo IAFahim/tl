@@ -38,6 +38,8 @@ SCENARIOS = (
     "shape-three-query",
     "shape-sixteen-direct",
     "shape-sixteen-query",
+    "shape-256-direct",
+    "shape-256-query",
     "shape-gap-direct",
     "shape-gap-query",
     "shape-blend-direct",

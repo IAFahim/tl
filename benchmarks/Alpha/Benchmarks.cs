@@ -53,8 +53,12 @@ public class ScalarCatalogQueryBenchmarks
     {
         _directStates[0] = default;
         _directAccumulators[0] = default;
-        for (var index = 0; index < _deltas.Length; index++)
-            Direct.Tick((uint)index, _deltas[index], ref _directStates[0], ref _directAccumulators[0]);
+        if (Pattern == TickPattern.Forward)
+            for (var index = 0; index < _deltas.Length; index++)
+                Direct.TickForward((uint)index, ref _directStates[0], ref _directAccumulators[0]);
+        else
+            for (var index = 0; index < _deltas.Length; index++)
+                Direct.Tick((uint)index, _deltas[index], ref _directStates[0], ref _directAccumulators[0]);
         return Direct.Capture(_directStates, _directAccumulators);
     }
 
@@ -109,7 +113,7 @@ public class BatchCatalogQueryBenchmarks
         Array.Clear(_directAccumulators);
         for (var tick = 0; tick < Frames; tick++)
             for (var row = 0; row < _directStates.Length; row++)
-                Direct.Tick((uint)tick, 1, ref _directStates[row], ref _directAccumulators[row]);
+                Direct.TickForward((uint)tick, ref _directStates[row], ref _directAccumulators[row]);
         return Direct.Capture(_directStates, _directAccumulators);
     }
 
@@ -156,6 +160,40 @@ internal sealed class ShapeCase
     {
         _directStates[0] = default;
         _directAccumulators[0] = default;
+        if (_pattern == TickPattern.Forward)
+        {
+            switch (Shape)
+            {
+                case TimelineShape.OneTrack:
+                    for (var index = 0; index < _deltas.Length; index++)
+                        DirectShapes.TickOneTrackForward((uint)index, ref _directStates[0], ref _directAccumulators[0]);
+                    break;
+                case TimelineShape.ThreeTracks:
+                    for (var index = 0; index < _deltas.Length; index++)
+                        global::Direct.TickForward((uint)index, ref _directStates[0], ref _directAccumulators[0]);
+                    break;
+                case TimelineShape.SixteenTracks:
+                    for (var index = 0; index < _deltas.Length; index++)
+                        DirectShapes.TickSixteenTracksForward((uint)index, ref _directStates[0], ref _directAccumulators[0]);
+                    break;
+                case TimelineShape.TwoHundredFiftySixTracks:
+                    for (var index = 0; index < _deltas.Length; index++)
+                        DirectShapes.TickTwoHundredFiftySixTracksForward((uint)index, ref _directStates[0], ref _directAccumulators[0]);
+                    break;
+                case TimelineShape.Gap:
+                    for (var index = 0; index < _deltas.Length; index++)
+                        DirectShapes.TickGapForward((uint)index, ref _directStates[0], ref _directAccumulators[0]);
+                    break;
+                case TimelineShape.Blend:
+                    for (var index = 0; index < _deltas.Length; index++)
+                        DirectShapes.TickBlendForward((uint)index, ref _directStates[0], ref _directAccumulators[0]);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(Shape));
+            }
+            return global::Direct.Capture(_directStates, _directAccumulators);
+        }
+
         switch (Shape)
         {
             case TimelineShape.OneTrack:
@@ -169,6 +207,10 @@ internal sealed class ShapeCase
             case TimelineShape.SixteenTracks:
                 for (var index = 0; index < _deltas.Length; index++)
                     DirectShapes.TickSixteenTracks((uint)index, _deltas[index], ref _directStates[0], ref _directAccumulators[0]);
+                break;
+            case TimelineShape.TwoHundredFiftySixTracks:
+                for (var index = 0; index < _deltas.Length; index++)
+                    DirectShapes.TickTwoHundredFiftySixTracks((uint)index, _deltas[index], ref _directStates[0], ref _directAccumulators[0]);
                 break;
             case TimelineShape.Gap:
                 for (var index = 0; index < _deltas.Length; index++)
@@ -205,6 +247,12 @@ internal sealed class ShapeCase
             case TimelineShape.SixteenTracks:
             {
                 var query = new ShapeCatalog.Query().SixteenTrackRows(_queryStates, _queryAccumulators);
+                Run(query);
+                break;
+            }
+            case TimelineShape.TwoHundredFiftySixTracks:
+            {
+                var query = new ShapeCatalog.Query().TwoHundredFiftySixTrackRows(_queryStates, _queryAccumulators);
                 Run(query);
                 break;
             }
@@ -256,6 +304,16 @@ internal sealed class ShapeCase
                 query.Tick((uint)index, _deltas[index]);
     }
 
+    private void Run(ShapeCatalog.TwoHundredFiftySixTrackRowsQuery query)
+    {
+        if (_pattern == TickPattern.Forward)
+            for (var index = 0; index < _deltas.Length; index++)
+                query.Tick((uint)index);
+        else
+            for (var index = 0; index < _deltas.Length; index++)
+                query.Tick((uint)index, _deltas[index]);
+    }
+
     private void Run(ShapeCatalog.GapRowsQuery query)
     {
         if (_pattern == TickPattern.Forward)
@@ -282,6 +340,7 @@ internal sealed class ShapeCase
             TimelineShape.OneTrack => ShapeCatalog.Asset.OneTrackTimeline,
             TimelineShape.ThreeTracks => ShapeCatalog.Asset.MixedTimeline,
             TimelineShape.SixteenTracks => ShapeCatalog.Asset.SixteenTrackTimeline,
+            TimelineShape.TwoHundredFiftySixTracks => ShapeCatalog.Asset.TwoHundredFiftySixTrackTimeline,
             TimelineShape.Gap => ShapeCatalog.Asset.GapTimeline,
             TimelineShape.Blend => ShapeCatalog.Asset.BlendTimeline,
             _ => throw new ArgumentOutOfRangeException(nameof(shape)),
@@ -311,15 +370,25 @@ internal sealed class ComponentCase
     {
         _directStates[0] = default;
         _directAccumulators[0] = default;
-        for (var index = 0; index < _deltas.Length; index++)
-            DirectShapes.TickComponent(
-                (uint)index,
-                _deltas[index],
-                in _first[0],
-                in _second[0],
-                in _third[0],
-                ref _directStates[0],
-                ref _directAccumulators[0]);
+        if (_pattern == TickPattern.Forward)
+            for (var index = 0; index < _deltas.Length; index++)
+                DirectShapes.TickComponentForward(
+                    (uint)index,
+                    in _first[0],
+                    in _second[0],
+                    in _third[0],
+                    ref _directStates[0],
+                    ref _directAccumulators[0]);
+        else
+            for (var index = 0; index < _deltas.Length; index++)
+                DirectShapes.TickComponent(
+                    (uint)index,
+                    _deltas[index],
+                    in _first[0],
+                    in _second[0],
+                    in _third[0],
+                    ref _directStates[0],
+                    ref _directAccumulators[0]);
         return global::Direct.Capture(_directStates, _directAccumulators);
     }
 
@@ -347,6 +416,7 @@ public class ShapeCatalogQueryBenchmarks
         TimelineShape.OneTrack,
         TimelineShape.ThreeTracks,
         TimelineShape.SixteenTracks,
+        TimelineShape.TwoHundredFiftySixTracks,
         TimelineShape.Gap,
         TimelineShape.Blend)]
     public TimelineShape Shape { get; set; }
@@ -415,7 +485,14 @@ internal sealed class MixedAssetCase
 
     internal MixedAssetCase()
     {
-        var shapes = Enum.GetValues<TimelineShape>();
+        TimelineShape[] shapes =
+        [
+            TimelineShape.OneTrack,
+            TimelineShape.ThreeTracks,
+            TimelineShape.SixteenTracks,
+            TimelineShape.Gap,
+            TimelineShape.Blend,
+        ];
         for (var row = 0; row < Rows; row++)
             _shapes[row] = shapes[row % shapes.Length];
     }
@@ -426,7 +503,7 @@ internal sealed class MixedAssetCase
         Array.Clear(_directAccumulators);
         for (var tick = 0; tick < Frames; tick++)
             for (var row = 0; row < Rows; row++)
-                DirectShapes.Tick(_shapes[row], (uint)tick, 1, ref _directStates[row], ref _directAccumulators[row]);
+                DirectShapes.TickForward(_shapes[row], (uint)tick, ref _directStates[row], ref _directAccumulators[row]);
         return global::Direct.Capture(_directStates, _directAccumulators);
     }
 

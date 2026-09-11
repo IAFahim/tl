@@ -53,6 +53,12 @@ internal static class Pmu
             case "shape-sixteen-query":
                 MeasureShape(TimelineShape.SixteenTracks, true);
                 return;
+            case "shape-256-direct":
+                MeasureShape(TimelineShape.TwoHundredFiftySixTracks, false);
+                return;
+            case "shape-256-query":
+                MeasureShape(TimelineShape.TwoHundredFiftySixTracks, true);
+                return;
             case "shape-gap-direct":
                 MeasureShape(TimelineShape.Gap, false);
                 return;
