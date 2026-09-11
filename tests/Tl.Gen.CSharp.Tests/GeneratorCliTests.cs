@@ -53,6 +53,7 @@ public sealed class GeneratorCliTests : IDisposable
         { ["--compile", "--source"], "invalid argument '--source'" },
         { ["--compile", "--output"], "invalid argument '--output'" },
         { ["--compile", "--unknown"], "invalid argument '--unknown'" },
+        { ["--compile", "--output", "generated", "--backend", "native"], "unsupported backend 'native'" },
     };
 
     [Theory]
@@ -136,6 +137,27 @@ public sealed class GeneratorCliTests : IDisposable
         Assert.Contains("catalog\tCatalog\t", report);
         Assert.DoesNotContain("timeline\t.Asset", report);
         Assert.DoesNotContain("catalog\t.Catalog", report);
+    }
+
+    [Fact]
+    public void UnityBackendRequiresCatalogBeforeWritingArtifacts()
+    {
+        Directory.CreateDirectory(_directory);
+        var source = Path.Combine(_directory, "Timeline.cs");
+        var references = Path.Combine(_directory, "references.txt");
+        var output = Path.Combine(_directory, "generated");
+        File.WriteAllText(source, Declaration[..Declaration.IndexOf("public readonly struct Rows;", StringComparison.Ordinal)]);
+        File.WriteAllLines(references, ReferencePaths());
+
+        var result = Run([
+            "--compile", "--backend", "unity-entities", "--output", output,
+            "--source", source, "--reference-list", references,
+        ]);
+
+        Assert.Equal(2, result.Code);
+        Assert.Contains("TLUNITY01", result.Error);
+        Assert.Contains("requires an explicit timeline catalog", result.Error);
+        Assert.False(Directory.Exists(output));
     }
 
     [Theory]

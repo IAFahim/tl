@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Tl.Gen.CSharp.Model;
 using Xunit;
 
 namespace Tl.Gen.CSharp.Tests;
@@ -141,6 +142,49 @@ public sealed class UnityMaterializationTests : IDisposable
         Assert.Contains("global::External.Attack.FrameCycle", catalog);
         Assert.Contains("global::External.Attack.Commit", catalog);
         Assert.DoesNotContain("if (Attack.Select", catalog);
+    }
+
+    [Fact]
+    public void CatalogRejectsOneOperationTypeWithDifferentSlotsAcrossAssets()
+    {
+        var firstJob = new JobDefinition("global::Game.Operation", [new("value", "int", SlotMode.Input)]);
+        var secondJob = new JobDefinition("global::Game.Operation", [new("value", "int", SlotMode.Reference)]);
+        var first = Timeline("First", firstJob);
+        var second = Timeline("Second", secondJob);
+        var catalog = new JobCatalog("Catalog", "Game", [new JobSchema("Rows", ["global::Game.First", "global::Game.Second"])]);
+
+        var error = Assert.Throws<InvalidOperationException>(() => UnityJobEmitter.Emit(new([first, second], [catalog], [])));
+
+        Assert.Contains("global::Game.Operation", error.Message);
+        Assert.Contains("inconsistent slots", error.Message);
+
+        static JobTimeline Timeline(string name, JobDefinition job)
+            => new(name, "Game", false, [], [new(0, "global::Game.Track", "global::Game.Clip", "default", job)],
+                [new(0, "global::Game.Clip", "default", 0, 1)], [], []);
+    }
+
+    [Fact]
+    public void MultiRegionOneTickBlendEmitsOrderedBranchAndMidpointFactor()
+    {
+        Directory.CreateDirectory(_directory);
+        var source = Path.Combine(_directory, "OneTickBlend.tl");
+        var output = Path.Combine(_directory, "Generated");
+        var references = Path.Combine(_directory, "references.txt");
+        File.WriteAllText(source, CrossNamespaceSource
+            .Replace("builder.Clip(track, new Shared.Clip(), 0u, 1u);", "builder.Clip(track, new Shared.Clip(), 0u, 2u); builder.Clip(track, new Shared.Clip(), 1u, 2u);", StringComparison.Ordinal));
+        File.WriteAllLines(references,
+            ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+                .Append(typeof(ITimeline).Assembly.Location).Distinct(StringComparer.Ordinal));
+
+        Assert.Equal(0, GeneratorCli.Main([
+            "--compile", "--backend", "unity-entities", "--output", output,
+            "--source", source, "--reference-list", references,
+        ]));
+
+        var timeline = File.ReadAllText(Directory.GetFiles(output, "TlUnityJob*.g.cs").Single());
+        Assert.Contains("else if (tick < 2u)", timeline);
+        Assert.Contains(".Blend(in __tlData", timeline);
+        Assert.Contains(", 0.5f, out var resolved);", timeline);
     }
 
     private static IReadOnlyList<string> CSharpBlocks(string markdown)

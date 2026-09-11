@@ -13,26 +13,32 @@ internal static class UnityJobEmitter
     internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model)
     {
         var timelines = model.Timelines.OrderBy(Qualified, StringComparer.Ordinal).ToArray();
-        var plans = timelines.ToDictionary(Qualified, JobTimelinePlanAdapter.Create, StringComparer.Ordinal);
-        Validate(model, timelines, plans);
+        var plans = new Dictionary<string, BoundOrderedTimelinePlan>(timelines.Length, StringComparer.Ordinal);
+        var byName = new Dictionary<string, JobTimeline>(timelines.Length, StringComparer.Ordinal);
+        foreach (var timeline in timelines)
+        {
+            var name = Qualified(timeline);
+            plans.Add(name, JobTimelinePlanAdapter.Create(timeline));
+            byName.Add(name, timeline);
+        }
+        Validate(model, plans, byName);
         var files = timelines.Select((timeline, index) => new CompileArtifact(
             $"TlUnityJob{index}.g.cs",
             Timeline(timeline, plans[Qualified(timeline)]))).ToList();
         files.AddRange(model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal)
             .Select((catalog, index) => new CompileArtifact(
                 $"TlUnityCatalog{index}.g.cs",
-                Catalog(catalog, timelines, plans))));
+                Catalog(catalog, byName, plans))));
         return files;
     }
 
     private static void Validate(
         JobReadResult model,
-        IReadOnlyList<JobTimeline> timelines,
-        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
+        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans,
+        IReadOnlyDictionary<string, JobTimeline> byName)
     {
         if (model.Catalogs.Count == 0)
             throw new InvalidOperationException("The Unity Entities backend requires an explicit timeline catalog.");
-        var byName = timelines.ToDictionary(Qualified, StringComparer.Ordinal);
         foreach (var catalog in model.Catalogs)
         {
             var assets = catalog.Schemas.SelectMany(static schema => schema.Assets).Distinct(StringComparer.Ordinal)
@@ -134,10 +140,9 @@ internal static class UnityJobEmitter
 
     private static string Catalog(
         JobCatalog catalog,
-        IReadOnlyList<JobTimeline> timelines,
+        IReadOnlyDictionary<string, JobTimeline> byName,
         IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
     {
-        var byName = timelines.ToDictionary(Qualified, StringComparer.Ordinal);
         var assets = catalog.Schemas.SelectMany(static schema => schema.Assets).Distinct(StringComparer.Ordinal)
             .OrderBy(static asset => asset, StringComparer.Ordinal).Select(asset => byName[asset]).ToArray();
         var ids = assets.Select((asset, index) => (Name: Qualified(asset), Id: index + 1))
@@ -502,7 +507,7 @@ internal static class UnityJobEmitter
     private static string SlotKey(string name, string typeName) => name + "\0" + typeName;
 
     private static string Pascal(string value)
-        => value.Length == 0 ? "Slot" : char.ToUpperInvariant(value[0]) + value.Substring(1);
+        => char.ToUpperInvariant(value[0]) + value.Substring(1);
 
     private static string Parameters(IEnumerable<TimelineSlot> slots)
         => string.Concat(slots.Select(static slot => $", {(slot.Mode == SlotMode.Input ? "in" : "ref")} {slot.TypeName} @{slot.Name}"));

@@ -175,10 +175,12 @@ public static class GeneratorCli
                 .Append("\tassets=").Append(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (backend == "unity-entities")
             {
-                var timelines = model.Timelines.ToDictionary(Qualified, StringComparer.Ordinal);
+                var timelines = new Dictionary<string, JobTimeline>(model.Timelines.Count, StringComparer.Ordinal);
+                foreach (var timeline in model.Timelines)
+                    timelines.Add("global::" + Qualified(timeline), timeline);
                 var catalogAssets = catalog.Schemas.SelectMany(static schema => schema.Assets)
                     .Distinct(StringComparer.Ordinal)
-                    .Select(asset => timelines[asset.StartsWith("global::", StringComparison.Ordinal) ? asset.Substring("global::".Length) : asset])
+                    .Select(asset => timelines[asset])
                     .ToArray();
                 var operationKinds = catalogAssets.SelectMany(asset => JobTimelinePlanAdapter.Create(asset).OperationBindings)
                     .Select(static operation => operation.TypeName).Distinct(StringComparer.Ordinal).Count();
