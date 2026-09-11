@@ -6,6 +6,7 @@ set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
 commit="$(git -C "$root" rev-parse HEAD)"
+archive_mtime="$(git -C "$root" show -s --format=%cI "$commit")"
 [[ -z "$(git -C "$root" status --porcelain)" ]] || { printf '%s\n' "repository must be clean" >&2; exit 2; }
 output="$(mkdir -p "$1" && cd "$1" && pwd)"
 stage="$(mktemp -d /tmp/tl-unity-package.XXXXXX)"
@@ -26,7 +27,7 @@ archive="$output/com.iafahim.tl-$version.tgz"
 make_archive() {
     local destination="$1"
     local tar_path="$stage/package.tar"
-    git -C "$root" archive --format=tar --prefix=package/ "$commit:src/Tl.Unity" -o "$tar_path"
+    git -C "$root" archive --format=tar --prefix=package/ --mtime="$archive_mtime" "$commit:src/Tl.Unity" -o "$tar_path"
     gzip -n -9 <"$tar_path" >"$destination"
 }
 
