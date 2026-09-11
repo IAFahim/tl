@@ -239,7 +239,7 @@ public sealed class IncrementalGeneratorTests
             "IncrementalTests",
             [Tree(source, "Timeline.cs")],
             References(),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
 
     private static SyntaxTree Tree(string source, string path)
         => CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), path);
