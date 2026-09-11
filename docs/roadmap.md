@@ -10,6 +10,7 @@ cd tl
 git fetch origin '+refs/heads/*:refs/remotes/origin/*'
 cat AGENTS.md
 cat plan.md
+gh issue view 57 --comments
 gh issue view 56 --comments
 gh pr list --state open
 gh project item-list 6 --owner IAFahim --limit 1000
@@ -39,9 +40,9 @@ The measured `<3 ns` result is deliberately narrow. Full generated `Catalog.Quer
 
 ## Next work
 
-The owner approved [data-authored timelines and typed frame queries](data-authored-api.md) on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns the live implementation checklist. Freeze the intended consumer surface before production edits: data-only assets without mandatory names or job bindings, build-known type pairs, borrowed .NET rows, nested Unity queries, direct and job runners, and a coordinator that preserves ordered stages and explicit job dependencies. Resolve the documented implementation gates with executable evidence; this proposal is not part of the alpha.3 package.
+The owner approved [data-authored timelines and typed frame queries](data-authored-api.md) on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns the live design discussion and future implementation checklist. Freeze the intended consumer surface before production edits: data-only assets without mandatory names or job bindings, build-known type pairs, borrowed .NET rows, nested Unity queries, direct and job runners, and a coordinator that preserves ordered stages and explicit job dependencies. Resolve the documented implementation gates with executable evidence; this proposal is not part of the alpha.3 package.
 
-The owner has paused implementation and will continue discussion from the office PC. Fetch `origin/docs/56-data-authored-api` and read issue #56 before doing anything with the proposal. No prototype, production change, merge or release is authorized by this handoff alone.
+The owner has paused implementation and will continue discussion from the office PC. Read the [proposal](data-authored-api.md), issue #56 and the [verified office handoff in #57](https://github.com/IAFahim/tl/issues/57). The documentation is preserved on main; it does not authorize a prototype, production API change or release. Project 6 is the canonical board; Project 5 is historical only. Genuine pending work remains visible in [portable assets #5](https://github.com/IAFahim/tl/issues/5), [large-timeline performance #10](https://github.com/IAFahim/tl/issues/10) and [dependency qualification #58](https://github.com/IAFahim/tl/issues/58). Read and claim the applicable issue before any separately authorized work.
 
 - Reduce large-stage generated code and route overhead without changing ordered effects.
 - Add ARM64 performance and code-generation evidence.

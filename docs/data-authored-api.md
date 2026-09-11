@@ -2,7 +2,7 @@
 
 Approved by the owner on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns implementation and live acceptance status. This document freezes the next consumer API direction. It does not describe implemented alpha.3 functionality, qualify a new release, or freeze a binary ABI.
 
-The owner subsequently paused work to continue API discussion and move to another PC. This is a documentation-only checkpoint. Do not start prototypes or production implementation until the owner explicitly requests it. Read the latest issue comments before treating any checklist item as authorization to work.
+The owner subsequently paused work to continue API discussion and move to another PC. This documentation-only handoff preserves the discussion on main; publishing it does not authorize implementation. Do not start prototypes or production implementation until the owner explicitly requests it. Read the latest issue comments before treating any checklist item as authorization to work.
 
 The [alpha.3 API](v1.0-alpha-api.md) remains the shipped contract. New APIs below require a generator and runtime implementation with executable receipts before being advertised as available.
 
