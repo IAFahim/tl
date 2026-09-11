@@ -50,7 +50,7 @@ The retained code-size fixtures report:
 | 16 | 38,686 B | 128 B | 18,328 B | 9,900 B |
 | 256 | 298,075 B | 2,048 B | 87,959 B | 75,547 B |
 
-Those consumer outputs are separate from the product source budget. Coverage commit `849b73b109fd58d2819d2be6070821ccba46d168` uses 231,816/250,000 B of production source plus paths; documentation and pinned UPM metadata commit `916827c90f926b388ed4c3162022dabda92899a5` uses 231,866/250,000 B. The neutral plan deduplicates exact type identity plus canonical payload bytes; the C# frontend currently deduplicates identical normalized type and expression bindings. A hash match never establishes equality.
+Those consumer outputs are separate from the product source budget. Coverage commit `9b1807686b9035b19a63133cd4f416ab1721e29b` uses 231,796/250,000 B of production source plus paths. The neutral plan deduplicates exact type identity plus canonical payload bytes; the C# frontend currently deduplicates identical normalized type and expression bindings. A hash match never establishes equality.
 
 The representation lower bounds are explicit. A finite position over `0..D` requires at least `ceil(log2(D + 1))` bits. Choosing among `A` catalog assets plus empty requires at least `ceil(log2(A + 1))` bits. These bounds do not erase alignment, pending selection, stage identity, or the requirement to execute every observable effect.
 

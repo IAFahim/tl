@@ -1,6 +1,6 @@
 # Alpha.3 coverage evidence
 
-Microsoft `dotnet-coverage` 18.11.0 collected Release coverage with the production-only filters in `eng/coverage.settings.xml` at commit `849b73b109fd58d2819d2be6070821ccba46d168`.
+Microsoft `dotnet-coverage` 18.11.0 collected Release coverage with the production-only filters in `eng/coverage.settings.xml` at commit `9b1807686b9035b19a63133cd4f416ab1721e29b`.
 
 ```sh
 dotnet-coverage collect "dotnet test tl.slnx -c Release --no-build --no-restore -p:NuGetAudit=false -m:1" -f cobertura -s eng/coverage.settings.xml -o /tmp/tl-alpha3-coverage.xml
@@ -16,7 +16,7 @@ All 221 tests passed: 36 core, 16 compiler, 58 C backend, and 111 C# generator t
 | `Tl.Gen.CSharp` | 100% | 100% |
 | Total | 2,740 / 2,740 (100%) | 1,628 / 1,628 (100%) |
 
-Cobertura SHA-256: `23be4fff49a17d34c588cb6347271f94a9c553e9a2cc0095f61ca92d9f10af31`.
+Cobertura SHA-256: `ddf400d7341d8f92359d2d6ba250aadc22550f7aab069c628d5131f40243d544`.
 
 Settings SHA-256: `ac6f6eaa04abe0f4929219523d0f2c0c204cef68e0ffc4f0ce87696fdaa63aa2`.
 
