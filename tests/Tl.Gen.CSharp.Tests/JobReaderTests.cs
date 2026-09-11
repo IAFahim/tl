@@ -311,6 +311,7 @@ public sealed class JobReaderTests
                 public readonly record struct Track(int Value)
                 {
                     public const int DefaultValue = 7;
+                    public const int @class = 2;
                     public static Track operator -(Track value) => value;
                 }
                 public readonly record struct Clip(int Value)
@@ -325,9 +326,10 @@ public sealed class JobReaderTests
                 }
                 public readonly partial struct Asset : Tl.ITimeline
                 {
+                    public const int Value = 1;
                     public static void Define(scoped Tl.Builder builder)
                     {
-                        var track = builder.Track(new Track((int)+checked(Track.DefaultValue))).Use<Job>();
+                        var track = builder.Track(new Track((int)+checked(Value + Track.DefaultValue + Track.@class))).Use<Job>();
                         builder.Clip(track, new Clip(nameof(Asset)), (byte)0, (ushort)1);
                         builder.Clip(track, (Clip)nameof(Track), '\u0001', 2u);
                         builder.Clip(track, default(Clip), 2, 3);
@@ -353,6 +355,8 @@ public sealed class JobReaderTests
         Assert.Equal(8u, timeline.Duration);
         Assert.Equal([(0u, 1u), (1u, 2u), (2u, 3u), (0u, 4u), (4u, 5u), (5u, 6u), (6u, 7u), (7u, 8u)], timeline.Clips.Select(static clip => (clip.Start, clip.End)));
         Assert.Contains("global::Game.Track.DefaultValue", timeline.Tracks[0].Expression);
+        Assert.Contains("global::Game.Track.@class", timeline.Tracks[0].Expression);
+        Assert.Contains("global::Game.Asset.Value", timeline.Tracks[0].Expression);
         Assert.Contains("\"Asset\"", timeline.Clips[0].Expression);
         Assert.Contains("default(global::Game.Clip)", timeline.Clips[2].Expression);
     }
@@ -567,6 +571,46 @@ public sealed class JobReaderTests
         Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN70" && item.File == "Catalog.cs");
         Assert.Contains(result.Diagnostics, static item => item.Code == "TLGEN76" && item.File == "Catalog.cs");
         Assert.Empty(result.Catalogs);
+    }
+
+    [Fact]
+    public void MetadataJobDiagnosticsFallBackToTheAuthoredUseSite()
+    {
+        var reference = Reference("""
+            using Tl;
+            namespace External;
+            public readonly struct Clip;
+            public readonly struct Track : IBlend<Clip>
+            {
+                public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
+            }
+            public readonly struct Job : ITimelineJob<Track, Clip>
+            {
+                public static void Execute(in Frame<Track, Clip> frame, out int value) => value = 0;
+            }
+            """);
+        var compilation = CSharpCompilation.Create(
+            "Consumer",
+            [CSharpSyntaxTree.ParseText("""
+                using Tl;
+                public readonly partial struct Asset : ITimeline
+                {
+                    public static void Define(scoped Builder builder)
+                    {
+                        var track = builder.Track(new External.Track()).Use<External.Job>();
+                        builder.Clip(track, new External.Clip(), 0u, 1u);
+                    }
+                }
+                """, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "Asset.cs")],
+            References.Add(reference),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var result = JobReader.Read(compilation);
+
+        var diagnostic = Assert.Single(result.Diagnostics, static item => item.Code == "TLGEN67");
+        Assert.Equal("Asset.cs", diagnostic.File);
+        Assert.True(diagnostic.Line > 1);
+        Assert.Empty(result.Timelines);
     }
 
     [Fact]
@@ -916,6 +960,313 @@ public sealed class JobReaderTests
                 {
                     public static void Define(Tl.CatalogBuilder builder) { }
                 }
+            }
+            """,
+            "TLGEN73"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u);
+                    }
+                }
+            }
+            """,
+            "TLGEN68"
+        },
+        {
+            """
+            namespace Game
+            {
+                public struct Track { public int Value; }
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track { Value = 1 }).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+            }
+            """,
+            "TLGEN64"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct OtherClip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>, Tl.ITimelineJob<Track, OtherClip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+            }
+            """,
+            "TLGEN65"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+            }
+            """,
+            "TLGEN66"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Base : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                        builder.Include<Base>();
+                        builder.Include<Base>();
+                    }
+                }
+            }
+            """,
+            "TLGEN70"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+                public readonly struct Rows<T>;
+                public readonly partial struct Catalog : Tl.ITimelineCatalog
+                {
+                    public static void Define(scoped Tl.CatalogBuilder builder)
+                    {
+                        builder.Schema<Rows<int>>().Asset<Asset>();
+                    }
+                }
+            }
+            """,
+            "TLGEN75"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly partial struct Catalog : Tl.ITimelineCatalog
+                {
+                    public static void Define(scoped ref Tl.CatalogBuilder builder) { }
+                }
+            }
+            """,
+            "TLGEN73"
+        },
+        {
+            """
+            namespace Game
+            {
+                public struct Track { public int Value; }
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track<Track>(new() { Value = 1 }).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+            }
+            """,
+            "TLGEN64"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        int missing;
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+            }
+            """,
+            "TLGEN63"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<int, Clip>
+                {
+                    public static void Execute(in Tl.Frame<int, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track("managed").Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+            }
+            """,
+            "TLGEN64"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>;
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+            }
+            """,
+            "TLGEN66"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 3u);
+                        builder.Clip(track, new Clip(), 1u, 4u);
+                        builder.Clip(track, new Clip(), 2u, 5u);
+                    }
+                }
+            }
+            """,
+            "TLGEN68"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly struct Track;
+                public readonly struct Clip;
+                public readonly struct Job : Tl.ITimelineJob<Track, Clip>
+                {
+                    public static void Execute(in Tl.Frame<Track, Clip> frame) { }
+                }
+                public readonly partial struct Asset : Tl.ITimeline
+                {
+                    public static void Define(scoped Tl.Builder builder)
+                    {
+                        var track = builder.Track(new Track()).Use<Job>();
+                        builder.Clip(track, new Clip(), 0u, 1u);
+                    }
+                }
+                public readonly struct Rows;
+                public readonly partial struct Catalog : Tl.ITimelineCatalog
+                {
+                    public static void Define(scoped Tl.CatalogBuilder builder)
+                    {
+                        builder.Schema<Rows>().Asset<Rows>();
+                    }
+                }
+            }
+            """,
+            "TLGEN76"
+        },
+        {
+            """
+            namespace Game
+            {
+                public readonly partial struct Catalog : Tl.ITimelineCatalog;
             }
             """,
             "TLGEN73"

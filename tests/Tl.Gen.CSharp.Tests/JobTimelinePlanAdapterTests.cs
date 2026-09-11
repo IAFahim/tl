@@ -23,6 +23,15 @@ public sealed class JobTimelinePlanAdapterTests
         var artifact = Assert.Single(JobEmitter.Emit(new JobReadResult([timeline], [], [])));
         Assert.Contains("#nullable enable\nusing Game.Support;\nnamespace Game;", artifact.Content);
         Assert.Contains("public const uint Duration = 0u;", artifact.Content);
+
+        Assert.Empty(JobEmitter.Emit(new JobReadResult([], [], [])));
+        var alpha = new JobCatalog("Alpha", "Game", []);
+        var zeta = new JobCatalog("Zeta", "Game", []);
+        var catalogArtifacts = JobEmitter.Emit(new JobReadResult([], [zeta, alpha], []));
+        Assert.Equal(2, catalogArtifacts.Count);
+        Assert.Contains("partial struct Alpha", catalogArtifacts[0].Content);
+        Assert.Contains("partial struct Zeta", catalogArtifacts[1].Content);
+        Assert.All(catalogArtifacts, static item => Assert.Contains("public const int AssetCount = 0;", item.Content));
     }
 
     [Fact]

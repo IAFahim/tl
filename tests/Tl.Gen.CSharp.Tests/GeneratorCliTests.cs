@@ -113,6 +113,31 @@ public sealed class GeneratorCliTests : IDisposable
         Assert.Contains("catalog\tCli.Catalog\tschemas=1\tassets=1", report);
     }
 
+    [Fact]
+    public void ReportsGlobalNamespaceAssetsWithoutLeadingDots()
+    {
+        Directory.CreateDirectory(_directory);
+        var source = Path.Combine(_directory, "Global.cs");
+        var references = Path.Combine(_directory, "references.txt");
+        var output = Path.Combine(_directory, "global");
+        File.WriteAllText(source, Declaration.Replace("namespace Cli;\n", "", StringComparison.Ordinal));
+        File.WriteAllLines(references, ReferencePaths());
+
+        var result = Run([
+            "--compile",
+            "--output", output,
+            "--source", source,
+            "--reference-list", references,
+        ]);
+
+        Assert.Equal(0, result.Code);
+        var report = File.ReadAllText(Path.Combine(output, CompileGenerationCache.ReportFileName));
+        Assert.Contains("timeline\tAsset\t", report);
+        Assert.Contains("catalog\tCatalog\t", report);
+        Assert.DoesNotContain("timeline\t.Asset", report);
+        Assert.DoesNotContain("catalog\t.Catalog", report);
+    }
+
     [Theory]
     [InlineData("disable")]
     [InlineData("annotations")]

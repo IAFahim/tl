@@ -153,11 +153,14 @@ public static class GeneratorCli
                 .Append("\tneutral-schedule-bytes=").Append(plan.ScheduleBytes)
                 .Append("\tstatic-data-bytes=").Append(qualified).AppendLine(".StaticDataBytes");
         }
-        foreach (var catalog in model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal))
-            writer.Append("catalog\t").Append(catalog.Namespace).Append('.').Append(catalog.Name)
+        foreach (var catalog in model.Catalogs.OrderBy(Qualified, StringComparer.Ordinal))
+        {
+            var qualified = Qualified(catalog);
+            writer.Append("catalog\t").Append(qualified)
                 .Append("\tschemas=").Append(catalog.Schemas.Count)
                 .Append("\tassets=").Append(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture))
-                .Append("\tstate-bytes=").Append(catalog.Namespace).Append('.').Append(catalog.Name).AppendLine(".StateBytes");
+                .Append("\tstate-bytes=").Append(qualified).AppendLine(".StateBytes");
+        }
         foreach (var artifact in artifacts.OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal))
             writer.Append("artifact\t").Append(artifact.RelativePath).Append("\tutf8-bytes=")
                 .AppendLine(System.Text.Encoding.UTF8.GetByteCount(artifact.Content).ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -166,6 +169,9 @@ public static class GeneratorCli
 
     private static string Qualified(JobTimeline timeline)
         => (timeline.Namespace.Length == 0 ? "" : timeline.Namespace + ".") + timeline.Name;
+
+    private static string Qualified(JobCatalog catalog)
+        => (catalog.Namespace.Length == 0 ? "" : catalog.Namespace + ".") + catalog.Name;
 
     private static void AddSymbols(string value, ISet<string> symbols)
     {
