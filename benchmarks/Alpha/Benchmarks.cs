@@ -132,3 +132,141 @@ internal static class TickPatterns
             deltas[index] = pattern == TickPattern.Forward || (index & 1) == 0 ? 1 : -1;
     }
 }
+
+internal sealed class ShapeCase
+{
+    internal const int Operations = 4096;
+    private readonly int[] _deltas = new int[Operations];
+    private readonly ReferenceState[] _directStates = new ReferenceState[1];
+    private readonly Accumulator[] _directAccumulators = new Accumulator[1];
+    private readonly ShapeCatalog.State[] _queryStates = new ShapeCatalog.State[1];
+    private readonly Accumulator[] _queryAccumulators = new Accumulator[1];
+
+    internal ShapeCase(TimelineShape shape, TickPattern pattern)
+    {
+        Shape = shape;
+        TickPatterns.Fill(_deltas, pattern);
+    }
+
+    internal TimelineShape Shape { get; }
+
+    internal BenchmarkReceipt Direct()
+    {
+        _directStates[0] = default;
+        _directAccumulators[0] = default;
+        for (var index = 0; index < _deltas.Length; index++)
+            DirectShapes.Tick(Shape, (uint)index, _deltas[index], ref _directStates[0], ref _directAccumulators[0]);
+        return global::Direct.Capture(_directStates, _directAccumulators);
+    }
+
+    internal BenchmarkReceipt Generated()
+    {
+        _queryStates[0] = new ShapeCatalog.State(Asset(Shape));
+        _queryAccumulators[0] = default;
+        var query = new ShapeCatalog.Query().ShapeRows(_queryStates, _queryAccumulators);
+        for (var index = 0; index < _deltas.Length; index++)
+            query.Tick((uint)index, _deltas[index]);
+        return global::Direct.Capture(_queryStates, _queryAccumulators);
+    }
+
+    private static ShapeCatalog.Asset Asset(TimelineShape shape)
+        => shape switch
+        {
+            TimelineShape.OneTrack => ShapeCatalog.Asset.OneTrackTimeline,
+            TimelineShape.ThreeTracks => ShapeCatalog.Asset.MixedTimeline,
+            TimelineShape.SixteenTracks => ShapeCatalog.Asset.SixteenTrackTimeline,
+            TimelineShape.Gap => ShapeCatalog.Asset.GapTimeline,
+            TimelineShape.Blend => ShapeCatalog.Asset.BlendTimeline,
+            _ => throw new ArgumentOutOfRangeException(nameof(shape)),
+        };
+}
+
+internal sealed class ComponentCase
+{
+    internal const int Operations = ShapeCase.Operations;
+    private readonly int[] _deltas = new int[Operations];
+    private readonly ReferenceState[] _directStates = new ReferenceState[1];
+    private readonly Accumulator[] _directAccumulators = new Accumulator[1];
+    private readonly ShapeCatalog.State[] _queryStates = new ShapeCatalog.State[1];
+    private readonly Accumulator[] _queryAccumulators = new Accumulator[1];
+    private readonly FirstInput[] _first = [new(2)];
+    private readonly SecondInput[] _second = [new(3)];
+    private readonly ThirdInput[] _third = [new(-5)];
+
+    internal ComponentCase(TickPattern pattern) => TickPatterns.Fill(_deltas, pattern);
+
+    internal BenchmarkReceipt Direct()
+    {
+        _directStates[0] = default;
+        _directAccumulators[0] = default;
+        for (var index = 0; index < _deltas.Length; index++)
+            DirectShapes.TickComponent(
+                (uint)index,
+                _deltas[index],
+                in _first[0],
+                in _second[0],
+                in _third[0],
+                ref _directStates[0],
+                ref _directAccumulators[0]);
+        return global::Direct.Capture(_directStates, _directAccumulators);
+    }
+
+    internal BenchmarkReceipt Generated()
+    {
+        _queryStates[0] = new ShapeCatalog.State(ShapeCatalog.Asset.ComponentTimeline);
+        _queryAccumulators[0] = default;
+        var query = new ShapeCatalog.Query().ComponentRows(_queryStates, _first, _second, _third, _queryAccumulators);
+        for (var index = 0; index < _deltas.Length; index++)
+            query.Tick((uint)index, _deltas[index]);
+        return global::Direct.Capture(_queryStates, _queryAccumulators);
+    }
+}
+
+internal sealed class MixedAssetCase
+{
+    internal const int Rows = 256;
+    internal const int Frames = 64;
+    private readonly TimelineShape[] _shapes = new TimelineShape[Rows];
+    private readonly ReferenceState[] _directStates = new ReferenceState[Rows];
+    private readonly Accumulator[] _directAccumulators = new Accumulator[Rows];
+    private readonly ShapeCatalog.State[] _queryStates = new ShapeCatalog.State[Rows];
+    private readonly Accumulator[] _queryAccumulators = new Accumulator[Rows];
+
+    internal MixedAssetCase()
+    {
+        var shapes = Enum.GetValues<TimelineShape>();
+        for (var row = 0; row < Rows; row++)
+            _shapes[row] = shapes[row % shapes.Length];
+    }
+
+    internal BenchmarkReceipt Direct()
+    {
+        Array.Clear(_directStates);
+        Array.Clear(_directAccumulators);
+        for (var tick = 0; tick < Frames; tick++)
+            for (var row = 0; row < Rows; row++)
+                DirectShapes.Tick(_shapes[row], (uint)tick, 1, ref _directStates[row], ref _directAccumulators[row]);
+        return global::Direct.Capture(_directStates, _directAccumulators);
+    }
+
+    internal BenchmarkReceipt Generated()
+    {
+        for (var row = 0; row < Rows; row++)
+            _queryStates[row] = new ShapeCatalog.State(Asset(_shapes[row]));
+        Array.Clear(_queryAccumulators);
+        var query = new ShapeCatalog.Query().ShapeRows(_queryStates, _queryAccumulators);
+        query.Tick(0u, Frames);
+        return global::Direct.Capture(_queryStates, _queryAccumulators);
+    }
+
+    private static ShapeCatalog.Asset Asset(TimelineShape shape)
+        => shape switch
+        {
+            TimelineShape.OneTrack => ShapeCatalog.Asset.OneTrackTimeline,
+            TimelineShape.ThreeTracks => ShapeCatalog.Asset.MixedTimeline,
+            TimelineShape.SixteenTracks => ShapeCatalog.Asset.SixteenTrackTimeline,
+            TimelineShape.Gap => ShapeCatalog.Asset.GapTimeline,
+            TimelineShape.Blend => ShapeCatalog.Asset.BlendTimeline,
+            _ => throw new ArgumentOutOfRangeException(nameof(shape)),
+        };
+}
