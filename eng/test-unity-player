@@ -1,17 +1,52 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ "$#" -le 1 ]] || { printf '%s\n' "usage: eng/test-unity-player [empty-output-directory]" >&2; exit 2; }
+usage() {
+    printf '%s\n' "usage: eng/test-unity-player [--project path] [--editor-version version] [--backend mono|il2cpp|all] [empty-output-directory]" >&2
+    exit 2
+}
 
 root="$(git rev-parse --show-toplevel)"
+project="$root/tests/Tl.Unity.Project"
+editor_version=""
+backend="all"
+output=""
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --project)
+            [[ "$#" -ge 2 ]] || usage
+            project="$2"
+            shift 2
+            ;;
+        --editor-version)
+            [[ "$#" -ge 2 ]] || usage
+            editor_version="$2"
+            shift 2
+            ;;
+        --backend)
+            [[ "$#" -ge 2 ]] || usage
+            backend="$2"
+            shift 2
+            ;;
+        --*) usage ;;
+        *)
+            [[ -z "$output" ]] || usage
+            output="$1"
+            shift
+            ;;
+    esac
+done
+[[ "$backend" == "mono" || "$backend" == "il2cpp" || "$backend" == "all" ]] || usage
+[[ -d "$project/Assets" && -f "$project/Packages/manifest.json" ]] || { printf '%s\n' "Unity project does not exist: $project" >&2; exit 2; }
+
 temporary=false
-if [[ "$#" -eq 0 ]]; then
+if [[ -z "$output" ]]; then
     stage="$(mktemp -d /tmp/tl-unity-player.XXXXXX)"
     temporary=true
 else
-    [[ ! -e "$1" ]] || { printf '%s\n' "output already exists: $1" >&2; exit 2; }
-    mkdir -p "$1"
-    stage="$(cd "$1" && pwd)"
+    [[ ! -e "$output" ]] || { printf '%s\n' "output already exists: $output" >&2; exit 2; }
+    mkdir -p "$output"
+    stage="$(cd "$output" && pwd)"
 fi
 
 cleanup() {
@@ -21,36 +56,104 @@ cleanup() {
 }
 trap cleanup EXIT
 
-project="$root/tests/Tl.Unity.Project"
-player="$stage/TlUnityPlayer"
-build_log="$stage/build.log"
-player_log="$stage/player.log"
-symbols="$stage/burst-symbols.txt"
+sanitize_log() {
+    python3 - "$1" <<'PY'
+import re
+import sys
 
-if ! unity --no-banner --format json build "$project" \
-    --target StandaloneLinux64 \
-    --execute-method TlUnityBuild.Build \
-    --output-path "$player" \
-    --log-file "$build_log" \
-    --no-tail; then
-    tail -200 "$build_log" >&2
-    exit 1
-fi
+path = sys.argv[1]
+with open(path, encoding="utf-8", errors="replace") as stream:
+    lines = stream.readlines()
+redact_next = False
+for index, line in enumerate(lines):
+    if redact_next:
+        lines[index] = "<redacted>\n"
+        redact_next = False
+        continue
+    if re.search(r"(?i)^\s*-accessToken\s*$", line):
+        redact_next = True
+    lines[index] = re.sub(
+        r"(?i)(-accessToken(?:=|\s+))(?:\"[^\"]*\"|'[^']*'|\S+)",
+        r"\1<redacted>",
+        lines[index],
+    )
+with open(path, "w", encoding="utf-8", newline="\n") as stream:
+    stream.writelines(lines)
+PY
+}
 
-mapfile -t burst_libraries < <(find "${player}_Data" -type f -name 'lib_burst_generated.so' -print)
-[[ "${#burst_libraries[@]}" -eq 1 ]] || { printf '%s\n' "expected one Burst library, found ${#burst_libraries[@]}" >&2; exit 2; }
-nm -D -C "${burst_libraries[0]}" >"$symbols"
-grep -Fq 'TlUnity.PlayerProbe.AdvanceGateJob' "$symbols" || { printf '%s\n' "Burst output does not contain AdvanceGateJob" >&2; exit 2; }
-grep -Fq 'Tl.Samples.BurstCombat.AdvanceAttackJob' "$symbols" || { printf '%s\n' "Burst output does not contain AdvanceAttackJob" >&2; exit 2; }
+run_backend() {
+    local name="$1"
+    local method="$2"
+    local backend_stage="$stage/$name"
+    local player="$backend_stage/TlUnityPlayer"
+    local build_log="$backend_stage/build.log"
+    local player_log="$backend_stage/player.log"
+    local symbols="$backend_stage/burst-symbols.txt"
+    local provenance="$backend_stage/provenance.json"
+    local -a command=(
+        unity --no-banner --non-interactive build "$project"
+        --target StandaloneLinux64
+        --execute-method "$method"
+        --output-path "$player"
+        --log-file "$build_log"
+        --provenance-path "$provenance"
+        --timeout 1800
+        --no-tail
+    )
+    if [[ -n "$editor_version" ]]; then
+        command+=(--editor-version "$editor_version")
+    fi
+    if [[ "${TL_UNITY_ALLOW_DIRTY_BUILD:-0}" == "1" ]]; then
+        command+=(--allow-dirty-build)
+    fi
+    mkdir -p "$backend_stage"
+    if ! "${command[@]}"; then
+        sanitize_log "$build_log"
+        tail -200 "$build_log" >&2
+        exit 1
+    fi
+    sanitize_log "$build_log"
+    if rg -n "compiler errors|will not be loaded due to errors|error CS|Tundra build failed|Burst error" "$build_log"; then
+        exit 2
+    fi
 
-forbidden="$(find "$stage" -type f \( \
-    -name 'Tl.Compiler*' -o \
-    -name 'Tl.Gen*' -o \
-    -name 'Microsoft.CodeAnalysis*' \
-    \) -print)"
-[[ -z "$forbidden" ]] || { printf '%s\n' "player contains forbidden toolchain assemblies:" "$forbidden" >&2; exit 2; }
+    mapfile -t burst_libraries < <(find "$backend_stage" -type f -name 'lib_burst_generated.so' -print)
+    [[ "${#burst_libraries[@]}" -eq 1 ]] || { printf '%s\n' "expected one $name Burst library, found ${#burst_libraries[@]}" >&2; exit 2; }
+    nm -D -C "${burst_libraries[0]}" >"$symbols"
+    for type in __TlCombatClearJob __TlCombatSelect0Job __TlCombatOperation0Job __TlCombatCommitJob GeneratedTimelineSystem; do
+        grep -Fq "$type" "$symbols" || { printf '%s\n' "$name Burst output does not contain $type" >&2; exit 2; }
+    done
 
-timeout 60 "$player" -batchmode -nographics -logFile - | tee "$player_log"
-grep -Fq 'TL_UNITY_PLAYER_OK' "$player_log" || { printf '%s\n' "player did not print TL_UNITY_PLAYER_OK" >&2; exit 2; }
+    local forbidden
+    forbidden="$(find "$backend_stage" -type f \( \
+        -name 'Tl.Compiler*' -o \
+        -name 'Tl.Gen*' -o \
+        -name 'Microsoft.CodeAnalysis*' \
+        \) -print)"
+    [[ -z "$forbidden" ]] || { printf '%s\n' "$name player contains forbidden toolchain assemblies:" "$forbidden" >&2; exit 2; }
 
+    timeout 60 "$player" -batchmode -nographics -logFile - | tee "$player_log"
+    grep -Fq 'TL_UNITY_PLAYER_OK' "$player_log" || { printf '%s\n' "$name player did not print TL_UNITY_PLAYER_OK" >&2; exit 2; }
+    printf '%s\t%s\t%s\t%s\t%s\n' \
+        "$name" \
+        "$(sha256sum "$player" | cut -d' ' -f1)" \
+        "$(stat -c %s "$player")" \
+        "$(sha256sum "${burst_libraries[0]}" | cut -d' ' -f1)" \
+        "$(wc -l < "$symbols")" \
+        >>"$stage/players.txt"
+}
+
+case "$backend" in
+    mono) run_backend mono TlUnityBuild.Build ;;
+    il2cpp) run_backend il2cpp TlUnityBuild.BuildIl2Cpp ;;
+    all)
+        run_backend mono TlUnityBuild.Build
+        run_backend il2cpp TlUnityBuild.BuildIl2Cpp
+        ;;
+esac
+
+printf '%s\n' "backend<TAB>player-sha256<TAB>player-bytes<TAB>burst-sha256<TAB>dynamic-symbol-lines" | cat - "$stage/players.txt" >"$stage/players.txt.next"
+mv "$stage/players.txt.next" "$stage/players.txt"
+cat "$stage/players.txt"
 printf '%s\n' "Unity player gate passed: $stage"

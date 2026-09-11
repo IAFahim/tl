@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ "$#" -le 1 ]] || { printf '%s\n' "usage: eng/test-unity-stable [empty-output-directory]" >&2; exit 2; }
+player_gate=false
+if [[ "${1:-}" == "--player" ]]; then
+    player_gate=true
+    shift
+fi
+[[ "$#" -le 1 ]] || { printf '%s\n' "usage: eng/test-unity-stable [--player] [empty-output-directory]" >&2; exit 2; }
 
 root="$(git rev-parse --show-toplevel)"
 project="$root/tests/Tl.Unity.Project"
@@ -90,6 +95,13 @@ run_test() {
 
 run_test EditMode "$receipt/editmode.xml"
 run_test PlayMode "$receipt/playmode.xml"
+if "$player_gate"; then
+    "$root/eng/test-unity-player" \
+        --project "$stable" \
+        --editor-version 6000.0.83f1 \
+        --backend all \
+        "$receipt/player"
+fi
 python3 - "$stable/Packages/packages-lock.json" "$receipt/packages.txt" "$receipt/editmode.xml" "$receipt/playmode.xml" <<'PY'
 import json
 import sys
