@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+stage="$(mktemp -d /tmp/tl-isolated-output.XXXXXX)"
+trap 'rm -rf -- "$stage"' EXIT
+source="$stage/source"
+artifacts="$stage/artifacts"
+mkdir "$source"
+git -C "$root" ls-files -z | tar --null -C "$root" -T - -cf - | tar -C "$source" -xf -
+dotnet restore "$source/tl.slnx" -m:1 -p:NuGetAudit=false --artifacts-path "$artifacts"
+dotnet build "$source/samples/Mixed/Mixed.csproj" -c Release -m:1 -p:NuGetAudit=false --no-restore --artifacts-path "$artifacts" -t:TlGenExport
+dotnet build "$source/tl.slnx" -c Release -m:1 -p:NuGetAudit=false --no-restore --artifacts-path "$artifacts"
+test -f "$artifacts/bin/Tl.Gen.CSharp/release_netstandard2.0/Tl.Gen.CSharp.dll"
+test -f "$artifacts/bin/Tl.Gen.CSharp/release_netstandard2.0/Tl.Compiler.dll"
+test -f "$artifacts/bin/Tl.Compiler.Tests/release/compiler-host/Tl.Compiler.dll"
+test -f "$artifacts/bin/Tl.UnityAnalyzerReceipt/release/Tl.Gen.CSharp.dll"
+test -f "$artifacts/bin/Tl.UnityAnalyzerReceipt/release/Tl.Compiler.dll"
+test -f "$artifacts/obj/Mixed/release/TlGenCompile/TlGenCompile.report.txt"
+test -z "$(find "$source" -type d \( -name bin -o -name obj -o -name TlGenCompile \) -print -quit)"

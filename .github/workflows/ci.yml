@@ -27,6 +27,7 @@ jobs:
       - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
         with:
           dotnet-version: 10.0.x
+      - run: eng/test-isolated-output
       - run: python3 benchmarks/source_budget.py
       - run: python3 -m unittest discover -s benchmarks -p test_collect.py
       - run: python3 -m unittest discover -s tests -p test_release_artifacts.py

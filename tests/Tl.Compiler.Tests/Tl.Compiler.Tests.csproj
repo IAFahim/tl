@@ -32,8 +32,14 @@
       Projects="..\..\src\Tl.Compiler\Tl.Compiler.csproj"
       Targets="Build"
       Properties="Configuration=$(Configuration);TargetFramework=netstandard2.0" />
+    <MSBuild
+      Projects="..\..\src\Tl.Compiler\Tl.Compiler.csproj"
+      Targets="GetTargetPath"
+      Properties="Configuration=$(Configuration);TargetFramework=netstandard2.0">
+      <Output TaskParameter="TargetOutputs" ItemName="_CompilerHostAssembly" />
+    </MSBuild>
     <Copy
-      SourceFiles="..\..\src\Tl.Compiler\bin\$(Configuration)\netstandard2.0\Tl.Compiler.dll"
+      SourceFiles="@(_CompilerHostAssembly)"
       DestinationFolder="$(OutputPath)compiler-host" />
   </Target>
 
