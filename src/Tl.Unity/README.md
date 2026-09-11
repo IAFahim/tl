@@ -8,7 +8,7 @@ https://github.com/IAFahim/tl.git?path=/src/Tl.Unity#v1.0.0-alpha.3
 
 The package declares Unity 6000.0 and Entities 1.4.3. The stable generated-jobs receipt uses Unity 6000.0.83f1, Entities 1.4.3, and Burst 1.8.30; `eng/test-unity-stable` recreates its isolated project and exact package inputs. A separate preview receipt uses Unity 6000.7.0a5, Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0.
 
-Keep the C# 9 domain and shared job declarations in `Assets/Timelines/DomainJobs.cs` so Unity compiles them:
+Keep the C# 9 domain and shared job declarations in `Assets/Timelines/DomainJobs.cs` so Unity compiles them. `DamageClip`, `DamageTrack`, `Bias`, `Trace`, and `ApplyDamage` are all authored types; `IBlend<TClip>`, `ITimelineJob<TTrack,TClip>`, and `Frame<TTrack,TClip>` come from `Tl`:
 
 ```csharp
 using Tl;
@@ -40,7 +40,7 @@ public readonly struct ApplyDamage : ITimelineJob<DamageTrack, DamageClip>
 }
 ```
 
-Keep the builder declarations in `Assets/Timelines/Combat.tl`. The materializer reads this file, while Unity does not import its newer declaration syntax:
+Keep the authored builder declarations in `Assets/Timelines/Combat.tl`. `Attack` is the authored partial timeline, `DamageRows` is a user-named empty unmanaged schema marker, and `Combat` is the authored partial catalog. A schema marker implements no interface; there is no `ITimelineSchema`. The materializer reads this file, while Unity does not import its newer declaration syntax:
 
 ```csharp
 using Tl;
@@ -64,6 +64,8 @@ public readonly partial struct Combat : ITimelineCatalog
     }
 }
 ```
+
+`Asset<Attack>()` closes `DamageRows` membership at compile time and creates the generated catalog-local route `Combat.Asset.Attack`. It does not allocate or register a runtime asset.
 
 Download the matching `Tl.CSharp` and `Tl.Runtime` `.nupkg` files from the GitHub prerelease into `tools/packages`, then create a small .NET 10 authoring project beside the Unity project. `Tl.CSharp` supplies the materializer, resolves the compilation references, and imports the `TlGenExport` target. The local package source is required because alpha.3 is distributed through the GitHub prerelease rather than a public NuGet feed. This project is an authoring tool and does not enter the Unity or player assembly graph:
 
@@ -93,7 +95,18 @@ dotnet msbuild Timeline.Authoring.csproj -restore -t:TlGenExport
 
 `TlGenBackend` defaults to `csharp`, and `TlGenOutput` defaults to the project's intermediate `TlGenCompile` directory. The project above selects the Unity backend and writes the deterministic `.g.cs` files and cache/report sidecars directly to the Unity Assets directory.
 
-The generated catalog owns the state, enableable schema marker, logical-slot wrappers, and scheduler. Create an entity with the complete generated schema and drive the scheduler from one external clock:
+Materialization completes the authored partial `Attack` with immutable timeline data and execution code. It completes the authored partial `Combat` with this Unity surface before Unity compiles the entity code:
+
+| Generated member | Purpose |
+| --- | --- |
+| `Combat.Asset` | Catalog-local route enum containing `None` and `Attack` |
+| `Combat.State` | Playback state initialized from one `Combat.Asset` route |
+| `Combat.TimelineComponent` | Shared ECS component that stores `Combat.State` |
+| `Combat.DamageRows` | Enableable ECS schema marker corresponding to the authored `DamageRows` marker |
+| `Combat.Role0Bias`, `Combat.Role1Trace` | ECS wrappers for the authored job's `bias` and `trace` slots |
+| `Combat.Scheduler` | Host-specific scheduler initialized in `OnCreate` and ticked from `OnUpdate` |
+
+Create an entity with the complete generated schema, initialize its generated state, and drive the generated scheduler from one authored external clock:
 
 ```csharp
 using Unity.Burst;
@@ -144,9 +157,9 @@ public static class TimelineBootstrap
 }
 ```
 
-The physical `.g.cs` outputs contain immutable timeline data, one shared catalog state component, enableable schema markers, logical-slot component wrappers, Burst-compatible selection, typed operation jobs, and commit scheduling. Operation jobs borrow only the values named by their authored `Execute(in Frame<TTrack,TClip>, in inputs..., ref results...)` signature. Slot wrappers are ordered by parameter name and type, so the example generates `Role0Bias` and `Role1Trace`; two roles with the same value type remain separate ECS columns.
+The physical `.g.cs` outputs contain immutable timeline data, one shared catalog state component, enableable schema markers, logical-slot component wrappers, Burst-compatible selection, typed operation jobs, and commit scheduling. Operation jobs borrow only the values named by their authored `Execute(in Frame<TTrack,TClip>, in inputs..., ref results...)` signature. Slot wrappers are ordered by parameter name and type, so the authored parameters `bias` and `trace` generate `Role0Bias` and `Role1Trace`; two roles with the same value type remain separate ECS columns.
 
-`TimelineState` stores catalog-local asset routing identity, local position, and signed loop cycle. Selection is total for zero, forward, and reverse movement. Finite timelines clamp independently and looping timelines carry cycle and boundary flags. `Frame<TTrack,TClip>` and `TimelineFrame` are call-scoped borrowed values; generated jobs never retain them in scheduled fields.
+Generated `Combat.State` wraps `TimelineState`, which stores catalog-local asset routing identity, local position, and signed loop cycle. Selection is total for zero, forward, and reverse movement. Finite timelines clamp independently and looping timelines carry cycle and boundary flags. `Frame<TTrack,TClip>` and `TimelineFrame` are call-scoped borrowed values; generated jobs never retain them in scheduled fields.
 
 The runtime/player package contains no Tl compiler, generator, Roslyn assembly, reflection binding, managed registry, or runtime compilation. Authoring and materialization tooling stay outside player assemblies. Generated files are deterministic physical inputs to Unity's Entities source generator and Burst pipeline.
 
