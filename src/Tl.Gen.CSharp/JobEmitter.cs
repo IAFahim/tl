@@ -6,6 +6,7 @@ namespace Tl.Gen.CSharp;
 
 internal static class JobEmitter
 {
+    private const int FusedSchemaSourceBudget = 32768;
     private sealed record ScheduledOccurrence(JobDefinition Job, JobTrack? Track, int TrackStorage, int FirstStorage, int SecondStorage, uint WindowStart, uint WindowEnd, uint FactorStart, uint FactorLength);
     private sealed record ScheduledRegion(uint End, IReadOnlyList<ScheduledOccurrence> Occurrences);
 
@@ -14,13 +15,18 @@ internal static class JobEmitter
     {
         var timelines = model.Timelines.OrderBy(Qualified, StringComparer.Ordinal).ToArray();
         var plans = timelines.ToDictionary(Qualified, JobTimelinePlanAdapter.Create, StringComparer.Ordinal);
-        var files = timelines.Select((timeline, index) => new CompileArtifact($"TlJob{index}.g.cs", Timeline(timeline, plans[Qualified(timeline)]))).ToList();
+        var byName = timelines.ToDictionary(Qualified, StringComparer.Ordinal);
+        var queried = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var schema in model.Catalogs.SelectMany(static catalog => catalog.Schemas))
+            if (CanFuse(schema, byName, plans))
+                queried.UnionWith(schema.Assets);
+        var files = timelines.Select((timeline, index) => new CompileArtifact($"TlJob{index}.g.cs", Timeline(timeline, plans[Qualified(timeline)], queried.Contains(Qualified(timeline))))).ToList();
         files.AddRange(model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal)
             .Select((catalog, index) => new CompileArtifact($"TlCatalog{index}.g.cs", Catalog(catalog, timelines, plans))));
         return files;
     }
 
-    private static string Timeline(JobTimeline timeline, BoundOrderedTimelinePlan bound)
+    private static string Timeline(JobTimeline timeline, BoundOrderedTimelinePlan bound, bool queried)
     {
         var writer = Header(timeline.Namespace, timeline.Usings);
         var regions = Regions(timeline, bound);
@@ -62,8 +68,41 @@ internal static class JobEmitter
             EmitOperation(writer, regions, operations[operation], operation, false);
             EmitOperation(writer, regions, operations[operation], operation, true);
         }
+        if (queried)
+        {
+            var slots = Slots([timeline]);
+            EmitRow(writer, regions, slots, false);
+            EmitRow(writer, regions, slots, true);
+        }
         Line(writer, "}");
         return writer.ToString();
+    }
+
+    private static void EmitRow(
+        StringBuilder writer,
+        IReadOnlyList<ScheduledRegion> regions,
+        IReadOnlyList<TimelineSlot> slots,
+        bool reverse)
+    {
+        var direction = reverse ? "Reverse" : "Forward";
+        Line(writer, "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]");
+        Line(writer, $"internal static void Execute{direction}(uint __tlTick, uint __tlGameTick, long __tlCycle, global::Tl.FrameFlags __tlFlags{Parameters(slots)})");
+        Line(writer, "{");
+        for (var regionIndex = 0; regionIndex < regions.Count; regionIndex++)
+        {
+            var region = regions[regionIndex];
+            Line(writer, $"{(regionIndex == 0 ? "if" : "else if")} (__tlTick < {U(region.End)})");
+            Line(writer, "{");
+            var occurrences = reverse ? region.Occurrences.Reverse() : region.Occurrences;
+            foreach (var occurrence in occurrences)
+            {
+                Line(writer, "{");
+                Invoke(writer, occurrence);
+                Line(writer, "}");
+            }
+            Line(writer, "}");
+        }
+        Line(writer, "}");
     }
 
     private static void EmitOperation(
@@ -153,7 +192,7 @@ internal static class JobEmitter
         }
         Line(writer, "}");
         foreach (var schema in catalog.Schemas)
-            Query(writer, schema, schema.Assets.Select(asset => byName[asset]).ToArray(), ids, plans);
+            Query(writer, schema, schema.Assets.Select(asset => byName[asset]).ToArray(), ids, plans, CanFuse(schema, byName, plans));
         Line(writer, "}");
         return writer.ToString();
     }
@@ -163,7 +202,8 @@ internal static class JobEmitter
         JobSchema schema,
         IReadOnlyList<JobTimeline> assets,
         IReadOnlyDictionary<string, int> ids,
-        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
+        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans,
+        bool fused)
     {
         var slots = Slots(assets);
         var operations = assets.SelectMany(asset => plans[Qualified(asset)].OperationBindings).GroupBy(static operation => operation.TypeName, StringComparer.Ordinal)
@@ -201,9 +241,67 @@ internal static class JobEmitter
         Line(writer, "default: throw new global::System.ArgumentException(\"Timeline does not belong to this query schema.\");");
         Line(writer, "}");
         Line(writer, "}");
-        Line(writer, "public void Tick(uint gameTick, int delta = 1)");
+        Line(writer, "public void Tick(uint gameTick)");
+        Line(writer, "{");
+        Line(writer, "if (__tlStates.IsEmpty) return;");
+        if (!fused)
+        {
+            Line(writer, "__tlTickMany(gameTick, 1);");
+            Line(writer, "return;");
+        }
+        else
+        {
+            Line(writer, "if (__tlStates.Length != 1)");
+            Line(writer, "{");
+            Line(writer, "__tlTickMany(gameTick, 1);");
+            Line(writer, "return;");
+            Line(writer, "}");
+            Line(writer, "ref var __tlState = ref __tlStates[0];");
+            Line(writer, "switch (__tlState.Value.Asset)");
+            Line(writer, "{");
+            Line(writer, "case 0:");
+            Line(writer, "__tlState.Pending = false;");
+            Line(writer, "return;");
+            foreach (var asset in assets)
+            {
+                Line(writer, $"case {ids[Qualified(asset)]}:");
+                Line(writer, $"__tlForward{ids[Qualified(asset)]}(ref __tlState, gameTick);");
+                Line(writer, "return;");
+            }
+            Line(writer, "default: throw new global::System.ArgumentException(\"Timeline does not belong to this query schema.\");");
+            Line(writer, "}");
+        }
+        Line(writer, "}");
+        Line(writer, "public void Tick(uint gameTick, int delta)");
         Line(writer, "{");
         Line(writer, "if (delta == 0 || __tlStates.IsEmpty) return;");
+        if (fused)
+        {
+            Line(writer, "if (__tlStates.Length == 1)");
+            Line(writer, "{");
+            Line(writer, "ref var __tlState = ref __tlStates[0];");
+            Line(writer, "switch (__tlState.Value.Asset)");
+            Line(writer, "{");
+            Line(writer, "case 0:");
+            Line(writer, "__tlState.Pending = false;");
+            Line(writer, "return;");
+            foreach (var asset in assets)
+            {
+                Line(writer, $"case {ids[Qualified(asset)]}:");
+                Line(writer, "{");
+                EmitSingleRowTick(writer, ids[Qualified(asset)]);
+                Line(writer, "return;");
+                Line(writer, "}");
+            }
+            Line(writer, "default: throw new global::System.ArgumentException(\"Timeline does not belong to this query schema.\");");
+            Line(writer, "}");
+            Line(writer, "}");
+        }
+        Line(writer, "__tlTickMany(gameTick, delta);");
+        Line(writer, "}");
+        Line(writer, "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]");
+        Line(writer, "private void __tlTickMany(uint gameTick, int delta)");
+        Line(writer, "{");
         Line(writer, "Validate();");
         Line(writer, "bool __tlReverse = delta < 0;");
         Line(writer, "long __tlRemaining = __tlReverse ? -(long)delta : delta;");
@@ -272,6 +370,80 @@ internal static class JobEmitter
         Line(writer, "if (!__tlReverse) gameTick = unchecked(gameTick + 1);");
         Line(writer, "}");
         Line(writer, "}");
+        if (fused)
+            foreach (var asset in assets)
+            {
+                EmitSingleRowMove(writer, asset, ids[Qualified(asset)], Slots([asset]), false);
+                EmitSingleRowMove(writer, asset, ids[Qualified(asset)], Slots([asset]), true);
+            }
+        Line(writer, "}");
+    }
+
+    private static bool CanFuse(
+        JobSchema schema,
+        IReadOnlyDictionary<string, JobTimeline> timelines,
+        IReadOnlyDictionary<string, BoundOrderedTimelinePlan> plans)
+    {
+        var bytes = 0;
+        foreach (var name in schema.Assets)
+        {
+            var timeline = timelines[name];
+            var regions = Regions(timeline, plans[name]);
+            var writer = new StringBuilder();
+            var slots = Slots([timeline]);
+            EmitRow(writer, regions, slots, false);
+            EmitRow(writer, regions, slots, true);
+            bytes += Encoding.UTF8.GetByteCount(writer.ToString());
+            if (bytes > FusedSchemaSourceBudget)
+                return false;
+        }
+        return true;
+    }
+
+    private static void EmitSingleRowTick(StringBuilder writer, int asset)
+    {
+        Line(writer, "if (delta == 1)");
+        Line(writer, "{");
+        Line(writer, $"__tlForward{asset}(ref __tlState, gameTick);");
+        Line(writer, "return;");
+        Line(writer, "}");
+        Line(writer, "if (delta == -1)");
+        Line(writer, "{");
+        Line(writer, $"__tlReverse{asset}(ref __tlState, unchecked(gameTick - 1u));");
+        Line(writer, "return;");
+        Line(writer, "}");
+        Line(writer, "bool __tlSingleReverse = delta < 0;");
+        Line(writer, "long __tlSingleRemaining = __tlSingleReverse ? -(long)delta : delta;");
+        Line(writer, "while (__tlSingleRemaining-- != 0)");
+        Line(writer, "{");
+        Line(writer, "if (__tlSingleReverse)");
+        Line(writer, "{");
+        Line(writer, "gameTick = unchecked(gameTick - 1u);");
+        Line(writer, $"if (!__tlReverse{asset}(ref __tlState, gameTick)) break;");
+        Line(writer, "}");
+        Line(writer, "else");
+        Line(writer, "{");
+        Line(writer, $"if (!__tlForward{asset}(ref __tlState, gameTick)) break;");
+        Line(writer, "gameTick = unchecked(gameTick + 1u);");
+        Line(writer, "}");
+        Line(writer, "}");
+    }
+
+    private static void EmitSingleRowMove(
+        StringBuilder writer,
+        JobTimeline asset,
+        int assetIndex,
+        IReadOnlyList<TimelineSlot> slots,
+        bool reverse)
+    {
+        var direction = reverse ? "Reverse" : "Forward";
+        var name = Qualified(asset);
+        Line(writer, $"private bool __tl{direction}{assetIndex}(ref State __tlState, uint gameTick)");
+        Line(writer, "{");
+        Line(writer, $"if (!{name}.Select(in __tlState.Value, {Bool(reverse)}, out var __tlNext, out var __tlTick, out var __tlCycle, out var __tlFlags)) return false;");
+        Line(writer, $"{name}.Execute{direction}(__tlTick, gameTick, __tlCycle, __tlFlags{Arguments(slots, "[0]")});");
+        Line(writer, "__tlState.Value = __tlNext;");
+        Line(writer, "return true;");
         Line(writer, "}");
     }
 

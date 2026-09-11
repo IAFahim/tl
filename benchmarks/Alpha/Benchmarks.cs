@@ -64,8 +64,12 @@ public class ScalarCatalogQueryBenchmarks
         _queryStates[0] = new BenchmarkCatalog.State(BenchmarkCatalog.Asset.MixedTimeline);
         _queryAccumulators[0] = default;
         var query = new BenchmarkCatalog.Query().BenchmarkRows(_queryStates, _queryAccumulators);
-        for (var index = 0; index < _deltas.Length; index++)
-            query.Tick((uint)index, _deltas[index]);
+        if (Pattern == TickPattern.Forward)
+            for (var index = 0; index < _deltas.Length; index++)
+                query.Tick((uint)index);
+        else
+            for (var index = 0; index < _deltas.Length; index++)
+                query.Tick((uint)index, _deltas[index]);
         return Direct.Capture(_queryStates, _queryAccumulators);
     }
 
