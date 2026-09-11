@@ -2,6 +2,8 @@ internal static class Pmu
 {
     private const long WarmupFrames = 4_194_304L;
     private const long MeasuredFrames = 268_435_456L;
+    private const long WideWarmupFrames = 8_192L;
+    private const long WideMeasuredFrames = 262_144L;
 
     internal static void Run(string scenario)
     {
@@ -103,13 +105,21 @@ internal static class Pmu
     private static void MeasureShape(TimelineShape shape, bool generated)
     {
         var benchmark = new ShapeCase(shape, TickPattern.Forward);
-        Measure(ShapeCase.Operations, generated ? benchmark.Generated : benchmark.Direct);
+        Func<BenchmarkReceipt> operation = generated ? benchmark.Generated : benchmark.Direct;
+        if (shape == TimelineShape.TwoHundredFiftySixTracks)
+            Measure(ShapeCase.Operations, operation, WideWarmupFrames, WideMeasuredFrames);
+        else
+            Measure(ShapeCase.Operations, operation, WarmupFrames, MeasuredFrames);
     }
 
-    private static void Measure(long framesPerPass, Func<BenchmarkReceipt> operation)
+    private static void Measure(
+        long framesPerPass,
+        Func<BenchmarkReceipt> operation,
+        long warmupFrames = WarmupFrames,
+        long measuredFrames = MeasuredFrames)
     {
-        var warmupPasses = Math.Max(1L, WarmupFrames / framesPerPass);
-        var measuredPasses = Math.Max(1L, MeasuredFrames / framesPerPass);
+        var warmupPasses = Math.Max(1L, warmupFrames / framesPerPass);
+        var measuredPasses = Math.Max(1L, measuredFrames / framesPerPass);
         for (long pass = 0; pass < warmupPasses; pass++)
             _ = operation();
         var totalFrames = measuredPasses * framesPerPass;
