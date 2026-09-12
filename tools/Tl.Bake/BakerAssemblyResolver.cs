@@ -43,6 +43,14 @@ public sealed class BakerAssemblyResolver
 
     public Type ResolveTrackType(string typeName)
     {
+        var type = FindType(typeName);
+        if (type != null) return type;
+
+        throw new BakeDiagnosticException($"unknown/unresolvable track type: '{typeName}'");
+    }
+
+    private Type? FindType(string typeName)
+    {
         var type = Type.GetType(typeName, false);
         if (type != null) return type;
 
@@ -83,30 +91,44 @@ public sealed class BakerAssemblyResolver
             }
         }
 
-        throw new BakeDiagnosticException($"unknown/unresolvable track type: '{typeName}'");
+        return null;
     }
 
-    public static Type ExtractClipType(Type trackType)
+    public Type ResolveClipType(Type trackType, string? clipTypeName)
     {
-        Type? blendInterface = null;
+        var instantiations = new List<Type>();
         foreach (var iface in trackType.GetInterfaces())
         {
             if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IBlend<>))
             {
-                if (blendInterface != null)
-                {
-                    throw new BakeDiagnosticException($"track type '{trackType.FullName}' must implement exactly one Tl.IBlend<TClip> pairing.");
-                }
-                blendInterface = iface;
+                instantiations.Add(iface.GetGenericArguments()[0]);
             }
         }
 
-        if (blendInterface == null)
+        if (instantiations.Count == 0)
         {
             throw new BakeDiagnosticException($"missing IBlend<>: track type '{trackType.FullName}' must implement Tl.IBlend<TClip>.");
         }
 
-        return blendInterface.GetGenericArguments()[0];
+        if (clipTypeName == null)
+        {
+            if (instantiations.Count > 1)
+            {
+                var names = string.Join(", ", instantiations.Select(t => t.FullName));
+                throw new BakeDiagnosticException($"ambiguous clip type — declare clipType: track type '{trackType.FullName}' implements multiple Tl.IBlend<TClip> pairings ({names}).");
+            }
+            return instantiations[0];
+        }
+
+        var declared = FindType(clipTypeName);
+        var match = instantiations.FirstOrDefault(item => item == declared);
+        if (match == null)
+        {
+            var names = string.Join(", ", instantiations.Select(t => t.FullName));
+            throw new BakeDiagnosticException($"clipType mismatch: '{clipTypeName}' does not name a Tl.IBlend<TClip> pairing of track type '{trackType.FullName}' (implemented: {names}).");
+        }
+
+        return match;
     }
 
     public static bool IsUnmanaged(Type type)

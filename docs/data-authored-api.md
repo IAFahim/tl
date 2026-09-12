@@ -89,6 +89,8 @@ For data-authored timelines, `ITimelineJob<TTrack, TClip>` implementations are d
 
 A pair may have zero, one, or multiple registered consumers. Distinct consumers execute once each for each selected matching occurrence. A handwritten wrapper and its generated counterpart represent the same consumer and must not both run. The compiler must validate that identity explicitly; searching a method body for a call is insufficient proof.
 
+Multi-pairing is supported: one track type may implement `IBlend` for several clip types and each `(TTrack, TClip)` instantiation is a first-class pair (runtime registration and frame keys are pair-scoped). A job type may implement `ITimelineJob<TTrack, TClip>` for several pairings; each pairing is discovered and registered as its own consumer in lexical order of the pair type names, and each pairing requires one accessible `Execute` beginning with `in Frame<TTrack, TClip>` for that pair. An authored `Track(settings).Use<TJob>()` resolves the pairing whose track type equals the authored track type. In designer JSON, a track entry whose track type implements `IBlend<>` exactly once may omit `clipType`; a multi-`IBlend` track type must declare `clipType` naming one of its implemented instantiations, and a declared `clipType` that names no such instantiation is a diagnostic.
+
 ## Designer asset
 
 Designers author timelines as JSON data conforming to the v1 schema, which the `tlbake` tool converts deterministically into standard TLB1 native bytes.

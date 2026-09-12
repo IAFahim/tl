@@ -43,8 +43,13 @@ public static class JobReader
             .ThenBy(static item => item.Name, StringComparer.Ordinal).ToArray();
         var consumers = new List<JobConsumer>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        var pairs = new HashSet<string>(StringComparer.Ordinal);
         foreach (var track in timelines.SelectMany(static t => t.Tracks))
-            if (seen.Add(track.Job.TypeName)) consumers.Add(new(track.TypeName, track.ClipTypeName, track.Job));
+        {
+            seen.Add(track.Job.TypeName);
+            if (pairs.Add(PairKey(track.Job.TypeName, track.TypeName, track.ClipTypeName)))
+                consumers.Add(new(track.TypeName, track.ClipTypeName, track.Job));
+        }
         foreach (var entry in entries)
         {
             if (entry.Type.TypeKind == TypeKind.Interface) continue;
@@ -54,17 +59,26 @@ public static class JobReader
             void Err(string msg) => Error(errors, entry.Syntax, "TLGEN65", $"Job '{Name(entry.Type)}' {msg}");
             if (entry.Type.IsAbstract) { Err("cannot be abstract."); continue; }
             if (entry.Type.Arity > 0 || entry.Type.TypeParameters.Length > 0) { Err("cannot be generic; open type parameters cannot be registered as timeline jobs."); continue; }
-            if (markers.Length != 1) { Err("must implement exactly one Tl.ITimelineJob<TTrack, TClip> pairing."); continue; }
-            var track = markers[0].TypeArguments[0];
-            var clip = markers[0].TypeArguments[1];
-            if (track.TypeKind == TypeKind.TypeParameter || clip.TypeKind == TypeKind.TypeParameter) { Err("cannot have open type parameters for its track or clip pairing."); continue; }
+            var discovered = new List<JobConsumer>();
             var valid = true;
-            if (!track.IsUnmanagedType) { Err($"track type '{Name(track)}' must be an unmanaged type."); valid = false; }
-            if (!clip.IsUnmanagedType) { Err($"clip type '{Name(clip)}' must be an unmanaged type."); valid = false; }
-            if (valid && !track.AllInterfaces.Any(item => Same(item.OriginalDefinition, contracts.Blend) && item.TypeArguments.Length == 1 && Same(item.TypeArguments[0], clip))) { Err($"track type '{Name(track)}' must implement Tl.IBlend<{Name(clip)}>."); valid = false; }
+            foreach (var marker in markers)
+            {
+                var track = marker.TypeArguments[0];
+                var clip = marker.TypeArguments[1];
+                if (track.TypeKind == TypeKind.TypeParameter || clip.TypeKind == TypeKind.TypeParameter) { Err("cannot have open type parameters for its track or clip pairing."); valid = false; continue; }
+                var ok = true;
+                if (!track.IsUnmanagedType) { Err($"track type '{Name(track)}' must be an unmanaged type."); ok = false; }
+                if (!clip.IsUnmanagedType) { Err($"clip type '{Name(clip)}' must be an unmanaged type."); ok = false; }
+                if (ok && !track.AllInterfaces.Any(item => Same(item.OriginalDefinition, contracts.Blend) && item.TypeArguments.Length == 1 && Same(item.TypeArguments[0], clip))) { Err($"track type '{Name(track)}' must implement Tl.IBlend<{Name(clip)}>."); ok = false; }
+                if (!ok) { valid = false; continue; }
+                var definition = reader.Execute(entry.Type, contracts.Frame.Construct(track, clip), compilation.Assembly, entry.Syntax);
+                if (definition is null) { valid = false; continue; }
+                discovered.Add(new(Name(track), Name(clip), definition));
+            }
             if (!valid) continue;
-            var definition = reader.Execute(entry.Type, contracts.Frame.Construct(track, clip), compilation.Assembly, entry.Syntax);
-            if (definition is not null && seen.Add(definition.TypeName)) consumers.Add(new(Name(track), Name(clip), definition));
+            foreach (var consumer in discovered.OrderBy(static item => item.TrackTypeName + "\0" + item.ClipTypeName, StringComparer.Ordinal))
+                if (pairs.Add(PairKey(consumer.Job.TypeName, consumer.TrackTypeName, consumer.ClipTypeName)))
+                    consumers.Add(consumer);
         }
         return new(timelines, catalogs, errors) { Consumers = consumers };
     }
@@ -224,9 +238,10 @@ public static class JobReader
                 return null;
             }
             var markers = job.AllInterfaces.Where(item => Same(item.OriginalDefinition, contracts.Job)).ToArray();
-            var markerTrack = markers.Length == 1 ? markers[0].TypeArguments[0] : null;
-            var payload = markers.Length == 1 ? markers[0].TypeArguments[1] as INamedTypeSymbol : null;
-            if (!job.IsUnmanagedType || markers.Length != 1 || !Same(settings, markerTrack) || payload is null || !payload.IsUnmanagedType)
+            var matches = markers.Where(item => Same(item.TypeArguments[0], settings)).ToArray();
+            var markerTrack = matches.Length == 1 ? matches[0].TypeArguments[0] : null;
+            var payload = matches.Length == 1 ? matches[0].TypeArguments[1] as INamedTypeSymbol : null;
+            if (!job.IsUnmanagedType || matches.Length != 1 || markerTrack is null || payload is null || !payload.IsUnmanagedType)
             {
                 Error(errors, use, "TLGEN65", $"Job '{Name(job)}' must implement exactly one Tl.ITimelineJob<{Name(settings)}, TClip> pairing.");
                 return null;
@@ -250,13 +265,15 @@ public static class JobReader
 
         public JobDefinition? Execute(INamedTypeSymbol type, ITypeSymbol frame, ISymbol owner, SyntaxNode site)
         {
-            var methods = type.GetMembers("Execute").OfType<IMethodSymbol>().Where(static method => !method.IsImplicitlyDeclared).ToArray();
-            var method = methods.Length == 1 ? methods[0] : null;
-            if (method is null || !method.IsStatic || !method.ReturnsVoid || method.Arity != 0
-                || method.MethodKind != MethodKind.Ordinary || !compilation.IsSymbolAccessibleWithin(method, owner)
-                || method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !Same(method.Parameters[0].Type, frame))
+            var candidates = type.GetMembers("Execute").OfType<IMethodSymbol>().Where(method => !method.IsImplicitlyDeclared
+                && method.IsStatic && method.ReturnsVoid && method.Arity == 0 && method.MethodKind == MethodKind.Ordinary
+                && method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In
+                && Same(method.Parameters[0].Type, frame)
+                && compilation.IsSymbolAccessibleWithin(method, owner)).ToArray();
+            var method = candidates.Length == 1 ? candidates[0] : null;
+            if (method is null)
             {
-                Error(errors, method is null ? site : Site(method, site), "TLGEN66", $"'{Name(type)}' must declare one accessible static void Execute beginning with in {Name(frame)}.");
+                Error(errors, site, "TLGEN66", $"'{Name(type)}' must declare one accessible static void Execute beginning with in {Name(frame)}.");
                 return null;
             }
             var slots = new List<TimelineSlot>();
@@ -571,6 +588,7 @@ public static class JobReader
     private static MethodDeclarationSyntax? Method(IMethodSymbol method) => method.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).OfType<MethodDeclarationSyntax>().SingleOrDefault();
     private static SyntaxNode Site(ISymbol symbol, SyntaxNode fallback) => symbol.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).FirstOrDefault() ?? fallback;
     private static bool Implements(INamedTypeSymbol type, INamedTypeSymbol contract) => type.AllInterfaces.Any(item => Same(item.OriginalDefinition, contract));
+    private static string PairKey(string job, string track, string clip) => job + "\0" + track + "\0" + clip;
     private static bool Same(ISymbol? left, ISymbol? right) => SymbolEqualityComparer.Default.Equals(left, right);
     private static string Name(ITypeSymbol type) => type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
     private static string Space(INamedTypeSymbol type) => type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString();
