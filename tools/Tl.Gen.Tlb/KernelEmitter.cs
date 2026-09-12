@@ -190,38 +190,39 @@ public static class KernelEmitter
         Pad(source, indent).AppendLine("if (!reverse)");
         Pad(source, indent).AppendLine("{");
         for (var index = 0; index < chunkCount; index++)
-            ChunkCall(source, indent + 1, stage, index);
+            Pad(source, indent + 1).AppendLine($"F{stage}_{index}(tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);");
         Pad(source, indent).AppendLine("}");
         Pad(source, indent).AppendLine("else");
         Pad(source, indent).AppendLine("{");
         for (var index = chunkCount - 1; index >= 0; index--)
-            ChunkCall(source, indent + 1, stage, index);
+            Pad(source, indent + 1).AppendLine($"R{stage}_{index}(tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);");
         Pad(source, indent).AppendLine("}");
 
         for (var index = 0; index < chunkCount; index++)
         {
             var from = index * 16;
             var slice = steps.Skip(from).Take(16).ToList();
-            var chunk = new StringBuilder();
-            chunk.AppendLine($"    static unsafe void S{stage}_{index}(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)");
-            chunk.AppendLine("    {");
-            chunk.AppendLine("        if (!reverse)");
-            chunk.AppendLine("        {");
+            var forward = new StringBuilder();
+            forward.AppendLine($"    static unsafe void F{stage}_{index}(uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)");
+            forward.AppendLine("    {");
             foreach (var step in slice)
-                Step(chunk, step, 3);
-            chunk.AppendLine("        }");
-            chunk.AppendLine("        else");
-            chunk.AppendLine("        {");
+                DirectedStep(forward, step, 3, false);
+            forward.Append("    }");
+            chunks.Add(forward.ToString());
+            var reverse = new StringBuilder();
+            reverse.AppendLine($"    static unsafe void R{stage}_{index}(uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)");
+            reverse.AppendLine("    {");
             for (var position = slice.Count - 1; position >= 0; position--)
-                Step(chunk, slice[position], 3);
-            chunk.AppendLine("        }");
-            chunk.Append("    }");
-            chunks.Add(chunk.ToString());
+                DirectedStep(reverse, slice[position], 3, true);
+            reverse.Append("    }");
+            chunks.Add(reverse.ToString());
         }
     }
 
-    static void ChunkCall(StringBuilder source, int indent, int stage, int index) =>
-        Pad(source, indent).AppendLine($"S{stage}_{index}(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);");
+    static void DirectedStep(StringBuilder source, (uint Slot, int Pair) step, int indent, bool reverse)
+    {
+        Pad(source, indent).AppendLine($"TimelineKernels.Chain(heads[{N(step.Pair)}], {Word(reverse)}, scratch, asset + {N(step.Slot)}u, gameTick, tick, cycle, flags, columns, row);");
+    }
 
     static void EmitSteps(StringBuilder source, List<(uint Slot, int Pair)> steps, int indent)
     {
