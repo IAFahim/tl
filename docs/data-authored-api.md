@@ -85,6 +85,8 @@ public readonly struct ApplyDamage :
 
 `ITimelineJob<TTrack,TClip>` associates reusable behavior with a type pair. It never associates an asset with one particular consumer. The generator derives required read and write access from `Execute`. `Frame.IsBackward` is a proposed flag-derived convenience, not an additional stored direction integer.
 
+For data-authored timelines, `ITimelineJob<TTrack, TClip>` implementations are discovered automatically compilation-wide by the generator. No `Use<TJob>()` declaration, authored `ITimeline`, catalog, or schema marker is required to register a consumer for data-authored consumption. (For alpha.3 authored timelines, the `Use<TJob>()` reference in `ITimeline.Define` remains required as before; the generator binds the union of authored and standalone jobs, deduplicated per job type.)
+
 A pair may have zero, one, or multiple registered consumers. Distinct consumers execute once each for each selected matching occurrence. A handwritten wrapper and its generated counterpart represent the same consumer and must not both run. The compiler must validate that identity explicitly; searching a method body for a call is insufficient proof.
 
 ## Designer asset

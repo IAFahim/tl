@@ -12,7 +12,7 @@ public static class JobReader
         INamedTypeSymbol Timeline, INamedTypeSymbol Catalog, INamedTypeSymbol Job,
         INamedTypeSymbol Hook, INamedTypeSymbol Frame, INamedTypeSymbol TimelineFrame,
         INamedTypeSymbol Builder, INamedTypeSymbol CatalogBuilder,
-        INamedTypeSymbol TrackRef, INamedTypeSymbol SchemaBuilder);
+        INamedTypeSymbol TrackRef, INamedTypeSymbol SchemaBuilder, INamedTypeSymbol Blend);
     private sealed record Entry(INamedTypeSymbol Type, TypeDeclarationSyntax Syntax);
     private sealed record Binding(JobTrack Track, INamedTypeSymbol Clip, SyntaxNode Declaration);
 
@@ -41,7 +41,32 @@ public static class JobReader
         var catalogs = entries.Where(entry => Implements(entry.Type, contracts.Catalog)).Select(reader.Catalog)
             .Where(static item => item is not null).Cast<JobCatalog>().OrderBy(static item => item.Namespace, StringComparer.Ordinal)
             .ThenBy(static item => item.Name, StringComparer.Ordinal).ToArray();
-        return new(timelines, catalogs, errors);
+        var consumers = new List<JobConsumer>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var track in timelines.SelectMany(static t => t.Tracks))
+            if (seen.Add(track.Job.TypeName)) consumers.Add(new(track.TypeName, track.ClipTypeName, track.Job));
+        foreach (var entry in entries)
+        {
+            if (entry.Type.TypeKind == TypeKind.Interface) continue;
+            if (seen.Contains(Name(entry.Type))) continue;
+            var markers = entry.Type.AllInterfaces.Where(item => Same(item.OriginalDefinition, contracts.Job)).ToArray();
+            if (markers.Length == 0) continue;
+            void Err(string msg) => Error(errors, entry.Syntax, "TLGEN65", $"Job '{Name(entry.Type)}' {msg}");
+            if (entry.Type.IsAbstract) { Err("cannot be abstract."); continue; }
+            if (entry.Type.Arity > 0 || entry.Type.TypeParameters.Length > 0) { Err("cannot be generic; open type parameters cannot be registered as timeline jobs."); continue; }
+            if (markers.Length != 1) { Err("must implement exactly one Tl.ITimelineJob<TTrack, TClip> pairing."); continue; }
+            var track = markers[0].TypeArguments[0];
+            var clip = markers[0].TypeArguments[1];
+            if (track.TypeKind == TypeKind.TypeParameter || clip.TypeKind == TypeKind.TypeParameter) { Err("cannot have open type parameters for its track or clip pairing."); continue; }
+            var valid = true;
+            if (!track.IsUnmanagedType) { Err($"track type '{Name(track)}' must be an unmanaged type."); valid = false; }
+            if (!clip.IsUnmanagedType) { Err($"clip type '{Name(clip)}' must be an unmanaged type."); valid = false; }
+            if (valid && !track.AllInterfaces.Any(item => Same(item.OriginalDefinition, contracts.Blend) && item.TypeArguments.Length == 1 && Same(item.TypeArguments[0], clip))) { Err($"track type '{Name(track)}' must implement Tl.IBlend<{Name(clip)}>."); valid = false; }
+            if (!valid) continue;
+            var definition = reader.Execute(entry.Type, contracts.Frame.Construct(track, clip), compilation.Assembly, entry.Syntax);
+            if (definition is not null && seen.Add(definition.TypeName)) consumers.Add(new(Name(track), Name(clip), definition));
+        }
+        return new(timelines, catalogs, errors) { Consumers = consumers };
     }
 
     private sealed class Reader(
@@ -223,7 +248,7 @@ public static class JobReader
             return hook is not null;
         }
 
-        private JobDefinition? Execute(INamedTypeSymbol type, ITypeSymbol frame, INamedTypeSymbol owner, SyntaxNode site)
+        public JobDefinition? Execute(INamedTypeSymbol type, ITypeSymbol frame, ISymbol owner, SyntaxNode site)
         {
             var methods = type.GetMembers("Execute").OfType<IMethodSymbol>().Where(static method => !method.IsImplicitlyDeclared).ToArray();
             var method = methods.Length == 1 ? methods[0] : null;
@@ -423,10 +448,9 @@ public static class JobReader
 
     private static Contracts? Contract(Compilation compilation)
     {
-        string[] names = ["Tl.ITimeline", "Tl.ITimelineCatalog", "Tl.ITimelineJob`2", "Tl.IHook", "Tl.Frame`2", "Tl.TimelineFrame", "Tl.Builder", "Tl.CatalogBuilder", "Tl.TrackRef`1", "Tl.SchemaBuilder`1"];
+        string[] names = ["Tl.ITimeline", "Tl.ITimelineCatalog", "Tl.ITimelineJob`2", "Tl.IHook", "Tl.Frame`2", "Tl.TimelineFrame", "Tl.Builder", "Tl.CatalogBuilder", "Tl.TrackRef`1", "Tl.SchemaBuilder`1", "Tl.IBlend`1"];
         var types = names.Select(compilation.GetTypeByMetadataName).ToArray();
-        return types.Any(static type => type is null) ? null : new(types[0]!, types[1]!, types[2]!, types[3]!, types[4]!, types[5]!, types[6]!, types[7]!, types[8]!, types[9]!);
-    }
+        return types.Any(static type => type is null) ? null : new(types[0]!, types[1]!, types[2]!, types[3]!, types[4]!, types[5]!, types[6]!, types[7]!, types[8]!, types[9]!, types[10]!);    }
 
     private static IReadOnlyList<Entry> Entries(CSharpCompilation compilation)
     {

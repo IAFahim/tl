@@ -19,6 +19,7 @@ public sealed record HeterogeneousClip(
 
 public sealed record JobDefinition(string TypeName, IReadOnlyList<TimelineSlot> Slots);
 
+public sealed record JobConsumer(string TrackTypeName, string ClipTypeName, JobDefinition Job);
 public sealed record JobTrack(
     int Index,
     string TypeName,
@@ -46,7 +47,4 @@ public sealed record JobCatalog(
     string Namespace,
     IReadOnlyList<JobSchema> Schemas);
 
-public sealed record JobReadResult(
-    IReadOnlyList<JobTimeline> Timelines,
-    IReadOnlyList<JobCatalog> Catalogs,
-    IReadOnlyList<DeclarationDiagnostic> Diagnostics);
+public sealed record JobReadResult(IReadOnlyList<JobTimeline> Timelines, IReadOnlyList<JobCatalog> Catalogs, IReadOnlyList<DeclarationDiagnostic> Diagnostics) { public IReadOnlyList<JobConsumer> Consumers { get; init; } = []; }

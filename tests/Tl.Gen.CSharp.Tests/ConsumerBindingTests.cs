@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
@@ -84,6 +85,119 @@ public sealed class ConsumerBindingTests
     }
 
     [Fact]
+    public void EmitsBindingForStandaloneJobWithoutAuthoredTimeline()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct BuffClip(float Amount);
+            public readonly record struct BuffTrack(float Multiplier) : IBlend<BuffClip>
+            {
+                public void Blend(in BuffClip first, in BuffClip second, float factor, out BuffClip result)
+                    => result = new BuffClip(first.Amount + (second.Amount - first.Amount) * factor);
+            }
+            public struct Armor { public float Value; }
+            public readonly struct ApplyBuff : ITimelineJob<BuffTrack, BuffClip>
+            {
+                public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref Armor armor) { }
+            }
+            """;
+        var (sources, diagnostics) = GenerateWithDiagnostics(source);
+        Assert.Empty(diagnostics);
+        var binding = Assert.Single(sources).Value;
+        Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&Execute_ApplyBuff, &Bind_ApplyBuff);", binding);
+    }
+
+    [Fact]
+    public void DiscoveryUnionDeduplicatesJobsReferencedByBothAuthoredAndStandalone()
+    {
+        var (sources, diagnostics) = GenerateWithDiagnostics(Source + """
+            namespace Domain;
+            public readonly record struct BuffClip(float Amount);
+            public readonly record struct BuffTrack(float Multiplier) : IBlend<BuffClip>
+            {
+                public void Blend(in BuffClip first, in BuffClip second, float factor, out BuffClip result)
+                    => result = new BuffClip(first.Amount + (second.Amount - first.Amount) * factor);
+            }
+            public struct Armor { public float Value; }
+            public readonly struct ApplyBuff : ITimelineJob<BuffTrack, BuffClip>
+            {
+                public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref Armor armor) { }
+            }
+            """);
+        Assert.Empty(diagnostics);
+        var binding = sources["TlConsumerBinding.g.cs"];
+        Assert.Contains("Consume(&Execute_ApplyDamage, &Bind_ApplyDamage)", binding);
+        Assert.Contains("Consume(&Execute_ApplyHeal, &Bind_ApplyHeal)", binding);
+        Assert.Contains("Consume(&Execute_ApplyBuff, &Bind_ApplyBuff)", binding);
+        var damageOccurrences = binding.Split("Execute_ApplyDamage").Length - 1;
+        Assert.Equal(2, damageOccurrences);
+    }
+
+    [Fact]
+    public void RejectsOpenGenericJobWithDiagnostic()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct DamageClip(float Amount);
+            public readonly record struct DamageTrack(float Multiplier) : IBlend<DamageClip>
+            {
+                public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result) => result = first;
+            }
+            public readonly struct GenericJob<T> : ITimelineJob<DamageTrack, DamageClip>
+            {
+                public static void Execute(in Frame<DamageTrack, DamageClip> frame) { }
+            }
+            """;
+        var (_, diagnostics) = GenerateWithDiagnostics(source);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("TLGEN65", diagnostic.Id);
+        Assert.Contains("cannot be generic; open type parameters cannot be registered as timeline jobs", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void RejectsJobWithNonUnmanagedTrackOrClipWithDiagnostic()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct Clip(float Amount);
+            public class ManagedTrack : IBlend<Clip>
+            {
+                public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
+            }
+            public readonly struct Job : ITimelineJob<ManagedTrack, Clip>
+            {
+                public static void Execute(in Frame<ManagedTrack, Clip> frame) { }
+            }
+            """;
+        var (_, diagnostics) = GenerateWithDiagnostics(source);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("TLGEN65", diagnostic.Id);
+        Assert.Contains("must be an unmanaged type", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void RejectsJobWhereTrackDoesNotImplementIBlendWithDiagnostic()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct Clip(float Amount);
+            public readonly record struct Track(float Multiplier);
+            public readonly struct Job : ITimelineJob<Track, Clip>
+            {
+                public static void Execute(in Frame<Track, Clip> frame) { }
+            }
+            """;
+        var (_, diagnostics) = GenerateWithDiagnostics(source);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("TLGEN65", diagnostic.Id);
+        Assert.Contains("must implement Tl.IBlend<global::Domain.Clip>", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void CliReexportHitsTheCacheAndPreservesBindingTimestamps()
     {
         var directory = Path.Combine(Path.GetTempPath(), "tl-consumer-binding-cli", Guid.NewGuid().ToString("N"));
@@ -144,6 +258,19 @@ public sealed class ConsumerBindingTests
         driver = driver.RunGenerators(compilation);
         return driver.GetRunResult().Results.Single().GeneratedSources
             .ToDictionary(static source => source.HintName, static source => source.SourceText.ToString(), StringComparer.Ordinal);
+    }
+
+    internal static (Dictionary<string, string> Sources, ImmutableArray<Diagnostic> Diagnostics) GenerateWithDiagnostics(string source)
+    {
+        var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+        var compilation = CSharpCompilation.Create("ConsumerBindingEmission" + Guid.NewGuid().ToString("N"),
+            [CSharpSyntaxTree.ParseText(source, options, "Domain.cs")], References(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator().AsSourceGenerator()], parseOptions: options);
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out var diagnostics);
+        var sources = driver.GetRunResult().Results.Single().GeneratedSources
+            .ToDictionary(static s => s.HintName, static s => s.SourceText.ToString(), StringComparer.Ordinal);
+        return (sources, diagnostics);
     }
 
     private static IEnumerable<MetadataReference> References()

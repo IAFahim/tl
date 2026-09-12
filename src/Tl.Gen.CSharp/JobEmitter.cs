@@ -23,23 +23,20 @@ internal static class JobEmitter
         var files = timelines.Select((timeline, index) => new CompileArtifact($"TlJob{index}.g.cs", Timeline(timeline, plans[Qualified(timeline)], queried.Contains(Qualified(timeline))))).ToList();
         files.AddRange(model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal)
             .Select((catalog, index) => new CompileArtifact($"TlCatalog{index}.g.cs", Catalog(catalog, timelines, plans))));
-        if (timelines.SelectMany(static t => t.Tracks).Any())
-            files.Add(new("TlConsumerBinding.g.cs", Consumers(timelines)));
+        if (model.Consumers.Count != 0) files.Add(new("TlConsumerBinding.g.cs", Consumers(model.Consumers)));
         return files;
     }
 
-    private static string Consumers(IReadOnlyList<JobTimeline> timelines)
+    private static string Consumers(IReadOnlyList<JobConsumer> consumers)
     {
         var names = new HashSet<string>();
-        var seen = new HashSet<(string, string, string)>();
-        var tracks = new List<(string Name, JobTrack Track)>();
-        foreach (var track in timelines.SelectMany(static t => t.Tracks))
-            if (seen.Add((track.Job.TypeName, track.TypeName, track.ClipTypeName)))
-            {
-                var name = track.Job.TypeName.Split('<')[0].Split('.', ':').Last();
-                while (!names.Add(name)) name += "_";
-                tracks.Add((name, track));
-            }
+        var items = new List<(string Name, JobConsumer Consumer)>();
+        foreach (var consumer in consumers)
+        {
+            var name = consumer.Job.TypeName.Split('<')[0].Split('.', ':').Last();
+            while (!names.Add(name)) name += "_";
+            items.Add((name, consumer));
+        }
         var writer = new StringBuilder();
         void W(string text) => Line(writer, text);
         W("internal static unsafe class TlConsumerBinding");
@@ -47,20 +44,17 @@ internal static class JobEmitter
         W("[global::System.Runtime.CompilerServices.ModuleInitializer]");
         W("internal static void Install()");
         W("{");
-        foreach (var (name, track) in tracks)
-            W($"global::Tl.PairRuntime<{track.TypeName}, {track.ClipTypeName}>.Consume(&Execute_{name}, &Bind_{name});");
+        foreach (var (name, consumer) in items)
+            W($"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>.Consume(&Execute_{name}, &Bind_{name});");
         W("}");
-        foreach (var (name, track) in tracks)
+        foreach (var (name, consumer) in items)
         {
-            var job = track.Job;
+            var job = consumer.Job;
             W($"private static void Execute_{name}(byte* __tlSlot, uint __tlGameTick, uint __tlTick, long __tlCycle, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)");
             W("{");
-            W($"{track.ClipTypeName} __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<{track.TypeName}, {track.ClipTypeName}>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);");
+            W($"{consumer.ClipTypeName} __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<{consumer.TrackTypeName}, {consumer.ClipTypeName}>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);");
             for (var i = 0; i < job.Slots.Count; i++)
-            {
-                var slot = job.Slots[i];
-                W($"var @{slot.Name} = ({slot.TypeName}*)__tlColumns[{i}];");
-            }
+                W($"var @{job.Slots[i].Name} = ({job.Slots[i].TypeName}*)__tlColumns[{i}];");
             W($"{job.TypeName}.Execute(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
             W("}");
             W($"private static void Bind_{name}(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)");

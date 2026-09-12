@@ -41,6 +41,14 @@ public sealed class ConsumerPlaybackTests
         Assert.EndsWith("|400|0", result);
     }
 
+    [Fact]
+    public void StandaloneJobDispatchesOnDataAuthoredTimelineWithoutAuthoredTimelineOrUse()
+    {
+        var result = Driver("Standalone");
+
+        Assert.Equal("25#40#25", result);
+    }
+
     private static string Driver(string method)
     {
         var value = Fixture.Value.GetType("Domain.Playback")!.GetMethod(method)!.Invoke(null, null);
@@ -113,6 +121,25 @@ public sealed class ConsumerPlaybackTests
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier * resistance.Scale;
                 health.Value += frame.IsBackward ? -amount : amount;
+            }
+        }
+
+        public readonly record struct BuffClip(float Amount);
+
+        public readonly record struct BuffTrack(float Multiplier) : IBlend<BuffClip>
+        {
+            public void Blend(in BuffClip first, in BuffClip second, float factor, out BuffClip result)
+                => result = new BuffClip(first.Amount + (second.Amount - first.Amount) * factor);
+        }
+
+        public struct Armor { public float Value; }
+
+        public readonly struct ApplyBuff : ITimelineJob<BuffTrack, BuffClip>
+        {
+            public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref Armor armor)
+            {
+                var amount = frame.Clip.Amount * frame.Track.Multiplier;
+                armor.Value += frame.IsBackward ? -amount : amount;
             }
         }
 
@@ -409,6 +436,25 @@ public sealed class ConsumerPlaybackTests
                     return "THROWN|" + exception.Message + "|" + F(health[0].Value) + "|" + Rows(rows);
                 }
                 return "NOTHROWN|" + F(health[0].Value) + "|" + Rows(rows);
+            }
+
+            public static string Standalone()
+            {
+                using var buff = TimelineAsset.Load(new Baker()
+                    .Track<BuffTrack, BuffClip>(new BuffTrack(3f))
+                    .Clip(0, 0u, 10u, new BuffClip(5f))
+                    .Bake());
+                var rows = new[] { new TimelineComponent(buff.Reference) };
+                var armor = new Armor[1];
+                armor[0].Value = 10f;
+                var query = Timeline.Rows(rows).Write(armor);
+                query.Tick(10u, 1);
+                var first = F(armor[0].Value);
+                query.Tick(11u, 1);
+                var second = F(armor[0].Value);
+                query.Tick(12u, -1);
+                var third = F(armor[0].Value);
+                return first + "#" + second + "#" + third;
             }
         }
         """;
