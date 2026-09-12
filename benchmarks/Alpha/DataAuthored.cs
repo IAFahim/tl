@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using BenchmarkDotNet.Attributes;
 using Tl;
 
@@ -224,6 +225,17 @@ internal enum DataAuthoredMode
     NoDispatch,
 }
 
+internal static class TimelineKernelHashes
+{
+    internal static readonly IReadOnlyDictionary<TimelineShape, string> Committed = new Dictionary<TimelineShape, string>
+    {
+        [TimelineShape.OneTrack] = "65a912cd2c3f9565072beed5ef78a2bdc3f5ba25bb58c59e8f325ef0b36d96bf",
+        [TimelineShape.ThreeTracks] = "0fecece0fa33b6ac165d69d4817d31f3e0737f9eed09fac2a74be88315ca5b99",
+        [TimelineShape.SixteenTracks] = "9c774c722525c151e597dbf054df0d0c4b4cf70fa1972cc2a79f86ed14f14704",
+        [TimelineShape.TwoHundredFiftySixTracks] = "c18e63530589e30b2e9f1bc1f10269926c66b60202c04f86de8a960522ad23e0",
+    };
+}
+
 internal sealed class DataAuthoredCase : IDisposable
 {
     internal const int Operations = 4096;
@@ -354,6 +366,30 @@ internal sealed class DataAuthoredCase : IDisposable
         }
         return baker.Bake();
     }
+
+    internal static byte[] InterpreterBytes(TimelineShape shape)
+    {
+        var bytes = Bake(shape, DataAuthoredMode.Standard);
+        bytes[40] = 0xA5;
+        return bytes;
+    }
+
+    internal static void AssertCommittedKernelHash(TimelineShape shape)
+    {
+        if (!TimelineKernelHashes.Committed.TryGetValue(shape, out var expected))
+            return;
+        var actual = Convert.ToHexString(SHA256.HashData(Bake(shape, DataAuthoredMode.Standard))).ToLowerInvariant();
+        if (actual != expected)
+            throw new InvalidOperationException($"{shape} baked bytes hash {actual} does not match the committed kernel hash {expected}.");
+    }
+
+    internal static void AssertKernelBound(DataAuthoredCase instance, bool expected)
+    {
+        var before = TimelineKernels.Bound;
+        _ = instance.DataAuthored();
+        if ((TimelineKernels.Bound == before + 1) != expected)
+            throw new InvalidOperationException($"{instance.Shape} facade kernel binding did not match expected {expected}.");
+    }
 }
 
 [Config(typeof(AlphaConfig))]
@@ -361,6 +397,7 @@ public class DataAuthoredQueryBenchmarks
 {
     private ShapeCase _alpha = null!;
     private DataAuthoredCase _facade = null!;
+    private DataAuthoredCase _interpreter = null!;
     private DataAuthoredCase _selectOnly = null!;
     private DataAuthoredCase _noDispatch = null!;
 
@@ -378,12 +415,17 @@ public class DataAuthoredQueryBenchmarks
     [GlobalSetup]
     public void Setup()
     {
+        DataAuthoredCase.AssertCommittedKernelHash(Shape);
         _alpha = new ShapeCase(Shape, Pattern);
         _facade = new DataAuthoredCase(Shape, Pattern);
+        _interpreter = new DataAuthoredCase(Shape, Pattern, DataAuthoredMode.Standard, DataAuthoredCase.InterpreterBytes(Shape));
         _selectOnly = new DataAuthoredCase(Shape, Pattern, DataAuthoredMode.SelectOnly);
         _noDispatch = new DataAuthoredCase(Shape, Pattern, DataAuthoredMode.NoDispatch);
         ScalarCatalogQueryBenchmarks.Require(DirectShape(), GeneratedShape(), nameof(GeneratedShape));
         ScalarCatalogQueryBenchmarks.Require(DirectShape(), DataAuthoredFacade(), nameof(DataAuthoredFacade));
+        ScalarCatalogQueryBenchmarks.Require(DirectShape(), FacadeInterpreter(), nameof(FacadeInterpreter));
+        DataAuthoredCase.AssertKernelBound(_facade, TimelineKernelHashes.Committed.ContainsKey(Shape));
+        DataAuthoredCase.AssertKernelBound(_interpreter, false);
         _ = FacadeSelectOnly();
         _ = FacadeNoDispatch();
     }
@@ -392,6 +434,7 @@ public class DataAuthoredQueryBenchmarks
     public void Cleanup()
     {
         _facade.Dispose();
+        _interpreter.Dispose();
         _selectOnly.Dispose();
         _noDispatch.Dispose();
     }
@@ -404,6 +447,9 @@ public class DataAuthoredQueryBenchmarks
 
     [Benchmark(OperationsPerInvoke = DataAuthoredCase.Operations)]
     public BenchmarkReceipt DataAuthoredFacade() => _facade.DataAuthored();
+
+    [Benchmark(OperationsPerInvoke = DataAuthoredCase.Operations)]
+    public BenchmarkReceipt FacadeInterpreter() => _interpreter.DataAuthored();
 
     [Benchmark(OperationsPerInvoke = DataAuthoredCase.Operations)]
     public BenchmarkReceipt FacadeSelectOnly() => _selectOnly.DataAuthored();
