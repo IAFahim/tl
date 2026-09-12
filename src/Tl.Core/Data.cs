@@ -76,8 +76,19 @@ public readonly unsafe struct TimelineRef
 
 	internal NativeStage* StageOf(uint tick)
 	{
+		var count = (int)Header->StageCount;
 		var stages = (NativeStage*)(_p + Header->StageOffset);
-		for (var i = 0; i < Header->StageCount; i++) if (tick < stages[i].End) return stages + i;
+		if (count <= 4)
+		{
+			for (var i = 0; i < count; i++) if (tick < stages[i].End) return stages + i;
+			return null;
+		}
+		for (int l = 0, h = count - 1; l <= h;)
+		{
+			var m = (l + h) >> 1;
+			if (tick < stages[m].End) { if (m == 0 || tick >= stages[m - 1].End) return stages + m; h = m - 1; }
+			else l = m + 1;
+		}
 		return null;
 	}
 
@@ -242,15 +253,21 @@ static unsafe class PairTable
 		return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
 	}
 
-	internal static void Bind(TimelineRef asset, in TimelineQuery columns, byte* indices, ref int watermark)
+	internal static void Bind(TimelineRef asset, in TimelineQuery columns, byte* indices, byte* rSlots, byte* rCols, ref int rCount, ref ulong boundMask)
 	{
 		var slots = SlotAt;
 		var consumers = ConsumerAt;
 		for (var entry = 0; entry < _consumers; entry++)
-			if (asset.Uses(slots[consumers[entry].Pair].Key))
+			if (asset.Uses(slots[consumers[entry].Pair].Key) && (boundMask & (1ul << entry)) == 0)
 			{
-				consumers[entry].Bind(in columns, indices + consumers[entry].Offset);
-				if ((entry + 1) * 4 > watermark) watermark = (entry + 1) * 4;
+				boundMask |= 1ul << entry;
+				var offset = consumers[entry].Offset;
+				consumers[entry].Bind(in columns, indices + offset);
+				for (var k = 0; k < 4; k++)
+				{
+					var col = indices[offset + k];
+					if (col != 0) { rSlots[rCount] = (byte)(offset + k); rCols[rCount++] = (byte)(col - 1); }
+				}
 			}
 	}
 }
@@ -272,7 +289,7 @@ public static class Timeline
 public ref struct TimelineQuery
 {
 	ref struct Column { public ulong Key; public ReadOnlySpan<byte> Data; public bool Write; }
-	struct PairCache { public nint Asset; public int Count; public int BoundSlots; public unsafe fixed int Heads[ResolvedPairs]; public unsafe fixed ulong Columns[256]; public unsafe fixed byte ColumnIndex[256]; }
+	struct PairCache { public nint Asset; public int Count, RefreshCount; public ulong BoundMask; public unsafe fixed int Heads[ResolvedPairs]; public unsafe fixed ulong Columns[256]; public unsafe fixed byte ColumnIndex[256], RefreshSlot[256], RefreshCol[256]; }
 
 	const int ResolvedPairs = 16;
 
@@ -326,32 +343,42 @@ public ref struct TimelineQuery
 	{
 		if (delta == 0 || _rows.IsEmpty) return;
 		var indices = (byte*)Unsafe.AsPointer(ref _cache.ColumnIndex[0]);
+		var rSlots = (byte*)Unsafe.AsPointer(ref _cache.RefreshSlot[0]);
+		var rCols = (byte*)Unsafe.AsPointer(ref _cache.RefreshCol[0]);
 		var table = (void**)Unsafe.AsPointer(ref _cache.Columns[0]);
 		if (!_bound)
 		{
 			for (var row = 0; row < _rows.Length; row++)
 			{
 				var reference = _rows[row].Reference;
-				if (reference.Address != 0) PairTable.Bind(reference, in this, indices, ref _cache.BoundSlots);
+				if (reference.Address != 0) PairTable.Bind(reference, in this, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
 			}
 			_bound = true;
 		}
-		var p0 = _count > 0 ? Unsafe.AsPointer(ref MemoryMarshal.GetReference(_a.Data)) : null;
-		var p1 = _count > 1 ? Unsafe.AsPointer(ref MemoryMarshal.GetReference(_b.Data)) : null;
-		var p2 = _count > 2 ? Unsafe.AsPointer(ref MemoryMarshal.GetReference(_c.Data)) : null;
-		var p3 = _count > 3 ? Unsafe.AsPointer(ref MemoryMarshal.GetReference(_d.Data)) : null;
-		for (var i = 0; i < _cache.BoundSlots; i++)
+		void** bases = stackalloc void*[4];
+		if (_count > 0) bases[0] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_a.Data));
+		if (_count > 1) bases[1] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_b.Data));
+		if (_count > 2) bases[2] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_c.Data));
+		if (_count > 3) bases[3] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_d.Data));
+		for (var i = 0; i < _cache.RefreshCount; i++)
+			table[rSlots[i]] = bases[rCols[i]];
+		var rowCount = _rows.Length;
+		var cachedAsset = _cache.Asset;
+		var warm = cachedAsset != 0;
+		if (warm)
 		{
-			var n = _cache.ColumnIndex[i];
-			table[i] = n == 1 ? p0 : n == 2 ? p1 : n == 3 ? p2 : n == 4 ? p3 : null;
-		}
-		var warm = true;
-		for (var row = 0; row < _rows.Length; row++)
-			if (_rows[row].Reference.Address != _cache.Asset)
+			if (rowCount == 1)
+				warm = _rows[0].Reference.Address == cachedAsset;
+			else
 			{
-				warm = false;
-				break;
+				for (var row = 0; row < rowCount; row++)
+					if (_rows[row].Reference.Address != cachedAsset)
+					{
+						warm = false;
+						break;
+					}
 			}
+		}
 		nint uniformAddress = 0;
 		var pairs = 0;
 		var cacheable = false;
@@ -359,7 +386,7 @@ public ref struct TimelineQuery
 		{
 			uniformAddress = _rows[0].Reference.Address;
 			var uniform = true;
-			for (var row = 0; row < _rows.Length; row++)
+			for (var row = 0; row < rowCount; row++)
 			{
 				var reference = _rows[row].Reference;
 				if (reference.Address != uniformAddress) uniform = false;
@@ -378,42 +405,60 @@ public ref struct TimelineQuery
 			chains = Resolved;
 			_rows[0].Reference.Resolve(chains);
 		}
-		var reverse = delta < 0;
-		long remaining = reverse ? -(long)delta : delta;
+		if (delta == 1 || delta == -1)
+		{
+			var reverse = delta < 0;
+			var targetGameTick = reverse ? gameTick - 1 : gameTick;
+			for (var row = 0; row < rowCount; row++)
+			{
+				ref var c = ref _rows[row];
+				if (!c.Reference.Select(reverse, c.Position, c.Cycle, out _, out var tick, out var cycle, out var flags)) continue;
+				if (c.Reference.Address != attached)
+				{
+					attached = c.Reference.Address;
+					c.Reference.Resolve(chains);
+					PairTable.Bind(c.Reference, in this, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
+					for (var i = 0; i < _cache.RefreshCount; i++) table[rSlots[i]] = bases[rCols[i]];
+				}
+				c.Reference.Execute(reverse, tick, targetGameTick, cycle, flags, row, chains, table);
+			}
+			for (var row = 0; row < rowCount; row++)
+			{
+				ref var c = ref _rows[row];
+				if (c.Reference.Select(reverse, c.Position, c.Cycle, out var next, out _, out _, out _)) { c.Position = next.Position; c.Cycle = next.Cycle; }
+			}
+			return;
+		}
+		var isReverse = delta < 0;
+		long remaining = isReverse ? -(long)delta : delta;
 		var moved = true;
 		while (moved && remaining-- != 0)
 		{
-			if (reverse) gameTick--;
+			if (isReverse) gameTick--;
 			moved = false;
-			for (var row = 0; row < _rows.Length; row++)
+			for (var row = 0; row < rowCount; row++)
 			{
 				ref var c = ref _rows[row];
 				var reference = c.Reference;
-				if (!reference.Select(reverse, c.Position, c.Cycle, out _, out var tick, out var cycle, out var flags)) continue;
+				if (!reference.Select(isReverse, c.Position, c.Cycle, out _, out var tick, out var cycle, out var flags)) continue;
 				moved = true;
 				var address = reference.Address;
 				if (address != attached)
 				{
 					attached = address;
 					reference.Resolve(chains);
-					PairTable.Bind(reference, in this, indices, ref _cache.BoundSlots);
-					for (var i = 0; i < _cache.BoundSlots; i++)
-					{
-						var n = _cache.ColumnIndex[i];
-						table[i] = n == 1 ? p0 : n == 2 ? p1 : n == 3 ? p2 : n == 4 ? p3 : null;
-					}
+					PairTable.Bind(reference, in this, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
+					for (var i = 0; i < _cache.RefreshCount; i++) table[rSlots[i]] = bases[rCols[i]];
 				}
-				reference.Execute(reverse, tick, gameTick, cycle, flags, row, chains, table);
+				reference.Execute(isReverse, tick, gameTick, cycle, flags, row, chains, table);
 			}
 			if (!moved) break;
-			for (var row = 0; row < _rows.Length; row++)
+			for (var row = 0; row < rowCount; row++)
 			{
 				ref var c = ref _rows[row];
-				if (!c.Reference.Select(reverse, c.Position, c.Cycle, out var next, out _, out _, out _)) continue;
-				c.Position = next.Position;
-				c.Cycle = next.Cycle;
+				if (c.Reference.Select(isReverse, c.Position, c.Cycle, out var next, out _, out _, out _)) { c.Position = next.Position; c.Cycle = next.Cycle; }
 			}
-			if (!reverse) gameTick++;
+			if (!isReverse) gameTick++;
 		}
 	}
 }

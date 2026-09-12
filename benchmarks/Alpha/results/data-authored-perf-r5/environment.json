@@ -1,0 +1,17 @@
+{
+  "harness_commit": "41f0ba0c7fc0175b9f8f2b7a42bb95f59005fbc3 (worktree feat/56-data-authored-api; the measured production change is uncommitted on top, in src/Tl.Core/Data.cs)",
+  "baseline_commit": "41f0ba0c7fc0175b9f8f2b7a42bb95f59005fbc3 (R2.1 atom, recorded in ../data-authored-perf-r4/; R1.1 comparison medians from ../data-authored-perf-r2/)",
+  "os": "Linux Omarchy 7.2.3-arch1-x86_64-with-glibc2.44",
+  "kernel": "7.2.3-arch1",
+  "cpu": "Intel(R) Core(TM) i9-14900K",
+  "dotnet_sdk": "10.0.401",
+  "dotnet_runtime": "10.0.12",
+  "benchmarkdotnet": "0.15.8",
+  "jit": "RyuJIT x86-64-v3",
+  "gc": "Concurrent Workstation",
+  "benchmark_cpu": 8,
+  "scaling_governor": "powersave",
+  "turbo_disabled": false,
+  "bdn_priority": "High-priority setup denied by the host; every raw log records the failure.",
+  "source_budget": "255614/300000 production source and path bytes (net +1813 over the R2.1 tree's 253801)"
+}
