@@ -21,4 +21,8 @@
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Alpha/Alpha.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Tl.Bake/Tl.Bake.csproj" />
+    <Project Path="tools/Tl.Bake.Tests/Tl.Bake.Tests.csproj" />
+  </Folder>
 </Solution>

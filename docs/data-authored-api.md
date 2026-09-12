@@ -91,31 +91,32 @@ A pair may have zero, one, or multiple registered consumers. Distinct consumers 
 
 ## Designer asset
 
-The editor writes data of this shape. This example is not a finalized interchange schema or a required handwritten JSON workflow.
+Designers author timelines as JSON data conforming to the v1 schema, which the `tlbake` tool converts deterministically into standard TLB1 native bytes.
 
 ```json
 {
-  "looping": false,
+  "duration": 60,
+  "loop": false,
   "tracks": [
     {
-      "type": "DamageTrack",
-      "data": { "Multiplier": 2 },
+      "trackType": "Game.AttackTrack, Game",
+      "track": { "power": 2.5 },
       "clips": [
-        {
-          "start": 5,
-          "end": 6,
-          "data": { "Amount": 10 }
-        },
-        {
-          "start": 12,
-          "end": 13,
-          "data": { "Amount": 20 }
-        }
+        { "start": 0, "end": 30, "payload": { "value": 10 } }
       ]
     }
   ]
 }
 ```
+
+The CLI compiler:
+```sh
+tlbake <input.json> <output.tlb> [--assembly <path>]...
+```
+
+`trackType` identifies the unmanaged `(TTrack, TClip)` pair assembly-qualified; the tool resolves it via referenced consumer assemblies and validates `unmanaged` and `IBlend<TClip>` requirements. `track` and `payload` objects map field names onto sequential unmanaged struct layouts for explicit-width primitives (bool, byte, sbyte, short, ushort, int, uint, long, ulong, float, double).
+
+**Determinism Guarantee**: Baking the same JSON input always yields bit-identical TLB1 bytes and identical SHA-256 hashes across runs. Furthermore, baking a JSON timeline produces TLB1 bytes bit-identical to what an equivalent code-authored `TimelineAsset` baker produces.
 
 Track type identity determines the clip type and blend implementation. Assets may contain up to 256 authored tracks, including heterogeneous and repeated type pairs. Track array order is semantic. Windows are half-open, duration is the maximum clip end, and an empty asset has duration zero. Two overlapping clips on a track resolve through its blender; unsupported overlap fails import. Canonical data deduplication never merges distinct authored occurrences or changes their order.
 
