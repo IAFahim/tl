@@ -264,9 +264,13 @@ public static class Timeline
 public ref struct TimelineQuery
 {
 	ref struct Column { public ulong Key; public ReadOnlySpan<byte> Data; public bool Write; }
+	struct PairCache { public nint Asset; public int Count; public unsafe fixed int Heads[ResolvedPairs]; }
+
+	const int ResolvedPairs = 16;
 
 	Span<TimelineComponent> _rows;
 	Column _a, _b, _c, _d;
+	PairCache _cache;
 	bool _bound;
 	int _count;
 
@@ -301,10 +305,12 @@ public ref struct TimelineQuery
 
 	public int Find(ulong key) => _a.Key == key ? 0 : _b.Key == key ? 1 : _c.Key == key ? 2 : _d.Key == key ? 3 : -1;
 
+	unsafe Span<int> Resolved => new(Unsafe.AsPointer(ref _cache.Heads[0]), _cache.Count);
+
 	public unsafe Span<T> Span<T>(int index) where T : unmanaged => new(Unsafe.AsPointer(ref MemoryMarshal.GetReference(DataOf(index))), DataOf(index).Length / sizeof(T));
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
-	public void Tick(uint gameTick, int delta = 1)
+	public unsafe void Tick(uint gameTick, int delta = 1)
 	{
 		if (delta == 0 || _rows.IsEmpty) return;
 		if (!_bound)
@@ -316,10 +322,39 @@ public ref struct TimelineQuery
 			}
 			_bound = true;
 		}
+		var warm = true;
+		for (var row = 0; row < _rows.Length; row++)
+			if (_rows[row].Reference.Address != _cache.Asset)
+			{
+				warm = false;
+				break;
+			}
+		nint uniformAddress = 0;
 		var pairs = 0;
-		for (var row = 0; row < _rows.Length; row++) pairs = Math.Max(pairs, (int)_rows[row].Reference.PairCount);
-		Span<int> chains = stackalloc int[pairs];
-		nint attached = 0;
+		var cacheable = false;
+		if (!warm)
+		{
+			uniformAddress = _rows[0].Reference.Address;
+			var uniform = true;
+			for (var row = 0; row < _rows.Length; row++)
+			{
+				var reference = _rows[row].Reference;
+				if (reference.Address != uniformAddress) uniform = false;
+				pairs = Math.Max(pairs, (int)reference.PairCount);
+			}
+			cacheable = uniform && uniformAddress != 0 && pairs <= ResolvedPairs;
+		}
+		Span<int> chains = warm ? default : stackalloc int[pairs];
+		nint attached = warm ? _cache.Asset : cacheable ? uniformAddress : 0;
+		if (warm)
+			chains = Resolved;
+		else if (cacheable)
+		{
+			_cache.Asset = uniformAddress;
+			_cache.Count = pairs;
+			chains = Resolved;
+			_rows[0].Reference.Resolve(chains);
+		}
 		var reverse = delta < 0;
 		long remaining = reverse ? -(long)delta : delta;
 		var moved = true;

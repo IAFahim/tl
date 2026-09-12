@@ -287,11 +287,14 @@ public class DataAuthoredQueryBenchmarks
         TimelineShape.TwoHundredFiftySixTracks)]
     public TimelineShape Shape { get; set; }
 
+    [Params(TickPattern.Forward, TickPattern.Alternating)]
+    public TickPattern Pattern { get; set; }
+
     [GlobalSetup]
     public void Setup()
     {
-        _alpha = new ShapeCase(Shape, TickPattern.Forward);
-        _facade = new DataAuthoredCase(Shape, TickPattern.Forward);
+        _alpha = new ShapeCase(Shape, Pattern);
+        _facade = new DataAuthoredCase(Shape, Pattern);
         ScalarCatalogQueryBenchmarks.Require(DirectShape(), GeneratedShape(), nameof(GeneratedShape));
         ScalarCatalogQueryBenchmarks.Require(DirectShape(), DataAuthoredFacade(), nameof(DataAuthoredFacade));
     }
