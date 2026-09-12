@@ -254,12 +254,12 @@ internal sealed class DataAuthoredCase : IDisposable
     {
     }
 
-    internal DataAuthoredCase(TimelineShape shape, TickPattern pattern, DataAuthoredMode mode = DataAuthoredMode.Standard)
+    internal DataAuthoredCase(TimelineShape shape, TickPattern pattern, DataAuthoredMode mode = DataAuthoredMode.Standard, byte[]? baked = null)
     {
         Shape = shape;
         _pattern = pattern;
         TickPatterns.Fill(_deltas, pattern);
-        _asset = TimelineAsset.Load(Bake(shape, mode));
+        _asset = TimelineAsset.Load(baked ?? Bake(shape, mode));
         _rows[0] = new TimelineComponent(_asset.Reference);
     }
 

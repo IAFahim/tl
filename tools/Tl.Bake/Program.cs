@@ -13,12 +13,13 @@ public static class Program
         {
             if (args.Length < 2)
             {
-                Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]...");
+                Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]... [--kernel <out.g.cs>]");
                 return 1;
             }
 
             string? inputPath = null;
             string? outputPath = null;
+            string? kernelPath = null;
             var assemblyPaths = new List<string>();
 
             for (int i = 0; i < args.Length; i++)
@@ -31,6 +32,15 @@ public static class Program
                         return 1;
                     }
                     assemblyPaths.Add(args[++i]);
+                }
+                else if (args[i] == "--kernel")
+                {
+                    if (i + 1 >= args.Length)
+                    {
+                        Console.Error.WriteLine("Error: Missing argument for --kernel");
+                        return 1;
+                    }
+                    kernelPath = args[++i];
                 }
                 else if (inputPath == null)
                 {
@@ -49,7 +59,7 @@ public static class Program
 
             if (inputPath == null || outputPath == null)
             {
-                Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]...");
+                Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]... [--kernel <out.g.cs>]");
                 return 1;
             }
 
@@ -70,6 +80,18 @@ public static class Program
             }
 
             File.WriteAllBytes(outputPath, bytes);
+
+            if (kernelPath != null)
+            {
+                var kernelDir = Path.GetDirectoryName(kernelPath);
+                if (!string.IsNullOrEmpty(kernelDir) && !Directory.Exists(kernelDir))
+                {
+                    Directory.CreateDirectory(kernelDir);
+                }
+
+                File.WriteAllText(kernelPath, KernelEmitter.Emit(bytes));
+            }
+
             return 0;
         }
         catch (BakeDiagnosticException ex)

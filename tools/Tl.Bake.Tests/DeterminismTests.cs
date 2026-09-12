@@ -122,4 +122,92 @@ public class DeterminismTests
         Assert.Equal(0u, record.Tick);
         Assert.Equal(100u, record.Game);
     }
+    [Fact]
+    public void KernelEmissionIsByteIdenticalForIdenticalBytes()
+    {
+        var bytes = Tl.Core.Tests.KernelBakers.AbaMirrored();
+        Assert.Equal(KernelEmitter.Emit(bytes), KernelEmitter.Emit(bytes));
+        Assert.Contains("TimelineKernel_", KernelEmitter.Emit(bytes));
+    }
+
+    [Fact]
+    public void CliKernelFlagWritesDeterministicSource()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "tlbake_kernel_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var jsonPath = Path.Combine(tempDir, "test.json");
+            var firstTlb = Path.Combine(tempDir, "first.tlb");
+            var secondTlb = Path.Combine(tempDir, "second.tlb");
+            var firstKernel = Path.Combine(tempDir, "first.g.cs");
+            var secondKernel = Path.Combine(tempDir, "second.g.cs");
+            var json = """
+            {
+              "duration": 3,
+              "loop": false,
+              "tracks": [
+                {
+                  "trackType": "Tl.Core.Tests.AlphaTrack, Tl.Core.Tests",
+                  "track": { "Code": 9 },
+                  "clips": [
+                    { "start": 0, "end": 1, "payload": { "Value": 11 } },
+                    { "start": 2, "end": 3, "payload": { "Value": 22 } }
+                  ]
+                }
+              ]
+            }
+            """;
+            File.WriteAllText(jsonPath, json);
+            var asmPath = typeof(Tl.Core.Tests.AlphaTrack).Assembly.Location;
+
+            Assert.Equal(0, Program.Main([jsonPath, firstTlb, "--assembly", asmPath, "--kernel", firstKernel]));
+            Assert.Equal(0, Program.Main([jsonPath, secondTlb, "--assembly", asmPath, "--kernel", secondKernel]));
+
+            Assert.Equal(File.ReadAllBytes(firstTlb), File.ReadAllBytes(secondTlb));
+            Assert.Equal(File.ReadAllText(firstKernel), File.ReadAllText(secondKernel));
+            Assert.Equal(File.ReadAllText(firstKernel), KernelEmitter.Emit(File.ReadAllBytes(firstTlb)));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("FiniteAlphaKernel", "Finite")]
+    [InlineData("LoopingAlphaKernel", "Looping")]
+    [InlineData("AbaMirroredKernel", "AbaMirrored")]
+    [InlineData("BlendSpanThreeKernel", "BlendSpanThree")]
+    [InlineData("BlendSpanOneKernel", "BlendSpanOne")]
+    [InlineData("ConsumerlessKernel", "Consumerless")]
+    [InlineData("EmptyAssetKernel", "Empty")]
+    public void CommittedKernelFixturesRegenerateByteIdentically(string fixtureFile, string bakerMethod)
+    {
+        var bytes = bakerMethod switch
+        {
+            "Finite" => Tl.Core.Tests.KernelBakers.Finite(),
+            "Looping" => Tl.Core.Tests.KernelBakers.Looping(),
+            "AbaMirrored" => Tl.Core.Tests.KernelBakers.AbaMirrored(),
+            "BlendSpanThree" => Tl.Core.Tests.KernelBakers.BlendSpanThree(),
+            "BlendSpanOne" => Tl.Core.Tests.KernelBakers.BlendSpanOne(),
+            "Consumerless" => Tl.Core.Tests.KernelBakers.Consumerless(),
+            "Empty" => Tl.Core.Tests.KernelBakers.Empty(),
+            _ => throw new InvalidOperationException("unknown fixture"),
+        };
+
+        var root = RepoRoot();
+        var committed = File.ReadAllText(Path.Combine(root, "tests", "Tl.Core.Tests", "KernelFixtures", fixtureFile + ".g.cs"));
+        Assert.Equal(committed, KernelEmitter.Emit(bytes));
+    }
+
+    private static string RepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null &&
+               !(Directory.Exists(Path.Combine(directory.FullName, "src", "Tl.Core")) &&
+                 Directory.Exists(Path.Combine(directory.FullName, "unity", "com.iafahim.tl"))))
+            directory = directory.Parent;
+        return directory?.FullName ?? throw new InvalidOperationException("repository root not found");
+    }
 }
