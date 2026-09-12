@@ -109,7 +109,6 @@ dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
 dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
 dotnet run --project samples/Mixed -c Release --no-build
 dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
-dotnet run --project tests/Tl.UnityAnalyzerReceipt -c Release --no-build
 dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true -p:NuGetAudit=false
 eng/release-artifacts --candidate issue-35 /tmp/tl-alpha3-release
 ```

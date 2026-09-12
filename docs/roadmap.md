@@ -44,9 +44,11 @@ The owner approved [data-authored timelines and typed frame queries](data-author
 
 The owner has paused implementation and will continue discussion from the office PC. Read the [proposal](data-authored-api.md), issue #56 and the [verified office handoff in #57](https://github.com/IAFahim/tl/issues/57). The documentation is preserved on main; it does not authorize a prototype, production API change or release. Project 6 is the canonical board; Project 5 is historical only. Genuine pending work remains visible in [portable assets #5](https://github.com/IAFahim/tl/issues/5), [large-timeline performance #10](https://github.com/IAFahim/tl/issues/10) and [dependency qualification #58](https://github.com/IAFahim/tl/issues/58). Read and claim the applicable issue before any separately authorized work.
 
+The `Tl.Gen.C` C11 backend and the data-authored Unity host package (`unity/com.iafahim.tl`) with its Unity project receipts were extracted into separate local repositories at commit `3e67333`; their GitHub publication and licensing remain owner decisions.
+
 - Reduce large-stage generated code and route overhead without changing ordered effects.
 - Add ARM64 performance and code-generation evidence.
-- Migrate heterogeneous catalog semantics into the C backend without translating arbitrary C# behavior.
+- Migrate heterogeneous catalog semantics into the extracted C backend repository without translating arbitrary C# behavior.
 - Define a canonical neutral serializer and conformance fixture package before splitting backend repositories.
 - Add designer GUI import as another frontend over the same validated plan.
 - Keep networking, threading, visualization, banking, and game-domain operations in separate packages unless they strengthen the irreducible runtime.

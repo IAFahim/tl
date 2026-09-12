@@ -24,7 +24,6 @@ The approved next API uses [designer-authored data assets and typed frame querie
 | `Tl.Runtime` | Small declaration, frame, state, and movement ABI |
 | `Tl.Gen.CSharp` | C# declaration reader and generated query backend |
 | `Tl.Compiler` | Language-neutral validated ordered schedule |
-| `Tl.Gen.C` | Existing portable C11 ABI v2 backend; alpha.3 catalogs are not emitted yet |
 | `Tl.Unity` | Unity ECS/Burst adapter, packaged and qualified independently |
 
 ## Install
@@ -230,12 +229,13 @@ Unity uses the same authored jobs and neutral ordered schedule with host-specifi
 | `src/Tl.Compiler` | Language-neutral ordered schedule and validation |
 | `src/Tl.Gen.CSharp` | C# frontend, generated query backend, and export tool |
 | `src/Tl.CSharp` | One-package C# installation |
-| `src/Tl.Gen.C` | Existing portable C11 backend |
 | `src/Tl.Unity` | Qualified Unity ECS/Burst runtime package |
 | `samples/Mixed` | Heterogeneous A→B→A catalog/query sample |
 | `tests/Tl.Alpha` | Generated behavior, schema, scale, and allocation receipts |
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |
 | `benchmarks/Alpha` | Full-query oracle, latency, throughput, assembly, and PMU evidence |
+
+The `Tl.Gen.C` C11 backend and the data-authored Unity host package (`unity/com.iafahim.tl` with its Unity project receipts) were extracted into separate repositories at commit `3e67333`; their publication and licensing remain owner decisions.
 
 Read the [API contract](docs/v1.0-alpha-api.md), [execution semantics](docs/semantics.md), [migration guide](docs/v1.0-alpha-migration.md), [architecture](docs/architecture.md), and [implementation plan](plan.md).
 

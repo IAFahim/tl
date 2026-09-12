@@ -206,7 +206,7 @@ public class DeterminismTests
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory != null &&
                !(Directory.Exists(Path.Combine(directory.FullName, "src", "Tl.Core")) &&
-                 Directory.Exists(Path.Combine(directory.FullName, "unity", "com.iafahim.tl"))))
+                 Directory.Exists(Path.Combine(directory.FullName, "tests", "Tl.Core.Tests"))))
             directory = directory.Parent;
         return directory?.FullName ?? throw new InvalidOperationException("repository root not found");
     }
