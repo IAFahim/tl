@@ -65,15 +65,19 @@ public readonly unsafe struct TimelineRef
 		return block;
 	}
 
-	internal bool Select(bool reverse, uint position, long cycle, out TimelineState next, out uint tick, out long fc, out FrameFlags flags)
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	internal bool Advance(bool reverse, uint pos, long cyc, out uint np, out long nc, out uint t, out long fc, out FrameFlags f)
 	{
-		next = default;
-		tick = 0;
-		fc = 0;
-		flags = FrameFlags.None;
-		return _p != null && TimelineMovement.Select(new TimelineState(1, position, cycle), Header->Duration, Header->Loops != 0, reverse, out next, out tick, out fc, out flags);
+		np = pos; nc = fc = cyc; t = 0; f = FrameFlags.None;
+		return _p != null && TimelineMovement.Advance(Header->Duration, Header->Loops != 0, reverse, pos, cyc, out np, out nc, out t, out fc, out f);
 	}
 
+	internal bool Select(bool reverse, uint position, long cycle, out TimelineState next, out uint tick, out long fc, out FrameFlags flags)
+	{
+		var ok = Advance(reverse, position, cycle, out var np, out var nc, out tick, out fc, out flags);
+		next = new TimelineState(1, np, nc);
+		return ok;
+	}
 	internal NativeStage* StageOf(uint tick)
 	{
 		var count = (int)Header->StageCount;
@@ -358,10 +362,50 @@ public ref struct TimelineQuery
 		else { act = t; for (var i = 0; i < _cache.RefreshCount; i++) t[rS[i]] = b[rC[i]]; }
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	unsafe void** GetTable(void** b)
+	{
+		var id = _cache.Identity;
+		if (id != 0)
+		{
+			b[0] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_a.Data));
+			if (id > 1) b[1] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_b.Data));
+			if (id > 2) b[2] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_c.Data));
+			if (id > 3) b[3] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_d.Data));
+			return b;
+		}
+		for (var i = 0; i < _count; i++) b[i] = Ptr(i);
+		var t = (void**)Unsafe.AsPointer(ref _cache.Columns[0]);
+		var s = (byte*)Unsafe.AsPointer(ref _cache.RefreshSlot[0]);
+		var c = (byte*)Unsafe.AsPointer(ref _cache.RefreshCol[0]);
+		for (var i = 0; i < _cache.RefreshCount; i++) t[s[i]] = b[c[i]];
+		return t;
+	}
+
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 	public unsafe void Tick(uint gameTick, int delta = 1)
 	{
 		if (delta == 0 || _rows.IsEmpty) return;
+		if ((delta == 1 | delta == -1) && _rows.Length == 1 && _bound)
+		{
+			ref var c = ref _rows[0];
+			var addr = c.Reference.Address;
+			if (addr == _cache.Asset && addr != 0)
+			{
+				var reverse = delta < 0;
+				if (!c.Reference.Advance(reverse, c.Position, c.Cycle, out var np, out var nc, out var tick, out var cycle, out var flags)) return;
+				void** bases = stackalloc void*[4];
+				c.Reference.Execute(reverse, tick, reverse ? gameTick - 1 : gameTick, cycle, flags, 0, Resolved, GetTable(bases));
+				c.Position = np; c.Cycle = nc;
+				return;
+			}
+		}
+		TickGeneral(gameTick, delta);
+	}
+
+	[MethodImpl(MethodImplOptions.NoInlining)]
+	unsafe void TickGeneral(uint gameTick, int delta)
+	{
 		var indices = (byte*)Unsafe.AsPointer(ref _cache.ColumnIndex[0]);
 		var rSlots = (byte*)Unsafe.AsPointer(ref _cache.RefreshSlot[0]);
 		var rCols = (byte*)Unsafe.AsPointer(ref _cache.RefreshCol[0]);
@@ -377,21 +421,7 @@ public ref struct TimelineQuery
 			_bound = true;
 		}
 		void** bases = stackalloc void*[4];
-		void** activeTable = table;
-		var identity = _cache.Identity;
-		if (identity != 0)
-		{
-			bases[0] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_a.Data));
-			if (identity > 1) bases[1] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_b.Data));
-			if (identity > 2) bases[2] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_c.Data));
-			if (identity > 3) bases[3] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_d.Data));
-			activeTable = bases;
-		}
-		else
-		{
-			for (var i = 0; i < _count; i++) bases[i] = Ptr(i);
-			for (var i = 0; i < _cache.RefreshCount; i++) table[rSlots[i]] = bases[rCols[i]];
-		}
+		void** activeTable = GetTable(bases);
 		var rowCount = _rows.Length;
 		var cachedAsset = _cache.Asset;
 		var warm = cachedAsset != 0;
@@ -442,7 +472,7 @@ public ref struct TimelineQuery
 			if (rowCount == 1)
 			{
 				ref var c = ref _rows[0];
-				if (c.Reference.Select(reverse, c.Position, c.Cycle, out var next, out var tick, out var cycle, out var flags))
+				if (c.Reference.Advance(reverse, c.Position, c.Cycle, out var np, out var nc, out var tick, out var cycle, out var flags))
 				{
 					if (c.Reference.Address != attached)
 					{
@@ -450,8 +480,8 @@ public ref struct TimelineQuery
 						Rebind(c.Reference, chains, indices, rSlots, rCols, bases, table, ref activeTable);
 					}
 					c.Reference.Execute(reverse, tick, targetGameTick, cycle, flags, 0, chains, activeTable);
-					c.Position = next.Position;
-					c.Cycle = next.Cycle;
+					c.Position = np;
+					c.Cycle = nc;
 				}
 				return;
 			}
