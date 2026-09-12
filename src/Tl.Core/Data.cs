@@ -289,7 +289,7 @@ public static class Timeline
 public ref struct TimelineQuery
 {
 	ref struct Column { public ulong Key; public ReadOnlySpan<byte> Data; public bool Write; }
-	struct PairCache { public nint Asset; public int Count, RefreshCount; public ulong BoundMask; public unsafe fixed int Heads[ResolvedPairs]; public unsafe fixed ulong Columns[256]; public unsafe fixed byte ColumnIndex[256], RefreshSlot[256], RefreshCol[256]; }
+	struct PairCache { public nint Asset; public int Count, RefreshCount; public ulong BoundMask; public unsafe fixed int Heads[ResolvedPairs]; public unsafe fixed ulong Columns[256]; public unsafe fixed byte ColumnIndex[256], RefreshSlot[256], RefreshCol[256]; public byte Identity; }
 
 	const int ResolvedPairs = 16;
 
@@ -338,6 +338,26 @@ public ref struct TimelineQuery
 
 	public unsafe Span<T> Span<T>(int index) where T : unmanaged => new(Unsafe.AsPointer(ref MemoryMarshal.GetReference(DataOf(index))), DataOf(index).Length / sizeof(T));
 
+	unsafe void* Ptr(int i) => Unsafe.AsPointer(ref MemoryMarshal.GetReference(DataOf(i)));
+
+	unsafe byte ComputeIdentity(byte* rS, byte* rC)
+	{
+		var k = (byte)_cache.RefreshCount;
+		if (k > 4) return 0;
+		for (var i = 0; i < k; i++) if (rS[i] != i || rC[i] != i) return 0;
+		return k;
+	}
+
+	unsafe void Rebind(TimelineRef r, scoped Span<int> ch, byte* idx, byte* rS, byte* rC, void** b, void** t, ref void** act)
+	{
+		r.Resolve(ch);
+		PairTable.Bind(r, in this, idx, rS, rC, ref _cache.RefreshCount, ref _cache.BoundMask);
+		for (var i = 0; i < _count; i++) b[i] = Ptr(i);
+		var id = _cache.Identity = ComputeIdentity(rS, rC);
+		if (id != 0) act = b;
+		else { act = t; for (var i = 0; i < _cache.RefreshCount; i++) t[rS[i]] = b[rC[i]]; }
+	}
+
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 	public unsafe void Tick(uint gameTick, int delta = 1)
 	{
@@ -353,15 +373,25 @@ public ref struct TimelineQuery
 				var reference = _rows[row].Reference;
 				if (reference.Address != 0) PairTable.Bind(reference, in this, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
 			}
+			_cache.Identity = ComputeIdentity(rSlots, rCols);
 			_bound = true;
 		}
 		void** bases = stackalloc void*[4];
-		if (_count > 0) bases[0] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_a.Data));
-		if (_count > 1) bases[1] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_b.Data));
-		if (_count > 2) bases[2] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_c.Data));
-		if (_count > 3) bases[3] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_d.Data));
-		for (var i = 0; i < _cache.RefreshCount; i++)
-			table[rSlots[i]] = bases[rCols[i]];
+		void** activeTable = table;
+		var identity = _cache.Identity;
+		if (identity != 0)
+		{
+			bases[0] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_a.Data));
+			if (identity > 1) bases[1] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_b.Data));
+			if (identity > 2) bases[2] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_c.Data));
+			if (identity > 3) bases[3] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_d.Data));
+			activeTable = bases;
+		}
+		else
+		{
+			for (var i = 0; i < _count; i++) bases[i] = Ptr(i);
+			for (var i = 0; i < _cache.RefreshCount; i++) table[rSlots[i]] = bases[rCols[i]];
+		}
 		var rowCount = _rows.Length;
 		var cachedAsset = _cache.Asset;
 		var warm = cachedAsset != 0;
@@ -417,11 +447,9 @@ public ref struct TimelineQuery
 					if (c.Reference.Address != attached)
 					{
 						attached = c.Reference.Address;
-						c.Reference.Resolve(chains);
-						PairTable.Bind(c.Reference, in this, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
-						for (var i = 0; i < _cache.RefreshCount; i++) table[rSlots[i]] = bases[rCols[i]];
+						Rebind(c.Reference, chains, indices, rSlots, rCols, bases, table, ref activeTable);
 					}
-					c.Reference.Execute(reverse, tick, targetGameTick, cycle, flags, 0, chains, table);
+					c.Reference.Execute(reverse, tick, targetGameTick, cycle, flags, 0, chains, activeTable);
 					c.Position = next.Position;
 					c.Cycle = next.Cycle;
 				}
@@ -434,11 +462,9 @@ public ref struct TimelineQuery
 				if (c.Reference.Address != attached)
 				{
 					attached = c.Reference.Address;
-					c.Reference.Resolve(chains);
-					PairTable.Bind(c.Reference, in this, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
-					for (var i = 0; i < _cache.RefreshCount; i++) table[rSlots[i]] = bases[rCols[i]];
+					Rebind(c.Reference, chains, indices, rSlots, rCols, bases, table, ref activeTable);
 				}
-				c.Reference.Execute(reverse, tick, targetGameTick, cycle, flags, row, chains, table);
+				c.Reference.Execute(reverse, tick, targetGameTick, cycle, flags, row, chains, activeTable);
 			}
 			for (var row = 0; row < rowCount; row++)
 			{
@@ -464,11 +490,9 @@ public ref struct TimelineQuery
 				if (address != attached)
 				{
 					attached = address;
-					reference.Resolve(chains);
-					PairTable.Bind(reference, in this, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
-					for (var i = 0; i < _cache.RefreshCount; i++) table[rSlots[i]] = bases[rCols[i]];
+					Rebind(reference, chains, indices, rSlots, rCols, bases, table, ref activeTable);
 				}
-				reference.Execute(isReverse, tick, gameTick, cycle, flags, row, chains, table);
+				reference.Execute(isReverse, tick, gameTick, cycle, flags, row, chains, activeTable);
 			}
 			if (!moved) break;
 			for (var row = 0; row < rowCount; row++)
