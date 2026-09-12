@@ -112,18 +112,19 @@ public readonly unsafe struct TimelineRef
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 	internal void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, Span<int> chains, void** columns)
 	{
-		var stage = StageOf(tick);
+		var stage = Header->StageCount == 1 ? (NativeStage*)(_p + Header->StageOffset) : StageOf(tick);
 		if (stage == null) return;
 		var steps = (NativeStep*)(_p + stage->ProgramOffset);
 		var consumers = PairTable.ConsumerAt;
 		var count = (int)stage->ProgramCount;
-		for (var i = 0; i < count; i++)
+		var step = reverse ? steps + count - 1 : steps;
+		var stride = reverse ? -1 : 1;
+		while (count-- > 0)
 		{
-			var index = reverse ? count - 1 - i : i;
-			var step = steps[index];
-			var slot = _p + step.Slot;
-			for (var entry = chains[(int)step.Pair]; entry >= 0; entry = consumers[entry].Next)
+			var slot = _p + step->Slot;
+			for (var entry = chains[(int)step->Pair]; entry >= 0; entry = consumers[entry].Next)
 				consumers[entry].Execute(slot, gameTick, tick, cycle, flags, columns + consumers[entry].Offset, row);
+			step += stride;
 		}
 	}
 
@@ -322,7 +323,7 @@ public ref struct TimelineQuery
 	public TimelineQuery<T> Write<T>(Span<T> c) where T : unmanaged { Ck(c, _rows); return new(this, c, true); }
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
-	public unsafe void Tick(uint gameTick, int delta = 1) => TickCore(null, null, 0, gameTick, delta);
+	public unsafe void Tick(uint gameTick, int delta = 1) => TickCore(null, null, gameTick, delta);
 
 	unsafe Span<int> Resolved => new(Unsafe.AsPointer(ref _cache.Heads[0]), _cache.Count);
 
@@ -355,7 +356,7 @@ public ref struct TimelineQuery
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-	internal unsafe void TickCore(ulong* keys, void** bases, int keyCount, uint gameTick, int delta)
+	internal unsafe void TickCore(delegate*<ulong*, int> getKeys, void** bases, uint gameTick, int delta)
 	{
 		if (delta == 0 || _rows.IsEmpty) return;
 		if ((delta == 1 | delta == -1) && _rows.Length == 1 && _bound)
@@ -371,12 +372,14 @@ public ref struct TimelineQuery
 				return;
 			}
 		}
-		TickGeneral(keys, bases, keyCount, gameTick, delta);
+		TickGeneral(getKeys, bases, gameTick, delta);
 	}
 
 	[MethodImpl(MethodImplOptions.NoInlining)]
-	unsafe void TickGeneral(ulong* keys, void** bases, int keyCount, uint gameTick, int delta)
+	unsafe void TickGeneral(delegate*<ulong*, int> getKeys, void** bases, uint gameTick, int delta)
 	{
+		ulong* keys = stackalloc ulong[4];
+		var keyCount = getKeys != null ? getKeys(keys) : 0;
 		var indices = (byte*)Unsafe.AsPointer(ref _cache.ColumnIndex[0]);
 		var rSlots = (byte*)Unsafe.AsPointer(ref _cache.RefreshSlot[0]);
 		var rCols = (byte*)Unsafe.AsPointer(ref _cache.RefreshCol[0]);
@@ -512,7 +515,8 @@ public ref struct TimelineQuery<TA> where TA : unmanaged
 	internal void Ck<T>(ReadOnlySpan<T> c, bool w) where T : unmanaged { TimelineQuery.Ck(c, _q._rows); TimelineQuery.CkP(_a, _w, c, w); }
 	public TimelineQuery<TA, T> Read<T>(ReadOnlySpan<T> c) where T : unmanaged { Ck(c, false); return new(this, c, false); }
 	public TimelineQuery<TA, T> Write<T>(Span<T> c) where T : unmanaged { Ck(c, true); return new(this, c, true); }
-	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[1] { TimelineQuery.P(_a) }; ulong* k = stackalloc ulong[1] { TypeKey<TA>.Value }; _q.TickCore(k, b, 1, gt, d); }
+	static unsafe int K(ulong* k) { k[0] = TypeKey<TA>.Value; return 1; }
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void* b = TimelineQuery.P(_a); _q.TickCore(&K, &b, gt, d); }
 }
 
 public ref struct TimelineQuery<TA, TB> where TA : unmanaged where TB : unmanaged
@@ -522,7 +526,8 @@ public ref struct TimelineQuery<TA, TB> where TA : unmanaged where TB : unmanage
 	internal void Ck<T>(ReadOnlySpan<T> c, bool w) where T : unmanaged { _p.Ck(c, w); TimelineQuery.CkP(_b, _w, c, w); }
 	public TimelineQuery<TA, TB, T> Read<T>(ReadOnlySpan<T> c) where T : unmanaged { Ck(c, false); return new(this, c, false); }
 	public TimelineQuery<TA, TB, T> Write<T>(Span<T> c) where T : unmanaged { Ck(c, true); return new(this, c, true); }
-	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[2] { TimelineQuery.P(_p._a), TimelineQuery.P(_b) }; ulong* k = stackalloc ulong[2] { TypeKey<TA>.Value, TypeKey<TB>.Value }; _p._q.TickCore(k, b, 2, gt, d); }
+	static unsafe int K(ulong* k) { k[0] = TypeKey<TA>.Value; k[1] = TypeKey<TB>.Value; return 2; }
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[2] { TimelineQuery.P(_p._a), TimelineQuery.P(_b) }; _p._q.TickCore(&K, b, gt, d); }
 }
 
 public ref struct TimelineQuery<TA, TB, TC> where TA : unmanaged where TB : unmanaged where TC : unmanaged
@@ -532,7 +537,8 @@ public ref struct TimelineQuery<TA, TB, TC> where TA : unmanaged where TB : unma
 	internal void Ck<T>(ReadOnlySpan<T> c, bool w) where T : unmanaged { _p.Ck(c, w); TimelineQuery.CkP(_c, _w, c, w); }
 	public TimelineQuery<TA, TB, TC, T> Read<T>(ReadOnlySpan<T> c) where T : unmanaged { Ck(c, false); return new(this, c, false); }
 	public TimelineQuery<TA, TB, TC, T> Write<T>(Span<T> c) where T : unmanaged { Ck(c, true); return new(this, c, true); }
-	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[3] { TimelineQuery.P(_p._p._a), TimelineQuery.P(_p._b), TimelineQuery.P(_c) }; ulong* k = stackalloc ulong[3] { TypeKey<TA>.Value, TypeKey<TB>.Value, TypeKey<TC>.Value }; _p._p._q.TickCore(k, b, 3, gt, d); }
+	static unsafe int K(ulong* k) { k[0] = TypeKey<TA>.Value; k[1] = TypeKey<TB>.Value; k[2] = TypeKey<TC>.Value; return 3; }
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[3] { TimelineQuery.P(_p._p._a), TimelineQuery.P(_p._b), TimelineQuery.P(_c) }; _p._p._q.TickCore(&K, b, gt, d); }
 }
 
 public ref struct TimelineQuery<TA, TB, TC, TD> where TA : unmanaged where TB : unmanaged where TC : unmanaged where TD : unmanaged
@@ -541,7 +547,8 @@ public ref struct TimelineQuery<TA, TB, TC, TD> where TA : unmanaged where TB : 
 	internal TimelineQuery(TimelineQuery<TA, TB, TC> p, ReadOnlySpan<TD> d, bool w) { _p = p; _d = d; _w = w; }
 	public TimelineQuery<TA, TB, TC, TD> Read<T>(ReadOnlySpan<T> c) where T : unmanaged => throw new ArgumentException("At most four columns.");
 	public TimelineQuery<TA, TB, TC, TD> Write<T>(Span<T> c) where T : unmanaged => throw new ArgumentException("At most four columns.");
-	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[4] { TimelineQuery.P(_p._p._p._a), TimelineQuery.P(_p._p._b), TimelineQuery.P(_p._c), TimelineQuery.P(_d) }; ulong* k = stackalloc ulong[4] { TypeKey<TA>.Value, TypeKey<TB>.Value, TypeKey<TC>.Value, TypeKey<TD>.Value }; _p._p._p._q.TickCore(k, b, 4, gt, d); }
+	static unsafe int K(ulong* k) { k[0] = TypeKey<TA>.Value; k[1] = TypeKey<TB>.Value; k[2] = TypeKey<TC>.Value; k[3] = TypeKey<TD>.Value; return 4; }
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[4] { TimelineQuery.P(_p._p._p._a), TimelineQuery.P(_p._p._b), TimelineQuery.P(_p._c), TimelineQuery.P(_d) }; _p._p._p._q.TickCore(&K, b, gt, d); }
 }
 
 public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
