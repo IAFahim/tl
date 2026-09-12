@@ -3,10 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 
-namespace Tl.Bake;
+namespace Tl.Gen.Tlb;
 
 public sealed class BakerAssemblyResolver
 {
@@ -41,94 +40,75 @@ public sealed class BakerAssemblyResolver
             _assemblies.Add(assembly);
     }
 
-    public Type ResolveTrackType(string typeName)
+    public Type ResolveType(string @namespace, string typeName, string? assemblyName, string context)
     {
-        var type = FindType(typeName);
-        if (type != null) return type;
+        ValidateBareName(@namespace, allowGlobal: true, "namespace", context);
+        ValidateBareName(typeName, allowGlobal: false, "type", context);
 
-        throw new BakeDiagnosticException($"unknown/unresolvable track type: '{typeName}'");
-    }
+        var candidates = new List<Type>();
+        foreach (var asm in EnumerateCandidateAssemblies())
+            foreach (var type in GetTypesSafe(asm))
+                if (string.Equals(type.Name, typeName, StringComparison.Ordinal) && MatchesNamespace(type, @namespace))
+                    candidates.Add(type);
 
-    private Type? FindType(string typeName)
-    {
-        var type = Type.GetType(typeName, false);
-        if (type != null) return type;
+        IReadOnlyList<Type> scope = candidates;
+        if (assemblyName != null)
+            scope = candidates.Where(t => string.Equals(t.Assembly.GetName().Name, assemblyName, StringComparison.OrdinalIgnoreCase)).Distinct().ToList();
 
-        var parts = typeName.Split(',', 2);
-        var rawTypeName = parts[0].Trim();
-        var rawAsmName = parts.Length > 1 ? parts[1].Trim() : null;
+        if (scope.Count == 1)
+            return scope[0];
 
-        if (rawAsmName != null)
+        if (scope.Count == 0)
         {
-            foreach (var asm in _assemblies)
+            if (assemblyName != null && candidates.Count > 0)
             {
-                if (string.Equals(asm.GetName().Name, rawAsmName, StringComparison.OrdinalIgnoreCase))
-                {
-                    type = asm.GetType(rawTypeName);
-                    if (type != null) return type;
-                }
+                var assemblies = candidates.Select(t => t.Assembly.GetName().Name).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.Ordinal);
+                throw new BakeDiagnosticException($"type resolution failed: assembly '{assemblyName}' does not contain ({FormatNamespace(@namespace)}, {typeName}) for {context}; matching types exist in assembly(es): {string.Join(", ", assemblies)}.");
             }
+            throw new BakeDiagnosticException($"unknown/unresolvable type: no loaded type named ({FormatNamespace(@namespace)}, {typeName}) for {context}; reference the defining assembly and check the bare namespace/type spelling.");
         }
 
+        var names = string.Join(", ", scope.Select(t => $"{t.FullName} in {t.Assembly.GetName().Name}").OrderBy(n => n, StringComparer.Ordinal));
+        throw new BakeDiagnosticException($"ambiguous type: bare name ({FormatNamespace(@namespace)}, {typeName}) matches multiple loaded types for {context}; declare 'assembly' with one of: {names}.");
+    }
+
+    private static string FormatNamespace(string @namespace) => @namespace.Length == 0 ? "<global>" : @namespace;
+
+    private static void ValidateBareName(string value, bool allowGlobal, string field, string context)
+    {
+        if (value.Length == 0)
+        {
+            if (allowGlobal) return;
+            throw new BakeDiagnosticException($"empty bare name: '{field}' in {context} must be a bare name.");
+        }
+        if (value.Contains('.') || value.Contains(',') || value.Contains('+') || value.Contains('='))
+            throw new BakeDiagnosticException($"dotted name rejected: '{field}' in {context} must be a bare name without '.', ',', '+' or '='; got '{value}'.");
+    }
+
+    private static bool MatchesNamespace(Type type, string @namespace) =>
+        @namespace.Length == 0
+            ? string.IsNullOrEmpty(type.Namespace)
+            : string.Equals(type.Namespace, @namespace, StringComparison.Ordinal);
+
+    private IEnumerable<Assembly> EnumerateCandidateAssemblies()
+    {
         foreach (var asm in _assemblies)
         {
-            type = asm.GetType(rawTypeName);
-            if (type != null) return type;
-
-            try
-            {
-                type = asm.GetTypes().FirstOrDefault(t =>
-                    string.Equals(t.FullName, rawTypeName, StringComparison.Ordinal) ||
-                    string.Equals(t.Name, rawTypeName, StringComparison.Ordinal));
-                if (type != null) return type;
-            }
-            catch (ReflectionTypeLoadException ex)
-            {
-                type = ex.Types.Where(t => t != null).FirstOrDefault(t =>
-                    string.Equals(t!.FullName, rawTypeName, StringComparison.Ordinal) ||
-                    string.Equals(t!.Name, rawTypeName, StringComparison.Ordinal));
-                if (type != null) return type;
-            }
+            if (asm.IsDynamic) continue;
+            yield return asm;
         }
-
-        return null;
     }
 
-    public Type ResolveClipType(Type trackType, string? clipTypeName)
+    private static IEnumerable<Type> GetTypesSafe(Assembly asm)
     {
-        var instantiations = new List<Type>();
-        foreach (var iface in trackType.GetInterfaces())
+        try
         {
-            if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IBlend<>))
-            {
-                instantiations.Add(iface.GetGenericArguments()[0]);
-            }
+            return asm.GetTypes();
         }
-
-        if (instantiations.Count == 0)
+        catch (ReflectionTypeLoadException ex)
         {
-            throw new BakeDiagnosticException($"missing IBlend<>: track type '{trackType.FullName}' must implement Tl.IBlend<TClip>.");
+            return ex.Types.Where(t => t != null).Select(t => t!);
         }
-
-        if (clipTypeName == null)
-        {
-            if (instantiations.Count > 1)
-            {
-                var names = string.Join(", ", instantiations.Select(t => t.FullName));
-                throw new BakeDiagnosticException($"ambiguous clip type — declare clipType: track type '{trackType.FullName}' implements multiple Tl.IBlend<TClip> pairings ({names}).");
-            }
-            return instantiations[0];
-        }
-
-        var declared = FindType(clipTypeName);
-        var match = instantiations.FirstOrDefault(item => item == declared);
-        if (match == null)
-        {
-            var names = string.Join(", ", instantiations.Select(t => t.FullName));
-            throw new BakeDiagnosticException($"clipType mismatch: '{clipTypeName}' does not name a Tl.IBlend<TClip> pairing of track type '{trackType.FullName}' (implemented: {names}).");
-        }
-
-        return match;
     }
 
     public static bool IsUnmanaged(Type type)
@@ -160,7 +140,7 @@ public sealed class BakerAssemblyResolver
             throw new BakeDiagnosticException($"wrong-typed value for {contextName}: expected object, got {element.ValueKind}.");
 
         var allFields = structType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        var fieldMap = new Dictionary<string, FieldInfo>(StringComparer.OrdinalIgnoreCase);
+        var fieldMap = new Dictionary<string, FieldInfo>(StringComparer.Ordinal);
         foreach (var f in allFields)
         {
             var name = f.Name;

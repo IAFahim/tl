@@ -2,44 +2,49 @@ using System;
 using System.Security.Cryptography;
 using System.Text;
 using Tl;
-using Tl.Bake;
 using Tl.Core.Tests;
+using Tl.Gen.Tlb;
 using Xunit;
 
 namespace Tl.Bake.Tests;
 
 public class DeterminismTests
 {
+    public const string OwnerSampleJson = """
+    {
+      "name": "boss_phase_one",
+      "duration": 64,
+      "loop": true,
+      "tracks": [
+        {
+          "name": "main_damage",
+          "namespace": "Tlb",
+          "type": "DualTrack",
+          "data": { "Code": 2 },
+          "clips": [
+            { "name": "opening_hit", "namespace": "Tlb", "type": "DualAlphaClip", "start": 0,  "end": 12, "data": { "Value": 5 } },
+            { "name": "mid_stun",    "namespace": "Tlb", "type": "DualBetaClip",  "start": 20, "end": 26, "data": { "Amount": 2 } },
+            { "name": "heavy_hit",   "namespace": "Tlb", "type": "DualAlphaClip", "start": 40, "end": 52, "data": { "Value": 9 } }
+          ]
+        },
+        {
+          "name": "armor_buff",
+          "namespace": "Tlb",
+          "type": "BlendTrack",
+          "data": { "Scale": 0.5 },
+          "clips": [
+            { "name": "ramp_up", "namespace": "Tlb", "type": "BlendClip", "start": 8, "end": 30, "data": { "Amount": 3 } }
+          ]
+        }
+      ]
+    }
+    """;
+
     [Fact]
     public void SameJsonBakedTwice_ProducesIdenticalSha256()
     {
-        var json = """
-        {
-          "duration": 60,
-          "loop": false,
-          "tracks": [
-            {
-              "trackType": "Tl.Core.Tests.AlphaTrack, Tl.Core.Tests",
-              "track": { "Code": 10 },
-              "clips": [
-                { "start": 0, "end": 30, "payload": { "Value": 5 } },
-                { "start": 30, "end": 60, "payload": { "Value": 8 } }
-              ]
-            },
-            {
-              "trackType": "Tl.Core.Tests.BlendTrack, Tl.Core.Tests",
-              "track": { "Scale": 2.0 },
-              "clips": [
-                { "start": 0, "end": 40, "payload": { "Amount": 1.0 } },
-                { "start": 20, "end": 60, "payload": { "Amount": 4.0 } }
-              ]
-            }
-          ]
-        }
-        """;
-
-        var bytes1 = TimelineBaker.BakeJson(json);
-        var bytes2 = TimelineBaker.BakeJson(json);
+        var bytes1 = TimelineBaker.BakeJson(OwnerSampleJson);
+        var bytes2 = TimelineBaker.BakeJson(OwnerSampleJson);
 
         var sha1 = Convert.ToHexString(SHA256.HashData(bytes1));
         var sha2 = Convert.ToHexString(SHA256.HashData(bytes2));
@@ -49,14 +54,14 @@ public class DeterminismTests
     }
 
     [Fact]
-    public void JsonEquivalentOfCodeBaker_ProducesByteIdenticalOutput()
+    public void MetadataStrippedBakeEqualsCodeBaker()
     {
         var codeBytes = new Baker()
-            .Track<AlphaTrack, AlphaClip>(new AlphaTrack(1))
-            .Track<BlendTrack, BlendClip>(new BlendTrack(2.5f))
-            .Clip(0, 0, 10, new AlphaClip(7))
-            .Clip(1, 0, 6, new BlendClip(1f))
-            .Clip(1, 4, 10, new BlendClip(5f))
+            .Track<Tlb.AlphaTrack, Tlb.AlphaClip>(new Tlb.AlphaTrack(1))
+            .Track<Tlb.BlendTrack, Tlb.BlendClip>(new Tlb.BlendTrack(2.5f))
+            .Clip(0, 0, 10, new Tlb.AlphaClip(7))
+            .Clip(1, 0, 6, new Tlb.BlendClip(1f))
+            .Clip(1, 4, 10, new Tlb.BlendClip(5f))
             .Bake();
 
         var json = """
@@ -65,18 +70,20 @@ public class DeterminismTests
           "loop": false,
           "tracks": [
             {
-              "trackType": "Tl.Core.Tests.AlphaTrack, Tl.Core.Tests",
-              "track": { "Code": 1 },
+              "namespace": "Tlb",
+              "type": "AlphaTrack",
+              "data": { "Code": 1 },
               "clips": [
-                { "start": 0, "end": 10, "payload": { "Value": 7 } }
+                { "namespace": "Tlb", "type": "AlphaClip", "start": 0, "end": 10, "data": { "Value": 7 } }
               ]
             },
             {
-              "trackType": "Tl.Core.Tests.BlendTrack, Tl.Core.Tests",
-              "track": { "Scale": 2.5 },
+              "namespace": "Tlb",
+              "type": "BlendTrack",
+              "data": { "Scale": 2.5 },
               "clips": [
-                { "start": 0, "end": 6, "payload": { "Amount": 1.0 } },
-                { "start": 4, "end": 10, "payload": { "Amount": 5.0 } }
+                { "namespace": "Tlb", "type": "BlendClip", "start": 0, "end": 6, "data": { "Amount": 1.0 } },
+                { "namespace": "Tlb", "type": "BlendClip", "start": 4, "end": 10, "data": { "Amount": 5.0 } }
               ]
             }
           ]
@@ -84,44 +91,68 @@ public class DeterminismTests
         """;
 
         var jsonBytes = TimelineBaker.BakeJson(json);
+        Assert.True(TlbMetadata.HasMetadata(jsonBytes));
+        Assert.False(TlbMetadata.HasMetadata(codeBytes));
+        Assert.Equal(codeBytes, TlbMetadata.Strip(jsonBytes));
+    }
 
-        Assert.Equal(codeBytes, jsonBytes);
+    [Fact]
+    public void StripIsIdempotent()
+    {
+        var full = TimelineBaker.BakeJson(OwnerSampleJson);
+        var once = TlbMetadata.Strip(full);
+        var twice = TlbMetadata.Strip(once);
+
+        Assert.Equal(once, twice);
+        Assert.False(TlbMetadata.HasMetadata(once));
+        Assert.Equal(0u, BitConverter.ToUInt32(once, 40));
+        Assert.Equal((uint)once.Length, BitConverter.ToUInt32(once, 44));
+        using var asset = TimelineAsset.Load(once);
     }
 
     [Fact]
     public unsafe void ExecutableRoundTrip_MatchesOracle()
     {
-        var json = """
-        {
-          "duration": 4,
-          "loop": false,
-          "tracks": [
-            {
-              "trackType": "Tl.Core.Tests.AlphaTrack, Tl.Core.Tests",
-              "track": { "Code": 3 },
-              "clips": [
-                { "start": 0, "end": 4, "payload": { "Value": 9 } }
-              ]
-            }
-          ]
-        }
-        """;
-
-        var bytes = TimelineBaker.BakeJson(json);
+        _ = Recording.Records;
+        var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
         using var asset = TimelineAsset.Load(bytes);
         var rows = new[] { new TimelineComponent(asset.Reference) };
 
-        DataTests.Records.Clear();
-        Timeline.Rows(rows).Tick(100u, 1);
+        Recording.Records.Clear();
+        Timeline.Rows(rows).Tick(100u, 8);
 
-        Assert.Equal(1u, rows[0].Position);
-        var record = Assert.Single(DataTests.Records);
-        Assert.Equal('A', record.Kind);
-        Assert.Equal(3, record.Code);
-        Assert.Equal(9.0f, record.Value);
-        Assert.Equal(0u, record.Tick);
-        Assert.Equal(100u, record.Game);
+        Assert.Equal(8u, rows[0].Position);
+        Assert.Equal(0L, rows[0].Cycle);
+        Assert.Equal(Recording.ForwardOracle(100u), Recording.Records);
     }
+
+    [Fact]
+    public void FullAndStrippedBytesProduceIdenticalTraces()
+    {
+        _ = Recording.Records;
+        var full = TimelineBaker.BakeJson(Recording.OracleJson);
+        var stripped = TlbMetadata.Strip(full);
+
+        Recording.Records.Clear();
+        using (var asset = TimelineAsset.Load(full))
+        {
+            var rows = new[] { new TimelineComponent(asset.Reference) };
+            Timeline.Rows(rows).Tick(100u, 8);
+        }
+        var fullTrace = Recording.Records.ToArray();
+
+        Recording.Records.Clear();
+        using (var asset = TimelineAsset.Load(stripped))
+        {
+            var rows = new[] { new TimelineComponent(asset.Reference) };
+            Timeline.Rows(rows).Tick(100u, 8);
+        }
+        var strippedTrace = Recording.Records.ToArray();
+
+        Assert.Equal(fullTrace, strippedTrace);
+        Assert.Equal(Recording.ForwardOracle(100u), strippedTrace);
+    }
+
     [Fact]
     public void KernelEmissionIsByteIdenticalForIdenticalBytes()
     {
@@ -148,25 +179,54 @@ public class DeterminismTests
               "loop": false,
               "tracks": [
                 {
-                  "trackType": "Tl.Core.Tests.AlphaTrack, Tl.Core.Tests",
-                  "track": { "Code": 9 },
+                  "namespace": "Tlb",
+                  "type": "AlphaTrack",
+                  "data": { "Code": 9 },
                   "clips": [
-                    { "start": 0, "end": 1, "payload": { "Value": 11 } },
-                    { "start": 2, "end": 3, "payload": { "Value": 22 } }
+                    { "namespace": "Tlb", "type": "AlphaClip", "start": 0, "end": 1, "data": { "Value": 11 } },
+                    { "namespace": "Tlb", "type": "AlphaClip", "start": 2, "end": 3, "data": { "Value": 22 } }
                   ]
                 }
               ]
             }
             """;
             File.WriteAllText(jsonPath, json);
-            var asmPath = typeof(Tl.Core.Tests.AlphaTrack).Assembly.Location;
+            var asmPath = typeof(Tlb.AlphaTrack).Assembly.Location;
 
-            Assert.Equal(0, Program.Main([jsonPath, firstTlb, "--assembly", asmPath, "--kernel", firstKernel]));
-            Assert.Equal(0, Program.Main([jsonPath, secondTlb, "--assembly", asmPath, "--kernel", secondKernel]));
+            Assert.Equal(0, Tl.Bake.Program.Main([jsonPath, firstTlb, "--assembly", asmPath, "--kernel", firstKernel]));
+            Assert.Equal(0, Tl.Bake.Program.Main([jsonPath, secondTlb, "--assembly", asmPath, "--kernel", secondKernel]));
 
             Assert.Equal(File.ReadAllBytes(firstTlb), File.ReadAllBytes(secondTlb));
             Assert.Equal(File.ReadAllText(firstKernel), File.ReadAllText(secondKernel));
             Assert.Equal(File.ReadAllText(firstKernel), KernelEmitter.Emit(File.ReadAllBytes(firstTlb)));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public void CliStripProducesLoadableStrippedCopy()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "tlbake_strip_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var jsonPath = Path.Combine(tempDir, "test.json");
+            var fullTlb = Path.Combine(tempDir, "full.tlb");
+            var strippedTlb = Path.Combine(tempDir, "stripped.tlb");
+            File.WriteAllText(jsonPath, Recording.OracleJson);
+            var asmPath = typeof(Tlb.AlphaTrack).Assembly.Location;
+
+            Assert.Equal(0, Tl.Bake.Program.Main([jsonPath, fullTlb, "--assembly", asmPath]));
+            Assert.Equal(0, Tl.Bake.Program.Main(["--strip", fullTlb, strippedTlb]));
+
+            var full = File.ReadAllBytes(fullTlb);
+            var stripped = File.ReadAllBytes(strippedTlb);
+            Assert.True(TlbMetadata.HasMetadata(full));
+            Assert.False(TlbMetadata.HasMetadata(stripped));
+            Assert.Equal(TlbMetadata.Strip(full), stripped);
         }
         finally
         {

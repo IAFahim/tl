@@ -20,8 +20,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
+    <ProjectReference Include="..\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
     <ProjectReference Include="..\Tl.Bake\Tl.Bake.csproj" />
     <ProjectReference Include="..\..\tests\Tl.Core.Tests\Tl.Core.Tests.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Tl.Gen.Tlb.PublicApi.approved.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

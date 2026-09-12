@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using Tl.Bake;
 using Xunit;
 
 namespace Tl.Bake.Tests;
@@ -23,10 +22,11 @@ public class CliTests
               "loop": false,
               "tracks": [
                 {
-                  "trackType": "Tl.Core.Tests.AlphaTrack, Tl.Core.Tests",
-                  "track": { "Code": 1 },
+                  "namespace": "Tlb",
+                  "type": "AlphaTrack",
+                  "data": { "Code": 1 },
                   "clips": [
-                    { "start": 0, "end": 10, "payload": { "Value": 5 } }
+                    { "namespace": "Tlb", "type": "AlphaClip", "start": 0, "end": 10, "data": { "Value": 5 } }
                   ]
                 }
               ]
@@ -34,12 +34,13 @@ public class CliTests
             """;
             File.WriteAllText(jsonPath, json);
 
-            var asmPath = typeof(Tl.Core.Tests.AlphaTrack).Assembly.Location;
-            var exitCode = Program.Main([jsonPath, tlbPath, "--assembly", asmPath]);
+            var asmPath = typeof(Tlb.AlphaTrack).Assembly.Location;
+            var exitCode = Tl.Bake.Program.Main([jsonPath, tlbPath, "--assembly", asmPath]);
             Assert.Equal(0, exitCode);
             Assert.True(File.Exists(tlbPath));
             var bytes = File.ReadAllBytes(tlbPath);
             Assert.True(bytes.Length >= 48);
+            Assert.True(Tl.Gen.Tlb.TlbMetadata.HasMetadata(bytes));
         }
         finally
         {
@@ -62,15 +63,16 @@ public class CliTests
               "duration": 10,
               "tracks": [
                 {
-                  "trackType": "NonExistent.Track, NonExistent",
-                  "clips": [ { "start": 0, "end": 10, "payload": {} } ]
+                  "namespace": "Nope",
+                  "type": "MissingTrack",
+                  "clips": [ { "namespace": "Nope", "type": "MissingClip", "start": 0, "end": 10 } ]
                 }
               ]
             }
             """;
             File.WriteAllText(jsonPath, json);
 
-            var exitCode = Program.Main([jsonPath, tlbPath]);
+            var exitCode = Tl.Bake.Program.Main([jsonPath, tlbPath]);
             Assert.NotEqual(0, exitCode);
             Assert.False(File.Exists(tlbPath));
         }
@@ -83,7 +85,7 @@ public class CliTests
     [Fact]
     public void Cli_MissingArguments_ReturnsNonZero()
     {
-        var exitCode = Program.Main([]);
+        var exitCode = Tl.Bake.Program.Main([]);
         Assert.NotEqual(0, exitCode);
     }
 }

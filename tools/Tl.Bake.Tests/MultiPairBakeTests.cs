@@ -1,184 +1,196 @@
 using System;
+using System.Security.Cryptography;
 using Tl;
-using Tl.Bake;
-using Tl.Core.Tests;
+using Tl.Gen.Tlb;
 using Xunit;
 
 namespace Tl.Bake.Tests;
 
 public class MultiPairBakeTests
 {
-    private const string DualJson = """
-    {
-      "duration": 8,
-      "loop": false,
-      "tracks": [
-        {
-          "trackType": "Tl.Core.Tests.DualTrack, Tl.Core.Tests",
-          "clipType": "Tl.Core.Tests.DualAlphaClip, Tl.Core.Tests",
-          "track": { "Code": 1 },
-          "clips": [
-            { "start": 0, "end": 6, "payload": { "Value": 10 } },
-            { "start": 2, "end": 8, "payload": { "Value": 30 } }
-          ]
-        },
-        {
-          "trackType": "Tl.Core.Tests.EchoTrack, Tl.Core.Tests",
-          "clipType": "Tl.Core.Tests.EchoClip, Tl.Core.Tests",
-          "track": { "Code": 5 },
-          "clips": [ { "start": 0, "end": 4, "payload": { "Value": 7 } } ]
-        },
-        {
-          "trackType": "Tl.Core.Tests.DualTrack, Tl.Core.Tests",
-          "clipType": "Tl.Core.Tests.DualBetaClip, Tl.Core.Tests",
-          "track": { "Code": 2 },
-          "clips": [
-            { "start": 1, "end": 7, "payload": { "Amount": 1.5 } },
-            { "start": 3, "end": 8, "payload": { "Amount": 2.5 } }
-          ]
-        }
-      ]
-    }
-    """;
-
     [Fact]
-    public void AmbiguousWithoutClipType_ThrowsDiagnostic()
+    public unsafe void InterleavedDerivedGroups_ExecuteInAuthoredClipOrder()
     {
-        var json = $$"""
-        {
-          "duration": 8,
-          "tracks": [
-            {
-              "trackType": "{{typeof(DualTrack).AssemblyQualifiedName}}",
-              "track": { "Code": 1 },
-              "clips": [ { "start": 0, "end": 6, "payload": { "Value": 10 } } ]
-            }
-          ]
-        }
-        """;
+        _ = Recording.Records;
+        var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
+        using var asset = TimelineAsset.Load(bytes);
+        var rows = new[] { new TimelineComponent(asset.Reference) };
 
-        var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json));
-        Assert.Contains("ambiguous clip type — declare clipType", ex.Message, StringComparison.Ordinal);
+        Recording.Records.Clear();
+        Timeline.Rows(rows).Tick(7u, 8);
+
+        Assert.Equal(Recording.ForwardOracle(7u), Recording.Records);
     }
 
     [Fact]
-    public void WrongClipType_ThrowsDiagnostic()
+    public unsafe void ReverseMovement_MirrorsAuthoredOrder()
     {
-        var json = $$"""
-        {
-          "duration": 8,
-          "tracks": [
-            {
-              "trackType": "{{typeof(DualTrack).AssemblyQualifiedName}}",
-              "clipType": "{{typeof(EchoClip).AssemblyQualifiedName}}",
-              "track": { "Code": 1 },
-              "clips": [ { "start": 0, "end": 6, "payload": { "Value": 10 } } ]
-            }
-          ]
-        }
-        """;
+        _ = Recording.Records;
+        var full = TimelineBaker.BakeJson(Recording.OracleJson);
+        var stripped = TlbMetadata.Strip(full);
 
-        var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json));
-        Assert.Contains("clipType mismatch", ex.Message, StringComparison.Ordinal);
-        Assert.Contains("does not name a Tl.IBlend<TClip> pairing", ex.Message, StringComparison.Ordinal);
+        Recording.Records.Clear();
+        using (var asset = TimelineAsset.Load(full))
+        {
+            var rows = new[] { new TimelineComponent(asset.Reference) };
+            Timeline.Rows(rows).Tick(7u, 8);
+        }
+        var fullForward = Recording.Records.ToArray();
+
+        Recording.Records.Clear();
+        using (var asset = TimelineAsset.Load(full))
+        {
+            var rows = new[] { new TimelineComponent(asset.Reference) };
+            Timeline.Rows(rows).Tick(7u, 8);
+            Timeline.Rows(rows).Tick(7u, -8);
+        }
+        var fullTrace = Recording.Records.ToArray();
+
+        Recording.Records.Clear();
+        using (var asset = TimelineAsset.Load(stripped))
+        {
+            var rows = new[] { new TimelineComponent(asset.Reference) };
+            Timeline.Rows(rows).Tick(7u, 8);
+            Timeline.Rows(rows).Tick(7u, -8);
+        }
+        var strippedTrace = Recording.Records.ToArray();
+
+        Assert.Equal(18, fullForward.Length);
+        Assert.Equal(Recording.ForwardOracle(7u), fullForward);
+        Assert.Equal(fullForward.Length * 2, fullTrace.Length);
+        Assert.Equal(fullTrace, strippedTrace);
+        Assert.Equal('A', fullTrace[18].Pair);
+        Assert.Equal(7u, fullTrace[18].Tick);
+        Assert.Equal(30f, fullTrace[18].Value);
+        Assert.Equal('A', fullTrace[19].Pair);
+        Assert.Equal(6u, fullTrace[19].Tick);
+        Assert.Equal('B', fullTrace[20].Pair);
+        Assert.Equal(6u, fullTrace[20].Tick);
     }
 
     [Fact]
-    public void MismatchedClipTypeOnSingleBlendTrack_ThrowsDiagnostic()
+    public void MetadataStrippedOracleMatchesForwardOracle()
     {
-        var json = $$"""
-        {
-          "duration": 8,
-          "tracks": [
-            {
-              "trackType": "{{typeof(AlphaTrack).AssemblyQualifiedName}}",
-              "clipType": "{{typeof(DualBetaClip).AssemblyQualifiedName}}",
-              "track": { "Code": 1 },
-              "clips": [ { "start": 0, "end": 6, "payload": { "Value": 10 } } ]
-            }
-          ]
-        }
-        """;
+        _ = Recording.Records;
+        var full = TimelineBaker.BakeJson(Recording.OracleJson);
+        var stripped = TlbMetadata.Strip(full);
+        Assert.NotEqual(full, stripped);
+        Assert.True(TlbMetadata.HasMetadata(full));
+        Assert.False(TlbMetadata.HasMetadata(stripped));
 
-        var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json));
-        Assert.Contains("clipType mismatch", ex.Message, StringComparison.Ordinal);
+        Recording.Records.Clear();
+        using (var asset = TimelineAsset.Load(stripped))
+        {
+            var rows = new[] { new TimelineComponent(asset.Reference) };
+            Timeline.Rows(rows).Tick(100u, 8);
+        }
+        Assert.Equal(Recording.ForwardOracle(100u), Recording.Records);
     }
 
     [Fact]
-    public void WrongTypedClipType_ThrowsDiagnostic()
+    public void PairTypeTableIsIndexAlignedWithHotPairs()
     {
-        var json = $$"""
-        {
-          "duration": 8,
-          "tracks": [
-            {
-              "trackType": "{{typeof(AlphaTrack).AssemblyQualifiedName}}",
-              "clipType": 5,
-              "track": { "Code": 1 },
-              "clips": [ { "start": 0, "end": 6, "payload": { "Value": 10 } } ]
-            }
-          ]
-        }
-        """;
+        var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
+        var view = TlbMetadata.Read(bytes);
 
-        var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json));
-        Assert.Contains("wrong-typed value: 'clipType' must be a string", ex.Message, StringComparison.Ordinal);
+        var pairCount = BitConverter.ToUInt32(bytes, 24);
+        var pairOffset = BitConverter.ToUInt32(bytes, 28);
+        Assert.Equal((int)pairCount, view.PairTypes.Count);
+
+        var hotKeys = new List<ulong>();
+        for (var i = 0; i < pairCount; i++)
+            hotKeys.Add(BitConverter.ToUInt64(bytes, (int)pairOffset + 16 * i));
+        Assert.Equal(hotKeys, hotKeys.OrderBy(k => k).ToList());
+
+        for (var i = 0; i < view.PairTypes.Count; i++)
+        {
+            var (track, clip) = view.PairTypes[i];
+            var trackIdentity = view.Types[track];
+            var clipIdentity = view.Types[clip];
+            Assert.Equal("Tlb", trackIdentity.Namespace);
+            Assert.Equal("Tlb", clipIdentity.Namespace);
+            Assert.Equal(typeof(Tlb.DualTrack).Assembly.GetName().Name, trackIdentity.Assembly);
+            var expectedPair = (Track: trackIdentity.Name, Clip: clipIdentity.Name);
+            Assert.True(expectedPair is ("DualTrack", "DualAlphaClip") or ("DualTrack", "DualBetaClip") or ("EchoTrack", "EchoClip"));
+        }
     }
 
     [Fact]
-    public void MatchingClipTypeOnSingleBlendTrack_Bakes()
+    public void MetadataPoolIsSortedAndDeduplicated()
     {
-        var json = $$"""
+        var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
+        var view = TlbMetadata.Read(bytes);
+
+        for (var i = 1; i < view.Strings.Count; i++)
+            Assert.True(string.CompareOrdinal(view.Strings[i - 1], view.Strings[i]) < 0);
+        Assert.Contains("oracle_asset", view.Strings);
+        Assert.Contains("combat", view.Strings);
+        Assert.Contains("a1", view.Strings);
+    }
+
+    [Fact]
+    public void LabelsRecordRootTrackAndClipNames()
+    {
+        var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
+        var view = TlbMetadata.Read(bytes);
+
+        var root = Assert.Single(view.Labels, l => l.TrackEntry == -1);
+        Assert.Equal("oracle_asset", root.Name);
+
+        Assert.Contains(view.Labels, l => l.TrackEntry == 0 && l.ClipIndex == -1 && l.Name == "combat");
+        Assert.Contains(view.Labels, l => l.TrackEntry == 0 && l.ClipIndex == 0 && l.Name == "a1");
+        Assert.Contains(view.Labels, l => l.TrackEntry == 0 && l.ClipIndex == 1 && l.Name == "b1");
+        Assert.Contains(view.Labels, l => l.TrackEntry == 0 && l.ClipIndex == 2 && l.Name == "a2");
+        Assert.Contains(view.Labels, l => l.TrackEntry == 1 && l.ClipIndex == -1 && l.Name == "echo_lane");
+        Assert.Contains(view.Labels, l => l.TrackEntry == 1 && l.ClipIndex == 0 && l.Name == "e1");
+    }
+
+    [Fact]
+    public void BakeIsDeterministicIncludingMetadata()
+    {
+        var first = TimelineBaker.BakeJson(Recording.OracleJson);
+        var second = TimelineBaker.BakeJson(Recording.OracleJson);
+        Assert.Equal(first, second);
+        Assert.Equal(Convert.ToHexString(SHA256.HashData(first)), Convert.ToHexString(SHA256.HashData(second)));
+    }
+
+    [Fact]
+    public void SameTrackTypeTwiceWithDifferentData_StaysSeparateEntries()
+    {
+        var json = """
         {
           "duration": 8,
+          "loop": false,
           "tracks": [
             {
-              "trackType": "{{typeof(AlphaTrack).AssemblyQualifiedName}}",
-              "clipType": "{{typeof(AlphaClip).AssemblyQualifiedName}}",
-              "track": { "Code": 3 },
-              "clips": [ { "start": 0, "end": 8, "payload": { "Value": 9 } } ]
+              "name": "left",
+              "namespace": "Tlb",
+              "type": "AlphaTrack",
+              "data": { "Code": 1 },
+              "clips": [ { "namespace": "Tlb", "type": "AlphaClip", "start": 0, "end": 4, "data": { "Value": 1 } } ]
+            },
+            {
+              "name": "right",
+              "namespace": "Tlb",
+              "type": "AlphaTrack",
+              "data": { "Code": 2 },
+              "clips": [ { "namespace": "Tlb", "type": "AlphaClip", "start": 4, "end": 8, "data": { "Value": 2 } } ]
             }
           ]
         }
         """;
 
         var bytes = TimelineBaker.BakeJson(json);
-        using var asset = TimelineAsset.Load(bytes);
-        var component = new TimelineComponent(asset.Reference);
-        AlphaClip clip = default;
-        AlphaTrack track = default;
-        foreach (var frame in Timeline.Query<AlphaTrack, AlphaClip>(in component))
-        {
-            track = frame.Track;
-            clip = frame.Clip;
-        }
-        Assert.Equal(3, track.Code);
-        Assert.Equal(9, clip.Value);
-    }
+        Assert.Equal(2u, BitConverter.ToUInt32(bytes, 16));
 
-    [Fact]
-    public void DualPairJsonBakesByteIdenticalToCodeBakerAndDeterministically()
-    {
-        var first = TimelineBaker.BakeJson(DualJson);
-        var second = TimelineBaker.BakeJson(DualJson);
-
-        Assert.Equal(first, second);
-        Assert.Equal(MultiPairTests.DualFixture(), first);
-    }
-
-    [Fact]
-    public unsafe void DualPairJsonRoundTripMatchesOracle()
-    {
-        var bytes = TimelineBaker.BakeJson(DualJson);
         using var asset = TimelineAsset.Load(bytes);
         var rows = new[] { new TimelineComponent(asset.Reference) };
-
-        _ = MultiPairTests.Recording;
-        MultiPairTests.Records.Clear();
-        Timeline.Rows(rows).Tick(100u, 8);
-
-        Assert.Equal(MultiPairTests.ForwardOracle(100u), MultiPairTests.Records);
-        Assert.Equal(8u, rows[0].Position);
-        Assert.Equal(0L, rows[0].Cycle);
+        var codes = new List<int>();
+        foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in rows[0]))
+            codes.Add(frame.Track.Code);
+        Timeline.Rows(rows).Tick(0u, 4);
+        foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in rows[0]))
+            codes.Add(frame.Track.Code);
+        Assert.Equal([1, 2], codes);
     }
 }

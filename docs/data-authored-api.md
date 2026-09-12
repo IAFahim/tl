@@ -93,34 +93,61 @@ Multi-pairing is supported: one track type may implement `IBlend` for several cl
 
 ## Designer asset
 
-Designers author timelines as JSON data conforming to the v1 schema, which the `tlbake` tool converts deterministically into standard TLB1 native bytes.
+Designers author timelines as JSON data conforming to the final flat v1 schema, which the `tlbake` tool converts deterministically into standard TLB1 native bytes. The owner finalized this shape; it replaces every earlier intermediate form (track-level `trackType`/`clipType`, `track`/`payload`, grouping nodes). The contract block below is quoted verbatim from the owner decision:
 
 ```json
 {
-  "duration": 60,
-  "loop": false,
+  "name": "boss_phase_one",
+  "duration": 64,
+  "loop": true,
   "tracks": [
     {
-      "trackType": "Game.AttackTrack, Game",
-      "track": { "power": 2.5 },
+      "name": "main_damage",
+      "namespace": "MyGame",
+      "type": "DamageTrack",
+      "data": { "scale": 2.0 },
       "clips": [
-        { "start": 0, "end": 30, "payload": { "value": 10 } }
+        { "name": "opening_hit", "namespace": "MyGame", "type": "DamageClip", "start": 0,  "end": 12, "data": { "amount": 5 } },
+        { "name": "mid_stun",    "namespace": "MyGame", "type": "StunClip", "assembly": "MyGame.Combat", "start": 20, "end": 26, "data": { "seconds": 2 } },
+        { "name": "heavy_hit",   "namespace": "MyGame", "type": "DamageClip", "start": 40, "end": 52, "data": { "amount": 9 } }
+      ]
+    },
+    {
+      "name": "armor_buff",
+      "namespace": "MyGame",
+      "type": "DamageTrack",
+      "data": { "scale": 0.5 },
+      "clips": [
+        { "name": "ramp_up", "namespace": "MyGame", "type": "DamageClip", "start": 8, "end": 30, "data": { "amount": 3 } }
       ]
     }
   ]
 }
 ```
 
-The CLI compiler:
+Owner rules (FINAL): shape is root(name?) → tracks[] → clips[]. NO grouping nodes anywhere in authoring — no clipGroups, no trackGroups. At BOTH track and clip level: `name` OPTIONAL (pure label, never affects execution/order/keying, no uniqueness law), `namespace` REQUIRED bare name (dotted = diagnostic, `""` = global), `type` REQUIRED bare name, `assembly` OPTIONAL and required when namespace+type matches multiple loaded assemblies (diagnostic names candidates; never guessed), `data` OPTIONAL (missing = zero payload; same field name at both levels). Clips additionally carry `start`/`end`. Type identity is NEVER inherited between levels. GROUPING IS DERIVED AT BAKE: clips on one track sharing the same resolved (namespace, type, assembly) form one sub-lane = one `<TrackType, ClipType>` pair, in first-occurrence order; the track type must `IBlend<>` every distinct clip type among its clips (else diagnostic naming the pairings). Crossfades only WITHIN a derived group; different clip types on the same track overlap freely, never blend, both execute. EXECUTION ORDER = authored clip array order (the sample deliberately interleaves mid_stun between two DamageClips: opening, stun, heavy — A-B-A law unchanged, never type-grouped). Same track type twice with different data/names = separate entries (armor_buff above). The old `trackType`/`clipType` names and the intermediate schema in current docs are REPLACED by this shape.
+
+The public conversion API lives in `tools/Tl.Gen.Tlb` (`TimelineBaker.BakeJson`, `BakerAssemblyResolver`, `TlbMetadata`); its surface is receipt-locked by `tools/Tl.Bake.Tests/Tl.Gen.Tlb.PublicApi.approved.txt`. The `tlbake` CLI (`tools/Tl.Bake`) is a thin front-end:
+
 ```sh
 tlbake <input.json> <output.tlb> [--assembly <path>]...
+tlbake <input.json> <output.tlb> --kernel <out.g.cs>
+tlbake --strip <input.tlb> <output.tlb>
 ```
 
-`trackType` identifies the unmanaged `(TTrack, TClip)` pair assembly-qualified; the tool resolves it via referenced consumer assemblies and validates `unmanaged` and `IBlend<TClip>` requirements. `track` and `payload` objects map field names onto sequential unmanaged struct layouts for explicit-width primitives (bool, byte, sbyte, short, ushort, int, uint, long, ulong, float, double).
+Type resolution binds names to loaded types at bake time: `namespace` matches the CLR `Type.Namespace` exactly (empty string selects the global namespace), `type` matches `Type.Name`, and `assembly` matches `Assembly.GetName().Name`. Bare names containing `.`, `,`, `+` or `=` are diagnostics. Data objects map field names onto unmanaged struct fields for explicit-width primitives (bool, byte, sbyte, short, ushort, int, uint, long, ulong, float, double); unknown fields and wrong-typed values are diagnostics. Assets may contain up to 256 authored track entries. Track array order is semantic. Windows are half-open, duration is the maximum clip end, and an empty asset has duration zero. Within one derived group at most two clips may overlap and they resolve through the group's blender; unsupported overlap fails import.
 
-**Determinism Guarantee**: Baking the same JSON input always yields bit-identical TLB1 bytes and identical SHA-256 hashes across runs. Furthermore, baking a JSON timeline produces TLB1 bytes bit-identical to what an equivalent code-authored `TimelineAsset` baker produces.
+Converter contract laws:
 
-Track type identity determines the clip type and blend implementation. Assets may contain up to 256 authored tracks, including heterogeneous and repeated type pairs. Track array order is semantic. Windows are half-open, duration is the maximum clip end, and an empty asset has duration zero. Two overlapping clips on a track resolve through its blender; unsupported overlap fails import. Canonical data deduplication never merges distinct authored occurrences or changes their order.
+1. **Determinism**: baking the same JSON input always yields bit-identical TLB1 bytes (including the metadata tail) and identical SHA-256 hot hashes across runs, machines and cultures.
+2. **Round trip**: `bake(dump(tlb)) == tlb` holds by construction once a dump emitter lands; baking consumes the same canonical data the binary encodes.
+3. **Name binding at bake time**: `namespace`/`type`/`assembly` resolve against the referenced consumer assemblies during baking only; baked assets carry pair keys, never names, so playback and distribution need no type lookup.
+
+### TLB1 metadata tail
+
+TLB1 gains an OPTIONAL trailing metadata section. The header word at byte offset 40 (previously reserved zero) becomes `metadataOffset`; absent metadata stays encoded as `metadataOffset == 0`. The tail length is `Bytes - metadataOffset`, so the hot prefix layout is otherwise unchanged and pre-tail readers accept both forms. The tail contains: (a) an interned, deduplicated, ordinal-sorted UTF-8 string pool (namespaces, type names, assemblies, labels — each stored once, referenced by index); (b) a type table of `{namespaceIdx, nameIdx, assemblyIdx}` per distinct type plus a pair-type table index-aligned with the hot pairs array, so the hot prefix references no string byte; (c) a names block recording root, track and clip labels with their authored positions. The tick path never reads the tail. Stripping is a legal distribution step: `TlbMetadata.Strip` truncates to `metadataOffset`, zeroes the header word, and rewrites `Bytes`, producing a loadable asset whose tick traces are identical to the full form — the only loss is the pretty dump.
+
+Kernel hash binding: the compiled-kernel catalog binds the metadata-stripped form of the asset. The emitter hashes the stripped bytes, and the runtime hashes exactly the loaded `Bytes` region; a stripped asset therefore keeps its kernel binding, while a full metadata-bearing asset hashes extra tail bytes and silently keeps the interpreter. Ship kernel-bound assets stripped. Receipts: same JSON bakes byte-identically twice; stripped JSON bakes equal equivalent code-authored `Baker` output byte for byte; full and stripped forms produce identical tick traces forward and backward; `KernelEmitter.Emit(full) == Emit(stripped)`; spy-kernel dispatch hits stripped bytes and not full bytes.
 
 ## .NET consumer
 

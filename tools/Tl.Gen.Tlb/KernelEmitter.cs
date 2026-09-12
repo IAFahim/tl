@@ -3,13 +3,16 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Tl.Bake;
+namespace Tl.Gen.Tlb;
 
 public static class KernelEmitter
 {
     public static string Emit(byte[] baked)
     {
         ValidateHeader(baked);
+
+        var stripped = TlbMetadata.Strip(baked);
+        var hash = SHA256.HashData(stripped);
 
         var loops = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(8)) != 0;
         var duration = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(12));
@@ -35,7 +38,6 @@ public static class KernelEmitter
             stages.Add((end, steps));
         }
 
-        var hash = SHA256.HashData(baked);
         var source = new StringBuilder(4096);
         source.AppendLine("using System.Runtime.CompilerServices;");
         source.AppendLine("using Tl;");

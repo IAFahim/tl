@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Tl.Gen.Tlb;
 
 namespace Tl.Bake;
 
@@ -11,9 +12,13 @@ public static class Program
     {
         try
         {
+            if (args.Length >= 1 && args[0] == "--strip")
+                return Strip(args);
+
             if (args.Length < 2)
             {
                 Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]... [--kernel <out.g.cs>]");
+                Console.Error.WriteLine("       tlbake --strip <input.tlb> <output.tlb>");
                 return 1;
             }
 
@@ -73,22 +78,10 @@ public static class Program
             var resolver = new BakerAssemblyResolver(assemblyPaths);
             var bytes = TimelineBaker.BakeJson(json, resolver);
 
-            var dir = Path.GetDirectoryName(outputPath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
-
-            File.WriteAllBytes(outputPath, bytes);
+            WriteOutput(outputPath, bytes);
 
             if (kernelPath != null)
             {
-                var kernelDir = Path.GetDirectoryName(kernelPath);
-                if (!string.IsNullOrEmpty(kernelDir) && !Directory.Exists(kernelDir))
-                {
-                    Directory.CreateDirectory(kernelDir);
-                }
-
                 File.WriteAllText(kernelPath, KernelEmitter.Emit(bytes));
             }
 
@@ -104,5 +97,34 @@ public static class Program
             Console.Error.WriteLine($"Error: {ex.Message}");
             return 1;
         }
+    }
+
+    private static int Strip(string[] args)
+    {
+        if (args.Length != 3)
+        {
+            Console.Error.WriteLine("Usage: tlbake --strip <input.tlb> <output.tlb>");
+            return 1;
+        }
+
+        if (!File.Exists(args[1]))
+        {
+            Console.Error.WriteLine($"Error: Input file '{args[1]}' does not exist.");
+            return 1;
+        }
+
+        WriteOutput(args[2], TlbMetadata.Strip(File.ReadAllBytes(args[1])));
+        return 0;
+    }
+
+    private static void WriteOutput(string outputPath, byte[] bytes)
+    {
+        var dir = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        File.WriteAllBytes(outputPath, bytes);
     }
 }
