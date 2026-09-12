@@ -72,17 +72,18 @@ internal static unsafe class TimelineKernel_532fe04145c0147676124f83db5c7c834982
 
     static unsafe void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns)
     {
+        int* scratch = stackalloc int[64];
         if (tick < 2u)
         {
-            TimelineKernels.Chain(heads[0], reverse, asset + 144u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 144u, gameTick, tick, cycle, flags, columns, row);
         }
         else if (tick < 4u)
         {
-            TimelineKernels.Chain(heads[0], reverse, asset + 176u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 176u, gameTick, tick, cycle, flags, columns, row);
         }
         else if (tick < 6u)
         {
-            TimelineKernels.Chain(heads[0], reverse, asset + 208u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 208u, gameTick, tick, cycle, flags, columns, row);
         }
     }
 }

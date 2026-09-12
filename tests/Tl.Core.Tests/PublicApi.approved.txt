@@ -76,7 +76,7 @@ type Tl.TimelineFrame
   Property UInt32 TimelineTick
 type Tl.TimelineKernels
   Field Int32 Bound
-  Method Void Chain(Int32, Boolean, Byte*, UInt32, UInt32, Int64, Tl.FrameFlags, Void**, Int32)
+  Method Void Chain(Int32, Boolean, Int32*, Byte*, UInt32, UInt32, Int64, Tl.FrameFlags, Void**, Int32)
   Method Void Register(UInt64, UInt64, UInt64, UInt64, System.Void(System.Byte*, System.Int32*, System.Void**, Tl.TimelineComponent*, System.Int32, System.UInt32, System.Int32))
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt32, Boolean, Boolean, Tl.TimelineState ByRef, UInt32 ByRef, Int64 ByRef, Tl.FrameFlags ByRef)

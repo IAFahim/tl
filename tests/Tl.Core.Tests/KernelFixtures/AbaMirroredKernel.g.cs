@@ -72,17 +72,18 @@ internal static unsafe class TimelineKernel_697d1806343a75b35ab9edea6c84a83cfcbc
 
     static unsafe void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns)
     {
+        int* scratch = stackalloc int[64];
         if (!reverse)
         {
-            TimelineKernels.Chain(heads[1], reverse, asset + 128u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 160u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[1], reverse, asset + 192u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[1], reverse, scratch, asset + 128u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 160u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[1], reverse, scratch, asset + 192u, gameTick, tick, cycle, flags, columns, row);
         }
         else
         {
-            TimelineKernels.Chain(heads[1], reverse, asset + 192u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 160u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[1], reverse, asset + 128u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[1], reverse, scratch, asset + 192u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 160u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[1], reverse, scratch, asset + 128u, gameTick, tick, cycle, flags, columns, row);
         }
     }
 }

@@ -72,523 +72,700 @@ internal static unsafe class TimelineKernel_c18e63530589e30b2e9f1bc1f10269926c66
 
     static unsafe void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns)
     {
+        int* scratch = stackalloc int[64];
         if (!reverse)
         {
-            TimelineKernels.Chain(heads[0], reverse, asset + 2128u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2160u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2192u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2224u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2256u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2288u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2320u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2352u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2384u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2416u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2448u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2480u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2512u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2544u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2576u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2608u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2640u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2672u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2704u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2736u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2768u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2800u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2832u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2864u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2896u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2928u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2960u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2992u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3024u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3056u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3088u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3120u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3152u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3184u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3216u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3248u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3280u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3312u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3344u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3376u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3408u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3440u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3472u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3504u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3536u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3568u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3600u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3632u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3664u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3696u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3728u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3760u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3792u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3824u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3856u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3888u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3920u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3952u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3984u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4016u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4048u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4080u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4112u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4144u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4176u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4208u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4240u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4272u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4304u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4336u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4368u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4400u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4432u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4464u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4496u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4528u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4560u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4592u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4624u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4656u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4688u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4720u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4752u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4784u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4816u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4848u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4880u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4912u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4944u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4976u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5008u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5040u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5072u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5104u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5136u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5168u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5200u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5232u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5264u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5296u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5328u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5360u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5392u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5424u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5456u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5488u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5520u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5552u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5584u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5616u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5648u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5680u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5712u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5744u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5776u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5808u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5840u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5872u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5904u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5936u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5968u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6000u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6032u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6064u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6096u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6128u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6160u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6192u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6224u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6256u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6288u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6320u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6352u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6384u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6416u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6448u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6480u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6512u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6544u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6576u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6608u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6640u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6672u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6704u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6736u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6768u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6800u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6832u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6864u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6896u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6928u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6960u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6992u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7024u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7056u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7088u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7120u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7152u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7184u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7216u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7248u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7280u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7312u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7344u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7376u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7408u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7440u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7472u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7504u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7536u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7568u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7600u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7632u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7664u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7696u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7728u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7760u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7792u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7824u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7856u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7888u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7920u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7952u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7984u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8016u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8048u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8080u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8112u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8144u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8176u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8208u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8240u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8272u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8304u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8336u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8368u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8400u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8432u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8464u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8496u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8528u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8560u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8592u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8624u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8656u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8688u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8720u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8752u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8784u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8816u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8848u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8880u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8912u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8944u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8976u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9008u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9040u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9072u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9104u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9136u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9168u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9200u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9232u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9264u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9296u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9328u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9360u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9392u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9424u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9456u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9488u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9520u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9552u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9584u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9616u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9648u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9680u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9712u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9744u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9776u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9808u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9840u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9872u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9904u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9936u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9968u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10000u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10032u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10064u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10096u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10128u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10160u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10192u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10224u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10256u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10288u, gameTick, tick, cycle, flags, columns, row);
+            S0_0(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_1(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_2(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_3(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_4(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_5(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_6(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_7(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_8(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_9(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_10(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_11(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_12(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_13(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_14(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_15(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
         }
         else
         {
-            TimelineKernels.Chain(heads[0], reverse, asset + 10288u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10256u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10224u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10192u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10160u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10128u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10096u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10064u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10032u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 10000u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9968u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9936u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9904u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9872u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9840u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9808u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9776u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9744u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9712u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9680u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9648u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9616u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9584u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9552u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9520u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9488u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9456u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9424u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9392u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9360u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9328u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9296u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9264u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9232u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9200u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9168u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9136u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9104u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9072u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9040u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 9008u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8976u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8944u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8912u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8880u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8848u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8816u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8784u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8752u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8720u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8688u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8656u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8624u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8592u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8560u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8528u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8496u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8464u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8432u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8400u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8368u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8336u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8304u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8272u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8240u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8208u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8176u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8144u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8112u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8080u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8048u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 8016u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7984u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7952u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7920u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7888u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7856u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7824u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7792u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7760u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7728u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7696u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7664u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7632u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7600u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7568u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7536u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7504u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7472u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7440u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7408u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7376u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7344u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7312u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7280u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7248u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7216u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7184u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7152u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7120u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7088u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7056u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 7024u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6992u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6960u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6928u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6896u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6864u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6832u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6800u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6768u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6736u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6704u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6672u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6640u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6608u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6576u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6544u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6512u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6480u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6448u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6416u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6384u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6352u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6320u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6288u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6256u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6224u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6192u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6160u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6128u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6096u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6064u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6032u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 6000u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5968u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5936u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5904u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5872u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5840u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5808u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5776u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5744u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5712u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5680u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5648u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5616u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5584u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5552u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5520u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5488u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5456u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5424u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5392u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5360u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5328u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5296u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5264u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5232u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5200u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5168u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5136u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5104u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5072u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5040u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 5008u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4976u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4944u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4912u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4880u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4848u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4816u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4784u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4752u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4720u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4688u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4656u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4624u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4592u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4560u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4528u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4496u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4464u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4432u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4400u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4368u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4336u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4304u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4272u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4240u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4208u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4176u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4144u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4112u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4080u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4048u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 4016u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3984u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3952u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3920u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3888u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3856u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3824u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3792u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3760u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3728u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3696u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3664u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3632u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3600u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3568u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3536u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3504u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3472u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3440u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3408u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3376u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3344u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3312u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3280u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3248u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3216u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3184u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3152u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3120u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3088u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3056u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 3024u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2992u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2960u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2928u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2896u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2864u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2832u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2800u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2768u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2736u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2704u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2672u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2640u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2608u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2576u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2544u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2512u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2480u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2448u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2416u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2384u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2352u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2320u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2288u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2256u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2224u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2192u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2160u, gameTick, tick, cycle, flags, columns, row);
-            TimelineKernels.Chain(heads[0], reverse, asset + 2128u, gameTick, tick, cycle, flags, columns, row);
+            S0_15(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_14(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_13(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_12(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_11(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_10(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_9(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_8(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_7(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_6(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_5(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_4(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_3(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_2(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_1(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
+            S0_0(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);
         }
     }
-}
+
+    static unsafe void S0_0(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2128u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2160u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2192u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2224u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2256u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2288u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2320u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2352u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2384u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2416u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2448u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2480u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2512u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2544u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2576u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2608u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2608u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2576u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2544u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2512u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2480u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2448u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2416u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2384u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2352u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2320u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2288u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2256u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2224u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2192u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2160u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2128u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_1(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2640u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2672u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2704u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2736u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2768u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2800u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2832u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2864u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2896u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2928u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2960u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2992u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3024u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3056u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3088u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3120u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3120u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3088u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3056u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3024u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2992u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2960u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2928u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2896u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2864u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2832u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2800u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2768u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2736u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2704u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2672u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 2640u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_2(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3152u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3184u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3216u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3248u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3280u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3312u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3344u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3376u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3408u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3440u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3472u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3504u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3536u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3568u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3600u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3632u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3632u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3600u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3568u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3536u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3504u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3472u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3440u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3408u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3376u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3344u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3312u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3280u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3248u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3216u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3184u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3152u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_3(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3664u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3696u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3728u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3760u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3792u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3824u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3856u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3888u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3920u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3952u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3984u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4016u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4048u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4080u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4112u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4144u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4144u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4112u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4080u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4048u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4016u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3984u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3952u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3920u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3888u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3856u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3824u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3792u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3760u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3728u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3696u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 3664u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_4(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4176u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4208u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4240u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4272u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4304u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4336u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4368u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4400u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4432u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4464u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4496u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4528u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4560u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4592u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4624u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4656u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4656u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4624u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4592u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4560u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4528u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4496u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4464u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4432u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4400u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4368u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4336u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4304u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4272u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4240u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4208u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4176u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_5(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4688u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4720u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4752u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4784u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4816u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4848u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4880u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4912u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4944u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4976u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5008u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5040u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5072u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5104u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5136u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5168u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5168u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5136u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5104u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5072u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5040u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5008u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4976u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4944u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4912u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4880u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4848u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4816u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4784u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4752u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4720u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 4688u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_6(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5200u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5232u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5264u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5296u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5328u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5360u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5392u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5424u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5456u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5488u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5520u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5552u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5584u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5616u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5648u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5680u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5680u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5648u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5616u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5584u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5552u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5520u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5488u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5456u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5424u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5392u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5360u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5328u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5296u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5264u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5232u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5200u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_7(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5712u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5744u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5776u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5808u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5840u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5872u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5904u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5936u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5968u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6000u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6032u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6064u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6096u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6128u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6160u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6192u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6192u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6160u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6128u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6096u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6064u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6032u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6000u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5968u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5936u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5904u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5872u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5840u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5808u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5776u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5744u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 5712u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_8(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6224u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6256u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6288u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6320u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6352u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6384u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6416u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6448u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6480u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6512u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6544u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6576u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6608u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6640u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6672u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6704u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6704u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6672u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6640u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6608u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6576u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6544u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6512u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6480u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6448u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6416u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6384u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6352u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6320u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6288u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6256u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6224u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_9(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6736u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6768u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6800u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6832u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6864u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6896u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6928u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6960u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6992u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7024u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7056u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7088u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7120u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7152u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7184u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7216u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7216u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7184u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7152u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7120u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7088u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7056u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7024u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6992u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6960u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6928u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6896u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6864u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6832u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6800u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6768u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 6736u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_10(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7248u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7280u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7312u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7344u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7376u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7408u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7440u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7472u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7504u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7536u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7568u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7600u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7632u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7664u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7696u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7728u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7728u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7696u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7664u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7632u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7600u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7568u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7536u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7504u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7472u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7440u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7408u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7376u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7344u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7312u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7280u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7248u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_11(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7760u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7792u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7824u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7856u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7888u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7920u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7952u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7984u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8016u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8048u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8080u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8112u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8144u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8176u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8208u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8240u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8240u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8208u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8176u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8144u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8112u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8080u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8048u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8016u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7984u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7952u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7920u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7888u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7856u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7824u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7792u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 7760u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_12(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8272u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8304u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8336u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8368u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8400u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8432u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8464u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8496u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8528u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8560u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8592u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8624u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8656u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8688u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8720u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8752u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8752u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8720u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8688u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8656u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8624u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8592u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8560u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8528u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8496u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8464u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8432u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8400u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8368u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8336u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8304u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8272u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_13(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8784u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8816u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8848u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8880u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8912u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8944u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8976u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9008u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9040u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9072u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9104u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9136u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9168u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9200u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9232u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9264u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9264u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9232u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9200u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9168u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9136u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9104u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9072u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9040u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9008u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8976u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8944u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8912u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8880u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8848u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8816u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 8784u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_14(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9296u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9328u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9360u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9392u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9424u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9456u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9488u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9520u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9552u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9584u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9616u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9648u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9680u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9712u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9744u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9776u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9776u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9744u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9712u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9680u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9648u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9616u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9584u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9552u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9520u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9488u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9456u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9424u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9392u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9360u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9328u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9296u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }
+    static unsafe void S0_15(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)
+    {
+        if (!reverse)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9808u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9840u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9872u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9904u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9936u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9968u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10000u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10032u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10064u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10096u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10128u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10160u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10192u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10224u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10256u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10288u, gameTick, tick, cycle, flags, columns, row);
+        }
+        else
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10288u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10256u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10224u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10192u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10160u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10128u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10096u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10064u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10032u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 10000u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9968u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9936u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9904u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9872u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9840u, gameTick, tick, cycle, flags, columns, row);
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 9808u, gameTick, tick, cycle, flags, columns, row);
+        }
+    }}

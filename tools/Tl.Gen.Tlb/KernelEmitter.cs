@@ -66,8 +66,14 @@ public static class KernelEmitter
         source.AppendLine();
         source.AppendLine("    static unsafe void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns)");
         source.AppendLine("    {");
-        EmitStages(source, stages);
+        var chunks = new List<string>();
+        EmitStages(source, stages, chunks);
         source.AppendLine("    }");
+        foreach (var chunk in chunks)
+        {
+            source.AppendLine();
+            source.Append(chunk);
+        }
         source.Append('}');
         return source.ToString();
     }
@@ -147,13 +153,15 @@ public static class KernelEmitter
         source.AppendLine("        }");
     }
 
-    static void EmitStages(StringBuilder source, List<(uint End, List<(uint Slot, int Pair)> Steps)> stages)
+    static void EmitStages(StringBuilder source, List<(uint End, List<(uint Slot, int Pair)> Steps)> stages, List<string> chunks)
     {
-        if (stages.Count == 0)
+        var total = stages.Sum(stage => stage.Steps.Count);
+        if (stages.Count == 0 || total == 0)
             return;
+        source.AppendLine("        int* scratch = stackalloc int[64];");
         if (stages.Count == 1)
         {
-            EmitSteps(source, stages[0].Steps, 2);
+            EmitStageBody(source, stages[0].Steps, 2, 0, chunks);
             return;
         }
 
@@ -163,10 +171,57 @@ public static class KernelEmitter
                 ? $"        if (tick < {N(stages[index].End)}u)"
                 : $"        else if (tick < {N(stages[index].End)}u)");
             source.AppendLine("        {");
-            EmitSteps(source, stages[index].Steps, 3);
+            EmitStageBody(source, stages[index].Steps, 3, index, chunks);
             source.AppendLine("        }");
         }
     }
+
+    static void EmitStageBody(StringBuilder source, List<(uint Slot, int Pair)> steps, int indent, int stage, List<string> chunks)
+    {
+        if (steps.Count == 0)
+            return;
+        if (steps.Count <= 16)
+        {
+            EmitSteps(source, steps, indent);
+            return;
+        }
+
+        var chunkCount = (steps.Count + 15) / 16;
+        Pad(source, indent).AppendLine("if (!reverse)");
+        Pad(source, indent).AppendLine("{");
+        for (var index = 0; index < chunkCount; index++)
+            ChunkCall(source, indent + 1, stage, index);
+        Pad(source, indent).AppendLine("}");
+        Pad(source, indent).AppendLine("else");
+        Pad(source, indent).AppendLine("{");
+        for (var index = chunkCount - 1; index >= 0; index--)
+            ChunkCall(source, indent + 1, stage, index);
+        Pad(source, indent).AppendLine("}");
+
+        for (var index = 0; index < chunkCount; index++)
+        {
+            var from = index * 16;
+            var slice = steps.Skip(from).Take(16).ToList();
+            var chunk = new StringBuilder();
+            chunk.AppendLine($"    static unsafe void S{stage}_{index}(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns, int* scratch)");
+            chunk.AppendLine("    {");
+            chunk.AppendLine("        if (!reverse)");
+            chunk.AppendLine("        {");
+            foreach (var step in slice)
+                Step(chunk, step, 3);
+            chunk.AppendLine("        }");
+            chunk.AppendLine("        else");
+            chunk.AppendLine("        {");
+            for (var position = slice.Count - 1; position >= 0; position--)
+                Step(chunk, slice[position], 3);
+            chunk.AppendLine("        }");
+            chunk.Append("    }");
+            chunks.Add(chunk.ToString());
+        }
+    }
+
+    static void ChunkCall(StringBuilder source, int indent, int stage, int index) =>
+        Pad(source, indent).AppendLine($"S{stage}_{index}(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns, scratch);");
 
     static void EmitSteps(StringBuilder source, List<(uint Slot, int Pair)> steps, int indent)
     {
@@ -191,7 +246,7 @@ public static class KernelEmitter
     }
 
     static void Step(StringBuilder source, (uint Slot, int Pair) step, int indent) =>
-        Pad(source, indent).AppendLine($"TimelineKernels.Chain(heads[{N(step.Pair)}], reverse, asset + {N(step.Slot)}u, gameTick, tick, cycle, flags, columns, row);");
+        Pad(source, indent).AppendLine($"TimelineKernels.Chain(heads[{N(step.Pair)}], reverse, scratch, asset + {N(step.Slot)}u, gameTick, tick, cycle, flags, columns, row);");
 
     static StringBuilder Pad(StringBuilder source, int indent)
     {
