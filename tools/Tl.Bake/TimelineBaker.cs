@@ -181,6 +181,7 @@ public static class TimelineBaker
                 throw new BakeDiagnosticException($"Track at index {trackIndex} must be an object.");
 
             string? trackTypeName = null;
+            string? clipTypeName = null;
             JsonElement trackDataElement = default;
             bool hasTrackData = false;
             JsonElement clipsElement = default;
@@ -194,6 +195,12 @@ public static class TimelineBaker
                     if (prop.Value.ValueKind != JsonValueKind.String)
                         throw new BakeDiagnosticException($"wrong-typed value: 'trackType' must be a string, got '{prop.Value.GetRawText()}'.");
                     trackTypeName = prop.Value.GetString();
+                }
+                else if (string.Equals(prop.Name, "clipType", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (prop.Value.ValueKind != JsonValueKind.String)
+                        throw new BakeDiagnosticException($"wrong-typed value: 'clipType' must be a string, got '{prop.Value.GetRawText()}'.");
+                    clipTypeName = prop.Value.GetString();
                 }
                 else if (string.Equals(prop.Name, "track", StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(prop.Name, "data", StringComparison.OrdinalIgnoreCase))
@@ -220,7 +227,7 @@ public static class TimelineBaker
                 throw new BakeDiagnosticException($"Track at index {trackIndex} missing required 'clips' array.");
 
             var trackType = resolver.ResolveTrackType(trackTypeName);
-            var clipType = BakerAssemblyResolver.ExtractClipType(trackType);
+            var clipType = resolver.ResolveClipType(trackType, clipTypeName);
             BakerAssemblyResolver.ValidateUnmanaged(trackType, clipType);
 
             object trackInstance;
