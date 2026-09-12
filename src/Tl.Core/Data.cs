@@ -409,6 +409,24 @@ public ref struct TimelineQuery
 		{
 			var reverse = delta < 0;
 			var targetGameTick = reverse ? gameTick - 1 : gameTick;
+			if (rowCount == 1)
+			{
+				ref var c = ref _rows[0];
+				if (c.Reference.Select(reverse, c.Position, c.Cycle, out var next, out var tick, out var cycle, out var flags))
+				{
+					if (c.Reference.Address != attached)
+					{
+						attached = c.Reference.Address;
+						c.Reference.Resolve(chains);
+						PairTable.Bind(c.Reference, in this, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
+						for (var i = 0; i < _cache.RefreshCount; i++) table[rSlots[i]] = bases[rCols[i]];
+					}
+					c.Reference.Execute(reverse, tick, targetGameTick, cycle, flags, 0, chains, table);
+					c.Position = next.Position;
+					c.Cycle = next.Cycle;
+				}
+				return;
+			}
 			for (var row = 0; row < rowCount; row++)
 			{
 				ref var c = ref _rows[row];
