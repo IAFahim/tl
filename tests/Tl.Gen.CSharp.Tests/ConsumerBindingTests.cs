@@ -72,14 +72,15 @@ public sealed class ConsumerBindingTests
             "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&Execute_ApplyDamage, &Bind_ApplyDamage);",
             "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.Consume(&Execute_ApplyHeal, &Bind_ApplyHeal);",
         ], install.Split('\n')[5..^1]);
-        Assert.Contains("private static void Execute_ApplyDamage(in global::Tl.TickFrame __tlFrame, in global::Tl.TimelineQuery __tlQuery, int __tlRow)", binding);
-        Assert.Contains("global::Domain.DamageClip __tlClip = default; var __tlTyped = __tlFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(ref __tlClip);", binding);
-        Assert.Contains("var @resistance = __tlQuery.Span<global::Domain.Resistance>(__tlQuery.Find(global::Tl.TypeKey<global::Domain.Resistance>.Value));", binding);
-        Assert.Contains("var @health = __tlQuery.Span<global::Domain.Health>(__tlQuery.Find(global::Tl.TypeKey<global::Domain.Health>.Value));", binding);
+        Assert.Contains("private static void Execute_ApplyDamage(byte* __tlSlot, uint __tlGameTick, uint __tlTick, long __tlCycle, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
+        Assert.Contains("global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);", binding);
+        Assert.Contains("var @resistance = (global::Domain.Resistance*)__tlColumns[0];", binding);
+        Assert.Contains("var @health = (global::Domain.Health*)__tlColumns[1];", binding);
         Assert.Contains("global::Domain.ApplyDamage.Execute(in __tlTyped, in @resistance[__tlRow], ref @health[__tlRow]);", binding);
-        Assert.Contains("private static void Bind_ApplyDamage(in global::Tl.TimelineQuery __tlQuery)", binding);
-        Assert.Contains("if (__tlQuery.Find(global::Tl.TypeKey<global::Domain.Resistance>.Value) < 0) throw new global::System.ArgumentException(\"global::Domain.ApplyDamage: required column missing for registered consumer: global::Domain.Resistance\");", binding);
-        Assert.Contains("if (__tlQuery.Find(global::Tl.TypeKey<global::Domain.Health>.Value) < 0) throw new global::System.ArgumentException(\"global::Domain.ApplyDamage: required column missing for registered consumer: global::Domain.Health\");", binding);
+        Assert.Contains("private static void Bind_ApplyDamage(in global::Tl.TimelineQuery __tlQuery, void** __tlColumns)", binding);
+        Assert.Contains("var __tlPtr0 = __tlQuery.ColumnPointer(global::Tl.TypeKey<global::Domain.Resistance>.Value);", binding);
+        Assert.Contains("if (__tlPtr0 == null) throw new global::System.ArgumentException(\"global::Domain.ApplyDamage: required column missing for registered consumer: global::Domain.Resistance\");", binding);
+        Assert.Contains("__tlColumns[0] = __tlPtr0;", binding);
     }
 
     [Fact]

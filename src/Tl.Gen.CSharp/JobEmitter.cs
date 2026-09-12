@@ -53,17 +53,25 @@ internal static class JobEmitter
         foreach (var (name, track) in tracks)
         {
             var job = track.Job;
-            W($"private static void Execute_{name}(in global::Tl.TickFrame __tlFrame, in global::Tl.TimelineQuery __tlQuery, int __tlRow)");
+            W($"private static void Execute_{name}(byte* __tlSlot, uint __tlGameTick, uint __tlTick, long __tlCycle, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)");
             W("{");
-            W($"{track.ClipTypeName} __tlClip = default; var __tlTyped = __tlFrame.ToFrame<{track.TypeName}, {track.ClipTypeName}>(ref __tlClip);");
-            foreach (var slot in job.Slots)
-                W($"var @{slot.Name} = __tlQuery.Span<{slot.TypeName}>(__tlQuery.Find(global::Tl.TypeKey<{slot.TypeName}>.Value));");
+            W($"{track.ClipTypeName} __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<{track.TypeName}, {track.ClipTypeName}>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);");
+            for (var i = 0; i < job.Slots.Count; i++)
+            {
+                var slot = job.Slots[i];
+                W($"var @{slot.Name} = ({slot.TypeName}*)__tlColumns[{i}];");
+            }
             W($"{job.TypeName}.Execute(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
             W("}");
-            W($"private static void Bind_{name}(in global::Tl.TimelineQuery __tlQuery)");
+            W($"private static void Bind_{name}(in global::Tl.TimelineQuery __tlQuery, void** __tlColumns)");
             W("{");
-            foreach (var slot in job.Slots)
-                W($"if (__tlQuery.Find(global::Tl.TypeKey<{slot.TypeName}>.Value) < 0) throw new global::System.ArgumentException(\"{job.TypeName}: required column missing for registered consumer: {slot.TypeName}\");");
+            for (var i = 0; i < job.Slots.Count; i++)
+            {
+                var slot = job.Slots[i];
+                W($"var __tlPtr{i} = __tlQuery.ColumnPointer(global::Tl.TypeKey<{slot.TypeName}>.Value);");
+                W($"if (__tlPtr{i} == null) throw new global::System.ArgumentException(\"{job.TypeName}: required column missing for registered consumer: {slot.TypeName}\");");
+                W($"__tlColumns[{i}] = __tlPtr{i};");
+            }
             W("}");
         }
         W("}");

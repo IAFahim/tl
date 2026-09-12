@@ -77,50 +77,55 @@ public unsafe class DataTests
 
     static DataTests()
     {
-        PairRuntime<AlphaTrack, AlphaClip>.Consume(&AlphaExecute, &NoBind);
+        PairRuntime<AlphaTrack, AlphaClip>.Consume(&AlphaExecute, &AlphaBind);
         PairRuntime<BetaTrack, BetaClip>.Consume(&BetaExecute, &NoBind);
         PairRuntime<PhiTrack, PhiClip>.Consume(&PhiExecute, &NoBind);
         PairRuntime<PhiTrack, PhiClip>.Consume(&PhiExecuteSecond, &NoBind);
         PairRuntime<DeltaTrack, DeltaClip>.Consume(&DeltaExecute, &DeltaBind);
     }
 
-    private static void NoBind(in TimelineQuery columns)
+    private static void NoBind(in TimelineQuery columns, void** table)
     {
     }
 
-    private static void AlphaExecute(in TickFrame frame, in TimelineQuery columns, int row)
+    private static void AlphaBind(in TimelineQuery columns, void** table)
+    {
+        table[0] = columns.ColumnPointer(TypeKey<Health>.Value);
+    }
+
+    private static void AlphaExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
     {
         AlphaClip scratch = default;
-        var current = frame.ToFrame<AlphaTrack, AlphaClip>(ref scratch);
+        var current = TickFrame.ToFrame<AlphaTrack, AlphaClip>(slot, gameTick, tick, cycle, flags, ref scratch);
         Records.Add(new Record('A', current.Track.Code, current.Clip.Value, current.TimelineTick, current.GameTick, current.Cycle, current.Flags));
-        var health = columns.Find(TypeKey<Health>.Value);
-        if (health >= 0)
-            columns.Span<Health>(health)[row].Value += current.Clip.Value * current.Track.Code;
+        var health = (Health*)columns[0];
+        if (health != null)
+            health[row].Value += current.Clip.Value * current.Track.Code;
     }
 
-    private static void BetaExecute(in TickFrame frame, in TimelineQuery columns, int row) => throw new InvalidOperationException("Beta consumer failed.");
+    private static void BetaExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row) => throw new InvalidOperationException("Beta consumer failed.");
 
-    private static void PhiExecute(in TickFrame frame, in TimelineQuery columns, int row)
+    private static void PhiExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
     {
         PhiClip scratch = default;
-        var current = frame.ToFrame<PhiTrack, PhiClip>(ref scratch);
+        var current = TickFrame.ToFrame<PhiTrack, PhiClip>(slot, gameTick, tick, cycle, flags, ref scratch);
         Records.Add(new Record('1', current.Track.Code, current.Clip.Value, current.TimelineTick, current.GameTick, current.Cycle, current.Flags));
     }
 
-    private static void PhiExecuteSecond(in TickFrame frame, in TimelineQuery columns, int row)
+    private static void PhiExecuteSecond(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
     {
         PhiClip scratch = default;
-        var current = frame.ToFrame<PhiTrack, PhiClip>(ref scratch);
+        var current = TickFrame.ToFrame<PhiTrack, PhiClip>(slot, gameTick, tick, cycle, flags, ref scratch);
         Records.Add(new Record('2', current.Track.Code, current.Clip.Value, current.TimelineTick, current.GameTick, current.Cycle, current.Flags));
     }
 
-    private static void DeltaExecute(in TickFrame frame, in TimelineQuery columns, int row)
+    private static void DeltaExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
     {
     }
 
-    private static void DeltaBind(in TimelineQuery columns)
+    private static void DeltaBind(in TimelineQuery columns, void** table)
     {
-        if (MarkerRequired && columns.Find(TypeKey<Marker>.Value) < 0)
+        if (MarkerRequired && columns.ColumnPointer(TypeKey<Marker>.Value) == null)
             throw new ArgumentException("Delta requires the marker column.");
     }
 
@@ -565,5 +570,39 @@ public unsafe class DataTests
         Assert.Equal(0, allocated);
         Assert.Equal(0u, rows[0].Position);
         Assert.Equal(0, rows[0].Cycle);
+    }
+
+    [Fact]
+    public void CompactingGcBetweenTicksKeepsDispatchWritingCurrentColumns()
+    {
+        using var asset = TimelineAsset.Load(new Baker()
+            .Track<AlphaTrack, AlphaClip>(new AlphaTrack(2))
+            .Clip(0, 0, 8, new AlphaClip(7))
+            .Bake());
+        var rows = new[] { new TimelineComponent(asset.Reference) };
+        var health = new Health[1];
+        var query = Timeline.Rows(rows).Read(new Resistance[1]).Write(health);
+        Records.Clear();
+        query.Tick(1u, 1);
+        var first = health[0].Value;
+        Assert.NotEqual(0f, first);
+
+        var address = (nint)query.ColumnPointer(TypeKey<Health>.Value);
+        var moved = false;
+        for (var attempt = 0; attempt < 20 && !moved; attempt++)
+        {
+            var junk = new byte[64 * 1024];
+            junk[0] = 1;
+            GC.Collect(2, GCCollectionMode.Forced, true);
+            GC.WaitForPendingFinalizers();
+            var current = (nint)query.ColumnPointer(TypeKey<Health>.Value);
+            moved = current != address;
+            address = current;
+        }
+        Assert.True(moved);
+
+        query.Tick(2u, 1);
+        Assert.Equal(first * 2, health[0].Value);
+        Assert.Equal(2, Records.Count);
     }
 }
