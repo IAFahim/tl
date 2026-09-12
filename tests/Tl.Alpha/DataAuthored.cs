@@ -143,13 +143,19 @@ public readonly struct ThrowingJob : ITimelineJob<BombTrack, BombClip>
 public readonly struct TandemFirst : ITimelineJob<TandemTrack, TandemClip>
 {
     public static void Execute(in Frame<TandemTrack, TandemClip> frame, ref DataLog log)
-        => DataLogRecord.Step(5, frame.TrackIndex, frame.GameTick, frame.TimelineTick, frame.Cycle, frame.Flags, frame.Clip.Value, ref log);
+    {
+        if (DataAuthoredReceipts.RecordTags) DataAuthoredReceipts.ConsumerTags.Add('B');
+        DataLogRecord.Step(5, frame.TrackIndex, frame.GameTick, frame.TimelineTick, frame.Cycle, frame.Flags, frame.Clip.Value, ref log);
+    }
 }
 
 public readonly struct TandemSecond : ITimelineJob<TandemTrack, TandemClip>
 {
     public static void Execute(in Frame<TandemTrack, TandemClip> frame, ref DataLog log)
-        => DataLogRecord.Step(6, frame.TrackIndex, frame.GameTick, frame.TimelineTick, frame.Cycle, frame.Flags, frame.Clip.Value, ref log);
+    {
+        if (DataAuthoredReceipts.RecordTags) DataAuthoredReceipts.ConsumerTags.Add('A');
+        DataLogRecord.Step(6, frame.TrackIndex, frame.GameTick, frame.TimelineTick, frame.Cycle, frame.Flags, frame.Clip.Value, ref log);
+    }
 }
 
 public readonly partial struct DataAuthoredJobDeclarations : ITimeline
@@ -598,11 +604,15 @@ internal static class DataAuthoredOracle
 
 internal static class DataAuthoredReceipts
 {
+    internal static readonly List<char> ConsumerTags = [];
+    internal static bool RecordTags;
+
     internal static void All()
     {
         AbaOrder();
         OpposingOrder();
         TandemConsumers();
+        ConsumerMirror();
         BlendFactors();
         CrossedFrames();
         MovementDefaults();
@@ -744,9 +754,39 @@ internal static class DataAuthoredReceipts
         Require(logs[0].FrameOrder == 6_005, "tandem forward consumer order is last-installed first (LIFO): TandemSecond then TandemFirst");
         Require(logs[0].FrameSteps == 2 && logs[0].Calls == 2 && rows[0].Position == 1u);
         query.Tick(701u, -1);
-        Require(logs[0].FrameOrder == 6_005, "tandem backward consumer order replays the same LIFO chain; docs require a corresponding reverse order");
+        Require(logs[0].FrameOrder == 5_006, "tandem backward consumer order is exact reverse of forward: TandemFirst then TandemSecond");
         Require(logs[0].FrameSteps == 2 && logs[0].Calls == 4 && rows[0].Position == 0u);
-        Console.WriteLine("data-authored consumers: pair=1 consumers=2 forward=second,first backward=second,first (LIFO chain replay)");
+        Console.WriteLine("data-authored consumers: pair=1 consumers=2 forward=second,first backward=first,second (mirrored backward order)");
+    }
+
+    internal static void ConsumerMirror()
+    {
+        using var asset = TimelineAsset.Load(new DataBaker()
+            .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
+            .Track<TandemTrack, TandemClip>(new TandemTrack(1))
+            .Clip(0, 0u, 4u, new DamageClip(8f))
+            .Clip(0, 2u, 6u, new DamageClip(4f))
+            .Clip(1, 0u, 4u, new TandemClip(7))
+            .Bake());
+        var rows = new[] { new TimelineComponent(asset.Reference) };
+        var logs = new DataLog[1];
+        var query = Facade(rows, logs, out _, out _);
+        ConsumerTags.Clear();
+        RecordTags = true;
+        try
+        {
+            query.Tick(100u, 2);
+            Require(ConsumerTags.SequenceEqual(['A', 'B', 'A', 'B']), "forward pass produces [A,B] per frame");
+            ConsumerTags.Clear();
+            query.Tick(102u, -2);
+            Require(ConsumerTags.SequenceEqual(['B', 'A', 'B', 'A']), "backward pass produces [B,A] per frame");
+        }
+        finally
+        {
+            RecordTags = false;
+            ConsumerTags.Clear();
+        }
+        Console.WriteLine("data-authored mirror: 2-consumer pair forward=[A,B] backward=[B,A] per frame; blend/step ordering preserved");
     }
 
     internal static void BlendFactors()

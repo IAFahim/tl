@@ -119,11 +119,30 @@ public readonly unsafe struct TimelineRef
 		var count = (int)stage->ProgramCount;
 		var step = reverse ? steps + count - 1 : steps;
 		var stride = reverse ? -1 : 1;
+		int* rev = stackalloc int[64];
 		while (count-- > 0)
 		{
 			var slot = _p + step->Slot;
-			for (var entry = chains[(int)step->Pair]; entry >= 0; entry = consumers[entry].Next)
-				consumers[entry].Execute(slot, gameTick, tick, cycle, flags, columns + consumers[entry].Offset, row);
+			var head = chains[(int)step->Pair];
+			if (reverse && head >= 0 && consumers[head].Next >= 0)
+			{
+				var n = 0;
+				for (var e = head; e >= 0; e = consumers[e].Next)
+				{
+					if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
+					rev[n++] = e;
+				}
+				while (n-- > 0)
+				{
+					var e = rev[n];
+					consumers[e].Execute(slot, gameTick, tick, cycle, flags, columns + consumers[e].Offset, row);
+				}
+			}
+			else
+			{
+				for (var entry = head; entry >= 0; entry = consumers[entry].Next)
+					consumers[entry].Execute(slot, gameTick, tick, cycle, flags, columns + consumers[entry].Offset, row);
+			}
 			step += stride;
 		}
 	}

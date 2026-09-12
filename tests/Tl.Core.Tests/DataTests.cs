@@ -386,7 +386,7 @@ public unsafe class DataTests
     }
 
     [Fact]
-    public void TickExecutesAuthoredOrderAndLifoConsumers()
+    public void TickExecutesAuthoredOrderAndMirroredConsumers()
     {
         using var asset = TimelineAsset.Load(new Baker()
             .Track<PhiTrack, PhiClip>(new PhiTrack(1))
@@ -409,6 +409,18 @@ public unsafe class DataTests
             ('1', 2, 20f, 0u, 50u, 0L),
         ], Records.Select(record => (record.Kind, record.Code, record.Value, record.Tick, record.Game, record.Cycle)).ToList());
         Assert.Equal(1u, rows[0].Position);
+
+        Records.Clear();
+        Timeline.Rows(rows).Tick(51u, -1);
+        Assert.Equal(
+        [
+            ('1', 2, 20f, 0u, 50u, 0L),
+            ('2', 2, 20f, 0u, 50u, 0L),
+            ('A', 4, 7f, 0u, 50u, 0L),
+            ('1', 1, 10f, 0u, 50u, 0L),
+            ('2', 1, 10f, 0u, 50u, 0L),
+        ], Records.Select(record => (record.Kind, record.Code, record.Value, record.Tick, record.Game, record.Cycle)).ToList());
+        Assert.Equal(0u, rows[0].Position);
     }
 
     [Fact]
