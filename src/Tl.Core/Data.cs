@@ -301,6 +301,8 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 	public static readonly ulong Key = Keying.Of(typeof(TTrack).AssemblyQualifiedName! + "\0" + typeof(TClip).AssemblyQualifiedName!);
 
 	public static void Consume(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, bind);
+
+	public static void ConsumeUnmanaged(delegate* unmanaged<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate* unmanaged<ulong*, int, byte*, void> bind) => UnmanagedTable.Install(Key, execute, bind);
 }
 
 public static class Timeline
@@ -308,6 +310,9 @@ public static class Timeline
 	public static TimelineQuery Rows(TimelineComponent[] timelines) => new(timelines);
 
 	public static FrameQuery<TTrack, TClip> Query<TTrack, TClip>(in TimelineComponent component) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged => new(component);
+
+	public static unsafe void TickUnmanaged(UnmanagedTickState* state, TimelineComponent* rows, int rowCount, void** bases, ulong* keys, int keyCount, uint gameTick, int delta)
+		=> UnmanagedTick.TickCoreUnmanaged(state, UnmanagedTable.Block, bases, rows, rowCount, gameTick, delta, keys, keyCount);
 }
 
 public ref struct TimelineQuery
@@ -614,4 +619,200 @@ public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBl
 	}
 
 	public Frame<TTrack, TClip> Current => _current;
+}
+
+public unsafe struct UnmanagedTickState
+{
+	public nint Asset;
+	public int RefreshCount;
+	public ulong BoundMask;
+	public byte Bound;
+	public fixed int Heads[16];
+	public fixed ulong Columns[256];
+	public fixed byte ColumnIndex[256], RefreshSlot[256], RefreshCol[256];
+}
+
+static unsafe class UnmanagedTable
+{
+	internal struct Consumer { public int Next, Pair, Offset; public delegate* unmanaged<byte*, uint, uint, long, FrameFlags, void**, int, void> Execute; public delegate* unmanaged<ulong*, int, byte*, void> Bind; }
+	struct Slot { public ulong Key; public int Head; }
+
+	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256, HeaderBytes = 16;
+	internal const int ConsumerOffset = HeaderBytes + 16 * SlotCount;
+	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(ConsumerOffset + 32 * ConsumerCapacity), 64);
+	static volatile int _gate;
+
+	internal static byte* Block => _block;
+
+	internal static void Install(ulong key, delegate* unmanaged<byte*, uint, uint, long, FrameFlags, void**, int, void> e, delegate* unmanaged<ulong*, int, byte*, void> b)
+	{
+		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
+		try
+		{
+			var slots = (Slot*)(_block + HeaderBytes);
+			var slot = Probe(_block, key);
+			if (slots[slot].Key == 0)
+			{
+				if (*(int*)_block == PairCapacity) throw new InvalidOperationException("Pair capacity exhausted.");
+				slots[slot].Head = -1;
+				Volatile.Write(ref slots[slot].Key, key);
+				(*(int*)_block)++;
+			}
+			var index = *(int*)(_block + 4);
+			if (index == ConsumerCapacity || index * 4 + 4 > MaxPointers) throw new InvalidOperationException("Consumer capacity exhausted.");
+			((Consumer*)(_block + ConsumerOffset))[index] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Bind = b, Offset = index * 4 };
+			Volatile.Write(ref slots[slot].Head, index);
+			Volatile.Write(ref *(int*)(_block + 4), index + 1);
+		}
+		finally { _gate = 0; }
+	}
+
+	static int Probe(byte* table, ulong key)
+	{
+		var slots = (Slot*)(table + HeaderBytes);
+		var slot = (int)key & (SlotCount - 1);
+		while (true)
+		{
+			var candidate = slots[slot].Key;
+			if (candidate == 0 || candidate == key) return slot;
+			slot = (slot + 1) & (SlotCount - 1);
+		}
+	}
+
+	internal static int Head(byte* table, ulong key)
+	{
+		var slots = (Slot*)(table + HeaderBytes);
+		var slot = Probe(table, key);
+		return slots[slot].Key == 0 ? -1 : slots[slot].Head;
+	}
+
+	internal static void Bind(byte* table, TimelineRef asset, ulong* keys, int keyCount, byte* indices, byte* rSlots, byte* rCols, ref int rCount, ref ulong boundMask)
+	{
+		var total = *(int*)(table + 4);
+		var slots = (Slot*)(table + HeaderBytes);
+		var consumers = (Consumer*)(table + ConsumerOffset);
+		for (var entry = 0; entry < total; entry++)
+			if (asset.Uses(slots[consumers[entry].Pair].Key) && (boundMask & (1ul << entry)) == 0)
+			{
+				boundMask |= 1ul << entry;
+				var offset = consumers[entry].Offset;
+				consumers[entry].Bind(keys, keyCount, indices + offset);
+				for (var k = 0; k < 4; k++)
+				{
+					var col = indices[offset + k];
+					if (col != 0) { rSlots[rCount] = (byte)(offset + k); rCols[rCount++] = (byte)(col - 1); }
+				}
+			}
+	}
+}
+
+static unsafe class UnmanagedTick
+{
+	static void Resolve(byte* table, TimelineRef r, int* chains)
+	{
+		for (var i = 0; i < r.PairCount; i++) chains[i] = UnmanagedTable.Head(table, r.Pairs[i].Key);
+	}
+
+	static void** Table(UnmanagedTickState* state, void** bases, void** columns)
+	{
+		for (var i = 0; i < state->RefreshCount; i++) columns[state->RefreshSlot[i]] = bases[state->RefreshCol[i]];
+		return columns;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+	static void Execute(byte* table, TimelineRef reference, bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, int* chains, void** columns)
+	{
+		var p = reference._p;
+		var header = (NativeHeader*)p;
+		var stage = header->StageCount == 1 ? (NativeStage*)(p + header->StageOffset) : reference.StageOf(tick);
+		if (stage == null) return;
+		var steps = (NativeStep*)(p + stage->ProgramOffset);
+		var consumers = (UnmanagedTable.Consumer*)(table + UnmanagedTable.ConsumerOffset);
+		var count = (int)stage->ProgramCount;
+		var step = reverse ? steps + count - 1 : steps;
+		var stride = reverse ? -1 : 1;
+		int* rev = stackalloc int[64];
+		while (count-- > 0)
+		{
+			var slot = p + step->Slot;
+			var head = chains[step->Pair];
+			if (reverse && head >= 0 && consumers[head].Next >= 0)
+			{
+				var n = 0;
+				for (var e = head; e >= 0; e = consumers[e].Next) rev[n++] = e;
+				while (n-- > 0) { var e = rev[n]; consumers[e].Execute(slot, gameTick, tick, cycle, flags, columns + consumers[e].Offset, row); }
+			}
+			else for (var entry = head; entry >= 0; entry = consumers[entry].Next) consumers[entry].Execute(slot, gameTick, tick, cycle, flags, columns + consumers[entry].Offset, row);
+			step += stride;
+		}
+	}
+
+	[MethodImpl(MethodImplOptions.NoInlining)]
+	internal static void TickCoreUnmanaged(UnmanagedTickState* state, byte* table, void** bases, TimelineComponent* rows, int rowCount, uint gameTick, int delta, ulong* keys, int keyCount)
+	{
+		if (delta == 0 || rowCount == 0) return;
+		var indices = state->ColumnIndex;
+		var rSlots = state->RefreshSlot;
+		var rCols = state->RefreshCol;
+		var columns = (void**)state->Columns;
+		if (state->Bound == 0)
+		{
+			for (var row = 0; row < rowCount; row++)
+				if (rows[row].Reference.Address != 0) UnmanagedTable.Bind(table, rows[row].Reference, keys, keyCount, indices, rSlots, rCols, ref state->RefreshCount, ref state->BoundMask);
+			state->Bound = 1;
+		}
+		void** activeTable = Table(state, bases, columns);
+		var uniformAddress = rows[0].Reference.Address;
+		var uniform = uniformAddress != 0;
+		var pairs = 0;
+		for (var row = 0; row < rowCount; row++)
+		{
+			var reference = rows[row].Reference;
+			if (reference.Address != uniformAddress) uniform = false;
+			if (reference.PairCount > pairs) pairs = (int)reference.PairCount;
+		}
+		int* chains = stackalloc int[pairs];
+		nint attached = 0;
+		if (uniform && pairs <= 16)
+		{
+			attached = uniformAddress;
+			chains = state->Heads;
+			if (state->Asset != uniformAddress)
+			{
+				state->Asset = uniformAddress;
+				Resolve(table, rows[0].Reference, chains);
+			}
+		}
+		var isReverse = delta < 0;
+		long remaining = isReverse ? -(long)delta : delta;
+		var moved = true;
+		while (moved && remaining-- != 0)
+		{
+			if (isReverse) gameTick--;
+			moved = false;
+			for (var row = 0; row < rowCount; row++)
+			{
+				var c = rows + row;
+				var reference = c->Reference;
+				if (!reference.Select(isReverse, c->Position, c->Cycle, out _, out var tick, out var cycle, out var flags)) continue;
+				moved = true;
+				var address = reference.Address;
+				if (address != attached)
+				{
+					attached = address;
+					Resolve(table, reference, chains);
+					UnmanagedTable.Bind(table, reference, keys, keyCount, indices, rSlots, rCols, ref state->RefreshCount, ref state->BoundMask);
+					activeTable = Table(state, bases, columns);
+				}
+				Execute(table, reference, isReverse, tick, gameTick, cycle, flags, row, chains, activeTable);
+			}
+			if (!moved) break;
+			for (var row = 0; row < rowCount; row++)
+			{
+				var c = rows + row;
+			if (c->Reference.Select(isReverse, c->Position, c->Cycle, out var next, out _, out _, out _)) { c->Position = next.Position; c->Cycle = next.Cycle; }
+			}
+			if (!isReverse) gameTick++;
+		}
+	}
 }

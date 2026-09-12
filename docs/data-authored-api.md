@@ -280,6 +280,15 @@ unity test tests/Tl.Unity.DataAuthored --mode PlayMode --output test-results.xml
 
 with fixtures committed under `tests/Tl.Unity.DataAuthored/Assets/Resources/TlFixtures/*.bytes` and the oracle assertions mirroring the .NET `DataTests` values.
 
+## Unmanaged-convention consumer seam (gate 5, slice 2 preparation)
+
+`src/Tl.Core` now carries an unmanaged-convention consumer seam beside the managed one.
+
+- `PairRuntime<TTrack, TClip>.ConsumeUnmanaged` installs `delegate* unmanaged` bind/execute entries into a second native table with the same layout, capacity laws, and LIFO chain discipline. Managed and unmanaged consumers of one pair coexist, and each tick arm dispatches only its own table while preserving authored order, mirrored backward consumer order, blend-once resolution, and independent clamping.
+- `Timeline.TickUnmanaged` borrows caller-owned rows (`Tl.TimelineComponent*`), column base pointers, a zeroed `UnmanagedTickState` (the materialized-asset stamp plus chain and column scratch), and a caller-materialized column-type key buffer, then drives the pure-pointer `UnmanagedTick.TickCoreUnmanaged` walk over native memory using the shared `TimelineMovement` math. When the stamp equals the row asset address the per-asset binding is already materialized; otherwise the caller re-materializes the keys before the call.
+- Unmanaged consumers are non-throwing by contract: exceptions cannot cross the unmanaged-convention boundary, so exception propagation and throwing missing-column diagnostics remain properties of the managed arm.
+- Unity/Burst qualification of the Bursted job coordinator that calls this core lands in the next atom. The seam itself is proven on .NET by parity, zero-allocation, dual-convention, and compacting-GC receipts, and it must keep passing NativeAOT publish.
+
 ## Coordinator and observable semantics
 
 For each signed step, the coordinator selects each compatible row once, runs its ordered occurrence stages, and commits once after all required consumers finish. It repeats this for every available crossed frame. Different assets may have different stage counts and opposite type orders. Grouping all occurrences of one type together is invalid for A-B-A.

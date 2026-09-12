@@ -43,6 +43,7 @@ type Tl.ITimelineCatalog
 type Tl.ITimelineJob`2
 type Tl.PairRuntime`2
   Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
+  Method Void ConsumeUnmanaged(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
   Field UInt64 Key
 type Tl.SchemaBuilder`1
   Method Tl.SchemaBuilder`1[TSchema] Asset[TTimeline]()
@@ -57,6 +58,7 @@ type Tl.TickFrame
 type Tl.Timeline
   Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
   Method Tl.TimelineQuery Rows(Tl.TimelineComponent[])
+  Method Void TickUnmanaged(Tl.UnmanagedTickState*, Tl.TimelineComponent*, Int32, Void**, UInt64*, Int32, UInt32, Int32)
 type Tl.TimelineAsset
   Method Void Dispose()
   Method Tl.TimelineAsset Load(System.ReadOnlySpan`1[System.Byte])
@@ -104,3 +106,28 @@ type Tl.TrackRef`1
 type Tl.TrackRef`2
 type Tl.TypeKey`1
   Field UInt64 Value
+type Tl.UnmanagedTickState
+  NestedType Tl.UnmanagedTickState+<ColumnIndex>e__FixedBuffer
+  NestedType Tl.UnmanagedTickState+<Columns>e__FixedBuffer
+  NestedType Tl.UnmanagedTickState+<Heads>e__FixedBuffer
+  NestedType Tl.UnmanagedTickState+<RefreshCol>e__FixedBuffer
+  NestedType Tl.UnmanagedTickState+<RefreshSlot>e__FixedBuffer
+  Field IntPtr Asset
+  Field Byte Bound
+  Field UInt64 BoundMask
+  Field <ColumnIndex>e__FixedBuffer ColumnIndex
+  Field <Columns>e__FixedBuffer Columns
+  Field <Heads>e__FixedBuffer Heads
+  Field <RefreshCol>e__FixedBuffer RefreshCol
+  Field Int32 RefreshCount
+  Field <RefreshSlot>e__FixedBuffer RefreshSlot
+type Tl.UnmanagedTickState+<ColumnIndex>e__FixedBuffer
+  Field Byte FixedElementField
+type Tl.UnmanagedTickState+<Columns>e__FixedBuffer
+  Field UInt64 FixedElementField
+type Tl.UnmanagedTickState+<Heads>e__FixedBuffer
+  Field Int32 FixedElementField
+type Tl.UnmanagedTickState+<RefreshCol>e__FixedBuffer
+  Field Byte FixedElementField
+type Tl.UnmanagedTickState+<RefreshSlot>e__FixedBuffer
+  Field Byte FixedElementField
