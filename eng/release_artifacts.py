@@ -31,7 +31,6 @@ PACKAGE_FILES = {
         "lib/net10.0/Tl.Compiler.dll",
         "lib/netstandard2.0/Tl.Compiler.dll",
     },
-    "Tl.Gen.C": {"lib/net10.0/Tl.Gen.C.dll"},
     "Tl.Gen.CSharp": {
         "analyzers/dotnet/cs/Tl.Gen.CSharp.dll",
         "analyzers/dotnet/cs/Tl.Compiler.dll",
@@ -63,7 +62,6 @@ PACKAGE_DEPENDENCY_GROUPS = {
             ],
         },
     ],
-    "Tl.Gen.C": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": [{"id": "Tl.Compiler", "exclude": "Build,Analyzers"}]}],
     "Tl.Gen.CSharp": [],
     "Tl.Runtime": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": []}],
 }
@@ -71,7 +69,6 @@ PACKAGE_DEPENDENCY_GROUPS = {
 PACKAGE_FORBIDDEN_FILES = {
     "Tl.CSharp": {"Tl.Gen.C.dll"},
     "Tl.Compiler": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Gen.C.dll", "Tl.Gen.CSharp.dll", "Tl.Gen.dll"},
-    "Tl.Gen.C": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Compiler.dll", "Tl.Gen.CSharp.dll", "Tl.Gen.dll"},
     "Tl.Gen.CSharp": {"Tl.Gen.C.dll"},
     "Tl.Runtime": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Compiler.dll", "Tl.Gen.C.dll", "Tl.Gen.CSharp.dll", "Tl.Gen.dll"},
 }
@@ -81,7 +78,6 @@ SYMBOL_FILES = {
         "lib/net10.0/Tl.Compiler.pdb",
         "lib/netstandard2.0/Tl.Compiler.pdb",
     },
-    "Tl.Gen.C": {"lib/net10.0/Tl.Gen.C.pdb"},
     "Tl.Runtime": {"lib/net10.0/Tl.Core.pdb"},
 }
 

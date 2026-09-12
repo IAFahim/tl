@@ -54,7 +54,6 @@ projects=(
     src/Tl.Core/Tl.Core.csproj
     src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj
     src/Tl.Compiler/Tl.Compiler.csproj
-    src/Tl.Gen.C/Tl.Gen.C.csproj
     src/Tl.CSharp/Tl.CSharp.csproj
 )
 
