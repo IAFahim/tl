@@ -198,6 +198,81 @@ public sealed class ConsumerBindingTests
     }
 
     [Fact]
+    public void MultiPairingJobRegistersEveryPairingInLexicalOrder()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct AlphaClip(int Value);
+            public readonly record struct BetaClip(float Amount);
+            public readonly record struct DualTrack(int Code) : IBlend<AlphaClip>, IBlend<BetaClip>
+            {
+                public void Blend(in AlphaClip first, in AlphaClip second, float factor, out AlphaClip result) => result = first;
+                public void Blend(in BetaClip first, in BetaClip second, float factor, out BetaClip result) => result = first;
+            }
+            public struct Health { public float Value; }
+            public readonly struct DualJob : ITimelineJob<DualTrack, BetaClip>, ITimelineJob<DualTrack, AlphaClip>
+            {
+                public static void Execute(in Frame<DualTrack, AlphaClip> frame, ref Health health) { }
+                public static void Execute(in Frame<DualTrack, BetaClip> frame, ref Health health) { }
+            }
+            """;
+        var (sources, diagnostics) = GenerateWithDiagnostics(source);
+        Assert.Empty(diagnostics);
+        var binding = Assert.Single(sources).Value;
+        var installEnd = binding.IndexOf("}", StringComparison.Ordinal);
+        var install = binding[..installEnd];
+        Assert.Equal(
+        [
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&Execute_DualJob, &Bind_DualJob);",
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&Execute_DualJob_, &Bind_DualJob_);",
+        ], install.Split('\n')[5..^1]);
+        Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.AlphaClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);", binding);
+        Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.BetaClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);", binding);
+        Assert.Contains("global::Domain.DualJob.Execute(in __tlTyped, ref @health[__tlRow]);", binding);
+    }
+
+    [Fact]
+    public void AuthoredTrackResolvesOnePairingOfAMultiPairingJob()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct ClipA(int Value);
+            public readonly record struct ClipB(float Amount);
+            public readonly record struct TrackA(int Code) : IBlend<ClipA>
+            {
+                public void Blend(in ClipA first, in ClipA second, float factor, out ClipA result) => result = first;
+            }
+            public readonly record struct TrackB(int Code) : IBlend<ClipB>
+            {
+                public void Blend(in ClipB first, in ClipB second, float factor, out ClipB result) => result = first;
+            }
+            public readonly struct SharedJob : ITimelineJob<TrackB, ClipB>, ITimelineJob<TrackA, ClipA>
+            {
+                public static void Execute(in Frame<TrackA, ClipA> frame) { }
+                public static void Execute(in Frame<TrackB, ClipB> frame) { }
+            }
+            public readonly partial struct Asset : ITimeline
+            {
+                public static void Define(scoped Builder builder)
+                {
+                    var track = builder.Track(new TrackA(1)).Use<SharedJob>();
+                    builder.Clip(track, new ClipA(8), 0u, 1u);
+                }
+            }
+            """;
+        var (sources, diagnostics) = GenerateWithDiagnostics(source);
+        Assert.Empty(diagnostics);
+        var binding = sources["TlConsumerBinding.g.cs"];
+        var installEnd = binding.IndexOf("}", StringComparison.Ordinal);
+        Assert.Equal(
+        [
+            "global::Tl.PairRuntime<global::Domain.TrackA, global::Domain.ClipA>.Consume(&Execute_SharedJob, &Bind_SharedJob);",
+        ], binding[..installEnd].Split('\n')[5..^1]);
+    }
+
+    [Fact]
     public void CliReexportHitsTheCacheAndPreservesBindingTimestamps()
     {
         var directory = Path.Combine(Path.GetTempPath(), "tl-consumer-binding-cli", Guid.NewGuid().ToString("N"));
