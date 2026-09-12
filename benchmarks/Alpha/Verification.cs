@@ -127,17 +127,18 @@ internal static class Verification
                 ScalarCatalogQueryBenchmarks.Require(direct, dataAuthored, $"data-authored/{shape}/facade/{pattern}");
                 Console.WriteLine($"data-authored/{shape}/{pattern}: direct={direct} generated={generated} facade={dataAuthored}");
 
-                if (shape == TimelineShape.OneTrack)
+                if (TimelineKernelHashes.Committed.TryGetValue(shape, out var kernelHash))
                 {
-                    const string kernelHash = "65a912cd2c3f9565072beed5ef78a2bdc3f5ba25bb58c59e8f325ef0b36d96bf";
-                    var baked = DataAuthoredCase.Bake(TimelineShape.OneTrack, DataAuthoredMode.Standard);
+                    var baked = DataAuthoredCase.Bake(shape, DataAuthoredMode.Standard);
                     var actualHash = Convert.ToHexString(SHA256.HashData(baked)).ToLowerInvariant();
                     if (actualHash != kernelHash)
-                        throw new InvalidOperationException($"OneTrack baked bytes hash {actualHash} does not match the committed OneTrackKernel.g.cs hash {kernelHash}.");
+                        throw new InvalidOperationException($"{shape} baked bytes hash {actualHash} does not match the committed kernel hash {kernelHash}.");
                     var interpreterBytes = (byte[])baked.Clone();
                     interpreterBytes[40] = 0xA5;
-                    using var interpreterCase = new DataAuthoredCase(TimelineShape.OneTrack, pattern, DataAuthoredMode.Standard, interpreterBytes);
+                    using var interpreterCase = new DataAuthoredCase(shape, pattern, DataAuthoredMode.Standard, interpreterBytes);
                     var interpreter = interpreterCase.DataAuthored();
+                    DataAuthoredCase.AssertKernelBound(facade, true);
+                    DataAuthoredCase.AssertKernelBound(interpreterCase, false);
                     ScalarCatalogQueryBenchmarks.Require(direct, interpreter, $"data-authored/{shape}/interpreter/{pattern}");
                     Console.WriteLine($"kernel-lane/{shape}/{pattern}: facade-is-hash-bound-kernel={dataAuthored} interpreter={interpreter}");
                 }
