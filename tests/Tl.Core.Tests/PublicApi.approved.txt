@@ -42,7 +42,7 @@ type Tl.ITimelineCatalog
   Method Void Define(Tl.CatalogBuilder)
 type Tl.ITimelineJob`2
 type Tl.PairRuntime`2
-  Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(Tl.TimelineQuery&, System.Void**))
+  Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(Tl.TimelineQuery&, System.Byte*))
   Field UInt64 Key
 type Tl.SchemaBuilder`1
   Method Tl.SchemaBuilder`1[TSchema] Asset[TTimeline]()
@@ -75,7 +75,6 @@ type Tl.TimelineFrame
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt32, Boolean, Boolean, Tl.TimelineState ByRef, UInt32 ByRef, Int64 ByRef, Tl.FrameFlags ByRef)
 type Tl.TimelineQuery
-  Method Void* ColumnPointer(UInt64)
   Method Int32 Find(UInt64)
   Method Tl.TimelineQuery Read[T](System.ReadOnlySpan`1[T])
   Method System.Span`1[T] Span[T](Int32)

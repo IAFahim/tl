@@ -84,13 +84,14 @@ public unsafe class DataTests
         PairRuntime<DeltaTrack, DeltaClip>.Consume(&DeltaExecute, &DeltaBind);
     }
 
-    private static void NoBind(in TimelineQuery columns, void** table)
+    private static void NoBind(in TimelineQuery columns, byte* table)
     {
     }
 
-    private static void AlphaBind(in TimelineQuery columns, void** table)
+    private static void AlphaBind(in TimelineQuery columns, byte* table)
     {
-        table[0] = columns.ColumnPointer(TypeKey<Health>.Value);
+        var i = columns.Find(TypeKey<Health>.Value);
+        if (i >= 0) table[0] = (byte)(i + 1);
     }
 
     private static void AlphaExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
@@ -123,9 +124,9 @@ public unsafe class DataTests
     {
     }
 
-    private static void DeltaBind(in TimelineQuery columns, void** table)
+    private static void DeltaBind(in TimelineQuery columns, byte* table)
     {
-        if (MarkerRequired && columns.ColumnPointer(TypeKey<Marker>.Value) == null)
+        if (MarkerRequired && columns.Find(TypeKey<Marker>.Value) < 0)
             throw new ArgumentException("Delta requires the marker column.");
     }
 
@@ -587,7 +588,7 @@ public unsafe class DataTests
         var first = health[0].Value;
         Assert.NotEqual(0f, first);
 
-        var address = (nint)query.ColumnPointer(TypeKey<Health>.Value);
+        var address = (nint)System.Runtime.CompilerServices.Unsafe.AsPointer(ref query.Span<Health>(query.Find(TypeKey<Health>.Value))[0]);
         var moved = false;
         for (var attempt = 0; attempt < 20 && !moved; attempt++)
         {
@@ -595,7 +596,7 @@ public unsafe class DataTests
             junk[0] = 1;
             GC.Collect(2, GCCollectionMode.Forced, true);
             GC.WaitForPendingFinalizers();
-            var current = (nint)query.ColumnPointer(TypeKey<Health>.Value);
+            var current = (nint)System.Runtime.CompilerServices.Unsafe.AsPointer(ref query.Span<Health>(query.Find(TypeKey<Health>.Value))[0]);
             moved = current != address;
             address = current;
         }

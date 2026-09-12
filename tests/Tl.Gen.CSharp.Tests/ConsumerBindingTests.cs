@@ -77,10 +77,10 @@ public sealed class ConsumerBindingTests
         Assert.Contains("var @resistance = (global::Domain.Resistance*)__tlColumns[0];", binding);
         Assert.Contains("var @health = (global::Domain.Health*)__tlColumns[1];", binding);
         Assert.Contains("global::Domain.ApplyDamage.Execute(in __tlTyped, in @resistance[__tlRow], ref @health[__tlRow]);", binding);
-        Assert.Contains("private static void Bind_ApplyDamage(in global::Tl.TimelineQuery __tlQuery, void** __tlColumns)", binding);
-        Assert.Contains("var __tlPtr0 = __tlQuery.ColumnPointer(global::Tl.TypeKey<global::Domain.Resistance>.Value);", binding);
-        Assert.Contains("if (__tlPtr0 == null) throw new global::System.ArgumentException(\"global::Domain.ApplyDamage: required column missing for registered consumer: global::Domain.Resistance\");", binding);
-        Assert.Contains("__tlColumns[0] = __tlPtr0;", binding);
+        Assert.Contains("private static void Bind_ApplyDamage(in global::Tl.TimelineQuery __tlQuery, byte* __tlIndices)", binding);
+        Assert.Contains("var __tlIdx0 = __tlQuery.Find(global::Tl.TypeKey<global::Domain.Resistance>.Value);", binding);
+        Assert.Contains("if (__tlIdx0 < 0) throw new global::System.ArgumentException(\"global::Domain.ApplyDamage: required column missing for registered consumer: global::Domain.Resistance\");", binding);
+        Assert.Contains("__tlIndices[0] = (byte)(__tlIdx0 + 1);", binding);
     }
 
     [Fact]

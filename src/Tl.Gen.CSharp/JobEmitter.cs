@@ -63,14 +63,14 @@ internal static class JobEmitter
             }
             W($"{job.TypeName}.Execute(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
             W("}");
-            W($"private static void Bind_{name}(in global::Tl.TimelineQuery __tlQuery, void** __tlColumns)");
+            W($"private static void Bind_{name}(in global::Tl.TimelineQuery __tlQuery, byte* __tlIndices)");
             W("{");
             for (var i = 0; i < job.Slots.Count; i++)
             {
                 var slot = job.Slots[i];
-                W($"var __tlPtr{i} = __tlQuery.ColumnPointer(global::Tl.TypeKey<{slot.TypeName}>.Value);");
-                W($"if (__tlPtr{i} == null) throw new global::System.ArgumentException(\"{job.TypeName}: required column missing for registered consumer: {slot.TypeName}\");");
-                W($"__tlColumns[{i}] = __tlPtr{i};");
+                W($"var __tlIdx{i} = __tlQuery.Find(global::Tl.TypeKey<{slot.TypeName}>.Value);");
+                W($"if (__tlIdx{i} < 0) throw new global::System.ArgumentException(\"{job.TypeName}: required column missing for registered consumer: {slot.TypeName}\");");
+                W($"__tlIndices[{i}] = (byte)(__tlIdx{i} + 1);");
             }
             W("}");
         }

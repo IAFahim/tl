@@ -187,7 +187,7 @@ public readonly unsafe struct TickFrame
 
 static unsafe class PairTable
 {
-	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> Execute; public delegate*<in TimelineQuery, void**, void> Bind; }
+	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> Execute; public delegate*<in TimelineQuery, byte*, void> Bind; }
 	struct Slot { public ulong Key; public int Head; }
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
@@ -197,7 +197,7 @@ static unsafe class PairTable
 	static Slot* SlotAt => (Slot*)_block;
 	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
 
-	internal static void Install(ulong key, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> e, delegate*<in TimelineQuery, void**, void> b)
+	internal static void Install(ulong key, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> e, delegate*<in TimelineQuery, byte*, void> b)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
@@ -242,12 +242,16 @@ static unsafe class PairTable
 		return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
 	}
 
-	internal static void Bind(TimelineRef asset, in TimelineQuery columns, void** table)
+	internal static void Bind(TimelineRef asset, in TimelineQuery columns, byte* indices, ref int watermark)
 	{
 		var slots = SlotAt;
 		var consumers = ConsumerAt;
 		for (var entry = 0; entry < _consumers; entry++)
-			if (asset.Uses(slots[consumers[entry].Pair].Key)) consumers[entry].Bind(in columns, table + consumers[entry].Offset);
+			if (asset.Uses(slots[consumers[entry].Pair].Key))
+			{
+				consumers[entry].Bind(in columns, indices + consumers[entry].Offset);
+				if ((entry + 1) * 4 > watermark) watermark = (entry + 1) * 4;
+			}
 	}
 }
 
@@ -255,7 +259,7 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 {
 	public static readonly ulong Key = Keying.Of(typeof(TTrack).AssemblyQualifiedName! + "\0" + typeof(TClip).AssemblyQualifiedName!);
 
-	public static void Consume(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate*<in TimelineQuery, void**, void> bind) => PairTable.Install(Key, execute, bind);
+	public static void Consume(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate*<in TimelineQuery, byte*, void> bind) => PairTable.Install(Key, execute, bind);
 }
 
 public static class Timeline
@@ -268,7 +272,7 @@ public static class Timeline
 public ref struct TimelineQuery
 {
 	ref struct Column { public ulong Key; public ReadOnlySpan<byte> Data; public bool Write; }
-	struct PairCache { public nint Asset; public int Count; public unsafe fixed int Heads[ResolvedPairs]; public unsafe fixed ulong Columns[256]; }
+	struct PairCache { public nint Asset; public int Count; public int BoundSlots; public unsafe fixed int Heads[ResolvedPairs]; public unsafe fixed ulong Columns[256]; public unsafe fixed byte ColumnIndex[256]; }
 
 	const int ResolvedPairs = 16;
 
@@ -278,7 +282,11 @@ public ref struct TimelineQuery
 	bool _bound;
 	int _count;
 
-	internal TimelineQuery(Span<TimelineComponent> rows) { _rows = rows; }
+	internal unsafe TimelineQuery(Span<TimelineComponent> rows)
+	{
+		_rows = rows;
+		new Span<byte>(Unsafe.AsPointer(ref _cache.ColumnIndex[0]), 256).Clear();
+	}
 
 	ReadOnlySpan<byte> DataOf(int index) => index == 0 ? _a.Data : index == 1 ? _b.Data : index == 2 ? _c.Data : _d.Data;
 
@@ -307,15 +315,6 @@ public ref struct TimelineQuery
 		return this;
 	}
 
-	public unsafe void* ColumnPointer(ulong key)
-	{
-		if (_a.Key == key) return Unsafe.AsPointer(ref MemoryMarshal.GetReference(_a.Data));
-		if (_b.Key == key) return Unsafe.AsPointer(ref MemoryMarshal.GetReference(_b.Data));
-		if (_c.Key == key) return Unsafe.AsPointer(ref MemoryMarshal.GetReference(_c.Data));
-		if (_d.Key == key) return Unsafe.AsPointer(ref MemoryMarshal.GetReference(_d.Data));
-		return null;
-	}
-
 	public int Find(ulong key) => _a.Key == key ? 0 : _b.Key == key ? 1 : _c.Key == key ? 2 : _d.Key == key ? 3 : -1;
 
 	unsafe Span<int> Resolved => new(Unsafe.AsPointer(ref _cache.Heads[0]), _cache.Count);
@@ -326,15 +325,25 @@ public ref struct TimelineQuery
 	public unsafe void Tick(uint gameTick, int delta = 1)
 	{
 		if (delta == 0 || _rows.IsEmpty) return;
+		var indices = (byte*)Unsafe.AsPointer(ref _cache.ColumnIndex[0]);
 		var table = (void**)Unsafe.AsPointer(ref _cache.Columns[0]);
 		if (!_bound)
 		{
 			for (var row = 0; row < _rows.Length; row++)
 			{
 				var reference = _rows[row].Reference;
-				if (reference.Address != 0) PairTable.Bind(reference, in this, table);
+				if (reference.Address != 0) PairTable.Bind(reference, in this, indices, ref _cache.BoundSlots);
 			}
 			_bound = true;
+		}
+		var p0 = _count > 0 ? Unsafe.AsPointer(ref MemoryMarshal.GetReference(_a.Data)) : null;
+		var p1 = _count > 1 ? Unsafe.AsPointer(ref MemoryMarshal.GetReference(_b.Data)) : null;
+		var p2 = _count > 2 ? Unsafe.AsPointer(ref MemoryMarshal.GetReference(_c.Data)) : null;
+		var p3 = _count > 3 ? Unsafe.AsPointer(ref MemoryMarshal.GetReference(_d.Data)) : null;
+		for (var i = 0; i < _cache.BoundSlots; i++)
+		{
+			var n = _cache.ColumnIndex[i];
+			table[i] = n == 1 ? p0 : n == 2 ? p1 : n == 3 ? p2 : n == 4 ? p3 : null;
 		}
 		var warm = true;
 		for (var row = 0; row < _rows.Length; row++)
@@ -387,7 +396,12 @@ public ref struct TimelineQuery
 				{
 					attached = address;
 					reference.Resolve(chains);
-					PairTable.Bind(reference, in this, table);
+					PairTable.Bind(reference, in this, indices, ref _cache.BoundSlots);
+					for (var i = 0; i < _cache.BoundSlots; i++)
+					{
+						var n = _cache.ColumnIndex[i];
+						table[i] = n == 1 ? p0 : n == 2 ? p1 : n == 3 ? p2 : n == 4 ? p3 : null;
+					}
 				}
 				reference.Execute(reverse, tick, gameTick, cycle, flags, row, chains, table);
 			}
