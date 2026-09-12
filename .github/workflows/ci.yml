@@ -38,7 +38,6 @@ jobs:
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
       - run: dotnet run --project samples/Mixed -c Release --no-build
       - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
-      - run: dotnet run --project tests/Tl.UnityAnalyzerReceipt -c Release --no-build
       - run: dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true -o artifacts/aot
       - run: ./artifacts/aot/Tl.Alpha
       - run: ./artifacts/aot/Tl.Alpha --capacity
@@ -49,7 +48,6 @@ jobs:
       - run: dotnet pack src/Tl.Core -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.Gen.CSharp -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.Compiler -c Release --no-build -o artifacts/packages
-      - run: dotnet pack src/Tl.Gen.C -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.CSharp -c Release --no-build -m:1 -o artifacts/packages
       - name: Verify package consumer
         env:

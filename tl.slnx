@@ -4,7 +4,6 @@
     <Project Path="src/Tl.Compiler/Tl.Compiler.csproj" />
     <Project Path="src/Tl.Core/Tl.Core.csproj" />
     <Project Path="src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj" />
-    <Project Path="src/Tl.Gen.C/Tl.Gen.C.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Mixed/Mixed.csproj" />
@@ -12,10 +11,8 @@
   <Folder Name="/tests/">
     <Project Path="tests/Tl.Compiler.Tests/Tl.Compiler.Tests.csproj" />
     <Project Path="tests/Tl.Core.Tests/Tl.Core.Tests.csproj" />
-    <Project Path="tests/Tl.Gen.C.Tests/Tl.Gen.C.Tests.csproj" />
     <Project Path="tests/Tl.Gen.CSharp.Tests/Tl.Gen.CSharp.Tests.csproj" />
     <Project Path="tests/Tl.Gen.CSharp.Consumer.Tests/Tl.Gen.CSharp.Consumer.Tests.csproj" />
-    <Project Path="tests/Tl.UnityAnalyzerReceipt/Tl.UnityAnalyzerReceipt.csproj" />
     <Project Path="tests/Tl.Alpha/Tl.Alpha.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">

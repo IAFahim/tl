@@ -165,7 +165,7 @@ The runtime/player package contains no Tl compiler, generator, Roslyn assembly, 
 
 Entities 1.4.3 imports `System.IO.Hashing` from one editor-only source file but omits the assembly dependency. The stable gate injects hash-pinned `System.IO.Hashing` and `System.Runtime.CompilerServices.Unsafe` assemblies into its isolated test project's editor plug-ins. This works around the upstream editor-package defect without adding either assembly to `Tl.Unity` or the player graph; a plain Entities 1.4.3 install on this editor is not turnkey.
 
-The canonical generated ECS sample and its executable receipts live in `tests/Tl.Unity.Project`; sample and test source is not shipped in this package.
+The canonical generated ECS sample and its executable receipts were extracted into the separate Unity host repository at commit `3e67333`; sample and test source is not shipped in this package.
 
 ## Qualified evidence
 
