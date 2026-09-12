@@ -1200,7 +1200,7 @@ internal static class DataAuthoredReceipts
         Console.WriteLine($"data-authored capacity: empty=no-op single-tick=clamps tracks={tracks} of the 256 authored-track law");
     }
 
-    static TimelineQuery Facade(TimelineComponent[] rows, DataLog[] logs, out Receipt[] receipts, out uint[] uints)
+    static TimelineQuery<uint, Receipt, DataLog> Facade(TimelineComponent[] rows, DataLog[] logs, out Receipt[] receipts, out uint[] uints)
     {
         receipts = new Receipt[rows.Length];
         uints = new uint[rows.Length];

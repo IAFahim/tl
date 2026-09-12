@@ -84,14 +84,20 @@ public unsafe class DataTests
         PairRuntime<DeltaTrack, DeltaClip>.Consume(&DeltaExecute, &DeltaBind);
     }
 
-    private static void NoBind(in TimelineQuery columns, byte* table)
+    private static void NoBind(ulong* keys, int keyCount, byte* table)
     {
     }
 
-    private static void AlphaBind(in TimelineQuery columns, byte* table)
+    private static void AlphaBind(ulong* keys, int keyCount, byte* table)
     {
-        var i = columns.Find(TypeKey<Health>.Value);
-        if (i >= 0) table[0] = (byte)(i + 1);
+        for (var i = 0; i < keyCount; i++)
+        {
+            if (keys[i] == TypeKey<Health>.Value)
+            {
+                table[0] = (byte)(i + 1);
+                break;
+            }
+        }
     }
 
     private static void AlphaExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
@@ -124,10 +130,17 @@ public unsafe class DataTests
     {
     }
 
-    private static void DeltaBind(in TimelineQuery columns, byte* table)
+    private static void DeltaBind(ulong* keys, int keyCount, byte* table)
     {
-        if (MarkerRequired && columns.Find(TypeKey<Marker>.Value) < 0)
-            throw new ArgumentException("Delta requires the marker column.");
+        if (MarkerRequired)
+        {
+            var found = false;
+            for (var i = 0; i < keyCount; i++)
+            {
+                if (keys[i] == TypeKey<Marker>.Value) { found = true; break; }
+            }
+            if (!found) throw new ArgumentException("Delta requires the marker column.");
+        }
     }
 
     private static byte[] FiniteBake() => new Baker()
@@ -476,7 +489,6 @@ public unsafe class DataTests
         Assert.Equal(0u, rows[0].Position);
 
         Timeline.Rows([]).Tick(5u, 5);
-        Assert.True(Timeline.Rows([]).Find(TypeKey<Health>.Value) < 0);
     }
 
     [Fact]
@@ -527,7 +539,7 @@ public unsafe class DataTests
         Assert.Throws<ArgumentException>(() => Timeline.Rows(rows).Read(MemoryMarshal.Cast<TimelineComponent, RowAlias>(rows)));
 
         var columns = Timeline.Rows(rows).Read(new Resistance[2]).Write(new Health[2]).Write(new Marker[2]).Write(new DeltaClip[2]);
-        Assert.Equal(3, columns.Find(TypeKey<DeltaClip>.Value));
+        columns.Tick(0u, 1);
         Assert.Throws<ArgumentException>(() => Timeline.Rows(rows).Read(new Resistance[2]).Write(new Health[2]).Write(new Marker[2]).Write(new DeltaClip[2]).Write(new PhiClip[2]));
     }
 
@@ -540,10 +552,7 @@ public unsafe class DataTests
         var health = new Health[1];
         var query = Timeline.Rows(rows).Read(resistance).Write(health);
 
-        Assert.Equal(0, query.Find(TypeKey<Resistance>.Value));
-        Assert.Equal(1, query.Find(TypeKey<Health>.Value));
-        Assert.Equal(-1, query.Find(TypeKey<Marker>.Value));
-        Assert.Equal(2f, query.Span<Resistance>(0)[0].Scale);
+        Assert.Equal(2f, resistance[0].Scale);
         query.Tick(100u, 1);
         Assert.Equal(11f * 5f, health[0].Value);
         Assert.Equal(1u, rows[0].Position);
@@ -588,7 +597,7 @@ public unsafe class DataTests
         var first = health[0].Value;
         Assert.NotEqual(0f, first);
 
-        var address = (nint)System.Runtime.CompilerServices.Unsafe.AsPointer(ref query.Span<Health>(query.Find(TypeKey<Health>.Value))[0]);
+        var address = (nint)System.Runtime.CompilerServices.Unsafe.AsPointer(ref health[0]);
         var moved = false;
         for (var attempt = 0; attempt < 20 && !moved; attempt++)
         {
@@ -596,7 +605,7 @@ public unsafe class DataTests
             junk[0] = 1;
             GC.Collect(2, GCCollectionMode.Forced, true);
             GC.WaitForPendingFinalizers();
-            var current = (nint)System.Runtime.CompilerServices.Unsafe.AsPointer(ref query.Span<Health>(query.Find(TypeKey<Health>.Value))[0]);
+            var current = (nint)System.Runtime.CompilerServices.Unsafe.AsPointer(ref health[0]);
             moved = current != address;
             address = current;
         }

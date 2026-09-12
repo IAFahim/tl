@@ -202,7 +202,7 @@ public readonly unsafe struct TickFrame
 
 static unsafe class PairTable
 {
-	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> Execute; public delegate*<in TimelineQuery, byte*, void> Bind; }
+	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> Execute; public delegate*<ulong*, int, byte*, void> Bind; }
 	struct Slot { public ulong Key; public int Head; }
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
@@ -212,7 +212,7 @@ static unsafe class PairTable
 	static Slot* SlotAt => (Slot*)_block;
 	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
 
-	internal static void Install(ulong key, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> e, delegate*<in TimelineQuery, byte*, void> b)
+	internal static void Install(ulong key, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> e, delegate*<ulong*, int, byte*, void> b)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
@@ -257,7 +257,7 @@ static unsafe class PairTable
 		return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
 	}
 
-	internal static void Bind(TimelineRef asset, in TimelineQuery columns, byte* indices, byte* rSlots, byte* rCols, ref int rCount, ref ulong boundMask)
+	internal static void Bind(TimelineRef asset, ulong* keys, int keyCount, byte* indices, byte* rSlots, byte* rCols, ref int rCount, ref ulong boundMask)
 	{
 		var slots = SlotAt;
 		var consumers = ConsumerAt;
@@ -266,7 +266,7 @@ static unsafe class PairTable
 			{
 				boundMask |= 1ul << entry;
 				var offset = consumers[entry].Offset;
-				consumers[entry].Bind(in columns, indices + offset);
+				consumers[entry].Bind(keys, keyCount, indices + offset);
 				for (var k = 0; k < 4; k++)
 				{
 					var col = indices[offset + k];
@@ -280,7 +280,7 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 {
 	public static readonly ulong Key = Keying.Of(typeof(TTrack).AssemblyQualifiedName! + "\0" + typeof(TClip).AssemblyQualifiedName!);
 
-	public static void Consume(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate*<in TimelineQuery, byte*, void> bind) => PairTable.Install(Key, execute, bind);
+	public static void Consume(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, bind);
 }
 
 public static class Timeline
@@ -292,16 +292,11 @@ public static class Timeline
 
 public ref struct TimelineQuery
 {
-	ref struct Column { public ulong Key; public ReadOnlySpan<byte> Data; public bool Write; }
-	struct PairCache { public nint Asset; public int Count, RefreshCount; public ulong BoundMask; public unsafe fixed int Heads[ResolvedPairs]; public unsafe fixed ulong Columns[256]; public unsafe fixed byte ColumnIndex[256], RefreshSlot[256], RefreshCol[256]; public byte Identity; }
+	struct PairCache { public nint Asset; public int Count, RefreshCount; public ulong BoundMask; public unsafe fixed int Heads[16]; public unsafe fixed ulong Columns[256]; public unsafe fixed byte ColumnIndex[256], RefreshSlot[256], RefreshCol[256]; public byte Identity; }
 
-	const int ResolvedPairs = 16;
-
-	Span<TimelineComponent> _rows;
-	Column _a, _b, _c, _d;
+	internal Span<TimelineComponent> _rows;
 	PairCache _cache;
 	bool _bound;
-	int _count;
 
 	internal unsafe TimelineQuery(Span<TimelineComponent> rows)
 	{
@@ -309,54 +304,40 @@ public ref struct TimelineQuery
 		new Span<byte>(Unsafe.AsPointer(ref _cache.ColumnIndex[0]), 256).Clear();
 	}
 
-	ReadOnlySpan<byte> DataOf(int index) => index == 0 ? _a.Data : index == 1 ? _b.Data : index == 2 ? _c.Data : _d.Data;
+	internal static unsafe void* P<T>(ReadOnlySpan<T> s) => Unsafe.AsPointer(ref MemoryMarshal.GetReference(s));
 
-	public TimelineQuery Read<T>(ReadOnlySpan<T> column) where T : unmanaged => Append<T>(column, false);
-	public TimelineQuery Write<T>(Span<T> column) where T : unmanaged => Append<T>(column, true);
-
-	TimelineQuery Append<T>(ReadOnlySpan<T> column, bool write) where T : unmanaged
+	internal static void Ck<T>(ReadOnlySpan<T> c, Span<TimelineComponent> r) where T : unmanaged
 	{
-		if (column.Length != _rows.Length) throw new ArgumentException("Column length must equal row count.");
-		var bytes = MemoryMarshal.AsBytes(column);
-		var key = TypeKey<T>.Value;
-		for (var i = 0; i < _count; i++)
-		{
-			var other = i == 0 ? _a : i == 1 ? _b : i == 2 ? _c : _d;
-			if (other.Key == key) throw new ArgumentException("Duplicate column type is role-ambiguous.");
-			if ((write || other.Write) && bytes.Overlaps(other.Data)) throw new ArgumentException("Writable columns must not overlap.");
-		}
-		if (bytes.Overlaps(MemoryMarshal.AsBytes(_rows))) throw new ArgumentException("Columns must not overlap the rows.");
-		if (_count == 4) throw new ArgumentException("At most four columns.");
-		var slot = new Column { Key = key, Data = bytes, Write = write };
-		if (_count == 0) _a = slot;
-		else if (_count == 1) _b = slot;
-		else if (_count == 2) _c = slot;
-		else _d = slot;
-		_count++;
-		return this;
+		if (c.Length != r.Length) throw new ArgumentException("Column length must equal row count.");
+		if (MemoryMarshal.AsBytes(c).Overlaps(MemoryMarshal.AsBytes(r))) throw new ArgumentException("Columns must not overlap the rows.");
 	}
 
-	public int Find(ulong key) => _a.Key == key ? 0 : _b.Key == key ? 1 : _c.Key == key ? 2 : _d.Key == key ? 3 : -1;
+	internal static void CkP<T1, T2>(ReadOnlySpan<T1> a, bool wa, ReadOnlySpan<T2> b, bool wb) where T1 : unmanaged where T2 : unmanaged
+	{
+		if (TypeKey<T1>.Value == TypeKey<T2>.Value) throw new ArgumentException("Duplicate column type is role-ambiguous.");
+		if ((wa || wb) && MemoryMarshal.AsBytes(a).Overlaps(MemoryMarshal.AsBytes(b))) throw new ArgumentException("Writable columns must not overlap.");
+	}
+
+	public TimelineQuery<T> Read<T>(ReadOnlySpan<T> c) where T : unmanaged { Ck(c, _rows); return new(this, c, false); }
+	public TimelineQuery<T> Write<T>(Span<T> c) where T : unmanaged { Ck(c, _rows); return new(this, c, true); }
+
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+	public unsafe void Tick(uint gameTick, int delta = 1) => TickCore(null, null, 0, gameTick, delta);
 
 	unsafe Span<int> Resolved => new(Unsafe.AsPointer(ref _cache.Heads[0]), _cache.Count);
-
-	public unsafe Span<T> Span<T>(int index) where T : unmanaged => new(Unsafe.AsPointer(ref MemoryMarshal.GetReference(DataOf(index))), DataOf(index).Length / sizeof(T));
-
-	unsafe void* Ptr(int i) => Unsafe.AsPointer(ref MemoryMarshal.GetReference(DataOf(i)));
 
 	unsafe byte ComputeIdentity(byte* rS, byte* rC)
 	{
 		var k = (byte)_cache.RefreshCount;
-		if (k > 4) return 0;
+		if (k == 0 || k > 4) return 0;
 		for (var i = 0; i < k; i++) if (rS[i] != i || rC[i] != i) return 0;
 		return k;
 	}
 
-	unsafe void Rebind(TimelineRef r, scoped Span<int> ch, byte* idx, byte* rS, byte* rC, void** b, void** t, ref void** act)
+	unsafe void Rebind(TimelineRef r, scoped Span<int> ch, ulong* keys, int keyCount, byte* idx, byte* rS, byte* rC, void** b, void** t, ref void** act)
 	{
 		r.Resolve(ch);
-		PairTable.Bind(r, in this, idx, rS, rC, ref _cache.RefreshCount, ref _cache.BoundMask);
-		for (var i = 0; i < _count; i++) b[i] = Ptr(i);
+		PairTable.Bind(r, keys, keyCount, idx, rS, rC, ref _cache.RefreshCount, ref _cache.BoundMask);
 		var id = _cache.Identity = ComputeIdentity(rS, rC);
 		if (id != 0) act = b;
 		else { act = t; for (var i = 0; i < _cache.RefreshCount; i++) t[rS[i]] = b[rC[i]]; }
@@ -365,16 +346,7 @@ public ref struct TimelineQuery
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	unsafe void** GetTable(void** b)
 	{
-		var id = _cache.Identity;
-		if (id != 0)
-		{
-			b[0] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_a.Data));
-			if (id > 1) b[1] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_b.Data));
-			if (id > 2) b[2] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_c.Data));
-			if (id > 3) b[3] = Unsafe.AsPointer(ref MemoryMarshal.GetReference(_d.Data));
-			return b;
-		}
-		for (var i = 0; i < _count; i++) b[i] = Ptr(i);
+		if (_cache.Identity != 0) return b;
 		var t = (void**)Unsafe.AsPointer(ref _cache.Columns[0]);
 		var s = (byte*)Unsafe.AsPointer(ref _cache.RefreshSlot[0]);
 		var c = (byte*)Unsafe.AsPointer(ref _cache.RefreshCol[0]);
@@ -382,8 +354,8 @@ public ref struct TimelineQuery
 		return t;
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
-	public unsafe void Tick(uint gameTick, int delta = 1)
+	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	internal unsafe void TickCore(ulong* keys, void** bases, int keyCount, uint gameTick, int delta)
 	{
 		if (delta == 0 || _rows.IsEmpty) return;
 		if ((delta == 1 | delta == -1) && _rows.Length == 1 && _bound)
@@ -394,17 +366,16 @@ public ref struct TimelineQuery
 			{
 				var reverse = delta < 0;
 				if (!c.Reference.Advance(reverse, c.Position, c.Cycle, out var np, out var nc, out var tick, out var cycle, out var flags)) return;
-				void** bases = stackalloc void*[4];
 				c.Reference.Execute(reverse, tick, reverse ? gameTick - 1 : gameTick, cycle, flags, 0, Resolved, GetTable(bases));
 				c.Position = np; c.Cycle = nc;
 				return;
 			}
 		}
-		TickGeneral(gameTick, delta);
+		TickGeneral(keys, bases, keyCount, gameTick, delta);
 	}
 
 	[MethodImpl(MethodImplOptions.NoInlining)]
-	unsafe void TickGeneral(uint gameTick, int delta)
+	unsafe void TickGeneral(ulong* keys, void** bases, int keyCount, uint gameTick, int delta)
 	{
 		var indices = (byte*)Unsafe.AsPointer(ref _cache.ColumnIndex[0]);
 		var rSlots = (byte*)Unsafe.AsPointer(ref _cache.RefreshSlot[0]);
@@ -415,12 +386,11 @@ public ref struct TimelineQuery
 			for (var row = 0; row < _rows.Length; row++)
 			{
 				var reference = _rows[row].Reference;
-				if (reference.Address != 0) PairTable.Bind(reference, in this, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
+				if (reference.Address != 0) PairTable.Bind(reference, keys, keyCount, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
 			}
 			_cache.Identity = ComputeIdentity(rSlots, rCols);
 			_bound = true;
 		}
-		void** bases = stackalloc void*[4];
 		void** activeTable = GetTable(bases);
 		var rowCount = _rows.Length;
 		var cachedAsset = _cache.Asset;
@@ -452,7 +422,7 @@ public ref struct TimelineQuery
 				if (reference.Address != uniformAddress) uniform = false;
 				pairs = Math.Max(pairs, (int)reference.PairCount);
 			}
-			cacheable = uniform && uniformAddress != 0 && pairs <= ResolvedPairs;
+			cacheable = uniform && uniformAddress != 0 && pairs <= 16;
 		}
 		Span<int> chains = warm ? default : stackalloc int[pairs];
 		nint attached = warm ? _cache.Asset : cacheable ? uniformAddress : 0;
@@ -477,7 +447,7 @@ public ref struct TimelineQuery
 					if (c.Reference.Address != attached)
 					{
 						attached = c.Reference.Address;
-						Rebind(c.Reference, chains, indices, rSlots, rCols, bases, table, ref activeTable);
+						Rebind(c.Reference, chains, keys, keyCount, indices, rSlots, rCols, bases, table, ref activeTable);
 					}
 					c.Reference.Execute(reverse, tick, targetGameTick, cycle, flags, 0, chains, activeTable);
 					c.Position = np;
@@ -492,7 +462,7 @@ public ref struct TimelineQuery
 				if (c.Reference.Address != attached)
 				{
 					attached = c.Reference.Address;
-					Rebind(c.Reference, chains, indices, rSlots, rCols, bases, table, ref activeTable);
+					Rebind(c.Reference, chains, keys, keyCount, indices, rSlots, rCols, bases, table, ref activeTable);
 				}
 				c.Reference.Execute(reverse, tick, targetGameTick, cycle, flags, row, chains, activeTable);
 			}
@@ -520,7 +490,7 @@ public ref struct TimelineQuery
 				if (address != attached)
 				{
 					attached = address;
-					Rebind(reference, chains, indices, rSlots, rCols, bases, table, ref activeTable);
+					Rebind(reference, chains, keys, keyCount, indices, rSlots, rCols, bases, table, ref activeTable);
 				}
 				reference.Execute(isReverse, tick, gameTick, cycle, flags, row, chains, activeTable);
 			}
@@ -533,6 +503,45 @@ public ref struct TimelineQuery
 			if (!isReverse) gameTick++;
 		}
 	}
+}
+
+public ref struct TimelineQuery<TA> where TA : unmanaged
+{
+	internal TimelineQuery _q; internal ReadOnlySpan<TA> _a; internal bool _w;
+	internal TimelineQuery(TimelineQuery q, ReadOnlySpan<TA> a, bool w) { _q = q; _a = a; _w = w; }
+	internal void Ck<T>(ReadOnlySpan<T> c, bool w) where T : unmanaged { TimelineQuery.Ck(c, _q._rows); TimelineQuery.CkP(_a, _w, c, w); }
+	public TimelineQuery<TA, T> Read<T>(ReadOnlySpan<T> c) where T : unmanaged { Ck(c, false); return new(this, c, false); }
+	public TimelineQuery<TA, T> Write<T>(Span<T> c) where T : unmanaged { Ck(c, true); return new(this, c, true); }
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[1] { TimelineQuery.P(_a) }; ulong* k = stackalloc ulong[1] { TypeKey<TA>.Value }; _q.TickCore(k, b, 1, gt, d); }
+}
+
+public ref struct TimelineQuery<TA, TB> where TA : unmanaged where TB : unmanaged
+{
+	internal TimelineQuery<TA> _p; internal ReadOnlySpan<TB> _b; internal bool _w;
+	internal TimelineQuery(TimelineQuery<TA> p, ReadOnlySpan<TB> b, bool w) { _p = p; _b = b; _w = w; }
+	internal void Ck<T>(ReadOnlySpan<T> c, bool w) where T : unmanaged { _p.Ck(c, w); TimelineQuery.CkP(_b, _w, c, w); }
+	public TimelineQuery<TA, TB, T> Read<T>(ReadOnlySpan<T> c) where T : unmanaged { Ck(c, false); return new(this, c, false); }
+	public TimelineQuery<TA, TB, T> Write<T>(Span<T> c) where T : unmanaged { Ck(c, true); return new(this, c, true); }
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[2] { TimelineQuery.P(_p._a), TimelineQuery.P(_b) }; ulong* k = stackalloc ulong[2] { TypeKey<TA>.Value, TypeKey<TB>.Value }; _p._q.TickCore(k, b, 2, gt, d); }
+}
+
+public ref struct TimelineQuery<TA, TB, TC> where TA : unmanaged where TB : unmanaged where TC : unmanaged
+{
+	internal TimelineQuery<TA, TB> _p; internal ReadOnlySpan<TC> _c; internal bool _w;
+	internal TimelineQuery(TimelineQuery<TA, TB> p, ReadOnlySpan<TC> c, bool w) { _p = p; _c = c; _w = w; }
+	internal void Ck<T>(ReadOnlySpan<T> c, bool w) where T : unmanaged { _p.Ck(c, w); TimelineQuery.CkP(_c, _w, c, w); }
+	public TimelineQuery<TA, TB, TC, T> Read<T>(ReadOnlySpan<T> c) where T : unmanaged { Ck(c, false); return new(this, c, false); }
+	public TimelineQuery<TA, TB, TC, T> Write<T>(Span<T> c) where T : unmanaged { Ck(c, true); return new(this, c, true); }
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[3] { TimelineQuery.P(_p._p._a), TimelineQuery.P(_p._b), TimelineQuery.P(_c) }; ulong* k = stackalloc ulong[3] { TypeKey<TA>.Value, TypeKey<TB>.Value, TypeKey<TC>.Value }; _p._p._q.TickCore(k, b, 3, gt, d); }
+}
+
+public ref struct TimelineQuery<TA, TB, TC, TD> where TA : unmanaged where TB : unmanaged where TC : unmanaged where TD : unmanaged
+{
+	internal TimelineQuery<TA, TB, TC> _p; internal ReadOnlySpan<TD> _d; internal bool _w;
+	internal TimelineQuery(TimelineQuery<TA, TB, TC> p, ReadOnlySpan<TD> d, bool w) { _p = p; _d = d; _w = w; }
+	public TimelineQuery<TA, TB, TC, TD> Read<T>(ReadOnlySpan<T> c) where T : unmanaged => throw new ArgumentException("At most four columns.");
+	public TimelineQuery<TA, TB, TC, TD> Write<T>(Span<T> c) where T : unmanaged => throw new ArgumentException("At most four columns.");
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)] public unsafe void Tick(uint gt, int d = 1) { void** b = stackalloc void*[4] { TimelineQuery.P(_p._p._p._a), TimelineQuery.P(_p._p._b), TimelineQuery.P(_p._c), TimelineQuery.P(_d) }; ulong* k = stackalloc ulong[4] { TypeKey<TA>.Value, TypeKey<TB>.Value, TypeKey<TC>.Value, TypeKey<TD>.Value }; _p._p._p._q.TickCore(k, b, 4, gt, d); }
 }
 
 public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged

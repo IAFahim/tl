@@ -63,17 +63,18 @@ internal static class JobEmitter
             }
             W($"{job.TypeName}.Execute(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
             W("}");
-            W($"private static void Bind_{name}(in global::Tl.TimelineQuery __tlQuery, byte* __tlIndices)");
+            W($"private static void Bind_{name}(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)");
             W("{");
             for (var i = 0; i < job.Slots.Count; i++)
             {
                 var slot = job.Slots[i];
-                W($"var __tlIdx{i} = __tlQuery.Find(global::Tl.TypeKey<{slot.TypeName}>.Value);");
+                W($"var __tlIdx{i} = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<{slot.TypeName}>.Value);");
                 W($"if (__tlIdx{i} < 0) throw new global::System.ArgumentException(\"{job.TypeName}: required column missing for registered consumer: {slot.TypeName}\");");
                 W($"__tlIndices[{i}] = (byte)(__tlIdx{i} + 1);");
             }
             W("}");
         }
+        W("private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }");
         W("}");
         return writer.ToString();
     }

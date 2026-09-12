@@ -238,10 +238,16 @@ internal sealed class DataAuthoredCase : IDisposable
         PairRuntime<NoOpTrack, NoOpClip>.Consume(&NoOpExecute, &NoOpBind);
     }
 
-    private static unsafe void NoOpBind(in TimelineQuery query, byte* indices)
+    private static unsafe void NoOpBind(ulong* keys, int keyCount, byte* indices)
     {
-        var idx = query.Find(TypeKey<Accumulator>.Value);
-        if (idx >= 0) indices[0] = (byte)(idx + 1);
+        for (var i = 0; i < keyCount; i++)
+        {
+            if (keys[i] == TypeKey<Accumulator>.Value)
+            {
+                indices[0] = (byte)(i + 1);
+                break;
+            }
+        }
     }
 
     private static unsafe void NoOpExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
