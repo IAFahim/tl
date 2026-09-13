@@ -143,24 +143,6 @@ public sealed class ConsumerPlaybackTests
             }
         }
 
-        public readonly partial struct DamageAsset : ITimeline
-        {
-            public static void Define(scoped Builder builder)
-            {
-                var track = builder.Track(new DamageTrack(2f)).Use<ApplyDamage>();
-                builder.Clip(track, new DamageClip(8f), 0u, 1u);
-            }
-        }
-
-        public readonly partial struct HealAsset : ITimeline
-        {
-            public static void Define(scoped Builder builder)
-            {
-                var track = builder.Track(new HealTrack(0.5f)).Use<ApplyHeal>();
-                builder.Clip(track, new HealClip(8f), 0u, 1u);
-            }
-        }
-
         [StructLayout(LayoutKind.Sequential)]
         internal struct Slot<TTrack, TClip> where TTrack : unmanaged where TClip : unmanaged
         {

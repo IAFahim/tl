@@ -92,7 +92,7 @@ public static class GeneratorCli
         var report = Report(model, artifacts, backend);
         CompileGenerationCache.Synchronize(output, key, artifacts, report, previous);
         var bytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
-        Console.WriteLine($"TlGenCompile: {model.Timelines.Count} timeline(s), {model.Catalogs.Count} catalog(s), {artifacts.Length} source file(s), {bytes:N0} UTF-8 B; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
+        Console.WriteLine($"TlGenCompile: {model.Consumers.Count} consumer(s), {artifacts.Length} source file(s), {bytes:N0} UTF-8 B; report {Path.Combine(output, CompileGenerationCache.ReportFileName)}");
         return 0;
     }
 
@@ -142,69 +142,16 @@ public static class GeneratorCli
     {
         var writer = new System.Text.StringBuilder();
         var sourceBytes = artifacts.Sum(static artifact => System.Text.Encoding.UTF8.GetByteCount(artifact.Content));
-        writer.AppendLine("format\t2");
+        writer.AppendLine("format\t3");
         writer.Append("backend\t").AppendLine(backend);
-        writer.AppendLine($"timelines\t{model.Timelines.Count}");
-        writer.AppendLine($"catalogs\t{model.Catalogs.Count}");
+        writer.AppendLine($"consumers\t{model.Consumers.Count}");
         writer.AppendLine($"generated-source-files\t{artifacts.Count}");
         writer.AppendLine($"generated-source-utf8-bytes\t{sourceBytes}");
-        foreach (var timeline in model.Timelines.OrderBy(Qualified, StringComparer.Ordinal))
-        {
-            var qualified = Qualified(timeline);
-            var plan = JobTimelinePlanAdapter.Create(timeline).Plan;
-            writer.Append("timeline\t").Append(qualified)
-                .Append("\ttracks=").Append(timeline.Tracks.Count)
-                .Append("\tclips=").Append(timeline.Clips.Count)
-                .Append("\tduration=").Append(timeline.Duration)
-                .Append("\tloops=").Append(timeline.Loops ? "true" : "false")
-                .Append("\toperations=").Append(plan.Operations.Length)
-                .Append("\tslots=").Append(plan.Slots.Length)
-                .Append("\tregions=").Append(plan.Regions.Length)
-                .Append("\toccurrences=").Append(plan.Occurrences.Length)
-                .Append("\tunique-schedules=").Append(plan.UniqueScheduleCount)
-                .Append("\tunique-payloads=").Append(plan.UniquePayloads.Length)
-                .Append("\tneutral-payload-bytes=").Append(plan.PayloadBytes)
-                .Append("\tneutral-schedule-bytes=").Append(plan.ScheduleBytes)
-                .Append("\tstatic-data-bytes=").Append(qualified).AppendLine(".StaticDataBytes");
-        }
-        foreach (var catalog in model.Catalogs.OrderBy(Qualified, StringComparer.Ordinal))
-        {
-            var qualified = Qualified(catalog);
-            writer.Append("catalog\t").Append(qualified)
-                .Append("\tschemas=").Append(catalog.Schemas.Count)
-                .Append("\tassets=").Append(catalog.Schemas.Sum(static schema => schema.Assets.Count).ToString(System.Globalization.CultureInfo.InvariantCulture));
-            if (backend == "unity-entities")
-            {
-                var timelines = new Dictionary<string, JobTimeline>(model.Timelines.Count, StringComparer.Ordinal);
-                foreach (var timeline in model.Timelines)
-                    timelines.Add("global::" + Qualified(timeline), timeline);
-                var catalogAssets = catalog.Schemas.SelectMany(static schema => schema.Assets)
-                    .Distinct(StringComparer.Ordinal)
-                    .Select(asset => timelines[asset])
-                    .ToArray();
-                var operationKinds = catalogAssets.SelectMany(asset => JobTimelinePlanAdapter.Create(asset).OperationBindings)
-                    .Select(static operation => operation.TypeName).Distinct(StringComparer.Ordinal).Count();
-                var maxStages = catalogAssets.Select(asset => JobTimelinePlanAdapter.Create(asset).Plan.Regions
-                        .Select(static region => (int)region.OccurrenceCount).DefaultIfEmpty().Max())
-                    .DefaultIfEmpty().Max();
-                var scheduledJobs = 2 + catalog.Schemas.Count + maxStages * operationKinds;
-                writer.Append("\toperation-kinds=").Append(operationKinds.ToString(System.Globalization.CultureInfo.InvariantCulture))
-                     .Append("\tmax-stages=").Append(maxStages.ToString(System.Globalization.CultureInfo.InvariantCulture))
-                     .Append("\tscheduled-jobs-per-step=").Append(scheduledJobs.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            }
-            writer.Append("\tstate-bytes=").Append(qualified).AppendLine(".StateBytes");
-        }
         foreach (var artifact in artifacts.OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal))
             writer.Append("artifact\t").Append(artifact.RelativePath).Append("\tutf8-bytes=")
                 .AppendLine(System.Text.Encoding.UTF8.GetByteCount(artifact.Content).ToString(System.Globalization.CultureInfo.InvariantCulture));
         return writer.ToString();
     }
-
-    private static string Qualified(JobTimeline timeline)
-        => (timeline.Namespace.Length == 0 ? "" : timeline.Namespace + ".") + timeline.Name;
-
-    private static string Qualified(JobCatalog catalog)
-        => (catalog.Namespace.Length == 0 ? "" : catalog.Namespace + ".") + catalog.Name;
 
     private static void AddSymbols(string value, ISet<string> symbols)
     {
