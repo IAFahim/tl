@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Tl.Grid.Influence/Tl.Grid.Influence.csproj" />
+    <ProjectReference Include="../../tools/Tl.Influence.Io/Tl.Influence.Io.csproj" />
+  </ItemGroup>
+</Project>

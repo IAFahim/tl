@@ -58,7 +58,7 @@ public sealed unsafe class InfluenceField : IDisposable
     private const int CompactionInterval = 60;
 
     private readonly GridSpec _spec;
-    private readonly CoordMap _slotByCoord;
+    private CoordMap _slotByCoord;
     private NativeBuffer<Int2> _coordBySlot;
     private NativeBuffer<uint> _lastWritten;
     private NativeBuffer<byte> _nonZero;
@@ -401,7 +401,7 @@ public sealed unsafe class InfluenceField : IDisposable
         _stampCount = stampCount;
         _sortedStamps.Resize(stampCount);
         stamps.CopyTo(_sortedStamps.Span);
-        if (stampCount > 0) _sortedStamps.Span.Sort(StampOrder.Instance);
+        StampOrder.Sort(_sortedStamps.Span);
 
         _offsets.Resize(stampCount + 1);
         var running = 0;

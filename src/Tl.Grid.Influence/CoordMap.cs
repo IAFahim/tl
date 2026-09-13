@@ -41,7 +41,7 @@ internal unsafe struct CoordMap : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryGetValue(Int2 coord, out int value)
+    public readonly bool TryGetValue(Int2 coord, out int value)
     {
         var index = IndexOf(KeyOf(coord));
         if (index >= 0)
@@ -97,7 +97,7 @@ internal unsafe struct CoordMap : IDisposable
         return true;
     }
 
-    private int IndexOf(ulong key)
+    private readonly int IndexOf(ulong key)
     {
         var index = HashOf(key) & _mask;
         while (_used[index] != Empty)

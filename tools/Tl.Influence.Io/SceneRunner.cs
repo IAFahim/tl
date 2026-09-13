@@ -9,6 +9,7 @@ public sealed class SceneRunner : IDisposable
     private readonly FieldRegistry _registry = new();
     private readonly Dictionary<string, FieldId> _ids = new(StringComparer.Ordinal);
     private readonly Dictionary<string, WeightMap> _images = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FieldStats> _lastStats = new(StringComparer.Ordinal);
     public SceneRunner(SceneDocument document, string baseDirectory)
     {
         _document = document;
@@ -38,6 +39,9 @@ public sealed class SceneRunner : IDisposable
 
     public FieldRegistry Registry => _registry;
 
+    public FieldStats LastStats(string fieldKey)
+        => _lastStats.TryGetValue(fieldKey, out var stats) ? stats : default;
+
     public int Frames => _document.Frames;
 
     public FieldId IdOf(string key) => _ids[key];
@@ -52,20 +56,17 @@ public sealed class SceneRunner : IDisposable
 
     private string Resolve(string relative) => Path.Combine(_baseDirectory, relative);
 
-    public FieldStats Step(int frame)
+    public void Step(int frame)
     {
         foreach (var pair in EnumeratePairs()) ApplyImages(pair.Value, pair.Key, frame, preStep: true);
 
-        var stats = default(FieldStats);
         foreach (var field in _document.Fields)
         {
             var pair = _registry.Pair(_ids[field.Key]);
-            stats = pair.Step(BuildStamps(field.Key, frame));
+            _lastStats[field.Key] = pair.Step(BuildStamps(field.Key, frame));
         }
 
         foreach (var pair in EnumeratePairs()) ApplyImages(pair.Value, pair.Key, frame, preStep: false);
-
-        return stats;
     }
 
     private IEnumerable<KeyValuePair<int, FieldPair>> EnumeratePairs()
