@@ -1,9 +1,9 @@
-# tlbake
+# Tl.Bake
 
-`tlbake` compiles designer-authored timeline JSON into canonical TLB1 binary assets for the [tl](https://github.com/IAFahim/tl) runtime.
+The `tlbake` command (package `Tl.Bake`) compiles designer-authored timeline JSON into canonical TLB1 binary assets for the [tl](https://github.com/IAFahim/tl) runtime.
 
 ```sh
-dotnet tool install tlbake --add-source <directory containing tl.tools.nupkg>
+dotnet tool install Tl.Bake --global --add-source <directory containing the Tl.Bake nupkg>
 tlbake boss.json boss.tlb --assembly MyGame.Domain.dll
 tlbake boss.json boss.tlb --assembly MyGame.Domain.dll --kernel Kernels.g.cs
 tlbake --strip boss.tlb boss.ship.tlb

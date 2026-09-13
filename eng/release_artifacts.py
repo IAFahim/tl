@@ -26,7 +26,7 @@ PACKAGE_FILES = {
         "icon.png",
     },
     "Tl.Runtime": {"lib/net10.0/Tl.Core.dll"},
-    "tlbake": {
+    "Tl.Bake": {
         "icon.png",
         "README.md",
         "tools/net10.0/any/DotnetToolSettings.xml",
@@ -45,14 +45,14 @@ PACKAGE_DEPENDENCY_GROUPS = {
     "Tl.CSharp": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": [{"id": "Tl.Runtime", "exclude": "Build,Analyzers"}]}],
     "Tl.Gen.CSharp": [],
     "Tl.Runtime": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": []}],
-    "tlbake": [],
+    "Tl.Bake": [],
 }
 
 PACKAGE_FORBIDDEN_FILES = {
     "Tl.CSharp": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Gen.C.dll", "Tl.Gen.CSharp.deps.json", "Tl.Gen.CSharp.pdb", "Tl.Gen.CSharp.runtimeconfig.json"},
     "Tl.Gen.CSharp": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Gen.C.dll"},
     "Tl.Runtime": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Gen.C.dll", "Tl.Gen.CSharp.dll", "Tl.Gen.dll"},
-    "tlbake": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Gen.C.dll"},
+    "Tl.Bake": {"Microsoft.CodeAnalysis.CSharp.dll", "Microsoft.CodeAnalysis.dll", "Tl.Gen.C.dll"},
 }
 
 SYMBOL_FILES = {

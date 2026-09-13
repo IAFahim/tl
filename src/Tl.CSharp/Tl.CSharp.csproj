@@ -14,7 +14,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;ecs;burst;unity;dotnet;deterministic;baked-assets</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.0.0-alpha.4: data-authored consumer binding only; the alpha.3 authored surface was removed (see repository issue 65).</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.5: data-authored consumer binding only; the alpha.3 authored surface was removed (see repository issue 65).</PackageReleaseNotes>
     <TlGenPackOutput Condition="'$(TlGenPackOutput)' == ''">..\Tl.Gen.CSharp\bin\$(Configuration)\net10.0\</TlGenPackOutput>
     <TlGenAnalyzerPackOutput Condition="'$(TlGenAnalyzerPackOutput)' == ''">..\Tl.Gen.CSharp\bin\$(Configuration)\netstandard2.0\</TlGenAnalyzerPackOutput>
   </PropertyGroup>
