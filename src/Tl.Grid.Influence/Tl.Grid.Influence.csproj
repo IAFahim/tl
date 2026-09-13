@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Tl.Grid.Influence</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Version>$(TlVersion)</Version>
+    <PackageId>Tl.Grid.Influence</PackageId>
+    <Authors>IAFahim</Authors>
+    <Description>Chunked sparse integer influence fields with difference-array rasterization, prefix-sum resolve, and deterministic decay. Derived from BovineLabs Timeline Grid Influence (MIT).</Description>
+    <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="pack-readme.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Tl.Grid.Influence.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>
