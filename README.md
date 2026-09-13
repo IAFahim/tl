@@ -19,16 +19,18 @@
 | `Tl.CSharp` | Recommended C# install: runtime plus build-time consumer binding |
 | `Tl.Runtime` | Small declaration, frame, state, and movement ABI |
 | `Tl.Gen.CSharp` | Build-time generator that binds typed consumers |
+| `tlbake` | `dotnet tool`: JSON to baked TLB1 assets |
 
 ## Install
 
-Download `Tl.CSharp.1.0.0-alpha.3.nupkg` and `Tl.Runtime.1.0.0-alpha.3.nupkg` from the [GitHub prerelease](https://github.com/IAFahim/tl/releases/tag/v1.0.0-alpha.3) into `packages`, then install from that local source:
+Download the packages from the [GitHub prerelease](https://github.com/IAFahim/tl/releases) into `packages`, then install from that local source:
 
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.3 --source ./packages
+dotnet add package Tl.CSharp --version 1.0.0-alpha.4 --source ./packages
+dotnet tool install --global tlbake --prerelease --version 1.0.0-alpha.4 --source ./packages
 ```
 
-The packages are not published to nuget.org. The generator runs whenever Roslyn compiles the project, including supporting IDE design-time builds.
+The packages are not published to nuget.org yet. The generator runs whenever Roslyn compiles the project, including supporting IDE design-time builds, and the package targets set `AllowUnsafeBlocks` for consuming projects automatically. Unity is not a NuGet consumer: install the [`com.iafahim.tl`](https://github.com/IAFahim/tl.unity) UPM package in Unity instead.
 
 ## Define the domain
 

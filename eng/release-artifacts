@@ -54,6 +54,7 @@ projects=(
     src/Tl.Core/Tl.Core.csproj
     src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj
     src/Tl.CSharp/Tl.CSharp.csproj
+    tools/Tl.Bake/Tl.Bake.csproj
 )
 
 for package_pass in raw-a raw-b; do
@@ -91,6 +92,7 @@ consumer_artifacts="$stage/consumer-artifacts"
 consumer_properties=(
     "${properties[@]}"
     -p:PathMap="$root=/_/%2C$consumer_artifacts=/_consumer/"
+    -p:TlGenAssembly="$solution_artifacts/bin/Tl.Gen.CSharp/release_net10.0/Tl.Gen.CSharp.dll"
 )
 dotnet restore "$consumer" --force --no-cache --source "$output" --artifacts-path "$consumer_artifacts"
 dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${consumer_properties[@]}"

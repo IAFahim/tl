@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+    <AllowUnsafeBlocks Condition="'$(AllowUnsafeBlocks)' != 'true'">true</AllowUnsafeBlocks>
     <_TlGenProject>$(MSBuildThisFileDirectory)..\Tl.Gen.CSharp.csproj</_TlGenProject>
     <_TlGenPkgTool>$(MSBuildThisFileDirectory)../tools/net10.0/any/Tl.Gen.CSharp.dll</_TlGenPkgTool>
     <_TlGenDotNet Condition="'$(DotNetHostPath)' != ''">$(DotNetHostPath)</_TlGenDotNet>
@@ -24,6 +25,13 @@
     <PropertyGroup>
       <TlGenAssembly>@(_TlGenBuiltTool)</TlGenAssembly>
     </PropertyGroup>
+  </Target>
+
+  <Target Name="_TlGenRequireExportTool"
+          AfterTargets="_TlGenBuildExportTool"
+          Condition="'$(TlGenAssembly)' == ''">
+    <Message Importance="high" Text="TLGEN: the TlGenExport target needs the tl generator CLI; run it from the tl repository checkout or set TlGenAssembly to a built Tl.Gen.CSharp.dll." />
+    <Error Text="TLGEN: TlGenExport requires TlGenAssembly; the package does not carry the CLI (TLGEN80)." />
   </Target>
 
   <Target Name="TlGenExport"
