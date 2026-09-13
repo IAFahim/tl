@@ -217,4 +217,4 @@ The data-authored Unity host package (`unity/com.iafahim.tl` with its Unity proj
 
 ## License
 
-To be decided by the repository owner ([issue #64](https://github.com/IAFahim/tl/issues/64)); no license is granted until then.
+[MIT](LICENSE) — decided by the repository owner in [issue #64](https://github.com/IAFahim/tl/issues/64).

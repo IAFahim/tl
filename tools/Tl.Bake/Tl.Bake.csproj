@@ -18,6 +18,7 @@
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;baker;tlb;cli;dotnet-tool;deterministic</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
