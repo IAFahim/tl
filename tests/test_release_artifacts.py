@@ -113,7 +113,7 @@ class ReleaseArtifactTests(unittest.TestCase):
     def test_nuget_publish_fails_on_an_existing_package(self):
         workflow = (ROOT / ".github" / "workflows" / "publish-nuget.yml").read_text(encoding="utf-8")
         publish = workflow.split("  publish:", 1)[1]
-        self.assertEqual(3, publish.count("dotnet nuget push "))
+        self.assertEqual(4, publish.count("dotnet nuget push "))
         self.assertNotIn("--skip-duplicate", publish)
 
     def test_artifact_workflow_checks_out_the_tag_namespace(self):

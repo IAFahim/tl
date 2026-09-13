@@ -7,7 +7,27 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>tlbake</ToolCommandName>
+    <PackageOutputPath>$(MSBuildProjectDirectory)\bin\$(Configuration)\</PackageOutputPath>
+    <Version>$(TlVersion)</Version>
+    <PackageId>tlbake</PackageId>
+    <Authors>IAFahim</Authors>
+    <Description>tlbake: deterministic JSON-to-TLB1 timeline baker with optional kernel emission, metadata stripping, content cache, and size reports.</Description>
+    <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>timeline;baker;tlb;cli;dotnet-tool;deterministic</PackageTags>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReleaseNotes>v1.0.0-alpha.4: first tool-package release of tlbake (bake, --kernel, --strip, --cache, --report).</PackageReleaseNotes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="pack-readme.md" Pack="true" PackagePath="README.md" />
+    <None Include="..\..\icon.png" Pack="true" PackagePath="icon.png" Visible="false" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />

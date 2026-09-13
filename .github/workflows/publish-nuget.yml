@@ -79,6 +79,7 @@ jobs:
             "Tl.CSharp.$version.nupkg"
             "Tl.Gen.CSharp.$version.nupkg"
             "Tl.Runtime.$version.nupkg"
+            "tlbake.$version.nupkg"
           )
           expected_symbols=(
             "Tl.Runtime.$version.snupkg"
@@ -101,4 +102,5 @@ jobs:
           source=https://api.nuget.org/v3/index.json
           dotnet nuget push "artifacts/release/Tl.Runtime.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
           dotnet nuget push "artifacts/release/Tl.Gen.CSharp.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
+          dotnet nuget push "artifacts/release/tlbake.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
           dotnet nuget push "artifacts/release/Tl.CSharp.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"

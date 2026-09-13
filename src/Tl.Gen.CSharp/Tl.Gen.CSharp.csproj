@@ -14,15 +14,16 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
-    <DevelopmentDependency>true</DevelopmentDependency>
     <Version>$(TlVersion)</Version>
     <PackageId>Tl.Gen.CSharp</PackageId>
     <Authors>IAFahim</Authors>
-    <Description>Build-time compiler for heterogeneous C# timeline declarations.</Description>
+    <Description>Build-time generator that binds typed C# timeline consumers for data-authored timelines.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.0.0-alpha.3: heterogeneous timeline jobs, generated catalog queries, ordered staged execution, and delayed state commit.</PackageReleaseNotes>
+    <PackageTags>timeline;ecs;burst;unity;dotnet;deterministic;baked-assets</PackageTags>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReleaseNotes>v1.0.0-alpha.4: data-authored consumer binding only; the alpha.3 authored surface was removed (see repository issue 65). The build-time CLI ships with the repository, not inside this package.</PackageReleaseNotes>
     <EnforceExtendedAnalyzerRules Condition="'$(TargetFramework)' == 'netstandard2.0'">true</EnforceExtendedAnalyzerRules>
   </PropertyGroup>
 
@@ -39,12 +40,7 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="build\Tl.Gen.CSharp.targets" Pack="true" PackagePath="build\Tl.Gen.CSharp.targets;buildTransitive\Tl.Gen.CSharp.targets" />
     <None Include="$(TlGenAnalyzerPackOutput)Tl.Gen.CSharp.dll" Pack="true" PackagePath="analyzers\dotnet\cs" Visible="false" />
-    <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
-    <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.pdb" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
-    <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.deps.json" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
-    <None Include="$(TlGenPackOutput)Tl.Gen.CSharp.runtimeconfig.json" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
-    <None Include="$(TlGenPackOutput)Microsoft.CodeAnalysis.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
-    <None Include="$(TlGenPackOutput)Microsoft.CodeAnalysis.CSharp.dll" Pack="true" PackagePath="tools\net10.0\any" Visible="false" />
+    <None Include="..\..\icon.png" Pack="true" PackagePath="icon.png" Visible="false" />
   </ItemGroup>
 
   <PropertyGroup>
