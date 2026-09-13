@@ -1,42 +1,36 @@
 # Architecture
 
-## One semantic plan, separate hosts
+## One asset format, separate hosts
 
 ```mermaid
 flowchart LR
-    CS[C# declarations] --> FE[C# frontend]
-    GUI[Designer asset data] -. future frontend .-> PLAN
-    FE --> PLAN[Validated neutral ordered plan]
-    FE --> BIND[C# type and expression binding]
-    PLAN --> GEN[C# query backend]
-    BIND --> GEN
-    GEN --> CODE[Generated timelines and catalogs]
-    CODE --> ABI[Tl.Runtime ABI]
-    CODE --> NET[.NET span query]
-    PLAN --> UNITY[Unity source materializer]
-    BIND --> UNITY
+    ASSET[Designer asset data] --> BAKE[Baker]
+    CS[C# consumer declarations] --> GEN[Tl.Gen.CSharp pair discovery]
+    GEN --> BIND[Typed consumer binding]
+    BAKE --> BYTES[Baked asset bytes]
+    BYTES --> CORE[Tl.Core validated import and coordinator]
+    BIND --> CORE
+    CORE --> NET[.NET rows and typed frame queries]
+    BIND --> UNITY[Unity source materializer]
     UNITY --> ECS[Entities and Burst jobs]
-    PLAN --> C11[Existing C11 ABI v2 backend]
 ```
 
-`Tl.Compiler` owns language-neutral identity, payload encoding identities, operation slots, tracks, clips, hooks, half-open regions, ordered occurrences, exact payload deduplication, and validation. Its public records contain no Roslyn symbol, C# type spelling, constructor expression, callback body, or Unity type.
+Baked assets carry type identity, timing, clip windows, and authored order. `Tl.Core` validates imported bytes, owns selection, ordered stage execution, and delayed commit, and exposes read-only typed frame queries. Its public records contain no Roslyn symbol, C# type spelling, callback body, or Unity type.
 
-`Tl.Gen.CSharp` owns Roslyn discovery, C# semantic binding, constant expressions, operation signatures, diagnostics, and C# source emission. The adapter converts each valid C# declaration into a neutral plan plus index-aligned C# bindings. Backends consume the validated plan rather than rebuilding regions or ordering independently.
+`Tl.Gen.CSharp` owns Roslyn discovery of consumer pairs, C# semantic binding, operation signatures, diagnostics, and C# source emission. The adapter binds each valid `(track, clip)` consumer to the runtime's operation identities. Hosts consume the validated asset and binding rather than rebuilding regions or ordering independently.
 
-The Unity backend consumes the same plan and binding but materializes source before Unity script compilation. This lets the Entities generator discover physical job declarations in the following compiler pass. Host storage differs: .NET borrows spans; Unity queries ECS chunks and components. Their authored operation semantics and occurrence schedule remain shared.
+The Unity backend consumes the same asset format and binding but materializes source before Unity script compilation. This lets the Entities generator discover physical job declarations in the following compiler pass. Host storage differs: .NET borrows caller-owned arrays; Unity queries ECS chunks and components. Their authored operation semantics and occurrence schedule remain shared.
 
-Designer GUI authoring is a future frontend. It must produce the same validated plan rather than introduce a second execution model.
+Designer GUI authoring is a future frontend. It must produce the same baked asset format rather than introduce a second execution model.
 
 ## Package direction
 
 ```mermaid
 flowchart TD
     Runtime[Tl.Runtime]
-    Compiler[Tl.Compiler]
     CSharp[Tl.Gen.CSharp]
     Install[Tl.CSharp]
     Unity[tl.unity]
-    CSharp --> Compiler
     Install --> Runtime
     Install -. embeds .-> CSharp
     Unity --> Runtime
@@ -44,30 +38,27 @@ flowchart TD
     CSharp -. materializes .-> Unity
 ```
 
-`Tl.Runtime` is the only .NET application dependency. It contains declarations, borrowed frames, flags, state, and total movement. The Unity application package lives in the extracted tl.unity repository pending [issue #64](https://github.com/IAFahim/tl/issues/64); it depends on the runtime sources plus Entities. Neither application boundary contains Roslyn, the neutral compiler, a registry, reflection binding, delegate dispatch, a runtime authoring graph, or generated asset data.
+`Tl.Runtime` is the only .NET application dependency. It contains declarations, borrowed frames, flags, state, and total movement. The Unity application package lives in the extracted tl.unity repository pending [issue #64](https://github.com/IAFahim/tl/issues/64); it depends on the runtime sources plus Entities. Neither application boundary contains Roslyn, a registry, reflection binding, delegate dispatch, a runtime authoring graph, or generated asset data.
 
-`Tl.Gen.CSharp` targets netstandard2.0 for Roslyn analyzer hosts and net10.0 for explicit export. The package places the compatible `Tl.Compiler.dll` beside the analyzer. The tool directory contains its own compiler and Roslyn assemblies. `Tl.CSharp` embeds those build assets and depends only on `Tl.Runtime`; build assets never become application references. Unity materialization runs in a separate .NET authoring process and writes physical C# for the Unity compiler, Entities generator, and Burst pipeline.
+`Tl.Gen.CSharp` targets netstandard2.0 for Roslyn analyzer hosts and net10.0 for explicit export. The tool directory contains its own Roslyn assemblies. `Tl.CSharp` embeds those build assets and depends only on `Tl.Runtime`; build assets never become application references. Unity materialization runs in a separate .NET authoring process and writes physical C# for the Unity compiler, Entities generator, and Burst pipeline.
 
-`Tl.Gen.C` consumed `Tl.Compiler` as a normal package dependency and was extracted into a separate repository at commit `3e67333`. Its existing C ABI v2 remains separate from the alpha.3 C# catalog API. C catalog generation requires its own reviewed migration.
+The C backend was extracted into a separate repository at commit `3e67333`. Its existing C ABI v2 remains separate from the data-authored asset format. C asset consumption requires its own reviewed migration.
 
 ## Compilation
 
-The incremental generator discovers partial `ITimeline` and `ITimelineCatalog` declarations already present in the compilation. It reads only supported declarative builder syntax, resolves job signatures and schema slots, validates the complete graph, adapts it to the neutral ordered plan, then emits deterministic timeline and catalog sources.
+The incremental generator discovers `ITimelineJob<TTrack,TClip>` consumer declarations already present in the compilation. It resolves the declared track and clip types and borrowed component slots, validates the complete consumer graph, then emits deterministic typed consumer bindings.
 
 ```mermaid
 sequenceDiagram
     participant Roslyn
-    participant Frontend
-    participant Compiler
-    participant Backend
-    Roslyn->>Frontend: syntax and semantic candidates
-    Frontend->>Compiler: neutral plan
-    Compiler-->>Frontend: validated regions and occurrences
-    Frontend->>Backend: validated plan plus C# bindings
-    Backend-->>Roslyn: deterministic generated sources
+    participant Discovery
+    participant Binding
+    Roslyn->>Discovery: consumer and column candidates
+    Discovery->>Binding: resolved type pairs and signatures
+    Binding-->>Roslyn: deterministic generated bindings
 ```
 
-Normal and supporting IDE design-time builds run this pipeline automatically. Another generator's ordinary `RegisterSourceOutput` cannot feed these declarations into the same compilation. The explicit `TlGenExport` target runs the same reader and emitter when physical source, a deterministic manifest, and a generation report are required.
+Normal and supporting IDE design-time builds run this pipeline automatically. Another generator's ordinary `RegisterSourceOutput` cannot feed these declarations into the same compilation. The explicit `TlGenExport` target runs the same discovery and emitter when physical source, a deterministic manifest, and a generation report are required.
 
 The export cache hashes source contents, references, compiler options, and generator identity. A hit preserves files and timestamps. A miss atomically replaces owned content and removes stale owned outputs. No benchmark autotuning occurs during generation.
 

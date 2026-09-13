@@ -2,15 +2,15 @@
 
 Design record: [issue #27](https://github.com/IAFahim/tl/issues/27). Release gate: [issue #35](https://github.com/IAFahim/tl/issues/35). Coordination: [Project 6](https://github.com/users/IAFahim/projects/6/views/4). Package/tag: `1.0.0-alpha.3` / `v1.0.0-alpha.3`.
 
-This file is the enduring architecture, evidence, and release-gate plan. GitHub issues and Project fields own mutable status. The production implementation contains the alpha.3 catalog/query architecture; earlier prototypes and preimplementation decisions remain in Git history and `docs/alpha3`.
+This file is the enduring architecture, evidence, and release-gate plan. GitHub issues and Project fields own mutable status. Issue #65 removed the alpha.3 authored surface; the data-authored lane is the only authoring path, and the alpha.3 narrative below remains as the design and evidence record.
 
 ## Approved next API
 
 The owner approved [data-authored timelines and typed frame queries](docs/data-authored-api.md) on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns the design discussion, future implementation checklist and recoverable workstreams. Assets contain track and clip `data`, timing and order, without mandatory names or per-asset job bindings. Known type pairs drive `Timeline.Query` inside ECS loops or jobs, while a coordinator preserves signed selection, ordered consumers and delayed commit. The .NET entry is `Timeline.Rows(...).Read(...).Write(...).Tick(...)` over borrowed columns.
 
-That document is the approved direction for the next breaking implementation. The remainder of this file describes the released alpha.3 architecture and its evidence. Do not advertise the proposed API as available or transfer alpha.3 performance receipts to it. A separate qualified version is required; the published alpha.3 tag stays fixed.
+That document is the only authoring contract now that issue #65 removed the superseded authored surface. The remainder of this file retains the alpha.3 architecture narrative and its evidence as a design record; do not transfer alpha.3 performance receipts to the data-authored lane. A separately qualified version is required; the published alpha.3 tag stays fixed.
 
-Implementation is paused by the owner while discussion continues. The documentation-only handoff in [issue #57](https://github.com/IAFahim/tl/issues/57) records the proposal on main for the office PC; the next action is discussion, not prototype or production work. Issue #56 contains the latest authorization and handoff.
+Implementation resumed with the owner's authorization in [issue #56](https://github.com/IAFahim/tl/issues/56), and [issue #65](https://github.com/IAFahim/tl/issues/65) tracked removal of the superseded surface. Issue #56 contains the latest authorization and handoff.
 
 ## Product contract
 
@@ -57,20 +57,16 @@ The supported parallel domain is row-local mutable components plus immutable sha
 ## Compiler boundaries
 
 ```text
-C# declarations
-    -> Tl.Gen.CSharp frontend and typed binding
-    -> Tl.Compiler validated neutral ordered plan
-    -> generated .NET timelines and catalog queries
+designer asset data
+    -> baker validation, ordered schedule, payload deduplication
+    -> baked asset bytes imported and validated by Tl.Core
 
-same neutral plan and C# binding
-    -> deterministic Unity-compatible physical C#
-    -> Unity compiler, Entities generation, Burst
-
-neutral plan and C binding
-    -> existing C11 ABI v2 backend
+C# consumer declarations
+    -> Tl.Gen.CSharp pair discovery and typed binding
+    -> generated .NET consumer bindings and Unity materialized sources
 ```
 
-`Tl.Runtime` owns declarations, state, movement, frame, and flags. `Tl.Compiler` owns language-neutral identities, operation slots, tracks, clips, hooks, regions, occurrences, payload identities, deduplication, and validation. `Tl.Gen.CSharp` owns Roslyn discovery, concrete types and expressions, diagnostics, and .NET/Unity C# emission. Target backends consume the validated plan and binding; they do not rederive semantics.
+`Tl.Runtime` owns declarations, state, movement, frame, and flags. Baked assets own operation identities, tracks, clips, regions, occurrences, payload identities, and deduplication; the runtime validates imports before execution. `Tl.Gen.CSharp` owns Roslyn discovery, concrete types and expressions, diagnostics, and .NET/Unity consumer binding emission. Hosts consume the validated asset and binding; they do not rederive semantics.
 
 Normal Roslyn and supporting IDE builds run incremental generation. `TlGenExport` uses the same reader/emitter for deterministic physical output, cache receipts, reports, and Unity materialization. A cache hit preserves contents and timestamps. No build-time benchmark or autotuning is hidden in generation.
 
@@ -115,7 +111,7 @@ eng/release-artifacts --candidate issue-35 /tmp/tl-alpha3-release
 
 Execute the NativeAOT binary in default, capacity, and module-capacity modes. Measure strict production-only line and branch coverage. Run JetBrains Inspect Code and classify every material result. Historical Unity stable/preview EditMode/PlayMode, Mono/IL2CPP, Burst, leak, and package-isolation evidence remains in `docs/alpha3` and the v1.0.0-alpha.3 receipts. Another agent reviews the exact head after all docs and artifacts agree.
 
-The release set contains five nupkgs, three snupkgs, a NativeAOT smoke archive, generation report, manifest, and checksums. Each artifact is built twice or otherwise reproducibly verified. Package version, tag, release title, source commit, repository ref, and manifest identity must agree.
+The release set contains three nupkgs, one snupkg, a NativeAOT smoke archive, generation report, manifest, and checksums. Each artifact is built twice or otherwise reproducibly verified. Package version, tag, release title, source commit, repository ref, and manifest identity must agree.
 
 The GitHub prerelease is authorized. NuGet publication remains disabled and requires a separate owner decision. License selection remains a separate owner gate. Never infer either from a green GitHub artifact build.
 

@@ -1,29 +1,24 @@
 # tl
 
-`tl` turns immutable gameplay timelines into typed C# programs. One timeline can contain many track and clip types, and one generated query advances thousands of entities through the same ordered schedule without reflection, delegates, runtime compilation, or warm-path allocation.
+`tl` compiles designer-authored timeline data into deterministic execution. A timeline is data: JSON in, baked `.tlb` bytes out, loaded and advanced by a small unmanaged runtime. Typed C# consumers describe what one active `(track, clip)` pair does to borrowed component storage — no reflection, delegates, runtime compilation, or warm-path allocation.
 
-**Status: v1.0.0-alpha.3 prerelease.** The C# API is a breaking prerelease for .NET 10 and C# 14. Unity ECS is qualified on the stable and preview lanes listed below.
+**Status: development prerelease.** The superseded alpha.3 authored surface (handwritten timeline declarations, catalogs, and schema markers) was removed under [issue #65](https://github.com/IAFahim/tl/issues/65). The [data-authored contract](docs/data-authored-api.md) is now the only authoring lane; [issue #56](https://github.com/IAFahim/tl/issues/56) owns its live acceptance status.
 
-The approved next API uses [designer-authored data assets and typed frame queries](docs/data-authored-api.md). It is not implemented in alpha.3; the working examples below describe the released API. [Issue #56](https://github.com/IAFahim/tl/issues/56) tracks the transition.
-
-- Heterogeneous tracks and clips in one timeline
-- Each authored track binds one typed operation to its `(track, clip)` pair
-- Any finite set of unmanaged `in` and `ref` component slots
-- Deterministic forward and reverse occurrence order
-- Generated schema queries over borrowed component columns
-- Total finite completion and explicit looping
-- Automatic incremental generation during normal and IDE builds
-- NativeAOT-safe runtime output with no compiler assemblies
-- Language-neutral immutable schedule below the C# frontend
+- Heterogeneous tracks and clips in one baked asset
+- Deterministic bake: same inputs, same bytes; cache hits preserve timestamps
+- Total signed `Tick` over borrowed component columns
+- Read-only typed frame queries over the selected stage
+- Function-pointer consumer bindings for coordinator-side effects
+- NativeAOT-safe runtime output with no generator assemblies
+- One shared domain assembly compiles for both .NET and Unity hosts
 
 ## Packages
 
 | Package | Purpose |
 | --- | --- |
-| `Tl.CSharp` | Recommended C# install: runtime plus automatic compiler |
+| `Tl.CSharp` | Recommended C# install: runtime plus build-time consumer binding |
 | `Tl.Runtime` | Small declaration, frame, state, and movement ABI |
-| `Tl.Gen.CSharp` | C# declaration reader and generated query backend |
-| `Tl.Compiler` | Language-neutral validated ordered schedule |
+| `Tl.Gen.CSharp` | Build-time generator that binds typed consumers |
 
 ## Install
 
@@ -33,211 +28,170 @@ Download `Tl.CSharp.1.0.0-alpha.3.nupkg` and `Tl.Runtime.1.0.0-alpha.3.nupkg` fr
 dotnet add package Tl.CSharp --version 1.0.0-alpha.3 --source ./packages
 ```
 
-The packages are not published to nuget.org.
+The packages are not published to nuget.org. The generator runs whenever Roslyn compiles the project, including supporting IDE design-time builds.
 
-The package generator runs whenever Roslyn compiles the project, including supporting IDE design-time builds. There is no `Build`, `Compile`, `InMemory`, `Bind`, registry, or interpreted fallback in the alpha.3 execution path.
+## Define the domain
 
-## Define gameplay operations
-
-The quick start separates code you author from code the compiler generates. You author the domain values, jobs, timeline `Attack`, schema marker `CombatRows`, and catalog `Combat`. `Tl` supplies `IBlend<TClip>`, `ITimelineJob<TTrack,TClip>`, `Frame<TTrack,TClip>`, `ITimeline`, `Builder`, `ITimelineCatalog`, and `CatalogBuilder`. Compilation then completes the two `partial` declarations and creates the catalog API used below.
-
-Track values hold immutable settings. Clip values hold immutable authored payload. A job describes what one active `(track, clip)` pair does to borrowed component storage.
+You author the domain values and one typed consumer per `(track, clip)` pair. `Tl` supplies `IBlend<TClip>`, `ITimelineJob<TTrack,TClip>`, and `Frame<TTrack,TClip>`; the generator discovers consumers compilation-wide, so there is no registration, catalog, or schema marker.
 
 ```cs
 using Tl;
 
-public readonly record struct Pose(float X, float Y);
-public readonly record struct Health(float Value);
-public readonly record struct Resistance(float Scale);
-public readonly record struct AnimationClip(float X, float Y);
-public readonly record struct DamageClip(float Amount);
-
-public readonly record struct AnimationTrack(int Order) : IBlend<AnimationClip>
+namespace Combat
 {
-    public void Blend(
-        in AnimationClip first,
-        in AnimationClip second,
-        float factor,
-        out AnimationClip result)
-        => result = new(
-            first.X + (second.X - first.X) * factor,
-            first.Y + (second.Y - first.Y) * factor);
-}
-
-public readonly record struct DamageTrack(float Multiplier) : IBlend<DamageClip>
-{
-    public void Blend(
-        in DamageClip first,
-        in DamageClip second,
-        float factor,
-        out DamageClip result)
-        => result = new(first.Amount + (second.Amount - first.Amount) * factor);
-}
-
-public readonly struct AnimationJob : ITimelineJob<AnimationTrack, AnimationClip>
-{
-    public static void Execute(
-        in Frame<AnimationTrack, AnimationClip> frame,
-        ref Pose pose)
-        => pose = new(
-            pose.X + frame.Direction * frame.Clip.X,
-            pose.Y + frame.Direction * frame.Clip.Y);
-}
-
-public readonly struct DamageJob : ITimelineJob<DamageTrack, DamageClip>
-{
-    public static void Execute(
-        in Frame<DamageTrack, DamageClip> frame,
-        in Resistance resistance,
-        ref Health health)
-        => health = new(
-            health.Value - frame.Direction * frame.Clip.Amount
-                * frame.Track.Multiplier * resistance.Scale);
-}
-```
-
-`in` declares a borrowed read-only component column. `ref` declares a borrowed writable column. If the same named, typed slot is read by one job and written by another, the generated schema exposes it as writable. `out` is intentionally unsupported in alpha.3 because a skipped occurrence cannot satisfy C# definite assignment without inventing a value.
-
-## Author one heterogeneous timeline
-
-`Attack` is an authored partial timeline declaration. `Use<TJob>()` binds behavior to a track. Authored order is semantic, so the following timeline executes animation, damage, animation at every frame where all three are active. The compiler completes `Attack` with immutable timeline data, count and size metadata, and the internal selection, execution, and commit code.
-
-```cs
-public readonly partial struct Attack : ITimeline
-{
-    public static void Define(scoped Builder builder)
+    public readonly partial struct Resistance
     {
-        var opening = builder.Track(new AnimationTrack(1)).Use<AnimationJob>();
-        var impact = builder.Track(new DamageTrack(2f)).Use<DamageJob>();
-        var followThrough = builder.Track(new AnimationTrack(3)).Use<AnimationJob>();
+        public readonly float Scale;
+        public Resistance(float scale) => Scale = scale;
+    }
 
-        builder.Clip(opening, new AnimationClip(2f, 1f), 0u, 20u);
-        builder.Clip(impact, new DamageClip(10f), 0u, 20u);
-        builder.Clip(followThrough, new AnimationClip(1f, 0f), 0u, 20u);
+    public partial struct Health
+    {
+        public float Value;
+    }
+
+    public readonly struct DamageClip
+    {
+        public readonly float Amount;
+        public DamageClip(float amount) => Amount = amount;
+    }
+
+    public readonly struct DamageTrack : IBlend<DamageClip>
+    {
+        public readonly float Multiplier;
+        public DamageTrack(float multiplier) => Multiplier = multiplier;
+
+        public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)
+            => result = new DamageClip(first.Amount + (second.Amount - first.Amount) * factor);
+    }
+
+    public readonly struct ApplyDamage : ITimelineJob<DamageTrack, DamageClip>
+    {
+        public static void Execute(
+            in Frame<DamageTrack, DamageClip> frame,
+            in Resistance resistance,
+            ref Health health)
+        {
+            var amount = frame.Clip.Amount * frame.Track.Multiplier * resistance.Scale;
+            health.Value += frame.IsBackward ? amount : -amount;
+        }
     }
 }
 ```
 
-Two clips may overlap on one track. The generated kernel calls `Blend` once and passes one resolved frame to that track's job. `builder.Before<THook>()`, `builder.After<THook>()`, `builder.Include<TTimeline>()`, and `builder.Looping()` add explicit composition and lifecycle semantics.
+Track values hold immutable settings. Clip values hold immutable authored payload. `in` declares a borrowed read-only component column; `ref` declares a borrowed writable column. The generator derives each consumer's column set from the `Execute` signature. The `partial` modifiers are optional in .NET; keeping them lets the same file compile inside Unity, where the [tl.unity guide](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) adds host hooks in a second partial file.
 
-## Declare a catalog and use its generated .NET query
+## Author and bake one timeline
 
-`CombatRows` and `Combat` are authored declarations. A schema is a user-named empty unmanaged marker such as `CombatRows`; it does not implement an interface, and there is no `ITimelineSchema`. The catalog gives each schema a closed set of valid timelines, and the generator derives its component columns from the jobs in those timelines.
+`boss.json` — flat schema v1. Track/clip `namespace`+`type` name the C# types above; `data` field names map onto struct fields; windows are half-open `[start, end)`; execution order is authored clip order:
 
-```cs
-public readonly struct CombatRows;
-
-public readonly partial struct Combat : ITimelineCatalog
+```json
 {
-    public static void Define(scoped CatalogBuilder builder)
+  "name": "boss_phase_one",
+  "duration": 8,
+  "loop": true,
+  "tracks": [
     {
-        builder.Schema<CombatRows>().Asset<Attack>();
+      "name": "main_damage",
+      "namespace": "Combat",
+      "type": "DamageTrack",
+      "data": { "Multiplier": 2.0 },
+      "clips": [
+        { "namespace": "Combat", "type": "DamageClip", "start": 0, "end": 3, "data": { "Amount": 5 } },
+        { "namespace": "Combat", "type": "DamageClip", "start": 4, "end": 8, "data": { "Amount": 9 } }
+      ]
     }
+  ]
 }
 ```
 
-`Asset<Attack>()` closes `CombatRows` membership at compile time and causes the compiler to create a catalog-local route for `Attack`. It does not allocate an asset or register one at runtime.
+Bake with `tlbake`, pointing `--assembly` at the compiled domain DLL so the baker resolves the authored type names. Baking is deterministic; cache hits preserve timestamps; `--report` prints sizes:
 
-Together, the declarations above form `Timelines.cs`; the following generated API use can live in `Program.cs`. Compilation adds `Combat.Asset` with `None` and `Attack` routes, `Combat.State` for each row's playback state, `Combat.Query`, and its `CombatRows(...)` query-construction method. The application owns the state and component arrays passed to that generated query.
-
-```cs
-var states = new[]
-{
-    new Combat.State(Combat.Asset.Attack),
-    new Combat.State(Combat.Asset.Attack),
-    new Combat.State(Combat.Asset.None),
-};
-var poses = new Pose[states.Length];
-var resistance = new[]
-{
-    new Resistance(1f),
-    new Resistance(0.5f),
-    new Resistance(1f),
-};
-var health = new[]
-{
-    new Health(100f),
-    new Health(100f),
-    new Health(100f),
-};
-
-var query = new Combat.Query().CombatRows(states, poses, resistance, health);
-query.Tick(gameTick: 200_000u, delta: 3);
-query.Tick(gameTick: 200_003u, delta: -3);
+```sh
+dotnet build -c Release
+dotnet run --project tools/Tl.Bake -c Release -- \
+  boss.json \
+  boss.tlb \
+  --assembly bin/Release/net10.0/MyApp.dll \
+  --cache ~/.tlbcache
 ```
 
-`Tick(G, +N)` emits game ticks `G` through `G + N - 1`. `Tick(G, -N)` emits `G - 1` through `G - N`. The game tick is supplied by the caller; timeline state stores only catalog-local asset, position, cycle, and internal pending selection.
+`tlbake --report boss.tlb` audits sizes and `tlbake --strip boss.tlb boss.dist.tlb` trims metadata for distribution.
 
-For each simulation step, the query selects every row once, executes compatible rows stage by stage, and commits each selected row once after all stages. This preserves A→B→A for one entity while allowing each typed operation stage to process every compatible entity. Reverse playback executes the exact reversed occurrence order. Finite assets stop contributing when complete; other rows continue. Asset `None` is empty, and default state is valid empty state.
+## Load, advance, and query
 
-Schema construction checks equal column lengths, route membership, and prohibited writable overlap. `Tick` rechecks mutable routes before effects. Configuration errors throw before callbacks; ordinary completion is a no-op. A job exception propagates, retains its already-executed effect prefix, and prevents state commit for that step.
+The application owns the rows, component arrays, and the game clock. `TimelineAsset.Load` is a cold validated import; dispose the asset after all rows and readers are done.
 
-## Frame data
+```cs
+using var asset = TimelineAsset.Load(File.ReadAllBytes("boss.tlb"));
+var rows    = new[] { new TimelineComponent(asset.Reference) };
+var resist  = new[] { new Resistance(1f) };
+var health  = new[] { new Health { Value = 100f } };
+var query   = Timeline.Rows(rows).Read(resist).Write(health);
+query.Tick(gameTick: 200_000u, delta: 1);   // consumers dispatch, movement commits
+```
 
-`Frame<TTrack,TClip>` borrows the immutable track and resolved clip. It also exposes:
+`Tick(G, +N)` emits game ticks `G` through `G + N - 1`; `Tick(G, -N)` emits `G - 1` through `G - N`. Non-looping assets clamp at duration; loops carry independent per-instance cycles. Every available crossed frame executes.
 
-| Member | Meaning |
-| --- | --- |
-| `GameTick` | External simulation tick for this emitted frame |
-| `TimelineTick` | Local normalized tick in the asset |
-| `Cycle` | Signed loop cycle of the emitted frame |
-| `TrackIndex` | Stable authored track index, `0..255` |
-| `Flags` | Independent clip, timeline, completion, loop, and reverse facts |
-| `Direction` | `-1` when `Reverse` is present; otherwise `1` |
+The same bytes drive the typed query lane, which reads the row's currently selected stage without advancing it:
 
-Frames exist only during `Execute`. Jobs must not retain their borrowed references.
+```cs
+foreach (var frame in Timeline.Query<DamageTrack, DamageClip>(in rows[0]))
+    ApplyDamage.Execute(in frame, in resist[0], ref health[0]);
+```
+
+The query is a read-only stage view: it never advances `Position` or `Cycle`, so repeated queries return identical frames. A gap or clamped-completed position yields no frames; reverse movement re-observes the same stages in reverse; multiple occurrences of one pair in a step appear in authored order. In this view `Track`, `Clip`, `TimelineTick`, `Cycle`, and `TrackIndex` are populated; `GameTick` and `Flags` belong to the execution path. Frames exist only during `Execute`; consumers must not retain their borrowed references.
 
 ## Generated reports
 
-Normal compilation owns generated sources inside the compiler. Run the explicit export target when a standalone, content-stable snapshot is useful for review, another build pipeline, or size inspection:
+Normal compilation owns generated sources inside the generator. Run the explicit export target when a standalone, content-stable snapshot is useful for review, another build pipeline, or size inspection:
 
 ```sh
 dotnet msbuild -t:TlGenExport -p:Configuration=Release
 ```
 
-The export writes generated `.g.cs`, a manifest, and `TlGenCompile.report.txt` under `obj/Release/<tfm>/TlGenCompile`. A repeated identical invocation is a cache hit and preserves generated content. Reports include timeline, catalog, track, clip, operation, slot, region, occurrence, unique schedule, unique payload, neutral byte, generated source byte, static data, and state counts.
-
-Generated catalogs expose `AssetCount`, `StateBytes`, and `StaticDataBytes`. Generated timelines expose `Duration`, `Loops`, `TrackCount`, `ClipCount`, `MaxStageCount`, and `StaticDataBytes`.
+The export writes generated `.g.cs`, a manifest, and `TlGenCompile.report.txt` under `obj/Release/<tfm>/TlGenCompile`. A repeated identical invocation is a cache hit and preserves generated content.
 
 ## Performance contract
 
-The hot path is allocation-free after warmup. The source generator specializes region boundaries, payload storage, blend facts, operation calls, stage order, and schema routing. The release benchmark compares the full generated query against an independent direct oracle with identical observable work. Scalar latency and multi-entity throughput are reported separately; the below-3-ns goal applies only to its named hot workload and is never inferred from a partial inner loop.
+The hot path is allocation-free after warmup. `benchmarks/Alpha --verify` checks kernel-lane, data-authored, and allocation receipts; scalar latency and multi-entity throughput are reported separately and never inferred from a partial inner loop.
 
 The repository enforces a 300,000-byte budget over production source contents plus relative UTF-8 paths. Generated source, static data, per-entity state, managed/native output, scratch, and allocations are measured separately.
 
 ## Unity ECS
 
-The Unity surface moved to the extracted tl.unity repository pending [issue #64](https://github.com/IAFahim/tl/issues/64); this repository ships no UPM package.
+The Unity surface lives in the extracted [tl.unity](https://github.com/IAFahim/tl.unity) repository pending [issue #64](https://github.com/IAFahim/tl/issues/64); this repository ships no UPM package. Its [END-TO-END guide](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) walks the same domain code, JSON, and `.tlb` bytes into Unity ECS: a coordinator advances `TimelineComponent` rows and your own system consumes typed frames:
 
-Unity uses the same authored jobs and neutral ordered schedule with host-specific storage and scheduling. Generated Unity selectors and typed operation jobs operate over ECS columns, followed by one state commit. Unity source is materialized before Unity script compilation so Entities can generate its own jobs. The qualified stable lane is Unity 6000.0.83f1, Entities 1.4.3, and Burst 1.8.30; the preview lane is Unity 6000.7.0a5, Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0. EditMode and PlayMode pass 4/4 on both lanes. Stable Mono and IL2CPP players execute the generated Burst jobs, print the expected marker, contain Burst symbols, and exclude compiler, generator, and Roslyn assemblies. The 10,000-row stable fixture measures 18.006 ns/entity-step, 20 scheduled jobs/step, and 0 main-thread managed B after warmup. See the [Unity guide](docs/unity.md).
+```cs
+foreach (var frame in TimelineEcs.Query<DamageTrack, DamageClip>(in timeline.ValueRO))
+    ApplyDamage.Execute(in frame, in r, ref h);
+```
 
-## Limits
+## Scope
 
-- At most 256 authored tracks per timeline
-- At most two active clips on one track
-- Half-open clip windows `[start, end)` with constant `uint` bounds
+- Track and clip types are closed at build time; introducing executable types requires recompilation
+- Asset track/clip `namespace` names are a single bare segment; dotted namespaces diagnose
+- Half-open clip windows `[start, end)`; execution order is authored clip order
 - Unmanaged track settings, clip payloads, and component slots
-- `in` and `ref` operation slots; no `out` slots in alpha.3
-- Row-local effects only in the parallel scheduling model
 - Arbitrary looping deltas perform every observable effect and are proportional to the requested work
-- Designer GUI authoring, C catalog emission, cross-generated declarations, and runtime-loaded arbitrary schemas are outside alpha.3
+- Designer GUI authoring, C asset consumption, and runtime-loaded arbitrary schemas are deferred
 
 ## Repository map
 
 | Path | Role |
 | --- | --- |
-| `src/Tl.Core` | Runtime declarations, borrowed frames, state, and total movement |
-| `src/Tl.Compiler` | Language-neutral ordered schedule and validation |
-| `src/Tl.Gen.CSharp` | C# frontend, generated query backend, and export tool |
+| `src/Tl.Core` | Runtime declarations, asset import, frames, state, and total movement |
+| `src/Tl.Gen.CSharp` | C# consumer discovery, typed binding, and export tool |
 | `src/Tl.CSharp` | One-package C# installation |
-| `samples/Mixed` | Heterogeneous A→B→A catalog/query sample |
-| `tests/Tl.Alpha` | Generated behavior, schema, scale, and allocation receipts |
+| `samples/Mixed` | Data-authored timeline sample |
+| `tools/Tl.Bake` | `tlbake` JSON-to-`TLB1` baker with cache, report, and strip |
+| `tests/Tl.Alpha` | Kernel-lane, data-authored, and allocation receipts |
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |
-| `benchmarks/Alpha` | Full-query oracle, latency, throughput, assembly, and PMU evidence |
+| `benchmarks/Alpha` | Oracle, latency, throughput, assembly, and PMU evidence |
 
-The `Tl.Gen.C` C11 backend and the data-authored Unity host package (`unity/com.iafahim.tl` with its Unity project receipts) were extracted into separate repositories at commit `3e67333`; their publication and licensing remain owner decisions.
+The data-authored Unity host package (`unity/com.iafahim.tl` with its Unity project receipts) was extracted into the tl.unity repository; its publication and licensing remain owner decisions.
 
-Read the [API contract](docs/v1.0-alpha-api.md), [execution semantics](docs/semantics.md), [migration guide](docs/v1.0-alpha-migration.md), [architecture](docs/architecture.md), and [implementation plan](plan.md).
+Read the [data-authored contract](docs/data-authored-api.md), the frozen alpha.3 record ([v1.0-alpha-api.md](docs/v1.0-alpha-api.md)), [execution semantics](docs/semantics.md), [architecture](docs/architecture.md), and [implementation plan](plan.md).
 
 ## Validate
 

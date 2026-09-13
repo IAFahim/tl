@@ -8,17 +8,6 @@
     <TlGenBackend Condition="'$(TlGenBackend)' == ''">csharp</TlGenBackend>
   </PropertyGroup>
 
-  <Target Name="_TlGenResolveProjectAnalyzerDependency"
-          BeforeTargets="CoreCompile"
-          DependsOnTargets="ResolveProjectReferences"
-          Condition="Exists('$(_TlGenProject)')">
-    <ItemGroup>
-      <_TlGenProjectAnalyzer Include="@(Analyzer)"
-                             Condition="'%(Analyzer.Filename)' == 'Tl.Gen.CSharp'" />
-      <Analyzer Include="@(_TlGenProjectAnalyzer->'%(RootDir)%(Directory)Tl.Compiler.dll')" />
-    </ItemGroup>
-  </Target>
-
   <Target Name="_TlGenBuildExportTool"
           BeforeTargets="TlGenExport"
           Condition="Exists('$(_TlGenProject)') And '$(TlGenAssembly)' == ''">

@@ -53,7 +53,6 @@ properties=(
 projects=(
     src/Tl.Core/Tl.Core.csproj
     src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj
-    src/Tl.Compiler/Tl.Compiler.csproj
     src/Tl.CSharp/Tl.CSharp.csproj
 )
 
@@ -88,9 +87,7 @@ cp "$stage/raw-a-normalized"/* "$output/"
 python3 "$root/eng/release_artifacts.py" verify "$output" "$version" "$head_commit" "$repository_ref"
 
 consumer="$root/tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj"
-compiler_consumer="$root/tests/Tl.Compiler.PackageConsumer/Tl.Compiler.PackageConsumer.csproj"
 consumer_artifacts="$stage/consumer-artifacts"
-compiler_consumer_artifacts="$stage/compiler-consumer-artifacts"
 consumer_properties=(
     "${properties[@]}"
     -p:PathMap="$root=/_/%2C$consumer_artifacts=/_consumer/"
@@ -99,11 +96,6 @@ dotnet restore "$consumer" --force --no-cache --source "$output" --artifacts-pat
 dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${consumer_properties[@]}"
 jit_output="$consumer_artifacts/bin/Tl.PackageConsumer/release"
 [[ "$("$jit_output/Tl.PackageConsumer")" == "7" ]]
-
-dotnet restore "$compiler_consumer" --force --no-cache --source "$output" --artifacts-path "$compiler_consumer_artifacts"
-dotnet build "$compiler_consumer" -c Release --no-restore --artifacts-path "$compiler_consumer_artifacts" "${properties[@]}"
-compiler_jit_output="$compiler_consumer_artifacts/bin/Tl.Compiler.PackageConsumer/release"
-[[ "$("$compiler_jit_output/Tl.Compiler.PackageConsumer")" == "1:9:2" ]]
 
 export_log="$stage/Tl.PackageConsumer.export.log"
 dotnet msbuild "$consumer" -t:TlGenExport -p:Configuration=Release -p:ArtifactsPath="$consumer_artifacts" "${consumer_properties[@]}" | tee "$export_log"
@@ -117,7 +109,7 @@ dotnet msbuild "$consumer" -t:TlGenExport -p:Configuration=Release -p:ArtifactsP
     -p:TlGenBackend=unity-entities -p:TlGenOutput="$unity_export" "${consumer_properties[@]}"
 grep -F $'backend\tunity-entities' "$unity_export/TlGenCompile.report.txt"
 
-for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do
+for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Gen.C.dll; do
     [[ ! -e "$jit_output/$forbidden" ]] || { printf '%s\n' "JIT output contains $forbidden" >&2; exit 2; }
 done
 
@@ -125,7 +117,7 @@ dotnet restore "$consumer" -r "$runtime_identifier" -p:PublishAot=true --force -
 dotnet publish "$consumer" -c Release -r "$runtime_identifier" --self-contained true -p:PublishAot=true -p:StripSymbols=true --no-restore --artifacts-path "$consumer_artifacts" -o "$stage/aot" "${consumer_properties[@]}"
 [[ "$("$stage/aot/Tl.PackageConsumer")" == "7" ]]
 
-for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Compiler.dll Tl.Gen.C.dll; do
+for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Microsoft.CodeAnalysis.dll Microsoft.CodeAnalysis.CSharp.dll Tl.Gen.C.dll; do
     [[ ! -e "$stage/aot/$forbidden" ]] || { printf '%s\n' "NativeAOT output contains $forbidden" >&2; exit 2; }
 done
 

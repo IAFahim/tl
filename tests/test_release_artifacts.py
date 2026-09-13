@@ -98,26 +98,6 @@ class ReleaseArtifactTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "dependency groups"):
                 RELEASE_ARTIFACTS.verify_nupkg(wrong_dependency, "Tl.Runtime", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
 
-    def test_compiler_package_requires_both_targets_and_bounded_dependency(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            valid = root / "valid.nupkg"
-            unexpected = root / "unexpected.nupkg"
-            unexpected_dependency = root / "unexpected-dependency.nupkg"
-            wrong_dependency = root / "wrong-dependency.nupkg"
-            self.write_compiler_package(valid)
-            self.write_compiler_package(unexpected, extra="lib/net8.0/Tl.Compiler.dll")
-            self.write_compiler_package(unexpected_dependency, extra_dependency=True)
-            self.write_compiler_package(wrong_dependency, dependency_version="10.0.0")
-
-            RELEASE_ARTIFACTS.verify_nupkg(valid, "Tl.Compiler", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
-            with self.assertRaisesRegex(ValueError, "files are"):
-                RELEASE_ARTIFACTS.verify_nupkg(unexpected, "Tl.Compiler", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
-            with self.assertRaisesRegex(ValueError, "dependency groups"):
-                RELEASE_ARTIFACTS.verify_nupkg(unexpected_dependency, "Tl.Compiler", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
-            with self.assertRaisesRegex(ValueError, "dependency groups"):
-                RELEASE_ARTIFACTS.verify_nupkg(wrong_dependency, "Tl.Compiler", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
-
     def test_symbol_verifier_requires_portable_embedded_source(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -126,14 +106,14 @@ class ReleaseArtifactTests(unittest.TestCase):
             self.write_symbol_package(valid, b"BSJB" + RELEASE_ARTIFACTS.EMBEDDED_SOURCE_GUID)
             self.write_symbol_package(invalid, b"BSJB")
 
-            RELEASE_ARTIFACTS.verify_snupkg(valid, "Tl.Compiler", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
+            RELEASE_ARTIFACTS.verify_snupkg(valid, "Tl.Runtime", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
             with self.assertRaisesRegex(ValueError, "embedded-source"):
-                RELEASE_ARTIFACTS.verify_snupkg(invalid, "Tl.Compiler", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
+                RELEASE_ARTIFACTS.verify_snupkg(invalid, "Tl.Runtime", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
 
     def test_nuget_publish_fails_on_an_existing_package(self):
         workflow = (ROOT / ".github" / "workflows" / "publish-nuget.yml").read_text(encoding="utf-8")
         publish = workflow.split("  publish:", 1)[1]
-        self.assertEqual(5, publish.count("dotnet nuget push "))
+        self.assertEqual(3, publish.count("dotnet nuget push "))
         self.assertNotIn("--skip-duplicate", publish)
 
     def test_artifact_workflow_checks_out_the_tag_namespace(self):
@@ -203,24 +183,11 @@ class ReleaseArtifactTests(unittest.TestCase):
 
     @staticmethod
     def write_symbol_package(path, pdb):
-        nuspec = f"""<package><metadata><id>Tl.Compiler</id><version>1.2.3</version><repository type="git" url="https://github.com/IAFahim/tl" branch="refs/tags/v1.2.3" commit="{'a' * 40}"/></metadata></package>"""
-        files = RELEASE_ARTIFACTS.SYMBOL_METADATA_FILES | {"Tl.Compiler.nuspec"} | RELEASE_ARTIFACTS.SYMBOL_FILES["Tl.Compiler"]
+        nuspec = f"""<package><metadata><id>Tl.Runtime</id><version>1.2.3</version><repository type="git" url="https://github.com/IAFahim/tl" branch="refs/tags/v1.2.3" commit="{'a' * 40}"/></metadata></package>"""
+        files = RELEASE_ARTIFACTS.SYMBOL_METADATA_FILES | {"Tl.Runtime.nuspec"} | RELEASE_ARTIFACTS.SYMBOL_FILES["Tl.Runtime"]
         with zipfile.ZipFile(path, "w") as archive:
             for name in files:
                 archive.writestr(name, nuspec if name.endswith(".nuspec") else pdb if name.endswith(".pdb") else b"content")
-
-    @staticmethod
-    def write_compiler_package(path, dependency_version="10.0.1", extra=None, extra_dependency=False):
-        dependency = f"""<dependency id="System.Collections.Immutable" version="{dependency_version}" exclude="Build,Analyzers"/>"""
-        if extra_dependency:
-            dependency += """<dependency id="Unexpected" version="1.0.0"/>"""
-        nuspec = f"""<package><metadata><id>Tl.Compiler</id><version>1.2.3</version><repository type="git" url="https://github.com/IAFahim/tl" branch="refs/tags/v1.2.3" commit="{'a' * 40}"/><dependencies><group targetFramework="net10.0"/><group targetFramework=".NETStandard2.0">{dependency}</group></dependencies></metadata></package>"""
-        files = RELEASE_ARTIFACTS.PACKAGE_FILES["Tl.Compiler"] | RELEASE_ARTIFACTS.PACKAGE_METADATA_FILES | {"Tl.Compiler.nuspec"}
-        if extra is not None:
-            files.add(extra)
-        with zipfile.ZipFile(path, "w") as archive:
-            for name in files:
-                archive.writestr(name, nuspec if name.endswith(".nuspec") else b"content")
 
 
 if __name__ == "__main__":
