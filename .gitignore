@@ -34,3 +34,6 @@ __pycache__/
 /WORK-REPORT.md
 /.tl-loop/
 samples/Influence/frames/
+
+# baked sample artifact (CI and README quick start regenerate it)
+samples/NuGetQuickStart/boss.tlb

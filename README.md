@@ -214,6 +214,7 @@ scene that exports PPM frames.
 | `src/Tl.CSharp` | One-package C# installation |
 | `samples/Mixed` | Data-authored timeline sample |
 | `samples/Influence` | Grid influence scene: JSON clips, PPM layers, frame captures |
+| `samples/NuGetQuickStart` | Runnable quick start that consumes the published nuget.org packages; CI runs it on every build |
 | `tools/Tl.Bake` | `tlbake` JSON-to-`TLB1` baker with cache, report, and strip |
 | `tools/Tl.Influence.Io` | PNM codec + JSON scene runner for influence fields |
 | `tests/Tl.Alpha` | Kernel-lane, data-authored, and allocation receipts |
@@ -221,7 +222,7 @@ scene that exports PPM frames.
 | `benchmarks/Alpha` | Oracle, latency, throughput, assembly, and PMU evidence |
 | `benchmarks/Influence` | Influence tick, query, and IO receipts with PMU evidence |
 
-The data-authored Unity host package (`unity/com.iafahim.tl` with its Unity project receipts) was extracted into the tl.unity repository; its publication and licensing remain owner decisions.
+The data-authored Unity host package (`com.iafahim.tl`) lives in the [tl.unity](https://github.com/IAFahim/tl.unity) repository, published under the MIT license decided in issue #64.
 
 ## Documentation
 
