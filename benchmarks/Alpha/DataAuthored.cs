@@ -421,7 +421,6 @@ public class DataAuthoredQueryBenchmarks
         _interpreter = new DataAuthoredCase(Shape, Pattern, DataAuthoredMode.Standard, DataAuthoredCase.InterpreterBytes(Shape));
         _selectOnly = new DataAuthoredCase(Shape, Pattern, DataAuthoredMode.SelectOnly);
         _noDispatch = new DataAuthoredCase(Shape, Pattern, DataAuthoredMode.NoDispatch);
-        ScalarCatalogQueryBenchmarks.Require(DirectShape(), GeneratedShape(), nameof(GeneratedShape));
         ScalarCatalogQueryBenchmarks.Require(DirectShape(), DataAuthoredFacade(), nameof(DataAuthoredFacade));
         ScalarCatalogQueryBenchmarks.Require(DirectShape(), FacadeInterpreter(), nameof(FacadeInterpreter));
         DataAuthoredCase.AssertKernelBound(_facade, TimelineKernelHashes.Committed.ContainsKey(Shape));
@@ -441,9 +440,6 @@ public class DataAuthoredQueryBenchmarks
 
     [Benchmark(Baseline = true, OperationsPerInvoke = DataAuthoredCase.Operations)]
     public BenchmarkReceipt DirectShape() => _alpha.Direct();
-
-    [Benchmark(OperationsPerInvoke = DataAuthoredCase.Operations)]
-    public BenchmarkReceipt GeneratedShape() => _alpha.Generated();
 
     [Benchmark(OperationsPerInvoke = DataAuthoredCase.Operations)]
     public BenchmarkReceipt DataAuthoredFacade() => _facade.DataAuthored();
