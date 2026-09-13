@@ -1,20 +1,24 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Tl.CSharp/Tl.CSharp.csproj" />
+    <Project Path="src/Tl.Grid.Influence/Tl.Grid.Influence.csproj" />
     <Project Path="src/Tl.Core/Tl.Core.csproj" />
     <Project Path="src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/Influence/Influence.csproj" />
     <Project Path="samples/Mixed/Mixed.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Tl.Core.Tests/Tl.Core.Tests.csproj" />
+    <Project Path="tests/Tl.Grid.Influence.Tests/Tl.Grid.Influence.Tests.csproj" />
     <Project Path="tests/Tl.Gen.CSharp.Tests/Tl.Gen.CSharp.Tests.csproj" />
     <Project Path="tests/Tl.Gen.CSharp.Consumer.Tests/Tl.Gen.CSharp.Consumer.Tests.csproj" />
     <Project Path="tests/Tl.Alpha/Tl.Alpha.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Alpha/Alpha.csproj" />
+    <Project Path="benchmarks/Influence/Influence.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Tl.Gen.Tlb/Tl.Gen.Tlb.csproj" />
