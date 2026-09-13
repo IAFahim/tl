@@ -69,3 +69,21 @@ Detailed narratives with full tables live in [benchmarks.md](benchmarks.md), [v0
 5. The largest available win is deleting data-dependent branches; the largest risk is reintroducing them through redesign (B19). Every hot-loop change re-runs timing receipts.
 6. No delegates, boxing, or interface-variable dispatch anywhere warm; generated static calls or `delegate*` only.
 7. First gate-7 pass (2026-09-12, i9-14900K, one process per job): the facade decisively removes the 256-track cliff — 1,655.134 ns median against 34,646.702 ns for the alpha.3 generated kernel and 339.299 ns direct — at 0 B warm allocation with receipts identical across all three arms. Small shapes did not reach the compiled-kernel tier in this first pass: 15.118 ns one-track, 16.318 ns blend, 27.302 ns A-B-A, 110.868 ns 16-track, against 1.898/2.531/3.829/22.343 ns generated. The measured structure is a fixed per-tick facade overhead near 9 ns plus about 6.4 ns per dispatched step (per-tick consumer bind over the process-global table, binary pair search, and per-step column lookup inside the consumer thunk); reducing either is optimization work that requires its own atom and receipts, not a silent tune. ([first data-authored shape comparison](../benchmarks/Alpha/results/data-authored-first-pass/README.md))
+8. Kernel lane final verdict (2026-09-13, i9-14900K, .NET 10.0.12 X64 RyuJIT x86-64-v3, InProcessNoEmit, 16 warmup + 12 × 250 ms, OperationsPerInvoke=4096, 0 B allocated on every arm). Kernel-bound facade vs interpreter medians (ns), two independent full runs of the 60-case `*DataAuthoredQueryBenchmarks*` suite (501.5 s / 501.2 s):
+
+   | Arm | run 1 kernel / interp (ratio) | run 2 kernel / interp (ratio) |
+   |---|---|---|
+   | OneTrack Forward | 12.392 / 11.572 (1.071) | 8.354 / 11.664 (0.716) |
+   | OneTrack Alternating | 9.544 / 10.459 (0.913) | 9.591 / 10.663 (0.900) |
+   | ThreeTracks Forward | 16.283 / 18.969 (0.858) | 16.684 / 21.889 (0.762) |
+   | ThreeTracks Alternating | 18.033 / 21.288 (0.847) | 17.715 / 21.279 (0.832) |
+   | SixteenTracks Forward | 61.218 / 71.953 (0.851) | 62.378 / 72.662 (0.859) |
+   | SixteenTracks Alternating | 66.809 / 77.681 (0.860) | 65.484 / 75.930 (0.862) |
+   | 256 Forward | 966.304 / 1,103.106 (0.876) | 994.264 / 1,107.869 (0.897) |
+   | 256 Alternating | 1,061.370 / 1,133.075 (0.937) | 1,087.848 / 1,121.369 (0.970) |
+
+   The single run-1 miss is the OneTrack/Forward lottery below; every other arm beats the interpreter in both runs; the Blend identity control (no committed kernel) read 10.766/10.824 and 10.556/10.552 across the two runs. Pre-fix, the committed-kernel lane inverted with scale — kernel/interpreter 1.41-1.47 at 16/256 tracks (kernel-scale probe, same machine and job; raw tables recorded on issue #56, probe wave 2026-09-13). The fix chain: hoisted `Chain` scratch + aggressive inlining (`323c85a`), then dedicated `F`/`R` direction chunk bodies (`739bbc8`). Variant record at 256 tracks (filtered in-process medians): baseline 1,050.3/1,090.0 F and 1,101.4/1,111.2 A; Variant A (`AggressiveInlining` on chunks) 1,007.2/1,078.7 F and 1,103.6/1,105.9 A — rejected, the A-leg did not improve; Variant B (direction bodies, kept) 1,012.8/1,117.2 F and 1,118.7/1,142.2 A. Kernel SHA-256 hashes never moved; `--verify` receipts stayed component-equal across arms.
+
+   OneTrack/Forward is a per-process JIT layout lottery, not a regression: across 13 processes the kernel median is 8.35-8.74 ns in 12 and 12.39-12.67 ns in 1, against a stable 10.5-11.8 ns interpreter (required 3-process run: 8.567/11.470, 8.395/11.693, 12.432/11.574; five child-toolchain disasm processes 8.687/8.509/8.677/8.499/8.739; four `DOTNET_JitDisasm` in-process runs 8.708/8.472/8.498/8.441). The fast mode's `TimelineKernel_65a912…::Tick` assembly is byte-identical across processes after address stripping, and the slow mode never drew under observation (0/9). Documented, deliberately not chased; an optional emission-only follow-up is recorded on issue #56.
+
+   Cross-process variance on the untouched shared path exceeds the old noise law: interpreter ThreeTracks Forward read 18.969 then 21.889 ns for the same binary (+13.1%). Treat ±13% as the cross-process band on ~20 ns arms before flagging; the per-process ratio remains the decision statistic.
