@@ -1,18 +1,40 @@
 # tl
 
-`tl` compiles designer-authored timeline data into deterministic execution. A timeline is data: JSON in, baked `.tlb` bytes out, loaded and advanced by a small unmanaged runtime. Typed C# consumers describe what one active `(track, clip)` pair does to borrowed component storage — no reflection, delegates, runtime compilation, or warm-path allocation.
+**tl** compiles designer-authored timeline data into deterministic execution — JSON in, baked `.tlb` bytes out, advanced by a small unmanaged runtime on .NET and Unity.
 
-**Status: development prerelease.** The superseded alpha.3 authored surface (handwritten timeline declarations, catalogs, and schema markers) was removed under [issue #65](https://github.com/IAFahim/tl/issues/65). The [data-authored contract](docs/data-authored-api.md) is now the only authoring lane; [issue #56](https://github.com/IAFahim/tl/issues/56) owns its live acceptance status.
+[![ci](https://github.com/IAFahim/tl/actions/workflows/ci.yml/badge.svg)](https://github.com/IAFahim/tl/actions/workflows/ci.yml)
 
-- Heterogeneous tracks and clips in one baked asset
-- Deterministic bake: same inputs, same bytes; cache hits preserve timestamps
-- Total signed `Tick` over borrowed component columns
-- Read-only typed frame queries over the selected stage
-- Function-pointer consumer bindings for coordinator-side effects
-- NativeAOT-safe runtime output with no generator assemblies
-- One shared domain assembly compiles for both .NET and Unity hosts
+Timeline data and timeline behavior are separate. Designers author tracks, clips, windows, and loop points as JSON; a deterministic `tlbake` compile produces canonical TLB1 assets; typed C# consumers (`ITimelineJob<TTrack,TClip>`) describe what one active `(track, clip)` pair does to borrowed component storage. The runtime has no reflection, no delegates on warm paths, no runtime compilation, and no warm-path allocation — the same baked bytes drive .NET and Unity.
 
-## Packages
+- **Deterministic bake** — same inputs, same bytes, on every machine and culture; content-keyed cache hits preserve timestamps
+- **Heterogeneous assets** — tracks and clips of different types in one asset; execution order is authored order (A-B-A preserved)
+- **Total signed `Tick`** — forward, backward, and clamped movement over borrowed component columns, committed once per crossed frame
+- **Typed frame queries** — a read-only stage view over the row's currently selected step; never advances time
+- **Kernel-compiled assets** — baked assets bind to generated kernels by content hash; the interpreter is the verified fallback
+- **NativeAOT-safe** — no generator assemblies in application output; one shared domain file compiles for both .NET and Unity
+- **Flawless install** — `dotnet add package` and run; package targets configure consuming projects automatically
+
+## Supported environments
+
+| Environment | Install | Status |
+| --- | --- | --- |
+| .NET 10 (JIT and NativeAOT) | NuGet packages (below) | receipted |
+| Unity 6000+ (Mono, IL2CPP, Burst jobs) | UPM package `com.iafahim.tl` from [tl.unity](https://github.com/IAFahim/tl.unity) | EditMode-receipted |
+
+The packages are development prereleases from [GitHub releases](https://github.com/IAFahim/tl/releases), not yet on nuget.org.
+
+## Quick Start
+
+#### 1. Install
+
+Download the packages from the [latest prerelease](https://github.com/IAFahim/tl/releases) into `packages/`, then:
+
+```sh
+dotnet add package Tl.CSharp --version 1.0.0-alpha.4 --source ./packages
+dotnet tool install --global tlbake --prerelease --version 1.0.0-alpha.4 --source ./packages
+```
+
+`Tl.CSharp` brings the runtime and the build-time generator, which discovers your consumers on every compilation — including IDE design-time builds — and sets consuming projects up automatically.
 
 | Package | Purpose |
 | --- | --- |
@@ -21,18 +43,7 @@
 | `Tl.Gen.CSharp` | Build-time generator that binds typed consumers |
 | `tlbake` | `dotnet tool`: JSON to baked TLB1 assets |
 
-## Install
-
-Download the packages from the [GitHub prerelease](https://github.com/IAFahim/tl/releases) into `packages`, then install from that local source:
-
-```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.4 --source ./packages
-dotnet tool install --global tlbake --prerelease --version 1.0.0-alpha.4 --source ./packages
-```
-
-The packages are not published to nuget.org yet. The generator runs whenever Roslyn compiles the project, including supporting IDE design-time builds, and the package targets set `AllowUnsafeBlocks` for consuming projects automatically. Unity is not a NuGet consumer: install the [`com.iafahim.tl`](https://github.com/IAFahim/tl.unity) UPM package in Unity instead.
-
-## Define the domain
+#### 2. Define the domain
 
 You author the domain values and one typed consumer per `(track, clip)` pair. `Tl` supplies `IBlend<TClip>`, `ITimelineJob<TTrack,TClip>`, and `Frame<TTrack,TClip>`; the generator discovers consumers compilation-wide, so there is no registration, catalog, or schema marker.
 
@@ -83,7 +94,7 @@ namespace Combat
 
 Track values hold immutable settings. Clip values hold immutable authored payload. `in` declares a borrowed read-only component column; `ref` declares a borrowed writable column. The generator derives each consumer's column set from the `Execute` signature. The `partial` modifiers are optional in .NET; keeping them lets the same file compile inside Unity, where the [tl.unity guide](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) adds host hooks in a second partial file.
 
-## Author and bake one timeline
+#### 3. Author and bake one timeline
 
 `boss.json` — flat schema v1. Track/clip `namespace`+`type` name the C# types above; `data` field names map onto struct fields; windows are half-open `[start, end)`; execution order is authored clip order:
 
@@ -107,20 +118,16 @@ Track values hold immutable settings. Clip values hold immutable authored payloa
 }
 ```
 
-Bake with `tlbake`, pointing `--assembly` at the compiled domain DLL so the baker resolves the authored type names. Baking is deterministic; cache hits preserve timestamps; `--report` prints sizes:
+Bake with the `tlbake` tool, pointing `--assembly` at the compiled domain DLL so the baker resolves the authored type names. **The assembly name must match the assembly that ships those types at runtime** — pair keys hash assembly-qualified names. Baking is deterministic; cache hits preserve timestamps:
 
 ```sh
 dotnet build -c Release
-dotnet run --project tools/Tl.Bake -c Release -- \
-  boss.json \
-  boss.tlb \
-  --assembly bin/Release/net10.0/MyApp.dll \
-  --cache ~/.tlbcache
+tlbake boss.json boss.tlb --assembly bin/Release/net10.0/MyApp.dll --cache ~/.tlbcache
 ```
 
-`tlbake --report boss.tlb` audits sizes and `tlbake --strip boss.tlb boss.dist.tlb` trims metadata for distribution.
+`tlbake --report boss.tlb` audits sizes and `tlbake --strip boss.tlb boss.dist.tlb` trims metadata for distribution (ship kernel-bound assets stripped).
 
-## Load, advance, and query
+#### 4. Load, advance, and query
 
 The application owns the rows, component arrays, and the game clock. `TimelineAsset.Load` is a cold validated import; dispose the asset after all rows and readers are done.
 
@@ -162,11 +169,19 @@ The repository enforces a 300,000-byte budget over production source contents pl
 
 ## Unity ECS
 
-The Unity surface lives in the extracted [tl.unity](https://github.com/IAFahim/tl.unity) repository pending [issue #64](https://github.com/IAFahim/tl/issues/64); this repository ships no UPM package. Its [END-TO-END guide](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) walks the same domain code, JSON, and `.tlb` bytes into Unity ECS: a coordinator advances `TimelineComponent` rows and your own system consumes typed frames:
+Install the UPM package in Unity (Package Manager → *Add package from git URL*):
+
+```
+https://github.com/IAFahim/tl.unity.git?path=com.iafahim.tl
+```
+
+Unity is not a NuGet consumer here — the runtime is a net10.0 library with `ref` fields, so the UPM package compiles the shared `src/Tl.Core` sources directly (the same model MagicOnion uses: NuGet for .NET, UPM for Unity). The full walkthrough from baking to typed queries lives in the tl.unity repository: [END-TO-END.md](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md). A coordinator advances `TimelineComponent` rows, and your own system consumes typed frames:
 
 ```cs
-foreach (var frame in TimelineEcs.Query<DamageTrack, DamageClip>(in timeline.ValueRO))
-    ApplyDamage.Execute(in frame, in r, ref h);
+foreach (var (timeline, resistance, health) in
+         SystemAPI.Query<RefRO<TimelineComponent>, RefRO<Resistance>, RefRW<Health>>())
+    foreach (var frame in TimelineEcs.Query<DamageTrack, DamageClip>(in timeline.ValueRO))
+        ApplyDamage.Execute(in frame, in resistance.ValueRO, ref health.ValueRW);
 ```
 
 ## Scope
@@ -193,18 +208,13 @@ foreach (var frame in TimelineEcs.Query<DamageTrack, DamageClip>(in timeline.Val
 
 The data-authored Unity host package (`unity/com.iafahim.tl` with its Unity project receipts) was extracted into the tl.unity repository; its publication and licensing remain owner decisions.
 
-Read the [data-authored contract](docs/data-authored-api.md), the frozen alpha.3 record ([v1.0-alpha-api.md](docs/v1.0-alpha-api.md)), [execution semantics](docs/semantics.md), [architecture](docs/architecture.md), and [implementation plan](plan.md).
+## Documentation
 
-## Validate
+- [Data-authored API contract](docs/data-authored-api.md) — the frozen design contract
+- [Execution semantics](docs/semantics.md) — select, execute, commit, and movement laws
+- [Architecture](docs/architecture.md) — package and boundary map
+- [Unity end-to-end](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) — JSON bake to Unity ECS typed queries
 
-```sh
-python3 benchmarks/source_budget.py
-python3 -m unittest discover -s benchmarks -p test_collect.py
-python3 -m unittest discover -s tests -p test_release_artifacts.py
-dotnet build tl.slnx -c Release -m:1 -p:NuGetAudit=false
-dotnet test tl.slnx -c Release --no-build -p:NuGetAudit=false
-dotnet run --project tests/Tl.Alpha -c Release --no-build
-dotnet run --project samples/Mixed -c Release --no-build
-dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
-dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
-```
+## License
+
+To be decided by the repository owner ([issue #64](https://github.com/IAFahim/tl/issues/64)); no license is granted until then.
