@@ -110,11 +110,11 @@ class ReleaseArtifactTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "embedded-source"):
                 RELEASE_ARTIFACTS.verify_snupkg(invalid, "Tl.Runtime", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
 
-    def test_nuget_publish_fails_on_an_existing_package(self):
+    def test_nuget_publish_skips_packages_already_on_nuget_org(self):
         workflow = (ROOT / ".github" / "workflows" / "publish-nuget.yml").read_text(encoding="utf-8")
         publish = workflow.split("  publish:", 1)[1]
         self.assertEqual(4, publish.count("dotnet nuget push "))
-        self.assertNotIn("--skip-duplicate", publish)
+        self.assertEqual(4, publish.count("--skip-duplicate"))
 
     def test_artifact_workflow_checks_out_the_tag_namespace(self):
         workflow = (ROOT / ".github" / "workflows" / "release-artifacts.yml").read_text(encoding="utf-8")
