@@ -118,7 +118,7 @@ def main():
     parser.add_argument(
         "--assembly",
         type=Path,
-        default=Path(__file__).parent / "bin/Release/net10.0/Influence.dll",
+        default=Path(__file__).parent / "bin/Release/net10.0/InfluenceBenchmarks.dll",
     )
     parser.add_argument("--cpu", type=int, default=0)
     parser.add_argument("--dotnet", default=shutil.which("dotnet"))

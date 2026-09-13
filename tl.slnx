@@ -18,7 +18,7 @@
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Alpha/Alpha.csproj" />
-    <Project Path="benchmarks/Influence/Influence.csproj" />
+    <Project Path="benchmarks/Influence/InfluenceBenchmarks.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Tl.Gen.Tlb/Tl.Gen.Tlb.csproj" />
