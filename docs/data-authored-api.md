@@ -130,9 +130,9 @@ Owner rules (FINAL): shape is root(name?) → tracks[] → clips[]. NO grouping 
 The public conversion API lives in `tools/Tl.Gen.Tlb` (`TimelineBaker.BakeJson`, `BakerAssemblyResolver`, `TlbMetadata`); its surface is receipt-locked by `tools/Tl.Bake.Tests/Tl.Gen.Tlb.PublicApi.approved.txt`. The `tlbake` CLI (`tools/Tl.Bake`) is a thin front-end:
 
 ```sh
-tlbake <input.json> <output.tlb> [--assembly <path>]...
-tlbake <input.json> <output.tlb> --kernel <out.g.cs>
+tlbake <input.json> <output.tlb> [--assembly <path>]... [--kernel <out.g.cs>] [--cache <dir>]
 tlbake --strip <input.tlb> <output.tlb>
+tlbake --report <input.tlb>
 ```
 
 Type resolution binds names to loaded types at bake time: `namespace` matches the CLR `Type.Namespace` exactly (empty string selects the global namespace), `type` matches `Type.Name`, and `assembly` matches `Assembly.GetName().Name`. Bare names containing `.`, `,`, `+` or `=` are diagnostics. Data objects map field names onto unmanaged struct fields for explicit-width primitives (bool, byte, sbyte, short, ushort, int, uint, long, ulong, float, double); unknown fields and wrong-typed values are diagnostics. Assets may contain up to 256 authored track entries. Track array order is semantic. Windows are half-open, duration is the maximum clip end, and an empty asset has duration zero. Within one derived group at most two clips may overlap and they resolve through the group's blender; unsupported overlap fails import.
@@ -142,6 +142,10 @@ Converter contract laws:
 1. **Determinism**: baking the same JSON input always yields bit-identical TLB1 bytes (including the metadata tail) and identical SHA-256 hot hashes across runs, machines and cultures.
 2. **Round trip**: `bake(dump(tlb)) == tlb` holds by construction once a dump emitter lands; baking consumes the same canonical data the binary encodes.
 3. **Name binding at bake time**: `namespace`/`type`/`assembly` resolve against the referenced consumer assemblies during baking only; baked assets carry pair keys, never names, so playback and distribution need no type lookup.
+4. **Cache**: the opt-in `--cache <dir>` stores bake outputs under a content key derived only from bytes that affect output — the input JSON bytes, each `--assembly` file's SHA-256 in declared order, the `Tl.Gen.Tlb.BakeCacheKey.ToolVersion` string, and the output-kind flags (`--kernel`, `--strip`) — so a hit copies byte-identical outputs and never rewrites a destination whose bytes already match (timestamps survive), a miss bakes and stores, and a bake that fails is never cached.
+5. **Tool version bump**: any change to bake-affecting code paths bumps `BakeCacheKey.ToolVersion`, invalidating every stored cache entry.
+
+`tlbake --report <input.tlb>` prints a deterministic, culture-invariant `name: value` report parsed from the TLB1 bytes alone: header-derived region sizes (total, hot, metadata, pair table, frame slots), stage and program-step counts, the runtime `TimelineComponent` instance size, and, for full assets, root/track/clip label counts from the metadata tail.
 
 ### TLB1 metadata tail
 

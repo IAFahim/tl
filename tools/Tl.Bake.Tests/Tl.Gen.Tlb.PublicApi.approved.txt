@@ -1,3 +1,8 @@
+type Tl.Gen.Tlb.BakeCacheKey
+  Method Byte[] Compute(Byte[], System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Boolean, Boolean)
+  Method Byte[] Compute(System.String, Byte[], System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Boolean, Boolean)
+  Method System.String Prefix(Byte[])
+  Field System.String ToolVersion
 type Tl.Gen.Tlb.BakeDiagnosticException
 type Tl.Gen.Tlb.BakerAssemblyResolver
   Method Void AddAssembly(System.Reflection.Assembly)
@@ -23,6 +28,8 @@ type Tl.Gen.Tlb.TlbMetadataView
   Property System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.Int32,System.Int32]] PairTypes
   Property System.Collections.Generic.IReadOnlyList`1[System.String] Strings
   Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.Tlb.TlbTypeIdentity] Types
+type Tl.Gen.Tlb.TlbReport
+  Method System.String Report(System.ReadOnlySpan`1[System.Byte])
 type Tl.Gen.Tlb.TlbTypeIdentity
   Property System.String Assembly
   Property System.String Name
