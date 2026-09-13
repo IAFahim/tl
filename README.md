@@ -30,8 +30,8 @@ The packages are development prereleases from [GitHub releases](https://github.c
 Download the packages from the [latest prerelease](https://github.com/IAFahim/tl/releases) into `packages/`, then:
 
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.4 --source ./packages
-dotnet tool install --global tlbake --prerelease --version 1.0.0-alpha.4 --source ./packages
+dotnet add package Tl.CSharp --version 1.0.0-alpha.5 --source ./packages
+dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.5 --source ./packages
 ```
 
 `Tl.CSharp` brings the runtime and the build-time generator, which discovers your consumers on every compilation — including IDE design-time builds — and sets consuming projects up automatically.
@@ -41,7 +41,7 @@ dotnet tool install --global tlbake --prerelease --version 1.0.0-alpha.4 --sourc
 | `Tl.CSharp` | Recommended C# install: runtime plus build-time consumer binding |
 | `Tl.Runtime` | Small declaration, frame, state, and movement ABI |
 | `Tl.Gen.CSharp` | Build-time generator that binds typed consumers |
-| `tlbake` | `dotnet tool`: JSON to baked TLB1 assets |
+| `Tl.Bake` | `dotnet tool` (command: `tlbake`): JSON to baked TLB1 assets |
 
 #### 2. Define the domain
 
