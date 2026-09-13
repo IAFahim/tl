@@ -28,3 +28,8 @@ benchmarks/Dispatch/ReceiverLink.g.cs
 __pycache__/
 !benchmarks/FusionHour/Generated/
 !benchmarks/ConsumerFusion/Generated/
+
+# agent loop transport (authority lives in issue #56)
+/NEXT-TASK.md
+/WORK-REPORT.md
+/.tl-loop/

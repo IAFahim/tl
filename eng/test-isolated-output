@@ -21,7 +21,5 @@ dotnet build "$source/tl.slnx" -c Release -m:1 -p:NuGetAudit=false --no-restore 
 test -f "$artifacts/bin/Tl.Gen.CSharp/release_netstandard2.0/Tl.Gen.CSharp.dll"
 test -f "$artifacts/bin/Tl.Gen.CSharp/release_netstandard2.0/Tl.Compiler.dll"
 test -f "$artifacts/bin/Tl.Compiler.Tests/release/compiler-host/Tl.Compiler.dll"
-test -f "$artifacts/bin/Tl.UnityAnalyzerReceipt/release/Tl.Gen.CSharp.dll"
-test -f "$artifacts/bin/Tl.UnityAnalyzerReceipt/release/Tl.Compiler.dll"
 test -f "$artifacts/obj/Mixed/release/TlGenCompile/TlGenCompile.report.txt"
 test -z "$(find "$source" -type d \( -name bin -o -name obj -o -name TlGenCompile \) -print -quit)"

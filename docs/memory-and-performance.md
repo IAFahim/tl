@@ -40,6 +40,16 @@ The `<3 ns` target holds only for the named 1-track, gap, blend, and three-input
 
 [The complete alpha.3 shape matrix](../benchmarks/Alpha/results/v1.0.0-alpha.3-shape-matrix/README.md) retains three raw BenchmarkDotNet processes, ranges, tiering comparison, grouped PMU counters, FullOpts assembly, code-size fixtures, checksums, receipts, and reproduction commands. Branch misses are low for small shapes, so a blanket branch-likelihood hint is not supported by the evidence.
 
+## Data-authored native assets
+
+`TimelineAsset.Load` validates one TLB1 byte sequence and copies it into a single block from `NativeMemory.AlignedAlloc`, sized up to the next multiple of 64 B and aligned to 64 B. The block layout is a 48 B header, a pair table, a stage table, one step program per stage, and the frame slots. Every section offset is 8-aligned; every frame slot is 16-aligned with a pair-declared stride, and each slot carries the track value, first and second clip values, clip window, blend-factor window, and authored track index. Validation checks magic, version, byte size, sorted pair keys, monotone stages covering the duration, and in-bounds aligned slots before any effect; the block is immutable after publication.
+
+The owner disposes the asset exactly once; `Dispose` swaps the pointer atomically and frees the block. A `TimelineRef` holds the raw block pointer without a lock or reference count, so every reader of an asset must finish before its owner disposes it. Each `TimelineComponent` retains one such reference plus its own local position and signed cycle.
+
+Track and clip identity is a 64-bit pair key over the closed build-time type universe. The generated module initializer installs consumers into the process-global `PairTable` once under a lock; dispatch binary-searches the published table lock-free and never mutates it. A row coordinator borrows caller columns only for the ref-struct query lifetime. Warm facade playback retains `0 B` of managed allocation: the `Tl.Alpha` receipts prove `131,072` warm facade ticks at zero retained bytes, and the BenchmarkDotNet arms of the [first data-authored shape comparison](../benchmarks/Alpha/results/data-authored-first-pass/README.md) repeat the assertion per shape with identical direct, generated, and facade receipts.
+
+Consumer column dispatch enforces a strict per-call pointer lifetime. The query's stack-resident `PairCache` retains only column index bindings (`unsafe fixed byte ColumnIndex[256]`, where 0 encodes unbound and 1..4 map to query columns 0..3) across ticks. At the entry of every `Tick` invocation, raw interior pointers are freshly derived from the GC-tracked `ReadOnlySpan<byte>` fields and written to the call-local `Columns[256]` pointer slice; no raw pointer outlives the synchronous `Tick` call. Any compacting GC relocating caller-managed arrays between ticks is safely observed by the runtime via the stack-tracked spans on the subsequent tick. With `MaxPointers = 256` and 4 pointer slots per consumer, the query supports an effective bound of `256 / 4 = 64` distinct registered consumers per process.
+
 ## Code and data size
 
 The retained code-size fixtures report:

@@ -58,6 +58,8 @@ public class TotalMovementTests
 
         Assert.Equal((ushort)17, frame.TrackIndex);
         Assert.Equal(-1, frame.Direction);
+        Assert.True(frame.IsBackward);
+        Assert.False(new Frame<JobTrack, JobClip>(in track, in clip, 11, 13, -2, 17, FrameFlags.None).IsBackward);
         Assert.True(frame.Has(FrameFlags.Reverse));
         Assert.False(frame.Has(FrameFlags.TimelineStart));
         Assert.Equal(-1, timelineFrame.Direction);

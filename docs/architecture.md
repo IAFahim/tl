@@ -35,12 +35,10 @@ flowchart TD
     Compiler[Tl.Compiler]
     CSharp[Tl.Gen.CSharp]
     Install[Tl.CSharp]
-    C[Tl.Gen.C]
     Unity[Tl.Unity]
     CSharp --> Compiler
     Install --> Runtime
     Install -. embeds .-> CSharp
-    C --> Compiler
     Unity --> Runtime
     Unity --> Entities[Unity Entities]
     CSharp -. materializes .-> Unity
@@ -50,7 +48,7 @@ flowchart TD
 
 `Tl.Gen.CSharp` targets netstandard2.0 for Roslyn analyzer hosts and net10.0 for explicit export. The package places the compatible `Tl.Compiler.dll` beside the analyzer. The tool directory contains its own compiler and Roslyn assemblies. `Tl.CSharp` embeds those build assets and depends only on `Tl.Runtime`; build assets never become application references. Unity materialization runs in a separate .NET authoring process and writes physical C# for the Unity compiler, Entities generator, and Burst pipeline.
 
-`Tl.Gen.C` consumes `Tl.Compiler` as a normal package dependency. Its existing C ABI v2 remains separate from the alpha.3 C# catalog API. C catalog generation requires its own reviewed migration.
+`Tl.Gen.C` consumed `Tl.Compiler` as a normal package dependency and was extracted into a separate repository at commit `3e67333`. Its existing C ABI v2 remains separate from the alpha.3 C# catalog API. C catalog generation requires its own reviewed migration.
 
 ## Compilation
 

@@ -23,7 +23,54 @@ internal static class JobEmitter
         var files = timelines.Select((timeline, index) => new CompileArtifact($"TlJob{index}.g.cs", Timeline(timeline, plans[Qualified(timeline)], queried.Contains(Qualified(timeline))))).ToList();
         files.AddRange(model.Catalogs.OrderBy(static catalog => catalog.Namespace + "." + catalog.Name, StringComparer.Ordinal)
             .Select((catalog, index) => new CompileArtifact($"TlCatalog{index}.g.cs", Catalog(catalog, timelines, plans))));
+        if (model.Consumers.Count != 0) files.Add(new("TlConsumerBinding.g.cs", Consumers(model.Consumers)));
         return files;
+    }
+
+    private static string Consumers(IReadOnlyList<JobConsumer> consumers)
+    {
+        var names = new HashSet<string>();
+        var items = new List<(string Name, JobConsumer Consumer)>();
+        foreach (var consumer in consumers)
+        {
+            var name = consumer.Job.TypeName.Split('<')[0].Split('.', ':').Last();
+            while (!names.Add(name)) name += "_";
+            items.Add((name, consumer));
+        }
+        var writer = new StringBuilder();
+        void W(string text) => Line(writer, text);
+        W("internal static unsafe class TlConsumerBinding");
+        W("{");
+        W("[global::System.Runtime.CompilerServices.ModuleInitializer]");
+        W("internal static void Install()");
+        W("{");
+        foreach (var (name, consumer) in items)
+            W($"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>.Consume(&Execute_{name}, &Bind_{name});");
+        W("}");
+        foreach (var (name, consumer) in items)
+        {
+            var job = consumer.Job;
+            W($"private static void Execute_{name}(byte* __tlSlot, uint __tlGameTick, uint __tlTick, long __tlCycle, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)");
+            W("{");
+            W($"{consumer.ClipTypeName} __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<{consumer.TrackTypeName}, {consumer.ClipTypeName}>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);");
+            for (var i = 0; i < job.Slots.Count; i++)
+                W($"var @{job.Slots[i].Name} = ({job.Slots[i].TypeName}*)__tlColumns[{i}];");
+            W($"{job.TypeName}.Execute(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
+            W("}");
+            W($"private static void Bind_{name}(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)");
+            W("{");
+            for (var i = 0; i < job.Slots.Count; i++)
+            {
+                var slot = job.Slots[i];
+                W($"var __tlIdx{i} = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<{slot.TypeName}>.Value);");
+                W($"if (__tlIdx{i} < 0) throw new global::System.ArgumentException(\"{job.TypeName}: required column missing for registered consumer: {slot.TypeName}\");");
+                W($"__tlIndices[{i}] = (byte)(__tlIdx{i} + 1);");
+            }
+            W("}");
+        }
+        W("private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }");
+        W("}");
+        return writer.ToString();
     }
 
     private static string Timeline(JobTimeline timeline, BoundOrderedTimelinePlan bound, bool queried)

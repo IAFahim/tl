@@ -1,0 +1,36 @@
+type Tl.Gen.Tlb.BakeCacheKey
+  Method Byte[] Compute(Byte[], System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Boolean, Boolean)
+  Method Byte[] Compute(System.String, Byte[], System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Boolean, Boolean)
+  Method System.String Prefix(Byte[])
+  Field System.String ToolVersion
+type Tl.Gen.Tlb.BakeDiagnosticException
+type Tl.Gen.Tlb.BakerAssemblyResolver
+  Method Void AddAssembly(System.Reflection.Assembly)
+  Method Boolean IsUnmanaged(System.Type)
+  Method System.Object PopulateStruct(System.Type, System.Text.Json.JsonElement, System.String)
+  Method System.Type ResolveType(System.String, System.String, System.String, System.String)
+  Method Void ValidateUnmanaged(System.Type, System.Type)
+type Tl.Gen.Tlb.KernelEmitter
+  Method System.String Emit(Byte[])
+type Tl.Gen.Tlb.TimelineBaker
+  Method Byte[] BakeJson(System.String, Tl.Gen.Tlb.BakerAssemblyResolver)
+  Method Void CheckDuplicateKeys(System.String)
+type Tl.Gen.Tlb.TlbLabel
+  Property Int32 ClipIndex
+  Property System.String Name
+  Property Int32 TrackEntry
+type Tl.Gen.Tlb.TlbMetadata
+  Method Boolean HasMetadata(System.ReadOnlySpan`1[System.Byte])
+  Method Tl.Gen.Tlb.TlbMetadataView Read(System.ReadOnlySpan`1[System.Byte])
+  Method Byte[] Strip(System.ReadOnlySpan`1[System.Byte])
+type Tl.Gen.Tlb.TlbMetadataView
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.Tlb.TlbLabel] Labels
+  Property System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.Int32,System.Int32]] PairTypes
+  Property System.Collections.Generic.IReadOnlyList`1[System.String] Strings
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.Tlb.TlbTypeIdentity] Types
+type Tl.Gen.Tlb.TlbReport
+  Method System.String Report(System.ReadOnlySpan`1[System.Byte])
+type Tl.Gen.Tlb.TlbTypeIdentity
+  Property System.String Assembly
+  Property System.String Name
+  Property System.String Namespace

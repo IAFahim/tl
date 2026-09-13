@@ -12,7 +12,7 @@ public static class JobReader
         INamedTypeSymbol Timeline, INamedTypeSymbol Catalog, INamedTypeSymbol Job,
         INamedTypeSymbol Hook, INamedTypeSymbol Frame, INamedTypeSymbol TimelineFrame,
         INamedTypeSymbol Builder, INamedTypeSymbol CatalogBuilder,
-        INamedTypeSymbol TrackRef, INamedTypeSymbol SchemaBuilder);
+        INamedTypeSymbol TrackRef, INamedTypeSymbol SchemaBuilder, INamedTypeSymbol Blend);
     private sealed record Entry(INamedTypeSymbol Type, TypeDeclarationSyntax Syntax);
     private sealed record Binding(JobTrack Track, INamedTypeSymbol Clip, SyntaxNode Declaration);
 
@@ -41,7 +41,46 @@ public static class JobReader
         var catalogs = entries.Where(entry => Implements(entry.Type, contracts.Catalog)).Select(reader.Catalog)
             .Where(static item => item is not null).Cast<JobCatalog>().OrderBy(static item => item.Namespace, StringComparer.Ordinal)
             .ThenBy(static item => item.Name, StringComparer.Ordinal).ToArray();
-        return new(timelines, catalogs, errors);
+        var consumers = new List<JobConsumer>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var pairs = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var track in timelines.SelectMany(static t => t.Tracks))
+        {
+            seen.Add(track.Job.TypeName);
+            if (pairs.Add(PairKey(track.Job.TypeName, track.TypeName, track.ClipTypeName)))
+                consumers.Add(new(track.TypeName, track.ClipTypeName, track.Job));
+        }
+        foreach (var entry in entries)
+        {
+            if (entry.Type.TypeKind == TypeKind.Interface) continue;
+            if (seen.Contains(Name(entry.Type))) continue;
+            var markers = entry.Type.AllInterfaces.Where(item => Same(item.OriginalDefinition, contracts.Job)).ToArray();
+            if (markers.Length == 0) continue;
+            void Err(string msg) => Error(errors, entry.Syntax, "TLGEN65", $"Job '{Name(entry.Type)}' {msg}");
+            if (entry.Type.IsAbstract) { Err("cannot be abstract."); continue; }
+            if (entry.Type.Arity > 0 || entry.Type.TypeParameters.Length > 0) { Err("cannot be generic; open type parameters cannot be registered as timeline jobs."); continue; }
+            var discovered = new List<JobConsumer>();
+            var valid = true;
+            foreach (var marker in markers)
+            {
+                var track = marker.TypeArguments[0];
+                var clip = marker.TypeArguments[1];
+                if (track.TypeKind == TypeKind.TypeParameter || clip.TypeKind == TypeKind.TypeParameter) { Err("cannot have open type parameters for its track or clip pairing."); valid = false; continue; }
+                var ok = true;
+                if (!track.IsUnmanagedType) { Err($"track type '{Name(track)}' must be an unmanaged type."); ok = false; }
+                if (!clip.IsUnmanagedType) { Err($"clip type '{Name(clip)}' must be an unmanaged type."); ok = false; }
+                if (ok && !track.AllInterfaces.Any(item => Same(item.OriginalDefinition, contracts.Blend) && item.TypeArguments.Length == 1 && Same(item.TypeArguments[0], clip))) { Err($"track type '{Name(track)}' must implement Tl.IBlend<{Name(clip)}>."); ok = false; }
+                if (!ok) { valid = false; continue; }
+                var definition = reader.Execute(entry.Type, contracts.Frame.Construct(track, clip), compilation.Assembly, entry.Syntax);
+                if (definition is null) { valid = false; continue; }
+                discovered.Add(new(Name(track), Name(clip), definition));
+            }
+            if (!valid) continue;
+            foreach (var consumer in discovered.OrderBy(static item => item.TrackTypeName + "\0" + item.ClipTypeName, StringComparer.Ordinal))
+                if (pairs.Add(PairKey(consumer.Job.TypeName, consumer.TrackTypeName, consumer.ClipTypeName)))
+                    consumers.Add(consumer);
+        }
+        return new(timelines, catalogs, errors) { Consumers = consumers };
     }
 
     private sealed class Reader(
@@ -199,9 +238,10 @@ public static class JobReader
                 return null;
             }
             var markers = job.AllInterfaces.Where(item => Same(item.OriginalDefinition, contracts.Job)).ToArray();
-            var markerTrack = markers.Length == 1 ? markers[0].TypeArguments[0] : null;
-            var payload = markers.Length == 1 ? markers[0].TypeArguments[1] as INamedTypeSymbol : null;
-            if (!job.IsUnmanagedType || markers.Length != 1 || !Same(settings, markerTrack) || payload is null || !payload.IsUnmanagedType)
+            var matches = markers.Where(item => Same(item.TypeArguments[0], settings)).ToArray();
+            var markerTrack = matches.Length == 1 ? matches[0].TypeArguments[0] : null;
+            var payload = matches.Length == 1 ? matches[0].TypeArguments[1] as INamedTypeSymbol : null;
+            if (!job.IsUnmanagedType || matches.Length != 1 || markerTrack is null || payload is null || !payload.IsUnmanagedType)
             {
                 Error(errors, use, "TLGEN65", $"Job '{Name(job)}' must implement exactly one Tl.ITimelineJob<{Name(settings)}, TClip> pairing.");
                 return null;
@@ -223,15 +263,17 @@ public static class JobReader
             return hook is not null;
         }
 
-        private JobDefinition? Execute(INamedTypeSymbol type, ITypeSymbol frame, INamedTypeSymbol owner, SyntaxNode site)
+        public JobDefinition? Execute(INamedTypeSymbol type, ITypeSymbol frame, ISymbol owner, SyntaxNode site)
         {
-            var methods = type.GetMembers("Execute").OfType<IMethodSymbol>().Where(static method => !method.IsImplicitlyDeclared).ToArray();
-            var method = methods.Length == 1 ? methods[0] : null;
-            if (method is null || !method.IsStatic || !method.ReturnsVoid || method.Arity != 0
-                || method.MethodKind != MethodKind.Ordinary || !compilation.IsSymbolAccessibleWithin(method, owner)
-                || method.Parameters.Length == 0 || method.Parameters[0].RefKind != RefKind.In || !Same(method.Parameters[0].Type, frame))
+            var candidates = type.GetMembers("Execute").OfType<IMethodSymbol>().Where(method => !method.IsImplicitlyDeclared
+                && method.IsStatic && method.ReturnsVoid && method.Arity == 0 && method.MethodKind == MethodKind.Ordinary
+                && method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In
+                && Same(method.Parameters[0].Type, frame)
+                && compilation.IsSymbolAccessibleWithin(method, owner)).ToArray();
+            var method = candidates.Length == 1 ? candidates[0] : null;
+            if (method is null)
             {
-                Error(errors, method is null ? site : Site(method, site), "TLGEN66", $"'{Name(type)}' must declare one accessible static void Execute beginning with in {Name(frame)}.");
+                Error(errors, site, "TLGEN66", $"'{Name(type)}' must declare one accessible static void Execute beginning with in {Name(frame)}.");
                 return null;
             }
             var slots = new List<TimelineSlot>();
@@ -423,10 +465,9 @@ public static class JobReader
 
     private static Contracts? Contract(Compilation compilation)
     {
-        string[] names = ["Tl.ITimeline", "Tl.ITimelineCatalog", "Tl.ITimelineJob`2", "Tl.IHook", "Tl.Frame`2", "Tl.TimelineFrame", "Tl.Builder", "Tl.CatalogBuilder", "Tl.TrackRef`1", "Tl.SchemaBuilder`1"];
+        string[] names = ["Tl.ITimeline", "Tl.ITimelineCatalog", "Tl.ITimelineJob`2", "Tl.IHook", "Tl.Frame`2", "Tl.TimelineFrame", "Tl.Builder", "Tl.CatalogBuilder", "Tl.TrackRef`1", "Tl.SchemaBuilder`1", "Tl.IBlend`1"];
         var types = names.Select(compilation.GetTypeByMetadataName).ToArray();
-        return types.Any(static type => type is null) ? null : new(types[0]!, types[1]!, types[2]!, types[3]!, types[4]!, types[5]!, types[6]!, types[7]!, types[8]!, types[9]!);
-    }
+        return types.Any(static type => type is null) ? null : new(types[0]!, types[1]!, types[2]!, types[3]!, types[4]!, types[5]!, types[6]!, types[7]!, types[8]!, types[9]!, types[10]!);    }
 
     private static IReadOnlyList<Entry> Entries(CSharpCompilation compilation)
     {
@@ -547,6 +588,7 @@ public static class JobReader
     private static MethodDeclarationSyntax? Method(IMethodSymbol method) => method.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).OfType<MethodDeclarationSyntax>().SingleOrDefault();
     private static SyntaxNode Site(ISymbol symbol, SyntaxNode fallback) => symbol.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).FirstOrDefault() ?? fallback;
     private static bool Implements(INamedTypeSymbol type, INamedTypeSymbol contract) => type.AllInterfaces.Any(item => Same(item.OriginalDefinition, contract));
+    private static string PairKey(string job, string track, string clip) => job + "\0" + track + "\0" + clip;
     private static bool Same(ISymbol? left, ISymbol? right) => SymbolEqualityComparer.Default.Equals(left, right);
     private static string Name(ITypeSymbol type) => type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
     private static string Space(INamedTypeSymbol type) => type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString();

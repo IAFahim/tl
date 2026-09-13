@@ -130,5 +130,6 @@ public readonly ref struct Frame<TTrack, TClip>
     public ushort TrackIndex { get; }
     public FrameFlags Flags { get; }
     public int Direction => Has(FrameFlags.Reverse) ? -1 : 1;
+    public bool IsBackward => Has(FrameFlags.Reverse);
     public bool Has(FrameFlags flags) => (Flags & flags) == flags;
 }

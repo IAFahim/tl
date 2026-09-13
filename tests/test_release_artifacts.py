@@ -154,15 +154,15 @@ class ReleaseArtifactTests(unittest.TestCase):
             valid = root / "valid.nupkg"
             unexpected = root / "unexpected.nupkg"
             wrong_dependency = root / "wrong-dependency.nupkg"
-            self.write_c_package(valid)
-            self.write_c_package(unexpected, extra="unexpected.dll")
-            self.write_c_package(wrong_dependency, exclude="Compile")
+            self.write_runtime_package(valid)
+            self.write_runtime_package(unexpected, extra="unexpected.dll")
+            self.write_runtime_package(wrong_dependency, dependency=True)
 
-            RELEASE_ARTIFACTS.verify_nupkg(valid, "Tl.Gen.C", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
+            RELEASE_ARTIFACTS.verify_nupkg(valid, "Tl.Runtime", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
             with self.assertRaisesRegex(ValueError, "files are"):
-                RELEASE_ARTIFACTS.verify_nupkg(unexpected, "Tl.Gen.C", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
+                RELEASE_ARTIFACTS.verify_nupkg(unexpected, "Tl.Runtime", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
             with self.assertRaisesRegex(ValueError, "dependency groups"):
-                RELEASE_ARTIFACTS.verify_nupkg(wrong_dependency, "Tl.Gen.C", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
+                RELEASE_ARTIFACTS.verify_nupkg(wrong_dependency, "Tl.Runtime", "1.2.3", "a" * 40, "refs/tags/v1.2.3")
 
     def test_compiler_package_requires_both_targets_and_bounded_dependency(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -290,9 +290,10 @@ class ReleaseArtifactTests(unittest.TestCase):
                 compressed.write(tar_bytes.getvalue())
 
     @staticmethod
-    def write_c_package(path, exclude="Build,Analyzers", extra=None):
-        nuspec = f"""<package><metadata><id>Tl.Gen.C</id><version>1.2.3</version><repository type="git" url="https://github.com/IAFahim/tl" branch="refs/tags/v1.2.3" commit="{'a' * 40}"/><dependencies><group targetFramework="net10.0"><dependency id="Tl.Compiler" version="1.2.3" exclude="{exclude}"/></group></dependencies></metadata></package>"""
-        files = RELEASE_ARTIFACTS.PACKAGE_FILES["Tl.Gen.C"] | RELEASE_ARTIFACTS.PACKAGE_METADATA_FILES | {"Tl.Gen.C.nuspec"}
+    def write_runtime_package(path, dependency=False, extra=None):
+        dependencies = '<dependency id="Tl.Runtime" version="1.2.3" exclude="Compile"/>' if dependency else ""
+        nuspec = f"""<package><metadata><id>Tl.Runtime</id><version>1.2.3</version><repository type="git" url="https://github.com/IAFahim/tl" branch="refs/tags/v1.2.3" commit="{'a' * 40}"/><dependencies><group targetFramework="net10.0">{dependencies}</group></dependencies></metadata></package>"""
+        files = RELEASE_ARTIFACTS.PACKAGE_FILES["Tl.Runtime"] | RELEASE_ARTIFACTS.PACKAGE_METADATA_FILES | {"Tl.Runtime.nuspec"}
         if extra is not None:
             files.add(extra)
         with zipfile.ZipFile(path, "w") as archive:
