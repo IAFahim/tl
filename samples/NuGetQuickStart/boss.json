@@ -1,0 +1,9 @@
+{
+  "name": "boss",
+  "duration": 4,
+  "loop": false,
+  "tracks": [
+    { "namespace": "Fresh", "type": "DamageTrack", "data": { "Multiplier": 2.0 },
+      "clips": [ { "namespace": "Fresh", "type": "DamageClip", "start": 0, "end": 2, "data": { "Amount": 5 } } ] }
+  ]
+}
