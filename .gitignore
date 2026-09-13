@@ -33,3 +33,6 @@ __pycache__/
 /NEXT-TASK.md
 /WORK-REPORT.md
 /.tl-loop/
+
+# baked sample artifact (CI and README quick start regenerate it)
+samples/NuGetQuickStart/boss.tlb

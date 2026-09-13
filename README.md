@@ -201,12 +201,13 @@ foreach (var (timeline, resistance, health) in
 | `src/Tl.Gen.CSharp` | C# consumer discovery, typed binding, and export tool |
 | `src/Tl.CSharp` | One-package C# installation |
 | `samples/Mixed` | Data-authored timeline sample |
+| `samples/NuGetQuickStart` | Runnable quick start that consumes the published nuget.org packages; CI runs it on every build |
 | `tools/Tl.Bake` | `tlbake` JSON-to-`TLB1` baker with cache, report, and strip |
 | `tests/Tl.Alpha` | Kernel-lane, data-authored, and allocation receipts |
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |
 | `benchmarks/Alpha` | Oracle, latency, throughput, assembly, and PMU evidence |
 
-The data-authored Unity host package (`unity/com.iafahim.tl` with its Unity project receipts) was extracted into the tl.unity repository; its publication and licensing remain owner decisions.
+The data-authored Unity host package (`com.iafahim.tl`) lives in the [tl.unity](https://github.com/IAFahim/tl.unity) repository, published under the MIT license decided in issue #64.
 
 ## Documentation
 
