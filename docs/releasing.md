@@ -6,18 +6,17 @@ The artifact workflow checks out the fully qualified `refs/tags/<tag>` ref. It r
 
 The package contract verifies:
 
-- `Tl.Runtime`, `Tl.Gen.CSharp`, `Tl.CSharp`, `Tl.Compiler`, and `Tl.Gen.C` exist at the tag version.
-- `com.iafahim.tl-<version>.tgz` contains the exact Unity UPM package boundary at the tag version.
+- `Tl.Runtime`, `Tl.Gen.CSharp`, and `Tl.CSharp` exist at the tag version.
 - Every package identifies the exact repository commit and tag ref.
 - Every package path and dependency group matches the approved graph exactly.
-- `Tl.Runtime`, `Tl.Compiler`, and `Tl.Gen.C` have portable symbol packages with embedded source.
+- `Tl.Runtime` has a portable symbol package with embedded source.
 - The generator portable PDB with embedded source stays under the build-only `tools` path.
 - A clean consumer builds and runs from `Tl.CSharp` alone under the JIT and NativeAOT.
-- Generator, compiler, Roslyn, and C backend assemblies do not enter either application output.
+- Generator and Roslyn assemblies do not enter either application output.
 
-The workflow uploads one uncompressed Actions artifact containing the five packages, three symbol packages, the deterministic Unity UPM archive, a deterministic archive of the package-only NativeAOT smoke executable, the generation report, `RELEASE-MANIFEST.json`, and `SHA256SUMS`. The executable archive preserves its mode through GitHub artifact download. The manifest contains no wall-clock time and orders files by ordinal name.
+The workflow uploads one uncompressed Actions artifact containing the three packages, one symbol package, a deterministic archive of the package-only NativeAOT smoke executable, the generation report, `RELEASE-MANIFEST.json`, and `SHA256SUMS`. The executable archive preserves its mode through GitHub artifact download. The manifest contains no wall-clock time and orders files by ordinal name.
 
-The NuGet workflow rebuilds and verifies that exact tagged input in an unprivileged job. It then uploads one immutable Actions artifact scoped to the workflow run. Only the protected publish job receives an OpenID Connect token. That job downloads the same-run artifact, verifies its checksums, rejects any package outside the fixed five-package and three-symbol-package sets, and pushes each named package explicitly.
+The NuGet workflow rebuilds and verifies that exact tagged input in an unprivileged job. It then uploads one immutable Actions artifact scoped to the workflow run. Only the protected publish job receives an OpenID Connect token. That job downloads the same-run artifact, verifies its checksums, rejects any package outside the fixed three-package and one-symbol-package sets, and pushes each named package explicitly.
 
 Run the same pipeline on a branch before tagging:
 

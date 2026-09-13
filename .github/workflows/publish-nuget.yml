@@ -77,23 +77,16 @@ jobs:
           sha256sum --check SHA256SUMS
           expected_packages=(
             "Tl.CSharp.$version.nupkg"
-            "Tl.Compiler.$version.nupkg"
-            "Tl.Gen.C.$version.nupkg"
             "Tl.Gen.CSharp.$version.nupkg"
             "Tl.Runtime.$version.nupkg"
           )
           expected_symbols=(
-            "Tl.Compiler.$version.snupkg"
-            "Tl.Gen.C.$version.snupkg"
             "Tl.Runtime.$version.snupkg"
           )
-          expected_unity=("com.iafahim.tl-$version.tgz")
           mapfile -t actual_packages < <(find . -maxdepth 1 -type f -name '*.nupkg' -printf '%f\n' | LC_ALL=C sort)
           mapfile -t actual_symbols < <(find . -maxdepth 1 -type f -name '*.snupkg' -printf '%f\n' | LC_ALL=C sort)
-          mapfile -t actual_unity < <(find . -maxdepth 1 -type f -name '*.tgz' -printf '%f\n' | LC_ALL=C sort)
           [[ "${actual_packages[*]}" == "${expected_packages[*]}" ]]
           [[ "${actual_symbols[*]}" == "${expected_symbols[*]}" ]]
-          [[ "${actual_unity[*]}" == "${expected_unity[*]}" ]]
       - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841
         id: login
         with:
@@ -109,5 +102,3 @@ jobs:
           dotnet nuget push "artifacts/release/Tl.Runtime.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
           dotnet nuget push "artifacts/release/Tl.Gen.CSharp.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
           dotnet nuget push "artifacts/release/Tl.CSharp.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
-          dotnet nuget push "artifacts/release/Tl.Compiler.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"
-          dotnet nuget push "artifacts/release/Tl.Gen.C.$version.nupkg" --api-key "$NUGET_API_KEY" --source "$source"

@@ -9,11 +9,5 @@ resharper_unused_type_parameter_highlighting = none
 [benchmarks/Alpha/Benchmarks.cs]
 resharper_unused_auto_property_accessor_global_highlighting = none
 
-[src/Tl.Compiler/Polyfills.cs]
-resharper_check_namespace_highlighting = none
-
 [src/Tl.Gen.CSharp/Polyfills.cs]
 resharper_check_namespace_highlighting = none
-
-[src/Tl.Compiler/ValidatedOrderedTimelinePlan.cs]
-resharper_not_resolved_in_text_highlighting = none

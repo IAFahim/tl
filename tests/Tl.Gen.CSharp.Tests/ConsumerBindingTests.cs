@@ -1,6 +1,9 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Tl.Gen.CSharp.Analysis;
 using Xunit;
 
 namespace Tl.Gen.CSharp.Tests;
@@ -40,21 +43,21 @@ public sealed class ConsumerBindingTests
                 health.Value += frame.IsBackward ? -amount : amount;
             }
         }
-        public readonly partial struct DamageAsset : ITimeline
+        """;
+
+    private const string StandaloneSource = """
+        using Tl;
+        namespace Domain;
+        public readonly record struct BuffClip(float Amount);
+        public readonly record struct BuffTrack(float Multiplier) : IBlend<BuffClip>
         {
-            public static void Define(scoped Builder builder)
-            {
-                var track = builder.Track(new DamageTrack(2f)).Use<ApplyDamage>();
-                builder.Clip(track, new DamageClip(8f), 0u, 1u);
-            }
+            public void Blend(in BuffClip first, in BuffClip second, float factor, out BuffClip result)
+                => result = new BuffClip(first.Amount + (second.Amount - first.Amount) * factor);
         }
-        public readonly partial struct HealAsset : ITimeline
+        public struct Armor { public float Value; }
+        public readonly struct ApplyBuff : ITimelineJob<BuffTrack, BuffClip>
         {
-            public static void Define(scoped Builder builder)
-            {
-                var track = builder.Track(new HealTrack(0.5f)).Use<ApplyHeal>();
-                builder.Clip(track, new HealClip(8f), 0u, 1u);
-            }
+            public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref Armor armor) { }
         }
         """;
 
@@ -62,8 +65,7 @@ public sealed class ConsumerBindingTests
     public void EmitsOneColdInstallerWithTypedThunksForEveryDiscoveredJobPairing()
     {
         var generated = Generate();
-        Assert.Equal(3, generated.Count);
-        var binding = generated["TlConsumerBinding.g.cs"];
+        var binding = Assert.Single(generated).Value;
         Assert.DoesNotContain("\r", binding);
         Assert.StartsWith("internal static unsafe class TlConsumerBinding\n{\n[global::System.Runtime.CompilerServices.ModuleInitializer]\ninternal static void Install()\n{\n", binding);
         var installEnd = binding.IndexOf("}", StringComparison.Ordinal);
@@ -87,51 +89,10 @@ public sealed class ConsumerBindingTests
     [Fact]
     public void EmitsBindingForStandaloneJobWithoutAuthoredTimeline()
     {
-        const string source = """
-            using Tl;
-            namespace Domain;
-            public readonly record struct BuffClip(float Amount);
-            public readonly record struct BuffTrack(float Multiplier) : IBlend<BuffClip>
-            {
-                public void Blend(in BuffClip first, in BuffClip second, float factor, out BuffClip result)
-                    => result = new BuffClip(first.Amount + (second.Amount - first.Amount) * factor);
-            }
-            public struct Armor { public float Value; }
-            public readonly struct ApplyBuff : ITimelineJob<BuffTrack, BuffClip>
-            {
-                public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref Armor armor) { }
-            }
-            """;
-        var (sources, diagnostics) = GenerateWithDiagnostics(source);
+        var (sources, diagnostics) = GenerateWithDiagnostics(StandaloneSource);
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
         Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&Execute_ApplyBuff, &Bind_ApplyBuff);", binding);
-    }
-
-    [Fact]
-    public void DiscoveryUnionDeduplicatesJobsReferencedByBothAuthoredAndStandalone()
-    {
-        var (sources, diagnostics) = GenerateWithDiagnostics(Source + """
-            namespace Domain;
-            public readonly record struct BuffClip(float Amount);
-            public readonly record struct BuffTrack(float Multiplier) : IBlend<BuffClip>
-            {
-                public void Blend(in BuffClip first, in BuffClip second, float factor, out BuffClip result)
-                    => result = new BuffClip(first.Amount + (second.Amount - first.Amount) * factor);
-            }
-            public struct Armor { public float Value; }
-            public readonly struct ApplyBuff : ITimelineJob<BuffTrack, BuffClip>
-            {
-                public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref Armor armor) { }
-            }
-            """);
-        Assert.Empty(diagnostics);
-        var binding = sources["TlConsumerBinding.g.cs"];
-        Assert.Contains("Consume(&Execute_ApplyDamage, &Bind_ApplyDamage)", binding);
-        Assert.Contains("Consume(&Execute_ApplyHeal, &Bind_ApplyHeal)", binding);
-        Assert.Contains("Consume(&Execute_ApplyBuff, &Bind_ApplyBuff)", binding);
-        var damageOccurrences = binding.Split("Execute_ApplyDamage").Length - 1;
-        Assert.Equal(2, damageOccurrences);
     }
 
     [Fact]
@@ -154,6 +115,33 @@ public sealed class ConsumerBindingTests
         var diagnostic = Assert.Single(diagnostics);
         Assert.Equal("TLGEN65", diagnostic.Id);
         Assert.Contains("cannot be generic; open type parameters cannot be registered as timeline jobs", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void JobDiagnosticsUseTheJobDeclarationSourceSpan()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct DamageClip(float Amount);
+            public readonly record struct DamageTrack(float Multiplier) : IBlend<DamageClip>
+            {
+                public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result) => result = first;
+            }
+            public readonly struct GenericJob<T> : ITimelineJob<DamageTrack, DamageClip>
+            {
+                public static void Execute(in Frame<DamageTrack, DamageClip> frame) { }
+            }
+            """;
+        var compilation = Compilation(source);
+        var result = Driver().RunGenerators(compilation).GetRunResult();
+
+        var declaration = compilation.SyntaxTrees.Single().GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
+            .Single(static type => type.Identifier.ValueText == "GenericJob");
+        var diagnostic = Assert.Single(result.Diagnostics, static candidate => candidate.Id == "TLGEN65");
+        Assert.Equal(declaration.Span, diagnostic.Location.SourceSpan);
+        Assert.Equal("Domain.cs", diagnostic.Location.GetLineSpan().Path);
+        Assert.Equal("Tl.Generation", diagnostic.Descriptor.Category);
     }
 
     [Fact]
@@ -233,46 +221,6 @@ public sealed class ConsumerBindingTests
     }
 
     [Fact]
-    public void AuthoredTrackResolvesOnePairingOfAMultiPairingJob()
-    {
-        const string source = """
-            using Tl;
-            namespace Domain;
-            public readonly record struct ClipA(int Value);
-            public readonly record struct ClipB(float Amount);
-            public readonly record struct TrackA(int Code) : IBlend<ClipA>
-            {
-                public void Blend(in ClipA first, in ClipA second, float factor, out ClipA result) => result = first;
-            }
-            public readonly record struct TrackB(int Code) : IBlend<ClipB>
-            {
-                public void Blend(in ClipB first, in ClipB second, float factor, out ClipB result) => result = first;
-            }
-            public readonly struct SharedJob : ITimelineJob<TrackB, ClipB>, ITimelineJob<TrackA, ClipA>
-            {
-                public static void Execute(in Frame<TrackA, ClipA> frame) { }
-                public static void Execute(in Frame<TrackB, ClipB> frame) { }
-            }
-            public readonly partial struct Asset : ITimeline
-            {
-                public static void Define(scoped Builder builder)
-                {
-                    var track = builder.Track(new TrackA(1)).Use<SharedJob>();
-                    builder.Clip(track, new ClipA(8), 0u, 1u);
-                }
-            }
-            """;
-        var (sources, diagnostics) = GenerateWithDiagnostics(source);
-        Assert.Empty(diagnostics);
-        var binding = sources["TlConsumerBinding.g.cs"];
-        var installEnd = binding.IndexOf("}", StringComparison.Ordinal);
-        Assert.Equal(
-        [
-            "global::Tl.PairRuntime<global::Domain.TrackA, global::Domain.ClipA>.Consume(&Execute_SharedJob, &Bind_SharedJob);",
-        ], binding[..installEnd].Split('\n')[5..^1]);
-    }
-
-    [Fact]
     public void CliReexportHitsTheCacheAndPreservesBindingTimestamps()
     {
         var directory = Path.Combine(Path.GetTempPath(), "tl-consumer-binding-cli", Guid.NewGuid().ToString("N"));
@@ -282,13 +230,16 @@ public sealed class ConsumerBindingTests
             var sourcePath = Path.Combine(directory, "Domain.cs");
             var referencesPath = Path.Combine(directory, "references.txt");
             File.WriteAllText(sourcePath, Source);
-            File.WriteAllLines(referencesPath, ReferencePaths().Append(typeof(ITimeline).Assembly.Location + "\tplatform\tfalse"));
+            File.WriteAllLines(referencesPath, ReferencePaths().Append(typeof(ITimelineJob<,>).Assembly.Location + "\tplatform\tfalse"));
 
             var first = Run(["--compile", "--output", directory, "--source", sourcePath, "--reference-list", referencesPath]);
             Assert.Equal(0, first.exit);
             Assert.Contains("cache miss", first.output);
             var report = File.ReadAllText(Path.Combine(directory, CompileGenerationCache.ReportFileName));
-            Assert.Contains("generated-source-files\t3", report);
+            Assert.Contains("format\t3", report);
+            Assert.Contains("backend\tcsharp", report);
+            Assert.Contains("consumers\t2", report);
+            Assert.Contains("generated-source-files\t1", report);
             Assert.Contains("artifact\tTlConsumerBinding.g.cs\tutf8-bytes=", report);
 
             var bindingPath = Path.Combine(directory, "TlConsumerBinding.g.cs");
@@ -304,6 +255,116 @@ public sealed class ConsumerBindingTests
         finally
         {
             Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void AnalysisComparerUsesOnlyTheStableFingerprint()
+    {
+        var first = new TimelineIncrementalGenerator.Analysis([], [], "same");
+        var equivalent = new TimelineIncrementalGenerator.Analysis([], [], "same");
+        var different = new TimelineIncrementalGenerator.Analysis([], [], "different");
+        var comparer = TimelineIncrementalGenerator.AnalysisComparer.Instance;
+
+        Assert.True(comparer.Equals(first, first));
+        Assert.True(comparer.Equals(first, equivalent));
+        Assert.False(comparer.Equals(first, different));
+        Assert.False(comparer.Equals(first, null));
+        Assert.False(comparer.Equals(null, first));
+        Assert.True(comparer.Equals(null, null));
+        Assert.Equal(comparer.GetHashCode(first), comparer.GetHashCode(equivalent));
+        Assert.NotEqual(comparer.GetHashCode(first), comparer.GetHashCode(different));
+    }
+
+    [Fact]
+    public void SourceLessDiagnosticsUseNoLocation()
+    {
+        var diagnostic = new DeclarationDiagnostic("", 0, 0, "TLGEN00", "source unavailable");
+
+        Assert.Equal(Location.None, TimelineIncrementalGenerator.Location(diagnostic));
+    }
+
+    [Fact]
+    public void GeneratedOutputBindsAndMatchesTheCliByteForByte()
+    {
+        var compilation = Compilation(Source);
+        var driver = Driver().RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+        Assert.Empty(diagnostics);
+        Assert.Empty(output.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        var analyzer = Sources(driver);
+        var directory = Path.Combine(Path.GetTempPath(), "tl-consumer-binding-cli", Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var sourcePath = Path.Combine(directory, "Domain.cs");
+            var referencesPath = Path.Combine(directory, "references.txt");
+            File.WriteAllText(sourcePath, Source);
+            File.WriteAllLines(referencesPath, ReferencePaths());
+
+            Assert.Equal(0, GeneratorCli.Main(["--compile", "--output", directory, "--source", sourcePath, "--reference-list", referencesPath]));
+
+            var cli = File.ReadAllLines(Path.Combine(directory, CompileGenerationCache.SourceListFileName))
+                .ToDictionary(static path => path, path => File.ReadAllText(Path.Combine(directory, path)), StringComparer.Ordinal);
+            Assert.Equal(cli, analyzer);
+            var report = File.ReadAllText(Path.Combine(directory, CompileGenerationCache.ReportFileName));
+            Assert.Contains("format\t3", report);
+            Assert.Contains("consumers\t2", report);
+            Assert.Contains("generated-source-utf8-bytes", report);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void AnalysisOutputIsStableAcrossUnrelatedEditsAndChangesForJobSignatures()
+    {
+        var initial = Compilation(StandaloneSource).AddSyntaxTrees(Tree("namespace Unrelated; internal sealed class Value { }", "Other.cs"));
+        var driver = Driver().RunGenerators(initial);
+        Assert.Equal(IncrementalStepRunReason.New, Reason(driver));
+        var original = Sources(driver);
+
+        driver = driver.RunGenerators(initial);
+        Assert.Equal(IncrementalStepRunReason.Cached, Reason(driver));
+
+        var unrelated = initial.ReplaceSyntaxTree(
+            initial.SyntaxTrees.Single(static tree => tree.FilePath == "Other.cs"),
+            Tree("namespace Unrelated; internal sealed class Value { internal int Number; }", "Other.cs"));
+        driver = driver.RunGenerators(unrelated);
+        Assert.Equal(IncrementalStepRunReason.Unchanged, Reason(driver));
+        Assert.Equal(original, Sources(driver));
+
+        var changed = unrelated.ReplaceSyntaxTree(
+            unrelated.SyntaxTrees.Single(static tree => tree.FilePath == "Domain.cs"),
+            Tree(StandaloneSource.Replace("ref Armor armor) { }", "ref Armor armor, ref int extra) { }", StringComparison.Ordinal), "Domain.cs"));
+        driver = driver.RunGenerators(changed);
+        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver));
+        Assert.NotEqual(original, Sources(driver));
+        Assert.Contains("var @extra = (int*)__tlColumns[1];", Assert.Single(Sources(driver)).Value);
+    }
+
+    [Fact]
+    public void OrderingAndTextAreCultureIndependent()
+    {
+        var previousCulture = CultureInfo.CurrentCulture;
+        var previousUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("tr-TR");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("tr-TR");
+            var first = Sources(Driver().RunGenerators(Compilation(Source)));
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ar-SA");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ar-SA");
+            var second = Sources(Driver().RunGenerators(Compilation(Source)));
+            Assert.Equal(first, second);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
         }
     }
 
@@ -348,10 +409,36 @@ public sealed class ConsumerBindingTests
         return (sources, diagnostics);
     }
 
+    private static CSharpCompilation Compilation(string source)
+        => CSharpCompilation.Create(
+            "ConsumerBindingTests",
+            [Tree(source, "Domain.cs")],
+            References(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
+
+    private static SyntaxTree Tree(string source, string path)
+        => CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), path);
+
+    private static GeneratorDriver Driver()
+        => CSharpGeneratorDriver.Create(
+            [new TimelineIncrementalGenerator().AsSourceGenerator()],
+            parseOptions: CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview),
+            driverOptions: new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, true));
+
+    private static IncrementalStepRunReason Reason(GeneratorDriver driver)
+    {
+        var steps = driver.GetRunResult().Results.Single().TrackedSteps["Tl.Analysis"];
+        return Assert.Single(Assert.Single(steps).Outputs).Reason;
+    }
+
+    private static Dictionary<string, string> Sources(GeneratorDriver driver)
+        => driver.GetRunResult().Results.Single().GeneratedSources
+            .ToDictionary(static source => source.HintName, static source => source.SourceText.ToString(), StringComparer.Ordinal);
+
     private static IEnumerable<MetadataReference> References()
         => ReferencePaths().Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path));
 
     internal static string[] ReferencePaths()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Append(typeof(ITimeline).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
+            .Append(typeof(ITimelineJob<,>).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
 }

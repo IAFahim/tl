@@ -72,7 +72,7 @@ public sealed class ConsumerPlaybackTests
 
     private static IEnumerable<MetadataReference> References()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Append(typeof(ITimeline).Assembly.Location).Distinct(StringComparer.Ordinal)
+            .Append(typeof(ITimelineJob<,>).Assembly.Location).Distinct(StringComparer.Ordinal)
             .Select(static path => MetadataReference.CreateFromFile(path));
 
     private const string Domain = """
@@ -140,24 +140,6 @@ public sealed class ConsumerPlaybackTests
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 armor.Value += frame.IsBackward ? -amount : amount;
-            }
-        }
-
-        public readonly partial struct DamageAsset : ITimeline
-        {
-            public static void Define(scoped Builder builder)
-            {
-                var track = builder.Track(new DamageTrack(2f)).Use<ApplyDamage>();
-                builder.Clip(track, new DamageClip(8f), 0u, 1u);
-            }
-        }
-
-        public readonly partial struct HealAsset : ITimeline
-        {
-            public static void Define(scoped Builder builder)
-            {
-                var track = builder.Track(new HealTrack(0.5f)).Use<ApplyHeal>();
-                builder.Clip(track, new HealClip(8f), 0u, 1u);
             }
         }
 

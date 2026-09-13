@@ -3,46 +3,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Tl;
 
-var totals = new[] { default(PackageTotal) };
-
-using var asset = TimelineAsset.Load(new PackageBaker()
-    .Track<PackageTrack, PackageClip>(new PackageTrack())
-    .Clip(0, 0u, 4u, new PackageClip(7))
-    .Bake());
-var rows = new[] { new TimelineComponent(asset.Reference) };
-var query = Timeline.Rows(rows).Write(totals);
-
-query.Tick(0u);
-
-if (rows[0].Position != 1u || totals[0].Value != 7)
-    return 1;
-
-query.Tick(1u, -1);
-
-if (rows[0].Position != 0u || totals[0] != default)
-    return 2;
-
-query.Tick(0u);
-Console.WriteLine(totals[0].Value);
-return 0;
-
-public readonly record struct PackageTotal(int Value);
-public readonly record struct PackageClip(int Value);
-
-public readonly struct PackageTrack : IBlend<PackageClip>
-{
-    public void Blend(in PackageClip first, in PackageClip second, float factor, out PackageClip result)
-        => result = factor < 0.5f ? first : second;
-}
-
-public readonly struct PackageJob : ITimelineJob<PackageTrack, PackageClip>
-{
-    public static void Execute(in Frame<PackageTrack, PackageClip> frame, ref PackageTotal total)
-        => total = new(total.Value + frame.Direction * frame.Clip.Value);
-}
-
 [StructLayout(LayoutKind.Sequential)]
-internal struct PackageSlot<TTrack, TClip> where TTrack : unmanaged where TClip : unmanaged
+internal struct DataSlot<TTrack, TClip> where TTrack : unmanaged where TClip : unmanaged
 {
     public TTrack Track;
     public TClip First;
@@ -54,7 +16,7 @@ internal struct PackageSlot<TTrack, TClip> where TTrack : unmanaged where TClip 
     public byte TrackIndex;
 }
 
-internal sealed class PackageBaker
+internal sealed class DataBaker
 {
     internal sealed class BakedClip
     {
@@ -81,7 +43,7 @@ internal sealed class PackageBaker
 
         public override void Write(byte[] bytes, int offset, BakedClip? first, BakedClip? second, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan)
         {
-            var slot = new PackageSlot<TTrack, TClip>
+            var slot = new DataSlot<TTrack, TClip>
             {
                 Track = TrackValue,
                 First = (TClip)first!.Value,
@@ -99,25 +61,25 @@ internal sealed class PackageBaker
     private readonly List<BakedTrack> _tracks = [];
     private bool _loops;
 
-    public PackageBaker Track<TTrack, TClip>(TTrack value) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
+    public DataBaker Track<TTrack, TClip>(TTrack value) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
     {
         _tracks.Add(new BakedTrack<TTrack, TClip>
         {
             TrackValue = value,
             Key = PairRuntime<TTrack, TClip>.Key,
-            Stride = (uint)((Unsafe.SizeOf<PackageSlot<TTrack, TClip>>() + 15) & ~15),
+            Stride = (uint)((Unsafe.SizeOf<DataSlot<TTrack, TClip>>() + 15) & ~15),
             Index = (byte)_tracks.Count,
         });
         return this;
     }
 
-    public PackageBaker Clip<TClip>(int track, uint start, uint end, TClip clip) where TClip : unmanaged
+    public DataBaker Clip<TClip>(int track, uint start, uint end, TClip clip) where TClip : unmanaged
     {
         _tracks[track].Clips.Add(new BakedClip { Start = start, End = end, Value = clip });
         return this;
     }
 
-    public PackageBaker Looping()
+    public DataBaker Looping()
     {
         _loops = true;
         return this;

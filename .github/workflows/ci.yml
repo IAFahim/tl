@@ -44,10 +44,9 @@ jobs:
       - run: ./artifacts/aot/Tl.Alpha --module-capacity
       - name: Verify NativeAOT runtime isolation
         run: |
-          test -z "$(find artifacts/aot -type f \( -name 'Tl.Gen*' -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
+          test -z "$(find artifacts/aot -type f \( -name 'Tl.Gen*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
       - run: dotnet pack src/Tl.Core -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.Gen.CSharp -c Release --no-build -o artifacts/packages
-      - run: dotnet pack src/Tl.Compiler -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.CSharp -c Release --no-build -m:1 -o artifacts/packages
       - name: Verify package consumer
         env:
@@ -61,7 +60,6 @@ jobs:
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Microsoft.CodeAnalysis.CSharp.dll
-          test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Compiler.dll
           test ! -e tests/Tl.PackageConsumer/bin/Release/net10.0/Tl.Gen.C.dll
           dotnet msbuild tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -t:TlGenExport -p:Configuration=Release | tee artifacts/package-export.log
           grep -F "TlGenCompile: cache miss" artifacts/package-export.log
@@ -70,13 +68,5 @@ jobs:
           dotnet restore tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -r linux-x64 -p:PublishAot=true --source artifacts/packages --source https://api.nuget.org/v3/index.json
           dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
           test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"
-          test -z "$(find artifacts/package-aot -type f \( -name 'Tl.Gen*' -o -name 'Tl.Compiler*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
-      - name: Verify compiler package consumer
-        env:
-          NUGET_PACKAGES: ${{ runner.temp }}/tl-compiler-package-consumer
-        run: |
-          set -euo pipefail
-          dotnet restore tests/Tl.Compiler.PackageConsumer/Tl.Compiler.PackageConsumer.csproj --source artifacts/packages
-          dotnet build tests/Tl.Compiler.PackageConsumer/Tl.Compiler.PackageConsumer.csproj -c Release --no-restore
-          test "$(./tests/Tl.Compiler.PackageConsumer/bin/Release/net10.0/Tl.Compiler.PackageConsumer)" = "1:9:2"
+          test -z "$(find artifacts/package-aot -type f \( -name 'Tl.Gen*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
       - run: eng/release-artifacts --candidate ci artifacts/release

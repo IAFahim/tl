@@ -14,47 +14,34 @@ public class TotalMovementTests
             => result = factor < 0.5f ? first : second;
     }
 
-    public readonly struct Job : ITimelineJob<JobTrack, JobClip>;
+    private static byte[] FiniteFixture() => new Baker()
+        .Track<JobTrack, JobClip>(default)
+        .Clip(0, 0u, 3u, new JobClip(1))
+        .Bake();
 
-    public readonly struct Hook : IHook
-    {
-        public static void Execute(in TimelineFrame frame, in int input, ref int output)
-            => output += frame.Direction * input;
-    }
-
-    public readonly struct JobTimeline : ITimeline
-    {
-        public static void Define(scoped Builder builder)
-        {
-            var track = builder.Track(new JobTrack()).Use<Job>();
-            builder.Clip(track, new JobClip(1), 0, 1);
-        }
-    }
-
-    public readonly struct Rows;
-
-    public readonly struct Catalog : ITimelineCatalog
-    {
-        public static void Define(scoped CatalogBuilder builder)
-        {
-            var schema = builder.Schema<Rows>();
-            schema.Asset<JobTimeline>();
-        }
-    }
+    private static byte[] LoopingFixture() => new Baker()
+        .Track<JobTrack, JobClip>(default)
+        .Clip(0, 0u, 2u, new JobClip(1))
+        .Looping()
+        .Bake();
 
     [Fact]
-    public void DeclarationSurfaceIsTotalWhenInvoked()
+    public void DataAuthoredSurfaceIsTotalWhenDriven()
     {
-        var builder = default(Builder);
-        builder.Looping();
-        builder.Before<Hook>();
-        builder.After<Hook>();
-        builder.Include<JobTimeline>();
+        using var finite = TimelineAsset.Load(FiniteFixture());
+        var rows = new[] { new TimelineComponent(finite.Reference) };
+        var query = Timeline.Rows(rows);
+
+        query.Tick(11u, 3);
+        Assert.Equal(3u, rows[0].Position);
+        Assert.Equal(0L, rows[0].Cycle);
+        query.Tick(14u, -3);
+        Assert.Equal(0u, rows[0].Position);
+        Assert.Equal(0L, rows[0].Cycle);
 
         var track = new JobTrack();
         var clip = new JobClip(7);
         var frame = new Frame<JobTrack, JobClip>(in track, in clip, 11, 13, -2, 17, FrameFlags.Reverse);
-        var timelineFrame = new TimelineFrame(11, 13, -2, FrameFlags.Reverse);
 
         Assert.Equal((ushort)17, frame.TrackIndex);
         Assert.Equal(-1, frame.Direction);
@@ -62,10 +49,6 @@ public class TotalMovementTests
         Assert.False(new Frame<JobTrack, JobClip>(in track, in clip, 11, 13, -2, 17, FrameFlags.None).IsBackward);
         Assert.True(frame.Has(FrameFlags.Reverse));
         Assert.False(frame.Has(FrameFlags.TimelineStart));
-        Assert.Equal(-1, timelineFrame.Direction);
-        Assert.True(timelineFrame.Has(FrameFlags.Reverse));
-        Assert.False(timelineFrame.Has(FrameFlags.TimelineStart));
-        Assert.Equal(1, new TimelineFrame(11, 13, -2, FrameFlags.None).Direction);
     }
 
     public static TheoryData<uint, uint, uint, bool, bool, uint, uint, FrameFlags> FiniteCases => new()
@@ -210,7 +193,7 @@ public class TotalMovementTests
     }
 
     [Fact]
-    public void CatalogRouteDomainIncludesEmptyAndSixtyFiveThousandFiveHundredThirtySixAssets()
+    public void RouteDomainIncludesEmptyAndSixtyFiveThousandFiveHundredThirtySixAssets()
     {
         var empty = default(TimelineState);
         AssertInactive(empty, 1, false, false);
@@ -247,6 +230,31 @@ public class TotalMovementTests
     }
 
     [Fact]
+    public void FacadeCompletionOfOneRowDoesNotStopLiveRows()
+    {
+        using var shortAsset = TimelineAsset.Load(new Baker()
+            .Track<JobTrack, JobClip>(default)
+            .Clip(0, 0u, 1u, new JobClip(1))
+            .Bake());
+        using var longAsset = TimelineAsset.Load(new Baker()
+            .Track<JobTrack, JobClip>(default)
+            .Clip(0, 0u, 3u, new JobClip(1))
+            .Bake());
+        var rows = new[]
+        {
+            new TimelineComponent(shortAsset.Reference),
+            new TimelineComponent(longAsset.Reference),
+        };
+        var query = Timeline.Rows(rows);
+
+        for (uint pass = 0; pass < 3; pass++)
+            query.Tick(100u + pass, 1);
+
+        Assert.Equal(1u, rows[0].Position);
+        Assert.Equal(3u, rows[1].Position);
+    }
+
+    [Fact]
     public void FiniteClampingDoesNotClaimInverseMovement()
     {
         Span<uint> ticks = stackalloc uint[4];
@@ -257,6 +265,22 @@ public class TotalMovementTests
         Assert.Equal(2, Replay(ref state, 3, false, 10, ref gameTick, ticks, gameTicks));
         Assert.Equal(3, Replay(ref state, 3, false, -10, ref gameTick, ticks, gameTicks));
         Assert.Equal(0u, state.Position);
+    }
+
+    [Fact]
+    public void FacadeFiniteClampingDoesNotClaimInverseMovement()
+    {
+        using var asset = TimelineAsset.Load(FiniteFixture());
+        var rows = new[] { new TimelineComponent(asset.Reference) { Position = 1 } };
+        var query = Timeline.Rows(rows);
+
+        query.Tick(10u, 10);
+        Assert.Equal(3u, rows[0].Position);
+        Assert.Equal(0L, rows[0].Cycle);
+
+        query.Tick(20u, -10);
+        Assert.Equal(0u, rows[0].Position);
+        Assert.Equal(0L, rows[0].Cycle);
     }
 
     [Fact]
@@ -285,6 +309,22 @@ public class TotalMovementTests
         Assert.Equal(forwardTick, reverseTick);
         Assert.Equal(forwardCycle, reverseCycle);
         AssertState(state, restored);
+    }
+
+    [Fact]
+    public void FacadeLoopingWrapAndImmediateReverseRestoresCycle()
+    {
+        using var asset = TimelineAsset.Load(LoopingFixture());
+        var rows = new[] { new TimelineComponent(asset.Reference) };
+        var query = Timeline.Rows(rows);
+
+        query.Tick(10u, 5);
+        Assert.Equal(1u, rows[0].Position);
+        Assert.Equal(2L, rows[0].Cycle);
+
+        query.Tick(15u, -5);
+        Assert.Equal(0u, rows[0].Position);
+        Assert.Equal(0L, rows[0].Cycle);
     }
 
     [Fact]
@@ -331,57 +371,35 @@ public class TotalMovementTests
     }
 
     [Fact]
-    public void DeclarationAndHookFramesExposeTheFrozenShape()
+    public void DataAuthoredFramesExposeTheFrozenShape()
     {
-        JobTimeline.Define(default);
-        Catalog.Define(default);
+        using var asset = TimelineAsset.Load(FiniteFixture());
+        var component = new TimelineComponent(asset.Reference);
+
+        var queried = Timeline.Query<JobTrack, JobClip>(in component);
+        Assert.True(queried.MoveNext());
+        Assert.Equal(0u, queried.Current.TimelineTick);
+        Assert.Equal((ushort)0, queried.Current.TrackIndex);
+        Assert.Equal(0u, component.Position);
 
         var track = new JobTrack();
         var clip = new JobClip(19);
         var borrowed = new Frame<JobTrack, JobClip>(in track, in clip, 4, 3, -2, 1, FrameFlags.Reverse);
         Assert.Equal(19, borrowed.Clip.Value);
 
-        var hook = new TimelineFrame(4, 3, -2, FrameFlags.TimelineEnd | FrameFlags.Reverse);
-        Assert.Equal(4u, hook.GameTick);
-        Assert.Equal(3u, hook.TimelineTick);
-        Assert.Equal(-2, hook.Cycle);
-        Assert.Equal(-1, hook.Direction);
-        Assert.True(hook.Has(FrameFlags.TimelineEnd | FrameFlags.Reverse));
-        var hookResult = 0;
-        var hookInput = 7;
-        Hook.Execute(in hook, in hookInput, ref hookResult);
-        Assert.Equal(-7, hookResult);
-
         Assert.Equal(16, Unsafe.SizeOf<TimelineState>());
-        Assert.Equal(24, Unsafe.SizeOf<TimelineFrame>());
         Assert.Equal(0, Marshal.OffsetOf<TimelineState>(nameof(TimelineState.Asset)).ToInt32());
         Assert.Equal(4, Marshal.OffsetOf<TimelineState>(nameof(TimelineState.Position)).ToInt32());
         Assert.Equal(8, Marshal.OffsetOf<TimelineState>(nameof(TimelineState.Cycle)).ToInt32());
-        Assert.Equal(0, Marshal.OffsetOf<TimelineFrame>("<GameTick>k__BackingField").ToInt32());
-        Assert.Equal(4, Marshal.OffsetOf<TimelineFrame>("<TimelineTick>k__BackingField").ToInt32());
-        Assert.Equal(8, Marshal.OffsetOf<TimelineFrame>("<Cycle>k__BackingField").ToInt32());
-        Assert.Equal(16, Marshal.OffsetOf<TimelineFrame>("<Flags>k__BackingField").ToInt32());
 
         var frameType = typeof(Frame<JobTrack, JobClip>);
         Assert.True(frameType.IsByRefLike);
         Assert.Equal(typeof(IBlend<JobClip>), typeof(JobTrack).GetInterfaces().Single());
 
-        var asset = typeof(SchemaBuilder<Rows>).GetMethod(nameof(SchemaBuilder<Rows>.Asset))!;
-        Assert.Equal(typeof(SchemaBuilder<Rows>), asset.ReturnType);
-        Assert.Equal(typeof(TrackRef<JobTrack, Job>), typeof(TrackRef<JobTrack>).GetMethod(nameof(TrackRef<JobTrack>.Use))!.MakeGenericMethod(typeof(Job)).ReturnType);
-
         var stateType = typeof(TimelineState);
         Assert.True(stateType.IsDefined(typeof(IsReadOnlyAttribute), false));
         Assert.Equal(LayoutKind.Sequential, stateType.StructLayoutAttribute!.Value);
         Assert.All(stateType.GetFields(), static field => Assert.True(field.IsInitOnly));
-
-        var hookType = typeof(TimelineFrame);
-        Assert.True(hookType.IsDefined(typeof(IsReadOnlyAttribute), false));
-        Assert.Equal(LayoutKind.Sequential, hookType.StructLayoutAttribute!.Value);
-        var hookConstructor = Assert.Single(hookType.GetConstructors());
-        Assert.Equal(
-            new[] { typeof(uint), typeof(uint), typeof(long), typeof(FrameFlags) },
-            hookConstructor.GetParameters().Select(static parameter => parameter.ParameterType));
 
         var parameters = typeof(TimelineMovement).GetMethod(nameof(TimelineMovement.Select))!.GetParameters();
         Assert.Equal(8, parameters.Length);
@@ -422,14 +440,13 @@ public class TotalMovementTests
             reverse,
             out var next,
             out var tick,
-            out var cycle,
-            out var flags))
+            out _,
+            out _))
         {
             if (reverse)
                 gameTick = unchecked(gameTick - 1u);
-            var frame = new TimelineFrame(gameTick, tick, cycle, flags);
-            ticks[count] = frame.TimelineTick;
-            gameTicks[count] = frame.GameTick;
+            ticks[count] = tick;
+            gameTicks[count] = gameTick;
             count++;
             state = next;
             if (!reverse)

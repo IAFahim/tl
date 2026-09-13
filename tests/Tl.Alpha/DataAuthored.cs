@@ -158,25 +158,6 @@ public readonly struct TandemSecond : ITimelineJob<TandemTrack, TandemClip>
     }
 }
 
-public readonly partial struct DataAuthoredJobDeclarations : ITimeline
-{
-    public static void Define(scoped Builder builder)
-    {
-        var damage = builder.Track(new DamageTrack(1f)).Use<DamageJob>();
-        var heal = builder.Track(new HealTrack(1f)).Use<HealJob>();
-        var mark = builder.Track(new MarkTrack(1)).Use<MarkJob>();
-        var bomb = builder.Track(new BombTrack(1)).Use<ThrowingJob>();
-        var first = builder.Track(new TandemTrack(1)).Use<TandemFirst>();
-        var second = builder.Track(new TandemTrack(1)).Use<TandemSecond>();
-        builder.Clip(damage, new DamageClip(1f), 0u, 1u);
-        builder.Clip(heal, new HealClip(1f), 0u, 1u);
-        builder.Clip(mark, new MarkClip(1), 0u, 1u);
-        builder.Clip(bomb, new BombClip(1), 0u, 1u);
-        builder.Clip(first, new TandemClip(1), 0u, 1u);
-        builder.Clip(second, new TandemClip(1), 0u, 1u);
-    }
-}
-
 [StructLayout(LayoutKind.Sequential)]
 internal struct DataSlot<TTrack, TClip> where TTrack : unmanaged where TClip : unmanaged
 {
@@ -1238,6 +1219,118 @@ internal static class DataAuthoredReceipts
         }
         Require(wideRows[0].Position == 2u && wideLogs[0].TrackMask == 0xFFFF_FFFFu, "all 32 authored tracks executed each frame");
         Console.WriteLine($"data-authored capacity: empty=no-op single-tick=clamps tracks={tracks} of the 256 authored-track law");
+    }
+
+    internal static void BatchCapacity()
+    {
+        using var wide = TimelineAsset.Load(new DataBaker()
+            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
+            .Track<HealTrack, HealClip>(new HealTrack(1f))
+            .Track<MarkTrack, MarkClip>(new MarkTrack(3))
+            .Clip(0, 0u, 3u, new DamageClip(1f))
+            .Clip(1, 0u, 3u, new HealClip(2f))
+            .Clip(2, 0u, 3u, new MarkClip(3))
+            .Bake());
+        using var narrow = TimelineAsset.Load(new DataBaker()
+            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
+            .Clip(0, 0u, 1u, new DamageClip(7f))
+            .Bake());
+        var wideOracle = new OracleAsset(
+        [
+            new(1, true, [new OracleAsset.Clip(0u, 3u, 1f, 0)]),
+            new(2, true, [new OracleAsset.Clip(0u, 3u, 2f, 0)]),
+            new(3, false, [new OracleAsset.Clip(0u, 3u, 0f, 3)]),
+        ], false);
+        var narrowOracle = new OracleAsset([new(1, true, [new OracleAsset.Clip(0u, 1u, 7f, 0)])], false);
+        const int count = 10_000;
+        var rows = new TimelineComponent[count];
+        var logs = new DataLog[count];
+        for (var row = 0; row < count; row++)
+            rows[row] = new TimelineComponent((row & 1) == 0 ? wide.Reference : narrow.Reference);
+        var query = Timeline.Rows(rows).Write(logs);
+        query.Tick(1_000_000u, int.MaxValue);
+        for (var row = 0; row < count; row++)
+        {
+            var oracle = (row & 1) == 0 ? wideOracle : narrowOracle;
+            var position = 0u;
+            var cycle = 0L;
+            var gameTick = 1_000_000u;
+            var totalSteps = 0;
+            var frame = new OracleFrame(0u, 0u, 0L, FrameFlags.None, 0, 0, 0, -1, 0, 0u, 0, 0, 0, 0, false, 0u, 0L);
+            while (DataAuthoredOracle.Select(oracle.Duration, oracle.Loops, position, cycle, false, out var tick, out var frameCycle, out var flags, out var nextPosition, out var nextCycle))
+            {
+                frame = DataAuthoredOracle.Step(oracle, position, cycle, gameTick, false);
+                totalSteps += frame.Steps;
+                position = nextPosition;
+                cycle = nextCycle;
+                gameTick++;
+            }
+            RequireFrame(logs[row], frame, totalSteps, $"capacity row {row}");
+            Require(rows[row].Position == position && rows[row].Cycle == cycle, $"capacity row {row} commit");
+        }
+        Console.WriteLine($"data-authored capacity-batch: {count} mixed rows matched the independent finite oracle");
+    }
+
+    internal static void ModuleCapacity()
+    {
+        using var first = TimelineAsset.Load(new DataBaker()
+            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
+            .Clip(0, 0u, 2u, new DamageClip(1f))
+            .Bake());
+        using var second = TimelineAsset.Load(new DataBaker()
+            .Track<HealTrack, HealClip>(new HealTrack(1f))
+            .Clip(0, 0u, 3u, new HealClip(2f))
+            .Bake());
+        var mixed = new[]
+        {
+            new TimelineComponent(first.Reference),
+            new TimelineComponent(second.Reference),
+        };
+        var mixedLogs = new DataLog[2];
+        Timeline.Rows(mixed).Write(mixedLogs).Tick(10u, 5);
+        Require(mixed[0].Position == 2u && mixed[1].Position == 3u && mixedLogs[0].Calls == 2 && mixedLogs[1].Calls == 3, "rows carry their own assets, so mixed rows tick without route rejection");
+
+        var rows = new[] { new TimelineComponent(first.Reference) };
+        var logs = new DataLog[1];
+        logs[0].Calls = 99;
+        var receipts = new Receipt[1];
+        var uints = new uint[1];
+        uints[0] = 77u;
+        var message = "";
+        try
+        {
+            Timeline.Rows(rows).Read(uints).Read(receipts).Tick(30u, 1);
+        }
+        catch (ArgumentException exception)
+        {
+            message = exception.Message;
+        }
+        Require(message == "global::DamageJob: required column missing for registered consumer: global::DataLog", "missing mandatory column names job and type");
+        Require(rows[0].Position == 0u, "missing column leaves positions unchanged");
+        Require(logs[0].Calls == 99 && receipts[0] == default && uints[0] == 77u, "missing column leaves sentinel row data unchanged");
+        Timeline.Rows(rows).Read(uints).Read(receipts).Write(logs).Tick(30u, 1);
+        Require(rows[0].Position == 1u && logs[0].Calls == 100, "the same rows tick once the mandatory column is supplied");
+        var duplicate = new uint[1];
+        RequireThrowsArgument(() => Timeline.Rows(rows).Read(uints).Read(duplicate), "duplicate column type is role-ambiguous at construction");
+        RequireThrowsArgument(() => Timeline.Rows(rows).Read(new uint[2]), "column length mismatch is rejected at construction");
+        RequireThrowsArgument(() => Timeline.Rows(rows).Read(uints).Write(MemoryMarshal.Cast<uint, int>(uints.AsSpan())), "writable column overlapping another column is rejected at construction");
+        RequireThrowsArgument(() => Timeline.Rows(rows).Write(MemoryMarshal.AsBytes(rows.AsSpan())[..1]), "writable column overlapping rows is rejected at construction");
+        Require(rows[0].Position == 1u && uints[0] == 77u, "construction failures execute nothing");
+        Console.WriteLine("data-authored module-capacity: mixed-asset rows legal missing-column job+type duplicate length overlap-rows overlap-columns rejected before effects");
+    }
+
+    internal static void Memory()
+    {
+        var baked = new DataBaker()
+            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
+            .Clip(0, 0u, 2u, new DamageClip(1f))
+            .Bake();
+        using var asset = TimelineAsset.Load(baked);
+        var rows = new[] { new TimelineComponent(asset.Reference) };
+        var logs = new DataLog[1];
+        Timeline.Rows(rows).Write(logs).Tick(1u, 1);
+        Require(rows[0].Position == 1u && logs[0].Calls == 1, "the measured asset plays");
+        Console.WriteLine($"memory: state={Unsafe.SizeOf<TimelineComponent>()} B tlb={baked.Length} B");
     }
 
     static TimelineQuery<uint, Receipt, DataLog> Facade(TimelineComponent[] rows, DataLog[] logs, out Receipt[] receipts, out uint[] uints)
