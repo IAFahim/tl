@@ -42,7 +42,6 @@ public class TotalMovementTests
         var track = new JobTrack();
         var clip = new JobClip(7);
         var frame = new Frame<JobTrack, JobClip>(in track, in clip, 11, 13, -2, 17, FrameFlags.Reverse);
-        var timelineFrame = new TimelineFrame(11, 13, -2, FrameFlags.Reverse);
 
         Assert.Equal((ushort)17, frame.TrackIndex);
         Assert.Equal(-1, frame.Direction);
@@ -50,10 +49,6 @@ public class TotalMovementTests
         Assert.False(new Frame<JobTrack, JobClip>(in track, in clip, 11, 13, -2, 17, FrameFlags.None).IsBackward);
         Assert.True(frame.Has(FrameFlags.Reverse));
         Assert.False(frame.Has(FrameFlags.TimelineStart));
-        Assert.Equal(-1, timelineFrame.Direction);
-        Assert.True(timelineFrame.Has(FrameFlags.Reverse));
-        Assert.False(timelineFrame.Has(FrameFlags.TimelineStart));
-        Assert.Equal(1, new TimelineFrame(11, 13, -2, FrameFlags.None).Direction);
     }
 
     public static TheoryData<uint, uint, uint, bool, bool, uint, uint, FrameFlags> FiniteCases => new()
@@ -392,22 +387,10 @@ public class TotalMovementTests
         var borrowed = new Frame<JobTrack, JobClip>(in track, in clip, 4, 3, -2, 1, FrameFlags.Reverse);
         Assert.Equal(19, borrowed.Clip.Value);
 
-        var timelineFrame = new TimelineFrame(4, 3, -2, FrameFlags.TimelineEnd | FrameFlags.Reverse);
-        Assert.Equal(4u, timelineFrame.GameTick);
-        Assert.Equal(3u, timelineFrame.TimelineTick);
-        Assert.Equal(-2, timelineFrame.Cycle);
-        Assert.Equal(-1, timelineFrame.Direction);
-        Assert.True(timelineFrame.Has(FrameFlags.TimelineEnd | FrameFlags.Reverse));
-
         Assert.Equal(16, Unsafe.SizeOf<TimelineState>());
-        Assert.Equal(24, Unsafe.SizeOf<TimelineFrame>());
         Assert.Equal(0, Marshal.OffsetOf<TimelineState>(nameof(TimelineState.Asset)).ToInt32());
         Assert.Equal(4, Marshal.OffsetOf<TimelineState>(nameof(TimelineState.Position)).ToInt32());
         Assert.Equal(8, Marshal.OffsetOf<TimelineState>(nameof(TimelineState.Cycle)).ToInt32());
-        Assert.Equal(0, Marshal.OffsetOf<TimelineFrame>("<GameTick>k__BackingField").ToInt32());
-        Assert.Equal(4, Marshal.OffsetOf<TimelineFrame>("<TimelineTick>k__BackingField").ToInt32());
-        Assert.Equal(8, Marshal.OffsetOf<TimelineFrame>("<Cycle>k__BackingField").ToInt32());
-        Assert.Equal(16, Marshal.OffsetOf<TimelineFrame>("<Flags>k__BackingField").ToInt32());
 
         var frameType = typeof(Frame<JobTrack, JobClip>);
         Assert.True(frameType.IsByRefLike);
@@ -417,14 +400,6 @@ public class TotalMovementTests
         Assert.True(stateType.IsDefined(typeof(IsReadOnlyAttribute), false));
         Assert.Equal(LayoutKind.Sequential, stateType.StructLayoutAttribute!.Value);
         Assert.All(stateType.GetFields(), static field => Assert.True(field.IsInitOnly));
-
-        var frameStructType = typeof(TimelineFrame);
-        Assert.True(frameStructType.IsDefined(typeof(IsReadOnlyAttribute), false));
-        Assert.Equal(LayoutKind.Sequential, frameStructType.StructLayoutAttribute!.Value);
-        var frameConstructor = Assert.Single(frameStructType.GetConstructors());
-        Assert.Equal(
-            new[] { typeof(uint), typeof(uint), typeof(long), typeof(FrameFlags) },
-            frameConstructor.GetParameters().Select(static parameter => parameter.ParameterType));
 
         var parameters = typeof(TimelineMovement).GetMethod(nameof(TimelineMovement.Select))!.GetParameters();
         Assert.Equal(8, parameters.Length);
@@ -465,14 +440,13 @@ public class TotalMovementTests
             reverse,
             out var next,
             out var tick,
-            out var cycle,
-            out var flags))
+            out _,
+            out _))
         {
             if (reverse)
                 gameTick = unchecked(gameTick - 1u);
-            var frame = new TimelineFrame(gameTick, tick, cycle, flags);
-            ticks[count] = frame.TimelineTick;
-            gameTicks[count] = frame.GameTick;
+            ticks[count] = tick;
+            gameTicks[count] = gameTick;
             count++;
             state = next;
             if (!reverse)

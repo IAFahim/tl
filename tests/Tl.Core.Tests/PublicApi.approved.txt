@@ -1,12 +1,3 @@
-type Tl.Builder
-  Method Void After[THook]()
-  Method Void Before[THook]()
-  Method Void Clip[TTrack,TJob,TClip](Tl.TrackRef`2[TTrack,TJob] ByRef, TClip ByRef, UInt32, UInt32)
-  Method Void Include[TTimeline]()
-  Method Void Looping()
-  Method Tl.TrackRef`1[TTrack] Track[TTrack](TTrack ByRef)
-type Tl.CatalogBuilder
-  Method Tl.SchemaBuilder`1[TSchema] Schema[TSchema]()
 type Tl.FrameFlags
   Field Tl.FrameFlags ClipEnd
   Field Tl.FrameFlags ClipStart
@@ -35,18 +26,11 @@ type Tl.Frame`2
   Property UInt16 TrackIndex
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
-type Tl.IHook
-type Tl.ITimeline
-  Method Void Define(Tl.Builder)
-type Tl.ITimelineCatalog
-  Method Void Define(Tl.CatalogBuilder)
 type Tl.ITimelineJob`2
 type Tl.PairRuntime`2
   Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
   Method Void ConsumeUnmanaged(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
   Field UInt64 Key
-type Tl.SchemaBuilder`1
-  Method Tl.SchemaBuilder`1[TSchema] Asset[TTimeline]()
 type Tl.TickFrame
   Field Int64 Cycle
   Field Tl.FrameFlags Flags
@@ -67,13 +51,6 @@ type Tl.TimelineComponent
   Field Int64 Cycle
   Field UInt32 Position
   Field Tl.TimelineRef Reference
-type Tl.TimelineFrame
-  Property Int64 Cycle
-  Property Int32 Direction
-  Property Tl.FrameFlags Flags
-  Property UInt32 GameTick
-  Method Boolean Has(Tl.FrameFlags)
-  Property UInt32 TimelineTick
 type Tl.TimelineKernels
   Field Int32 Bound
   Method Void Chain(Int32, Boolean, Int32*, Byte*, UInt32, UInt32, Int64, Tl.FrameFlags, Void**, Int32)
@@ -105,9 +82,6 @@ type Tl.TimelineState
   Field UInt32 Asset
   Field Int64 Cycle
   Field UInt32 Position
-type Tl.TrackRef`1
-  Method Tl.TrackRef`2[TTrack,TJob] Use[TJob]()
-type Tl.TrackRef`2
 type Tl.TypeKey`1
   Field UInt64 Value
 type Tl.UnmanagedTickState

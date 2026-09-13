@@ -230,7 +230,7 @@ public sealed class ConsumerBindingTests
             var sourcePath = Path.Combine(directory, "Domain.cs");
             var referencesPath = Path.Combine(directory, "references.txt");
             File.WriteAllText(sourcePath, Source);
-            File.WriteAllLines(referencesPath, ReferencePaths().Append(typeof(ITimeline).Assembly.Location + "\tplatform\tfalse"));
+            File.WriteAllLines(referencesPath, ReferencePaths().Append(typeof(ITimelineJob<,>).Assembly.Location + "\tplatform\tfalse"));
 
             var first = Run(["--compile", "--output", directory, "--source", sourcePath, "--reference-list", referencesPath]);
             Assert.Equal(0, first.exit);
@@ -440,5 +440,5 @@ public sealed class ConsumerBindingTests
 
     internal static string[] ReferencePaths()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Append(typeof(ITimeline).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
+            .Append(typeof(ITimelineJob<,>).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
 }

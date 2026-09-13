@@ -72,7 +72,7 @@ public sealed class ConsumerPlaybackTests
 
     private static IEnumerable<MetadataReference> References()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Append(typeof(ITimeline).Assembly.Location).Distinct(StringComparer.Ordinal)
+            .Append(typeof(ITimelineJob<,>).Assembly.Location).Distinct(StringComparer.Ordinal)
             .Select(static path => MetadataReference.CreateFromFile(path));
 
     private const string Domain = """
