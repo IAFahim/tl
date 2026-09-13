@@ -88,36 +88,6 @@ public sealed class UnityMaterializationTests : IDisposable
     }
 
     [Fact]
-    public void PackageReadmeAuthoringSampleCompilesAndMaterializesItsDocumentedSlots()
-    {
-        Directory.CreateDirectory(_directory);
-        var readme = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Tl.Unity.README.md"));
-        var blocks = CSharpBlocks(readme);
-        Assert.Equal(3, blocks.Count);
-
-        var domain = Path.Combine(_directory, "DomainJobs.cs");
-        var declarations = Path.Combine(_directory, "Combat.tl");
-        var output = Path.Combine(_directory, "Generated");
-        var references = Path.Combine(_directory, "references.txt");
-        File.WriteAllText(domain, blocks[0]);
-        File.WriteAllText(declarations, blocks[1]);
-        File.WriteAllLines(references,
-            ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-                .Append(typeof(ITimeline).Assembly.Location).Distinct(StringComparer.Ordinal));
-
-        Assert.Equal(0, GeneratorCli.Main([
-            "--compile", "--backend", "unity-entities", "--output", output,
-            "--source", domain, "--source", declarations, "--reference-list", references,
-        ]));
-
-        var content = string.Join("\n", Directory.GetFiles(output, "*.g.cs").OrderBy(static path => path, StringComparer.Ordinal).Select(File.ReadAllText));
-        Assert.Contains("public struct Role0Bias : global::Unity.Entities.IComponentData", content);
-        Assert.Contains("public struct Role1Trace : global::Unity.Entities.IComponentData", content);
-        Assert.Contains("in Combat.Role0Bias @bias", content);
-        Assert.Contains("ref Combat.Role1Trace @trace", content);
-    }
-
-    [Fact]
     public void UnityCatalogQualifiesTimelineReferencesAcrossNamespaces()
     {
         Directory.CreateDirectory(_directory);
@@ -185,24 +155,6 @@ public sealed class UnityMaterializationTests : IDisposable
         Assert.Contains("else if (tick < 2u)", timeline);
         Assert.Contains(".Blend(in __tlData", timeline);
         Assert.Contains(", 0.5f, out var resolved);", timeline);
-    }
-
-    private static IReadOnlyList<string> CSharpBlocks(string markdown)
-    {
-        const string fence = "```csharp\n";
-        var blocks = new List<string>();
-        var position = 0;
-        while (true)
-        {
-            var start = markdown.IndexOf(fence, position, StringComparison.Ordinal);
-            if (start < 0)
-                return blocks;
-            start += fence.Length;
-            var end = markdown.IndexOf("\n```", start, StringComparison.Ordinal);
-            Assert.True(end >= 0);
-            blocks.Add(markdown.Substring(start, end - start));
-            position = end + 4;
-        }
     }
 
     public void Dispose()

@@ -87,13 +87,10 @@ jobs:
             "Tl.Gen.C.$version.snupkg"
             "Tl.Runtime.$version.snupkg"
           )
-          expected_unity=("com.iafahim.tl-$version.tgz")
           mapfile -t actual_packages < <(find . -maxdepth 1 -type f -name '*.nupkg' -printf '%f\n' | LC_ALL=C sort)
           mapfile -t actual_symbols < <(find . -maxdepth 1 -type f -name '*.snupkg' -printf '%f\n' | LC_ALL=C sort)
-          mapfile -t actual_unity < <(find . -maxdepth 1 -type f -name '*.tgz' -printf '%f\n' | LC_ALL=C sort)
           [[ "${actual_packages[*]}" == "${expected_packages[*]}" ]]
           [[ "${actual_symbols[*]}" == "${expected_symbols[*]}" ]]
-          [[ "${actual_unity[*]}" == "${expected_unity[*]}" ]]
       - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841
         id: login
         with:

@@ -1,12 +1,7 @@
-import gzip
 import importlib.util
-import io
 import json
-import shutil
 import subprocess
 import tempfile
-import tarfile
-import time
 import unittest
 import zipfile
 from pathlib import Path
@@ -35,65 +30,6 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertIn("stale/Tl.Gen.CSharp.dll", script)
         self.assertIn('find "$source" -type d', script)
         self.assertIn("- run: eng/test-isolated-output", workflow)
-
-    def test_unity_package_separate_invocations_are_byte_identical(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            directory = Path(temporary)
-            repository = directory / "repository"
-            (repository / "eng").mkdir(parents=True)
-            shutil.copy2(ROOT / "eng" / "package-unity", repository / "eng" / "package-unity")
-            shutil.copytree(ROOT / "src" / "Tl.Unity", repository / "src" / "Tl.Unity")
-            self.git(repository, "init", "-q")
-            self.git(repository, "config", "user.name", "package-test")
-            self.git(repository, "config", "user.email", "package-test@example.invalid")
-            self.git(repository, "config", "commit.gpgsign", "false")
-            self.git(repository, "add", ".")
-            self.git(repository, "commit", "-qm", "fixture")
-
-            first = directory / "first"
-            second = directory / "second"
-            self.package_unity(repository, first)
-            time.sleep(1.1)
-            self.package_unity(repository, second)
-
-            first_archive = next(first.glob("*.tgz"))
-            second_archive = next(second.glob("*.tgz"))
-            self.assertEqual(first_archive.read_bytes(), second_archive.read_bytes())
-            manifest = (first / "package.txt").read_text(encoding="utf-8")
-            self.assertIn("archive-entries\t", manifest)
-            self.assertNotIn("\nfiles\t", manifest)
-
-    def test_unity_package_verifier_requires_exact_name_content_and_identity(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            valid = root / "com.iafahim.tl-1.2.3.tgz"
-            self.write_unity_package(valid)
-            RELEASE_ARTIFACTS.verify_unity_package(root, "1.2.3")
-
-            self.write_unity_package(valid, extra="package/Editor/Compiler.dll")
-            with self.assertRaisesRegex(ValueError, "files are"):
-                RELEASE_ARTIFACTS.verify_unity_package(root, "1.2.3")
-
-            self.write_unity_package(valid, descriptor_version="1.2.4")
-            with self.assertRaisesRegex(ValueError, "identity"):
-                RELEASE_ARTIFACTS.verify_unity_package(root, "1.2.3")
-
-            for duplicate in ("package/README.md", "package/package.json"):
-                self.write_unity_package(valid, duplicates=[duplicate])
-                with self.assertRaisesRegex(ValueError, "duplicate archive paths"):
-                    RELEASE_ARTIFACTS.verify_unity_package(root, "1.2.3")
-
-    def test_release_pipeline_builds_and_verifies_two_unity_packages(self):
-        script = (ROOT / "eng" / "release-artifacts").read_text(encoding="utf-8")
-        first = script.index('"$root/eng/package-unity" "$stage/unity-a"')
-        second = script.index('"$root/eng/package-unity" "$stage/unity-b"')
-        compare = script.index('cmp "$stage/unity-a/com.iafahim.tl-$version.tgz"')
-        copy = script.index('cp "$stage/unity-a/com.iafahim.tl-$version.tgz" "$output/"')
-        verify = script.index('release_artifacts.py" verify "$output"')
-        self.assertLess(first, second)
-        self.assertLess(second, compare)
-        self.assertLess(compare, copy)
-        self.assertLess(copy, verify)
 
     def test_canonical_packages_are_byte_identical(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -142,8 +78,6 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertIn("id-token: write", publish)
         self.assertIn("actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0", publish)
         self.assertIn("Tl.Runtime.$version.nupkg", publish)
-        self.assertIn('expected_unity=("com.iafahim.tl-$version.tgz")', publish)
-        self.assertIn("actual_unity", publish)
         self.assertNotIn("*.nupkg\" --api-key", publish)
         self.assertNotIn("gh release download", workflow)
         self.assertNotIn("license_and_owner_decisions", workflow)
@@ -250,44 +184,11 @@ class ReleaseArtifactTests(unittest.TestCase):
         ).stdout.strip()
 
     @staticmethod
-    def package_unity(repository, output):
-        subprocess.run(
-            [repository / "eng" / "package-unity", output],
-            cwd=repository,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-    @staticmethod
     def write_archive(path, timestamp):
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             entry = zipfile.ZipInfo("data.txt", timestamp)
             entry.compress_type = zipfile.ZIP_DEFLATED
             archive.writestr(entry, b"same")
-
-    @staticmethod
-    def write_unity_package(path, descriptor_version="1.2.3", extra=None, duplicates=()):
-        entries = set(RELEASE_ARTIFACTS.UNITY_PACKAGE_FILES)
-        if extra is not None:
-            entries.add(extra)
-        tar_bytes = io.BytesIO()
-        with tarfile.open(fileobj=tar_bytes, mode="w", format=tarfile.USTAR_FORMAT) as archive:
-            for name in [*sorted(entries), *duplicates]:
-                directory = name.endswith("/")
-                entry = tarfile.TarInfo(name.rstrip("/") if directory else name)
-                entry.type = tarfile.DIRTYPE if directory else tarfile.REGTYPE
-                entry.mode = 0o755 if directory else 0o644
-                entry.mtime = 0
-                content = b"" if directory else (
-                    json.dumps({"name": "com.iafahim.tl", "version": descriptor_version}).encode()
-                    if name == "package/package.json" else b"content"
-                )
-                entry.size = len(content)
-                archive.addfile(entry, None if directory else io.BytesIO(content))
-        with path.open("wb") as stream:
-            with gzip.GzipFile(filename="", mode="wb", fileobj=stream, mtime=0) as compressed:
-                compressed.write(tar_bytes.getvalue())
 
     @staticmethod
     def write_runtime_package(path, dependency=False, extra=None):

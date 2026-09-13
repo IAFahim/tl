@@ -1,3 +1,2 @@
 benchmarks/**/results/** -whitespace
 docs/verification/** -whitespace
-src/Tl.Unity/**/*.meta -whitespace

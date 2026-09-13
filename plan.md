@@ -74,7 +74,7 @@ neutral plan and C binding
 
 Normal Roslyn and supporting IDE builds run incremental generation. `TlGenExport` uses the same reader/emitter for deterministic physical output, cache receipts, reports, and Unity materialization. A cache hit preserves contents and timestamps. No build-time benchmark or autotuning is hidden in generation.
 
-Unity source is materialized before script compilation because ordinary Roslyn generator output cannot feed another generator in the same compilation. The Unity runtime UPM package contains no compiler, generator, Roslyn, reflection binding, or runtime compilation. A separate .NET authoring project owns the toolchain.
+Unity source is materialized before script compilation because ordinary Roslyn generator output cannot feed another generator in the same compilation. The Unity surface moved to the extracted tl.unity repository pending [issue #64](https://github.com/IAFahim/tl/issues/64); this repository ships no UPM package.
 
 The C ABI v2 remains supported in its existing scope. Alpha.3 heterogeneous C catalogs, canonical neutral serialization, designer GUI import, cross-generated declarations, and runtime-loaded arbitrary schemas are deferred.
 
@@ -113,9 +113,9 @@ dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-con
 eng/release-artifacts --candidate issue-35 /tmp/tl-alpha3-release
 ```
 
-Execute the NativeAOT binary in default, capacity, and module-capacity modes. Measure strict production-only line and branch coverage. Run JetBrains Inspect Code and classify every material result. Retain Unity stable/preview EditMode/PlayMode, Mono/IL2CPP, Burst, leak, package isolation, and deterministic UPM evidence. Another agent reviews the exact head after all docs and artifacts agree.
+Execute the NativeAOT binary in default, capacity, and module-capacity modes. Measure strict production-only line and branch coverage. Run JetBrains Inspect Code and classify every material result. Historical Unity stable/preview EditMode/PlayMode, Mono/IL2CPP, Burst, leak, and package-isolation evidence remains in `docs/alpha3` and the v1.0.0-alpha.3 receipts. Another agent reviews the exact head after all docs and artifacts agree.
 
-The release set contains five nupkgs, three snupkgs, a NativeAOT smoke archive, generation report, deterministic UPM tgz, manifest, and checksums. Each artifact is built twice or otherwise reproducibly verified. Package version, tag, release title, source commit, repository ref, and manifest identity must agree.
+The release set contains five nupkgs, three snupkgs, a NativeAOT smoke archive, generation report, manifest, and checksums. Each artifact is built twice or otherwise reproducibly verified. Package version, tag, release title, source commit, repository ref, and manifest identity must agree.
 
 The GitHub prerelease is authorized. NuGet publication remains disabled and requires a separate owner decision. License selection remains a separate owner gate. Never infer either from a green GitHub artifact build.
 

@@ -24,7 +24,6 @@ The approved next API uses [designer-authored data assets and typed frame querie
 | `Tl.Runtime` | Small declaration, frame, state, and movement ABI |
 | `Tl.Gen.CSharp` | C# declaration reader and generated query backend |
 | `Tl.Compiler` | Language-neutral validated ordered schedule |
-| `Tl.Unity` | Unity ECS/Burst adapter, packaged and qualified independently |
 
 ## Install
 
@@ -208,6 +207,8 @@ The repository enforces a 300,000-byte budget over production source contents pl
 
 ## Unity ECS
 
+The Unity surface moved to the extracted tl.unity repository pending [issue #64](https://github.com/IAFahim/tl/issues/64); this repository ships no UPM package.
+
 Unity uses the same authored jobs and neutral ordered schedule with host-specific storage and scheduling. Generated Unity selectors and typed operation jobs operate over ECS columns, followed by one state commit. Unity source is materialized before Unity script compilation so Entities can generate its own jobs. The qualified stable lane is Unity 6000.0.83f1, Entities 1.4.3, and Burst 1.8.30; the preview lane is Unity 6000.7.0a5, Entities 6.7.0, Collections 6.7.0, and Burst 2.0.0. EditMode and PlayMode pass 4/4 on both lanes. Stable Mono and IL2CPP players execute the generated Burst jobs, print the expected marker, contain Burst symbols, and exclude compiler, generator, and Roslyn assemblies. The 10,000-row stable fixture measures 18.006 ns/entity-step, 20 scheduled jobs/step, and 0 main-thread managed B after warmup. See the [Unity guide](docs/unity.md).
 
 ## Limits
@@ -229,7 +230,6 @@ Unity uses the same authored jobs and neutral ordered schedule with host-specifi
 | `src/Tl.Compiler` | Language-neutral ordered schedule and validation |
 | `src/Tl.Gen.CSharp` | C# frontend, generated query backend, and export tool |
 | `src/Tl.CSharp` | One-package C# installation |
-| `src/Tl.Unity` | Qualified Unity ECS/Burst runtime package |
 | `samples/Mixed` | Heterogeneous A→B→A catalog/query sample |
 | `tests/Tl.Alpha` | Generated behavior, schema, scale, and allocation receipts |
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |

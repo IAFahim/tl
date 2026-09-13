@@ -8,7 +8,6 @@ The repository keeps runtime, compiler, language binding, and target emission se
 | `Tl.Compiler` | Language-neutral immutable ordered plan and validation |
 | `Tl.Gen.CSharp` | C# discovery, diagnostics, typed binding, .NET query emission, and Unity materialization |
 | `Tl.CSharp` | One-reference C# install containing runtime plus build-only generator assets |
-| `Tl.Unity` | Unity ECS/Burst runtime boundary; no compiler or Roslyn payload |
 
 The neutral plan owns operation identities and slots, tracks, clips, hooks, regions, ordered occurrences, payload identities, deduplication, and validation. A language binding owns concrete type names, constant expressions, and operation symbols. The C# and Unity emitters consume the same validated ordered plan plus C# binding; they do not derive schedule semantics independently.
 

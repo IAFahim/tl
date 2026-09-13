@@ -35,7 +35,7 @@ flowchart TD
     Compiler[Tl.Compiler]
     CSharp[Tl.Gen.CSharp]
     Install[Tl.CSharp]
-    Unity[Tl.Unity]
+    Unity[tl.unity]
     CSharp --> Compiler
     Install --> Runtime
     Install -. embeds .-> CSharp
@@ -44,7 +44,7 @@ flowchart TD
     CSharp -. materializes .-> Unity
 ```
 
-`Tl.Runtime` is the only .NET application dependency. It contains declarations, borrowed frames, flags, state, and total movement. `Tl.Unity` is the Unity application package and depends on `Tl.Runtime` source plus Entities. Neither application boundary contains Roslyn, the neutral compiler, a registry, reflection binding, delegate dispatch, a runtime authoring graph, or generated asset data.
+`Tl.Runtime` is the only .NET application dependency. It contains declarations, borrowed frames, flags, state, and total movement. The Unity application package lives in the extracted tl.unity repository pending [issue #64](https://github.com/IAFahim/tl/issues/64); it depends on the runtime sources plus Entities. Neither application boundary contains Roslyn, the neutral compiler, a registry, reflection binding, delegate dispatch, a runtime authoring graph, or generated asset data.
 
 `Tl.Gen.CSharp` targets netstandard2.0 for Roslyn analyzer hosts and net10.0 for explicit export. The package places the compatible `Tl.Compiler.dll` beside the analyzer. The tool directory contains its own compiler and Roslyn assemblies. `Tl.CSharp` embeds those build assets and depends only on `Tl.Runtime`; build assets never become application references. Unity materialization runs in a separate .NET authoring process and writes physical C# for the Unity compiler, Entities generator, and Burst pipeline.
 
