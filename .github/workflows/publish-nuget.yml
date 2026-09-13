@@ -75,10 +75,10 @@ jobs:
           cd artifacts/release
           sha256sum --check SHA256SUMS
           expected_packages=(
+            "Tl.Bake.$version.nupkg"
             "Tl.CSharp.$version.nupkg"
             "Tl.Gen.CSharp.$version.nupkg"
             "Tl.Runtime.$version.nupkg"
-            "Tl.Bake.$version.nupkg"
           )
           expected_symbols=(
             "Tl.Runtime.$version.snupkg"
