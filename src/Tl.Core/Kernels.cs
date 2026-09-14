@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 namespace Tl;
@@ -23,8 +24,21 @@ public static unsafe class TimelineKernels
 	internal static unsafe void* Find(byte* block, uint bytes)
 	{
 		if (_count == 0) return default;
+		var metadataOffset = bytes >= 48 ? *(uint*)(block + 40) : 0;
 		Span<byte> hash = stackalloc byte[32];
-		SHA256.TryHashData(new ReadOnlySpan<byte>(block, (int)bytes), hash, out _);
+		if (metadataOffset < 48 || metadataOffset > bytes)
+		{
+			SHA256.TryHashData(new ReadOnlySpan<byte>(block, (int)bytes), hash, out _);
+		}
+		else
+		{
+			var view = (byte*)NativeMemory.AlignedAlloc((nuint)((metadataOffset + 63) & ~63), 64);
+			new ReadOnlySpan<byte>(block, (int)metadataOffset).CopyTo(new Span<byte>(view, (int)metadataOffset));
+			*(uint*)(view + 40) = 0;
+			*(uint*)(view + 44) = metadataOffset;
+			SHA256.TryHashData(new ReadOnlySpan<byte>(view, (int)metadataOffset), hash, out _);
+			NativeMemory.AlignedFree(view);
+		}
 		for (var i = 0; i < _count; i += 4)
 		{
 			var match = true;
