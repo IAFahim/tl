@@ -32,11 +32,12 @@ public unsafe class MetadataTests
     }
 
     [Fact]
-    public void HashBindsStrippedBytes_StripKeepsKernelBinding()
+    public void MetadataTailAndStrippedCopyBothBindTheirKernel()
     {
         var full = BakeUniqueAsset();
         var stripped = TlbMetadata.Strip(full);
         var hotHash = SHA256.HashData(stripped);
+        Assert.True(TlbMetadata.HasMetadata(full));
         Assert.False(TlbMetadata.HasMetadata(stripped));
 
         SpyKernel.SpyHit = false;
@@ -54,8 +55,9 @@ public unsafe class MetadataTests
             query.Tick(0u, 1);
             query.Tick(1u, 1);
         }
-        Assert.False(SpyKernel.SpyHit);
+        Assert.True(SpyKernel.SpyHit);
 
+        SpyKernel.SpyHit = false;
         using (var strippedAsset = TimelineAsset.Load(TlbMetadata.Strip(full)))
         {
             var rows = new[] { new TimelineComponent(strippedAsset.Reference) };
@@ -64,6 +66,74 @@ public unsafe class MetadataTests
             query.Tick(1u, 1);
         }
         Assert.True(SpyKernel.SpyHit);
+    }
+
+    [Fact]
+    public void MetadataAssetBindsItsGeneratedKernelWithInterpreterIdenticalEffects()
+    {
+        var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
+        Assert.True(TlbMetadata.HasMetadata(bytes));
+        using var kernelAsset = TimelineAsset.Load(bytes);
+        using var interpreterAsset = TimelineAsset.Load(InterpreterCopy(bytes));
+        var kernelRows = new[] { new TimelineComponent(kernelAsset.Reference) };
+        var interpreterRows = new[] { new TimelineComponent(interpreterAsset.Reference) };
+
+        var bound = TimelineKernels.Bound;
+        Recording.Records.Clear();
+        Timeline.Rows(kernelRows).Tick(5u, 1);
+        Assert.Equal(bound + 1, TimelineKernels.Bound);
+        var kernelEffects = Recording.Records.ToArray();
+        Assert.NotEmpty(kernelEffects);
+        Assert.Equal(1u, kernelRows[0].Position);
+
+        Recording.Records.Clear();
+        Timeline.Rows(interpreterRows).Tick(5u, 1);
+        Assert.Equal(bound + 1, TimelineKernels.Bound);
+        Assert.Equal(kernelEffects, Recording.Records.ToArray());
+        Assert.Equal(kernelRows[0].Position, interpreterRows[0].Position);
+        Assert.Equal(kernelRows[0].Cycle, interpreterRows[0].Cycle);
+
+        Recording.Records.Clear();
+        Timeline.Rows(kernelRows).Tick(5u, -2);
+        var kernelBackward = Recording.Records.ToArray();
+        Recording.Records.Clear();
+        Timeline.Rows(interpreterRows).Tick(5u, -2);
+        Assert.Equal(kernelBackward, Recording.Records.ToArray());
+        Assert.Equal(kernelRows[0].Position, interpreterRows[0].Position);
+        Assert.Equal(0u, kernelRows[0].Position);
+
+        var kernelStaggered = new[]
+        {
+            new TimelineComponent(kernelAsset.Reference),
+            new TimelineComponent(kernelAsset.Reference) { Position = 3u },
+            new TimelineComponent(kernelAsset.Reference) { Position = 3u, Cycle = 1L },
+        };
+        var interpreterStaggered = new[]
+        {
+            new TimelineComponent(interpreterAsset.Reference),
+            new TimelineComponent(interpreterAsset.Reference) { Position = 3u },
+            new TimelineComponent(interpreterAsset.Reference) { Position = 3u, Cycle = 1L },
+        };
+
+        Recording.Records.Clear();
+        Timeline.Rows(kernelStaggered).Tick(2u, 1);
+        var kernelMixed = Recording.Records.ToArray();
+
+        Recording.Records.Clear();
+        Timeline.Rows(interpreterStaggered).Tick(2u, 1);
+        Assert.Equal(kernelMixed, Recording.Records.ToArray());
+        for (var row = 0; row < kernelStaggered.Length; row++)
+        {
+            Assert.Equal(kernelStaggered[row].Position, interpreterStaggered[row].Position);
+            Assert.Equal(kernelStaggered[row].Cycle, interpreterStaggered[row].Cycle);
+        }
+    }
+
+    private static byte[] InterpreterCopy(byte[] baked)
+    {
+        var copy = (byte[])baked.Clone();
+        copy[40] = 0xA5;
+        return copy;
     }
 
     private static ulong BinaryWord(byte[] hash, int word) =>

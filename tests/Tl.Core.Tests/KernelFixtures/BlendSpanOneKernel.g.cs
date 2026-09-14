@@ -75,6 +75,7 @@ internal static unsafe class TimelineKernel_43a4fa9f35864950cf82dd8609920622837d
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     static unsafe bool TickUniform(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta, uint uniformPosition, long uniformCycle, long uniformPositionWord)
     {
+        var r0 = TimelineKernels.Range(heads[0]);
         var multiReverse = delta < 0;
         var multiRemaining = multiReverse ? -(long)delta : delta;
         var moved = true;
@@ -85,7 +86,7 @@ internal static unsafe class TimelineKernel_43a4fa9f35864950cf82dd8609920622837d
             if (TimelineMovement.Select(new TimelineState(1, uniformPosition, uniformCycle), 4u, false, multiReverse, out var uniformNext, out var uniformTick, out var uniformOutCycle, out var uniformFlags))
                 {
                     moved = true;
-                    Run(multiReverse, uniformTick, gameTick, uniformOutCycle, uniformFlags, 0, rowCount, asset, heads, columns);
+                    Run(r0, multiReverse, uniformTick, gameTick, uniformOutCycle, uniformFlags, 0, rowCount, asset, heads, columns);
                     var uniformNextWord = (uniformPositionWord & -4294967296L) | uniformNext.Position;
                     var uniformNextCycle = uniformNext.Cycle;
                     var commit = 0;
@@ -114,6 +115,7 @@ internal static unsafe class TimelineKernel_43a4fa9f35864950cf82dd8609920622837d
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     static unsafe bool TickMixed(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)
     {
+        var r0 = TimelineKernels.Range(heads[0]);
         var multiReverse = delta < 0;
         var multiRemaining = multiReverse ? -(long)delta : delta;
         var moved = true;
@@ -135,10 +137,18 @@ internal static unsafe class TimelineKernel_43a4fa9f35864950cf82dd8609920622837d
             for (var row = 0; row < rowCount; row++)
             {
                 var component = rows + row;
-                if (memoReady && component->Position == memoPosition && component->Cycle == memoCycle) continue;
+                if (memoReady && component->Position == memoPosition && component->Cycle == memoCycle)
+                {
+                    if (memoSelected)
+                    {
+                        component->Position = memoNextPosition;
+                        component->Cycle = memoNextCycle;
+                    }
+                    continue;
+                }
                 if (runOpen)
                 {
-                    Run(multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, row - runStart, asset, heads, columns);
+                    Run(r0, multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, row - runStart, asset, heads, columns);
                     runOpen = false;
                 }
                 memoReady = true;
@@ -149,35 +159,12 @@ internal static unsafe class TimelineKernel_43a4fa9f35864950cf82dd8609920622837d
                 memoNextCycle = memoNext.Cycle;
                 if (!memoSelected) continue;
                 moved = true;
+                component->Position = memoNextPosition;
+                component->Cycle = memoNextCycle;
                 runStart = row;
                 runOpen = true;
             }
-            if (runOpen) Run(multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, rowCount - runStart, asset, heads, columns);
-            if (!moved) break;
-            for (var row = 0; row < rowCount; row++)
-            {
-                var component = rows + row;
-                if (memoReady && component->Position == memoPosition && component->Cycle == memoCycle)
-                {
-                    if (memoSelected)
-                    {
-                        component->Position = memoNextPosition;
-                        component->Cycle = memoNextCycle;
-                    }
-                    continue;
-                }
-                memoReady = true;
-                memoPosition = component->Position;
-                memoCycle = component->Cycle;
-                memoSelected = TimelineMovement.Select(new TimelineState(1, memoPosition, memoCycle), 4u, false, multiReverse, out var commitNext, out _, out _, out _);
-                memoNextPosition = commitNext.Position;
-                memoNextCycle = commitNext.Cycle;
-                if (memoSelected)
-                {
-                    component->Position = memoNextPosition;
-                    component->Cycle = memoNextCycle;
-                }
-            }
+            if (runOpen) Run(r0, multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, rowCount - runStart, asset, heads, columns);
             if (!multiReverse) gameTick++;
         }
         return true;
@@ -200,20 +187,23 @@ internal static unsafe class TimelineKernel_43a4fa9f35864950cf82dd8609920622837d
         }
     }
 
-    static unsafe void Run(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int rowStart, int rowCount, byte* asset, int* heads, void** columns)
+    static unsafe void Run(TimelineKernelRange r0, bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int rowStart, int rowCount, byte* asset, int* heads, void** columns)
     {
         int* scratch = stackalloc int[64];
         if (tick < 2u)
         {
-            TimelineKernels.ChainRange(heads[0], reverse, scratch, asset + 144u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+            if (r0.Pointer != null) r0.Pointer(asset + 144u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+            else TimelineKernels.ChainRange(heads[0], reverse, scratch, asset + 144u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
         }
         else if (tick < 3u)
         {
-            TimelineKernels.ChainRange(heads[0], reverse, scratch, asset + 176u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+            if (r0.Pointer != null) r0.Pointer(asset + 176u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+            else TimelineKernels.ChainRange(heads[0], reverse, scratch, asset + 176u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
         }
         else if (tick < 4u)
         {
-            TimelineKernels.ChainRange(heads[0], reverse, scratch, asset + 208u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+            if (r0.Pointer != null) r0.Pointer(asset + 208u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+            else TimelineKernels.ChainRange(heads[0], reverse, scratch, asset + 208u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
         }
     }
 }

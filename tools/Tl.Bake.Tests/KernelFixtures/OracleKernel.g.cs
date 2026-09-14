@@ -1,11 +1,11 @@
 using System.Runtime.CompilerServices;
 using Tl;
 
-internal static unsafe class TimelineKernel_532fe04145c0147676124f83db5c7c834982b7cc38f7a945bceafc4beb8e3980
+internal static unsafe class TimelineKernel_1e6b61e62f517dea2c81a0ce2a16845186d4abac579c4e0dd94123a2e1c8ef7a
 {
     [ModuleInitializer]
     internal static void Install() =>
-        TimelineKernels.Register(0x7614C04541E02F53, 0x837C5CDB834F1276, 0x45A9F738CCB78249, 0x80398EEB4BFCEABC, &Tick);
+        TimelineKernels.Register(0xEA7D512FE6616B1E, 0x5184162ACEA0812C, 0x0D4E9C57ACABD486, 0x7AEFC8E1A22341D9, &Tick);
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     static unsafe bool Tick(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)
@@ -19,7 +19,7 @@ internal static unsafe class TimelineKernel_532fe04145c0147676124f83db5c7c834982
             if (delta == 1 || delta == -1)
             {
                 var reverse = delta < 0;
-                if (TimelineMovement.Select(state, 6u, false, reverse, out var next, out var tick, out var cycle, out var flags))
+                if (TimelineMovement.Select(state, 8u, false, reverse, out var next, out var tick, out var cycle, out var flags))
                 {
                     Execute(reverse, tick, reverse ? gameTick - 1u : gameTick, cycle, flags, 0, asset, heads, columns);
                     row->Position = next.Position;
@@ -32,7 +32,7 @@ internal static unsafe class TimelineKernel_532fe04145c0147676124f83db5c7c834982
             while (remaining-- != 0)
             {
                 if (isReverse) gameTick--;
-                if (!TimelineMovement.Select(state, 6u, false, isReverse, out var multiNext, out var multiTick, out var multiCycle, out var multiFlags)) break;
+                if (!TimelineMovement.Select(state, 8u, false, isReverse, out var multiNext, out var multiTick, out var multiCycle, out var multiFlags)) break;
                 Execute(isReverse, multiTick, gameTick, multiCycle, multiFlags, 0, asset, heads, columns);
                 state = new TimelineState(1, multiNext.Position, multiNext.Cycle);
                 row->Position = multiNext.Position;
@@ -83,7 +83,7 @@ internal static unsafe class TimelineKernel_532fe04145c0147676124f83db5c7c834982
         {
             if (multiReverse) gameTick--;
             moved = false;
-            if (TimelineMovement.Select(new TimelineState(1, uniformPosition, uniformCycle), 6u, false, multiReverse, out var uniformNext, out var uniformTick, out var uniformOutCycle, out var uniformFlags))
+            if (TimelineMovement.Select(new TimelineState(1, uniformPosition, uniformCycle), 8u, false, multiReverse, out var uniformNext, out var uniformTick, out var uniformOutCycle, out var uniformFlags))
                 {
                     moved = true;
                     Run(r0, multiReverse, uniformTick, gameTick, uniformOutCycle, uniformFlags, 0, rowCount, asset, heads, columns);
@@ -154,7 +154,7 @@ internal static unsafe class TimelineKernel_532fe04145c0147676124f83db5c7c834982
                 memoReady = true;
                 memoPosition = component->Position;
                 memoCycle = component->Cycle;
-                memoSelected = TimelineMovement.Select(new TimelineState(1, memoPosition, memoCycle), 6u, false, multiReverse, out var memoNext, out memoTick, out memoOutCycle, out memoFlags);
+                memoSelected = TimelineMovement.Select(new TimelineState(1, memoPosition, memoCycle), 8u, false, multiReverse, out var memoNext, out memoTick, out memoOutCycle, out memoFlags);
                 memoNextPosition = memoNext.Position;
                 memoNextCycle = memoNext.Cycle;
                 if (!memoSelected) continue;
@@ -173,37 +173,113 @@ internal static unsafe class TimelineKernel_532fe04145c0147676124f83db5c7c834982
     static unsafe void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns)
     {
         int* scratch = stackalloc int[64];
-        if (tick < 2u)
+        if (tick < 1u)
         {
-            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 144u, gameTick, tick, cycle, flags, columns, row);
+            if (!reverse)
+            {
+                TimelineKernels.Chain(heads[0], reverse, scratch, asset + 304u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[2], reverse, scratch, asset + 336u, gameTick, tick, cycle, flags, columns, row);
+            }
+            else
+            {
+                TimelineKernels.Chain(heads[2], reverse, scratch, asset + 336u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[0], reverse, scratch, asset + 304u, gameTick, tick, cycle, flags, columns, row);
+            }
+        }
+        else if (tick < 3u)
+        {
+            if (!reverse)
+            {
+                TimelineKernels.Chain(heads[0], reverse, scratch, asset + 368u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[1], reverse, scratch, asset + 400u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[2], reverse, scratch, asset + 432u, gameTick, tick, cycle, flags, columns, row);
+            }
+            else
+            {
+                TimelineKernels.Chain(heads[2], reverse, scratch, asset + 432u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[1], reverse, scratch, asset + 400u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[0], reverse, scratch, asset + 368u, gameTick, tick, cycle, flags, columns, row);
+            }
         }
         else if (tick < 4u)
         {
-            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 176u, gameTick, tick, cycle, flags, columns, row);
+            if (!reverse)
+            {
+                TimelineKernels.Chain(heads[0], reverse, scratch, asset + 464u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[1], reverse, scratch, asset + 496u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[2], reverse, scratch, asset + 528u, gameTick, tick, cycle, flags, columns, row);
+            }
+            else
+            {
+                TimelineKernels.Chain(heads[2], reverse, scratch, asset + 528u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[1], reverse, scratch, asset + 496u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[0], reverse, scratch, asset + 464u, gameTick, tick, cycle, flags, columns, row);
+            }
         }
         else if (tick < 6u)
         {
-            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 208u, gameTick, tick, cycle, flags, columns, row);
+            if (!reverse)
+            {
+                TimelineKernels.Chain(heads[0], reverse, scratch, asset + 560u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[1], reverse, scratch, asset + 592u, gameTick, tick, cycle, flags, columns, row);
+            }
+            else
+            {
+                TimelineKernels.Chain(heads[1], reverse, scratch, asset + 592u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[0], reverse, scratch, asset + 560u, gameTick, tick, cycle, flags, columns, row);
+            }
+        }
+        else if (tick < 7u)
+        {
+            if (!reverse)
+            {
+                TimelineKernels.Chain(heads[1], reverse, scratch, asset + 624u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[0], reverse, scratch, asset + 656u, gameTick, tick, cycle, flags, columns, row);
+            }
+            else
+            {
+                TimelineKernels.Chain(heads[0], reverse, scratch, asset + 656u, gameTick, tick, cycle, flags, columns, row);
+                TimelineKernels.Chain(heads[1], reverse, scratch, asset + 624u, gameTick, tick, cycle, flags, columns, row);
+            }
+        }
+        else if (tick < 8u)
+        {
+            TimelineKernels.Chain(heads[0], reverse, scratch, asset + 688u, gameTick, tick, cycle, flags, columns, row);
         }
     }
 
     static unsafe void Run(TimelineKernelRange r0, bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int rowStart, int rowCount, byte* asset, int* heads, void** columns)
     {
         int* scratch = stackalloc int[64];
-        if (tick < 2u)
+        if (tick < 1u)
         {
-            if (r0.Pointer != null) r0.Pointer(asset + 144u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
-            else TimelineKernels.ChainRange(heads[0], reverse, scratch, asset + 144u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+            for (var row = rowStart; row < rowStart + rowCount; row++)
+                Execute(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns);
+        }
+        else if (tick < 3u)
+        {
+            for (var row = rowStart; row < rowStart + rowCount; row++)
+                Execute(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns);
         }
         else if (tick < 4u)
         {
-            if (r0.Pointer != null) r0.Pointer(asset + 176u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
-            else TimelineKernels.ChainRange(heads[0], reverse, scratch, asset + 176u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+            for (var row = rowStart; row < rowStart + rowCount; row++)
+                Execute(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns);
         }
         else if (tick < 6u)
         {
-            if (r0.Pointer != null) r0.Pointer(asset + 208u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
-            else TimelineKernels.ChainRange(heads[0], reverse, scratch, asset + 208u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+            for (var row = rowStart; row < rowStart + rowCount; row++)
+                Execute(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns);
+        }
+        else if (tick < 7u)
+        {
+            for (var row = rowStart; row < rowStart + rowCount; row++)
+                Execute(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns);
+        }
+        else if (tick < 8u)
+        {
+            if (r0.Pointer != null) r0.Pointer(asset + 688u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+            else TimelineKernels.ChainRange(heads[0], reverse, scratch, asset + 688u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
         }
     }
 }

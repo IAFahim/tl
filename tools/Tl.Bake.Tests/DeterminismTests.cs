@@ -266,6 +266,21 @@ public class DeterminismTests
         Assert.Equal(File.ReadAllText(path), KernelEmitter.Emit(bytes));
     }
 
+    [Fact]
+    public void MetadataOracleKernelFixtureRegeneratesByteIdentically()
+    {
+        var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
+        Assert.True(TlbMetadata.HasMetadata(bytes));
+        var root = RepoRoot();
+        var path = Path.Combine(root, "tools", "Tl.Bake.Tests", "KernelFixtures", "OracleKernel.g.cs");
+        if (Environment.GetEnvironmentVariable("TL_KERNEL_REGEN") == "1")
+        {
+            File.WriteAllText(path, KernelEmitter.Emit(bytes));
+            return;
+        }
+        Assert.Equal(File.ReadAllText(path), KernelEmitter.Emit(bytes));
+    }
+
     private static string RepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
