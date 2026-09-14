@@ -26,6 +26,7 @@ struct NativePair { public ulong Key; public uint Stride, Reserved; }
 struct NativeStage { public uint Start, End, ProgramOffset, ProgramCount; }
 struct NativeStep { public uint Slot, Pair; }
 
+[StructLayout(LayoutKind.Sequential)]
 struct FrameSlot<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
 {
 	public TTrack Track;
@@ -190,6 +191,7 @@ public sealed unsafe class TimelineAsset : IDisposable
 	public void Dispose() { var p = Interlocked.Exchange(ref _p, 0); if (p != 0) { BindCache.Invalidate(p); NativeMemory.AlignedFree((void*)p); } }
 }
 
+[StructLayout(LayoutKind.Sequential)]
 public struct TimelineComponent(TimelineRef reference)
 {
 	public TimelineRef Reference = reference;
