@@ -14,23 +14,44 @@ public readonly unsafe struct TimelineKernelRange
 
 public static unsafe class TimelineKernels
 {
-	static readonly ulong[] Hashes = new ulong[256];
-	static readonly delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>[] Entries = new delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>[64];
+	const int HashCapacity = 256, EntryCapacity = 64;
+	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc(HashCapacity * 8 + EntryCapacity * 8, 64);
+	static volatile int _gate;
 	static int _count;
 
+	static TimelineKernels() => Unsafe.InitBlock(_block, 0, HashCapacity * 8 + EntryCapacity * 8);
+
+	internal static int Count => Volatile.Read(ref _count) >> 2;
+	internal static int FindCalls;
+
 	public static int Bound;
+
+	static ulong* Hashes => (ulong*)_block;
+	static delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>* Entries => (delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>*)(_block + HashCapacity * 8);
+
 	public static unsafe void Register(ulong hash0, ulong hash1, ulong hash2, ulong hash3, delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool> tick)
 	{
-		if (_count == Hashes.Length) throw new InvalidOperationException("Kernel catalog capacity exhausted.");
-		TimelineQuery.Find = &Find;
-		(Hashes[_count], Hashes[_count + 1], Hashes[_count + 2], Hashes[_count + 3]) = (hash0, hash1, hash2, hash3);
-		Entries[_count >> 2] = tick;
-		_count += 4;
+		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
+		try
+		{
+			if (_count == HashCapacity) throw new InvalidOperationException("Kernel catalog capacity exhausted.");
+			TimelineQuery.Find = &Find;
+			var hashes = Hashes;
+			(hashes[_count], hashes[_count + 1], hashes[_count + 2], hashes[_count + 3]) = (hash0, hash1, hash2, hash3);
+			Entries[_count >> 2] = tick;
+			Volatile.Write(ref _count, _count + 4);
+		}
+		finally
+		{
+			_gate = 0;
+		}
 	}
 
 	internal static unsafe void* Find(byte* block, uint bytes)
 	{
-		if (_count == 0) return default;
+		Interlocked.Increment(ref FindCalls);
+		var count = Volatile.Read(ref _count);
+		if (count == 0) return default;
 		var metadataOffset = bytes >= 48 ? *(uint*)(block + 40) : 0;
 		Span<byte> hash = stackalloc byte[32];
 		if (metadataOffset < 48 || metadataOffset > bytes)
@@ -46,12 +67,13 @@ public static unsafe class TimelineKernels
 			SHA256.TryHashData(new ReadOnlySpan<byte>(view, (int)metadataOffset), hash, out _);
 			NativeMemory.AlignedFree(view);
 		}
-		for (var i = 0; i < _count; i += 4)
+		var hashes = Hashes;
+		for (var i = 0; i < count; i += 4)
 		{
 			var match = true;
-			for (var w = 0; w < 4; w++) match &= Hashes[i + w] == BinaryPrimitives.ReadUInt64LittleEndian(hash.Slice(8 * w));
+			for (var w = 0; w < 4; w++) match &= hashes[i + w] == BinaryPrimitives.ReadUInt64LittleEndian(hash.Slice(8 * w));
 			if (!match) continue;
-			Bound++;
+			Interlocked.Increment(ref Bound);
 			return Entries[i >> 2];
 		}
 		return default;
