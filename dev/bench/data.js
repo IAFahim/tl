@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789417206334,
+  "lastUpdate": 1789419296358,
   "repoUrl": "https://github.com/IAFahim/tl",
   "entries": {
     "tl benchmarks": [
@@ -29321,6 +29321,457 @@ window.BENCHMARK_DATA = {
             "range": "± 0.0030009",
             "unit": "ns",
             "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 9V74\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ishtiaq.fahim@northsouth.edu",
+            "name": "Md. Ishtiaq Ahamed Fahim",
+            "username": "IAFahim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fc492e94086e3062c220ed6e34ed2e27116dd84",
+          "message": "Merge pull request #98 from IAFahim/perf/94-kernel-count-phase\n\nperf: phase kernel registration into the shared bind cache",
+          "timestamp": "2026-09-15T02:44:20+06:00",
+          "tree_id": "f77a32c6795784d449f31a72bb1bfc7c15a4fa3c",
+          "url": "https://github.com/IAFahim/tl/commit/8fc492e94086e3062c220ed6e34ed2e27116dd84"
+        },
+        "date": 1789419295062,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BatchCatalogQueryBenchmarks.DirectBatch(Rows: 1) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Rows=1] | env=0d443c83d8a3c59d",
+            "value": 265.6991585858932,
+            "range": "± 1.95707",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=BatchCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "BatchCatalogQueryBenchmarks.DirectBatch(Rows: 32) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Rows=32] | env=0d443c83d8a3c59d",
+            "value": 8959.61491821771,
+            "range": "± 124.475",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=BatchCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "BatchCatalogQueryBenchmarks.DirectBatch(Rows: 10000) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Rows=10000] | env=0d443c83d8a3c59d",
+            "value": 2917460.078125,
+            "range": "± 1366.32",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=BatchCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: OneTrack, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 1.9865502048210009,
+            "range": "± 0.00350704",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: OneTrack, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 18.141201073524513,
+            "range": "± 0.0290126",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: OneTrack, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 20.47475625104445,
+            "range": "± 0.0523443",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: OneTrack, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 13.450605553640447,
+            "range": "± 0.0117613",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: OneTrack, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 15.652667092495278,
+            "range": "± 0.0190001",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: OneTrack, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 2.4995715655581487,
+            "range": "± 0.00358834",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: OneTrack, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 18.07991975178651,
+            "range": "± 0.0570519",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: OneTrack, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 21.964603994084502,
+            "range": "± 0.0193121",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: OneTrack, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 15.09860889902228,
+            "range": "± 0.0205875",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: OneTrack, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 17.835701416586048,
+            "range": "± 0.0208803",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: ThreeTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 3.569803590068442,
+            "range": "± 0.00224224",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: ThreeTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 34.255170822143555,
+            "range": "± 0.0329804",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: ThreeTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 41.82869289232337,
+            "range": "± 0.0376672",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: ThreeTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 16.85686136657446,
+            "range": "± 0.0242726",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: ThreeTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 23.075592684458538,
+            "range": "± 0.0189306",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: ThreeTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 9.244276956553609,
+            "range": "± 0.00274996",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: ThreeTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 33.5833232277318,
+            "range": "± 0.0394066",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: ThreeTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 43.60708149996671,
+            "range": "± 0.0427841",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: ThreeTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 18.284277811004785,
+            "range": "± 0.0418378",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: ThreeTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 25.428427734375,
+            "range": "± 0.0383489",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: SixteenTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 15.044833746482068,
+            "range": "± 0.00622536",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: SixteenTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 125.09381817233178,
+            "range": "± 0.181033",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: SixteenTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 154.45449310302735,
+            "range": "± 0.261237",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: SixteenTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 42.01811905745622,
+            "range": "± 0.0413561",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: SixteenTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 72.58008071611512,
+            "range": "± 0.090345",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: SixteenTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 49.42391107021234,
+            "range": "± 0.0186198",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: SixteenTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 132.62121371565195,
+            "range": "± 0.083881",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: SixteenTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 156.0696307373047,
+            "range": "± 0.149672",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: SixteenTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 44.33647758578077,
+            "range": "± 0.0454844",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: SixteenTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 75.95746193680108,
+            "range": "± 0.129194",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: TwoHundredFiftySixTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 763.743147277832,
+            "range": "± 0.307382",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: TwoHundredFiftySixTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 1713.909144810268,
+            "range": "± 2.09598",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: TwoHundredFiftySixTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 2322.0672419621396,
+            "range": "± 3.00166",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: TwoHundredFiftySixTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 518.9730863571167,
+            "range": "± 0.377375",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: TwoHundredFiftySixTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 974.7267475128174,
+            "range": "± 0.622135",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: TwoHundredFiftySixTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 742.7923418680826,
+            "range": "± 0.744514",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: TwoHundredFiftySixTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 1916.2173461914062,
+            "range": "± 7.6716",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: TwoHundredFiftySixTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 2323.542489858774,
+            "range": "± 2.24318",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: TwoHundredFiftySixTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 521.0159282684326,
+            "range": "± 0.583803",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: TwoHundredFiftySixTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 1016.1049575805664,
+            "range": "± 0.500222",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: Blend, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 2.812899200326842,
+            "range": "± 0.00258196",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: Blend, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 19.599292696439303,
+            "range": "± 0.00885351",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: Blend, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 19.462649754115514,
+            "range": "± 0.0139369",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: Blend, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 12.81930757048946,
+            "range": "± 0.0124225",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: Blend, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 15.313204661909356,
+            "range": "± 0.0133323",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: Blend, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 3.3114304038432896,
+            "range": "± 0.00221145",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: Blend, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 21.742180044000797,
+            "range": "± 0.0275171",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: Blend, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 21.720056100325152,
+            "range": "± 0.0177699",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: Blend, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 14.495668035565,
+            "range": "± 0.0187277",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: Blend, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 17.698949601915146,
+            "range": "± 0.0165059",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ScalarCatalogQueryBenchmarks.DirectScalar(Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Pattern=Forward] | env=0d443c83d8a3c59d",
+            "value": 3.571897601633564,
+            "range": "± 0.00228934",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ScalarCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ScalarCatalogQueryBenchmarks.DirectScalar(Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Pattern=Alternating] | env=0d443c83d8a3c59d",
+            "value": 3.721377950528773,
+            "range": "± 0.00540529",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ScalarCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: OneTrack) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack] | env=0d443c83d8a3c59d",
+            "value": 1.9881438533465068,
+            "range": "± 0.00133741",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: ThreeTracks) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks] | env=0d443c83d8a3c59d",
+            "value": 3.629460203455158,
+            "range": "± 0.00219863",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: SixteenTracks) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks] | env=0d443c83d8a3c59d",
+            "value": 15.046213495449758,
+            "range": "± 0.00850591",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: TwoHundredFiftySixTracks) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks] | env=0d443c83d8a3c59d",
+            "value": 763.8417343139649,
+            "range": "± 0.206156",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: Gap) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Gap] | env=0d443c83d8a3c59d",
+            "value": 1.7712787070573066,
+            "range": "± 0.00288588",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: Blend) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend] | env=0d443c83d8a3c59d",
+            "value": 2.8913721112195354,
+            "range": "± 0.00131125",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
           }
         ]
       }
