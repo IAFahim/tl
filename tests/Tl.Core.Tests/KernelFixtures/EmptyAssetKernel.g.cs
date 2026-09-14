@@ -41,31 +41,32 @@ internal static unsafe class TimelineKernel_f02e36d5e9a325eabe0a55d9ce9ec61dbb76
             }
             return true;
         }
-        var probe = Probe(asset, rows, rowCount, out _, out _, out _);
+        var probe = Probe(asset, rows, rowCount, out _, out _);
         if (probe == 0) return false;
         return TickScalar(asset, heads, columns, rows, rowCount, gameTick, delta);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    static unsafe int Probe(byte* asset, TimelineComponent* rows, int rowCount, out uint uniformPosition, out long uniformCycle, out long uniformPositionWord)
+    static unsafe int Probe(byte* asset, TimelineComponent* rows, int rowCount, out uint uniformPosition, out long uniformCycle)
     {
         var assetAddress = (nint)asset;
-        if (*(nint*)rows != assetAddress) { uniformPosition = 0; uniformCycle = 0; uniformPositionWord = 0; return 0; }
-        uniformPositionWord = *(long*)&rows->Position;
+        uniformPosition = 0; uniformCycle = 0;
+        if (*(nint*)rows != assetAddress) return 0;
         uniformPosition = rows->Position;
         uniformCycle = rows->Cycle;
+        var uniformPositionWord = *(long*)&rows->Position & 4294967295L;
         var uniform = true;
         var scan = 1;
         while (scan < rowCount)
         {
             var component = rows + scan;
             if (*(nint*)component != assetAddress) return 0;
-            if (uniform && (*(long*)&component->Position != uniformPositionWord | component->Cycle != uniformCycle)) uniform = false;
+            if (uniform && (*(long*)&component->Position & 4294967295L) != uniformPositionWord | component->Cycle != uniformCycle) uniform = false;
             scan++;
             if (scan == rowCount) break;
             component = rows + scan;
             if (*(nint*)component != assetAddress) return 0;
-            if (uniform && (*(long*)&component->Position != uniformPositionWord | component->Cycle != uniformCycle)) uniform = false;
+            if (uniform && (*(long*)&component->Position & 4294967295L) != uniformPositionWord | component->Cycle != uniformCycle) uniform = false;
             scan++;
         }
         return uniform ? 1 : 2;

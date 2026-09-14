@@ -41,39 +41,40 @@ internal static unsafe class TimelineKernel_f1845eb94725dfb7eb0437148041742461e1
             }
             return true;
         }
-        var probe = Probe(asset, rows, rowCount, out var uniformPosition, out var uniformCycle, out var uniformPositionWord);
+        var probe = Probe(asset, rows, rowCount, out var uniformPosition, out var uniformCycle);
         if (probe == 0) return false;
-        if (probe == 1) return TickUniform(asset, heads, columns, rows, rowCount, gameTick, delta, uniformPosition, uniformCycle, uniformPositionWord);
+        if (probe == 1) return TickUniform(asset, heads, columns, rows, rowCount, gameTick, delta, uniformPosition, uniformCycle);
         return TickMixed(asset, heads, columns, rows, rowCount, gameTick, delta);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    static unsafe int Probe(byte* asset, TimelineComponent* rows, int rowCount, out uint uniformPosition, out long uniformCycle, out long uniformPositionWord)
+    static unsafe int Probe(byte* asset, TimelineComponent* rows, int rowCount, out uint uniformPosition, out long uniformCycle)
     {
         var assetAddress = (nint)asset;
-        if (*(nint*)rows != assetAddress) { uniformPosition = 0; uniformCycle = 0; uniformPositionWord = 0; return 0; }
-        uniformPositionWord = *(long*)&rows->Position;
+        uniformPosition = 0; uniformCycle = 0;
+        if (*(nint*)rows != assetAddress) return 0;
         uniformPosition = rows->Position;
         uniformCycle = rows->Cycle;
+        var uniformPositionWord = *(long*)&rows->Position & 4294967295L;
         var uniform = true;
         var scan = 1;
         while (scan < rowCount)
         {
             var component = rows + scan;
             if (*(nint*)component != assetAddress) return 0;
-            if (uniform && (*(long*)&component->Position != uniformPositionWord | component->Cycle != uniformCycle)) uniform = false;
+            if (uniform && (*(long*)&component->Position & 4294967295L) != uniformPositionWord | component->Cycle != uniformCycle) uniform = false;
             scan++;
             if (scan == rowCount) break;
             component = rows + scan;
             if (*(nint*)component != assetAddress) return 0;
-            if (uniform && (*(long*)&component->Position != uniformPositionWord | component->Cycle != uniformCycle)) uniform = false;
+            if (uniform && (*(long*)&component->Position & 4294967295L) != uniformPositionWord | component->Cycle != uniformCycle) uniform = false;
             scan++;
         }
         return uniform ? 1 : 2;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    static unsafe bool TickUniform(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta, uint uniformPosition, long uniformCycle, long uniformPositionWord)
+    static unsafe bool TickUniform(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta, uint uniformPosition, long uniformCycle)
     {
         var r0 = TimelineKernels.Range(heads[0]);
         var multiReverse = delta < 0;
@@ -87,24 +88,21 @@ internal static unsafe class TimelineKernel_f1845eb94725dfb7eb0437148041742461e1
                 {
                     moved = true;
                     Run(r0, multiReverse, uniformTick, gameTick, uniformOutCycle, uniformFlags, 0, rowCount, asset, heads, columns);
-                    var uniformNextWord = (uniformPositionWord & -4294967296L) | uniformNext.Position;
-                    var uniformNextCycle = uniformNext.Cycle;
                     var commit = 0;
                     while (commit < rowCount)
                     {
                         var component = rows + commit;
-                        *(long*)&component->Position = uniformNextWord;
-                        component->Cycle = uniformNextCycle;
+                        component->Position = uniformNext.Position;
+                        component->Cycle = uniformNext.Cycle;
                         commit++;
                         if (commit == rowCount) break;
                         component = rows + commit;
-                        *(long*)&component->Position = uniformNextWord;
-                        component->Cycle = uniformNextCycle;
+                        component->Position = uniformNext.Position;
+                        component->Cycle = uniformNext.Cycle;
                         commit++;
                     }
-                    uniformPositionWord = uniformNextWord;
                     uniformPosition = uniformNext.Position;
-                    uniformCycle = uniformNextCycle;
+                    uniformCycle = uniformNext.Cycle;
                 }
                 if (!moved) break;
                 if (!multiReverse) gameTick++;
