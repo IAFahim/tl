@@ -1,0 +1,16 @@
+{
+  "name": "prototype_move_loop",
+  "duration": 64,
+  "loop": true,
+  "tracks": [
+    {
+      "name": "sweep",
+      "namespace": "PlaybackPrototype",
+      "type": "MoveTrack",
+      "data": { "Code": 1 },
+      "clips": [
+        { "name": "move", "namespace": "PlaybackPrototype", "type": "MoveClip", "start": 0, "end": 64, "data": { "Amount": 3 } }
+      ]
+    }
+  ]
+}
