@@ -28,8 +28,8 @@ The packages are development prereleases on [nuget.org](https://www.nuget.org/).
 ### 1. Install
 
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.5
-dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.5
+dotnet add package Tl.CSharp --version 1.0.0-alpha.6
+dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.6
 ```
 
 For an offline install, copy the `.nupkg` files into a local `packages/` folder and append `--source ./packages` to both commands.
