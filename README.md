@@ -21,18 +21,18 @@ Timeline data and timeline behavior are separate. Designers author tracks, clips
 | .NET 10 (JIT and NativeAOT) | NuGet packages (below) | receipted |
 | Unity 6000+ (Mono, IL2CPP, Burst jobs) | UPM package `com.iafahim.tl` from [tl.unity](https://github.com/IAFahim/tl.unity) | EditMode-receipted |
 
-The packages are development prereleases from [GitHub releases](https://github.com/IAFahim/tl/releases), not yet on nuget.org.
+The packages are development prereleases on [nuget.org](https://www.nuget.org/).
 
 ## Quick Start
 
-#### 1. Install
-
-Download the packages from the [latest prerelease](https://github.com/IAFahim/tl/releases) into `packages/`, then:
+### 1. Install
 
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.5 --source ./packages
-dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.5 --source ./packages
+dotnet add package Tl.CSharp --version 1.0.0-alpha.5
+dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.5
 ```
+
+For an offline install, copy the `.nupkg` files into a local `packages/` folder and append `--source ./packages` to both commands.
 
 `Tl.CSharp` brings the runtime and the build-time generator, which discovers your consumers on every compilation — including IDE design-time builds — and sets consuming projects up automatically.
 
@@ -43,7 +43,7 @@ dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.5 --sour
 | `Tl.Gen.CSharp` | Build-time generator that binds typed consumers |
 | `Tl.Bake` | `dotnet tool` (command: `tlbake`): JSON to baked TLB1 assets |
 
-#### 2. Define the domain
+### 2. Define the domain
 
 You author the domain values and one typed consumer per `(track, clip)` pair. `Tl` supplies `IBlend<TClip>`, `ITimelineJob<TTrack,TClip>`, and `Frame<TTrack,TClip>`; the generator discovers consumers compilation-wide, so there is no registration, catalog, or schema marker.
 
@@ -94,7 +94,7 @@ namespace Combat
 
 Track values hold immutable settings. Clip values hold immutable authored payload. `in` declares a borrowed read-only component column; `ref` declares a borrowed writable column. The generator derives each consumer's column set from the `Execute` signature. The `partial` modifiers are optional in .NET; keeping them lets the same file compile inside Unity, where the [tl.unity guide](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) adds host hooks in a second partial file.
 
-#### 3. Author and bake one timeline
+### 3. Author and bake one timeline
 
 `boss.json` — flat schema v1. Track/clip `namespace`+`type` name the C# types above; `data` field names map onto struct fields; windows are half-open `[start, end)`; execution order is authored clip order:
 
@@ -127,7 +127,7 @@ tlbake boss.json boss.tlb --assembly bin/Release/net10.0/MyApp.dll --cache ~/.tl
 
 `tlbake --report boss.tlb` audits sizes and `tlbake --strip boss.tlb boss.dist.tlb` trims metadata for distribution (ship kernel-bound assets stripped).
 
-#### 4. Load, advance, and query
+### 4. Load, advance, and query
 
 The application owns the rows, component arrays, and the game clock. `TimelineAsset.Load` is a cold validated import; dispose the asset after all rows and readers are done.
 
@@ -212,7 +212,7 @@ The data-authored Unity host package (`com.iafahim.tl`) lives in the [tl.unity](
 ## Documentation
 
 - [Data-authored API contract](docs/data-authored-api.md) — the frozen design contract
-- [Execution semantics](docs/semantics.md) — select, execute, commit, and movement laws
+- [Execution semantics](docs/semantics.md) — select, execute, commit, and movement laws of the removed alpha.3 catalog surface
 - [Architecture](docs/architecture.md) — package and boundary map
 - [Unity end-to-end](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) — JSON bake to Unity ECS typed queries
 

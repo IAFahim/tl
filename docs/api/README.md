@@ -1,6 +1,6 @@
 # Archived API mock
 
-This is a pre-v1 design artifact retained for historical context. It is not the current API and no longer has a project file. Generation and playback methods intentionally throw `NotImplementedException`. The current contract is [v1.0-alpha-api.md](../v1.0-alpha-api.md).
+This is a pre-v1 design artifact retained for historical context. It is not the current API and no longer has a project file. Generation and playback methods intentionally throw `NotImplementedException`. The current contract is [data-authored-api.md](../data-authored-api.md); [v1.0-alpha-api.md](../v1.0-alpha-api.md) records the removed alpha.3 surface.
 
 The `src` scaffold is separate from this mock.
 
@@ -123,8 +123,4 @@ Generation returns source files to the integration. File writing and application
 
 ## Checking the mock
 
-```sh
-dotnet build docs/api/Api.csproj -c Release
-```
-
-This checks that the proposed API and consumer examples compile. It does not execute the stubs, establish allocation behavior, or establish Unity, Native AOT, or WASM compatibility.
+The mock no longer carries a project file, so there is no standalone build to run. The mock does not execute the stubs, establish allocation behavior, or establish Unity, Native AOT, or WASM compatibility.

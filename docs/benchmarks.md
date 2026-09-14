@@ -339,7 +339,7 @@ Static-abstract polymorphism over timelines (`interface ITimeline` implemented
 by generated tracks) remains available for utilities that are generic over
 timelines — same devirtualization machinery, zero cost.
 
-### Frozen path (work in progress)
+### Frozen path
 
 The `Generate` project now emits two **frozen** timelines into
 `benchmarks/Dispatch/Generated/` — per-timeline playback code specialized at

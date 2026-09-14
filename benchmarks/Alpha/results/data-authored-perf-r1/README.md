@@ -1,6 +1,6 @@
 # Data-authored first reduction pass (R1+R2+R3, native pair table)
 
-This evidence, recorded on 2026-09-12, measures the first performance-reduction atom for the data-authored facade (issue #56) on `feat/56-data-authored-api`. The measured change is the uncommitted working tree on top of `c3ac02d`; the recorded baseline for comparison is commit `84f45fd` (the first-pass facade), re-measured on this host today from the same worktree via `git stash` and retained in [control-old-code/](control-old-code/). Both sides ran under the same BenchmarkDotNet job (16 warmups, 12 iterations of 250 ms, 4,096 operations per invocation, pinned to CPU 8, `powersave` governor).
+This evidence, recorded on 2026-09-12, measures the first performance-reduction atom for the data-authored facade (issue #56) on `feat/56-data-authored-api`. The measured change is the uncommitted working tree on top of `c3ac02d`; the recorded baseline for comparison is commit `84f45fd` (the first-pass facade), re-measured on this host today from the same worktree via `git stash` and retained as the `control-old-code` rows in [summary.csv](summary.csv) (raw artifacts retained on issue #56). Both sides ran under the same BenchmarkDotNet job (16 warmups, 12 iterations of 250 ms, 4,096 operations per invocation, pinned to CPU 8, `powersave` governor).
 
 ## What changed
 
@@ -24,7 +24,7 @@ Per the owner's revision, an asset swapped into a row after the query's first Ti
 
 ## Timing result
 
-BenchmarkDotNet 0.15.8, one child process per benchmark, pinned to CPU 8. Three processes of the changed build ([data-authored-jit](data-authored-jit/), [run2](data-authored-jit-run2/), [run3](data-authored-jit-run3/)) and one control process of the baseline build ([control-old-code](control-old-code/)). Direct and generated control arms are stable within 1-2% across all four processes. [summary.csv](summary.csv) retains every arm.
+BenchmarkDotNet 0.15.8, one child process per benchmark, pinned to CPU 8. Three processes of the changed build (`data-authored-jit`, run2, run3) and one control process of the baseline build (`control-old-code`). Raw per-process artifacts were not committed; each process's rows are in [summary.csv](summary.csv) and the raw evidence is retained on issue #56. Direct and generated control arms are stable within 1-2% across all four processes. [summary.csv](summary.csv) retains every arm.
 
 | Shape | Direct ns/tick | Generated ns/tick | Facade baseline (control today) | Facade run 1 | run 2 | run 3 | Median of 3 | vs baseline |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

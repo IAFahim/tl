@@ -1,6 +1,6 @@
 # NuGet quick start
 
-The whole library, from the public registry, in four commands. This folder is the runnable form of the repository README's [Quick Start](../../README.md#3-author-and-bake-with-tlbake), and CI runs it on every build against the **published** packages — nothing here references the repository sources.
+The whole library, from the public registry, in four commands. This folder is the runnable form of the repository README's [Quick Start](../../README.md#3-author-and-bake-one-timeline), and CI runs it on every build against the **published** packages — nothing here references the repository sources.
 
 ```sh
 dotnet add package Tl.CSharp --version 1.0.0-alpha.5        # runtime + build-time consumer binding

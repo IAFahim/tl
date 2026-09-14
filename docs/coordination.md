@@ -16,7 +16,7 @@ The Project uses these states:
 
 Pull-request cards use In review while checks and review are open, then Done after the exact head merges. A merged stacked pull request can complete its bounded workstream while its open issue returns to Ready for later integration or release work.
 
-Recommended labels are `ai`, `area:runtime`, `area:compiler`, `area:csharp`, `area:c`, `area:unity`, `area:tooling`, `area:docs`, `area:ci`, `kind:bug`, `kind:feature`, `kind:performance`, `kind:architecture`, `kind:release`, `blocked`, and `experiment`.
+Recommended labels are `ai`, `area:runtime`, `area:compiler`, `area:csharp`, `area:c`, `area:unity`, `area:tooling`, `area:docs`, `area:ci`, `kind:performance`, `kind:architecture`, `kind:maintenance`, `kind:release`, `blocked`, and `experiment`.
 
 ## Issue as executable plan
 
@@ -48,7 +48,7 @@ TL_AGENT=Curie TL_MACHINE=office-1 ./eng/agent-work pr 123 "Emit the C backend" 
 Create a fully labeled issue from a prepared body and place it in Ready before claiming it:
 
 ```sh
-./eng/agent-work issue "Add a C catalog receipt" area:c kind:feature /tmp/issue.md
+./eng/agent-work issue "Add a C catalog receipt" area:c kind:maintenance /tmp/issue.md
 ```
 
 The repository helper performs remote preflight, an atomic Git-ref claim, worktree creation at `../<repo>-<issue>-<kind>-<scope>`, assignment, Project update, and issue report as one operation:

@@ -41,7 +41,7 @@ This evidence, recorded on 2026-09-12, measures the tenth performance-reduction 
 
 ## Timing result (Standard Arms)
 
-BenchmarkDotNet 0.15.8, one child process per benchmark, pinned to CPU 8, .NET SDK 10.0.401 / runtime 10.0.12, RyuJIT x86-64-v3, Concurrent Workstation GC. Three sequential processes of the changed build ([data-authored-jit](data-authored-jit/); [run2](data-authored-jit-run2/); [run3](data-authored-jit-run3/)). [summary.csv](summary.csv) retains every arm. All numbers below are per-tick medians in ns.
+BenchmarkDotNet 0.15.8, one child process per benchmark, pinned to CPU 8, .NET SDK 10.0.401 / runtime 10.0.12, RyuJIT x86-64-v3, Concurrent Workstation GC. Three sequential processes of the changed build (`data-authored-jit`; run2; run3). Raw per-process artifacts were not committed; each process's rows are in [summary.csv](summary.csv) and the raw evidence is retained on issue #56. [summary.csv](summary.csv) retains every arm. All numbers below are per-tick medians in ns.
 
 | Shape | Pattern | Direct r1 / r2 / r3 | Generated r1 / r2 / r3 | Facade r1 / r2 / r3 |
 | --- | --- | ---: | ---: | ---: |

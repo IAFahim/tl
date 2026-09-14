@@ -1,5 +1,7 @@
 # FusionGenerate
 
+> Retained as history: `samples/Compiled` was removed at commit `5c05aa5`; the `--source` path below names the input at this README's original commit.
+
 This experimental generator recognizes the exact `PulseClip(float Amount)` and `PulseTrack.Blend` declarations in `samples/Compiled/Timeline.cs` and emits a kernel for one fixed operation: add every active work's `Clip.Amount` to a `float` accumulator in authored track order for forward movement, or subtract it for backward movement. Blends use `first + (second - first) * factor` in that order. Any change to the supported payload shape or blend law is rejected rather than compiled as if it were equivalent.
 
 Run it from the repository root:
