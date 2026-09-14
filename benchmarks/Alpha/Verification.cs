@@ -18,6 +18,7 @@ internal static class Verification
                 var alpha = new ShapeCase(shape, pattern);
                 using var facade = new DataAuthoredCase(shape, pattern);
                 var direct = alpha.Direct();
+                if (TimelineKernelHashes.Committed.ContainsKey(shape)) DataAuthoredCase.AssertKernelBound(facade, true);
                 var dataAuthored = facade.DataAuthored();
                 ScalarCatalogQueryBenchmarks.Require(direct, dataAuthored, $"data-authored/{shape}/facade/{pattern}");
                 Console.WriteLine($"data-authored/{shape}/{pattern}: direct={direct} facade={dataAuthored}");
@@ -32,7 +33,6 @@ internal static class Verification
                     interpreterBytes[40] = 0xA5;
                     using var interpreterCase = new DataAuthoredCase(shape, pattern, DataAuthoredMode.Standard, interpreterBytes);
                     var interpreter = interpreterCase.DataAuthored();
-                    DataAuthoredCase.AssertKernelBound(facade, true);
                     DataAuthoredCase.AssertKernelBound(interpreterCase, false);
                     ScalarCatalogQueryBenchmarks.Require(direct, interpreter, $"data-authored/{shape}/interpreter/{pattern}");
                     Console.WriteLine($"kernel-lane/{shape}/{pattern}: facade-is-hash-bound-kernel={dataAuthored} interpreter={interpreter}");

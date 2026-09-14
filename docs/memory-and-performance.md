@@ -50,6 +50,22 @@ Track and clip identity is a 64-bit pair key over the closed build-time type uni
 
 Consumer column dispatch enforces a strict per-call pointer lifetime. The query's stack-resident `PairCache` retains only column index bindings (`unsafe fixed byte ColumnIndex[256]`, where 0 encodes unbound and 1..4 map to query columns 0..3) across ticks. At the entry of every `Tick` invocation, raw interior pointers are freshly derived from the GC-tracked `ReadOnlySpan<byte>` fields and written to the call-local `Columns[256]` pointer slice; no raw pointer outlives the synchronous `Tick` call. Any compacting GC relocating caller-managed arrays between ticks is safely observed by the runtime via the stack-tracked spans on the subsequent tick. With `MaxPointers = 256` and 4 pointer slots per consumer, the query supports an effective bound of `256 / 4 = 64` distinct registered consumers per process.
 
+### Shared bind cache
+
+Cold `Tick` work (consumer bind walk, pair-chain resolve, kernel content hash) was paid once per construction because the resolved state lived in the ref-struct query. Data-authored rows now share one process-global native block, the `PairTable` precedent: 256 direct-mapped four-way slots, each holding one immutable bind record of 648 B, allocated once from `NativeMemory.AlignedAlloc` at process start and never freed (about 162 KiB of bounded native static data). A record captures the resolved bind state of one identity: asset block address, ordered column key-sequence hash, consumer and kernel registration phase, bound consumer mask, column bindings, refresh pairs, pair chain heads, and the resolved kernel pointer.
+
+Warm lookup is a lock-free volatile read chain (slot seal, identity fields, generation) with no lock, no managed reference, and no allocation on any tick path. A miss runs the per-construction bind exactly as before and then publishes its result once through a single compare-exchange claim; a losing claimer never waits and simply rebinds per construction. Records are immutable after publication, so no reader observes a partial state. Identity rests on the asset address plus the column key sequence because asset blocks are immutable after publication and singly owned. Staleness is closed mechanically: each record stores the consumer count and `TimelineQuery.Find` pointer observed before the bind walk, and lookups require both to equal current values, so consumer or kernel registration after a cached identity forces a fresh bind; `TimelineAsset.Dispose` advances a global generation and reclaims the disposed address's slots, so an asset reusing the address can never observe the previous asset's record. The ownership rule is otherwise unchanged: the asset owner must quiesce rows before `Dispose`, and the generation advance makes every record keyed to the disposed address dead at that instant. Non-uniform row sets, row sets over more than 16 pairs, and the `TickUnmanaged` caller-owned state path do not participate; they keep per-construction behavior.
+
+Rebuilding 1,000 single-row queries per frame over the same rows and columns, looping asset, one consumer, one writable column (i9-14900K, .NET 10.0.12, pinned core, median of 15 after 5 warmups, `GC0/1 = +0` in every lane, effect receipts byte-identical across every lane and both builds):
+
+| Asset block | Before | After |
+| --- | ---: | ---: |
+| 128 B (1 clip) | 494.4 us/frame | 152.9 us/frame |
+| 3.6 KB (64 clips) | 1,784.0 us/frame | 166.5 us/frame |
+| 112 KB (2,048 clips) | 42,004.4 us/frame | 177.1 us/frame |
+
+The control lane (one construction followed by 1,000 ticks of the same query) measured 23.4/60.6/117.0 us before and 21.7/58.5/76.8 us after; the residual per-construction cost is query construction and column validation, not binding. The one-shot read lane (`Timeline.Query<T,C>` / `FrameQuery`) and the single-row fast path are unchanged; a restored query takes the same fast path a previously ticked query takes.
+
 ## Code and data size
 
 The retained code-size fixtures report:

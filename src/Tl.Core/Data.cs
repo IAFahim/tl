@@ -187,7 +187,7 @@ public sealed unsafe class TimelineAsset : IDisposable
 
 	public TimelineRef Reference => new((void*)_p);
 
-	public void Dispose() { var p = Interlocked.Exchange(ref _p, 0); if (p != 0) NativeMemory.AlignedFree((void*)p); }
+	public void Dispose() { var p = Interlocked.Exchange(ref _p, 0); if (p != 0) { BindCache.Invalidate(p); NativeMemory.AlignedFree((void*)p); } }
 }
 
 public struct TimelineComponent(TimelineRef reference)
@@ -227,12 +227,14 @@ static unsafe class PairTable
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
 	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + 40 * ConsumerCapacity), 64);
-	static volatile int _pairs, _consumers, _gate;
+	static volatile int _gate;
+	static int _pairs, _consumers;
 
 	static PairTable() => Unsafe.InitBlock(_block, 0, 16 * SlotCount);
 
 	static Slot* SlotAt => (Slot*)_block;
 	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
+	internal static int ConsumerCount => Volatile.Read(ref _consumers);
 
 	internal static void Install(ulong key, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> e, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, int, void> r, delegate*<ulong*, int, byte*, void> b)
 	{
@@ -252,7 +254,7 @@ static unsafe class PairTable
 			var consumers = ConsumerAt;
 			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, Offset = _consumers * 4 };
 			Volatile.Write(ref slots[slot].Head, _consumers);
-			_consumers++;
+			Volatile.Write(ref _consumers, _consumers + 1);
 		}
 		finally
 		{
@@ -283,7 +285,8 @@ static unsafe class PairTable
 	{
 		var slots = SlotAt;
 		var consumers = ConsumerAt;
-		for (var entry = 0; entry < _consumers; entry++)
+		var total = ConsumerCount;
+		for (var entry = 0; entry < total; entry++)
 			if (asset.Uses(slots[consumers[entry].Pair].Key) && (boundMask & (1ul << entry)) == 0)
 			{
 				boundMask |= 1ul << entry;
@@ -295,6 +298,77 @@ static unsafe class PairTable
 					if (col != 0) { rSlots[rCount] = (byte)(offset + k); rCols[rCount++] = (byte)(col - 1); }
 				}
 			}
+	}
+}
+
+static unsafe class BindCache
+{
+	internal struct Entry
+	{
+		public int Claimed, Sealed, Generation, Count, RefreshCount, KernelBound;
+		public byte Identity;
+		public nint Asset, FindPointer;
+		public ulong KeysHash, BoundMask;
+		public void* Kernel;
+		public unsafe fixed int Heads[16];
+		public unsafe fixed byte RefreshSlot[256], RefreshCol[256];
+	}
+
+	const int SlotCount = 256, Ways = 4, SlotMask = SlotCount - 1, WayMask = Ways - 1;
+	const ulong Scatter = 0x9E3779B97F4A7C15;
+	static readonly Entry* Entries = (Entry*)NativeMemory.AlignedAlloc((nuint)(sizeof(Entry) * SlotCount), 64);
+	static int _generation = 1;
+
+	static BindCache() => Unsafe.InitBlock(Entries, 0, (uint)(sizeof(Entry) * SlotCount));
+
+	internal static int Generation => Volatile.Read(ref _generation);
+
+	static int SlotOf(nint asset, ulong keysHash) => (int)(((ulong)asset ^ keysHash) * Scatter >> 56) & SlotMask & ~WayMask;
+
+	internal static ulong Keys(ulong* keys, int keyCount)
+	{
+		var hash = 14695981039346656037ul ^ (ulong)(uint)keyCount;
+		for (var i = 0; i < keyCount; i++) hash = (hash ^ keys[i]) * 1099511628211ul;
+		return hash == 0 ? 1 : hash;
+	}
+
+	internal static Entry* Look(nint asset, ulong keysHash, nint find)
+	{
+		var slot = SlotOf(asset, keysHash);
+		for (var i = 0; i < Ways; i++)
+		{
+			var entry = Entries + slot + i;
+			if (Volatile.Read(ref entry->Sealed) == 0) continue;
+			if (entry->Asset != asset || entry->KeysHash != keysHash || entry->FindPointer != find) continue;
+			if (Volatile.Read(ref entry->Generation) != Generation) continue;
+			return entry;
+		}
+		return null;
+	}
+
+	internal static Entry* Claim(nint asset, ulong keysHash)
+	{
+		var slot = SlotOf(asset, keysHash);
+		for (var i = 0; i < Ways; i++)
+		{
+			var entry = Entries + slot + i;
+			if (Interlocked.CompareExchange(ref entry->Claimed, 1, 0) == 0) return entry;
+		}
+		return null;
+	}
+
+	internal static void Invalidate(nint asset)
+	{
+		Interlocked.Increment(ref _generation);
+		var current = Volatile.Read(ref _generation);
+		for (var i = 0; i < SlotCount; i++)
+		{
+			var entry = Entries + i;
+			if (entry->Asset != asset || entry->Generation == current) continue;
+			Volatile.Write(ref entry->Generation, 0);
+			Volatile.Write(ref entry->Sealed, 0);
+			Volatile.Write(ref entry->Claimed, 0);
+		}
 	}
 }
 
@@ -328,6 +402,9 @@ public unsafe ref struct TimelineQuery
 	internal Span<TimelineComponent> _rows;
 	PairCache _cache;
 	bool _bound;
+	ulong _publishHash;
+	nint _publishAddress;
+	int _publishGeneration;
 	delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool> _kernel;
 
 	internal unsafe TimelineQuery(Span<TimelineComponent> rows)
@@ -373,6 +450,55 @@ public unsafe ref struct TimelineQuery
 		var id = _cache.Identity = ComputeIdentity(rS, rC);
 		if (id != 0) act = b;
 		else { act = t; for (var i = 0; i < _cache.RefreshCount; i++) t[rS[i]] = b[rC[i]]; }
+	}
+
+	unsafe void BindRows(ulong* keys, int keyCount, byte* indices, byte* rSlots, byte* rCols)
+	{
+		for (var row = 0; row < _rows.Length; row++)
+		{
+			var reference = _rows[row].Reference;
+			if (reference.Address != 0) PairTable.Bind(reference, keys, keyCount, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
+		}
+		_cache.Identity = ComputeIdentity(rSlots, rCols);
+	}
+
+	unsafe void Restore(BindCache.Entry* entry, nint address)
+	{
+		_cache.Asset = address;
+		_cache.Count = entry->Count;
+		_cache.RefreshCount = entry->RefreshCount;
+		_cache.BoundMask = entry->BoundMask;
+		_cache.Identity = entry->Identity;
+		_kernel = entry->KernelBound != 0 ? (delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>)entry->Kernel : null;
+		for (var i = 0; i < _cache.Count; i++) _cache.Heads[i] = entry->Heads[i];
+		for (var i = 0; i < _cache.RefreshCount; i++)
+		{
+			_cache.RefreshSlot[i] = entry->RefreshSlot[i];
+			_cache.RefreshCol[i] = entry->RefreshCol[i];
+		}
+	}
+
+	unsafe void Publish(nint address, ulong keysHash, int generation, int count, delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool> kernel)
+	{
+		var entry = BindCache.Claim(address, keysHash);
+		if (entry == null) return;
+		entry->Generation = generation;
+		entry->Count = count;
+		entry->RefreshCount = _cache.RefreshCount;
+		entry->BoundMask = _cache.BoundMask;
+		entry->Identity = _cache.Identity;
+		entry->Kernel = kernel;
+		entry->KernelBound = kernel != null ? 1 : 0;
+		entry->FindPointer = (nint)(void*)Find;
+		for (var i = 0; i < count; i++) entry->Heads[i] = _cache.Heads[i];
+		for (var i = 0; i < _cache.RefreshCount; i++)
+		{
+			entry->RefreshSlot[i] = _cache.RefreshSlot[i];
+			entry->RefreshCol[i] = _cache.RefreshCol[i];
+		}
+		entry->Asset = address;
+		entry->KeysHash = keysHash;
+		Volatile.Write(ref entry->Sealed, 1);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -426,12 +552,30 @@ public unsafe ref struct TimelineQuery
 		var table = (void**)Unsafe.AsPointer(ref _cache.Columns[0]);
 		if (!_bound)
 		{
-			for (var row = 0; row < _rows.Length; row++)
+			var address = _rows[0].Reference.Address;
+			var scanPairs = 0;
+			var uniform = address != 0;
+			if (uniform)
+				for (var row = 0; row < _rows.Length; row++)
+				{
+					var reference = _rows[row].Reference;
+					if (reference.Address != address) { uniform = false; break; }
+					if (reference.PairCount > scanPairs) scanPairs = (int)reference.PairCount;
+				}
+			if (uniform && scanPairs <= 16)
 			{
-				var reference = _rows[row].Reference;
-				if (reference.Address != 0) PairTable.Bind(reference, keys, keyCount, indices, rSlots, rCols, ref _cache.RefreshCount, ref _cache.BoundMask);
+				var keysHash = BindCache.Keys(keys, keyCount);
+				var shared = BindCache.Look(address, keysHash, (nint)(void*)Find);
+				if (shared != null) Restore(shared, address);
+				else
+				{
+					_publishHash = keysHash;
+					_publishAddress = address;
+					_publishGeneration = BindCache.Generation;
+					BindRows(keys, keyCount, indices, rSlots, rCols);
+				}
 			}
-			_cache.Identity = ComputeIdentity(rSlots, rCols);
+			else BindRows(keys, keyCount, indices, rSlots, rCols);
 			_bound = true;
 		}
 		void** activeTable = GetTable(bases);
@@ -477,11 +621,14 @@ public unsafe ref struct TimelineQuery
 			_cache.Count = pairs;
 			chains = Resolved;
 			_rows[0].Reference.Resolve(chains);
+			delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool> bound = null;
 			if (Find != null)
 			{
 				var kernel = Find((byte*)uniformAddress, ((NativeHeader*)uniformAddress)->Bytes);
-				if (kernel != null) _kernel = (delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>)kernel;
+				if (kernel != null) _kernel = bound = (delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>)kernel;
 			}
+			if (_publishHash != 0 && _publishAddress == uniformAddress) Publish(uniformAddress, _publishHash, _publishGeneration, pairs, bound);
+			_publishHash = 0;
 		}
 		if (delta == 1 || delta == -1)
 		{
