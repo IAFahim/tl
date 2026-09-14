@@ -81,13 +81,14 @@ public static class KernelEmitter
         source.AppendLine();
         EmitProbe(source);
         source.AppendLine();
+        var runPairs = stages.Count == 0 ? new List<int>() : SingleStepPairs(stages);
         if (stages.Count == 0)
             EmitMultiRowScalar(source, duration, loops);
         else
         {
-            EmitUniformLockstep(source, duration, loops);
+            EmitUniformLockstep(source, duration, loops, runPairs);
             source.AppendLine();
-            EmitMixed(source, duration, loops);
+            EmitMixed(source, duration, loops, runPairs);
         }
         source.AppendLine();
         source.AppendLine("    static unsafe void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns)");
@@ -98,7 +99,7 @@ public static class KernelEmitter
         if (stages.Count > 0)
         {
             source.AppendLine();
-            source.AppendLine("    static unsafe void Run(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int rowStart, int rowCount, byte* asset, int* heads, void** columns)");
+            source.AppendLine($"    static unsafe void Run({RunParams(runPairs)}bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int rowStart, int rowCount, byte* asset, int* heads, void** columns)");
             source.AppendLine("    {");
             EmitRunStages(source, stages);
             source.AppendLine("    }");
@@ -181,11 +182,46 @@ public static class KernelEmitter
         source.AppendLine("            return true;");
     }
 
-    static void EmitMixed(StringBuilder source, uint duration, bool loops)
+    static List<int> SingleStepPairs(List<(uint End, List<(uint Slot, int Pair)> Steps)> stages)
+    {
+        var pairs = new List<int>();
+        foreach (var stage in stages)
+        {
+            if (stage.Steps.Count != 1) continue;
+            var pair = stage.Steps[0].Pair;
+            if (!pairs.Contains(pair)) pairs.Add(pair);
+        }
+        return pairs;
+    }
+
+    static string RunParams(List<int> pairs)
+    {
+        var prefix = new StringBuilder();
+        foreach (var pair in pairs)
+            prefix.Append($"TimelineKernelRange r{pair}, ");
+        return prefix.ToString();
+    }
+
+    static string RunArgs(List<int> pairs)
+    {
+        var prefix = new StringBuilder();
+        foreach (var pair in pairs)
+            prefix.Append($"r{pair}, ");
+        return prefix.ToString();
+    }
+
+    static void EmitResolutions(StringBuilder source, List<int> pairs, int indent)
+    {
+        foreach (var pair in pairs)
+            Pad(source, indent).AppendLine($"var r{pair} = TimelineKernels.Range(heads[{N(pair)}]);");
+    }
+
+    static void EmitMixed(StringBuilder source, uint duration, bool loops, List<int> runPairs)
     {
         source.AppendLine("    [MethodImpl(MethodImplOptions.AggressiveOptimization)]");
         source.AppendLine("    static unsafe bool TickMixed(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)");
         source.AppendLine("    {");
+        EmitResolutions(source, runPairs, 2);
         source.AppendLine("        var multiReverse = delta < 0;");
         source.AppendLine("        var multiRemaining = multiReverse ? -(long)delta : delta;");
         source.AppendLine("        var moved = true;");
@@ -218,7 +254,7 @@ public static class KernelEmitter
         source.AppendLine("                }");
         source.AppendLine("                if (runOpen)");
         source.AppendLine("                {");
-        source.AppendLine("                    Run(multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, row - runStart, asset, heads, columns);");
+        source.AppendLine($"                    Run({RunArgs(runPairs)}multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, row - runStart, asset, heads, columns);");
         source.AppendLine("                    runOpen = false;");
         source.AppendLine("                }");
         source.AppendLine("                memoReady = true;");
@@ -234,18 +270,19 @@ public static class KernelEmitter
         source.AppendLine("                runStart = row;");
         source.AppendLine("                runOpen = true;");
         source.AppendLine("            }");
-        source.AppendLine("            if (runOpen) Run(multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, rowCount - runStart, asset, heads, columns);");
+        source.AppendLine($"            if (runOpen) Run({RunArgs(runPairs)}multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, rowCount - runStart, asset, heads, columns);");
         source.AppendLine("            if (!multiReverse) gameTick++;");
         source.AppendLine("        }");
         source.AppendLine("        return true;");
         source.AppendLine("    }");
     }
 
-    static void EmitUniformLockstep(StringBuilder source, uint duration, bool loops)
+    static void EmitUniformLockstep(StringBuilder source, uint duration, bool loops, List<int> runPairs)
     {
         source.AppendLine("    [MethodImpl(MethodImplOptions.AggressiveOptimization)]");
         source.AppendLine("    static unsafe bool TickUniform(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta, uint uniformPosition, long uniformCycle, long uniformPositionWord)");
         source.AppendLine("    {");
+        EmitResolutions(source, runPairs, 2);
         source.AppendLine("        var multiReverse = delta < 0;");
         source.AppendLine("        var multiRemaining = multiReverse ? -(long)delta : delta;");
         source.AppendLine("        var moved = true;");
@@ -256,7 +293,7 @@ public static class KernelEmitter
         source.AppendLine($"            if (TimelineMovement.Select(new TimelineState(1, uniformPosition, uniformCycle), {N(duration)}u, {Word(loops)}, multiReverse, out var uniformNext, out var uniformTick, out var uniformOutCycle, out var uniformFlags))");
         source.AppendLine("                {");
         source.AppendLine("                    moved = true;");
-        source.AppendLine("                    Run(multiReverse, uniformTick, gameTick, uniformOutCycle, uniformFlags, 0, rowCount, asset, heads, columns);");
+        source.AppendLine($"                    Run({RunArgs(runPairs)}multiReverse, uniformTick, gameTick, uniformOutCycle, uniformFlags, 0, rowCount, asset, heads, columns);");
         source.AppendLine("                    var uniformNextWord = (uniformPositionWord & -4294967296L) | uniformNext.Position;");
         source.AppendLine("                    var uniformNextCycle = uniformNext.Cycle;");
         source.AppendLine("                    var commit = 0;");
@@ -368,7 +405,10 @@ public static class KernelEmitter
     {
         if (steps.Count == 1)
         {
-            Pad(source, indent).AppendLine($"TimelineKernels.ChainRange(heads[{N(steps[0].Pair)}], reverse, scratch, asset + {N(steps[0].Slot)}u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);");
+            var pair = steps[0].Pair;
+            var slot = $"asset + {N(steps[0].Slot)}u";
+            Pad(source, indent).AppendLine($"if (r{pair}.Pointer != null) r{pair}.Pointer({slot}, gameTick, tick, cycle, flags, columns, rowStart, rowCount);");
+            Pad(source, indent).AppendLine($"else TimelineKernels.ChainRange(heads[{N(pair)}], reverse, scratch, {slot}, gameTick, tick, cycle, flags, columns, rowStart, rowCount);");
             return;
         }
         if (steps.Count > 1)

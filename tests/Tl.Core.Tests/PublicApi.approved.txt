@@ -52,10 +52,13 @@ type Tl.TimelineComponent
   Field Int64 Cycle
   Field UInt32 Position
   Field Tl.TimelineRef Reference
+type Tl.TimelineKernelRange
+  Field System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32, System.Int32) Pointer
 type Tl.TimelineKernels
   Field Int32 Bound
   Method Void Chain(Int32, Boolean, Int32*, Byte*, UInt32, UInt32, Int64, Tl.FrameFlags, Void**, Int32)
   Method Void ChainRange(Int32, Boolean, Int32*, Byte*, UInt32, UInt32, Int64, Tl.FrameFlags, Void**, Int32, Int32)
+  Method Tl.TimelineKernelRange Range(Int32)
   Method Void Register(UInt64, UInt64, UInt64, UInt64, System.Boolean(System.Byte*, System.Int32*, System.Void**, Tl.TimelineComponent*, System.Int32, System.UInt32, System.Int32))
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt32, Boolean, Boolean, Tl.TimelineState ByRef, UInt32 ByRef, Int64 ByRef, Tl.FrameFlags ByRef)

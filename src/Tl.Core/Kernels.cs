@@ -5,6 +5,13 @@ using System.Security.Cryptography;
 
 namespace Tl;
 
+public readonly unsafe struct TimelineKernelRange
+{
+	public readonly delegate*<byte*, uint, uint, long, FrameFlags, void**, int, int, void> Pointer;
+
+	internal TimelineKernelRange(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, int, void> pointer) => Pointer = pointer;
+}
+
 public static unsafe class TimelineKernels
 {
 	static readonly ulong[] Hashes = new ulong[256];
@@ -48,6 +55,13 @@ public static unsafe class TimelineKernels
 			return Entries[i >> 2];
 		}
 		return default;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static unsafe TimelineKernelRange Range(int head)
+	{
+		var consumers = PairTable.ConsumerAt;
+		return new(head >= 0 && consumers[head].Next < 0 ? consumers[head].Range : default);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
