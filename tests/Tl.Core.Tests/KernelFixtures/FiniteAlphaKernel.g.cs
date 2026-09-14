@@ -135,7 +135,15 @@ internal static unsafe class TimelineKernel_3340e1e12aedecf95f213403bae35a7dd720
             for (var row = 0; row < rowCount; row++)
             {
                 var component = rows + row;
-                if (memoReady && component->Position == memoPosition && component->Cycle == memoCycle) continue;
+                if (memoReady && component->Position == memoPosition && component->Cycle == memoCycle)
+                {
+                    if (memoSelected)
+                    {
+                        component->Position = memoNextPosition;
+                        component->Cycle = memoNextCycle;
+                    }
+                    continue;
+                }
                 if (runOpen)
                 {
                     Run(multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, row - runStart, asset, heads, columns);
@@ -149,35 +157,12 @@ internal static unsafe class TimelineKernel_3340e1e12aedecf95f213403bae35a7dd720
                 memoNextCycle = memoNext.Cycle;
                 if (!memoSelected) continue;
                 moved = true;
+                component->Position = memoNextPosition;
+                component->Cycle = memoNextCycle;
                 runStart = row;
                 runOpen = true;
             }
             if (runOpen) Run(multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, rowCount - runStart, asset, heads, columns);
-            if (!moved) break;
-            for (var row = 0; row < rowCount; row++)
-            {
-                var component = rows + row;
-                if (memoReady && component->Position == memoPosition && component->Cycle == memoCycle)
-                {
-                    if (memoSelected)
-                    {
-                        component->Position = memoNextPosition;
-                        component->Cycle = memoNextCycle;
-                    }
-                    continue;
-                }
-                memoReady = true;
-                memoPosition = component->Position;
-                memoCycle = component->Cycle;
-                memoSelected = TimelineMovement.Select(new TimelineState(1, memoPosition, memoCycle), 3u, false, multiReverse, out var commitNext, out _, out _, out _);
-                memoNextPosition = commitNext.Position;
-                memoNextCycle = commitNext.Cycle;
-                if (memoSelected)
-                {
-                    component->Position = memoNextPosition;
-                    component->Cycle = memoNextCycle;
-                }
-            }
             if (!multiReverse) gameTick++;
         }
         return true;
