@@ -193,41 +193,25 @@ foreach (var (timeline, resistance, health) in
 - Arbitrary looping deltas perform every observable effect and are proportional to the requested work
 - Designer GUI authoring, C asset consumption, and runtime-loaded arbitrary schemas are deferred
 
-## Grid influence fields
-
-[`Tl.Grid.Influence`](docs/grid-influence.md) ports the core of BovineLabs Timeline Grid Influence
-(MIT) to a dependency-free .NET package: chunked sparse integer fields, difference-array stamp
-rasterization with prefix-sum resolve, per-tick decay/spread across chunk seams, deterministic
-budgets, retention and compaction, and `WriteRegion`/`ReadRegion` bulk transfers over unmanaged
-spans. On the validation machine the warm tick runs 2.9-11× faster than the per-cell baseline
-depending on world size, with 0 B allocation. PPM/PGM weight maps and JSON scenes live in
-[`Tl.Influence.Io`](tools/Tl.Influence.Io/pack-readme.md); run `samples/Influence` for a working
-scene that exports PPM frames.
-
 ## Repository map
 
 | Path | Role |
 | --- | --- |
 | `src/Tl.Core` | Runtime declarations, asset import, frames, state, and total movement |
-| `src/Tl.Grid.Influence` | Chunked sparse integer influence fields (PPM-driven scenes in `Tl.Influence.Io`) |
 | `src/Tl.Gen.CSharp` | C# consumer discovery, typed binding, and export tool |
 | `src/Tl.CSharp` | One-package C# installation |
 | `samples/Mixed` | Data-authored timeline sample |
-| `samples/Influence` | Grid influence scene: JSON clips, PPM layers, frame captures |
 | `samples/NuGetQuickStart` | Runnable quick start that consumes the published nuget.org packages; CI runs it on every build |
 | `tools/Tl.Bake` | `tlbake` JSON-to-`TLB1` baker with cache, report, and strip |
-| `tools/Tl.Influence.Io` | PNM codec + JSON scene runner for influence fields |
 | `tests/Tl.Alpha` | Kernel-lane, data-authored, and allocation receipts |
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |
 | `benchmarks/Alpha` | Oracle, latency, throughput, assembly, and PMU evidence |
-| `benchmarks/Influence` | Influence tick, query, and IO receipts with PMU evidence |
 
 The data-authored Unity host package (`com.iafahim.tl`) lives in the [tl.unity](https://github.com/IAFahim/tl.unity) repository, published under the MIT license decided in issue #64.
 
 ## Documentation
 
 - [Data-authored API contract](docs/data-authored-api.md) — the frozen design contract
-- [Grid influence fields](docs/grid-influence.md) — the BovineLabs-derived influence engine, receipts, and unsafe proof
 - [Execution semantics](docs/semantics.md) — select, execute, commit, and movement laws
 - [Architecture](docs/architecture.md) — package and boundary map
 - [Unity end-to-end](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) — JSON bake to Unity ECS typed queries
