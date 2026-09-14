@@ -305,7 +305,7 @@ static unsafe class BindCache
 {
 	internal struct Entry
 	{
-		public int Claimed, Sealed, Generation, Consumers, Count, RefreshCount, KernelBound;
+		public int Claimed, Sealed, Generation, Consumers, Kernels, Count, RefreshCount, KernelBound;
 		public byte Identity;
 		public nint Asset, FindPointer;
 		public ulong KeysHash, BoundMask;
@@ -342,6 +342,7 @@ static unsafe class BindCache
 			if (entry->Asset != asset || entry->KeysHash != keysHash || entry->FindPointer != find) continue;
 			if (Volatile.Read(ref entry->Generation) != Generation) continue;
 			if (Volatile.Read(ref entry->Consumers) != PairTable.ConsumerCount) continue;
+			if (Volatile.Read(ref entry->Kernels) != TimelineKernels.Count) continue;
 			return entry;
 		}
 		return null;
@@ -405,7 +406,7 @@ public unsafe ref struct TimelineQuery
 	bool _bound;
 	ulong _publishHash;
 	nint _publishAddress;
-	int _publishGeneration, _publishConsumers;
+	int _publishGeneration, _publishConsumers, _publishKernels;
 	delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool> _kernel;
 
 	internal unsafe TimelineQuery(Span<TimelineComponent> rows)
@@ -477,24 +478,15 @@ public unsafe ref struct TimelineQuery
 			_cache.RefreshSlot[i] = entry->RefreshSlot[i];
 			_cache.RefreshCol[i] = entry->RefreshCol[i];
 		}
-		if (_kernel == null && Find != null)
-		{
-			var kernel = Find((byte*)address, ((NativeHeader*)address)->Bytes);
-			if (kernel != null)
-			{
-				_kernel = (delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>)kernel;
-				entry->Kernel = kernel;
-				Volatile.Write(ref entry->KernelBound, 1);
-			}
-		}
 	}
 
-	unsafe void Publish(nint address, ulong keysHash, int generation, int consumers, int count, delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool> kernel)
+	unsafe void Publish(nint address, ulong keysHash, int generation, int consumers, int kernels, int count, delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool> kernel)
 	{
 		var entry = BindCache.Claim(address, keysHash);
 		if (entry == null) return;
 		entry->Generation = generation;
 		entry->Consumers = consumers;
+		entry->Kernels = kernels;
 		entry->Count = count;
 		entry->RefreshCount = _cache.RefreshCount;
 		entry->BoundMask = _cache.BoundMask;
@@ -585,6 +577,7 @@ public unsafe ref struct TimelineQuery
 					_publishAddress = address;
 					_publishGeneration = BindCache.Generation;
 					_publishConsumers = PairTable.ConsumerCount;
+					_publishKernels = TimelineKernels.Count;
 					BindRows(keys, keyCount, indices, rSlots, rCols);
 				}
 			}
@@ -640,7 +633,7 @@ public unsafe ref struct TimelineQuery
 				var kernel = Find((byte*)uniformAddress, ((NativeHeader*)uniformAddress)->Bytes);
 				if (kernel != null) _kernel = bound = (delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>)kernel;
 			}
-			if (_publishHash != 0 && _publishAddress == uniformAddress) Publish(uniformAddress, _publishHash, _publishGeneration, _publishConsumers, pairs, bound);
+			if (_publishHash != 0 && _publishAddress == uniformAddress) Publish(uniformAddress, _publishHash, _publishGeneration, _publishConsumers, _publishKernels, pairs, bound);
 			_publishHash = 0;
 		}
 		if (delta == 1 || delta == -1)

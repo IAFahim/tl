@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Threading;
 
 namespace Tl;
 
@@ -18,6 +19,9 @@ public static unsafe class TimelineKernels
 	static readonly delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>[] Entries = new delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>[64];
 	static int _count;
 
+	internal static int Count => Volatile.Read(ref _count) >> 2;
+	internal static int FindCalls;
+
 	public static int Bound;
 	public static unsafe void Register(ulong hash0, ulong hash1, ulong hash2, ulong hash3, delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool> tick)
 	{
@@ -30,7 +34,9 @@ public static unsafe class TimelineKernels
 
 	internal static unsafe void* Find(byte* block, uint bytes)
 	{
-		if (_count == 0) return default;
+		FindCalls++;
+		var count = Volatile.Read(ref _count);
+		if (count == 0) return default;
 		var metadataOffset = bytes >= 48 ? *(uint*)(block + 40) : 0;
 		Span<byte> hash = stackalloc byte[32];
 		if (metadataOffset < 48 || metadataOffset > bytes)
@@ -46,7 +52,7 @@ public static unsafe class TimelineKernels
 			SHA256.TryHashData(new ReadOnlySpan<byte>(view, (int)metadataOffset), hash, out _);
 			NativeMemory.AlignedFree(view);
 		}
-		for (var i = 0; i < _count; i += 4)
+		for (var i = 0; i < count; i += 4)
 		{
 			var match = true;
 			for (var w = 0; w < 4; w++) match &= Hashes[i + w] == BinaryPrimitives.ReadUInt64LittleEndian(hash.Slice(8 * w));

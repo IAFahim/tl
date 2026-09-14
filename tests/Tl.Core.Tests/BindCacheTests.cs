@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Reflection;
 using System.Security.Cryptography;
 using Xunit;
 
@@ -237,5 +238,46 @@ public unsafe class BindCacheTests
         Assert.Equal(bound + 1, TimelineKernels.Bound);
         Assert.Equal((405f * 2 + 809f) * 78, health[0].Value);
         Assert.Equal(3u, rows[0].Position);
+    }
+
+    [Fact]
+    public void StableNegativeIdentityStopsReHashingWhileKernelRegistrationIsUnchanged()
+    {
+        TimelineKernels.Register(5, 6, 7, 8, &ProbeKernel);
+        var baked = new Baker()
+            .Track<AlphaTrack, AlphaClip>(new AlphaTrack(80))
+            .Clip(0, 0, 2, new AlphaClip(410))
+            .Clip(0, 2, 6, new AlphaClip(820))
+            .Bake();
+        using var asset = TimelineAsset.Load(baked);
+        var rows = new[] { new TimelineComponent(asset.Reference) };
+        var health = new Health[1];
+
+        Timeline.Rows(rows).Write(health).Tick(1u, 1);
+        var bound = TimelineKernels.Bound;
+        var findCallsField = typeof(TimelineKernels).GetField("FindCalls", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(findCallsField);
+        var findCalls = (int)findCallsField!.GetValue(null)!;
+
+        Timeline.Rows(rows).Write(health).Tick(2u, 1);
+        Timeline.Rows(rows).Write(health).Tick(3u, 1);
+
+        Assert.Equal(findCalls, (int)findCallsField.GetValue(null)!);
+        Assert.Equal(bound, TimelineKernels.Bound);
+
+        var hash = SHA256.HashData(baked);
+        TimelineKernels.Register(
+            BinaryPrimitives.ReadUInt64LittleEndian(hash.AsSpan(0)),
+            BinaryPrimitives.ReadUInt64LittleEndian(hash.AsSpan(8)),
+            BinaryPrimitives.ReadUInt64LittleEndian(hash.AsSpan(16)),
+            BinaryPrimitives.ReadUInt64LittleEndian(hash.AsSpan(24)),
+            &ProbeKernel);
+
+        Timeline.Rows(rows).Write(health).Tick(4u, 1);
+        Assert.Equal(bound + 1, TimelineKernels.Bound);
+        Timeline.Rows(rows).Write(health).Tick(5u, 1);
+        Assert.Equal(bound + 1, TimelineKernels.Bound);
+        Assert.Equal((410f * 2 + 820f * 3) * 80, health[0].Value);
+        Assert.Equal(5u, rows[0].Position);
     }
 }
