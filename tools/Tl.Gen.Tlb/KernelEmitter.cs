@@ -118,11 +118,51 @@ public static class KernelEmitter
     static void ValidateHeader(byte[] baked)
     {
         if (baked.Length < 48)
-            throw new ArgumentException("Kernel emission requires validated TLB1 bytes.");
+            throw new BakeDiagnosticException("TLB1 truncated: kernel emission requires the 48-byte hot header.");
         if (BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(0)) != 0x31424C54u ||
-            BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(4)) != 1u ||
-            BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(44)) != (uint)baked.Length)
-            throw new ArgumentException("Kernel emission requires validated TLB1 bytes.");
+            BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(4)) != 1u)
+            throw new BakeDiagnosticException("TLB1 magic or version invalid: kernel emission requires magic 0x31424C54 and version 1.");
+        if (BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(44)) != (uint)baked.Length)
+            throw new BakeDiagnosticException("TLB1 size mismatch: the declared byte length does not match the emitted buffer.");
+        var pairCount = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(24));
+        var pairOffset = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(28));
+        var stageCount = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(20));
+        var stageOffset = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(32));
+        var frameOffset = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(36));
+        var duration = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(12));
+        if (pairOffset < 48 || (pairOffset | stageOffset | frameOffset) % 8 != 0)
+            throw new BakeDiagnosticException("TLB1 offsets must be 8-aligned at or past the 48-byte header.");
+        if ((ulong)pairOffset + 16ul * pairCount > stageOffset || (ulong)stageOffset + 16ul * stageCount > frameOffset || frameOffset > (ulong)baked.Length)
+            throw new BakeDiagnosticException("TLB1 sections out of bounds: pair, stage, program, and frame sections must be ordered within the asset.");
+        for (var index = 1; index < pairCount; index++)
+            if (BinaryPrimitives.ReadUInt64LittleEndian(baked.AsSpan((int)pairOffset + 16 * index)) <= BinaryPrimitives.ReadUInt64LittleEndian(baked.AsSpan((int)pairOffset + 16 * (index - 1))))
+                throw new BakeDiagnosticException("TLB1 pair keys must be sorted strictly ascending.");
+        var programs = (ulong)stageOffset + 16ul * stageCount;
+        uint edge = 0;
+        for (var index = 0; index < stageCount; index++)
+        {
+            var at = (int)stageOffset + 16 * index;
+            var start = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(at));
+            var end = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(at + 4));
+            var programOffset = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(at + 8));
+            var programCount = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(at + 12));
+            if (start != edge || programOffset < programs || programOffset % 8 != 0 || (ulong)programOffset + 8ul * programCount > frameOffset)
+                throw new BakeDiagnosticException("TLB1 stages must be monotonic from zero with program sections between the stage table and the frame data.");
+            for (var step = 0; step < programCount; step++)
+            {
+                var item = (int)programOffset + 8 * step;
+                var slot = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(item));
+                var pair = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(item + 4));
+                if (pair >= pairCount)
+                    throw new BakeDiagnosticException("TLB1 step pair out of bounds: every program step must reference a declared pair.");
+                var stride = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan((int)pairOffset + 16 * (int)pair + 8));
+                if (slot < frameOffset || slot % 16 != 0 || (ulong)slot + stride > (ulong)baked.Length)
+                    throw new BakeDiagnosticException("TLB1 slots must be 16-aligned frame offsets within the asset bounds.");
+            }
+            edge = end;
+        }
+        if (edge != duration)
+            throw new BakeDiagnosticException("TLB1 stages must cover the declared duration.");
     }
 
     static void EmitProbe(StringBuilder source)
