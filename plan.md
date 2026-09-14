@@ -113,7 +113,7 @@ Execute the NativeAOT binary in default, capacity, and module-capacity modes. Me
 
 The release set contains three nupkgs, one snupkg, a NativeAOT smoke archive, generation report, manifest, and checksums. Each artifact is built twice or otherwise reproducibly verified. Package version, tag, release title, source commit, repository ref, and manifest identity must agree.
 
-The GitHub prerelease is authorized. NuGet publication remains disabled and requires a separate owner decision. License selection remains a separate owner gate. Never infer either from a green GitHub artifact build.
+The GitHub prerelease is authorized. At the alpha.3 gate NuGet publication remained disabled pending owner decisions; both have since settled — the MIT license is recorded in [issue #64](https://github.com/IAFahim/tl/issues/64), and the 1.0.0-alpha.5 packages are published on nuget.org through the owner-run `publish-nuget` workflow against the protected `nuget-production` environment. Never infer either from a green GitHub artifact build.
 
 ## Recovery
 

@@ -21,18 +21,18 @@ Timeline data and timeline behavior are separate. Designers author tracks, clips
 | .NET 10 (JIT and NativeAOT) | NuGet packages (below) | receipted |
 | Unity 6000+ (Mono, IL2CPP, Burst jobs) | UPM package `com.iafahim.tl` from [tl.unity](https://github.com/IAFahim/tl.unity) | EditMode-receipted |
 
-The packages are development prereleases from [GitHub releases](https://github.com/IAFahim/tl/releases), not yet on nuget.org.
+The packages are development prereleases on [nuget.org](https://www.nuget.org/).
 
 ## Quick Start
 
 #### 1. Install
 
-Download the packages from the [latest prerelease](https://github.com/IAFahim/tl/releases) into `packages/`, then:
-
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.5 --source ./packages
-dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.5 --source ./packages
+dotnet add package Tl.CSharp --version 1.0.0-alpha.5
+dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.5
 ```
+
+For an offline install, copy the `.nupkg` files into a local `packages/` folder and append `--source ./packages` to both commands.
 
 `Tl.CSharp` brings the runtime and the build-time generator, which discovers your consumers on every compilation — including IDE design-time builds — and sets consuming projects up automatically.
 
