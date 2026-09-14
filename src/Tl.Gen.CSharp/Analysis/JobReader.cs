@@ -75,6 +75,11 @@ public static class JobReader
                 Error(errors, site, "TLGEN66", $"'{Name(type)}' must declare one accessible static void Execute beginning with in {Name(frame)}.");
                 return null;
             }
+            if (method.Parameters.Length > 5)
+            {
+                Error(errors, Site(method.Parameters[5], site), "TLGEN68", $"'{Name(type)}.Execute' declares {method.Parameters.Length - 1} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
+                return null;
+            }
             var slots = new List<TimelineSlot>();
             foreach (var parameter in method.Parameters.Skip(1))
             {

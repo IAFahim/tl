@@ -66,15 +66,15 @@ public static class KernelEmitter
         source.AppendLine("        }");
         if (stages.Count == 0)
         {
-            source.AppendLine("        var probe = Probe(asset, rows, rowCount, out _, out _, out _);");
+            source.AppendLine("        var probe = Probe(asset, rows, rowCount, out _, out _);");
             source.AppendLine("        if (probe == 0) return false;");
             source.AppendLine("        return TickScalar(asset, heads, columns, rows, rowCount, gameTick, delta);");
         }
         else
         {
-            source.AppendLine("        var probe = Probe(asset, rows, rowCount, out var uniformPosition, out var uniformCycle, out var uniformPositionWord);");
+            source.AppendLine("        var probe = Probe(asset, rows, rowCount, out var uniformPosition, out var uniformCycle);");
             source.AppendLine("        if (probe == 0) return false;");
-            source.AppendLine("        if (probe == 1) return TickUniform(asset, heads, columns, rows, rowCount, gameTick, delta, uniformPosition, uniformCycle, uniformPositionWord);");
+            source.AppendLine("        if (probe == 1) return TickUniform(asset, heads, columns, rows, rowCount, gameTick, delta, uniformPosition, uniformCycle);");
             source.AppendLine("        return TickMixed(asset, heads, columns, rows, rowCount, gameTick, delta);");
         }
         source.AppendLine("    }");
@@ -110,41 +110,84 @@ public static class KernelEmitter
             source.Append(chunk);
         }
         source.Append('}');
-        return source.ToString();
+        return Normalize(source.ToString());
     }
+
+    static string Normalize(string content) => content.Replace("\r\n", "\n").Replace('\r', '\n');
 
     static void ValidateHeader(byte[] baked)
     {
         if (baked.Length < 48)
-            throw new ArgumentException("Kernel emission requires validated TLB1 bytes.");
+            throw new BakeDiagnosticException("TLB1 truncated: kernel emission requires the 48-byte hot header.");
         if (BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(0)) != 0x31424C54u ||
-            BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(4)) != 1u ||
-            BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(44)) != (uint)baked.Length)
-            throw new ArgumentException("Kernel emission requires validated TLB1 bytes.");
+            BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(4)) != 1u)
+            throw new BakeDiagnosticException("TLB1 magic or version invalid: kernel emission requires magic 0x31424C54 and version 1.");
+        if (BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(44)) != (uint)baked.Length)
+            throw new BakeDiagnosticException("TLB1 size mismatch: the declared byte length does not match the emitted buffer.");
+        var pairCount = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(24));
+        var pairOffset = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(28));
+        var stageCount = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(20));
+        var stageOffset = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(32));
+        var frameOffset = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(36));
+        var duration = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(12));
+        if (pairOffset < 48 || (pairOffset | stageOffset | frameOffset) % 8 != 0)
+            throw new BakeDiagnosticException("TLB1 offsets must be 8-aligned at or past the 48-byte header.");
+        if ((ulong)pairOffset + 16ul * pairCount > stageOffset || (ulong)stageOffset + 16ul * stageCount > frameOffset || frameOffset > (ulong)baked.Length)
+            throw new BakeDiagnosticException("TLB1 sections out of bounds: pair, stage, program, and frame sections must be ordered within the asset.");
+        for (var index = 1; index < pairCount; index++)
+            if (BinaryPrimitives.ReadUInt64LittleEndian(baked.AsSpan((int)pairOffset + 16 * index)) <= BinaryPrimitives.ReadUInt64LittleEndian(baked.AsSpan((int)pairOffset + 16 * (index - 1))))
+                throw new BakeDiagnosticException("TLB1 pair keys must be sorted strictly ascending.");
+        var programs = (ulong)stageOffset + 16ul * stageCount;
+        uint edge = 0;
+        for (var index = 0; index < stageCount; index++)
+        {
+            var at = (int)stageOffset + 16 * index;
+            var start = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(at));
+            var end = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(at + 4));
+            var programOffset = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(at + 8));
+            var programCount = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(at + 12));
+            if (start != edge || programOffset < programs || programOffset % 8 != 0 || (ulong)programOffset + 8ul * programCount > frameOffset)
+                throw new BakeDiagnosticException("TLB1 stages must be monotonic from zero with program sections between the stage table and the frame data.");
+            for (var step = 0; step < programCount; step++)
+            {
+                var item = (int)programOffset + 8 * step;
+                var slot = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(item));
+                var pair = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan(item + 4));
+                if (pair >= pairCount)
+                    throw new BakeDiagnosticException("TLB1 step pair out of bounds: every program step must reference a declared pair.");
+                var stride = BinaryPrimitives.ReadUInt32LittleEndian(baked.AsSpan((int)pairOffset + 16 * (int)pair + 8));
+                if (slot < frameOffset || slot % 16 != 0 || (ulong)slot + stride > (ulong)baked.Length)
+                    throw new BakeDiagnosticException("TLB1 slots must be 16-aligned frame offsets within the asset bounds.");
+            }
+            edge = end;
+        }
+        if (edge != duration)
+            throw new BakeDiagnosticException("TLB1 stages must cover the declared duration.");
     }
 
     static void EmitProbe(StringBuilder source)
     {
         source.AppendLine("    [MethodImpl(MethodImplOptions.AggressiveOptimization)]");
-        source.AppendLine("    static unsafe int Probe(byte* asset, TimelineComponent* rows, int rowCount, out uint uniformPosition, out long uniformCycle, out long uniformPositionWord)");
+        source.AppendLine("    static unsafe int Probe(byte* asset, TimelineComponent* rows, int rowCount, out uint uniformPosition, out long uniformCycle)");
         source.AppendLine("    {");
         source.AppendLine("        var assetAddress = (nint)asset;");
-        source.AppendLine("        if (*(nint*)rows != assetAddress) { uniformPosition = 0; uniformCycle = 0; uniformPositionWord = 0; return 0; }");
-        source.AppendLine("        uniformPositionWord = *(long*)&rows->Position;");
+        source.AppendLine("        uniformPosition = 0; uniformCycle = 0;");
+        source.AppendLine("        if (*(nint*)rows != assetAddress) return 0;");
         source.AppendLine("        uniformPosition = rows->Position;");
         source.AppendLine("        uniformCycle = rows->Cycle;");
+        source.AppendLine("        var uniformPositionWord = *(long*)&rows->Position & 4294967295L;");
         source.AppendLine("        var uniform = true;");
         source.AppendLine("        var scan = 1;");
         source.AppendLine("        while (scan < rowCount)");
         source.AppendLine("        {");
         source.AppendLine("            var component = rows + scan;");
         source.AppendLine("            if (*(nint*)component != assetAddress) return 0;");
-        source.AppendLine("            if (uniform && (*(long*)&component->Position != uniformPositionWord | component->Cycle != uniformCycle)) uniform = false;");
+        source.AppendLine("            if (uniform && (*(long*)&component->Position & 4294967295L) != uniformPositionWord | component->Cycle != uniformCycle) uniform = false;");
         source.AppendLine("            scan++;");
         source.AppendLine("            if (scan == rowCount) break;");
         source.AppendLine("            component = rows + scan;");
         source.AppendLine("            if (*(nint*)component != assetAddress) return 0;");
-        source.AppendLine("            if (uniform && (*(long*)&component->Position != uniformPositionWord | component->Cycle != uniformCycle)) uniform = false;");
+        source.AppendLine("            if (uniform && (*(long*)&component->Position & 4294967295L) != uniformPositionWord | component->Cycle != uniformCycle) uniform = false;");
         source.AppendLine("            scan++;");
         source.AppendLine("        }");
         source.AppendLine("        return uniform ? 1 : 2;");
@@ -280,7 +323,7 @@ public static class KernelEmitter
     static void EmitUniformLockstep(StringBuilder source, uint duration, bool loops, List<int> runPairs)
     {
         source.AppendLine("    [MethodImpl(MethodImplOptions.AggressiveOptimization)]");
-        source.AppendLine("    static unsafe bool TickUniform(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta, uint uniformPosition, long uniformCycle, long uniformPositionWord)");
+        source.AppendLine("    static unsafe bool TickUniform(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta, uint uniformPosition, long uniformCycle)");
         source.AppendLine("    {");
         EmitResolutions(source, runPairs, 2);
         source.AppendLine("        var multiReverse = delta < 0;");
@@ -294,24 +337,21 @@ public static class KernelEmitter
         source.AppendLine("                {");
         source.AppendLine("                    moved = true;");
         source.AppendLine($"                    Run({RunArgs(runPairs)}multiReverse, uniformTick, gameTick, uniformOutCycle, uniformFlags, 0, rowCount, asset, heads, columns);");
-        source.AppendLine("                    var uniformNextWord = (uniformPositionWord & -4294967296L) | uniformNext.Position;");
-        source.AppendLine("                    var uniformNextCycle = uniformNext.Cycle;");
         source.AppendLine("                    var commit = 0;");
         source.AppendLine("                    while (commit < rowCount)");
         source.AppendLine("                    {");
         source.AppendLine("                        var component = rows + commit;");
-        source.AppendLine("                        *(long*)&component->Position = uniformNextWord;");
-        source.AppendLine("                        component->Cycle = uniformNextCycle;");
+        source.AppendLine("                        component->Position = uniformNext.Position;");
+        source.AppendLine("                        component->Cycle = uniformNext.Cycle;");
         source.AppendLine("                        commit++;");
         source.AppendLine("                        if (commit == rowCount) break;");
         source.AppendLine("                        component = rows + commit;");
-        source.AppendLine("                        *(long*)&component->Position = uniformNextWord;");
-        source.AppendLine("                        component->Cycle = uniformNextCycle;");
+        source.AppendLine("                        component->Position = uniformNext.Position;");
+        source.AppendLine("                        component->Cycle = uniformNext.Cycle;");
         source.AppendLine("                        commit++;");
         source.AppendLine("                    }");
-        source.AppendLine("                    uniformPositionWord = uniformNextWord;");
         source.AppendLine("                    uniformPosition = uniformNext.Position;");
-        source.AppendLine("                    uniformCycle = uniformNextCycle;");
+        source.AppendLine("                    uniformCycle = uniformNext.Cycle;");
         source.AppendLine("                }");
         source.AppendLine("                if (!moved) break;");
         source.AppendLine("                if (!multiReverse) gameTick++;");
