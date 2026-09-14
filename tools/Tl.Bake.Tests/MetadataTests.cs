@@ -120,8 +120,9 @@ public static unsafe class SpyKernel
 {
     public static bool SpyHit;
 
-    public static void Tick(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)
+    public static bool Tick(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)
     {
         SpyHit = true;
+        return true;
     }
 }

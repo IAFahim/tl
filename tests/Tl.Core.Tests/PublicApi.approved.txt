@@ -29,6 +29,7 @@ type Tl.IBlend`1
 type Tl.ITimelineJob`2
 type Tl.PairRuntime`2
   Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
+  Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
   Method Void ConsumeUnmanaged(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
   Field UInt64 Key
 type Tl.TickFrame
@@ -54,7 +55,8 @@ type Tl.TimelineComponent
 type Tl.TimelineKernels
   Field Int32 Bound
   Method Void Chain(Int32, Boolean, Int32*, Byte*, UInt32, UInt32, Int64, Tl.FrameFlags, Void**, Int32)
-  Method Void Register(UInt64, UInt64, UInt64, UInt64, System.Void(System.Byte*, System.Int32*, System.Void**, Tl.TimelineComponent*, System.Int32, System.UInt32, System.Int32))
+  Method Void ChainRange(Int32, Boolean, Int32*, Byte*, UInt32, UInt32, Int64, Tl.FrameFlags, Void**, Int32, Int32)
+  Method Void Register(UInt64, UInt64, UInt64, UInt64, System.Boolean(System.Byte*, System.Int32*, System.Void**, Tl.TimelineComponent*, System.Int32, System.UInt32, System.Int32))
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt32, Boolean, Boolean, Tl.TimelineState ByRef, UInt32 ByRef, Int64 ByRef, Tl.FrameFlags ByRef)
 type Tl.TimelineQuery

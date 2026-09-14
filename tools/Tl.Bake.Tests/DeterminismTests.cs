@@ -257,8 +257,13 @@ public class DeterminismTests
         };
 
         var root = RepoRoot();
-        var committed = File.ReadAllText(Path.Combine(root, "tests", "Tl.Core.Tests", "KernelFixtures", fixtureFile + ".g.cs"));
-        Assert.Equal(committed, KernelEmitter.Emit(bytes));
+        var path = Path.Combine(root, "tests", "Tl.Core.Tests", "KernelFixtures", fixtureFile + ".g.cs");
+        if (Environment.GetEnvironmentVariable("TL_KERNEL_REGEN") == "1")
+        {
+            File.WriteAllText(path, KernelEmitter.Emit(bytes));
+            return;
+        }
+        Assert.Equal(File.ReadAllText(path), KernelEmitter.Emit(bytes));
     }
 
     private static string RepoRoot()

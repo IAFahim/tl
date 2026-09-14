@@ -92,12 +92,13 @@ public unsafe class KernelTests
 
         internal static void Reset() => Calls = RowCount = 0;
 
-        internal static void Tick(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)
+        internal static bool Tick(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)
         {
             Calls++;
             RowCount = rowCount;
             GameTick = gameTick;
             Delta = delta;
+            return true;
         }
     }
 
@@ -412,6 +413,53 @@ public unsafe class KernelTests
             ('A', 9, 22f, 2u, 9u),
             ('A', 8, 3f, 0u, 9u),
         ], DataTests.Records.Select(record => (record.Kind, record.Code, record.Value, record.Tick, record.Game)).ToList());
+    }
+
+    [Fact]
+    public void RowAssetMutationAfterCaptureFallsBackToTheInterpreterWithoutKernelEffects()
+    {
+        using var kernelAsset = TimelineAsset.Load(KernelBakers.Finite());
+        using var otherAsset = TimelineAsset.Load(KernelBakers.Looping());
+        using var interpreterSame = TimelineAsset.Load(KernelBakers.InterpreterCopy(KernelBakers.Finite()));
+        using var interpreterOther = TimelineAsset.Load(KernelBakers.InterpreterCopy(KernelBakers.Looping()));
+        var kernelRows = new[] { new TimelineComponent(kernelAsset.Reference), new TimelineComponent(kernelAsset.Reference) };
+        var interpreterRows = new[] {
+            new TimelineComponent(interpreterSame.Reference) { Position = 1 },  // mirrors kernelRows[0] after its first tick
+            new TimelineComponent(interpreterOther.Reference),                 // mirrors the freshly swapped kernelRows[1]
+        };
+        var kernelHealth = new Health[2];
+        var interpreterHealth = new Health[2];
+
+        var kernelQuery = Timeline.Rows(kernelRows).Read(new Resistance[2]).Write(kernelHealth);
+        DataTests.Records.Clear();
+        kernelQuery.Tick(1u, 1);
+        Assert.Equal(2, DataTests.Records.Count);
+        Assert.Equal(1u, kernelRows[0].Position);
+        Assert.Equal(1u, kernelRows[1].Position);
+
+        kernelRows[1] = new TimelineComponent(otherAsset.Reference);
+        DataTests.Records.Clear();
+        kernelQuery.Tick(2u, 1);
+        var fallback = DataTests.Records.ToList();
+        Assert.Single(fallback);
+        Assert.Equal(2u, kernelRows[0].Position);
+        Assert.Equal(1u, kernelRows[1].Position);
+        Assert.Equal(0, kernelRows[1].Cycle);
+
+        DataTests.Records.Clear();
+        var interpreterQuery = Timeline.Rows(interpreterRows).Read(new Resistance[2]).Write(interpreterHealth);
+        interpreterQuery.Tick(2u, 1);
+        Assert.Equal(fallback, DataTests.Records);
+        Assert.Equal(kernelRows[0].Position, interpreterRows[0].Position);
+        Assert.Equal(kernelRows[1].Position, interpreterRows[1].Position);
+        Assert.Equal(0, interpreterRows[1].Cycle);
+
+        DataTests.Records.Clear();
+        kernelQuery.Tick(3u, 1);
+        Assert.Equal(2, DataTests.Records.Count);
+        Assert.Equal(3u, kernelRows[0].Position);
+        Assert.Equal(0u, kernelRows[1].Position);  // looping asset (duration 2) wraps 1 -> 0
+        Assert.Equal(1L, kernelRows[1].Cycle);
     }
 
     [Fact]

@@ -222,11 +222,11 @@ public readonly unsafe struct TickFrame
 
 static unsafe class PairTable
 {
-	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> Execute; public delegate*<ulong*, int, byte*, void> Bind; }
+	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> Execute; public delegate*<byte*, uint, uint, long, FrameFlags, void**, int, int, void> Range; public delegate*<ulong*, int, byte*, void> Bind; }
 	struct Slot { public ulong Key; public int Head; }
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
-	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + 32 * ConsumerCapacity), 64);
+	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + 40 * ConsumerCapacity), 64);
 	static volatile int _pairs, _consumers, _gate;
 
 	static PairTable() => Unsafe.InitBlock(_block, 0, 16 * SlotCount);
@@ -234,7 +234,7 @@ static unsafe class PairTable
 	static Slot* SlotAt => (Slot*)_block;
 	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
 
-	internal static void Install(ulong key, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> e, delegate*<ulong*, int, byte*, void> b)
+	internal static void Install(ulong key, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> e, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, int, void> r, delegate*<ulong*, int, byte*, void> b)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
@@ -250,7 +250,7 @@ static unsafe class PairTable
 			}
 			if (_consumers == ConsumerCapacity || _consumers * 4 + 4 > MaxPointers) throw new InvalidOperationException("Consumer capacity exhausted.");
 			var consumers = ConsumerAt;
-			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Bind = b, Offset = _consumers * 4 };
+			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, Offset = _consumers * 4 };
 			Volatile.Write(ref slots[slot].Head, _consumers);
 			_consumers++;
 		}
@@ -302,7 +302,9 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 {
 	public static readonly ulong Key = Keying.Of(typeof(TTrack).AssemblyQualifiedName! + "\0" + typeof(TClip).AssemblyQualifiedName!);
 
-	public static void Consume(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, bind);
+	public static void Consume(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, null, bind);
+
+	public static void Consume(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, int, void> range, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, range, bind);
 
 	public static void ConsumeUnmanaged(delegate* unmanaged<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate* unmanaged<ulong*, int, byte*, void> bind) => UnmanagedTable.Install(Key, execute, bind);
 }
@@ -326,7 +328,7 @@ public unsafe ref struct TimelineQuery
 	internal Span<TimelineComponent> _rows;
 	PairCache _cache;
 	bool _bound;
-	delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, void> _kernel;
+	delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool> _kernel;
 
 	internal unsafe TimelineQuery(Span<TimelineComponent> rows)
 	{
@@ -407,11 +409,10 @@ public unsafe ref struct TimelineQuery
 
 	unsafe void KernelTick(delegate*<ulong*, int> getKeys, void** bases, uint gameTick, int delta)
 	{
-		for (var row = 0; row < _rows.Length; row++)
-			if (_rows[row].Reference.Address != _cache.Asset) { _kernel = null; break; }
-		if (_kernel == null) { TickGeneral(getKeys, bases, gameTick, delta); return; }
 		fixed (TimelineComponent* rows = _rows)
-			_kernel((byte*)_cache.Asset, (int*)Unsafe.AsPointer(ref _cache.Heads[0]), GetTable(bases), rows, _rows.Length, gameTick, delta);
+			if (_kernel((byte*)_cache.Asset, (int*)Unsafe.AsPointer(ref _cache.Heads[0]), GetTable(bases), rows, _rows.Length, gameTick, delta)) return;
+		_kernel = null;
+		TickGeneral(getKeys, bases, gameTick, delta);
 	}
 
 	[MethodImpl(MethodImplOptions.NoInlining)]
@@ -479,7 +480,7 @@ public unsafe ref struct TimelineQuery
 			if (Find != null)
 			{
 				var kernel = Find((byte*)uniformAddress, ((NativeHeader*)uniformAddress)->Bytes);
-				if (kernel != null) _kernel = (delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, void>)kernel;
+				if (kernel != null) _kernel = (delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>)kernel;
 			}
 		}
 		if (delta == 1 || delta == -1)
