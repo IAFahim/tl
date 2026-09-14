@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageReleaseNotes>v1.0.0-alpha.5: data-authored timelines with per-work kernels, borrowed typed frames, and catalog-local state.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.6: kernels bind metadata-bearing TLBs through a normalized hash view; fused single-pass mixed dispatch with direct consumer range calls; shared native bind cache with O(1) rebind and a kernel-count phase; kernel catalog on a native block with gated registration.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

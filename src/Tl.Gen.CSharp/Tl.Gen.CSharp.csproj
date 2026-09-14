@@ -24,7 +24,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;ecs;burst;unity;dotnet;deterministic;baked-assets</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.0.0-alpha.5: data-authored consumer binding only; the alpha.3 authored surface was removed (see repository issue 65). The build-time CLI ships with the repository, not inside this package.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.6: consumer bindings enforce the 4-slot consumer ABI (diagnostic TLGEN68 plus an emitted pre-write guard). The build-time CLI ships with the repository, not inside this package.</PackageReleaseNotes>
     <EnforceExtendedAnalyzerRules Condition="'$(TargetFramework)' == 'netstandard2.0'">true</EnforceExtendedAnalyzerRules>
   </PropertyGroup>
 

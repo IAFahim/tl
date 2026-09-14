@@ -22,7 +22,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;baker;tlb;cli;dotnet-tool;deterministic</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.0.0-alpha.5: tool package renamed from tlbake to Tl.Bake to match the package family and trusted-publishing scope; the command stays tlbake (bake, --kernel, --strip, --cache, --report).</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.6: --kernel emits LF-deterministic, fully validated, padding-clean kernels that bind metadata-bearing TLBs (bake, --kernel, --strip, --cache, --report).</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

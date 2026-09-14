@@ -3,8 +3,8 @@
 The whole library, from the public registry, in four commands. This folder is the runnable form of the repository README's [Quick Start](../../README.md#3-author-and-bake-one-timeline), and CI runs it on every build against the **published** packages — nothing here references the repository sources.
 
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.5        # runtime + build-time consumer binding
-dotnet tool install --global Tl.Bake --version 1.0.0-alpha.5 # baker; the command is `tlbake`
+dotnet add package Tl.CSharp --version 1.0.0-alpha.6        # runtime + build-time consumer binding
+dotnet tool install --global Tl.Bake --version 1.0.0-alpha.6 # baker; the command is `tlbake`
 dotnet build -c Release
 tlbake boss.json boss.tlb --assembly bin/Release/net10.0/NuGetQuickStart.dll
 dotnet run -c Release --no-build
