@@ -110,8 +110,10 @@ public static class KernelEmitter
             source.Append(chunk);
         }
         source.Append('}');
-        return source.ToString();
+        return Normalize(source.ToString());
     }
+
+    static string Normalize(string content) => content.Replace("\r\n", "\n").Replace('\r', '\n');
 
     static void ValidateHeader(byte[] baked)
     {
