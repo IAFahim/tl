@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789375955503,
+  "lastUpdate": 1789404444209,
   "repoUrl": "https://github.com/IAFahim/tl",
   "entries": {
     "tl benchmarks": [
@@ -27968,6 +27968,457 @@ window.BENCHMARK_DATA = {
             "range": "± 0.00359356",
             "unit": "ns",
             "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"AMD EPYC 7763\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "iafahim.dev@gmail.com",
+            "name": "Md. Ishtiaq Ahamed Fahim",
+            "username": "IAFahim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f5474379e5ba90e941a0e15349332543fceb18a7",
+          "message": "Merge pull request #86 from IAFahim/perf/85-kernel-warm-path\n\nperf: cut kernel warm-path tick cost 4.1x for multi-row timelines",
+          "timestamp": "2026-09-14T22:37:57+06:00",
+          "tree_id": "48b7985fcca4bd839c6618a310d33178e74dcecb",
+          "url": "https://github.com/IAFahim/tl/commit/f5474379e5ba90e941a0e15349332543fceb18a7"
+        },
+        "date": 1789404442702,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BatchCatalogQueryBenchmarks.DirectBatch(Rows: 1) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Rows=1] | env=d1812917810a5276",
+            "value": 289.6831506855739,
+            "range": "± 0.433686",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=BatchCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "BatchCatalogQueryBenchmarks.DirectBatch(Rows: 32) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Rows=32] | env=d1812917810a5276",
+            "value": 7479.985367892976,
+            "range": "± 17.3655",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=BatchCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "BatchCatalogQueryBenchmarks.DirectBatch(Rows: 10000) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Rows=10000] | env=d1812917810a5276",
+            "value": 2263635.4464285714,
+            "range": "± 2394.45",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=BatchCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: OneTrack, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Forward] | env=d1812917810a5276",
+            "value": 2.4690787544077875,
+            "range": "± 0.00120532",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: OneTrack, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Forward] | env=d1812917810a5276",
+            "value": 17.90787395584249,
+            "range": "± 0.0426835",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: OneTrack, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Forward] | env=d1812917810a5276",
+            "value": 18.97294361114502,
+            "range": "± 0.0464786",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: OneTrack, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Forward] | env=d1812917810a5276",
+            "value": 11.327762184935438,
+            "range": "± 0.0196249",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: OneTrack, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Forward] | env=d1812917810a5276",
+            "value": 14.788159167904652,
+            "range": "± 0.0127161",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: OneTrack, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 2.8538745080775776,
+            "range": "± 0.00924736",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: OneTrack, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 18.937556276226985,
+            "range": "± 0.0504528",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: OneTrack, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 20.236389886765252,
+            "range": "± 0.0246605",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: OneTrack, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 13.466430178800657,
+            "range": "± 0.0155315",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: OneTrack, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 16.38212483942253,
+            "range": "± 0.0216644",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: ThreeTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 4.481769771956055,
+            "range": "± 0.00415478",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: ThreeTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 33.99377117325774,
+            "range": "± 0.0548075",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: ThreeTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 40.37051849365234,
+            "range": "± 0.125053",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: ThreeTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 15.09147613887259,
+            "range": "± 0.0254771",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: ThreeTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 21.90513728550502,
+            "range": "± 0.0285942",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: ThreeTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 7.309555638338871,
+            "range": "± 0.00401815",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=9; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: ThreeTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 34.08545194353376,
+            "range": "± 0.0387851",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: ThreeTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 40.26113024259868,
+            "range": "± 0.0222949",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: ThreeTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 18.503960872042008,
+            "range": "± 0.0233604",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: ThreeTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 24.419449241298018,
+            "range": "± 0.0688492",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: SixteenTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 18.62482100551568,
+            "range": "± 0.036689",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: SixteenTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 122.86614632606506,
+            "range": "± 0.245529",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: SixteenTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 145.35627350983796,
+            "range": "± 0.259341",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: SixteenTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 43.95144776092179,
+            "range": "± 0.0681572",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: SixteenTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 68.87940733773368,
+            "range": "± 0.0384916",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: SixteenTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 38.25371627807617,
+            "range": "± 0.0280504",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: SixteenTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 136.68919972011022,
+            "range": "± 0.180168",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=9; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: SixteenTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 151.64228145892804,
+            "range": "± 0.236032",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: SixteenTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 44.97002258300782,
+            "range": "± 0.0902071",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: SixteenTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 72.315017988097,
+            "range": "± 0.104307",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: TwoHundredFiftySixTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 606.1629333496094,
+            "range": "± 0.821391",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: TwoHundredFiftySixTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 2119.873321533203,
+            "range": "± 8.63164",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: TwoHundredFiftySixTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 2213.2931126185827,
+            "range": "± 2.59191",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: TwoHundredFiftySixTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 540.570258140564,
+            "range": "± 0.668574",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: TwoHundredFiftySixTracks, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Forward] | env=d1812917810a5276",
+            "value": 946.7204532623291,
+            "range": "± 0.857459",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: TwoHundredFiftySixTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 608.7701982770648,
+            "range": "± 0.433305",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: TwoHundredFiftySixTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 2054.6254125134697,
+            "range": "± 3.0657",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: TwoHundredFiftySixTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 2268.3300057870374,
+            "range": "± 13.2035",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: TwoHundredFiftySixTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 584.7926134381976,
+            "range": "± 1.10696",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: TwoHundredFiftySixTracks, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 1052.886318206787,
+            "range": "± 1.15856",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: Blend, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Forward] | env=d1812917810a5276",
+            "value": 3.5983351218903223,
+            "range": "± 0.00624174",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: Blend, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Forward] | env=d1812917810a5276",
+            "value": 19.990532318751015,
+            "range": "± 0.0218104",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: Blend, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Forward] | env=d1812917810a5276",
+            "value": 22.779410813383,
+            "range": "± 0.026472",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: Blend, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Forward] | env=d1812917810a5276",
+            "value": 11.40502572130801,
+            "range": "± 0.00903297",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: Blend, Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Forward] | env=d1812917810a5276",
+            "value": 14.987802632649739,
+            "range": "± 0.0136682",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DirectShape(Shape: Blend, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 3.9925181097565337,
+            "range": "± 0.00651492",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.DataAuthoredFacade(Shape: Blend, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 22.900934582664853,
+            "range": "± 0.0601789",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeInterpreter(Shape: Blend, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 21.089890790907717,
+            "range": "± 0.023016",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeSelectOnly(Shape: Blend, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 13.390654125548245,
+            "range": "± 0.023872",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "DataAuthoredQueryBenchmarks.FacadeNoDispatch(Shape: Blend, Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend, Pattern=Alternating] | env=d1812917810a5276",
+            "value": 15.902297655741375,
+            "range": "± 0.0391051",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=DataAuthoredQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ScalarCatalogQueryBenchmarks.DirectScalar(Pattern: Forward) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Pattern=Forward] | env=d1812917810a5276",
+            "value": 4.464391358135736,
+            "range": "± 0.00293598",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ScalarCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ScalarCatalogQueryBenchmarks.DirectScalar(Pattern: Alternating) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Pattern=Alternating] | env=d1812917810a5276",
+            "value": 4.4779633071593885,
+            "range": "± 0.0103041",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ScalarCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: OneTrack) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=OneTrack] | env=d1812917810a5276",
+            "value": 2.4677817380443736,
+            "range": "± 0.00154872",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=9; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: ThreeTracks) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=ThreeTracks] | env=d1812917810a5276",
+            "value": 4.495635483093621,
+            "range": "± 0.00335252",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: SixteenTracks) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=SixteenTracks] | env=d1812917810a5276",
+            "value": 18.655523503868324,
+            "range": "± 0.057478",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=12; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: TwoHundredFiftySixTracks) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=TwoHundredFiftySixTracks] | env=d1812917810a5276",
+            "value": 606.3071834019252,
+            "range": "± 0.752012",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=10; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: Gap) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Gap] | env=d1812917810a5276",
+            "value": 2.34876193764769,
+            "range": "± 0.00577809",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
+          },
+          {
+            "name": "ShapeCatalogQueryBenchmarks.DirectShape(Shape: Blend) | Jit(IterationCount=12, IterationTime=250ms, WarmupCount=16) [Shape=Blend] | env=d1812917810a5276",
+            "value": 3.6059582116468896,
+            "range": "± 0.00411191",
+            "unit": "ns",
+            "extra": "Median; range is standard deviation in ns; N=11; {\"Architecture\":\"X64\",\"BenchmarkDotNetVersion\":\"0.15.8\",\"Configuration\":\"RELEASE\",\"DotNetCliVersion\":\"10.0.401\",\"HardwareIntrinsics\":\"AVX512 BITALG+VBMI2+VNNI+VPOPCNTDQ,AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256\",\"HardwareTimerKind\":\"Unknown\",\"HasAttachedDebugger\":false,\"HasRyuJit\":true,\"LogicalCoreCount\":4,\"OsVersion\":\"Linux Ubuntu 24.04.5 LTS (Noble Numbat)\",\"PhysicalCoreCount\":2,\"PhysicalProcessorCount\":1,\"ProcessorName\":\"Intel Xeon Platinum 8370C CPU 2.80GHz\",\"RuntimeVersion\":\".NET 10.0.12 (10.0.12, 10.0.1226.42308)\"}; source=ShapeCatalogQueryBenchmarks-report-full.json"
           }
         ]
       }
