@@ -6,7 +6,7 @@ internal static class Program
 {
     public static int Main(string[] args)
     {
-        var selected = args.Length > 0 ? args : ["sweep", "movement", "floor"];
+        var selected = args.Length > 0 ? args : ["sweep", "pulse", "watch", "churn", "movement", "floor"];
         Console.WriteLine($"runtime={Environment.Version} gc={GCSettings.LatencyMode} serverGc={GCSettings.IsServerGC} processorCount={Environment.ProcessorCount}");
         Console.WriteLine($"machine={Environment.MachineName} os={Environment.OSVersion.VersionString}");
 
@@ -14,7 +14,22 @@ internal static class Program
         if (selected.Contains("sweep"))
         {
             Console.WriteLine($"asset=move-loop sha256={Fixtures.Hash(Fixtures.Bake(Fixtures.MoveLoop))}");
-            lanes.Add(() => new SweepLane { Fixture = Fixtures.MoveLoop }.Run());
+            lanes.Add(() => new StaticLane<MoveTrack, MoveClip>("sweep", Fixtures.MoveLoop, 1_000_000, requirePulse: false).Run());
+        }
+        if (selected.Contains("pulse"))
+        {
+            Console.WriteLine($"asset=pulse sha256={Fixtures.Hash(Fixtures.Bake(Fixtures.Pulse))}");
+            lanes.Add(() => new StaticLane<PulseTrack, PulseClip>("pulse", Fixtures.Pulse, 1_000_000, requirePulse: true).Run());
+        }
+        if (selected.Contains("watch"))
+        {
+            Console.WriteLine($"asset=watch sha256={Fixtures.Hash(Fixtures.Bake(Fixtures.Watch))}");
+            lanes.Add(() => new WatchLane().Run());
+        }
+        if (selected.Contains("churn"))
+        {
+            Console.WriteLine($"asset=churn sha256={Fixtures.Hash(Fixtures.Bake(Fixtures.Churn))}");
+            lanes.Add(() => new ChurnLane().Run());
         }
         if (selected.Contains("movement"))
             lanes.Add(() => new MovementLane().Run());

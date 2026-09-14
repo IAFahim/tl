@@ -66,6 +66,10 @@ public sealed class PlaybackTable<TTrack, TClip> : IDisposable
 
     public int Count => _count;
 
+    public int HandleCount => _handleCount;
+
+    public long AccValue(int handle) => _accs[_handleRow![handle]].Value;
+
     public Acc[] Accs => _accs;
 
     public uint Duration => _duration;
@@ -243,6 +247,13 @@ public sealed class PlaybackTable<TTrack, TClip> : IDisposable
             _positions[row] = next.Position;
             ref readonly var frame = ref _frames[tick];
             ChurnJob.Execute(frame.Amount, frame.Code, gameTick, ref _accs[row]);
+            if (next.Position == _duration)
+            {
+                RetireRowAt(row);
+                retired++;
+                continue;
+            }
+
             row++;
         }
 
