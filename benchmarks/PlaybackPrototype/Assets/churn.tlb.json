@@ -1,0 +1,16 @@
+{
+  "name": "prototype_churn",
+  "duration": 20,
+  "loop": false,
+  "tracks": [
+    {
+      "name": "window",
+      "namespace": "PlaybackPrototype",
+      "type": "ChurnTrack",
+      "data": { "Code": 4 },
+      "clips": [
+        { "name": "question", "namespace": "PlaybackPrototype", "type": "ChurnClip", "start": 0, "end": 20, "data": { "Amount": 11 } }
+      ]
+    }
+  ]
+}
