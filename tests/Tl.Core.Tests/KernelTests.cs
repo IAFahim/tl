@@ -499,7 +499,7 @@ public unsafe class KernelTests
         {
             var junk = new byte[64 * 1024];
             junk[0] = 1;
-            GC.Collect(2, GCCollectionMode.Forced, true);
+            GC.Collect(2, GCCollectionMode.Forced, true, true);
             GC.WaitForPendingFinalizers();
             var current = (nint)Unsafe.AsPointer(ref health[0]);
             moved = current != address;
