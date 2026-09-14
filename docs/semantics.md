@@ -1,6 +1,6 @@
 # Timeline execution semantics
 
-This contract applies to generated C# v1.0.0-alpha.3 catalog queries.
+This contract applies to the removed alpha.3 catalog-query surface, removed from the repository under [issue #65](https://github.com/IAFahim/tl/issues/65). It is retained as the design and semantics record of that surface; the shipped authoring contract is [data-authored-api.md](data-authored-api.md).
 
 ## Definitions
 
@@ -38,7 +38,7 @@ The last forward frame carries `TimelineEnd | CompletedAfter`. Reversing from co
 
 ## Loop movement
 
-For nonzero duration `D`, looping positions stay in `0..D-1`.
+For nonzero duration `D`, looping positions stay in `0..D-1`. That envelope is also a validity requirement for hand-constructed state: a looping `TimelineComponent` constructed at `position == duration` never advances, because selection returns false (`src/Tl.Core/Playback.cs:51`), so components built by hand should start inside `0..D-1`.
 
 | Movement | Emitted `(tick, cycle)` | Committed `(position, cycle)` |
 | --- | --- | --- |

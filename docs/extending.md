@@ -1,5 +1,7 @@
 # Extending tl
 
+Scope note: this document describes the intended extension model. The `Tl.Compiler` neutral plan and `TimelinePlan.CurrentFormatVersion` named below are directional — no `Tl.Compiler` package or `TimelinePlan` type exists in the tree today. The shipped authoring and extension lane is the data-authored C# generator ([data-authored-api.md](data-authored-api.md)).
+
 ## Choose the boundary
 
 Use `Tl.Runtime` when an extension only advances generated timelines or provides caller-owned state. Use `Tl.Compiler` when it reads, validates, transforms, visualizes, or emits timeline plans. Build a frontend when a new authoring language must create the neutral plan. Build a backend when a target needs different source, data layout, ABI, or execution code.

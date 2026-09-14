@@ -176,12 +176,14 @@ Alpha suite, 47 paired `*DataAuthoredQueryBenchmarks*` medians, pristine
 
 ## Known residuals and follow-ups (pre-existing, unchanged by this work)
 
-- **Cold bind per query construction: ~4.5-6.8 us.** The warm cache lives in
-  the `ref struct` query, so constructing a query and ticking once pays
-  hashing + resolve every time. Rebuilding 1,000 single-row queries every
-  frame costs ~4.2-4.6 us per timeline-tick; building one query once and
-  ticking it is the intended shape. Hoisting the cache out of the per-frame
-  query construction is the highest-value follow-up found during this work.
+- **Cold bind per query construction: ~4.5-6.8 us — solved after this work.**
+  The warm cache lived in the `ref struct` query, so constructing a query and
+  ticking once paid hashing + resolve every time; rebuilding 1,000 single-row
+  queries every frame cost ~4.2-4.6 us per timeline-tick. The shared
+  process-wide `BindCache` in `src/Tl.Core/Data.cs` now publishes and restores
+  resolved bind state across constructions; receipts and the remaining regime
+  caveats live in
+  [memory-and-performance.md](memory-and-performance.md#shared-bind-cache).
 - **Multi-column fixed cost: ~300 ns/call** over the minimal write-only
   lane, visible only at tiny row counts; identical before and after.
 - **Read view at ~182 ns/call** was never on a benchmark before; kernel and

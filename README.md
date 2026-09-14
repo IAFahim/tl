@@ -212,7 +212,7 @@ The data-authored Unity host package (`com.iafahim.tl`) lives in the [tl.unity](
 ## Documentation
 
 - [Data-authored API contract](docs/data-authored-api.md) — the frozen design contract
-- [Execution semantics](docs/semantics.md) — select, execute, commit, and movement laws
+- [Execution semantics](docs/semantics.md) — select, execute, commit, and movement laws of the removed alpha.3 catalog surface
 - [Architecture](docs/architecture.md) — package and boundary map
 - [Unity end-to-end](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) — JSON bake to Unity ECS typed queries
 

@@ -70,7 +70,7 @@ C# consumer declarations
 
 Normal Roslyn and supporting IDE builds run incremental generation. `TlGenExport` uses the same reader/emitter for deterministic physical output, cache receipts, reports, and Unity materialization. A cache hit preserves contents and timestamps. No build-time benchmark or autotuning is hidden in generation.
 
-Unity source is materialized before script compilation because ordinary Roslyn generator output cannot feed another generator in the same compilation. The Unity surface moved to the extracted tl.unity repository pending [issue #64](https://github.com/IAFahim/tl/issues/64); this repository ships no UPM package.
+Unity source is materialized before script compilation because ordinary Roslyn generator output cannot feed another generator in the same compilation. The Unity surface moved to the extracted [IAFahim/tl.unity](https://github.com/IAFahim/tl.unity) repository; the publication and licensing decisions are recorded in [issue #64](https://github.com/IAFahim/tl/issues/64). This repository ships no UPM package.
 
 The C ABI v2 remains supported in its existing scope. Alpha.3 heterogeneous C catalogs, canonical neutral serialization, designer GUI import, cross-generated declarations, and runtime-loaded arbitrary schemas are deferred.
 
