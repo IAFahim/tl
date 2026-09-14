@@ -130,11 +130,34 @@ Every timed pass consumes observable results: each pass mutates deterministic in
 
 ## Measured results
 
-<!-- ATOM-3: filled by the harness receipt on the documented machine; placeholder below. -->
+All four lanes verified checksum-identical to the `Timeline.Rows` facade (and membership-identical for churn) with 0 B warm-path allocation on both sides. Medians of three full harness runs on the machine below; run-to-run spread was within about ±5% on every number.
+
+| Lane | rows | facade ns/row | table ns/row | ratio | facade B/pass | table B/pass |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `sweep` (staggered clocks, shared asset) | 1,000,000 | 11.1 | 1.83 | 6.0x | 0 | 0 |
+| `pulse` (duration-1 loop, constant-frame sweep) | 1,000,000 | 10.9 | 1.01 | 10.7x | 0 | 0 |
+| `watch` (per-row gather/scatter vs gather + facade + scatter) | 1,000,000 | 15.1 | 3.90 | 3.9x | 0 | 0 |
+| `churn` (100k spawns/pass, 20-tick windows, 2.1M steady) | 2,101,000 | 18.4 | 1.73 | 10.6x | 0 | 0 |
+| `movement` (context: movement state alone, no job) | 1,000,000 | 1.01 | — | — | 0 | — |
+| `floor` (context: same fold, no timeline state) | 1,000,000 | 0.82 | — | — | 0 | — |
+
+Reading the numbers:
+
+- The sweep lane's table cost sits directly on top of the movement-state context lane (~1.0 ns/row): per-row selection, position/cycle commit, and the frame/value column load account for almost the whole table, with the dispatcher gone. The facade pays stage search, occurrence dispatch, chain walking, and a two-pass commit per row, which is worth ~6x here and matches the shape of issue #85's cost model.
+- The duration-1 classification halves the table sweep again (1.83 -> 1.01 ns/row) by collapsing frame loads and movement to a constant fold; the facade cannot see any of this because it re-derives the frame every row.
+- The watch lane is where tables win least on paper and most in expressiveness: the facade number is an emulation (gather pass, facade tick, scatter pass) because `Timeline.Rows` cannot index a read column per row; the table does gather, frame lookup, and scatter in one sweep. The scatter to non-local `owners` cells also costs cache locality, which is why 3.9 ns/row is honest rather than the ~1.8 of a row-local write.
+- The churn lane's facade number includes rebuilding the query every pass (membership changed, so compatibility must be re-established) and the explicit retire sweep; the table fuses retirement into its advance sweep and allocates nothing. The same-per-pass retire counts and handle-keyed checksums verify identical membership evolution, including the `Retire(handle)` API exercised mid-run.
+- Comparison with the same-machine reference points recorded when issue #88 was filed (facade mixed ~9 ns/row, table ~0.54, raw floor ~0.33): this machine's floor for the same read/fold work is 0.82 ns/row and its facade lane is ~11 ns/row, so absolute numbers are not comparable across sessions; ratios against the same-session floor are. The residual difference between the referenced 0.54 ns/row sweep and this harness's 1.83 ns/row is state width, not dispatch: the prototype carries the full designed per-row state (position 4 B, cycle 8 B, inputs 4 B, precomputed frame 12 B, output 8 B, all actually touched every row), while the reference point measured a leaner sweep. Any implementation claim should re-run this harness rather than extrapolate either number.
 
 ## Machine and methodology
 
-<!-- ATOM-3: filled with the recorded machine and the measurement discipline. -->
+- Machine: Intel Core i9-14900K (32 threads), 31 GiB RAM, Omarchy (Arch Linux), kernel 7.2.3-arch1-3, x64.
+- Runtime: .NET SDK 10.0.401, runtime 10.0.12, workstation (non-server) GC, default tiering with tier-1 steady state reached during warmup.
+- Harness: a Stopwatch harness, median of 15 samples after 5 warmups (25 warmups for the churn lane, whose first 21 passes are membership transient), one pass per sample. Every timed pass includes the deterministic input mutation and a strided checksum sample, so results are consumed and cannot be legally collapsed by the JIT; a lane reporting sub-physical ns/row or nonzero allocation is invalid and must be fixed, not reported.
+- Warm-path allocation is read from `GC.GetAllocatedBytesForCurrentThread()` around the measured window; all lanes report 0 B on both sides.
+- Parity: each lane first runs an untimed phase comparing per-pass checksum sequences and end-of-run full checksums and membership state (sums of positions/cycles; for churn, per-pass retire counts and handle-keyed samples, which are independent of physical row layout) between the facade and the table over identical pass counts from identical starting state. The timed phases then re-verify the final full checksums.
+- Nothing else ran concurrently; three back-to-back full-suite runs agreed within ~5%. Baked-asset bytes are printed as SHA-256 by the harness and reproduce byte-identically through the `tlbake` CLI (all four fixtures verified).
+- The facade lanes build one query and keep ticking it for the static lanes, and rebuild per pass for the churn lane, which is the documented cost of re-establishing compatibility when membership changes.
 
 ## Open questions
 
