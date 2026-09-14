@@ -31,7 +31,7 @@ BenchmarkDotNet 0.15.8, one process per job, 16 warmups, 12 iterations of 250 ms
 
 ## Same-machine alpha.3 baselines
 
-The full existing suite ran once on this host for same-machine controls ([full-baseline](full-baseline/BenchmarkDotNet.Artifacts/results/)); the historical release medians from the release machine remain reference only.
+The full existing suite ran once on this host for same-machine controls (the `full-baseline` process; its rows are in [summary.csv](summary.csv), raw artifacts retained on issue #56); the historical release medians from the release machine remain reference only.
 
 | Arm | This host median | Release median |
 | --- | ---: | ---: |
@@ -48,7 +48,7 @@ The generated controls sit within 5% of the release medians except the three-inp
 
 ## Default tiering and no-tiering
 
-A separate paired process ran the fifteen data-authored arms under the default tiered runtime and with `DOTNET_TieredCompilation=0` ([data-authored-notiering](data-authored-notiering/BenchmarkDotNet.Artifacts/results/)). These are diagnostic single-process medians.
+A separate paired process ran the fifteen data-authored arms under the default tiered runtime and with `DOTNET_TieredCompilation=0` (the `data-authored-notiering` process; its rows are in [summary.csv](summary.csv), raw artifacts retained on issue #56). These are diagnostic single-process medians.
 
 | Shape | Facade, default tiering | Facade, no tiering | Generated, default tiering | Generated, no tiering |
 | --- | ---: | ---: | ---: | ---: |

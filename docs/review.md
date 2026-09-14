@@ -1,5 +1,7 @@
 # Playback review
 
+Closed at `ccd344a`, retained as history: this reviews the pre-extraction prototype playback path, not a shipped package.
+
 This changes the prototype in `benchmarks/Hooks.cs`. The library extraction
 under `src/` remains a separate roadmap step. The interface-based consumer API
 and 8-byte `Playback` layout are preserved.

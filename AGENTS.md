@@ -90,7 +90,7 @@ The owner resumed implementation on 2026-09-12 through [issue #56](https://githu
 
 ## Required validation
 
-Run the smallest relevant checks during development and the complete gate before release:
+Run the smallest relevant checks during development and this core gate before pushing. It is a subset of the complete gate: `plan.md`'s Release gate adds the release-artifact verification (`python3 -m unittest discover -s tests -p test_release_artifacts.py`, `eng/release-artifacts --candidate`) and CI adds the NativeAOT isolation, package-only consumer, quick-start, and helper-script checks in `.github/workflows/ci.yml`.
 
 ```sh
 python3 benchmarks/source_budget.py

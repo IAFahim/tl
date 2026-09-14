@@ -1,5 +1,7 @@
 # ConsumerGenerate
 
+> Retained as history: `samples/Compiled` was removed at commit `5c05aa5`; the `--source` path below names the input at this README's original commit.
+
 This benchmark-only generator recognizes the current `Pulse` declaration and emits a fused timeline player for an explicit per-work consumer contract. Each active work becomes a direct static `IWorkOperation<TInput, TResult>` call with its authored index, track offset, resolved clip amount, movement state, and effective tick. The generated class keeps scalar and carry-batch paths, without runtime timeline tables, retained views, managed arrays, or region switches.
 
 Run it from the repository root:
