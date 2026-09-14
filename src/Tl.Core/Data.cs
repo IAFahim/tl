@@ -342,7 +342,11 @@ static unsafe class BindCache
 			var entry = Entries + slot + i;
 			if (Volatile.Read(ref entry->Sealed) == 0) continue;
 			if (entry->Asset != asset || entry->KeysHash != keysHash || entry->FindPointer != find) continue;
-			if (Volatile.Read(ref entry->Generation) != Generation) continue;
+			if (Volatile.Read(ref entry->Generation) != Generation)
+			{
+				Volatile.Write(ref entry->Claimed, 0);
+				continue;
+			}
 			if (Volatile.Read(ref entry->Consumers) != PairTable.ConsumerCount) continue;
 			if (Volatile.Read(ref entry->Kernels) != TimelineKernels.Count) continue;
 			return entry;
@@ -571,9 +575,19 @@ public unsafe ref struct TimelineQuery
 			if (uniform && scanPairs <= 16)
 			{
 				var keysHash = BindCache.Keys(keys, keyCount);
-				var shared = BindCache.Look(address, keysHash, (nint)(void*)Find);
-				if (shared != null) Restore(shared, address);
-				else
+				var find = (nint)(void*)Find;
+				var shared = BindCache.Look(address, keysHash, find);
+				if (shared != null)
+				{
+					var generation = Volatile.Read(ref shared->Generation);
+					Restore(shared, address);
+					if (Volatile.Read(ref shared->Sealed) == 0 || Volatile.Read(ref shared->Generation) != generation)
+					{
+						_kernel = null;
+						shared = null;
+					}
+				}
+				if (shared == null)
 				{
 					_publishHash = keysHash;
 					_publishAddress = address;
