@@ -1304,6 +1304,19 @@ usage() {
 command="${1:-}"
 [[ -n "$command" ]] || { usage; exit 2; }
 shift
+
+case "$command" in
+    -h|--help|help)
+        usage
+        exit 0
+        ;;
+    issue|start|adopt|recover-lock|takeover|checkpoint|handoff|pr|done) ;;
+    *)
+        usage
+        exit 2
+        ;;
+esac
+
 initialize_github
 
 case "$command" in
@@ -1316,5 +1329,4 @@ case "$command" in
     handoff) handoff_work "$@" ;;
     pr) open_pr "$@" ;;
     done) finish_work "$@" ;;
-    *) usage; exit 2 ;;
 esac

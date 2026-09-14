@@ -3,7 +3,7 @@
 JetBrains Inspect Code 2026.2.1 analyzed the generated Release tree with .NET SDK 10.0.401 and runtime 10.0.12.
 
 ```sh
-/home/i/.dotnet/tools/jb inspectcode tl.slnx --no-build --no-updates --jobs=1 --severity=WARNING --format=Text --properties=Configuration=Release --caches-home=/tmp/tl-release-inspect-cache --output=docs/verification/release-inspectcode.txt
+/home/i/.dotnet/tools/jb inspectcode tl.slnx --no-build --no-updates --jobs=1 --severity=WARNING --format=Text --properties=Configuration=Release --caches-home=/tmp/tl-release-inspect-cache --output=docs/verification/v1.0-alpha.3/release-inspectcode.txt
 ```
 
 The retained [text report](release-inspectcode.txt) contains no findings.

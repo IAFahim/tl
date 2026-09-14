@@ -31,8 +31,8 @@ jobs:
       - run: python3 benchmarks/source_budget.py
       - run: python3 -m unittest discover -s benchmarks -p test_collect.py
       - run: python3 -m unittest discover -s tests -p test_release_artifacts.py
-      - run: dotnet build tl.slnx -c Release -m:1
-      - run: dotnet test tl.slnx -c Release --no-build
+      - run: dotnet build tl.slnx -c Release -m:1 -p:NuGetAudit=false
+      - run: dotnet test tl.slnx -c Release --no-build -p:NuGetAudit=false
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
@@ -79,4 +79,11 @@ jobs:
           tlbake samples/NuGetQuickStart/boss.json samples/NuGetQuickStart/boss.tlb --assembly samples/NuGetQuickStart/bin/Release/net10.0/NuGetQuickStart.dll
           cd samples/NuGetQuickStart
           test "$(dotnet run -c Release --no-build)" = "flawless: health=80 position=2"
+      - name: Playback prototype parity lanes
+        env:
+          NUGET_PACKAGES: ${{ runner.temp }}/tl-playback-prototype
+        run: |
+          set -euo pipefail
+          dotnet build benchmarks/PlaybackPrototype/PlaybackPrototype.csproj -c Release
+          dotnet run --project benchmarks/PlaybackPrototype -c Release --no-build
       - run: eng/release-artifacts --candidate ci artifacts/release
