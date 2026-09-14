@@ -7,11 +7,11 @@ namespace Tl;
 public static unsafe class TimelineKernels
 {
 	static readonly ulong[] Hashes = new ulong[256];
-	static readonly delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, void>[] Entries = new delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, void>[64];
+	static readonly delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>[] Entries = new delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool>[64];
 	static int _count;
 
 	public static int Bound;
-	public static unsafe void Register(ulong hash0, ulong hash1, ulong hash2, ulong hash3, delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, void> tick)
+	public static unsafe void Register(ulong hash0, ulong hash1, ulong hash2, ulong hash3, delegate*<byte*, int*, void**, TimelineComponent*, int, uint, int, bool> tick)
 	{
 		if (_count == Hashes.Length) throw new InvalidOperationException("Kernel catalog capacity exhausted.");
 		TimelineQuery.Find = &Find;
@@ -48,5 +48,25 @@ public static unsafe class TimelineKernels
 		}
 		else for (var entry = head; entry >= 0; entry = consumers[entry].Next)
 			consumers[entry].Execute(slot, gameTick, tick, cycle, flags, columns + consumers[entry].Offset, row);
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static unsafe void ChainRange(int head, bool reverse, int* scratch, byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int rowStart, int rowCount)
+	{
+		var consumers = PairTable.ConsumerAt;
+		if (head < 0) return;
+		if (consumers[head].Next >= 0)
+		{
+			for (var row = rowStart; row < rowStart + rowCount; row++) Chain(head, reverse, scratch, slot, gameTick, tick, cycle, flags, columns, row);
+			return;
+		}
+		var range = consumers[head].Range;
+		if (range != null) range(slot, gameTick, tick, cycle, flags, columns, rowStart, rowCount);
+		else
+		{
+			var consumer = consumers + head;
+			for (var row = rowStart; row < rowStart + rowCount; row++)
+				consumer->Execute(slot, gameTick, tick, cycle, flags, columns + consumer->Offset, row);
+		}
 	}
 }

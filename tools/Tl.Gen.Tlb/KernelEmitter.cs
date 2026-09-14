@@ -57,18 +57,52 @@ public static class KernelEmitter
         source.AppendLine();
         source.AppendLine();
         source.AppendLine("    [MethodImpl(MethodImplOptions.AggressiveOptimization)]");
-        source.AppendLine("    static unsafe void Tick(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)");
+        source.AppendLine("    static unsafe bool Tick(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)");
         source.AppendLine("    {");
-        source.AppendLine("        if (delta == 0 || rowCount == 0) return;");
+        source.AppendLine("        if (delta == 0 || rowCount == 0) return true;");
+        source.AppendLine("        if (rowCount == 1)");
+        source.AppendLine("        {");
         EmitSingleRow(source, duration, loops);
-        EmitMultiRow(source, duration, loops);
+        source.AppendLine("        }");
+        if (stages.Count == 0)
+        {
+            source.AppendLine("        var probe = Probe(asset, rows, rowCount, out _, out _, out _);");
+            source.AppendLine("        if (probe == 0) return false;");
+            source.AppendLine("        return TickScalar(asset, heads, columns, rows, rowCount, gameTick, delta);");
+        }
+        else
+        {
+            source.AppendLine("        var probe = Probe(asset, rows, rowCount, out var uniformPosition, out var uniformCycle, out var uniformPositionWord);");
+            source.AppendLine("        if (probe == 0) return false;");
+            source.AppendLine("        if (probe == 1) return TickUniform(asset, heads, columns, rows, rowCount, gameTick, delta, uniformPosition, uniformCycle, uniformPositionWord);");
+            source.AppendLine("        return TickMixed(asset, heads, columns, rows, rowCount, gameTick, delta);");
+        }
         source.AppendLine("    }");
+        source.AppendLine();
+        EmitProbe(source);
+        source.AppendLine();
+        if (stages.Count == 0)
+            EmitMultiRowScalar(source, duration, loops);
+        else
+        {
+            EmitUniformLockstep(source, duration, loops);
+            source.AppendLine();
+            EmitMixed(source, duration, loops);
+        }
         source.AppendLine();
         source.AppendLine("    static unsafe void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, byte* asset, int* heads, void** columns)");
         source.AppendLine("    {");
         var chunks = new List<string>();
         EmitStages(source, stages, chunks);
         source.AppendLine("    }");
+        if (stages.Count > 0)
+        {
+            source.AppendLine();
+            source.AppendLine("    static unsafe void Run(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int rowStart, int rowCount, byte* asset, int* heads, void** columns)");
+            source.AppendLine("    {");
+            EmitRunStages(source, stages);
+            source.AppendLine("    }");
+        }
         foreach (var chunk in chunks)
         {
             source.AppendLine();
@@ -88,10 +122,37 @@ public static class KernelEmitter
             throw new ArgumentException("Kernel emission requires validated TLB1 bytes.");
     }
 
+    static void EmitProbe(StringBuilder source)
+    {
+        source.AppendLine("    [MethodImpl(MethodImplOptions.AggressiveOptimization)]");
+        source.AppendLine("    static unsafe int Probe(byte* asset, TimelineComponent* rows, int rowCount, out uint uniformPosition, out long uniformCycle, out long uniformPositionWord)");
+        source.AppendLine("    {");
+        source.AppendLine("        var assetAddress = (nint)asset;");
+        source.AppendLine("        if (*(nint*)rows != assetAddress) { uniformPosition = 0; uniformCycle = 0; uniformPositionWord = 0; return 0; }");
+        source.AppendLine("        uniformPositionWord = *(long*)&rows->Position;");
+        source.AppendLine("        uniformPosition = rows->Position;");
+        source.AppendLine("        uniformCycle = rows->Cycle;");
+        source.AppendLine("        var uniform = true;");
+        source.AppendLine("        var scan = 1;");
+        source.AppendLine("        while (scan < rowCount)");
+        source.AppendLine("        {");
+        source.AppendLine("            var component = rows + scan;");
+        source.AppendLine("            if (*(nint*)component != assetAddress) return 0;");
+        source.AppendLine("            if (uniform && (*(long*)&component->Position != uniformPositionWord | component->Cycle != uniformCycle)) uniform = false;");
+        source.AppendLine("            scan++;");
+        source.AppendLine("            if (scan == rowCount) break;");
+        source.AppendLine("            component = rows + scan;");
+        source.AppendLine("            if (*(nint*)component != assetAddress) return 0;");
+        source.AppendLine("            if (uniform && (*(long*)&component->Position != uniformPositionWord | component->Cycle != uniformCycle)) uniform = false;");
+        source.AppendLine("            scan++;");
+        source.AppendLine("        }");
+        source.AppendLine("        return uniform ? 1 : 2;");
+        source.AppendLine("    }");
+    }
+
     static void EmitSingleRow(StringBuilder source, uint duration, bool loops)
     {
-        source.AppendLine("        if (rowCount == 1)");
-        source.AppendLine("        {");
+        source.AppendLine("            if (*(nint*)rows != (nint)asset) return false;");
         source.AppendLine("            var row = rows;");
         source.AppendLine("            var state = new TimelineState(1, row->Position, row->Cycle);");
         source.AppendLine("            if (delta == 1 || delta == -1)");
@@ -103,26 +164,145 @@ public static class KernelEmitter
         source.AppendLine("                    row->Position = next.Position;");
         source.AppendLine("                    row->Cycle = next.Cycle;");
         source.AppendLine("                }");
-        source.AppendLine("                return;");
+        source.AppendLine("                return true;");
         source.AppendLine("            }");
         source.AppendLine("            var isReverse = delta < 0;");
         source.AppendLine("            var remaining = isReverse ? -(long)delta : delta;");
         source.AppendLine("            while (remaining-- != 0)");
         source.AppendLine("            {");
         source.AppendLine("                if (isReverse) gameTick--;");
-        source.AppendLine($"                if (!TimelineMovement.Select(state, {N(duration)}u, {Word(loops)}, isReverse, out var next, out var tick, out var cycle, out var flags)) break;");
-        source.AppendLine("                Execute(isReverse, tick, gameTick, cycle, flags, 0, asset, heads, columns);");
-        source.AppendLine("                state = new TimelineState(1, next.Position, next.Cycle);");
-        source.AppendLine("                row->Position = next.Position;");
-        source.AppendLine("                row->Cycle = next.Cycle;");
+        source.AppendLine($"                if (!TimelineMovement.Select(state, {N(duration)}u, {Word(loops)}, isReverse, out var multiNext, out var multiTick, out var multiCycle, out var multiFlags)) break;");
+        source.AppendLine("                Execute(isReverse, multiTick, gameTick, multiCycle, multiFlags, 0, asset, heads, columns);");
+        source.AppendLine("                state = new TimelineState(1, multiNext.Position, multiNext.Cycle);");
+        source.AppendLine("                row->Position = multiNext.Position;");
+        source.AppendLine("                row->Cycle = multiNext.Cycle;");
         source.AppendLine("                if (!isReverse) gameTick++;");
         source.AppendLine("            }");
-        source.AppendLine("            return;");
-        source.AppendLine("        }");
+        source.AppendLine("            return true;");
     }
 
-    static void EmitMultiRow(StringBuilder source, uint duration, bool loops)
+    static void EmitMixed(StringBuilder source, uint duration, bool loops)
     {
+        source.AppendLine("    [MethodImpl(MethodImplOptions.AggressiveOptimization)]");
+        source.AppendLine("    static unsafe bool TickMixed(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)");
+        source.AppendLine("    {");
+        source.AppendLine("        var multiReverse = delta < 0;");
+        source.AppendLine("        var multiRemaining = multiReverse ? -(long)delta : delta;");
+        source.AppendLine("        var moved = true;");
+        source.AppendLine("        while (moved && multiRemaining-- != 0)");
+        source.AppendLine("        {");
+        source.AppendLine("            if (multiReverse) gameTick--;");
+        source.AppendLine("            moved = false;");
+        source.AppendLine("            var memoReady = false;");
+        source.AppendLine("            var memoPosition = 0u;");
+        source.AppendLine("            var memoCycle = 0L;");
+        source.AppendLine("            var memoSelected = false;");
+        source.AppendLine("            var memoTick = 0u;");
+        source.AppendLine("            var memoOutCycle = 0L;");
+        source.AppendLine("            var memoFlags = FrameFlags.None;");
+        source.AppendLine("            var memoNextPosition = 0u;");
+        source.AppendLine("            var memoNextCycle = 0L;");
+        source.AppendLine("            var runOpen = false;");
+        source.AppendLine("            var runStart = 0;");
+        source.AppendLine("            for (var row = 0; row < rowCount; row++)");
+        source.AppendLine("            {");
+        source.AppendLine("                var component = rows + row;");
+        source.AppendLine("                if (memoReady && component->Position == memoPosition && component->Cycle == memoCycle) continue;");
+        source.AppendLine("                if (runOpen)");
+        source.AppendLine("                {");
+        source.AppendLine("                    Run(multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, row - runStart, asset, heads, columns);");
+        source.AppendLine("                    runOpen = false;");
+        source.AppendLine("                }");
+        source.AppendLine("                memoReady = true;");
+        source.AppendLine("                memoPosition = component->Position;");
+        source.AppendLine("                memoCycle = component->Cycle;");
+        source.AppendLine($"                memoSelected = TimelineMovement.Select(new TimelineState(1, memoPosition, memoCycle), {N(duration)}u, {Word(loops)}, multiReverse, out var memoNext, out memoTick, out memoOutCycle, out memoFlags);");
+        source.AppendLine("                memoNextPosition = memoNext.Position;");
+        source.AppendLine("                memoNextCycle = memoNext.Cycle;");
+        source.AppendLine("                if (!memoSelected) continue;");
+        source.AppendLine("                moved = true;");
+        source.AppendLine("                runStart = row;");
+        source.AppendLine("                runOpen = true;");
+        source.AppendLine("            }");
+        source.AppendLine("            if (runOpen) Run(multiReverse, memoTick, gameTick, memoOutCycle, memoFlags, runStart, rowCount - runStart, asset, heads, columns);");
+        source.AppendLine("            if (!moved) break;");
+        source.AppendLine("            for (var row = 0; row < rowCount; row++)");
+        source.AppendLine("            {");
+        source.AppendLine("                var component = rows + row;");
+        source.AppendLine("                if (memoReady && component->Position == memoPosition && component->Cycle == memoCycle)");
+        source.AppendLine("                {");
+        source.AppendLine("                    if (memoSelected)");
+        source.AppendLine("                    {");
+        source.AppendLine("                        component->Position = memoNextPosition;");
+        source.AppendLine("                        component->Cycle = memoNextCycle;");
+        source.AppendLine("                    }");
+        source.AppendLine("                    continue;");
+        source.AppendLine("                }");
+        source.AppendLine("                memoReady = true;");
+        source.AppendLine("                memoPosition = component->Position;");
+        source.AppendLine("                memoCycle = component->Cycle;");
+        source.AppendLine($"                memoSelected = TimelineMovement.Select(new TimelineState(1, memoPosition, memoCycle), {N(duration)}u, {Word(loops)}, multiReverse, out var commitNext, out _, out _, out _);");
+        source.AppendLine("                memoNextPosition = commitNext.Position;");
+        source.AppendLine("                memoNextCycle = commitNext.Cycle;");
+        source.AppendLine("                if (memoSelected)");
+        source.AppendLine("                {");
+        source.AppendLine("                    component->Position = memoNextPosition;");
+        source.AppendLine("                    component->Cycle = memoNextCycle;");
+        source.AppendLine("                }");
+        source.AppendLine("            }");
+        source.AppendLine("            if (!multiReverse) gameTick++;");
+        source.AppendLine("        }");
+        source.AppendLine("        return true;");
+        source.AppendLine("    }");
+    }
+
+    static void EmitUniformLockstep(StringBuilder source, uint duration, bool loops)
+    {
+        source.AppendLine("    [MethodImpl(MethodImplOptions.AggressiveOptimization)]");
+        source.AppendLine("    static unsafe bool TickUniform(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta, uint uniformPosition, long uniformCycle, long uniformPositionWord)");
+        source.AppendLine("    {");
+        source.AppendLine("        var multiReverse = delta < 0;");
+        source.AppendLine("        var multiRemaining = multiReverse ? -(long)delta : delta;");
+        source.AppendLine("        var moved = true;");
+        source.AppendLine("        while (moved && multiRemaining-- != 0)");
+        source.AppendLine("        {");
+        source.AppendLine("            if (multiReverse) gameTick--;");
+        source.AppendLine("            moved = false;");
+        source.AppendLine($"            if (TimelineMovement.Select(new TimelineState(1, uniformPosition, uniformCycle), {N(duration)}u, {Word(loops)}, multiReverse, out var uniformNext, out var uniformTick, out var uniformOutCycle, out var uniformFlags))");
+        source.AppendLine("                {");
+        source.AppendLine("                    moved = true;");
+        source.AppendLine("                    Run(multiReverse, uniformTick, gameTick, uniformOutCycle, uniformFlags, 0, rowCount, asset, heads, columns);");
+        source.AppendLine("                    var uniformNextWord = (uniformPositionWord & -4294967296L) | uniformNext.Position;");
+        source.AppendLine("                    var uniformNextCycle = uniformNext.Cycle;");
+        source.AppendLine("                    var commit = 0;");
+        source.AppendLine("                    while (commit < rowCount)");
+        source.AppendLine("                    {");
+        source.AppendLine("                        var component = rows + commit;");
+        source.AppendLine("                        *(long*)&component->Position = uniformNextWord;");
+        source.AppendLine("                        component->Cycle = uniformNextCycle;");
+        source.AppendLine("                        commit++;");
+        source.AppendLine("                        if (commit == rowCount) break;");
+        source.AppendLine("                        component = rows + commit;");
+        source.AppendLine("                        *(long*)&component->Position = uniformNextWord;");
+        source.AppendLine("                        component->Cycle = uniformNextCycle;");
+        source.AppendLine("                        commit++;");
+        source.AppendLine("                    }");
+        source.AppendLine("                    uniformPositionWord = uniformNextWord;");
+        source.AppendLine("                    uniformPosition = uniformNext.Position;");
+        source.AppendLine("                    uniformCycle = uniformNextCycle;");
+        source.AppendLine("                }");
+        source.AppendLine("                if (!moved) break;");
+        source.AppendLine("                if (!multiReverse) gameTick++;");
+        source.AppendLine("            }");
+        source.AppendLine("            return true;");
+        source.AppendLine("    }");
+    }
+
+    static void EmitMultiRowScalar(StringBuilder source, uint duration, bool loops)
+    {
+        source.AppendLine("    [MethodImpl(MethodImplOptions.AggressiveOptimization)]");
+        source.AppendLine("    static unsafe bool TickScalar(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)");
+        source.AppendLine("    {");
         source.AppendLine("        var multiReverse = delta < 0;");
         source.AppendLine("        var multiRemaining = multiReverse ? -(long)delta : delta;");
         source.AppendLine("        var moved = true;");
@@ -151,6 +331,8 @@ public static class KernelEmitter
         source.AppendLine("            }");
         source.AppendLine("            if (!multiReverse) gameTick++;");
         source.AppendLine("        }");
+        source.AppendLine("        return true;");
+        source.AppendLine("    }");
     }
 
     static void EmitStages(StringBuilder source, List<(uint End, List<(uint Slot, int Pair)> Steps)> stages, List<string> chunks)
@@ -173,6 +355,41 @@ public static class KernelEmitter
             source.AppendLine("        {");
             EmitStageBody(source, stages[index].Steps, 3, index, chunks);
             source.AppendLine("        }");
+        }
+    }
+
+    static void EmitRunStages(StringBuilder source, List<(uint End, List<(uint Slot, int Pair)> Steps)> stages)
+    {
+        if (stages.Any(stage => stage.Steps.Count == 1))
+            source.AppendLine("        int* scratch = stackalloc int[64];");
+        if (stages.Count == 1)
+        {
+            EmitRunStageBody(source, stages[0].Steps, 2);
+            return;
+        }
+
+        for (var index = 0; index < stages.Count; index++)
+        {
+            source.AppendLine(index == 0
+                ? $"        if (tick < {N(stages[index].End)}u)"
+                : $"        else if (tick < {N(stages[index].End)}u)");
+            source.AppendLine("        {");
+            EmitRunStageBody(source, stages[index].Steps, 3);
+            source.AppendLine("        }");
+        }
+    }
+
+    static void EmitRunStageBody(StringBuilder source, List<(uint Slot, int Pair)> steps, int indent)
+    {
+        if (steps.Count == 1)
+        {
+            Pad(source, indent).AppendLine($"TimelineKernels.ChainRange(heads[{N(steps[0].Pair)}], reverse, scratch, asset + {N(steps[0].Slot)}u, gameTick, tick, cycle, flags, columns, rowStart, rowCount);");
+            return;
+        }
+        if (steps.Count > 1)
+        {
+            Pad(source, indent).AppendLine("for (var row = rowStart; row < rowStart + rowCount; row++)");
+            Pad(source, indent + 1).AppendLine("Execute(reverse, tick, gameTick, cycle, flags, row, asset, heads, columns);");
         }
     }
 

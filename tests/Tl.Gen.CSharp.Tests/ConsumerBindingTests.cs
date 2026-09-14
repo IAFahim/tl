@@ -72,14 +72,16 @@ public sealed class ConsumerBindingTests
         var install = binding[..installEnd];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&Execute_ApplyDamage, &Bind_ApplyDamage);",
-            "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.Consume(&Execute_ApplyHeal, &Bind_ApplyHeal);",
+            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&Execute_ApplyDamage, &ExecuteRange_ApplyDamage, &Bind_ApplyDamage);",
+            "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.Consume(&Execute_ApplyHeal, &ExecuteRange_ApplyHeal, &Bind_ApplyHeal);",
         ], install.Split('\n')[5..^1]);
         Assert.Contains("private static void Execute_ApplyDamage(byte* __tlSlot, uint __tlGameTick, uint __tlTick, long __tlCycle, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
+        Assert.Contains("private static void ExecuteRange_ApplyDamage(byte* __tlSlot, uint __tlGameTick, uint __tlTick, long __tlCycle, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)", binding);
         Assert.Contains("global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);", binding);
         Assert.Contains("var @resistance = (global::Domain.Resistance*)__tlColumns[0];", binding);
         Assert.Contains("var @health = (global::Domain.Health*)__tlColumns[1];", binding);
         Assert.Contains("global::Domain.ApplyDamage.Execute(in __tlTyped, in @resistance[__tlRow], ref @health[__tlRow]);", binding);
+        Assert.Contains("for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)", binding);
         Assert.Contains("private static void Bind_ApplyDamage(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)", binding);
         Assert.Contains("var __tlIdx0 = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<global::Domain.Resistance>.Value);", binding);
         Assert.Contains("if (__tlIdx0 < 0) throw new global::System.ArgumentException(\"global::Domain.ApplyDamage: required column missing for registered consumer: global::Domain.Resistance\");", binding);
@@ -92,7 +94,7 @@ public sealed class ConsumerBindingTests
         var (sources, diagnostics) = GenerateWithDiagnostics(StandaloneSource);
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
-        Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&Execute_ApplyBuff, &Bind_ApplyBuff);", binding);
+        Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&Execute_ApplyBuff, &ExecuteRange_ApplyBuff, &Bind_ApplyBuff);", binding);
     }
 
     [Fact]
@@ -212,8 +214,8 @@ public sealed class ConsumerBindingTests
         var install = binding[..installEnd];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&Execute_DualJob, &Bind_DualJob);",
-            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&Execute_DualJob_, &Bind_DualJob_);",
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&Execute_DualJob, &ExecuteRange_DualJob, &Bind_DualJob);",
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&Execute_DualJob_, &ExecuteRange_DualJob_, &Bind_DualJob_);",
         ], install.Split('\n')[5..^1]);
         Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.AlphaClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);", binding);
         Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.BetaClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);", binding);
