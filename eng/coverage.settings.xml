@@ -3,8 +3,7 @@
     <ModulePaths>
       <Include>
         <ModulePath>.*[\\/]Tl\.Core\.dll$</ModulePath>
-        <ModulePath>.*[\\/]Tl\.Compiler\.dll$</ModulePath>
-        <ModulePath>.*[\\/]Tl\.Gen\.C\.dll$</ModulePath>
+        <ModulePath>.*[\\/]Tl\.CSharp\.dll$</ModulePath>
         <ModulePath>.*[\\/]Tl\.Gen\.CSharp\.dll$</ModulePath>
       </Include>
     </ModulePaths>
