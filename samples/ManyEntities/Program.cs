@@ -203,7 +203,7 @@ internal static class Program
             {
                 for (var s = 0; s < SpawnPerPass; s++) { positions[count + s] = 0; cycles[count + s] = 0; laneValues[count + s] = 0; }
                 count += SpawnPerPass;
-                Timeline<BakedLane<WindowTrack, WindowClip>>.Seek(positions.AsSpan(0, count), true).Apply(laneValues.AsSpan(0, count), cycles.AsSpan(0, count));
+                Timeline<BakedLane<WindowTrack, WindowClip>>.Seek(positions.AsSpan(0, count), true).Apply(laneValues.AsSpan(0, count), Span<long>.Empty);
                 for (var i = 0; i < count; )
                 {
                     if (positions[i] < 20u) { i++; continue; }

@@ -205,6 +205,26 @@ public class LaneTests
     }
 
     [Fact]
+    public void FiniteLaneAcceptsEmptyCycleColumn()
+    {
+        var positions = new ushort[] { 0, 3, 5 };
+        var effects = new float[3];
+        var cycles = new long[] { 9, 8, 7 };
+        Timeline<LawFiniteLane>.Seek(positions, true).Apply(effects, Span<long>.Empty);
+        Assert.Equal(new ushort[] { 1, 4, 6 }, positions);
+        Assert.Equal(new float[] { 1, 4, 6 }, effects);
+        Assert.Equal(new long[] { 9, 8, 7 }, cycles);
+    }
+
+    [Fact]
+    public void LoopingLaneRejectsEmptyCycleColumn()
+    {
+        var positions = new ushort[] { 0 };
+        var effects = new float[1];
+        Assert.Throws<ArgumentException>(() => Timeline<LawLane>.Seek(positions, true).Apply(effects, Span<long>.Empty));
+    }
+
+    [Fact]
     public void HandLaneAppliesFoldedEffects()
     {
         var positions = new ushort[] { 0, 0, 2, 2, 2, 5 };

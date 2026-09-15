@@ -48,6 +48,9 @@ code, no indirection. Two implementations ship:
 - consumers must self-invert through `Frame.Direction` / `FrameFlags.Reverse`; the backward
   table is the measured inverse, so forward-then-backward returns the column bit-exactly
 - the host owns the columns; the lane never moves, copies, or retains row data
+- finite lanes may pass `Span<long>.Empty` instead of a cycle column: finite timelines never
+  wrap, so there is no cycle state to maintain and the lane touches no cycle storage (the
+  zero-fill law applies to a full-length column); looping lanes require the full column
 - `Apply` validates lengths and pairwise non-overlap and throws otherwise; effects and cycles
   are written only for rows that moved
 - the fold is a function of position only: consumers that read the game tick, another entity's
@@ -87,6 +90,10 @@ nonzero on any parity FAIL); `samples/ManyEntities` adds pulse/churn shapes at 2
 | Seek+sort, uniform | 2.16 | 2.21 |
 | Backward, uniform | 0.15 | 0.16 |
 | Seek x2 (catch-up) | 6.02 | 6.23 |
+
+Finite crowds with an empty cycle column measure 0.28 -> 0.12 ns/row at 1M rows
+(60,000-tick finite asset, uniform positions): the 8-byte zero-fill store per row disappears.
+`samples/ManyEntities` churn exercises the API on its finite window asset (parity OK).
 
 ManyEntities (200k rows x 60 ticks, lane vs hand SoA sweep): pulse 0.35 vs 0.51 ns/row,
 churn 0.71 vs 0.71 (lane wins/ties; no per-pass copies), sweep 4.46 vs 0.76 (staggered clocks

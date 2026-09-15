@@ -79,14 +79,14 @@ public ref struct TimelineLane<T>
             {
                 effects[i] += delta;
                 positions[i] = (ushort)next;
-                if (reset) cycles[i] = 0;
+                if (reset && !cycles.IsEmpty) cycles[i] = 0;
                 else if (cycleDelta != 0) cycles[i] += cycleDelta;
             }
             else
             {
                 Add(effects, i, end, delta);
                 Fill(positions, i, end, (ushort)next);
-                if (reset) Zero(cycles, i, end);
+                if (reset && !cycles.IsEmpty) Zero(cycles, i, end);
                 else if (cycleDelta != 0) Add(cycles, i, end, cycleDelta);
             }
             i = end;
@@ -96,8 +96,8 @@ public ref struct TimelineLane<T>
     void Check(Span<float> effects, Span<long> cycles)
     {
         var positions = _positions;
-        if (effects.Length != positions.Length || cycles.Length != positions.Length)
-            throw new ArgumentException("Column length must equal position count.");
+        if (effects.Length != positions.Length || (cycles.Length != positions.Length && !(cycles.IsEmpty && !T.Looping)))
+            throw new ArgumentException("Column length must equal position count; finite lanes may pass an empty cycle column.");
         if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(effects))
             || MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(cycles))
             || MemoryMarshal.AsBytes(effects).Overlaps(MemoryMarshal.AsBytes(cycles)))
