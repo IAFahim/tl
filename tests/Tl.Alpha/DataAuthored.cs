@@ -500,7 +500,7 @@ internal static class DataAuthoredReceipts
 
         timelines.Dispose();
         RequireThrows<ObjectDisposedException>(() => timelines.Gather(ids), "disposed set rejected");
-        Console.WriteLine($"timeline sets: {Rows} rows over 2 baked timelines x {Frames} frames, ids {loopingId}/{finiteId}, uniform and mixed chunk paths");
+        Console.WriteLine($"timeline sets: {Rows} rows over 2 baked timelines x {Frames} frames, ids {loopingId}/{finiteId}, uniform, gather, streak, and mixed chunk paths");
     }
 
     internal static void Memory()

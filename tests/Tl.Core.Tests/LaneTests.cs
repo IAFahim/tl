@@ -727,6 +727,41 @@ public class LaneTests
     }
 
     [Fact]
+    public void SetGatherModeMatchesStaticLane()
+    {
+        using var looping = TimelineAsset.Load(LoopingBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        var loopingId = timelines.Add(looping);
+
+        const int Rows = 300;
+        var ids = new ushort[Rows];
+        Array.Fill(ids, loopingId);
+        var positions = new ushort[Rows];
+        var cycles = new long[Rows];
+        for (var i = 0; i < Rows; i++)
+        {
+            positions[i] = (ushort)(i % 6);
+            cycles[i] = i % 3 - 1;
+        }
+        var effects = new float[Rows];
+
+        var lanePositions = (ushort[])positions.Clone();
+        var laneEffects = new float[Rows];
+        var laneCycles = (long[])cycles.Clone();
+
+        for (var frame = 0; frame < 80; frame++)
+        {
+            var forward = frame % 3 != 2;
+            timelines.Gather(ids).Seek(positions, forward).Apply(effects, cycles);
+            BakedLane<LaneTrack, LaneClip>.Bind(looping);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, forward).Apply(laneEffects, laneCycles);
+            Assert.Equal(lanePositions, positions);
+            Assert.Equal(laneEffects, effects);
+            Assert.Equal(laneCycles, cycles);
+        }
+    }
+
+    [Fact]
     public void SetRejectsUnboundId()
     {
         using var looping = TimelineAsset.Load(LoopingBake());
@@ -808,6 +843,9 @@ public class LaneTests
     {
         var ids = new ushort[256];
         var positions = new ushort[256];
+        var staggered = new ushort[256];
+        for (var i = 0; i < staggered.Length; i++)
+            staggered[i] = (ushort)(i % 6);
         var effects = new float[256];
         var cycles = new long[256];
         using var looping = TimelineAsset.Load(LoopingBake());
@@ -815,14 +853,20 @@ public class LaneTests
         timelines.Add(looping);
 
         for (var i = 0; i < 100; i++)
+        {
             timelines.Gather(ids).Seek(positions, true).Apply(effects, cycles);
+            timelines.Gather(ids).Seek(staggered, true).Apply(effects, cycles);
+        }
 
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < 100_000; i++)
+        {
             timelines.Gather(ids).Seek(positions, true).Apply(effects, cycles);
+            timelines.Gather(ids).Seek(staggered, true).Apply(effects, cycles);
+        }
         Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
     }
 

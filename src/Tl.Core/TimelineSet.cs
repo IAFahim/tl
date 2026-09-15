@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 
 namespace Tl;
 
@@ -9,20 +10,31 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
+    internal const long Skipped = long.MinValue;
+
     internal unsafe struct Slot
     {
         public float* Forward;
         public float* Backward;
+        public float* BackwardByPosition;
+        public ushort* NextForward;
+        public ushort* NextBackward;
+        public long* CycleForward;
+        public long* CycleBackward;
         public ushort Duration;
         public ushort Looping;
     }
 
     internal Slot* _slots;
     internal float* _data;
+    internal ushort* _wordsBase;
+    internal long* _longsBase;
     internal int _count;
     internal bool _anyLooping;
     internal bool _disposed;
-    nuint _dataFloats;
+    nuint _floats;
+    nuint _words;
+    nuint _longs;
 
     public ushort Add(TimelineAsset asset)
     {
@@ -30,35 +42,131 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         if (_count > ushort.MaxValue)
             throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
         LaneTable<TTrack, TClip>.Measure(asset, out var forward, out var backward, out var duration, out var looping);
-        nuint floats = Math.Max(1u, duration);
-        nuint dataFloats = _dataFloats + floats * 2;
-        var block = (byte*)NativeMemory.AlignedAlloc((nuint)(_count + 1) * (nuint)sizeof(Slot) + dataFloats * sizeof(float), 64);
+        nuint ticks = Math.Max(1u, duration);
+        nuint floats = _floats + (ticks + 1) * 3;
+        nuint words = _words + (ticks + 1) * 2;
+        nuint longs = _longs + (ticks + 1) * 2;
+        var slotBytes = (nuint)(_count + 1) * (nuint)sizeof(Slot);
+        var wordOffset = slotBytes + floats * sizeof(float);
+        var longOffset = (wordOffset + words * sizeof(ushort) + 7u) & ~7u;
+        var block = (byte*)NativeMemory.AlignedAlloc(longOffset + longs * sizeof(long), 64);
         var slots = (Slot*)block;
-        var data = (float*)(block + (nuint)(_count + 1) * (nuint)sizeof(Slot));
-        long shift = 0;
+        var floatBase = (float*)(block + slotBytes);
+        var wordBase = (ushort*)(block + wordOffset);
+        var longBase = (long*)(block + longOffset);
         if (_count > 0)
         {
-            var slotBytes = (long)((nuint)_count * (nuint)sizeof(Slot));
-            Buffer.MemoryCopy(_slots, slots, slotBytes, slotBytes);
-            var dataBytes = (long)(_dataFloats * sizeof(float));
-            Buffer.MemoryCopy(_data, data, dataBytes, dataBytes);
-            shift = (long)((byte*)data - (byte*)_data);
+            Buffer.MemoryCopy(_slots, slots, (long)slotBytes, (long)slotBytes);
+            var floatBytes = (long)(_floats * sizeof(float));
+            Buffer.MemoryCopy(_data, floatBase, floatBytes, floatBytes);
+            var wordBytes = (long)(_words * sizeof(ushort));
+            Buffer.MemoryCopy(_wordsBase, wordBase, wordBytes, wordBytes);
+            var longBytes = (long)(_longs * sizeof(long));
+            Buffer.MemoryCopy(_longsBase, longBase, longBytes, longBytes);
+            var floatShift = (long)((byte*)floatBase - (byte*)_data);
+            var wordShift = (long)((byte*)wordBase - (byte*)_wordsBase);
+            var longShift = (long)((byte*)longBase - (byte*)_longsBase);
             for (var k = 0; k < _count; k++)
             {
-                slots[k].Forward = (float*)((byte*)slots[k].Forward + shift);
-                slots[k].Backward = (float*)((byte*)slots[k].Backward + shift);
+                slots[k].Forward = (float*)((byte*)slots[k].Forward + floatShift);
+                slots[k].Backward = (float*)((byte*)slots[k].Backward + floatShift);
+                slots[k].BackwardByPosition = (float*)((byte*)slots[k].BackwardByPosition + floatShift);
+                slots[k].NextForward = (ushort*)((byte*)slots[k].NextForward + wordShift);
+                slots[k].NextBackward = (ushort*)((byte*)slots[k].NextBackward + wordShift);
+                slots[k].CycleForward = (long*)((byte*)slots[k].CycleForward + longShift);
+                slots[k].CycleBackward = (long*)((byte*)slots[k].CycleBackward + longShift);
             }
         }
-        slots[_count] = new Slot { Forward = data + _dataFloats, Backward = data + _dataFloats + duration, Duration = duration, Looping = looping ? (ushort)1 : (ushort)0 };
-        var tableBytes = (long)(floats * sizeof(float));
-        Buffer.MemoryCopy(forward, data + _dataFloats, tableBytes, tableBytes);
-        Buffer.MemoryCopy(backward, data + _dataFloats + duration, tableBytes, tableBytes);
+        var forwardTable = floatBase + _floats;
+        var backwardTable = forwardTable + ticks + 1;
+        var backwardByPosition = backwardTable + ticks;
+        var nextForward = wordBase + _words;
+        var nextBackward = nextForward + ticks + 1;
+        var cycleForward = longBase + _longs;
+        var cycleBackward = cycleForward + ticks + 1;
+        var tableBytes = (long)(ticks * sizeof(float));
+        Buffer.MemoryCopy(forward, forwardTable, tableBytes, tableBytes);
+        Buffer.MemoryCopy(backward, backwardTable, tableBytes, tableBytes);
         NativeMemory.AlignedFree(forward);
         NativeMemory.AlignedFree(backward);
+        forwardTable[duration] = 0f;
+        backwardTable[duration] = 0f;
+        for (var p = 0; p <= duration; p++)
+        {
+            if (p < duration)
+            {
+                var next = p + 1;
+                var wraps = looping && next == duration;
+                nextForward[p] = wraps ? (ushort)0 : (ushort)next;
+                cycleForward[p] = looping
+                    ? wraps ? 1L : 0L
+                    : 0L;
+                if (p == 0)
+                {
+                    if (looping)
+                    {
+                        backwardByPosition[0] = backwardTable[duration - 1];
+                        nextBackward[0] = (ushort)(duration - 1);
+                        cycleBackward[0] = -1;
+                    }
+                    else
+                    {
+                        backwardByPosition[0] = 0f;
+                        nextBackward[0] = 0;
+                        cycleBackward[0] = TimelineSet<TTrack, TClip>.Skipped;
+                    }
+                }
+                else
+                {
+                    backwardByPosition[p] = backwardTable[p - 1];
+                    nextBackward[p] = (ushort)(p - 1);
+                    cycleBackward[p] = 0;
+                }
+            }
+            else
+            {
+                nextForward[p] = (ushort)p;
+                cycleForward[p] = TimelineSet<TTrack, TClip>.Skipped;
+                if (looping)
+                {
+                    backwardByPosition[p] = 0f;
+                    nextBackward[p] = (ushort)p;
+                    cycleBackward[p] = TimelineSet<TTrack, TClip>.Skipped;
+                }
+                else if (duration == 0)
+                {
+                    backwardByPosition[p] = 0f;
+                    nextBackward[p] = 0;
+                    cycleBackward[p] = TimelineSet<TTrack, TClip>.Skipped;
+                }
+                else
+                {
+                    backwardByPosition[p] = backwardTable[duration - 1];
+                    nextBackward[p] = (ushort)(duration - 1);
+                    cycleBackward[p] = 0;
+                }
+            }
+        }
+        slots[_count] = new Slot
+        {
+            Forward = forwardTable,
+            Backward = backwardTable,
+            BackwardByPosition = backwardByPosition,
+            NextForward = nextForward,
+            NextBackward = nextBackward,
+            CycleForward = cycleForward,
+            CycleBackward = cycleBackward,
+            Duration = duration,
+            Looping = looping ? (ushort)1 : (ushort)0,
+        };
         var previous = _slots;
         _slots = slots;
-        _data = data;
-        _dataFloats = dataFloats;
+        _data = floatBase;
+        _wordsBase = wordBase;
+        _longsBase = longBase;
+        _floats = floats;
+        _words = words;
+        _longs = longs;
         _anyLooping |= looping;
         var assigned = (ushort)_count;
         _count++;
@@ -80,6 +188,8 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var previous = _slots;
         _slots = null;
         _data = null;
+        _wordsBase = null;
+        _longsBase = null;
         _count = 0;
         if (previous != null)
             NativeMemory.AlignedFree(previous);
@@ -144,7 +254,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         if (count == 0) return;
         var slots = set._slots;
         var bound = set._count;
-        var forward = _forward;
+        var gather = Avx2.IsSupported;
         var i = 0;
         while (i < count)
         {
@@ -153,13 +263,26 @@ public ref struct TimelineSetLane<TTrack, TClip>
             if (ProbeChunk(ids, i, chunkEnd, bound))
             {
                 var slot = slots + ids[i];
-                i = forward
-                    ? ApplyUniformForward(slot->Forward, slot->Duration, slot->Looping != 0, positions, effects, cycles, i, chunkEnd)
-                    : ApplyUniformBackward(slot->Backward, slot->Duration, slot->Looping != 0, positions, effects, cycles, i, chunkEnd);
+                if (gather && slot->Looping != 0 && slot->Duration > 1 && SingletonChunk(positions, i, chunkEnd))
+                {
+                    var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
+                    if (blockEnd > i)
+                    {
+                        if (_forward)
+                            GatherForward(slot, positions, effects, cycles, i, blockEnd);
+                        else
+                            GatherBackward(slot, positions, effects, cycles, i, blockEnd);
+                        i = blockEnd;
+                        continue;
+                    }
+                }
+                i = _forward
+                    ? ApplyUniformForward(slot, positions, effects, cycles, i, chunkEnd)
+                    : ApplyUniformBackward(slot, positions, effects, cycles, i, chunkEnd);
             }
             else
             {
-                i = forward
+                i = _forward
                     ? ApplyMixedForward(ids, positions, effects, cycles, slots, i, chunkEnd)
                     : ApplyMixedBackward(ids, positions, effects, cycles, slots, i, chunkEnd);
             }
@@ -167,71 +290,148 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyUniformForward(float* table, ushort duration, bool looping, Span<ushort> positions, Span<float> effects, Span<long> cycles, int i, int limit)
+    static unsafe int ApplyUniformForward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, Span<long> cycles, int i, int limit)
     {
+        var duration = slot->Duration;
+        var looping = slot->Looping != 0;
+        var eff = slot->Forward;
+        var next = slot->NextForward;
+        var cycle = slot->CycleForward;
+        var touchCycles = !cycles.IsEmpty;
         while (i < limit)
         {
             var position = positions[i];
-            var end = RunEnd(positions, i, limit);
+            var end = i + 1 >= limit || positions[i + 1] != position ? i + 1 : RunEnd(positions, i, limit);
             if (position >= duration) { i = end; continue; }
-            var delta = table[position];
-            var next = position + 1;
-            long cycleDelta = 0;
-            bool reset = false;
+            var delta = eff[position];
+            var nextTick = (ushort)(position + 1);
             if (looping)
             {
-                if (next == duration) { next = 0; cycleDelta = 1; }
-            }
-            else reset = true;
-            if (end == i + 1)
-            {
-                effects[i] += delta;
-                positions[i] = (ushort)next;
-                if (reset && !cycles.IsEmpty) cycles[i] = 0;
-                else if (cycleDelta != 0) cycles[i] += cycleDelta;
+                if (nextTick == duration)
+                {
+                    nextTick = 0;
+                    if (end == i + 1)
+                    {
+                        effects[i] += delta;
+                        positions[i] = nextTick;
+                        if (touchCycles) cycles[i] += 1;
+                    }
+                    else
+                    {
+                        Add(effects, i, end, delta);
+                        Fill(positions, i, end, nextTick);
+                        if (touchCycles) AddLong(cycles, i, end, 1);
+                    }
+                    i = end;
+                    continue;
+                }
+                if (end == i + 1)
+                {
+                    effects[i] += delta;
+                    positions[i] = nextTick;
+                }
+                else
+                {
+                    Add(effects, i, end, delta);
+                    Fill(positions, i, end, nextTick);
+                }
             }
             else
             {
-                Add(effects, i, end, delta);
-                Fill(positions, i, end, (ushort)next);
-                if (reset && !cycles.IsEmpty) Zero(cycles, i, end);
-                else if (cycleDelta != 0) Add(cycles, i, end, cycleDelta);
+                if (end == i + 1)
+                {
+                    effects[i] += delta;
+                    positions[i] = nextTick;
+                    if (touchCycles) cycles[i] = 0;
+                }
+                else
+                {
+                    Add(effects, i, end, delta);
+                    Fill(positions, i, end, nextTick);
+                    if (touchCycles) Zero(cycles, i, end);
+                }
             }
             i = end;
+            while (i < limit && (i + 1 >= limit || positions[i + 1] != positions[i]))
+            {
+                var p = positions[i];
+                if (p < duration)
+                {
+                    effects[i] += eff[p];
+                    positions[i] = next[p];
+                    if (touchCycles)
+                    {
+                        var c = cycle[p];
+                        if (looping)
+                        {
+                            if (c != 0) cycles[i] += c;
+                        }
+                        else
+                            cycles[i] = 0;
+                    }
+                }
+                i++;
+            }
         }
         return limit;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyUniformBackward(float* table, ushort duration, bool looping, Span<ushort> positions, Span<float> effects, Span<long> cycles, int i, int limit)
+    static unsafe int ApplyUniformBackward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, Span<long> cycles, int i, int limit)
     {
+        var duration = slot->Duration;
+        var looping = slot->Looping != 0;
+        var eff = slot->Backward;
+        var effByPosition = slot->BackwardByPosition;
+        var next = slot->NextBackward;
+        var cycle = slot->CycleBackward;
+        var touchCycles = !cycles.IsEmpty;
         while (i < limit)
         {
             var position = positions[i];
-            var end = RunEnd(positions, i, limit);
+            var end = i + 1 >= limit || positions[i + 1] != position ? i + 1 : RunEnd(positions, i, limit);
             if (position == 0 && !looping || position > duration || looping && position == duration) { i = end; continue; }
             ushort tick;
             long cycleDelta;
             if (position == 0) { tick = (ushort)(duration - 1); cycleDelta = -1; }
             else { tick = (ushort)(position - 1); cycleDelta = 0; }
-            var delta = table[tick];
-            var next = tick;
-            var reset = !looping;
+            var delta = eff[tick];
+            var nextTick = tick;
             if (end == i + 1)
             {
                 effects[i] += delta;
-                positions[i] = (ushort)next;
-                if (reset && !cycles.IsEmpty) cycles[i] = 0;
-                else if (cycleDelta != 0) cycles[i] += cycleDelta;
+                positions[i] = nextTick;
+                if (!looping && touchCycles) cycles[i] = 0;
+                else if (cycleDelta != 0 && touchCycles) cycles[i] += cycleDelta;
             }
             else
             {
                 Add(effects, i, end, delta);
-                Fill(positions, i, end, (ushort)next);
-                if (reset && !cycles.IsEmpty) Zero(cycles, i, end);
-                else if (cycleDelta != 0) Add(cycles, i, end, cycleDelta);
+                Fill(positions, i, end, nextTick);
+                if (!looping && touchCycles) Zero(cycles, i, end);
+                else if (cycleDelta != 0 && touchCycles) AddLong(cycles, i, end, cycleDelta);
             }
             i = end;
+            while (i < limit && (i + 1 >= limit || positions[i + 1] != positions[i]))
+            {
+                var p = positions[i];
+                var c = p <= duration ? cycle[p] : TimelineSet<TTrack, TClip>.Skipped;
+                if (c != TimelineSet<TTrack, TClip>.Skipped)
+                {
+                    effects[i] += effByPosition[p];
+                    positions[i] = next[p];
+                    if (touchCycles)
+                    {
+                        if (looping)
+                        {
+                            if (c != 0) cycles[i] += c;
+                        }
+                        else
+                            cycles[i] = 0;
+                    }
+                }
+                i++;
+            }
         }
         return limit;
     }
@@ -239,37 +439,58 @@ public ref struct TimelineSetLane<TTrack, TClip>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     static unsafe int ApplyMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, Span<long> cycles, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
+        var touchCycles = !cycles.IsEmpty;
         while (i < limit)
         {
             var position = positions[i];
-            var end = RunEndTwo(ids, positions, i, limit);
+            var end = i + 1 >= limit || ids[i + 1] != ids[i] || positions[i + 1] != position ? i + 1 : RunEndTwo(ids, positions, i, limit);
             var slot = slots + ids[i];
             var duration = slot->Duration;
             if (position >= duration) { i = end; continue; }
             var delta = slot->Forward[position];
-            var next = position + 1;
+            var next = (ushort)(position + 1);
             long cycleDelta = 0;
-            bool reset = false;
-            if (slot->Looping != 0)
+            var looping = slot->Looping != 0;
+            if (looping)
             {
                 if (next == duration) { next = 0; cycleDelta = 1; }
             }
-            else reset = true;
             if (end == i + 1)
             {
                 effects[i] += delta;
-                positions[i] = (ushort)next;
-                if (reset && !cycles.IsEmpty) cycles[i] = 0;
-                else if (cycleDelta != 0) cycles[i] += cycleDelta;
+                positions[i] = next;
+                if (!looping && touchCycles) cycles[i] = 0;
+                else if (cycleDelta != 0 && touchCycles) cycles[i] += cycleDelta;
             }
             else
             {
                 Add(effects, i, end, delta);
-                Fill(positions, i, end, (ushort)next);
-                if (reset && !cycles.IsEmpty) Zero(cycles, i, end);
-                else if (cycleDelta != 0) Add(cycles, i, end, cycleDelta);
+                Fill(positions, i, end, next);
+                if (!looping && touchCycles) Zero(cycles, i, end);
+                else if (cycleDelta != 0 && touchCycles) AddLong(cycles, i, end, cycleDelta);
             }
             i = end;
+            while (i < limit && (i + 1 >= limit || ids[i + 1] != ids[i] || positions[i + 1] != positions[i]))
+            {
+                var p = positions[i];
+                var m = slots + ids[i];
+                if (p < m->Duration)
+                {
+                    effects[i] += m->Forward[p];
+                    positions[i] = m->NextForward[p];
+                    if (touchCycles)
+                    {
+                        var c = m->CycleForward[p];
+                        if (m->Looping != 0)
+                        {
+                            if (c != 0) cycles[i] += c;
+                        }
+                        else
+                            cycles[i] = 0;
+                    }
+                }
+                i++;
+            }
         }
         return limit;
     }
@@ -277,37 +498,159 @@ public ref struct TimelineSetLane<TTrack, TClip>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     static unsafe int ApplyMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, Span<long> cycles, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
+        var touchCycles = !cycles.IsEmpty;
         while (i < limit)
         {
             var position = positions[i];
-            var end = RunEndTwo(ids, positions, i, limit);
+            var end = i + 1 >= limit || ids[i + 1] != ids[i] || positions[i + 1] != position ? i + 1 : RunEndTwo(ids, positions, i, limit);
             var slot = slots + ids[i];
             var duration = slot->Duration;
-            if (position == 0 && slot->Looping == 0 || position > duration || slot->Looping != 0 && position == duration) { i = end; continue; }
+            var looping = slot->Looping != 0;
+            if (position == 0 && !looping || position > duration || looping && position == duration) { i = end; continue; }
             ushort tick;
             long cycleDelta;
             if (position == 0) { tick = (ushort)(duration - 1); cycleDelta = -1; }
             else { tick = (ushort)(position - 1); cycleDelta = 0; }
             var delta = slot->Backward[tick];
-            var next = tick;
-            var reset = slot->Looping == 0;
             if (end == i + 1)
             {
                 effects[i] += delta;
-                positions[i] = (ushort)next;
-                if (reset && !cycles.IsEmpty) cycles[i] = 0;
-                else if (cycleDelta != 0) cycles[i] += cycleDelta;
+                positions[i] = tick;
+                if (!looping && touchCycles) cycles[i] = 0;
+                else if (cycleDelta != 0 && touchCycles) cycles[i] += cycleDelta;
             }
             else
             {
                 Add(effects, i, end, delta);
-                Fill(positions, i, end, (ushort)next);
-                if (reset && !cycles.IsEmpty) Zero(cycles, i, end);
-                else if (cycleDelta != 0) Add(cycles, i, end, cycleDelta);
+                Fill(positions, i, end, tick);
+                if (!looping && touchCycles) Zero(cycles, i, end);
+                else if (cycleDelta != 0 && touchCycles) AddLong(cycles, i, end, cycleDelta);
             }
             i = end;
+            while (i < limit && (i + 1 >= limit || ids[i + 1] != ids[i] || positions[i + 1] != positions[i]))
+            {
+                var p = positions[i];
+                var m = slots + ids[i];
+                var c = p <= m->Duration ? m->CycleBackward[p] : TimelineSet<TTrack, TClip>.Skipped;
+                if (c != TimelineSet<TTrack, TClip>.Skipped)
+                {
+                    effects[i] += m->BackwardByPosition[p];
+                    positions[i] = m->NextBackward[p];
+                    if (touchCycles)
+                    {
+                        if (m->Looping != 0)
+                        {
+                            if (c != 0) cycles[i] += c;
+                        }
+                        else
+                            cycles[i] = 0;
+                    }
+                }
+                i++;
+            }
         }
         return limit;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe void GatherForward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, Span<long> cycles, int i, int limit)
+    {
+        var duration = slot->Duration;
+        var eff = slot->Forward;
+        var last = (ushort)(duration - 1);
+        var durationVector = Vector256.Create(duration);
+        var lastVector = Vector256.Create(last);
+        var zero = Vector256<ushort>.Zero;
+        var one = Vector256.Create((ushort)1);
+        var touchCycles = !cycles.IsEmpty;
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        while (i < limit)
+        {
+            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+            var wrapMask = Vector256.Equals(pos, lastVector);
+            var skipMask = Vector256.GreaterThan(pos, lastVector);
+            var next = pos + one;
+            next = Vector256.ConditionalSelect(wrapMask, zero, next);
+            next = Vector256.ConditionalSelect(skipMask, pos, next);
+            next.StoreUnsafe(ref p, (nuint)i);
+
+            var clamped = Vector256.Min(pos, durationVector);
+            (var wideLo, var wideHi) = Vector256.Widen(clamped);
+            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
+            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+            (effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+            (effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+
+            if (touchCycles)
+            {
+                var wrapBits = Vector256.ExtractMostSignificantBits(wrapMask);
+                while (wrapBits != 0)
+                {
+                    var lane = BitOperations.TrailingZeroCount(wrapBits);
+                    cycles[i + lane] += 1;
+                    wrapBits &= wrapBits - 1;
+                }
+            }
+            i += 16;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe void GatherBackward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, Span<long> cycles, int i, int limit)
+    {
+        var duration = slot->Duration;
+        var eff = slot->BackwardByPosition;
+        var last = (ushort)(duration - 1);
+        var durationVector = Vector256.Create(duration);
+        var lastVector = Vector256.Create(last);
+        var zero = Vector256<ushort>.Zero;
+        var step = Vector256.Create((ushort)0xFFFF);
+        var touchCycles = !cycles.IsEmpty;
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        while (i < limit)
+        {
+            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+            var wrapMask = Vector256.Equals(pos, zero);
+            var skipMask = Vector256.GreaterThan(pos, durationVector) | Vector256.Equals(pos, durationVector);
+            var next = pos + step;
+            next = Vector256.ConditionalSelect(wrapMask, lastVector, next);
+            next = Vector256.ConditionalSelect(skipMask, pos, next);
+            next.StoreUnsafe(ref p, (nuint)i);
+
+            var clamped = Vector256.Min(pos, durationVector);
+            (var wideLo, var wideHi) = Vector256.Widen(clamped);
+            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
+            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+            (effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+            (effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+
+            if (touchCycles)
+            {
+                var wrapBits = Vector256.ExtractMostSignificantBits(wrapMask);
+                while (wrapBits != 0)
+                {
+                    var lane = BitOperations.TrailingZeroCount(wrapBits);
+                    cycles[i + lane] -= 1;
+                    wrapBits &= wrapBits - 1;
+                }
+            }
+            i += 16;
+        }
+    }
+
+    static bool SingletonChunk(Span<ushort> positions, int start, int end)
+    {
+        var probe = start + 64;
+        if (probe > end) probe = end;
+        for (var i = start + 1; i < probe; i++)
+            if (positions[i] == positions[i - 1]) return false;
+        return true;
     }
 
     static bool ProbeChunk(ReadOnlySpan<ushort> ids, int start, int end, int bound)
@@ -471,7 +814,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         for (; i < length; i++) values[start + i] += delta;
     }
 
-    static void Add(Span<long> values, int start, int end, long delta)
+    static void AddLong(Span<long> values, int start, int end, long delta)
     {
         var length = end - start;
         var i = 0;
