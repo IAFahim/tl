@@ -97,4 +97,9 @@ jobs:
           set -euo pipefail
           dotnet build benchmarks/PlaybackPrototype/PlaybackPrototype.csproj -c Release
           dotnet run --project benchmarks/PlaybackPrototype -c Release --no-build
+      - name: Typed playback prototype parity lanes
+        run: |
+          set -euo pipefail
+          dotnet build benchmarks/TypedPlaybackProto/TypedPlaybackProto.csproj -c Release
+          dotnet run --project benchmarks/TypedPlaybackProto -c Release --no-build -- 100000
       - run: eng/release-artifacts --candidate ci artifacts/release
