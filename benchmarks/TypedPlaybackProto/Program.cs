@@ -1,8 +1,6 @@
 using System.Diagnostics;
-using System.Numerics;
-using System.Runtime.InteropServices;
-using System.Runtime.Intrinsics;
 using CombatLib;
+using Tl;
 
 const int Chunk = 256;
 const int Ticks = 60;
@@ -17,7 +15,7 @@ return 0;
 
 void RunAll(int n)
 {
-    Console.WriteLine($"=== Timeline<T>.Forward/.Backward prototype: {n:N0} rows x {Ticks} ticks, segments of {Chunk}, best of {Runs} (Release) ===");
+    Console.WriteLine($"=== Timeline<T>.Seek typed lane: {n:N0} rows x {Ticks} ticks, segments of {Chunk}, best of {Runs} (Release) ===");
 
     var m = n / 3;
     var staggered = Worlds.Staggered(m);
@@ -44,17 +42,17 @@ void RunAll(int n)
     Check("sorted   uniform", expectUni, () => { Uni(); return SortPass(uniform); });
     Check("sorted   waves  ", expectWave, () => { Wave(); return SortPass(waves); });
 
-    Console.WriteLine("  expectations (this host, Ryzen 5 8500G): uniform ~0.15-0.25, waves ~0.20-0.30,");
-    Console.WriteLine("  staggered ~4.1-4.5 (sort ties-to-loses here, loses clearly at 1M, loses ~13x");
-    Console.WriteLine("  on uniform), backward == forward, catch-up x2 linear to slightly superlinear at 1M.");
+    Console.WriteLine("  expectations (this host, Ryzen 5 8500G): uniform ~0.05-0.15, waves ~0.08-0.20,");
+    Console.WriteLine("  staggered ~2.5-4.5 (sort ties-to-loses here, loses clearly at 1M),");
+    Console.WriteLine("  backward == forward, catch-up x2 linear to slightly superlinear at 1M.");
     Lane("plain rows HP+=1        ", Stagger, () => PlainPass(staggered), n);
     Lane("hand lane               ", Stagger, () => HandPass(staggered, 1), n);
-    Lane("Forward  (staggered)    ", Stagger, () => FwdPass(staggered, 1), n);
-    Lane("Forward+sort (staggered)", Stagger, () => SortPass(staggered), n);
-    Lane("Forward  (uniform)      ", Uni, () => FwdPass(uniform, 1), n);
-    Lane("Forward+sort (uniform)  ", Uni, () => SortPass(uniform), n);
-    Lane("Forward  (waves of 100) ", Wave, () => FwdPass(waves, 1), n);
-    Lane("Forward  x2 catch-up    ", Stagger, () => FwdPass(staggered, 2), n);
+    Lane("Seek     (staggered)    ", Stagger, () => FwdPass(staggered, 1), n);
+    Lane("Seek+sort (staggered)   ", Stagger, () => SortPass(staggered), n);
+    Lane("Seek     (uniform)      ", Uni, () => FwdPass(uniform, 1), n);
+    Lane("Seek+sort (uniform)     ", Uni, () => SortPass(uniform), n);
+    Lane("Seek     (waves of 100) ", Wave, () => FwdPass(waves, 1), n);
+    Lane("Seek     x2 catch-up    ", Stagger, () => FwdPass(staggered, 2), n);
     Lane("Backward (uniform)      ", Uni, () => BwdPass(uniform), n);
     Console.WriteLine();
 }
@@ -101,29 +99,30 @@ long HandPass(Worlds w, int steps)
     return Sum(w);
 }
 
-static void TickHand<T>(World? x, int steps) where T : IAsset<T>
+static void TickHand<T>(World? x, int steps) where T : unmanaged, ITimelineLane<T>
 {
-    if (x == null) return;
+    if (x is null) return;
     for (var s = 0; s < x.N; s += Chunk)
     {
         var len = Math.Min(Chunk, x.N - s);
-        HandChunk(x.Pos.AsSpan(s, len), x.Cyc.AsSpan(s, len), x.Hp.AsSpan(s, len), T.Duration, T.Effect, steps);
+        HandChunk<T>(x.Pos.AsSpan(s, len), x.Cyc.AsSpan(s, len), x.Hp.AsSpan(s, len), steps);
     }
 }
 
-static void HandChunk(Span<uint> pos, Span<uint> cyc, Span<float> hp, uint dur, Func<uint, float> effect, int steps)
+static void HandChunk<T>(Span<ushort> pos, Span<long> cyc, Span<float> hp, int steps) where T : unmanaged, ITimelineLane<T>
 {
+    var dur = T.Duration;
     for (var i = 0; i < pos.Length; i++)
     {
         var p = pos[i];
         float d = 0;
         for (var s = 0; s < steps; s++)
         {
-            d += effect(p);
+            d += T.Effect((ushort)p);
             if (++p == dur) { p = 0; cyc[i]++; }
         }
         hp[i] += d;
-        pos[i] = p;
+        pos[i] = (ushort)p;
     }
 }
 
@@ -174,22 +173,19 @@ long SortPass(Worlds w)
     return Sum(w);
 }
 
-static void TickWorld<T>(World? x, int dir) where T : IAsset<T>
+static void TickWorld<T>(World? x, int dir) where T : unmanaged, ITimelineLane<T>
 {
-    if (x == null) return;
+    if (x is null) return;
     for (var s = 0; s < x.N; s += Chunk)
     {
         var len = Math.Min(Chunk, x.N - s);
-        if (dir > 0)
-            Timeline<T>.Forward(x.Pos.AsSpan(s, len)).Apply(x.Hp.AsSpan(s, len), x.Cyc.AsSpan(s, len));
-        else
-            Timeline<T>.Backward(x.Pos.AsSpan(s, len)).Apply(x.Hp.AsSpan(s, len), x.Cyc.AsSpan(s, len));
+        Timeline<T>.Seek(x.Pos.AsSpan(s, len), dir > 0).Apply(x.Hp.AsSpan(s, len), x.Cyc.AsSpan(s, len));
     }
 }
 
-static void TickSorted<T>(World? x) where T : IAsset<T>
+static void TickSorted<T>(World? x) where T : unmanaged, ITimelineLane<T>
 {
-    if (x == null) return;
+    if (x is null) return;
     for (var s = 0; s < x.N; s += Chunk)
     {
         var len = Math.Min(Chunk, x.N - s);
@@ -207,18 +203,18 @@ long Sum(Worlds w)
 
     void SumWorld(World? x, int wp, int wc, int wh)
     {
-        if (x == null) return;
+        if (x is null) return;
         for (var i = 0; i < x.N; i++) s += (long)x.Hp[i] * wh + x.Pos[i] * wp + x.Cyc[i] * wc;
     }
 }
 
-sealed class World(int n, Func<int, uint> init)
+sealed class World(int n, Func<int, ushort> init)
 {
-    public readonly uint[] Pos = new uint[n];
-    public readonly uint[] Cyc = new uint[n];
+    public readonly ushort[] Pos = new ushort[n];
+    public readonly long[] Cyc = new long[n];
     public readonly float[] Hp = new float[n];
     public readonly int N = n;
-    readonly Func<int, uint> _init = init;
+    readonly Func<int, ushort> _init = init;
 
     public World Reset()
     {
@@ -235,15 +231,15 @@ sealed class Worlds(World combat, World? pulse, World? big)
     public IEnumerable<World> All { get { if (Combat != null) yield return Combat; if (Pulse != null) yield return Pulse; if (Big != null) yield return Big; } }
 
     public static Worlds Staggered(int m) => new(
-        new World(m, i => (uint)(i % CombatLib.Combat.Duration)).Reset(),
+        new World(m, i => (ushort)(i % CombatLib.Combat.Duration)).Reset(),
         new World(m, _ => 0).Reset(),
-        new World(m, i => (uint)(i % CombatLib.Big.Duration)).Reset());
+        new World(m, i => (ushort)(i % CombatLib.Big.Duration)).Reset());
 
     public static Worlds Uniform(int n) => new(
-        new World(n, _ => 5).Reset(), null, null);
+        new World(n, _ => (ushort)5).Reset(), null, null);
 
     public static Worlds Waves(int n) => new(
-        new World(n, i => (uint)(i / 100 % CombatLib.Combat.Duration)).Reset(), null, null);
+        new World(n, i => (ushort)(i / 100 % CombatLib.Combat.Duration)).Reset(), null, null);
 
     public void ResetAll()
     {
@@ -253,151 +249,9 @@ sealed class Worlds(World combat, World? pulse, World? big)
     }
 }
 
-public static class Timeline<T> where T : IAsset<T>
+static class Sorted<T> where T : unmanaged, ITimelineLane<T>
 {
-    public static Plan Forward(Span<uint> pos) => Plan.Scan(pos, 1);
-    public static Plan Backward(Span<uint> pos) => Plan.Scan(pos, -1);
-
-    public ref struct Plan
-    {
-        Span<uint> _pos;
-        int _count;
-
-        public static Plan Scan(Span<uint> pos, int dir)
-        {
-            Runs<T>.Ensure(pos.Length);
-            var runs = Runs<T>.Buffer;
-            var starts = Runs<T>.Starts;
-            var lens = Runs<T>.Lens;
-            var n = pos.Length;
-            var dur = T.Duration;
-            var i = 0;
-            var count = 0;
-            while (i < n)
-            {
-                var e = RunEnd(pos, i);
-                var q = pos[i];
-                float d;
-                uint np;
-                uint wrap;
-                if (dir > 0)
-                {
-                    d = T.Effect(q);
-                    if (q + 1 == dur) { np = 0; wrap = 1; } else { np = q + 1; wrap = 0; }
-                }
-                else
-                {
-                    if (q == 0) { np = dur - 1; wrap = 0xFFu; } else { np = q - 1; wrap = 0; }
-                    d = -T.Effect(np);
-                }
-                runs[count] = (ulong)BitConverter.SingleToUInt32Bits(d) << 32 | np << 8 | wrap;
-                starts[count] = i;
-                lens[count] = e - i;
-                count++;
-                i = e;
-            }
-            return new Plan { _pos = pos, _count = count };
-        }
-
-        public void Apply(Span<float> hp, Span<uint> cyc)
-        {
-            var runs = Runs<T>.Buffer;
-            var starts = Runs<T>.Starts;
-            var lens = Runs<T>.Lens;
-            for (var r = 0; r < _count; r++)
-            {
-                var rec = runs[r];
-                var d = BitConverter.UInt32BitsToSingle((uint)(rec >> 32));
-                var np = (uint)((rec >> 8) & 0xFFFFFFu);
-                var wrap = (uint)(rec & 0xFFu);
-                if (wrap == 0xFFu) wrap = 0xFFFFFFFFu;
-                var i = starts[r];
-                var len = lens[r];
-                AddTo(hp, i, d, len);
-                FillU32(_pos, i, np, len);
-                if (wrap != 0)
-                    AddU32(cyc, i, wrap, len);
-            }
-        }
-
-        static int RunEnd(Span<uint> p, int i)
-        {
-            var n = p.Length;
-            var p0 = p[i];
-            var j = i + 1;
-            if (Vector512.IsHardwareAccelerated)
-            {
-                ref var pr = ref MemoryMarshal.GetReference(p);
-                var vp0 = Vector512.Create(p0);
-                var lim = n - 16;
-                while (j <= lim)
-                {
-                    var m = Vector512.ExtractMostSignificantBits(Vector512.Equals(Vector512.LoadUnsafe(ref pr, (nuint)j), vp0));
-                    if (m != 0xFFFFu)
-                        return j + BitOperations.TrailingZeroCount(~m);
-                    j += 16;
-                }
-            }
-            while (j < n && p[j] == p0) j++;
-            return j;
-        }
-
-        static void AddTo(Span<float> f, int i, float d, int len)
-        {
-            var k = 0;
-            if (Vector512.IsHardwareAccelerated)
-            {
-                var v = Vector512.Create(d);
-                var lim = len & ~15;
-                for (; k < lim; k += 16) Vector512.Add(Vector512.LoadUnsafe(ref f[i], (nuint)k), v).StoreUnsafe(ref f[i], (nuint)k);
-            }
-            for (; k < len; k++) f[i + k] += d;
-        }
-
-        static void FillU32(Span<uint> p, int i, uint np, int len)
-        {
-            var k = 0;
-            if (Vector512.IsHardwareAccelerated && len >= 16)
-            {
-                var v = Vector512.Create(np);
-                var lim = len & ~15;
-                for (; k < lim; k += 16) v.StoreUnsafe(ref p[i], (nuint)k);
-            }
-            for (; k < len; k++) p[i + k] = np;
-        }
-
-        static void AddU32(Span<uint> p, int i, uint add, int len)
-        {
-            var k = 0;
-            if (Vector512.IsHardwareAccelerated && len >= 16)
-            {
-                var v = Vector512.Create(add);
-                var lim = len & ~15;
-                for (; k < lim; k += 16) Vector512.Add(Vector512.LoadUnsafe(ref p[i], (nuint)k), v).StoreUnsafe(ref p[i], (nuint)k);
-            }
-            for (; k < len; k++) p[i + k] += add;
-        }
-    }
-}
-
-static class Runs<T> where T : IAsset<T>
-{
-    public static ulong[] Buffer = [];
-    public static int[] Starts = [];
-    public static int[] Lens = [];
-
-    public static void Ensure(int n)
-    {
-        if (Buffer.Length >= n) return;
-        Buffer = new ulong[n];
-        Starts = new int[n];
-        Lens = new int[n];
-    }
-}
-
-static class Sorted<T> where T : IAsset<T>
-{
-    public static void Tick(Span<uint> pos, Span<uint> cyc, Span<float> hp)
+    public static void Tick(Span<ushort> pos, Span<long> cyc, Span<float> hp)
     {
         var n = pos.Length;
         if (n == 0) return;
@@ -414,54 +268,54 @@ static class Sorted<T> where T : IAsset<T>
         for (var c = 0; c < k; c++) { var v = counts[c]; counts[c] = total; total += v; }
         for (var i = 0; i < n; i++) sorted[counts[pos[i]]++] = i;
         for (var r = 0; r < n; r++) { var i = sorted[r]; sPos[r] = pos[i]; sHp[r] = hp[i]; sCyc[r] = cyc[i]; }
-        Timeline<T>.Forward(sPos.AsSpan()).Apply(sHp.AsSpan(), sCyc.AsSpan());
+        Timeline<T>.Seek(sPos, true).Apply(sHp, sCyc);
         for (var r = 0; r < n; r++) { var i = sorted[r]; pos[i] = sPos[r]; hp[i] = sHp[r]; cyc[i] = sCyc[r]; }
     }
 }
 
-static class SortBuf<T> where T : IAsset<T>
+static class SortBuf<T> where T : unmanaged, ITimelineLane<T>
 {
     public static int[] Sorted = [];
-    public static uint[] SPos = [];
+    public static ushort[] SPos = [];
     public static float[] SHp = [];
-    public static uint[] SCyc = [];
+    public static long[] SCyc = [];
     public static int[] Counts = [];
 
     public static void Ensure(int n, int k)
     {
         if (Sorted.Length >= n && Counts.Length >= k) return;
         Sorted = new int[n];
-        SPos = new uint[n];
+        SPos = new ushort[n];
         SHp = new float[n];
-        SCyc = new uint[n];
+        SCyc = new long[n];
         Counts = new int[k];
     }
 }
 
 namespace CombatLib
 {
-    public interface IAsset<T> where T : IAsset<T>
+    public readonly struct Combat : Tl.ITimelineLane<Combat>
     {
-        static abstract uint Duration { get; }
-        static abstract float Effect(uint pos);
+        public static ushort Duration => 20;
+        public static bool Looping => true;
+        public static float Effect(ushort pos) => pos < 10 ? 7f : -10f;
+        public static float InverseEffect(ushort pos) => pos < 10 ? -7f : 10f;
     }
 
-    public readonly struct Combat : IAsset<Combat>
+    public readonly struct Pulse : Tl.ITimelineLane<Pulse>
     {
-        public static uint Duration => 20;
-        public static float Effect(uint pos) => pos < 10 ? 7f : -10f;
+        public static ushort Duration => 1;
+        public static bool Looping => true;
+        public static float Effect(ushort pos) => 3f;
+        public static float InverseEffect(ushort pos) => -3f;
     }
 
-    public readonly struct Pulse : IAsset<Pulse>
-    {
-        public static uint Duration => 1;
-        public static float Effect(uint pos) => 3f;
-    }
-
-    public readonly struct Big : IAsset<Big>
+    public readonly struct Big : Tl.ITimelineLane<Big>
     {
         public static readonly float[] Seg = [2, -4, 6, -8, 10, -12, 14, -16];
-        public static uint Duration => 128;
-        public static float Effect(uint pos) => Seg[pos >> 4];
+        public static ushort Duration => 128;
+        public static bool Looping => true;
+        public static float Effect(ushort pos) => Seg[pos >> 4];
+        public static float InverseEffect(ushort pos) => -Seg[pos >> 4];
     }
 }

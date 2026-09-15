@@ -5,7 +5,7 @@ The `tlbake` command (package `Tl.Bake`) compiles designer-authored timeline JSO
 ```sh
 dotnet tool install Tl.Bake --global --add-source <directory containing the Tl.Bake nupkg>
 tlbake boss.json boss.tlb --assembly MyGame.Domain.dll
-tlbake boss.json boss.tlb --assembly MyGame.Domain.dll --kernel Kernels.g.cs
+tlbake boss.json boss.tlb --assembly MyGame.Domain.dll
 tlbake --strip boss.tlb boss.ship.tlb
 tlbake --report boss.tlb
 ```

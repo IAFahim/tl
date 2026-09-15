@@ -36,7 +36,7 @@ public static class Program
     {
         if (args.Length < 2)
         {
-            Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]... [--kernel <out.g.cs>] [--cache <dir>]");
+            Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]");
             Console.Error.WriteLine("       tlbake --strip <input.tlb> <output.tlb>");
             Console.Error.WriteLine("       tlbake --report <input.tlb>");
             return 1;
@@ -44,7 +44,6 @@ public static class Program
 
         string? inputPath = null;
         string? outputPath = null;
-        string? kernelPath = null;
         string? cacheDir = null;
         var assemblyPaths = new List<string>();
 
@@ -58,15 +57,6 @@ public static class Program
                     return 1;
                 }
                 assemblyPaths.Add(args[++i]);
-            }
-            else if (args[i] == "--kernel")
-            {
-                if (i + 1 >= args.Length)
-                {
-                    Console.Error.WriteLine("Error: Missing argument for --kernel");
-                    return 1;
-                }
-                kernelPath = args[++i];
             }
             else if (args[i] == "--cache")
             {
@@ -94,7 +84,7 @@ public static class Program
 
         if (inputPath == null || outputPath == null)
         {
-            Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]... [--kernel <out.g.cs>] [--cache <dir>]");
+            Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]");
             return 1;
         }
 
@@ -118,17 +108,13 @@ public static class Program
 
         byte[]? key = null;
         string? tlbEntry = null;
-        string? kernelEntry = null;
         if (cacheDir != null)
         {
-            key = BakeCacheKey.Compute(jsonBytes, assemblyBytes, kernel: kernelPath != null, strip: false);
+            key = BakeCacheKey.Compute(jsonBytes, assemblyBytes, strip: false);
             tlbEntry = Path.Combine(cacheDir, Convert.ToHexString(key) + ".tlb");
-            kernelEntry = kernelPath == null ? null : Path.Combine(cacheDir, Convert.ToHexString(key) + ".g.cs");
-            if (File.Exists(tlbEntry) && (kernelEntry == null || File.Exists(kernelEntry)))
+            if (File.Exists(tlbEntry))
             {
                 CopyFresh(tlbEntry, outputPath);
-                if (kernelEntry != null)
-                    CopyFresh(kernelEntry, kernelPath!);
                 Console.WriteLine($"cache: hit {BakeCacheKey.Prefix(key)}");
                 return 0;
             }
@@ -139,19 +125,11 @@ public static class Program
         var bytes = TimelineBaker.BakeJson(json, resolver);
 
         WriteOutput(outputPath, bytes);
-        string? kernelSource = null;
-        if (kernelPath != null)
-        {
-            kernelSource = KernelEmitter.Emit(bytes);
-            File.WriteAllText(kernelPath, kernelSource);
-        }
 
         if (cacheDir != null)
         {
             Directory.CreateDirectory(cacheDir!);
             File.WriteAllBytes(tlbEntry!, bytes);
-            if (kernelEntry != null)
-                File.WriteAllText(kernelEntry, kernelSource!);
             Console.WriteLine($"cache: miss {BakeCacheKey.Prefix(key!)}");
         }
 

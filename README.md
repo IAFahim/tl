@@ -4,13 +4,13 @@
 
 [![ci](https://github.com/IAFahim/tl/actions/workflows/ci.yml/badge.svg)](https://github.com/IAFahim/tl/actions/workflows/ci.yml)
 
-Timeline data and timeline behavior are separate. Designers author tracks, clips, windows, and loop points as JSON; a deterministic `tlbake` compile produces canonical TLB1 assets; typed C# consumers (`ITimelineJob<TTrack,TClip>`) describe what one active `(track, clip)` pair does to borrowed component storage. The runtime has no reflection, no delegates on warm paths, no runtime compilation, and no warm-path allocation — the same baked bytes drive .NET and Unity.
+Timeline data and timeline behavior are separate. Designers author tracks, clips, windows, and loop points as JSON; a deterministic `tlbake` compile produces canonical TLB1 assets; typed C# consumers (`ITimelineJob<TTrack,TClip>`) fold what one active `(track, clip)` pair does into a borrowed float effect column. The runtime has no reflection, no delegates on warm paths, no runtime compilation, and no warm-path allocation — the same baked bytes drive .NET and Unity.
 
 - **Deterministic bake** — same inputs, same bytes, on every machine and culture; content-keyed cache hits preserve timestamps
 - **Heterogeneous assets** — tracks and clips of different types in one asset; execution order is authored order (A-B-A preserved)
-- **Total signed `Tick`** — forward, backward, and clamped movement over borrowed component columns, committed once per crossed frame
+- **Typed playback lane** — `Timeline<T>.Seek(positions, forward).Apply(effects, cycles)` advances every row exactly one frame over run-length groups; catch-up is repeated calls, rewind is `forward: false`
+- **Bind-time effect tables** — consumers are measured once per (pair, asset) with position-purity validation; no kernel catalog, no interpreter tier, one execution path
 - **Typed frame queries** — a read-only stage view over the row's currently selected step; never advances time
-- **Kernel-compiled assets** — baked assets bind to generated kernels by content hash; the interpreter is the verified fallback
 - **NativeAOT-safe** — no generator assemblies in application output; one shared domain file compiles for both .NET and Unity
 - **Flawless install** — `dotnet add package` and run; package targets configure consuming projects automatically
 
@@ -24,6 +24,8 @@ Timeline data and timeline behavior are separate. Designers author tracks, clips
 The packages are development prereleases on [nuget.org](https://www.nuget.org/).
 
 ## Quick Start
+
+The typed lane below ships in the next prerelease; until it publishes, the pinned alpha.6 packages still run the retired facade (the [NuGet quick start](samples/NuGetQuickStart/README.md) documents that published surface).
 
 ### 1. Install
 
@@ -52,17 +54,6 @@ using Tl;
 
 namespace Combat
 {
-    public readonly partial struct Resistance
-    {
-        public readonly float Scale;
-        public Resistance(float scale) => Scale = scale;
-    }
-
-    public partial struct Health
-    {
-        public float Value;
-    }
-
     public readonly struct DamageClip
     {
         public readonly float Amount;
@@ -82,17 +73,16 @@ namespace Combat
     {
         public static void Execute(
             in Frame<DamageTrack, DamageClip> frame,
-            in Resistance resistance,
-            ref Health health)
+            ref float health)
         {
-            var amount = frame.Clip.Amount * frame.Track.Multiplier * resistance.Scale;
-            health.Value += frame.IsBackward ? amount : -amount;
+            var amount = frame.Clip.Amount * frame.Track.Multiplier;
+            health += frame.Direction * amount;
         }
     }
 }
 ```
 
-Track values hold immutable settings. Clip values hold immutable authored payload. `in` declares a borrowed read-only component column; `ref` declares a borrowed writable column. The generator derives each consumer's column set from the `Execute` signature. The `partial` modifiers are optional in .NET; keeping them lets the same file compile inside Unity, where the [tl.unity guide](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) adds host hooks in a second partial file.
+Track values hold immutable settings. Clip values hold immutable authored payload. A lane consumer writes exactly one `ref float` effect column and self-inverts through `Frame.Direction`, so rewind is exact; `BakedLane.Bind` validates at cold time that the fold depends only on position.
 
 ### 3. Author and bake one timeline
 
@@ -125,31 +115,55 @@ dotnet build -c Release
 tlbake boss.json boss.tlb --assembly bin/Release/net10.0/MyApp.dll --cache ~/.tlbcache
 ```
 
-`tlbake --report boss.tlb` audits sizes and `tlbake --strip boss.tlb boss.dist.tlb` trims metadata for distribution (ship kernel-bound assets stripped).
+`tlbake --report boss.tlb` audits sizes and `tlbake --strip boss.tlb boss.dist.tlb` trims authoring metadata for distribution.
 
-### 4. Load, advance, and query
+### 4. Bind, advance, and query
 
-The application owns the rows, component arrays, and the game clock. `TimelineAsset.Load` is a cold validated import; dispose the asset after all rows and readers are done.
+The application owns the position, effect, and cycle columns and the game clock. `TimelineAsset.Load` is a cold validated import; `BakedLane.Bind` measures the per-position effect tables once; dispose the asset after all readers are done.
 
 ```cs
 using var asset = TimelineAsset.Load(File.ReadAllBytes("boss.tlb"));
-var rows    = new[] { new TimelineComponent(asset.Reference) };
-var resist  = new[] { new Resistance(1f) };
-var health  = new[] { new Health { Value = 100f } };
-var query   = Timeline.Rows(rows).Read(resist).Write(health);
-query.Tick(gameTick: 200_000u, delta: 1);   // consumers dispatch, movement commits
+BakedLane<DamageTrack, DamageClip>.Bind(asset);
+
+var positions = new ushort[] { 0 };
+var health    = new float[] { 100f };
+var cycles    = new long[1];
+
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health, cycles);   // one frame
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health, cycles);   // catch-up call
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, false).Apply(health, cycles);  // rewind
 ```
 
-`Tick(G, +N)` emits game ticks `G` through `G + N - 1`; `Tick(G, -N)` emits `G - 1` through `G - N`. Non-looping assets clamp at duration; loops carry independent per-instance cycles. Every available crossed frame executes.
+Every `Apply` advances each row exactly one frame: rows that would cross duration clamp on finite assets, looping assets wrap with ±1 cycle deltas, and skipped rows leave their columns untouched. Rows sharing a position form one run — the per-row cost collapses toward a vector add on grouped storage.
 
-The same bytes drive the typed query lane, which reads the row's currently selected stage without advancing it:
+Several timelines of the **same** pair play side by side through a `TimelineSet`: ids are assigned at load time by `Add` (never authored, never baked), all tables live in one contiguous native block, and one call advances a whole mixed crowd — minions and boss together.
 
 ```cs
-foreach (var frame in Timeline.Query<DamageTrack, DamageClip>(in rows[0]))
-    ApplyDamage.Execute(in frame, in resist[0], ref health[0]);
+using var minionAsset = TimelineAsset.Load(File.ReadAllBytes("minion-jump.tlb"));
+using var bossAsset   = TimelineAsset.Load(File.ReadAllBytes("boss-jump.tlb"));
+var jumps    = new TimelineSet<DamageTrack, DamageClip>();
+var minionId = jumps.Add(minionAsset);
+var bossId   = jumps.Add(bossAsset);
+
+var timelineIds = new ushort[] { minionId, minionId, bossId };
+var lastTick    = new ushort[] { 0, 0, 2 };
+var health      = new float[3];
+var cycles      = new long[3];
+
+jumps.Gather(timelineIds).Seek(lastTick, true).Apply(health, cycles);   // whole crowd, one frame
 ```
 
-The query is a read-only stage view: it never advances `Position` or `Cycle`, so repeated queries return identical frames. A gap or clamped-completed position yields no frames; reverse movement re-observes the same stages in reverse; multiple occurrences of one pair in a step appear in authored order. In this view `Track`, `Clip`, `TimelineTick`, `Cycle`, and `TrackIndex` are populated; `GameTick` and `Flags` belong to the execution path. Frames exist only during `Execute`; consumers must not retain their borrowed references.
+There is deliberately **no multi-frame step parameter** and never will be. A game runs thousands of systems that must all observe every timeline tick — a 50-tick skip would hide 49 intermediate states from them. Lag catch-up is repeated single-frame calls, which also keeps every float fold bit-exact (a precomputed K-frame sum can round differently from K sequential folds). This is an owner decision; see `docs/typed-playback-lane.md`.
+
+The same bytes drive the typed query lane, which reads a row's currently selected stage without advancing it:
+
+```cs
+foreach (var frame in Timeline.Query<DamageTrack, DamageClip>(
+             new TimelineComponent(asset.Reference) { Position = positions[0] }))
+    ApplyDamage.Execute(in frame, ref health[0]);
+```
+
+The query is a read-only stage view: it never advances `Position` or `Cycle`, so repeated queries return identical frames. A gap or clamped-completed position yields no frames; reverse movement re-observes the same stages in reverse; multiple occurrences of one pair in a step appear in authored order. Frames exist only during `Execute`; consumers must not retain their borrowed references.
 
 ## Generated reports
 
@@ -163,41 +177,31 @@ The export writes generated `.g.cs`, a manifest, and `TlGenCompile.report.txt` u
 
 ## Performance contract
 
-The hot path is allocation-free after warmup. `benchmarks/Alpha --verify` checks kernel-lane, data-authored, and allocation receipts; scalar latency and multi-entity throughput are reported separately and never inferred from a partial inner loop.
+The hot path is allocation-free after warmup. `benchmarks/Alpha --verify` checks lane, data-authored, and allocation receipts; scalar latency and multi-entity throughput are reported separately and never inferred from a partial inner loop.
 
 The repository enforces a 300,000-byte budget over production source contents plus relative UTF-8 paths. Generated source, static data, per-entity state, managed/native output, scratch, and allocations are measured separately.
 
 ## Performance
 
-Measured with [benchmarks/Alpha](benchmarks/README.md); receipts and methodology in
-[docs/kernel-warm-path-perf.md](docs/kernel-warm-path-perf.md). The runnable samples under
-`samples/SingleTimeline` and `samples/ManyEntities` reproduce the consumer-facing numbers with
-checksum-verified effects and print the expectations next to the code.
+Throughput is the typed lane's product shape; receipts and methodology in
+[docs/typed-playback-lane.md](docs/typed-playback-lane.md). `benchmarks/TypedPlaybackProto`
+prints checksum-verified parity against a hand lane at 100k and 1M rows, and the runnable sample
+under `samples/ManyEntities` reproduces consumer-facing numbers with checksum-verified effects.
 
-One timeline, ticked one entity at a time (i9-14900K, .NET 10, best-of; 16/256 tracks from the
-benchmark suite):
+Many entities on one shared asset, every entity at its own clock (ns/row, Ryzen 5 8500G, .NET 10,
+Release, best of 5, 60 ticks):
 
-| shape | hand-written ceiling | facade + kernel | facade + interpreter |
-| --- | ---: | ---: | ---: |
-| 1 track | 0.24 ns/tick | 6.7 ns/tick | 7.5 ns/tick |
-| 3 tracks | 1.41 ns/tick | 12.1 ns/tick | 15.2 ns/tick |
-| 16 tracks | 11.5 ns/tick | 59.1 ns/tick | 71.4 ns/tick |
-| 256 tracks | 323.6 ns/tick | 967.0 ns/tick | 1,080.7 ns/tick |
+| workload | typed lane | hand SoA sweep |
+| --- | ---: | ---: |
+| uniform clocks | 0.18 | — |
+| waves of 100 | 0.23 | — |
+| staggered singles | 2.9-3.1 | 0.7 (hand lane) |
+| duration-1 pulse loops | 0.42 | 0.51 |
+| spawn/retire churn (~400k live) | 0.70 | 0.78 |
+| rewind (backward) | 0.19-0.20 | — |
 
-Many entities on one shared asset, every entity at its own clock (200k rows x 60 ticks; the
-table column is the playback-table pattern, checksum-verified against the facade in
-`samples/ManyEntities`):
-
-| workload | facade | playback table | ratio |
-| --- | ---: | ---: | ---: |
-| staggered clocks (movement + write) | 9.0 ns/row | 0.71 ns/row | 12.7x |
-| duration-1 pulse loops | 8.8 ns/row | 0.50 ns/row | 17.6x |
-| cross-entity watches | 9.6 ns/row | 0.95 ns/row | 10.1x |
-| spawn/retire churn (~400k live) | 11.5 ns/row | 0.70 ns/row | 16.4x |
-
-Warm playback allocates 0 B in every lane. The interpreter is the correctness fallback, never
-the chosen path: authoring compiles against the generated consumer binding, and a matching
-`tlbake --kernel` file binds by content hash at load.
+Warm playback allocates 0 B in every lane; a 256-track module folds to one 34,688-effect column
+per tick (`tests/Tl.Alpha --module-capacity`).
 
 ## Unity ECS
 
@@ -229,23 +233,24 @@ foreach (var (timeline, resistance, health) in
 
 | Path | Role |
 | --- | --- |
-| `src/Tl.Core` | Runtime declarations, asset import, frames, state, and total movement |
+| `src/Tl.Core` | Runtime declarations, asset import, frames, state, movement, and the typed playback lane |
 | `src/Tl.Gen.CSharp` | C# consumer discovery, typed binding, and export tool |
 | `src/Tl.CSharp` | One-package C# installation |
-| `samples/Mixed` | Data-authored timeline sample |
+| `samples/Mixed` | Data-authored timeline sample on the typed lane |
 | `samples/NuGetQuickStart` | Runnable quick start that consumes the published nuget.org packages; CI runs it on every build |
-| `samples/SingleTimeline` | Direct vs kernel vs interpreter on one timeline, checksum-verified; CI runs it |
-| `samples/ManyEntities` | Facade vs playback-table lanes with per-entity clocks; CI runs it |
+| `samples/ManyEntities` | Typed lane vs hand SoA lanes with per-entity clocks; CI runs it |
 | `tools/Tl.Bake` | `tlbake` JSON-to-`TLB1` baker with cache, report, and strip |
-| `tests/Tl.Alpha` | Kernel-lane, data-authored, and allocation receipts |
+| `tests/Tl.Alpha` | Typed-lane, data-authored, and allocation receipts |
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |
-| `benchmarks/Alpha` | Oracle, latency, throughput, assembly, and PMU evidence |
+| `benchmarks/Alpha` | Oracle and verification evidence for data-authored lane shapes |
+| `benchmarks/TypedPlaybackProto` | Typed lane parity and throughput at 100k-1M rows |
 
 The data-authored Unity host package (`com.iafahim.tl`) lives in the [tl.unity](https://github.com/IAFahim/tl.unity) repository, published under the MIT license decided in issue #64.
 
 ## Documentation
 
 - [Data-authored API contract](docs/data-authored-api.md) — the frozen design contract
+- [Typed playback lane](docs/typed-playback-lane.md) — the shipped playback surface, contract, receipts, and verdicts
 - [Execution semantics](docs/semantics.md) — select, execute, commit, and movement laws of the removed alpha.3 catalog surface
 - [Architecture](docs/architecture.md) — package and boundary map
 - [Unity end-to-end](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) — JSON bake to Unity ECS typed queries

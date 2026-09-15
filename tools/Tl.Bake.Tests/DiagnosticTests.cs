@@ -8,6 +8,26 @@ namespace Tl.Bake.Tests;
 public class DiagnosticTests
 {
     [Fact]
+    public void DurationOverLaneColumn_ThrowsDiagnostic()
+    {
+        var json = """
+        {
+          "duration": 70000,
+          "tracks": [
+            {
+              "namespace": "Tlb",
+              "type": "AlphaTrack",
+              "clips": [ { "namespace": "Tlb", "type": "AlphaClip", "start": 0, "end": 70000 } ]
+            }
+          ]
+        }
+        """;
+
+        var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json));
+        Assert.Contains("exceeds the 65535-tick lane position column", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UnknownType_ThrowsDiagnostic()
     {
         var json = """
@@ -414,7 +434,7 @@ public class DiagnosticTests
         var bytes = TimelineBaker.BakeJson(json);
         using var asset = TimelineAsset.Load(bytes);
         var rows = new[] { new Tl.TimelineComponent(asset.Reference) };
-        Tl.Timeline.Rows(rows).Tick(0u, 5);
+        rows[0].Position = 5;
         Tlb.DualTrack track = default;
         Tlb.DualAlphaClip alpha = default;
         Tlb.DualBetaClip beta = default;

@@ -1,54 +1,27 @@
-using System.Security.Cryptography;
-
 internal static class Verification
 {
     internal static void Run()
     {
-        foreach (var shape in new[]
-                 {
-                     TimelineShape.OneTrack,
-                     TimelineShape.ThreeTracks,
-                     TimelineShape.Blend,
-                     TimelineShape.SixteenTracks,
-                     TimelineShape.TwoHundredFiftySixTracks,
-                 })
-        {
+        foreach (var shape in Enum.GetValues<TimelineShape>())
             foreach (var pattern in Enum.GetValues<TickPattern>())
             {
-                var alpha = new ShapeCase(shape, pattern);
-                using var facade = new DataAuthoredCase(shape, pattern);
-                var direct = alpha.Direct();
-                if (TimelineKernelHashes.Committed.ContainsKey(shape)) DataAuthoredCase.AssertKernelBound(facade, true);
-                var dataAuthored = facade.DataAuthored();
-                ScalarCatalogQueryBenchmarks.Require(direct, dataAuthored, $"data-authored/{shape}/facade/{pattern}");
-                Console.WriteLine($"data-authored/{shape}/{pattern}: direct={direct} facade={dataAuthored}");
-
-                if (TimelineKernelHashes.Committed.TryGetValue(shape, out var kernelHash))
-                {
-                    var baked = DataAuthoredCase.Bake(shape, DataAuthoredMode.Standard);
-                    var actualHash = Convert.ToHexString(SHA256.HashData(baked)).ToLowerInvariant();
-                    if (actualHash != kernelHash)
-                        throw new InvalidOperationException($"{shape} baked bytes hash {actualHash} does not match the committed kernel hash {kernelHash}.");
-                    var interpreterBytes = (byte[])baked.Clone();
-                    interpreterBytes[40] = 0xA5;
-                    using var interpreterCase = new DataAuthoredCase(shape, pattern, DataAuthoredMode.Standard, interpreterBytes);
-                    var interpreter = interpreterCase.DataAuthored();
-                    DataAuthoredCase.AssertKernelBound(interpreterCase, false);
-                    ScalarCatalogQueryBenchmarks.Require(direct, interpreter, $"data-authored/{shape}/interpreter/{pattern}");
-                    Console.WriteLine($"kernel-lane/{shape}/{pattern}: facade-is-hash-bound-kernel={dataAuthored} interpreter={interpreter}");
-                }
+                using var lane = new LaneCase(shape, pattern);
+                var actual = lane.Run();
+                var expected = LaneCase.Oracle(shape, pattern);
+                if (actual != expected)
+                    throw new InvalidOperationException($"lane/{shape}/{pattern}: {actual} != oracle {expected}.");
+                Console.WriteLine($"lane/{shape}/{pattern}: {actual} == oracle");
             }
 
-            using var allocationCase = new DataAuthoredCase(shape, TickPattern.Forward);
-            for (var pass = 0; pass < 16; pass++)
-                _ = allocationCase.DataAuthored();
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            for (var pass = 0; pass < 128; pass++)
-                _ = allocationCase.DataAuthored();
-            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            if (allocated != 0)
-                throw new InvalidOperationException($"Warm data-authored {shape} facade allocated {allocated} B.");
-            Console.WriteLine($"allocation: 128 x {DataAuthoredCase.Operations} {shape} data-authored facade ticks retained {allocated} B");
-        }
+        using var allocationCase = new LaneCase(TimelineShape.SixteenTracks, TickPattern.Forward);
+        for (var pass = 0; pass < 16; pass++)
+            _ = allocationCase.Run();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var pass = 0; pass < 128; pass++)
+            _ = allocationCase.Run();
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        if (allocated != 0)
+            throw new InvalidOperationException($"Warm lane run allocated {allocated} B.");
+        Console.WriteLine($"allocation: 128 x {LaneCase.Operations} sixteen-track lane runs retained {allocated} B");
     }
 }

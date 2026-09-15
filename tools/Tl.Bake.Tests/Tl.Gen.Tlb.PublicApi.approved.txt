@@ -1,6 +1,6 @@
 type Tl.Gen.Tlb.BakeCacheKey
-  Method Byte[] Compute(Byte[], System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Boolean, Boolean)
-  Method Byte[] Compute(System.String, Byte[], System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Boolean, Boolean)
+  Method Byte[] Compute(Byte[], System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Boolean)
+  Method Byte[] Compute(System.String, Byte[], System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Boolean)
   Method System.String Prefix(Byte[])
   Field System.String ToolVersion
 type Tl.Gen.Tlb.BakeDiagnosticException
@@ -10,8 +10,6 @@ type Tl.Gen.Tlb.BakerAssemblyResolver
   Method System.Object PopulateStruct(System.Type, System.Text.Json.JsonElement, System.String)
   Method System.Type ResolveType(System.String, System.String, System.String, System.String)
   Method Void ValidateUnmanaged(System.Type, System.Type)
-type Tl.Gen.Tlb.KernelEmitter
-  Method System.String Emit(Byte[])
 type Tl.Gen.Tlb.TimelineBaker
   Method Byte[] BakeJson(System.String, Tl.Gen.Tlb.BakerAssemblyResolver)
   Method Void CheckDuplicateKeys(System.String)
