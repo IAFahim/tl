@@ -136,6 +136,8 @@ Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, false).Apply(health
 
 Every `Apply` advances each row exactly one frame: rows that would cross duration clamp on finite assets, looping assets wrap with ±1 cycle deltas, and skipped rows leave their columns untouched. Rows sharing a position form one run — the per-row cost collapses toward a vector add on grouped storage.
 
+There is deliberately **no multi-frame step parameter** and never will be. A game runs thousands of systems that must all observe every timeline tick — a 50-tick skip would hide 49 intermediate states from them. Lag catch-up is repeated single-frame calls, which also keeps every float fold bit-exact (a precomputed K-frame sum can round differently from K sequential folds). This is an owner decision; see `docs/typed-playback-lane.md`.
+
 The same bytes drive the typed query lane, which reads a row's currently selected stage without advancing it:
 
 ```cs

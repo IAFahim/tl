@@ -39,8 +39,9 @@ code, no indirection. Two implementations ship:
 
 ## Contract
 
-- forward and backward are always exactly ONE frame — no step parameter exists on this lane;
-  lag catch-up is repeated calls; rewind is `Seek(positions, false)`
+- forward and backward are always exactly ONE frame — no step parameter exists on this lane,
+  now or in the future (owner decision 2026-09-15); lag catch-up is repeated calls; rewind is
+  `Seek(positions, false)`
 - movement is `TimelineMovement.Advance` exactly: forward skips only when
   `position >= duration`; backward skips only when `(position == 0 && !looping)`, or
   `position > duration`, or `(looping && position == duration)`; looping timelines touch the
@@ -140,8 +141,11 @@ one 34,688-effect per tick (`tests/Tl.Alpha --module-capacity`).
   one: measured on staggered 1M rows, x2 catch-up 9.3 -> 4.9 ns/row and x5 23.8 -> 5.0
   (the pass cost stops scaling with K). Position and cycle math are integer-exact; the float
   fold is bit-exact only when the cumulative table equals the sequential fold, which is
-  checkable per (position, frames) at bind exactly like position purity. Shipping it needs a
-  `frames` contract decision (the lane today is strictly one frame per call) — owner call.
+  checkable per (position, frames) at bind exactly like position purity. **Rejected by owner decision
+  (2026-09-15):** a game runs thousands of systems that must all observe every tick — a
+  K-tick skip hides K-1 intermediate states from them — and a precomputed K-frame fold can
+  differ from K sequential folds in the last float bit. The number stays on record as the
+  measured ceiling only; the one-frame contract is permanent.
 
 Relations: #88 (coordinator-owns-rows variant, closed as doc+prototype), #56 (data-authored
 contract), #102 (host-owned execution shape and facade cost ladder), #104 (this work).
