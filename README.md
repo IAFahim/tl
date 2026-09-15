@@ -199,6 +199,58 @@ Warm playback allocates 0 B in every lane. The interpreter is the correctness fa
 the chosen path: authoring compiles against the generated consumer binding, and a matching
 `tlbake --kernel` file binds by content hash at load.
 
+## tl inside an ECS world
+
+tl never owns entity storage. The host keeps state in its own archetypes and, each frame,
+lends tl a row array plus column spans for the length of one `Tick`. The only requirement is
+positional pairing — row `i` and column `i` must be the same entity for that one call — which
+archetypal chunks already guarantee. Row order never matters: every row carries its own asset
+reference and clock.
+
+A complete Frent host loop (two tracks, two columns, arbitrary per-entity clocks; from the
+runnable [FrentFun](https://github.com/IAFahim/FrentFun) sample):
+
+```cs
+foreach (var chunk in world.Query<TimelineComponent, Health, CombatLog>()
+                           .EnumerateChunks<TimelineComponent, Health, CombatLog>())
+{
+    if (rows.Length != chunk.Span1.Length) rows = new TimelineComponent[chunk.Span1.Length];
+    for (var i = 0; i < chunk.Span1.Length; i++) rows[i] = chunk.Span1[i];
+    Timeline.Rows(rows).Write(chunk.Span2).Write(chunk.Span3).Tick(t, delta);
+    for (var i = 0; i < chunk.Span1.Length; i++) chunk.Span1[i] = rows[i];
+}
+```
+
+- Columns are written in place (`Write` takes `Span<T>`); the only per-entity traffic is the
+  ~16-byte clock, gathered and scattered so `Tick` can commit `Position`/`Cycle`.
+- Query construction is O(1) warm through the shared bind cache, so rebuilding it per chunk
+  per frame is by design; the scratch `rows` array is reallocated only when the chunk length
+  changes, and steady-state playback allocates 0 B.
+- `Read<T>` lends a read-only column (`in` in the consumer signature) beside `Write` (`ref`);
+  the generator matches roles, and one type cannot hold both roles in one query.
+- One loop per component set: a different column set is a different archetype and its own
+  query.
+- `delta = -1` replays the same chunks backward; consumers scaling by `frame.Direction`
+  invert exactly — the sample rewinds 20 ticks and restores HP bit for bit.
+
+Measured end to end in FrentFun — 100k entities, staggered clocks, a two-track combat asset
+(heal `[0,10)` then attack `[10,20)`, looping), 60 ticks, best of 5, Ryzen 5 8500G, .NET 10.
+Lanes share one host query shape and checksum-match each other; the facade lane is
+kernel-bound (the interpreter fallback runs the same shape ~10–15% slower, per the tables
+above):
+
+| lane | per frame | per entity per tick |
+| --- | ---: | ---: |
+| host query only (`HP += 1`) | 0.084 ms | 0.84 ns |
+| host + hand-written lookup table | 0.184 ms | 1.84 ns |
+| host + `Timeline.Rows(...).Tick` | 1.84 ms | 18.4 ns |
+
+`Tick` costs `~0.4 µs entry + ~16.5 ns × rows`. The entry fee is negligible past a thousand
+rows, and the per-row rate is tl re-deriving clip selection, frame values, consumer dispatch,
+and commit for every row every tick — the price of generic semantics. Freezing an asset moves
+that derivation to bake time: the playback-table pattern above runs the same checksummed
+effects at 0.50–0.95 ns/row.
+
 ## Unity ECS
 
 Install the UPM package in Unity (Package Manager → *Add package from git URL*):
