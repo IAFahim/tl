@@ -559,6 +559,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         var eff = slot->Forward;
         var last = (ushort)(duration - 1);
         var durationVector = Vector256.Create(duration);
+        var durationWide = Vector256.Create((uint)duration);
         var lastVector = Vector256.Create(last);
         var zero = Vector256<ushort>.Zero;
         var one = Vector256.Create((ushort)1);
@@ -579,10 +580,12 @@ public ref struct TimelineSetLane<TTrack, TClip>
             (var wideLo, var wideHi) = Vector256.Widen(clamped);
             var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
             var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
+            var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
             var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-            (effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
             var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-            (effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
 
             if (touchCycles)
             {
@@ -605,6 +608,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         var eff = slot->BackwardByPosition;
         var last = (ushort)(duration - 1);
         var durationVector = Vector256.Create(duration);
+        var durationWide = Vector256.Create((uint)duration);
         var lastVector = Vector256.Create(last);
         var zero = Vector256<ushort>.Zero;
         var step = Vector256.Create((ushort)0xFFFF);
@@ -625,10 +629,12 @@ public ref struct TimelineSetLane<TTrack, TClip>
             (var wideLo, var wideHi) = Vector256.Widen(clamped);
             var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
             var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
+            var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
             var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-            (effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
             var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-            (effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
 
             if (touchCycles)
             {
