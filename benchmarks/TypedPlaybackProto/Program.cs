@@ -109,7 +109,7 @@ static void TickHand<T>(World? x, int steps) where T : unmanaged, ITimelineLane<
     }
 }
 
-static void HandChunk<T>(Span<uint> pos, Span<long> cyc, Span<float> hp, int steps) where T : unmanaged, ITimelineLane<T>
+static void HandChunk<T>(Span<ushort> pos, Span<long> cyc, Span<float> hp, int steps) where T : unmanaged, ITimelineLane<T>
 {
     var dur = T.Duration;
     for (var i = 0; i < pos.Length; i++)
@@ -118,11 +118,11 @@ static void HandChunk<T>(Span<uint> pos, Span<long> cyc, Span<float> hp, int ste
         float d = 0;
         for (var s = 0; s < steps; s++)
         {
-            d += T.Effect(p);
+            d += T.Effect((ushort)p);
             if (++p == dur) { p = 0; cyc[i]++; }
         }
         hp[i] += d;
-        pos[i] = p;
+        pos[i] = (ushort)p;
     }
 }
 
@@ -208,13 +208,13 @@ long Sum(Worlds w)
     }
 }
 
-sealed class World(int n, Func<int, uint> init)
+sealed class World(int n, Func<int, ushort> init)
 {
-    public readonly uint[] Pos = new uint[n];
+    public readonly ushort[] Pos = new ushort[n];
     public readonly long[] Cyc = new long[n];
     public readonly float[] Hp = new float[n];
     public readonly int N = n;
-    readonly Func<int, uint> _init = init;
+    readonly Func<int, ushort> _init = init;
 
     public World Reset()
     {
@@ -231,15 +231,15 @@ sealed class Worlds(World combat, World? pulse, World? big)
     public IEnumerable<World> All { get { if (Combat != null) yield return Combat; if (Pulse != null) yield return Pulse; if (Big != null) yield return Big; } }
 
     public static Worlds Staggered(int m) => new(
-        new World(m, i => (uint)(i % CombatLib.Combat.Duration)).Reset(),
+        new World(m, i => (ushort)(i % CombatLib.Combat.Duration)).Reset(),
         new World(m, _ => 0).Reset(),
-        new World(m, i => (uint)(i % CombatLib.Big.Duration)).Reset());
+        new World(m, i => (ushort)(i % CombatLib.Big.Duration)).Reset());
 
     public static Worlds Uniform(int n) => new(
-        new World(n, _ => 5).Reset(), null, null);
+        new World(n, _ => (ushort)5).Reset(), null, null);
 
     public static Worlds Waves(int n) => new(
-        new World(n, i => (uint)(i / 100 % CombatLib.Combat.Duration)).Reset(), null, null);
+        new World(n, i => (ushort)(i / 100 % CombatLib.Combat.Duration)).Reset(), null, null);
 
     public void ResetAll()
     {
@@ -251,7 +251,7 @@ sealed class Worlds(World combat, World? pulse, World? big)
 
 static class Sorted<T> where T : unmanaged, ITimelineLane<T>
 {
-    public static void Tick(Span<uint> pos, Span<long> cyc, Span<float> hp)
+    public static void Tick(Span<ushort> pos, Span<long> cyc, Span<float> hp)
     {
         var n = pos.Length;
         if (n == 0) return;
@@ -276,7 +276,7 @@ static class Sorted<T> where T : unmanaged, ITimelineLane<T>
 static class SortBuf<T> where T : unmanaged, ITimelineLane<T>
 {
     public static int[] Sorted = [];
-    public static uint[] SPos = [];
+    public static ushort[] SPos = [];
     public static float[] SHp = [];
     public static long[] SCyc = [];
     public static int[] Counts = [];
@@ -285,7 +285,7 @@ static class SortBuf<T> where T : unmanaged, ITimelineLane<T>
     {
         if (Sorted.Length >= n && Counts.Length >= k) return;
         Sorted = new int[n];
-        SPos = new uint[n];
+        SPos = new ushort[n];
         SHp = new float[n];
         SCyc = new long[n];
         Counts = new int[k];
@@ -296,26 +296,26 @@ namespace CombatLib
 {
     public readonly struct Combat : Tl.ITimelineLane<Combat>
     {
-        public static uint Duration => 20;
+        public static ushort Duration => 20;
         public static bool Looping => true;
-        public static float Effect(uint pos) => pos < 10 ? 7f : -10f;
-        public static float InverseEffect(uint pos) => pos < 10 ? -7f : 10f;
+        public static float Effect(ushort pos) => pos < 10 ? 7f : -10f;
+        public static float InverseEffect(ushort pos) => pos < 10 ? -7f : 10f;
     }
 
     public readonly struct Pulse : Tl.ITimelineLane<Pulse>
     {
-        public static uint Duration => 1;
+        public static ushort Duration => 1;
         public static bool Looping => true;
-        public static float Effect(uint pos) => 3f;
-        public static float InverseEffect(uint pos) => -3f;
+        public static float Effect(ushort pos) => 3f;
+        public static float InverseEffect(ushort pos) => -3f;
     }
 
     public readonly struct Big : Tl.ITimelineLane<Big>
     {
         public static readonly float[] Seg = [2, -4, 6, -8, 10, -12, 14, -16];
-        public static uint Duration => 128;
+        public static ushort Duration => 128;
         public static bool Looping => true;
-        public static float Effect(uint pos) => Seg[pos >> 4];
-        public static float InverseEffect(uint pos) => -Seg[pos >> 4];
+        public static float Effect(ushort pos) => Seg[pos >> 4];
+        public static float InverseEffect(ushort pos) => -Seg[pos >> 4];
     }
 }

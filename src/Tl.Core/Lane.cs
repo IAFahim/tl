@@ -8,25 +8,25 @@ namespace Tl;
 public interface ITimelineLane<T>
     where T : unmanaged, ITimelineLane<T>
 {
-    static abstract uint Duration { get; }
+    static abstract ushort Duration { get; }
     static abstract bool Looping { get; }
-    static abstract float Effect(uint position);
-    static abstract float InverseEffect(uint position);
+    static abstract float Effect(ushort position);
+    static abstract float InverseEffect(ushort position);
 }
 
 public static class Timeline<T>
     where T : unmanaged, ITimelineLane<T>
 {
-    public static TimelineLane<T> Seek(Span<uint> positions, bool forward) => new(positions, forward);
+    public static TimelineLane<T> Seek(Span<ushort> positions, bool forward) => new(positions, forward);
 }
 
 public ref struct TimelineLane<T>
     where T : unmanaged, ITimelineLane<T>
 {
-    readonly Span<uint> _positions;
+    readonly Span<ushort> _positions;
     readonly bool _forward;
 
-    internal TimelineLane(Span<uint> positions, bool forward)
+    internal TimelineLane(Span<ushort> positions, bool forward)
     {
         _positions = positions;
         _forward = forward;
@@ -48,7 +48,7 @@ public ref struct TimelineLane<T>
             var position = positions[i];
             var end = RunEnd(positions, i);
             float delta;
-            uint next;
+            int next;
             long cycleDelta;
             bool reset;
             if (forward)
@@ -68,9 +68,9 @@ public ref struct TimelineLane<T>
             else
             {
                 if (position == 0 && !looping || position > duration || looping && position == duration) { i = end; continue; }
-                uint tick;
-                if (position == 0) { tick = duration - 1; cycleDelta = -1; }
-                else { tick = position - 1; cycleDelta = 0; }
+                ushort tick;
+                if (position == 0) { tick = (ushort)(duration - 1); cycleDelta = -1; }
+                else { tick = (ushort)(position - 1); cycleDelta = 0; }
                 delta = T.InverseEffect(tick);
                 next = tick;
                 reset = !looping;
@@ -78,14 +78,14 @@ public ref struct TimelineLane<T>
             if (end == i + 1)
             {
                 effects[i] += delta;
-                positions[i] = next;
+                positions[i] = (ushort)next;
                 if (reset) cycles[i] = 0;
                 else if (cycleDelta != 0) cycles[i] += cycleDelta;
             }
             else
             {
                 Add(effects, i, end, delta);
-                Fill(positions, i, end, next);
+                Fill(positions, i, end, (ushort)next);
                 if (reset) Zero(cycles, i, end);
                 else if (cycleDelta != 0) Add(cycles, i, end, cycleDelta);
             }
@@ -104,7 +104,7 @@ public ref struct TimelineLane<T>
             throw new ArgumentException("Lane columns must not overlap.");
     }
 
-    static int RunEnd(Span<uint> positions, int start)
+    static int RunEnd(Span<ushort> positions, int start)
     {
         var count = positions.Length;
         var value = positions[start];
@@ -113,24 +113,24 @@ public ref struct TimelineLane<T>
         {
             ref var first = ref MemoryMarshal.GetReference(positions);
             var search = Vector512.Create(value);
-            var limit = count - 16;
+            var limit = count - 32;
             while (end <= limit)
             {
                 var mask = Vector512.ExtractMostSignificantBits(Vector512.Equals(Vector512.LoadUnsafe(ref first, (nuint)end), search));
-                if (mask != 0xFFFFu) return end + BitOperations.TrailingZeroCount(~mask);
-                end += 16;
+                if (mask != 0xFFFF_FFFFu) return end + BitOperations.TrailingZeroCount(~mask);
+                end += 32;
             }
         }
         else if (Vector256.IsHardwareAccelerated)
         {
             ref var first = ref MemoryMarshal.GetReference(positions);
             var search = Vector256.Create(value);
-            var limit = count - 8;
+            var limit = count - 16;
             while (end <= limit)
             {
                 var mask = Vector256.ExtractMostSignificantBits(Vector256.Equals(Vector256.LoadUnsafe(ref first, (nuint)end), search));
-                if (mask != 0xFFu) return end + BitOperations.TrailingZeroCount(~mask);
-                end += 8;
+                if (mask != 0xFFFFu) return end + BitOperations.TrailingZeroCount(~mask);
+                end += 16;
             }
         }
         while (end < count && positions[end] == value) end++;
@@ -175,21 +175,21 @@ public ref struct TimelineLane<T>
         for (; i < length; i++) values[start + i] += delta;
     }
 
-    static void Fill(Span<uint> values, int start, int end, uint value)
+    static void Fill(Span<ushort> values, int start, int end, ushort value)
     {
         var length = end - start;
         var i = 0;
         if (Vector512.IsHardwareAccelerated)
         {
             var vector = Vector512.Create(value);
-            var limit = length & ~15;
-            for (; i < limit; i += 16) vector.StoreUnsafe(ref values[start], (nuint)i);
+            var limit = length & ~31;
+            for (; i < limit; i += 32) vector.StoreUnsafe(ref values[start], (nuint)i);
         }
         else if (Vector256.IsHardwareAccelerated)
         {
             var vector = Vector256.Create(value);
-            var limit = length & ~7;
-            for (; i < limit; i += 8) vector.StoreUnsafe(ref values[start], (nuint)i);
+            var limit = length & ~15;
+            for (; i < limit; i += 16) vector.StoreUnsafe(ref values[start], (nuint)i);
         }
         for (; i < length; i++) values[start + i] = value;
     }
@@ -218,10 +218,10 @@ public readonly struct BakedLane<TTrack, TClip> : ITimelineLane<BakedLane<TTrack
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
-    public static uint Duration => LaneTable<TTrack, TClip>.Duration;
+    public static ushort Duration => LaneTable<TTrack, TClip>.Duration;
     public static bool Looping => LaneTable<TTrack, TClip>.Looping;
-    public static float Effect(uint position) => LaneTable<TTrack, TClip>.Effect(position);
-    public static float InverseEffect(uint position) => LaneTable<TTrack, TClip>.InverseEffect(position);
+    public static float Effect(ushort position) => LaneTable<TTrack, TClip>.Effect(position);
+    public static float InverseEffect(ushort position) => LaneTable<TTrack, TClip>.InverseEffect(position);
 
     public static void Bind(TimelineAsset asset) => LaneTable<TTrack, TClip>.Bind(asset);
 }
@@ -232,12 +232,12 @@ static unsafe class LaneTable<TTrack, TClip>
 {
     public static float* Forward;
     public static float* Backward;
-    public static uint Duration;
+    public static ushort Duration;
     public static bool Looping;
 
-    public static float Effect(uint position) => Forward[position];
+    public static float Effect(ushort position) => Forward[position];
 
-    public static float InverseEffect(uint position) => Backward[position];
+    public static float InverseEffect(ushort position) => Backward[position];
 
     public static void Bind(TimelineAsset asset)
     {
@@ -249,6 +249,7 @@ static unsafe class LaneTable<TTrack, TClip>
         if (PairTable.Head(key) < 0) throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
         var header = (NativeHeader*)reference._p;
         var duration = header->Duration;
+        if (duration > ushort.MaxValue) throw new ArgumentException($"Asset duration {duration} exceeds the 65535-tick lane position column.");
         var looping = header->Loops != 0;
         var forward = (float*)NativeMemory.AlignedAlloc((nuint)(Math.Max(1u, duration) * sizeof(float)), 64);
         var backward = (float*)NativeMemory.AlignedAlloc((nuint)(Math.Max(1u, duration) * sizeof(float)), 64);
@@ -316,7 +317,7 @@ static unsafe class LaneTable<TTrack, TClip>
         var previousBackward = Backward;
         Forward = forward;
         Backward = backward;
-        Duration = duration;
+        Duration = (ushort)duration;
         Looping = looping;
         if (previousForward != null)
         {

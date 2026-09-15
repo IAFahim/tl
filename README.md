@@ -125,7 +125,7 @@ The application owns the position, effect, and cycle columns and the game clock.
 using var asset = TimelineAsset.Load(File.ReadAllBytes("boss.tlb"));
 BakedLane<DamageTrack, DamageClip>.Bind(asset);
 
-var positions = new uint[] { 0 };
+var positions = new ushort[] { 0 };
 var health    = new float[] { 100f };
 var cycles    = new long[1];
 

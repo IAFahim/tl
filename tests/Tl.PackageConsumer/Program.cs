@@ -8,7 +8,7 @@ using var asset = TimelineAsset.Load(new PackageBaker()
     .Clip(0, 0u, 4u, new PackageClip(7))
     .Bake());
 BakedLane<PackageTrack, PackageClip>.Bind(asset);
-var positions = new uint[1];
+var positions = new ushort[1];
 var values = new float[1];
 var cycles = new long[1];
 

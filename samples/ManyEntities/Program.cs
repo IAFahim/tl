@@ -88,14 +88,14 @@ internal static class Program
         using var asset = TimelineAsset.Load(Bake("move64.json"));
         BakedLane<MoveTrack, MoveClip>.Bind(asset);
 
-        var positions = new uint[N];
+        var positions = new ushort[N];
         var cycles = new long[N];
         var laneValues = new float[N];
         var handValues = new float[N];
 
         long Reset()
         {
-            for (var i = 0; i < N; i++) { positions[i] = (uint)(i % 64); cycles[i] = 0; }
+            for (var i = 0; i < N; i++) { positions[i] = (ushort)(i % 64); cycles[i] = 0; }
             Array.Clear(laneValues);
             Array.Clear(handValues);
             return 0;
@@ -113,11 +113,11 @@ internal static class Program
             for (var t = 0; t < Ticks; t++)
                 for (var i = 0; i < N; i++)
                 {
-                    var p = positions[i];
+                    var p = (int)positions[i];
                     handValues[i] += values[p];
                     var np = p + 1;
                     if (np == 64u) { np = 0; cycles[i]++; }
-                    positions[i] = np;
+                    positions[i] = (ushort)np;
                 }
             long a = 0, c = 0;
             for (var i = 0; i < N; i++) { a += (long)handValues[i]; c += cycles[i]; }
@@ -136,7 +136,7 @@ internal static class Program
         using var asset = TimelineAsset.Load(Bake("pulse.json"));
         BakedLane<PulseTrack, PulseClip>.Bind(asset);
 
-        var positions = new uint[N];
+        var positions = new ushort[N];
         var cycles = new long[N];
         var laneValues = new float[N];
         var handValues = new float[N];
@@ -181,7 +181,7 @@ internal static class Program
         using var asset = TimelineAsset.Load(Bake("window.json"));
         BakedLane<WindowTrack, WindowClip>.Bind(asset);
 
-        var positions = new uint[Capacity];
+        var positions = new ushort[Capacity];
         var cycles = new long[Capacity];
         var laneValues = new float[Capacity];
         var handValues = new float[Capacity];
@@ -226,7 +226,7 @@ internal static class Program
                 count += SpawnPerPass;
                 for (var i = 0; i < count; )
                 {
-                    var pos = positions[i];
+                    var pos = (int)positions[i];
                     handValues[i] += values[pos];
                     var np = pos + 1;
                     if (np == 20u)
@@ -236,7 +236,7 @@ internal static class Program
                         retired++;
                         continue;
                     }
-                    positions[i] = np;
+                    positions[i] = (ushort)np;
                     i++;
                 }
             }

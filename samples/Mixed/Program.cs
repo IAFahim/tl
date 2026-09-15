@@ -1,6 +1,6 @@
 using Tl;
 
-var positions = new uint[] { 0 };
+var positions = new ushort[] { 0 };
 var vitality = new float[] { 0f };
 var cycles = new long[] { 0 };
 

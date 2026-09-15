@@ -287,14 +287,14 @@ internal static class DataAuthoredReceipts
                 baker.Looping();
             using var asset = TimelineAsset.Load(baker.Bake());
             BakedLane<DamageTrack, DamageClip>.Bind(asset);
-            Require(BakedLane<DamageTrack, DamageClip>.Effect(0u) == -10f, "effect table matches the authored fold");
+            Require(BakedLane<DamageTrack, DamageClip>.Effect(0) == -10f, "effect table matches the authored fold");
             var duration = BakedLane<DamageTrack, DamageClip>.Duration;
-            var positions = new uint[64];
+            var positions = new ushort[64];
             var values = new float[64];
             var cycles = new long[64];
             for (var i = 0; i < positions.Length; i++)
-                positions[i] = (uint)(i % (duration + 2));
-            var oraclePositions = (uint[])positions.Clone();
+                positions[i] = (ushort)(i % (duration + 2));
+            var oraclePositions = (ushort[])positions.Clone();
             var oracleCycles = new long[64];
             var oracleValues = new float[64];
 
@@ -306,8 +306,8 @@ internal static class DataAuthoredReceipts
                 {
                     if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i], oracleCycles[i]), duration, looping, !forward, out var next, out var timelineTick, out _, out _))
                         continue;
-                    oracleValues[i] += forward ? BakedLane<DamageTrack, DamageClip>.Effect(timelineTick) : BakedLane<DamageTrack, DamageClip>.InverseEffect(timelineTick);
-                    oraclePositions[i] = next.Position;
+                    oracleValues[i] += forward ? BakedLane<DamageTrack, DamageClip>.Effect((ushort)timelineTick) : BakedLane<DamageTrack, DamageClip>.InverseEffect((ushort)timelineTick);
+                    oraclePositions[i] = (ushort)next.Position;
                     oracleCycles[i] = next.Cycle;
                 }
             }
@@ -332,13 +332,13 @@ internal static class DataAuthoredReceipts
             .Bake());
         BakedLane<DamageTrack, DamageClip>.Bind(asset);
 
-        for (var tick = 0u; tick < 8u; tick++)
+        for (var tick = 0; tick < 8; tick++)
         {
-            var amount = tick < 4u ? 8f : Blend(8f, 4f, tick, 4u, 4u);
-            var damage = 2f * amount + (tick >= 2u ? 1f * 2f : 0f);
+            var amount = tick < 4 ? 8f : Blend(8f, 4f, (uint)tick, 4u, 4u);
+            var damage = 2f * amount + (tick >= 2 ? 1f * 2f : 0f);
             var heal = 3f;
-            Require(BakedLane<DamageTrack, DamageClip>.Effect(tick) == heal - damage, $"folded effect at {tick}");
-            Require(BakedLane<DamageTrack, DamageClip>.InverseEffect(tick) == damage - heal, $"folded inverse at {tick}");
+            Require(BakedLane<DamageTrack, DamageClip>.Effect((ushort)tick) == heal - damage, $"folded effect at {tick}");
+            Require(BakedLane<DamageTrack, DamageClip>.InverseEffect((ushort)tick) == damage - heal, $"folded inverse at {tick}");
         }
     }
 
@@ -350,12 +350,12 @@ internal static class DataAuthoredReceipts
             .Looping()
             .Bake());
         BakedLane<TandemTrack, TandemClip>.Bind(asset);
-        var positions = new uint[32];
+        var positions = new ushort[32];
         var values = new float[32];
         var cycles = new long[32];
         for (var i = 0; i < positions.Length; i++)
-            positions[i] = (uint)(i % 6);
-        var initialPositions = (uint[])positions.Clone();
+            positions[i] = (ushort)(i % 6);
+        var initialPositions = (ushort[])positions.Clone();
         var initialCycles = (long[])cycles.Clone();
 
         for (var tick = 0; tick < 25; tick++)
@@ -394,16 +394,18 @@ internal static class DataAuthoredReceipts
 
     internal static void Validation()
     {
-        var positions = new uint[4];
+        var positions = new ushort[4];
         var values = new float[3];
         var cycles = new long[4];
         RequireThrows<ArgumentException>(() => Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(values, cycles), "length mismatch rejected");
         values = new float[4];
-        var overlapping = MemoryMarshal.Cast<uint, float>(positions.AsSpan());
+        var buffer = new ushort[10];
+        var overlappingPositions = buffer.AsSpan(0, 4);
+        var overlapping = MemoryMarshal.Cast<ushort, float>(buffer.AsSpan(1, 8));
         var threw = false;
         try
         {
-            Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(overlapping, cycles);
+            Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(overlappingPositions, true).Apply(overlapping, cycles);
         }
         catch (ArgumentException)
         {
@@ -420,7 +422,7 @@ internal static class DataAuthoredReceipts
             .Looping()
             .Bake());
         BakedLane<TandemTrack, TandemClip>.Bind(asset);
-        var positions = new uint[256];
+        var positions = new ushort[256];
         var values = new float[256];
         var cycles = new long[256];
 
@@ -444,11 +446,11 @@ internal static class DataAuthoredReceipts
             .Looping()
             .Bake());
         BakedLane<TandemTrack, TandemClip>.Bind(asset);
-        var positions = new uint[Rows];
+        var positions = new ushort[Rows];
         var values = new float[Rows];
         var cycles = new long[Rows];
         for (var i = 0; i < Rows; i++)
-            positions[i] = (uint)(i % 64);
+            positions[i] = (ushort)(i % 64);
 
         for (var tick = 0; tick < 64; tick++)
             Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
@@ -473,10 +475,10 @@ internal static class DataAuthoredReceipts
         var expected = 0f;
         for (var track = 1; track <= Tracks; track++)
             expected += track + 7f;
-        for (var tick = 0u; tick < 64u; tick++)
-            Require(BakedLane<TandemTrack, TandemClip>.Effect(tick) == expected, $"module fold at {tick}");
+        for (var tick = 0; tick < 64; tick++)
+            Require(BakedLane<TandemTrack, TandemClip>.Effect((ushort)tick) == expected, $"module fold at {tick}");
 
-        var positions = new uint[16];
+        var positions = new ushort[16];
         var values = new float[16];
         var cycles = new long[16];
         for (var tick = 0; tick < 10; tick++)

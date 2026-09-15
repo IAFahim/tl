@@ -168,7 +168,7 @@ using var asset = TimelineAsset.Load(
 
 BakedLane<DamageTrack, DamageClip>.Bind(asset);
 
-var positions = new uint[] { 0, 0 };
+var positions = new ushort[] { 0, 0 };
 var health = new float[] { 100f, 100f };
 var cycles = new long[2];
 

@@ -364,7 +364,7 @@ public sealed class ConsumerPlaybackTests
                     .Clip(0, 7u, 8u, new DamageClip(0f))
                     .Bake());
                 BakedLane<DamageTrack, DamageClip>.Bind(asset);
-                var positions = new uint[] { 0 };
+                var positions = new ushort[] { 0 };
                 var health = new float[] { 1000f };
                 var cycles = new long[] { 0 };
                 var forward = new List<string>();
@@ -394,9 +394,9 @@ public sealed class ConsumerPlaybackTests
                     .Bake());
                 BakedLane<DamageTrack, DamageClip>.Bind(damage);
                 BakedLane<HealTrack, HealClip>.Bind(heal);
-                var damagePositions = new uint[] { 0, 0 };
+                var damagePositions = new ushort[] { 0, 0 };
                 var damageHealth = new float[] { 1000f, 250f };
-                var healPositions = new uint[] { 0 };
+                var healPositions = new ushort[] { 0 };
                 var healHealth = new float[] { 500f };
                 var cycles = new long[3];
                 string Snapshot()
@@ -420,7 +420,7 @@ public sealed class ConsumerPlaybackTests
                     .Track<GuardTrack, GuardClip>(new GuardTrack(2f))
                     .Clip(0, 0u, 2u, new GuardClip(8f))
                     .Bake());
-                var positions = new uint[] { 0 };
+                var positions = new ushort[] { 0 };
                 var health = new float[] { 400f };
                 var cycles = new long[] { 0 };
                 try
@@ -442,7 +442,7 @@ public sealed class ConsumerPlaybackTests
                     .Clip(0, 0u, 10u, new BuffClip(5f))
                     .Bake());
                 BakedLane<BuffTrack, BuffClip>.Bind(buff);
-                var positions = new uint[] { 0 };
+                var positions = new ushort[] { 0 };
                 var armor = new float[] { 10f };
                 var cycles = new long[] { 0 };
                 Timeline<BakedLane<BuffTrack, BuffClip>>.Seek(positions, true).Apply(armor, cycles);

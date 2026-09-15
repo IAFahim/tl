@@ -214,7 +214,7 @@ internal sealed class LaneCase : IDisposable
     internal const int Operations = 4096;
     private readonly int[] _deltas = new int[Operations];
     private readonly TimelineAsset _asset;
-    private readonly uint[] _positions = new uint[1];
+    private readonly ushort[] _positions = new ushort[1];
     private readonly float[] _values = new float[1];
     private readonly long[] _cycles = new long[1];
 
@@ -240,7 +240,7 @@ internal sealed class LaneCase : IDisposable
 
     public void Dispose() => _asset.Dispose();
 
-    internal static long Checksum(uint position, long cycle, float value)
+    internal static long Checksum(ushort position, long cycle, float value)
         => unchecked((long)position * 31 + cycle * 7 + (long)value);
 
     internal static byte[] Bake(TimelineShape shape)
@@ -296,6 +296,6 @@ internal sealed class LaneCase : IDisposable
             position = next.Position;
             cycle = next.Cycle;
         }
-        return Checksum(position, cycle, value);
+        return Checksum((ushort)position, cycle, value);
     }
 }
