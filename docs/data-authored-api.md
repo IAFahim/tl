@@ -202,6 +202,8 @@ public readonly struct FoldDamage :
 
 `Seek` borrows the caller's position, effect, and cycle columns for the call only; `Apply` validates lengths and pairwise non-overlap, applies exactly one frame per call (catch-up is repeated calls; rewind is `forward: false`), and allocates nothing. Movement is `TimelineMovement.Advance` exactly, including finite clamping, looping wrap with ±1 cycle deltas, and cycle zero-fill on finite moves. Consumers that need more than the folded float effect (reading other entity columns, cross-row patterns) belong to the typed frame query below or to the host coordinator, not to the lane fold.
 
+`BakedLane<TTrack, TClip>.Bind` holds one table per closed generic, so several same-pair assets that must coexist (minion and boss variants of one timeline family) use a `TimelineSet<TTrack, TClip>` instead: `Add(asset)` assigns each loaded asset a dense `ushort` id — **ids are assigned at load time, never authored and never baked** — and `Gather(ids).Seek(positions, forward).Apply(effects, cycles)` advances the whole mixed crowd in one call, each row through its own timeline's tables, duration, and loop flag (bit-exact with per-asset static lanes). An unbound id throws naming the row; an empty cycle column requires every timeline in the set to be finite; `Dispose` frees the single contiguous native block. Contract and receipts: [typed-playback-lane.md](typed-playback-lane.md).
+
 The typed frame query `Timeline.Query<TTrack, TClip>(in TimelineComponent)` remains the read-only inspection path on .NET: it yields the selected frame for authoring tools, tests, and cold execution without advancing time.
 
 ## Unity authoring and direct system consumer

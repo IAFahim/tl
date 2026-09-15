@@ -60,11 +60,19 @@ type Tl.TimelineComponent
   Field Int64 Cycle
   Field UInt32 Position
   Field Tl.TimelineRef Reference
+type Tl.TimelineGather`2
+  Method Tl.TimelineSetLane`2[TTrack,TClip] Seek(System.Span`1[System.UInt16], Boolean)
 type Tl.TimelineLane`1
   Method Void Apply(System.Span`1[System.Single], System.Span`1[System.Int64])
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt32, Boolean, Boolean, Tl.TimelineState ByRef, UInt32 ByRef, Int64 ByRef, Tl.FrameFlags ByRef)
 type Tl.TimelineRef
+type Tl.TimelineSetLane`2
+  Method Void Apply(System.Span`1[System.Single], System.Span`1[System.Int64])
+type Tl.TimelineSet`2
+  Method UInt16 Add(Tl.TimelineAsset)
+  Method Void Dispose()
+  Method Tl.TimelineGather`2[TTrack,TClip] Gather(System.ReadOnlySpan`1[System.UInt16])
 type Tl.TimelineState
   Field UInt32 Asset
   Field Int64 Cycle

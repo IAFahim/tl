@@ -241,6 +241,22 @@ static unsafe class LaneTable<TTrack, TClip>
 
     public static void Bind(TimelineAsset asset)
     {
+        Measure(asset, out var forward, out var backward, out var duration, out var looping);
+        var previousForward = Forward;
+        var previousBackward = Backward;
+        Forward = forward;
+        Backward = backward;
+        Duration = duration;
+        Looping = looping;
+        if (previousForward != null)
+        {
+            NativeMemory.AlignedFree(previousForward);
+            NativeMemory.AlignedFree(previousBackward!);
+        }
+    }
+
+    internal static void Measure(TimelineAsset asset, out float* forwardTable, out float* backwardTable, out ushort durationOut, out bool loopingOut)
+    {
         ArgumentNullException.ThrowIfNull(asset);
         var reference = asset.Reference;
         if (reference.Address == 0) throw new ArgumentException("Timeline asset is not loaded.");
@@ -313,16 +329,9 @@ static unsafe class LaneTable<TTrack, TClip>
             NativeMemory.AlignedFree(backward);
             throw;
         }
-        var previousForward = Forward;
-        var previousBackward = Backward;
-        Forward = forward;
-        Backward = backward;
-        Duration = (ushort)duration;
-        Looping = looping;
-        if (previousForward != null)
-        {
-            NativeMemory.AlignedFree(previousForward);
-            NativeMemory.AlignedFree(previousBackward!);
-        }
+        forwardTable = forward;
+        backwardTable = backward;
+        durationOut = (ushort)duration;
+        loopingOut = looping;
     }
 }

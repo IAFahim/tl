@@ -271,9 +271,10 @@ internal static class DataAuthoredReceipts
         MovementLaw();
         FoldAndBlend();
         RewindAndCatchUp();
+        TimelineSets();
         Faults();
         Validation();
-        Console.WriteLine("receipts: movement, fold+blend, rewind, catch-up, faults, validation PASS");
+        Console.WriteLine("receipts: movement, fold+blend, rewind, catch-up, timeline sets, faults, validation PASS");
     }
 
     internal static void MovementLaw()
@@ -412,6 +413,94 @@ internal static class DataAuthoredReceipts
             threw = true;
         }
         Require(threw, "overlapping columns rejected");
+    }
+
+    internal static void TimelineSets()
+    {
+        using var loopingAsset = TimelineAsset.Load(new AlphaBaker()
+            .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
+            .Clip(0, 0u, 12u, new DamageClip(5f))
+            .Looping()
+            .Bake());
+        using var finiteAsset = TimelineAsset.Load(new AlphaBaker()
+            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
+            .Clip(0, 2u, 8u, new DamageClip(4f))
+            .Bake());
+        BakedLane<DamageTrack, DamageClip>.Bind(loopingAsset);
+        var loopingDuration = (int)BakedLane<DamageTrack, DamageClip>.Duration;
+        var loopingEffect = new float[loopingDuration];
+        var loopingInverse = new float[loopingDuration];
+        for (var tick = 0; tick < loopingDuration; tick++)
+        {
+            loopingEffect[tick] = BakedLane<DamageTrack, DamageClip>.Effect((ushort)tick);
+            loopingInverse[tick] = BakedLane<DamageTrack, DamageClip>.InverseEffect((ushort)tick);
+        }
+        BakedLane<DamageTrack, DamageClip>.Bind(finiteAsset);
+        var finiteDuration = (int)BakedLane<DamageTrack, DamageClip>.Duration;
+        var finiteEffect = new float[finiteDuration];
+        var finiteInverse = new float[finiteDuration];
+        for (var tick = 0; tick < finiteDuration; tick++)
+        {
+            finiteEffect[tick] = BakedLane<DamageTrack, DamageClip>.Effect((ushort)tick);
+            finiteInverse[tick] = BakedLane<DamageTrack, DamageClip>.InverseEffect((ushort)tick);
+        }
+
+        using var timelines = new TimelineSet<DamageTrack, DamageClip>();
+        var loopingId = timelines.Add(loopingAsset);
+        var finiteId = timelines.Add(finiteAsset);
+
+        const int Rows = 700;
+        const int Frames = 120;
+        var ids = new ushort[Rows];
+        var positions = new ushort[Rows];
+        var values = new float[Rows];
+        var cycles = new long[Rows];
+        for (var i = 0; i < Rows; i++)
+        {
+            ids[i] = i < 300 ? loopingId : i % 2 == 0 ? finiteId : loopingId;
+            positions[i] = (ushort)(i % 14);
+            cycles[i] = i % 3 - 1;
+        }
+        var oraclePositions = (ushort[])positions.Clone();
+        var oracleCycles = (long[])cycles.Clone();
+        var oracleValues = new float[Rows];
+
+        for (var frame = 0; frame < Frames; frame++)
+        {
+            var forward = frame % 3 != 2;
+            timelines.Gather(ids).Seek(positions, forward).Apply(values, cycles);
+            for (var i = 0; i < Rows; i++)
+            {
+                var isLooping = ids[i] == loopingId;
+                var duration = isLooping ? loopingDuration : finiteDuration;
+                if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i], oracleCycles[i]), (uint)duration, isLooping, !forward, out var next, out var timelineTick, out _, out _))
+                    continue;
+                oracleValues[i] += forward
+                    ? isLooping ? loopingEffect[timelineTick] : finiteEffect[timelineTick]
+                    : isLooping ? loopingInverse[timelineTick] : finiteInverse[timelineTick];
+                oraclePositions[i] = (ushort)next.Position;
+                oracleCycles[i] = next.Cycle;
+            }
+        }
+        Require(positions.SequenceEqual(oraclePositions), "set positions match the law");
+        Require(cycles.SequenceEqual(oracleCycles), "set cycles match the law");
+        Require(values.SequenceEqual(oracleValues), "set folded effects match the law");
+
+        RequireThrows<ArgumentException>(() =>
+            timelines.Gather(new ushort[] { loopingId, 2 }).Seek(new ushort[] { 0, 0 }, true).Apply(new float[2], new long[2]), "unbound timeline id rejected");
+
+        using var finiteOnly = new TimelineSet<DamageTrack, DamageClip>();
+        finiteOnly.Add(finiteAsset);
+        var finiteOnlyPositions = new ushort[] { 2, 7 };
+        finiteOnly.Gather(new ushort[] { 0, 0 }).Seek(finiteOnlyPositions, true).Apply(new float[2], Span<long>.Empty);
+        Require(finiteOnlyPositions[0] == 3 && finiteOnlyPositions[1] == 8, "all-finite set advances with an empty cycle column");
+
+        RequireThrows<ArgumentException>(() =>
+            timelines.Gather(new ushort[] { loopingId }).Seek(new ushort[] { 0 }, true).Apply(new float[1], Span<long>.Empty), "empty cycle column rejected while a timeline loops");
+
+        timelines.Dispose();
+        RequireThrows<ObjectDisposedException>(() => timelines.Gather(ids), "disposed set rejected");
+        Console.WriteLine($"timeline sets: {Rows} rows over 2 baked timelines x {Frames} frames, ids {loopingId}/{finiteId}, uniform and mixed chunk paths");
     }
 
     internal static void Memory()

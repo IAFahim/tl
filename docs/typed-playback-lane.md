@@ -62,7 +62,8 @@ code, no indirection. Two implementations ship:
   designed timeline; the baker rejects duration above 65,535 at bake time (diagnostic with
   line and column) and `Bind` keeps the same check for pre-existing bytes
 - rebinding the same closed generic swaps the tables and frees the previous pair; the host must
-  quiesce applies across a rebind (single-owner discipline, same shape as asset disposal)
+  quiesce applies across a rebind (single-owner discipline, same shape as asset disposal);
+  several same-pair assets that must coexist belong in a `TimelineSet` (next section)
 
 ## Why it is fast (each step measured; prototype lanes in FrentFun, production receipts below)
 
@@ -103,6 +104,81 @@ churn 0.71 vs 0.71 (lane wins/ties; no per-pass copies), sweep 4.46 vs 0.76 (sta
 fragment runs; grouped storage stays the ceiling). Warm playback allocates 0 B
 (`tests/Tl.Alpha --capacity`, `benchmarks/Alpha --verify`); 256 same-pair tracks fold into
 one 34,688-effect per tick (`tests/Tl.Alpha --module-capacity`).
+
+## Many timelines under one pair: `TimelineSet<TTrack, TClip>`
+
+The static lane binds one table per closed generic: two assets sharing `<TTrack, TClip>`
+would overwrite each other through `BakedLane.Bind`. `TimelineSet` removes that ceiling:
+every asset loaded for one pair gets a dense `ushort` id **at load time** — ids are never
+authored, never baked, and carry no content identity — and all measured tables live in one
+contiguous native block owned by the set.
+
+```cs
+using var minionAsset = TimelineAsset.Load(File.ReadAllBytes("minion-jump.tlb"));
+using var bossAsset   = TimelineAsset.Load(File.ReadAllBytes("boss-jump.tlb"));
+var jumps    = new TimelineSet<JumpTrack, JumpClip>();
+var minionId = jumps.Add(minionAsset);   // 0
+var bossId   = jumps.Add(bossAsset);     // 1
+
+var timelineIds = new ushort[] { minionId, minionId, bossId };
+var lastTick    = new ushort[] { 0, 0, 2 };
+var height      = new float[3];
+var cycle       = new long[3];
+
+jumps.Gather(timelineIds).Seek(lastTick, true).Apply(height, cycle);
+```
+
+Contract:
+
+- ids come from `Add` at load time (first asset 0, dense from there); a set holds at most
+  65,536 timelines; an unbound id throws `ArgumentException` naming the row and id
+- each `Add` measures through the same cold core as `BakedLane.Bind` (position purity,
+  duration ≤ 65,535, consumer order) and appends the forward/backward tables into the one
+  contiguous block; `Dispose` frees it; the asset may be disposed once `Add` returns
+- two timelines in one set are respected as different: rows on different ids advance and
+  fold through their own tables, durations, and loop flags in one call, bit-exact with
+  running each asset through the static lane separately (asserted per frame in tests)
+- `Gather(ids).Seek(positions, forward).Apply(effects, cycles)` follows the one-frame law
+  exactly; an empty cycle column is legal only when every timeline in the set is finite
+- the warm path allocates 0 B; the id column is read once per 4,096-row chunk by a probe
+  that validates ids and detects single-timeline chunks — those run at the static lane's
+  shape with the table hoisted per chunk; mixed chunks scan (id, tick) pairs with one
+  combined vector mask per 16 rows
+
+Receipts (same host and protocol as above; 1M rows, 20-frame reps, best of 5 over 3
+interleaved rounds, real `Tl.Core`; parity bit-exact vs per-asset static lanes, forward
+and backward):
+
+| shape (one call over a mixed crowd) | ns/row | vs single-table lane |
+| --- | ---: | ---: |
+| static lane, waves of 100 (baseline) | 0.13 | — |
+| set, uniform ids, waves of 100 | 0.17 | +32% |
+| set, id blocks of 100, waves of 100 | 0.18 | +42% |
+| set, id blocks of 64 | 0.25 | +95% |
+| set, staggered ticks, uniform ids | 4.48 | +1% |
+| set, id blocks of 16 (adversarial interleave) | 0.45 | +245% |
+
+The same-window control is a replica of the two-span experiment loop (specialized
+forward-only law, constant duration, prebuilt `float**` tables, no chunk probe, no id
+validation) run under this exact protocol:
+
+| shape | production set | replica |
+| --- | ---: | ---: |
+| uniform ids, waves of 100 | 0.17 | 0.16 |
+| id blocks of 100 | 0.18 | 0.16 |
+| id blocks of 64 | 0.25 | 0.25 |
+| id blocks of 16 | 0.45 | 0.39 |
+| staggered ticks | 4.48 | 5.19 |
+
+Production sits within 8-15% of the specialized replica on crowd shapes and beats it on
+staggered ticks, while carrying direction, finiteness, and id-safety semantics the replica
+lacks entirely. The earlier experiment window (which printed 0.15-0.16 on crowd shapes
+against a 0.12 baseline) does not reproduce on this host: the replica itself measures
+0.39-0.41 on 16-row interleaves today against a 0.13 baseline — host drift of exactly this
+kind was documented on #104 during the fused-scan dead end, which is why every number
+above is a same-window, same-protocol, interleaved-rounds A/B. Per-run cost in mixed
+chunks is branch-miss bound (PMU `perf stat`: ~0.8 extra misses per 16-row run at ~17
+cycles); component-sorted crowds — the ECS norm — sit on the first rows of both tables.
 
 ## Verdicts (all backed by lanes above)
 

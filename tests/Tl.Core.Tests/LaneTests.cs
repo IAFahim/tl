@@ -558,6 +558,274 @@ public class LaneTests
         Assert.Equal(0f, effects[0]);
     }
 
+    static byte[] ConstantBake() => new Baker()
+        .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
+        .Clip(0, 0, 6, new LaneClip(10))
+        .Looping()
+        .Bake();
+
+    static byte[] WideBake() => new Baker()
+        .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
+        .Clip(0, 2, 9, new LaneClip(4))
+        .Bake();
+
+    [Fact]
+    public void SetAppliesEachTimelineIndependently()
+    {
+        using var looping = TimelineAsset.Load(LoopingBake());
+        using var constant = TimelineAsset.Load(ConstantBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        var loopingId = timelines.Add(looping);
+        var constantId = timelines.Add(constant);
+        Assert.Equal(0, (int)loopingId);
+        Assert.Equal(1, (int)constantId);
+
+        var ids = new ushort[] { loopingId, constantId, loopingId };
+        var positions = new ushort[] { 0, 0, 1 };
+        var effects = new float[3];
+        var cycles = new long[3];
+
+        timelines.Gather(ids).Seek(positions, true).Apply(effects, cycles);
+
+        Assert.Equal(LoopingEffects[0], effects[0]);
+        Assert.Equal(17f, effects[1]);
+        Assert.Equal(LoopingEffects[1], effects[2]);
+        Assert.Equal(new ushort[] { 1, 1, 2 }, positions);
+        Assert.Equal(new long[] { 0, 0, 0 }, cycles);
+    }
+
+    [Fact]
+    public void SetMatchesStaticLaneBitExact()
+    {
+        using var looping = TimelineAsset.Load(LoopingBake());
+        using var constant = TimelineAsset.Load(ConstantBake());
+        using var wide = TimelineAsset.Load(WideBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        var loopingId = timelines.Add(looping);
+        var constantId = timelines.Add(constant);
+        var wideId = timelines.Add(wide);
+
+        const int Rows = 600;
+        var ids = new ushort[Rows];
+        var positions = new ushort[Rows];
+        var cycles = new long[Rows];
+        for (var i = 0; i < Rows; i++)
+        {
+            if (i < 300)
+            {
+                ids[i] = loopingId;
+                positions[i] = i < 240 ? (ushort)(i * 7 % 11) : i < 282 ? (ushort)3 : (ushort)(i * 3 % 11);
+            }
+            else if (i < 540)
+            {
+                ids[i] = (i - 300) / 60 % 2 == 0 ? constantId : wideId;
+                positions[i] = (ushort)(i * 5 % 13);
+            }
+            else
+            {
+                ids[i] = wideId;
+                positions[i] = (ushort)(i * 11 % 13);
+            }
+            cycles[i] = i % 3 - 1;
+        }
+        var effects = new float[Rows];
+
+        var loopRows = new List<int>();
+        var constantRows = new List<int>();
+        var wideRows = new List<int>();
+        for (var i = 0; i < Rows; i++)
+        {
+            if (ids[i] == loopingId) loopRows.Add(i);
+            else if (ids[i] == constantId) constantRows.Add(i);
+            else wideRows.Add(i);
+        }
+
+        var loopPositions = new ushort[loopRows.Count];
+        var loopEffects = new float[loopRows.Count];
+        var loopCycles = new long[loopRows.Count];
+        var constantPositions = new ushort[constantRows.Count];
+        var constantEffects = new float[constantRows.Count];
+        var constantCycles = new long[constantRows.Count];
+        var widePositions = new ushort[wideRows.Count];
+        var wideEffects = new float[wideRows.Count];
+        var wideCycles = new long[wideRows.Count];
+        for (var j = 0; j < loopRows.Count; j++) { loopPositions[j] = positions[loopRows[j]]; loopCycles[j] = cycles[loopRows[j]]; }
+        for (var j = 0; j < constantRows.Count; j++) { constantPositions[j] = positions[constantRows[j]]; constantCycles[j] = cycles[constantRows[j]]; }
+        for (var j = 0; j < wideRows.Count; j++) { widePositions[j] = positions[wideRows[j]]; wideCycles[j] = cycles[wideRows[j]]; }
+
+        for (var frame = 0; frame < 80; frame++)
+        {
+            var forward = frame % 3 != 2;
+            timelines.Gather(ids).Seek(positions, forward).Apply(effects, cycles);
+            BakedLane<LaneTrack, LaneClip>.Bind(looping);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(loopPositions, forward).Apply(loopEffects, loopCycles);
+            BakedLane<LaneTrack, LaneClip>.Bind(constant);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(constantPositions, forward).Apply(constantEffects, constantCycles);
+            BakedLane<LaneTrack, LaneClip>.Bind(wide);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(widePositions, forward).Apply(wideEffects, wideCycles);
+            for (var j = 0; j < loopRows.Count; j++)
+            {
+                var row = loopRows[j];
+                Assert.Equal(loopPositions[j], positions[row]);
+                Assert.Equal(loopEffects[j], effects[row]);
+                Assert.Equal(loopCycles[j], cycles[row]);
+            }
+            for (var j = 0; j < constantRows.Count; j++)
+            {
+                var row = constantRows[j];
+                Assert.Equal(constantPositions[j], positions[row]);
+                Assert.Equal(constantEffects[j], effects[row]);
+                Assert.Equal(constantCycles[j], cycles[row]);
+            }
+            for (var j = 0; j < wideRows.Count; j++)
+            {
+                var row = wideRows[j];
+                Assert.Equal(widePositions[j], positions[row]);
+                Assert.Equal(wideEffects[j], effects[row]);
+                Assert.Equal(wideCycles[j], cycles[row]);
+            }
+        }
+    }
+
+    [Fact]
+    public void SetHandlesSmallCrowds()
+    {
+        using var looping = TimelineAsset.Load(LoopingBake());
+        using var wide = TimelineAsset.Load(WideBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        var loopingId = timelines.Add(looping);
+        var wideId = timelines.Add(wide);
+
+        var ids = new ushort[] { loopingId, wideId, loopingId, wideId, loopingId };
+        var positions = new ushort[] { 4, 12, 5, 8, 0 };
+        var effects = new float[5];
+        var cycles = new long[] { 2, 1, 0, 3, 1 };
+
+        BakedLane<LaneTrack, LaneClip>.Bind(looping);
+        var loopPositions = new ushort[] { 4, 5, 0 };
+        var loopEffects = new float[3];
+        var loopCycles = new long[] { 2, 0, 1 };
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(loopPositions, true).Apply(loopEffects, loopCycles);
+
+        BakedLane<LaneTrack, LaneClip>.Bind(wide);
+        var widePositions = new ushort[] { 12, 8 };
+        var wideEffects = new float[2];
+        var wideCycles = new long[] { 1, 3 };
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(widePositions, true).Apply(wideEffects, wideCycles);
+
+        timelines.Gather(ids).Seek(positions, true).Apply(effects, cycles);
+
+        Assert.Equal(loopEffects[0], effects[0]);
+        Assert.Equal(wideEffects[0], effects[1]);
+        Assert.Equal(loopEffects[1], effects[2]);
+        Assert.Equal(wideEffects[1], effects[3]);
+        Assert.Equal(loopEffects[2], effects[4]);
+        Assert.Equal(new[] { loopPositions[0], loopPositions[1], loopPositions[2] }, new[] { positions[0], positions[2], positions[4] });
+        Assert.Equal(new[] { widePositions[0], widePositions[1] }, new[] { positions[1], positions[3] });
+        Assert.Equal(new[] { loopCycles[0], loopCycles[1], loopCycles[2] }, new[] { cycles[0], cycles[2], cycles[4] });
+        Assert.Equal(new[] { wideCycles[0], wideCycles[1] }, new[] { cycles[1], cycles[3] });
+    }
+
+    [Fact]
+    public void SetRejectsUnboundId()
+    {
+        using var looping = TimelineAsset.Load(LoopingBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        timelines.Add(looping);
+
+        var error = Assert.Throws<ArgumentException>(() =>
+            timelines.Gather(new ushort[] { 0, 1 }).Seek(new ushort[2], true).Apply(new float[2], new long[2]));
+        Assert.Contains("not bound", error.Message);
+    }
+
+    [Fact]
+    public void SetAcceptsEmptyCycleColumnWhenAllTimelinesAreFinite()
+    {
+        using var wide = TimelineAsset.Load(WideBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        var wideId = timelines.Add(wide);
+
+        var positions = new ushort[] { 2, 7 };
+        var effects = new float[2];
+        var cycles = new long[] { 9, 8 };
+
+        timelines.Gather(new ushort[] { wideId, wideId }).Seek(positions, true).Apply(effects, Span<long>.Empty);
+
+        Assert.Equal(new ushort[] { 3, 8 }, positions);
+        Assert.Equal(new float[] { 11f, 11f }, effects);
+        Assert.Equal(new long[] { 9, 8 }, cycles);
+    }
+
+    [Fact]
+    public void SetRejectsEmptyCycleColumnWhenAnyTimelineLoops()
+    {
+        using var looping = TimelineAsset.Load(LoopingBake());
+        using var wide = TimelineAsset.Load(WideBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        timelines.Add(looping);
+        timelines.Add(wide);
+
+        Assert.Throws<ArgumentException>(() =>
+            timelines.Gather(new ushort[] { 1, 1 }).Seek(new ushort[] { 2, 3 }, true).Apply(new float[2], Span<long>.Empty));
+    }
+
+    [Fact]
+    public void SetThrowsAfterDispose()
+    {
+        using var looping = TimelineAsset.Load(LoopingBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        timelines.Add(looping);
+        var lane = timelines.Gather(new ushort[] { 0 });
+        timelines.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => timelines.Gather(new ushort[] { 0 }));
+        var threw = false;
+        try { lane.Seek(new ushort[] { 0 }, true).Apply(new float[1], new long[1]); }
+        catch (ObjectDisposedException) { threw = true; }
+        Assert.True(threw);
+    }
+
+    [Fact]
+    public unsafe void SetRejectsOverlappingColumns()
+    {
+        using var looping = TimelineAsset.Load(LoopingBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        timelines.Add(looping);
+
+        var buffer = new ushort[10];
+        var ids = buffer.AsSpan(0, 4);
+        var positions = buffer.AsSpan(1, 4);
+        var effects = new float[4];
+        var cycles = new long[4];
+        var threw = false;
+        try { timelines.Gather(ids).Seek(positions, true).Apply(effects, cycles); }
+        catch (ArgumentException) { threw = true; }
+        Assert.True(threw);
+    }
+
+    [Fact]
+    public void SetWarmPathAllocatesNothing()
+    {
+        var ids = new ushort[256];
+        var positions = new ushort[256];
+        var effects = new float[256];
+        var cycles = new long[256];
+        using var looping = TimelineAsset.Load(LoopingBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        timelines.Add(looping);
+
+        for (var i = 0; i < 100; i++)
+            timelines.Gather(ids).Seek(positions, true).Apply(effects, cycles);
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 100_000; i++)
+            timelines.Gather(ids).Seek(positions, true).Apply(effects, cycles);
+        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+    }
+
     readonly struct ZeroLane : ITimelineLane<ZeroLane>
     {
         public static ushort Duration => 0;
