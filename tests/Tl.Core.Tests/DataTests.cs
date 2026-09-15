@@ -34,20 +34,6 @@ public readonly record struct BlendTrack(float Scale) : IBlend<BlendClip>
         => result = new BlendClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
-public readonly record struct PhiClip(int Value);
-
-public readonly record struct PhiTrack(int Code) : IBlend<PhiClip>
-{
-    public void Blend(in PhiClip first, in PhiClip second, float factor, out PhiClip result) => result = first;
-}
-
-public readonly record struct DeltaClip(int Value);
-
-public readonly record struct DeltaTrack(int Code) : IBlend<DeltaClip>
-{
-    public void Blend(in DeltaClip first, in DeltaClip second, float factor, out DeltaClip result) => result = first;
-}
-
 public struct Health
 {
     public float Value;
@@ -58,22 +44,13 @@ public struct Resistance
     public float Scale;
 }
 
-public struct Marker
-{
-    public int Tag;
-}
-
 public struct RowAlias
 {
     public long A, B, C;
 }
 
-public readonly record struct Record(char Kind, int Code, float Value, uint Tick, uint Game, long Cycle, FrameFlags Flags);
-
 public unsafe class DataTests
 {
-    internal static readonly List<Record> Records = [];
-    internal static bool MarkerRequired;
 
     private static byte[] FiniteBake() => new Baker()
         .Track<AlphaTrack, AlphaClip>(new AlphaTrack(5))

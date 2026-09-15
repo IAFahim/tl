@@ -19,6 +19,20 @@ public readonly record struct ImpureTrack(float Scale) : IBlend<ImpureClip>
     public void Blend(in ImpureClip first, in ImpureClip second, float factor, out ImpureClip result) => result = first;
 }
 
+public readonly record struct OrderClip(float Amount);
+
+public readonly record struct OrderTrack(float Scale) : IBlend<OrderClip>
+{
+    public void Blend(in OrderClip first, in OrderClip second, float factor, out OrderClip result) => result = first;
+}
+
+public readonly record struct CycleClip(float Amount);
+
+public readonly record struct CycleTrack(float Scale) : IBlend<CycleClip>
+{
+    public void Blend(in CycleClip first, in CycleClip second, float factor, out CycleClip result) => result = first;
+}
+
 public readonly record struct OrphanClip(int Value);
 
 public readonly record struct OrphanTrack(int Code) : IBlend<OrphanClip>
@@ -51,6 +65,10 @@ internal static unsafe class LanePairs
         PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteConstant, &BindFloat);
         PairRuntime<ImpureTrack, ImpureClip>.Consume(&ExecuteImpure, &BindFloat);
         PairRuntime<OrphanTrack, OrphanClip>.Consume(&ExecuteOrphan, &BindFloat);
+        PairRuntime<OrderTrack, OrderClip>.Consume(&ExecuteOrderA, &BindFloat);
+        PairRuntime<OrderTrack, OrderClip>.Consume(&ExecuteOrderB, &BindFloat);
+        PairRuntime<OrderTrack, OrderClip>.Consume(&ExecuteOrderC, &BindFloat);
+        PairRuntime<CycleTrack, CycleClip>.Consume(&ExecuteCycle, &BindFloat);
     }
 
     private static void BindFloat(ulong* keys, int keyCount, byte* table)
@@ -84,6 +102,18 @@ internal static unsafe class LanePairs
         var sign = frame.Has(FrameFlags.Reverse) ? -1f : 1f;
         ((float*)columns[0])[row] += sign * frame.Track.Code * frame.Clip.Value;
     }
+
+    private static void ExecuteOrderA(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
+        => ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -16777216f : 16777216f;
+
+    private static void ExecuteOrderB(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
+        => ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -1f : 1f;
+
+    private static void ExecuteOrderC(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
+        => ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -1f : 1f;
+
+    private static void ExecuteCycle(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
+        => ((float*)columns[0])[row] += cycle;
 }
 
 public class LaneTests
@@ -158,7 +188,7 @@ public class LaneTests
         {
             var positions = new[] { position };
             var effects = new float[1];
-            var cycles = new long[1];
+            var cycles = new long[] { position + 5 };
             Timeline<LawFiniteLane>.Seek(positions, forward == 0).Apply(effects, cycles);
             var moved = TimelineMovement.Select(new TimelineState(1, position, 0), LawFiniteLane.Duration, LawFiniteLane.Looping, forward != 0, out var next, out _, out _, out _);
             if (moved)
@@ -169,7 +199,7 @@ public class LaneTests
             else
             {
                 Assert.Equal(position, positions[0]);
-                Assert.Equal(0L, cycles[0]);
+                Assert.Equal(position + 5, cycles[0]);
             }
         }
     }
@@ -324,7 +354,10 @@ public class LaneTests
         var oracleEffects = new float[Rows];
         var oracleCycles = new long[Rows];
         for (var i = 0; i < Rows; i++)
+        {
             lanePositions[i] = oraclePositions[i] = (uint)(i % 8);
+            laneCycles[i] = oracleCycles[i] = i + 1;
+        }
 
         for (var tick = 0; tick < Ticks; tick++)
         {
@@ -334,6 +367,8 @@ public class LaneTests
             Assert.Equal(oracleCycles, laneCycles);
             Assert.Equal(oracleEffects, laneEffects);
         }
+        Assert.Equal(0L, laneCycles[0]);
+        Assert.Equal(7L, laneCycles[6]);
     }
 
     [Fact]
@@ -366,6 +401,58 @@ public class LaneTests
     {
         using var asset = TimelineAsset.Load(ImpureBake());
         Assert.Throws<ArgumentException>(() => BakedLane<ImpureTrack, ImpureClip>.Bind(asset));
+    }
+
+    [Fact]
+    public void BakedLaneRejectsCycleFoldingConsumer()
+    {
+        using var asset = TimelineAsset.Load(new Baker()
+            .Track<CycleTrack, CycleClip>(new CycleTrack(1f))
+            .Clip(0, 0, 6, new CycleClip(5f))
+            .Looping()
+            .Bake());
+        Assert.Throws<ArgumentException>(() => BakedLane<CycleTrack, CycleClip>.Bind(asset));
+    }
+
+    [Fact]
+    public void BakedLaneFoldsConsumersInRegisteredOrder()
+    {
+        using var asset = TimelineAsset.Load(new Baker()
+            .Track<OrderTrack, OrderClip>(new OrderTrack(1f))
+            .Clip(0, 0, 2, new OrderClip(1f))
+            .Looping()
+            .Bake());
+        BakedLane<OrderTrack, OrderClip>.Bind(asset);
+
+        Assert.Equal(16777218f, BakedLane<OrderTrack, OrderClip>.Effect(0));
+        Assert.Equal(-16777216f, BakedLane<OrderTrack, OrderClip>.InverseEffect(0));
+    }
+
+    [Fact]
+    public void BakedLaneBindsDurationOneLoopingAsset()
+    {
+        using var asset = TimelineAsset.Load(new Baker()
+            .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
+            .Clip(0, 0, 1, new LaneClip(8))
+            .Looping()
+            .Bake());
+        BakedLane<LaneTrack, LaneClip>.Bind(asset);
+
+        Assert.Equal(1u, BakedLane<LaneTrack, LaneClip>.Duration);
+        Assert.Equal(23f, BakedLane<LaneTrack, LaneClip>.Effect(0));
+        Assert.Equal(-23f, BakedLane<LaneTrack, LaneClip>.InverseEffect(0));
+
+        var positions = new uint[] { 0 };
+        var effects = new float[1];
+        var cycles = new long[] { 4 };
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(positions, true).Apply(effects, cycles);
+        Assert.Equal(0u, positions[0]);
+        Assert.Equal(5L, cycles[0]);
+        Assert.Equal(23f, effects[0]);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(positions, false).Apply(effects, cycles);
+        Assert.Equal(0u, positions[0]);
+        Assert.Equal(4L, cycles[0]);
+        Assert.Equal(0f, effects[0]);
     }
 
     [Fact]

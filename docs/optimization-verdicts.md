@@ -2,6 +2,11 @@
 
 This ledger records which `tl` optimization moves won, which died, and which are conditional, so that dead ends are not repeated and wins are not silently abandoned. It was mined from repository history through `0c0a167` and extended with the first data-authored gate measurements. Every entry names its evidence. Per the repository rules, a hot-loop change is only kept when exact receipts pass and timing evidence supports it; when timing and instruction counts disagree, timing wins (B14), and a redesign that passes semantic parity but regresses timing is still a failure (B19).
 
+> Ledger note: entries referencing the `Timeline.Rows` facade, the `TimelineKernels` catalog, or
+`tlbake --kernel` describe surfaces removed under [issue #104](https://github.com/IAFahim/tl/issues/104);
+their verdicts remain valid history. The shipped playback path is the typed lane
+> ([typed-playback-lane.md](typed-playback-lane.md)).
+
 Detailed narratives with full tables live in [benchmarks.md](benchmarks.md), [v0.4-unmanaged.md](v0.4-unmanaged.md), [v1.0-alpha.3.md](v1.0-alpha.3.md), and the retained results directories under `benchmarks/Alpha/results/`.
 
 ## Won, with numbers

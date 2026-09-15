@@ -25,6 +25,8 @@ The packages are development prereleases on [nuget.org](https://www.nuget.org/).
 
 ## Quick Start
 
+The typed lane below ships in the next prerelease; until it publishes, the pinned alpha.6 packages still run the retired facade (the [NuGet quick start](samples/NuGetQuickStart/README.md) documents that published surface).
+
 ### 1. Install
 
 ```sh
@@ -174,7 +176,7 @@ Release, best of 5, 60 ticks):
 | --- | ---: | ---: |
 | uniform clocks | 0.18 | — |
 | waves of 100 | 0.23 | — |
-| staggered singles | 2.9-3.1 | 0.7 |
+| staggered singles | 2.9-3.1 | 0.7 (hand lane) |
 | duration-1 pulse loops | 0.42 | 0.51 |
 | spawn/retire churn (~400k live) | 0.70 | 0.78 |
 | rewind (backward) | 0.19-0.20 | — |

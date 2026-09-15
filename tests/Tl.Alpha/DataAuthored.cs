@@ -287,6 +287,7 @@ internal static class DataAuthoredReceipts
                 baker.Looping();
             using var asset = TimelineAsset.Load(baker.Bake());
             BakedLane<DamageTrack, DamageClip>.Bind(asset);
+            Require(BakedLane<DamageTrack, DamageClip>.Effect(0u) == -10f, "effect table matches the authored fold");
             var duration = BakedLane<DamageTrack, DamageClip>.Duration;
             var positions = new uint[64];
             var values = new float[64];
@@ -456,6 +457,7 @@ internal static class DataAuthoredReceipts
         for (var i = 0; i < Rows; i++)
             checksum = unchecked(checksum * 31 + (long)values[i] + cycles[i]);
         Require(checksum != 0, "batch capacity checksum computed");
+        Require(values[0] == 576f && values[Rows - 1] == 576f, "capacity fold is 64 ticks x 9 per row");
         Console.WriteLine($"capacity: {Rows} rows x 64 ticks checksum {checksum}");
     }
 

@@ -9,7 +9,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" />
     <ProjectReference Include="../../src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj"
                       ReferenceOutputAssembly="false"

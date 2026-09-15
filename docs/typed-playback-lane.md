@@ -13,9 +13,11 @@ Status: shipped production playback surface (issue #104). It replaces the remove
 One timeline type per call, one frame per call, host-owned storage, run-length groups:
 
 ```cs
-Timeline<Combat>.Seek(positions, forward: true).Apply(effects, cycles);
-Timeline<Combat>.Seek(positions, forward: false).Apply(effects, cycles);   // measured cost of forward
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward: true).Apply(effects, cycles);
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward: false).Apply(effects, cycles);   // measured cost of forward
 ```
+
+(`BakedLane<TTrack, TClip>` is one `ITimelineLane<T>`; any hand-authored `T : ITimelineLane<T>` drives the same lane.)
 
 `positions : Span<uint>`, `effects : Span<float>`, `cycles : Span<long>`; all three are the
 caller's arrays, borrowed only for the call. There is no per-row object, no run-record buffer,
@@ -47,6 +49,11 @@ code, no indirection. Two implementations ship:
 - the host owns the columns; the lane never moves, copies, or retains row data
 - `Apply` validates lengths and pairwise non-overlap and throws otherwise; effects and cycles
   are written only for rows that moved
+- the fold is a function of position only: consumers that read the game tick, another entity's
+  column, or any external state do not belong on the lane (game-tick-dependent behavior is a host
+  system's job); `Bind` measures at game tick 0 and freezes that value
+- rebinding the same closed generic swaps the tables and frees the previous pair; the host must
+  quiesce applies across a rebind (single-owner discipline, same shape as asset disposal)
 
 ## Why it is fast (each step measured; prototype lanes in FrentFun, production receipts below)
 

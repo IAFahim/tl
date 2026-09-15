@@ -21,7 +21,7 @@ The alpha.3 catalog state is 24 B on the qualified x64 target. It stores catalog
 
 ## Warm execution
 
-The medians in this section are v1.0.0-alpha.3 records from the qualified release run; the alpha.3 authored surface was removed under [issue #65](https://github.com/IAFahim/tl/issues/65), and the shipped contract is the data-authored API of [docs/data-authored-api.md](data-authored-api.md). The mechanisms described here still characterize the warm path; requalification receipts against the current surface are tracked by [issue #56](https://github.com/IAFahim/tl/issues/56).
+The medians in this section are v1.0.0-alpha.3 records from the qualified release run; the alpha.3 authored surface was removed under [issue #65](https://github.com/IAFahim/tl/issues/65), the data-authored facade warm path was later removed under [issue #104](https://github.com/IAFahim/tl/issues/104), and the shipped contract is the typed playback lane of [docs/typed-playback-lane.md](typed-playback-lane.md). These records are retained as history; current-surface receipts are the lane parity, capacity, and 0 B measurements in that document.
 
 Generated definitions are immutable static data. A .NET query validates mutable routes, selects each row, calls concrete typed jobs in authored stage order, and commits each selected state. The hot path contains no reflection, boxing, delegate dispatch, runtime compilation, managed registry, lock, or managed allocation.
 
@@ -48,7 +48,7 @@ The `<3 ns` target holds only for the named 1-track, gap, blend, and three-input
 
 The owner disposes the asset exactly once; `Dispose` swaps the pointer atomically and frees the block. A `TimelineRef` holds the raw block pointer without a lock or reference count, so every reader of an asset must finish before its owner disposes it. Each `TimelineComponent` retains one such reference plus its own local position and signed cycle.
 
-Track and clip identity is a 64-bit pair key over the closed build-time type universe. The generated module initializer installs consumers into the process-global `PairTable` once under a lock; dispatch binary-searches the published table lock-free and never mutates it. Warm lane playback retains `0 B` of managed allocation: `tests/Tl.Alpha` proves 100,000 x 256-row lane applies at zero retained bytes, and `benchmarks/Alpha --verify` repeats the assertion per shape with identical oracle checksums.
+Track and clip identity is a 64-bit pair key over the closed build-time type universe. The generated module initializer installs consumers into the process-global `PairTable` once under a lock; dispatch resolves the published table lock-free and never mutates it. Warm lane playback retains `0 B` of managed allocation: `tests/Tl.Alpha` proves 100,000 x 256-row lane applies at zero retained bytes, and `benchmarks/Alpha --verify` repeats the assertion per shape with identical oracle checksums.
 
 The typed lane enforces a strict per-call pointer lifetime. `TimelineLane<T>` is a `ref struct` holding the caller's position span by value; every `Apply` derives its interior pointers from the borrowed spans and never lets one outlive the synchronous call. A compacting GC relocating caller arrays between calls is safely observed on the next call through the span fields.
 

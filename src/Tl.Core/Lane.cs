@@ -253,6 +253,7 @@ static unsafe class LaneTable<TTrack, TClip>
         var forward = (float*)NativeMemory.AlignedAlloc((nuint)(Math.Max(1u, duration) * sizeof(float)), 64);
         var backward = (float*)NativeMemory.AlignedAlloc((nuint)(Math.Max(1u, duration) * sizeof(float)), 64);
         var pairs = checked((int)reference.PairCount);
+        if (pairs > 256) throw new ArgumentException("Asset declares more than 256 timeline pairs; the typed lane cannot bind it.");
         int* chains = stackalloc int[pairs];
         reference.Resolve(new Span<int>(chains, pairs));
         ulong* keys = stackalloc ulong[1];
@@ -286,21 +287,30 @@ static unsafe class LaneTable<TTrack, TClip>
             return MathF.Abs(seeded - baseline) <= 16f * (MathF.BitIncrement(scale) - scale);
         }
 
-        for (var tick = 0u; tick < duration; tick++)
+        try
         {
-            var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-            var baseline = Measure(tick, 0, 0, false);
-            var cycled = Measure(tick, 3, 0, false);
-            var seeded = Measure(tick, 0, 7, false);
-            if (baseline != cycled || !FoldsIndependentlyOfColumnValue(baseline, seeded))
-                throw new ArgumentException($"Consumers of the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}) are not position-pure; the typed lane cannot bind them.");
-            forward[tick] = baseline;
-            baseline = Measure(backwardPosition, 0, 0, true);
-            cycled = Measure(backwardPosition, 3, 0, true);
-            seeded = Measure(backwardPosition, 0, 7, true);
-            if (baseline != cycled || !FoldsIndependentlyOfColumnValue(baseline, seeded))
-                throw new ArgumentException($"Consumers of the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}) are not position-pure; the typed lane cannot bind them.");
-            backward[tick] = baseline;
+            for (var tick = 0u; tick < duration; tick++)
+            {
+                var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
+                var baseline = Measure(tick, 0, 0, false);
+                var cycled = Measure(tick, 3, 0, false);
+                var seeded = Measure(tick, 0, 7, false);
+                if (baseline != cycled || !FoldsIndependentlyOfColumnValue(baseline, seeded))
+                    throw new ArgumentException($"Consumers of the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}) are not position-pure; the typed lane cannot bind them.");
+                forward[tick] = baseline;
+                baseline = Measure(backwardPosition, 0, 0, true);
+                cycled = Measure(backwardPosition, 3, 0, true);
+                seeded = Measure(backwardPosition, 0, 7, true);
+                if (baseline != cycled || !FoldsIndependentlyOfColumnValue(baseline, seeded))
+                    throw new ArgumentException($"Consumers of the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}) are not position-pure; the typed lane cannot bind them.");
+                backward[tick] = baseline;
+            }
+        }
+        catch
+        {
+            NativeMemory.AlignedFree(forward);
+            NativeMemory.AlignedFree(backward);
+            throw;
         }
         var previousForward = Forward;
         var previousBackward = Backward;

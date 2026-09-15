@@ -105,7 +105,7 @@ public class CacheCliTests
     }
 
     [Fact]
-    public void HitWithoutKernelDestination_StillRewritesMissingOutputs()
+    public void CacheHit_StillRewritesMissingOutputs()
     {
         using var run = new CliRun();
         run.WriteJson(SimpleJson);
