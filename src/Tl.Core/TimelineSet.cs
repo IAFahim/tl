@@ -79,7 +79,7 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         }
         var forwardTable = floatBase + _floats;
         var backwardTable = forwardTable + ticks + 1;
-        var backwardByPosition = backwardTable + ticks;
+        var backwardByPosition = backwardTable + ticks + 1;
         var nextForward = wordBase + _words;
         var nextBackward = nextForward + ticks + 1;
         var cycleForward = longBase + _longs;
