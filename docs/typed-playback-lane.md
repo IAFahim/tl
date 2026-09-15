@@ -22,7 +22,8 @@ Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward: false).App
 `positions : Span<ushort>`, `effects : Span<float>`, `cycles : Span<long>`; all three are the
 caller's arrays, borrowed only for the call. There is no per-row object, no run-record buffer,
 and no allocation on the warm path. The position column is `ushort` (65,535 ticks = 18 minutes
-at 60 fps); `Bind` rejects assets whose duration exceeds it.
+at 60 fps); the baker rejects longer timelines at bake time and `Bind` keeps the same
+check as a backstop for pre-existing bytes.
 
 `T` is the timeline: duration, looping, and per-position effects are `static abstract` members
 of `ITimelineLane<T>`, so the JIT compiles them per closed generic — effect lookup is literal
@@ -58,7 +59,8 @@ code, no indirection. Two implementations ship:
   column, or any external state do not belong on the lane (game-tick-dependent behavior is a host
   system's job); `Bind` measures at game tick 0 and freezes that value
 - the position column is `ushort`: one frame moves one tick, and 65,535 ticks bounds any
-  designed timeline; `Bind` rejects an asset whose duration exceeds 65,535 with a diagnostic
+  designed timeline; the baker rejects duration above 65,535 at bake time (diagnostic with
+  line and column) and `Bind` keeps the same check for pre-existing bytes
 - rebinding the same closed generic swaps the tables and frees the previous pair; the host must
   quiesce applies across a rebind (single-owner discipline, same shape as asset disposal)
 

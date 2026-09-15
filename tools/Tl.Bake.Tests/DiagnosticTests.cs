@@ -8,6 +8,26 @@ namespace Tl.Bake.Tests;
 public class DiagnosticTests
 {
     [Fact]
+    public void DurationOverLaneColumn_ThrowsDiagnostic()
+    {
+        var json = """
+        {
+          "duration": 70000,
+          "tracks": [
+            {
+              "namespace": "Tlb",
+              "type": "AlphaTrack",
+              "clips": [ { "namespace": "Tlb", "type": "AlphaClip", "start": 0, "end": 70000 } ]
+            }
+          ]
+        }
+        """;
+
+        var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json));
+        Assert.Contains("exceeds the 65535-tick lane position column", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void UnknownType_ThrowsDiagnostic()
     {
         var json = """

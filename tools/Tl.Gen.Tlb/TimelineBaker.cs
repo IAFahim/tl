@@ -181,6 +181,8 @@ public static class TimelineBaker
 
         if (!hasDuration)
             throw new BakeDiagnosticException("Missing required property 'duration'.");
+        if (duration > ushort.MaxValue)
+            throw new BakeDiagnosticException($"duration {duration} exceeds the 65535-tick lane position column; the typed playback lane cannot bind longer timelines.");
         if (!hasTracks)
             throw new BakeDiagnosticException("Missing required property 'tracks'.");
 
