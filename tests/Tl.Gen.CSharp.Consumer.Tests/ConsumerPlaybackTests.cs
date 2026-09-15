@@ -35,7 +35,7 @@ public sealed class ConsumerPlaybackTests
         var result = Driver("Missing");
 
         Assert.StartsWith("THROWN|", result);
-        Assert.Contains("ApplyDamage", result);
+        Assert.Contains("ApplyGuarded", result);
         Assert.Contains("Resistance", result);
         Assert.Contains("required column missing for registered consumer", result);
         Assert.EndsWith("|400|0", result);
@@ -104,23 +104,22 @@ public sealed class ConsumerPlaybackTests
         }
 
         public struct Resistance { public float Scale; }
-        public struct Health { public float Value; }
 
         public readonly struct ApplyDamage : ITimelineJob<DamageTrack, DamageClip>
         {
-            public static void Execute(in Frame<DamageTrack, DamageClip> frame, in Resistance resistance, ref Health health)
+            public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref float health)
             {
-                var amount = frame.Clip.Amount * frame.Track.Multiplier * resistance.Scale;
-                health.Value += frame.IsBackward ? amount : -amount;
+                var amount = frame.Clip.Amount * frame.Track.Multiplier;
+                health += frame.IsBackward ? amount : -amount;
             }
         }
 
         public readonly struct ApplyHeal : ITimelineJob<HealTrack, HealClip>
         {
-            public static void Execute(in Frame<HealTrack, HealClip> frame, in Resistance resistance, ref Health health)
+            public static void Execute(in Frame<HealTrack, HealClip> frame, ref float health)
             {
-                var amount = frame.Clip.Amount * frame.Track.Multiplier * resistance.Scale;
-                health.Value += frame.IsBackward ? -amount : amount;
+                var amount = frame.Clip.Amount * frame.Track.Multiplier;
+                health += frame.IsBackward ? -amount : amount;
             }
         }
 
@@ -132,14 +131,29 @@ public sealed class ConsumerPlaybackTests
                 => result = new BuffClip(first.Amount + (second.Amount - first.Amount) * factor);
         }
 
-        public struct Armor { public float Value; }
-
         public readonly struct ApplyBuff : ITimelineJob<BuffTrack, BuffClip>
         {
-            public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref Armor armor)
+            public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref float armor)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
-                armor.Value += frame.IsBackward ? -amount : amount;
+                armor += frame.IsBackward ? -amount : amount;
+            }
+        }
+
+        public readonly record struct GuardClip(float Amount);
+
+        public readonly record struct GuardTrack(float Multiplier) : IBlend<GuardClip>
+        {
+            public void Blend(in GuardClip first, in GuardClip second, float factor, out GuardClip result)
+                => result = new GuardClip(first.Amount + (second.Amount - first.Amount) * factor);
+        }
+
+        public readonly struct ApplyGuarded : ITimelineJob<GuardTrack, GuardClip>
+        {
+            public static void Execute(in Frame<GuardTrack, GuardClip> frame, in Resistance resistance, ref float health)
+            {
+                var amount = frame.Clip.Amount * frame.Track.Multiplier * resistance.Scale;
+                health += frame.IsBackward ? amount : -amount;
             }
         }
 
@@ -337,87 +351,88 @@ public sealed class ConsumerPlaybackTests
         {
             private static string F(float value) => value.ToString("R", CultureInfo.InvariantCulture);
 
-            private static string Rows(TimelineComponent[] rows)
-                => string.Join(",", rows.Select(static row => row.Position.ToString(CultureInfo.InvariantCulture)));
+            private static string Positions(params uint[] positions)
+                => string.Join(",", positions.Select(static position => position.ToString(CultureInfo.InvariantCulture)));
 
             public static string Blend()
             {
                 using var asset = TimelineAsset.Load(new Baker()
-                    .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
+                    .Track<DamageTrack, DamageClip>(new DamageTrack(4f))
                     .Clip(0, 0u, 2u, new DamageClip(8f))
                     .Clip(0, 2u, 4u, new DamageClip(4f))
                     .Clip(0, 6u, 8u, new DamageClip(8f))
                     .Clip(0, 7u, 8u, new DamageClip(0f))
                     .Bake());
-                var rows = new[] { new TimelineComponent(asset.Reference) };
-                var health = new Health[1];
-                health[0].Value = 1000f;
-                var query = Timeline.Rows(rows).Read(new[] { new Resistance { Scale = 2f } }).Write(health);
+                BakedLane<DamageTrack, DamageClip>.Bind(asset);
+                var positions = new uint[] { 0 };
+                var health = new float[] { 1000f };
+                var cycles = new long[] { 0 };
                 var forward = new List<string>();
-                for (var tick = 0u; tick < 8u; tick++)
+                for (var tick = 0; tick < 8; tick++)
                 {
-                    query.Tick(100u + tick, 1);
-                    forward.Add(F(health[0].Value));
+                    Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health, cycles);
+                    forward.Add(F(health[0]));
                 }
                 var backward = new List<string>();
-                for (var tick = 0u; tick < 8u; tick++)
+                for (var tick = 0; tick < 8; tick++)
                 {
-                    query.Tick(108u - tick, -1);
-                    backward.Add(F(health[0].Value));
+                    Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, false).Apply(health, cycles);
+                    backward.Add(F(health[0]));
                 }
-                return string.Join("|", forward) + "#" + string.Join("|", backward) + "#" + F(health[0].Value) + "#" + Rows(rows);
+                return string.Join("|", forward) + "#" + string.Join("|", backward) + "#" + F(health[0]) + "#" + Positions(positions[0]);
             }
 
             public static string Rows()
             {
                 using var damage = TimelineAsset.Load(new Baker()
-                    .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
+                    .Track<DamageTrack, DamageClip>(new DamageTrack(4f))
                     .Clip(0, 0u, 2u, new DamageClip(8f))
                     .Bake());
                 using var heal = TimelineAsset.Load(new Baker()
-                    .Track<HealTrack, HealClip>(new HealTrack(0.5f))
+                    .Track<HealTrack, HealClip>(new HealTrack(1f))
                     .Clip(0, 0u, 2u, new HealClip(8f))
                     .Bake());
-                var rows = new[]
-                {
-                    new TimelineComponent(damage.Reference),
-                    new TimelineComponent(heal.Reference),
-                    new TimelineComponent(damage.Reference),
-                };
-                var health = new Health[3];
-                health[0].Value = 1000f;
-                health[1].Value = 500f;
-                health[2].Value = 250f;
-                var query = Timeline.Rows(rows)
-                    .Read(new[] { new Resistance { Scale = 2f }, new Resistance { Scale = 2f }, new Resistance { Scale = 2f } })
-                    .Write(health);
-                query.Tick(10u, 1);
-                var first = F(health[0].Value) + "," + F(health[1].Value) + "," + F(health[2].Value) + "," + Rows(rows);
-                query.Tick(11u, 1);
-                var second = F(health[0].Value) + "," + F(health[1].Value) + "," + F(health[2].Value) + "," + Rows(rows);
-                query.Tick(12u, -1);
-                var third = F(health[0].Value) + "," + F(health[1].Value) + "," + F(health[2].Value) + "," + Rows(rows);
+                BakedLane<DamageTrack, DamageClip>.Bind(damage);
+                BakedLane<HealTrack, HealClip>.Bind(heal);
+                var damagePositions = new uint[] { 0, 0 };
+                var damageHealth = new float[] { 1000f, 250f };
+                var healPositions = new uint[] { 0 };
+                var healHealth = new float[] { 500f };
+                var cycles = new long[3];
+                string Snapshot()
+                    => F(damageHealth[0]) + "," + F(healHealth[0]) + "," + F(damageHealth[1]) + ","
+                    + Positions(damagePositions[0], healPositions[0], damagePositions[1]);
+                Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(damagePositions, true).Apply(damageHealth, cycles.AsSpan(0, 2));
+                Timeline<BakedLane<HealTrack, HealClip>>.Seek(healPositions, true).Apply(healHealth, cycles.AsSpan(2, 1));
+                var first = Snapshot();
+                Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(damagePositions, true).Apply(damageHealth, cycles.AsSpan(0, 2));
+                Timeline<BakedLane<HealTrack, HealClip>>.Seek(healPositions, true).Apply(healHealth, cycles.AsSpan(2, 1));
+                var second = Snapshot();
+                Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(damagePositions, false).Apply(damageHealth, cycles.AsSpan(0, 2));
+                Timeline<BakedLane<HealTrack, HealClip>>.Seek(healPositions, false).Apply(healHealth, cycles.AsSpan(2, 1));
+                var third = Snapshot();
                 return first + "#" + second + "#" + third;
             }
 
             public static string Missing()
             {
-                using var damage = TimelineAsset.Load(new Baker()
-                    .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
-                    .Clip(0, 0u, 2u, new DamageClip(8f))
+                using var guard = TimelineAsset.Load(new Baker()
+                    .Track<GuardTrack, GuardClip>(new GuardTrack(2f))
+                    .Clip(0, 0u, 2u, new GuardClip(8f))
                     .Bake());
-                var rows = new[] { new TimelineComponent(damage.Reference) };
-                var health = new Health[1];
-                health[0].Value = 400f;
+                var positions = new uint[] { 0 };
+                var health = new float[] { 400f };
+                var cycles = new long[] { 0 };
                 try
                 {
-                    Timeline.Rows(rows).Write(health).Tick(20u, 1);
+                    BakedLane<GuardTrack, GuardClip>.Bind(guard);
+                    Timeline<BakedLane<GuardTrack, GuardClip>>.Seek(positions, true).Apply(health, cycles);
                 }
                 catch (ArgumentException exception)
                 {
-                    return "THROWN|" + exception.Message + "|" + F(health[0].Value) + "|" + Rows(rows);
+                    return "THROWN|" + exception.Message + "|" + F(health[0]) + "|" + Positions(positions[0]);
                 }
-                return "NOTHROWN|" + F(health[0].Value) + "|" + Rows(rows);
+                return "NOTHROWN|" + F(health[0]) + "|" + Positions(positions[0]);
             }
 
             public static string Standalone()
@@ -426,16 +441,16 @@ public sealed class ConsumerPlaybackTests
                     .Track<BuffTrack, BuffClip>(new BuffTrack(3f))
                     .Clip(0, 0u, 10u, new BuffClip(5f))
                     .Bake());
-                var rows = new[] { new TimelineComponent(buff.Reference) };
-                var armor = new Armor[1];
-                armor[0].Value = 10f;
-                var query = Timeline.Rows(rows).Write(armor);
-                query.Tick(10u, 1);
-                var first = F(armor[0].Value);
-                query.Tick(11u, 1);
-                var second = F(armor[0].Value);
-                query.Tick(12u, -1);
-                var third = F(armor[0].Value);
+                BakedLane<BuffTrack, BuffClip>.Bind(buff);
+                var positions = new uint[] { 0 };
+                var armor = new float[] { 10f };
+                var cycles = new long[] { 0 };
+                Timeline<BakedLane<BuffTrack, BuffClip>>.Seek(positions, true).Apply(armor, cycles);
+                var first = F(armor[0]);
+                Timeline<BakedLane<BuffTrack, BuffClip>>.Seek(positions, true).Apply(armor, cycles);
+                var second = F(armor[0]);
+                Timeline<BakedLane<BuffTrack, BuffClip>>.Seek(positions, false).Apply(armor, cycles);
+                var third = F(armor[0]);
                 return first + "#" + second + "#" + third;
             }
         }

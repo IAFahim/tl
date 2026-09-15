@@ -3,163 +3,65 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Tl;
 
-internal static class DataBlends
+internal readonly record struct DamageClip(float Amount);
+internal readonly record struct DamageTrack(float Multiplier) : IBlend<DamageClip>
 {
-    internal static int DamageCalls;
-}
-
-internal static class DataLogRecord
-{
-    internal static void Step(int jobCode, int trackIndex, uint gameTick, uint timelineTick, long cycle, FrameFlags flags, int clipBits, ref DataLog log)
-    {
-        var direction = (flags & FrameFlags.Reverse) != 0 ? -1 : 1;
-        if (log.Calls != 0 && (log.GameTick != gameTick || log.Direction != direction))
-        {
-            log.FrameOrder = 0;
-            log.FrameSteps = 0;
-            log.Flags = FrameFlags.None;
-            log.TrackMask = 0;
-            log.Bits0 = 0;
-            log.Bits1 = 0;
-            log.Bits2 = 0;
-            log.Bits3 = 0;
-        }
-        log.Calls++;
-        log.FrameSteps++;
-        log.FrameOrder = unchecked(log.FrameOrder * 1000 + trackIndex * 10 + jobCode);
-        log.Bits3 = log.Bits2;
-        log.Bits2 = log.Bits1;
-        log.Bits1 = log.Bits0;
-        log.Bits0 = clipBits;
-        log.GameTick = gameTick;
-        log.TimelineTick = timelineTick;
-        log.Cycle = cycle;
-        log.TrackIndex = trackIndex;
-        log.JobCode = jobCode;
-        log.Flags |= flags;
-        log.ClipBits = clipBits;
-        log.TrackMask |= 1u << trackIndex;
-        log.Direction = direction;
-    }
-}
-
-public struct DataLog
-{
-    public long FrameOrder;
-    public int FrameSteps;
-    public int Calls;
-    public uint GameTick;
-    public uint TimelineTick;
-    public long Cycle;
-    public int TrackIndex;
-    public int JobCode;
-    public FrameFlags Flags;
-    public int ClipBits;
-    public uint TrackMask;
-    public int Direction;
-    public int Bits0;
-    public int Bits1;
-    public int Bits2;
-    public int Bits3;
-}
-
-public readonly record struct DamageClip(float Amount);
-public readonly record struct HealClip(float Amount);
-public readonly record struct MarkClip(int Value);
-public readonly record struct BombClip(int Value);
-public readonly record struct TandemClip(int Value);
-
-public readonly struct DamageTrack(float multiplier) : IBlend<DamageClip>
-{
-    public readonly float Multiplier = multiplier;
-
     public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)
-    {
-        DataBlends.DamageCalls++;
-        result = new DamageClip(first.Amount + (second.Amount - first.Amount) * factor);
-    }
+        => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
-public readonly struct HealTrack(float rate) : IBlend<HealClip>
+internal readonly record struct HealClip(float Amount);
+internal readonly record struct HealTrack(float Multiplier) : IBlend<HealClip>
 {
-    public readonly float Rate = rate;
-
     public void Blend(in HealClip first, in HealClip second, float factor, out HealClip result)
-        => result = new HealClip(first.Amount + (second.Amount - first.Amount) * factor);
+        => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
-public readonly struct MarkTrack(int code) : IBlend<MarkClip>
+internal readonly record struct TandemClip(float Amount);
+internal readonly record struct TandemTrack(float Multiplier) : IBlend<TandemClip>
 {
-    public readonly int Code = code;
-
-    public void Blend(in MarkClip first, in MarkClip second, float factor, out MarkClip result)
-        => result = new MarkClip(first.Value + (int)((second.Value - first.Value) * factor));
-}
-
-public readonly struct BombTrack(int code) : IBlend<BombClip>
-{
-    public readonly int Code = code;
-
-    public void Blend(in BombClip first, in BombClip second, float factor, out BombClip result)
-        => result = first;
-}
-
-public readonly struct TandemTrack(int code) : IBlend<TandemClip>
-{
-    public readonly int Code = code;
-
     public void Blend(in TandemClip first, in TandemClip second, float factor, out TandemClip result)
-        => result = first;
+        => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
-public readonly struct DamageJob : ITimelineJob<DamageTrack, DamageClip>
+internal readonly record struct ImpureClip(float Amount);
+internal readonly record struct ImpureTrack(float Multiplier) : IBlend<ImpureClip>
 {
-    public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref DataLog log)
-        => DataLogRecord.Step(1, frame.TrackIndex, frame.GameTick, frame.TimelineTick, frame.Cycle, frame.Flags, BitConverter.SingleToInt32Bits(frame.Clip.Amount), ref log);
+    public void Blend(in ImpureClip first, in ImpureClip second, float factor, out ImpureClip result) => result = first;
 }
 
-public readonly struct HealJob : ITimelineJob<HealTrack, HealClip>
+internal readonly struct DamageJob : ITimelineJob<DamageTrack, DamageClip>
 {
-    public static void Execute(in Frame<HealTrack, HealClip> frame, ref DataLog log)
-        => DataLogRecord.Step(2, frame.TrackIndex, frame.GameTick, frame.TimelineTick, frame.Cycle, frame.Flags, BitConverter.SingleToInt32Bits(frame.Clip.Amount), ref log);
+    public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref float vitality)
+        => vitality -= frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
-public readonly struct MarkJob : ITimelineJob<MarkTrack, MarkClip>
+internal readonly struct HealJob : ITimelineJob<HealTrack, HealClip>
 {
-    public static void Execute(in Frame<MarkTrack, MarkClip> frame, ref DataLog log)
-        => DataLogRecord.Step(3, frame.TrackIndex, frame.GameTick, frame.TimelineTick, frame.Cycle, frame.Flags, frame.Clip.Value, ref log);
+    public static void Execute(in Frame<HealTrack, HealClip> frame, ref float vitality)
+        => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
-public readonly struct ThrowingJob : ITimelineJob<BombTrack, BombClip>
+internal readonly struct TandemFirstJob : ITimelineJob<TandemTrack, TandemClip>
 {
-    public static void Execute(in Frame<BombTrack, BombClip> frame, ref DataLog log)
-    {
-        if (frame.Clip.Value == -7919)
-            throw new InvalidOperationException($"data-authored bomb at {frame.TimelineTick}");
-        DataLogRecord.Step(4, frame.TrackIndex, frame.GameTick, frame.TimelineTick, frame.Cycle, frame.Flags, frame.Clip.Value, ref log);
-    }
+    public static void Execute(in Frame<TandemTrack, TandemClip> frame, ref float vitality)
+        => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
-public readonly struct TandemFirst : ITimelineJob<TandemTrack, TandemClip>
+internal readonly struct TandemSecondJob : ITimelineJob<TandemTrack, TandemClip>
 {
-    public static void Execute(in Frame<TandemTrack, TandemClip> frame, ref DataLog log)
-    {
-        if (DataAuthoredReceipts.RecordTags) DataAuthoredReceipts.ConsumerTags.Add('B');
-        DataLogRecord.Step(5, frame.TrackIndex, frame.GameTick, frame.TimelineTick, frame.Cycle, frame.Flags, frame.Clip.Value, ref log);
-    }
+    public static void Execute(in Frame<TandemTrack, TandemClip> frame, ref float vitality)
+        => vitality += frame.Direction * 7f;
 }
 
-public readonly struct TandemSecond : ITimelineJob<TandemTrack, TandemClip>
+internal readonly struct ImpureJob : ITimelineJob<ImpureTrack, ImpureClip>
 {
-    public static void Execute(in Frame<TandemTrack, TandemClip> frame, ref DataLog log)
-    {
-        if (DataAuthoredReceipts.RecordTags) DataAuthoredReceipts.ConsumerTags.Add('A');
-        DataLogRecord.Step(6, frame.TrackIndex, frame.GameTick, frame.TimelineTick, frame.Cycle, frame.Flags, frame.Clip.Value, ref log);
-    }
+    public static void Execute(in Frame<ImpureTrack, ImpureClip> frame, ref float vitality)
+        => vitality *= 2f;
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct DataSlot<TTrack, TClip> where TTrack : unmanaged where TClip : unmanaged
+internal struct AlphaSlot<TTrack, TClip> where TTrack : unmanaged where TClip : unmanaged
 {
     public TTrack Track;
     public TClip First;
@@ -171,7 +73,7 @@ internal struct DataSlot<TTrack, TClip> where TTrack : unmanaged where TClip : u
     public byte TrackIndex;
 }
 
-internal sealed class DataBaker
+internal sealed class AlphaBaker
 {
     internal sealed class BakedClip
     {
@@ -198,7 +100,7 @@ internal sealed class DataBaker
 
         public override void Write(byte[] bytes, int offset, BakedClip? first, BakedClip? second, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan)
         {
-            var slot = new DataSlot<TTrack, TClip>
+            var slot = new AlphaSlot<TTrack, TClip>
             {
                 Track = TrackValue,
                 First = (TClip)first!.Value!,
@@ -216,25 +118,25 @@ internal sealed class DataBaker
     private readonly List<BakedTrack> _tracks = [];
     private bool _loops;
 
-    public DataBaker Track<TTrack, TClip>(TTrack value) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
+    public AlphaBaker Track<TTrack, TClip>(TTrack value) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
     {
         _tracks.Add(new BakedTrack<TTrack, TClip>
         {
             TrackValue = value,
             Key = PairRuntime<TTrack, TClip>.Key,
-            Stride = (uint)((Unsafe.SizeOf<DataSlot<TTrack, TClip>>() + 15) & ~15),
+            Stride = (uint)((Unsafe.SizeOf<AlphaSlot<TTrack, TClip>>() + 15) & ~15),
             Index = (byte)_tracks.Count,
         });
         return this;
     }
 
-    public DataBaker Clip<TClip>(int track, uint start, uint end, TClip clip) where TClip : unmanaged
+    public AlphaBaker Clip<TClip>(int track, uint start, uint end, TClip clip) where TClip : unmanaged
     {
         _tracks[track].Clips.Add(new BakedClip { Start = start, End = end, Value = clip });
         return this;
     }
 
-    public DataBaker Looping()
+    public AlphaBaker Looping()
     {
         _loops = true;
         return this;
@@ -355,1030 +257,248 @@ internal sealed class DataBaker
     }
 }
 
-internal sealed class OracleAsset(
-    OracleAsset.Track[] tracks,
-    bool loops)
-{
-    internal readonly struct Clip(uint start, uint end, float amount, int mark)
-    {
-        public readonly uint Start = start;
-        public readonly uint End = end;
-        public readonly float Amount = amount;
-        public readonly int Mark = mark;
-    }
-
-    internal readonly struct Track(int jobCode, bool floatClip, Clip[] clips)
-    {
-        public readonly int JobCode = jobCode;
-        public readonly bool FloatClip = floatClip;
-        public readonly Clip[] Clips = clips;
-    }
-
-    internal readonly Track[] Tracks = tracks;
-    internal readonly bool Loops = loops;
-    internal readonly uint Duration = tracks.SelectMany(static track => track.Clips).Select(static clip => clip.End).DefaultIfEmpty(0u).Max();
-}
-
-internal readonly struct OracleFrame
-{
-    public readonly uint GameTick;
-    public readonly uint TimelineTick;
-    public readonly long Cycle;
-    public readonly FrameFlags Flags;
-    public readonly long FrameOrder;
-    public readonly int Steps;
-    public readonly int LastBits;
-    public readonly int LastTrack;
-    public readonly int LastJob;
-    public readonly uint TrackMask;
-    public readonly int Bits0;
-    public readonly int Bits1;
-    public readonly int Bits2;
-    public readonly int Bits3;
-    public readonly bool Moved;
-    public readonly uint NextPosition;
-    public readonly long NextCycle;
-
-    internal OracleFrame(uint gameTick, uint timelineTick, long cycle, FrameFlags flags, long frameOrder, int steps, int lastBits, int lastTrack, int lastJob, uint trackMask, int bits0, int bits1, int bits2, int bits3, bool moved, uint nextPosition, long nextCycle)
-    {
-        GameTick = gameTick;
-        TimelineTick = timelineTick;
-        Cycle = cycle;
-        Flags = flags;
-        FrameOrder = frameOrder;
-        Steps = steps;
-        LastBits = lastBits;
-        LastTrack = lastTrack;
-        LastJob = lastJob;
-        TrackMask = trackMask;
-        Bits0 = bits0;
-        Bits1 = bits1;
-        Bits2 = bits2;
-        Bits3 = bits3;
-        Moved = moved;
-        NextPosition = nextPosition;
-        NextCycle = nextCycle;
-    }
-}
-
-internal static class DataAuthoredOracle
-{
-    internal static bool Select(uint duration, bool loops, uint position, long cycle, bool reverse, out uint tick, out long frameCycle, out FrameFlags flags, out uint nextPosition, out long nextCycle)
-    {
-        tick = 0;
-        frameCycle = 0;
-        flags = FrameFlags.None;
-        nextPosition = position;
-        nextCycle = cycle;
-        if (duration == 0 || position > duration)
-            return false;
-        if (loops)
-        {
-            if (position == duration)
-                return false;
-            flags = FrameFlags.Looping | (reverse ? FrameFlags.Reverse : FrameFlags.None);
-            if (reverse)
-            {
-                if (position == 0)
-                {
-                    tick = duration - 1u;
-                    frameCycle = unchecked(cycle - 1L);
-                }
-                else
-                {
-                    tick = position - 1u;
-                    frameCycle = cycle;
-                }
-                nextPosition = tick;
-                nextCycle = frameCycle;
-            }
-            else
-            {
-                tick = position;
-                frameCycle = cycle;
-                if (tick == duration - 1u)
-                {
-                    nextPosition = 0;
-                    nextCycle = unchecked(cycle + 1L);
-                }
-                else
-                {
-                    nextPosition = tick + 1u;
-                    nextCycle = cycle;
-                }
-            }
-            if (tick == 0)
-                flags |= FrameFlags.TimelineStart;
-            if (tick == duration - 1u)
-                flags |= FrameFlags.TimelineEnd;
-            return true;
-        }
-        if (reverse)
-        {
-            if (position == 0)
-                return false;
-            tick = position - 1u;
-            flags = FrameFlags.Reverse;
-            if (tick == 0)
-                flags |= FrameFlags.TimelineStart;
-            if (tick == duration - 1u)
-                flags |= FrameFlags.TimelineEnd;
-            if (position == duration)
-                flags |= FrameFlags.CompletedBefore;
-            nextPosition = tick;
-            nextCycle = 0;
-            return true;
-        }
-        if (position == duration)
-            return false;
-        tick = position;
-        if (tick == 0)
-            flags |= FrameFlags.TimelineStart;
-        if (tick == duration - 1u)
-            flags |= FrameFlags.TimelineEnd | FrameFlags.CompletedAfter;
-        nextPosition = tick + 1u;
-        nextCycle = 0;
-        return true;
-    }
-
-    internal static OracleFrame Step(OracleAsset asset, uint position, long cycle, uint gameTick, bool reverse)
-    {
-        if (!Select(asset.Duration, asset.Loops, position, cycle, reverse, out var tick, out var frameCycle, out var flags, out var nextPosition, out var nextCycle))
-            return new OracleFrame(gameTick, 0, 0, FrameFlags.None, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, false, position, cycle);
-        var order = 0L;
-        var steps = 0;
-        var lastBits = 0;
-        var lastTrack = -1;
-        var lastJob = 0;
-        var mask = 0u;
-        var bits0 = 0;
-        var bits1 = 0;
-        var bits2 = 0;
-        var bits3 = 0;
-        for (var visit = 0; visit < asset.Tracks.Length; visit++)
-        {
-            var index = reverse ? asset.Tracks.Length - 1 - visit : visit;
-            var track = asset.Tracks[index];
-            var active = track.Clips.Select((clip, order2) => (clip, order2))
-                .Where(item => item.clip.Start <= tick && tick < item.clip.End)
-                .OrderBy(item => item.clip.Start).ThenBy(item => item.order2)
-                .Select(item => item.clip)
-                .ToArray();
-            if (active.Length == 0)
-                continue;
-            if (active.Length > 2)
-                throw new InvalidOperationException("Oracle authoring allows at most two overlapping clips.");
-            var windowStart = active.Min(clip => clip.Start);
-            var windowEnd = active.Max(clip => clip.End);
-            int bits;
-            if (track.FloatClip)
-            {
-                float value;
-                if (active.Length == 1)
-                    value = active[0].Amount;
-                else
-                {
-                    var factorStart = Math.Max(active[0].Start, active[1].Start);
-                    var factorSpan = Math.Min(active[0].End, active[1].End) - factorStart;
-                    float factor;
-                    if (factorSpan <= 1)
-                        factor = 0.5f;
-                    else
-                        factor = (tick - factorStart) / (float)(factorSpan - 1);
-                    value = active[0].Amount + (active[1].Amount - active[0].Amount) * factor;
-                }
-                bits = BitConverter.SingleToInt32Bits(value);
-            }
-            else
-            {
-                bits = active[0].Mark;
-            }
-            if (tick == windowStart)
-                flags |= FrameFlags.ClipStart;
-            if (tick == windowEnd - 1u)
-                flags |= FrameFlags.ClipEnd;
-            order = unchecked(order * 1000 + index * 10 + track.JobCode);
-            steps++;
-            bits3 = bits2;
-            bits2 = bits1;
-            bits1 = bits0;
-            bits0 = bits;
-            lastBits = bits;
-            lastTrack = index;
-            lastJob = track.JobCode;
-            mask |= 1u << index;
-        }
-        return new OracleFrame(gameTick, tick, frameCycle, flags, order, steps, lastBits, lastTrack, lastJob, mask, bits0, bits1, bits2, bits3, true, nextPosition, nextCycle);
-    }
-
-    internal static long ReverseDigits(long order, int steps)
-    {
-        long result = 0;
-        for (var index = 0; index < steps; index++)
-        {
-            result = unchecked(result * 1000 + order % 1000);
-            order /= 1000;
-        }
-        return result;
-    }
-}
-
 internal static class DataAuthoredReceipts
 {
-    internal static readonly List<char> ConsumerTags = [];
-    internal static bool RecordTags;
+    static float Blend(float first, float second, uint tick, uint start, uint span)
+    {
+        if (span == 0) return first;
+        var factor = span == 1 ? 0.5f : (tick - start) / (span - 1f);
+        return first + (second - first) * factor;
+    }
 
     internal static void All()
     {
-        AbaOrder();
-        OpposingOrder();
-        TandemConsumers();
-        ConsumerMirror();
-        BlendFactors();
-        CrossedFrames();
-        MovementDefaults();
-        DirectQuery();
-        ColdFailures();
-        ExceptionPrefix();
-        FacadeAllocation();
-        CapacityEdges();
+        MovementLaw();
+        FoldAndBlend();
+        RewindAndCatchUp();
+        Faults();
+        Validation();
+        Console.WriteLine("receipts: movement, fold+blend, rewind, catch-up, faults, validation PASS");
     }
 
-    internal static void AbaOrder()
+    internal static void MovementLaw()
     {
-        using var asset = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Track<HealTrack, HealClip>(new HealTrack(1f))
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Track<MarkTrack, MarkClip>(new MarkTrack(1))
-            .Track<HealTrack, HealClip>(new HealTrack(1f))
-            .Clip(0, 0u, 16u, new DamageClip(10f))
-            .Clip(1, 0u, 16u, new HealClip(20f))
-            .Clip(2, 0u, 16u, new DamageClip(30f))
-            .Clip(3, 0u, 16u, new MarkClip(300))
-            .Clip(4, 0u, 16u, new HealClip(40f))
-            .Bake());
-        var oracle = new OracleAsset(
-        [
-            new(1, true, [new OracleAsset.Clip(0u, 16u, 10f, 0)]),
-            new(2, true, [new OracleAsset.Clip(0u, 16u, 20f, 0)]),
-            new(1, true, [new OracleAsset.Clip(0u, 16u, 30f, 0)]),
-            new(3, false, [new OracleAsset.Clip(0u, 16u, 0f, 300)]),
-            new(2, true, [new OracleAsset.Clip(0u, 16u, 40f, 0)]),
-        ], false);
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var logs = new DataLog[1];
-        var query = Facade(rows, logs, out _, out _);
-        var forward = new DataLog[16];
-        var totalCalls = 0L;
-        for (var index = 0; index < 16; index++)
+        foreach (var looping in new[] { true, false })
         {
-            query.Tick(500u + (uint)index, 1);
-            forward[index] = logs[0];
-            var expect = DataAuthoredOracle.Step(oracle, (uint)index, 0, 500u + (uint)index, false);
-            totalCalls += expect.Steps;
-            RequireFrame(logs[0], expect, totalCalls, $"aba forward {index}");
-            Require(rows[0].Position == expect.NextPosition, $"aba forward {index} commit");
-        }
-        Require(rows[0].Position == 16u);
-        var backward = new DataLog[16];
-        for (var index = 0; index < 16; index++)
-        {
-            query.Tick(516u - (uint)index, -1);
-            backward[index] = logs[0];
-            var expect = DataAuthoredOracle.Step(oracle, 16u - (uint)index, 0, 515u - (uint)index, true);
-            totalCalls += expect.Steps;
-            RequireFrame(logs[0], expect, totalCalls, $"aba backward {index}");
-            Require(rows[0].Position == expect.NextPosition, $"aba backward {index} commit");
-        }
-        Require(rows[0].Position == 0u);
-        var documentedReverse = true;
-        for (var index = 0; index < 16; index++)
-            if (backward[index].FrameOrder != DataAuthoredOracle.ReverseDigits(forward[15 - index].FrameOrder, forward[15 - index].FrameSteps))
-                documentedReverse = false;
-        Require(documentedReverse, "backward occurrence order is the exact reverse of authored order");
-        Console.WriteLine($"data-authored aba: frames=16 forward=authored-order backward=exact-reverse-of-authored documented-exact-reverse={documentedReverse}");
-    }
+            var baker = new AlphaBaker()
+                .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
+                .Clip(0, 0u, 12u, new DamageClip(5f));
+            if (looping)
+                baker.Looping();
+            using var asset = TimelineAsset.Load(baker.Bake());
+            BakedLane<DamageTrack, DamageClip>.Bind(asset);
+            var duration = BakedLane<DamageTrack, DamageClip>.Duration;
+            var positions = new uint[64];
+            var values = new float[64];
+            var cycles = new long[64];
+            for (var i = 0; i < positions.Length; i++)
+                positions[i] = (uint)(i % (duration + 2));
+            var oraclePositions = (uint[])positions.Clone();
+            var oracleCycles = new long[64];
+            var oracleValues = new float[64];
 
-    internal static void OpposingOrder()
-    {
-        using var forwardAsset = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Track<HealTrack, HealClip>(new HealTrack(1f))
-            .Track<MarkTrack, MarkClip>(new MarkTrack(1))
-            .Clip(0, 0u, 3u, new DamageClip(1f))
-            .Clip(1, 0u, 3u, new HealClip(2f))
-            .Clip(2, 0u, 3u, new MarkClip(3))
-            .Bake());
-        using var reverseAsset = TimelineAsset.Load(new DataBaker()
-            .Track<MarkTrack, MarkClip>(new MarkTrack(1))
-            .Track<HealTrack, HealClip>(new HealTrack(1f))
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Clip(0, 0u, 3u, new MarkClip(3))
-            .Clip(1, 0u, 3u, new HealClip(2f))
-            .Clip(2, 0u, 3u, new DamageClip(1f))
-            .Bake());
-        var forwardOracle = new OracleAsset(
-        [
-            new(1, true, [new OracleAsset.Clip(0u, 3u, 1f, 0)]),
-            new(2, true, [new OracleAsset.Clip(0u, 3u, 2f, 0)]),
-            new(3, false, [new OracleAsset.Clip(0u, 3u, 0f, 3)]),
-        ], false);
-        var reverseOracle = new OracleAsset(
-        [
-            new(3, false, [new OracleAsset.Clip(0u, 3u, 0f, 3)]),
-            new(2, true, [new OracleAsset.Clip(0u, 3u, 2f, 0)]),
-            new(1, true, [new OracleAsset.Clip(0u, 3u, 1f, 0)]),
-        ], false);
-        var rows = new[]
-        {
-            new TimelineComponent(forwardAsset.Reference),
-            new TimelineComponent(reverseAsset.Reference),
-        };
-        var logs = new DataLog[2];
-        var query = Facade(rows, logs, out _, out _);
-        var totalCalls = new long[2];
-        for (var index = 0; index < 3; index++)
-        {
-            query.Tick(900u + (uint)index, 1);
-            for (var row = 0; row < 2; row++)
+            for (var tick = 0; tick < 200; tick++)
             {
-                var expect = DataAuthoredOracle.Step(row == 0 ? forwardOracle : reverseOracle, (uint)index, 0, 900u + (uint)index, false);
-                totalCalls[row] += expect.Steps;
-                RequireFrame(logs[row], expect, totalCalls[row], $"opposing row {row} forward {index}");
+                var forward = tick % 3 != 2;
+                Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward).Apply(values, cycles);
+                for (var i = 0; i < positions.Length; i++)
+                {
+                    if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i], oracleCycles[i]), duration, looping, !forward, out var next, out var timelineTick, out _, out _))
+                        continue;
+                    oracleValues[i] += forward ? BakedLane<DamageTrack, DamageClip>.Effect(timelineTick) : BakedLane<DamageTrack, DamageClip>.InverseEffect(timelineTick);
+                    oraclePositions[i] = next.Position;
+                    oracleCycles[i] = next.Cycle;
+                }
             }
+
+            Require(positions.SequenceEqual(oraclePositions), "movement positions match the law");
+            Require(cycles.SequenceEqual(oracleCycles), "cycles match the law");
+            Require(values.SequenceEqual(oracleValues), "folded effects match the law");
         }
-        Require(logs[0].FrameOrder != logs[1].FrameOrder, "opposing authored orders must differ");
-        for (var index = 0; index < 3; index++)
-        {
-            query.Tick(904u - (uint)index, -1);
-            for (var row = 0; row < 2; row++)
-            {
-                var expect = DataAuthoredOracle.Step(row == 0 ? forwardOracle : reverseOracle, 3u - (uint)index, 0, 903u - (uint)index, true);
-                totalCalls[row] += expect.Steps;
-                RequireFrame(logs[row], expect, totalCalls[row], $"opposing row {row} backward {index}");
-            }
-        }
-        Console.WriteLine($"data-authored opposing: per-asset authored orders {logs[0].FrameOrder} vs {logs[1].FrameOrder} each matched their own oracle");
     }
 
-    internal static void TandemConsumers()
+    internal static void FoldAndBlend()
     {
-        using var asset = TimelineAsset.Load(new DataBaker()
-            .Track<TandemTrack, TandemClip>(new TandemTrack(1))
-            .Clip(0, 0u, 2u, new TandemClip(7))
-            .Bake());
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var logs = new DataLog[1];
-        var query = Facade(rows, logs, out _, out _);
-        query.Tick(700u, 1);
-        Require(logs[0].FrameOrder == 6_005, "tandem forward consumer order is last-installed first (LIFO): TandemSecond then TandemFirst");
-        Require(logs[0].FrameSteps == 2 && logs[0].Calls == 2 && rows[0].Position == 1u);
-        query.Tick(701u, -1);
-        Require(logs[0].FrameOrder == 5_006, "tandem backward consumer order is exact reverse of forward: TandemFirst then TandemSecond");
-        Require(logs[0].FrameSteps == 2 && logs[0].Calls == 4 && rows[0].Position == 0u);
-        Console.WriteLine("data-authored consumers: pair=1 consumers=2 forward=second,first backward=first,second (mirrored backward order)");
-    }
-
-    internal static void ConsumerMirror()
-    {
-        using var asset = TimelineAsset.Load(new DataBaker()
+        using var asset = TimelineAsset.Load(new AlphaBaker()
             .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
-            .Track<TandemTrack, TandemClip>(new TandemTrack(1))
-            .Clip(0, 0u, 4u, new DamageClip(8f))
-            .Clip(0, 2u, 6u, new DamageClip(4f))
-            .Clip(1, 0u, 4u, new TandemClip(7))
-            .Bake());
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var logs = new DataLog[1];
-        var query = Facade(rows, logs, out _, out _);
-        ConsumerTags.Clear();
-        RecordTags = true;
-        try
-        {
-            query.Tick(100u, 2);
-            Require(ConsumerTags.SequenceEqual(['A', 'B', 'A', 'B']), "forward pass produces [A,B] per frame");
-            ConsumerTags.Clear();
-            query.Tick(102u, -2);
-            Require(ConsumerTags.SequenceEqual(['B', 'A', 'B', 'A']), "backward pass produces [B,A] per frame");
-        }
-        finally
-        {
-            RecordTags = false;
-            ConsumerTags.Clear();
-        }
-        Console.WriteLine("data-authored mirror: 2-consumer pair forward=[A,B] backward=[B,A] per frame; blend/step ordering preserved");
-    }
-
-    internal static void BlendFactors()
-    {
-        DataBlends.DamageCalls = 0;
-        using var asset = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
-            .Clip(0, 0u, 6u, new DamageClip(8f))
-            .Clip(0, 3u, 9u, new DamageClip(4f))
-            .Bake());
-        var oracle = new OracleAsset(
-        [
-            new(1, true,
-            [
-                new OracleAsset.Clip(0u, 6u, 8f, 0),
-                new OracleAsset.Clip(3u, 9u, 4f, 0),
-            ]),
-        ], false);
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var logs = new DataLog[1];
-        var query = Facade(rows, logs, out _, out _);
-        var totalCalls = 0L;
-        var spanThreeBits = new int[9];
-        for (var index = 0; index < 9; index++)
-        {
-            query.Tick(800u + (uint)index, 1);
-            var expect = DataAuthoredOracle.Step(oracle, (uint)index, 0, 800u + (uint)index, false);
-            totalCalls += expect.Steps;
-            RequireFrame(logs[0], expect, totalCalls, $"blend span3 {index}");
-            spanThreeBits[index] = expect.LastBits;
-        }
-        Require(DataBlends.DamageCalls == 3, "three-frame overlap resolves once per frame through DamageTrack.Blend");
-        var spanThreeResolves = DataBlends.DamageCalls;
-        Require(spanThreeBits[3] == BitConverter.SingleToInt32Bits(8f), "binary-exact factor 0 at overlap start");
-        Require(spanThreeBits[4] == BitConverter.SingleToInt32Bits(6f), "binary-exact factor 0.5 at overlap middle");
-        Require(spanThreeBits[5] == BitConverter.SingleToInt32Bits(4f), "binary-exact factor 1 at overlap end");
-        DataBlends.DamageCalls = 0;
-        using var oneFrame = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
-            .Clip(0, 0u, 3u, new DamageClip(8f))
-            .Clip(0, 2u, 5u, new DamageClip(2f))
-            .Bake());
-        var oneOracle = new OracleAsset(
-        [
-            new(1, true,
-            [
-                new OracleAsset.Clip(0u, 3u, 8f, 0),
-                new OracleAsset.Clip(2u, 5u, 2f, 0),
-            ]),
-        ], false);
-        var oneRows = new[] { new TimelineComponent(oneFrame.Reference) };
-        var oneLogs = new DataLog[1];
-        var oneQuery = Facade(oneRows, oneLogs, out _, out _);
-        var oneCalls = 0L;
-        var oneBits = new int[5];
-        for (var index = 0; index < 5; index++)
-        {
-            oneQuery.Tick(900u + (uint)index, 1);
-            var expect = DataAuthoredOracle.Step(oneOracle, (uint)index, 0, 900u + (uint)index, false);
-            oneCalls += expect.Steps;
-            RequireFrame(oneLogs[0], expect, oneCalls, $"blend span1 {index}");
-            oneBits[index] = expect.LastBits;
-        }
-        Require(DataBlends.DamageCalls == 1, "one-frame overlap resolves once with the 0.5f factor");
-        Require(oneBits[2] == BitConverter.SingleToInt32Bits(5f), "binary-exact 0.5f factor at the one-frame overlap");
-        Console.WriteLine($"data-authored blend: span3-resolves={spanThreeResolves} span1-resolves={DataBlends.DamageCalls} factors=(tick-start)/(span-1) 0.5f-when-span<=1");
-    }
-
-    internal static void CrossedFrames()
-    {
-        using var asset = TimelineAsset.Load(new DataBaker()
+            .Track<HealTrack, HealClip>(new HealTrack(1f))
             .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Clip(0, 0u, 4u, new DamageClip(5f))
+            .Clip(0, 0u, 8u, new DamageClip(8f))
+            .Clip(0, 4u, 8u, new DamageClip(4f))
+            .Clip(1, 0u, 8u, new HealClip(3f))
+            .Clip(2, 2u, 8u, new DamageClip(2f))
             .Looping()
             .Bake());
-        var batched = new[] { new TimelineComponent(asset.Reference) };
-        var batchedLogs = new DataLog[1];
-        var batchedQuery = Facade(batched, batchedLogs, out _, out _);
-        batchedQuery.Tick(100u, 5);
-        var unit = new[] { new TimelineComponent(asset.Reference) };
-        var unitLogs = new DataLog[1];
-        var unitQuery = Facade(unit, unitLogs, out _, out _);
-        for (var index = 0; index < 5; index++)
+        BakedLane<DamageTrack, DamageClip>.Bind(asset);
+
+        for (var tick = 0u; tick < 8u; tick++)
         {
-            unitQuery.Tick(100u + (uint)index, 1);
-            Require(unitLogs[0].GameTick == 100u + (uint)index, $"crossed forward unit game tick {index}");
+            var amount = tick < 4u ? 8f : Blend(8f, 4f, tick, 4u, 4u);
+            var damage = 2f * amount + (tick >= 2u ? 1f * 2f : 0f);
+            var heal = 3f;
+            Require(BakedLane<DamageTrack, DamageClip>.Effect(tick) == heal - damage, $"folded effect at {tick}");
+            Require(BakedLane<DamageTrack, DamageClip>.InverseEffect(tick) == damage - heal, $"folded inverse at {tick}");
         }
-        Require(SameLog(batchedLogs[0], unitLogs[0]), "Tick(G,+5) is observationally equal to five unit calls");
-        Require(batched[0].Position == unit[0].Position && batched[0].Cycle == unit[0].Cycle);
-        var batchedBack = new[] { new TimelineComponent(asset.Reference) };
-        var batchedBackLogs = new DataLog[1];
-        var batchedBackQuery = Facade(batchedBack, batchedBackLogs, out _, out _);
-        batchedBackQuery.Tick(105u, -5);
-        var unitBack = new[] { new TimelineComponent(asset.Reference) };
-        var unitBackLogs = new DataLog[1];
-        var unitBackQuery = Facade(unitBack, unitBackLogs, out _, out _);
-        for (var index = 0; index < 5; index++)
-        {
-            unitBackQuery.Tick(105u - (uint)index, -1);
-            Require(unitBackLogs[0].GameTick == 104u - (uint)index, $"crossed backward unit game tick {index}");
-        }
-        Require(SameLog(batchedBackLogs[0], unitBackLogs[0]), "Tick(G,-5) is observationally equal to five reverse unit calls");
-        var zero = new[] { new TimelineComponent(asset.Reference) };
-        var zeroLogs = new DataLog[1];
-        var zeroQuery = Facade(zero, zeroLogs, out var zeroReceipts, out var zeroUints);
-        zeroUints[0] = 77u;
-        zeroQuery.Tick(4_294_967_295u, 0);
-        Require(zero[0].Position == 0u && zeroLogs[0].Calls == 0 && zeroReceipts[0] == default && zeroUints[0] == 77u, "Tick(G,0) is a total no-op");
-        var wrapForward = new[] { new TimelineComponent(asset.Reference) };
-        var wrapForwardLogs = new DataLog[1];
-        var wrapForwardQuery = Facade(wrapForward, wrapForwardLogs, out _, out _);
-        wrapForwardQuery.Tick(4_294_967_294u, 3);
-        Require(wrapForwardLogs[0].GameTick == 0u, "forward game tick wraps as uint");
-        var wrapBackward = new[] { new TimelineComponent(asset.Reference) };
-        var wrapBackwardLogs = new DataLog[1];
-        var wrapBackwardQuery = Facade(wrapBackward, wrapBackwardLogs, out _, out _);
-        wrapBackwardQuery.Tick(2u, -3);
-        Require(wrapBackwardLogs[0].GameTick == 4_294_967_295u, "backward game tick wraps as uint");
-        Console.WriteLine("data-authored crossed: +5 emits G..G+4, -5 emits G-1..G-5, zero is a no-op, uint wrap verified");
     }
 
-    internal static void MovementDefaults()
+    internal static void RewindAndCatchUp()
     {
-        using var asset = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Clip(0, 0u, 6u, new DamageClip(3f))
-            .Bake());
-        var oracle = new OracleAsset([new(1, true, [new OracleAsset.Clip(0u, 6u, 3f, 0)])], false);
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var logs = new DataLog[1];
-        var query = Facade(rows, logs, out _, out _);
-        query.Tick(4_000_000_000u, 1);
-        var defaultExpect = DataAuthoredOracle.Step(oracle, 0u, 0, 4_000_000_000u, false);
-        RequireFrame(logs[0], defaultExpect, 1, "movement default large game tick");
-        Require(logs[0].TimelineTick == 0u && logs[0].Flags.HasFlag(FrameFlags.TimelineStart), "a new component starts at local zero regardless of game tick");
-        using var shortAsset = TimelineAsset.Load(new DataBaker()
-            .Track<HealTrack, HealClip>(new HealTrack(1f))
-            .Clip(0, 0u, 2u, new HealClip(9f))
-            .Bake());
-        var shortOracle = new OracleAsset([new(2, true, [new OracleAsset.Clip(0u, 2u, 9f, 0)])], false);
-        var clampRows = new[]
-        {
-            new TimelineComponent(shortAsset.Reference),
-            new TimelineComponent(asset.Reference),
-        };
-        var clampLogs = new DataLog[2];
-        var clampQuery = Facade(clampRows, clampLogs, out _, out _);
-        clampQuery.Tick(600u, 4);
-        Require(clampRows[0].Position == 2u && clampLogs[0].Calls == 2, "short row clamped after two frames");
-        Require(clampRows[1].Position == 4u && clampLogs[1].Calls == 4, "long row still moving in the same call");
-        clampQuery.Tick(604u, 10);
-        Require(clampRows[0].Position == 2u && clampLogs[0].Calls == 2, "clamped row stays total no-op");
-        Require(clampRows[1].Position == 6u && clampLogs[1].Calls == 6, "long row finished independently");
-        clampQuery.Tick(614u, -1);
-        Require(clampRows[0].Position == 1u && clampLogs[0].Calls == 3, "clamped row rewinds");
-        Require(clampRows[1].Position == 5u && clampLogs[1].Calls == 7, "finished row rewinds");
-        using var loopAsset = TimelineAsset.Load(new DataBaker()
-            .Track<MarkTrack, MarkClip>(new MarkTrack(1))
-            .Clip(0, 0u, 3u, new MarkClip(11))
+        using var asset = TimelineAsset.Load(new AlphaBaker()
+            .Track<TandemTrack, TandemClip>(new TandemTrack(2f))
+            .Clip(0, 0u, 6u, new TandemClip(4f))
             .Looping()
             .Bake());
-        var loopOracle = new OracleAsset([new(3, false, [new OracleAsset.Clip(0u, 3u, 0f, 11)])], true);
-        var loopRows = new[]
-        {
-            new TimelineComponent(loopAsset.Reference),
-            new TimelineComponent(loopAsset.Reference) { Position = 2u },
-        };
-        var loopLogs = new DataLog[2];
-        var loopQuery = Facade(loopRows, loopLogs, out _, out _);
-        var loopCalls = new long[2];
-        var loopStates = new (uint Position, long Cycle)[2];
-        for (var row = 0; row < 2; row++)
-            loopStates[row] = (loopRows[row].Position, loopRows[row].Cycle);
-        for (var index = 0; index < 4; index++)
-        {
-            loopQuery.Tick(700u + (uint)index, 1);
-            for (var row = 0; row < 2; row++)
-            {
-                var expect = DataAuthoredOracle.Step(loopOracle, loopStates[row].Position, loopStates[row].Cycle, 700u + (uint)index, false);
-                loopCalls[row] += expect.Steps;
-                RequireFrame(loopLogs[row], expect, loopCalls[row], $"movement loop row {row} step {index}");
-                loopStates[row] = (expect.NextPosition, expect.NextCycle);
-                Require(loopRows[row].Position == expect.NextPosition && loopRows[row].Cycle == expect.NextCycle, $"movement loop row {row} commit {index}");
-            }
-        }
-        Require(loopRows[0].Cycle == 1L && loopRows[1].Cycle == 2L, "loop cycles advance per instance");
-        var parityPosition = 0u;
-        var parityCycle = 0L;
-        for (var index = 0; index < 4; index++)
-        {
-            var oracleMoved = DataAuthoredOracle.Select(3u, true, parityPosition, parityCycle, false, out var oracleTick, out var oracleFrameCycle, out var oracleFlags, out var oracleNextPosition, out var oracleNextCycle);
-            var moved = TimelineMovement.Select(new TimelineState(1, parityPosition, parityCycle), 3u, true, false, out var next, out var tick, out var frameCycle, out var flags);
-            Require(oracleMoved && moved, $"loop parity moved {index}");
-            Require(tick == oracleTick && frameCycle == oracleFrameCycle && flags == oracleFlags && next.Position == oracleNextPosition && next.Cycle == oracleNextCycle, $"loop boundary step {index} matches TimelineMovement");
-            parityPosition = oracleNextPosition;
-            parityCycle = oracleNextCycle;
-        }
-        var wrapRows = new[] { new TimelineComponent(loopAsset.Reference) { Cycle = long.MinValue } };
-        var wrapLogs = new DataLog[1];
-        Facade(wrapRows, wrapLogs, out _, out _).Tick(800u, -1);
-        Require(wrapRows[0].Cycle == long.MaxValue && wrapLogs[0].Cycle == long.MaxValue, "reverse loop wrap decrements cycle in two's complement");
-        Console.WriteLine($"data-authored movement: default-local-zero independent-clamp cycles={loopRows[0].Cycle}/{loopRows[1].Cycle} wrap=verified");
+        BakedLane<TandemTrack, TandemClip>.Bind(asset);
+        var positions = new uint[32];
+        var values = new float[32];
+        var cycles = new long[32];
+        for (var i = 0; i < positions.Length; i++)
+            positions[i] = (uint)(i % 6);
+        var initialPositions = (uint[])positions.Clone();
+        var initialCycles = (long[])cycles.Clone();
+
+        for (var tick = 0; tick < 25; tick++)
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+        for (var tick = 0; tick < 25; tick++)
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, false).Apply(values, cycles);
+
+        Require(positions.SequenceEqual(initialPositions), "rewind restores positions");
+        Require(cycles.SequenceEqual(initialCycles), "rewind restores cycles");
+        Require(values.All(static value => value == 0f), "rewind restores values exactly");
+
+        Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+        var single = values[0];
+        for (var i = 0; i < 2; i++)
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+        Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, false).Apply(values, cycles);
+        Require(values[0] == single * 2, "catch-up calls are linear and backward cancels one");
     }
 
-    internal static void DirectQuery()
+    internal static void Faults()
     {
-        using var blendAsset = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
-            .Clip(0, 0u, 6u, new DamageClip(8f))
-            .Clip(0, 3u, 9u, new DamageClip(4f))
-            .Bake());
-        var blendOracle = new OracleAsset(
-        [
-            new(1, true,
-            [
-                new OracleAsset.Clip(0u, 6u, 8f, 0),
-                new OracleAsset.Clip(3u, 9u, 4f, 0),
-            ]),
-        ], false);
-        var rows = new[] { new TimelineComponent(blendAsset.Reference) };
-        var logs = new DataLog[1];
-        var query = Facade(rows, logs, out _, out _);
-        for (var position = 0u; position < 9u; position++)
-        {
-            var before = (rows[0].Position, rows[0].Cycle);
-            var expect = DataAuthoredOracle.Step(blendOracle, position, 0, 0u, false);
-            var count = 0;
-            foreach (var frame in Timeline.Query<DamageTrack, DamageClip>(in rows[0]))
-            {
-                Require(frame.TimelineTick == position, $"query timeline tick at {position}");
-                Require(frame.TrackIndex == 0, $"query track index at {position}");
-                Require(BitConverter.SingleToInt32Bits(frame.Clip.Amount) == expect.LastBits, $"query blend bits at {position}");
-                count++;
-            }
-            Require(count == 1, $"query frame count at {position}");
-            Require((rows[0].Position, rows[0].Cycle) == before, $"query never advances the component at {position}");
-            query.Tick(950u + position, 1);
-            Require(logs[0].ClipBits == expect.LastBits, $"query bits equal coordinator-executed bits at {position}");
-        }
-        Require(rows[0].Position == 9u);
-        var completed = 0;
-        foreach (var _ in Timeline.Query<DamageTrack, DamageClip>(in rows[0]))
-            completed++;
-        Require(completed == 0, "query yields nothing at completed position");
-        using var abaAsset = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Track<HealTrack, HealClip>(new HealTrack(1f))
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Clip(0, 0u, 3u, new DamageClip(10f))
-            .Clip(1, 0u, 3u, new HealClip(20f))
-            .Clip(2, 0u, 3u, new DamageClip(30f))
-            .Bake());
-        var abaRows = new[] { new TimelineComponent(abaAsset.Reference) };
-        var abaLogs = new DataLog[1];
-        var abaQuery = Facade(abaRows, abaLogs, out _, out _);
-        abaQuery.Tick(960u, 1);
-        var frames = new (ushort TrackIndex, int Bits)[2];
-        var index = 0;
-        foreach (var frame in Timeline.Query<DamageTrack, DamageClip>(in abaRows[0]))
-        {
-            if (index < 2)
-                frames[index] = (frame.TrackIndex, BitConverter.SingleToInt32Bits(frame.Clip.Amount));
-            index++;
-        }
-        Require(index == 2, "query yields both occurrences of the repeated pair");
-        Require(frames[0].TrackIndex == 0 && frames[0].Bits == BitConverter.SingleToInt32Bits(10f), "query first damage frame");
-        Require(frames[1].TrackIndex == 2 && frames[1].Bits == BitConverter.SingleToInt32Bits(30f), "query second damage frame");
-        Require(abaLogs[0].Bits2 == BitConverter.SingleToInt32Bits(10f) && abaLogs[0].Bits1 == BitConverter.SingleToInt32Bits(20f) && abaLogs[0].Bits0 == BitConverter.SingleToInt32Bits(30f), "query frames equal the coordinator-executed values");
-        var mismatch = 0;
-        foreach (var _ in Timeline.Query<MarkTrack, MarkClip>(in abaRows[0]))
-            mismatch++;
-        Require(mismatch == 0, "query yields nothing for a nonmatching pair");
-        Console.WriteLine("data-authored query: sampled 9 positions incl. blend windows, matched executed values, never advanced");
-    }
-
-    internal static void ColdFailures()
-    {
-        using var asset = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Track<HealTrack, HealClip>(new HealTrack(1f))
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Track<MarkTrack, MarkClip>(new MarkTrack(1))
-            .Track<HealTrack, HealClip>(new HealTrack(1f))
-            .Clip(0, 0u, 4u, new DamageClip(1f))
-            .Clip(1, 0u, 4u, new HealClip(1f))
-            .Clip(2, 0u, 4u, new DamageClip(1f))
-            .Clip(3, 0u, 4u, new MarkClip(1))
-            .Clip(4, 0u, 4u, new HealClip(1f))
-            .Bake());
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var logs = new DataLog[1];
-        logs[0].Calls = 99;
-        var receipts = new Receipt[1];
-        var uints = new uint[1];
-        uints[0] = 77u;
-        var message = "";
-        try
-        {
-            Timeline.Rows(rows).Read(uints).Read(receipts).Tick(30u, 1);
-        }
-        catch (ArgumentException exception)
-        {
-            message = exception.Message;
-        }
-        Require(message == "global::DamageJob: required column missing for registered consumer: global::DataLog", "missing mandatory column names job and type");
-        Require(rows[0].Position == 0u, "missing column leaves positions unchanged");
-        Require(logs[0].Calls == 99 && receipts[0] == default && uints[0] == 77u, "missing column leaves sentinel row data unchanged");
-        Timeline.Rows(rows).Read(uints).Read(receipts).Write(logs).Tick(30u, 1);
-        Require(rows[0].Position == 1u && logs[0].Calls == 104, "the same rows tick once the mandatory column is supplied");
-        var duplicate = new uint[1];
-        RequireThrowsArgument(() => Timeline.Rows(rows).Read(uints).Read(duplicate), "duplicate column type is role-ambiguous at construction");
-        RequireThrowsArgument(() => Timeline.Rows(rows).Read(new uint[2]), "column length mismatch is rejected at construction");
-        RequireThrowsArgument(() => Timeline.Rows(rows).Read(uints).Write(MemoryMarshal.Cast<uint, int>(uints.AsSpan())), "writable column overlapping another column is rejected at construction");
-        RequireThrowsArgument(() => Timeline.Rows(rows).Write(MemoryMarshal.AsBytes(rows.AsSpan())[..1]), "writable column overlapping rows is rejected at construction");
-        Require(rows[0].Position == 1u && uints[0] == 77u, "construction failures execute nothing");
-        Console.WriteLine("data-authored cold: missing-column job+type duplicate length overlap-rows overlap-columns all rejected before effects");
-    }
-
-    internal static void ExceptionPrefix()
-    {
-        using var asset = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Track<BombTrack, BombClip>(new BombTrack(1))
-            .Clip(0, 0u, 4u, new DamageClip(2f))
-            .Clip(1, 2u, 3u, new BombClip(-7919))
-            .Bake());
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var logs = new DataLog[1];
-        var query = Facade(rows, logs, out _, out _);
-        query.Tick(40u, 1);
-        query.Tick(41u, 1);
-        Require(rows[0].Position == 2u && logs[0].Calls == 2, "frames before the throwing frame commit");
-        var thrown = "";
-        try
-        {
-            query.Tick(42u, 1);
-        }
-        catch (InvalidOperationException exception)
-        {
-            thrown = exception.Message;
-        }
-        Require(thrown == "data-authored bomb at 2", "operation exception propagates");
-        Require(rows[0].Position == 2u, "the throwing step does not commit");
-        Require(logs[0].Calls == 3, "the executed effect prefix remains");
-        try
-        {
-            query.Tick(43u, 1);
-        }
-        catch (InvalidOperationException)
-        {
-        }
-        Require(rows[0].Position == 2u && logs[0].Calls == 4, "retry re-executes the frame effects without commit");
-        query.Tick(44u, -1);
-        Require(rows[0].Position == 1u && logs[0].Calls == 5, "reverse movement resumes from the uncommitted position");
-        Console.WriteLine("data-authored exception: prefix-remains step-not-commited propagates retry-replays backward-resumes");
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    internal static void FacadeAllocation()
-    {
-        using var asset = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Clip(0, 0u, 2u, new DamageClip(1f))
+        using var impure = TimelineAsset.Load(new AlphaBaker()
+            .Track<ImpureTrack, ImpureClip>(new ImpureTrack(1f))
+            .Clip(0, 0u, 6u, new ImpureClip(5f))
             .Looping()
             .Bake());
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var logs = new DataLog[1];
-        var query = Facade(rows, logs, out _, out _);
-        for (var index = 0; index < 8_192; index++)
-            query.Tick((uint)index, (index & 1) == 0 ? 1 : -1);
-        const int calls = 131_072;
-        var clean = false;
-        var executed = 0;
-        for (var round = 0; round < 8 && !clean; round++)
-        {
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            for (var index = 0; index < calls; index++)
-                query.Tick((uint)index, (index & 1) == 0 ? 1 : -1);
-            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            Console.WriteLine($"data-authored facade-window: ticks={calls} allocated={allocated} B");
-            clean = allocated == 0;
-            executed += calls;
-        }
-        Require(clean);
-        Require(rows[0].Position == 0u && rows[0].Cycle == 0L && logs[0].Calls == 8_192 + executed);
+        RequireThrows<ArgumentException>(() => BakedLane<ImpureTrack, ImpureClip>.Bind(impure), "impure consumer rejected at bind");
+
+        using var foreign = TimelineAsset.Load(new AlphaBaker()
+            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
+            .Clip(0, 0u, 6u, new DamageClip(5f))
+            .Looping()
+            .Bake());
+        RequireThrows<ArgumentException>(() => BakedLane<HealTrack, HealClip>.Bind(foreign), "asset without the pair rejected at bind");
     }
 
-    internal static void CapacityEdges()
+    internal static void Validation()
     {
-        using var empty = TimelineAsset.Load(new DataBaker().Bake());
-        var emptyRows = new[] { new TimelineComponent(empty.Reference) };
-        var emptyLogs = new DataLog[1];
-        var emptyQuery = Facade(emptyRows, emptyLogs, out var emptyReceipts, out var emptyUints);
-        emptyUints[0] = 31u;
-        emptyQuery.Tick(10u, 1000);
-        emptyQuery.Tick(1010u, -1000);
-        Require(emptyRows[0].Position == 0u && emptyRows[0].Cycle == 0L && emptyLogs[0].Calls == 0 && emptyUints[0] == 31u && emptyReceipts[0] == default, "empty asset is a total no-op through many ticks");
-        using var single = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Clip(0, 0u, 1u, new DamageClip(6f))
-            .Bake());
-        var singleOracle = new OracleAsset([new(1, true, [new OracleAsset.Clip(0u, 1u, 6f, 0)])], false);
-        var singleRows = new[] { new TimelineComponent(single.Reference) };
-        var singleLogs = new DataLog[1];
-        var singleQuery = Facade(singleRows, singleLogs, out _, out _);
-        singleQuery.Tick(20u, 5);
-        var singleExpect = DataAuthoredOracle.Step(singleOracle, 0u, 0, 20u, false);
-        RequireFrame(singleLogs[0], singleExpect, 1, "single tick asset frame");
-        Require(singleRows[0].Position == 1u && singleLogs[0].Flags.HasFlag(FrameFlags.TimelineEnd) && singleLogs[0].Flags.HasFlag(FrameFlags.CompletedAfter), "single tick asset completes once");
-        singleQuery.Tick(25u, 5);
-        Require(singleRows[0].Position == 1u && singleLogs[0].Calls == 1, "completed single tick asset is a no-op");
-        singleQuery.Tick(26u, -1);
-        var singleBack = DataAuthoredOracle.Step(singleOracle, 1u, 0, 25u, true);
-        RequireFrame(singleLogs[0], singleBack, 2, "single tick asset reverse frame");
-        Require(singleRows[0].Position == 0u);
-        const int tracks = 32;
-        var baker = new DataBaker();
-        var oracleTracks = new OracleAsset.Track[tracks];
-        for (var index = 0; index < tracks; index++)
-        {
-            switch (index % 3)
-            {
-                case 0:
-                    baker.Track<DamageTrack, DamageClip>(new DamageTrack(1f)).Clip(index, 0u, 2u, new DamageClip(index));
-                    oracleTracks[index] = new(1, true, [new OracleAsset.Clip(0u, 2u, index, 0)]);
-                    break;
-                case 1:
-                    baker.Track<HealTrack, HealClip>(new HealTrack(1f)).Clip(index, 0u, 2u, new HealClip(index));
-                    oracleTracks[index] = new(2, true, [new OracleAsset.Clip(0u, 2u, index, 0)]);
-                    break;
-                default:
-                    baker.Track<MarkTrack, MarkClip>(new MarkTrack(index)).Clip(index, 0u, 2u, new MarkClip(index));
-                    oracleTracks[index] = new(3, false, [new OracleAsset.Clip(0u, 2u, 0f, index)]);
-                    break;
-            }
-        }
-        using var wide = TimelineAsset.Load(baker.Bake());
-        var wideOracle = new OracleAsset(oracleTracks, false);
-        var wideRows = new[] { new TimelineComponent(wide.Reference) };
-        var wideLogs = new DataLog[1];
-        var wideQuery = Facade(wideRows, wideLogs, out _, out _);
-        var wideCalls = 0L;
-        for (var index = 0; index < 2; index++)
-        {
-            wideQuery.Tick(50u + (uint)index, 1);
-            var expect = DataAuthoredOracle.Step(wideOracle, (uint)index, 0, 50u + (uint)index, false);
-            wideCalls += expect.Steps;
-            RequireFrame(wideLogs[0], expect, wideCalls, $"capacity 32 tracks frame {index}");
-        }
-        Require(wideRows[0].Position == 2u && wideLogs[0].TrackMask == 0xFFFF_FFFFu, "all 32 authored tracks executed each frame");
-        Console.WriteLine($"data-authored capacity: empty=no-op single-tick=clamps tracks={tracks} of the 256 authored-track law");
-    }
-
-    internal static void BatchCapacity()
-    {
-        using var wide = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Track<HealTrack, HealClip>(new HealTrack(1f))
-            .Track<MarkTrack, MarkClip>(new MarkTrack(3))
-            .Clip(0, 0u, 3u, new DamageClip(1f))
-            .Clip(1, 0u, 3u, new HealClip(2f))
-            .Clip(2, 0u, 3u, new MarkClip(3))
-            .Bake());
-        using var narrow = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Clip(0, 0u, 1u, new DamageClip(7f))
-            .Bake());
-        var wideOracle = new OracleAsset(
-        [
-            new(1, true, [new OracleAsset.Clip(0u, 3u, 1f, 0)]),
-            new(2, true, [new OracleAsset.Clip(0u, 3u, 2f, 0)]),
-            new(3, false, [new OracleAsset.Clip(0u, 3u, 0f, 3)]),
-        ], false);
-        var narrowOracle = new OracleAsset([new(1, true, [new OracleAsset.Clip(0u, 1u, 7f, 0)])], false);
-        const int count = 10_000;
-        var rows = new TimelineComponent[count];
-        var logs = new DataLog[count];
-        for (var row = 0; row < count; row++)
-            rows[row] = new TimelineComponent((row & 1) == 0 ? wide.Reference : narrow.Reference);
-        var query = Timeline.Rows(rows).Write(logs);
-        query.Tick(1_000_000u, int.MaxValue);
-        for (var row = 0; row < count; row++)
-        {
-            var oracle = (row & 1) == 0 ? wideOracle : narrowOracle;
-            var position = 0u;
-            var cycle = 0L;
-            var gameTick = 1_000_000u;
-            var totalSteps = 0;
-            var frame = new OracleFrame(0u, 0u, 0L, FrameFlags.None, 0, 0, 0, -1, 0, 0u, 0, 0, 0, 0, false, 0u, 0L);
-            while (DataAuthoredOracle.Select(oracle.Duration, oracle.Loops, position, cycle, false, out var tick, out var frameCycle, out var flags, out var nextPosition, out var nextCycle))
-            {
-                frame = DataAuthoredOracle.Step(oracle, position, cycle, gameTick, false);
-                totalSteps += frame.Steps;
-                position = nextPosition;
-                cycle = nextCycle;
-                gameTick++;
-            }
-            RequireFrame(logs[row], frame, totalSteps, $"capacity row {row}");
-            Require(rows[row].Position == position && rows[row].Cycle == cycle, $"capacity row {row} commit");
-        }
-        Console.WriteLine($"data-authored capacity-batch: {count} mixed rows matched the independent finite oracle");
-    }
-
-    internal static void ModuleCapacity()
-    {
-        using var first = TimelineAsset.Load(new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Clip(0, 0u, 2u, new DamageClip(1f))
-            .Bake());
-        using var second = TimelineAsset.Load(new DataBaker()
-            .Track<HealTrack, HealClip>(new HealTrack(1f))
-            .Clip(0, 0u, 3u, new HealClip(2f))
-            .Bake());
-        var mixed = new[]
-        {
-            new TimelineComponent(first.Reference),
-            new TimelineComponent(second.Reference),
-        };
-        var mixedLogs = new DataLog[2];
-        Timeline.Rows(mixed).Write(mixedLogs).Tick(10u, 5);
-        Require(mixed[0].Position == 2u && mixed[1].Position == 3u && mixedLogs[0].Calls == 2 && mixedLogs[1].Calls == 3, "rows carry their own assets, so mixed rows tick without route rejection");
-
-        var rows = new[] { new TimelineComponent(first.Reference) };
-        var logs = new DataLog[1];
-        logs[0].Calls = 99;
-        var receipts = new Receipt[1];
-        var uints = new uint[1];
-        uints[0] = 77u;
-        var message = "";
+        var positions = new uint[4];
+        var values = new float[3];
+        var cycles = new long[4];
+        RequireThrows<ArgumentException>(() => Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(values, cycles), "length mismatch rejected");
+        values = new float[4];
+        var overlapping = MemoryMarshal.Cast<uint, float>(positions.AsSpan());
+        var threw = false;
         try
         {
-            Timeline.Rows(rows).Read(uints).Read(receipts).Tick(30u, 1);
+            Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(overlapping, cycles);
         }
-        catch (ArgumentException exception)
+        catch (ArgumentException)
         {
-            message = exception.Message;
+            threw = true;
         }
-        Require(message == "global::DamageJob: required column missing for registered consumer: global::DataLog", "missing mandatory column names job and type");
-        Require(rows[0].Position == 0u, "missing column leaves positions unchanged");
-        Require(logs[0].Calls == 99 && receipts[0] == default && uints[0] == 77u, "missing column leaves sentinel row data unchanged");
-        Timeline.Rows(rows).Read(uints).Read(receipts).Write(logs).Tick(30u, 1);
-        Require(rows[0].Position == 1u && logs[0].Calls == 100, "the same rows tick once the mandatory column is supplied");
-        var duplicate = new uint[1];
-        RequireThrowsArgument(() => Timeline.Rows(rows).Read(uints).Read(duplicate), "duplicate column type is role-ambiguous at construction");
-        RequireThrowsArgument(() => Timeline.Rows(rows).Read(new uint[2]), "column length mismatch is rejected at construction");
-        RequireThrowsArgument(() => Timeline.Rows(rows).Read(uints).Write(MemoryMarshal.Cast<uint, int>(uints.AsSpan())), "writable column overlapping another column is rejected at construction");
-        RequireThrowsArgument(() => Timeline.Rows(rows).Write(MemoryMarshal.AsBytes(rows.AsSpan())[..1]), "writable column overlapping rows is rejected at construction");
-        Require(rows[0].Position == 1u && uints[0] == 77u, "construction failures execute nothing");
-        Console.WriteLine("data-authored module-capacity: mixed-asset rows legal missing-column job+type duplicate length overlap-rows overlap-columns rejected before effects");
+        Require(threw, "overlapping columns rejected");
     }
 
     internal static void Memory()
     {
-        var baked = new DataBaker()
-            .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
-            .Clip(0, 0u, 2u, new DamageClip(1f))
-            .Bake();
-        using var asset = TimelineAsset.Load(baked);
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var logs = new DataLog[1];
-        Timeline.Rows(rows).Write(logs).Tick(1u, 1);
-        Require(rows[0].Position == 1u && logs[0].Calls == 1, "the measured asset plays");
-        Console.WriteLine($"memory: state={Unsafe.SizeOf<TimelineComponent>()} B tlb={baked.Length} B");
+        using var asset = TimelineAsset.Load(new AlphaBaker()
+            .Track<TandemTrack, TandemClip>(new TandemTrack(2f))
+            .Clip(0, 0u, 64u, new TandemClip(1f))
+            .Looping()
+            .Bake());
+        BakedLane<TandemTrack, TandemClip>.Bind(asset);
+        var positions = new uint[256];
+        var values = new float[256];
+        var cycles = new long[256];
+
+        for (var pass = 0; pass < 100; pass++)
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var pass = 0; pass < 100_000; pass++)
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Require(allocated == 0, $"warm lane allocated {allocated} B");
+        Console.WriteLine($"allocation: 100k x 256-row lane applies retained {allocated} B; table bytes {BakedLane<TandemTrack, TandemClip>.Duration * 2 * 4}");
     }
 
-    static TimelineQuery<uint, Receipt, DataLog> Facade(TimelineComponent[] rows, DataLog[] logs, out Receipt[] receipts, out uint[] uints)
+    internal static void BatchCapacity()
     {
-        receipts = new Receipt[rows.Length];
-        uints = new uint[rows.Length];
-        return Timeline.Rows(rows).Read(uints).Read(receipts).Write(logs);
+        const int Rows = 200_000;
+        using var asset = TimelineAsset.Load(new AlphaBaker()
+            .Track<TandemTrack, TandemClip>(new TandemTrack(1f))
+            .Clip(0, 0u, 64u, new TandemClip(2f))
+            .Looping()
+            .Bake());
+        BakedLane<TandemTrack, TandemClip>.Bind(asset);
+        var positions = new uint[Rows];
+        var values = new float[Rows];
+        var cycles = new long[Rows];
+        for (var i = 0; i < Rows; i++)
+            positions[i] = (uint)(i % 64);
+
+        for (var tick = 0; tick < 64; tick++)
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+
+        long checksum = 0;
+        for (var i = 0; i < Rows; i++)
+            checksum = unchecked(checksum * 31 + (long)values[i] + cycles[i]);
+        Require(checksum != 0, "batch capacity checksum computed");
+        Console.WriteLine($"capacity: {Rows} rows x 64 ticks checksum {checksum}");
     }
 
-    static bool SameLog(in DataLog left, in DataLog right)
-        => left.FrameOrder == right.FrameOrder && left.FrameSteps == right.FrameSteps && left.Calls == right.Calls
-            && left.GameTick == right.GameTick && left.TimelineTick == right.TimelineTick && left.Cycle == right.Cycle
-            && left.TrackIndex == right.TrackIndex && left.JobCode == right.JobCode && left.Flags == right.Flags
-            && left.ClipBits == right.ClipBits && left.TrackMask == right.TrackMask && left.Direction == right.Direction
-            && left.Bits0 == right.Bits0 && left.Bits1 == right.Bits1 && left.Bits2 == right.Bits2 && left.Bits3 == right.Bits3;
-
-    static void RequireFrame(in DataLog log, in OracleFrame expect, long totalCalls, string label)
+    internal static void ModuleCapacity()
     {
-        Require(log.FrameOrder == expect.FrameOrder, label + ": frame order");
-        Require(log.FrameSteps == expect.Steps, label + ": frame steps");
-        Require(log.Calls == totalCalls, label + ": total calls");
-        Require(log.GameTick == expect.GameTick, label + ": game tick");
-        Require(log.TimelineTick == expect.TimelineTick, label + ": timeline tick");
-        Require(log.Cycle == expect.Cycle, label + ": cycle");
-        Require(log.Flags == expect.Flags, label + ": flags");
-        Require(log.ClipBits == expect.LastBits, label + ": clip bits");
-        Require(log.TrackIndex == expect.LastTrack, label + ": track index");
-        Require(log.JobCode == expect.LastJob, label + ": job code");
-        Require(log.TrackMask == expect.TrackMask, label + ": track mask");
-        Require(log.Bits0 == expect.Bits0 && log.Bits1 == expect.Bits1 && log.Bits2 == expect.Bits2 && log.Bits3 == expect.Bits3, label + ": observed value ring");
+        const int Tracks = 256;
+        var baker = new AlphaBaker();
+        for (var track = 1; track <= Tracks; track++)
+            baker.Track<TandemTrack, TandemClip>(new TandemTrack(track)).Clip(track - 1, 0u, 64u, new TandemClip(1f));
+        using var asset = TimelineAsset.Load(baker.Looping().Bake());
+        BakedLane<TandemTrack, TandemClip>.Bind(asset);
+
+        var expected = 0f;
+        for (var track = 1; track <= Tracks; track++)
+            expected += track + 7f;
+        for (var tick = 0u; tick < 64u; tick++)
+            Require(BakedLane<TandemTrack, TandemClip>.Effect(tick) == expected, $"module fold at {tick}");
+
+        var positions = new uint[16];
+        var values = new float[16];
+        var cycles = new long[16];
+        for (var tick = 0; tick < 10; tick++)
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+        Require(values.All(value => value == expected * 10), "module capacity fold applied");
+        Console.WriteLine($"module-capacity: {Tracks} tracks fold to {expected} per tick, x10 applied");
     }
 
-    static void RequireThrowsArgument(Action action, string label)
+    static void Require(bool condition, string label)
+    {
+        if (!condition)
+            throw new InvalidOperationException($"receipt failed: {label}");
+    }
+
+    static void RequireThrows<TException>(Action action, string label) where TException : Exception
     {
         try
         {
             action();
         }
-        catch (ArgumentException)
+        catch (TException)
         {
             return;
         }
-        throw new InvalidOperationException(label);
-    }
-
-    static void Require(bool condition, [CallerArgumentExpression(nameof(condition))] string? expression = null)
-    {
-        if (!condition)
-            throw new InvalidOperationException(expression);
+        throw new InvalidOperationException($"receipt failed: expected {typeof(TException).Name} ({label})");
     }
 }

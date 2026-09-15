@@ -1,5 +1,10 @@
 # Kernel warm-path performance (issue #85)
 
+> Historical record: the kernel catalog this file receipts (`TimelineKernels`,
+> `tlbake --kernel`) was removed under [issue #104](https://github.com/IAFahim/tl/issues/104)
+> in favor of the typed playback lane. The measurements and cost model remain valid
+> history for the removed surface; see [typed-playback-lane.md](typed-playback-lane.md).
+
 This records the multi-row kernel warm-path optimization and the real-world
 cost model measured around it: what one call costs, what one row costs, and
 how the library compares against plain ECS iteration at the shapes that

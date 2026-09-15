@@ -50,6 +50,7 @@ internal static unsafe class LanePairs
         PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteScale, &BindFloat);
         PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteConstant, &BindFloat);
         PairRuntime<ImpureTrack, ImpureClip>.Consume(&ExecuteImpure, &BindFloat);
+        PairRuntime<OrphanTrack, OrphanClip>.Consume(&ExecuteOrphan, &BindFloat);
     }
 
     private static void BindFloat(ulong* keys, int keyCount, byte* table)
@@ -75,6 +76,14 @@ internal static unsafe class LanePairs
 
     private static void ExecuteImpure(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] *= 2f;
+
+    private static void ExecuteOrphan(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
+    {
+        OrphanClip scratch = default;
+        var frame = TickFrame.ToFrame<OrphanTrack, OrphanClip>(slot, gameTick, tick, cycle, flags, ref scratch);
+        var sign = frame.Has(FrameFlags.Reverse) ? -1f : 1f;
+        ((float*)columns[0])[row] += sign * frame.Track.Code * frame.Clip.Value;
+    }
 }
 
 public class LaneTests
@@ -99,9 +108,20 @@ public class LaneTests
         .Looping()
         .Bake();
 
-    static byte[] OrphanBake() => new Baker()
-        .Track<OrphanTrack, OrphanClip>(new OrphanTrack(1))
-        .Clip(0, 0, 6, new OrphanClip(5))
+    static byte[] DualPairBake() => new Baker()
+        .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
+        .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
+        .Track<OrphanTrack, OrphanClip>(new OrphanTrack(5))
+        .Clip(0, 0, 4, new LaneClip(8))
+        .Clip(0, 3, 6, new LaneClip(4))
+        .Clip(1, 1, 6, new LaneClip(2))
+        .Clip(2, 2, 5, new OrphanClip(3))
+        .Looping()
+        .Bake();
+
+    static byte[] GammaBake() => new Baker()
+        .Track<GammaTrack, GammaClip>(new GammaTrack(1))
+        .Clip(0, 0, 6, new GammaClip(5))
         .Looping()
         .Bake();
 
@@ -176,52 +196,75 @@ public class LaneTests
         Assert.Equal(1L, cycles[5]);
     }
 
+    static readonly float[] LoopingEffects = [15f, 26f, 26f, 24f, 22f, 22f];
+
+    static void Simulate(uint[] positions, long[] cycles, float[] effects, float[] table, bool forward, int calls, uint duration, bool looping)
+    {
+        for (var call = 0; call < calls; call++)
+            for (var i = 0; i < positions.Length; i++)
+            {
+                if (!TimelineMovement.Select(new TimelineState(1, positions[i], cycles[i]), duration, looping, !forward, out var next, out var tick, out _, out _))
+                    continue;
+                effects[i] += forward ? table[tick] : -table[tick];
+                positions[i] = next.Position;
+                cycles[i] = next.Cycle;
+            }
+    }
+
     [Fact]
-    public void BakedLaneMatchesFacadeForwardAndBackward()
+    public void BakedLaneTablesMatchAuthoredOracle()
+    {
+        using var asset = TimelineAsset.Load(LoopingBake());
+        BakedLane<LaneTrack, LaneClip>.Bind(asset);
+
+        Assert.Equal(6u, BakedLane<LaneTrack, LaneClip>.Duration);
+        Assert.True(BakedLane<LaneTrack, LaneClip>.Looping);
+        for (var tick = 0u; tick < 6u; tick++)
+        {
+            Assert.Equal(LoopingEffects[tick], BakedLane<LaneTrack, LaneClip>.Effect(tick));
+            Assert.Equal(-LoopingEffects[tick], BakedLane<LaneTrack, LaneClip>.InverseEffect(tick));
+        }
+    }
+
+    [Fact]
+    public void BakedLaneMatchesOracleForwardAndBackward()
     {
         const int Rows = 257;
         const int Ticks = 80;
         using var asset = TimelineAsset.Load(LoopingBake());
         BakedLane<LaneTrack, LaneClip>.Bind(asset);
 
-        var facadeRows = new TimelineComponent[Rows];
-        var facadeColumn = new float[Rows];
         var lanePositions = new uint[Rows];
         var laneEffects = new float[Rows];
         var laneCycles = new long[Rows];
+        var oraclePositions = new uint[Rows];
+        var oracleEffects = new float[Rows];
+        var oracleCycles = new long[Rows];
         for (var i = 0; i < Rows; i++)
         {
-            facadeRows[i] = new TimelineComponent(asset.Reference) { Position = (uint)(i * 7 % 6), Cycle = i % 3 - 1 };
-            lanePositions[i] = (uint)(i * 7 % 6);
-            laneCycles[i] = i % 3 - 1;
+            lanePositions[i] = oraclePositions[i] = (uint)(i * 7 % 6);
+            laneCycles[i] = oracleCycles[i] = i % 3 - 1;
         }
-        var initialEffects = new float[Rows];
+        var initialEffects = (float[])laneEffects.Clone();
         var initialPositions = (uint[])lanePositions.Clone();
         var initialCycles = (long[])laneCycles.Clone();
 
-        var query = Timeline.Rows(facadeRows).Write(facadeColumn);
-        for (var tick = 0u; tick < Ticks; tick++)
+        for (var tick = 0; tick < Ticks; tick++)
         {
-            query.Tick(tick);
             Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects, laneCycles);
-            for (var i = 0; i < Rows; i++)
-            {
-                Assert.Equal(facadeRows[i].Position, lanePositions[i]);
-                Assert.Equal(facadeRows[i].Cycle, laneCycles[i]);
-                Assert.Equal(facadeColumn[i], laneEffects[i]);
-            }
+            Simulate(oraclePositions, oracleCycles, oracleEffects, LoopingEffects, true, 1, 6, true);
+            Assert.Equal(oraclePositions, lanePositions);
+            Assert.Equal(oracleCycles, laneCycles);
+            Assert.Equal(oracleEffects, laneEffects);
         }
 
-        for (var tick = 0u; tick < Ticks; tick++)
+        for (var tick = 0; tick < Ticks; tick++)
         {
-            query.Tick(Ticks - tick, -1);
             Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, false).Apply(laneEffects, laneCycles);
-            for (var i = 0; i < Rows; i++)
-            {
-                Assert.Equal(facadeRows[i].Position, lanePositions[i]);
-                Assert.Equal(facadeRows[i].Cycle, laneCycles[i]);
-                Assert.Equal(facadeColumn[i], laneEffects[i]);
-            }
+            Simulate(oraclePositions, oracleCycles, oracleEffects, LoopingEffects, false, 1, 6, true);
+            Assert.Equal(oraclePositions, lanePositions);
+            Assert.Equal(oracleCycles, laneCycles);
+            Assert.Equal(oracleEffects, laneEffects);
         }
 
         Assert.Equal(initialPositions, lanePositions);
@@ -230,67 +273,92 @@ public class LaneTests
     }
 
     [Fact]
-    public void BakedLaneCatchUpMatchesFacadeDelta()
+    public void BakedLaneCatchUpMatchesOracleDelta()
     {
         const int Rows = 64;
         using var asset = TimelineAsset.Load(LoopingBake());
         BakedLane<LaneTrack, LaneClip>.Bind(asset);
 
-        var facadeRows = new TimelineComponent[Rows];
-        var facadeColumn = new float[Rows];
         var lanePositions = new uint[Rows];
         var laneEffects = new float[Rows];
         var laneCycles = new long[Rows];
+        var oraclePositions = new uint[Rows];
+        var oracleEffects = new float[Rows];
+        var oracleCycles = new long[Rows];
         for (var i = 0; i < Rows; i++)
         {
-            facadeRows[i] = new TimelineComponent(asset.Reference) { Position = (uint)(i % 6), Cycle = i / 6 };
-            lanePositions[i] = (uint)(i % 6);
-            laneCycles[i] = i / 6;
+            lanePositions[i] = oraclePositions[i] = (uint)(i % 6);
+            laneCycles[i] = oracleCycles[i] = i / 6;
         }
 
-        Timeline.Rows(facadeRows).Write(facadeColumn).Tick(0u, 3);
         for (var call = 0; call < 3; call++)
             Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects, laneCycles);
+        Simulate(oraclePositions, oracleCycles, oracleEffects, LoopingEffects, true, 3, 6, true);
 
-        for (var i = 0; i < Rows; i++)
+        Assert.Equal(oraclePositions, lanePositions);
+        Assert.Equal(oracleCycles, laneCycles);
+        Assert.Equal(oracleEffects, laneEffects);
+    }
+
+    [Fact]
+    public void BakedLaneFiniteClampMatchesOracle()
+    {
+        const int Rows = 16;
+        const int Ticks = 10;
+        using var asset = TimelineAsset.Load(FiniteBake());
+        BakedLane<LaneTrack, LaneClip>.Bind(asset);
+
+        Assert.Equal(6u, BakedLane<LaneTrack, LaneClip>.Duration);
+        Assert.False(BakedLane<LaneTrack, LaneClip>.Looping);
+        var finiteEffects = new float[6];
+        for (var tick = 0u; tick < 6u; tick++)
         {
-            Assert.Equal(facadeRows[i].Position, lanePositions[i]);
-            Assert.Equal(facadeRows[i].Cycle, laneCycles[i]);
-            Assert.Equal(facadeColumn[i], laneEffects[i]);
+            finiteEffects[tick] = BakedLane<LaneTrack, LaneClip>.Effect(tick);
+            Assert.Equal(17f, finiteEffects[tick]);
+        }
+
+        var lanePositions = new uint[Rows];
+        var laneEffects = new float[Rows];
+        var laneCycles = new long[Rows];
+        var oraclePositions = new uint[Rows];
+        var oracleEffects = new float[Rows];
+        var oracleCycles = new long[Rows];
+        for (var i = 0; i < Rows; i++)
+            lanePositions[i] = oraclePositions[i] = (uint)(i % 8);
+
+        for (var tick = 0; tick < Ticks; tick++)
+        {
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects, laneCycles);
+            Simulate(oraclePositions, oracleCycles, oracleEffects, finiteEffects, true, 1, 6, false);
+            Assert.Equal(oraclePositions, lanePositions);
+            Assert.Equal(oracleCycles, laneCycles);
+            Assert.Equal(oracleEffects, laneEffects);
         }
     }
 
     [Fact]
-    public void BakedLaneFiniteClampMatchesFacade()
+    public void BakedLaneFoldsEveryPairOfTheAsset()
     {
-        const int Rows = 16;
-        using var asset = TimelineAsset.Load(FiniteBake());
+        using var asset = TimelineAsset.Load(DualPairBake());
         BakedLane<LaneTrack, LaneClip>.Bind(asset);
 
-        var facadeRows = new TimelineComponent[Rows];
-        var facadeColumn = new float[Rows];
-        var lanePositions = new uint[Rows];
-        var laneEffects = new float[Rows];
-        var laneCycles = new long[Rows];
-        for (var i = 0; i < Rows; i++)
+        Assert.Equal(6u, BakedLane<LaneTrack, LaneClip>.Duration);
+        for (var tick = 0u; tick < 6u; tick++)
         {
-            facadeRows[i] = new TimelineComponent(asset.Reference) { Position = (uint)(i % 8) };
-            lanePositions[i] = (uint)(i % 8);
+            var orphan = tick >= 2 && tick < 5 ? 5 * 3f : 0f;
+            Assert.Equal(LoopingEffects[tick] + orphan, BakedLane<LaneTrack, LaneClip>.Effect(tick));
         }
+    }
 
-        var query = Timeline.Rows(facadeRows).Write(facadeColumn);
-        for (var tick = 0u; tick < 10u; tick++)
-        {
-            query.Tick(tick);
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects, laneCycles);
-        }
-
-        for (var i = 0; i < Rows; i++)
-        {
-            Assert.Equal(facadeRows[i].Position, lanePositions[i]);
-            Assert.Equal(facadeRows[i].Cycle, laneCycles[i]);
-            Assert.Equal(facadeColumn[i], laneEffects[i]);
-        }
+    [Fact]
+    public void BakedLanePropagatesConsumerFaults()
+    {
+        using var asset = TimelineAsset.Load(new Baker()
+            .Track<BetaTrack, BetaClip>(new BetaTrack(1))
+            .Clip(0, 0, 6, new BetaClip(5))
+            .Looping()
+            .Bake());
+        Assert.Throws<InvalidOperationException>(() => BakedLane<BetaTrack, BetaClip>.Bind(asset));
     }
 
     [Fact]
@@ -310,8 +378,8 @@ public class LaneTests
     [Fact]
     public void BakedLaneRejectsPairWithoutConsumer()
     {
-        using var asset = TimelineAsset.Load(OrphanBake());
-        Assert.Throws<ArgumentException>(() => BakedLane<OrphanTrack, OrphanClip>.Bind(asset));
+        using var asset = TimelineAsset.Load(GammaBake());
+        Assert.Throws<ArgumentException>(() => BakedLane<GammaTrack, GammaClip>.Bind(asset));
     }
 
     [Fact]

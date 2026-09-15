@@ -3,32 +3,30 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Tl;
 
-var totals = new[] { default(PackageTotal) };
-
 using var asset = TimelineAsset.Load(new PackageBaker()
     .Track<PackageTrack, PackageClip>(new PackageTrack())
     .Clip(0, 0u, 4u, new PackageClip(7))
     .Bake());
-var rows = new[] { new TimelineComponent(asset.Reference) };
-var query = Timeline.Rows(rows).Write(totals);
+BakedLane<PackageTrack, PackageClip>.Bind(asset);
+var positions = new uint[1];
+var values = new float[1];
+var cycles = new long[1];
 
-query.Tick(0u);
+Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, true).Apply(values, cycles);
 
-if (rows[0].Position != 1u || totals[0].Value != 7)
+if (positions[0] != 1u || values[0] != 7f)
     return 1;
 
-query.Tick(1u, -1);
+Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, false).Apply(values, cycles);
 
-if (rows[0].Position != 0u || totals[0] != default)
+if (positions[0] != 0u || values[0] != 0f)
     return 2;
 
-query.Tick(0u);
-Console.WriteLine(totals[0].Value);
+Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, true).Apply(values, cycles);
+Console.WriteLine((int)values[0]);
 return 0;
 
-public readonly record struct PackageTotal(int Value);
 public readonly record struct PackageClip(int Value);
-
 public readonly struct PackageTrack : IBlend<PackageClip>
 {
     public void Blend(in PackageClip first, in PackageClip second, float factor, out PackageClip result)
@@ -37,10 +35,9 @@ public readonly struct PackageTrack : IBlend<PackageClip>
 
 public readonly struct PackageJob : ITimelineJob<PackageTrack, PackageClip>
 {
-    public static void Execute(in Frame<PackageTrack, PackageClip> frame, ref PackageTotal total)
-        => total = new(total.Value + frame.Direction * frame.Clip.Value);
+    public static void Execute(in Frame<PackageTrack, PackageClip> frame, ref float value)
+        => value += frame.Direction * frame.Clip.Value;
 }
-
 [StructLayout(LayoutKind.Sequential)]
 internal struct PackageSlot<TTrack, TClip> where TTrack : unmanaged where TClip : unmanaged
 {

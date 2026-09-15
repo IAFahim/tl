@@ -8,12 +8,12 @@ namespace Tl.Gen.Tlb;
 
 public static class BakeCacheKey
 {
-    public const string ToolVersion = "tlbake-bake-v1";
+    public const string ToolVersion = "tlbake-bake-v2";
 
-    public static byte[] Compute(byte[] inputJson, IReadOnlyList<byte[]> assemblyFiles, bool kernel, bool strip) =>
-        Compute(ToolVersion, inputJson, assemblyFiles, kernel, strip);
+    public static byte[] Compute(byte[] inputJson, IReadOnlyList<byte[]> assemblyFiles, bool strip) =>
+        Compute(ToolVersion, inputJson, assemblyFiles, strip);
 
-    public static byte[] Compute(string toolVersion, byte[] inputJson, IReadOnlyList<byte[]> assemblyFiles, bool kernel, bool strip)
+    public static byte[] Compute(string toolVersion, byte[] inputJson, IReadOnlyList<byte[]> assemblyFiles, bool strip)
     {
         ArgumentNullException.ThrowIfNull(toolVersion);
         ArgumentNullException.ThrowIfNull(inputJson);
@@ -30,7 +30,7 @@ public static class BakeCacheKey
             ArgumentNullException.ThrowIfNull(file);
             hash.AppendData(SHA256.HashData(file));
         }
-        hash.AppendData([kernel ? (byte)1 : (byte)0, strip ? (byte)1 : (byte)0]);
+        hash.AppendData([strip ? (byte)1 : (byte)0]);
         return hash.GetHashAndReset();
     }
 

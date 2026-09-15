@@ -252,31 +252,55 @@ static unsafe class LaneTable<TTrack, TClip>
         var looping = header->Loops != 0;
         var forward = (float*)NativeMemory.AlignedAlloc((nuint)(Math.Max(1u, duration) * sizeof(float)), 64);
         var backward = (float*)NativeMemory.AlignedAlloc((nuint)(Math.Max(1u, duration) * sizeof(float)), 64);
-        var rows = new TimelineComponent[1];
-        var column = new float[1];
+        var pairs = checked((int)reference.PairCount);
+        int* chains = stackalloc int[pairs];
+        reference.Resolve(new Span<int>(chains, pairs));
+        ulong* keys = stackalloc ulong[1];
+        keys[0] = TypeKey<float>.Value;
+        byte* indices = stackalloc byte[256];
+        byte* refreshSlots = stackalloc byte[256];
+        byte* refreshColumns = stackalloc byte[256];
+        var refreshCount = 0;
+        ulong boundMask = 0;
+        PairTable.Bind(reference, keys, 1, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);
+        float* column = stackalloc float[1];
+        void** bases = stackalloc void*[1];
+        bases[0] = column;
+        void** columns = stackalloc void*[256];
+        for (var i = 0; i < 256; i++) columns[i] = null;
+        for (var i = 0; i < refreshCount; i++) columns[refreshSlots[i]] = bases[refreshColumns[i]];
 
-        float Measure(uint position, long cycle, float seed, int delta)
+        float Measure(uint position, long cycle, float seed, bool reverse)
         {
-            rows[0] = new TimelineComponent(reference) { Position = position, Cycle = cycle };
-            column[0] = seed;
-            Timeline.Rows(rows).Write(column).Tick(0u, delta);
-            if (rows[0].Position == position) throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
-            return column[0] - seed;
+            *column = seed;
+            if (!reference.Select(reverse, position, cycle, out _, out var tick, out var frameCycle, out var flags))
+                throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
+            reference.Execute(reverse, tick, 0u, frameCycle, flags, 0, new Span<int>(chains, pairs), columns);
+            return *column - seed;
+        }
+
+        static bool FoldsIndependentlyOfColumnValue(float baseline, float seeded)
+        {
+            if (baseline == seeded) return true;
+            var scale = MathF.Max(7f, MathF.Max(Math.Abs(baseline), Math.Abs(seeded)));
+            return MathF.Abs(seeded - baseline) <= 16f * (MathF.BitIncrement(scale) - scale);
         }
 
         for (var tick = 0u; tick < duration; tick++)
         {
             var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-            var first = Measure(tick, 0, 0, 1);
-            var second = Measure(tick, 3, 7, 1);
-            if (first != second)
+            var baseline = Measure(tick, 0, 0, false);
+            var cycled = Measure(tick, 3, 0, false);
+            var seeded = Measure(tick, 0, 7, false);
+            if (baseline != cycled || !FoldsIndependentlyOfColumnValue(baseline, seeded))
                 throw new ArgumentException($"Consumers of the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}) are not position-pure; the typed lane cannot bind them.");
-            forward[tick] = first;
-            first = Measure(backwardPosition, 0, 0, -1);
-            second = Measure(backwardPosition, 3, 7, -1);
-            if (first != second)
+            forward[tick] = baseline;
+            baseline = Measure(backwardPosition, 0, 0, true);
+            cycled = Measure(backwardPosition, 3, 0, true);
+            seeded = Measure(backwardPosition, 0, 7, true);
+            if (baseline != cycled || !FoldsIndependentlyOfColumnValue(baseline, seeded))
                 throw new ArgumentException($"Consumers of the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}) are not position-pure; the typed lane cannot bind them.");
-            backward[tick] = first;
+            backward[tick] = baseline;
         }
         var previousForward = Forward;
         var previousBackward = Backward;

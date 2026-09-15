@@ -9,63 +9,11 @@ namespace Tl.Bake.Tests;
 public class MultiPairBakeTests
 {
     [Fact]
-    public unsafe void InterleavedDerivedGroups_ExecuteInAuthoredClipOrder()
+    public void InterleavedDerivedGroups_ExecuteInAuthoredClipOrder()
     {
-        _ = Recording.Records;
         var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
-        using var asset = TimelineAsset.Load(bytes);
-        var rows = new[] { new TimelineComponent(asset.Reference) };
 
-        Recording.Records.Clear();
-        Timeline.Rows(rows).Tick(7u, 8);
-
-        Assert.Equal(Recording.ForwardOracle(7u), Recording.Records);
-    }
-
-    [Fact]
-    public unsafe void ReverseMovement_MirrorsAuthoredOrder()
-    {
-        _ = Recording.Records;
-        var full = TimelineBaker.BakeJson(Recording.OracleJson);
-        var stripped = TlbMetadata.Strip(full);
-
-        Recording.Records.Clear();
-        using (var asset = TimelineAsset.Load(full))
-        {
-            var rows = new[] { new TimelineComponent(asset.Reference) };
-            Timeline.Rows(rows).Tick(7u, 8);
-        }
-        var fullForward = Recording.Records.ToArray();
-
-        Recording.Records.Clear();
-        using (var asset = TimelineAsset.Load(full))
-        {
-            var rows = new[] { new TimelineComponent(asset.Reference) };
-            Timeline.Rows(rows).Tick(7u, 8);
-            Timeline.Rows(rows).Tick(7u, -8);
-        }
-        var fullTrace = Recording.Records.ToArray();
-
-        Recording.Records.Clear();
-        using (var asset = TimelineAsset.Load(stripped))
-        {
-            var rows = new[] { new TimelineComponent(asset.Reference) };
-            Timeline.Rows(rows).Tick(7u, 8);
-            Timeline.Rows(rows).Tick(7u, -8);
-        }
-        var strippedTrace = Recording.Records.ToArray();
-
-        Assert.Equal(18, fullForward.Length);
-        Assert.Equal(Recording.ForwardOracle(7u), fullForward);
-        Assert.Equal(fullForward.Length * 2, fullTrace.Length);
-        Assert.Equal(fullTrace, strippedTrace);
-        Assert.Equal('A', fullTrace[18].Pair);
-        Assert.Equal(7u, fullTrace[18].Tick);
-        Assert.Equal(30f, fullTrace[18].Value);
-        Assert.Equal('A', fullTrace[19].Pair);
-        Assert.Equal(6u, fullTrace[19].Tick);
-        Assert.Equal('B', fullTrace[20].Pair);
-        Assert.Equal(6u, fullTrace[20].Tick);
+        Assert.Equal(Recording.OracleFrames(), Recording.FramesOf(bytes));
     }
 
     [Fact]
@@ -78,13 +26,7 @@ public class MultiPairBakeTests
         Assert.True(TlbMetadata.HasMetadata(full));
         Assert.False(TlbMetadata.HasMetadata(stripped));
 
-        Recording.Records.Clear();
-        using (var asset = TimelineAsset.Load(stripped))
-        {
-            var rows = new[] { new TimelineComponent(asset.Reference) };
-            Timeline.Rows(rows).Tick(100u, 8);
-        }
-        Assert.Equal(Recording.ForwardOracle(100u), Recording.Records);
+        Assert.Equal(Recording.OracleFrames(), Recording.FramesOf(stripped));
     }
 
     [Fact]
@@ -188,7 +130,7 @@ public class MultiPairBakeTests
         var codes = new List<int>();
         foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in rows[0]))
             codes.Add(frame.Track.Code);
-        Timeline.Rows(rows).Tick(0u, 4);
+        rows[0].Position = 4;
         foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in rows[0]))
             codes.Add(frame.Track.Code);
         Assert.Equal([1, 2], codes);

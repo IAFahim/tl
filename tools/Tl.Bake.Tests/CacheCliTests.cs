@@ -16,13 +16,11 @@ public sealed class CliRun : IDisposable
         Directory.CreateDirectory(_root);
         JsonPath = Path.Combine(_root, "input.json");
         TlbPath = Path.Combine(_root, "out.tlb");
-        KernelPath = Path.Combine(_root, "out.g.cs");
         CacheDir = Path.Combine(_root, "cache");
     }
 
     public string JsonPath { get; }
     public string TlbPath { get; }
-    public string KernelPath { get; }
     public string CacheDir { get; }
 
     public void WriteJson(string json) => File.WriteAllText(JsonPath, json);
@@ -50,8 +48,8 @@ public sealed class CliRun : IDisposable
         }
     }
 
-    public byte[] KeyBytes(string assemblyPath, bool kernel) =>
-        BakeCacheKey.Compute(File.ReadAllBytes(JsonPath), [File.ReadAllBytes(assemblyPath)], kernel, strip: false);
+    public byte[] KeyBytes(string assemblyPath) =>
+        BakeCacheKey.Compute(File.ReadAllBytes(JsonPath), [File.ReadAllBytes(assemblyPath)], strip: false);
 
     public void Dispose()
     {
@@ -85,32 +83,25 @@ public class CacheCliTests
         run.WriteJson(SimpleJson);
         var asm = run.AssemblyPath("consumer.dll");
 
-        var first = run.Run(run.JsonPath, run.TlbPath, "--assembly", asm, "--kernel", run.KernelPath, "--cache", run.CacheDir);
+        var first = run.Run(run.JsonPath, run.TlbPath, "--assembly", asm, "--cache", run.CacheDir);
         Assert.Equal(0, first.Exit);
-        var key = BakeCacheKey.Prefix(run.KeyBytes(asm, kernel: true));
+        var key = BakeCacheKey.Prefix(run.KeyBytes(asm));
         Assert.Contains($"cache: miss {key}", first.StdOut);
 
         var tlbBytes = File.ReadAllBytes(run.TlbPath);
-        var kernelSource = File.ReadAllText(run.KernelPath);
-        var cachedTlb = Path.Combine(run.CacheDir, Convert.ToHexString(run.KeyBytes(asm, kernel: true)) + ".tlb");
-        var cachedKernel = Path.Combine(run.CacheDir, Convert.ToHexString(run.KeyBytes(asm, kernel: true)) + ".g.cs");
+        var cachedTlb = Path.Combine(run.CacheDir, Convert.ToHexString(run.KeyBytes(asm)) + ".tlb");
         Assert.Equal(tlbBytes, File.ReadAllBytes(cachedTlb));
-        Assert.Equal(kernelSource, File.ReadAllText(cachedKernel));
 
         var preservedTlb = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var preservedKernel = new DateTime(2002, 2, 2, 0, 0, 0, DateTimeKind.Utc);
         File.SetLastWriteTimeUtc(run.TlbPath, preservedTlb);
-        File.SetLastWriteTimeUtc(run.KernelPath, preservedKernel);
 
-        var second = run.Run(run.JsonPath, run.TlbPath, "--assembly", asm, "--kernel", run.KernelPath, "--cache", run.CacheDir);
+        var second = run.Run(run.JsonPath, run.TlbPath, "--assembly", asm, "--cache", run.CacheDir);
         Assert.Equal(0, second.Exit);
         Assert.Contains($"cache: hit {key}", second.StdOut);
         Assert.DoesNotContain("cache: miss", second.StdOut);
 
         Assert.Equal(tlbBytes, File.ReadAllBytes(run.TlbPath));
-        Assert.Equal(kernelSource, File.ReadAllText(run.KernelPath));
         Assert.Equal(preservedTlb, File.GetLastWriteTimeUtc(run.TlbPath));
-        Assert.Equal(preservedKernel, File.GetLastWriteTimeUtc(run.KernelPath));
     }
 
     [Fact]
@@ -125,7 +116,7 @@ public class CacheCliTests
         File.Delete(run.TlbPath);
         var second = run.Run(run.JsonPath, run.TlbPath, "--assembly", asm, "--cache", run.CacheDir);
         Assert.Equal(0, second.Exit);
-        var key = BakeCacheKey.Prefix(run.KeyBytes(asm, kernel: false));
+        var key = BakeCacheKey.Prefix(run.KeyBytes(asm));
         Assert.Contains($"cache: hit {key}", second.StdOut);
         Assert.Equal(TimelineBaker.BakeJson(SimpleJson), File.ReadAllBytes(run.TlbPath));
     }
@@ -138,13 +129,13 @@ public class CacheCliTests
         var asm = run.AssemblyPath("consumer.dll");
         var first = run.Run(run.JsonPath, run.TlbPath, "--assembly", asm, "--cache", run.CacheDir);
         Assert.Equal(0, first.Exit);
-        var firstKey = BakeCacheKey.Prefix(run.KeyBytes(asm, kernel: false));
+        var firstKey = BakeCacheKey.Prefix(run.KeyBytes(asm));
         Assert.Contains($"cache: miss {firstKey}", first.StdOut);
 
         run.WriteJson(SimpleJson.Replace("\"duration\": 10", "\"duration\": 12"));
         var second = run.Run(run.JsonPath, run.TlbPath, "--assembly", asm, "--cache", run.CacheDir);
         Assert.Equal(0, second.Exit);
-        var secondKey = BakeCacheKey.Prefix(run.KeyBytes(asm, kernel: false));
+        var secondKey = BakeCacheKey.Prefix(run.KeyBytes(asm));
         Assert.NotEqual(firstKey, secondKey);
         Assert.Contains($"cache: miss {secondKey}", second.StdOut);
     }
@@ -157,13 +148,13 @@ public class CacheCliTests
         var asm = run.AssemblyPath("consumer.dll");
         var first = run.Run(run.JsonPath, run.TlbPath, "--assembly", asm, "--cache", run.CacheDir);
         Assert.Equal(0, first.Exit);
-        var firstKey = BakeCacheKey.Prefix(run.KeyBytes(asm, kernel: false));
+        var firstKey = BakeCacheKey.Prefix(run.KeyBytes(asm));
         Assert.Contains($"cache: miss {firstKey}", first.StdOut);
 
         File.WriteAllBytes(asm, [.. File.ReadAllBytes(asm), (byte)' ']);
         var second = run.Run(run.JsonPath, run.TlbPath, "--assembly", asm, "--cache", run.CacheDir);
         Assert.Equal(0, second.Exit);
-        var secondKey = BakeCacheKey.Prefix(run.KeyBytes(asm, kernel: false));
+        var secondKey = BakeCacheKey.Prefix(run.KeyBytes(asm));
         Assert.NotEqual(firstKey, secondKey);
         Assert.Contains($"cache: miss {secondKey}", second.StdOut);
     }

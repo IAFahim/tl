@@ -24,33 +24,6 @@ public class TotalMovementTests
         .Clip(0, 0u, 2u, new JobClip(1))
         .Looping()
         .Bake();
-
-    [Fact]
-    public void DataAuthoredSurfaceIsTotalWhenDriven()
-    {
-        using var finite = TimelineAsset.Load(FiniteFixture());
-        var rows = new[] { new TimelineComponent(finite.Reference) };
-        var query = Timeline.Rows(rows);
-
-        query.Tick(11u, 3);
-        Assert.Equal(3u, rows[0].Position);
-        Assert.Equal(0L, rows[0].Cycle);
-        query.Tick(14u, -3);
-        Assert.Equal(0u, rows[0].Position);
-        Assert.Equal(0L, rows[0].Cycle);
-
-        var track = new JobTrack();
-        var clip = new JobClip(7);
-        var frame = new Frame<JobTrack, JobClip>(in track, in clip, 11, 13, -2, 17, FrameFlags.Reverse);
-
-        Assert.Equal((ushort)17, frame.TrackIndex);
-        Assert.Equal(-1, frame.Direction);
-        Assert.True(frame.IsBackward);
-        Assert.False(new Frame<JobTrack, JobClip>(in track, in clip, 11, 13, -2, 17, FrameFlags.None).IsBackward);
-        Assert.True(frame.Has(FrameFlags.Reverse));
-        Assert.False(frame.Has(FrameFlags.TimelineStart));
-    }
-
     public static TheoryData<uint, uint, uint, bool, bool, uint, uint, FrameFlags> FiniteCases => new()
     {
         { 0, 7, 3, false, false, 7, 0, FrameFlags.None },
@@ -228,32 +201,6 @@ public class TotalMovementTests
         Assert.Equal(1u, states[0].Position);
         Assert.Equal(3u, states[1].Position);
     }
-
-    [Fact]
-    public void FacadeCompletionOfOneRowDoesNotStopLiveRows()
-    {
-        using var shortAsset = TimelineAsset.Load(new Baker()
-            .Track<JobTrack, JobClip>(default)
-            .Clip(0, 0u, 1u, new JobClip(1))
-            .Bake());
-        using var longAsset = TimelineAsset.Load(new Baker()
-            .Track<JobTrack, JobClip>(default)
-            .Clip(0, 0u, 3u, new JobClip(1))
-            .Bake());
-        var rows = new[]
-        {
-            new TimelineComponent(shortAsset.Reference),
-            new TimelineComponent(longAsset.Reference),
-        };
-        var query = Timeline.Rows(rows);
-
-        for (uint pass = 0; pass < 3; pass++)
-            query.Tick(100u + pass, 1);
-
-        Assert.Equal(1u, rows[0].Position);
-        Assert.Equal(3u, rows[1].Position);
-    }
-
     [Fact]
     public void FiniteClampingDoesNotClaimInverseMovement()
     {
@@ -266,23 +213,6 @@ public class TotalMovementTests
         Assert.Equal(3, Replay(ref state, 3, false, -10, ref gameTick, ticks, gameTicks));
         Assert.Equal(0u, state.Position);
     }
-
-    [Fact]
-    public void FacadeFiniteClampingDoesNotClaimInverseMovement()
-    {
-        using var asset = TimelineAsset.Load(FiniteFixture());
-        var rows = new[] { new TimelineComponent(asset.Reference) { Position = 1 } };
-        var query = Timeline.Rows(rows);
-
-        query.Tick(10u, 10);
-        Assert.Equal(3u, rows[0].Position);
-        Assert.Equal(0L, rows[0].Cycle);
-
-        query.Tick(20u, -10);
-        Assert.Equal(0u, rows[0].Position);
-        Assert.Equal(0L, rows[0].Cycle);
-    }
-
     [Fact]
     public void LoopReplayCrossesMultipleCyclesAndImmediateReverseRestoresWrap()
     {
@@ -310,23 +240,6 @@ public class TotalMovementTests
         Assert.Equal(forwardCycle, reverseCycle);
         AssertState(state, restored);
     }
-
-    [Fact]
-    public void FacadeLoopingWrapAndImmediateReverseRestoresCycle()
-    {
-        using var asset = TimelineAsset.Load(LoopingFixture());
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var query = Timeline.Rows(rows);
-
-        query.Tick(10u, 5);
-        Assert.Equal(1u, rows[0].Position);
-        Assert.Equal(2L, rows[0].Cycle);
-
-        query.Tick(15u, -5);
-        Assert.Equal(0u, rows[0].Position);
-        Assert.Equal(0L, rows[0].Cycle);
-    }
-
     [Fact]
     public void WarmSelectionAllocatesNoManagedMemory()
     {

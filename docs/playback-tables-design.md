@@ -1,5 +1,10 @@
 # Per-asset playback tables for the data-authored coordinator
 
+> Superseded in part: the facade and the watch gather lane this design compared against
+> were removed under [issue #104](https://github.com/IAFahim/tl/issues/104); the typed
+> playback lane is the shipped shape of the table pattern. See
+> [typed-playback-lane.md](typed-playback-lane.md).
+
 Design and prototype record for [issue #88](https://github.com/IAFahim/tl/issues/88). It extends the approved data-authored contract in [data-authored-api.md](data-authored-api.md) with a coordinator shape for its dominant real workload: many entities, each carrying exactly one timeline, most entities sharing a small set of assets, clocks staggered per entity. It proposes no public API change, ships no production source change, and does not alter any #56 gate. `Timeline.Rows` remains the general heterogeneous lane; nothing here removes it.
 
 Status: prototype + measurement. The API below is a sketch the prototype approximates; implementation issues would be filed as children of #56 only after the owner approves this document.

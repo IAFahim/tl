@@ -11,4 +11,8 @@
     <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" />
+  </ItemGroup>
+
 </Project>

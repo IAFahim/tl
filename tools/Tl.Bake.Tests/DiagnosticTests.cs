@@ -414,7 +414,7 @@ public class DiagnosticTests
         var bytes = TimelineBaker.BakeJson(json);
         using var asset = TimelineAsset.Load(bytes);
         var rows = new[] { new Tl.TimelineComponent(asset.Reference) };
-        Tl.Timeline.Rows(rows).Tick(0u, 5);
+        rows[0].Position = 5;
         Tlb.DualTrack track = default;
         Tlb.DualAlphaClip alpha = default;
         Tlb.DualBetaClip beta = default;

@@ -1,30 +1,58 @@
-# Typed playback lane: `Timeline<T>.Forward` / `Timeline<T>.Backward`
+# Typed playback lane: `Timeline<T>.Seek`
 
-Status: prototype (issue #104). Runnable receipt: `benchmarks/TypedPlaybackProto`.
-Original prototypes with the host ECS (Frent) wired end to end: [IAFahim/FrentFun](https://github.com/IAFahim/FrentFun) — `Proto/` (525530e), `Proto2/` (1ba53d4), `Proto3/` (8d38105, sort rejection 5fe37d8).
+Status: shipped production playback surface (issue #104). It replaces the removed alpha.6
+`Timeline.Rows(...).Tick` facade, the `TimelineKernels` kernel catalog, and `TickUnmanaged`
+(removed in the same rewrite; see #104 and #65 for the removal protocol). Runnable receipts:
+`benchmarks/TypedPlaybackProto`, `benchmarks/Alpha --verify`, `tests/Tl.Alpha`,
+`samples/ManyEntities`. Prototype history with the host ECS (Frent):
+[IAFahim/FrentFun](https://github.com/IAFahim/FrentFun) — `Proto/` (525530e), `Proto2/`
+(1ba53d4), `Proto3/ (8d38105, sort rejection 5fe37d8)`.
 
 ## The lane
 
-One timeline type per frame, one frame per call, host-owned storage, run-length groups:
+One timeline type per call, one frame per call, host-owned storage, run-length groups:
 
 ```cs
-Timeline<Combat>.Forward(posSpan).Apply(hpSpan, cycSpan);
-Timeline<Combat>.Backward(posSpan).Apply(hpSpan, cycSpan);   // measured cost of Forward
+Timeline<Combat>.Seek(positions, forward: true).Apply(effects, cycles);
+Timeline<Combat>.Seek(positions, forward: false).Apply(effects, cycles);   // measured cost of forward
 ```
 
-The promises the lane is built on:
+`positions : Span<uint>`, `effects : Span<float>`, `cycles : Span<long>`; all three are the
+caller's arrays, borrowed only for the call. There is no per-row object, no run-record buffer,
+and no allocation on the warm path.
 
-- forward and backward are always exactly ONE frame — no step parameter exists on this lane
-- lag catch-up is repeated calls; rewind is `Backward`
-- the host owns the columns; the lane never moves or copies row data
-- `T` is the timeline: duration and per-position effects are `static abstract` members, so the
-  JIT compiles them per closed generic — effect lookup is literal code, no table indirection
+`T` is the timeline: duration, looping, and per-position effects are `static abstract` members
+of `ITimelineLane<T>`, so the JIT compiles them per closed generic — effect lookup is literal
+code, no indirection. Two implementations ship:
 
-## Why it is fast (each step measured; see the FrentFun commits)
+- **Authored lanes** implement `ITimelineLane<T>` in code: `Duration`, `Looping`, `Effect`,
+  `InverseEffect` are yours. Cost: authoring them by hand is only worth it for closed forms.
+- **`BakedLane<TTrack, TClip>`** binds a loaded `TimelineAsset` once per (type, asset) at cold
+  time: it measures the per-position forward and backward float effect of every consumer in
+  the asset through the cold executor, validates position purity, and keeps the two tables on
+  native blocks. Multi-pair assets fold all pairs' float-writing consumers into one column
+  automatically; `Bind` rejects impure consumers (column-value or cycle dependence) with a
+  diagnostic naming the pair.
+
+## Contract
+
+- forward and backward are always exactly ONE frame — no step parameter exists on this lane;
+  lag catch-up is repeated calls; rewind is `Seek(positions, false)`
+- movement is `TimelineMovement.Advance` exactly: forward skips only when
+  `position >= duration`; backward skips only when `(position == 0 && !looping)`, or
+  `position > duration`, or `(looping && position == duration)`; looping timelines touch the
+  cycle column only on wrap (±1); finite timelines zero-fill cycles on every successful move
+- consumers must self-invert through `Frame.Direction` / `FrameFlags.Reverse`; the backward
+  table is the measured inverse, so forward-then-backward returns the column bit-exactly
+- the host owns the columns; the lane never moves, copies, or retains row data
+- `Apply` validates lengths and pairwise non-overlap and throws otherwise; effects and cycles
+  are written only for rows that moved
+
+## Why it is fast (each step measured; prototype lanes in FrentFun, production receipts below)
 
 1. Thinking is O(unique positions), not O(rows). Contiguous rows sharing a position form one
    run; the effect and next position resolve once per run. The scan finds run boundaries with
-   one vector compare per 16 rows.
+   one vector compare per 16 rows; singleton runs apply inline without leaving the scan loop.
 2. The clock is a dense `uint` column. Commit is a vector fill of the next position; the cycle
    column is touched only in wrapping runs. Splitting the clock out of a packed row struct was
    the single largest win (strided stores became vector fills).
@@ -33,24 +61,26 @@ The promises the lane is built on:
 
 ## Receipts (Ryzen 5 8500G, .NET 10, Release, best of 5, 60 ticks; parity bit-exact vs the hand lane)
 
-In-repo (`dotnet run --project benchmarks/TypedPlaybackProto -c Release`; prints 100k then 1M;
-exits nonzero on any parity FAIL):
+`dotnet run --project benchmarks/TypedPlaybackProto -c Release` (prints 100k then 1M; exits
+nonzero on any parity FAIL); `samples/ManyEntities` adds pulse/churn shapes at 200k rows:
 
 | lane | 100k ns/row | 1M ns/row |
 | --- | ---: | ---: |
-| plain rows `HP += 1` | 0.41 | 0.45 |
-| hand lane (per-row table walk) | 3.09 | 3.32 |
-| Forward, uniform | 0.19 | 0.21 |
-| Forward, waves of 100 | 0.24 | 0.30 |
-| Forward, staggered singles | 4.10 | 4.43 |
-| Forward+sort, staggered | 4.39 | 4.75 |
-| Forward+sort, uniform | 2.76 | 2.86 |
-| Backward, uniform | 0.20 | 0.21 |
-| Forward x2 (catch-up) | 8.24 | 11.01 |
+| plain rows `HP += 1` | 0.29 | 0.29 |
+| hand lane (per-row table walk) | 0.69 | 0.70 |
+| Seek, uniform | 0.18 | 0.19 |
+| Seek, waves of 100 | 0.23 | 0.25 |
+| Seek, staggered singles | 3.10 | 2.92 |
+| Seek+sort, staggered | 3.09 | 3.38 |
+| Seek+sort, uniform | 2.29 | 2.30 |
+| Backward, uniform | 0.19 | 0.20 |
+| Seek x2 (catch-up) | 5.50 | 5.90 |
 
-With the Frent host in the loop (FrentFun `Proto3`), uniform reached 0.13-0.16 ns/row and the
-in-process tl facade reference measured 19.5 ns/row kernel-bound — the lane is ~100-150x the
-facade on crowd shapes and ~4.5x on staggered singles.
+ManyEntities (200k rows x 60 ticks, lane vs hand SoA sweep): pulse 0.42 vs 0.51 ns/row,
+churn 0.70 vs 0.78 (lane wins; no per-pass copies), sweep 4.06 vs 0.76 (staggered clocks
+fragment runs; grouped storage stays the ceiling). Warm playback allocates 0 B
+(`tests/Tl.Alpha --capacity`, `benchmarks/Alpha --verify`); 256 same-pair tracks fold into
+one 34,688-effect per tick (`tests/Tl.Alpha --module-capacity`).
 
 ## Verdicts (all backed by lanes above)
 
@@ -62,31 +92,19 @@ facade on crowd shapes and ~4.5x on staggered singles.
   physically contiguous requires permuting every column through the index (~6 indirect
   memory ops/row), which costs more than the run bookkeeping it removes — on staggered rows
   it ties-to-loses at 100k and loses clearly at 1M, and on already-grouped data it is pure
-  overhead (2.8+ vs 0.21). Never move the data to match the algorithm.
+  overhead (2.3 vs 0.19). Never move the data to match the algorithm.
 - **Hash-map dedupe is rejected** (FrentFun `Proto/` map lane: 4.4-7.6 ns/row): cache-hostile
   indirection; run-length scanning over contiguous storage wins.
-- **Scattered singles fix is a singleton fast path**, not sorting: apply inline when the scan
-  sees run length 1, skipping record buffering (FrentFun `Proto/` inline shape measured ~3.0).
-  Not yet implemented in this prototype; the lane to beat is 4.1-4.4.
-- **Direction is free.** `Backward` shares no branches with `Forward` and measures identical.
+- **Scattered singles use a singleton fast path**, not sorting: the scan applies run length 1
+  inline, skipping run bookkeeping entirely (staggered 2.9-3.1 vs prototype 4.1-4.4 without
+  it).
+- **Direction is free.** Backward shares no branches with forward and measures identical.
 - **Catch-up is repeated calls**, linear at 100k, slightly superlinear at 1M where the second
   sweep re-faults the working set.
-- **Entry cost** is ~300 ns per timeline type per frame regardless of row count.
-
-## What a production lane must still answer (tracked in #104)
-
-- Mapping to the irreducible laws: authored order across multiple consumers per position
-  (per-position resolved consumer program applied per run, in order), blending factors
-  (constant per position, precomputable), exact reverse (`Backward` = reversed consumer order
-  with inverted effects), two-pass execute/commit at run granularity.
-- Where per-position tables come from: bind-time precompute per (type, asset) through the
-  public stage view, content-hash keyed like kernels; sparse/lazy fallback for very large
-  durations (#88 open question 3).
-- Purity lanes: analyzer-proven pure consumers broadcast as effects; column-reading
-  consumers walk members with the cached frame.
-- The prototype hardcodes pure per-position effects; the general `ITimelineJob<,>` surface is
-  not wired into it.
+- **Bind-time measurement answers the table question.** Per-position effect tables come from
+  the cold executor over the loaded asset (no authored table, no content-hash kernel): the
+  fold is exact for dyadic float domains and ULP-stable otherwise, and the position-purity
+  validation turns "consumers must be pure" from a convention into a bind-time error.
 
 Relations: #88 (coordinator-owns-rows variant, closed as doc+prototype), #56 (data-authored
-contract this must not break), #102 (host-owned execution shape and facade cost ladder),
-#104 (this work).
+contract), #102 (host-owned execution shape and facade cost ladder), #104 (this work).

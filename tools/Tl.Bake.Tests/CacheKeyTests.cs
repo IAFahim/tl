@@ -13,8 +13,8 @@ public class CacheKeyTests
     [Fact]
     public void SameInputs_ProduceIdenticalKeys()
     {
-        var first = BakeCacheKey.Compute(Json, [AssemblyA, AssemblyB], kernel: true, strip: false);
-        var second = BakeCacheKey.Compute(Json, [AssemblyA, AssemblyB], kernel: true, strip: false);
+        var first = BakeCacheKey.Compute(Json, [AssemblyA, AssemblyB], strip: false);
+        var second = BakeCacheKey.Compute(Json, [AssemblyA, AssemblyB], strip: false);
         Assert.Equal(first, second);
     }
 
@@ -22,54 +22,46 @@ public class CacheKeyTests
     public void FieldBoundaries_AreLengthPrefixed_SoContentCannotBlurAcrossFields()
     {
         Assert.NotEqual(
-            BakeCacheKey.Compute([1, 2], [[3]], kernel: false, strip: false),
-            BakeCacheKey.Compute([1], [[2, 3]], kernel: false, strip: false));
+            BakeCacheKey.Compute([1, 2], [[3]], strip: false),
+            BakeCacheKey.Compute([1], [[2, 3]], strip: false));
     }
 
     [Fact]
     public void AssemblyOrder_IsSignificant()
     {
         Assert.NotEqual(
-            BakeCacheKey.Compute(Json, [AssemblyA, AssemblyB], kernel: false, strip: false),
-            BakeCacheKey.Compute(Json, [AssemblyB, AssemblyA], kernel: false, strip: false));
+            BakeCacheKey.Compute(Json, [AssemblyA, AssemblyB], strip: false),
+            BakeCacheKey.Compute(Json, [AssemblyB, AssemblyA], strip: false));
     }
 
     [Fact]
     public void AssemblyContent_IsSignificant()
     {
         Assert.NotEqual(
-            BakeCacheKey.Compute(Json, [AssemblyA], kernel: false, strip: false),
-            BakeCacheKey.Compute(Json, [[10, 11, 99]], kernel: false, strip: false));
-    }
-
-    [Fact]
-    public void KernelFlag_IsSignificant()
-    {
-        Assert.NotEqual(
-            BakeCacheKey.Compute(Json, [AssemblyA], kernel: true, strip: false),
-            BakeCacheKey.Compute(Json, [AssemblyA], kernel: false, strip: false));
+            BakeCacheKey.Compute(Json, [AssemblyA], strip: false),
+            BakeCacheKey.Compute(Json, [[10, 11, 99]], strip: false));
     }
 
     [Fact]
     public void StripFlag_IsSignificant()
     {
         Assert.NotEqual(
-            BakeCacheKey.Compute(Json, [AssemblyA], kernel: false, strip: true),
-            BakeCacheKey.Compute(Json, [AssemblyA], kernel: false, strip: false));
+            BakeCacheKey.Compute(Json, [AssemblyA], strip: true),
+            BakeCacheKey.Compute(Json, [AssemblyA], strip: false));
     }
 
     [Fact]
     public void ToolVersion_IsSignificant()
     {
         Assert.NotEqual(
-            BakeCacheKey.Compute(BakeCacheKey.ToolVersion, Json, [AssemblyA], kernel: false, strip: false),
-            BakeCacheKey.Compute(BakeCacheKey.ToolVersion + "-next", Json, [AssemblyA], kernel: false, strip: false));
+            BakeCacheKey.Compute(BakeCacheKey.ToolVersion, Json, [AssemblyA], strip: false),
+            BakeCacheKey.Compute(BakeCacheKey.ToolVersion + "-next", Json, [AssemblyA], strip: false));
     }
 
     [Fact]
     public void KeyIsFullSha256_PrefixIsTwelveLowercaseHex()
     {
-        var key = BakeCacheKey.Compute(Json, [AssemblyA], kernel: false, strip: false);
+        var key = BakeCacheKey.Compute(Json, [AssemblyA], strip: false);
         Assert.Equal(32, key.Length);
         var prefix = BakeCacheKey.Prefix(key);
         Assert.Equal(12, prefix.Length);
