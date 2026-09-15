@@ -151,20 +151,20 @@ Contract:
   a gather applier — `vgatherps` folds the effect table over 16 staggered rows at once,
   wrap/skip are mask arithmetic, and cycles touch only wrapping lanes
 
-Receipts (same host and protocol as above; 1M rows, 20-frame reps, best of 5 over 3
+Receipts (Intel Core i9-14900K, .NET 10, Release; 1M rows, 20-frame reps, best of 5 over 3
 interleaved rounds, real `Tl.Core`; parity bit-exact vs per-asset static lanes, forward
-and backward):
+and backward; 0 B warm allocation):
 
 | shape (one call over a mixed crowd) | ns/row | static lane on same ticks |
 | --- | ---: | ---: |
-| static lane, waves of 100 (baseline) | 0.13 | — |
-| set, uniform ids, waves of 100 | 0.17 | +31% |
-| set, id blocks of 100, waves of 100 | 0.18 | +38% |
-| set, id blocks of 64 | 0.25 | +92% |
-| set, id blocks of 16 (adversarial interleave) | 0.20 | +54% |
-| set, staggered ticks, uniform looping ids | 0.21 | 21x faster (4.45) |
-| set, staggered ticks, mixed ids | 2.17 | 2.3x faster |
-| set, staggered ticks, finite | 1.40 | 2.8x faster |
+| static lane, waves of 100 (baseline) | 0.12 | — |
+| set, uniform ids, waves of 100 | 0.18 | +48% |
+| set, id blocks of 100, waves of 100 | 0.21 | +71% |
+| set, id blocks of 64, waves of 100 | 0.29 | +135% |
+| set, id blocks of 16 (adversarial interleave) | 0.58 | +366% |
+| set, staggered ticks, uniform looping ids | 0.22 | 20x faster (4.42) |
+| set, staggered ticks, mixed ids | 2.16 | 2.0x faster |
+| set, staggered ticks, finite | 1.43 | 3.1x faster |
 
 The staggered rows are the gather applier: the 2026-09-15 experiment ladder measured the
 floor's causes — dropping the scan call per singleton (4.46 → 1.31), replacing the branchy
@@ -176,7 +176,8 @@ gate (non-AVX2 hosts keep the streak path at ~1.3 ns/row).
 
 The same-window control is a replica of the two-span experiment loop (specialized
 forward-only law, constant duration, prebuilt `float**` tables, no chunk probe, no id
-validation) run under this exact protocol:
+validation) run under this exact protocol; its production column comes from the control's
+own measurement window and differs from the table above only by that host drift:
 
 | shape | production set | replica |
 | --- | ---: | ---: |

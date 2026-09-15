@@ -188,20 +188,42 @@ Throughput is the typed lane's product shape; receipts and methodology in
 prints checksum-verified parity against a hand lane at 100k and 1M rows, and the runnable sample
 under `samples/ManyEntities` reproduces consumer-facing numbers with checksum-verified effects.
 
-Many entities on one shared asset, every entity at its own clock (ns/row, Ryzen 5 8500G, .NET 10,
-Release, best of 5, 60 ticks):
+One million rows per call, one frame per call, positions and timeline ids distributed as named
+(Intel Core i9-14900K, .NET 10, Release; best of 5 reps of 20 frames over 3 interleaved rounds;
+every set shape is bit-exact against per-asset static lanes, forward and backward, and allocates
+0 B on the warm path):
 
-| workload | typed lane | hand SoA sweep |
+| workload | ms/frame | ns/row |
 | --- | ---: | ---: |
-| uniform clocks | 0.18 | — |
-| waves of 100 | 0.23 | — |
-| staggered singles | 2.9-3.1 | 0.7 (hand lane) |
-| duration-1 pulse loops | 0.42 | 0.51 |
-| spawn/retire churn (~400k live) | 0.70 | 0.78 |
-| rewind (backward) | 0.19-0.20 | — |
+| plain floor (`effects += 1; positions += 1`) | 0.41 | 0.39 |
+| static lane, uniform clocks | 0.16 | 0.15 |
+| static lane, waves of 100 | 0.13 | 0.12 |
+| static lane, staggered singles | 4.63 | 4.42 |
+| static lane, uniform, backward | 0.17 | 0.16 |
+| set, one timeline, waves of 100 | 0.19 | 0.18 |
+| set, 100 timelines, id blocks of 100, waves of 100 | 0.22 | 0.21 |
+| set, 64 timelines, id blocks of 64, waves of 100 | 0.31 | 0.29 |
+| set, 16 timelines, id blocks of 16, waves of 100 | 0.61 | 0.58 |
+| set, one looping timeline, staggered clocks | 0.23 | 0.22 |
+| set, ids alternating per row, staggered clocks | 2.26 | 2.16 |
+| set, finite timeline, staggered clocks | 1.50 | 1.43 |
+| set, finite timeline, waves of 100, empty cycle column | 0.17 | 0.16 |
+| set, one timeline, waves of 100, backward | 0.19 | 0.19 |
+| set, one looping timeline, staggered clocks, backward | 0.23 | 0.22 |
 
-Warm playback allocates 0 B in every lane; a 256-track module folds to one 34,688-effect column
-per tick (`tests/Tl.Alpha --module-capacity`).
+Staggered clocks on one looping timeline hold 0.22 ns/row — 20x the static lane on the same
+ticks — because a 64-row probe routes staggered chunks to a gather applier folding the effect
+table over 16 rows per `vgatherps`; backward takes the same route at the same cost. Crowds whose
+ids switch every few rows run the mixed scanner and pay for the id-switch rate, not the crowd
+size; grouping rows by timeline id — the ECS norm — keeps every row on a table-shaped path.
+
+Memory (same shapes): the host owns 16 B/row of caller columns for a looping set — timeline
+id 2 B, position 2 B, effect 4 B, cycle 8 B (16 MiB at one million rows) — or 8 B/row (8 MiB)
+when every timeline is finite and the cycle column is `Span<long>.Empty`; the static lane uses
+14 B/row. Each timeline's measured tables live in the set's one contiguous native block:
+32 * (duration + 1) + 64 bytes — 2,144 B at duration 64, 32,864 B at 1,024, 2 MiB at the
+65,535-tick cap. The warm path allocates 0 B in every lane; a 256-track module folds to one
+34,688-effect column per tick (`tests/Tl.Alpha --module-capacity`).
 
 ## Unity ECS
 
