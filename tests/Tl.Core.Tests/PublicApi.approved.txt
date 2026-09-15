@@ -1,3 +1,9 @@
+type Tl.BakedLane`2
+  Method Void Bind(Tl.TimelineAsset)
+  Property UInt32 Duration
+  Method Single Effect(UInt32)
+  Method Single InverseEffect(UInt32)
+  Property Boolean Looping
 type Tl.FrameFlags
   Field Tl.FrameFlags ClipEnd
   Field Tl.FrameFlags ClipStart
@@ -27,6 +33,11 @@ type Tl.Frame`2
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.ITimelineJob`2
+type Tl.ITimelineLane`1
+  Property UInt32 Duration
+  Method Single Effect(UInt32)
+  Method Single InverseEffect(UInt32)
+  Property Boolean Looping
 type Tl.PairRuntime`2
   Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
   Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
@@ -60,6 +71,8 @@ type Tl.TimelineKernels
   Method Void ChainRange(Int32, Boolean, Int32*, Byte*, UInt32, UInt32, Int64, Tl.FrameFlags, Void**, Int32, Int32)
   Method Tl.TimelineKernelRange Range(Int32)
   Method Void Register(UInt64, UInt64, UInt64, UInt64, System.Boolean(System.Byte*, System.Int32*, System.Void**, Tl.TimelineComponent*, System.Int32, System.UInt32, System.Int32))
+type Tl.TimelineLane`1
+  Method Void Apply(System.Span`1[System.Single], System.Span`1[System.Int64])
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt32, Boolean, Boolean, Tl.TimelineState ByRef, UInt32 ByRef, Int64 ByRef, Tl.FrameFlags ByRef)
 type Tl.TimelineQuery
@@ -87,6 +100,8 @@ type Tl.TimelineState
   Field UInt32 Asset
   Field Int64 Cycle
   Field UInt32 Position
+type Tl.Timeline`1
+  Method Tl.TimelineLane`1[T] Seek(System.Span`1[System.UInt32], Boolean)
 type Tl.TypeKey`1
   Field UInt64 Value
 type Tl.UnmanagedTickState
