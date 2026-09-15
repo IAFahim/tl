@@ -135,5 +135,13 @@ one 34,688-effect per tick (`tests/Tl.Alpha --module-capacity`).
   fold is exact for dyadic float domains and ULP-stable otherwise, and the position-purity
   validation turns "consumers must be pure" from a convention into a bind-time error.
 
+- **Catch-up time-skip is a validated prototype, not shipped.** Cumulative effect tables
+  (one extra `duration+1` float table per bind) collapse K-frame catch-up from K passes to
+  one: measured on staggered 1M rows, x2 catch-up 9.3 -> 4.9 ns/row and x5 23.8 -> 5.0
+  (the pass cost stops scaling with K). Position and cycle math are integer-exact; the float
+  fold is bit-exact only when the cumulative table equals the sequential fold, which is
+  checkable per (position, frames) at bind exactly like position purity. Shipping it needs a
+  `frames` contract decision (the lane today is strictly one frame per call) — owner call.
+
 Relations: #88 (coordinator-owns-rows variant, closed as doc+prototype), #56 (data-authored
 contract), #102 (host-owned execution shape and facade cost ladder), #104 (this work).
