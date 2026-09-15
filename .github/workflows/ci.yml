@@ -37,6 +37,17 @@ jobs:
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
       - run: dotnet run --project samples/Mixed -c Release --no-build
+      - name: Run the SingleTimeline sample (direct/kernel/interpreter receipts)
+        working-directory: samples/SingleTimeline
+        run: |
+          dotnet build -c Release
+          dotnet run -c Release --no-build -- one
+          dotnet run -c Release --no-build -- three
+      - name: Run the ManyEntities sample (facade vs playback-table parity)
+        working-directory: samples/ManyEntities
+        run: |
+          dotnet build -c Release
+          dotnet run -c Release --no-build
       - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
       - run: dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true -o artifacts/aot
       - run: ./artifacts/aot/Tl.Alpha

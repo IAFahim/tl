@@ -167,6 +167,38 @@ The hot path is allocation-free after warmup. `benchmarks/Alpha --verify` checks
 
 The repository enforces a 300,000-byte budget over production source contents plus relative UTF-8 paths. Generated source, static data, per-entity state, managed/native output, scratch, and allocations are measured separately.
 
+## Performance
+
+Measured with [benchmarks/Alpha](benchmarks/README.md); receipts and methodology in
+[docs/kernel-warm-path-perf.md](docs/kernel-warm-path-perf.md). The runnable samples under
+`samples/SingleTimeline` and `samples/ManyEntities` reproduce the consumer-facing numbers with
+checksum-verified effects and print the expectations next to the code.
+
+One timeline, ticked one entity at a time (i9-14900K, .NET 10, best-of; 16/256 tracks from the
+benchmark suite):
+
+| shape | hand-written ceiling | facade + kernel | facade + interpreter |
+| --- | ---: | ---: | ---: |
+| 1 track | 0.24 ns/tick | 6.7 ns/tick | 7.5 ns/tick |
+| 3 tracks | 1.41 ns/tick | 12.1 ns/tick | 15.2 ns/tick |
+| 16 tracks | 11.5 ns/tick | 59.1 ns/tick | 71.4 ns/tick |
+| 256 tracks | 323.6 ns/tick | 967.0 ns/tick | 1,080.7 ns/tick |
+
+Many entities on one shared asset, every entity at its own clock (200k rows x 60 ticks; the
+table column is the playback-table pattern, checksum-verified against the facade in
+`samples/ManyEntities`):
+
+| workload | facade | playback table | ratio |
+| --- | ---: | ---: | ---: |
+| staggered clocks (movement + write) | 9.0 ns/row | 0.71 ns/row | 12.7x |
+| duration-1 pulse loops | 8.8 ns/row | 0.50 ns/row | 17.6x |
+| cross-entity watches | 9.6 ns/row | 0.95 ns/row | 10.1x |
+| spawn/retire churn (~400k live) | 11.5 ns/row | 0.70 ns/row | 16.4x |
+
+Warm playback allocates 0 B in every lane. The interpreter is the correctness fallback, never
+the chosen path: authoring compiles against the generated consumer binding, and a matching
+`tlbake --kernel` file binds by content hash at load.
+
 ## Unity ECS
 
 Install the UPM package in Unity (Package Manager → *Add package from git URL*):
@@ -202,6 +234,8 @@ foreach (var (timeline, resistance, health) in
 | `src/Tl.CSharp` | One-package C# installation |
 | `samples/Mixed` | Data-authored timeline sample |
 | `samples/NuGetQuickStart` | Runnable quick start that consumes the published nuget.org packages; CI runs it on every build |
+| `samples/SingleTimeline` | Direct vs kernel vs interpreter on one timeline, checksum-verified; CI runs it |
+| `samples/ManyEntities` | Facade vs playback-table lanes with per-entity clocks; CI runs it |
 | `tools/Tl.Bake` | `tlbake` JSON-to-`TLB1` baker with cache, report, and strip |
 | `tests/Tl.Alpha` | Kernel-lane, data-authored, and allocation receipts |
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |

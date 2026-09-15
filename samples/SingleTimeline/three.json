@@ -1,0 +1,13 @@
+{
+  "name": "three",
+  "duration": 64,
+  "loop": true,
+  "tracks": [
+    { "namespace": "SingleTimeline", "type": "AlphaTrack", "data": { "Mult": 2.0 },
+      "clips": [ { "namespace": "SingleTimeline", "type": "AlphaClip", "start": 0, "end": 64, "data": { "Amount": 5 } } ] },
+    { "namespace": "SingleTimeline", "type": "BetaTrack", "data": { "Mult": 3.0 },
+      "clips": [ { "namespace": "SingleTimeline", "type": "BetaClip", "start": 0, "end": 64, "data": { "Amount": 7 } } ] },
+    { "namespace": "SingleTimeline", "type": "GammaTrack", "data": { "Mult": 4.0 },
+      "clips": [ { "namespace": "SingleTimeline", "type": "GammaClip", "start": 0, "end": 64, "data": { "Amount": 11 } } ] }
+  ]
+}
