@@ -1,0 +1,3 @@
+{ "name": "watch", "duration": 64, "loop": true,
+  "tracks": [ { "namespace": "ManyEntities", "type": "WatchTrack", "data": { "Bonus": 2 },
+    "clips": [ { "namespace": "ManyEntities", "type": "WatchClip", "start": 0, "end": 64, "data": { "Amount": 3 } } ] } ] }
