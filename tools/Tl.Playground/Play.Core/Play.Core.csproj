@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Play</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Tl.Core\Tl.Core.csproj" />
+    <ProjectReference Include="..\..\..\tools\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
+    <EmbeddedResource Include="..\presets\*.json" LogicalName="%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,9 @@
+MONO_WASM: Error loading symbol file dotnet.native.js.symbols: {}
+smoke: bake bytes=321 crowd=256 duration=64 loop=True
+phase: 40 frames forward bit-exact (moved/skipped/wrapped at last frame: 256/0/4)
+phase: 40 frames backward bit-exact (moved/skipped/wrapped at last frame: 256/0/4)
+a-b-a: 40 forward + 40 backward restored the initial snapshot bit-exactly
+phase: 20 frames forward bit-exact (moved/skipped/wrapped at last frame: 256/0/4)
+re-bake: loop=false duration=64 bytes=321
+phase: 20 frames forward bit-exact (moved/skipped/wrapped at last frame: 180/76/0)
+SMOKE PASS frames=120 checksum=7131578910045740992

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tl cookbook — staggered crowd</title>
+    <base href="./" />
+    <link rel="stylesheet" href="../css/app.css" />
+    <style>
+        iframe { width: 100%; height: 560px; border: 0; border-radius: 8px; }
+        pre { background: #0d1117; border: 1px solid var(--edge); border-radius: 6px; padding: 10px; font-size: 12px; overflow-x: auto; white-space: pre; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <header>
+            <h1>Recipe 2 — a staggered crowd on a looping two-clip timeline</h1>
+            <a href="index.html">all recipes</a>
+        </header>
+
+        <div class="panel">
+            <h2>Intent</h2>
+            <p>
+                128 rows seeded across every tick of a looping 64-tick timeline with two disjoint clips
+                (amount +1 over 0..31, amount -2 over 40..63). Each frame every row advances one tick and folds its clip
+                effect into its column, so the position column cycles forever and the effect column integrates the authored
+                amounts. Switch the direction panel to <em>backward</em>: the runtime walks its inverse tables and, after the
+                same number of steps forward and backward, the whole crowd is bit-exactly where it started — the exact A-B-A
+                undo the SMOKE receipt proves.
+            </p>
+        </div>
+
+        <div class="panel">
+            <h2>Live embed</h2>
+            <iframe src="../?crowd=128&amp;pattern=staggered&amp;loop=true&amp;dir=fwd&amp;play=true&amp;scale=1&amp;amountA=1&amp;windowA=0:32&amp;amountB=-2&amp;windowB=40:64" title="tl playground — staggered"></iframe>
+        </div>
+
+        <div class="panel">
+            <h2>The authoring JSON (preset file)</h2>
+            <pre id="preset">loading ../presets/staggered.json ...</pre>
+        </div>
+
+        <div class="panel">
+            <h2>Copyable embed</h2>
+            <pre>&lt;iframe src="https://iafahim.github.io/tl/?crowd=128&amp;amp;pattern=staggered&amp;amp;loop=true&amp;amp;dir=fwd&amp;amp;play=true"
+        style="width:100%;height:560px;border:0" title="tl playground"&gt;&lt;/iframe&gt;</pre>
+        </div>
+    </div>
+    <script>
+        fetch('../presets/staggered.json').then(r => r.text()).then(t => { document.getElementById('preset').textContent = t; });
+    </script>
+</body>
+
+</html>

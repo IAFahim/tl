@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tl cookbook — finite timelines clamp</title>
+    <base href="./" />
+    <link rel="stylesheet" href="../css/app.css" />
+    <style>
+        iframe { width: 100%; height: 560px; border: 0; border-radius: 8px; }
+        pre { background: #0d1117; border: 1px solid var(--edge); border-radius: 6px; padding: 10px; font-size: 12px; overflow-x: auto; white-space: pre; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <header>
+            <h1>Recipe 4 — finite timelines clamp and park</h1>
+            <a href="index.html">all recipes</a>
+        </header>
+
+        <div class="panel">
+            <h2>Intent</h2>
+            <p>
+                The staggered recipe with one field flipped: <code>"loop": false</code>. Finite timelines clamp — a row at
+                position <code>duration</code> has no next tick, so its record is <em>skipped</em>: the position stays, no
+                effect folds. Rows seeded near the end park immediately while younger rows keep moving; within 64 frames the
+                entire crowd stands at the end state. Watch the skipped aggregate climb and the strip freeze from the tail
+                forward — the row-level completion model of the data-authored API made visible.
+            </p>
+        </div>
+
+        <div class="panel">
+            <h2>Live embed</h2>
+            <iframe src="../?crowd=128&amp;pattern=staggered&amp;loop=false&amp;dir=fwd&amp;play=true&amp;scale=1&amp;amountA=1&amp;windowA=0:32&amp;amountB=-2&amp;windowB=40:64" title="tl playground — finite clamp"></iframe>
+        </div>
+
+        <div class="panel">
+            <h2>The authoring JSON (preset file)</h2>
+            <pre id="preset">loading ../presets/finite-clamp.json ...</pre>
+        </div>
+
+        <div class="panel">
+            <h2>Copyable embed</h2>
+            <pre>&lt;iframe src="https://iafahim.github.io/tl/?crowd=128&amp;amp;pattern=staggered&amp;amp;loop=false&amp;amp;dir=fwd&amp;amp;play=true"
+        style="width:100%;height:560px;border:0" title="tl playground"&gt;&lt;/iframe&gt;</pre>
+        </div>
+    </div>
+    <script>
+        fetch('../presets/finite-clamp.json').then(r => r.text()).then(t => { document.getElementById('preset').textContent = t; });
+    </script>
+</body>
+
+</html>
