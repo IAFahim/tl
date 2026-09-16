@@ -135,6 +135,12 @@ public static class TimelineBaker
     public static byte[] BakeJson(string json, BakerAssemblyResolver? resolver = null)
     {
         resolver ??= new BakerAssemblyResolver();
+        return TimelineBakerFast.BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver);
+    }
+
+    internal static byte[] BakeJsonLegacy(string json, BakerAssemblyResolver? resolver = null)
+    {
+        resolver ??= new BakerAssemblyResolver();
 
         CheckDuplicateKeys(json);
 
