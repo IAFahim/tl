@@ -157,15 +157,18 @@ and backward; 0 B warm allocation):
 
 | shape (one call over a mixed crowd) | ns/row | static lane on same ticks |
 | --- | ---: | ---: |
-| static lane, waves of 100 (baseline) | 0.12 | — |
-| set, uniform ids, waves of 100 | 0.18 | +48% |
-| set, id blocks of 100, waves of 100 | 0.21 | +71% |
-| set, id blocks of 64, waves of 100 | 0.29 | +135% |
-| set, id blocks of 16 (adversarial interleave) | 0.58 | +366% |
-| set, staggered ticks, uniform looping ids | 0.22 | 20x faster (4.42) |
-| set, staggered ticks, mixed ids | 2.16 | 2.0x faster |
-| set, staggered ticks, finite | 1.43 | 3.1x faster |
+| static lane, waves of 100 (baseline) | 0.13 | — |
+| set, uniform ids, waves of 100 | 0.18 | +42% |
+| set, id blocks of 100, waves of 100 | 0.20 | +58% |
+| set, id blocks of 64, waves of 100 | 0.27 | +110% |
+| set, id blocks of 16 (adversarial interleave) | 0.48 | +270% |
+| set, staggered ticks, uniform looping ids | 0.22 | 1.2x slower (static staggered 0.18) |
+| set, staggered ticks, mixed ids | 1.72 | 9.5x slower (0.18) |
+| set, staggered ticks, finite | 0.32 | 1.8x slower (0.18) |
 
+This refresh includes a01e2f3, which bakes per-tick movement records into the static lane at
+load: it costs +3.6% on static waves of 100 and buys 22.9x/21.7x on static staggered
+forward/backward ([#104 receipt](https://github.com/IAFahim/tl/issues/104#issuecomment-5692056006)).
 The staggered rows are the gather applier: the 2026-09-15 experiment ladder measured the
 floor's causes — dropping the scan call per singleton (4.46 → 1.31), replacing the branchy
 law with baked movement tables in singleton streaks (→ 1.16), and finally gathering the
@@ -187,8 +190,8 @@ own measurement window and differs from the table above only by that host drift:
 | id blocks of 16 | 0.45 | 0.39 |
 | staggered ticks | 4.48 | 5.19 |
 
-Production sits within 8-15% of the specialized replica on crowd shapes and beats it on
-staggered ticks, while carrying direction, finiteness, and id-safety semantics the replica
+Production sits within 8-28% of the specialized replica on crowd shapes and beats it by ~23x
+on staggered ticks, while carrying direction, finiteness, and id-safety semantics the replica
 lacks entirely. The earlier experiment window (which printed 0.15-0.16 on crowd shapes
 against a 0.12 baseline) does not reproduce on this host: the replica itself measures
 0.39-0.41 on 16-row interleaves today against a 0.13 baseline — host drift of exactly this

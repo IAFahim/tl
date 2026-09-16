@@ -197,23 +197,28 @@ every set shape is bit-exact against per-asset static lanes, forward and backwar
 | --- | ---: | ---: |
 | plain floor (`effects += 1; positions += 1`) | 0.41 | 0.39 |
 | static lane, uniform clocks | 0.16 | 0.15 |
-| static lane, waves of 100 | 0.13 | 0.12 |
-| static lane, staggered singles | 4.63 | 4.42 |
-| static lane, uniform, backward | 0.17 | 0.16 |
+| static lane, waves of 100 | 0.14 | 0.13 |
+| static lane, staggered singles | 0.19 | 0.18 |
+| static lane, uniform, backward | 0.16 | 0.16 |
 | set, one timeline, waves of 100 | 0.19 | 0.18 |
-| set, 100 timelines, id blocks of 100, waves of 100 | 0.22 | 0.21 |
-| set, 64 timelines, id blocks of 64, waves of 100 | 0.31 | 0.29 |
-| set, 16 timelines, id blocks of 16, waves of 100 | 0.61 | 0.58 |
-| set, one looping timeline, staggered clocks | 0.23 | 0.22 |
-| set, ids alternating per row, staggered clocks | 2.26 | 2.16 |
-| set, finite timeline, staggered clocks | 1.50 | 1.43 |
+| set, 100 timelines, id blocks of 100, waves of 100 | 0.21 | 0.20 |
+| set, 64 timelines, id blocks of 64, waves of 100 | 0.28 | 0.27 |
+| set, 16 timelines, id blocks of 16, waves of 100 | 0.50 | 0.48 |
+| set, one looping timeline, staggered clocks | 0.24 | 0.22 |
+| set, ids alternating per row, staggered clocks | 1.80 | 1.72 |
+| set, finite timeline, staggered clocks | 0.34 | 0.32 |
 | set, finite timeline, waves of 100, empty cycle column | 0.17 | 0.16 |
-| set, one timeline, waves of 100, backward | 0.19 | 0.19 |
-| set, one looping timeline, staggered clocks, backward | 0.23 | 0.22 |
+| set, one timeline, waves of 100, backward | 0.20 | 0.19 |
+| set, one looping timeline, staggered clocks, backward | 0.25 | 0.24 |
 
-Staggered clocks on one looping timeline hold 0.22 ns/row — 20x the static lane on the same
-ticks — because a 64-row probe routes staggered chunks to a gather applier folding the effect
-table over 16 rows per `vgatherps`; backward takes the same route at the same cost. Crowds whose
+The static lane binds per-tick movement records at load: that trades +3.6% on static waves of
+100 for 22.9x/21.7x on static staggered forward/backward
+([#104 receipt](https://github.com/IAFahim/tl/issues/104#issuecomment-5692056006)).
+
+Staggered clocks on one looping timeline hold 0.22 ns/row — 1.2x the static lane's own
+baked-record staggered path (0.18) on the same ticks — because a 64-row probe routes staggered
+chunks to a gather applier folding the effect table over 16 rows per `vgatherps`; backward takes
+the same route at the same cost. Crowds whose
 ids switch every few rows run the mixed scanner and pay for the id-switch rate, not the crowd
 size; grouping rows by timeline id — the ECS norm — keeps every row on a table-shaped path.
 
