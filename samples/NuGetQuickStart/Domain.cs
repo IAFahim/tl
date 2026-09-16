@@ -13,6 +13,6 @@ public readonly struct DamageTrack : IBlend<DamageClip>
 }
 public readonly struct ApplyDamage : ITimelineJob<DamageTrack, DamageClip>
 {
-    public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref Health health)
-        => health.Value -= frame.Clip.Amount * frame.Track.Multiplier;
+    public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref float effect)
+        => effect += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }

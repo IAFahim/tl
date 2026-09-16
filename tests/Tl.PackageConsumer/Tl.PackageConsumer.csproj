@@ -8,6 +8,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Tl.CSharp" Version="1.0.0-alpha.6" />
+    <PackageReference Include="Tl.CSharp" Version="1.0.0-alpha.7" />
   </ItemGroup>
 </Project>

@@ -8,10 +8,13 @@ public static class Program
     public static void Main()
     {
         using var asset = TimelineAsset.Load(File.ReadAllBytes("boss.tlb"));
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var health = new[] { new Health { Value = 100f } };
-        var query = Timeline.Rows(rows).Write(health);
-        query.Tick(200_000u, 2);
-        System.Console.WriteLine($"flawless: health={health[0].Value} position={rows[0].Position}");
+        BakedLane<DamageTrack, DamageClip>.Bind(asset);
+        var positions = new ushort[] { 0 };
+        var effects = new float[1];
+        var health = new Health { Value = 100f };
+        Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(effects);
+        Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(effects);
+        health.Value -= effects[0];
+        System.Console.WriteLine($"flawless: health={health.Value} position={positions[0]}");
     }
 }

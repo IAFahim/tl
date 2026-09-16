@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageReleaseNotes>v1.0.0-alpha.6: kernels bind metadata-bearing TLBs through a normalized hash view; fused single-pass mixed dispatch with direct consumer range calls; shared native bind cache with O(1) rebind and a kernel-count phase; kernel catalog on a native block with gated registration.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.7: the typed playback lane (Timeline&lt;T&gt;.Seek(...).Apply(...) over BakedLane measured tables) is the only playback surface; the frame view slims to ushort positions under a single 65,535-tick cap with ClipLength and WithinClip on Frame; MeasuredLanes shares tables across set binds with the TickPurity.WindowConstant opt-in fill. The Timeline.Rows facade, kernel catalog, cycle, and game tick are removed.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

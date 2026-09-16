@@ -27,13 +27,11 @@ The packages are development prereleases on [nuget.org](https://www.nuget.org/).
 
 ## Quick Start
 
-The typed lane below ships in the next prerelease; until it publishes, the pinned alpha.6 packages still run the retired facade (the [NuGet quick start](samples/NuGetQuickStart/README.md) documents that published surface).
-
 ### 1. Install
 
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.6
-dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.6
+dotnet add package Tl.CSharp --version 1.0.0-alpha.7
+dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.7
 ```
 
 For an offline install, copy the `.nupkg` files into a local `packages/` folder and append `--source ./packages` to both commands.
