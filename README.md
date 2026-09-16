@@ -221,7 +221,7 @@ Memory (same shapes): the host owns 16 B/row of caller columns for a looping set
 id 2 B, position 2 B, effect 4 B, cycle 8 B (16 MiB at one million rows) — or 8 B/row (8 MiB)
 when every timeline is finite and the cycle column is `Span<long>.Empty`; the static lane uses
 14 B/row. Each timeline's measured tables live in the set's one contiguous native block:
-32 * (duration + 1) + 64 bytes — 2,144 B at duration 64, 32,864 B at 1,024, 2 MiB at the
+44 * (duration + 1) + 48 bytes — 2,908 B at duration 64, 45,148 B at 1,024, 2.75 MiB at the
 65,535-tick cap. The warm path allocates 0 B in every lane; a 256-track module folds to one
 34,688-effect column per tick (`tests/Tl.Alpha --module-capacity`).
 

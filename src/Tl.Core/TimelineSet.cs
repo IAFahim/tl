@@ -17,24 +17,29 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         public float* Forward;
         public float* Backward;
         public float* BackwardByPosition;
-        public ushort* NextForward;
-        public ushort* NextBackward;
-        public long* CycleForward;
-        public long* CycleBackward;
+        public MovementRecord* ForwardRecords;
+        public MovementRecord* BackwardRecords;
         public ushort Duration;
         public ushort Looping;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct MovementRecord
+    {
+        public float Effect;
+        public ushort Next;
+        public ushort Pad;
+        public long CycleDelta;
+    }
+
     internal Slot* _slots;
     internal float* _data;
-    internal ushort* _wordsBase;
-    internal long* _longsBase;
+    internal MovementRecord* _recordsBase;
     internal int _count;
     internal bool _anyLooping;
     internal bool _disposed;
     nuint _floats;
-    nuint _words;
-    nuint _longs;
+    nuint _records;
 
     public ushort Add(TimelineAsset asset)
     {
@@ -44,46 +49,36 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         LaneTable<TTrack, TClip>.Measure(asset, out var forward, out var backward, out var duration, out var looping);
         nuint ticks = Math.Max(1u, duration);
         nuint floats = _floats + (ticks + 1) * 3;
-        nuint words = _words + (ticks + 1) * 2;
-        nuint longs = _longs + (ticks + 1) * 2;
+        nuint records = _records + (ticks + 1) * 2;
         var slotBytes = (nuint)(_count + 1) * (nuint)sizeof(Slot);
-        var wordOffset = slotBytes + floats * sizeof(float);
-        var longOffset = (wordOffset + words * sizeof(ushort) + 7u) & ~7u;
-        var block = (byte*)NativeMemory.AlignedAlloc(longOffset + longs * sizeof(long), 64);
+        var recordOffset = (slotBytes + floats * sizeof(float) + 7u) & ~7u;
+        var block = (byte*)NativeMemory.AlignedAlloc(recordOffset + records * (nuint)sizeof(MovementRecord), 64);
         var slots = (Slot*)block;
         var floatBase = (float*)(block + slotBytes);
-        var wordBase = (ushort*)(block + wordOffset);
-        var longBase = (long*)(block + longOffset);
+        var recordBase = (MovementRecord*)(block + recordOffset);
         if (_count > 0)
         {
             Buffer.MemoryCopy(_slots, slots, (long)slotBytes, (long)slotBytes);
             var floatBytes = (long)(_floats * sizeof(float));
             Buffer.MemoryCopy(_data, floatBase, floatBytes, floatBytes);
-            var wordBytes = (long)(_words * sizeof(ushort));
-            Buffer.MemoryCopy(_wordsBase, wordBase, wordBytes, wordBytes);
-            var longBytes = (long)(_longs * sizeof(long));
-            Buffer.MemoryCopy(_longsBase, longBase, longBytes, longBytes);
+            var recordBytes = (long)(_records * (nuint)sizeof(MovementRecord));
+            Buffer.MemoryCopy(_recordsBase, recordBase, recordBytes, recordBytes);
             var floatShift = (long)((byte*)floatBase - (byte*)_data);
-            var wordShift = (long)((byte*)wordBase - (byte*)_wordsBase);
-            var longShift = (long)((byte*)longBase - (byte*)_longsBase);
+            var recordShift = (long)((byte*)recordBase - (byte*)_recordsBase);
             for (var k = 0; k < _count; k++)
             {
                 slots[k].Forward = (float*)((byte*)slots[k].Forward + floatShift);
                 slots[k].Backward = (float*)((byte*)slots[k].Backward + floatShift);
                 slots[k].BackwardByPosition = (float*)((byte*)slots[k].BackwardByPosition + floatShift);
-                slots[k].NextForward = (ushort*)((byte*)slots[k].NextForward + wordShift);
-                slots[k].NextBackward = (ushort*)((byte*)slots[k].NextBackward + wordShift);
-                slots[k].CycleForward = (long*)((byte*)slots[k].CycleForward + longShift);
-                slots[k].CycleBackward = (long*)((byte*)slots[k].CycleBackward + longShift);
+                slots[k].ForwardRecords = (MovementRecord*)((byte*)slots[k].ForwardRecords + recordShift);
+                slots[k].BackwardRecords = (MovementRecord*)((byte*)slots[k].BackwardRecords + recordShift);
             }
         }
         var forwardTable = floatBase + _floats;
         var backwardTable = forwardTable + ticks + 1;
         var backwardByPosition = backwardTable + ticks + 1;
-        var nextForward = wordBase + _words;
-        var nextBackward = nextForward + ticks + 1;
-        var cycleForward = longBase + _longs;
-        var cycleBackward = cycleForward + ticks + 1;
+        var forwardRecords = recordBase + _records;
+        var backwardRecords = forwardRecords + ticks + 1;
         var tableBytes = (long)(ticks * sizeof(float));
         Buffer.MemoryCopy(forward, forwardTable, tableBytes, tableBytes);
         Buffer.MemoryCopy(backward, backwardTable, tableBytes, tableBytes);
@@ -97,53 +92,48 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             {
                 var next = p + 1;
                 var wraps = looping && next == duration;
-                nextForward[p] = wraps ? (ushort)0 : (ushort)next;
-                cycleForward[p] = looping
-                    ? wraps ? 1L : 0L
-                    : 0L;
+                forwardRecords[p] = new MovementRecord
+                {
+                    Effect = forwardTable[p],
+                    Next = wraps ? (ushort)0 : (ushort)next,
+                    CycleDelta = looping && wraps ? 1L : 0L,
+                };
                 if (p == 0)
                 {
                     if (looping)
                     {
+                        backwardRecords[p] = new MovementRecord { Effect = backwardTable[duration - 1], Next = (ushort)(duration - 1), CycleDelta = -1 };
                         backwardByPosition[0] = backwardTable[duration - 1];
-                        nextBackward[0] = (ushort)(duration - 1);
-                        cycleBackward[0] = -1;
                     }
                     else
                     {
+                        backwardRecords[p] = new MovementRecord { Effect = 0f, Next = 0, CycleDelta = TimelineSet<TTrack, TClip>.Skipped };
                         backwardByPosition[0] = 0f;
-                        nextBackward[0] = 0;
-                        cycleBackward[0] = TimelineSet<TTrack, TClip>.Skipped;
                     }
                 }
                 else
                 {
+                    backwardRecords[p] = new MovementRecord { Effect = backwardTable[p - 1], Next = (ushort)(p - 1), CycleDelta = 0L };
                     backwardByPosition[p] = backwardTable[p - 1];
-                    nextBackward[p] = (ushort)(p - 1);
-                    cycleBackward[p] = 0;
                 }
             }
             else
             {
-                nextForward[p] = (ushort)p;
-                cycleForward[p] = TimelineSet<TTrack, TClip>.Skipped;
+                forwardRecords[p] = new MovementRecord { Effect = 0f, Next = (ushort)p, CycleDelta = TimelineSet<TTrack, TClip>.Skipped };
                 if (looping)
                 {
+                    backwardRecords[p] = new MovementRecord { Effect = 0f, Next = (ushort)p, CycleDelta = TimelineSet<TTrack, TClip>.Skipped };
                     backwardByPosition[p] = 0f;
-                    nextBackward[p] = (ushort)p;
-                    cycleBackward[p] = TimelineSet<TTrack, TClip>.Skipped;
                 }
                 else if (duration == 0)
                 {
+                    backwardRecords[p] = new MovementRecord { Effect = 0f, Next = 0, CycleDelta = TimelineSet<TTrack, TClip>.Skipped };
                     backwardByPosition[p] = 0f;
-                    nextBackward[p] = 0;
-                    cycleBackward[p] = TimelineSet<TTrack, TClip>.Skipped;
                 }
                 else
                 {
+                    backwardRecords[p] = new MovementRecord { Effect = backwardTable[duration - 1], Next = (ushort)(duration - 1), CycleDelta = 0L };
                     backwardByPosition[p] = backwardTable[duration - 1];
-                    nextBackward[p] = (ushort)(duration - 1);
-                    cycleBackward[p] = 0;
                 }
             }
         }
@@ -152,21 +142,17 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             Forward = forwardTable,
             Backward = backwardTable,
             BackwardByPosition = backwardByPosition,
-            NextForward = nextForward,
-            NextBackward = nextBackward,
-            CycleForward = cycleForward,
-            CycleBackward = cycleBackward,
+            ForwardRecords = forwardRecords,
+            BackwardRecords = backwardRecords,
             Duration = duration,
             Looping = looping ? (ushort)1 : (ushort)0,
         };
         var previous = _slots;
         _slots = slots;
         _data = floatBase;
-        _wordsBase = wordBase;
-        _longsBase = longBase;
+        _recordsBase = recordBase;
         _floats = floats;
-        _words = words;
-        _longs = longs;
+        _records = records;
         _anyLooping |= looping;
         var assigned = (ushort)_count;
         _count++;
@@ -188,8 +174,7 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var previous = _slots;
         _slots = null;
         _data = null;
-        _wordsBase = null;
-        _longsBase = null;
+        _recordsBase = null;
         _count = 0;
         if (previous != null)
             NativeMemory.AlignedFree(previous);
@@ -295,8 +280,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
         var eff = slot->Forward;
-        var next = slot->NextForward;
-        var cycle = slot->CycleForward;
+        var records = slot->ForwardRecords;
         var touchCycles = !cycles.IsEmpty;
         while (i < limit)
         {
@@ -357,14 +341,14 @@ public ref struct TimelineSetLane<TTrack, TClip>
                 var p = positions[i];
                 if (p < duration)
                 {
-                    effects[i] += eff[p];
-                    positions[i] = next[p];
+                    ref var r = ref records[p];
+                    effects[i] += r.Effect;
+                    positions[i] = r.Next;
                     if (touchCycles)
                     {
-                        var c = cycle[p];
                         if (looping)
                         {
-                            if (c != 0) cycles[i] += c;
+                            if (r.CycleDelta != 0) cycles[i] += r.CycleDelta;
                         }
                         else
                             cycles[i] = 0;
@@ -382,9 +366,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
         var eff = slot->Backward;
-        var effByPosition = slot->BackwardByPosition;
-        var next = slot->NextBackward;
-        var cycle = slot->CycleBackward;
+        var records = slot->BackwardRecords;
         var touchCycles = !cycles.IsEmpty;
         while (i < limit)
         {
@@ -415,11 +397,12 @@ public ref struct TimelineSetLane<TTrack, TClip>
             while (i < limit && (i + 1 >= limit || positions[i + 1] != positions[i]))
             {
                 var p = positions[i];
-                var c = p <= duration ? cycle[p] : TimelineSet<TTrack, TClip>.Skipped;
+                var c = p <= duration ? records[p].CycleDelta : TimelineSet<TTrack, TClip>.Skipped;
                 if (c != TimelineSet<TTrack, TClip>.Skipped)
                 {
-                    effects[i] += effByPosition[p];
-                    positions[i] = next[p];
+                    ref var r = ref records[p];
+                    effects[i] += r.Effect;
+                    positions[i] = r.Next;
                     if (touchCycles)
                     {
                         if (looping)
@@ -476,14 +459,14 @@ public ref struct TimelineSetLane<TTrack, TClip>
                 var m = slots + ids[i];
                 if (p < m->Duration)
                 {
-                    effects[i] += m->Forward[p];
-                    positions[i] = m->NextForward[p];
+                    ref var r = ref m->ForwardRecords[p];
+                    effects[i] += r.Effect;
+                    positions[i] = r.Next;
                     if (touchCycles)
                     {
-                        var c = m->CycleForward[p];
                         if (m->Looping != 0)
                         {
-                            if (c != 0) cycles[i] += c;
+                            if (r.CycleDelta != 0) cycles[i] += r.CycleDelta;
                         }
                         else
                             cycles[i] = 0;
@@ -531,11 +514,12 @@ public ref struct TimelineSetLane<TTrack, TClip>
             {
                 var p = positions[i];
                 var m = slots + ids[i];
-                var c = p <= m->Duration ? m->CycleBackward[p] : TimelineSet<TTrack, TClip>.Skipped;
+                var c = p <= m->Duration ? m->BackwardRecords[p].CycleDelta : TimelineSet<TTrack, TClip>.Skipped;
                 if (c != TimelineSet<TTrack, TClip>.Skipped)
                 {
-                    effects[i] += m->BackwardByPosition[p];
-                    positions[i] = m->NextBackward[p];
+                    ref var r = ref m->BackwardRecords[p];
+                    effects[i] += r.Effect;
+                    positions[i] = r.Next;
                     if (touchCycles)
                     {
                         if (m->Looping != 0)
