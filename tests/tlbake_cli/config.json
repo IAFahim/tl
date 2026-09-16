@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "name": "bake_valid",
+      "mode": "bake",
+      "inputs": { "json": "$configDir/fixtures/alpha.json" },
+      "options": { "assemblies": ["$testAssembly"] },
+      "expected": {
+        "exitCode": 0,
+        "output": { "path": "$out/alpha.tlb", "sha256": "19ea766222110b3655971d29af4e3f51aae7732c9fbbb6ddaf702d9ed5a90f91" }
+      }
+    },
+    {
+      "name": "bake_diagnostic",
+      "mode": "bake",
+      "inputs": { "json": "$configDir/fixtures/broken.json" },
+      "options": { "assemblies": ["$testAssembly"] },
+      "expected": {
+        "exitCode": 1,
+        "stderrContains": ["[3:3] duplicate field: 'duration'"],
+        "absentOutputs": ["$out/broken.tlb"]
+      }
+    },
+    {
+      "name": "cache_reuse",
+      "mode": "bake",
+      "inputs": { "json": "$configDir/fixtures/alpha.json" },
+      "options": { "assemblies": ["$testAssembly"], "cache": "$out/cache" },
+      "expected": {
+        "exitCode": 0,
+        "runs": [
+          { "stdoutContains": ["cache: miss"] },
+          { "stdoutContains": ["cache: hit"] }
+        ],
+        "output": { "path": "$out/alpha.tlb", "sha256": "19ea766222110b3655971d29af4e3f51aae7732c9fbbb6ddaf702d9ed5a90f91" }
+      }
+    },
+    {
+      "name": "json_introspection",
+      "mode": "json",
+      "options": { "assemblies": ["$testAssembly"] },
+      "expected": {
+        "exitCode": 0,
+        "stdoutGolden": "$root/tools/Tl.Bake.Tests/golden/introspection.json"
+      }
+    },
+    {
+      "name": "report",
+      "mode": "report",
+      "inputs": { "tlb": "$out/alpha.tlb" },
+      "expected": {
+        "exitCode": 0,
+        "stdoutContains": ["tlb/total-bytes: 424", "pair/count: 1", "label/clip-count: 2"]
+      }
+    },
+    {
+      "name": "strip",
+      "mode": "strip",
+      "inputs": { "tlb": "$out/alpha.tlb" },
+      "expected": {
+        "exitCode": 0,
+        "output": { "path": "$out/alpha.stripped.tlb", "sha256": "de5d5187f8077ee6ca331e7e6a5a9bd1e638e0e2ba2b46ea514c529545f72fc9" }
+      }
+    },
+    {
+      "name": "watch_rebuild_skip_diagnostic",
+      "mode": "watch",
+      "inputs": {
+        "initial": "$configDir/fixtures/alpha.json",
+        "edits": [
+          "$configDir/fixtures/alpha_edited.json",
+          "$configDir/fixtures/alpha_edited.json",
+          "$configDir/fixtures/broken.json"
+        ]
+      },
+      "options": { "assemblies": ["$testAssembly"], "debounceMs": 50, "timeoutSeconds": 60 },
+      "expected": {
+        "events": ["ready", "rebuild", "rebuild", "skip", "diagnostic"]
+      }
+    }
+  ]
+}

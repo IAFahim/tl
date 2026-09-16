@@ -1,0 +1,14 @@
+{
+  "duration": 12,
+  "duration": 15,
+  "loop": false,
+  "tracks": [
+    {
+      "namespace": "Tlb",
+      "type": "JobTrack",
+      "clips": [
+        { "namespace": "Tlb", "type": "JobClip", "start": 0, "end": 8, "data": { "Amount": 5, "Steps": 2 } }
+      ]
+    }
+  ]
+}
