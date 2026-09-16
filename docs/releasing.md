@@ -27,7 +27,7 @@ eng/release-artifacts --candidate local artifacts/release
 Run the immutable release pipeline from the tagged checkout:
 
 ```sh
-eng/release-artifacts --tag v1.0.0-alpha.6 artifacts/release
+eng/release-artifacts --tag v1.0.0-alpha.7 artifacts/release
 ```
 
 Source is embedded in portable PDBs. A SourceLink package is intentionally absent because embedded source satisfies offline symbol inspection without adding another restore-time dependency. This can change when remote source navigation has a concrete consumer receipt.
