@@ -74,9 +74,9 @@ public static unsafe class Recording
     {
         var frames = new List<(char, uint, float)>();
         using var asset = TimelineAsset.Load(baked);
-        for (var position = 0u; position < 8u; position++)
+        for (var position = 0; position < 8; position++)
         {
-            var component = new TimelineComponent(asset.Reference) { Position = position };
+            var component = new TimelineComponent(asset.Reference) { Position = (ushort)position };
             foreach (var frame in Timeline.Query<Tlb.DualTrack, Tlb.DualAlphaClip>(in component)) frames.Add(('A', frame.TimelineTick, frame.Clip.Value));
             foreach (var frame in Timeline.Query<Tlb.DualTrack, Tlb.DualBetaClip>(in component)) frames.Add(('B', frame.TimelineTick, frame.Clip.Amount));
             foreach (var frame in Timeline.Query<Tlb.EchoTrack, Tlb.EchoClip>(in component)) frames.Add(('E', frame.TimelineTick, frame.Clip.Value));
@@ -91,24 +91,24 @@ public static unsafe class Recording
             .SelectMany(group => group.OrderBy(record => record.Pair).Select(record => (record.Pair, record.Tick, record.Value)))
             .ToList();
 
-    static void AlphaExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
+    static void AlphaExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
     {
         Tlb.DualAlphaClip scratch = default;
-        var frame = TickFrame.ToFrame<Tlb.DualTrack, Tlb.DualAlphaClip>(slot, gameTick, tick, cycle, flags, ref scratch);
+        var frame = TickFrame.ToFrame<Tlb.DualTrack, Tlb.DualAlphaClip>(slot, tick, flags, ref scratch);
         Records.Add(new TlbRecord('A', tick, frame.Clip.Value));
     }
 
-    static void BetaExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
+    static void BetaExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
     {
         Tlb.DualBetaClip scratch = default;
-        var frame = TickFrame.ToFrame<Tlb.DualTrack, Tlb.DualBetaClip>(slot, gameTick, tick, cycle, flags, ref scratch);
+        var frame = TickFrame.ToFrame<Tlb.DualTrack, Tlb.DualBetaClip>(slot, tick, flags, ref scratch);
         Records.Add(new TlbRecord('B', tick, frame.Clip.Amount));
     }
 
-    static void EchoExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
+    static void EchoExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
     {
         Tlb.EchoClip scratch = default;
-        var frame = TickFrame.ToFrame<Tlb.EchoTrack, Tlb.EchoClip>(slot, gameTick, tick, cycle, flags, ref scratch);
+        var frame = TickFrame.ToFrame<Tlb.EchoTrack, Tlb.EchoClip>(slot, tick, flags, ref scratch);
         Records.Add(new TlbRecord('E', tick, frame.Clip.Value));
     }
 

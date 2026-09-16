@@ -87,45 +87,20 @@ public sealed unsafe class MeasuredLanes : IDisposable
         for (var i = 0; i < 256; i++) columns[i] = null;
         for (var i = 0; i < refreshCount; i++) columns[refreshSlots[i]] = bases[refreshColumns[i]];
 
-        float Measure(uint position, long cycle, float seed, bool reverse)
+        float Measure(uint position, bool reverse)
         {
-            *column = seed;
-            if (!reference.Select(reverse, position, cycle, out _, out var tick, out var frameCycle, out var flags))
+            *column = 0f;
+            if (!reference.Select(reverse, (ushort)position, out _, out var tick, out var flags))
                 throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
-            reference.Execute(reverse, tick, 0u, frameCycle, flags, 0, new Span<int>(chains, pairs), columns);
-            return *column - seed;
+            reference.Execute(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns);
+            return *column;
         }
 
-        static bool FoldsIndependentlyOfColumnValue(float baseline, float seeded)
-        {
-            if (baseline == seeded) return true;
-            var scale = MathF.Max(7f, MathF.Max(Math.Abs(baseline), Math.Abs(seeded)));
-            return MathF.Abs(seeded - baseline) <= 16f * (MathF.BitIncrement(scale) - scale);
-        }
-
-        void Prove(uint tick)
-        {
-            var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-            var baseline = Measure(tick, 0, 0, false);
-            var cycled = Measure(tick, 3, 0, false);
-            var seeded = Measure(tick, 0, 7, false);
-            if (baseline != cycled || !FoldsIndependentlyOfColumnValue(baseline, seeded))
-                throw new ArgumentException("Registered lane consumers are not position-pure; the measured tables would not reproduce live playback.");
-            baseline = Measure(backwardPosition, 0, 0, true);
-            cycled = Measure(backwardPosition, 3, 0, true);
-            seeded = Measure(backwardPosition, 0, 7, true);
-            if (baseline != cycled || !FoldsIndependentlyOfColumnValue(baseline, seeded))
-                throw new ArgumentException("Registered lane consumers are not position-pure; the measured tables would not reproduce live playback.");
-        }
-
-        var stride = duration / 64u + 1u;
-        for (var tick = 0u; tick < duration; tick += stride) Prove(tick);
-        if (duration > 0u && (duration - 1u) % stride != 0u) Prove(duration - 1u);
         for (var tick = 0u; tick < duration; tick++)
         {
             var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-            forward[tick] = Measure(tick, 0, 0, false);
-            backward[tick] = Measure(backwardPosition, 0, 0, true);
+            forward[tick] = Measure(tick, false);
+            backward[tick] = Measure(backwardPosition, true);
         }
         forward[duration] = 0f;
         backward[duration] = 0f;

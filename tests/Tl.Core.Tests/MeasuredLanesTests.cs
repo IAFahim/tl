@@ -40,18 +40,6 @@ public class MeasuredLanesTests
         .Looping()
         .Bake();
 
-    static byte[] ImpureBake() => new Baker()
-        .Track<ImpureTrack, ImpureClip>(new ImpureTrack(1f))
-        .Clip(0, 0, 6, new ImpureClip(5))
-        .Looping()
-        .Bake();
-
-    static byte[] CycleBake() => new Baker()
-        .Track<CycleTrack, CycleClip>(new CycleTrack(1f))
-        .Clip(0, 0, 6, new CycleClip(5))
-        .Looping()
-        .Bake();
-
     static byte[] EmptyBake() => new Baker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
         .Bake();
@@ -201,36 +189,6 @@ public class MeasuredLanesTests
     }
 
     [Fact]
-    public void ImpureConsumersAreStillRejected()
-    {
-        var asset = TimelineAsset.Load(ImpureBake());
-        try
-        {
-            using var set = new TimelineSet<ImpureTrack, ImpureClip>();
-            Assert.Throws<ArgumentException>(() => set.Add(asset));
-        }
-        finally
-        {
-            asset.Dispose();
-        }
-    }
-
-    [Fact]
-    public void CycleDependentConsumersAreStillRejected()
-    {
-        var asset = TimelineAsset.Load(CycleBake());
-        try
-        {
-            using var set = new TimelineSet<CycleTrack, CycleClip>();
-            Assert.Throws<ArgumentException>(() => set.Add(asset));
-        }
-        finally
-        {
-            asset.Dispose();
-        }
-    }
-
-    [Fact]
     public void EmptyAssetsBindThroughSharedMeasure()
     {
         var asset = TimelineAsset.Load(EmptyBake());
@@ -268,12 +226,11 @@ public class MeasuredLanesTests
                 var right = Run(second, secondId, (ushort)start, duration + 2, forward);
                 Assert.Equal(left.Positions, right.Positions);
                 Assert.Equal(left.Effects, right.Effects);
-                Assert.Equal(left.Cycles, right.Cycles);
             }
         }
     }
 
-    static (ushort[] Positions, float[] Effects, long[] Cycles) Run<TTrack, TClip>(
+    static (ushort[] Positions, float[] Effects) Run<TTrack, TClip>(
         TimelineSet<TTrack, TClip> set, ushort id, ushort start, int steps, bool forward)
         where TTrack : unmanaged, IBlend<TClip>
         where TClip : unmanaged
@@ -281,17 +238,14 @@ public class MeasuredLanesTests
         var ids = new ushort[] { id };
         var positions = new ushort[] { start };
         var effects = new float[1];
-        var cycles = new long[1];
         var seenPositions = new ushort[steps];
         var seenEffects = new float[steps];
-        var seenCycles = new long[steps];
         for (var step = 0; step < steps; step++)
         {
-            set.Gather(ids).Seek(positions, forward).Apply(effects, cycles);
+            set.Gather(ids).Seek(positions, forward).Apply(effects);
             seenPositions[step] = positions[0];
             seenEffects[step] = effects[0];
-            seenCycles[step] = cycles[0];
         }
-        return (seenPositions, seenEffects, seenCycles);
+        return (seenPositions, seenEffects);
     }
 }

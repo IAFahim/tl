@@ -118,20 +118,56 @@ public unsafe class DataTests
         component.Position = 3;
         Assert.False(Timeline.Query<AlphaTrack, AlphaClip>(in component).MoveNext());
 
-        foreach (var position in new[] { 1u, 2u })
+        foreach (var position in new ushort[] { 1, 2 })
         {
             component.Position = position;
-            var frames = new List<(int Code, int Value, uint Tick, uint Game, ushort Track, FrameFlags Flags)>();
+            var frames = new List<(int Code, int Value, ushort Tick, ushort ClipLength, ushort WithinClip, ushort Track, FrameFlags Flags)>();
             foreach (var frame in Timeline.Query<AlphaTrack, AlphaClip>(in component))
-                frames.Add((frame.Track.Code, frame.Clip.Value, frame.TimelineTick, frame.GameTick, frame.TrackIndex, frame.Flags));
+                frames.Add((frame.Track.Code, frame.Clip.Value, frame.TimelineTick, frame.ClipLength, frame.WithinClip, frame.TrackIndex, frame.Flags));
             var single = Assert.Single(frames);
-            Assert.Equal((5, 7, position, 0u, (ushort)0), (single.Code, single.Value, single.Tick, single.Game, single.Track));
+            Assert.Equal((5, 7, position, (ushort)2, (ushort)(position - 1), (ushort)0), (single.Code, single.Value, single.Tick, single.ClipLength, single.WithinClip, single.Track));
             Assert.True((single.Flags & FrameFlags.ClipStart) != 0 == (position == 1u));
             Assert.True((single.Flags & FrameFlags.ClipEnd) != 0 == (position == 2u));
         }
 
-        Assert.Equal(2u, component.Position);
-        Assert.Equal(0, component.Cycle);
+        Assert.Equal((ushort)2, component.Position);
+    }
+
+    [Fact]
+    public void QueryExposesClipWindowsAcrossOverlappingClips()
+    {
+        using var asset = TimelineAsset.Load(new Baker()
+            .Track<BlendTrack, BlendClip>(new BlendTrack(1f))
+            .Clip(0, 0, 4, new BlendClip(0f))
+            .Clip(0, 2, 6, new BlendClip(10f))
+            .Bake());
+        var component = new TimelineComponent(asset.Reference);
+
+        component.Position = 2;
+        var frame = SingleFrame(in component);
+        Assert.Equal((ushort)6, frame.ClipLength);
+        Assert.Equal((ushort)2, frame.WithinClip);
+        Assert.Equal((ushort)2, frame.TimelineTick);
+        Assert.False(frame.Has(FrameFlags.ClipStart));
+
+        component.Position = 3;
+        frame = SingleFrame(in component);
+        Assert.Equal((ushort)6, frame.ClipLength);
+        Assert.Equal((ushort)3, frame.WithinClip);
+        Assert.Equal((ushort)3, frame.TimelineTick);
+
+        component.Position = 0;
+        frame = SingleFrame(in component);
+        Assert.Equal((ushort)4, frame.ClipLength);
+        Assert.Equal((ushort)0, frame.WithinClip);
+        Assert.True(frame.Has(FrameFlags.ClipStart));
+    }
+
+    private static Frame<BlendTrack, BlendClip> SingleFrame(in TimelineComponent component)
+    {
+        foreach (var frame in Timeline.Query<BlendTrack, BlendClip>(in component))
+            return frame;
+        throw new InvalidOperationException("Expected one frame.");
     }
 
     [Fact]

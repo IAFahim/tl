@@ -216,7 +216,6 @@ internal sealed class LaneCase : IDisposable
     private readonly TimelineAsset _asset;
     private readonly ushort[] _positions = new ushort[1];
     private readonly float[] _values = new float[1];
-    private readonly long[] _cycles = new long[1];
 
     internal LaneCase(TimelineShape shape, TickPattern pattern)
     {
@@ -232,16 +231,15 @@ internal sealed class LaneCase : IDisposable
     {
         _positions[0] = 0;
         _values[0] = 0;
-        _cycles[0] = 0;
         for (var index = 0; index < _deltas.Length; index++)
-            Timeline<BakedLane<AlphaTrack, AlphaClip>>.Seek(_positions, _deltas[index] >= 0).Apply(_values, _cycles);
-        return Checksum(_positions[0], _cycles[0], _values[0]);
+            Timeline<BakedLane<AlphaTrack, AlphaClip>>.Seek(_positions, _deltas[index] >= 0).Apply(_values);
+        return Checksum(_positions[0], _values[0]);
     }
 
     public void Dispose() => _asset.Dispose();
 
-    internal static long Checksum(ushort position, long cycle, float value)
-        => unchecked((long)position * 31 + cycle * 7 + (long)value);
+    internal static long Checksum(ushort position, float value)
+        => unchecked((long)position * 31 + (long)value);
 
     internal static byte[] Bake(TimelineShape shape)
     {
@@ -282,20 +280,18 @@ internal sealed class LaneCase : IDisposable
     internal static long Oracle(TimelineShape shape, TickPattern pattern)
     {
         var effect = PerTickEffect(shape);
-        var position = 0u;
-        var cycle = 0L;
+        var position = (ushort)0;
         var value = 0f;
         var deltas = new int[Operations];
         TickPatterns.Fill(deltas, pattern);
         for (var index = 0; index < deltas.Length; index++)
         {
             var reverse = deltas[index] < 0;
-            if (!TimelineMovement.Select(new TimelineState(1, position, cycle), 64u, true, reverse, out var next, out var tick, out _, out _))
+            if (!TimelineMovement.Select(new TimelineState(1, position), 64, true, reverse, out var next, out _, out _))
                 throw new InvalidOperationException($"oracle movement failed at position {position}.");
             value += reverse ? -effect : effect;
             position = next.Position;
-            cycle = next.Cycle;
         }
-        return Checksum((ushort)position, cycle, value);
+        return Checksum(position, value);
     }
 }

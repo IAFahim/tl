@@ -75,9 +75,9 @@ public sealed class ConsumerBindingTests
             "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&Execute_ApplyDamage, &ExecuteRange_ApplyDamage, &Bind_ApplyDamage);",
             "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.Consume(&Execute_ApplyHeal, &ExecuteRange_ApplyHeal, &Bind_ApplyHeal);",
         ], install.Split('\n')[5..^1]);
-        Assert.Contains("private static void Execute_ApplyDamage(byte* __tlSlot, uint __tlGameTick, uint __tlTick, long __tlCycle, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
-        Assert.Contains("private static void ExecuteRange_ApplyDamage(byte* __tlSlot, uint __tlGameTick, uint __tlTick, long __tlCycle, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)", binding);
-        Assert.Contains("global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);", binding);
+        Assert.Contains("private static void Execute_ApplyDamage(byte* __tlSlot, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
+        Assert.Contains("private static void ExecuteRange_ApplyDamage(byte* __tlSlot, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)", binding);
+        Assert.Contains("global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlTick, __tlFlags, ref __tlClip);", binding);
         Assert.Contains("var @resistance = (global::Domain.Resistance*)__tlColumns[0];", binding);
         Assert.Contains("var @health = (global::Domain.Health*)__tlColumns[1];", binding);
         Assert.Contains("global::Domain.ApplyDamage.Execute(in __tlTyped, in @resistance[__tlRow], ref @health[__tlRow]);", binding);
@@ -217,8 +217,8 @@ public sealed class ConsumerBindingTests
             "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&Execute_DualJob, &ExecuteRange_DualJob, &Bind_DualJob);",
             "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&Execute_DualJob_, &ExecuteRange_DualJob_, &Bind_DualJob_);",
         ], install.Split('\n')[5..^1]);
-        Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.AlphaClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);", binding);
-        Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.BetaClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);", binding);
+        Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.AlphaClip>(__tlSlot, __tlTick, __tlFlags, ref __tlClip);", binding);
+        Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.BetaClip>(__tlSlot, __tlTick, __tlFlags, ref __tlClip);", binding);
         Assert.Contains("global::Domain.DualJob.Execute(in __tlTyped, ref @health[__tlRow]);", binding);
     }
 

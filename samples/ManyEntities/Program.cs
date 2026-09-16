@@ -7,7 +7,7 @@ namespace ManyEntities;
 // Many entities, one shared timeline asset, every entity at its own clock position.
 // Both sides run the SAME workload and must produce identical checksums:
 //
-//   lane  the shipped typed lane: Timeline<T>.Seek(positions, forward).Apply(values, cycles)
+//   lane  the shipped typed lane: Timeline<T>.Seek(positions, forward).Apply(values)
 //         over BakedLane effect tables bound once per asset
 //   hand  the per-asset SoA pattern from docs/playback-tables-design.md: precompute the
 //         frame value per position once, then sweep flat arrays by hand
@@ -42,7 +42,7 @@ internal static class Program
         using var asset = TimelineAsset.Load(baked);
         var reference = asset.Reference;
         var table = new float[duration];
-        for (uint p = 0; p < duration; p++)
+        for (ushort p = 0; p < duration; p++)
             foreach (var frame in Timeline.Query<TTrack, TClip>(new TimelineComponent(reference) { Position = p }))
                 table[p] = value(frame);
         return table;
@@ -89,13 +89,12 @@ internal static class Program
         BakedLane<MoveTrack, MoveClip>.Bind(asset);
 
         var positions = new ushort[N];
-        var cycles = new long[N];
         var laneValues = new float[N];
         var handValues = new float[N];
 
         long Reset()
         {
-            for (var i = 0; i < N; i++) { positions[i] = (ushort)(i % 64); cycles[i] = 0; }
+            for (var i = 0; i < N; i++) { positions[i] = (ushort)(i % 64); }
             Array.Clear(laneValues);
             Array.Clear(handValues);
             return 0;
@@ -103,10 +102,10 @@ internal static class Program
         long LanePass()
         {
             for (var t = 0; t < Ticks; t++)
-                Timeline<BakedLane<MoveTrack, MoveClip>>.Seek(positions, true).Apply(laneValues, cycles);
-            long a = 0, c = 0;
-            for (var i = 0; i < N; i++) { a += (long)laneValues[i]; c += cycles[i]; }
-            return a ^ c * 31;
+                Timeline<BakedLane<MoveTrack, MoveClip>>.Seek(positions, true).Apply(laneValues);
+            long a = 0;
+            for (var i = 0; i < N; i++) { a += (long)laneValues[i]; }
+            return a;
         }
         long HandPass()
         {
@@ -116,12 +115,12 @@ internal static class Program
                     var p = (int)positions[i];
                     handValues[i] += values[p];
                     var np = p + 1;
-                    if (np == 64u) { np = 0; cycles[i]++; }
+                    if (np == 64u) np = 0;
                     positions[i] = (ushort)np;
                 }
-            long a = 0, c = 0;
-            for (var i = 0; i < N; i++) { a += (long)handValues[i]; c += cycles[i]; }
-            return a ^ c * 31;
+            long a = 0;
+            for (var i = 0; i < N; i++) { a += (long)handValues[i]; }
+            return a;
         }
 
         for (var w = 0; w < WarmupPasses; w++) { Reset(); LanePass(); Reset(); HandPass(); }
@@ -137,14 +136,12 @@ internal static class Program
         BakedLane<PulseTrack, PulseClip>.Bind(asset);
 
         var positions = new ushort[N];
-        var cycles = new long[N];
         var laneValues = new float[N];
         var handValues = new float[N];
 
         long Reset()
         {
             Array.Clear(positions);
-            Array.Clear(cycles);
             Array.Clear(laneValues);
             Array.Clear(handValues);
             return 0;
@@ -152,18 +149,18 @@ internal static class Program
         long LanePass()
         {
             for (var t = 0; t < Ticks; t++)
-                Timeline<BakedLane<PulseTrack, PulseClip>>.Seek(positions, true).Apply(laneValues, cycles);
-            long a = 0, c = 0;
-            for (var i = 0; i < N; i++) { a += (long)laneValues[i]; c += cycles[i]; }
-            return a ^ c * 31;
+                Timeline<BakedLane<PulseTrack, PulseClip>>.Seek(positions, true).Apply(laneValues);
+            long a = 0;
+            for (var i = 0; i < N; i++) { a += (long)laneValues[i]; }
+            return a;
         }
         long HandPass()
         {
             for (var t = 0; t < Ticks; t++)
-                for (var i = 0; i < N; i++) { handValues[i] += value; cycles[i]++; }
-            long a = 0, c = 0;
-            for (var i = 0; i < N; i++) { a += (long)handValues[i]; c += cycles[i]; }
-            return a ^ c * 31;
+                for (var i = 0; i < N; i++) { handValues[i] += value; }
+            long a = 0;
+            for (var i = 0; i < N; i++) { a += (long)handValues[i]; }
+            return a;
         }
 
         for (var w = 0; w < WarmupPasses; w++) { Reset(); LanePass(); Reset(); HandPass(); }
@@ -182,7 +179,6 @@ internal static class Program
         BakedLane<WindowTrack, WindowClip>.Bind(asset);
 
         var positions = new ushort[Capacity];
-        var cycles = new long[Capacity];
         var laneValues = new float[Capacity];
         var handValues = new float[Capacity];
         var count = 0;
@@ -201,14 +197,14 @@ internal static class Program
             var retired = 0;
             for (var p = 0; p < Passes; p++)
             {
-                for (var s = 0; s < SpawnPerPass; s++) { positions[count + s] = 0; cycles[count + s] = 0; laneValues[count + s] = 0; }
+                for (var s = 0; s < SpawnPerPass; s++) { positions[count + s] = 0; laneValues[count + s] = 0; }
                 count += SpawnPerPass;
-                Timeline<BakedLane<WindowTrack, WindowClip>>.Seek(positions.AsSpan(0, count), true).Apply(laneValues.AsSpan(0, count), Span<long>.Empty);
+                Timeline<BakedLane<WindowTrack, WindowClip>>.Seek(positions.AsSpan(0, count), true).Apply(laneValues.AsSpan(0, count));
                 for (var i = 0; i < count; )
                 {
                     if (positions[i] < 20u) { i++; continue; }
                     count--;
-                    positions[i] = positions[count]; cycles[i] = cycles[count]; laneValues[i] = laneValues[count];
+                    positions[i] = positions[count]; laneValues[i] = laneValues[count];
                     retired++;
                 }
             }
@@ -222,7 +218,7 @@ internal static class Program
             var retired = 0;
             for (var p = 0; p < Passes; p++)
             {
-                for (var s = 0; s < SpawnPerPass; s++) { positions[count + s] = 0; cycles[count + s] = 0; handValues[count + s] = 0; }
+                for (var s = 0; s < SpawnPerPass; s++) { positions[count + s] = 0; handValues[count + s] = 0; }
                 count += SpawnPerPass;
                 for (var i = 0; i < count; )
                 {
@@ -232,7 +228,7 @@ internal static class Program
                     if (np == 20u)
                     {
                         count--;
-                        positions[i] = positions[count]; cycles[i] = cycles[count]; handValues[i] = handValues[count];
+                        positions[i] = positions[count]; handValues[i] = handValues[count];
                         retired++;
                         continue;
                     }

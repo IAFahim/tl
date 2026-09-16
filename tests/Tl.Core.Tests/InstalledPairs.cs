@@ -28,15 +28,15 @@ internal static unsafe class InstalledPairs
         }
     }
 
-    private static void AlphaExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
+    private static void AlphaExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
     {
         AlphaClip scratch = default;
-        var current = TickFrame.ToFrame<AlphaTrack, AlphaClip>(slot, gameTick, tick, cycle, flags, ref scratch);
+        var current = TickFrame.ToFrame<AlphaTrack, AlphaClip>(slot, tick, flags, ref scratch);
         var health = (Health*)columns[0];
         if (health != null)
             health[row].Value += current.Clip.Value * current.Track.Code;
     }
 
-    private static void BetaExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row) => throw new InvalidOperationException("Beta consumer failed.");
+    private static void BetaExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row) => throw new InvalidOperationException("Beta consumer failed.");
 
 }

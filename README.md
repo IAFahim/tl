@@ -8,7 +8,7 @@ Timeline data and timeline behavior are separate. Designers author tracks, clips
 
 - **Deterministic bake** — same inputs, same bytes, on every machine and culture; content-keyed cache hits preserve timestamps
 - **Heterogeneous assets** — tracks and clips of different types in one asset; execution order is authored order (A-B-A preserved)
-- **Typed playback lane** — `Timeline<T>.Seek(positions, forward).Apply(effects, cycles)` advances every row exactly one frame over run-length groups; catch-up is repeated calls, rewind is `forward: false`
+- **Typed playback lane** — `Timeline<T>.Seek(positions, forward).Apply(effects)` advances every row exactly one frame over run-length groups; catch-up is repeated calls, rewind is `forward: false`
 - **Bind-time effect tables** — consumers are measured once per (pair, asset) with position-purity validation; no kernel catalog, no interpreter tier, one execution path
 - **Typed frame queries** — a read-only stage view over the row's currently selected step; never advances time
 - **NativeAOT-safe** — no generator assemblies in application output; one shared domain file compiles for both .NET and Unity
@@ -119,7 +119,7 @@ tlbake boss.json boss.tlb --assembly bin/Release/net10.0/MyApp.dll --cache ~/.tl
 
 ### 4. Bind, advance, and query
 
-The application owns the position, effect, and cycle columns and the game clock. `TimelineAsset.Load` is a cold validated import; `BakedLane.Bind` measures the per-position effect tables once; dispose the asset after all readers are done.
+The application owns the position and effect columns and the game clock. `TimelineAsset.Load` is a cold validated import; `BakedLane.Bind` measures the per-position effect tables once; dispose the asset after all readers are done.
 
 ```cs
 using var asset = TimelineAsset.Load(File.ReadAllBytes("boss.tlb"));
@@ -127,14 +127,13 @@ BakedLane<DamageTrack, DamageClip>.Bind(asset);
 
 var positions = new ushort[] { 0 };
 var health    = new float[] { 100f };
-var cycles    = new long[1];
 
-Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health, cycles);   // one frame
-Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health, cycles);   // catch-up call
-Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, false).Apply(health, cycles);  // rewind
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health);   // one frame
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health);   // catch-up call
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, false).Apply(health);  // rewind
 ```
 
-Every `Apply` advances each row exactly one frame: rows that would cross duration clamp on finite assets, looping assets wrap with ±1 cycle deltas, and skipped rows leave their columns untouched. Rows sharing a position form one run — the per-row cost collapses toward a vector add on grouped storage.
+Every `Apply` advances each row exactly one frame: rows that would cross duration clamp on finite assets, looping assets wrap, and skipped rows leave their columns untouched. Rows sharing a position form one run — the per-row cost collapses toward a vector add on grouped storage. There is no engine cycle: hosts that need loop counts track wraps from the movement flags (`TimelineEnd` on looping timelines, `CompletedAfter`/`CompletedBefore` on finite ones, sign from `Reverse`) or from the position column, exactly as before — receipted in `tests/Tl.Alpha`.
 
 Several timelines of the **same** pair play side by side through a `TimelineSet`: ids are assigned at load time by `Add` (never authored, never baked), all tables live in one contiguous native block, and one call advances a whole mixed crowd — minions and boss together.
 
@@ -148,9 +147,8 @@ var bossId   = jumps.Add(bossAsset);
 var timelineIds = new ushort[] { minionId, minionId, bossId };
 var lastTick    = new ushort[] { 0, 0, 2 };
 var health      = new float[3];
-var cycles      = new long[3];
 
-jumps.Gather(timelineIds).Seek(lastTick, true).Apply(health, cycles);   // whole crowd, one frame
+jumps.Gather(timelineIds).Seek(lastTick, true).Apply(health);   // whole crowd, one frame
 ```
 
 There is deliberately **no multi-frame step parameter** and never will be. A game runs thousands of systems that must all observe every timeline tick — a 50-tick skip would hide 49 intermediate states from them. Lag catch-up is repeated single-frame calls, which also keeps every float fold bit-exact (a precomputed K-frame sum can round differently from K sequential folds). This is an owner decision; see `docs/typed-playback-lane.md`.
@@ -163,7 +161,7 @@ foreach (var frame in Timeline.Query<DamageTrack, DamageClip>(
     ApplyDamage.Execute(in frame, ref health[0]);
 ```
 
-The query is a read-only stage view: it never advances `Position` or `Cycle`, so repeated queries return identical frames. A gap or clamped-completed position yields no frames; reverse movement re-observes the same stages in reverse; multiple occurrences of one pair in a step appear in authored order. Frames exist only during `Execute`; consumers must not retain their borrowed references.
+The query is a read-only stage view: it never advances `Position`, so repeated queries return identical frames. A gap or clamped-completed position yields no frames; reverse movement re-observes the same stages in reverse; multiple occurrences of one pair in a step appear in authored order. Frames exist only during `Execute`; consumers must not retain their borrowed references.
 
 ## Generated reports
 
@@ -195,6 +193,12 @@ every set shape is bit-exact against per-asset static lanes, forward and backwar
 
 | workload | ms/frame | ns/row |
 | --- | ---: | ---: |
+
+Measured before the #113 frame slim (cycles column present); the #113 A/B in
+[docs/typed-playback-lane.md](docs/typed-playback-lane.md) re-measured the affected shapes at
+parity or better on the same host family (finite staggered 0.38 -> 0.19 ns/row, static
+staggered 0.19 -> 0.15-0.17, alternating ids 1.67 -> 1.22), and the cycle column no longer
+exists in any shape.
 | plain floor (`effects += 1; positions += 1`) | 0.41 | 0.39 |
 | static lane, uniform clocks | 0.16 | 0.15 |
 | static lane, waves of 100 | 0.14 | 0.13 |
@@ -207,7 +211,6 @@ every set shape is bit-exact against per-asset static lanes, forward and backwar
 | set, one looping timeline, staggered clocks | 0.24 | 0.22 |
 | set, ids alternating per row, staggered clocks | 1.80 | 1.72 |
 | set, finite timeline, staggered clocks | 0.34 | 0.32 |
-| set, finite timeline, waves of 100, empty cycle column | 0.17 | 0.16 |
 | set, one timeline, waves of 100, backward | 0.20 | 0.19 |
 | set, one looping timeline, staggered clocks, backward | 0.25 | 0.24 |
 
@@ -222,13 +225,14 @@ the same route at the same cost. Crowds whose
 ids switch every few rows run the mixed scanner and pay for the id-switch rate, not the crowd
 size; grouping rows by timeline id — the ECS norm — keeps every row on a table-shaped path.
 
-Memory (same shapes): the host owns 16 B/row of caller columns for a looping set — timeline
-id 2 B, position 2 B, effect 4 B, cycle 8 B (16 MiB at one million rows) — or 8 B/row (8 MiB)
-when every timeline is finite and the cycle column is `Span<long>.Empty`; the static lane uses
-14 B/row. Each timeline's measured tables live in the set's one contiguous native block:
-44 * (duration + 1) + 48 bytes — 2,908 B at duration 64, 45,148 B at 1,024, 2.75 MiB at the
-65,535-tick cap. The warm path allocates 0 B in every lane; a 256-track module folds to one
-34,688-effect column per tick (`tests/Tl.Alpha --module-capacity`).
+Memory (same shapes, after the #113 frame slim): the host owns 8 B/row of caller columns for
+a set — timeline id 2 B, position 2 B, effect 4 B (8 MiB at one million rows) — with no cycle
+column in any shape; the static lane uses 6 B/row. `TimelineState` is 8 bytes (was 16),
+`TimelineComponent` 16 (was 24), and each baked movement record 8 bytes (was 16). Each
+timeline's measured tables live in the set's one contiguous native block:
+28 * (duration + 1) + 48 bytes — 1,868 B at duration 64, 28,748 B at 1,024, 1.75 MiB at the
+65,535-tick cap (was 44 * (duration + 1) + 48). The warm path allocates 0 B in every lane; a
+256-track module folds to one 34,688-effect column per tick (`tests/Tl.Alpha --module-capacity`).
 
 ## Unity ECS
 

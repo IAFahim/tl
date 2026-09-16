@@ -21,15 +21,15 @@ type Tl.FrameQuery`2
   Method Boolean MoveNext()
 type Tl.Frame`2
   Property TClip& Clip
-  Property Int64 Cycle
+  Property UInt16 ClipLength
   Property Int32 Direction
   Property Tl.FrameFlags Flags
-  Property UInt32 GameTick
   Method Boolean Has(Tl.FrameFlags)
   Property Boolean IsBackward
-  Property UInt32 TimelineTick
+  Property UInt16 TimelineTick
   Property TTrack& Track
   Property UInt16 TrackIndex
+  Property UInt16 WithinClip
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.ITimelineJob`2
@@ -44,17 +44,15 @@ type Tl.MeasuredLanes
   Property Boolean Looping
   Method Tl.MeasuredLanes Measure(Tl.TimelineAsset)
 type Tl.PairRuntime`2
-  Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
-  Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
+  Method Void Consume(System.Void(System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
+  Method Void Consume(System.Void(System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
   Field UInt64 Key
 type Tl.TickFrame
-  Field Int64 Cycle
   Field Tl.FrameFlags Flags
-  Field UInt32 GameTick
   Field Void* Slot
-  Field UInt32 TimelineTick
+  Field UInt16 TimelineTick
   Method Tl.Frame`2[TTrack,TClip] ToFrame[TTrack,TClip](TClip ByRef)
-  Method Tl.Frame`2[TTrack,TClip] ToFrame[TTrack,TClip](Void*, UInt32, UInt32, Int64, Tl.FrameFlags, TClip ByRef)
+  Method Tl.Frame`2[TTrack,TClip] ToFrame[TTrack,TClip](Void*, UInt16, Tl.FrameFlags, TClip ByRef)
 type Tl.Timeline
   Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
 type Tl.TimelineAsset
@@ -62,18 +60,17 @@ type Tl.TimelineAsset
   Method Tl.TimelineAsset Load(System.ReadOnlySpan`1[System.Byte])
   Property Tl.TimelineRef Reference
 type Tl.TimelineComponent
-  Field Int64 Cycle
-  Field UInt32 Position
+  Field UInt16 Position
   Field Tl.TimelineRef Reference
 type Tl.TimelineGather`2
   Method Tl.TimelineSetLane`2[TTrack,TClip] Seek(System.Span`1[System.UInt16], Boolean)
 type Tl.TimelineLane`1
-  Method Void Apply(System.Span`1[System.Single], System.Span`1[System.Int64])
+  Method Void Apply(System.Span`1[System.Single])
 type Tl.TimelineMovement
-  Method Boolean Select(Tl.TimelineState ByRef, UInt32, Boolean, Boolean, Tl.TimelineState ByRef, UInt32 ByRef, Int64 ByRef, Tl.FrameFlags ByRef)
+  Method Boolean Select(Tl.TimelineState ByRef, UInt16, Boolean, Boolean, Tl.TimelineState ByRef, UInt16 ByRef, Tl.FrameFlags ByRef)
 type Tl.TimelineRef
 type Tl.TimelineSetLane`2
-  Method Void Apply(System.Span`1[System.Single], System.Span`1[System.Int64])
+  Method Void Apply(System.Span`1[System.Single])
 type Tl.TimelineSet`2
   Method UInt16 Add(Tl.TimelineAsset)
   Method UInt16 Add(Tl.TimelineAsset, Tl.MeasuredLanes)
@@ -81,8 +78,7 @@ type Tl.TimelineSet`2
   Method Tl.TimelineGather`2[TTrack,TClip] Gather(System.ReadOnlySpan`1[System.UInt16])
 type Tl.TimelineState
   Field UInt32 Asset
-  Field Int64 Cycle
-  Field UInt32 Position
+  Field UInt16 Position
 type Tl.Timeline`1
   Method Tl.TimelineLane`1[T] Seek(System.Span`1[System.UInt16], Boolean)
 type Tl.TypeKey`1

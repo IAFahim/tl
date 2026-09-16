@@ -17,7 +17,7 @@ public class ReportTests
         "stage/count: 6\n" +
         "program/step-count: 13\n" +
         "frame-slot/region-bytes: 416\n" +
-        "instance/state-bytes: 24\n" +
+        "instance/state-bytes: 16\n" +
         "label/root-count: 1\n" +
         "label/track-count: 2\n" +
         "label/clip-count: 4\n";
@@ -31,7 +31,7 @@ public class ReportTests
         "stage/count: 6\n" +
         "program/step-count: 13\n" +
         "frame-slot/region-bytes: 416\n" +
-        "instance/state-bytes: 24\n" +
+        "instance/state-bytes: 16\n" +
         "label/root-count: 0\n" +
         "label/track-count: 0\n" +
         "label/clip-count: 0\n";
