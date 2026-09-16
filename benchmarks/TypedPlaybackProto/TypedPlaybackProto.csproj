@@ -8,15 +8,11 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IsPackable>false</IsPackable>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
-    <ProjectReference Include="..\..\tools\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="Assets\*.tlb.json" />
+    <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" />
   </ItemGroup>
 
 </Project>

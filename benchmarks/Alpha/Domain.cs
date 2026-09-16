@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Tl;
 
 public enum TickPattern
@@ -13,16 +12,6 @@ public enum TimelineShape
     ThreeTracks,
     SixteenTracks,
     TwoHundredFiftySixTracks,
-    Gap,
-    Blend,
-}
-
-public struct Accumulator
-{
-    public long Value;
-    public long Order;
-    public long GameTickSum;
-    public int Calls;
 }
 
 public readonly record struct AlphaClip(int Amount);
@@ -42,90 +31,12 @@ public readonly record struct BetaTrack(int Code) : IBlend<BetaClip>
 
 public readonly struct AlphaJob : ITimelineJob<AlphaTrack, AlphaClip>
 {
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Execute(in Frame<AlphaTrack, AlphaClip> frame, ref Accumulator accumulator)
-        => Kernels.Alpha(frame.Direction, frame.Track.Code, frame.Clip.Amount, frame.GameTick, ref accumulator);
+    public static void Execute(in Frame<AlphaTrack, AlphaClip> frame, ref float value)
+        => value += frame.Direction * frame.Clip.Amount;
 }
 
 public readonly struct BetaJob : ITimelineJob<BetaTrack, BetaClip>
 {
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Execute(in Frame<BetaTrack, BetaClip> frame, ref Accumulator accumulator)
-        => Kernels.Beta(frame.Direction, frame.Track.Code, frame.Clip.Amount, frame.GameTick, ref accumulator);
-}
-
-public readonly record struct FirstInput(int Value);
-public readonly record struct SecondInput(int Value);
-public readonly record struct ThirdInput(int Value);
-public readonly record struct ComponentTrack(int Code) : IBlend<ComponentClip>
-{
-    public void Blend(in ComponentClip first, in ComponentClip second, float factor, out ComponentClip result)
-        => result = new((int)(first.Amount + (second.Amount - first.Amount) * factor));
-}
-
-public readonly record struct ComponentClip(int Amount);
-
-public readonly struct ComponentJob : ITimelineJob<ComponentTrack, ComponentClip>
-{
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Execute(
-        in Frame<ComponentTrack, ComponentClip> frame,
-        in FirstInput first,
-        in SecondInput second,
-        in ThirdInput third,
-        ref Accumulator accumulator)
-        => Kernels.Component(
-            frame.Direction,
-            frame.Track.Code,
-            frame.Clip.Amount,
-            frame.GameTick,
-            first.Value,
-            second.Value,
-            third.Value,
-            ref accumulator);
-}
-
-public readonly record struct BenchmarkReceipt(
-    long StateHash,
-    long ValueHash,
-    long OrderHash,
-    long GameTickHash,
-    long Calls);
-
-internal static class Kernels
-{
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Alpha(int direction, int code, int amount, uint gameTick, ref Accumulator accumulator)
-    {
-        accumulator.Value = unchecked(accumulator.Value * 31 + direction * amount);
-        accumulator.Order = unchecked(accumulator.Order * 10 + code);
-        accumulator.GameTickSum = unchecked(accumulator.GameTickSum + gameTick);
-        accumulator.Calls++;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Beta(int direction, int code, int amount, uint gameTick, ref Accumulator accumulator)
-    {
-        accumulator.Value = unchecked(accumulator.Value * 37 + direction * amount);
-        accumulator.Order = unchecked(accumulator.Order * 10 + code);
-        accumulator.GameTickSum = unchecked(accumulator.GameTickSum + gameTick);
-        accumulator.Calls++;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Component(
-        int direction,
-        int code,
-        int amount,
-        uint gameTick,
-        int first,
-        int second,
-        int third,
-        ref Accumulator accumulator)
-    {
-        accumulator.Value = unchecked(accumulator.Value * 31 + direction * (amount + first + second + third));
-        accumulator.Order = unchecked(accumulator.Order * 10 + code);
-        accumulator.GameTickSum = unchecked(accumulator.GameTickSum + gameTick);
-        accumulator.Calls++;
-    }
+    public static void Execute(in Frame<BetaTrack, BetaClip> frame, ref float value)
+        => value += frame.Direction * frame.Clip.Amount;
 }

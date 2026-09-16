@@ -2,7 +2,7 @@
 
 Approved by the owner on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns implementation and live acceptance status. This document freezes the next consumer API direction. It does not describe implemented alpha.3 functionality, qualify a new release, or freeze a binary ABI.
 
-The owner subsequently paused work; implementation has since resumed on `feat/56-data-authored-api`. Gates 1 through 4 — generated facade and column binding, the TLB1 native format with ownership and safe publication, oracle-traced select/query/execute/commit semantics including A-B-A, opposing orders, blends, crossed frames and reverse movement, complete-row compatibility diagnostics, and the consumer-chain reverse-order tail (kernel-lane phases at `323c85a` and `739bbc8`) — first landed across `548c802022a9e12eb4ab65da4fad6d94d8876b4a`..`739bbc8`. Gate 5 (Unity parity: eligibility policy, Bursted coordinator, IJobEntity parity, delayed dependencies; 22/22 EditMode) is receipted in the extracted tl.unity repository through `fc2d02a`. Gate 6 (flat schema v1, conversion API, TLB1 metadata tail at `bd3c3ca`; deterministic bake cache and memory reports at `4afea8c`) is landed. Gate 7's benchmark record is consolidated in [optimization-verdicts.md](optimization-verdicts.md) bindings 7 and 8. Standalone job discovery without `Define` declarations is implemented and receipted (`ConsumerBindingTests`). The superseded alpha.3 authored surface was removed from the repository under [issue #65](https://github.com/IAFahim/tl/issues/65); remaining owner-gated work is release qualification ([issue #91](https://github.com/IAFahim/tl/issues/91)) after the publication and licensing decisions recorded in [issue #64](https://github.com/IAFahim/tl/issues/64). The contract body below remains frozen as approved; read the latest issue comments before treating any checklist item as authorization to work.
+The owner subsequently paused work; implementation has since resumed on `feat/56-data-authored-api`. Gates 1 through 4 — generated facade and column binding, the TLB1 native format with ownership and safe publication, oracle-traced select/query/execute/commit semantics including A-B-A, opposing orders, blends, crossed frames and reverse movement, complete-row compatibility diagnostics, and the consumer-chain reverse-order tail (kernel-lane phases at `323c85a` and `739bbc8`) — first landed across `548c802022a9e12eb4ab65da4fad6d94d8876b4a`..`739bbc8`. Gate 5 (Unity parity: eligibility policy, Bursted coordinator, IJobEntity parity, delayed dependencies; 22/22 EditMode) is receipted in the extracted tl.unity repository through `fc2d02a`. Gate 6 (flat schema v1, conversion API, TLB1 metadata tail at `bd3c3ca`; deterministic bake cache and memory reports at `4afea8c`) is landed. Gate 7's benchmark record is consolidated in [optimization-verdicts.md](optimization-verdicts.md) bindings 7 and 8. Standalone job discovery without `Define` declarations is implemented and receipted (`ConsumerBindingTests`). The superseded alpha.3 authored surface was removed from the repository under [issue #65](https://github.com/IAFahim/tl/issues/65); remaining owner-gated work is release qualification ([issue #91](https://github.com/IAFahim/tl/issues/91)) after the publication and licensing decisions recorded in [issue #64](https://github.com/IAFahim/tl/issues/64). Under [issue #104](https://github.com/IAFahim/tl/issues/104) the owner then approved the full playback rewrite: the `Timeline.Rows(...).Tick` facade, the `TimelineKernels` kernel catalog (`tlbake --kernel`), and the `TickUnmanaged` seam were removed in favor of the typed playback lane ([typed-playback-lane.md](typed-playback-lane.md)) as the single .NET warm playback surface; the consumer sections below state the shipped shape. The contract body otherwise remains frozen as approved; read the latest issue comments before treating any checklist item as authorization to work.
 
 This document is the only authoring lane. The removed alpha.3 authored API survives only as a frozen design record in [v1.0-alpha-api.md](v1.0-alpha-api.md) and `docs/alpha3`; it is not implemented, shipped, or maintained.
 
@@ -130,7 +130,7 @@ Owner rules (FINAL): shape is root(name?) → tracks[] → clips[]. NO grouping 
 The public conversion API lives in `tools/Tl.Gen.Tlb` (`TimelineBaker.BakeJson`, `BakerAssemblyResolver`, `TlbMetadata`); its surface is receipt-locked by `tools/Tl.Bake.Tests/Tl.Gen.Tlb.PublicApi.approved.txt`. The `tlbake` CLI (`tools/Tl.Bake`) is a thin front-end:
 
 ```sh
-tlbake <input.json> <output.tlb> [--assembly <path>]... [--kernel <out.g.cs>] [--cache <dir>]
+tlbake <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]
 tlbake --strip <input.tlb> <output.tlb>
 tlbake --report <input.tlb>
 ```
@@ -142,22 +142,22 @@ Converter contract laws:
 1. **Determinism**: baking the same JSON input always yields bit-identical TLB1 bytes (including the metadata tail) and identical SHA-256 hot hashes across runs, machines and cultures.
 2. **Round trip**: `bake(dump(tlb)) == tlb` holds by construction once a dump emitter lands; baking consumes the same canonical data the binary encodes.
 3. **Name binding at bake time**: `namespace`/`type`/`assembly` resolve against the referenced consumer assemblies during baking only; baked assets carry pair keys, never names, so playback and distribution need no type lookup.
-4. **Cache**: the opt-in `--cache <dir>` stores bake outputs under a content key derived only from bytes that affect output — the input JSON bytes, each `--assembly` file's SHA-256 in declared order, the `Tl.Gen.Tlb.BakeCacheKey.ToolVersion` string, and the output-kind flags (`--kernel`, `--strip`) — so a hit copies byte-identical outputs and never rewrites a destination whose bytes already match (timestamps survive), a miss bakes and stores, and a bake that fails is never cached.
+4. **Cache**: the opt-in `--cache <dir>` stores bake outputs under a content key derived only from bytes that affect output — the input JSON bytes, each `--assembly` file's SHA-256 in declared order, the `Tl.Gen.Tlb.BakeCacheKey.ToolVersion` string, and the output-kind flags (`--strip`) — so a hit copies byte-identical outputs and never rewrites a destination whose bytes already match (timestamps survive), a miss bakes and stores, and a bake that fails is never cached.
 5. **Tool version bump**: any change to bake-affecting code paths bumps `BakeCacheKey.ToolVersion`, invalidating every stored cache entry.
 
 `tlbake --report <input.tlb>` prints a deterministic, culture-invariant `name: value` report parsed from the TLB1 bytes alone: header-derived region sizes (total, hot, metadata, pair table, frame slots), stage and program-step counts, the runtime `TimelineComponent` instance size, and, for full assets, root/track/clip label counts from the metadata tail.
 
 ### TLB1 metadata tail
 
-TLB1 gains an OPTIONAL trailing metadata section. The header word at byte offset 40 (previously reserved zero) becomes `metadataOffset`; absent metadata stays encoded as `metadataOffset == 0`. The tail length is `Bytes - metadataOffset`, so the hot prefix layout is otherwise unchanged and pre-tail readers accept both forms. The tail contains: (a) an interned, deduplicated, ordinal-sorted UTF-8 string pool (namespaces, type names, assemblies, labels — each stored once, referenced by index); (b) a type table of `{namespaceIdx, nameIdx, assemblyIdx}` per distinct type plus a pair-type table index-aligned with the hot pairs array, so the hot prefix references no string byte; (c) a names block recording root, track and clip labels with their authored positions. The tick path never reads the tail. Stripping is a legal distribution step: `TlbMetadata.Strip` truncates to `metadataOffset`, zeroes the header word, and rewrites `Bytes`, producing a loadable asset whose tick traces are identical to the full form — the only loss is the pretty dump.
-
-Kernel hash binding: the compiled-kernel catalog binds the metadata-stripped form of the asset. The emitter hashes the stripped bytes, and the runtime hashes the same normalized hot view of the loaded block: the hashed region ends at `metadataOffset` (header word 40) when it is a valid in-range offset, with word 40 zeroed and `Bytes` rewritten to the hot length; a stored zero, an out-of-range word, or a truncated asset hashes the raw block. Full and stripped assets therefore bind the same kernel; assets with a corrupted `metadataOffset` keep the interpreter. Receipts: same JSON bakes byte-identically twice; stripped JSON bakes equal equivalent code-authored `Baker` output byte for byte; full and stripped forms produce identical tick traces forward and backward; `KernelEmitter.Emit(full) == Emit(stripped)`; spy-kernel dispatch hits stripped bytes and full metadata-bearing bytes, while a byte-40 perturbation keeps the interpreter.
+TLB1 gains an OPTIONAL trailing metadata section. The header word at byte offset 40 (previously reserved zero) becomes `metadataOffset`; absent metadata stays encoded as `metadataOffset == 0`. The tail length is `Bytes - metadataOffset`, so the hot prefix layout is otherwise unchanged and pre-tail readers accept both forms. The tail contains: (a) an interned, deduplicated, ordinal-sorted UTF-8 string pool (namespaces, type names, assemblies, labels — each stored once, referenced by index); (b) a type table of `{namespaceIdx, nameIdx, assemblyIdx}` per distinct type plus a pair-type table index-aligned with the hot pairs array, so the hot prefix references no string byte; (c) a names block recording root, track and clip labels with their authored positions. The tick path never reads the tail. Stripping is a legal distribution step: `TlbMetadata.Strip` truncates to `metadataOffset`, zeroes the header word, and rewrites `Bytes`, producing a loadable asset whose tick traces are identical to the full form — the only loss is the pretty dump. (The former kernel-catalog hash binding over the stripped hot view was removed together with the catalog under #104.)
 
 ### Migrating alpha.3 authoring
 
-Assets authored for the pre-v1 converter shape are rejected with versioned migration diagnostics, never silently reinterpreted: `removed property 'trackType'` (split into `namespace` + `type`), `removed property 'clipType'` (likewise), `removed property 'payload'` (renamed `data`), and `renamed property 'loops'` (now `loop`); each message names `schema v1` and the fields that replace the removed one. Track and clip elements each carry their full type identity and data — grouping is derived at bake, and execution order is authored clip order. Ship kernel-bound assets stripped (`tlbake --strip`), and audit distribution sizes with `tlbake --report`.
+Assets authored for the pre-v1 converter shape are rejected with versioned migration diagnostics, never silently reinterpreted: `removed property 'trackType'` (split into `namespace` + `type`), `removed property 'clipType'` (likewise), `removed property 'payload'` (renamed `data`), and `renamed property 'loops'` (now `loop`); each message names `schema v1` and the fields that replace the removed one. Track and clip elements each carry their full type identity and data — grouping is derived at bake, and execution order is authored clip order. Ship assets stripped (`tlbake --strip`), and audit distribution sizes with `tlbake --report`.
 
 ## .NET consumer
+
+Warm playback is the typed playback lane ([typed-playback-lane.md](typed-playback-lane.md)): one call advances every row exactly one frame over caller-owned columns.
 
 ```cs
 using System.IO;
@@ -166,40 +166,45 @@ using Tl;
 using var asset = TimelineAsset.Load(
     File.ReadAllBytes("attack.tlb"));
 
-var timelines = new[]
-{
-    new TimelineComponent(asset.Reference),
-    new TimelineComponent(asset.Reference)
-};
+BakedLane<DamageTrack, DamageClip>.Bind(asset);
 
-var resistance = new[]
-{
-    new Resistance(1f),
-    new Resistance(0.5f)
-};
+var positions = new ushort[] { 0, 0 };
+var health = new float[] { 100f, 100f };
+var cycles = new long[2];
 
-var health = new[]
-{
-    new Health { Value = 100f },
-    new Health { Value = 100f }
-};
-
-var query = Timeline.Rows(timelines)
-    .Read(resistance)
-    .Write(health);
-
-query.Tick(gameTick: 200_000u, delta: 1);
-query.Tick(gameTick: 200_001u, delta: 5);
-query.Tick(gameTick: 200_006u, delta: -2);
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health, cycles);
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health, cycles);   // catch-up
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, false).Apply(health, cycles);  // rewind
 ```
 
 `TimelineAsset.Load` is a cold validated import of already baked bytes. Its owner retains the immutable native storage; `Reference` is a borrowed unmanaged reference. All instances and readers must finish before the owner is disposed. The file path locates content and creates no required name field or generated C# identity.
 
-`Timeline.Rows` borrows caller-owned state and aligned component columns. `Read` exposes read-only access and `Write` exposes writable access. Construction checks lengths, complete required component sets, supported asset types, and prohibited writable aliasing before effects. A row can reference a different asset from its neighbors. Replacing an asset or changing membership must pass compatibility validation before subsequent effects.
+`BakedLane<TTrack, TClip>.Bind(asset)` runs once per (pair, asset) at cold time: it measures the per-position forward and backward float effect of every consumer of the asset through the cold executor, validates position purity (a consumer that folds the column value or the cycle into its write is a bind error naming the pair), and keeps two native effect tables for the life of the bind. All rows of one `Apply` share the bound asset's movement law.
 
-The concise column syntax applies when component roles are unambiguous. Multiple roles of the same value type must never be guessed from argument position or local variable names. Until explicit role binding is designed and proven, an ambiguous declaration or binding receives a build diagnostic. Arbitrary unmanaged input/output arity remains the goal; silently narrowing behavior is forbidden.
+Lane consumers implement the job shape the generator discovers compilation-wide, write exactly one `ref float` column, and self-invert through `Frame.Direction`:
 
-The generator supplies the type-specific execution path behind this facade. A source generator cannot add members to a type in an already compiled assembly. The prototype must prove where the facade, generated binding, and public runtime primitives live before production implementation proceeds.
+```cs
+public readonly struct FoldDamage :
+    ITimelineJob<DamageTrack, DamageClip>
+{
+    public static void Execute(
+        in Frame<DamageTrack, DamageClip> frame,
+        ref float health)
+    {
+        var amount =
+            frame.Clip.Amount *
+            frame.Track.Multiplier;
+
+        health += frame.Direction * amount;
+    }
+}
+```
+
+`Seek` borrows the caller's position, effect, and cycle columns for the call only; `Apply` validates lengths and pairwise non-overlap, applies exactly one frame per call (catch-up is repeated calls; rewind is `forward: false`), and allocates nothing. Movement is `TimelineMovement.Advance` exactly, including finite clamping, looping wrap with ±1 cycle deltas, and cycle zero-fill on finite moves. Consumers that need more than the folded float effect (reading other entity columns, cross-row patterns) belong to the typed frame query below or to the host coordinator, not to the lane fold.
+
+`BakedLane<TTrack, TClip>.Bind` holds one table per closed generic, so several same-pair assets that must coexist (minion and boss variants of one timeline family) use a `TimelineSet<TTrack, TClip>` instead: `Add(asset)` assigns each loaded asset a dense `ushort` id — **ids are assigned at load time, never authored and never baked** — and `Gather(ids).Seek(positions, forward).Apply(effects, cycles)` advances the whole mixed crowd in one call, each row through its own timeline's tables, duration, and loop flag (bit-exact with per-asset static lanes). An unbound id throws naming the row; an empty cycle column requires every timeline in the set to be finite; `Dispose` frees the single contiguous native block. Contract and receipts: [typed-playback-lane.md](typed-playback-lane.md).
+
+The typed frame query `Timeline.Query<TTrack, TClip>(in TimelineComponent)` remains the read-only inspection path on .NET: it yields the selected frame for authoring tools, tests, and cold execution without advancing time.
 
 ## Unity authoring and direct system consumer
 
@@ -307,7 +312,7 @@ The generator may provide routine host wrappers from the reusable job signature.
 
 The `unity/com.iafahim.tl` package carries the first Unity host slice: `Runtime/Tl.Runtime.Unity.asmdef` compiles the shared `src/Tl.Core` runtime sources (`Hooks.cs`, `Playback.cs`, `Data.cs`) through symlinks, so `src/Tl.Core` stays the single source of truth for coordinator semantics; a .NET receipt (`tests/Tl.Core.Tests/UnitySharingReceiptTests.cs`) failed when an include stopped being byte-identical. The host extraction at `fccdc22` then materialized those symlinks as verified byte-identical snapshot copies and removed the receipt; the tl.unity README records the provenance. Unity's netstandard 2.1 profile lacks three .NET 6+/7+ surfaces these sources use, so the package carries internal host shims in `Runtime/Profile.cs`: `NativeMemory` (backed by `UnsafeUtility.Malloc`/`Free` with `Allocator.Persistent`), `Interlocked` (Monitor-backed; used only on the cold registration and dispose paths in `Data.cs`), and `MethodImplAttribute`/`MethodImplOptions` with `AggressiveOptimization` (emitted as a plain attribute, so the optimization hints are inert under Mono). `Runtime/FrameAdapter.cs` mirrors `Frame<TTrack, TClip>` with pointers instead of ref fields because `ref` fields are refused on the Unity target runtime (`CS9064`); its public surface is receipt-compared against the source declaration. `Compiled.cs` is excluded: `static abstract` interface members and `ref` fields are both refused on the Unity target runtime (`CS8919`, `CS9064`).
 
-`Runtime/TimelineComponent.cs` defines `Tl.Unity.TimelineComponent : IComponentData` (`TimelineRef Reference; uint Position; long Cycle;` — layout-identical to the shared `Tl.TimelineComponent`, so chunk arrays reinterpret directly) and the `TimelineClock` singleton (`uint GameTick; int Delta;`). `Runtime/TimelineCoordinator.cs` defines `TimelineSystemGroup` and the `TimelineCoordinatorSystem` `ISystem`: it completes `state.Dependency`, reads the clock, and drives every chunk through the shared `TimelineQuery.TickCore` with column pointers registered through `TimelineEcs.Column<T>()`. Both systems carry `[DisableAutoCreation]`, and hosts create them through `TimelineEcs.CreateGroup(world)`, which also registers the coordinator into the group; explicitly created systems are not auto-registered from `[UpdateInGroup]` in this Entities version. Execution is synchronous managed code on the main thread in this slice; Burst qualification of the dispatch is blocked by the managed-convention consumer seam in `src/Tl.Core` (function-pointer consumers plus the static consumer table), and the dependency contract is preserved by completing the incoming dependency before any access and leaving all writes finished before any later system runs. `ComponentSystemGroup` logs and swallows child-system exceptions, so the Unity exception-parity receipt asserts the logged exception (`LogAssert`) together with the observable executed prefix and the uncommitted position.
+`Runtime/TimelineComponent.cs` defines `Tl.Unity.TimelineComponent : IComponentData` (`TimelineRef Reference; uint Position; long Cycle;` — layout-identical to the shared `Tl.TimelineComponent`, so chunk arrays reinterpret directly) and the `TimelineClock` singleton (`uint GameTick; int Delta;`). `Runtime/TimelineCoordinator.cs` defines `TimelineSystemGroup` and the `TimelineCoordinatorSystem` `ISystem`: it completes `state.Dependency`, reads the clock, and drives every chunk through the shared cold coordinator core (the .NET `TimelineQuery.TickCore` seam was removed under #104; the tl.unity snapshot retains its copy) with column pointers registered through `TimelineEcs.Column<T>()`. Both systems carry `[DisableAutoCreation]`, and hosts create them through `TimelineEcs.CreateGroup(world)`, which also registers the coordinator into the group; explicitly created systems are not auto-registered from `[UpdateInGroup]` in this Entities version. Execution is synchronous managed code on the main thread in this slice; Burst qualification of the dispatch is blocked by the managed-convention consumer seam in `src/Tl.Core` (function-pointer consumers plus the static consumer table), and the dependency contract is preserved by completing the incoming dependency before any access and leaving all writes finished before any later system runs. `ComponentSystemGroup` logs and swallows child-system exceptions, so the Unity exception-parity receipt asserts the logged exception (`LogAssert`) together with the observable executed prefix and the uncommitted position.
 
 Fixture TLB1 assets are baked by the `tools/Tl.Bake` CLI with `unity/tools/TlBakeShim`, a .NET project whose assembly name and version match the Unity test assembly (`Tl.Runtime.Unity.Tests`, `0.0.0.0`) and which compiles the same `Tests/Fixtures.cs` sources, so the pair keys baked into the TLB1 equal the keys Unity computes at runtime. The headless proof is:
 
@@ -317,25 +322,13 @@ unity test tests/Tl.Unity.DataAuthored --mode PlayMode --output test-results.xml
 
 with fixtures committed under `tests/Tl.Unity.DataAuthored/Assets/Resources/TlFixtures/*.bytes` and the oracle assertions mirroring the .NET `DataTests` values.
 
-## Unmanaged-convention consumer seam (gate 5, slice 2 preparation)
+## Unmanaged warm path
 
-`src/Tl.Core` now carries an unmanaged-convention consumer seam beside the managed one.
+The former unmanaged-convention consumer seam (`PairRuntime.ConsumeUnmanaged`, `Timeline.TickUnmanaged`, `UnmanagedTickState`) was removed under #104. The typed playback lane replaces it: its warm path is unmanaged by construction — a `ref struct` lane over caller-borrowed spans, native effect tables on aligned native blocks, and the function-pointer consumer seam measured once at bind time. Receipts (parity vs `TimelineMovement` law, 0 B warm allocation, capacity folds at 256 pairs/tracks, NativeAOT publish) live in [typed-playback-lane.md](typed-playback-lane.md) and `tests/Tl.Alpha`.
 
-- `PairRuntime<TTrack, TClip>.ConsumeUnmanaged` installs `delegate* unmanaged` bind/execute entries into a second native table with the same layout, capacity laws, and LIFO chain discipline. Managed and unmanaged consumers of one pair coexist, and each tick arm dispatches only its own table while preserving authored order, mirrored backward consumer order, blend-once resolution, and independent clamping.
-- `Timeline.TickUnmanaged` borrows caller-owned rows (`Tl.TimelineComponent*`), column base pointers, a zeroed `UnmanagedTickState` (the materialized-asset stamp plus chain and column scratch), and a caller-materialized column-type key buffer, then drives the pure-pointer `UnmanagedTick.TickCoreUnmanaged` walk over native memory using the shared `TimelineMovement` math. When the stamp equals the row asset address the per-asset binding is already materialized; otherwise the caller re-materializes the keys before the call.
-- Unmanaged consumers are non-throwing by contract: exceptions cannot cross the unmanaged-convention boundary, so exception propagation and throwing missing-column diagnostics remain properties of the managed arm.
-- Unity/Burst qualification of the Bursted job coordinator that calls this core lands in the next atom. The seam itself is proven on .NET by parity, zero-allocation, dual-convention, and compacting-GC receipts, and it must keep passing NativeAOT publish.
+## Typed playback lane (compile lane successor)
 
-## Compile lane (Track B, phase 1)
-
-Baked assets can be bound to a generated source kernel that replaces only the structural walk (header loads, stage search, step addressing) with compile-time constants; movement math, consumer tables, bind state and identity state stay the shared interpreter machinery, so kernel and interpreter are identical by construction rather than merely tested-equal.
-
-- Emission: `tlbake <input.json> <output.tlb> ... --kernel <out.g.cs>` bakes with the existing staging code and emits, for exactly those bytes, an internal `TimelineKernel_<sha256>` class whose `Tick(byte* asset, int* heads, void** columns, TimelineComponent* rows, int rowCount, uint gameTick, int delta)` is generated from the TLB1 header. Duration, looping, stage bounds, per-step slot offsets and pair indexes are literals; single-stage assets emit the flat path with no header load. Movement goes through the public `TimelineMovement.Select` with constant duration and loop arguments; each emitted step borrows a scratch buffer hoisted once per execute and calls `TimelineKernels.Chain`, an aggressive-inline helper that streams the same `PairTable` fn-ptr chain in the same LIFO order forward and the exact mirrored order backward, with no per-occurrence buffer allocation. Generated files are deterministic, culture-independent and byte-identical for identical bytes; committed fixture regeneration is receipt-tested.
-- Binding: the generated class registers hash-to-kernel through `TimelineKernels.Register` in a `[ModuleInitializer]` (cold, managed statics beside `PairTable`'s managed registration). `TimelineQuery` captures the kernel once per query at its cold build: rows must reference one asset address with at most 16 pairs, then the asset block is hashed over the same normalized hot view the emitter registered (hot length from header word 40, word 40 zeroed, word 44 set to the hot length; an absent or invalid word hashes the raw block) and looked up in the catalog. A miss keeps the interpreter silently; that is the fallback receipt. The catalog lives in a .NET-host static probed through a null function pointer, so hosts that compile `Data.cs` without the catalog keep the interpreter unchanged.
-- Dispatch: the warm `Tick` path pays one null-check branch; a bound query ticks the kernel after re-validating that every row still references the captured asset address, falling back to the interpreter otherwise.
-- Phase-1 scope: structure constants only. Consumers still execute through the registered fn-ptr seam and read track, clip and blend data from the asset slots, so blend factors stay slot-resident; folding consumer calls and payloads into the kernel is phase 2.
-- Rule: one query dispatches the kernel only when all of its rows reference the asset the kernel was captured for. A query whose rows span different assets, contain default components, or carry more than 16 pairs uses the interpreter for its whole lifetime.
-- Receipts (tests/Tl.Core.Tests/KernelTests.cs): parity on identical-structure bytes for forward/backward/clamp, looping cycles and uint wrap, A-B-A mirrored consumers, blend-once including the span-1 window, zero-consumer and empty assets, multi-row two-pass commit; spy-kernel dispatch on exact bytes; hash-miss fallback; warm-path 0 B allocation over a 100k-tick window; compacting-GC column continuity. `benchmarks/Alpha --verify` proves OneTrack kernel-bound facade hashes equal the interpreter and compiled lanes.
+The Track B generated-kernel lane (`tlbake --kernel`, `TimelineKernels`) was removed under #104: the lane reaches the same structural specialization without generated per-asset code. `BakedLane<TTrack, TClip>.Bind(asset)` measures each position once through the cold executor — the authored consumer order, blend resolution, and multi-pair folds are captured exactly, forward and backward — and `Timeline<T>.Seek(positions, forward).Apply(effects, cycles)` runs the scan/apply over run-length groups (vector compare per 16 rows, singleton fast path, vector fill for positions, cycle column touched only on wrapping runs). Bind-time position-purity validation replaces the kernel content hash: an impure consumer is a bind error naming the pair, not a silent interpreter fallback. Receipts: `tests/Tl.Core.Tests/LaneTests.cs` (authored-oracle tables, movement-law parity, rewind exactness, consumer-fault propagation, impure/missing-pair rejection, 0 B), `tests/Tl.Alpha` (movement law at 64 staggered rows and 200 mixed-direction ticks, blend fold, catch-up linearity, 200k-row capacity, 256-track module capacity), `benchmarks/Alpha --verify`, `benchmarks/TypedPlaybackProto`, and `samples/ManyEntities` (lane vs hand SoA parity).
 
 ## Coordinator and observable semantics
 

@@ -1,6 +1,6 @@
 # Release artifacts
 
-`release-artifacts` and `publish-nuget` are separate manual workflows. Building a GitHub prerelease cannot publish a NuGet package. The publish job runs only through the protected `nuget-production` environment on the owner's explicit dispatch; the MIT license decision is recorded in [issue #64](https://github.com/IAFahim/tl/issues/64) and the 1.0.0-alpha.5 packages are published on nuget.org.
+`release-artifacts` and `publish-nuget` are separate manual workflows. Building a GitHub prerelease cannot publish a NuGet package. The publish job runs only through the protected `nuget-production` environment on the owner's explicit dispatch; the MIT license decision is recorded in [issue #64](https://github.com/IAFahim/tl/issues/64) and the 1.0.0-alpha.6 packages are published on nuget.org.
 
 The artifact workflow checks out the fully qualified `refs/tags/<tag>` ref. It rejects a branch with the same short name, checks that the tag is `v` plus the package version, and requires the checked-out commit to be the tag target. It rejects tracked and untracked source changes, performs two isolated restores and builds with the repository commit and tag ref supplied explicitly to MSBuild, normalizes ZIP timestamps without recompressing entries, and requires the two complete package sets to be byte-identical.
 

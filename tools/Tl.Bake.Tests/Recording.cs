@@ -69,6 +69,28 @@ public static unsafe class Recording
         new('A', 7u, 30f),
     ];
 
+
+    public static List<(char Pair, uint Tick, float Value)> FramesOf(byte[] baked)
+    {
+        var frames = new List<(char, uint, float)>();
+        using var asset = TimelineAsset.Load(baked);
+        for (var position = 0u; position < 8u; position++)
+        {
+            var component = new TimelineComponent(asset.Reference) { Position = position };
+            foreach (var frame in Timeline.Query<Tlb.DualTrack, Tlb.DualAlphaClip>(in component)) frames.Add(('A', frame.TimelineTick, frame.Clip.Value));
+            foreach (var frame in Timeline.Query<Tlb.DualTrack, Tlb.DualBetaClip>(in component)) frames.Add(('B', frame.TimelineTick, frame.Clip.Amount));
+            foreach (var frame in Timeline.Query<Tlb.EchoTrack, Tlb.EchoClip>(in component)) frames.Add(('E', frame.TimelineTick, frame.Clip.Value));
+        }
+        return frames;
+    }
+
+    public static List<(char Pair, uint Tick, float Value)> OracleFrames() =>
+        ForwardOracle(0u)
+            .GroupBy(record => record.Tick)
+            .OrderBy(group => group.Key)
+            .SelectMany(group => group.OrderBy(record => record.Pair).Select(record => (record.Pair, record.Tick, record.Value)))
+            .ToList();
+
     static void AlphaExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
     {
         Tlb.DualAlphaClip scratch = default;

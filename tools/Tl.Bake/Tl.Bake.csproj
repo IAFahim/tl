@@ -13,7 +13,7 @@
     <Version>$(TlVersion)</Version>
     <PackageId>Tl.Bake</PackageId>
     <Authors>IAFahim</Authors>
-    <Description>tlbake: deterministic JSON-to-TLB1 timeline baker with optional kernel emission, metadata stripping, content cache, and size reports.</Description>
+    <Description>tlbake: deterministic JSON-to-TLB1 timeline baker with metadata stripping, content cache, and size reports.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

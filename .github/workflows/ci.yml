@@ -37,13 +37,7 @@ jobs:
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
       - run: dotnet run --project samples/Mixed -c Release --no-build
-      - name: Run the SingleTimeline sample (direct/kernel/interpreter receipts)
-        working-directory: samples/SingleTimeline
-        run: |
-          dotnet build -c Release
-          dotnet run -c Release --no-build -- one
-          dotnet run -c Release --no-build -- three
-      - name: Run the ManyEntities sample (facade vs playback-table parity)
+      - name: Run the ManyEntities sample (typed lane vs hand-table parity)
         working-directory: samples/ManyEntities
         run: |
           dotnet build -c Release
@@ -90,11 +84,9 @@ jobs:
           tlbake samples/NuGetQuickStart/boss.json samples/NuGetQuickStart/boss.tlb --assembly samples/NuGetQuickStart/bin/Release/net10.0/NuGetQuickStart.dll
           cd samples/NuGetQuickStart
           test "$(dotnet run -c Release --no-build)" = "flawless: health=80 position=2"
-      - name: Playback prototype parity lanes
-        env:
-          NUGET_PACKAGES: ${{ runner.temp }}/tl-playback-prototype
+      - name: Typed playback lane parity and throughput
         run: |
           set -euo pipefail
-          dotnet build benchmarks/PlaybackPrototype/PlaybackPrototype.csproj -c Release
-          dotnet run --project benchmarks/PlaybackPrototype -c Release --no-build
+          dotnet build benchmarks/TypedPlaybackProto/TypedPlaybackProto.csproj -c Release
+          dotnet run --project benchmarks/TypedPlaybackProto -c Release --no-build -- 100000
       - run: eng/release-artifacts --candidate ci artifacts/release

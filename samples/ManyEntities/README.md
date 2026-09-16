@@ -1,15 +1,17 @@
 # ManyEntities — many entities, one asset, per-entity clocks
 
-The dominant real workload: every entity carries the same timeline asset at its own clock position. Each lane runs the identical workload twice — the shipped facade and the per-asset SoA "playback table" pattern from [docs/playback-tables-design.md](../../docs/playback-tables-design.md) — and requires identical checksums:
+The dominant real workload: every entity carries the same timeline asset at its own clock position. Each lane runs the identical workload twice — the shipped typed lane (`Timeline<T>.Seek(...).Apply(...)`) and the per-asset SoA "playback table" pattern from [docs/playback-tables-design.md](../../docs/playback-tables-design.md) — and requires identical checksums:
 
-| lane | workload | facade | table | ratio |
+| lane | workload | typed lane | hand SoA | ratio |
 | --- | --- | ---: | ---: | ---: |
-| sweep | 200k staggered clocks, movement + write | 9.00 ns/row | 0.71 ns/row | 12.7x |
-| pulse | duration-1 looping (event ticks) | 8.83 ns/row | 0.50 ns/row | 17.6x |
-| watch | every row reads another entity's input (car/player pattern) | 9.55 ns/row | 0.95 ns/row | 10.1x |
-| churn | 20-tick windows spawning/retiring, ~400k live | 11.52 ns/row | 0.70 ns/row | 16.4x |
+| sweep | 200k staggered clocks, movement + write | 4.06 ns/row | 0.76 ns/row | 5.3x |
+| pulse | duration-1 looping (event ticks) | 0.42 ns/row | 0.51 ns/row | 0.8x |
+| churn | 20-tick windows spawning/retiring, ~400k live | 0.70 ns/row | 0.78 ns/row | 0.9x |
 
-The table side is the shape the playback-tables coordinator (issue #56) will turn into a public API; today it is written out here so the numbers are reproducible from source.
+The lane wins where rows group (pulse, churn: run-length vector fills beat a per-row branch) and
+the hand sweep wins where positions interleave (staggered clocks fragment runs). The former
+`watch` lane (every row reading another entity's input inside the frame) is gone with the facade:
+cross-entity reads are not position-pure, so they cannot fold into the lane's effect tables.
 
 Run:
 
@@ -18,4 +20,4 @@ dotnet build -c Release
 dotnet run -c Release --no-build
 ```
 
-Measured on i9-14900K, .NET 10.0.12, best of 5 passes; every pass checksum-parity checked (the program exits nonzero on any mismatch).
+Measured on Ryzen 5 8500G, .NET 10, best of 5 passes; every pass checksum-parity checked (the program exits nonzero on any mismatch).

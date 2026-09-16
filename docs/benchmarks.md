@@ -1,5 +1,9 @@
 # Algorithm and dispatch verdicts
 
+> Historical ledger: the consumption surface and generated fixtures described here belong to
+> the removed alpha-era prototype; the shipped playback surface is the typed lane
+> ([typed-playback-lane.md](typed-playback-lane.md)). Retained as a measurement record.
+
 The latest correctness and playback performance review is in [review.md](review.md).
 The tables below record the earlier experiments. The generated fixture's duration
 has since been corrected from 515 to 600 ticks, and playback now handles leading

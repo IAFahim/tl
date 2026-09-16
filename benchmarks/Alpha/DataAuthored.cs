@@ -1,8 +1,6 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using BenchmarkDotNet.Attributes;
 using Tl;
 
 [StructLayout(LayoutKind.Sequential)]
@@ -202,254 +200,102 @@ internal sealed class DataAuthoredBaker
     }
 }
 
-public readonly record struct UnboundTrack(int Code) : IBlend<UnboundClip>
+internal static class TickPatterns
 {
-    public void Blend(in UnboundClip first, in UnboundClip second, float factor, out UnboundClip result)
-        => result = first;
-}
-
-public readonly record struct UnboundClip(int Amount);
-
-public readonly record struct NoOpTrack(int Code) : IBlend<NoOpClip>
-{
-    public void Blend(in NoOpClip first, in NoOpClip second, float factor, out NoOpClip result)
-        => result = first;
-}
-
-public readonly record struct NoOpClip(int Amount);
-
-internal enum DataAuthoredMode
-{
-    Standard,
-    SelectOnly,
-    NoDispatch,
-}
-
-internal static class TimelineKernelHashes
-{
-    internal static readonly IReadOnlyDictionary<TimelineShape, string> Committed = new Dictionary<TimelineShape, string>
+    internal static void Fill(Span<int> deltas, TickPattern pattern)
     {
-        [TimelineShape.OneTrack] = "65a912cd2c3f9565072beed5ef78a2bdc3f5ba25bb58c59e8f325ef0b36d96bf",
-        [TimelineShape.ThreeTracks] = "0fecece0fa33b6ac165d69d4817d31f3e0737f9eed09fac2a74be88315ca5b99",
-        [TimelineShape.SixteenTracks] = "9c774c722525c151e597dbf054df0d0c4b4cf70fa1972cc2a79f86ed14f14704",
-        [TimelineShape.TwoHundredFiftySixTracks] = "c18e63530589e30b2e9f1bc1f10269926c66b60202c04f86de8a960522ad23e0",
-    };
+        for (var index = 0; index < deltas.Length; index++)
+            deltas[index] = pattern == TickPattern.Forward || (index & 1) == 0 ? 1 : -1;
+    }
 }
 
-internal sealed class DataAuthoredCase : IDisposable
+internal sealed class LaneCase : IDisposable
 {
     internal const int Operations = 4096;
     private readonly int[] _deltas = new int[Operations];
     private readonly TimelineAsset _asset;
-    private readonly TimelineComponent[] _rows = new TimelineComponent[1];
-    private readonly Accumulator[] _accumulators = new Accumulator[1];
-    private readonly TickPattern _pattern;
+    private readonly ushort[] _positions = new ushort[1];
+    private readonly float[] _values = new float[1];
+    private readonly long[] _cycles = new long[1];
 
-    static unsafe DataAuthoredCase()
-    {
-        PairRuntime<NoOpTrack, NoOpClip>.Consume(&NoOpExecute, &NoOpBind);
-    }
-
-    private static unsafe void NoOpBind(ulong* keys, int keyCount, byte* indices)
-    {
-        for (var i = 0; i < keyCount; i++)
-        {
-            if (keys[i] == TypeKey<Accumulator>.Value)
-            {
-                indices[0] = (byte)(i + 1);
-                break;
-            }
-        }
-    }
-
-    private static unsafe void NoOpExecute(byte* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, void** columns, int row)
-    {
-    }
-
-    internal DataAuthoredCase(TimelineShape shape, TickPattern pattern, DataAuthoredMode mode = DataAuthoredMode.Standard, byte[]? baked = null)
+    internal LaneCase(TimelineShape shape, TickPattern pattern)
     {
         Shape = shape;
-        _pattern = pattern;
         TickPatterns.Fill(_deltas, pattern);
-        _asset = TimelineAsset.Load(baked ?? Bake(shape, mode));
-        _rows[0] = new TimelineComponent(_asset.Reference);
+        _asset = TimelineAsset.Load(Bake(shape));
+        BakedLane<AlphaTrack, AlphaClip>.Bind(_asset);
     }
 
     internal TimelineShape Shape { get; }
 
-    internal BenchmarkReceipt DataAuthored()
+    internal long Run()
     {
-        _rows[0] = new TimelineComponent(_asset.Reference);
-        _accumulators[0] = default;
-        var query = Timeline.Rows(_rows).Write(_accumulators);
-        if (_pattern == TickPattern.Forward)
-            for (var index = 0; index < _deltas.Length; index++)
-                query.Tick((uint)index);
-        else
-            for (var index = 0; index < _deltas.Length; index++)
-                query.Tick((uint)index, _deltas[index]);
-        return Direct.Capture(_rows, _accumulators);
+        _positions[0] = 0;
+        _values[0] = 0;
+        _cycles[0] = 0;
+        for (var index = 0; index < _deltas.Length; index++)
+            Timeline<BakedLane<AlphaTrack, AlphaClip>>.Seek(_positions, _deltas[index] >= 0).Apply(_values, _cycles);
+        return Checksum(_positions[0], _cycles[0], _values[0]);
     }
 
     public void Dispose() => _asset.Dispose();
 
-    internal static byte[] Bake(TimelineShape shape, DataAuthoredMode mode = DataAuthoredMode.Standard)
+    internal static long Checksum(ushort position, long cycle, float value)
+        => unchecked((long)position * 31 + cycle * 7 + (long)value);
+
+    internal static byte[] Bake(TimelineShape shape)
     {
         var baker = new DataAuthoredBaker();
         switch (shape)
         {
             case TimelineShape.OneTrack:
-                if (mode == DataAuthoredMode.SelectOnly)
-                    baker.Track<UnboundTrack, UnboundClip>(new UnboundTrack(1)).Clip(0, 0u, 64u, new UnboundClip(1));
-                else if (mode == DataAuthoredMode.NoDispatch)
-                    baker.Track<NoOpTrack, NoOpClip>(new NoOpTrack(1)).Clip(0, 0u, 64u, new NoOpClip(1));
-                else
-                    baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(1)).Clip(0, 0u, 64u, new AlphaClip(1));
-                baker.Looping();
+                baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(1)).Clip(0, 0u, 64u, new AlphaClip(1));
                 break;
             case TimelineShape.ThreeTracks:
-                if (mode == DataAuthoredMode.SelectOnly)
-                {
-                    baker.Track<UnboundTrack, UnboundClip>(new UnboundTrack(1)).Clip(0, 0u, 64u, new UnboundClip(1));
-                    baker.Track<UnboundTrack, UnboundClip>(new UnboundTrack(2)).Clip(1, 0u, 64u, new UnboundClip(2));
-                    baker.Track<UnboundTrack, UnboundClip>(new UnboundTrack(3)).Clip(2, 0u, 64u, new UnboundClip(3));
-                }
-                else if (mode == DataAuthoredMode.NoDispatch)
-                {
-                    baker.Track<NoOpTrack, NoOpClip>(new NoOpTrack(1)).Clip(0, 0u, 64u, new NoOpClip(1));
-                    baker.Track<NoOpTrack, NoOpClip>(new NoOpTrack(2)).Clip(1, 0u, 64u, new NoOpClip(2));
-                    baker.Track<NoOpTrack, NoOpClip>(new NoOpTrack(3)).Clip(2, 0u, 64u, new NoOpClip(3));
-                }
-                else
-                {
-                    baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(1)).Clip(0, 0u, 64u, new AlphaClip(1));
-                    baker.Track<BetaTrack, BetaClip>(new BetaTrack(2)).Clip(1, 0u, 64u, new BetaClip(2));
-                    baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(3)).Clip(2, 0u, 64u, new AlphaClip(3));
-                }
-                baker.Looping();
-                break;
-            case TimelineShape.Blend:
-                if (mode == DataAuthoredMode.SelectOnly)
-                    baker.Track<UnboundTrack, UnboundClip>(new UnboundTrack(5)).Clip(0, 0u, 64u, new UnboundClip(1)).Clip(0, 0u, 64u, new UnboundClip(9));
-                else if (mode == DataAuthoredMode.NoDispatch)
-                    baker.Track<NoOpTrack, NoOpClip>(new NoOpTrack(5)).Clip(0, 0u, 64u, new NoOpClip(1)).Clip(0, 0u, 64u, new NoOpClip(9));
-                else
-                    baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(5)).Clip(0, 0u, 64u, new AlphaClip(1)).Clip(0, 0u, 64u, new AlphaClip(9));
-                baker.Looping();
+                baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(1)).Clip(0, 0u, 64u, new AlphaClip(1));
+                baker.Track<BetaTrack, BetaClip>(new BetaTrack(2)).Clip(1, 0u, 64u, new BetaClip(2));
+                baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(3)).Clip(2, 0u, 64u, new AlphaClip(3));
                 break;
             case TimelineShape.SixteenTracks:
                 for (var track = 1; track <= 16; track++)
-                {
-                    if (mode == DataAuthoredMode.SelectOnly)
-                        baker.Track<UnboundTrack, UnboundClip>(new UnboundTrack(track)).Clip(track - 1, 0u, 64u, new UnboundClip(track));
-                    else if (mode == DataAuthoredMode.NoDispatch)
-                        baker.Track<NoOpTrack, NoOpClip>(new NoOpTrack(track)).Clip(track - 1, 0u, 64u, new NoOpClip(track));
-                    else
-                        baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(track)).Clip(track - 1, 0u, 64u, new AlphaClip(track));
-                }
-                baker.Looping();
+                    baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(track)).Clip(track - 1, 0u, 64u, new AlphaClip(track));
                 break;
             case TimelineShape.TwoHundredFiftySixTracks:
                 for (var track = 1; track <= 256; track++)
-                {
-                    if (mode == DataAuthoredMode.SelectOnly)
-                        baker.Track<UnboundTrack, UnboundClip>(new UnboundTrack(track)).Clip(track - 1, 0u, 64u, new UnboundClip(track));
-                    else if (mode == DataAuthoredMode.NoDispatch)
-                        baker.Track<NoOpTrack, NoOpClip>(new NoOpTrack(track)).Clip(track - 1, 0u, 64u, new NoOpClip(track));
-                    else
-                        baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(track)).Clip(track - 1, 0u, 64u, new AlphaClip(track));
-                }
-                baker.Looping();
+                    baker.Track<AlphaTrack, AlphaClip>(new AlphaTrack(track)).Clip(track - 1, 0u, 64u, new AlphaClip(track));
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(shape));
         }
-        return baker.Bake();
+        return baker.Looping().Bake();
     }
 
-    internal static byte[] InterpreterBytes(TimelineShape shape)
+    internal static int PerTickEffect(TimelineShape shape) => shape switch
     {
-        var bytes = Bake(shape, DataAuthoredMode.Standard);
-        bytes[40] = 0xA5;
-        return bytes;
-    }
+        TimelineShape.OneTrack => 1,
+        TimelineShape.ThreeTracks => 6,
+        TimelineShape.SixteenTracks => 136,
+        TimelineShape.TwoHundredFiftySixTracks => 32896,
+        _ => throw new ArgumentOutOfRangeException(nameof(shape)),
+    };
 
-    internal static void AssertCommittedKernelHash(TimelineShape shape)
+    internal static long Oracle(TimelineShape shape, TickPattern pattern)
     {
-        if (!TimelineKernelHashes.Committed.TryGetValue(shape, out var expected))
-            return;
-        var actual = Convert.ToHexString(SHA256.HashData(Bake(shape, DataAuthoredMode.Standard))).ToLowerInvariant();
-        if (actual != expected)
-            throw new InvalidOperationException($"{shape} baked bytes hash {actual} does not match the committed kernel hash {expected}.");
+        var effect = PerTickEffect(shape);
+        var position = 0u;
+        var cycle = 0L;
+        var value = 0f;
+        var deltas = new int[Operations];
+        TickPatterns.Fill(deltas, pattern);
+        for (var index = 0; index < deltas.Length; index++)
+        {
+            var reverse = deltas[index] < 0;
+            if (!TimelineMovement.Select(new TimelineState(1, position, cycle), 64u, true, reverse, out var next, out var tick, out _, out _))
+                throw new InvalidOperationException($"oracle movement failed at position {position}.");
+            value += reverse ? -effect : effect;
+            position = next.Position;
+            cycle = next.Cycle;
+        }
+        return Checksum((ushort)position, cycle, value);
     }
-
-    internal static void AssertKernelBound(DataAuthoredCase instance, bool expected)
-    {
-        var before = TimelineKernels.Bound;
-        _ = instance.DataAuthored();
-        if ((TimelineKernels.Bound == before + 1) != expected)
-            throw new InvalidOperationException($"{instance.Shape} facade kernel binding did not match expected {expected}.");
-    }
-}
-
-[Config(typeof(AlphaConfig))]
-public class DataAuthoredQueryBenchmarks
-{
-    private ShapeCase _alpha = null!;
-    private DataAuthoredCase _facade = null!;
-    private DataAuthoredCase _interpreter = null!;
-    private DataAuthoredCase _selectOnly = null!;
-    private DataAuthoredCase _noDispatch = null!;
-
-    [Params(
-        TimelineShape.OneTrack,
-        TimelineShape.ThreeTracks,
-        TimelineShape.Blend,
-        TimelineShape.SixteenTracks,
-        TimelineShape.TwoHundredFiftySixTracks)]
-    public TimelineShape Shape { get; set; }
-
-    [Params(TickPattern.Forward, TickPattern.Alternating)]
-    public TickPattern Pattern { get; set; }
-
-    [GlobalSetup]
-    public void Setup()
-    {
-        DataAuthoredCase.AssertCommittedKernelHash(Shape);
-        _alpha = new ShapeCase(Shape, Pattern);
-        _facade = new DataAuthoredCase(Shape, Pattern);
-        _interpreter = new DataAuthoredCase(Shape, Pattern, DataAuthoredMode.Standard, DataAuthoredCase.InterpreterBytes(Shape));
-        _selectOnly = new DataAuthoredCase(Shape, Pattern, DataAuthoredMode.SelectOnly);
-        _noDispatch = new DataAuthoredCase(Shape, Pattern, DataAuthoredMode.NoDispatch);
-        DataAuthoredCase.AssertKernelBound(_facade, TimelineKernelHashes.Committed.ContainsKey(Shape));
-        DataAuthoredCase.AssertKernelBound(_interpreter, false);
-        ScalarCatalogQueryBenchmarks.Require(DirectShape(), DataAuthoredFacade(), nameof(DataAuthoredFacade));
-        ScalarCatalogQueryBenchmarks.Require(DirectShape(), FacadeInterpreter(), nameof(FacadeInterpreter));
-        _ = FacadeSelectOnly();
-        _ = FacadeNoDispatch();
-    }
-
-    [GlobalCleanup]
-    public void Cleanup()
-    {
-        _facade.Dispose();
-        _interpreter.Dispose();
-        _selectOnly.Dispose();
-        _noDispatch.Dispose();
-    }
-
-    [Benchmark(Baseline = true, OperationsPerInvoke = DataAuthoredCase.Operations)]
-    public BenchmarkReceipt DirectShape() => _alpha.Direct();
-
-    [Benchmark(OperationsPerInvoke = DataAuthoredCase.Operations)]
-    public BenchmarkReceipt DataAuthoredFacade() => _facade.DataAuthored();
-
-    [Benchmark(OperationsPerInvoke = DataAuthoredCase.Operations)]
-    public BenchmarkReceipt FacadeInterpreter() => _interpreter.DataAuthored();
-
-    [Benchmark(OperationsPerInvoke = DataAuthoredCase.Operations)]
-    public BenchmarkReceipt FacadeSelectOnly() => _selectOnly.DataAuthored();
-
-    [Benchmark(OperationsPerInvoke = DataAuthoredCase.Operations)]
-    public BenchmarkReceipt FacadeNoDispatch() => _noDispatch.DataAuthored();
 }

@@ -111,101 +111,24 @@ public class DeterminismTests
     }
 
     [Fact]
-    public unsafe void ExecutableRoundTrip_MatchesOracle()
+    public void ExecutableRoundTrip_MatchesOracle()
     {
-        _ = Recording.Records;
         var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
-        using var asset = TimelineAsset.Load(bytes);
-        var rows = new[] { new TimelineComponent(asset.Reference) };
 
-        Recording.Records.Clear();
-        Timeline.Rows(rows).Tick(100u, 8);
-
-        Assert.Equal(8u, rows[0].Position);
-        Assert.Equal(0L, rows[0].Cycle);
-        Assert.Equal(Recording.ForwardOracle(100u), Recording.Records);
+        Assert.Equal(Recording.OracleFrames(), Recording.FramesOf(bytes));
     }
 
     [Fact]
-    public void FullAndStrippedBytesProduceIdenticalTraces()
+    public void FullAndStrippedBytesProduceIdenticalFrames()
     {
-        _ = Recording.Records;
         var full = TimelineBaker.BakeJson(Recording.OracleJson);
         var stripped = TlbMetadata.Strip(full);
+        var frames = Recording.FramesOf(full);
 
-        Recording.Records.Clear();
-        using (var asset = TimelineAsset.Load(full))
-        {
-            var rows = new[] { new TimelineComponent(asset.Reference) };
-            Timeline.Rows(rows).Tick(100u, 8);
-        }
-        var fullTrace = Recording.Records.ToArray();
-
-        Recording.Records.Clear();
-        using (var asset = TimelineAsset.Load(stripped))
-        {
-            var rows = new[] { new TimelineComponent(asset.Reference) };
-            Timeline.Rows(rows).Tick(100u, 8);
-        }
-        var strippedTrace = Recording.Records.ToArray();
-
-        Assert.Equal(fullTrace, strippedTrace);
-        Assert.Equal(Recording.ForwardOracle(100u), strippedTrace);
+        Assert.NotEqual(full, stripped);
+        Assert.Equal(frames, Recording.FramesOf(stripped));
+        Assert.Equal(Recording.OracleFrames(), frames);
     }
-
-    [Fact]
-    public void KernelEmissionIsByteIdenticalForIdenticalBytes()
-    {
-        var bytes = Tl.Core.Tests.KernelBakers.AbaMirrored();
-        Assert.Equal(KernelEmitter.Emit(bytes), KernelEmitter.Emit(bytes));
-        Assert.Contains("TimelineKernel_", KernelEmitter.Emit(bytes));
-    }
-
-    [Fact]
-    public void CliKernelFlagWritesDeterministicSource()
-    {
-        var tempDir = Path.Combine(Path.GetTempPath(), "tlbake_kernel_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            var jsonPath = Path.Combine(tempDir, "test.json");
-            var firstTlb = Path.Combine(tempDir, "first.tlb");
-            var secondTlb = Path.Combine(tempDir, "second.tlb");
-            var firstKernel = Path.Combine(tempDir, "first.g.cs");
-            var secondKernel = Path.Combine(tempDir, "second.g.cs");
-            var json = """
-            {
-              "duration": 3,
-              "loop": false,
-              "tracks": [
-                {
-                  "namespace": "Tlb",
-                  "type": "AlphaTrack",
-                  "data": { "Code": 9 },
-                  "clips": [
-                    { "namespace": "Tlb", "type": "AlphaClip", "start": 0, "end": 1, "data": { "Value": 11 } },
-                    { "namespace": "Tlb", "type": "AlphaClip", "start": 2, "end": 3, "data": { "Value": 22 } }
-                  ]
-                }
-              ]
-            }
-            """;
-            File.WriteAllText(jsonPath, json);
-            var asmPath = typeof(Tlb.AlphaTrack).Assembly.Location;
-
-            Assert.Equal(0, Tl.Bake.Program.Main([jsonPath, firstTlb, "--assembly", asmPath, "--kernel", firstKernel]));
-            Assert.Equal(0, Tl.Bake.Program.Main([jsonPath, secondTlb, "--assembly", asmPath, "--kernel", secondKernel]));
-
-            Assert.Equal(File.ReadAllBytes(firstTlb), File.ReadAllBytes(secondTlb));
-            Assert.Equal(File.ReadAllText(firstKernel), File.ReadAllText(secondKernel));
-            Assert.Equal(File.ReadAllText(firstKernel), KernelEmitter.Emit(File.ReadAllBytes(firstTlb)));
-        }
-        finally
-        {
-            Directory.Delete(tempDir, true);
-        }
-    }
-
     [Fact]
     public void CliStripProducesLoadableStrippedCopy()
     {
@@ -232,53 +155,6 @@ public class DeterminismTests
         {
             Directory.Delete(tempDir, true);
         }
-    }
-
-    [Theory]
-    [InlineData("FiniteAlphaKernel", "Finite")]
-    [InlineData("LoopingAlphaKernel", "Looping")]
-    [InlineData("AbaMirroredKernel", "AbaMirrored")]
-    [InlineData("BlendSpanThreeKernel", "BlendSpanThree")]
-    [InlineData("BlendSpanOneKernel", "BlendSpanOne")]
-    [InlineData("ConsumerlessKernel", "Consumerless")]
-    [InlineData("EmptyAssetKernel", "Empty")]
-    public void CommittedKernelFixturesRegenerateByteIdentically(string fixtureFile, string bakerMethod)
-    {
-        var bytes = bakerMethod switch
-        {
-            "Finite" => Tl.Core.Tests.KernelBakers.Finite(),
-            "Looping" => Tl.Core.Tests.KernelBakers.Looping(),
-            "AbaMirrored" => Tl.Core.Tests.KernelBakers.AbaMirrored(),
-            "BlendSpanThree" => Tl.Core.Tests.KernelBakers.BlendSpanThree(),
-            "BlendSpanOne" => Tl.Core.Tests.KernelBakers.BlendSpanOne(),
-            "Consumerless" => Tl.Core.Tests.KernelBakers.Consumerless(),
-            "Empty" => Tl.Core.Tests.KernelBakers.Empty(),
-            _ => throw new InvalidOperationException("unknown fixture"),
-        };
-
-        var root = RepoRoot();
-        var path = Path.Combine(root, "tests", "Tl.Core.Tests", "KernelFixtures", fixtureFile + ".g.cs");
-        if (Environment.GetEnvironmentVariable("TL_KERNEL_REGEN") == "1")
-        {
-            File.WriteAllText(path, KernelEmitter.Emit(bytes));
-            return;
-        }
-        Assert.Equal(File.ReadAllText(path), KernelEmitter.Emit(bytes));
-    }
-
-    [Fact]
-    public void MetadataOracleKernelFixtureRegeneratesByteIdentically()
-    {
-        var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
-        Assert.True(TlbMetadata.HasMetadata(bytes));
-        var root = RepoRoot();
-        var path = Path.Combine(root, "tools", "Tl.Bake.Tests", "KernelFixtures", "OracleKernel.g.cs");
-        if (Environment.GetEnvironmentVariable("TL_KERNEL_REGEN") == "1")
-        {
-            File.WriteAllText(path, KernelEmitter.Emit(bytes));
-            return;
-        }
-        Assert.Equal(File.ReadAllText(path), KernelEmitter.Emit(bytes));
     }
 
     private static string RepoRoot()

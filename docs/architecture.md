@@ -64,40 +64,26 @@ The export cache hashes source contents, references, compiler options, and gener
 
 ## Generated data
 
-Each timeline contains compile-time duration, loop mode, track count, clip count, maximum stage count, and exact static track/clip payloads. Structurally equal payload expressions share one static storage slot. Region branches encode the active occurrence slice and blend facts.
+The generator emits consumer bindings, not timeline definitions: one `TlConsumerBinding.g.cs` per compilation installs every discovered `ITimelineJob<TTrack,TClip>` pair into the process-global `PairTable` through a module initializer, using the pair key and the column set derived from each `Execute` signature. Timeline content — duration, loop mode, tracks, clips, stages — lives entirely in the baked TLB1 asset, never in source. Sizes are reported separately:
 
-Each catalog contains deterministic local asset routes and schema query types. Per row, generated state holds committed asset/position/cycle plus bounded pending selection. Query instances borrow state and component columns and retain no heap object or frame queue.
-
-Static data and state are reported separately:
-
-- neutral payload bytes
-- neutral schedule bytes
-- generated C# UTF-8 bytes
-- generated static data bytes
-- catalog state bytes per row
+- baked asset bytes (header, pair table, stage table, step programs, frame slots)
+- generated binding C# UTF-8 bytes
+- native bind-table bytes per (pair, asset): `2 * max(1, duration) * sizeof(float)`
+- per-row caller state: position (`uint`), cycle (`long`), effect columns
 - managed and NativeAOT output bytes
-- native text bytes
-- warm managed allocation
-
-The neutral plan deduplicates exact type identity plus canonical payload bytes. The C# binding currently deduplicates identical normalized type and expression bindings. A hash match alone never establishes equality.
+- warm managed allocation (0 B by receipt)
 
 ## Execution
 
-For each requested simulation step, a generated .NET query validates routes, selects every row once, runs typed operation passes in stage order, then commits each selected row once. One row may execute animation→damage→animation while another executes damage→animation. Reverse movement traverses each row's occurrence slice backward.
+Warm .NET playback is the typed lane: `Timeline<T>.Seek(positions, forward).Apply(effects, cycles)` scans caller-borrowed columns for run-length groups, resolves each group's effect and next position once through `T`'s static abstract members, and applies with vector adds and fills. `T` is either a hand-authored `ITimelineLane<T>` or `BakedLane<TTrack,TClip>`, whose cold `Bind` measures per-position forward/backward float effects by running the interpreted cold executor over the loaded asset once per position, validating position purity. The hot body has no interface dispatch on the row path, no runtime lookup, reflection, boxing, or allocation.
 
-The generated operation entry selects a region, checks the current stage, resolves at most one blend, constructs a borrowed frame, and calls the concrete static job directly. The hot body has no interface dispatch, function pointer, runtime lookup, reflection, boxing, or allocation.
-
-The generated schema query keeps operation types separate across rows. This is the seam for vectorization and Unity job scheduling, but arbitrary C# operations are not assumed pure, lane-independent, or vectorizable. The supported parallel domain is row-local mutable components plus immutable shared data.
+One row may execute animation→damage→animation while another executes damage→animation; authored occurrence order and its exact reverse are captured in the measured tables. Cold execution and inspection use the interpreted `TimelineRef.Select/Execute` walk and the read-only typed frame queries. The supported parallel domain is row-local mutable components plus immutable shared data.
 
 ## State and lifetime
 
-Catalog state is caller-owned. Default state selects empty route zero. A nonempty state carries a generated catalog asset, unsigned local position, and signed loop cycle. Game time is supplied to each `Tick` call.
+Row state is caller-owned: a dense `uint` position column, a `long` cycle column, and float effect columns, borrowed only for a lane call. Game time belongs to the host; the lane advances exactly one frame per call. Finite movement clamps; looping movement wraps with explicit ±1 cycle deltas. Selection is pure and invokes no user code on the warm path.
 
-Finite movement clamps at zero and duration. Nonempty looping movement wraps position and changes cycle with explicit two's-complement overflow. Selection is pure and invokes no user code. Commit occurs only after all selected stages complete.
-
-Query and frame values borrow caller storage through spans and ref structs. They cannot escape to the heap or cross asynchronous suspension. Generated static definitions live for the process and need no publication lock or reclamation protocol.
-
-The shared bind cache for data-authored rows is one immutable native record per (asset, column shape), keyed on the asset block address, the ordered column key sequence, and the registration phase: the `PairTable` consumer count, the kernel-catalog pointer, and the dispose generation. Records are published once through a single compare-exchange claim, read lock-free on every tick path, and invalidated by `TimelineAsset.Dispose`. A restored record without a bound kernel re-runs the kernel content-hash lookup per construction until a late-registered kernel is adopted and patched into the record. The cache holds no managed state, allocates nothing warm, and never blocks. [Ownership and staleness proofs](memory-and-performance.md#shared-bind-cache) live with the memory rules.
+The lane's native effect tables are published per (pair, asset) by pointer swap at `Bind`; a rebind frees the previous tables, so a host rebinding a lane must quiesce its applies first (single-owner discipline, same shape as the asset rule). Generated consumer bindings live for the process and need no publication lock or reclamation protocol. [Ownership and staleness proofs](memory-and-performance.md) live with the memory rules.
 
 Unity owns ECS component and dependency lifetime. Generated Unity selection, typed operation, and commit jobs must respect host fences before replacing definition data. No per-frame lock belongs in the common path.
 
