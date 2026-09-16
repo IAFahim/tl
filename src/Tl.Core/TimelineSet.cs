@@ -46,7 +46,27 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_count > ushort.MaxValue)
             throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
-        LaneTable<TTrack, TClip>.Measure(asset, out var forward, out var backward, out var duration, out var looping);
+        LaneGuards.ValidatePair<TTrack, TClip>(asset);
+        using var measured = MeasuredLanes.Measure(asset);
+        return Bind(measured);
+    }
+
+    public ushort Add(TimelineAsset asset, MeasuredLanes measured)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_count > ushort.MaxValue)
+            throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
+        measured.ValidateBinding(asset);
+        LaneGuards.ValidatePair<TTrack, TClip>(asset);
+        return Bind(measured);
+    }
+
+    ushort Bind(MeasuredLanes measured)
+    {
+        var forward = measured.Forward;
+        var backward = measured.Backward;
+        var duration = measured.Duration;
+        var looping = measured.Looping;
         nuint ticks = Math.Max(1u, duration);
         nuint floats = _floats + (ticks + 1) * 3;
         nuint records = _records + (ticks + 1) * 2;
@@ -82,8 +102,6 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var tableBytes = (long)(ticks * sizeof(float));
         Buffer.MemoryCopy(forward, forwardTable, tableBytes, tableBytes);
         Buffer.MemoryCopy(backward, backwardTable, tableBytes, tableBytes);
-        NativeMemory.AlignedFree(forward);
-        NativeMemory.AlignedFree(backward);
         forwardTable[duration] = 0f;
         backwardTable[duration] = 0f;
         for (var p = 0; p <= duration; p++)

@@ -38,6 +38,11 @@ type Tl.ITimelineLane`1
   Method Single Effect(UInt16)
   Method Single InverseEffect(UInt16)
   Property Boolean Looping
+type Tl.MeasuredLanes
+  Method Void Dispose()
+  Property UInt16 Duration
+  Property Boolean Looping
+  Method Tl.MeasuredLanes Measure(Tl.TimelineAsset)
 type Tl.PairRuntime`2
   Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
   Method Void Consume(System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.Byte*, System.UInt32, System.UInt32, System.Int64, Tl.FrameFlags, System.Void**, System.Int32, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
@@ -71,6 +76,7 @@ type Tl.TimelineSetLane`2
   Method Void Apply(System.Span`1[System.Single], System.Span`1[System.Int64])
 type Tl.TimelineSet`2
   Method UInt16 Add(Tl.TimelineAsset)
+  Method UInt16 Add(Tl.TimelineAsset, Tl.MeasuredLanes)
   Method Void Dispose()
   Method Tl.TimelineGather`2[TTrack,TClip] Gather(System.ReadOnlySpan`1[System.UInt16])
 type Tl.TimelineState
