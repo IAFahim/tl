@@ -17,6 +17,10 @@ def _load_module(name, relative):
 
 MAPPING = _load_module("tl_blender_mapping", Path("tools") / "Tl.Blender" / "mapping.py")
 BAKE = _load_module("tl_blender_bake", Path("tools") / "Tl.Blender" / "bake.py")
+INTROSPECT = _load_module("tl_blender_introspect", Path("tools") / "Tl.Blender" / "introspect.py")
+
+REAL_TEST_ASSEMBLY = ROOT / "tools" / "Tl.Bake.Tests" / "bin" / "Release" / "net10.0" / "Tl.Bake.Tests.dll"
+REAL_CLI_DLL = ROOT / "tools" / "Tl.Bake" / "bin" / "Release" / "net10.0" / "Tl.Bake.dll"
 
 BLENDER_VERSION = (5, 2, 1)
 
@@ -653,3 +657,219 @@ class BakeRunTests(unittest.TestCase):
 
         with self.assertRaisesRegex(BAKE.BakeError, "failed to start"):
             BAKE.run_bake(["missing-cli", "a.json", "a.tlb"], runner=raise_os_error)
+
+
+class CompletedFake:
+    def __init__(self, returncode=0, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+INTROSPECTION_DOCUMENT = {
+    "schemaVersion": 1,
+    "assemblies": ["Game"],
+    "pairs": [
+        {
+            "track": {"namespace": "MyGame", "name": "GaTrack", "assembly": "Game", "size": 4, "fields": []},
+            "clip": {"namespace": "MyGame", "name": "GaClip", "assembly": "Game", "size": 4, "fields": []},
+            "blendable": True,
+            "unmanaged": True,
+            "trackPairings": ["MyGame.GaClip"],
+            "consumers": [],
+        },
+        {
+            "track": {"namespace": "MyGame", "name": "FxTrack", "assembly": "Game", "size": 4, "fields": []},
+            "clip": {"namespace": "MyGame", "name": "FxBurst", "assembly": "Game", "size": 8, "fields": []},
+            "blendable": True,
+            "unmanaged": True,
+            "trackPairings": ["MyGame.FxBurst"],
+            "consumers": [],
+        },
+    ],
+}
+
+
+def introspect_runner(completed):
+    return lambda argv: completed
+
+
+class IntrospectArgvTests(unittest.TestCase):
+    def test_command_then_json_flag_then_assemblies(self):
+        argv = INTROSPECT.introspect_argv("dotnet /tools/Tl.Bake.dll", ("/a/X.dll", "/b/Y.dll"))
+        self.assertEqual(
+            ["dotnet", "/tools/Tl.Bake.dll", "--json", "--assembly", "/a/X.dll", "--assembly", "/b/Y.dll"],
+            argv,
+        )
+
+    def test_empty_command_rejected(self):
+        with self.assertRaisesRegex(INTROSPECT.IntrospectionError, "bake command preference is empty"):
+            INTROSPECT.introspect_argv("   ", ())
+
+
+class ParsePairsTests(unittest.TestCase):
+    def test_single_pair_document(self):
+        document = {
+            "schemaVersion": 1,
+            "pairs": [INTROSPECTION_DOCUMENT["pairs"][0]],
+        }
+        pairs = INTROSPECT.parse_pairs(document)
+        self.assertEqual(1, len(pairs))
+        self.assertEqual("MyGame", pairs[0].track_namespace)
+        self.assertEqual("GaTrack", pairs[0].track_name)
+        self.assertEqual("MyGame", pairs[0].clip_namespace)
+        self.assertEqual("GaClip", pairs[0].clip_name)
+        self.assertTrue(pairs[0].blendable)
+        self.assertTrue(pairs[0].unmanaged)
+
+    def test_wrong_schema_version_rejected(self):
+        with self.assertRaisesRegex(INTROSPECT.IntrospectionError, "schemaVersion"):
+            INTROSPECT.parse_pairs({"schemaVersion": 2, "pairs": []})
+
+    def test_missing_keys_rejected(self):
+        pairs, error = INTROSPECT.run_introspection(
+            "tlbake",
+            ("game.dll",),
+            runner=introspect_runner(CompletedFake(0, "{\"schemaVersion\": 1, \"pairs\": [{}]}", "")),
+        )
+        self.assertEqual((), pairs)
+        self.assertIn("malformed", error)
+
+
+class RunIntrospectionTests(unittest.TestCase):
+    def test_no_assemblies_is_a_no_op(self):
+        pairs, error = INTROSPECT.run_introspection("tlbake", ())
+        self.assertEqual((), pairs)
+        self.assertEqual("", error)
+
+    def test_successful_document_parses(self):
+        pairs, error = INTROSPECT.run_introspection(
+            "tlbake",
+            ("game.dll",),
+            runner=introspect_runner(CompletedFake(0, json.dumps(INTROSPECTION_DOCUMENT), "")),
+        )
+        self.assertEqual("", error)
+        self.assertEqual(("GaTrack", "FxTrack"), tuple(pair.track_name for pair in pairs))
+
+    def test_nonzero_exit_reports_stderr(self):
+        pairs, error = INTROSPECT.run_introspection(
+            "tlbake",
+            ("game.dll",),
+            runner=introspect_runner(CompletedFake(3, "", "boom")),
+        )
+        self.assertEqual((), pairs)
+        self.assertIn("exited 3", error)
+        self.assertIn("boom", error)
+
+    def test_invalid_json_reports_error(self):
+        pairs, error = INTROSPECT.run_introspection(
+            "tlbake",
+            ("game.dll",),
+            runner=introspect_runner(CompletedFake(0, "{not json", "")),
+        )
+        self.assertEqual((), pairs)
+        self.assertIn("invalid JSON", error)
+
+    def test_missing_executable_reports_error(self):
+        def raise_os_error(argv):
+            raise FileNotFoundError("tlbake")
+
+        pairs, error = INTROSPECT.run_introspection("tlbake", ("game.dll",), runner=raise_os_error)
+        self.assertEqual((), pairs)
+        self.assertIn("failed to start", error)
+
+
+class PairDefaultExportTests(unittest.TestCase):
+    def obj(self, props=None):
+        return FakeObject("Cube", tracks=[Track("hits", strips=[Strip("hit", 1, 5)])], props=props)
+
+    def test_single_pair_fills_types_and_namespace(self):
+        prefs = MAPPING.Prefs(pairs=(MAPPING.TypePair("MyGame", "GaTrack", "MyGame", "GaClip"),))
+        exported = export([self.obj()], prefs=prefs)
+        document = json.loads(exported.files["Cube.json"])
+        track = document["tracks"][0]
+        self.assertEqual("MyGame", track["namespace"])
+        self.assertEqual("GaTrack", track["type"])
+        self.assertEqual("GaClip", track["clips"][0]["type"])
+        infos = [message for severity, message in exported.report if severity == MAPPING.SEVERITY_INFO]
+        self.assertIn("object 'Cube': namespace 'MyGame' from the consumer assembly introspection", infos)
+        self.assertIn("track 'hits' on object 'Cube': track type 'GaTrack' from the consumer assembly introspection", infos)
+        self.assertIn(
+            "strip 'hit' on track 'hits' of object 'Cube': clip type 'GaClip' from the consumer assembly introspection",
+            infos,
+        )
+
+    def test_multiple_pairs_still_reject_missing_types(self):
+        prefs = MAPPING.Prefs(
+            pairs=(
+                MAPPING.TypePair("MyGame", "GaTrack", "MyGame", "GaClip"),
+                MAPPING.TypePair("MyGame", "FxTrack", "MyGame", "FxBurst"),
+            )
+        )
+        with self.assertRaisesRegex(MAPPING.MappingError, "needs a track type"):
+            export([self.obj()], prefs=prefs)
+
+    def test_unmanaged_filter_leaves_one_usable_pair(self):
+        prefs = MAPPING.Prefs(
+            pairs=(
+                MAPPING.TypePair("MyGame", "GaTrack", "MyGame", "GaClip"),
+                MAPPING.TypePair("MyGame", "Managed", "MyGame", "GaClip", unmanaged=False),
+            )
+        )
+        exported = export([self.obj()], prefs=prefs)
+        document = json.loads(exported.files["Cube.json"])
+        self.assertEqual("GaTrack", document["tracks"][0]["type"])
+
+    def test_explicit_clip_type_overrides_pair(self):
+        props = {"tl_nla": {"strips": {"hit": {"tl_clip": "HandClip"}}}}
+        prefs = MAPPING.Prefs(pairs=(MAPPING.TypePair("MyGame", "GaTrack", "MyGame", "GaClip"),))
+        exported = export([self.obj(props)], prefs=prefs)
+        document = json.loads(exported.files["Cube.json"])
+        self.assertEqual("HandClip", document["tracks"][0]["clips"][0]["type"])
+
+    def test_preference_default_overrides_pair(self):
+        prefs = MAPPING.Prefs(default_track_type="PrefTrack", pairs=(MAPPING.TypePair("MyGame", "GaTrack", "MyGame", "GaClip"),))
+        exported = export([self.obj()], prefs=prefs)
+        document = json.loads(exported.files["Cube.json"])
+        self.assertEqual("PrefTrack", document["tracks"][0]["type"])
+
+    def test_namespace_preference_overrides_pair_namespace(self):
+        prefs = MAPPING.Prefs(namespace="PrefNs", pairs=(MAPPING.TypePair("MyGame", "GaTrack", "MyGame", "GaClip"),))
+        exported = export([self.obj()], prefs=prefs)
+        document = json.loads(exported.files["Cube.json"])
+        self.assertEqual("PrefNs", document["tracks"][0]["namespace"])
+
+    def test_empty_pairs_keeps_previous_rejection(self):
+        with self.assertRaisesRegex(MAPPING.MappingError, "needs a track type"):
+            export([self.obj()], prefs=MAPPING.Prefs())
+
+
+class RealCliIntrospectionTests(unittest.TestCase):
+    def obj(self, props=None):
+        return FakeObject("Cube", tracks=[Track("hits", strips=[Strip("hit", 1, 5)])], props=props)
+
+    @unittest.skipUnless(
+        REAL_CLI_DLL.exists() and REAL_TEST_ASSEMBLY.exists(),
+        "built Tl.Bake and Tl.Bake.Tests assemblies are required",
+    )
+    def test_real_cli_pairs_parse_and_drive_export(self):
+        command = "dotnet %s" % REAL_CLI_DLL
+        pairs, error = INTROSPECT.run_introspection(command, (str(REAL_TEST_ASSEMBLY),))
+        self.assertEqual("", error)
+        names = {(pair.track_name, pair.clip_name) for pair in pairs}
+        self.assertIn(("JobTrack", "JobClip"), names)
+        job = next(pair for pair in pairs if (pair.track_name, pair.clip_name) == ("JobTrack", "JobClip"))
+        props = {
+            "tl_nla": {
+                "tracks": {"hits": {"tl_track": job.track_name}},
+                "strips": {"hit": {"tl_clip": job.clip_name}},
+            }
+        }
+        prefs = MAPPING.Prefs(namespace=job.track_namespace, pairs=pairs)
+        exported = export([self.obj(props)], prefs=prefs)
+        document = json.loads(exported.files["Cube.json"])
+        track = document["tracks"][0]
+        self.assertEqual("Tlb", track["namespace"])
+        self.assertEqual("JobTrack", track["type"])
+        self.assertEqual("JobClip", track["clips"][0]["type"])
+

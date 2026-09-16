@@ -6,7 +6,7 @@ Receipted on Blender 5.2.1 LTS (headless, `--factory-startup`). Requires Blender
 
 ## Install
 
-1. Zip the addon folder so the archive contains `__init__.py`, `mapping.py` and `bake.py` at its root (for example `cd tools/Tl.Blender && zip -r ~/tl_bridge.zip .`), or copy this folder into the Blender scripts addons directory under a valid Python module name such as `tl_bridge`.
+1. Zip the addon folder so the archive contains `__init__.py`, `mapping.py`, `bake.py` and `introspect.py` at its root (for example `cd tools/Tl.Blender && zip -r ~/tl_bridge.zip .`), or copy this folder into the Blender scripts addons directory under a valid Python module name such as `tl_bridge`.
 2. Blender: Edit > Preferences > Add-ons > Install, then enable "tl bridge".
 3. Open Preferences (sidebar: View3D > N-panel > tl > Preferences) and set the bake command and consumer assemblies.
 
@@ -14,11 +14,15 @@ Receipted on Blender 5.2.1 LTS (headless, `--factory-startup`). Requires Blender
 
 | Preference | Meaning |
 | --- | --- |
-| Default track type | Bare type name for tracks without a `tl_track` entry; empty rejects those tracks. |
-| Default clip type | Bare type name for strips without a `tl_clip` entry; empty rejects those strips. |
-| Namespace | Bare namespace written on every track and clip; empty selects the global namespace. |
+| Default track type | Bare type name for tracks without a `tl_track` entry; empty falls back to the introspected pair (see below), else rejects. |
+| Default clip type | Bare type name for strips without a `tl_clip` entry; empty falls back to the introspected pair (see below), else rejects. |
+| Namespace | Bare namespace written on every track and clip; empty falls back to the introspected pair's namespace, else the global namespace. |
 | Bake command | Command that starts the CLI, e.g. `dotnet /path/to/Tl.Bake.dll`. Default `dotnet`. |
 | Consumer assemblies | Semicolon-separated paths of assemblies holding the track and clip structs, passed as `--assembly <path>`. |
+
+### Type lists from `tlbake --json`
+
+When consumer assemblies are configured, the export operator runs `tlbake --json --assembly ...` first and reads the discovered `(track, clip)` pairs. With **exactly one** authorable pair (blendable, unmanaged on both sides) and no hand-typed names, export fills the track type, clip type and namespace from that pair instead of rejecting; each filled value is echoed in the report as "from the consumer assembly introspection". Manual overrides always win: explicit `tl_track`/`tl_clip` entries first, then non-empty default-type/namespace preferences. With zero or several pairs the behavior is exactly as before (explicit entries or preferences, else a rejection). An introspection failure (CLI missing, no assemblies loadable) is reported as a warning and export continues with the hand-typed names.
 
 ## Workflow
 
@@ -36,10 +40,10 @@ Scene frames map to ticks 1:1, relative to `scene.frame_start` (tick 0 = scene s
 | Selected object | root timeline | `name` = object name; the file name sanitizes path separators in the object name. |
 | `tl_loop` object custom property (bool) | root `loop` | Default false when absent; echoed in the report. |
 | NLA track, top-down collection order | `tracks[]` entry | `name` = track name; order preserved. Muted tracks are skipped and reported. |
-| Track type | track `type` | `tl_nla.tracks['<track>'].tl_track` > default track type preference > reject. |
+| Track type | track `type` | `tl_nla.tracks['<track>'].tl_track` > default track type preference > introspected single pair > reject. |
 | NLA strip, left-to-right | `clips[]` entry | `name` = strip name; authored order preserved. |
 | Strip window `[frame_start, frame_end)` | clip `start`/`end` ticks | The bounds the NLA editor displays (5.x `frame_start`/`frame_end`), minus `scene.frame_start`. Bounds must be whole frames at/after the scene start; subframes reject. |
-| Clip type | clip `type` | `tl_nla.strips['<strip>'].tl_clip` > default clip type preference > reject. |
+| Clip type | clip `type` | `tl_nla.strips['<strip>'].tl_clip` > default clip type preference > introspected single pair > reject. |
 | Amount | clip `data.Amount` | `tl_nla.strips['<strip>'].tl_amount` (number) > constant strip `influence` > reject. Animated influence without `tl_amount` is a rejection, not a sample. Emitted as `{"Amount": <value>}`; consumer clip structs must expose an exact field named `Amount` (schema field matching is ordinal). |
 | Namespace preference | track and clip `namespace` | Written on both levels; empty = global namespace. |
 | Max strip end across included tracks | root `duration` | Clamped to at least 1; above the 65,535-tick cap the object is rejected. |
@@ -63,7 +67,7 @@ Nothing is silently dropped. For every included strip the report lists: strip mu
 
 ## Diagnostics
 
-Mapping rejections abort the export with the offending object, track or strip named. Bake failures surface the CLI's stdout, stderr and exit code in the Blender report; located `[line:column]` diagnostics pass through unchanged. On the current main CLI only duplicate-field diagnostics carry a location; type-resolution diagnostics become located when the #108 fused parser lands. The bridge adds no schema validation: schema diagnostics come from `Tl.Gen.Tlb`.
+Mapping rejections abort the export with the offending object, track or strip named. Bake failures surface the CLI's stdout, stderr and exit code in the Blender report; located `[line:column]` diagnostics pass through unchanged. The bridge adds no schema validation: schema diagnostics come from `Tl.Gen.Tlb`.
 
 ## Receipts
 

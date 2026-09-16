@@ -23,6 +23,17 @@ class Prefs:
     namespace: str = ""
     bake_command: str = "dotnet"
     assembly_paths: tuple[str, ...] = ()
+    pairs: tuple[Any, ...] = ()
+
+
+@dataclasses.dataclass(frozen=True)
+class TypePair:
+    track_namespace: str = ""
+    track_name: str = ""
+    clip_namespace: str = ""
+    clip_name: str = ""
+    blendable: bool = True
+    unmanaged: bool = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -54,6 +65,31 @@ class _Timeline:
     duration: int
     loop: bool
     tracks: tuple[_Track, ...]
+
+
+def usable_pairs(prefs: Prefs) -> tuple[Any, ...]:
+    return tuple(
+        pair
+        for pair in prefs.pairs
+        if getattr(pair, "blendable", True) and getattr(pair, "unmanaged", True)
+    )
+
+
+def single_pair(prefs: Prefs) -> Any:
+    usable = usable_pairs(prefs)
+    return usable[0] if len(usable) == 1 else None
+
+
+def pair_namespace(prefs: Prefs) -> str:
+    pair = single_pair(prefs)
+    return "" if pair is None else getattr(pair, "track_namespace", "")
+
+
+def pair_type_default(prefs: Prefs, side: str) -> str:
+    pair = single_pair(prefs)
+    if pair is None:
+        return ""
+    return getattr(pair, "%s_name" % side, "")
 
 
 def export_objects(scene: Any, objects: Any, prefs: Prefs, blender_version: tuple[int, int, int]) -> Export:
@@ -193,6 +229,11 @@ def _build_timeline(scene: Any, obj: Any, prefs: Prefs, report: Report) -> _Time
     settings_tracks = _settings_section(obj, settings, "tracks")
     settings_strips = _settings_section(obj, settings, "strips")
     loop = _read_loop(obj, report)
+    namespace = prefs.namespace
+    if not namespace:
+        namespace = pair_namespace(prefs)
+        if namespace:
+            report.info("object '%s': namespace '%s' from the consumer assembly introspection" % (obj.name, namespace))
     track_names = [track.name for track in tracks]
     _reject_duplicates(track_names, lambda name: _object_error(obj, "has duplicate NLA track name '%s'" % name))
     strip_names = [strip.name for track in tracks for strip in track.strips]
@@ -214,7 +255,7 @@ def _build_timeline(scene: Any, obj: Any, prefs: Prefs, report: Report) -> _Time
         raise _object_error(
             obj, "duration %d exceeds the %d-tick cap; shorten the strips" % (duration, TICK_CAP)
         )
-    return _Timeline(obj.name, prefs.namespace, duration, loop, tuple(mapped))
+    return _Timeline(obj.name, namespace, duration, loop, tuple(mapped))
 
 
 def _read_loop(obj: Any, report: Report) -> bool:
@@ -273,9 +314,19 @@ def _build_track(
             raise _track_error(
                 obj, track, "tl_nla.tracks['%s'] has unknown key '%s' (expected 'tl_track')" % (track.name, key)
             )
+    track_default = prefs.default_track_type
+    if not track_default:
+        pair_default = pair_type_default(prefs, "track")
+        if pair_default:
+            report.info(
+                "track '%s' on object '%s': track type '%s' from the consumer assembly introspection"
+                % (track.name, obj.name, pair_default)
+            )
+        track_default = pair_default
     track_type, defaulted = _read_type(
-        obj, track, None, track_settings, "tl_track", prefs.default_track_type,
-        "needs a track type: set tl_nla.tracks['%s'].tl_track or the default track type preference" % track.name,
+        obj, track, None, track_settings, "tl_track", track_default,
+        "needs a track type: set tl_nla.tracks['%s'].tl_track, the default track type preference, "
+        "or configure a consumer assembly with exactly one pair" % track.name,
     )
     if defaulted:
         report.info("track '%s' on object '%s': track type defaulted to '%s'" % (track.name, obj.name, track_type))
@@ -307,9 +358,19 @@ def _build_clip(
                 "tl_nla.strips['%s'] has unknown key '%s' (expected 'tl_clip' and 'tl_amount')"
                 % (strip.name, key),
             )
+    clip_default = prefs.default_clip_type
+    if not clip_default:
+        pair_default = pair_type_default(prefs, "clip")
+        if pair_default:
+            report.info(
+                "strip '%s' on track '%s' of object '%s': clip type '%s' from the consumer assembly introspection"
+                % (strip.name, track.name, obj.name, pair_default)
+            )
+        clip_default = pair_default
     clip_type, defaulted = _read_type(
-        obj, track, strip, strip_settings, "tl_clip", prefs.default_clip_type,
-        "needs a clip type: set tl_nla.strips['%s'].tl_clip or the default clip type preference" % strip.name,
+        obj, track, strip, strip_settings, "tl_clip", clip_default,
+        "needs a clip type: set tl_nla.strips['%s'].tl_clip, the default clip type preference, "
+        "or configure a consumer assembly with exactly one pair" % strip.name,
     )
     if defaulted:
         report.info(

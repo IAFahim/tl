@@ -133,7 +133,11 @@ The public conversion API lives in `tools/Tl.Gen.Tlb` (`TimelineBaker.BakeJson`,
 tlbake <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]
 tlbake --strip <input.tlb> <output.tlb>
 tlbake --report <input.tlb>
+tlbake --json --assembly <path>...
+tlbake --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]
 ```
+
+`tlbake --json` prints a deterministic, versioned (`schemaVersion` 1) introspection document for external tooling: every `(TTrack, TClip)` pairing discovered in the referenced assemblies with type identities, authorable input fields, struct sizes, blendability, the track's full pairing list, and the discovered `ITimelineJob` consumers with their `ref`/`out` output types. `tlbake --watch` keeps an authoring session live: one watched file or a directory of `*.json` inputs, filesystem watching with a debounce window (default 100 ms) and content-hash change detection, so a single-file change re-bakes only that file, a content-identical rewrite emits `skip`, and every outcome is a machine-readable JSON-line event on stdout (`ready`, `rebuild`, `skip`, `diagnostic` — diagnostics carry the same `[line:column]` text as the error path). The Blender bridge (`tools/Tl.Blender`) consumes `--json` to populate its track/clip type lists when a consumer assembly is configured.
 
 Type resolution binds names to loaded types at bake time: `namespace` matches the CLR `Type.Namespace` exactly (empty string selects the global namespace), `type` matches `Type.Name`, and `assembly` matches `Assembly.GetName().Name`. Bare names containing `.`, `,`, `+` or `=` are diagnostics. Data objects map field names onto unmanaged struct fields for explicit-width primitives (bool, byte, sbyte, short, ushort, int, uint, long, ulong, float, double); unknown fields and wrong-typed values are diagnostics. Assets may contain up to 256 authored track entries. Track array order is semantic. Windows are half-open, duration is the maximum clip end, and an empty asset has duration zero. Within one derived group at most two clips may overlap and they resolve through the group's blender; unsupported overlap fails import.
 
