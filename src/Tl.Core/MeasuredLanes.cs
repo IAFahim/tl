@@ -87,23 +87,145 @@ public sealed unsafe class MeasuredLanes : IDisposable
         for (var i = 0; i < 256; i++) columns[i] = null;
         for (var i = 0; i < refreshCount; i++) columns[refreshSlots[i]] = bases[refreshColumns[i]];
 
-        float Measure(uint position, bool reverse)
+        if (!PairTable.AnyWindowConstant)
         {
-            *column = 0f;
-            if (!reference.Select(reverse, (ushort)position, out _, out var tick, out var flags))
-                throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
-            reference.Execute(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns);
-            return *column;
-        }
+            float Measure(uint position, bool reverse)
+            {
+                *column = 0f;
+                if (!reference.Select(reverse, (ushort)position, out _, out var tick, out var flags))
+                    throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
+                reference.Execute(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns);
+                return *column;
+            }
 
-        for (var tick = 0u; tick < duration; tick++)
+            for (var tick = 0u; tick < duration; tick++)
+            {
+                var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
+                forward[tick] = Measure(tick, false);
+                backward[tick] = Measure(backwardPosition, true);
+            }
+        }
+        else
         {
-            var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-            forward[tick] = Measure(tick, false);
-            backward[tick] = Measure(backwardPosition, true);
+            FillWindows(reference, forward, backward, duration, looping, chains, pairs, columns, column);
         }
         forward[duration] = 0f;
         backward[duration] = 0f;
+    }
+
+    const int CacheStride = 64;
+
+    static void FillWindows(TimelineRef reference, float* forward, float* backward, uint duration, bool looping, int* chains, int pairs, void** columns, float* column)
+    {
+        var stageCount = reference.StageCount;
+        var stages = reference.Stages;
+        var maxProgram = 0;
+        for (var s = 0; s < stageCount; s++) maxProgram = Math.Max(maxProgram, (int)stages[s].ProgramCount);
+        var steps = Math.Max(maxProgram, 1);
+        var cacheCapacity = steps * CacheStride;
+        var scratchBytes = (long)steps * (sizeof(byte) + sizeof(int)) + (long)cacheCapacity * sizeof(float);
+        byte* scratch = null;
+        byte* stepCached;
+        int* stepCacheBase;
+        float* cacheValues;
+        if (scratchBytes <= 8192)
+        {
+            byte* cachedBytes = stackalloc byte[steps];
+            int* cachedBases = stackalloc int[steps];
+            float* cachedFloats = stackalloc float[cacheCapacity];
+            stepCached = cachedBytes;
+            stepCacheBase = cachedBases;
+            cacheValues = cachedFloats;
+        }
+        else
+        {
+            scratch = (byte*)NativeMemory.AlignedAlloc((nuint)scratchBytes, 64);
+            stepCached = scratch;
+            stepCacheBase = (int*)(scratch + steps);
+            cacheValues = (float*)(scratch + steps * (sizeof(byte) + sizeof(int)));
+        }
+        try
+        {
+            for (var s = 0; s < stageCount; s++)
+            {
+                var stage = stages + s;
+                var start = stage->Start;
+                var end = stage->End;
+                var program = (NativeStep*)(reference._p + stage->ProgramOffset);
+                var count = (int)stage->ProgramCount;
+                var cacheTotal = 0;
+                for (var i = 0; i < count; i++)
+                {
+                    stepCacheBase[i] = 0;
+                    stepCached[i] = 0;
+                    var head = chains[(int)program[i].Pair];
+                    if (head < 0 || !PairTable.ChainWindowConstant(head, out var blendConstant) || !blendConstant(reference._p + program[i].Slot)) continue;
+                    stepCacheBase[i] = cacheTotal;
+                    cacheTotal += PairTable.ChainLength(head);
+                    stepCached[i] = 1;
+                }
+
+                if (!reference.Advance(false, (ushort)start, out _, out var forwardTick, out var forwardFlags))
+                    throw new InvalidOperationException($"Timeline measurement did not advance from position {start}.");
+                Capture(reference, program, count, stepCached, stepCacheBase, cacheValues, chains, columns, column, forwardTick, forwardFlags, false);
+                var representativePosition = start + 1u == duration ? looping ? 0u : duration : start + 1u;
+                if (!reference.Advance(true, (ushort)representativePosition, out _, out var backwardTick, out var backwardFlags))
+                    throw new InvalidOperationException($"Timeline measurement did not advance from position {representativePosition}.");
+                Capture(reference, program, count, stepCached, stepCacheBase, cacheValues, chains, columns, column, backwardTick, backwardFlags, true);
+
+                for (var tick = start; tick < end; tick++)
+                {
+                    if (!reference.Advance(false, (ushort)tick, out _, out var tickForward, out var forwardFlag))
+                        throw new InvalidOperationException($"Timeline measurement did not advance from position {tick}.");
+                    *column = 0f;
+                    reference.ExecuteWindow(false, tickForward, forwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, cacheValues);
+                    forward[tick] = *column;
+
+                    var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
+                    if (!reference.Advance(true, (ushort)backwardPosition, out _, out var tickBackward, out var backwardFlag))
+                        throw new InvalidOperationException($"Timeline measurement did not advance from position {backwardPosition}.");
+                    *column = 0f;
+                    reference.ExecuteWindow(true, tickBackward, backwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, cacheValues);
+                    backward[tick] = *column;
+                }
+            }
+        }
+        finally
+        {
+            if (scratch != null) NativeMemory.AlignedFree(scratch);
+        }
+    }
+
+    static void Capture(TimelineRef reference, NativeStep* program, int count, byte* stepCached, int* stepCacheBase, float* cacheValues, int* chains, void** columns, float* column, ushort tick, FrameFlags flags, bool reverse)
+    {
+        int* rev = stackalloc int[CacheStride];
+        for (var i = 0; i < count; i++)
+        {
+            if (stepCached[i] == 0) continue;
+            var slot = reference._p + program[i].Slot;
+            var head = chains[(int)program[i].Pair];
+            var cache = stepCacheBase[i];
+            if (reverse && head >= 0 && PairTable.ChainNext(head) >= 0)
+            {
+                var n = 0;
+                for (var e = head; e >= 0; e = PairTable.ChainNext(e)) rev[n++] = e;
+                while (n-- > 0)
+                {
+                    *column = 0f;
+                    PairTable.ExecuteEntry(rev[n], slot, tick, flags, columns, 0);
+                    cacheValues[cache++] = *column;
+                }
+            }
+            else
+            {
+                for (var e = head; e >= 0; e = PairTable.ChainNext(e))
+                {
+                    *column = 0f;
+                    PairTable.ExecuteEntry(e, slot, tick, flags, columns, 0);
+                    cacheValues[cache++] = *column;
+                }
+            }
+        }
     }
 }
 
