@@ -13,17 +13,18 @@ Status: shipped production playback surface (issue #104). It replaces the remove
 One timeline type per call, one frame per call, host-owned storage, run-length groups:
 
 ```cs
-Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward: true).Apply(effects, cycles);
-Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward: false).Apply(effects, cycles);   // measured cost of forward
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward: true).Apply(effects);
+Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward: false).Apply(effects);   // measured cost of forward
 ```
 
 (`BakedLane<TTrack, TClip>` is one `ITimelineLane<T>`; any hand-authored `T : ITimelineLane<T>` drives the same lane.)
 
-`positions : Span<ushort>`, `effects : Span<float>`, `cycles : Span<long>`; all three are the
-caller's arrays, borrowed only for the call. There is no per-row object, no run-record buffer,
-and no allocation on the warm path. The position column is `ushort` (65,535 ticks = 18 minutes
-at 60 fps); the baker rejects longer timelines at bake time and `Bind` keeps the same
-check as a backstop for pre-existing bytes.
+`positions : Span<ushort>`, `effects : Span<float>`; both are the caller's arrays, borrowed
+only for the call. There is no per-row object, no run-record buffer, no cycle column, and no
+allocation on the warm path. The position column is `ushort` — since #113 every
+timeline-domain position and tick is `ushort` under the single documented 65,535-tick cap
+(18 minutes at 60 fps); the baker rejects longer timelines at bake time and `TLB1` load
+rejects them for pre-existing bytes.
 
 `T` is the timeline: duration, looping, and per-position effects are `static abstract` members
 of `ITimelineLane<T>`, so the JIT compiles them per closed generic — effect lookup is literal
@@ -33,10 +34,12 @@ code, no indirection. Two implementations ship:
   `InverseEffect` are yours. Cost: authoring them by hand is only worth it for closed forms.
 - **`BakedLane<TTrack, TClip>`** binds a loaded `TimelineAsset` once per (type, asset) at cold
   time: it measures the per-position forward and backward float effect of every consumer in
-  the asset through the cold executor, validates position purity, and keeps the two tables on
-  native blocks. Multi-pair assets fold all pairs' float-writing consumers into one column
-  automatically; `Bind` rejects impure consumers (column-value or cycle dependence) with a
-  diagnostic naming the pair.
+  the asset through the cold executor with one baseline evaluation per direction, and keeps
+  the two tables plus 8-byte movement records on native blocks. Multi-pair assets fold all
+  pairs' float-writing consumers into one column automatically. Since #113 there is no
+  engine cycle or game tick in the frame view, so the cycle/seed purity probes are gone too:
+  a consumer that folds the incoming column value bakes its zero-seed baseline instead of
+  being rejected at bind — authoring review owns that check now.
 
 ## Contract
 
@@ -45,19 +48,22 @@ code, no indirection. Two implementations ship:
   `Seek(positions, false)`
 - movement is `TimelineMovement.Advance` exactly: forward skips only when
   `position >= duration`; backward skips only when `(position == 0 && !looping)`, or
-  `position > duration`, or `(looping && position == duration)`; looping timelines touch the
-  cycle column only on wrap (±1); finite timelines zero-fill cycles on every successful move
+  `position > duration`, or `(looping && position == duration)`
 - consumers must self-invert through `Frame.Direction` / `FrameFlags.Reverse`; the backward
   table is the measured inverse, so forward-then-backward returns the column bit-exactly
 - the host owns the columns; the lane never moves, copies, or retains row data
-- finite lanes may pass `Span<long>.Empty` instead of a cycle column: finite timelines never
-  wrap, so there is no cycle state to maintain and the lane touches no cycle storage (the
-  zero-fill law applies to a full-length column); looping lanes require the full column
-- `Apply` validates lengths and pairwise non-overlap and throws otherwise; effects and cycles
-  are written only for rows that moved
-- the fold is a function of position only: consumers that read the game tick, another entity's
+- there is no engine cycle (removed with #113): hosts that need loop counts self-track —
+  from the movement flags (`FrameFlags.TimelineEnd` marks the looping wrap tick, sign from
+  `FrameFlags.Reverse`; `CompletedAfter`/`CompletedBefore` carry the same signal on finite
+  timelines) or from the positions column (`old == duration - 1 && new == 0` forward,
+  `old == 0 && new == duration - 1` backward); receipted against the removed engine cycle on
+  a randomized schedule in `tests/Tl.Alpha`
+- `Apply` validates lengths and pairwise non-overlap and throws otherwise; effects are
+  written only for rows that moved
+- the fold is a function of position only: consumers that read a game tick, another entity's
   column, or any external state do not belong on the lane (game-tick-dependent behavior is a host
-  system's job); `Bind` measures at game tick 0 and freezes that value
+  system's job); the frame view carries no game tick at all since #113, and `Bind` freezes the
+  single baseline fold
 - the position column is `ushort`: one frame moves one tick, and 65,535 ticks bounds any
   designed timeline; the baker rejects duration above 65,535 at bake time (diagnostic with
   line and column) and `Bind` keeps the same check for pre-existing bytes
@@ -72,9 +78,10 @@ code, no indirection. Two implementations ship:
    one vector compare per 32 rows (`ushort` lanes double the per-vector row count); singleton
    runs apply inline without leaving the scan loop.
 2. The clock is a dense `ushort` column — 2 bytes per row, half the `uint` column it replaced.
-   Commit is a vector fill of the next position; the cycle column is touched only in wrapping
-   runs. Splitting the clock out of a packed row struct was the single largest win (strided
-   stores became vector fills).
+   Commit is a vector fill of the next position; since #113 there is no cycle column at all
+   (the per-row state is 2 + 4 bytes of host columns plus 8-byte movement records baked at
+   load, half their former 16 bytes). Splitting the clock out of a packed row struct was the
+   single largest win (strided stores became vector fills).
 3. Application is uniform within a run: one vector add over the run's column slice. Backward
    inverts the effect and reverses the wrap arithmetic with zero shared branches.
 
@@ -95,8 +102,31 @@ nonzero on any parity FAIL); `samples/ManyEntities` adds pulse/churn shapes at 2
 | Backward, uniform | 0.15 | 0.16 |
 | Seek x2 (catch-up) | 6.02 | 6.23 |
 
-Finite crowds with an empty cycle column measure 0.28 -> 0.12 ns/row at 1M rows
-(60,000-tick finite asset, uniform positions): the 8-byte zero-fill store per row disappears.
+The #113 frame-slim A/B (i9-14900K, .NET 10, Release; 1M rows, 20 frames, best settled
+round of 3 interleaved old/new invocations, 5-rep best within round; same corpus and
+protocol per side) measured, in ns/row:
+
+| shape | old (cycles column) | new | new/old |
+| --- | ---: | ---: | ---: |
+| static lane, staggered singles, forward | 0.187 | 0.153 | 0.82 |
+| static lane, staggered singles, backward | 0.191 | 0.172 | 0.90 |
+| static lane, waves of 100 | 0.132 | 0.124 | 0.94 |
+| set, one looping timeline, staggered (gather) | 0.236 | 0.202 | 0.86 |
+| set, 16 timelines, id blocks of 100 | 1.886 | 1.444 | 0.77 |
+| set, 16 timelines, ids alternating per row | 1.674 | 1.220 | 0.73 |
+| set, 60,000-tick finite, staggered, full cycle column | 0.384 | 0.193 | 0.50 |
+| set, 60,000-tick finite, staggered, empty cycle column (old only) | 0.192 | 0.193 | 1.00 |
+
+The finite staggered default lands exactly on the old empty-cycles number (the 8-byte
+cycle store per row is gone, not deferred); static staggered with the halved 8-byte
+records improved past parity in both directions; crowd shapes improved 1.3-1.4x from the
+removed cycle writes. On the #108 20 MB corpus pipeline (load + measure + 7 set binds +
+first apply, parse/bake unchanged and excluded), best settled: TOTAL 6.24 -> 6.02 ms,
+bind `Measure` 4.0 -> 3.9 ms, the 7 `Add`s 1.24 -> 1.11 ms (16 -> 8-byte record copies),
+`Load` 1.0 -> 0.9 ms; evaluations per bind on the 65,500-tick corpus are 131,000 (two per
+tick per direction), down from 131,490 plus the sampled purity probes (~65 ticks x 4
+extra evaluations) that existed only for the removed cycle and seed purity checks.
+
 `samples/ManyEntities` churn exercises the API on its finite window asset (parity OK).
 
 ManyEntities (200k rows x 60 ticks, lane vs hand SoA sweep): pulse 0.35 vs 0.51 ns/row,
@@ -123,24 +153,22 @@ var bossId   = jumps.Add(bossAsset);     // 1
 var timelineIds = new ushort[] { minionId, minionId, bossId };
 var lastTick    = new ushort[] { 0, 0, 2 };
 var height      = new float[3];
-var cycle       = new long[3];
 
-jumps.Gather(timelineIds).Seek(lastTick, true).Apply(height, cycle);
+jumps.Gather(timelineIds).Seek(lastTick, true).Apply(height);
 ```
 
 Contract:
 
 - ids come from `Add` at load time (first asset 0, dense from there); a set holds at most
   65,536 timelines; an unbound id throws `ArgumentException` naming the row and id
-- each `Add` measures through the same cold core as `BakedLane.Bind` (position purity,
-  duration ≤ 65,535, consumer order) and appends the effect tables plus baked movement
-  tables (next position and cycle delta per tick, both directions) into the one contiguous
-  block; `Dispose` frees it; the asset may be disposed once `Add` returns
+- each `Add` measures through the same cold core as `BakedLane.Bind` (one baseline fold per
+  direction, duration ≤ 65,535, consumer order) and appends the effect tables plus baked
+  movement records (next position per tick, both directions, 8 bytes each) into the one
+  contiguous block; `Dispose` frees it; the asset may be disposed once `Add` returns
 - two timelines in one set are respected as different: rows on different ids advance and
   fold through their own tables, durations, and loop flags in one call, bit-exact with
   running each asset through the static lane separately (asserted per frame in tests)
-- `Gather(ids).Seek(positions, forward).Apply(effects, cycles)` follows the one-frame law
-  exactly; an empty cycle column is legal only when every timeline in the set is finite
+- `Gather(ids).Seek(positions, forward).Apply(effects)` follows the one-frame law exactly
 - the warm path allocates 0 B; the id column is read once per 4,096-row chunk by a probe
   that validates ids and detects single-timeline chunks — those run at the static lane's
   shape with the table hoisted per chunk; mixed chunks scan (id, tick) pairs with one
@@ -148,12 +176,13 @@ Contract:
 - singleton rows never pay the scan call (a one-compare pre-check ends the run instantly)
   and apply through the baked movement tables with no per-row law branches; a chunk whose
   first 64 rows have no adjacent-equal positions, one looping timeline, and AVX2 routes to
-  a gather applier — `vgatherps` folds the effect table over 16 staggered rows at once,
-  wrap/skip are mask arithmetic, and cycles touch only wrapping lanes
+  a gather applier — `vgatherps` folds the effect table over 16 staggered rows at once and
+  wrap/skip are mask arithmetic
 
 Receipts (Intel Core i9-14900K, .NET 10, Release; 1M rows, 20-frame reps, best of 5 over 3
 interleaved rounds, real `Tl.Core`; parity bit-exact vs per-asset static lanes, forward
-and backward; 0 B warm allocation):
+and backward; 0 B warm allocation; measured before #113 — the #113 A/B above re-measured
+the affected shapes at parity or better):
 
 | shape (one call over a mixed crowd) | ns/row | static lane on same ticks |
 | --- | ---: | ---: |
@@ -204,8 +233,8 @@ cycles); component-sorted crowds — the ECS norm — sit on the first rows of b
 
 - **Memory floor.** Per row per frame the lane must touch ~12 bytes (read+write a 2-byte
   position, read+write one 4-byte column). At 1M rows that is 12 MB/frame — uniform sits on
-  the DRAM bandwidth limit. Further crowd gains require fewer bytes per row (a cycle column
-  only for looping assets), not faster code.
+  the DRAM bandwidth limit. Since #113 the caller columns are exactly those 6 bytes plus the
+  set's 2-byte id: the cycle column is gone from every shape, looping or not.
 - **`ushort` positions shipped (uint → u16 A/B, interleaved rounds, controls flat).** The
   column halves (4 → 2 B/row) and the run scan compares 32 rows per vector instead of 16:
   uniform 0.19 → 0.15-0.16, backward 0.19 → 0.16, waves 0.21-0.22 → 0.19-0.20 ns/row at 1M.
