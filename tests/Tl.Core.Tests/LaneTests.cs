@@ -862,6 +862,47 @@ public class LaneTests
     }
 
     [Fact]
+    public void SetFiniteGatherLeavesSkippedRowEffectsBitExact()
+    {
+        using var wide = TimelineAsset.Load(WideBake());
+        using var timelines = new TimelineSet<LaneTrack, LaneClip>();
+        var wideId = timelines.Add(wide);
+
+        var ids = new ushort[33];
+        Array.Fill(ids, wideId);
+        var positions = new ushort[33];
+        var effects = new float[33];
+        var cycles = new long[33];
+        for (var i = 0; i < positions.Length; i++)
+        {
+            positions[i] = (ushort)(i * 5 % 9);
+            cycles[i] = -7;
+        }
+        positions[16] = 9;
+        positions[17] = 9;
+        effects[16] = MemoryMarshal.Read<float>(stackalloc byte[4] { 0x01, 0x00, 0x80, 0x7F });
+        effects[17] = BitConverter.Int32BitsToSingle(unchecked((int)0x80000000));
+
+        timelines.Gather(ids).Seek(positions, true).Apply(effects, cycles);
+
+        Assert.Equal(9, (int)positions[16]);
+        Assert.Equal(9, (int)positions[17]);
+        Assert.Equal(-7, cycles[16]);
+        Assert.Equal(-7, cycles[17]);
+        Assert.Equal(0x7F800001u, BitConverter.SingleToUInt32Bits(effects[16]));
+        Assert.Equal(0x80000000u, BitConverter.SingleToUInt32Bits(effects[17]));
+
+        positions[16] = 10;
+        positions[17] = 10;
+        timelines.Gather(ids).Seek(positions, false).Apply(effects, cycles);
+
+        Assert.Equal(10, (int)positions[16]);
+        Assert.Equal(10, (int)positions[17]);
+        Assert.Equal(0x7F800001u, BitConverter.SingleToUInt32Bits(effects[16]));
+        Assert.Equal(0x80000000u, BitConverter.SingleToUInt32Bits(effects[17]));
+    }
+
+    [Fact]
     public void SetRejectsUnboundId()
     {
         using var looping = TimelineAsset.Load(LoopingBake());

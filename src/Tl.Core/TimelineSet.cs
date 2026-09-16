@@ -248,15 +248,27 @@ public ref struct TimelineSetLane<TTrack, TClip>
             if (ProbeChunk(ids, i, chunkEnd, bound))
             {
                 var slot = slots + ids[i];
-                if (gather && slot->Looping != 0 && slot->Duration > 1 && SingletonChunk(positions, i, chunkEnd))
+                if (gather && slot->Duration > 1 && (slot->Looping != 0
+                        ? SingletonChunk(positions, i, chunkEnd)
+                        : ShortRuns(positions, i, chunkEnd)))
                 {
                     var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
                     if (blockEnd > i)
                     {
                         if (_forward)
-                            GatherForward(slot, positions, effects, cycles, i, blockEnd);
+                        {
+                            if (slot->Looping != 0)
+                                GatherForward(slot, positions, effects, cycles, i, blockEnd);
+                            else
+                                GatherFiniteForward(slot, positions, effects, cycles, i, blockEnd);
+                        }
                         else
-                            GatherBackward(slot, positions, effects, cycles, i, blockEnd);
+                        {
+                            if (slot->Looping != 0)
+                                GatherBackward(slot, positions, effects, cycles, i, blockEnd);
+                            else
+                                GatherFiniteBackward(slot, positions, effects, cycles, i, blockEnd);
+                        }
                         i = blockEnd;
                         continue;
                     }
@@ -618,6 +630,146 @@ public ref struct TimelineSetLane<TTrack, TClip>
             }
             i += 16;
         }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe void GatherFiniteForward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, Span<long> cycles, int i, int limit)
+    {
+        var duration = slot->Duration;
+        var eff = slot->Forward;
+        var last = (ushort)(duration - 1);
+        var lastVector = Vector256.Create(last);
+        var durationVector = Vector256.Create(duration);
+        var durationWide = Vector256.Create((uint)duration);
+        var one = Vector256.Create((ushort)1);
+        var zeroLong = Vector256<long>.Zero;
+        var touchCycles = !cycles.IsEmpty;
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        ref var c = ref MemoryMarshal.GetReference(cycles);
+        while (i < limit)
+        {
+            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+            var skipMask = Vector256.GreaterThan(pos, lastVector);
+            var next = pos + one;
+            next = Vector256.ConditionalSelect(skipMask, pos, next);
+            next.StoreUnsafe(ref p, (nuint)i);
+
+            var clamped = Vector256.Min(pos, durationVector);
+            (var wideLo, var wideHi) = Vector256.Widen(clamped);
+            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
+            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
+            var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
+            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+
+            if (touchCycles)
+            {
+                var moveBits = Vector256.ExtractMostSignificantBits(skipMask) ^ 0xFFFF;
+                if (moveBits == 0xFFFFu)
+                {
+                    zeroLong.StoreUnsafe(ref c, (nuint)i);
+                    zeroLong.StoreUnsafe(ref c, (nuint)(i + 4));
+                    zeroLong.StoreUnsafe(ref c, (nuint)(i + 8));
+                    zeroLong.StoreUnsafe(ref c, (nuint)(i + 12));
+                }
+                else
+                {
+                    var bits = moveBits;
+                    while (bits != 0)
+                    {
+                        var lane = BitOperations.TrailingZeroCount(bits);
+                        Unsafe.Add(ref c, (nuint)(i + lane)) = 0;
+                        bits &= bits - 1;
+                    }
+                }
+            }
+            i += 16;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe void GatherFiniteBackward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, Span<long> cycles, int i, int limit)
+    {
+        var duration = slot->Duration;
+        var eff = slot->BackwardByPosition;
+        var durationVector = Vector256.Create(duration);
+        var durationWide = Vector256.Create((uint)duration);
+        var zero = Vector256<ushort>.Zero;
+        var zeroUint = Vector256<uint>.Zero;
+        var step = Vector256.Create((ushort)0xFFFF);
+        var zeroLong = Vector256<long>.Zero;
+        var touchCycles = !cycles.IsEmpty;
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        ref var c = ref MemoryMarshal.GetReference(cycles);
+        while (i < limit)
+        {
+            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+            var skipMask = Vector256.Equals(pos, zero) | Vector256.GreaterThan(pos, durationVector);
+            var next = pos + step;
+            next = Vector256.ConditionalSelect(skipMask, pos, next);
+            next.StoreUnsafe(ref p, (nuint)i);
+
+            var clamped = Vector256.Min(pos, durationVector);
+            (var posLo, var posHi) = Vector256.Widen(pos);
+            (var wideLo, var wideHi) = Vector256.Widen(clamped);
+            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
+            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            var skipLo = (Vector256.Equals(posLo, zeroUint) | Vector256.GreaterThan(posLo, durationWide)).AsSingle();
+            var skipHi = (Vector256.Equals(posHi, zeroUint) | Vector256.GreaterThan(posHi, durationWide)).AsSingle();
+            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+
+            if (touchCycles)
+            {
+                var moveBits = Vector256.ExtractMostSignificantBits(skipMask) ^ 0xFFFF;
+                if (moveBits == 0xFFFFu)
+                {
+                    zeroLong.StoreUnsafe(ref c, (nuint)i);
+                    zeroLong.StoreUnsafe(ref c, (nuint)(i + 4));
+                    zeroLong.StoreUnsafe(ref c, (nuint)(i + 8));
+                    zeroLong.StoreUnsafe(ref c, (nuint)(i + 12));
+                }
+                else
+                {
+                    var bits = moveBits;
+                    while (bits != 0)
+                    {
+                        var lane = BitOperations.TrailingZeroCount(bits);
+                        Unsafe.Add(ref c, (nuint)(i + lane)) = 0;
+                        bits &= bits - 1;
+                    }
+                }
+            }
+            i += 16;
+        }
+    }
+
+    static bool ShortRuns(Span<ushort> positions, int start, int end)
+    {
+        var probe = start + 64;
+        if (probe > end) probe = end;
+        ref var origin = ref MemoryMarshal.GetReference(positions);
+        var equalPairs = 0;
+        var j = start;
+        if (Vector256.IsHardwareAccelerated)
+        {
+            var vectorLimit = probe - 17;
+            while (j <= vectorLimit)
+            {
+                equalPairs += BitOperations.PopCount(Vector256.ExtractMostSignificantBits(Vector256.Equals(Vector256.LoadUnsafe(ref origin, (nuint)j), Vector256.LoadUnsafe(ref origin, (nuint)(j + 1)))));
+                j += 16;
+            }
+        }
+        for (var k = j; k < probe - 1; k++)
+            if (positions[k] == positions[k + 1]) equalPairs++;
+        return equalPairs <= 24;
     }
 
     static bool SingletonChunk(Span<ushort> positions, int start, int end)
