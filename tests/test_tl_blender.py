@@ -16,6 +16,7 @@ def _load_module(name, relative):
 
 
 MAPPING = _load_module("tl_blender_mapping", Path("tools") / "Tl.Blender" / "mapping.py")
+BAKE = _load_module("tl_blender_bake", Path("tools") / "Tl.Blender" / "bake.py")
 
 BLENDER_VERSION = (5, 2, 1)
 
@@ -587,3 +588,68 @@ class IgnoredSettingsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CompletedFake:
+    def __init__(self, returncode=0, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+class BakeArgvTests(unittest.TestCase):
+    def test_command_input_output_and_assemblies(self):
+        argv = BAKE.bake_argv(
+            "dotnet /tools/Tl.Bake.dll",
+            "/out/Cube.json",
+            "/out/Cube.tlb",
+            ("/a/X.dll", "/b/Y.dll"),
+        )
+        self.assertEqual(
+            ["dotnet", "/tools/Tl.Bake.dll", "/out/Cube.json", "/out/Cube.tlb", "--assembly", "/a/X.dll", "--assembly", "/b/Y.dll"],
+            argv,
+        )
+
+    def test_empty_command_rejected(self):
+        with self.assertRaisesRegex(BAKE.BakeError, "bake command preference is empty"):
+            BAKE.bake_argv("   ", "a.json", "a.tlb", ())
+
+
+class BakeRunTests(unittest.TestCase):
+    def test_success_result_and_report(self):
+        result = BAKE.run_bake(
+            ["tlbake", "a.json", "a.tlb"],
+            runner=lambda argv: CompletedFake(0, "cache: miss abcd\n", ""),
+        )
+        self.assertEqual(0, result["exit_code"])
+        self.assertTrue(BAKE.succeeded(result))
+        lines = BAKE.report_lines(result)
+        self.assertEqual(
+            [
+                (BAKE.SEVERITY_INFO, "bake: tlbake a.json a.tlb"),
+                (BAKE.SEVERITY_INFO, "bake: cache: miss abcd"),
+                (BAKE.SEVERITY_INFO, "bake: exit 0"),
+            ],
+            lines,
+        )
+
+    def test_failure_keeps_diagnostic_with_line_and_column(self):
+        result = BAKE.run_bake(
+            ["tlbake", "a.json", "a.tlb"],
+            runner=lambda argv: CompletedFake(
+                1,
+                "",
+                "Diagnostic error: [12:9] unknown/unresolvable type: no loaded type named (<global>, NoSuchTrack) for track 0.\n",
+            ),
+        )
+        self.assertFalse(BAKE.succeeded(result))
+        lines = BAKE.report_lines(result)
+        self.assertIn((BAKE.SEVERITY_ERROR, "bake: Diagnostic error: [12:9] unknown/unresolvable type: no loaded type named (<global>, NoSuchTrack) for track 0."), lines)
+        self.assertIn((BAKE.SEVERITY_ERROR, "bake: exit 1"), lines)
+
+    def test_missing_executable_is_a_bake_error(self):
+        def raise_os_error(argv):
+            raise FileNotFoundError("dotnet")
+
+        with self.assertRaisesRegex(BAKE.BakeError, "failed to start"):
+            BAKE.run_bake(["missing-cli", "a.json", "a.tlb"], runner=raise_os_error)
