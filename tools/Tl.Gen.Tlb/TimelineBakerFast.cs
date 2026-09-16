@@ -1,0 +1,1867 @@
+using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using Tl;
+
+namespace Tl.Gen.Tlb;
+
+internal interface IPairHelper
+{
+    ulong Key { get; }
+    int ClipSize { get; }
+    int TrackSize { get; }
+    ushort Stride { get; }
+    ISlotWriter CreateWriter();
+    unsafe void CopyPayload(byte* dst, object box);
+}
+
+internal interface ISlotWriter
+{
+    unsafe void Write(byte* dst, byte* track, byte* first, bool hasSecond, byte* second, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan, byte trackIndex);
+}
+
+internal sealed class PairHelper<TTrack, TClip> : IPairHelper
+    where TTrack : unmanaged, IBlend<TClip>
+    where TClip : unmanaged
+{
+    public ulong Key => PairRuntime<TTrack, TClip>.Key;
+    public int ClipSize => Unsafe.SizeOf<TClip>();
+    public int TrackSize => Unsafe.SizeOf<TTrack>();
+    public ushort Stride => (ushort)((Unsafe.SizeOf<Slot<TTrack, TClip>>() + 15) & ~15);
+    public ISlotWriter CreateWriter() => new SlotWriter<TTrack, TClip>();
+    public unsafe void CopyPayload(byte* dst, object box) => *(TClip*)dst = (TClip)box;
+}
+
+internal sealed unsafe class SlotWriter<TTrack, TClip> : ISlotWriter
+    where TTrack : unmanaged, IBlend<TClip>
+    where TClip : unmanaged
+{
+    public void Write(byte* dst, byte* track, byte* first, bool hasSecond, byte* second, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan, byte trackIndex)
+    {
+        var slot = new Slot<TTrack, TClip>
+        {
+            Track = *(TTrack*)track,
+            First = *(TClip*)first,
+            Second = hasSecond ? *(TClip*)second : default,
+            WindowStart = windowStart,
+            WindowEnd = windowEnd,
+            FactorStart = factorStart,
+            FactorSpan = factorSpan,
+            TrackIndex = trackIndex,
+        };
+        MemoryMarshal.Write(new Span<byte>(dst, sizeof(Slot<TTrack, TClip>)), in slot);
+    }
+}
+
+internal interface ITypeHelper
+{
+    int Size { get; }
+    unsafe void CopyTo(byte* dst, object box);
+}
+
+internal sealed class TypeHelper<T> : ITypeHelper
+    where T : unmanaged
+{
+    public int Size => Unsafe.SizeOf<T>();
+    public unsafe void CopyTo(byte* dst, object box) => *(T*)dst = (T)box;
+}
+
+internal sealed class FieldEntry
+{
+    internal string Name = "";
+    internal string TypeName = "";
+    internal FieldKind Kind;
+    internal Delegate? Setter;
+    internal FieldInfo Field = null!;
+    internal Type Declaring = null!;
+    internal int FloatOrdinal = -1;
+}
+
+internal enum FieldKind : byte
+{
+    Bool, Byte, SByte, Short, UShort, Int, UInt, Long, ULong, Float, Double, Unsupported,
+}
+
+internal unsafe delegate void FloatApplier(object box, int* ids, float* vals, int count);
+
+internal sealed class FieldTable
+{
+    internal Dictionary<string, FieldEntry> ByName = new(StringComparer.Ordinal);
+    internal int BucketMask;
+    internal int[] Buckets = [-1];
+    internal ulong[] EntryHashes = [];
+    internal byte[][] EntryNames = [];
+    internal FieldEntry[] Entries = [];
+    internal FloatApplier? FloatApply;
+
+    internal FieldEntry? Lookup(ReadOnlySpan<byte> name)
+    {
+        var h = HashOf(name);
+        var i = (int)(h & (uint)BucketMask);
+        while (true)
+        {
+            var b = Buckets[i];
+            if (b < 0)
+                return null;
+            if (EntryHashes[b] == h && EntryNames[b].AsSpan().SequenceEqual(name))
+                return Entries[b];
+            i = (i + 1) & BucketMask;
+        }
+    }
+
+    internal static ulong HashOf(ReadOnlySpan<byte> bytes)
+    {
+        ulong h = 14695981039346656037;
+        foreach (var b in bytes)
+            h = (h ^ b) * 1099511628211;
+        return h;
+    }
+
+    internal void Freeze()
+    {
+        var list = ByName.Values.OrderBy(e => e.Name, StringComparer.Ordinal).ToList();
+        Entries = list.ToArray();
+        EntryHashes = new ulong[Entries.Length];
+        EntryNames = new byte[Entries.Length][];
+        var cap = 16;
+        while (cap < Entries.Length * 2)
+            cap <<= 1;
+        BucketMask = cap - 1;
+        Buckets = new int[cap];
+        Array.Fill(Buckets, -1);
+        for (var e = 0; e < Entries.Length; e++)
+        {
+            var nameBytes = Encoding.UTF8.GetBytes(Entries[e].Name);
+            EntryNames[e] = nameBytes;
+            EntryHashes[e] = HashOf(nameBytes);
+            var i = (int)(EntryHashes[e] & (uint)BucketMask);
+            while (Buckets[i] >= 0)
+                i = (i + 1) & BucketMask;
+            Buckets[i] = e;
+        }
+        var floatCount = 0;
+        foreach (var e in Entries)
+            if (e.Kind == FieldKind.Float)
+            {
+                e.FloatOrdinal = floatCount++;
+            }
+        FloatApply = floatCount > 0 ? BuildFloatApplier(Entries.Where(e => e.Kind == FieldKind.Float).ToList(), Entries[0].Declaring) : null;
+    }
+
+    private static unsafe FloatApplier BuildFloatApplier(List<FieldEntry> floatEntries, Type declaring)
+    {
+        var entries = floatEntries;
+    {
+        var method = new DynamicMethod(
+            "apply_floats_" + declaring.Name,
+            typeof(void),
+            new[] { typeof(object), typeof(int*), typeof(float*), typeof(int) },
+            declaring.Module,
+            skipVisibility: true);
+        var il = method.GetILGenerator();
+        var i = il.DeclareLocal(typeof(int));
+        var loop = il.DefineLabel();
+        var cond = il.DefineLabel();
+        var next = il.DefineLabel();
+        var cases = new Label[floatEntries.Count];
+        for (var k = 0; k < cases.Length; k++)
+            cases[k] = il.DefineLabel();
+        var def = il.DefineLabel();
+        il.Emit(OpCodes.Ldc_I4_0);
+        il.Emit(OpCodes.Stloc, i);
+        il.Emit(OpCodes.Br, cond);
+        il.MarkLabel(loop);
+        il.Emit(OpCodes.Ldarg_1);
+        il.Emit(OpCodes.Ldloc, i);
+        il.Emit(OpCodes.Conv_I);
+        il.Emit(OpCodes.Ldc_I4_4);
+        il.Emit(OpCodes.Mul);
+        il.Emit(OpCodes.Add);
+        il.Emit(OpCodes.Ldobj, typeof(int));
+        il.Emit(OpCodes.Switch, cases.Append(def).ToArray());
+        for (var k = 0; k < floatEntries.Count; k++)
+        {
+            il.MarkLabel(cases[k]);
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Unbox, declaring);
+            il.Emit(OpCodes.Ldarg_2);
+            il.Emit(OpCodes.Ldloc, i);
+            il.Emit(OpCodes.Conv_I);
+            il.Emit(OpCodes.Ldc_I4_4);
+            il.Emit(OpCodes.Mul);
+            il.Emit(OpCodes.Add);
+            il.Emit(OpCodes.Ldobj, typeof(float));
+            il.Emit(OpCodes.Stfld, floatEntries[k].Field);
+            il.Emit(OpCodes.Br, next);
+        }
+        il.MarkLabel(def);
+        il.MarkLabel(next);
+        il.Emit(OpCodes.Ldloc, i);
+        il.Emit(OpCodes.Ldc_I4_1);
+        il.Emit(OpCodes.Add);
+        il.Emit(OpCodes.Stloc, i);
+        il.MarkLabel(cond);
+        il.Emit(OpCodes.Ldloc, i);
+        il.Emit(OpCodes.Ldarg_3);
+        il.Emit(OpCodes.Blt, loop);
+        il.Emit(OpCodes.Ret);
+        return method.CreateDelegate<FloatApplier>();
+    }
+}
+
+}
+
+internal sealed class FastPairInfo
+{
+    internal Type TrackType = null!;
+    internal Type ClipType = null!;
+    internal ulong Key;
+    internal int ClipSize;
+    internal ushort Stride;
+    internal ISlotWriter Writer = null!;
+    internal IPairHelper Helper = null!;
+    internal FieldTable Fields = null!;
+    internal byte[] Pool = new byte[1 << 16];
+    internal int PoolLength;
+
+    internal void EnsurePool(int size)
+    {
+        if (PoolLength + size <= Pool.Length)
+            return;
+        var cap = Pool.Length;
+        while (cap < PoolLength + size)
+            cap *= 2;
+        Array.Resize(ref Pool, cap);
+    }
+}
+
+internal sealed class FastTrackInfo
+{
+    internal string? Name;
+    internal string Ns = "";
+    internal string TypeName = "";
+    internal string? Asm;
+    internal bool HaveNs, HaveType;
+    internal Type? TrackType;
+    internal bool TrackTypeFailed;
+    internal bool ResolveNeedsRefresh;
+    internal byte[]? TrackBytes;
+    internal bool PopulateDone;
+    internal int DataStart = -1, DataEnd = -1;
+    internal bool DataCaptured;
+    internal List<int> ClipIds = new();
+    internal string? ClipArrayError;
+}
+
+internal sealed class FastClip
+{
+    internal uint Start, End;
+    internal int TrackEntry;
+    internal int ClipIndex;
+    internal int AuthoredIndex;
+    internal string? Name;
+    internal string Ns = "";
+    internal string TypeName = "";
+    internal string? Asm;
+    internal bool NsSet;
+    internal bool TypeSet;
+    internal bool ResolveNeedsRefresh;
+    internal int PairId = -1;
+    internal Type? ClipType;
+    internal bool ClipTypeFailed;
+    internal int PayloadOffset = -1;
+    internal string? PopulateError;
+    internal int DataStart = -1, DataEnd = -1;
+    internal bool DataCaptured;
+    internal bool PopulateDone;
+}
+
+internal sealed class FastDoc
+{
+    internal string? RootName;
+    internal uint Duration;
+    internal bool Loops;
+    internal byte[] Utf8 = null!;
+    internal BakerAssemblyResolver Resolver = null!;
+    internal List<FastTrackInfo> Tracks = new();
+    internal List<FastClip> Clips = new();
+    internal List<FastPairInfo> Pairs = new();
+    internal Dictionary<(string, string, string?), Type> ResolveCache = new();
+    internal Dictionary<(Type, Type), int> PairIds = new();
+}
+
+internal static class TimelineBakerFast
+{
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, FieldTable> FieldTables = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, bool> UnmanagedCache = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Type, Type), bool> BlendCache = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, ITypeHelper> TypeHelpers = new();
+
+    internal static byte[] BakeJson(string json, BakerAssemblyResolver? resolver = null)
+    {
+        resolver ??= new BakerAssemblyResolver();
+        return BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver);
+    }
+
+    internal static byte[] BakeJsonUtf8(byte[] utf8, BakerAssemblyResolver? resolver = null)
+    {
+        resolver ??= new BakerAssemblyResolver();
+        var doc = ParseFast(utf8, resolver);
+        return TimelineBakerFastCore.BakeFast(doc, resolver);
+    }
+
+    internal static FastDoc ParseFast(byte[] utf8, BakerAssemblyResolver resolver)
+    {
+        var walker = new Walker(utf8, resolver);
+        walker.Run();
+        return walker.Finish();
+    }
+
+    internal static FieldTable TableFor(Type structType) => FieldTables.GetOrAdd(structType, BuildFieldTable);
+
+    internal static ITypeHelper HelperFor(Type t) => TypeHelpers.GetOrAdd(t, x =>
+        (ITypeHelper)Activator.CreateInstance(typeof(TypeHelper<>).MakeGenericType(x))!);
+
+    internal static bool IsUnmanagedCached(Type t) => UnmanagedCache.GetOrAdd(t, BakerAssemblyResolver.IsUnmanaged);
+
+    internal static bool IsBlendPairCached(Type trackType, Type clipType) => BlendCache.GetOrAdd((trackType, clipType), IsBlendPair);
+
+    private static bool IsBlendPair((Type Track, Type Clip) key)
+    {
+        foreach (var iface in key.Track.GetInterfaces())
+            if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IBlend<>) && iface.GetGenericArguments()[0] == key.Clip)
+                return true;
+        return false;
+    }
+
+    internal static int EnsurePair(FastDoc doc, Type trackType, Type clipType)
+    {
+        if (doc.PairIds.TryGetValue((trackType, clipType), out var pairId))
+            return pairId;
+        if (!IsUnmanagedCached(trackType) || !IsUnmanagedCached(clipType) || !IsBlendPairCached(trackType, clipType))
+            return -1;
+        var helper = (IPairHelper)Activator.CreateInstance(typeof(PairHelper<,>).MakeGenericType(trackType, clipType))!;
+        var pair = new FastPairInfo
+        {
+            TrackType = trackType,
+            ClipType = clipType,
+            Key = helper.Key,
+            ClipSize = helper.ClipSize,
+            Stride = helper.Stride,
+            Writer = helper.CreateWriter(),
+            Helper = helper,
+            Fields = TableFor(clipType),
+        };
+        pairId = doc.Pairs.Count;
+        doc.Pairs.Add(pair);
+        doc.PairIds[(trackType, clipType)] = pairId;
+        return pairId;
+    }
+
+    internal static FieldTable BuildFieldTable(Type structType)
+    {
+        var table = new FieldTable();
+        var allFields = structType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        foreach (var f in allFields)
+        {
+            var name = f.Name;
+            if (name.StartsWith("<") && name.Contains(">k__BackingField"))
+                name = name.Substring(1, name.IndexOf('>') - 1);
+            var kind = KindOf(f.FieldType);
+            table.ByName[name] = new FieldEntry { Name = name, TypeName = f.FieldType.Name, Kind = kind, Setter = CompileSetter(f, kind), Field = f, Declaring = structType };
+        }
+        table.Freeze();
+        return table;
+    }
+
+    private static FieldKind KindOf(Type t) =>
+        t == typeof(bool) ? FieldKind.Bool
+        : t == typeof(byte) ? FieldKind.Byte
+        : t == typeof(sbyte) ? FieldKind.SByte
+        : t == typeof(short) ? FieldKind.Short
+        : t == typeof(ushort) ? FieldKind.UShort
+        : t == typeof(int) ? FieldKind.Int
+        : t == typeof(uint) ? FieldKind.UInt
+        : t == typeof(long) ? FieldKind.Long
+        : t == typeof(ulong) ? FieldKind.ULong
+        : t == typeof(float) ? FieldKind.Float
+        : t == typeof(double) ? FieldKind.Double
+        : FieldKind.Unsupported;
+
+    private static Delegate? CompileSetter(FieldInfo f, FieldKind kind)
+    {
+        if (kind is FieldKind.Unsupported or FieldKind.Float)
+            return null;
+        var method = new DynamicMethod(
+            "set_" + f.Name,
+            typeof(void),
+            new[] { typeof(object), f.FieldType },
+            f.DeclaringType!.Module,
+            skipVisibility: true);
+        var il = method.GetILGenerator();
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Unbox, f.DeclaringType);
+        il.Emit(OpCodes.Ldarg_1);
+        il.Emit(OpCodes.Stfld, f);
+        il.Emit(OpCodes.Ret);
+        var actionType = Expression.GetActionType(typeof(object), f.FieldType);
+        return method.CreateDelegate(actionType);
+    }
+
+    internal static string KindNameOfValue(JsonTokenType t) => t switch
+    {
+        JsonTokenType.StartObject or JsonTokenType.EndObject => "Object",
+        JsonTokenType.StartArray or JsonTokenType.EndArray => "Array",
+        JsonTokenType.String => "String",
+        JsonTokenType.Number => "Number",
+        JsonTokenType.True => "True",
+        JsonTokenType.False => "False",
+        JsonTokenType.Null => "Null",
+        _ => t.ToString(),
+    };
+
+    internal static string? PopulateSliceUtf8(byte[] utf8, int dataStart, int dataEnd, FieldTable table, object box, Type structType, string contextName)
+    {
+        var slice = utf8.AsSpan(dataStart, dataEnd - dataStart);
+        var sub = new Utf8JsonReader(slice);
+        if (!sub.Read() || sub.TokenType != JsonTokenType.StartObject)
+            return $"wrong-typed value for {contextName}: expected object, got {KindNameOfValue(sub.TokenType)}.";
+        return PopulateObject(ref sub, table, box, structType, contextName, utf8, dataStart, checkDup: false, null);
+    }
+
+    internal static unsafe string? PopulateObject(ref Utf8JsonReader r, FieldTable table, object box, Type structType, string contextName, byte[] utf8, int baseOffset, bool checkDup, List<DupScope>? scopes)
+    {
+        if (checkDup)
+            scopes!.Add(DupScopePool.Rent());
+        try
+        {
+            string? error = null;
+            Span<int> ids = stackalloc int[32];
+            Span<float> vals = stackalloc float[32];
+            var n = 0;
+            while (r.Read())
+            {
+                if (r.TokenType == JsonTokenType.EndObject)
+                    break;
+                if (checkDup)
+                    DupCheck.Do(ref r, scopes!, utf8, baseOffset);
+                var nameSpan = r.ValueSpan;
+                FieldEntry? entry;
+                string? decodedName = null;
+                if (!r.HasValueSequence && !NameBytes.HasEscape(nameSpan))
+                {
+                    entry = table.Lookup(nameSpan);
+                }
+                else
+                {
+                    decodedName = r.GetString()!;
+                    entry = table.ByName.TryGetValue(decodedName, out var e) ? e : null;
+                }
+                r.Read();
+                if (entry == null)
+                {
+                    error ??= $"unknown field name in track/payload: field '{decodedName ?? Encoding.UTF8.GetString(nameSpan)}' not found on type '{structType.Name}' in {contextName}.";
+                    SkipValue(ref r, scopes, utf8, baseOffset);
+                    continue;
+                }
+                if (error == null && entry.Kind == FieldKind.Float && entry.FloatOrdinal >= 0)
+                {
+                    if (r.TokenType == JsonTokenType.Number && r.TryGetSingle(out var v))
+                    {
+                        if (n == ids.Length)
+                        {
+                            FlushFloats(table, box, ids, vals, n);
+                            n = 0;
+                        }
+                        ids[n] = entry.FloatOrdinal;
+                        vals[n] = v;
+                        n++;
+                    }
+                    else
+                    {
+                        error = $"wrong-typed value: field '{entry.Name}' in {contextName} expected float, got {RawOf(ref r, utf8, baseOffset)}.";
+                    }
+                    continue;
+                }
+                var err = SetField(ref r, entry, box, contextName, utf8, baseOffset, scopes);
+                if (err != null)
+                    error ??= err;
+            }
+            if (error == null && n > 0)
+                FlushFloats(table, box, ids, vals, n);
+            return error;
+        }
+        finally
+        {
+            if (checkDup)
+            {
+                var s = scopes![^1];
+                scopes.RemoveAt(scopes.Count - 1);
+                s.Reset();
+                DupScopePool.Return(s);
+            }
+        }
+    }
+
+    private static unsafe void FlushFloats(FieldTable table, object box, Span<int> ids, Span<float> vals, int n)
+    {
+        fixed (int* ip = ids)
+        fixed (float* vp = vals)
+            table.FloatApply!(box, ip, vp, n);
+    }
+
+    private static string RawOf(ref Utf8JsonReader r, byte[] utf8, int baseOffset)
+    {
+        var start = baseOffset + (int)r.TokenStartIndex;
+        if (r.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray)
+            r.TrySkip();
+        var end = baseOffset + (int)r.BytesConsumed;
+        return Encoding.UTF8.GetString(utf8, start, end - start);
+    }
+
+    internal static void SkipValue(ref Utf8JsonReader r, List<DupScope>? scopes, byte[] utf8, int baseOffset)
+    {
+        if (scopes != null)
+            SkipValueWithDupScanning(ref r, scopes, utf8, baseOffset);
+        else if (r.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray)
+            r.TrySkip();
+    }
+
+    internal static void SkipValueWithDupScanning(ref Utf8JsonReader r, List<DupScope> scopes, byte[] utf8, int baseOffset)
+    {
+        switch (r.TokenType)
+        {
+            case JsonTokenType.StartObject:
+                scopes.Add(DupScopePool.Rent());
+                try
+                {
+                    while (r.Read())
+                    {
+                        if (r.TokenType == JsonTokenType.EndObject)
+                            break;
+                        DupCheck.Do(ref r, scopes, utf8, baseOffset);
+                        r.Read();
+                        SkipValueWithDupScanning(ref r, scopes, utf8, baseOffset);
+                    }
+                }
+                finally
+                {
+                    var s = scopes[^1];
+                    scopes.RemoveAt(scopes.Count - 1);
+                    s.Reset();
+                    DupScopePool.Return(s);
+                }
+                break;
+            case JsonTokenType.StartArray:
+                while (r.Read())
+                {
+                    if (r.TokenType == JsonTokenType.EndArray)
+                        break;
+                    SkipValueWithDupScanning(ref r, scopes, utf8, baseOffset);
+                }
+                break;
+        }
+    }
+
+    internal static string? SetField(ref Utf8JsonReader r, FieldEntry entry, object box, string contextName, byte[] utf8, int baseOffset, List<DupScope>? scopes)
+    {
+        var field = entry.Name;
+        var kindToken = r.TokenType;
+        string Fail(string message, ref Utf8JsonReader rr)
+        {
+            SkipValue(ref rr, scopes, utf8, baseOffset);
+            return message;
+        }
+        string Raw(ref Utf8JsonReader rr)
+        {
+            var start = baseOffset + (int)rr.TokenStartIndex;
+            SkipValue(ref rr, scopes, utf8, baseOffset);
+            var end = baseOffset + (int)rr.BytesConsumed;
+            return Encoding.UTF8.GetString(utf8, start, end - start);
+        }
+        switch (entry.Kind)
+        {
+            case FieldKind.Bool:
+                if (kindToken is JsonTokenType.True) { ((Action<object, bool>)entry.Setter!)(box, true); return null; }
+                if (kindToken is JsonTokenType.False) { ((Action<object, bool>)entry.Setter!)(box, false); return null; }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected bool, got {KindNameOfValue(kindToken)}.", ref r);
+            case FieldKind.Byte:
+                if (kindToken == JsonTokenType.Number && r.TryGetByte(out var b)) { ((Action<object, byte>)entry.Setter!)(box, b); return null; }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected byte, got {Raw(ref r)}.", ref r);
+            case FieldKind.SByte:
+                if (kindToken == JsonTokenType.Number && r.TryGetSByte(out var sb)) { ((Action<object, sbyte>)entry.Setter!)(box, sb); return null; }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected sbyte, got {Raw(ref r)}.", ref r);
+            case FieldKind.Short:
+                if (kindToken == JsonTokenType.Number && r.TryGetInt16(out var s)) { ((Action<object, short>)entry.Setter!)(box, s); return null; }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected short, got {Raw(ref r)}.", ref r);
+            case FieldKind.UShort:
+                if (kindToken == JsonTokenType.Number && r.TryGetUInt16(out var us)) { ((Action<object, ushort>)entry.Setter!)(box, us); return null; }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected ushort, got {Raw(ref r)}.", ref r);
+            case FieldKind.Int:
+                if (kindToken == JsonTokenType.Number && r.TryGetInt32(out var i)) { ((Action<object, int>)entry.Setter!)(box, i); return null; }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected int, got {Raw(ref r)}.", ref r);
+            case FieldKind.UInt:
+                if (kindToken == JsonTokenType.Number && r.TryGetUInt32(out var ui)) { ((Action<object, uint>)entry.Setter!)(box, ui); return null; }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected uint, got {Raw(ref r)}.", ref r);
+            case FieldKind.Long:
+                if (kindToken == JsonTokenType.Number && r.TryGetInt64(out var l)) { ((Action<object, long>)entry.Setter!)(box, l); return null; }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected long, got {Raw(ref r)}.", ref r);
+            case FieldKind.ULong:
+                if (kindToken == JsonTokenType.Number && r.TryGetUInt64(out var ul)) { ((Action<object, ulong>)entry.Setter!)(box, ul); return null; }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected ulong, got {Raw(ref r)}.", ref r);
+            case FieldKind.Double:
+                if (kindToken == JsonTokenType.Number && r.TryGetDouble(out var d)) { ((Action<object, double>)entry.Setter!)(box, d); return null; }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected double, got {Raw(ref r)}.", ref r);
+            default:
+                return Fail($"wrong-typed value: field '{field}' in {contextName} has unsupported primitive type '{entry.TypeName}'.", ref r);
+        }
+    }
+}
+
+internal sealed class DupScopePool
+{
+    private static readonly List<DupScope> Pool = new();
+
+    internal static DupScope Rent() { if (Pool.Count == 0) return new DupScope(); var s = Pool[^1]; Pool.RemoveAt(Pool.Count - 1); return s; }
+    internal static void Return(DupScope s) => Pool.Add(s);
+}
+
+internal static class NameBytes
+    {
+        public static bool HasEscape(ReadOnlySpan<byte> span) => span.IndexOf((byte)'\\') >= 0;
+    }
+
+internal sealed class DupCheck
+{
+    internal static void Do(ref Utf8JsonReader r, List<DupScope> scopes, byte[] utf8, int baseOffset)
+    {
+        var scope = scopes[^1];
+        var tok = baseOffset + (int)r.TokenStartIndex;
+        if (!r.HasValueSequence && !NameBytes.HasEscape(r.ValueSpan))
+        {
+            var span = r.ValueSpan;
+            if (scope.Find(span, utf8))
+                throw new BakeDiagnosticException($"duplicate field: '{Encoding.UTF8.GetString(span)}'", LineOf(utf8, tok), ColOf(utf8, tok));
+            scope.Add(span, utf8, tok + 1);
+            if (scope.Decoded is { Count: > 0 })
+            {
+                var s = r.GetString()!;
+                if (!scope.Decoded.Add(s))
+                    throw new BakeDiagnosticException($"duplicate field: '{s}'", LineOf(utf8, tok), ColOf(utf8, tok));
+            }
+        }
+        else
+        {
+            var s = r.GetString()!;
+            scope.Decoded ??= new HashSet<string>(StringComparer.Ordinal);
+            if (!scope.Decoded.Add(s))
+                throw new BakeDiagnosticException($"duplicate field: '{s}'", LineOf(utf8, tok), ColOf(utf8, tok));
+            var maxLen = Encoding.UTF8.GetMaxByteCount(s.Length);
+            var buf = new byte[maxLen];
+            var written = Encoding.UTF8.GetBytes(s, buf);
+            if (scope.Find(buf.AsSpan(0, written), utf8))
+                throw new BakeDiagnosticException($"duplicate field: '{s}'", LineOf(utf8, tok), ColOf(utf8, tok));
+        }
+    }
+
+    internal static int LineOf(byte[] utf8, int index)
+    {
+        var line = 1;
+        var count = Math.Min(index, utf8.Length);
+        for (var i = 0; i < count; i++)
+            if (utf8[i] == (byte)'\n')
+                line++;
+        return line;
+    }
+
+    internal static int ColOf(byte[] utf8, int index)
+    {
+        var col = 1;
+        var count = Math.Min(index, utf8.Length);
+        for (var i = 0; i < count; i++)
+        {
+            if (utf8[i] == (byte)'\n')
+                col = 1;
+            else
+                col++;
+        }
+        return col;
+    }
+}
+
+internal sealed class DupScope
+{
+    private const int InitialCapacity = 16;
+    private int _mask = InitialCapacity - 1;
+    private int[] _slots = NewSlots(InitialCapacity);
+    private ulong[] _hashes = new ulong[InitialCapacity];
+    private int[] _starts = new int[InitialCapacity];
+    private int[] _lens = new int[InitialCapacity];
+    private int _count;
+    internal HashSet<string>? Decoded;
+
+    private static int[] NewSlots(int cap)
+    {
+        var slots = new int[cap];
+        Array.Fill(slots, -1);
+        return slots;
+    }
+
+    internal void Reset()
+    {
+        if (_count > 0)
+            Array.Fill(_slots, -1);
+        _count = 0;
+        Decoded = null;
+    }
+
+    private static ulong Hash(ReadOnlySpan<byte> bytes)
+    {
+        ulong h = 14695981039346656037;
+        foreach (var b in bytes)
+            h = (h ^ b) * 1099511628211;
+        return h;
+    }
+
+    internal bool Find(ReadOnlySpan<byte> name, byte[] buffer)
+    {
+        var h = Hash(name);
+        var i = (int)(h & (ulong)_mask);
+        while (_slots[i] >= 0)
+        {
+            var e = _slots[i];
+            var len = _lens[e];
+            if (_hashes[e] == h && len == name.Length && buffer.AsSpan(_starts[e], len).SequenceEqual(name))
+                return true;
+            i = (i + 1) & _mask;
+        }
+        return false;
+    }
+
+    internal void Add(ReadOnlySpan<byte> name, byte[] buffer, int start)
+    {
+        if ((_count + 1) * 4 >= (_mask + 1) * 3)
+            Grow();
+        var h = Hash(name);
+        var i = (int)(h & (ulong)_mask);
+        while (_slots[i] >= 0)
+            i = (i + 1) & _mask;
+        _slots[i] = _count;
+        _hashes[_count] = h;
+        _starts[_count] = start;
+        _lens[_count] = name.Length;
+        _count++;
+    }
+
+    private void Grow()
+    {
+        var newCap = (_mask + 1) * 2;
+        var newSlots = NewSlots(newCap);
+        var newHashes = new ulong[newCap];
+        var newStarts = new int[newCap];
+        var newLens = new int[newCap];
+        var newMask = newCap - 1;
+        for (var e = 0; e < _count; e++)
+        {
+            var i = (int)(_hashes[e] & (ulong)newMask);
+            while (newSlots[i] >= 0)
+                i = (i + 1) & newMask;
+            newSlots[i] = e;
+            newHashes[e] = _hashes[e];
+            newStarts[e] = _starts[e];
+            newLens[e] = _lens[e];
+        }
+        _mask = newMask;
+        _slots = newSlots;
+        _hashes = newHashes;
+        _starts = newStarts;
+        _lens = newLens;
+    }
+}
+
+
+internal ref struct Walker
+{
+    private Utf8JsonReader _r;
+    private readonly byte[] _utf8;
+    private readonly BakerAssemblyResolver _resolver;
+    private readonly FastDoc _doc;
+    private readonly List<(int Group, int Rank, int Seq, string Message)> _pending = new();
+    private int _seq;
+    private readonly List<DupScope> _scopes = new();
+
+    internal Walker(byte[] utf8, BakerAssemblyResolver resolver)
+    {
+        _utf8 = utf8;
+        _resolver = resolver;
+        _doc = new FastDoc { Utf8 = utf8, Resolver = resolver };
+        _r = new Utf8JsonReader(utf8);
+    }
+
+    internal FastDoc Finish()
+    {
+        if (_pending.Count == 0)
+            return _doc;
+        var best = _pending[0];
+        foreach (var p in _pending)
+            if (p.Group < best.Group || (p.Group == best.Group && (p.Rank < best.Rank || (p.Rank == best.Rank && p.Seq < best.Seq))))
+                best = p;
+        throw new BakeDiagnosticException(best.Message);
+    }
+
+    private void Record(int group, int rank, string message) => _pending.Add((group, rank, _seq++, message));
+
+    private string Raw()
+    {
+        var start = (int)_r.TokenStartIndex;
+        if (_r.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray)
+            SkipValueWithDup();
+        var end = (int)_r.BytesConsumed;
+        return Encoding.UTF8.GetString(_utf8, start, end - start);
+    }
+
+    private void PendingRoot(string message) => Record(0, 0, message);
+    private void PendingRootPost(string message) => Record(1, 0, message);
+    private void PendingTrackProp(int track, string message) => Record(2 + track, 0, message);
+    private void PendingTrackPost(int track, string message) => Record(2 + track, 1, message);
+    private void PendingClip(int track, string message) => Record(2 + track, 2, message);
+
+    internal void Run()
+    {
+        if (!_r.Read())
+            throw new JsonException("The input does not contain any JSON tokens.");
+        if (_r.TokenType != JsonTokenType.StartObject)
+        {
+            PendingRoot("Root of timeline document must be a JSON object.");
+            SkipRest();
+            return;
+        }
+        PushScope();
+        var seenDuration = false;
+        var seenTracks = false;
+        while (_r.Read())
+        {
+            if (_r.TokenType == JsonTokenType.EndObject)
+                break;
+            DupCheck.Do(ref _r, _scopes, _utf8, 0);
+            var name = NameToken();
+            switch (name)
+            {
+                case "name":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.String)
+                        PendingRoot($"wrong-typed value: root 'name' must be a string, got '{Raw()}'.");
+                    else
+                        _doc.RootName = _r.GetString()!;
+                    break;
+                case "duration":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.Number || !_r.TryGetUInt32(out _doc.Duration))
+                        PendingRoot($"wrong-typed value: 'duration' must be an unsigned integer, got '{Raw()}'.");
+                    else
+                        seenDuration = true;
+                    break;
+                case "loop":
+                    _r.Read();
+                    if (_r.TokenType is JsonTokenType.True)
+                        _doc.Loops = true;
+                    else if (_r.TokenType is JsonTokenType.False)
+                        _doc.Loops = false;
+                    else
+                        PendingRoot($"wrong-typed value: 'loop' must be a boolean, got '{Raw()}'.");
+                    break;
+                case "tracks":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.StartArray)
+                    {
+                        PendingRoot($"wrong-typed value: 'tracks' must be an array, got '{Raw()}'.");
+                        break;
+                    }
+                    seenTracks = true;
+                    ParseTracks();
+                    break;
+                default:
+                    PendingRoot(RejectMessage(name, "root"));
+                    _r.Read();
+                    SkipValueWithDup();
+                    break;
+            }
+        }
+        PopScope();
+        if (!seenDuration)
+            PendingRootPost("Missing required property 'duration'.");
+        else if (_doc.Duration > ushort.MaxValue)
+            PendingRootPost($"duration {_doc.Duration} exceeds the 65535-tick lane position column; the typed playback lane cannot bind longer timelines.");
+        if (!seenTracks)
+            PendingRootPost("Missing required property 'tracks'.");
+        SkipRest();
+    }
+
+    private void ParseTracks()
+    {
+        var trackIndex = 0;
+        while (_r.Read())
+        {
+            if (_r.TokenType == JsonTokenType.EndArray)
+                break;
+            if (_r.TokenType != JsonTokenType.StartObject)
+            {
+                PendingTrackProp(trackIndex, $"Track at index {trackIndex} must be an object.");
+                SkipValueWithDup();
+                trackIndex++;
+                continue;
+            }
+            ParseTrack(trackIndex);
+            trackIndex++;
+        }
+    }
+
+    private void ParseTrack(int trackIndex)
+    {
+        var trackId = _doc.Tracks.Count;
+        var info = new FastTrackInfo();
+        PushScope();
+        var hasClips = false;
+        while (_r.Read())
+        {
+            if (_r.TokenType == JsonTokenType.EndObject)
+                break;
+            DupCheck.Do(ref _r, _scopes, _utf8, 0);
+            var name = NameToken();
+            switch (name)
+            {
+                case "name":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.String)
+                        PendingTrackProp(trackIndex, $"wrong-typed value: track {trackIndex} 'name' must be a string, got '{Raw()}'.");
+                    else
+                        info.Name = _r.GetString()!;
+                    break;
+                case "namespace":
+                    info.Ns = ReadBareName("namespace", $"track {trackIndex}", out var nsError);
+                    if (nsError != null)
+                        PendingTrackProp(trackIndex, nsError);
+                    else
+                    {
+                        info.HaveNs = true;
+                        if (info.TrackType != null || info.TrackTypeFailed)
+                            info.ResolveNeedsRefresh = true;
+                    }
+                    break;
+                case "type":
+                    info.TypeName = ReadBareName("type", $"track {trackIndex}", out var typeError);
+                    if (typeError != null)
+                        PendingTrackProp(trackIndex, typeError);
+                    else
+                    {
+                        info.HaveType = true;
+                        if (info.TrackType != null || info.TrackTypeFailed)
+                            info.ResolveNeedsRefresh = true;
+                        else
+                            TryResolveTrackType(info);
+                    }
+                    break;
+                case "assembly":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.String)
+                        PendingTrackProp(trackIndex, $"wrong-typed value: track {trackIndex} 'assembly' must be a string, got '{Raw()}'.");
+                    else
+                    {
+                        info.Asm = _r.GetString()!;
+                        if (info.TrackType != null || info.TrackTypeFailed)
+                            info.ResolveNeedsRefresh = true;
+                    }
+                    break;
+                case "data":
+                    _r.Read();
+                    info.DataStart = (int)_r.TokenStartIndex;
+                    info.DataCaptured = true;
+                    SkipValueWithDup();
+                    info.DataEnd = (int)_r.BytesConsumed;
+                    break;
+                case "clips":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.StartArray)
+                    {
+                        info.ClipArrayError = $"wrong-typed value: 'clips' must be an array, got '{Raw()}'.";
+                        break;
+                    }
+                    hasClips = true;
+                    if (info.HaveType && info.TrackType == null && !info.TrackTypeFailed)
+                        TryResolveTrackType(info);
+                    ParseClips(trackIndex, trackId, info);
+                    if (info.ResolveNeedsRefresh)
+                        RefreshTrackResolve(trackId, info);
+                    break;
+                default:
+                    PendingTrackProp(trackIndex, RejectMessage(name, $"track {trackIndex}"));
+                    _r.Read();
+                    SkipValueWithDup();
+                    break;
+            }
+        }
+        PopScope();
+        if (info.ClipArrayError != null)
+            PendingTrackProp(trackIndex, info.ClipArrayError);
+        if (!info.HaveNs)
+            PendingTrackPost(trackIndex, $"missing required property: track {trackIndex} needs 'namespace'.");
+        if (!info.HaveType)
+            PendingTrackPost(trackIndex, $"missing required property: track {trackIndex} needs 'type'.");
+        if (!hasClips)
+            PendingTrackPost(trackIndex, $"Track at index {trackIndex} missing required 'clips' array.");
+        if (info.HaveType && info.TrackType == null && !info.TrackTypeFailed)
+            TryResolveTrackType(info);
+        if (info.ResolveNeedsRefresh)
+            RefreshTrackResolve(trackId, info);
+        _doc.Tracks.Add(info);
+    }
+
+    private void RefreshTrackResolve(int trackId, FastTrackInfo info)
+    {
+        var previousType = info.TrackType;
+        info.TrackType = null;
+        info.TrackTypeFailed = false;
+        info.ResolveNeedsRefresh = false;
+        TryResolveTrackType(info);
+        if (info.TrackTypeFailed || !ReferenceEquals(info.TrackType, previousType))
+            foreach (var clipId in info.ClipIds)
+            {
+                var clip = _doc.Clips[clipId];
+                clip.ClipType = null;
+                clip.ClipTypeFailed = false;
+                clip.PairId = -1;
+                clip.PayloadOffset = -1;
+                clip.PopulateError = null;
+                clip.PopulateDone = false;
+            }
+    }
+
+    private void TryResolveTrackType(FastTrackInfo info)
+    {
+        var key = (info.Ns, info.TypeName, info.Asm);
+        if (_doc.ResolveCache.TryGetValue(key, out var cached))
+        {
+            info.TrackType = cached;
+            return;
+        }
+        try
+        {
+            var t = _resolver.ResolveType(info.Ns, info.TypeName, info.Asm, "track ?");
+            _doc.ResolveCache[key] = t;
+            info.TrackType = t;
+        }
+        catch (BakeDiagnosticException)
+        {
+            info.TrackTypeFailed = true;
+        }
+    }
+
+    private void ParseClips(int trackIndex, int trackId, FastTrackInfo info)
+    {
+        var clipIndex = 0;
+        while (_r.Read())
+        {
+            if (_r.TokenType == JsonTokenType.EndArray)
+                break;
+            if (_r.TokenType != JsonTokenType.StartObject)
+            {
+                PendingClip(trackIndex, $"Clip {clipIndex} on track {trackIndex} must be an object.");
+                SkipValueWithDup();
+                clipIndex++;
+                continue;
+            }
+            ParseClip(trackIndex, trackId, clipIndex, info);
+            clipIndex++;
+        }
+    }
+
+    private void ParseClip(int trackIndex, int trackId, int clipIndex, FastTrackInfo info)
+    {
+        var clip = new FastClip
+        {
+            TrackEntry = trackId,
+            ClipIndex = clipIndex,
+            AuthoredIndex = _doc.Clips.Count,
+        };
+        var ctx = $"clip {clipIndex} on track {trackIndex}";
+        var haveStart = false;
+        var haveEnd = false;
+        PushScope();
+        while (_r.Read())
+        {
+            if (_r.TokenType == JsonTokenType.EndObject)
+                break;
+            DupCheck.Do(ref _r, _scopes, _utf8, 0);
+            var name = NameToken();
+            switch (name)
+            {
+                case "name":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.String)
+                        PendingClip(trackIndex, $"wrong-typed value: {ctx} 'name' must be a string, got '{Raw()}'.");
+                    else
+                        clip.Name = _r.GetString()!;
+                    break;
+                case "namespace":
+                    clip.Ns = ReadBareName("namespace", ctx, out var nsError);
+                    clip.NsSet = true;
+                    if (nsError != null)
+                        PendingClip(trackIndex, nsError);
+                    else if (clip.ClipType != null || clip.ClipTypeFailed)
+                        clip.ResolveNeedsRefresh = true;
+                    break;
+                case "type":
+                    clip.TypeName = ReadBareName("type", ctx, out var typeError);
+                    clip.TypeSet = true;
+                    if (typeError != null)
+                        PendingClip(trackIndex, typeError);
+                    else if (clip.ClipType != null || clip.ClipTypeFailed)
+                        clip.ResolveNeedsRefresh = true;
+                    else if (info.TrackType != null)
+                        TryResolveClipPair(clip, info.TrackType);
+                    break;
+                case "assembly":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.String)
+                        PendingClip(trackIndex, $"wrong-typed value: {ctx} 'assembly' must be a string, got '{Raw()}'.");
+                    else
+                    {
+                        clip.Asm = _r.GetString()!;
+                        if (clip.ClipType != null || clip.ClipTypeFailed)
+                            clip.ResolveNeedsRefresh = true;
+                    }
+                    break;
+                case "start":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.Number || !_r.TryGetUInt32(out clip.Start))
+                        PendingClip(trackIndex, $"wrong-typed value: 'start' must be an unsigned integer, got '{Raw()}'.");
+                    else
+                        haveStart = true;
+                    break;
+                case "end":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.Number || !_r.TryGetUInt32(out clip.End))
+                        PendingClip(trackIndex, $"wrong-typed value: 'end' must be an unsigned integer, got '{Raw()}'.");
+                    else
+                        haveEnd = true;
+                    break;
+                case "data":
+                    _r.Read();
+                    clip.DataStart = (int)_r.TokenStartIndex;
+                    clip.DataCaptured = true;
+                    if (clip.PairId >= 0)
+                        PopulateInline(clip, ctx);
+                    else
+                        SkipValueWithDup();
+                    clip.DataEnd = (int)_r.BytesConsumed;
+                    break;
+                default:
+                    PendingClip(trackIndex, RejectMessage(name, ctx));
+                    _r.Read();
+                    SkipValueWithDup();
+                    break;
+            }
+        }
+        PopScope();
+        if (!clip.NsSet)
+            PendingClip(trackIndex, $"missing required property: {ctx} needs 'namespace' (type identity is never inherited from the track).");
+        if (!clip.TypeSet)
+            PendingClip(trackIndex, $"missing required property: {ctx} needs 'type' (type identity is never inherited from the track).");
+        if (!haveStart || !haveEnd)
+            PendingClip(trackIndex, $"Clip {clipIndex} on track {trackIndex} missing 'start' or 'end'.");
+        if (clip.TypeSet && clip.TypeName.Length > 0 && clip.PairId < 0 && clip.ClipType == null && !clip.ClipTypeFailed && info.TrackType != null)
+            TryResolveClipPair(clip, info.TrackType);
+        if (clip.ResolveNeedsRefresh)
+            RefreshClipResolve(clip, info.TrackType);
+        if (clip.DataCaptured && clip.PairId >= 0)
+            PopulateDeferred(clip, ctx);
+        info.ClipIds.Add(_doc.Clips.Count);
+        _doc.Clips.Add(clip);
+    }
+
+    private void RefreshClipResolve(FastClip clip, Type? trackType)
+    {
+        clip.ResolveNeedsRefresh = false;
+        if (trackType == null)
+            return;
+        var previousType = clip.ClipType;
+        var previousFailed = clip.ClipTypeFailed;
+        clip.ClipType = null;
+        clip.ClipTypeFailed = false;
+        clip.PairId = -1;
+        clip.PayloadOffset = -1;
+        clip.PopulateError = null;
+        clip.PopulateDone = false;
+        TryResolveClipPair(clip, trackType);
+        if (previousFailed != clip.ClipTypeFailed || !ReferenceEquals(previousType, clip.ClipType))
+        {
+            clip.PairId = -1;
+            clip.PayloadOffset = -1;
+            clip.PopulateError = null;
+            clip.PopulateDone = false;
+            clip.ClipType = null;
+            clip.ClipTypeFailed = false;
+        }
+    }
+
+    private void TryResolveClipPair(FastClip clip, Type trackType)
+    {
+        var key = (clip.Ns, clip.TypeName, clip.Asm);
+        if (!_doc.ResolveCache.TryGetValue(key, out var clipType))
+        {
+            try
+            {
+                clipType = _resolver.ResolveType(clip.Ns, clip.TypeName, clip.Asm, "clip ?");
+                _doc.ResolveCache[key] = clipType;
+            }
+            catch (BakeDiagnosticException)
+            {
+                clip.ClipTypeFailed = true;
+                return;
+            }
+        }
+        clip.ClipType = clipType;
+        if (TimelineBakerFast.IsUnmanagedCached(trackType)
+            && TimelineBakerFast.IsUnmanagedCached(clipType)
+            && TimelineBakerFast.IsBlendPairCached(trackType, clipType))
+            clip.PairId = TimelineBakerFast.EnsurePair(_doc, trackType, clipType);
+    }
+
+    private void PopulateInline(FastClip clip, string ctx)
+    {
+        if (_r.TokenType != JsonTokenType.StartObject)
+        {
+            var kind = TimelineBakerFast.KindNameOfValue(_r.TokenType);
+            clip.PopulateError = $"wrong-typed value for {ctx} ({_doc.Pairs[clip.PairId].ClipType.Name}): expected object, got {kind}.";
+            SkipValueWithDup();
+            return;
+        }
+        PopulateAt(clip, ctx, deferred: false);
+    }
+
+    private void PopulateDeferred(FastClip clip, string ctx) => PopulateAt(clip, ctx, deferred: true);
+
+    private unsafe void PopulateAt(FastClip clip, string ctx, bool deferred)
+    {
+        var pair = _doc.Pairs[clip.PairId];
+        if (!TimelineBakerFast.IsUnmanagedCached(pair.ClipType))
+            return;
+        var contextName = $"{ctx} ({pair.ClipType.Name})";
+        pair.EnsurePool(pair.ClipSize);
+        clip.PayloadOffset = pair.PoolLength;
+        pair.PoolLength += pair.ClipSize;
+        var box = Activator.CreateInstance(pair.ClipType)!;
+        string? err;
+        if (deferred)
+        {
+            err = TimelineBakerFast.PopulateSliceUtf8(_utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName);
+        }
+        else
+        {
+            err = TimelineBakerFast.PopulateObject(ref _r, pair.Fields, box, pair.ClipType, contextName, _utf8, 0, checkDup: true, _scopes);
+        }
+        if (err == null)
+        {
+            fixed (byte* dst = pair.Pool)
+                pair.Helper.CopyPayload(dst + clip.PayloadOffset, box);
+        }
+        clip.PopulateError = err;
+        clip.PopulateDone = true;
+    }
+
+    private string ReadBareName(string field, string context, out string? error)
+    {
+        error = null;
+        _r.Read();
+        if (_r.TokenType != JsonTokenType.String)
+        {
+            error = $"wrong-typed value: {context} '{field}' must be a string, got '{Raw()}'.";
+            return "";
+        }
+        var text = _r.GetString()!;
+        if (text.Contains('.') || text.Contains(',') || text.Contains('+') || text.Contains('='))
+            error = $"dotted name rejected: '{field}' in {context} must be a bare name without '.', ',', '+' or '='; got '{text}'. Empty selects the global namespace.";
+        return text;
+    }
+
+    private static string RejectMessage(string name, string context)
+    {
+        if (name is "trackType" or "clipType" or "track" or "payload")
+            return $"removed property '{name}' in {context}: schema v1 declares 'namespace', 'type' and optional 'assembly' on every track and clip, and 'data' for payloads; type identity is never inherited between levels. See docs/data-authored-api.md.";
+        if (name is "loops" or "looping")
+            return $"renamed property '{name}' in {context}: use 'loop'.";
+        return $"unknown field name in track/payload: unknown {context} property '{name}'.";
+    }
+
+    private void SkipRest()
+    {
+        while (_r.Read())
+        {
+            switch (_r.TokenType)
+            {
+                case JsonTokenType.PropertyName:
+                    DupCheck.Do(ref _r, _scopes, _utf8, 0);
+                    _r.Read();
+                    SkipValueWithDup();
+                    break;
+                case JsonTokenType.StartObject:
+                    PushScope();
+                    break;
+                case JsonTokenType.EndObject:
+                    if (_scopes.Count == 0)
+                        throw new InvalidOperationException("Stack empty.");
+                    PopScope();
+                    break;
+            }
+        }
+    }
+
+    private void SkipValueWithDup() => TimelineBakerFast.SkipValueWithDupScanning(ref _r, _scopes, _utf8, 0);
+
+    private void PushScope() => _scopes.Add(DupScopePool.Rent());
+
+    private void PopScope()
+    {
+        var s = _scopes[^1];
+        _scopes.RemoveAt(_scopes.Count - 1);
+        s.Reset();
+        DupScopePool.Return(s);
+    }
+
+    private string NameToken()
+    {
+        if (_r.HasValueSequence)
+            return _r.GetString()!;
+        var span = _r.ValueSpan;
+        return NameBytes.HasEscape(span) ? _r.GetString()! : Encoding.UTF8.GetString(span);
+    }
+}
+
+
+internal static class TimelineBakerFastCore
+{
+    internal static byte[] BakeFast(FastDoc doc, BakerAssemblyResolver resolver) => new Replayer(doc, resolver).Run();
+
+    internal sealed class Lane
+    {
+        public FastPairInfo Pair = null!;
+        public int TrackEntry;
+        public byte[] TrackBytes = null!;
+        public List<int> ClipIds = new();
+    }
+
+    private sealed class Replayer
+    {
+        private readonly FastDoc _doc;
+        private readonly BakerAssemblyResolver _resolver;
+        private readonly Dictionary<(Type, Type), bool> _unmanagedChecks = new();
+        private readonly Dictionary<(Type, Type), bool> _blendChecks = new();
+
+        public Replayer(FastDoc doc, BakerAssemblyResolver resolver)
+        {
+            _doc = doc;
+            _resolver = resolver;
+        }
+
+        public byte[] Run()
+        {
+            if (_doc.Tracks.Count > 256)
+                throw new BakeDiagnosticException($"asset exceeds 256 authored tracks: {_doc.Tracks.Count} track entries is above the TLB1 TrackIndex capacity.");
+
+            var lanes = new List<Lane>();
+            var labels = new List<(int Track, int Clip, string Name)>();
+            if (_doc.RootName != null)
+                labels.Add((-1, -1, _doc.RootName));
+
+            for (var ti = 0; ti < _doc.Tracks.Count; ti++)
+            {
+                var info = _doc.Tracks[ti];
+                if (info.ClipIds.Count == 0 && _doc.Duration > 0)
+                    throw new BakeDiagnosticException($"empty tracks with duration > 0 (stages must cover duration): track {ti} has 0 clips.");
+
+                var trackType = ResolveTrack(info, ti);
+                PopulateTrack(info, ti, trackType);
+
+                if (info.Name != null)
+                    labels.Add((ti, -1, info.Name));
+
+                foreach (var clipId in info.ClipIds)
+                {
+                    var clip = _doc.Clips[clipId];
+                    if (clip.Start >= clip.End)
+                        throw new BakeDiagnosticException($"start >= end: clip [{clip.Start}, {clip.End}) on track {ti} is empty or reversed.");
+                    if (clip.End > _doc.Duration)
+                        throw new BakeDiagnosticException($"clips outside [0, duration]: clip [{clip.Start}, {clip.End}) on track {ti} exceeds timeline duration {_doc.Duration}.");
+
+                    var clipType = ResolveClip(clip, ti);
+                    CheckUnmanaged(trackType, clipType);
+
+                    if (clip.PopulateError != null)
+                        throw new BakeDiagnosticException(clip.PopulateError);
+                    if (clip.DataCaptured && !clip.PopulateDone)
+                    {
+                        if (clip.PairId < 0)
+                            clip.PairId = TimelineBakerFast.EnsurePair(_doc, trackType, clipType);
+                        if (clip.PairId >= 0)
+                            PopulateDeferredClip(clip, ti);
+                        else
+                            clip.PopulateDone = true;
+                    }
+
+                    if (clip.Name != null)
+                        labels.Add((ti, clip.ClipIndex, clip.Name));
+                }
+
+                var groupOrder = new List<Type>();
+                foreach (var clipId in info.ClipIds)
+                {
+                    var clipType = _doc.Clips[clipId].ClipType!;
+                    if (!groupOrder.Contains(clipType))
+                        groupOrder.Add(clipType);
+                }
+
+                foreach (var clipType in groupOrder)
+                    ValidateBlendType(trackType, clipType, ti);
+
+                foreach (var clipType in groupOrder)
+                {
+                    var pair = _doc.Pairs[_doc.PairIds[(trackType, clipType)]];
+                    var lane = new Lane { Pair = pair, TrackEntry = ti, TrackBytes = info.TrackBytes! };
+                    foreach (var clipId in info.ClipIds)
+                        if (_doc.Clips[clipId].ClipType == clipType)
+                            lane.ClipIds.Add(clipId);
+
+                    var sortedClips = new List<FastClip>(lane.ClipIds.Count);
+                    foreach (var clipId in lane.ClipIds)
+                        sortedClips.Add(_doc.Clips[clipId]);
+                    sortedClips.Sort((a, b) =>
+                    {
+                        var byStart = a.Start.CompareTo(b.Start);
+                        return byStart != 0 ? byStart : a.End.CompareTo(b.End);
+                    });
+                    for (var i = 1; i < sortedClips.Count; i++)
+                        if (sortedClips[i].Start == sortedClips[i - 1].Start)
+                            throw new BakeDiagnosticException($"overlapping clips on one track: track {ti} ({trackType.Name}/{pair.ClipType.Name}) has multiple clips starting at tick {sortedClips[i].Start}.");
+
+                    var events = new List<(uint Tick, int Delta)>(sortedClips.Count * 2);
+                    foreach (var c in sortedClips)
+                    {
+                        events.Add((c.Start, 1));
+                        events.Add((c.End, -1));
+                    }
+                    events.Sort(static (a, b) =>
+                    {
+                        var byTick = a.Tick.CompareTo(b.Tick);
+                        return byTick != 0 ? byTick : a.Delta.CompareTo(b.Delta);
+                    });
+                    var active = 0;
+                    var i0 = 0;
+                    while (i0 < events.Count)
+                    {
+                        var tick = events[i0].Tick;
+                        while (i0 < events.Count && events[i0].Tick == tick)
+                        {
+                            active += events[i0].Delta;
+                            i0++;
+                        }
+                        if (active > 2)
+                            throw new BakeDiagnosticException($"overlapping clips on one track: track {ti} ({trackType.Name}/{pair.ClipType.Name}) has more than two overlapping clips at tick {tick}.");
+                    }
+
+                    lanes.Add(lane);
+                }
+            }
+
+            return Core(lanes, labels);
+        }
+
+        private Type ResolveTrack(FastTrackInfo info, int ti)
+        {
+            if (!info.TrackTypeFailed)
+                return info.TrackType!;
+            _resolver.ResolveType(info.Ns, info.TypeName, info.Asm, $"track {ti}");
+            throw new InvalidOperationException("unreachable: failed resolve must throw");
+        }
+
+        private void PopulateTrack(FastTrackInfo info, int ti, Type trackType)
+        {
+            var contextName = $"track {ti} ({trackType.Name})";
+            var unmanaged = TimelineBakerFast.IsUnmanagedCached(trackType);
+            if (info.PopulateDone)
+                return;
+            if (!info.DataCaptured)
+            {
+                if (unmanaged)
+                {
+                    var helper = TimelineBakerFast.HelperFor(trackType);
+                    info.TrackBytes = new byte[helper.Size];
+                }
+                else
+                {
+                    Activator.CreateInstance(trackType);
+                }
+            }
+            else if (unmanaged)
+            {
+                var helper = TimelineBakerFast.HelperFor(trackType);
+                info.TrackBytes = new byte[helper.Size];
+                var box = Activator.CreateInstance(trackType)!;
+                var err = TimelineBakerFast.PopulateSliceUtf8(_doc.Utf8, info.DataStart, info.DataEnd, TimelineBakerFast.TableFor(trackType), box, trackType, contextName);
+                if (err != null)
+                    throw new BakeDiagnosticException(err);
+                unsafe
+                {
+                    fixed (byte* dst = info.TrackBytes)
+                        helper.CopyTo(dst, box);
+                }
+            }
+            else
+            {
+                try
+                {
+                    using var slice = JsonDocument.Parse(_doc.Utf8.AsMemory(info.DataStart, info.DataEnd - info.DataStart), new JsonDocumentOptions { AllowTrailingCommas = true });
+                    BakerAssemblyResolver.PopulateStruct(trackType, slice.RootElement, contextName);
+                }
+                catch (BakeDiagnosticException ex)
+                {
+                    throw new BakeDiagnosticException(ex.Message);
+                }
+            }
+            info.PopulateDone = true;
+        }
+
+        private Type ResolveClip(FastClip clip, int ti)
+        {
+            if (clip.ClipTypeFailed)
+            {
+                _resolver.ResolveType(clip.Ns, clip.TypeName, clip.Asm, $"clip {clip.ClipIndex} on track {ti}");
+                throw new InvalidOperationException("unreachable: failed resolve must throw");
+            }
+            if (clip.ClipType == null)
+            {
+                var key = (clip.Ns, clip.TypeName, clip.Asm);
+                if (!_doc.ResolveCache.TryGetValue(key, out var resolved))
+                {
+                    resolved = _resolver.ResolveType(clip.Ns, clip.TypeName, clip.Asm, $"clip {clip.ClipIndex} on track {ti}");
+                    _doc.ResolveCache[key] = resolved;
+                }
+                clip.ClipType = resolved;
+            }
+            return clip.ClipType!;
+        }
+
+        private void CheckUnmanaged(Type trackType, Type clipType)
+        {
+            if (_unmanagedChecks.TryGetValue((trackType, clipType), out var ok) && ok)
+                return;
+            BakerAssemblyResolver.ValidateUnmanaged(trackType, clipType);
+            _unmanagedChecks[(trackType, clipType)] = true;
+        }
+
+        private void ValidateBlendType(Type trackType, Type clipType, int ti)
+        {
+            var key = (trackType, clipType);
+            if (_blendChecks.TryGetValue(key, out var ok) && ok)
+                return;
+            ValidateBlendPairing(trackType, clipType, ti);
+            _blendChecks[key] = true;
+        }
+
+        private static void ValidateBlendPairing(Type trackType, Type clipType, int entryIndex)
+        {
+            var instantiations = new List<Type>();
+            foreach (var iface in trackType.GetInterfaces())
+            {
+                if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IBlend<>))
+                    instantiations.Add(iface.GetGenericArguments()[0]);
+            }
+
+            if (instantiations.Count == 0)
+                throw new BakeDiagnosticException($"missing IBlend<>: track type '{trackType.FullName}' on track {entryIndex} must implement Tl.IBlend<TClip>.");
+
+            if (!instantiations.Contains(clipType))
+            {
+                var names = string.Join(", ", instantiations.Select(t => t.FullName).OrderBy(n => n, StringComparer.Ordinal));
+                throw new BakeDiagnosticException($"clip type not blendable by track: track {entryIndex} resolves clip type '{clipType.FullName}' but track type '{trackType.FullName}' implements only these Tl.IBlend<TClip> pairings: {names}.");
+            }
+        }
+
+        private unsafe void PopulateDeferredClip(FastClip clip, int ti)
+        {
+            var pair = _doc.Pairs[clip.PairId];
+            if (!TimelineBakerFast.IsUnmanagedCached(pair.ClipType))
+            {
+                clip.PopulateDone = true;
+                return;
+            }
+            var contextName = $"clip {clip.ClipIndex} on track {ti} ({pair.ClipType.Name})";
+            pair.EnsurePool(pair.ClipSize);
+            clip.PayloadOffset = pair.PoolLength;
+            pair.PoolLength += pair.ClipSize;
+            var box = Activator.CreateInstance(pair.ClipType)!;
+            clip.PopulateError = TimelineBakerFast.PopulateSliceUtf8(_doc.Utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName);
+            if (clip.PopulateError != null)
+                throw new BakeDiagnosticException(clip.PopulateError);
+            fixed (byte* dst = pair.Pool)
+                pair.Helper.CopyPayload(dst + clip.PayloadOffset, box);
+            clip.PopulateDone = true;
+        }
+
+        private byte[] Core(List<Lane> lanes, List<(int Track, int Clip, string Name)> labels)
+        {
+            var duration = _doc.Duration;
+            var cuts = new List<uint>();
+            if (duration != 0)
+            {
+                cuts.Add(0u);
+                cuts.Add(duration);
+                foreach (var lane in lanes)
+                    foreach (var clipId in lane.ClipIds)
+                    {
+                        var clip = _doc.Clips[clipId];
+                        cuts.Add(clip.Start);
+                        cuts.Add(clip.End);
+                    }
+            }
+            cuts.Sort();
+            var boundaries = new List<uint>(cuts.Count);
+            foreach (var c in cuts)
+                if (boundaries.Count == 0 || boundaries[^1] != c)
+                    boundaries.Add(c);
+
+            var pairKeys = new List<ulong>();
+            var pairSeen = new HashSet<ulong>();
+            foreach (var lane in lanes)
+                if (pairSeen.Add(lane.Pair.Key))
+                    pairKeys.Add(lane.Pair.Key);
+            pairKeys.Sort();
+            var pairIndex = new Dictionary<ulong, int>();
+            var pairs = new (ulong Key, uint Stride)[pairKeys.Count];
+            for (var i = 0; i < pairKeys.Count; i++)
+            {
+                pairIndex[pairKeys[i]] = i;
+                foreach (var lane in lanes)
+                    if (lane.Pair.Key == pairKeys[i])
+                    {
+                        pairs[i] = (pairKeys[i], lane.Pair.Stride);
+                        break;
+                    }
+            }
+            var pairTypes = new (Type Track, Type Clip)[pairs.Length];
+            foreach (var lane in lanes)
+            {
+                var index = pairIndex[lane.Pair.Key];
+                pairTypes[index] = (lane.Pair.TrackType, lane.Pair.ClipType);
+            }
+
+            foreach (var lane in lanes)
+                lane.ClipIds.Sort((a, b) =>
+                {
+                    var byStart = _doc.Clips[a].Start.CompareTo(_doc.Clips[b].Start);
+                    return byStart != 0 ? byStart : _doc.Clips[a].AuthoredIndex.CompareTo(_doc.Clips[b].AuthoredIndex);
+                });
+
+            var stageCount = Math.Max(boundaries.Count - 1, 0);
+            var stageEdges = new (uint Start, uint End)[stageCount];
+            var stageActives = new int[stageCount][];
+            var stageCoverings = new (int First, int Second)[stageCount][];
+            var activeLaneIdx = new List<int>(lanes.Count);
+            var activeMin = new List<int>(lanes.Count);
+            var coveringFirst = new List<int>(lanes.Count);
+            var coveringSecond = new List<int>(lanes.Count);
+            for (var region = 0; region < stageCount; region++)
+            {
+                var edge = boundaries[region];
+                activeLaneIdx.Clear();
+                activeMin.Clear();
+                coveringFirst.Clear();
+                coveringSecond.Clear();
+                for (var laneIdx = 0; laneIdx < lanes.Count; laneIdx++)
+                {
+                    var clips = lanes[laneIdx].ClipIds;
+                    int first = -1, second = -1;
+                    var minAuthored = int.MaxValue;
+                    for (var i = 0; i < clips.Count; i++)
+                    {
+                        var clip = _doc.Clips[clips[i]];
+                        if (clip.Start <= edge && edge < clip.End)
+                        {
+                            if (first < 0)
+                                first = clips[i];
+                            else
+                                second = clips[i];
+                            if (clip.AuthoredIndex < minAuthored)
+                                minAuthored = clip.AuthoredIndex;
+                        }
+                    }
+                    if (first >= 0)
+                    {
+                        activeLaneIdx.Add(laneIdx);
+                        activeMin.Add(minAuthored);
+                        coveringFirst.Add(first);
+                        coveringSecond.Add(second);
+                    }
+                }
+                var idxs = new int[activeLaneIdx.Count];
+                for (var i = 0; i < idxs.Length; i++)
+                    idxs[i] = i;
+                Array.Sort(idxs, (a, b) =>
+                {
+                    var byTrack = lanes[activeLaneIdx[a]].TrackEntry.CompareTo(lanes[activeLaneIdx[b]].TrackEntry);
+                    if (byTrack != 0)
+                        return byTrack;
+                    return activeMin[a].CompareTo(activeMin[b]);
+                });
+                var actives = new int[idxs.Length];
+                var coverings = new (int First, int Second)[idxs.Length];
+                for (var i = 0; i < idxs.Length; i++)
+                {
+                    actives[i] = activeLaneIdx[idxs[i]];
+                    coverings[i] = (coveringFirst[idxs[i]], coveringSecond[idxs[i]]);
+                }
+                stageEdges[region] = (boundaries[region], boundaries[region + 1]);
+                stageActives[region] = actives;
+                stageCoverings[region] = coverings;
+            }
+
+            var pairOffset = 48u;
+            var stageOffset = pairOffset + 16u * (uint)pairs.Length;
+            var programBase = stageOffset + 16u * (uint)stageCount;
+            var stepCount = 0;
+            foreach (var actives in stageActives)
+                stepCount += actives.Length;
+            var frameOffset = (programBase + 8u * (uint)stepCount + 15u) & ~15u;
+
+            var totalOccurrences = stepCount;
+            var occurrenceOffsets = new uint[totalOccurrences];
+            var occurrencePairs = new int[totalOccurrences];
+            var occurrenceStage = new int[totalOccurrences];
+            var occurrenceActiveIdx = new int[totalOccurrences];
+            {
+                var oi = 0;
+                var cursor = frameOffset;
+                for (var stage = 0; stage < stageCount; stage++)
+                    for (var i = 0; i < stageActives[stage].Length; i++)
+                    {
+                        var laneIdx = stageActives[stage][i];
+                        var lane = lanes[laneIdx];
+                        occurrenceOffsets[oi] = cursor;
+                        occurrencePairs[oi] = pairIndex[lane.Pair.Key];
+                        occurrenceStage[oi] = stage;
+                        occurrenceActiveIdx[oi] = i;
+                        oi++;
+                        cursor += lane.Pair.Stride;
+                    }
+            }
+
+            var hotLength = frameOffset;
+            for (var oi = 0; oi < totalOccurrences; oi++)
+                hotLength += lanes[stageActives[occurrenceStage[oi]][occurrenceActiveIdx[oi]]].Pair.Stride;
+
+            var tail = TlbMetadataBuilder.Build(pairTypes, labels);
+            var bytes = new byte[hotLength + tail.Length];
+
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), 0x31424C54u);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 1u);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), _doc.Loops ? 1u : 0u);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), duration);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), (uint)_doc.Tracks.Count);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(20), (uint)stageCount);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(24), (uint)pairs.Length);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(28), pairOffset);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(32), stageOffset);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(36), frameOffset);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(40), (uint)hotLength);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(44), (uint)bytes.Length);
+
+            for (var index = 0; index < pairs.Length; index++)
+            {
+                BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan((int)pairOffset + 16 * index), pairs[index].Key);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)pairOffset + 16 * index + 8), pairs[index].Stride);
+            }
+
+            var programOffset = programBase;
+            var occurrenceCursor = 0;
+            for (var stage = 0; stage < stageCount; stage++)
+            {
+                var at = stageOffset + 16u * (uint)stage;
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)at), stageEdges[stage].Start);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)at + 4), stageEdges[stage].End);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)at + 8), programOffset);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)at + 12), (uint)stageActives[stage].Length);
+                for (var i = 0; i < stageActives[stage].Length; i++)
+                {
+                    BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)programOffset), occurrenceOffsets[occurrenceCursor]);
+                    BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)programOffset + 4), (uint)occurrencePairs[occurrenceCursor]);
+                    programOffset += 8u;
+                    occurrenceCursor++;
+                }
+            }
+
+            {
+                var oi = 0;
+                for (var stage = 0; stage < stageCount; stage++)
+                {
+                    var edge = stageEdges[stage].Start;
+                    for (var i = 0; i < stageActives[stage].Length; i++)
+                    {
+                        var laneIdx = stageActives[stage][i];
+                        var lane = lanes[laneIdx];
+                        var covering = stageCoverings[stage][i];
+                        var first = _doc.Clips[covering.First];
+                        var second = covering.Second >= 0 ? _doc.Clips[covering.Second] : null;
+                        var windowStart = first.Start;
+                        var windowEnd = second != null ? Math.Max(first.End, second.End) : first.End;
+                        var factorStart = 0u;
+                        var factorSpan = 0u;
+                        if (second != null)
+                        {
+                            factorStart = Math.Max(first.Start, second.Start);
+                            factorSpan = Math.Min(first.End, second.End) - factorStart;
+                        }
+                        WriteOccurrence(bytes, (int)occurrenceOffsets[oi], lane, first, second, windowStart, windowEnd, factorStart, factorSpan, (byte)lane.TrackEntry);
+                        oi++;
+                    }
+                }
+            }
+
+            tail.CopyTo(bytes, hotLength);
+
+            try
+            {
+                using var asset = TimelineAsset.Load(bytes);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new BakeDiagnosticException($"TLB1 validation failed: {ex.Message}");
+            }
+
+            return bytes;
+        }
+
+        private static unsafe void WriteOccurrence(byte[] bytes, int offset, Lane lane, FastClip first, FastClip? second, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan, byte trackEntry)
+        {
+            fixed (byte* dst = bytes)
+            fixed (byte* track = lane.TrackBytes)
+            fixed (byte* pool = lane.Pair.Pool)
+            {
+                lane.Pair.Writer.Write(
+                    dst + offset,
+                    track,
+                    pool + first.PayloadOffset,
+                    second != null,
+                    second != null ? pool + second.PayloadOffset : pool,
+                    windowStart, windowEnd, factorStart, factorSpan,
+                    trackEntry);
+            }
+        }
+    }
+}
