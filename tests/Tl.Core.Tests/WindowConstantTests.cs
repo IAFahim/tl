@@ -35,6 +35,22 @@ public readonly record struct TickTrack(float Scale) : IBlend<TickClip>
         => result = new TickClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
+public readonly record struct ChainClip(float Amount);
+
+public readonly record struct ChainTrack(float Scale) : IBlend<ChainClip>
+{
+    public void Blend(in ChainClip first, in ChainClip second, float factor, out ChainClip result)
+        => result = new ChainClip(first.Amount + (second.Amount - first.Amount) * factor);
+}
+
+public readonly record struct TChainClip(float Amount);
+
+public readonly record struct TChainTrack(float Scale) : IBlend<TChainClip>
+{
+    public void Blend(in TChainClip first, in TChainClip second, float factor, out TChainClip result)
+        => result = new TChainClip(first.Amount + (second.Amount - first.Amount) * factor);
+}
+
 internal static unsafe class WindowPairs
 {
     [ModuleInitializer]
@@ -46,6 +62,12 @@ internal static unsafe class WindowPairs
         PairRuntime<MirrorTrack, MirrorClip>.Consume(&MirrorOffsetExecute, &BindFloat);
         PairRuntime<LyingTrack, LyingClip>.Consume(&LyingExecute, &BindFloat, TickPurity.WindowConstant);
         PairRuntime<TickTrack, TickClip>.Consume(&TickExecute, &BindFloat);
+        PairRuntime<ChainTrack, ChainClip>.Consume(&ChainScale, &BindFloat, TickPurity.WindowConstant);
+        PairRuntime<ChainTrack, ChainClip>.Consume(&ChainOne, &BindFloat, TickPurity.WindowConstant);
+        PairRuntime<ChainTrack, ChainClip>.Consume(&ChainOneB, &BindFloat, TickPurity.WindowConstant);
+        PairRuntime<TChainTrack, TChainClip>.Consume(&TChainScale, &BindFloat);
+        PairRuntime<TChainTrack, TChainClip>.Consume(&TChainOne, &BindFloat);
+        PairRuntime<TChainTrack, TChainClip>.Consume(&TChainOneB, &BindFloat);
     }
 
     private static void BindFloat(ulong* keys, int keyCount, byte* table)
@@ -91,6 +113,32 @@ internal static unsafe class WindowPairs
         var frame = TickFrame.ToFrame<TickTrack, TickClip>(slot, tick, flags, ref scratch);
         ((float*)columns[0])[row] += frame.TimelineTick * frame.Track.Scale;
     }
+
+    private static void ChainScale(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    {
+        ChainClip scratch = default;
+        var frame = TickFrame.ToFrame<ChainTrack, ChainClip>(slot, tick, flags, ref scratch);
+        ((float*)columns[0])[row] += frame.Clip.Amount * frame.Track.Scale;
+    }
+
+    private static void ChainOne(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+        => ((float*)columns[0])[row] += 1f;
+
+    private static void ChainOneB(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+        => ((float*)columns[0])[row] += 1f;
+
+    private static void TChainScale(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    {
+        TChainClip scratch = default;
+        var frame = TickFrame.ToFrame<TChainTrack, TChainClip>(slot, tick, flags, ref scratch);
+        ((float*)columns[0])[row] += frame.Clip.Amount * frame.Track.Scale;
+    }
+
+    private static void TChainOne(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+        => ((float*)columns[0])[row] += 1f;
+
+    private static void TChainOneB(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+        => ((float*)columns[0])[row] += 1f;
 }
 
 public static unsafe class WindowConstantBitwise
@@ -266,6 +314,37 @@ public class WindowConstantTests
         {
             lying.Dispose();
             honest.Dispose();
+        }
+    }
+
+    [Fact]
+    public void DeclaredChainReplayKeepsDirectionalAccumulationOrder()
+    {
+        var chainBake = new Baker()
+            .Track<ChainTrack, ChainClip>(new ChainTrack(1f))
+            .Clip(0, 0u, 8u, new ChainClip(16777216f))
+            .Looping()
+            .Bake();
+        var mirrorBake = new Baker()
+            .Track<TChainTrack, TChainClip>(new TChainTrack(1f))
+            .Clip(0, 0u, 8u, new TChainClip(16777216f))
+            .Looping()
+            .Bake();
+        var chain = TimelineAsset.Load(chainBake);
+        var mirror = TimelineAsset.Load(mirrorBake);
+        try
+        {
+            using var chainLanes = MeasuredLanes.Measure(chain);
+            using var mirrorLanes = MeasuredLanes.Measure(mirror);
+            Assert.True(WindowConstantBitwise.TablesEqual(mirrorLanes, chainLanes));
+            Assert.NotEqual(
+                WindowConstantBitwise.TableValue(mirrorLanes, true, 4),
+                WindowConstantBitwise.TableValue(mirrorLanes, false, 4));
+        }
+        finally
+        {
+            chain.Dispose();
+            mirror.Dispose();
         }
     }
 

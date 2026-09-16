@@ -123,26 +123,29 @@ public sealed unsafe class MeasuredLanes : IDisposable
         for (var s = 0; s < stageCount; s++) maxProgram = Math.Max(maxProgram, (int)stages[s].ProgramCount);
         var steps = Math.Max(maxProgram, 1);
         var cacheCapacity = steps * CacheStride;
-        var scratchBytes = (long)steps * (sizeof(byte) + sizeof(int)) + (long)cacheCapacity * sizeof(float);
+        var scratchBytes = (long)steps * (sizeof(byte) + sizeof(int)) + (long)cacheCapacity * 2 * sizeof(float);
         byte* scratch = null;
         byte* stepCached;
         int* stepCacheBase;
-        float* cacheValues;
+        float* forwardCache;
+        float* backwardCache;
         if (scratchBytes <= 8192)
         {
             byte* cachedBytes = stackalloc byte[steps];
             int* cachedBases = stackalloc int[steps];
-            float* cachedFloats = stackalloc float[cacheCapacity];
+            float* cachedFloats = stackalloc float[cacheCapacity * 2];
             stepCached = cachedBytes;
             stepCacheBase = cachedBases;
-            cacheValues = cachedFloats;
+            forwardCache = cachedFloats;
+            backwardCache = cachedFloats + cacheCapacity;
         }
         else
         {
             scratch = (byte*)NativeMemory.AlignedAlloc((nuint)scratchBytes, 64);
             stepCached = scratch;
             stepCacheBase = (int*)(scratch + steps);
-            cacheValues = (float*)(scratch + steps * (sizeof(byte) + sizeof(int)));
+            forwardCache = (float*)(scratch + steps * (sizeof(byte) + sizeof(int)));
+            backwardCache = forwardCache + cacheCapacity;
         }
         try
         {
@@ -154,6 +157,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
                 var program = (NativeStep*)(reference._p + stage->ProgramOffset);
                 var count = (int)stage->ProgramCount;
                 var cacheTotal = 0;
+                var cachedSteps = 0;
                 for (var i = 0; i < count; i++)
                 {
                     stepCacheBase[i] = 0;
@@ -163,29 +167,46 @@ public sealed unsafe class MeasuredLanes : IDisposable
                     stepCacheBase[i] = cacheTotal;
                     cacheTotal += PairTable.ChainLength(head);
                     stepCached[i] = 1;
+                    cachedSteps++;
                 }
 
                 if (!reference.Advance(false, (ushort)start, out _, out var forwardTick, out var forwardFlags))
                     throw new InvalidOperationException($"Timeline measurement did not advance from position {start}.");
-                Capture(reference, program, count, stepCached, stepCacheBase, cacheValues, chains, columns, column, forwardTick, forwardFlags, false);
+                Capture(reference, program, count, stepCached, stepCacheBase, forwardCache, chains, columns, column, forwardTick, forwardFlags, false);
                 var representativePosition = start + 1u == duration ? looping ? 0u : duration : start + 1u;
                 if (!reference.Advance(true, (ushort)representativePosition, out _, out var backwardTick, out var backwardFlags))
                     throw new InvalidOperationException($"Timeline measurement did not advance from position {representativePosition}.");
-                Capture(reference, program, count, stepCached, stepCacheBase, cacheValues, chains, columns, column, backwardTick, backwardFlags, true);
+                Capture(reference, program, count, stepCached, stepCacheBase, backwardCache, chains, columns, column, backwardTick, backwardFlags, true);
+
+                if (cachedSteps == count)
+                {
+                    *column = 0f;
+                    reference.ExecuteWindow(false, forwardTick, forwardFlags, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, forwardCache);
+                    var forwardValue = *column;
+                    *column = 0f;
+                    reference.ExecuteWindow(true, backwardTick, backwardFlags, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, backwardCache);
+                    var backwardValue = *column;
+                    for (var tick = start; tick < end; tick++)
+                    {
+                        forward[tick] = forwardValue;
+                        backward[tick] = backwardValue;
+                    }
+                    continue;
+                }
 
                 for (var tick = start; tick < end; tick++)
                 {
                     if (!reference.Advance(false, (ushort)tick, out _, out var tickForward, out var forwardFlag))
                         throw new InvalidOperationException($"Timeline measurement did not advance from position {tick}.");
                     *column = 0f;
-                    reference.ExecuteWindow(false, tickForward, forwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, cacheValues);
+                    reference.ExecuteWindow(false, tickForward, forwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, forwardCache);
                     forward[tick] = *column;
 
                     var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
                     if (!reference.Advance(true, (ushort)backwardPosition, out _, out var tickBackward, out var backwardFlag))
                         throw new InvalidOperationException($"Timeline measurement did not advance from position {backwardPosition}.");
                     *column = 0f;
-                    reference.ExecuteWindow(true, tickBackward, backwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, cacheValues);
+                    reference.ExecuteWindow(true, tickBackward, backwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, backwardCache);
                     backward[tick] = *column;
                 }
             }
