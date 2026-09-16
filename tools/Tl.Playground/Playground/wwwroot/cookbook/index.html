@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tl cookbook</title>
+    <base href="./" />
+    <link rel="stylesheet" href="../css/app.css" />
+    <style>
+        .recipe-card { display: block; margin: 10px 0; padding: 12px 14px; border: 1px solid var(--edge); border-radius: 8px; text-decoration: none; }
+        .recipe-card:hover { border-color: var(--accent); }
+        .recipe-card h2 { margin: 0 0 4px; font-size: 15px; color: var(--accent); }
+        .recipe-card p { margin: 0; color: var(--dim); font-size: 13px; }
+        iframe { width: 100%; height: 560px; border: 0; border-radius: 8px; }
+        pre { background: #0d1117; border: 1px solid var(--edge); border-radius: 6px; padding: 10px; font-size: 12px; overflow-x: auto; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <header>
+            <h1>tl cookbook</h1>
+            <span class="muted">live recipes over the data-authored API — every panel below is the real playground</span>
+            <a href="../index.html">playground</a>
+        </header>
+
+        <div class="panel">
+            <h2>How this works</h2>
+            <p>
+                Each recipe embeds one iframe pointing at the playground with query parameters
+                (<code>crowd, pattern, loop, dir, play, scale, amountA, windowA, amountB, windowB</code>).
+                The app bakes the authoring JSON with the real <code>TimelineBaker.BakeJson</code>, plays it through
+                <code>TimelineSet.Gather(ids).Seek(positions, forward).Apply(effects)</code>, and resizes its host via a
+                <code>setHeight</code> postMessage after every render. Edit the JSON box inside any embed — the bake and the
+                columns update live.
+            </p>
+        </div>
+
+        <a class="recipe-card" href="uniform-crowd.html">
+            <h2>Recipe 1 — a uniform crowd on a looping timeline</h2>
+            <p>One clip, every row at position 0, the whole crowd advancing as a single run.</p>
+        </a>
+        <a class="recipe-card" href="staggered.html">
+            <h2>Recipe 2 — a staggered crowd</h2>
+            <p>Rows spread across every tick of a looping two-clip timeline: forward, backward, and the exact A-B-A undo.</p>
+        </a>
+        <a class="recipe-card" href="waves.html">
+            <h2>Recipe 3 — waves with blended windows</h2>
+            <p>Overlapping clip windows produce a blended factor region; the strip shows it as a third color band.</p>
+        </a>
+        <a class="recipe-card" href="finite-clamp.html">
+            <h2>Recipe 4 — finite timelines clamp</h2>
+            <p>With <code>loop:false</code> rows reaching the end park (skipped) instead of wrapping — the clamp is visible per row.</p>
+        </a>
+
+        <footer>
+            receipts and source: <code>tools/Tl.Playground/</code> in the tl repository.
+        </footer>
+    </div>
+</body>
+
+</html>

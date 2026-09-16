@@ -1,0 +1,430 @@
+@page "/"
+@using System.Globalization
+@using Play
+@using Tl.Gen.Tlb
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="wrap">
+    <header>
+        <h1>tl playground</h1>
+        <span class="muted">real Tl.Runtime playback over a baked timeline · deterministic · correctness only</span>
+        <a href="cookbook/index.html">cookbook</a>
+    </header>
+
+    <div class="panel">
+        <h2>Scenario</h2>
+        <div class="controls">
+            <label>crowd
+                <input type="number" min="@Scenario.MinCrowd" max="@Scenario.MaxCrowd" step="1"
+                       value="@Inv(_scenario.Crowd)" @onchange="@OnCrowdChange" />
+            </label>
+            <label>pattern
+                <select value="@PatternText" @onchange="@OnPatternChange">
+                    <option value="uniform">uniform</option>
+                    <option value="staggered">staggered</option>
+                    <option value="waves">waves</option>
+                </select>
+            </label>
+            <label>loop
+                <input type="checkbox" checked="@_scenario.Loop" @onchange="@OnLoopChange" />
+            </label>
+            <label>direction
+                <select value="@DirectionText" @onchange="@OnDirectionChange">
+                    <option value="fwd">forward</option>
+                    <option value="back">backward</option>
+                </select>
+            </label>
+            <button class="primary step" @onclick="@OnStep">step @DirectionText</button>
+            <button @onclick="@OnPlayPause">@(_playing ? "pause" : "play")</button>
+            <label>preset
+                <select @onchange="@OnPresetChange">
+                    <option value="" selected>load preset...</option>
+                    @foreach (var name in Scenario.PresetNames)
+                    {
+                        <option value="@name">@name</option>
+                    }
+                </select>
+            </label>
+        </div>
+        <div class="controls" style="margin-top:8px">
+            <label>scale <input type="range" min="0" max="4" step="0.25" value="@Inv(_scenario.TrackScale)" @onchange="@OnScaleChange" /> <b>@Inv(_scenario.TrackScale)</b></label>
+            <label>amount A <input type="range" min="-8" max="8" step="0.5" value="@Inv(_scenario.AmountA)" @onchange="@OnAmountAChange" /> <b>@Inv(_scenario.AmountA)</b></label>
+            <label>window A
+                <input type="number" min="0" max="@_scenario.Duration" value="@Inv(_scenario.WindowAStart)" @onchange="@OnWindowAStartChange" style="width:64px" />
+                <input type="number" min="1" max="@_scenario.Duration" value="@Inv(_scenario.WindowAEnd)" @onchange="@OnWindowAEndChange" style="width:64px" />
+            </label>
+            <label>amount B <input type="range" min="-8" max="8" step="0.5" value="@Inv(_scenario.AmountB)" @onchange="@OnAmountBChange" /> <b>@Inv(_scenario.AmountB)</b></label>
+            <label>window B
+                <input type="number" min="0" max="@_scenario.Duration" value="@Inv(_scenario.WindowBStart)" @onchange="@OnWindowBStartChange" style="width:64px" />
+                <input type="number" min="1" max="@_scenario.Duration" value="@Inv(_scenario.WindowBEnd)" @onchange="@OnWindowBEndChange" style="width:64px" />
+            </label>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Live columns</h2>
+        <div class="aggregates">
+            <span class="moved">moved <b>@(_engine?.Last.Moved ?? 0)</b></span>
+            <span class="skipped">skipped <b>@(_engine?.Last.Skipped ?? 0)</b></span>
+            <span class="wrapped">wrapped <b>@(_engine?.Last.Wrapped ?? 0)</b></span>
+            <span class="effect">effect total <b>@Inv(_engine?.Last.EffectTotal ?? 0f)</b></span>
+            <span class="muted">frame @(_frames) · crowd @(_engine?.Crowd ?? 0) · duration @(_engine?.Duration ?? 0) · loop @(_engine?.Loop ?? false)</span>
+        </div>
+        @if (_engine is null)
+        {
+            <div class="diagnostic">no timeline loaded</div>
+        }
+        else
+        {
+            <div class="strip">
+                @for (var row = 0; row < Math.Min(_engine.Crowd, StripCap); row++)
+                {
+                    <div class="cell @CellClass(row)" style="@CellColor(row)" title="@CellTitle(row)"></div>
+                }
+            </div>
+            @if (_engine.Crowd > StripCap)
+            {
+                <div class="note">strip shows the first @StripCap of @(_engine.Crowd) rows; aggregates cover every row</div>
+            }
+            <table class="rows">
+                <thead>
+                    <tr><th>row</th><th>id</th><th>position</th><th>effect</th><th>last frame</th></tr>
+                </thead>
+                <tbody>
+                    @for (var row = 0; row < Math.Min(_engine.Crowd, TableRows); row++)
+                    {
+                        <tr>
+                            <td>@row</td>
+                            <td>0</td>
+                            <td class="pos">@_engine.Positions[row]</td>
+                            <td>@Inv(_engine.Effects[row])</td>
+                            <td class="@FlagClass(row)">@FlagText(row)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <div class="panel">
+        <h2>Authoring JSON (flat schema v1) — live bake</h2>
+        <textarea id="authoring" value="@_authoringJson" @oninput="@OnJsonInput" spellcheck="false"></textarea>
+        <div class="diagnostic @(_bakeOk ? "ok" : "")">@_diagnostic</div>
+    </div>
+
+    <footer>
+        playback runs <code>TimelineSet.Gather(ids).Seek(positions, forward).Apply(effects)</code> from the real
+        <code>Tl.Runtime</code>; the JSON box is baked by the real <code>TimelineBaker.BakeJson</code>.
+        Query parameters (<code>crowd, pattern, loop, dir, play, scale, amountA, windowA, amountB, windowB</code>) initialize
+        this embed and are written back to the URL.
+    </footer>
+</div>
+
+@code {
+    const int StripCap = 512;
+    const int TableRows = 12;
+
+    Scenario _scenario = new();
+    PlayEngine? _engine;
+    ushort[] _before = [];
+    int _frames;
+    bool _playing;
+    bool _bakeOk = true;
+    string _authoringJson = string.Empty;
+    string _diagnostic = "bake ok";
+    Timer? _playTimer;
+    Timer? _bakeTimer;
+    string? _pendingJson;
+
+    string PatternText => _scenario.Pattern switch
+    {
+        ScenarioPattern.Uniform => "uniform",
+        ScenarioPattern.Waves => "waves",
+        _ => "staggered",
+    };
+
+    string DirectionText => _scenario.Direction == ScenarioDirection.Backward ? "back" : "fwd";
+
+    static string Inv(float value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+    static string Inv(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    protected override void OnInitialized()
+    {
+        var query = new Dictionary<string, string>();
+        var uri = new Uri(Nav.Uri);
+        foreach (var pair in QueryHelpers(uri.Query.TrimStart('?')))
+            query[pair.Key] = pair.Value;
+        if (query.Count > 0)
+            _scenario.ApplyQuery(query);
+        _authoringJson = _scenario.AuthoringJson();
+        BakeNow();
+        SeedPositions();
+        if (_scenario.Autoplay)
+            StartPlay();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await JS.InvokeVoidAsync("play.syncQuery", Scenario.QueryString(_scenario.ToQuery()));
+        await JS.InvokeVoidAsync("play.measureHeight");
+    }
+
+    static IEnumerable<KeyValuePair<string, string>> QueryHelpers(string query)
+    {
+        foreach (var part in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var equals = part.IndexOf('=');
+            if (equals <= 0) continue;
+            yield return KeyValuePair.Create(
+                Uri.UnescapeDataString(part[..equals]),
+                Uri.UnescapeDataString(part[(equals + 1)..]));
+        }
+    }
+
+    void BakeNow()
+    {
+        try
+        {
+            var baked = PlayBake.Bake(_authoringJson);
+            using var document = System.Text.Json.JsonDocument.Parse(_authoringJson);
+            _scenario.SyncFromTimeline(document);
+            _scenario.ClampWindows();
+            if (_engine is null || _engine.Crowd != _scenario.Crowd)
+            {
+                _engine?.Dispose();
+                _engine = new PlayEngine(_scenario.Crowd);
+                _before = new ushort[_scenario.Crowd];
+            }
+            _engine.Load(baked);
+            _diagnostic = $"bake ok · {baked.Bytes.Length} bytes · duration {baked.Duration} · loop {baked.Loop}";
+            _bakeOk = true;
+        }
+        catch (Exception ex) when (ex is BakeDiagnosticException or ArgumentException or InvalidOperationException)
+        {
+            _diagnostic = ex.Message;
+            _bakeOk = false;
+        }
+    }
+
+    void SeedPositions()
+    {
+        _engine?.SeedPositions(_scenario.Pattern);
+        _frames = 0;
+        Array.Clear(_before);
+        _engine?.ResetChecksum();
+    }
+
+    void StepFrame()
+    {
+        if (_engine is null) return;
+        _engine.Positions.CopyTo(_before);
+        _engine.Step(_scenario.Direction == ScenarioDirection.Forward);
+        _frames++;
+    }
+
+    async Task AfterChange()
+    {
+        StateHasChanged();
+        await JS.InvokeVoidAsync("play.syncQuery", Scenario.QueryString(_scenario.ToQuery()));
+    }
+
+    void StartPlay()
+    {
+        StopPlay();
+        _playing = true;
+        _playTimer = new Timer(_ => _ = InvokeAsync(async () =>
+        {
+            StepFrame();
+            await AfterChange();
+        }), null, 0, 100);
+    }
+
+    void StopPlay()
+    {
+        _playing = false;
+        _playTimer?.Dispose();
+        _playTimer = null;
+    }
+
+    void OnStep()
+    {
+        StopPlay();
+        StepFrame();
+        _ = AfterChange();
+    }
+
+    void OnPlayPause()
+    {
+        if (_playing) StopPlay();
+        else StartPlay();
+    }
+
+    void OnCrowdChange(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var crowd))
+        {
+            _scenario.Crowd = Math.Clamp(crowd, Scenario.MinCrowd, Scenario.MaxCrowd);
+            _engine?.Dispose();
+            _engine = new PlayEngine(_scenario.Crowd);
+            _before = new ushort[_scenario.Crowd];
+            BakeNow();
+            SeedPositions();
+        }
+        _ = AfterChange();
+    }
+
+    void OnPatternChange(ChangeEventArgs args)
+    {
+        _scenario.Pattern = args.Value?.ToString() switch
+        {
+            "uniform" => ScenarioPattern.Uniform,
+            "waves" => ScenarioPattern.Waves,
+            _ => ScenarioPattern.Staggered,
+        };
+        SeedPositions();
+        _ = AfterChange();
+    }
+
+    void OnLoopChange(ChangeEventArgs args)
+    {
+        _scenario.Loop = args.Value is true;
+        _authoringJson = _scenario.AuthoringJson();
+        BakeNow();
+        _ = AfterChange();
+    }
+
+    void OnDirectionChange(ChangeEventArgs args)
+    {
+        _scenario.Direction = args.Value?.ToString() == "back" ? ScenarioDirection.Backward : ScenarioDirection.Forward;
+        _ = AfterChange();
+    }
+
+    void OnScaleChange(ChangeEventArgs args) => SetPanelJson(() =>
+    {
+        if (float.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var scale))
+            _scenario.TrackScale = scale;
+    });
+
+    void OnAmountAChange(ChangeEventArgs args) => SetPanelJson(() =>
+    {
+        if (float.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var amount))
+            _scenario.AmountA = amount;
+    });
+
+    void OnAmountBChange(ChangeEventArgs args) => SetPanelJson(() =>
+    {
+        if (float.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var amount))
+            _scenario.AmountB = amount;
+    });
+
+    void OnWindowAStartChange(ChangeEventArgs args) => SetPanelJson(() =>
+    {
+        if (int.TryParse(args.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start))
+            _scenario.WindowAStart = start;
+    });
+
+    void OnWindowAEndChange(ChangeEventArgs args) => SetPanelJson(() =>
+    {
+        if (int.TryParse(args.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var end))
+            _scenario.WindowAEnd = end;
+    });
+
+    void OnWindowBStartChange(ChangeEventArgs args) => SetPanelJson(() =>
+    {
+        if (int.TryParse(args.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start))
+            _scenario.WindowBStart = start;
+    });
+
+    void OnWindowBEndChange(ChangeEventArgs args) => SetPanelJson(() =>
+    {
+        if (int.TryParse(args.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var end))
+            _scenario.WindowBEnd = end;
+    });
+
+    void SetPanelJson(Action apply)
+    {
+        apply();
+        _scenario.ClampWindows();
+        _authoringJson = _scenario.AuthoringJson();
+        BakeNow();
+        _ = AfterChange();
+    }
+
+    void OnJsonInput(ChangeEventArgs args)
+    {
+        _pendingJson = args.Value?.ToString();
+        _bakeTimer?.Dispose();
+        _bakeTimer = new Timer(_ => _ = InvokeAsync(async () =>
+        {
+            if (_pendingJson is null) return;
+            _authoringJson = _pendingJson;
+            _pendingJson = null;
+            BakeNow();
+            await AfterChange();
+        }), null, 300, Timeout.Infinite);
+    }
+
+    async Task OnPresetChange(ChangeEventArgs args)
+    {
+        var name = args.Value?.ToString();
+        if (string.IsNullOrEmpty(name)) return;
+        _scenario = Presets.Load(name);
+        _authoringJson = _scenario.AuthoringJson();
+        _engine?.Dispose();
+        _engine = new PlayEngine(_scenario.Crowd);
+        _before = new ushort[_scenario.Crowd];
+        BakeNow();
+        SeedPositions();
+        if (_scenario.Autoplay) StartPlay(); else StopPlay();
+        await AfterChange();
+    }
+
+    string CellClass(int row)
+    {
+        var before = row < _before.Length ? _before[row] : (ushort)0;
+        var after = _engine!.Positions[row];
+        var classes = "";
+        if (_frames > 0 && before == after) classes += "skipped";
+        if (_engine.Loop && before == _engine.Duration - 1 && after == 0) classes += " wrapped";
+        return classes.Trim();
+    }
+
+    string CellColor(int row)
+    {
+        var duration = Math.Max(1, _engine!.Duration);
+        var hue = (int)((double)_engine.Positions[row] * 360 / duration);
+        var effect = Math.Abs(_engine.Effects[row]);
+        var light = Math.Clamp(38 + (int)(effect * 12), 38, 78);
+        return $"background:hsl({hue},62%,{light}%)";
+    }
+
+    string CellTitle(int row) => $"row {row}: position {_engine!.Positions[row]}, effect {Inv(_engine.Effects[row])}";
+
+    string FlagClass(int row)
+    {
+        if (row >= _before.Length) return "";
+        if (_engine!.Positions[row] == _before[row] && _frames > 0) return "flag-skip";
+        return "flag-move";
+    }
+
+    string FlagText(int row)
+    {
+        if (row >= _before.Length || _frames == 0) return "-";
+        var before = _before[row];
+        var after = _engine!.Positions[row];
+        if (before == after) return "skipped";
+        if (_engine.Loop && before == _engine.Duration - 1 && after == 0) return "wrapped";
+        if (_engine.Loop && before == 0 && after == _engine.Duration - 1) return "wrapped";
+        return "moved";
+    }
+
+    public void Dispose()
+    {
+        StopPlay();
+        _bakeTimer?.Dispose();
+        _engine?.Dispose();
+    }
+}
