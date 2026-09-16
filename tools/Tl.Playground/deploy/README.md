@@ -18,3 +18,8 @@ node /tmp/pg116-publish/blazor-node.mjs
 
 GitHub Pages does not serve the SDK's `.br` twins; the payload accounting in the issue
 reports both the raw payload and the Brotli transfer estimate (the budget shape from #107).
+
+The deployed site can be verified end to end: mirror every file of the live tree over HTTP,
+place this boot host beside `_framework` with the import rewritten from
+`./wwwroot/_framework/dotnet.js` to `./_framework/dotnet.js`, run it, and assert the same
+`SMOKE PASS` checksum (`receipts/smoke-run-deployed-pages.log`).
