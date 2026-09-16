@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tl cookbook — waves with blended windows</title>
+    <base href="./" />
+    <link rel="stylesheet" href="../css/app.css" />
+    <style>
+        iframe { width: 100%; height: 560px; border: 0; border-radius: 8px; }
+        pre { background: #0d1117; border: 1px solid var(--edge); border-radius: 6px; padding: 10px; font-size: 12px; overflow-x: auto; white-space: pre; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <header>
+            <h1>Recipe 3 — waves of rows through blended clip windows</h1>
+            <a href="index.html">all recipes</a>
+        </header>
+
+        <div class="panel">
+            <h2>Intent</h2>
+            <p>
+                256 rows split into eight waves, and two clips whose windows overlap over ticks 24..39. Where both clips
+                cover a tick, the baked slot stores both payloads and the runtime asks the track's <code>Blend</code> for the
+                interpolated clip — the effect per tick is neither +1 nor -2 but the blend of the two. In the strip the blend
+                region shows up as the band where colors move smoothly instead of stepping; per-row effects drift while
+                inside it. This is the deterministic cross-fade semantics of <code>Tl.IBlend&lt;TClip&gt;</code>, authored
+                entirely as data.
+            </p>
+        </div>
+
+        <div class="panel">
+            <h2>Live embed</h2>
+            <iframe src="../?crowd=256&amp;pattern=waves&amp;loop=true&amp;dir=fwd&amp;play=true&amp;scale=1&amp;amountA=1&amp;windowA=0:40&amp;amountB=-2&amp;windowB=24:64" title="tl playground — waves"></iframe>
+        </div>
+
+        <div class="panel">
+            <h2>The authoring JSON (preset file)</h2>
+            <pre id="preset">loading ../presets/waves.json ...</pre>
+        </div>
+
+        <div class="panel">
+            <h2>Copyable embed</h2>
+            <pre>&lt;iframe src="https://iafahim.github.io/tl/?crowd=256&amp;amp;pattern=waves&amp;amp;loop=true&amp;amp;dir=fwd&amp;amp;play=true&amp;amp;windowA=0:40&amp;amp;windowB=24:64"
+        style="width:100%;height:560px;border:0" title="tl playground"&gt;&lt;/iframe&gt;</pre>
+        </div>
+    </div>
+    <script>
+        fetch('../presets/waves.json').then(r => r.text()).then(t => { document.getElementById('preset').textContent = t; });
+    </script>
+</body>
+
+</html>
