@@ -202,7 +202,12 @@ internal static class WatchMode
         throw new WatchUsageException($"Error: Watched input '{input}' does not exist.");
     }
 
-    public static int Run(string[] args, TextWriter events, Func<DateTimeOffset>? clock = null, Action<int>? sleep = null)
+    public static int Run(
+        string[] args,
+        TextWriter events,
+        Func<DateTimeOffset>? clock = null,
+        Action<int>? sleep = null,
+        Func<bool>? cancelled = null)
     {
         string? input = null;
         string? output = null;
@@ -274,16 +279,16 @@ internal static class WatchMode
         using var watchers = new WatcherSet(files, engine);
         engine.InitialBake();
 
-        var cancelled = false;
+        var cancelledByKey = false;
         Console.CancelKeyPress += (_, eventArgs) =>
         {
             eventArgs.Cancel = true;
-            cancelled = true;
+            cancelledByKey = true;
         };
 
         var pause = Math.Clamp(debounce / 4, 10, 50);
         var sleepAction = sleep ?? Thread.Sleep;
-        while (!cancelled)
+        while (!cancelledByKey && (cancelled is null || !cancelled()))
         {
             engine.Pump(clock is null ? DateTimeOffset.UtcNow : clock());
             sleepAction(pause);
