@@ -12,6 +12,12 @@ public static class Program
     {
         try
         {
+            if (args.Length >= 1 && args[0] == "--json")
+                return Json(args);
+
+            if (args.Length >= 1 && args[0] == "--watch")
+                return WatchMode.Run(args, Console.Out);
+
             if (args.Length >= 1 && args[0] == "--strip")
                 return Strip(args);
 
@@ -32,6 +38,38 @@ public static class Program
         }
     }
 
+    private static int Json(string[] args)
+    {
+        var assemblyPaths = new List<string>();
+        for (var i = 1; i < args.Length; i++)
+        {
+            if (args[i] == "--assembly" || args[i] == "-a")
+            {
+                if (i + 1 >= args.Length)
+                {
+                    Console.Error.WriteLine("Error: Missing argument for --assembly");
+                    return 1;
+                }
+                assemblyPaths.Add(args[++i]);
+            }
+            else
+            {
+                Console.Error.WriteLine($"Error: Unexpected argument '{args[i]}'");
+                return 1;
+            }
+        }
+
+        if (assemblyPaths.Count == 0)
+        {
+            Console.Error.WriteLine("Error: --json requires at least one --assembly path");
+            return 1;
+        }
+
+        var resolver = new BakerAssemblyResolver(assemblyPaths);
+        Console.Write(TlbIntrospection.Introspect(resolver.ReferencedAssemblies));
+        return 0;
+    }
+
     private static int Bake(string[] args)
     {
         if (args.Length < 2)
@@ -39,6 +77,8 @@ public static class Program
             Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]");
             Console.Error.WriteLine("       tlbake --strip <input.tlb> <output.tlb>");
             Console.Error.WriteLine("       tlbake --report <input.tlb>");
+            Console.Error.WriteLine("       tlbake --json --assembly <path>...");
+            Console.Error.WriteLine("       tlbake --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]");
             return 1;
         }
 

@@ -10,6 +10,7 @@ namespace Tl.Gen.Tlb;
 public sealed class BakerAssemblyResolver
 {
     private readonly List<Assembly> _assemblies = [];
+    private readonly List<Assembly> _referenced = [];
 
     public BakerAssemblyResolver(IEnumerable<string>? assemblyPaths = null)
     {
@@ -25,6 +26,8 @@ public sealed class BakerAssemblyResolver
                     var asm = Assembly.LoadFrom(fullPath);
                     if (!_assemblies.Contains(asm))
                         _assemblies.Add(asm);
+                    if (!_referenced.Contains(asm))
+                        _referenced.Add(asm);
                 }
                 else
                 {
@@ -33,6 +36,8 @@ public sealed class BakerAssemblyResolver
             }
         }
     }
+
+    internal IReadOnlyList<Assembly> ReferencedAssemblies => _referenced;
 
     public void AddAssembly(Assembly assembly)
     {

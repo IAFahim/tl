@@ -1,0 +1,1297 @@
+{
+  "schemaVersion": 1,
+  "assemblies": [
+    "Tl.Bake.Tests"
+  ],
+  "pairs": [
+    {
+      "track": {
+        "namespace": "",
+        "name": "GaGlobalTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "",
+        "name": "GaGlobalClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Amount",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "GaGlobalClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "FusedBake",
+        "name": "GaClassTrack",
+        "assembly": "Tl.Bake.Tests",
+        "fields": []
+      },
+      "clip": {
+        "namespace": "FusedBake",
+        "name": "GaClip0",
+        "assembly": "Tl.Bake.Tests",
+        "size": 256,
+        "fields": [
+          {
+            "name": "f0",
+            "type": "float"
+          },
+          {
+            "name": "f1",
+            "type": "float"
+          },
+          {
+            "name": "f10",
+            "type": "float"
+          },
+          {
+            "name": "f11",
+            "type": "float"
+          },
+          {
+            "name": "f12",
+            "type": "float"
+          },
+          {
+            "name": "f13",
+            "type": "float"
+          },
+          {
+            "name": "f14",
+            "type": "float"
+          },
+          {
+            "name": "f15",
+            "type": "float"
+          },
+          {
+            "name": "f16",
+            "type": "float"
+          },
+          {
+            "name": "f17",
+            "type": "float"
+          },
+          {
+            "name": "f18",
+            "type": "float"
+          },
+          {
+            "name": "f19",
+            "type": "float"
+          },
+          {
+            "name": "f2",
+            "type": "float"
+          },
+          {
+            "name": "f20",
+            "type": "float"
+          },
+          {
+            "name": "f21",
+            "type": "float"
+          },
+          {
+            "name": "f22",
+            "type": "float"
+          },
+          {
+            "name": "f23",
+            "type": "float"
+          },
+          {
+            "name": "f24",
+            "type": "float"
+          },
+          {
+            "name": "f25",
+            "type": "float"
+          },
+          {
+            "name": "f26",
+            "type": "float"
+          },
+          {
+            "name": "f27",
+            "type": "float"
+          },
+          {
+            "name": "f28",
+            "type": "float"
+          },
+          {
+            "name": "f29",
+            "type": "float"
+          },
+          {
+            "name": "f3",
+            "type": "float"
+          },
+          {
+            "name": "f30",
+            "type": "float"
+          },
+          {
+            "name": "f31",
+            "type": "float"
+          },
+          {
+            "name": "f32",
+            "type": "float"
+          },
+          {
+            "name": "f33",
+            "type": "float"
+          },
+          {
+            "name": "f34",
+            "type": "float"
+          },
+          {
+            "name": "f35",
+            "type": "float"
+          },
+          {
+            "name": "f36",
+            "type": "float"
+          },
+          {
+            "name": "f37",
+            "type": "float"
+          },
+          {
+            "name": "f38",
+            "type": "float"
+          },
+          {
+            "name": "f39",
+            "type": "float"
+          },
+          {
+            "name": "f4",
+            "type": "float"
+          },
+          {
+            "name": "f40",
+            "type": "float"
+          },
+          {
+            "name": "f41",
+            "type": "float"
+          },
+          {
+            "name": "f42",
+            "type": "float"
+          },
+          {
+            "name": "f43",
+            "type": "float"
+          },
+          {
+            "name": "f44",
+            "type": "float"
+          },
+          {
+            "name": "f45",
+            "type": "float"
+          },
+          {
+            "name": "f46",
+            "type": "float"
+          },
+          {
+            "name": "f47",
+            "type": "float"
+          },
+          {
+            "name": "f48",
+            "type": "float"
+          },
+          {
+            "name": "f49",
+            "type": "float"
+          },
+          {
+            "name": "f5",
+            "type": "float"
+          },
+          {
+            "name": "f50",
+            "type": "float"
+          },
+          {
+            "name": "f51",
+            "type": "float"
+          },
+          {
+            "name": "f52",
+            "type": "float"
+          },
+          {
+            "name": "f53",
+            "type": "float"
+          },
+          {
+            "name": "f54",
+            "type": "float"
+          },
+          {
+            "name": "f55",
+            "type": "float"
+          },
+          {
+            "name": "f56",
+            "type": "float"
+          },
+          {
+            "name": "f57",
+            "type": "float"
+          },
+          {
+            "name": "f58",
+            "type": "float"
+          },
+          {
+            "name": "f59",
+            "type": "float"
+          },
+          {
+            "name": "f6",
+            "type": "float"
+          },
+          {
+            "name": "f60",
+            "type": "float"
+          },
+          {
+            "name": "f61",
+            "type": "float"
+          },
+          {
+            "name": "f62",
+            "type": "float"
+          },
+          {
+            "name": "f63",
+            "type": "float"
+          },
+          {
+            "name": "f7",
+            "type": "float"
+          },
+          {
+            "name": "f8",
+            "type": "float"
+          },
+          {
+            "name": "f9",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": false,
+      "trackPairings": [
+        "FusedBake.GaClip0"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "FusedBake",
+        "name": "GaFatTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "FusedBake",
+        "name": "GaFatClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 256,
+        "fields": [
+          {
+            "name": "f0",
+            "type": "float"
+          },
+          {
+            "name": "f1",
+            "type": "float"
+          },
+          {
+            "name": "f10",
+            "type": "float"
+          },
+          {
+            "name": "f11",
+            "type": "float"
+          },
+          {
+            "name": "f12",
+            "type": "float"
+          },
+          {
+            "name": "f13",
+            "type": "float"
+          },
+          {
+            "name": "f14",
+            "type": "float"
+          },
+          {
+            "name": "f15",
+            "type": "float"
+          },
+          {
+            "name": "f16",
+            "type": "float"
+          },
+          {
+            "name": "f17",
+            "type": "float"
+          },
+          {
+            "name": "f18",
+            "type": "float"
+          },
+          {
+            "name": "f19",
+            "type": "float"
+          },
+          {
+            "name": "f2",
+            "type": "float"
+          },
+          {
+            "name": "f20",
+            "type": "float"
+          },
+          {
+            "name": "f21",
+            "type": "float"
+          },
+          {
+            "name": "f22",
+            "type": "float"
+          },
+          {
+            "name": "f23",
+            "type": "float"
+          },
+          {
+            "name": "f24",
+            "type": "float"
+          },
+          {
+            "name": "f25",
+            "type": "float"
+          },
+          {
+            "name": "f26",
+            "type": "float"
+          },
+          {
+            "name": "f27",
+            "type": "float"
+          },
+          {
+            "name": "f28",
+            "type": "float"
+          },
+          {
+            "name": "f29",
+            "type": "float"
+          },
+          {
+            "name": "f3",
+            "type": "float"
+          },
+          {
+            "name": "f30",
+            "type": "float"
+          },
+          {
+            "name": "f31",
+            "type": "float"
+          },
+          {
+            "name": "f32",
+            "type": "float"
+          },
+          {
+            "name": "f33",
+            "type": "float"
+          },
+          {
+            "name": "f34",
+            "type": "float"
+          },
+          {
+            "name": "f35",
+            "type": "float"
+          },
+          {
+            "name": "f36",
+            "type": "float"
+          },
+          {
+            "name": "f37",
+            "type": "float"
+          },
+          {
+            "name": "f38",
+            "type": "float"
+          },
+          {
+            "name": "f39",
+            "type": "float"
+          },
+          {
+            "name": "f4",
+            "type": "float"
+          },
+          {
+            "name": "f40",
+            "type": "float"
+          },
+          {
+            "name": "f41",
+            "type": "float"
+          },
+          {
+            "name": "f42",
+            "type": "float"
+          },
+          {
+            "name": "f43",
+            "type": "float"
+          },
+          {
+            "name": "f44",
+            "type": "float"
+          },
+          {
+            "name": "f45",
+            "type": "float"
+          },
+          {
+            "name": "f46",
+            "type": "float"
+          },
+          {
+            "name": "f47",
+            "type": "float"
+          },
+          {
+            "name": "f48",
+            "type": "float"
+          },
+          {
+            "name": "f49",
+            "type": "float"
+          },
+          {
+            "name": "f5",
+            "type": "float"
+          },
+          {
+            "name": "f50",
+            "type": "float"
+          },
+          {
+            "name": "f51",
+            "type": "float"
+          },
+          {
+            "name": "f52",
+            "type": "float"
+          },
+          {
+            "name": "f53",
+            "type": "float"
+          },
+          {
+            "name": "f54",
+            "type": "float"
+          },
+          {
+            "name": "f55",
+            "type": "float"
+          },
+          {
+            "name": "f56",
+            "type": "float"
+          },
+          {
+            "name": "f57",
+            "type": "float"
+          },
+          {
+            "name": "f58",
+            "type": "float"
+          },
+          {
+            "name": "f59",
+            "type": "float"
+          },
+          {
+            "name": "f6",
+            "type": "float"
+          },
+          {
+            "name": "f60",
+            "type": "float"
+          },
+          {
+            "name": "f61",
+            "type": "float"
+          },
+          {
+            "name": "f62",
+            "type": "float"
+          },
+          {
+            "name": "f63",
+            "type": "float"
+          },
+          {
+            "name": "f7",
+            "type": "float"
+          },
+          {
+            "name": "f8",
+            "type": "float"
+          },
+          {
+            "name": "f9",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "FusedBake.GaFatClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "FusedBake",
+        "name": "GaPrimTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "FusedBake",
+        "name": "GaPrimClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 48,
+        "fields": [
+          {
+            "name": "B",
+            "type": "bool"
+          },
+          {
+            "name": "Bt",
+            "type": "byte"
+          },
+          {
+            "name": "D",
+            "type": "double"
+          },
+          {
+            "name": "F",
+            "type": "float"
+          },
+          {
+            "name": "I",
+            "type": "int"
+          },
+          {
+            "name": "L",
+            "type": "long"
+          },
+          {
+            "name": "Sb",
+            "type": "sbyte"
+          },
+          {
+            "name": "Sh",
+            "type": "short"
+          },
+          {
+            "name": "Ui",
+            "type": "uint"
+          },
+          {
+            "name": "Ul",
+            "type": "ulong"
+          },
+          {
+            "name": "Us",
+            "type": "ushort"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "FusedBake.GaPrimClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "FusedBake",
+        "name": "GaStrTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "FusedBake",
+        "name": "GaStrClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 2,
+        "fields": []
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "FusedBake.GaStrClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "FusedBake",
+        "name": "GaTrack0",
+        "assembly": "Tl.Bake.Tests",
+        "size": 8,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          },
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "FusedBake",
+        "name": "GaClip0",
+        "assembly": "Tl.Bake.Tests",
+        "size": 256,
+        "fields": [
+          {
+            "name": "f0",
+            "type": "float"
+          },
+          {
+            "name": "f1",
+            "type": "float"
+          },
+          {
+            "name": "f10",
+            "type": "float"
+          },
+          {
+            "name": "f11",
+            "type": "float"
+          },
+          {
+            "name": "f12",
+            "type": "float"
+          },
+          {
+            "name": "f13",
+            "type": "float"
+          },
+          {
+            "name": "f14",
+            "type": "float"
+          },
+          {
+            "name": "f15",
+            "type": "float"
+          },
+          {
+            "name": "f16",
+            "type": "float"
+          },
+          {
+            "name": "f17",
+            "type": "float"
+          },
+          {
+            "name": "f18",
+            "type": "float"
+          },
+          {
+            "name": "f19",
+            "type": "float"
+          },
+          {
+            "name": "f2",
+            "type": "float"
+          },
+          {
+            "name": "f20",
+            "type": "float"
+          },
+          {
+            "name": "f21",
+            "type": "float"
+          },
+          {
+            "name": "f22",
+            "type": "float"
+          },
+          {
+            "name": "f23",
+            "type": "float"
+          },
+          {
+            "name": "f24",
+            "type": "float"
+          },
+          {
+            "name": "f25",
+            "type": "float"
+          },
+          {
+            "name": "f26",
+            "type": "float"
+          },
+          {
+            "name": "f27",
+            "type": "float"
+          },
+          {
+            "name": "f28",
+            "type": "float"
+          },
+          {
+            "name": "f29",
+            "type": "float"
+          },
+          {
+            "name": "f3",
+            "type": "float"
+          },
+          {
+            "name": "f30",
+            "type": "float"
+          },
+          {
+            "name": "f31",
+            "type": "float"
+          },
+          {
+            "name": "f32",
+            "type": "float"
+          },
+          {
+            "name": "f33",
+            "type": "float"
+          },
+          {
+            "name": "f34",
+            "type": "float"
+          },
+          {
+            "name": "f35",
+            "type": "float"
+          },
+          {
+            "name": "f36",
+            "type": "float"
+          },
+          {
+            "name": "f37",
+            "type": "float"
+          },
+          {
+            "name": "f38",
+            "type": "float"
+          },
+          {
+            "name": "f39",
+            "type": "float"
+          },
+          {
+            "name": "f4",
+            "type": "float"
+          },
+          {
+            "name": "f40",
+            "type": "float"
+          },
+          {
+            "name": "f41",
+            "type": "float"
+          },
+          {
+            "name": "f42",
+            "type": "float"
+          },
+          {
+            "name": "f43",
+            "type": "float"
+          },
+          {
+            "name": "f44",
+            "type": "float"
+          },
+          {
+            "name": "f45",
+            "type": "float"
+          },
+          {
+            "name": "f46",
+            "type": "float"
+          },
+          {
+            "name": "f47",
+            "type": "float"
+          },
+          {
+            "name": "f48",
+            "type": "float"
+          },
+          {
+            "name": "f49",
+            "type": "float"
+          },
+          {
+            "name": "f5",
+            "type": "float"
+          },
+          {
+            "name": "f50",
+            "type": "float"
+          },
+          {
+            "name": "f51",
+            "type": "float"
+          },
+          {
+            "name": "f52",
+            "type": "float"
+          },
+          {
+            "name": "f53",
+            "type": "float"
+          },
+          {
+            "name": "f54",
+            "type": "float"
+          },
+          {
+            "name": "f55",
+            "type": "float"
+          },
+          {
+            "name": "f56",
+            "type": "float"
+          },
+          {
+            "name": "f57",
+            "type": "float"
+          },
+          {
+            "name": "f58",
+            "type": "float"
+          },
+          {
+            "name": "f59",
+            "type": "float"
+          },
+          {
+            "name": "f6",
+            "type": "float"
+          },
+          {
+            "name": "f60",
+            "type": "float"
+          },
+          {
+            "name": "f61",
+            "type": "float"
+          },
+          {
+            "name": "f62",
+            "type": "float"
+          },
+          {
+            "name": "f63",
+            "type": "float"
+          },
+          {
+            "name": "f7",
+            "type": "float"
+          },
+          {
+            "name": "f8",
+            "type": "float"
+          },
+          {
+            "name": "f9",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "FusedBake.GaClip0"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "FusedBake",
+        "name": "GaTrack1",
+        "assembly": "Tl.Bake.Tests",
+        "size": 8,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          },
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "FusedBake",
+        "name": "GaClip1",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "f0",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "FusedBake.GaClip1"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
+        "name": "AlphaTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "AlphaClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Value",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.AlphaClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
+        "name": "BlendTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "BlendClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Amount",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.BlendClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
+        "name": "DualTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "DualAlphaClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Value",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.DualAlphaClip",
+        "Tlb.DualBetaClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
+        "name": "DualTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "DualBetaClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Amount",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.DualAlphaClip",
+        "Tlb.DualBetaClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
+        "name": "EchoTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "EchoClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Value",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.EchoClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
+        "name": "JobTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Multiplier",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "JobClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 8,
+        "fields": [
+          {
+            "name": "Amount",
+            "type": "float"
+          },
+          {
+            "name": "Steps",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.JobClip"
+      ],
+      "consumers": [
+        {
+          "name": "Tlb.DamageJob",
+          "assembly": "Tl.Bake.Tests",
+          "outputs": [
+            "float"
+          ]
+        },
+        {
+          "name": "Tlb.SensorJob",
+          "assembly": "Tl.Bake.Tests",
+          "outputs": [
+            "double",
+            "int"
+          ]
+        }
+      ]
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
+        "name": "ManagedTrack",
+        "assembly": "Tl.Bake.Tests",
+        "fields": []
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "AlphaClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Value",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": false,
+      "trackPairings": [
+        "Tlb.AlphaClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
+        "name": "PropertyTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "PropertyClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Amount",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.PropertyClip"
+      ],
+      "consumers": []
+    }
+  ]
+}

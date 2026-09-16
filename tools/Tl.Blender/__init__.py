@@ -8,16 +8,24 @@ bl_info = {
     "category": "Animation",
 }
 
+import dataclasses
 import os
 
 import bpy
 
 from . import bake
+from . import introspect
 from . import mapping
 
 
 def _addon_preferences(context):
     return context.preferences.addons[__package__].preferences
+
+
+def _introspected_pairs(prefs):
+    if not prefs.assembly_paths:
+        return (), ""
+    return introspect.run_introspection(prefs.bake_command, prefs.assembly_paths)
 
 
 def _mapping_prefs(context):
@@ -59,6 +67,11 @@ class TL_OT_export_timelines(bpy.types.Operator):
             self.report({"ERROR"}, "choose an output directory for the tl authoring JSON")
             return {"CANCELLED"}
         prefs = _mapping_prefs(context)
+        pairs, introspection_error = _introspected_pairs(prefs)
+        if introspection_error:
+            self.report({"WARNING"}, "tl type introspection failed: %s" % introspection_error)
+        if pairs:
+            prefs = dataclasses.replace(prefs, pairs=pairs)
         try:
             exported = mapping.export_objects(
                 context.scene,
