@@ -23,14 +23,3 @@ static void Require(bool condition, [CallerArgumentExpression(nameof(condition))
     if (!condition)
         throw new InvalidOperationException(expression);
 }
-
-public readonly record struct Receipt(
-    long FrameOrder,
-    int Calls,
-    long Value,
-    uint LastGameTick,
-    uint LastTimelineTick,
-    long LastCycle,
-    FrameFlags Flags,
-    int Before,
-    int After);

@@ -269,12 +269,13 @@ internal static class DataAuthoredReceipts
     internal static void All()
     {
         MovementLaw();
+        WrapCounts();
         FoldAndBlend();
         RewindAndCatchUp();
         TimelineSets();
         Faults();
         Validation();
-        Console.WriteLine("receipts: movement, fold+blend, rewind, catch-up, timeline sets, faults, validation PASS");
+        Console.WriteLine("receipts: movement, wrap-count, fold+blend, rewind, catch-up, timeline sets, faults, validation PASS");
     }
 
     internal static void MovementLaw()
@@ -292,31 +293,84 @@ internal static class DataAuthoredReceipts
             var duration = BakedLane<DamageTrack, DamageClip>.Duration;
             var positions = new ushort[64];
             var values = new float[64];
-            var cycles = new long[64];
             for (var i = 0; i < positions.Length; i++)
                 positions[i] = (ushort)(i % (duration + 2));
             var oraclePositions = (ushort[])positions.Clone();
-            var oracleCycles = new long[64];
             var oracleValues = new float[64];
 
             for (var tick = 0; tick < 200; tick++)
             {
                 var forward = tick % 3 != 2;
-                Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward).Apply(values, cycles);
+                Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward).Apply(values);
                 for (var i = 0; i < positions.Length; i++)
                 {
-                    if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i], oracleCycles[i]), duration, looping, !forward, out var next, out var timelineTick, out _, out _))
+                    if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i]), duration, looping, !forward, out var next, out var timelineTick, out _))
                         continue;
-                    oracleValues[i] += forward ? BakedLane<DamageTrack, DamageClip>.Effect((ushort)timelineTick) : BakedLane<DamageTrack, DamageClip>.InverseEffect((ushort)timelineTick);
-                    oraclePositions[i] = (ushort)next.Position;
-                    oracleCycles[i] = next.Cycle;
+                    oracleValues[i] += forward ? BakedLane<DamageTrack, DamageClip>.Effect(timelineTick) : BakedLane<DamageTrack, DamageClip>.InverseEffect(timelineTick);
+                    oraclePositions[i] = next.Position;
                 }
             }
 
             Require(positions.SequenceEqual(oraclePositions), "movement positions match the law");
-            Require(cycles.SequenceEqual(oracleCycles), "cycles match the law");
             Require(values.SequenceEqual(oracleValues), "folded effects match the law");
         }
+    }
+
+    internal static void WrapCounts()
+    {
+        using var asset = TimelineAsset.Load(new AlphaBaker()
+            .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
+            .Clip(0, 0u, 12u, new DamageClip(5f))
+            .Looping()
+            .Bake());
+        BakedLane<DamageTrack, DamageClip>.Bind(asset);
+        const ushort Duration = 12;
+        const int Rows = 48;
+        const int Steps = 400;
+
+        var random = new Random(113);
+        var positions = new ushort[Rows];
+        var loops = new long[Rows];
+        var oraclePositions = new ushort[Rows];
+        var oracleLoops = new long[Rows];
+        long forwardWraps = 0, backwardWraps = 0;
+        for (var i = 0; i < Rows; i++)
+            positions[i] = oraclePositions[i] = (ushort)(i * 7 % Duration);
+
+        for (var step = 0; step < Steps; step++)
+        {
+            var forward = random.Next(3) != 2;
+            var reverse = !forward;
+            for (var i = 0; i < Rows; i++)
+            {
+                if (!TimelineMovement.Select(new TimelineState(1, positions[i]), Duration, true, reverse, out var next, out _, out var flags))
+                    continue;
+                if ((flags & FrameFlags.TimelineEnd) != 0)
+                {
+                    if ((flags & FrameFlags.Reverse) != 0) backwardWraps++;
+                    else forwardWraps++;
+                    loops[i] += (flags & FrameFlags.Reverse) != 0 ? -1 : 1;
+                }
+                positions[i] = next.Position;
+            }
+            for (var i = 0; i < Rows; i++)
+            {
+                if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i]), Duration, true, reverse, out var next, out var tick, out _))
+                    continue;
+                if (tick == Duration - 1)
+                    oracleLoops[i] += reverse ? -1 : 1;
+                oraclePositions[i] = next.Position;
+            }
+        }
+
+        Require(positions.SequenceEqual(oraclePositions), "wrap receipt positions match the movement law");
+        Require(loops.SequenceEqual(oracleLoops), "flag-reconstructed loop counts match the removed engine cycle");
+
+        long laneSum = 0, oracleSum = 0;
+        for (var i = 0; i < Rows; i++) { laneSum += loops[i]; oracleSum += oracleLoops[i]; }
+        Require(laneSum == oracleSum, "wrap receipt loop totals agree");
+        Require(forwardWraps > 0 && backwardWraps > 0, "wrap receipt exercised wraps in both directions on the randomized schedule");
+        Console.WriteLine($"wrap-count: {Rows} rows x {Steps} randomized steps reconstruct loop counts from TimelineEnd/Reverse flags (finite wraps carry CompletedAfter/CompletedBefore)");
     }
 
     internal static void FoldAndBlend()
@@ -353,26 +407,23 @@ internal static class DataAuthoredReceipts
         BakedLane<TandemTrack, TandemClip>.Bind(asset);
         var positions = new ushort[32];
         var values = new float[32];
-        var cycles = new long[32];
         for (var i = 0; i < positions.Length; i++)
             positions[i] = (ushort)(i % 6);
         var initialPositions = (ushort[])positions.Clone();
-        var initialCycles = (long[])cycles.Clone();
 
         for (var tick = 0; tick < 25; tick++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
         for (var tick = 0; tick < 25; tick++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, false).Apply(values, cycles);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, false).Apply(values);
 
         Require(positions.SequenceEqual(initialPositions), "rewind restores positions");
-        Require(cycles.SequenceEqual(initialCycles), "rewind restores cycles");
         Require(values.All(static value => value == 0f), "rewind restores values exactly");
 
-        Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+        Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
         var single = values[0];
         for (var i = 0; i < 2; i++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
-        Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, false).Apply(values, cycles);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
+        Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, false).Apply(values);
         Require(values[0] == single * 2, "catch-up calls are linear and backward cancels one");
     }
 
@@ -383,7 +434,8 @@ internal static class DataAuthoredReceipts
             .Clip(0, 0u, 6u, new ImpureClip(5f))
             .Looping()
             .Bake());
-        RequireThrows<ArgumentException>(() => BakedLane<ImpureTrack, ImpureClip>.Bind(impure), "impure consumer rejected at bind");
+        BakedLane<ImpureTrack, ImpureClip>.Bind(impure);
+        Require(BakedLane<ImpureTrack, ImpureClip>.Effect(0) == 0f, "column-folding consumer bakes its zero-seed baseline");
 
         using var foreign = TimelineAsset.Load(new AlphaBaker()
             .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
@@ -397,8 +449,7 @@ internal static class DataAuthoredReceipts
     {
         var positions = new ushort[4];
         var values = new float[3];
-        var cycles = new long[4];
-        RequireThrows<ArgumentException>(() => Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(values, cycles), "length mismatch rejected");
+        RequireThrows<ArgumentException>(() => Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(values), "length mismatch rejected");
         values = new float[4];
         var buffer = new ushort[10];
         var overlappingPositions = buffer.AsSpan(0, 4);
@@ -406,7 +457,7 @@ internal static class DataAuthoredReceipts
         var threw = false;
         try
         {
-            Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(overlappingPositions, true).Apply(overlapping, cycles);
+            Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(overlappingPositions, true).Apply(overlapping);
         }
         catch (ArgumentException)
         {
@@ -454,49 +505,35 @@ internal static class DataAuthoredReceipts
         var ids = new ushort[Rows];
         var positions = new ushort[Rows];
         var values = new float[Rows];
-        var cycles = new long[Rows];
         for (var i = 0; i < Rows; i++)
         {
             ids[i] = i < 300 ? loopingId : i % 2 == 0 ? finiteId : loopingId;
             positions[i] = (ushort)(i % 14);
-            cycles[i] = i % 3 - 1;
         }
         var oraclePositions = (ushort[])positions.Clone();
-        var oracleCycles = (long[])cycles.Clone();
         var oracleValues = new float[Rows];
 
         for (var frame = 0; frame < Frames; frame++)
         {
             var forward = frame % 3 != 2;
-            timelines.Gather(ids).Seek(positions, forward).Apply(values, cycles);
+            timelines.Gather(ids).Seek(positions, forward).Apply(values);
             for (var i = 0; i < Rows; i++)
             {
                 var isLooping = ids[i] == loopingId;
                 var duration = isLooping ? loopingDuration : finiteDuration;
-                if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i], oracleCycles[i]), (uint)duration, isLooping, !forward, out var next, out var timelineTick, out _, out _))
+                if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i]), (ushort)duration, isLooping, !forward, out var next, out var timelineTick, out _))
                     continue;
                 oracleValues[i] += forward
                     ? isLooping ? loopingEffect[timelineTick] : finiteEffect[timelineTick]
                     : isLooping ? loopingInverse[timelineTick] : finiteInverse[timelineTick];
-                oraclePositions[i] = (ushort)next.Position;
-                oracleCycles[i] = next.Cycle;
+                oraclePositions[i] = next.Position;
             }
         }
         Require(positions.SequenceEqual(oraclePositions), "set positions match the law");
-        Require(cycles.SequenceEqual(oracleCycles), "set cycles match the law");
         Require(values.SequenceEqual(oracleValues), "set folded effects match the law");
 
         RequireThrows<ArgumentException>(() =>
-            timelines.Gather(new ushort[] { loopingId, 2 }).Seek(new ushort[] { 0, 0 }, true).Apply(new float[2], new long[2]), "unbound timeline id rejected");
-
-        using var finiteOnly = new TimelineSet<DamageTrack, DamageClip>();
-        finiteOnly.Add(finiteAsset);
-        var finiteOnlyPositions = new ushort[] { 2, 7 };
-        finiteOnly.Gather(new ushort[] { 0, 0 }).Seek(finiteOnlyPositions, true).Apply(new float[2], Span<long>.Empty);
-        Require(finiteOnlyPositions[0] == 3 && finiteOnlyPositions[1] == 8, "all-finite set advances with an empty cycle column");
-
-        RequireThrows<ArgumentException>(() =>
-            timelines.Gather(new ushort[] { loopingId }).Seek(new ushort[] { 0 }, true).Apply(new float[1], Span<long>.Empty), "empty cycle column rejected while a timeline loops");
+            timelines.Gather(new ushort[] { loopingId, 2 }).Seek(new ushort[] { 0, 0 }, true).Apply(new float[2]), "unbound timeline id rejected");
 
         timelines.Dispose();
         RequireThrows<ObjectDisposedException>(() => timelines.Gather(ids), "disposed set rejected");
@@ -513,17 +550,17 @@ internal static class DataAuthoredReceipts
         BakedLane<TandemTrack, TandemClip>.Bind(asset);
         var positions = new ushort[256];
         var values = new float[256];
-        var cycles = new long[256];
 
         for (var pass = 0; pass < 100; pass++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var pass = 0; pass < 100_000; pass++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Require(allocated == 0, $"warm lane allocated {allocated} B");
-        Console.WriteLine($"allocation: 100k x 256-row lane applies retained {allocated} B; table bytes {BakedLane<TandemTrack, TandemClip>.Duration * 2 * 4}");
+        Console.WriteLine($"allocation: 100k x 256-row lane applies retained {allocated} B; table+record bytes per tick {BakedLane<TandemTrack, TandemClip>.Duration * 28}");
+        Console.WriteLine($"frame bytes: TimelineState 8, TimelineComponent 16, movement record 8");
     }
 
     internal static void BatchCapacity()
@@ -537,16 +574,15 @@ internal static class DataAuthoredReceipts
         BakedLane<TandemTrack, TandemClip>.Bind(asset);
         var positions = new ushort[Rows];
         var values = new float[Rows];
-        var cycles = new long[Rows];
         for (var i = 0; i < Rows; i++)
             positions[i] = (ushort)(i % 64);
 
         for (var tick = 0; tick < 64; tick++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
 
         long checksum = 0;
         for (var i = 0; i < Rows; i++)
-            checksum = unchecked(checksum * 31 + (long)values[i] + cycles[i]);
+            checksum = unchecked(checksum * 31 + (long)values[i]);
         Require(checksum != 0, "batch capacity checksum computed");
         Require(values[0] == 576f && values[Rows - 1] == 576f, "capacity fold is 64 ticks x 9 per row");
         Console.WriteLine($"capacity: {Rows} rows x 64 ticks checksum {checksum}");
@@ -569,9 +605,8 @@ internal static class DataAuthoredReceipts
 
         var positions = new ushort[16];
         var values = new float[16];
-        var cycles = new long[16];
         for (var tick = 0; tick < 10; tick++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values, cycles);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
         Require(values.All(value => value == expected * 10), "module capacity fold applied");
         Console.WriteLine($"module-capacity: {Tracks} tracks fold to {expected} per tick, x10 applied");
     }

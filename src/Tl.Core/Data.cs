@@ -34,7 +34,7 @@ struct FrameSlot<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TC
 	public uint WindowStart, WindowEnd, FactorStart, FactorSpan;
 	public byte TrackIndex;
 
-	internal static unsafe Frame<TTrack, TClip> ToFrame(FrameSlot<TTrack, TClip>* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, TClip* scratch)
+	internal static unsafe Frame<TTrack, TClip> ToFrame(FrameSlot<TTrack, TClip>* slot, ushort tick, FrameFlags flags, TClip* scratch)
 	{
 		if (slot->FactorSpan == 0) *scratch = slot->First;
 		else
@@ -45,7 +45,7 @@ struct FrameSlot<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TC
 		}
 		if (tick == slot->WindowStart) flags |= FrameFlags.ClipStart;
 		if (tick == slot->WindowEnd - 1) flags |= FrameFlags.ClipEnd;
-		return new Frame<TTrack, TClip>(in slot->Track, in *scratch, gameTick, tick, cycle, slot->TrackIndex, flags);
+		return new Frame<TTrack, TClip>(in slot->Track, in *scratch, tick, (ushort)(slot->WindowEnd - slot->WindowStart), (ushort)(tick - slot->WindowStart), slot->TrackIndex, flags);
 	}
 }
 public readonly unsafe struct TimelineRef
@@ -67,19 +67,19 @@ public readonly unsafe struct TimelineRef
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal bool Advance(bool reverse, uint pos, long cyc, out uint np, out long nc, out uint t, out long fc, out FrameFlags f)
+	internal bool Advance(bool reverse, ushort pos, out ushort np, out ushort t, out FrameFlags f)
 	{
-		np = pos; nc = fc = cyc; t = 0; f = FrameFlags.None;
-		return _p != null && TimelineMovement.Advance(Header->Duration, Header->Loops != 0, reverse, pos, cyc, out np, out nc, out t, out fc, out f);
+		np = pos; t = 0; f = FrameFlags.None;
+		return _p != null && TimelineMovement.Advance((ushort)Header->Duration, Header->Loops != 0, reverse, pos, out np, out t, out f);
 	}
 
-	internal bool Select(bool reverse, uint position, long cycle, out TimelineState next, out uint tick, out long fc, out FrameFlags flags)
+	internal bool Select(bool reverse, ushort position, out TimelineState next, out ushort tick, out FrameFlags flags)
 	{
-		var ok = Advance(reverse, position, cycle, out var np, out var nc, out tick, out fc, out flags);
-		next = new TimelineState(1, np, nc);
+		var ok = Advance(reverse, position, out var np, out tick, out flags);
+		next = new TimelineState(1, np);
 		return ok;
 	}
-	internal NativeStage* StageOf(uint tick)
+	internal NativeStage* StageOf(ushort tick)
 	{
 		var count = (int)Header->StageCount;
 		var stages = (NativeStage*)(_p + Header->StageOffset);
@@ -111,7 +111,7 @@ public readonly unsafe struct TimelineRef
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
-	internal void Execute(bool reverse, uint tick, uint gameTick, long cycle, FrameFlags flags, int row, Span<int> chains, void** columns)
+	internal void Execute(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns)
 	{
 		var stage = Header->StageCount == 1 ? (NativeStage*)(_p + Header->StageOffset) : StageOf(tick);
 		if (stage == null) return;
@@ -136,13 +136,13 @@ public readonly unsafe struct TimelineRef
 				while (n-- > 0)
 				{
 					var e = rev[n];
-					consumers[e].Execute(slot, gameTick, tick, cycle, flags, columns + consumers[e].Offset, row);
+					consumers[e].Execute(slot, tick, flags, columns + consumers[e].Offset, row);
 				}
 			}
 			else
 			{
 				for (var entry = head; entry >= 0; entry = consumers[entry].Next)
-					consumers[entry].Execute(slot, gameTick, tick, cycle, flags, columns + consumers[entry].Offset, row);
+					consumers[entry].Execute(slot, tick, flags, columns + consumers[entry].Offset, row);
 			}
 			step += stride;
 		}
@@ -154,6 +154,7 @@ public readonly unsafe struct TimelineRef
 		if (baked.Length < 48) Fail("TLB1 truncated.");
 		var h = MemoryMarshal.Read<NativeHeader>(baked);
 		if (h.Magic != 0x31424C54 || h.Version != 1) Fail("TLB1 magic or version invalid.");
+		if (h.Duration > ushort.MaxValue) Fail("TLB1 duration exceeds the 65,535-tick position domain.");
 		if (h.Bytes != (uint)baked.Length) Fail("TLB1 size mismatch.");
 		if (h.PairOffset < 48 || (h.PairOffset | h.StageOffset | h.FrameOffset) % 8 != 0) Fail("TLB1 offsets must be 8-aligned.");
 		if ((ulong)h.PairOffset + 16ul * h.PairCount > h.StageOffset || (ulong)h.StageOffset + 16ul * h.StageCount > h.FrameOffset || h.FrameOffset > (ulong)baked.Length) Fail("TLB1 sections out of bounds.");
@@ -194,37 +195,33 @@ public sealed unsafe class TimelineAsset : IDisposable
 [StructLayout(LayoutKind.Sequential)]
 public struct TimelineComponent(TimelineRef reference)
 {
-	public TimelineRef Reference = reference;
-	public uint Position;
-	public long Cycle;
+    public TimelineRef Reference = reference;
+    public ushort Position;
 }
 
 public readonly unsafe struct TickFrame
 {
-	public readonly void* Slot;
-	public readonly uint GameTick, TimelineTick;
-	public readonly long Cycle;
-	public readonly FrameFlags Flags;
+    public readonly void* Slot;
+    public readonly ushort TimelineTick;
+    public readonly FrameFlags Flags;
 
-	internal TickFrame(void* slot, uint gameTick, uint timelineTick, long cycle, FrameFlags flags)
-	{
-		Slot = slot;
-		GameTick = gameTick;
-		TimelineTick = timelineTick;
-		Cycle = cycle;
-		Flags = flags;
-	}
+    internal TickFrame(void* slot, ushort timelineTick, FrameFlags flags)
+    {
+        Slot = slot;
+        TimelineTick = timelineTick;
+        Flags = flags;
+    }
 
-	public Frame<TTrack, TClip> ToFrame<TTrack, TClip>(ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
-		=> FrameSlot<TTrack, TClip>.ToFrame((FrameSlot<TTrack, TClip>*)Slot, GameTick, TimelineTick, Cycle, Flags, (TClip*)Unsafe.AsPointer(ref scratch));
+    public Frame<TTrack, TClip> ToFrame<TTrack, TClip>(ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
+        => FrameSlot<TTrack, TClip>.ToFrame((FrameSlot<TTrack, TClip>*)Slot, TimelineTick, Flags, (TClip*)Unsafe.AsPointer(ref scratch));
 
-	public static Frame<TTrack, TClip> ToFrame<TTrack, TClip>(void* slot, uint gameTick, uint tick, long cycle, FrameFlags flags, ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
-		=> FrameSlot<TTrack, TClip>.ToFrame((FrameSlot<TTrack, TClip>*)slot, gameTick, tick, cycle, flags, (TClip*)Unsafe.AsPointer(ref scratch));
+    public static Frame<TTrack, TClip> ToFrame<TTrack, TClip>(void* slot, ushort tick, FrameFlags flags, ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
+        => FrameSlot<TTrack, TClip>.ToFrame((FrameSlot<TTrack, TClip>*)slot, tick, flags, (TClip*)Unsafe.AsPointer(ref scratch));
 }
 
 static unsafe class PairTable
 {
-	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> Execute; public delegate*<byte*, uint, uint, long, FrameFlags, void**, int, int, void> Range; public delegate*<ulong*, int, byte*, void> Bind; }
+	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, ushort, FrameFlags, void**, int, void> Execute; public delegate*<byte*, ushort, FrameFlags, void**, int, int, void> Range; public delegate*<ulong*, int, byte*, void> Bind; }
 	struct Slot { public ulong Key; public int Head; }
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
@@ -238,7 +235,7 @@ static unsafe class PairTable
 	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
 	internal static int ConsumerCount => Volatile.Read(ref _consumers);
 
-	internal static void Install(ulong key, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> e, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, int, void> r, delegate*<ulong*, int, byte*, void> b)
+	internal static void Install(ulong key, delegate*<byte*, ushort, FrameFlags, void**, int, void> e, delegate*<byte*, ushort, FrameFlags, void**, int, int, void> r, delegate*<ulong*, int, byte*, void> b)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
@@ -307,9 +304,9 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 {
 	public static readonly ulong Key = Keying.Of(typeof(TTrack).AssemblyQualifiedName! + "\0" + typeof(TClip).AssemblyQualifiedName!);
 
-	public static void Consume(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, null, bind);
+	public static void Consume(delegate*<byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, null, bind);
 
-	public static void Consume(delegate*<byte*, uint, uint, long, FrameFlags, void**, int, void> execute, delegate*<byte*, uint, uint, long, FrameFlags, void**, int, int, void> range, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, range, bind);
+	public static void Consume(delegate*<byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<byte*, ushort, FrameFlags, void**, int, int, void> range, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, range, bind);
 
 }
 
@@ -322,8 +319,7 @@ public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBl
 {
 	readonly TimelineRef _block;
 	NativeStep* _steps;
-	readonly uint _tick;
-	readonly long _cycle;
+	readonly ushort _tick;
 	int _count;
 	TClip _scratch;
 	Frame<TTrack, TClip> _current;
@@ -332,7 +328,6 @@ public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBl
 	{
 		_block = component.Reference;
 		_tick = component.Position;
-		_cycle = component.Cycle;
 		var stage = _block._p == null ? null : _block.StageOf(_tick);
 		if (stage != null)
 		{
@@ -354,7 +349,7 @@ public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBl
 			_count--;
 			if (pairs[step.Pair].Key == PairRuntime<TTrack, TClip>.Key)
 			{
-				_current = FrameSlot<TTrack, TClip>.ToFrame((FrameSlot<TTrack, TClip>*)(block + step.Slot), 0, _tick, _cycle, FrameFlags.None, (TClip*)Unsafe.AsPointer(ref _scratch));
+				_current = FrameSlot<TTrack, TClip>.ToFrame((FrameSlot<TTrack, TClip>*)(block + step.Slot), _tick, FrameFlags.None, (TClip*)Unsafe.AsPointer(ref _scratch));
 				return true;
 			}
 		} while (_count > 0);

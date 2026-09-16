@@ -17,26 +17,26 @@ public readonly ref struct Frame<TTrack, TClip>
     public Frame(
         in TTrack track,
         in TClip clip,
-        uint gameTick,
-        uint timelineTick,
-        long cycle,
+        ushort timelineTick,
+        ushort clipLength,
+        ushort withinClip,
         ushort trackIndex,
         FrameFlags flags)
     {
         _track = ref track;
         _clip = ref clip;
-        GameTick = gameTick;
         TimelineTick = timelineTick;
-        Cycle = cycle;
+        ClipLength = clipLength;
+        WithinClip = withinClip;
         TrackIndex = trackIndex;
         Flags = flags;
     }
 
     public ref readonly TTrack Track => ref _track;
     public ref readonly TClip Clip => ref _clip;
-    public uint GameTick { get; }
-    public uint TimelineTick { get; }
-    public long Cycle { get; }
+    public ushort TimelineTick { get; }
+    public ushort ClipLength { get; }
+    public ushort WithinClip { get; }
     public ushort TrackIndex { get; }
     public FrameFlags Flags { get; }
     public int Direction => Has(FrameFlags.Reverse) ? -1 : 1;

@@ -10,19 +10,18 @@ using var asset = TimelineAsset.Load(new PackageBaker()
 BakedLane<PackageTrack, PackageClip>.Bind(asset);
 var positions = new ushort[1];
 var values = new float[1];
-var cycles = new long[1];
 
-Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, true).Apply(values, cycles);
+Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, true).Apply(values);
 
-if (positions[0] != 1u || values[0] != 7f)
+if (positions[0] != 1 || values[0] != 7f)
     return 1;
 
-Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, false).Apply(values, cycles);
+Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, false).Apply(values);
 
-if (positions[0] != 0u || values[0] != 0f)
+if (positions[0] != 0 || values[0] != 0f)
     return 2;
 
-Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, true).Apply(values, cycles);
+Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, true).Apply(values);
 Console.WriteLine((int)values[0]);
 return 0;
 

@@ -21,14 +21,12 @@ public enum FrameFlags : byte
 public readonly struct TimelineState
 {
     public readonly uint Asset;
-    public readonly uint Position;
-    public readonly long Cycle;
+    public readonly ushort Position;
 
-    public TimelineState(uint asset, uint position = 0, long cycle = 0)
+    public TimelineState(uint asset, ushort position = 0)
     {
         Asset = asset;
         Position = position;
-        Cycle = cycle;
     }
 }
 
@@ -36,45 +34,39 @@ public static class TimelineMovement
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool Advance(
-        uint duration,
+        ushort duration,
         bool looping,
         bool reverse,
-        uint position,
-        long inCycle,
-        out uint nextPosition,
-        out long nextCycle,
-        out uint tick,
-        out long outCycle,
+        ushort position,
+        out ushort nextPosition,
+        out ushort tick,
         out FrameFlags flags)
     {
-        nextPosition = position; nextCycle = inCycle; outCycle = 0; tick = 0; flags = FrameFlags.None;
+        nextPosition = position; tick = 0; flags = FrameFlags.None;
         if (duration == 0 || position > duration || looping && position == duration) return false;
         if (looping)
         {
             flags = reverse ? FrameFlags.Looping | FrameFlags.Reverse : FrameFlags.Looping;
             if (reverse)
             {
-                if (position == 0) { tick = duration - 1u; outCycle = unchecked(inCycle - 1L); }
-                else { tick = position - 1u; outCycle = inCycle; }
-                nextPosition = tick; nextCycle = outCycle;
+                tick = position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1);
+                nextPosition = tick;
             }
             else
             {
-                tick = position; outCycle = inCycle;
-                nextPosition = tick == duration - 1u ? 0 : tick + 1u;
-                nextCycle = tick == duration - 1u ? unchecked(inCycle + 1L) : inCycle;
+                tick = position;
+                nextPosition = tick == duration - 1 ? (ushort)0 : (ushort)(tick + 1);
             }
             if (tick == 0) flags |= FrameFlags.TimelineStart;
-            if (tick == duration - 1u) flags |= FrameFlags.TimelineEnd;
+            if (tick == duration - 1) flags |= FrameFlags.TimelineEnd;
             return true;
         }
-        nextCycle = 0;
         if (reverse)
         {
             if (position == 0) return false;
-            tick = position - 1u; flags = FrameFlags.Reverse;
+            tick = (ushort)(position - 1); flags = FrameFlags.Reverse;
             if (tick == 0) flags |= FrameFlags.TimelineStart;
-            if (tick == duration - 1u) flags |= FrameFlags.TimelineEnd;
+            if (tick == duration - 1) flags |= FrameFlags.TimelineEnd;
             if (position == duration) flags |= FrameFlags.CompletedBefore;
             nextPosition = tick;
             return true;
@@ -82,26 +74,25 @@ public static class TimelineMovement
         if (position == duration) return false;
         tick = position;
         if (tick == 0) flags = FrameFlags.TimelineStart;
-        if (tick == duration - 1u) flags |= FrameFlags.TimelineEnd | FrameFlags.CompletedAfter;
-        nextPosition = tick + 1u;
+        if (tick == duration - 1) flags |= FrameFlags.TimelineEnd | FrameFlags.CompletedAfter;
+        nextPosition = (ushort)(tick + 1);
         return true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Select(
         in TimelineState state,
-        uint duration,
+        ushort duration,
         bool looping,
         bool reverse,
         out TimelineState next,
-        out uint tick,
-        out long cycle,
+        out ushort tick,
         out FrameFlags flags)
     {
-        next = state; tick = 0; cycle = 0; flags = FrameFlags.None;
-        if (state.Asset == 0 || !Advance(duration, looping, reverse, state.Position, state.Cycle, out var np, out var nc, out tick, out cycle, out flags))
+        next = state; tick = 0; flags = FrameFlags.None;
+        if (state.Asset == 0 || !Advance(duration, looping, reverse, state.Position, out var np, out tick, out flags))
             return false;
-        next = new TimelineState(state.Asset, np, nc);
+        next = new TimelineState(state.Asset, np);
         return true;
     }
 }

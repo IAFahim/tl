@@ -50,18 +50,18 @@ public sealed class ConsumerAbiTests
         {
         global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&Execute_QuadJob, &ExecuteRange_QuadJob, &Bind_QuadJob);
         }
-        private static void Execute_QuadJob(byte* __tlSlot, uint __tlGameTick, uint __tlTick, long __tlCycle, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
+        private static void Execute_QuadJob(byte* __tlSlot, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
         {
-        global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);
+        global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlTick, __tlFlags, ref __tlClip);
         var @first = (global::Domain.Alpha*)__tlColumns[0];
         var @second = (global::Domain.Beta*)__tlColumns[1];
         var @third = (global::Domain.Gamma*)__tlColumns[2];
         var @fourth = (global::Domain.Delta*)__tlColumns[3];
         global::Domain.QuadJob.Execute(in __tlTyped, in @first[__tlRow], in @second[__tlRow], ref @third[__tlRow], ref @fourth[__tlRow]);
         }
-        private static void ExecuteRange_QuadJob(byte* __tlSlot, uint __tlGameTick, uint __tlTick, long __tlCycle, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
+        private static void ExecuteRange_QuadJob(byte* __tlSlot, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
         {
-        global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlGameTick, __tlTick, __tlCycle, __tlFlags, ref __tlClip);
+        global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlTick, __tlFlags, ref __tlClip);
         var @first = (global::Domain.Alpha*)__tlColumns[0];
         var @second = (global::Domain.Beta*)__tlColumns[1];
         var @third = (global::Domain.Gamma*)__tlColumns[2];

@@ -105,11 +105,11 @@ static void TickHand<T>(World? x, int steps) where T : unmanaged, ITimelineLane<
     for (var s = 0; s < x.N; s += Chunk)
     {
         var len = Math.Min(Chunk, x.N - s);
-        HandChunk<T>(x.Pos.AsSpan(s, len), x.Cyc.AsSpan(s, len), x.Hp.AsSpan(s, len), steps);
+        HandChunk<T>(x.Pos.AsSpan(s, len), x.Hp.AsSpan(s, len), steps);
     }
 }
 
-static void HandChunk<T>(Span<ushort> pos, Span<long> cyc, Span<float> hp, int steps) where T : unmanaged, ITimelineLane<T>
+static void HandChunk<T>(Span<ushort> pos, Span<float> hp, int steps) where T : unmanaged, ITimelineLane<T>
 {
     var dur = T.Duration;
     for (var i = 0; i < pos.Length; i++)
@@ -119,7 +119,7 @@ static void HandChunk<T>(Span<ushort> pos, Span<long> cyc, Span<float> hp, int s
         for (var s = 0; s < steps; s++)
         {
             d += T.Effect((ushort)p);
-            if (++p == dur) { p = 0; cyc[i]++; }
+            if (++p == dur) p = 0;
         }
         hp[i] += d;
         pos[i] = (ushort)p;
@@ -179,7 +179,7 @@ static void TickWorld<T>(World? x, int dir) where T : unmanaged, ITimelineLane<T
     for (var s = 0; s < x.N; s += Chunk)
     {
         var len = Math.Min(Chunk, x.N - s);
-        Timeline<T>.Seek(x.Pos.AsSpan(s, len), dir > 0).Apply(x.Hp.AsSpan(s, len), x.Cyc.AsSpan(s, len));
+        Timeline<T>.Seek(x.Pos.AsSpan(s, len), dir > 0).Apply(x.Hp.AsSpan(s, len));
     }
 }
 
@@ -189,36 +189,35 @@ static void TickSorted<T>(World? x) where T : unmanaged, ITimelineLane<T>
     for (var s = 0; s < x.N; s += Chunk)
     {
         var len = Math.Min(Chunk, x.N - s);
-        Sorted<T>.Tick(x.Pos.AsSpan(s, len), x.Cyc.AsSpan(s, len), x.Hp.AsSpan(s, len));
+        Sorted<T>.Tick(x.Pos.AsSpan(s, len), x.Hp.AsSpan(s, len));
     }
 }
 
 long Sum(Worlds w)
 {
     long s = 0;
-    SumWorld(w.Combat, 31, 97, 1);
-    SumWorld(w.Pulse, 7, 11, 3);
-    SumWorld(w.Big, 13, 17, 5);
+    SumWorld(w.Combat, 31, 1);
+    SumWorld(w.Pulse, 7, 3);
+    SumWorld(w.Big, 13, 5);
     return s;
 
-    void SumWorld(World? x, int wp, int wc, int wh)
+    void SumWorld(World? x, int wp, int wh)
     {
         if (x is null) return;
-        for (var i = 0; i < x.N; i++) s += (long)x.Hp[i] * wh + x.Pos[i] * wp + x.Cyc[i] * wc;
+        for (var i = 0; i < x.N; i++) s += (long)x.Hp[i] * wh + x.Pos[i] * wp;
     }
 }
 
 sealed class World(int n, Func<int, ushort> init)
 {
     public readonly ushort[] Pos = new ushort[n];
-    public readonly long[] Cyc = new long[n];
     public readonly float[] Hp = new float[n];
     public readonly int N = n;
     readonly Func<int, ushort> _init = init;
 
     public World Reset()
     {
-        for (var i = 0; i < N; i++) { Pos[i] = _init(i); Cyc[i] = 0; Hp[i] = 100; }
+        for (var i = 0; i < N; i++) { Pos[i] = _init(i); Hp[i] = 100; }
         return this;
     }
 }
@@ -251,7 +250,7 @@ sealed class Worlds(World combat, World? pulse, World? big)
 
 static class Sorted<T> where T : unmanaged, ITimelineLane<T>
 {
-    public static void Tick(Span<ushort> pos, Span<long> cyc, Span<float> hp)
+    public static void Tick(Span<ushort> pos, Span<float> hp)
     {
         var n = pos.Length;
         if (n == 0) return;
@@ -259,7 +258,6 @@ static class Sorted<T> where T : unmanaged, ITimelineLane<T>
         var sorted = SortBuf<T>.Sorted;
         var sPos = SortBuf<T>.SPos;
         var sHp = SortBuf<T>.SHp;
-        var sCyc = SortBuf<T>.SCyc;
         var counts = SortBuf<T>.Counts;
         var k = (int)T.Duration;
         Array.Clear(counts, 0, k);
@@ -267,9 +265,9 @@ static class Sorted<T> where T : unmanaged, ITimelineLane<T>
         var total = 0;
         for (var c = 0; c < k; c++) { var v = counts[c]; counts[c] = total; total += v; }
         for (var i = 0; i < n; i++) sorted[counts[pos[i]]++] = i;
-        for (var r = 0; r < n; r++) { var i = sorted[r]; sPos[r] = pos[i]; sHp[r] = hp[i]; sCyc[r] = cyc[i]; }
-        Timeline<T>.Seek(sPos, true).Apply(sHp, sCyc);
-        for (var r = 0; r < n; r++) { var i = sorted[r]; pos[i] = sPos[r]; hp[i] = sHp[r]; cyc[i] = sCyc[r]; }
+        for (var r = 0; r < n; r++) { var i = sorted[r]; sPos[r] = pos[i]; sHp[r] = hp[i]; }
+        Timeline<T>.Seek(sPos, true).Apply(sHp);
+        for (var r = 0; r < n; r++) { var i = sorted[r]; pos[i] = sPos[r]; hp[i] = sHp[r]; }
     }
 }
 
@@ -278,7 +276,6 @@ static class SortBuf<T> where T : unmanaged, ITimelineLane<T>
     public static int[] Sorted = [];
     public static ushort[] SPos = [];
     public static float[] SHp = [];
-    public static long[] SCyc = [];
     public static int[] Counts = [];
 
     public static void Ensure(int n, int k)
@@ -287,7 +284,6 @@ static class SortBuf<T> where T : unmanaged, ITimelineLane<T>
         Sorted = new int[n];
         SPos = new ushort[n];
         SHp = new float[n];
-        SCyc = new long[n];
         Counts = new int[k];
     }
 }

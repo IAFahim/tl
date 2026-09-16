@@ -2,7 +2,6 @@ using Tl;
 
 var positions = new ushort[] { 0 };
 var vitality = new float[] { 0f };
-var cycles = new long[] { 0 };
 
 using var attack = TimelineAsset.Load(new DataBaker()
     .Track<AnimationTrack, AnimationClip>(new AnimationTrack(1))
@@ -15,19 +14,19 @@ using var attack = TimelineAsset.Load(new DataBaker()
     .Bake());
 BakedLane<AnimationTrack, AnimationClip>.Bind(attack);
 
-Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, true).Apply(vitality, cycles);
-Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, true).Apply(vitality, cycles);
+Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, true).Apply(vitality);
+Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, true).Apply(vitality);
 
-if (positions[0] != 2u || vitality[0] != -9f || cycles[0] != 0L)
+if (positions[0] != 2 || vitality[0] != -9f)
     return 1;
 
-Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, false).Apply(vitality, cycles);
-Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, false).Apply(vitality, cycles);
+Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, false).Apply(vitality);
+Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, false).Apply(vitality);
 
-if (positions[0] != 0u || vitality[0] != 0f || cycles[0] != 0L)
+if (positions[0] != 0 || vitality[0] != 0f)
     return 2;
 
-Console.WriteLine($"vitality={vitality[0]} position={positions[0]} cycle={cycles[0]}");
+Console.WriteLine($"vitality={vitality[0]} position={positions[0]}");
 return 0;
 
 public readonly record struct AnimationClip(float X, float Y);
