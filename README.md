@@ -195,12 +195,6 @@ every set shape is bit-exact against per-asset static lanes, forward and backwar
 
 | workload | ms/frame | ns/row |
 | --- | ---: | ---: |
-
-Measured before the #113 frame slim (cycles column present); the #113 A/B in
-[docs/typed-playback-lane.md](docs/typed-playback-lane.md) re-measured the affected shapes at
-parity or better on the same host family (finite staggered 0.38 -> 0.19 ns/row, static
-staggered 0.19 -> 0.15-0.17, alternating ids 1.67 -> 1.22), and the cycle column no longer
-exists in any shape.
 | plain floor (`effects += 1; positions += 1`) | 0.41 | 0.39 |
 | static lane, uniform clocks | 0.16 | 0.15 |
 | static lane, waves of 100 | 0.14 | 0.13 |
@@ -215,6 +209,12 @@ exists in any shape.
 | set, finite timeline, staggered clocks | 0.34 | 0.32 |
 | set, one timeline, waves of 100, backward | 0.20 | 0.19 |
 | set, one looping timeline, staggered clocks, backward | 0.25 | 0.24 |
+
+Measured before the #113 frame slim (cycles column present); the #113 A/B in
+[docs/typed-playback-lane.md](docs/typed-playback-lane.md) re-measured the affected shapes at
+parity or better on the same host family (finite staggered 0.38 -> 0.19 ns/row, static
+staggered 0.19 -> 0.15-0.17, alternating ids 1.67 -> 1.22), and the cycle column no longer
+exists in any shape.
 
 The static lane binds per-tick movement records at load: that trades +3.6% on static waves of
 100 for 22.9x/21.7x on static staggered forward/backward
@@ -235,6 +235,107 @@ timeline's measured tables live in the set's one contiguous native block:
 28 * (duration + 1) + 48 bytes — 1,868 B at duration 64, 28,748 B at 1,024, 1.75 MiB at the
 65,535-tick cap (was 44 * (duration + 1) + 48). The warm path allocates 0 B in every lane; a
 256-track module folds to one 34,688-effect column per tick (`tests/Tl.Alpha --module-capacity`).
+
+## tl in an ECS host
+
+The warm path is column-native, so an archetype ECS (Unity DOTS, Frent, any chunk- or SoA-based
+job system) embeds tl without adapters: entities are rows, component arrays are the columns, and
+the runtime keeps no per-row state of its own. Prototype history with a real ECS host:
+[IAFahim/FrentFun](https://github.com/IAFahim/FrentFun); the shipped contract and receipts:
+[docs/typed-playback-lane.md](docs/typed-playback-lane.md).
+
+### Lifecycle: bake once, bind once, advance per frame
+
+1. **Author and bake.** Flat-schema JSON in, deterministic `.tlb` bytes out (`tlbake`, Quick
+   Start above). The [Blender bridge](tools/Tl.Blender/README.md) exports the same JSON from NLA
+   scenes and bakes through the same CLI, receipted byte-identical to hand authoring. Duration
+   above the 65,535-tick `ushort` position cap is rejected at bake with a diagnostic naming both.
+2. **Load.** `TimelineAsset.Load(bytes)` is a cold validated import; the owner retains the
+   immutable native storage and disposes it after all readers finish.
+3. **Measure once per asset.** `MeasuredLanes.Measure(asset)` folds every position's forward and
+   backward float effect once each through the cold executor into aligned native tables —
+   131,000 evaluations for the 65,500-tick asset of the #108 corpus receipt, 3.9 ms cold, once
+   per load. `TimelineSet.Add(asset)` measures internally when the measurement is not shared.
+4. **Bind.** `TimelineSet<TTrack,TClip>.Add(asset)` — or `Add(asset, measured)` to reuse one
+   measurement across several sets (dispose it after the last `Add`) — appends the effect tables
+   plus 8-byte per-tick movement records into the set's one contiguous native block and returns
+   the timeline's dense `ushort` id, assigned at load time, never authored, never baked. The
+   asset may be disposed once `Add` returns. One asset per pair that never coexists with another
+   can skip the set and bind `BakedLane<TTrack,TClip>` instead.
+5. **Advance.** One call moves every row exactly one frame over host columns:
+
+```cs
+var jumps  = new TimelineSet<DamageTrack, DamageClip>();
+var bossId = jumps.Add(bossAsset);            // dense id, assigned by Add at load time
+
+// one loop per component set; rows map to entities in any order
+foreach (var chunk in world.Chunks<TimelineId, Tick, Health>())   // your host's chunk iteration
+    jumps.Gather(chunk.Ids)                   // ReadOnlySpan<ushort>: each row's timeline
+         .Seek(chunk.Ticks, forward)          // Span<ushort>: per-row clock, committed in place
+         .Apply(chunk.Health);                // Span<float>: effect deltas accumulate per row
+```
+
+Catch-up is repeated single-frame calls; rewind is `forward: false`, and the backward table is
+the measured inverse, so forward-then-backward returns columns bit-exactly. There is no
+multi-frame step parameter and never will be (owner decision): every system observes every tick,
+and repeated folds stay bit-exact where a precomputed K-frame sum can round differently.
+
+### What the host owns
+
+- The three columns are the host's own storage — archetype chunk arrays or SoA — borrowed as
+  spans for the `ref struct` call only. The lane never moves, copies, or retains row data, and
+  warm playback allocates 0 B. Per row that is 8 B of host state: timeline id 2 B, position 2 B,
+  effect 4 B.
+- Row order never matters; each row carries its own id and clock, so archetype splits and moving
+  entities are just rows. Per timeline, the set holds `28 * (duration + 1) + 48` bytes of tables
+  and movement records in its block (1,868 B at duration 64, 1.75 MiB at the 65,535-tick cap);
+  `TimelineComponent` on coordinator hosts is 16 B.
+- No registry and no process-global row identity sit on the warm path: ids are per-set ordinals,
+  tables live in the set's native block, and the runtime data path is unmanaged — the property
+  that keeps tl loadable by ECS/Burst job compilation. The lane above is the .NET throughput
+  path; Unity DOTS hosts use the UPM package's coordinator and typed-query shape (next section).
+- Skipped rows (finite timelines past the end, boundary positions) are total no-ops: no fold, no
+  movement, columns untouched. `Apply` validates column lengths and pairwise non-overlap; an
+  unbound id throws naming the row; an asset declaring more than 256 pairs is rejected at bind.
+
+### What the host does with outputs
+
+- `Apply` accumulates deltas into the effect column and commits the next position in place.
+  There is no cycle column (removed in #113): a host that wants loop counts derives them from
+  the movement flags — `FrameFlags.TimelineEnd` marks the wrap tick on looping timelines with
+  the sign in `FrameFlags.Reverse`, and `CompletedAfter`/`CompletedBefore` carry it on finite
+  ones — or from the position column (`old == duration - 1 && new == 0` forward). Receipted
+  against the removed engine cycle on a randomized schedule in `tests/Tl.Alpha` (`WrapCounts`).
+- The fold is a function of position only — no game tick, no other entities' columns. Behavior
+  that needs more reads the typed frame query (`Timeline.Query`), a read-only view of the row's
+  selected stage that never advances time; its consumers take `in` reads and `ref` writes, and
+  the generator derives the roles from `Execute`.
+- Lane consumers declare `static void Execute(in Frame<TTrack,TClip>, ref float effect)`. The
+  build discovers them compilation-wide (`Tl.Gen.CSharp`, inside `Tl.CSharp`) — no
+  registration, no catalog, no schema marker.
+
+### What adoption costs
+
+Warm numbers are rows of the [Performance](#performance) table above (one million rows,
+i9-14900K, best of 5 over interleaved rounds); cold numbers are the #108 receipt in
+[docs/typed-playback-lane.md](docs/typed-playback-lane.md). Warm cost follows the data shape —
+clock distribution and id grouping — not the authoring front-end:
+
+| adoption step | what you add | measured warm cost (table above) |
+| --- | --- | --- |
+| playback only: a hand-written `ITimelineLane<T>` | one closed-form lane type; no JSON, no bake, no generator | 0.13-0.18 ns/row (static lane rows) |
+| authored JSON assets | `tlbake`, domain structs, typed consumers, `TimelineSet` ids | 0.18-0.20 ns/row with ids grouped in waves or blocks of 100; 0.22 staggered on one looping timeline; 0.32 finite staggered; 0.48 at 16-row id blocks |
+| Blender authoring | the bridge addon; same schema, same `.tlb` bytes | unchanged from authored JSON |
+| generated C# job binding | consumers discovered compilation-wide and installed at build by `Tl.Gen.CSharp` | unchanged — every front-end drives the same measured tables |
+
+Cold cost arrives once per asset load, not per frame: on the #108 20 MB corpus, load 0.9 ms, one
+`Measure` 3.9 ms, seven `Add`s 1.11 ms combined. The host floor is the table's plain floor row
+(0.39 ns/row) — any system writing 6 B/row pays it, and uniform clocks under the lane beat it
+because run-length groups collapse the per-row work. Grouping rows by timeline id — the ECS
+norm, since component-sorted archetypes already cluster identical rows — keeps a crowd on the
+table-shaped rows; ids alternating every few rows pay the mixed scanner (1.72 ns/row), and fully
+staggered clocks fragment runs (the ManyEntities sweep: 4.46 vs 0.76 ns/row for the hand SoA
+lane).
 
 ## Unity ECS
 
