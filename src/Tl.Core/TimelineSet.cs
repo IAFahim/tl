@@ -425,9 +425,29 @@ public ref struct TimelineSetLane<TTrack, TClip>
         var touchCycles = !cycles.IsEmpty;
         while (i < limit)
         {
+            var id = ids[i];
             var position = positions[i];
-            var end = i + 1 >= limit || ids[i + 1] != ids[i] || positions[i + 1] != position ? i + 1 : RunEndTwo(ids, positions, i, limit);
-            var slot = slots + ids[i];
+            if (i + 1 >= limit || ids[i + 1] != id || positions[i + 1] != position)
+            {
+                var m = slots + id;
+                if (position < m->Duration)
+                {
+                    ref var r = ref m->ForwardRecords[position];
+                    effects[i] += r.Effect;
+                    positions[i] = r.Next;
+                    if (touchCycles)
+                    {
+                        if (m->Looping != 0)
+                            cycles[i] += r.CycleDelta;
+                        else
+                            cycles[i] = 0;
+                    }
+                }
+                i++;
+                continue;
+            }
+            var end = RunEndTwo(ids, positions, i, limit);
+            var slot = slots + id;
             var duration = slot->Duration;
             if (position >= duration) { i = end; continue; }
             var delta = slot->Forward[position];
@@ -438,42 +458,14 @@ public ref struct TimelineSetLane<TTrack, TClip>
             {
                 if (next == duration) { next = 0; cycleDelta = 1; }
             }
-            if (end == i + 1)
+            Add(effects, i, end, delta);
+            Fill(positions, i, end, next);
+            if (touchCycles)
             {
-                effects[i] += delta;
-                positions[i] = next;
-                if (!looping && touchCycles) cycles[i] = 0;
-                else if (cycleDelta != 0 && touchCycles) cycles[i] += cycleDelta;
-            }
-            else
-            {
-                Add(effects, i, end, delta);
-                Fill(positions, i, end, next);
-                if (!looping && touchCycles) Zero(cycles, i, end);
-                else if (cycleDelta != 0 && touchCycles) AddLong(cycles, i, end, cycleDelta);
+                if (!looping) Zero(cycles, i, end);
+                else if (cycleDelta != 0) AddLong(cycles, i, end, cycleDelta);
             }
             i = end;
-            while (i < limit && (i + 1 >= limit || ids[i + 1] != ids[i] || positions[i + 1] != positions[i]))
-            {
-                var p = positions[i];
-                var m = slots + ids[i];
-                if (p < m->Duration)
-                {
-                    ref var r = ref m->ForwardRecords[p];
-                    effects[i] += r.Effect;
-                    positions[i] = r.Next;
-                    if (touchCycles)
-                    {
-                        if (m->Looping != 0)
-                        {
-                            if (r.CycleDelta != 0) cycles[i] += r.CycleDelta;
-                        }
-                        else
-                            cycles[i] = 0;
-                    }
-                }
-                i++;
-            }
         }
         return limit;
     }
@@ -484,9 +476,32 @@ public ref struct TimelineSetLane<TTrack, TClip>
         var touchCycles = !cycles.IsEmpty;
         while (i < limit)
         {
+            var id = ids[i];
             var position = positions[i];
-            var end = i + 1 >= limit || ids[i + 1] != ids[i] || positions[i + 1] != position ? i + 1 : RunEndTwo(ids, positions, i, limit);
-            var slot = slots + ids[i];
+            if (i + 1 >= limit || ids[i + 1] != id || positions[i + 1] != position)
+            {
+                var m = slots + id;
+                if (position <= m->Duration)
+                {
+                    ref var r = ref m->BackwardRecords[position];
+                    if (r.CycleDelta != TimelineSet<TTrack, TClip>.Skipped)
+                    {
+                        effects[i] += r.Effect;
+                        positions[i] = r.Next;
+                        if (touchCycles)
+                        {
+                            if (m->Looping != 0)
+                                cycles[i] += r.CycleDelta;
+                            else
+                                cycles[i] = 0;
+                        }
+                    }
+                }
+                i++;
+                continue;
+            }
+            var end = RunEndTwo(ids, positions, i, limit);
+            var slot = slots + id;
             var duration = slot->Duration;
             var looping = slot->Looping != 0;
             if (position == 0 && !looping || position > duration || looping && position == duration) { i = end; continue; }
@@ -495,43 +510,14 @@ public ref struct TimelineSetLane<TTrack, TClip>
             if (position == 0) { tick = (ushort)(duration - 1); cycleDelta = -1; }
             else { tick = (ushort)(position - 1); cycleDelta = 0; }
             var delta = slot->Backward[tick];
-            if (end == i + 1)
+            Add(effects, i, end, delta);
+            Fill(positions, i, end, tick);
+            if (touchCycles)
             {
-                effects[i] += delta;
-                positions[i] = tick;
-                if (!looping && touchCycles) cycles[i] = 0;
-                else if (cycleDelta != 0 && touchCycles) cycles[i] += cycleDelta;
-            }
-            else
-            {
-                Add(effects, i, end, delta);
-                Fill(positions, i, end, tick);
-                if (!looping && touchCycles) Zero(cycles, i, end);
-                else if (cycleDelta != 0 && touchCycles) AddLong(cycles, i, end, cycleDelta);
+                if (!looping) Zero(cycles, i, end);
+                else if (cycleDelta != 0) AddLong(cycles, i, end, cycleDelta);
             }
             i = end;
-            while (i < limit && (i + 1 >= limit || ids[i + 1] != ids[i] || positions[i + 1] != positions[i]))
-            {
-                var p = positions[i];
-                var m = slots + ids[i];
-                var c = p <= m->Duration ? m->BackwardRecords[p].CycleDelta : TimelineSet<TTrack, TClip>.Skipped;
-                if (c != TimelineSet<TTrack, TClip>.Skipped)
-                {
-                    ref var r = ref m->BackwardRecords[p];
-                    effects[i] += r.Effect;
-                    positions[i] = r.Next;
-                    if (touchCycles)
-                    {
-                        if (m->Looping != 0)
-                        {
-                            if (c != 0) cycles[i] += c;
-                        }
-                        else
-                            cycles[i] = 0;
-                    }
-                }
-                i++;
-            }
         }
         return limit;
     }
