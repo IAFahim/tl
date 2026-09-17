@@ -2,7 +2,7 @@
 
 ## Start on any machine
 
-GitHub is the live source of truth. Read [Project 6](https://github.com/users/IAFahim/projects/6/views/4), [approved next API issue #56](https://github.com/IAFahim/tl/issues/56), linked workstream issues and pull requests, and the remote atomic claim before editing. [Design issue #27](https://github.com/IAFahim/tl/issues/27) and [release issue #35](https://github.com/IAFahim/tl/issues/35) preserve the released alpha.3 baseline.
+GitHub is the live source of truth. Read [Project 6](https://github.com/users/IAFahim/projects/6/views/4), [data-authored contract issue #56](https://github.com/IAFahim/tl/issues/56), linked workstream issues and pull requests, and the remote atomic claim before editing. [Design issue #27](https://github.com/IAFahim/tl/issues/27) and [release issue #35](https://github.com/IAFahim/tl/issues/35) preserve the released alpha.3 baseline.
 
 ```sh
 git clone https://github.com/IAFahim/tl.git
@@ -10,7 +10,7 @@ cd tl
 git fetch origin '+refs/heads/*:refs/remotes/origin/*'
 cat AGENTS.md
 cat plan.md
-gh issue view 57 --comments
+gh issue view 121 --comments
 gh issue view 56 --comments
 gh pr list --state open
 gh project item-list 6 --owner IAFahim --limit 1000
@@ -40,16 +40,16 @@ The measured `<3 ns` result is deliberately narrow. Full generated `Catalog.Quer
 
 ## Next work
 
-The owner approved [data-authored timelines and typed frame queries](data-authored-api.md) on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns the live design discussion and future implementation checklist. Freeze the intended consumer surface before production edits: data-only assets without mandatory names or job bindings, build-known type pairs, borrowed .NET rows, nested Unity queries, direct and job runners, and a coordinator that preserves ordered stages and explicit job dependencies. Resolve the documented implementation gates with executable evidence; this proposal is not part of the alpha.3 package.
+The owner approved [data-authored timelines and typed frame queries](data-authored-api.md) on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns the live design discussion and the shipped contract record. The intended consumer surface was frozen before production edits: data-only assets without mandatory names or job bindings, build-known type pairs, borrowed .NET rows, nested Unity queries, direct and job runners, and a coordinator that preserves ordered stages and explicit job dependencies. The documented implementation gates were resolved with executable evidence; the proposal was not part of the alpha.3 package.
 
-The [data-authored surface](data-authored-api.md) shipped and its warm .NET playback path was then rewritten under [issue #104](https://github.com/IAFahim/tl/issues/104) into the [typed playback lane](typed-playback-lane.md) (`Timeline<T>.Seek(...).Apply(...)`, `BakedLane` cold-measured effect tables) — the facade, kernel catalog, and unmanaged per-row walk are removed. Implementation history lives under [issue #56](https://github.com/IAFahim/tl/issues/56); the latest claim, checkpoint, and pull request, together with [Project 6](https://github.com/users/IAFahim/projects/6/views/4), are the live status. This file records recovery procedure, architecture, and gates, not a status board. Project 6 is the canonical board; Project 5 is historical only. Genuine pending work remains visible in [portable assets #5](https://github.com/IAFahim/tl/issues/5), [large-timeline performance #10](https://github.com/IAFahim/tl/issues/10) and [dependency qualification #58](https://github.com/IAFahim/tl/issues/58). Read and claim the applicable issue before starting work.
+The [data-authored surface](data-authored-api.md) shipped and its warm .NET playback path was then rewritten under [issue #104](https://github.com/IAFahim/tl/issues/104) into the [typed playback lane](typed-playback-lane.md) (`Timeline<T>.Seek(...).Apply(...)`, `BakedLane` cold-measured effect tables) — the facade, kernel catalog, and unmanaged per-row walk are removed. The shipped release is 1.0.0-alpha.7 ([release issue #121](https://github.com/IAFahim/tl/issues/121)). Implementation history lives under [issue #56](https://github.com/IAFahim/tl/issues/56); the latest claim, checkpoint, and pull request, together with [Project 6](https://github.com/users/IAFahim/projects/6/views/4), are the live status. This file records recovery procedure, architecture, and gates, not a status board. Project 6 is the canonical board; Project 5 is historical only. Genuine pending work remains visible in [portable assets #5](https://github.com/IAFahim/tl/issues/5), [large-timeline performance #10](https://github.com/IAFahim/tl/issues/10) and [dependency qualification #58](https://github.com/IAFahim/tl/issues/58). Read and claim the applicable issue before starting work.
 
-The `Tl.Gen.C` C11 backend and the data-authored Unity host package (`com.iafahim.tl`) with its Unity project receipts were extracted into separate repositories at commit `3e67333`. [Issue #64](https://github.com/IAFahim/tl/issues/64) settled the owner decisions: tl.unity is published at [IAFahim/tl.unity](https://github.com/IAFahim/tl.unity) under the MIT license, and tl.c stays local.
+The `Tl.Gen.C` C11 backend and the data-authored Unity host package (`com.iafahim.tl`) with its Unity project receipts were extracted into separate repositories at commit `3e67333`. [Issue #64](https://github.com/IAFahim/tl/issues/64) settled the owner decisions: tl.unity is published privately at [IAFahim/tl.unity](https://github.com/IAFahim/tl.unity), MIT is the decided license for both repositories, and tl.c stays local.
 
 - Reduce large-stage generated code and route overhead without changing ordered effects.
 - Add ARM64 performance and code-generation evidence.
 - Migrate heterogeneous catalog semantics into the extracted C backend repository without translating arbitrary C# behavior.
-- Define a canonical neutral serializer and conformance fixture package before splitting backend repositories.
+- Define a canonical neutral serializer and conformance fixture package.
 - Add designer GUI import as another frontend over the same validated plan.
 - Keep networking, threading, visualization, banking, and game-domain operations in separate packages unless they strengthen the irreducible runtime.
 
