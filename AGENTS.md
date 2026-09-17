@@ -4,13 +4,13 @@ These rules apply to every human and automated contributor. More specific `AGENT
 
 ## Work coordination
 
-GitHub Issues and the repository Project are the source of truth for all non-trivial work. `plan.md` defines architecture and release gates; it is not a shared mutable task queue.
+GitHub Issues and the repository Project are the source of truth for all non-trivial work. The repository README defines the shipped architecture and release gates; it is not a shared mutable task queue.
 
 Agent chats and local worktrees are disposable. A machine must be able to lose power after any published checkpoint without losing the task, its reasoning, or its recovery path.
 
 - Put the complete task specification on GitHub before delegating it. The issue or a workstream comment contains the problem, invariants, owned files, dependencies, acceptance receipts, current checkpoint, material risks, and exact next atom.
 - A private agent prompt contains only the issue URL or number and the instruction to read and claim its recorded workstream. Do not place unique requirements, design reasoning, or handoff state only in chat.
-- Before acting, read this file, `plan.md`, `docs/roadmap.md`, the issue and its comments, linked issues and pull requests, Project 6 fields, and the remote atomic claim. If those sources do not define the work completely, update the issue before editing.
+- Before acting, read this file, the README, the issue and its comments, linked issues and pull requests, Project 6 fields, and the remote atomic claim. If those sources do not define the work completely, update the issue before editing.
 - Post a changed decision, scope, dependency, or next atom to the issue before dependent work begins. An agent's final response links the durable issue comment and remote commit; it is never the only report.
 - Keep atoms short. Validate, commit, push, and record one atom before starting another. Prefer green checkpoints. If an atom cannot become green in the current session, push a clearly labeled recoverable checkpoint and record every known failing command; do not start the next atom from an unpublished or unexplained state.
 
@@ -34,17 +34,17 @@ Use `eng/agent-work` for issue creation, claims, checkpoints, handoffs, pull req
 
 Start a stacked workstream with the optional explicit base, such as `eng/agent-work start 16 feat runtime-state "runtime state ABI" origin/feat/15-typed-playback`. The helper resolves and records the exact base commit before publishing its atomic claim. Omit the base only when `origin/main` is correct or when resuming an existing claim.
 
-The cold-start entry point is `docs/roadmap.md`. It points to the release issue and canonical Project view. Live status belongs in GitHub; repository roadmap files contain recovery procedure, architecture, gates, and links rather than a second mutable status board.
+The cold-start entry point is the repository README. It links the release issue and canonical Project view. Live status belongs in GitHub; the README carries recovery procedure, architecture, gates, and links rather than a second mutable status board.
 
 Small typo-only documentation fixes may share their parent issue. Emergency release repairs still receive an issue immediately after containment. No agent creates an untracked private task list as an alternative authority.
 
 ## Product contract
 
-`tl` compiles immutable, heterogeneous timelines into deterministic execution. The shipped production contract is the data-authored surface owned by issue #56 and `docs/data-authored-api.md`: pure timeline selection, ordered typed operation jobs over borrowed component storage, and total signed `Tick`. Default state is ready; finite timelines clamp independently; every available crossed frame executes. Baked assets carry content-derived local identity; the runtime contains no registry or process-global IDs, with one owner-directed carve-out (issue #160): the pair-typed `Timeline<TTrack, TClip>` bank, a process-lifetime unmanaged slot table per closed generic pair resolved only through `Bind` at load time — no managed state, no ids in authored or baked data. .NET and Unity share domain operation signatures while retaining host-specific scheduling and storage adapters; the Unity host package and its receipts live in the extracted tl.unity repository. C catalog work remains deferred in the extracted local tl.c repository. Authoring/import validates definitions before execution; reflection, hidden allocation, and implicit runtime compilation are outside the generated path. Issue #27 and `plan.md` remain the design and evidence record of the removed alpha.3 surface.
+`tl` compiles immutable, heterogeneous timelines into deterministic execution. The shipped production contract is the data-authored surface owned by issue #56 and the README's authoring-contract sections: pure timeline selection, ordered typed operation jobs over borrowed component storage, and total signed `Tick`. Default state is ready; finite timelines clamp independently; every available crossed frame executes. Baked assets carry content-derived local identity; the runtime contains no registry or process-global IDs, with one owner-directed carve-out (issue #160): the pair-typed `Timeline<TTrack, TClip>` bank, a process-lifetime unmanaged slot table per closed generic pair resolved only through `Bind` at load time — no managed state, no ids in authored or baked data. .NET and Unity share domain operation signatures while retaining host-specific scheduling and storage adapters; the Unity host package and its receipts live in the extracted tl.unity repository. C catalog work remains deferred in the extracted local tl.c repository. Authoring/import validates definitions before execution; reflection, hidden allocation, and implicit runtime compilation are outside the generated path. Issue #27 remains the design and evidence record of the removed alpha.3 surface.
 
 Production source plus UTF-8 relative paths must remain at or below 300,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
 
-[data-authored timelines and typed frame queries](docs/data-authored-api.md) is the shipped authoring contract, tracked by [issue #56](https://github.com/IAFahim/tl/issues/56). Read that contract before API work. Assets require no name, per-asset job binding, handwritten timeline class, catalog or schema marker. Typed frame queries are read-only stage views; the coordinator owns movement, consumer order, dependency completion and commit. Changes to the generator boundary, consumer identity, missing-component policy or loaded-asset lifetime must be proven before treating them as solved. Document changes through the issue protocol rather than silently reverting to the previous authoring model.
+The data-authored timeline contract (README, "Author and bake one timeline" through "Generated reports") is the shipped authoring contract, tracked by [issue #56](https://github.com/IAFahim/tl/issues/56). Read that contract before API work. Assets require no name, per-asset job binding, handwritten timeline class, catalog or schema marker. Typed frame queries are read-only stage views; the coordinator owns movement, consumer order, dependency completion and commit. Changes to the generator boundary, consumer identity, missing-component policy or loaded-asset lifetime must be proven before treating them as solved. Document changes through the issue protocol rather than silently reverting to the previous authoring model.
 
 The owner resumed implementation on 2026-09-12 through [issue #56](https://github.com/IAFahim/tl/issues/56) (workstream `feat/56-data-authored-api`, tracked by its claim and pull request). The replacement shipped in 1.0.0-alpha.5 on nuget.org; the superseded alpha.3 authored surface was removed under [issue #65](https://github.com/IAFahim/tl/issues/65). Read #56's latest state and the project board before API work.
 
@@ -64,7 +64,7 @@ The owner resumed implementation on 2026-09-12 through [issue #56](https://githu
 - Prefer immutable values, pure transformations, total functions, explicit ownership, and deterministic order.
 - Keep data separate from behavior. Validate once before emission; emit code whose legal states are already constrained.
 - Do not add reflection, `dynamic`, boxing, delegates, LINQ, exceptions, managed allocation, locks, or indirect calls to a warm playback path without measured proof and explicit review.
-- Unsafe code requires a stated lifetime, aliasing, alignment, and concurrency proof in `docs/architecture.md` or `docs/memory-and-performance.md`.
+- Unsafe code requires a stated lifetime, aliasing, alignment, and concurrency proof in the README's architecture and performance sections.
 - Do not retain a managed reference, span, ref struct, generated input/output context, or callback frame beyond its call.
 - Do not change ordered effects or floating-point evaluation to win a benchmark.
 - Generated files must be deterministic, content-stable, and culture-independent. A cache hit preserves timestamps.
@@ -90,7 +90,7 @@ The owner resumed implementation on 2026-09-12 through [issue #56](https://githu
 
 ## Required validation
 
-Run the smallest relevant checks during development and this core gate before pushing. It is a subset of the complete gate: `plan.md`'s Release gate adds the release-artifact verification (`python3 -m unittest discover -s tests -p test_release_artifacts.py`, `eng/release-artifacts --candidate`) and CI adds the NativeAOT isolation, package-only consumer, quick-start, and helper-script checks in `.github/workflows/ci.yml`.
+Run the smallest relevant checks during development and this core gate before pushing. It is a subset of the complete gate: the Release gate adds the release-artifact verification (`python3 -m unittest discover -s tests -p test_release_artifacts.py`, `eng/release-artifacts --candidate`) and CI adds the NativeAOT isolation, package-only consumer, quick-start, and helper-script checks in `.github/workflows/ci.yml`.
 
 ```sh
 python3 benchmarks/source_budget.py
