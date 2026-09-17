@@ -134,9 +134,9 @@ tlb boss.json boss.tlb --assembly bin/Release/net10.0/MyApp.dll --cache ~/.tlbca
 
 ### What the baker deduplicates
 
-Authored game data repeats itself — the same namespace and type names on every track and clip. The bake stores each distinct **string once** in a single ordinal-sorted pool (timeline, track, and clip names; namespaces and type names; assembly names) and references pool entries by index from the type and label tables, so `"namespace": "TlPlayer"` written on a track and on all of its clips costs one pool entry. Each distinct track/clip **type pair** is stored once and shared by every track that uses it; two tracks of the same pair still keep their own clip data. Deduplication is per asset: one `.tlb` is self-contained, and identical strings in separately baked assets are stored per asset.
+Authored game data repeats itself — the same namespace and type names on every track and clip. The bake stores each distinct **string once** in a single ordinal-sorted pool (timeline, track, and clip names; namespaces and type names; assembly names) and references pool entries by index from the type and label tables, so `"namespace": "TlPlayer"` written on a track and on all of its clips costs one pool entry. Each distinct track/clip **type pair** is stored once and shared by every track that uses it; two tracks of the same pair draw their values from one shared per-pair pool. Deduplication is per asset: one `.tlb` is self-contained, and identical strings in separately baked assets are stored per asset.
 
-Repeated **payloads are not deduplicated**, by design: the baked format is the execution layout, so every active stage embeds its `(track, clip)` values directly in the frame slot — track data is copied into each of the track's slots, and a clip spanning several stages appears in each of them. Floats, frame bounds, and windows are inline values, not pooled. Data member names (`"Velocity"`, `"Multiplier"`) are matched against the assembly at bake time and never stored in the asset at all. `tlb --report` shows the split: `tlb/metadata-bytes` is the pooled string/type/label tail, `tlb/hot-bytes` the execution region.
+Repeated **payloads are deduplicated too** (TLB1 v2): each pair's distinct track values and clip payloads are stored once in a per-pair value pool of unique whole structs, and every frame slot references them by fixed-width `ushort` index — track data repeated across the track's slots and a clip spanning several stages each cost one pool entry. More than 65,535 unique values in one pool is a bake diagnostic naming the type. Windows and blend-factor bounds stay inline in the slot row. Data member names (`"Velocity"`, `"Multiplier"`) are matched against the assembly at bake time and never stored in the asset at all. Assets baked by earlier alphas carry the v1 layout and are rejected at load with a diagnostic; re-bake them with the current `tlb`. `tlb --report` shows the split: `tlb/metadata-bytes` is the pooled string/type/label tail, `tlb/hot-bytes` the execution region, and the `pool/*/unique-count` fields report the value pools.
 
 ### 4. Bind, advance, and query
 
@@ -415,9 +415,10 @@ foreach (var (timeline, resistance, health) in
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |
 | `tests/tlb_cli` | `tlb` CLI scenario harness (`config.json`); run via `python3 -m unittest discover -s tests -p test_tlb_cli.py` |
 | `benchmarks/Alpha` | Oracle and verification evidence for data-authored lane shapes |
+| `benchmarks/PairHandles` | Pair-typed lane receipts: parity against per-asset lanes and throughput versus the `BakedLane` gold path |
 | `benchmarks/TypedPlaybackProto` | Typed lane parity and throughput at 100k-1M rows |
 
-`benchmarks/Alpha` is the only benchmark project in the solution; every other `benchmarks/*` directory and its result receipts are commit-scoped history of removed surfaces — their numbers apply only to the source and contract named in each local report.
+The solution carries two benchmark projects, `benchmarks/Alpha` and `benchmarks/PairHandles`; `benchmarks/FusedAdvance`, `benchmarks/TypedPlaybackProto`, and `benchmarks/ValuePoolFormat` are standalone probes documenting shipped surfaces (the fused-`Advance` verdict, typed-lane parity, the TLB1 v2 value pools); every other `benchmarks/*` directory and its result receipts are commit-scoped history of removed surfaces — their numbers apply only to the source and contract named in each local report.
 
 The data-authored Unity host package (`com.iafahim.tl`) lives in the [tl.unity](https://github.com/IAFahim/tl.unity) repository, published under the MIT license decided in issue #64.
 
