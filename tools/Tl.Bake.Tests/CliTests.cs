@@ -9,7 +9,7 @@ public class CliTests
     [Fact]
     public void Cli_WithValidInput_ReturnsZeroAndCreatesFile()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "tlbake_test_" + Guid.NewGuid().ToString("N"));
+        var tempDir = Path.Combine(Path.GetTempPath(), "tlb_test_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
         try
         {
@@ -51,7 +51,7 @@ public class CliTests
     [Fact]
     public void Cli_WithDiagnosticError_ReturnsNonZero()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "tlbake_test_" + Guid.NewGuid().ToString("N"));
+        var tempDir = Path.Combine(Path.GetTempPath(), "tlb_test_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
         try
         {

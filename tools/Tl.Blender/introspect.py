@@ -62,20 +62,20 @@ def run_introspection(
     try:
         completed = execute(argv)
     except OSError as error:
-        return (), "tlbake --json failed to start: %s" % error
+        return (), "tlb --json failed to start: %s" % error
     if completed.returncode != 0:
         stderr = (getattr(completed, "stderr", "") or "").strip()
-        return (), "tlbake --json exited %d: %s" % (completed.returncode, stderr or "no diagnostics")
+        return (), "tlb --json exited %d: %s" % (completed.returncode, stderr or "no diagnostics")
     try:
         document = json.loads(completed.stdout)
     except json.JSONDecodeError as error:
-        return (), "tlbake --json printed invalid JSON: %s" % error
+        return (), "tlb --json printed invalid JSON: %s" % error
     try:
         return parse_pairs(document), ""
     except IntrospectionError as error:
         return (), str(error)
     except (AttributeError, KeyError, TypeError) as error:
-        return (), "tlbake --json document is malformed: %s" % error
+        return (), "tlb --json document is malformed: %s" % error
 
 
 def _default_runner(argv: list[str]) -> Any:

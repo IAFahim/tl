@@ -12,7 +12,7 @@ public sealed class CliRun : IDisposable
 
     public CliRun()
     {
-        _root = Path.Combine(Path.GetTempPath(), "tlbake_cache_" + Guid.NewGuid().ToString("N"));
+        _root = Path.Combine(Path.GetTempPath(), "tlb_cache_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_root);
         JsonPath = Path.Combine(_root, "input.json");
         TlbPath = Path.Combine(_root, "out.tlb");

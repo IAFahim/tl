@@ -132,7 +132,7 @@ public class DeterminismTests
     [Fact]
     public void CliStripProducesLoadableStrippedCopy()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "tlbake_strip_" + Guid.NewGuid().ToString("N"));
+        var tempDir = Path.Combine(Path.GetTempPath(), "tlb_strip_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
         try
         {
