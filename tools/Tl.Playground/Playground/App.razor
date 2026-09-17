@@ -1,1 +1,18 @@
-<Index />
+@code
+{
+    private string _view = "playground";
+}
+
+<div class="view-tabs">
+    <button class="@(_view == "playground" ? "view-tab active" : "view-tab")" @onclick='() => _view = "playground"'>playground</button>
+    <button class="@(_view == "live" ? "view-tab active" : "view-tab")" @onclick='() => _view = "live"'>live authoring</button>
+</div>
+
+@if (_view == "live")
+{
+    <Live />
+}
+else
+{
+    <Index />
+}

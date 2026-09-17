@@ -16,4 +16,9 @@
     <EmbeddedResource Include="..\presets\*.json" LogicalName="%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Basic.Reference.Assemblies.Net100" Version="1.8.12" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+  </ItemGroup>
+
 </Project>

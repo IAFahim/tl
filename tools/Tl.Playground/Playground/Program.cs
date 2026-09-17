@@ -5,6 +5,7 @@ using Playground;
 if (Environment.GetEnvironmentVariable("TL_PLAYGROUND_SMOKE") == "1")
 {
     Console.Write(Play.SmokeRun.Launch());
+    Console.Write(Play.LiveAuthoring.Receipt());
     return;
 }
 

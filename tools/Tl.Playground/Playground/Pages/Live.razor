@@ -1,0 +1,184 @@
+@page "/live"
+@using System.Globalization
+@using Play
+@using Tl
+
+<div class="wrap">
+    <header>
+        <h1>tl live authoring</h1>
+        <span class="muted">write the C# pair · get the type JSON · author the timeline JSON · bake and run</span>
+        <a href="cookbook/index.html">cookbook</a>
+    </header>
+
+    <div class="panel">
+        <h2>1 · code (C#)</h2>
+        <span class="muted">a track implements IBlend&lt;TClip&gt;; a public static parameterless Run() registers the consumer. compiled in your browser by Roslyn.</span>
+        <textarea class="code" rows="18" spellcheck="false" @bind="_source" @bind:after="StateHasChanged"></textarea>
+        <div class="controls">
+            <button class="primary" @onclick="OnCompile">compile → type JSON</button>
+            @if (_compiling)
+            {
+                <span class="muted">compiling…</span>
+            }
+            else if (_compile is not null)
+            {
+                <span class="@(_compile.Ok ? "muted" : "error")">
+                    @( _compile.Ok
+                        ? $"compiled in {_compile.CompileMs.ToString(CultureInfo.InvariantCulture)} ms"
+                        : "compile failed" )
+                </span>
+            }
+        </div>
+        @if (_compile is { Ok: false })
+        {
+            <pre class="diagnostics">@_compile.Error</pre>
+        }
+    </div>
+
+    <div class="panel">
+        <h2>2 · type data (JSON, from the code)</h2>
+        <span class="muted">the exact tlbake --json shape: pairs, fields, outputs, blendable. write pane 3 against it.</span>
+        @if (_typeJson.Length > 0)
+        {
+            <pre class="code json">@_typeJson</pre>
+        }
+        else
+        {
+            <pre class="muted">compile pane 1 to see the pair types.</pre>
+        }
+    </div>
+
+    <div class="panel">
+        <h2>3 · timeline JSON</h2>
+        <span class="muted">duration/loop and per-track clips with namespace + type + data + window. baked by the real Tl.Gen.Tlb converter against your compiled types.</span>
+        <textarea class="code" rows="16" spellcheck="false" @bind="_timelineJson" @bind:after="StateHasChanged"></textarea>
+        <div class="controls">
+            <button class="primary" @onclick="OnBakeAndRun">bake &amp; run</button>
+            <label>rows <input type="number" min="1" max="16" step="1" value="@Inv(_rows)" @onchange="OnRowsChange" /></label>
+            <label>ticks <input type="number" min="1" max="256" step="1" value="@Inv(_ticks)" @onchange="OnTicksChange" /></label>
+            @if (_running)
+            {
+                <span class="muted">baking and running…</span>
+            }
+            else if (_bakeError.Length > 0)
+            {
+                <span class="error">bake failed</span>
+            }
+            else if (_run is not null)
+            {
+                <span class="muted">@($"baked: {_bakeStats} · moved {_run.Moved} · skipped {_run.Skipped} · checksum {_run.Checksum.ToString(CultureInfo.InvariantCulture)}")</span>
+            }
+        </div>
+        @if (_bakeError.Length > 0)
+        {
+            <pre class="diagnostics">@_bakeError</pre>
+        }
+        @if (_run is not null)
+        {
+            <table class="run">
+                <thead>
+                    <tr><th>row</th><th>position</th><th>effect (folded)</th></tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < _run.Positions.Length; i++)
+                    {
+                        var row = i;
+                        <tr>
+                            <td>@row</td>
+                            <td>@_run.Positions[row]</td>
+                            <td>@_run.Effects[row].ToString("0.0###", CultureInfo.InvariantCulture)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code
+{
+    string _source = LiveAuthoring.DefaultSource;
+    string _timelineJson = LiveAuthoring.DefaultTimelineJson;
+    string _typeJson = "";
+    string _bakeError = "";
+    string _bakeStats = "";
+    LiveCompile? _compile;
+    LiveRun? _run;
+    bool _compiling;
+    bool _running;
+    int _rows = 8;
+    int _ticks = 41;
+
+    static string Inv(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    async Task OnCompile()
+    {
+        _compiling = true;
+        _compile = null;
+        _typeJson = "";
+        await InvokeAsync(StateHasChanged);
+        await Task.Run(() => _compile = LiveAuthoring.Compile(_source));
+        if (_compile is { Ok: true })
+            _typeJson = LiveAuthoring.TypeJson(_compile.Assembly!);
+        _compiling = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task OnBakeAndRun()
+    {
+        if (_compile is not { Ok: true })
+        {
+            _bakeError = "compile pane 1 first";
+            _run = null;
+            return;
+        }
+        _running = true;
+        _bakeError = "";
+        _run = null;
+        await InvokeAsync(StateHasChanged);
+        await Task.Run(() =>
+        {
+            var (bytes, error) = LiveAuthoring.Bake(_compile.Assembly!, _timelineJson);
+            if (bytes.Length == 0)
+            {
+                _bakeError = error;
+                return;
+            }
+            _bakeStats = LiveAuthoring.BakeStats(bytes);
+            var duration = 64;
+            var looping = true;
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(_timelineJson);
+                if (document.RootElement.TryGetProperty("duration", out var d) && d.TryGetInt32(out var parsed)) duration = parsed;
+                if (document.RootElement.TryGetProperty("loop", out var l) && l.ValueKind == System.Text.Json.JsonValueKind.False) looping = false;
+            }
+            catch
+            {
+                _bakeError = "timeline JSON is not an object";
+                return;
+            }
+            if (_bakeError.Length > 0) return;
+            try
+            {
+                _run = LiveAuthoring.Run(_compile.Assembly!, bytes, duration, looping, _rows, _ticks);
+            }
+            catch (Exception ex)
+            {
+                _bakeError = ex.Message;
+            }
+        });
+        _running = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    void OnRowsChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value)) _rows = Math.Clamp(value, 1, 16);
+    }
+
+    void OnTicksChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value)) _ticks = Math.Clamp(value, 1, 256);
+    }
+}
