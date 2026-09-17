@@ -38,7 +38,7 @@ The last forward frame carries `TimelineEnd | CompletedAfter`. Reversing from co
 
 ## Loop movement
 
-For nonzero duration `D`, looping positions stay in `0..D-1`. That envelope is also a validity requirement for hand-constructed state: a looping `TimelineComponent` constructed at `position == duration` never advances, because selection returns false (`src/Tl.Core/Playback.cs:51`), so components built by hand should start inside `0..D-1`.
+For nonzero duration `D`, looping positions stay in `0..D-1`. That envelope is also a validity requirement for hand-constructed state: a looping `TimelineComponent` constructed at `position == duration` never advances, because selection returns false (`src/Tl.Core/Playback.cs:46`), so components built by hand should start inside `0..D-1`.
 
 | Movement | Emitted `(tick, cycle)` | Committed `(position, cycle)` |
 | --- | --- | --- |
