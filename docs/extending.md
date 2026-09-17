@@ -29,7 +29,7 @@ Operation IDs name behavior without embedding a source language. Use stable reve
 
 The plan schema, runtime ABI, and each backend version independently. A frontend writes its compile-time `TimelinePlan.CurrentFormatVersion` into every plan. Validation preserves that instance value, and a backend compares it with its own supported-format constant before emission. This detects both an older frontend loaded with a newer compiler and a newer plan passed to an older backend. Unknown required features fail before emission. Optional metadata may be ignored only when the plan marks it non-semantic.
 
-Backend packages can move to their own repositories after the neutral plan has a released schema, canonical serializer, compatibility matrix, and fixture package. The repository split is then mechanical: depend on `Tl.Compiler`, import the fixtures, retain package provenance, and run conformance in CI.
+The C backend and the Unity host already live in separate repositories, extracted at commit `3e67333` ([issue #64](https://github.com/IAFahim/tl/issues/64)) without the neutral plan. Further backend packages can move to their own repositories after the neutral plan has a released schema, canonical serializer, compatibility matrix, and fixture package. The split is then mechanical: depend on `Tl.Compiler`, import the fixtures, retain package provenance, and run conformance in CI.
 
 ## Pull request evidence
 
