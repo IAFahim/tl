@@ -1,0 +1,47 @@
+```
+
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.22631.6936/23H2/2023Update/SunValley3)
+AMD Ryzen 5 8500G w/ Radeon 740M Graphics 3.55GHz, 1 CPU, 12 logical and 6 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+  Job-TZECNT : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v4
+
+
+```
+| Method  | Job        | Toolchain              | IterationCount | IterationTime | WarmupCount | Shape               | Mean           | Error         | StdDev        | Median         | Ratio | RatioSD | Allocated | Alloc Ratio |
+|-------- |----------- |----------------------- |--------------- |-------------- |------------ |-------------------- |---------------:|--------------:|--------------:|---------------:|------:|--------:|----------:|------------:|
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **LaneUniform**         |       **2.606 ns** |     **0.0197 ns** |     **0.0165 ns** |       **2.604 ns** |  **1.00** |    **0.01** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | LaneUniform         |       3.753 ns |     0.0627 ns |     0.0616 ns |       3.740 ns |  1.44 |    0.02 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneUniform         |   7,310.210 ns |    68.2787 ns |    60.5273 ns |   7,298.848 ns |  1.00 |    0.01 |         - |          NA |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneUniform         |   7,959.478 ns |    95.6739 ns |    89.4934 ns |   7,941.853 ns |  1.09 |    0.01 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **LaneWaves**           |       **2.161 ns** |     **0.0347 ns** |     **0.0341 ns** |       **2.162 ns** |  **1.00** |    **0.02** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | LaneWaves           |       2.738 ns |     0.0287 ns |     0.0282 ns |       2.734 ns |  1.27 |    0.02 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneWaves           |  13,742.683 ns |   227.8347 ns |   201.9695 ns |  13,755.960 ns |  1.00 |    0.02 |         - |          NA |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneWaves           |  13,906.067 ns |   194.8994 ns |   182.3090 ns |  13,893.495 ns |  1.01 |    0.02 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **LaneStaggered**       |       **2.359 ns** |     **0.0380 ns** |     **0.0356 ns** |       **2.358 ns** |  **1.00** |    **0.02** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | LaneStaggered       |       3.050 ns |     0.1015 ns |     0.0997 ns |       3.028 ns |  1.29 |    0.05 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneStaggered       |  30,197.348 ns |   584.0877 ns |   573.6522 ns |  30,196.381 ns |  1.00 |    0.03 |         - |          NA |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneStaggered       |  30,839.024 ns |   532.6557 ns |   498.2465 ns |  30,699.799 ns |  1.02 |    0.02 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **LaneUniformBackward** |       **3.139 ns** |     **0.0389 ns** |     **0.0382 ns** |       **3.136 ns** |  **1.00** |    **0.02** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | LaneUniformBackward |       3.127 ns |     0.0401 ns |     0.0355 ns |       3.115 ns |  1.00 |    0.02 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneUniformBackward |   6,221.951 ns |    73.7523 ns |    65.3795 ns |   6,201.100 ns |  1.00 |    0.01 |         - |          NA |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneUniformBackward |   7,874.302 ns |    53.3039 ns |    47.2525 ns |   7,863.990 ns |  1.27 |    0.01 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **SetWavesOne**         |  **10,167.193 ns** |    **88.1946 ns** |    **78.1822 ns** |  **10,138.294 ns** |  **1.00** |    **0.01** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | SetWavesOne         |  10,218.008 ns |   119.3660 ns |   117.2333 ns |  10,223.511 ns |  1.01 |    0.01 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | SetWavesOne         |   9,725.426 ns |   116.0025 ns |   108.5088 ns |   9,720.052 ns |  1.00 |    0.02 |         - |          NA |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | SetWavesOne         |  11,495.579 ns |   160.6976 ns |   150.3166 ns |  11,451.128 ns |  1.18 |    0.02 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **SetStaggeredMixed**   | **128,040.983 ns** | **1,936.1311 ns** | **1,811.0582 ns** | **127,643.073 ns** |  **1.00** |    **0.02** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | SetStaggeredMixed   | 128,442.942 ns | 1,081.8227 ns | 1,011.9376 ns | 128,668.438 ns |  1.00 |    0.02 |         - |          NA |
+|         |            |                        |                |               |             |                     |                |               |               |                |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | SetStaggeredMixed   | 130,277.434 ns | 1,476.8047 ns | 1,309.1489 ns | 130,386.047 ns |  1.00 |    0.01 |       1 B |        1.00 |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | SetStaggeredMixed   | 131,612.064 ns | 1,562.0379 ns | 1,461.1313 ns | 132,097.290 ns |  1.01 |    0.01 |       1 B |        1.00 |

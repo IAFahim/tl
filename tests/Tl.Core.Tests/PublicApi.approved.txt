@@ -68,6 +68,7 @@ type Tl.TimelineComponent
   Field UInt16 Position
   Field Tl.TimelineRef Reference
 type Tl.TimelineGather`2
+  Method Void Advance(System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Tl.TimelineSetLane`2[TTrack,TClip] Seek(System.Span`1[System.UInt16], Boolean)
 type Tl.TimelineLane`1
   Method Void Apply(System.Span`1[System.Single])
@@ -79,12 +80,14 @@ type Tl.TimelineSetLane`2
 type Tl.TimelineSet`2
   Method UInt16 Add(Tl.TimelineAsset)
   Method UInt16 Add(Tl.TimelineAsset, Tl.MeasuredLanes)
+  Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Dispose()
   Method Tl.TimelineGather`2[TTrack,TClip] Gather(System.ReadOnlySpan`1[System.UInt16])
 type Tl.TimelineState
   Field UInt32 Asset
   Field UInt16 Position
 type Tl.Timeline`1
+  Method Void Advance(System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Tl.TimelineLane`1[T] Seek(System.Span`1[System.UInt16], Boolean)
 type Tl.TypeKey`1
   Field UInt64 Value
