@@ -21,5 +21,6 @@
     <Project Path="tools/Tl.Gen.Tlb/Tl.Gen.Tlb.csproj" />
     <Project Path="tools/Tl.Bake/Tl.Bake.csproj" />
     <Project Path="tools/Tl.Bake.Tests/Tl.Bake.Tests.csproj" />
+    <Project Path="tools/Tl.Bake.Bench/Tl.Bake.Bench.csproj" />
   </Folder>
 </Solution>

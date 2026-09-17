@@ -134,6 +134,28 @@ public static class TimelineBaker
         return TimelineBakerFast.BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver);
     }
 
+    public static byte[] BakeJson(byte[] utf8Json, BakerAssemblyResolver? resolver = null)
+    {
+        if (!System.Text.Unicode.Utf8.IsValid(utf8Json))
+            throw new BakeDiagnosticException($"invalid UTF-8 in authoring JSON at byte {FirstInvalidUtf8Offset(utf8Json)}: the bake input must be valid UTF-8; fix the input file encoding.");
+        resolver ??= new BakerAssemblyResolver();
+        return TimelineBakerFast.BakeJsonUtf8(utf8Json, resolver);
+    }
+
+    private static int FirstInvalidUtf8Offset(byte[] utf8Json)
+    {
+        var span = utf8Json.AsSpan();
+        var offset = 0;
+        while (offset < span.Length)
+        {
+            var status = System.Text.Rune.DecodeFromUtf8(span[offset..], out _, out var consumed);
+            if (status != System.Buffers.OperationStatus.Done)
+                return offset;
+            offset += consumed;
+        }
+        return span.Length;
+    }
+
     internal static byte[] BakeJsonLegacy(string json, BakerAssemblyResolver? resolver = null)
     {
         resolver ??= new BakerAssemblyResolver();

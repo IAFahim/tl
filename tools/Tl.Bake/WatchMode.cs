@@ -111,7 +111,7 @@ internal sealed class WatchEngine
         try
         {
             var resolver = new BakerAssemblyResolver(_assemblyPaths);
-            var output = TimelineBaker.BakeJson(Encoding.UTF8.GetString(bytes), resolver);
+            var output = TimelineBaker.BakeJson(bytes, resolver);
             WriteIfChanged(file.Output, output);
             _hashes[file.Input] = hash;
             var duration = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
