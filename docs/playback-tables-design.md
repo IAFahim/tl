@@ -3,7 +3,10 @@
 > Superseded in part: the facade and the watch gather lane this design compared against
 > were removed under [issue #104](https://github.com/IAFahim/tl/issues/104); the typed
 > playback lane is the shipped shape of the table pattern. See
-> [typed-playback-lane.md](typed-playback-lane.md).
+> [typed-playback-lane.md](typed-playback-lane.md). Dated record: the text below is
+> retained as written at that design's state — the `Timeline.Rows` lane no longer exists
+> and the `benchmarks/PlaybackPrototype/` harness was deleted in the same rewrite, so
+> the reproduce commands no longer run.
 
 Design and prototype record for [issue #88](https://github.com/IAFahim/tl/issues/88). It extends the approved data-authored contract in [data-authored-api.md](data-authored-api.md) with a coordinator shape for its dominant real workload: many entities, each carrying exactly one timeline, most entities sharing a small set of assets, clocks staggered per entity. It proposes no public API change, ships no production source change, and does not alter any #56 gate. `Timeline.Rows` remains the general heterogeneous lane; nothing here removes it.
 
