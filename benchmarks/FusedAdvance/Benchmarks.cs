@@ -1,0 +1,96 @@
+using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Columns;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Diagnosers;
+using BenchmarkDotNet.Exporters.Json;
+using BenchmarkDotNet.Jobs;
+using Perfolizer.Horology;
+using Tl;
+
+namespace Tl.FusedAdvanceProbe;
+
+public sealed class FusedAdvanceConfig : ManualConfig
+{
+    public FusedAdvanceConfig()
+    {
+        AddJob(Job.Default.WithWarmupCount(8).WithIterationCount(16).WithIterationTime(TimeInterval.FromMilliseconds(200)));
+        AddColumn(StatisticColumn.Median);
+        AddDiagnoser(MemoryDiagnoser.Default);
+        AddExporter(JsonExporter.Full);
+    }
+}
+
+[InProcess]
+[MemoryDiagnoser]
+[Config(typeof(FusedAdvanceConfig))]
+public class AdvanceBenchmarks
+{
+    public enum ShapeKind
+    {
+        LaneUniform,
+        LaneWaves,
+        LaneStaggered,
+        LaneUniformBackward,
+        SetWavesOne,
+        SetStaggeredMixed,
+    }
+
+    const int Rows = 100_000;
+    const int ProbeMask = 0xFFFF;
+
+    static readonly TimelineSet<LaneTrack, LaneClip> Set = Host.BuildSet(8);
+
+    ushort[] _positions = null!;
+    ushort[] _ids = null!;
+    float[] _effects = null!;
+    int _probe;
+
+    public long Sink;
+
+    [Params(ShapeKind.LaneUniform, ShapeKind.LaneWaves, ShapeKind.LaneStaggered, ShapeKind.LaneUniformBackward, ShapeKind.SetWavesOne, ShapeKind.SetStaggeredMixed)]
+    public ShapeKind Shape;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        Host.BindLane();
+        var clock = Shape switch
+        {
+            ShapeKind.LaneUniform or ShapeKind.LaneUniformBackward or ShapeKind.SetWavesOne => Clock.Uniform,
+            ShapeKind.LaneWaves => Clock.Waves,
+            _ => Clock.Staggered,
+        };
+        _positions = Seeds.Positions(Rows, clock);
+        _effects = Seeds.Effects(Rows);
+        _ids = Shape == ShapeKind.SetStaggeredMixed ? Seeds.Ids(Rows, 8) : new ushort[Rows];
+        _probe = 0;
+    }
+
+    [Benchmark(Baseline = true)]
+    public void TwoCall() => Run(fused: false);
+
+    [Benchmark]
+    public void Fused() => Run(fused: true);
+
+    void Run(bool fused)
+    {
+        var positions = _positions;
+        var effects = _effects;
+        switch (Shape)
+        {
+            case ShapeKind.LaneUniform or ShapeKind.LaneWaves or ShapeKind.LaneStaggered:
+                if (fused) Timeline<BakedLane<LaneTrack, LaneClip>>.Advance(positions, true, effects);
+                else Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(positions, true).Apply(effects);
+                break;
+            case ShapeKind.LaneUniformBackward:
+                if (fused) Timeline<BakedLane<LaneTrack, LaneClip>>.Advance(positions, false, effects);
+                else Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(positions, false).Apply(effects);
+                break;
+            default:
+                if (fused) Set.Advance(_ids, positions, true, effects);
+                else Set.Gather(_ids).Seek(positions, true).Apply(effects);
+                break;
+        }
+        Sink += BitConverter.SingleToInt32Bits(effects[ProbeMask & _probe++]);
+    }
+}

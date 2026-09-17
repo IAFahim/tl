@@ -183,6 +183,9 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         return new TimelineGather<TTrack, TClip>(this, timelineIds);
     }
 
+    public void Advance(ReadOnlySpan<ushort> timelineIds, Span<ushort> positions, bool forward, Span<float> effects)
+        => Gather(timelineIds).Seek(positions, forward).Apply(effects);
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -212,6 +215,9 @@ public ref struct TimelineGather<TTrack, TClip>
 
     public TimelineSetLane<TTrack, TClip> Seek(Span<ushort> positions, bool forward)
         => new(_set, _ids, positions, forward);
+
+    public void Advance(Span<ushort> positions, bool forward, Span<float> effects)
+        => Seek(positions, forward).Apply(effects);
 }
 
 public ref struct TimelineSetLane<TTrack, TClip>

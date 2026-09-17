@@ -19,6 +19,9 @@ public static class Timeline<T>
     where T : unmanaged, ITimelineLane<T>
 {
     public static TimelineLane<T> Seek(Span<ushort> positions, bool forward) => new(positions, forward);
+
+    public static void Advance(Span<ushort> positions, bool forward, Span<float> effects)
+        => new TimelineLane<T>(positions, forward).Apply(effects);
 }
 
 public ref struct TimelineLane<T>
