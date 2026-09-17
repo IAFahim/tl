@@ -26,10 +26,10 @@ Scenario object:
 
 | field | meaning |
 | --- | --- |
-| `name` | scenario name; becomes the unittest method name |
+| `name` | scenario name; becomes the unittest subTest name |
 | `mode` | CLI mode: `bake`, `json`, `report`, `strip`, or `watch` |
 | `inputs` | mode inputs (see below) |
-| `options` | `assemblies` (list of `--assembly` paths), `cache` (`--cache` directory, bake only), `debounceMs` and `timeoutSeconds` (watch only) |
+| `options` | `assemblies` (list of `--assembly` paths), `cache` (`--cache` directory, bake only), `debounceMs` (watch only), and `timeoutSeconds` (per-invocation timeout in any mode) |
 | `expected` | outcomes (see below) |
 
 Inputs by mode:
@@ -40,7 +40,7 @@ Inputs by mode:
 | `report` | `tlb` — baked TLB path |
 | `strip` | `tlb` — baked TLB path |
 | `json` | none (assemblies option only) |
-| `watch` | `initial` — JSON copied to the watch directory as `alpha.json`; `edits` — ordered list of file contents written over `alpha.json`, one per expected non-ready event |
+| `watch` | `initial` — JSON copied to the watch directory as `alpha.json`; `edits` — ordered list of file contents written over `alpha.json`, one per expected event after the `ready` and initial-bake events |
 
 Expected outcomes (all optional, all checked when present):
 
