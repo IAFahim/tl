@@ -195,6 +195,52 @@ public class PairHandleLaneTests
         }
     }
 
+    static void AdvanceAgainstOracle(ushort[] rowHandles, ushort[] positions, float[] effects, ushort[] oraclePositions, float[] oracleEffects, ushort[] handles)
+    {
+        using var oracle = UniformOracle.Create(rowHandles, handles, oraclePositions, oracleEffects);
+        for (var step = 0; step < 80; step++)
+        {
+            var forward = step % 4 != 3;
+            Timeline<HandleTrack, HandleClip>.Advance(rowHandles, positions, forward, effects);
+            oracle.Advance(forward);
+        }
+        Assert.Equal(oraclePositions, positions);
+        Assert.Equal(oracleEffects, effects);
+    }
+
+    [Fact]
+    public void PositionsBelowEveryDurationMatchPerAssetUniformLanes()
+    {
+        var handles = BindVariants();
+        for (var pattern = 0; pattern < Assets; pattern++)
+        {
+            var rowHandles = UniformHandles(handles, pattern);
+            var positions = new ushort[Rows];
+            var effects = new float[Rows];
+            for (var i = 0; i < Rows; i++)
+                positions[i] = (ushort)(i % 3);
+
+            AdvanceAgainstOracle(rowHandles, positions, effects, (ushort[])positions.Clone(), (float[])effects.Clone(), handles);
+        }
+    }
+
+    [Fact]
+    public void BlockRunsMatchPerAssetUniformLanes()
+    {
+        var handles = BindVariants();
+        var rowHandles = new ushort[Rows];
+        var positions = new ushort[Rows];
+        var effects = new float[Rows];
+        for (var i = 0; i < Rows; i++)
+        {
+            var block = i / 32;
+            rowHandles[i] = handles[block % Assets];
+            positions[i] = (ushort)(block % 5);
+        }
+
+        AdvanceAgainstOracle(rowHandles, positions, effects, (ushort[])positions.Clone(), (float[])effects.Clone(), handles);
+    }
+
     [Fact]
     public void AdvanceMatchesSeekApply()
     {

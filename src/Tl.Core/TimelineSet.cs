@@ -37,6 +37,7 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal int _count;
     internal bool _anyLooping;
     internal bool _disposed;
+    internal ushort _minDuration;
     nuint _floats;
     nuint _records;
 
@@ -66,6 +67,8 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var backward = measured.Backward;
         var duration = measured.Duration;
         var looping = measured.Looping;
+        if (_count == 0 || duration < _minDuration)
+            _minDuration = duration;
         nuint ticks = Math.Max(1u, duration);
         nuint floats = _floats + (ticks + 1) * 3;
         nuint records = _records + (ticks + 1) * 2;
@@ -195,6 +198,7 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         _data = null;
         _recordsBase = null;
         _count = 0;
+        _minDuration = 0;
         if (previous != null)
             NativeMemory.AlignedFree(previous);
     }
@@ -257,49 +261,62 @@ public ref struct TimelineSetLane<TTrack, TClip>
         if (count == 0) return;
         var slots = set._slots;
         var bound = set._count;
+        var minDuration = set._minDuration;
         var gather = Avx2.IsSupported;
+        var forward = _forward;
         var i = 0;
+        var uniformId = -1;
+        TimelineSet<TTrack, TClip>.Slot* slot = null;
         while (i < count)
         {
             var chunkEnd = i + Chunk;
             if (chunkEnd > count) chunkEnd = count;
-            if (ProbeChunk(ids, i, chunkEnd, bound))
+            var first = ids[i];
+            if (UniformChunk(ids, i, chunkEnd, first))
             {
-                var slot = slots + ids[i];
-                if (gather && slot->Duration > 1 && (slot->Looping != 0
+                if (first >= bound) ThrowUnboundId(first, i);
+                if (first != uniformId)
+                {
+                    slot = slots + first;
+                    uniformId = first;
+                }
+                var duration = slot->Duration;
+                var looping = slot->Looping != 0;
+                if (gather && duration > 1 && (looping
                         ? SingletonChunk(positions, i, chunkEnd)
                         : ShortRuns(positions, i, chunkEnd)))
                 {
                     var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
                     if (blockEnd > i)
                     {
-                        if (_forward)
+                        if (forward)
                         {
-                            if (slot->Looping != 0)
-                                GatherForward(slot, positions, effects, i, blockEnd);
+                            if (looping)
+                                GatherForward(slot->Forward, duration, positions, effects, i, blockEnd);
                             else
-                                GatherFiniteForward(slot, positions, effects, i, blockEnd);
+                                GatherFiniteForward(slot->Forward, duration, positions, effects, i, blockEnd);
                         }
                         else
                         {
-                            if (slot->Looping != 0)
-                                GatherBackward(slot, positions, effects, i, blockEnd);
+                            if (looping)
+                                GatherBackward(slot->BackwardByPosition, duration, positions, effects, i, blockEnd);
                             else
-                                GatherFiniteBackward(slot, positions, effects, i, blockEnd);
+                                GatherFiniteBackward(slot->BackwardByPosition, duration, positions, effects, i, blockEnd);
                         }
                         i = blockEnd;
                         continue;
                     }
                 }
-                i = _forward
+                i = forward
                     ? ApplyUniformForward(slot, positions, effects, i, chunkEnd)
                     : ApplyUniformBackward(slot, positions, effects, i, chunkEnd);
             }
             else
             {
-                i = _forward
-                    ? ApplyMixedForward(ids, positions, effects, slots, i, chunkEnd)
-                    : ApplyMixedBackward(ids, positions, effects, slots, i, chunkEnd);
+                ValidateChunk(ids, i, chunkEnd, bound);
+                i = forward
+                    ? ApplyMixedForward(ids, positions, effects, slots, minDuration, i, chunkEnd)
+                    : ApplyMixedBackward(ids, positions, effects, slots, minDuration, i, chunkEnd);
             }
         }
     }
@@ -390,8 +407,10 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
+    static unsafe int ApplyMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int minDuration, int i, int limit)
     {
+        if (FastMixedChunk(ids, positions, i, limit, minDuration))
+            return FastMixedForward(ids, positions, effects, slots, i, limit);
         while (i < limit)
         {
             var id = ids[i];
@@ -423,8 +442,10 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
+    static unsafe int ApplyMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int minDuration, int i, int limit)
     {
+        if (FastMixedChunk(ids, positions, i, limit, minDuration))
+            return FastMixedBackward(ids, positions, effects, slots, i, limit);
         while (i < limit)
         {
             var id = ids[i];
@@ -459,10 +480,37 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void GatherForward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, int i, int limit)
+    static unsafe int FastMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
-        var duration = slot->Duration;
-        var eff = slot->Forward;
+        while (i < limit)
+        {
+            ref var r = ref slots[ids[i]].ForwardRecords[positions[i]];
+            effects[i] += r.Effect;
+            positions[i] = r.Next;
+            i++;
+        }
+        return limit;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe int FastMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
+    {
+        while (i < limit)
+        {
+            ref var r = ref slots[ids[i]].BackwardRecords[positions[i]];
+            if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
+            {
+                effects[i] += r.Effect;
+                positions[i] = r.Next;
+            }
+            i++;
+        }
+        return limit;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe void GatherForward(float* eff, ushort duration, Span<ushort> positions, Span<float> effects, int i, int limit)
+    {
         var last = (ushort)(duration - 1);
         var durationVector = Vector256.Create(duration);
         var durationWide = Vector256.Create((uint)duration);
@@ -496,10 +544,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void GatherBackward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, int i, int limit)
+    static unsafe void GatherBackward(float* eff, ushort duration, Span<ushort> positions, Span<float> effects, int i, int limit)
     {
-        var duration = slot->Duration;
-        var eff = slot->BackwardByPosition;
         var last = (ushort)(duration - 1);
         var durationVector = Vector256.Create(duration);
         var durationWide = Vector256.Create((uint)duration);
@@ -533,10 +579,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void GatherFiniteForward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, int i, int limit)
+    static unsafe void GatherFiniteForward(float* eff, ushort duration, Span<ushort> positions, Span<float> effects, int i, int limit)
     {
-        var duration = slot->Duration;
-        var eff = slot->Forward;
         var last = (ushort)(duration - 1);
         var lastVector = Vector256.Create(last);
         var durationVector = Vector256.Create(duration);
@@ -567,10 +611,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void GatherFiniteBackward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, int i, int limit)
+    static unsafe void GatherFiniteBackward(float* eff, ushort duration, Span<ushort> positions, Span<float> effects, int i, int limit)
     {
-        var duration = slot->Duration;
-        var eff = slot->BackwardByPosition;
         var durationVector = Vector256.Create(duration);
         var durationWide = Vector256.Create((uint)duration);
         var zero = Vector256<ushort>.Zero;
@@ -626,79 +668,173 @@ public ref struct TimelineSetLane<TTrack, TClip>
     {
         var probe = start + 64;
         if (probe > end) probe = end;
-        for (var i = start + 1; i < probe; i++)
-            if (positions[i] == positions[i - 1]) return false;
+        var j = start;
+        if (Vector512.IsHardwareAccelerated)
+        {
+            ref var origin = ref MemoryMarshal.GetReference(positions);
+            var vectorLimit = probe - 33;
+            while (j <= vectorLimit)
+            {
+                if ((uint)Vector512.ExtractMostSignificantBits(Vector512.Equals(Vector512.LoadUnsafe(ref origin, (nuint)j), Vector512.LoadUnsafe(ref origin, (nuint)(j + 1)))) != 0)
+                    return false;
+                j += 32;
+            }
+        }
+        else if (Vector256.IsHardwareAccelerated)
+        {
+            ref var origin = ref MemoryMarshal.GetReference(positions);
+            var vectorLimit = probe - 17;
+            while (j <= vectorLimit)
+            {
+                if (Vector256.ExtractMostSignificantBits(Vector256.Equals(Vector256.LoadUnsafe(ref origin, (nuint)j), Vector256.LoadUnsafe(ref origin, (nuint)(j + 1)))) != 0)
+                    return false;
+                j += 16;
+            }
+        }
+        for (var k = j; k < probe - 1; k++)
+            if (positions[k] == positions[k + 1]) return false;
         return true;
     }
 
-    static bool ProbeChunk(ReadOnlySpan<ushort> ids, int start, int end, int bound)
+    static bool UniformChunk(ReadOnlySpan<ushort> ids, int start, int end, ushort first)
     {
-        var first = ids[start];
-        var uniform = true;
-        var limit = bound <= ushort.MaxValue ? (ushort)bound : ushort.MaxValue;
         var i = start;
         if (Vector512.IsHardwareAccelerated)
         {
             ref var origin = ref MemoryMarshal.GetReference(ids);
-            var firstVector = Vector512.Create(first);
-            var boundVector = Vector512.Create(limit);
+            var search = Vector512.Create(first);
             var edge = end - 32;
+            var mismatch = Vector512<ushort>.Zero;
             while (i <= edge)
             {
-                var vector = Vector512.LoadUnsafe(ref origin, (nuint)i);
-                if ((uint)Vector512.ExtractMostSignificantBits(Vector512.GreaterThanOrEqual(vector, boundVector)) != 0)
+                mismatch |= Vector512.Xor(Vector512.LoadUnsafe(ref origin, (nuint)i), search);
+                i += 32;
+            }
+            if (mismatch != Vector512<ushort>.Zero) return false;
+        }
+        else if (Vector256.IsHardwareAccelerated)
+        {
+            ref var origin = ref MemoryMarshal.GetReference(ids);
+            var search = Vector256.Create(first);
+            var edge = end - 16;
+            var mismatch = Vector256<ushort>.Zero;
+            while (i <= edge)
+            {
+                mismatch |= Vector256.Xor(Vector256.LoadUnsafe(ref origin, (nuint)i), search);
+                i += 16;
+            }
+            if (mismatch != Vector256<ushort>.Zero) return false;
+        }
+        while (i < end)
+        {
+            if (ids[i] != first) return false;
+            i++;
+        }
+        return true;
+    }
+
+    static unsafe void ValidateChunk(ReadOnlySpan<ushort> ids, int start, int end, int bound)
+    {
+        if (bound >= 65536) return;
+        var i = start;
+        if (Vector512.IsHardwareAccelerated)
+        {
+            ref var origin = ref MemoryMarshal.GetReference(ids);
+            var boundVector = Vector512.Create((ushort)bound);
+            var edge = end - 32;
+            var over = Vector512<ushort>.Zero;
+            while (i <= edge)
+            {
+                over |= Vector512.GreaterThanOrEqual(Vector512.LoadUnsafe(ref origin, (nuint)i), boundVector);
+                i += 32;
+            }
+            if (over != Vector512<ushort>.Zero)
+                for (var k = start; k < end; k++)
                 {
-                    for (var k = 0; k < 32; k++)
-                    {
-                        var id = ids[i + k];
-                        if (id >= bound)
-                            throw new ArgumentException($"Timeline id {id} at row {i + k} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time.");
-                    }
-                    uniform = false;
+                    var id = ids[k];
+                    if (id >= bound) ThrowUnboundId(id, k);
                 }
-                else if (uniform && (uint)Vector512.ExtractMostSignificantBits(Vector512.Equals(vector, firstVector)) != 0xFFFF_FFFFu)
-                    uniform = false;
+        }
+        else if (Vector256.IsHardwareAccelerated)
+        {
+            ref var origin = ref MemoryMarshal.GetReference(ids);
+            var boundVector = Vector256.Create((ushort)bound);
+            var edge = end - 16;
+            var over = Vector256<ushort>.Zero;
+            while (i <= edge)
+            {
+                over |= Vector256.GreaterThanOrEqual(Vector256.LoadUnsafe(ref origin, (nuint)i), boundVector);
+                i += 16;
+            }
+            if (over != Vector256<ushort>.Zero)
+                for (var k = start; k < end; k++)
+                {
+                    var id = ids[k];
+                    if (id >= bound) ThrowUnboundId(id, k);
+                }
+        }
+        while (i < end)
+        {
+            var id = ids[i];
+            if (id >= bound) ThrowUnboundId(id, i);
+            i++;
+        }
+    }
+
+    static bool FastMixedChunk(ReadOnlySpan<ushort> ids, Span<ushort> positions, int start, int end, int minDuration)
+    {
+        var i = start;
+        if (Vector512.IsHardwareAccelerated)
+        {
+            ref var idOrigin = ref MemoryMarshal.GetReference(ids);
+            ref var positionOrigin = ref MemoryMarshal.GetReference(positions);
+            var limit = Vector512.Create((ushort)minDuration);
+            var highest = Vector512<ushort>.Zero;
+            while (i + 32 < end)
+            {
+                var id = Vector512.LoadUnsafe(ref idOrigin, (nuint)i);
+                var nextId = Vector512.LoadUnsafe(ref idOrigin, (nuint)(i + 1));
+                var position = Vector512.LoadUnsafe(ref positionOrigin, (nuint)i);
+                var nextPosition = Vector512.LoadUnsafe(ref positionOrigin, (nuint)(i + 1));
+                if ((Vector512.Equals(id, nextId) & Vector512.Equals(position, nextPosition)) != Vector512<ushort>.Zero)
+                    return false;
+                highest = Vector512.Max(highest, position);
+                if (Vector512.ExtractMostSignificantBits(Vector512.GreaterThanOrEqual(highest, limit)) != 0)
+                    return false;
                 i += 32;
             }
         }
         else if (Vector256.IsHardwareAccelerated)
         {
-            ref var origin = ref MemoryMarshal.GetReference(ids);
-            var firstVector = Vector256.Create(first);
-            var boundVector = Vector256.Create(limit);
-            var edge = end - 16;
-            while (i <= edge)
+            ref var idOrigin = ref MemoryMarshal.GetReference(ids);
+            ref var positionOrigin = ref MemoryMarshal.GetReference(positions);
+            var limit = Vector256.Create((ushort)minDuration);
+            var highest = Vector256<ushort>.Zero;
+            while (i + 16 < end)
             {
-                var vector = Vector256.LoadUnsafe(ref origin, (nuint)i);
-                if (Vector256.ExtractMostSignificantBits(Vector256.GreaterThanOrEqual(vector, boundVector)) != 0)
-                {
-                    for (var k = 0; k < 16; k++)
-                    {
-                        var id = ids[i + k];
-                        if (id >= bound)
-                            throw new ArgumentException($"Timeline id {id} at row {i + k} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time.");
-                    }
-                    uniform = false;
-                }
-                else if (uniform && Vector256.ExtractMostSignificantBits(Vector256.Equals(vector, firstVector)) != 0xFFFFu)
-                    uniform = false;
+                var id = Vector256.LoadUnsafe(ref idOrigin, (nuint)i);
+                var nextId = Vector256.LoadUnsafe(ref idOrigin, (nuint)(i + 1));
+                var position = Vector256.LoadUnsafe(ref positionOrigin, (nuint)i);
+                var nextPosition = Vector256.LoadUnsafe(ref positionOrigin, (nuint)(i + 1));
+                if ((Vector256.Equals(id, nextId) & Vector256.Equals(position, nextPosition)) != Vector256<ushort>.Zero)
+                    return false;
+                highest = Vector256.Max(highest, position);
+                if (Vector256.ExtractMostSignificantBits(Vector256.GreaterThanOrEqual(highest, limit)) != 0)
+                    return false;
                 i += 16;
             }
         }
-        for (; i < end; i++)
+        for (var k = i; k < end; k++)
         {
-            var id = ids[i];
-            if (id >= limit)
-            {
-                if (id >= bound)
-                    throw new ArgumentException($"Timeline id {id} at row {i} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time.");
-                uniform = false;
-            }
-            else if (id != first)
-                uniform = false;
+            var position = positions[k];
+            if (position >= minDuration) return false;
+            if (k + 1 < end && ids[k] == ids[k + 1] && position == positions[k + 1]) return false;
         }
-        return uniform;
+        return true;
     }
+
+    static void ThrowUnboundId(ushort id, int row)
+        => throw new ArgumentException($"Timeline id {id} at row {row} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time.");
 
     static int RunEnd(Span<ushort> positions, int start, int limit)
     {

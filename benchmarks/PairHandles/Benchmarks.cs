@@ -26,6 +26,9 @@ public enum ShapeKind
     PairOne,
     PairRuns8,
     PairAlternating8,
+    PairRuns8Waves,
+    PairBlocks8Waves,
+    PairAlternating8Waves,
 }
 
 [InProcess]
@@ -41,7 +44,7 @@ public class PairHandleBenchmarks
 
     public long Sink;
 
-    [Params(ShapeKind.LaneUniform, ShapeKind.PairOne, ShapeKind.PairRuns8, ShapeKind.PairAlternating8)]
+    [Params(ShapeKind.LaneUniform, ShapeKind.PairOne, ShapeKind.PairRuns8, ShapeKind.PairAlternating8, ShapeKind.PairRuns8Waves, ShapeKind.PairBlocks8Waves, ShapeKind.PairAlternating8Waves)]
     public ShapeKind Shape;
 
     [GlobalSetup]
@@ -51,19 +54,25 @@ public class PairHandleBenchmarks
         var bank = Host.BindBank();
         var positions = new ushort[Rows];
         for (var i = 0; i < Rows; i++)
-            positions[i] = (ushort)(i % Host.Duration);
+            positions[i] = HasWaves()
+                ? (ushort)(i / 100 % Host.Duration)
+                : (ushort)(i % Host.Duration);
         var handles = new ushort[Rows];
         for (var i = 0; i < Rows; i++)
             handles[i] = Shape switch
             {
                 ShapeKind.PairOne => bank[0],
-                ShapeKind.PairRuns8 => bank[i * Host.Variants / Rows],
+                ShapeKind.PairRuns8 or ShapeKind.PairRuns8Waves => bank[i * Host.Variants / Rows],
+                ShapeKind.PairBlocks8Waves => bank[i / 100 % Host.Variants],
                 _ => bank[i % Host.Variants],
             };
         _positions = positions;
         _handles = handles;
         _effects = Seeds.Effects(Rows);
     }
+
+    bool HasWaves()
+        => Shape is ShapeKind.PairRuns8Waves or ShapeKind.PairBlocks8Waves or ShapeKind.PairAlternating8Waves;
 
     [Benchmark]
     public void Advance()
