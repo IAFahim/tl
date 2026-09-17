@@ -25,16 +25,16 @@
       "source": "tests/test_tl_blender.py#L191"
     },
     {
-      "name": "tests_tlbake_cli_fixtures_alpha.json.json",
-      "source": "tests/tlbake_cli/fixtures/alpha.json"
+      "name": "tests_tlb_cli_fixtures_alpha.json.json",
+      "source": "tests/tlb_cli/fixtures/alpha.json"
     },
     {
-      "name": "tests_tlbake_cli_fixtures_alpha_edited.json.json",
-      "source": "tests/tlbake_cli/fixtures/alpha_edited.json"
+      "name": "tests_tlb_cli_fixtures_alpha_edited.json.json",
+      "source": "tests/tlb_cli/fixtures/alpha_edited.json"
     },
     {
-      "name": "tests_tlbake_cli_fixtures_broken.json.json",
-      "source": "tests/tlbake_cli/fixtures/broken.json"
+      "name": "tests_tlb_cli_fixtures_broken.json.json",
+      "source": "tests/tlb_cli/fixtures/broken.json"
     },
     {
       "name": "tools_Tl.Bake.Tests_CacheCliTests.cs_L180.json",

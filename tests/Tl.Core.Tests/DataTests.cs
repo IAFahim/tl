@@ -68,7 +68,7 @@ public unsafe class DataTests
         Assert.Throws<ArgumentException>(() => TimelineAsset.Load(magic));
 
         var version = FiniteBake();
-        version[4] = 3;
+        version[4] = 4;
         Assert.Throws<ArgumentException>(() => TimelineAsset.Load(version));
 
         var size = FiniteBake();
@@ -230,5 +230,59 @@ public unsafe class DataTests
         Assert.False(Timeline.Query<GammaTrack, GammaClip>(in component).MoveNext());
         var empty = default(TimelineComponent);
         Assert.False(Timeline.Query<AlphaTrack, AlphaClip>(in empty).MoveNext());
+    }
+
+    [Fact]
+    public void LegacyVersionTwoAssetsAreRejected()
+    {
+        var current = new Baker()
+            .Track<AlphaTrack, AlphaClip>(new AlphaTrack(5))
+            .Track<BlendTrack, BlendClip>(new BlendTrack(2f))
+            .Clip(0, 0, 2, new AlphaClip(11))
+            .Clip(0, 2, 4, new AlphaClip(22))
+            .Clip(1, 0, 4, new BlendClip(0f))
+            .Clip(1, 2, 4, new BlendClip(10f))
+            .Bake();
+        var legacy = LegacyV2Layout(current);
+        Assert.Equal(2u, BitConverter.ToUInt32(legacy, 4));
+        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(legacy));
+    }
+
+    private static byte[] LegacyV2Layout(byte[] current)
+    {
+        uint Word(int at) => BitConverter.ToUInt32(current, at);
+        var frameOffset = (int)Word(40);
+        var hotLength = (int)Word(44);
+        var rowCount = (hotLength - frameOffset) / 24;
+        var legacy = new byte[current.Length + rowCount * 8];
+        Array.Copy(current, legacy, frameOffset);
+        BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(4), 2u);
+        BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(44), (uint)(hotLength + rowCount * 8));
+        BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(48), (uint)(current.Length + rowCount * 8));
+        var pairOffset = (int)Word(28);
+        var pairCount = (int)Word(24);
+        for (var index = 0; index < pairCount; index++)
+            BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(pairOffset + 48 * index + 8), 32u);
+        var stageOffset = (int)Word(32);
+        var stageCount = (int)Word(20);
+        for (var stage = 0; stage < stageCount; stage++)
+        {
+            var programOffset = (int)Word(stageOffset + 16 * stage + 8);
+            var programCount = (int)Word(stageOffset + 16 * stage + 12);
+            for (var step = 0; step < programCount; step++)
+            {
+                var slot = (int)Word(programOffset + 8 * step);
+                BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(programOffset + 8 * step), (uint)(frameOffset + (slot - frameOffset) / 24 * 32));
+            }
+        }
+        for (var row = 0; row < rowCount; row++)
+        {
+            var from = frameOffset + row * 24;
+            var at = frameOffset + row * 32;
+            Array.Copy(current, from, legacy, at, 24);
+            legacy[at + 6] = 0;
+            legacy[at + 24] = current[from + 6];
+        }
+        return legacy;
     }
 }

@@ -45,16 +45,16 @@ struct NativeStep { public uint Slot, Pair; }
 unsafe struct SlotRow
 {
 	internal const ushort NoClipValue = 0xFFFF;
+	internal const uint RowBytes = 24u;
 
 	public ushort TrackValueIndex;
 	public ushort FirstValueIndex;
 	public ushort SecondValueIndex;
-	public ushort Reserved;
+	public byte TrackIndex;
 	public uint WindowStart;
 	public uint WindowEnd;
 	public uint FactorStart;
 	public uint FactorSpan;
-	public byte TrackIndex;
 
 	internal static unsafe Frame<TTrack, TClip> ToFrame<TTrack, TClip>(SlotRow* row, byte* pair, ushort tick, FrameFlags flags, TClip* scratch)
 		where TTrack : unmanaged, IBlend<TClip>
@@ -249,7 +249,7 @@ public readonly unsafe struct TimelineRef
 		void Fail(string message) => throw new ArgumentException(message);
 		if (baked.Length < 64) Fail("TLB truncated.");
 		var h = MemoryMarshal.Read<NativeHeader>(baked);
-		if (h.Magic != 0x31424C54 || h.Version != 2) Fail("TLB magic or version invalid.");
+		if (h.Magic != 0x31424C54 || h.Version != 3) Fail("TLB magic or version invalid.");
 		if (h.Duration > ushort.MaxValue) Fail("TLB duration exceeds the 65,535-tick position domain.");
 		if (h.Bytes != (uint)baked.Length) Fail("TLB size mismatch.");
 		if (h.HotLength == 0 || h.HotLength > h.Bytes) Fail("TLB hot length invalid.");
@@ -261,7 +261,7 @@ public readonly unsafe struct TimelineRef
 		for (var i = 0; i < pairs.Length; i++)
 		{
 			var pair = pairs[i];
-			if (pair.SlotStride % 16 != 0) Fail("TLB slot stride must be 16-aligned.");
+			if (pair.SlotStride % 8 != 0 || pair.SlotStride < SlotRow.RowBytes) Fail("TLB slot stride must be 8-aligned.");
 			ValidatePool(h, (ulong)h.PairOffset + 48ul * (uint)i + pair.TrackPoolOffset, pair.TrackPoolCount, pair.TrackValueBytes, Fail);
 			ValidatePool(h, (ulong)h.PairOffset + 48ul * (uint)i + pair.ClipPoolOffset, pair.ClipPoolCount, pair.ClipValueBytes, Fail);
 		}
@@ -278,7 +278,7 @@ public readonly unsafe struct TimelineRef
 				var step = steps[j];
 				if (step.Pair >= h.PairCount) Fail("TLB step pair out of bounds.");
 				var pair = pairs[(int)step.Pair];
-				if (step.Slot < h.FrameOffset || step.Slot % 16 != 0 || (ulong)step.Slot + pair.SlotStride > h.HotLength) Fail("TLB slots must be 16-aligned in bounds.");
+				if (step.Slot < h.FrameOffset || step.Slot % 8 != 0 || (ulong)step.Slot + pair.SlotStride > h.HotLength) Fail("TLB slots must be 8-aligned in bounds.");
 				ValidateRow(baked, (int)step.Slot, pair, Fail);
 			}
 			edge = stage.End;
