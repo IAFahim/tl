@@ -1,0 +1,7 @@
+layout inline type=InlineSlot bytesPerSlot=36 fullSlotsPer64BLine=1 lineDensity=1.778
+layout pooled-byte type=PooledByteSlot bytesPerSlot=24 fullSlotsPer64BLine=2 lineDensity=2.667
+layout pooled-ushort type=PooledUshortSlot bytesPerSlot=28 fullSlotsPer64BLine=2 lineDensity=2.286
+parity rows=4096 pool=10 inline=C69B4274 byte=C69B4274 ushort=C69B4274 indirectInline=46079800 indirectByte=46079800 indirectUshort=46079800
+parity rows=4096 pool=256 inline=49A005DA byte=49A005DA ushort=49A005DA indirectInline=4801C560 indirectByte=4801C560 indirectUshort=4801C560
+parity rows=4096 pool=1000 inline=4B833F58 byte=out-of-domain ushort=4B833F58 indirectInline=48FC7430 indirectByte=out-of-domain indirectUshort=48FC7430
+PASS pooled reads are bit-identical to inline
