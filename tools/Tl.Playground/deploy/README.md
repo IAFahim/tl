@@ -1,14 +1,15 @@
 # Deploy notes
 
-The site is the published `Playground/wwwroot` pushed to the `gh-pages` branch root
-(history-free force-push, `.nojekyll` included). The app's `index.html` uses a
-location-independent `<base href="./" />`, so the same tree serves under `/tl/` on
-GitHub Pages and from any static server locally.
+The site is the `Playground` publish output's `wwwroot`, committed in layers to the `gh-pages`
+branch root on top of the preserved benchmark dashboard at `dev/bench` (`.nojekyll` included).
+The app's `index.html` uses a location-independent `<base href="./" />`, so the same tree
+serves under `/tl/` on GitHub Pages and from any static server locally.
 
 `blazor-node.mjs` boots the *published* app's `Main` under Node with
-`TL_PLAYGROUND_SMOKE=1`; `Program.cs` routes that environment variable to the SMOKE
-receipt instead of the Blazor host. Copy it next to the publish output's `wwwroot`
-before running (ES module imports resolve relative to the file's own path):
+`TL_PLAYGROUND_SMOKE=1`; `Program.cs` routes that environment variable to the SMOKE and
+live-authoring (LIVE PASS) receipts instead of the Blazor host. Copy it next to the
+publish output's `wwwroot` before running (ES module imports resolve relative to the
+file's own path):
 
 ```sh
 dotnet publish tools/Tl.Playground/Playground/Playground.csproj -c Release -o /tmp/pg116-publish
