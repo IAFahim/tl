@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Tl.PairHandlesProbe.PairHandleBenchmarks-20260917-231154</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+  Job-TZECNT : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Job </th><th>Toolchain       </th><th>IterationCount</th><th>IterationTime</th><th>WarmupCount</th><th>Shape     </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneUniform</td><td>16.81 &mu;s</td><td>1.286 &mu;s</td><td>1.263 &mu;s</td><td>15.98 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneUniform</td><td>15.74 &mu;s</td><td>0.069 &mu;s</td><td>0.058 &mu;s</td><td>15.73 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairOne</td><td>20.25 &mu;s</td><td>0.056 &mu;s</td><td>0.052 &mu;s</td><td>20.23 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairOne</td><td>20.46 &mu;s</td><td>0.061 &mu;s</td><td>0.054 &mu;s</td><td>20.43 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairRuns8</td><td>56.84 &mu;s</td><td>0.370 &mu;s</td><td>0.364 &mu;s</td><td>57.01 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairRuns8</td><td>56.88 &mu;s</td><td>0.293 &mu;s</td><td>0.274 &mu;s</td><td>56.98 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairAlternating8</td><td>119.57 &mu;s</td><td>0.648 &mu;s</td><td>0.607 &mu;s</td><td>119.49 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairAlternating8</td><td>130.56 &mu;s</td><td>0.419 &mu;s</td><td>0.350 &mu;s</td><td>130.46 &mu;s</td><td>-</td>
+</tr></tbody></table>
+</body>
+</html>
