@@ -8,7 +8,7 @@ native receipt host, which additionally asserts the embedded bytes equal the com
 | ---------- | ---------------- | -------------------------------------------------------------- |
 | `crowd`    | int              | Row count, 1..2048.                                            |
 | `pattern`  | string           | Initial position distribution: `uniform`, `staggered`, `waves`. |
-| `dir`      | string           | Step direction: `fwd` or `back`.                               |
+| `dir`      | string           | Step direction: `fwd` or `back` (`backward` accepted as an alias). |
 | `play`     | bool             | Autoplay at 10 fps after load.                                 |
 | `scale`    | number           | `Play.ScaleTrack` payload (`Scale`).                           |
 | `amountA`  | number           | Clip A payload (`Amount`).                                     |
@@ -18,5 +18,5 @@ native receipt host, which additionally asserts the embedded bytes equal the com
 | `timeline` | object           | The real flat-schema-v1 authoring document (`duration`, `loop`, `tracks`) baked by `TimelineBaker.BakeJson`. |
 
 The `timeline` object is the single source of truth for `duration` and `loop`; the query-string
-embed contract (`?loop=`) writes into it. The site URL params are the same field names in kebab
-form with `windowA=start:end`; see #107's embed contract.
+embed contract (`?loop=`) writes into it. The site URL params use the same field names, with
+`windowA=start:end`; see #107's embed contract.

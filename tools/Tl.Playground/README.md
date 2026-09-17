@@ -9,20 +9,26 @@ https://iafahim.github.io/tl/. Issue #116; prototype receipts in #107.
   `PairRuntime` consume), `Scenario` (panel state + the #107 query params), authoring-JSON
   rendering, the playback engine over `TimelineSet.Gather(ids).Seek(positions, forward).Apply(effects)`,
   the per-row scalar oracle (`TimelineMovement.Select` + `BakedLane` tables), and the 120-frame
-  SMOKE receipt. Presets under `../presets/` are embedded here so wasm hosts need no file system.
+  SMOKE receipt. `LiveAuthoring` compiles editor C# in the browser with Roslyn against the
+  embedded `Tl.Core` reference assembly, prints the compiled pair's `tlbake --json`-shaped type
+  JSON, bakes it with `TimelineBaker.BakeJson`, runs it, and prints the LIVE PASS receipt.
+  Presets under `../presets/` are embedded here so wasm hosts need no file system.
 - `Playground` — Blazor WebAssembly app: scenario panel, live per-row strip and table colored from
   the real columns, moved/skipped/wrapped aggregates, editable authoring-JSON box with 300 ms
-  debounce and inline `[line:column]` diagnostics, the static cookbook pages under `wwwroot/cookbook/`.
+  debounce and inline `[line:column]` diagnostics, the `/live` authoring page (#125: three-pane
+  code / type-JSON / timeline-JSON editor with highlight.js highlighting), and the static
+  cookbook pages under `wwwroot/cookbook/`.
 - `Playground.Smoke` — headless browser-wasm console host running the SMOKE receipt under Node.
 - `Playground.Native` — native host that re-runs the receipt, asserts the checksum pinned in
   `Pin.Checksum` (the wasm receipt), verifies the embedded preset bytes equal the committed
-  `presets/` files, and bakes every preset.
+  `presets/` files, bakes every preset, and prints the live-authoring LIVE PASS receipt.
 - `presets/` — the four preset scenario configs; shape documented in `scenario-schema.md`.
 - `deploy/` — Pages deployment notes and the Node boot host for the published app.
 - `receipts/` — committed receipt logs.
 
 `Play.Core` references `src/Tl.Core` and `tools/Tl.Gen.Tlb` with `ProjectReference` — the real
-runtime code pinned to this branch, never a fork. No Roslyn anywhere.
+runtime code pinned to this branch, never a fork. The preset and smoke paths use no Roslyn; only
+the `/live` authoring page compiles, with Roslyn in the browser.
 
 ## Receipts
 
