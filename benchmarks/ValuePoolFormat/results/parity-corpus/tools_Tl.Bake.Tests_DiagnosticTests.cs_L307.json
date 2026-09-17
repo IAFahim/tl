@@ -1,0 +1,23 @@
+{
+  "duration": 10,
+  "tracks": [
+    {
+      "namespace": "Tlb",
+      "type": "AlphaTrack",
+      "data": {
+        "Code": 1
+      },
+      "clips": [
+        {
+          "namespace": "Tlb",
+          "type": "AlphaClip",
+          "start": 0,
+          "end": 10,
+          "data": {
+            "UnknownField": 1
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,200 @@
+{
+  "documents": [
+    {
+      "name": "samples_ManyEntities_move64.json.json",
+      "source": "samples/ManyEntities/move64.json"
+    },
+    {
+      "name": "samples_ManyEntities_pulse.json.json",
+      "source": "samples/ManyEntities/pulse.json"
+    },
+    {
+      "name": "samples_ManyEntities_window.json.json",
+      "source": "samples/ManyEntities/window.json"
+    },
+    {
+      "name": "samples_NuGetQuickStart_boss.json.json",
+      "source": "samples/NuGetQuickStart/boss.json"
+    },
+    {
+      "name": "tests_test_tl_blender.py_L136.json",
+      "source": "tests/test_tl_blender.py#L136"
+    },
+    {
+      "name": "tests_test_tl_blender.py_L191.json",
+      "source": "tests/test_tl_blender.py#L191"
+    },
+    {
+      "name": "tests_tlbake_cli_fixtures_alpha.json.json",
+      "source": "tests/tlbake_cli/fixtures/alpha.json"
+    },
+    {
+      "name": "tests_tlbake_cli_fixtures_alpha_edited.json.json",
+      "source": "tests/tlbake_cli/fixtures/alpha_edited.json"
+    },
+    {
+      "name": "tests_tlbake_cli_fixtures_broken.json.json",
+      "source": "tests/tlbake_cli/fixtures/broken.json"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_CacheCliTests.cs_L180.json",
+      "source": "tools/Tl.Bake.Tests/CacheCliTests.cs#L180"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_CacheCliTests.cs_L62.json",
+      "source": "tools/Tl.Bake.Tests/CacheCliTests.cs#L62"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_CliTests.cs_L19.json",
+      "source": "tools/Tl.Bake.Tests/CliTests.cs#L19"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_CliTests.cs_L61.json",
+      "source": "tools/Tl.Bake.Tests/CliTests.cs#L61"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DeterminismTests.cs_L13.json",
+      "source": "tools/Tl.Bake.Tests/DeterminismTests.cs#L13"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DeterminismTests.cs_L67.json",
+      "source": "tools/Tl.Bake.Tests/DeterminismTests.cs#L67"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L121.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L121"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L13.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L13"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L141.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L141"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L162.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L162"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L183.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L183"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L205.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L205"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L225.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L225"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L245.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L245"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L265.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L265"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L286.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L286"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L307.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L307"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L328.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L328"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L33.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L33"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L349.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L349"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L370.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L370"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L394.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L394"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L417.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L417"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L458.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L458"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L478.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L478"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L519.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L519"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L53.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L53"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L539.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L539"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L73.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L73"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_DiagnosticTests.cs_L93.json",
+      "source": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L93"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_MetadataTests.cs_L14.json",
+      "source": "tools/Tl.Bake.Tests/MetadataTests.cs#L14"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_MultiPairBakeTests.cs_L102.json",
+      "source": "tools/Tl.Bake.Tests/MultiPairBakeTests.cs#L102"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_Recording.cs_L20.json",
+      "source": "tools/Tl.Bake.Tests/Recording.cs#L20"
+    },
+    {
+      "name": "tools_Tl.Bake.Tests_WatchModeTests.cs_L15.json",
+      "source": "tools/Tl.Bake.Tests/WatchModeTests.cs#L15"
+    },
+    {
+      "name": "tools_Tl.Blender_fixtures_receipt_scene.json.json",
+      "source": "tools/Tl.Blender/fixtures/receipt_scene.json"
+    },
+    {
+      "name": "tools_Tl.Blender_fixtures_receipt_scene_hand.json.json",
+      "source": "tools/Tl.Blender/fixtures/receipt_scene_hand.json"
+    },
+    {
+      "name": "tools_Tl.Playground_presets_finite-clamp.json.json",
+      "source": "tools/Tl.Playground/presets/finite-clamp.json"
+    },
+    {
+      "name": "tools_Tl.Playground_presets_staggered.json.json",
+      "source": "tools/Tl.Playground/presets/staggered.json"
+    },
+    {
+      "name": "tools_Tl.Playground_presets_uniform-crowd.json.json",
+      "source": "tools/Tl.Playground/presets/uniform-crowd.json"
+    },
+    {
+      "name": "tools_Tl.Playground_presets_waves.json.json",
+      "source": "tools/Tl.Playground/presets/waves.json"
+    }
+  ]
+}

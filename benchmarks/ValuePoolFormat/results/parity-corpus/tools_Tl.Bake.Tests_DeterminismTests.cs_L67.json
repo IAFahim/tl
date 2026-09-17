@@ -1,0 +1,51 @@
+{
+  "duration": 10,
+  "loop": false,
+  "tracks": [
+    {
+      "namespace": "Tlb",
+      "type": "AlphaTrack",
+      "data": {
+        "Code": 1
+      },
+      "clips": [
+        {
+          "namespace": "Tlb",
+          "type": "AlphaClip",
+          "start": 0,
+          "end": 10,
+          "data": {
+            "Value": 7
+          }
+        }
+      ]
+    },
+    {
+      "namespace": "Tlb",
+      "type": "BlendTrack",
+      "data": {
+        "Scale": 2.5
+      },
+      "clips": [
+        {
+          "namespace": "Tlb",
+          "type": "BlendClip",
+          "start": 0,
+          "end": 6,
+          "data": {
+            "Amount": 1.0
+          }
+        },
+        {
+          "namespace": "Tlb",
+          "type": "BlendClip",
+          "start": 4,
+          "end": 10,
+          "data": {
+            "Amount": 5.0
+          }
+        }
+      ]
+    }
+  ]
+}

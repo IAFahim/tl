@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -19,33 +20,61 @@ public static class TypeKey<T>
 #pragma warning disable CS0649
 struct NativeHeader
 {
-	public uint Magic, Version, Loops, Duration, TrackCount, StageCount, PairCount, PairOffset, StageOffset, FrameOffset, Reserved, Bytes;
+    public uint Magic, Version, Loops, Duration, TrackCount, StageCount, PairCount, PairOffset, StageOffset, PoolOffset, FrameOffset, HotLength, Bytes;
+    public uint Reserved0, Reserved1, Reserved2;
 }
 
-struct NativePair { public ulong Key; public uint Stride, Reserved; }
+[StructLayout(LayoutKind.Sequential)]
+struct NativePair
+{
+    public ulong Key;
+    public uint SlotStride;
+    public uint TrackPoolOffset;
+    public uint TrackPoolCount;
+    public uint TrackValueBytes;
+    public uint ClipPoolOffset;
+    public uint ClipPoolCount;
+    public uint ClipValueBytes;
+    public ulong Reserved;
+}
+
 struct NativeStage { public uint Start, End, ProgramOffset, ProgramCount; }
 struct NativeStep { public uint Slot, Pair; }
 
 [StructLayout(LayoutKind.Sequential)]
-struct FrameSlot<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
+unsafe struct SlotRow
 {
-	public TTrack Track;
-	public TClip First, Second;
-	public uint WindowStart, WindowEnd, FactorStart, FactorSpan;
+	internal const ushort NoClipValue = 0xFFFF;
+
+	public ushort TrackValueIndex;
+	public ushort FirstValueIndex;
+	public ushort SecondValueIndex;
+	public ushort Reserved;
+	public uint WindowStart;
+	public uint WindowEnd;
+	public uint FactorStart;
+	public uint FactorSpan;
 	public byte TrackIndex;
 
-	internal static unsafe Frame<TTrack, TClip> ToFrame(FrameSlot<TTrack, TClip>* slot, ushort tick, FrameFlags flags, TClip* scratch)
+	internal static unsafe Frame<TTrack, TClip> ToFrame<TTrack, TClip>(SlotRow* row, byte* pair, ushort tick, FrameFlags flags, TClip* scratch)
+		where TTrack : unmanaged, IBlend<TClip>
+		where TClip : unmanaged
 	{
-		if (slot->FactorSpan == 0) *scratch = slot->First;
+		var pools = (NativePair*)pair;
+		ref var track = ref *(TTrack*)(pair + pools->TrackPoolOffset + row->TrackValueIndex * (nuint)sizeof(TTrack));
+		var clipPool = pair + pools->ClipPoolOffset;
+		if (row->FactorSpan == 0) *scratch = *(TClip*)(clipPool + row->FirstValueIndex * (nuint)sizeof(TClip));
 		else
 		{
-			var factor = slot->FactorSpan <= 1 ? 0.5f : (tick - slot->FactorStart) / (float)(slot->FactorSpan - 1);
-			slot->Track.Blend(in slot->First, in slot->Second, factor, out var blended);
+			var factor = row->FactorSpan <= 1 ? 0.5f : (tick - row->FactorStart) / (float)(row->FactorSpan - 1);
+			var first = *(TClip*)(clipPool + row->FirstValueIndex * (nuint)sizeof(TClip));
+			var second = *(TClip*)(clipPool + row->SecondValueIndex * (nuint)sizeof(TClip));
+			track.Blend(in first, in second, factor, out var blended);
 			*scratch = blended;
 		}
-		if (tick == slot->WindowStart) flags |= FrameFlags.ClipStart;
-		if (tick == slot->WindowEnd - 1) flags |= FrameFlags.ClipEnd;
-		return new Frame<TTrack, TClip>(in slot->Track, in *scratch, tick, (ushort)(slot->WindowEnd - slot->WindowStart), (ushort)(tick - slot->WindowStart), slot->TrackIndex, flags);
+		if (tick == row->WindowStart) flags |= FrameFlags.ClipStart;
+		if (tick == row->WindowEnd - 1) flags |= FrameFlags.ClipEnd;
+		return new Frame<TTrack, TClip>(in track, in *scratch, tick, (ushort)(row->WindowEnd - row->WindowStart), (ushort)(tick - row->WindowStart), row->TrackIndex, flags);
 	}
 }
 public readonly unsafe struct TimelineRef
@@ -119,6 +148,7 @@ public readonly unsafe struct TimelineRef
 		if (stage == null) return;
 		var steps = (NativeStep*)(_p + stage->ProgramOffset);
 		var consumers = PairTable.ConsumerAt;
+		var pairs = Pairs;
 		var count = (int)stage->ProgramCount;
 		var step = reverse ? steps + count - 1 : steps;
 		var stride = reverse ? -1 : 1;
@@ -126,6 +156,7 @@ public readonly unsafe struct TimelineRef
 		while (count-- > 0)
 		{
 			var slot = _p + step->Slot;
+			var pair = (byte*)(pairs + step->Pair);
 			var head = chains[(int)step->Pair];
 			if (reverse && head >= 0 && consumers[head].Next >= 0)
 			{
@@ -138,13 +169,13 @@ public readonly unsafe struct TimelineRef
 				while (n-- > 0)
 				{
 					var e = rev[n];
-					consumers[e].Execute(slot, tick, flags, columns + consumers[e].Offset, row);
+					consumers[e].Execute(slot, pair, tick, flags, columns + consumers[e].Offset, row);
 				}
 			}
 			else
 			{
 				for (var entry = head; entry >= 0; entry = consumers[entry].Next)
-					consumers[entry].Execute(slot, tick, flags, columns + consumers[entry].Offset, row);
+					consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
 			}
 			step += stride;
 		}
@@ -157,6 +188,7 @@ public readonly unsafe struct TimelineRef
 		if (stage == null) return;
 		var steps = (NativeStep*)(_p + stage->ProgramOffset);
 		var consumers = PairTable.ConsumerAt;
+		var pairs = Pairs;
 		var count = (int)stage->ProgramCount;
 		var step = reverse ? steps + count - 1 : steps;
 		var stride = reverse ? -1 : 1;
@@ -165,6 +197,7 @@ public readonly unsafe struct TimelineRef
 		{
 			var index = (int)(step - steps);
 			var slot = _p + step->Slot;
+			var pair = (byte*)(pairs + step->Pair);
 			var head = chains[(int)step->Pair];
 			if (stepCached[index] != 0)
 			{
@@ -199,13 +232,13 @@ public readonly unsafe struct TimelineRef
 				while (n-- > 0)
 				{
 					var e = rev[n];
-					consumers[e].Execute(slot, tick, flags, columns + consumers[e].Offset, row);
+					consumers[e].Execute(slot, pair, tick, flags, columns + consumers[e].Offset, row);
 				}
 			}
 			else
 			{
 				for (var entry = head; entry >= 0; entry = consumers[entry].Next)
-					consumers[entry].Execute(slot, tick, flags, columns + consumers[entry].Offset, row);
+					consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
 			}
 			step += stride;
 		}
@@ -214,32 +247,59 @@ public readonly unsafe struct TimelineRef
 	static void Validate(ReadOnlySpan<byte> baked)
 	{
 		void Fail(string message) => throw new ArgumentException(message);
-		if (baked.Length < 48) Fail("TLB1 truncated.");
+		if (baked.Length < 64) Fail("TLB truncated.");
 		var h = MemoryMarshal.Read<NativeHeader>(baked);
-		if (h.Magic != 0x31424C54 || h.Version != 1) Fail("TLB1 magic or version invalid.");
-		if (h.Duration > ushort.MaxValue) Fail("TLB1 duration exceeds the 65,535-tick position domain.");
-		if (h.Bytes != (uint)baked.Length) Fail("TLB1 size mismatch.");
-		if (h.PairOffset < 48 || (h.PairOffset | h.StageOffset | h.FrameOffset) % 8 != 0) Fail("TLB1 offsets must be 8-aligned.");
-		if ((ulong)h.PairOffset + 16ul * h.PairCount > h.StageOffset || (ulong)h.StageOffset + 16ul * h.StageCount > h.FrameOffset || h.FrameOffset > (ulong)baked.Length) Fail("TLB1 sections out of bounds.");
-		var pairs = MemoryMarshal.Cast<byte, NativePair>(baked.Slice((int)h.PairOffset, 16 * (int)h.PairCount));
-		for (var i = 1; i < pairs.Length; i++) if (pairs[i - 1].Key >= pairs[i].Key) Fail("TLB1 pair keys must be sorted.");
+		if (h.Magic != 0x31424C54 || h.Version != 2) Fail("TLB magic or version invalid.");
+		if (h.Duration > ushort.MaxValue) Fail("TLB duration exceeds the 65,535-tick position domain.");
+		if (h.Bytes != (uint)baked.Length) Fail("TLB size mismatch.");
+		if (h.HotLength == 0 || h.HotLength > h.Bytes) Fail("TLB hot length invalid.");
+		if (h.PairOffset < 64 || (h.PairOffset | h.StageOffset | h.PoolOffset | h.FrameOffset) % 8 != 0) Fail("TLB offsets must be 8-aligned.");
+		if ((ulong)h.PairOffset + 48ul * h.PairCount > h.StageOffset) Fail("TLB pair table out of bounds.");
+		if ((ulong)h.StageOffset + 16ul * h.StageCount > h.PoolOffset || h.PoolOffset > h.FrameOffset || h.FrameOffset > h.HotLength) Fail("TLB sections out of bounds.");
+		var pairs = MemoryMarshal.Cast<byte, NativePair>(baked.Slice((int)h.PairOffset, 48 * (int)h.PairCount));
+		for (var i = 1; i < pairs.Length; i++) if (pairs[i - 1].Key >= pairs[i].Key) Fail("TLB pair keys must be sorted.");
+		for (var i = 0; i < pairs.Length; i++)
+		{
+			var pair = pairs[i];
+			if (pair.SlotStride % 16 != 0) Fail("TLB slot stride must be 16-aligned.");
+			ValidatePool(h, (ulong)h.PairOffset + 48ul * (uint)i + pair.TrackPoolOffset, pair.TrackPoolCount, pair.TrackValueBytes, Fail);
+			ValidatePool(h, (ulong)h.PairOffset + 48ul * (uint)i + pair.ClipPoolOffset, pair.ClipPoolCount, pair.ClipValueBytes, Fail);
+		}
 		var stages = MemoryMarshal.Cast<byte, NativeStage>(baked.Slice((int)h.StageOffset, 16 * (int)h.StageCount));
 		var programs = (ulong)h.StageOffset + 16ul * h.StageCount;
 		uint edge = 0;
 		for (var i = 0; i < stages.Length; i++)
 		{
 			var stage = stages[i];
-			if (stage.Start != edge || stage.ProgramOffset < programs || stage.ProgramOffset % 8 != 0 || (ulong)stage.ProgramOffset + 8ul * stage.ProgramCount > h.FrameOffset) Fail("TLB1 stages must be monotonic.");
+			if (stage.Start != edge || stage.ProgramOffset < programs || stage.ProgramOffset % 8 != 0 || (ulong)stage.ProgramOffset + 8ul * stage.ProgramCount > h.PoolOffset) Fail("TLB stages must be monotonic.");
 			var steps = MemoryMarshal.Cast<byte, NativeStep>(baked.Slice((int)stage.ProgramOffset, 8 * (int)stage.ProgramCount));
 			for (var j = 0; j < steps.Length; j++)
 			{
 				var step = steps[j];
-				if (step.Pair >= h.PairCount) Fail("TLB1 step pair out of bounds.");
-				if (step.Slot < h.FrameOffset || step.Slot % 16 != 0 || (ulong)step.Slot + pairs[(int)step.Pair].Stride > (ulong)baked.Length) Fail("TLB1 slots must be 16-aligned in bounds.");
+				if (step.Pair >= h.PairCount) Fail("TLB step pair out of bounds.");
+				var pair = pairs[(int)step.Pair];
+				if (step.Slot < h.FrameOffset || step.Slot % 16 != 0 || (ulong)step.Slot + pair.SlotStride > h.HotLength) Fail("TLB slots must be 16-aligned in bounds.");
+				ValidateRow(baked, (int)step.Slot, pair, Fail);
 			}
 			edge = stage.End;
 		}
-		if (edge != h.Duration) Fail("TLB1 stages must cover duration.");
+		if (edge != h.Duration) Fail("TLB stages must cover duration.");
+	}
+
+	static void ValidatePool(NativeHeader h, ulong address, uint count, uint valueBytes, Action<string> fail)
+	{
+		if (address < h.PoolOffset || count > 65535 || address + (ulong)count * valueBytes > h.FrameOffset) fail("TLB value pool out of bounds.");
+	}
+
+	static void ValidateRow(ReadOnlySpan<byte> baked, int at, NativePair pair, Action<string> fail)
+	{
+		var trackValue = BinaryPrimitives.ReadUInt16LittleEndian(baked.Slice(at));
+		var first = BinaryPrimitives.ReadUInt16LittleEndian(baked.Slice(at + 2));
+		var second = BinaryPrimitives.ReadUInt16LittleEndian(baked.Slice(at + 4));
+		var factorSpan = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice(at + 20));
+		if (trackValue >= pair.TrackPoolCount || first >= pair.ClipPoolCount) fail("TLB slot value index out of bounds.");
+		if (second != SlotRow.NoClipValue && second >= pair.ClipPoolCount) fail("TLB slot second value index out of bounds.");
+		if (factorSpan != 0 && second == SlotRow.NoClipValue) fail("TLB blend window requires a second value index.");
 	}
 }
 
@@ -265,26 +325,28 @@ public struct TimelineComponent(TimelineRef reference)
 public readonly unsafe struct TickFrame
 {
     public readonly void* Slot;
+    public readonly void* Pair;
     public readonly ushort TimelineTick;
     public readonly FrameFlags Flags;
 
-    internal TickFrame(void* slot, ushort timelineTick, FrameFlags flags)
+    internal TickFrame(void* slot, void* pair, ushort timelineTick, FrameFlags flags)
     {
         Slot = slot;
+        Pair = pair;
         TimelineTick = timelineTick;
         Flags = flags;
     }
 
     public Frame<TTrack, TClip> ToFrame<TTrack, TClip>(ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
-        => FrameSlot<TTrack, TClip>.ToFrame((FrameSlot<TTrack, TClip>*)Slot, TimelineTick, Flags, (TClip*)Unsafe.AsPointer(ref scratch));
+        => SlotRow.ToFrame<TTrack, TClip>((SlotRow*)Slot, (byte*)Pair, TimelineTick, Flags, (TClip*)Unsafe.AsPointer(ref scratch));
 
-    public static Frame<TTrack, TClip> ToFrame<TTrack, TClip>(void* slot, ushort tick, FrameFlags flags, ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
-        => FrameSlot<TTrack, TClip>.ToFrame((FrameSlot<TTrack, TClip>*)slot, tick, flags, (TClip*)Unsafe.AsPointer(ref scratch));
+    public static Frame<TTrack, TClip> ToFrame<TTrack, TClip>(void* slot, void* pair, ushort tick, FrameFlags flags, ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
+        => SlotRow.ToFrame<TTrack, TClip>((SlotRow*)slot, (byte*)pair, tick, flags, (TClip*)Unsafe.AsPointer(ref scratch));
 }
 
 	static unsafe class PairTable
 {
-	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, ushort, FrameFlags, void**, int, void> Execute; public delegate*<byte*, ushort, FrameFlags, void**, int, int, void> Range; public delegate*<ulong*, int, byte*, void> Bind; public delegate*<byte*, bool> BlendConstant; public byte WindowConstant; }
+	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> Execute; public delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> Range; public delegate*<ulong*, int, byte*, void> Bind; public delegate*<byte*, bool> BlendConstant; public byte WindowConstant; }
 	struct Slot { public ulong Key; public int Head; }
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
@@ -299,7 +361,7 @@ public readonly unsafe struct TickFrame
 	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
 	internal static int ConsumerCount => Volatile.Read(ref _consumers);
 
-	internal static void Install(ulong key, delegate*<byte*, ushort, FrameFlags, void**, int, void> e, delegate*<byte*, ushort, FrameFlags, void**, int, int, void> r, delegate*<ulong*, int, byte*, void> b, delegate*<byte*, bool> blendConstant, bool windowConstant)
+	internal static void Install(ulong key, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> e, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> r, delegate*<ulong*, int, byte*, void> b, delegate*<byte*, bool> blendConstant, bool windowConstant)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
@@ -350,10 +412,10 @@ public readonly unsafe struct TickFrame
 
 	internal static int ChainNext(int entry) => ConsumerAt[entry].Next;
 
-	internal static void ExecuteEntry(int entry, byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+	internal static void ExecuteEntry(int entry, byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
 	{
 		var consumers = ConsumerAt;
-		consumers[entry].Execute(slot, tick, flags, columns + consumers[entry].Offset, row);
+		consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
 	}
 
 	static int Probe(ulong key)
@@ -405,14 +467,14 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 {
 	public static readonly ulong Key = Keying.Of(typeof(TTrack).AssemblyQualifiedName! + "\0" + typeof(TClip).AssemblyQualifiedName!);
 
-	public static void Consume(delegate*<byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, null, bind, null, false);
+	public static void Consume(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, null, bind, null, false);
 
-	public static void Consume(delegate*<byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<byte*, ushort, FrameFlags, void**, int, int, void> range, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, range, bind, null, false);
+	public static void Consume(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> range, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, range, bind, null, false);
 
-	public static void Consume(delegate*<byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind, TickPurity purity) => PairTable.Install(Key, execute, null, bind, purity == TickPurity.WindowConstant ? &BlendConstantInWindow : null, purity == TickPurity.WindowConstant);
+	public static void Consume(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind, TickPurity purity) => PairTable.Install(Key, execute, null, bind, purity == TickPurity.WindowConstant ? &BlendConstantInWindow : null, purity == TickPurity.WindowConstant);
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	static bool BlendConstantInWindow(byte* slot) => ((FrameSlot<TTrack, TClip>*)slot)->FactorSpan <= 1;
+	static bool BlendConstantInWindow(byte* slot) => ((SlotRow*)slot)->FactorSpan <= 1;
 
 }
 
@@ -455,7 +517,8 @@ public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBl
 			_count--;
 			if (pairs[step.Pair].Key == PairRuntime<TTrack, TClip>.Key)
 			{
-				_current = FrameSlot<TTrack, TClip>.ToFrame((FrameSlot<TTrack, TClip>*)(block + step.Slot), _tick, FrameFlags.None, (TClip*)Unsafe.AsPointer(ref _scratch));
+				var pair = (byte*)(pairs + step.Pair);
+				_current = SlotRow.ToFrame<TTrack, TClip>((SlotRow*)(block + step.Slot), pair, _tick, FrameFlags.None, (TClip*)Unsafe.AsPointer(ref _scratch));
 				return true;
 			}
 		} while (_count > 0);

@@ -1,0 +1,32 @@
+{
+  "duration": 12,
+  "tracks": [
+    {
+      "namespace": "Tlb",
+      "type": "DualTrack",
+      "data": {
+        "Code": 4
+      },
+      "clips": [
+        {
+          "namespace": "Tlb",
+          "type": "DualAlphaClip",
+          "start": 0,
+          "end": 10,
+          "data": {
+            "Value": 1
+          }
+        },
+        {
+          "namespace": "Tlb",
+          "type": "DualBetaClip",
+          "start": 5,
+          "end": 12,
+          "data": {
+            "Amount": 2
+          }
+        }
+      ]
+    }
+  ]
+}

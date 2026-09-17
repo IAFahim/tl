@@ -1,0 +1,17 @@
+{
+  "duration": 10,
+  "tracks": [
+    {
+      "namespace": "Tlb",
+      "type": "Outer.One",
+      "clips": [
+        {
+          "namespace": "Tlb",
+          "type": "AlphaClip",
+          "start": 0,
+          "end": 10
+        }
+      ]
+    }
+  ]
+}

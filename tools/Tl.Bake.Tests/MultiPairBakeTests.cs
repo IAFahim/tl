@@ -41,7 +41,7 @@ public class MultiPairBakeTests
 
         var hotKeys = new List<ulong>();
         for (var i = 0; i < pairCount; i++)
-            hotKeys.Add(BitConverter.ToUInt64(bytes, (int)pairOffset + 16 * i));
+            hotKeys.Add(BitConverter.ToUInt64(bytes, (int)pairOffset + 48 * i));
         Assert.Equal(hotKeys, hotKeys.OrderBy(k => k).ToList());
 
         for (var i = 0; i < view.PairTypes.Count; i++)

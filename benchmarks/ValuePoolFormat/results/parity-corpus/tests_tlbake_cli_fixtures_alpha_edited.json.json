@@ -1,0 +1,39 @@
+{
+  "name": "alpha_fixture",
+  "duration": 12,
+  "loop": true,
+  "tracks": [
+    {
+      "name": "main",
+      "namespace": "Tlb",
+      "type": "JobTrack",
+      "data": {
+        "Multiplier": 4
+      },
+      "clips": [
+        {
+          "name": "ramp",
+          "namespace": "Tlb",
+          "type": "JobClip",
+          "start": 0,
+          "end": 8,
+          "data": {
+            "Amount": 5,
+            "Steps": 2
+          }
+        },
+        {
+          "name": "hold",
+          "namespace": "Tlb",
+          "type": "JobClip",
+          "start": 8,
+          "end": 12,
+          "data": {
+            "Amount": 3,
+            "Steps": 1
+          }
+        }
+      ]
+    }
+  ]
+}

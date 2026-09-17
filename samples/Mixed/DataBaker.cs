@@ -3,36 +3,28 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Tl;
 
-[StructLayout(LayoutKind.Sequential)]
-internal struct DataSlot<TTrack, TClip> where TTrack : unmanaged where TClip : unmanaged
-{
-    public TTrack Track;
-    public TClip First;
-    public TClip Second;
-    public uint WindowStart;
-    public uint WindowEnd;
-    public uint FactorStart;
-    public uint FactorSpan;
-    public byte TrackIndex;
-}
 
 internal sealed class DataBaker
 {
-    internal sealed class BakedClip
+        internal sealed class BakedClip
     {
         public required uint Start { get; init; }
         public required uint End { get; init; }
         public required object Value { get; init; }
+        public ushort PoolIndex { get; set; }
     }
 
     internal abstract class BakedTrack
     {
         public ulong Key;
-        public uint Stride;
         public byte Index;
+        public ushort TrackValueIndex;
         public readonly List<BakedClip> Clips = [];
 
-        public abstract void Write(byte[] bytes, int offset, BakedClip? first, BakedClip? second, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan);
+        public abstract int TrackValueBytes { get; }
+        public abstract int ClipValueBytes { get; }
+        public abstract byte[] TrackImage();
+        public abstract byte[] ClipImage(BakedClip clip);
     }
 
     internal sealed class BakedTrack<TTrack, TClip> : BakedTrack
@@ -41,23 +33,44 @@ internal sealed class DataBaker
     {
         public required TTrack TrackValue { get; init; }
 
-        public override void Write(byte[] bytes, int offset, BakedClip? first, BakedClip? second, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan)
+        public override int TrackValueBytes => Unsafe.SizeOf<TTrack>();
+        public override int ClipValueBytes => Unsafe.SizeOf<TClip>();
+
+        public override byte[] TrackImage()
         {
-            var slot = new DataSlot<TTrack, TClip>
-            {
-                Track = TrackValue,
-                First = (TClip)first!.Value,
-                Second = second is null ? default : (TClip)second.Value,
-                WindowStart = windowStart,
-                WindowEnd = windowEnd,
-                FactorStart = factorStart,
-                FactorSpan = factorSpan,
-                TrackIndex = Index,
-            };
-            MemoryMarshal.Write(bytes.AsSpan(offset), in slot);
+            var value = TrackValue;
+            var image = new byte[TrackValueBytes];
+            MemoryMarshal.Write(image, in value);
+            return image;
+        }
+
+        public override byte[] ClipImage(BakedClip clip)
+        {
+            var value = (TClip)clip.Value!;
+            var image = new byte[ClipValueBytes];
+            MemoryMarshal.Write(image, in value);
+            return image;
         }
     }
 
+    internal sealed class ImageBytesComparer : IEqualityComparer<byte[]>
+    {
+        public bool Equals(byte[]? left, byte[]? right)
+        {
+            if (ReferenceEquals(left, right)) return true;
+            if (left is null || right is null || left.Length != right.Length) return false;
+            for (var i = 0; i < left.Length; i++)
+                if (left[i] != right[i]) return false;
+            return true;
+        }
+
+        public int GetHashCode(byte[] image)
+        {
+            var hash = new HashCode();
+            hash.AddBytes(image);
+            return hash.ToHashCode();
+        }
+    }
     private readonly List<BakedTrack> _tracks = [];
     private bool _loops;
 
@@ -67,7 +80,6 @@ internal sealed class DataBaker
         {
             TrackValue = value,
             Key = PairRuntime<TTrack, TClip>.Key,
-            Stride = (uint)((Unsafe.SizeOf<DataSlot<TTrack, TClip>>() + 15) & ~15),
             Index = (byte)_tracks.Count,
         });
         return this;
@@ -85,6 +97,16 @@ internal sealed class DataBaker
         return this;
     }
 
+
+    static int CompareImages(byte[] left, byte[] right)
+    {
+        var byLength = left.Length.CompareTo(right.Length);
+        if (byLength != 0) return byLength;
+        for (var i = 0; i < left.Length; i++)
+            if (left[i] != right[i])
+                return left[i].CompareTo(right[i]);
+        return 0;
+    }
     public byte[] Bake()
     {
         var duration = 0u;
@@ -119,16 +141,62 @@ internal sealed class DataBaker
             stageEdges.Add((edge, boundaries[region + 1]));
         }
 
-        var pairs = _tracks.Select(track => (track.Key, track.Stride)).Distinct().OrderBy(pair => pair.Key).ToArray();
+        var pairKeys = _tracks.Select(track => track.Key).Distinct().OrderBy(key => key).ToArray();
         var pairIndex = new Dictionary<ulong, int>();
-        for (var index = 0; index < pairs.Length; index++)
-            pairIndex[pairs[index].Key] = index;
+        for (var index = 0; index < pairKeys.Length; index++)
+            pairIndex[pairKeys[index]] = index;
 
-        var pairOffset = 48u;
-        var stageOffset = pairOffset + 16u * (uint)pairs.Length;
+        var trackPools = new List<byte[]>[pairKeys.Length];
+        var trackIndices = new Dictionary<byte[], ushort>[pairKeys.Length];
+        var clipPools = new List<byte[]>[pairKeys.Length];
+        var clipIndices = new Dictionary<byte[], ushort>[pairKeys.Length];
+        var trackValueBytes = new int[pairKeys.Length];
+        var clipValueBytes = new int[pairKeys.Length];
+        for (var index = 0; index < pairKeys.Length; index++)
+        {
+            var members = _tracks.Where(track => pairIndex[track.Key] == index).ToList();
+            var trackUnique = members.Select(track => track.TrackImage()).Distinct(new ImageBytesComparer()).ToList();
+            var clipUnique = members.SelectMany(track => track.Clips.Select(track.ClipImage)).Distinct(new ImageBytesComparer()).ToList();
+            trackUnique.Sort(CompareImages);
+            clipUnique.Sort(CompareImages);
+            if (trackUnique.Count > 65535 || clipUnique.Count > 65535)
+                throw new InvalidOperationException("Value pool overflow: ushort slot indices hold at most 65,535 unique values per pool.");
+            trackValueBytes[index] = members[0].TrackValueBytes;
+            clipValueBytes[index] = members[0].ClipValueBytes;
+            trackPools[index] = trackUnique;
+            clipPools[index] = clipUnique;
+            trackIndices[index] = new Dictionary<byte[], ushort>(trackUnique.Count, new ImageBytesComparer());
+            clipIndices[index] = new Dictionary<byte[], ushort>(clipUnique.Count, new ImageBytesComparer());
+            for (var i = 0; i < trackUnique.Count; i++) trackIndices[index][(byte[])trackUnique[i]] = (ushort)i;
+            for (var i = 0; i < clipUnique.Count; i++) clipIndices[index][(byte[])clipUnique[i]] = (ushort)i;
+        }
+
+        foreach (var track in _tracks)
+        {
+            var index = pairIndex[track.Key];
+            track.TrackValueIndex = trackIndices[index][track.TrackImage()];
+            foreach (var clip in track.Clips)
+                clip.PoolIndex = clipIndices[index][track.ClipImage(clip)];
+        }
+
+        var pairOffset = 64u;
+        var stageOffset = pairOffset + 48u * (uint)pairKeys.Length;
         var programBase = stageOffset + 16u * (uint)stageList.Count;
         var stepCount = stageList.Sum(active => active.Count);
-        var frameOffset = (programBase + 8u * (uint)stepCount + 15u) & ~15u;
+        var poolOffset = (programBase + 8u * (uint)stepCount + 15u) & ~15u;
+
+        var trackPoolOffsets = new uint[pairKeys.Length];
+        var clipPoolOffsets = new uint[pairKeys.Length];
+        var poolCursor = poolOffset;
+        for (var index = 0; index < pairKeys.Length; index++)
+        {
+            var pairAddress = pairOffset + 48u * (uint)index;
+            trackPoolOffsets[index] = poolCursor - pairAddress;
+            poolCursor = (poolCursor + (uint)trackPools[index].Count * (uint)trackValueBytes[index] + 15u) & ~15u;
+            clipPoolOffsets[index] = poolCursor - pairAddress;
+            poolCursor = (poolCursor + (uint)clipPools[index].Count * (uint)clipValueBytes[index] + 15u) & ~15u;
+        }
+        var frameOffset = (poolCursor + 15u) & ~15u;
 
         var occurrences = new List<(uint Offset, int Pair, BakedTrack Track, int Stage)>();
         var cursor = frameOffset;
@@ -136,26 +204,35 @@ internal sealed class DataBaker
             foreach (var track in stageList[stage])
             {
                 occurrences.Add((cursor, pairIndex[track.Key], track, stage));
-                cursor += pairs[pairIndex[track.Key]].Stride;
+                cursor += 32u;
             }
 
         var bytes = new byte[cursor];
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), 0x31424C54u);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 1u);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 2u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), _loops ? 1u : 0u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), duration);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), (uint)_tracks.Count);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(20), (uint)stageList.Count);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(24), (uint)pairs.Length);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(24), (uint)pairKeys.Length);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(28), pairOffset);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(32), stageOffset);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(36), frameOffset);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(36), poolOffset);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(40), frameOffset);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(44), (uint)bytes.Length);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(48), (uint)bytes.Length);
 
-        for (var index = 0; index < pairs.Length; index++)
+        for (var index = 0; index < pairKeys.Length; index++)
         {
-            BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan((int)pairOffset + 16 * index), pairs[index].Key);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)pairOffset + 16 * index + 8), pairs[index].Stride);
+            var at = (int)pairOffset + 48 * index;
+            BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(at), pairKeys[index]);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 8), 32u);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 12), trackPoolOffsets[index]);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 16), (uint)trackPools[index].Count);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 20), (uint)trackValueBytes[index]);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 24), clipPoolOffsets[index]);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 28), (uint)clipPools[index].Count);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 32), (uint)clipValueBytes[index]);
         }
 
         var programOffset = programBase;
@@ -171,6 +248,22 @@ internal sealed class DataBaker
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)programOffset), occurrence.Offset);
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)programOffset + 4), (uint)occurrence.Pair);
                 programOffset += 8u;
+            }
+        }
+
+        for (var index = 0; index < pairKeys.Length; index++)
+        {
+            var at = (int)(pairOffset + 48u * (uint)index + trackPoolOffsets[index]);
+            foreach (var image in trackPools[index])
+            {
+                image.CopyTo(bytes, at);
+                at += image.Length;
+            }
+            at = (int)(pairOffset + 48u * (uint)index + clipPoolOffsets[index]);
+            foreach (var image in clipPools[index])
+            {
+                image.CopyTo(bytes, at);
+                at += image.Length;
             }
         }
 
@@ -193,7 +286,15 @@ internal sealed class DataBaker
                 factorSpan = Math.Min(clips[0].End, clips[1].End) - factorStart;
             }
 
-            occurrence.Track.Write(bytes, (int)occurrence.Offset, clips[0], clips.Length == 2 ? clips[1] : null, windowStart, windowEnd, factorStart, factorSpan);
+            var at = (int)occurrence.Offset;
+            BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(at), occurrence.Track.TrackValueIndex);
+            BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(at + 2), clips[0].PoolIndex);
+            BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(at + 4), clips.Length == 2 ? clips[1].PoolIndex : (ushort)0xFFFF);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 8), windowStart);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 12), windowEnd);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 16), factorStart);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 20), factorSpan);
+            bytes[at + 24] = occurrence.Track.Index;
         }
 
         return bytes;

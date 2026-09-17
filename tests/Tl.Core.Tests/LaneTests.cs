@@ -73,35 +73,35 @@ internal static unsafe class LanePairs
             }
     }
 
-    private static void ExecuteScale(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ExecuteScale(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         LaneClip scratch = default;
-        var frame = TickFrame.ToFrame<LaneTrack, LaneClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<LaneTrack, LaneClip>(slot, pair, tick, flags, ref scratch);
         var sign = frame.Has(FrameFlags.Reverse) ? -1f : 1f;
         ((float*)columns[0])[row] += sign * frame.Clip.Amount * frame.Track.Scale;
     }
 
-    private static void ExecuteConstant(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ExecuteConstant(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -7f : 7f;
 
-    private static void ExecuteImpure(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ExecuteImpure(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] *= 2f;
 
-    private static void ExecuteOrphan(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ExecuteOrphan(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         OrphanClip scratch = default;
-        var frame = TickFrame.ToFrame<OrphanTrack, OrphanClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<OrphanTrack, OrphanClip>(slot, pair, tick, flags, ref scratch);
         var sign = frame.Has(FrameFlags.Reverse) ? -1f : 1f;
         ((float*)columns[0])[row] += sign * frame.Track.Code * frame.Clip.Value;
     }
 
-    private static void ExecuteOrderA(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ExecuteOrderA(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -16777216f : 16777216f;
 
-    private static void ExecuteOrderB(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ExecuteOrderB(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -1f : 1f;
 
-    private static void ExecuteOrderC(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ExecuteOrderC(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -1f : 1f;
 }
 

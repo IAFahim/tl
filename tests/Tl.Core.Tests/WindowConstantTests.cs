@@ -80,64 +80,64 @@ internal static unsafe class WindowPairs
             }
     }
 
-    private static void ConstExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ConstExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         ConstClip scratch = default;
-        var frame = TickFrame.ToFrame<ConstTrack, ConstClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<ConstTrack, ConstClip>(slot, pair, tick, flags, ref scratch);
         ((float*)columns[0])[row] += frame.Clip.Amount * frame.Track.Scale;
     }
 
-    private static void ConstOffsetExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ConstOffsetExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += 3.5f;
 
-    private static void MirrorExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void MirrorExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         MirrorClip scratch = default;
-        var frame = TickFrame.ToFrame<MirrorTrack, MirrorClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<MirrorTrack, MirrorClip>(slot, pair, tick, flags, ref scratch);
         ((float*)columns[0])[row] += frame.Clip.Amount * frame.Track.Scale;
     }
 
-    private static void MirrorOffsetExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void MirrorOffsetExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += 3.5f;
 
-    private static void LyingExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void LyingExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         LyingClip scratch = default;
-        var frame = TickFrame.ToFrame<LyingTrack, LyingClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<LyingTrack, LyingClip>(slot, pair, tick, flags, ref scratch);
         ((float*)columns[0])[row] += frame.TimelineTick * frame.Track.Scale;
     }
 
-    private static void TickExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void TickExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         TickClip scratch = default;
-        var frame = TickFrame.ToFrame<TickTrack, TickClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<TickTrack, TickClip>(slot, pair, tick, flags, ref scratch);
         ((float*)columns[0])[row] += frame.TimelineTick * frame.Track.Scale;
     }
 
-    private static void ChainScale(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ChainScale(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         ChainClip scratch = default;
-        var frame = TickFrame.ToFrame<ChainTrack, ChainClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<ChainTrack, ChainClip>(slot, pair, tick, flags, ref scratch);
         ((float*)columns[0])[row] += frame.Clip.Amount * frame.Track.Scale;
     }
 
-    private static void ChainOne(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ChainOne(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += 1f;
 
-    private static void ChainOneB(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void ChainOneB(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += 1f;
 
-    private static void TChainScale(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void TChainScale(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         TChainClip scratch = default;
-        var frame = TickFrame.ToFrame<TChainTrack, TChainClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<TChainTrack, TChainClip>(slot, pair, tick, flags, ref scratch);
         ((float*)columns[0])[row] += frame.Clip.Amount * frame.Track.Scale;
     }
 
-    private static void TChainOne(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void TChainOne(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += 1f;
 
-    private static void TChainOneB(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void TChainOneB(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += 1f;
 }
 

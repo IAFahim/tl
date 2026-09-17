@@ -12,41 +12,40 @@ public static class TlbMetadata
 
     public static bool HasMetadata(ReadOnlySpan<byte> tlb)
     {
-        if (tlb.Length < 48) return false;
+        if (tlb.Length < 64) return false;
         if (BinaryPrimitives.ReadUInt32LittleEndian(tlb) != 0x31424C54u) return false;
-        var metadataOffset = BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(40));
-        return metadataOffset != 0;
+        return HotLength(tlb) < tlb.Length;
     }
 
     public static byte[] Strip(ReadOnlySpan<byte> tlb)
     {
         var hotLength = HotLength(tlb);
         var stripped = tlb.Slice(0, hotLength).ToArray();
-        BinaryPrimitives.WriteUInt32LittleEndian(stripped.AsSpan(40), 0u);
         BinaryPrimitives.WriteUInt32LittleEndian(stripped.AsSpan(44), (uint)hotLength);
+        BinaryPrimitives.WriteUInt32LittleEndian(stripped.AsSpan(48), (uint)hotLength);
         return stripped;
     }
 
     public static TlbMetadataView Read(ReadOnlySpan<byte> tlb)
     {
-        var metadataOffset = (int)HotLength(tlb);
+        var metadataOffset = HotLength(tlb);
         if (metadataOffset == tlb.Length)
-            throw new ArgumentException("TLB1 asset carries no metadata tail.");
+            throw new ArgumentException("TLB asset carries no metadata tail.");
         return TlbMetadataView.Parse(tlb.Slice(metadataOffset));
     }
 
     internal static int HotLength(ReadOnlySpan<byte> tlb)
     {
-        if (tlb.Length < 48)
-            throw new ArgumentException("TLB1 asset is truncated.");
+        if (tlb.Length < 64)
+            throw new ArgumentException("TLB asset is truncated.");
         if (BinaryPrimitives.ReadUInt32LittleEndian(tlb) != 0x31424C54u ||
-            BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(4)) != 1u ||
-            BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(44)) != (uint)tlb.Length)
-            throw new ArgumentException("TLB1 asset header is invalid.");
-        var metadataOffset = BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(40));
-        if (metadataOffset > (uint)tlb.Length)
-            throw new ArgumentException("TLB1 metadata offset exceeds asset length.");
-        return (int)metadataOffset == 0 ? tlb.Length : (int)metadataOffset;
+            BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(4)) != 2u ||
+            BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(48)) != (uint)tlb.Length)
+            throw new ArgumentException("TLB asset header is invalid.");
+        var hotLength = BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(44));
+        if (hotLength == 0 || hotLength > (uint)tlb.Length)
+            throw new ArgumentException("TLB hot length is invalid.");
+        return (int)hotLength;
     }
 }
 
