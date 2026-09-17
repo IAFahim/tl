@@ -38,9 +38,9 @@ STANDALONE_FILES = [
     "samples/ManyEntities/pulse.json",
     "samples/ManyEntities/window.json",
     "samples/NuGetQuickStart/boss.json",
-    "tests/tlbake_cli/fixtures/alpha.json",
-    "tests/tlbake_cli/fixtures/alpha_edited.json",
-    "tests/tlbake_cli/fixtures/broken.json",
+    "tests/tlb_cli/fixtures/alpha.json",
+    "tests/tlb_cli/fixtures/alpha_edited.json",
+    "tests/tlb_cli/fixtures/broken.json",
     "tools/Tl.Blender/fixtures/receipt_scene.json",
     "tools/Tl.Blender/fixtures/receipt_scene_hand.json",
     "tools/Tl.Playground/presets/finite-clamp.json",
@@ -667,7 +667,7 @@ def render_markdown(payload):
     lines.append("")
     lines.append("## Corpus")
     lines.append("")
-    lines.append("Standalone documents were collected from `samples/`, `tests/tlbake_cli/fixtures/`, `tools/Tl.Blender/fixtures/`, `tools/Tl.Playground/presets/` (their embedded `timeline` documents).")
+    lines.append("Standalone documents were collected from `samples/`, `tests/tlb_cli/fixtures/`, `tools/Tl.Blender/fixtures/`, `tools/Tl.Playground/presets/` (their embedded `timeline` documents).")
     lines.append("Embedded documents were extracted from C# raw-string literals and Python sources in `tools/Tl.Bake.Tests/`, `tools/Tl.Playground/Play.Core/`, and `tests/test_tl_blender.py`.")
     lines.append("`tools/Tl.Bake.Tests/DiagnosticTests.cs` fixtures are intentionally invalid negative diagnostics and are excluded.")
     lines.append(f"`tools/Tl.Bake.Tests/golden/introspection.json` is a metadata golden, not an authored asset. `samples/Mixed/` is code-authored (no JSON document).")

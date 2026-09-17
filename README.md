@@ -187,7 +187,7 @@ Timeline<DamageTrack, DamageClip>.Seek(handles, lastTick, true).Apply(health);  
 Timeline<DamageTrack, DamageClip>.Advance(handles, lastTick, true, health);      // fused spelling
 ```
 
-Handles come only from `Bind` at load time; a handle column, a position column, and an effect column of equal length are the whole call. The warm path is the same measured-table lane as the set (grouped rows still collapse into vector runs; 0 B), receipted bit-exact against per-asset lanes in `tests/Tl.Core.Tests` and in `benchmarks/PairHandles` — 0.20 ns/row with one handle for the batch, 0.57 with eight variants grouped, 1.33 with eight variants alternating per row, against 0.16 for the single-bound `BakedLane` gold path. Use `TimelineSet` when you want scoped ownership and disposal of the bank; use `Timeline<TTrack, TClip>` when the pair's timelines live for the process.
+Handles come only from `Bind` at load time; a handle column, a position column, and an effect column of equal length are the whole call. The warm path is the same measured-table lane as the set (grouped rows still collapse into vector runs; 0 B), receipted bit-exact against per-asset lanes in `tests/Tl.Core.Tests` and in `benchmarks/PairHandles` — 0.18-0.19 ns/row with one handle for the batch (~1.13x gold), 0.32 with eight variants grouped (~2x), 0.86 with eight variants alternating per row (~5x), and wave positions at 0.17-0.18 grouped (~1.07x), 0.20 in handle/position blocks of 100 (~1.2x), 0.67-0.69 alternating (~4x), against 0.16 for the single-bound `BakedLane` gold path. The guard-free mixed singleton walk of #167 — a fused vector probe sends chunks whose positions all sit below the set's minimum duration, with no adjacent handle/position repeat, to a singleton walk of one record load, one slot-record chain, and the two column writes — is what carries the alternating shapes. Use `TimelineSet` when you want scoped ownership and disposal of the bank; use `Timeline<TTrack, TClip>` when the pair's timelines live for the process.
 
 There is deliberately **no multi-frame step parameter** and never will be. A game runs thousands of systems that must all observe every timeline tick — a 50-tick skip would hide 49 intermediate states from them. Lag catch-up is repeated single-frame calls, which also keeps every float fold bit-exact (a precomputed K-frame sum can round differently from K sequential folds). This is an owner decision.
 
@@ -409,16 +409,17 @@ foreach (var (timeline, resistance, health) in
 | `samples/ManyEntities` | Typed lane vs hand SoA lanes with per-entity clocks; CI runs it — `dotnet run -c Release` in the folder prints the sweep/pulse/churn ns-per-row parity table (typed lane wins where rows group; the hand lane wins the fully staggered sweep) |
 | `tools/Tl.Gen.Tlb` | Baking library: TLB1 writer, string/type metadata pool, bake cache keys, size reports |
 | `tools/Tl.Bake` | `tlb` CLI: JSON-to-TLB1 bake, `--watch`, `--json`, `--strip`, `--cache`, `--report` |
+| `tools/Tl.Bake.Bench` | Bake-path receipts: deterministic corpus generator plus byte-identity parity and per-stage timing across the legacy, string, and UTF-8 bytes bake entries |
 | `tools/Tl.Blender` | Blender >= 5.0 NLA bridge: exports flat-schema JSON and bakes through the `tlb` CLI; type names come from `tl_nla` custom properties, preferences, or the single introspected pair; receipts in `tests/test_tl_blender.py` |
 | `tools/Tl.Playground` | Source of the live cookbook/playground linked above; `dotnet run --project tools/Tl.Playground/Playground.Native -c Release` prints the SMOKE receipt; the site is the `Playground` publish output deployed to gh-pages |
 | `tests/Tl.Alpha` | Typed-lane, data-authored, and allocation receipts |
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |
 | `tests/tlb_cli` | `tlb` CLI scenario harness (`config.json`); run via `python3 -m unittest discover -s tests -p test_tlb_cli.py` |
 | `benchmarks/Alpha` | Oracle and verification evidence for data-authored lane shapes |
-| `benchmarks/PairHandles` | Pair-typed lane receipts: parity against per-asset lanes and throughput versus the `BakedLane` gold path |
+| `benchmarks/PairHandles` | Pair-typed lane receipts: parity against per-asset lanes and throughput versus the `BakedLane` gold path across uniform, grouped, alternating, and wave-position shapes |
 | `benchmarks/TypedPlaybackProto` | Typed lane parity and throughput at 100k-1M rows |
 
-The solution carries two benchmark projects, `benchmarks/Alpha` and `benchmarks/PairHandles`; `benchmarks/FusedAdvance`, `benchmarks/TypedPlaybackProto`, and `benchmarks/ValuePoolFormat` are standalone probes documenting shipped surfaces (the fused-`Advance` verdict, typed-lane parity, the TLB1 v2 value pools); every other `benchmarks/*` directory and its result receipts are commit-scoped history of removed surfaces — their numbers apply only to the source and contract named in each local report.
+The solution carries three benchmark projects, `benchmarks/Alpha`, `benchmarks/PairHandles`, and `tools/Tl.Bake.Bench`; `benchmarks/FusedAdvance`, `benchmarks/TypedPlaybackProto`, and `benchmarks/ValuePoolFormat` are standalone probes documenting shipped surfaces (the fused-`Advance` verdict, typed-lane parity, the TLB1 v3 value pools); every other `benchmarks/*` directory and its result receipts are commit-scoped history of removed surfaces — their numbers apply only to the source and contract named in each local report.
 
 The data-authored Unity host package (`com.iafahim.tl`) lives in the [tl.unity](https://github.com/IAFahim/tl.unity) repository, published under the MIT license decided in issue #64.
 
