@@ -1,0 +1,7030 @@
+{
+ "issue": 149,
+ "baseCommit": "e8729be0ce64e2881b6495d1096a698b54c8b29c",
+ "tool": "benchmarks/ValueUniqueness/survey.py",
+ "assumptions": {
+  "poolScope": "per asset, per (trackType, clipType) pair, per side (track/clip), per field",
+  "indexWidth": "byte index when unique values <= 256, otherwise ushort",
+  "poolHeaderBytes": 16,
+  "poolLocation": "metadata (cold) region; warm frame slots shrink by replaced struct bytes and grow by index bytes",
+  "slotModel": "pooled stride = align16(17 + trackIndexBytes + 2*clipIndexBytes); 17 = four uint window/factor words plus byte TrackIndex",
+  "defaultEntries": "one extra pool entry per field when some value slot carries no authored value (zero struct default)",
+  "structModel": "alternative: one byte index per slot side; pool entries are whole track/clip structs",
+  "unchanged": "header, pair table, stage table, program, labels, and identity strings are unchanged by pooling"
+ },
+ "summary": {
+  "documentsTotal": 52,
+  "documentsIncluded": 22,
+  "documentsExcluded": 30,
+  "fieldsTotal": 51,
+  "fieldsBytePoolable": 51,
+  "fieldsUshort": 0,
+  "fieldOccurrences": 71,
+  "fieldUniques": 71,
+  "maxUniquesPerField": 3,
+  "identityTrackOccurrences": 29,
+  "identityTrackUniques": 11,
+  "identityClipOccurrences": 44,
+  "identityClipUniques": 12
+ },
+ "documents": [
+  {
+   "id": "samples/ManyEntities/move64.json",
+   "class": "sample",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 64,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "ManyEntities:MoveTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "ManyEntities:MoveClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "ManyEntities:MoveClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "5"
+     ]
+    },
+    {
+     "type": "ManyEntities:MoveTrack",
+     "side": "track",
+     "field": "Mult",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "2.0"
+     ]
+    }
+   ],
+   "fieldOccurrences": 2,
+   "fieldUniques": 2,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 271,
+     "tlb/hot-bytes": 128,
+     "tlb/metadata-bytes": 143,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 1,
+     "program/step-count": 1,
+     "frame-slot/region-bytes": 32,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "ManyEntities:MoveTrack|ManyEntities:MoveClip": {
+      "trackType": "ManyEntities:MoveTrack",
+      "clipType": "ManyEntities:MoveClip",
+      "occurrences": 1,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 32,
+      "pooledFrameBytes": 32,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "ManyEntities:MoveTrack",
+        "side": "track",
+        "field": "Mult",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "2.0"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "ManyEntities:MoveClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "5"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 32,
+    "pooledFrameBytes": 32,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 44,
+    "projectedTotalBytes": 315,
+    "projectedDeltaBytes": 44,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "ManyEntities:MoveTrack|ManyEntities:MoveClip": {
+       "occurrences": 1,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      }
+     },
+     "pooledFrameBytes": 32,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 60,
+     "projectedTotalBytes": 331,
+     "projectedDeltaBytes": 60
+    }
+   }
+  },
+  {
+   "id": "samples/ManyEntities/pulse.json",
+   "class": "sample",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 1,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "ManyEntities:PulseTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "ManyEntities:PulseClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "ManyEntities:PulseClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "5"
+     ]
+    },
+    {
+     "type": "ManyEntities:PulseTrack",
+     "side": "track",
+     "field": "Power",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "3"
+     ]
+    }
+   ],
+   "fieldOccurrences": 2,
+   "fieldUniques": 2,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 272,
+     "tlb/hot-bytes": 128,
+     "tlb/metadata-bytes": 144,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 1,
+     "program/step-count": 1,
+     "frame-slot/region-bytes": 32,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "ManyEntities:PulseTrack|ManyEntities:PulseClip": {
+      "trackType": "ManyEntities:PulseTrack",
+      "clipType": "ManyEntities:PulseClip",
+      "occurrences": 1,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 32,
+      "pooledFrameBytes": 32,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "ManyEntities:PulseTrack",
+        "side": "track",
+        "field": "Power",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "3"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "ManyEntities:PulseClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "5"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 32,
+    "pooledFrameBytes": 32,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 44,
+    "projectedTotalBytes": 316,
+    "projectedDeltaBytes": 44,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "ManyEntities:PulseTrack|ManyEntities:PulseClip": {
+       "occurrences": 1,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      }
+     },
+     "pooledFrameBytes": 32,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 60,
+     "projectedTotalBytes": 332,
+     "projectedDeltaBytes": 60
+    }
+   }
+  },
+  {
+   "id": "samples/ManyEntities/window.json",
+   "class": "sample",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 20,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "ManyEntities:WindowTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "ManyEntities:WindowClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "ManyEntities:WindowClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "4"
+     ]
+    },
+    {
+     "type": "ManyEntities:WindowTrack",
+     "side": "track",
+     "field": "Power",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "2"
+     ]
+    }
+   ],
+   "fieldOccurrences": 2,
+   "fieldUniques": 2,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 275,
+     "tlb/hot-bytes": 128,
+     "tlb/metadata-bytes": 147,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 1,
+     "program/step-count": 1,
+     "frame-slot/region-bytes": 32,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "ManyEntities:WindowTrack|ManyEntities:WindowClip": {
+      "trackType": "ManyEntities:WindowTrack",
+      "clipType": "ManyEntities:WindowClip",
+      "occurrences": 1,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 32,
+      "pooledFrameBytes": 32,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "ManyEntities:WindowTrack",
+        "side": "track",
+        "field": "Power",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "2"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "ManyEntities:WindowClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "4"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 32,
+    "pooledFrameBytes": 32,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 44,
+    "projectedTotalBytes": 319,
+    "projectedDeltaBytes": 44,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "ManyEntities:WindowTrack|ManyEntities:WindowClip": {
+       "occurrences": 1,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      }
+     },
+     "pooledFrameBytes": 32,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 60,
+     "projectedTotalBytes": 335,
+     "projectedDeltaBytes": 60
+    }
+   }
+  },
+  {
+   "id": "samples/NuGetQuickStart/boss.json",
+   "class": "sample",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 4,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Fresh:DamageTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Fresh:DamageClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Fresh:DamageClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "5"
+     ]
+    },
+    {
+     "type": "Fresh:DamageTrack",
+     "side": "track",
+     "field": "Multiplier",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "2.0"
+     ]
+    }
+   ],
+   "fieldOccurrences": 2,
+   "fieldUniques": 2,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 2,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 301,
+     "tlb/hot-bytes": 144,
+     "tlb/metadata-bytes": 157,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 2,
+     "program/step-count": 1,
+     "frame-slot/region-bytes": 32,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Fresh:DamageTrack|Fresh:DamageClip": {
+      "trackType": "Fresh:DamageTrack",
+      "clipType": "Fresh:DamageClip",
+      "occurrences": 1,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 32,
+      "pooledFrameBytes": 32,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Fresh:DamageTrack",
+        "side": "track",
+        "field": "Multiplier",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "2.0"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Fresh:DamageClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "5"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 32,
+    "pooledFrameBytes": 32,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 44,
+    "projectedTotalBytes": 345,
+    "projectedDeltaBytes": 44,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Fresh:DamageTrack|Fresh:DamageClip": {
+       "occurrences": 1,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      }
+     },
+     "pooledFrameBytes": 32,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 60,
+     "projectedTotalBytes": 361,
+     "projectedDeltaBytes": 60
+    }
+   }
+  },
+  {
+   "id": "tests/test_tl_blender.py#L136",
+   "class": "embedded",
+   "trackCount": 2,
+   "clipCount": 3,
+   "duration": 25,
+   "identity": {
+    "trackOccurrences": 2,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     ":GaGlobalTrack"
+    ],
+    "clipOccurrences": 3,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     ":GaGlobalClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": ":GaGlobalClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 3,
+     "uniques": 3,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "0.75",
+      "1.0",
+      "2.5"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 5,
+    "stepCount": 5,
+    "frameBytes": 160
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 609,
+     "tlb/hot-bytes": 352,
+     "tlb/metadata-bytes": 257,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 5,
+     "program/step-count": 5,
+     "frame-slot/region-bytes": 160,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 2,
+     "label/clip-count": 3
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     ":GaGlobalTrack|:GaGlobalClip": {
+      "trackType": ":GaGlobalTrack",
+      "clipType": ":GaGlobalClip",
+      "occurrences": 5,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 160,
+      "pooledFrameBytes": 160,
+      "poolTableBytes": 52,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": ":GaGlobalTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 0,
+        "uniques": 0,
+        "uniquenessRatio": 0.0,
+        "poolWidth": "byte",
+        "values": [],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": ":GaGlobalClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 3,
+        "uniques": 3,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "0.75",
+         "1.0",
+         "2.5"
+        ],
+        "poolEntries": 4,
+        "poolTableBytes": 32
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 160,
+    "pooledFrameBytes": 160,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 52,
+    "projectedTotalBytes": 661,
+    "projectedDeltaBytes": 52,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      ":GaGlobalTrack|:GaGlobalClip": {
+       "occurrences": 5,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 3,
+       "poolTableBytes": 68
+      }
+     },
+     "pooledFrameBytes": 160,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 68,
+     "projectedTotalBytes": 677,
+     "projectedDeltaBytes": 68
+    }
+   }
+  },
+  {
+   "id": "tests/test_tl_blender.py#L191",
+   "class": "embedded",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 3,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     ":GaGlobalTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     ":GaGlobalClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": ":GaGlobalClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "0.5"
+     ]
+    }
+   ],
+   "fieldOccurrences": 1,
+   "fieldUniques": 1,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 2,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 337,
+     "tlb/hot-bytes": 144,
+     "tlb/metadata-bytes": 193,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 2,
+     "program/step-count": 1,
+     "frame-slot/region-bytes": 32,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 1,
+     "label/clip-count": 1
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     ":GaGlobalTrack|:GaGlobalClip": {
+      "trackType": ":GaGlobalTrack",
+      "clipType": ":GaGlobalClip",
+      "occurrences": 1,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 32,
+      "pooledFrameBytes": 32,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": ":GaGlobalTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 0,
+        "uniques": 0,
+        "uniquenessRatio": 0.0,
+        "poolWidth": "byte",
+        "values": [],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": ":GaGlobalClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "0.5"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 32,
+    "pooledFrameBytes": 32,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 44,
+    "projectedTotalBytes": 381,
+    "projectedDeltaBytes": 44,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      ":GaGlobalTrack|:GaGlobalClip": {
+       "occurrences": 1,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      }
+     },
+     "pooledFrameBytes": 32,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 60,
+     "projectedTotalBytes": 397,
+     "projectedDeltaBytes": 60
+    }
+   }
+  },
+  {
+   "id": "tests/tlbake_cli/fixtures/alpha.json",
+   "class": "fixture",
+   "trackCount": 1,
+   "clipCount": 2,
+   "duration": 12,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:JobTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:JobClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:JobClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "3",
+      "5"
+     ]
+    },
+    {
+     "type": "Tlb:JobClip",
+     "side": "clip",
+     "field": "Steps",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1",
+      "2"
+     ]
+    },
+    {
+     "type": "Tlb:JobTrack",
+     "side": "track",
+     "field": "Multiplier",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "2"
+     ]
+    }
+   ],
+   "fieldOccurrences": 5,
+   "fieldUniques": 5,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 2,
+    "stepCount": 2,
+    "frameBytes": 96
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 424,
+     "tlb/hot-bytes": 208,
+     "tlb/metadata-bytes": 216,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 2,
+     "program/step-count": 2,
+     "frame-slot/region-bytes": 96,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 1,
+     "label/clip-count": 2
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:JobTrack|Tlb:JobClip": {
+      "trackType": "Tlb:JobTrack",
+      "clipType": "Tlb:JobClip",
+      "occurrences": 2,
+      "baselineStride": 48,
+      "pooledStride": 32,
+      "baselineFrameBytes": 96,
+      "pooledFrameBytes": 64,
+      "poolTableBytes": 76,
+      "bytesSavedPerOccurrence": 16,
+      "breakEvenOccurrences": 4.75,
+      "fields": [
+       {
+        "type": "Tlb:JobTrack",
+        "side": "track",
+        "field": "Multiplier",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "2"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:JobClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "3",
+         "5"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       },
+       {
+        "type": "Tlb:JobClip",
+        "side": "clip",
+        "field": "Steps",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1",
+         "2"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 96,
+    "pooledFrameBytes": 64,
+    "frameBytesSaved": 32,
+    "poolTableBytes": 76,
+    "projectedTotalBytes": 468,
+    "projectedDeltaBytes": 44,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:JobTrack|Tlb:JobClip": {
+       "occurrences": 2,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 2,
+       "poolTableBytes": 76
+      }
+     },
+     "pooledFrameBytes": 64,
+     "frameBytesSaved": 32,
+     "poolTableBytes": 76,
+     "projectedTotalBytes": 468,
+     "projectedDeltaBytes": 44
+    }
+   }
+  },
+  {
+   "id": "tests/tlbake_cli/fixtures/alpha_edited.json",
+   "class": "fixture",
+   "trackCount": 1,
+   "clipCount": 2,
+   "duration": 12,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:JobTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:JobClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:JobClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "3",
+      "5"
+     ]
+    },
+    {
+     "type": "Tlb:JobClip",
+     "side": "clip",
+     "field": "Steps",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1",
+      "2"
+     ]
+    },
+    {
+     "type": "Tlb:JobTrack",
+     "side": "track",
+     "field": "Multiplier",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "4"
+     ]
+    }
+   ],
+   "fieldOccurrences": 5,
+   "fieldUniques": 5,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 2,
+    "stepCount": 2,
+    "frameBytes": 96
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 424,
+     "tlb/hot-bytes": 208,
+     "tlb/metadata-bytes": 216,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 2,
+     "program/step-count": 2,
+     "frame-slot/region-bytes": 96,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 1,
+     "label/clip-count": 2
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:JobTrack|Tlb:JobClip": {
+      "trackType": "Tlb:JobTrack",
+      "clipType": "Tlb:JobClip",
+      "occurrences": 2,
+      "baselineStride": 48,
+      "pooledStride": 32,
+      "baselineFrameBytes": 96,
+      "pooledFrameBytes": 64,
+      "poolTableBytes": 76,
+      "bytesSavedPerOccurrence": 16,
+      "breakEvenOccurrences": 4.75,
+      "fields": [
+       {
+        "type": "Tlb:JobTrack",
+        "side": "track",
+        "field": "Multiplier",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "4"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:JobClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "3",
+         "5"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       },
+       {
+        "type": "Tlb:JobClip",
+        "side": "clip",
+        "field": "Steps",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1",
+         "2"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 96,
+    "pooledFrameBytes": 64,
+    "frameBytesSaved": 32,
+    "poolTableBytes": 76,
+    "projectedTotalBytes": 468,
+    "projectedDeltaBytes": 44,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:JobTrack|Tlb:JobClip": {
+       "occurrences": 2,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 2,
+       "poolTableBytes": 76
+      }
+     },
+     "pooledFrameBytes": 64,
+     "frameBytesSaved": 32,
+     "poolTableBytes": 76,
+     "projectedTotalBytes": 468,
+     "projectedDeltaBytes": 44
+    }
+   }
+  },
+  {
+   "id": "tests/tlbake_cli/fixtures/broken.json",
+   "class": "fixture",
+   "included": false,
+   "reason": "duplicate field: 'duration'"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/CacheCliTests.cs#L180",
+   "class": "embedded",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Nope:MissingTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Nope:MissingClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "unresolved type (Nope:MissingTrack)",
+   "bake": {
+    "ok": false,
+    "stderr": "skipped: unresolved type (Nope:MissingTrack)"
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/CacheCliTests.cs#L62",
+   "class": "embedded",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:AlphaClip",
+     "side": "clip",
+     "field": "Value",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "5"
+     ]
+    },
+    {
+     "type": "Tlb:AlphaTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    }
+   ],
+   "fieldOccurrences": 2,
+   "fieldUniques": 2,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 259,
+     "tlb/hot-bytes": 128,
+     "tlb/metadata-bytes": 131,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 1,
+     "program/step-count": 1,
+     "frame-slot/region-bytes": 32,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:AlphaTrack|Tlb:AlphaClip": {
+      "trackType": "Tlb:AlphaTrack",
+      "clipType": "Tlb:AlphaClip",
+      "occurrences": 1,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 32,
+      "pooledFrameBytes": 32,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:AlphaTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:AlphaClip",
+        "side": "clip",
+        "field": "Value",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "5"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 32,
+    "pooledFrameBytes": 32,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 44,
+    "projectedTotalBytes": 303,
+    "projectedDeltaBytes": 44,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:AlphaTrack|Tlb:AlphaClip": {
+       "occurrences": 1,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      }
+     },
+     "pooledFrameBytes": 32,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 60,
+     "projectedTotalBytes": 319,
+     "projectedDeltaBytes": 60
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/CliTests.cs#L19",
+   "class": "embedded",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:AlphaClip",
+     "side": "clip",
+     "field": "Value",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "5"
+     ]
+    },
+    {
+     "type": "Tlb:AlphaTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    }
+   ],
+   "fieldOccurrences": 2,
+   "fieldUniques": 2,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 259,
+     "tlb/hot-bytes": 128,
+     "tlb/metadata-bytes": 131,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 1,
+     "program/step-count": 1,
+     "frame-slot/region-bytes": 32,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:AlphaTrack|Tlb:AlphaClip": {
+      "trackType": "Tlb:AlphaTrack",
+      "clipType": "Tlb:AlphaClip",
+      "occurrences": 1,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 32,
+      "pooledFrameBytes": 32,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:AlphaTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:AlphaClip",
+        "side": "clip",
+        "field": "Value",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "5"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 32,
+    "pooledFrameBytes": 32,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 44,
+    "projectedTotalBytes": 303,
+    "projectedDeltaBytes": 44,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:AlphaTrack|Tlb:AlphaClip": {
+       "occurrences": 1,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      }
+     },
+     "pooledFrameBytes": 32,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 60,
+     "projectedTotalBytes": 319,
+     "projectedDeltaBytes": 60
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/CliTests.cs#L61",
+   "class": "embedded",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Nope:MissingTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Nope:MissingClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "unresolved type (Nope:MissingTrack)",
+   "bake": {
+    "ok": false,
+    "stderr": "skipped: unresolved type (Nope:MissingTrack)"
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DeterminismTests.cs#L13",
+   "class": "embedded",
+   "trackCount": 2,
+   "clipCount": 4,
+   "duration": 64,
+   "identity": {
+    "trackOccurrences": 2,
+    "trackUniques": 2,
+    "trackUniqueKeys": [
+     "Tlb:BlendTrack",
+     "Tlb:DualTrack"
+    ],
+    "clipOccurrences": 4,
+    "clipUniques": 3,
+    "clipUniqueKeys": [
+     "Tlb:BlendClip",
+     "Tlb:DualAlphaClip",
+     "Tlb:DualBetaClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:DualAlphaClip",
+     "side": "clip",
+     "field": "Value",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "5",
+      "9"
+     ]
+    },
+    {
+     "type": "Tlb:DualBetaClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "2"
+     ]
+    },
+    {
+     "type": "Tlb:DualTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "2"
+     ]
+    },
+    {
+     "type": "Tlb:BlendClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "3"
+     ]
+    },
+    {
+     "type": "Tlb:BlendTrack",
+     "side": "track",
+     "field": "Scale",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "0.5"
+     ]
+    }
+   ],
+   "fieldOccurrences": 6,
+   "fieldUniques": 6,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 3,
+    "stageCount": 8,
+    "stepCount": 8,
+    "frameBytes": 256
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 955,
+     "tlb/hot-bytes": 544,
+     "tlb/metadata-bytes": 411,
+     "pair/table-bytes": 48,
+     "pair/count": 3,
+     "stage/count": 8,
+     "program/step-count": 8,
+     "frame-slot/region-bytes": 256,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 2,
+     "label/clip-count": 4
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:DualTrack|Tlb:DualAlphaClip": {
+      "trackType": "Tlb:DualTrack",
+      "clipType": "Tlb:DualAlphaClip",
+      "occurrences": 3,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 96,
+      "pooledFrameBytes": 96,
+      "poolTableBytes": 48,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:DualTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "2"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:DualAlphaClip",
+        "side": "clip",
+        "field": "Value",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "5",
+         "9"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     },
+     "Tlb:BlendTrack|Tlb:BlendClip": {
+      "trackType": "Tlb:BlendTrack",
+      "clipType": "Tlb:BlendClip",
+      "occurrences": 4,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 128,
+      "pooledFrameBytes": 128,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:BlendTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "0.5"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:BlendClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "3"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     },
+     "Tlb:DualTrack|Tlb:DualBetaClip": {
+      "trackType": "Tlb:DualTrack",
+      "clipType": "Tlb:DualBetaClip",
+      "occurrences": 1,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 32,
+      "pooledFrameBytes": 32,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:DualTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "2"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:DualBetaClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "2"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 256,
+    "pooledFrameBytes": 256,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 136,
+    "projectedTotalBytes": 1091,
+    "projectedDeltaBytes": 136,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:DualTrack|Tlb:DualAlphaClip": {
+       "occurrences": 3,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 2,
+       "poolTableBytes": 64
+      },
+      "Tlb:BlendTrack|Tlb:BlendClip": {
+       "occurrences": 4,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      },
+      "Tlb:DualTrack|Tlb:DualBetaClip": {
+       "occurrences": 1,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      }
+     },
+     "pooledFrameBytes": 256,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 184,
+     "projectedTotalBytes": 1139,
+     "projectedDeltaBytes": 184
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DeterminismTests.cs#L67",
+   "class": "embedded",
+   "trackCount": 2,
+   "clipCount": 3,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 2,
+    "trackUniques": 2,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack",
+     "Tlb:BlendTrack"
+    ],
+    "clipOccurrences": 3,
+    "clipUniques": 2,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip",
+     "Tlb:BlendClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:AlphaClip",
+     "side": "clip",
+     "field": "Value",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "7"
+     ]
+    },
+    {
+     "type": "Tlb:AlphaTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    },
+    {
+     "type": "Tlb:BlendClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1.0",
+      "5.0"
+     ]
+    },
+    {
+     "type": "Tlb:BlendTrack",
+     "side": "track",
+     "field": "Scale",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "2.5"
+     ]
+    }
+   ],
+   "fieldOccurrences": 5,
+   "fieldUniques": 5,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 2,
+    "stageCount": 3,
+    "stepCount": 6,
+    "frameBytes": 192
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 558,
+     "tlb/hot-bytes": 368,
+     "tlb/metadata-bytes": 190,
+     "pair/table-bytes": 32,
+     "pair/count": 2,
+     "stage/count": 3,
+     "program/step-count": 6,
+     "frame-slot/region-bytes": 192,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:AlphaTrack|Tlb:AlphaClip": {
+      "trackType": "Tlb:AlphaTrack",
+      "clipType": "Tlb:AlphaClip",
+      "occurrences": 3,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 96,
+      "pooledFrameBytes": 96,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:AlphaTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:AlphaClip",
+        "side": "clip",
+        "field": "Value",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "7"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     },
+     "Tlb:BlendTrack|Tlb:BlendClip": {
+      "trackType": "Tlb:BlendTrack",
+      "clipType": "Tlb:BlendClip",
+      "occurrences": 3,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 96,
+      "pooledFrameBytes": 96,
+      "poolTableBytes": 48,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:BlendTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "2.5"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:BlendClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1.0",
+         "5.0"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 192,
+    "pooledFrameBytes": 192,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 92,
+    "projectedTotalBytes": 650,
+    "projectedDeltaBytes": 92,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:AlphaTrack|Tlb:AlphaClip": {
+       "occurrences": 3,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      },
+      "Tlb:BlendTrack|Tlb:BlendClip": {
+       "occurrences": 3,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 2,
+       "poolTableBytes": 64
+      }
+     },
+     "pooledFrameBytes": 192,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 124,
+     "projectedTotalBytes": 682,
+     "projectedDeltaBytes": 124
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L121",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:NoBlendTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "unresolved type (Tlb:NoBlendTrack)",
+   "bake": {
+    "ok": false,
+    "stderr": "skipped: unresolved type (Tlb:NoBlendTrack)"
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L13",
+   "class": "diagnostic",
+   "included": false,
+   "reason": "duration missing or outside [0, 65535]"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L141",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:DualBetaClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: clip type not blendable by track: track 0 resolves clip type 'Tlb.DualBetaClip' but track type 'Tlb.AlphaTrack' implements only these Tl.IBlend<TClip> pairings: Tlb.AlphaClip."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L162",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:Inner"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "unresolved type (Tlb:Inner)",
+   "bake": {
+    "ok": false,
+    "stderr": "skipped: unresolved type (Tlb:Inner)"
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L183",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: type resolution failed: assembly 'NotTheRightAssembly' does not contain (Tlb, AlphaTrack) for track 0; matching types exist in assembly(es): Tl.Bake.Tests."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L205",
+   "class": "diagnostic",
+   "included": false,
+   "reason": "track namespace/type missing, dotted, or empty"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L225",
+   "class": "diagnostic",
+   "included": false,
+   "reason": "clip namespace/type missing, dotted, or empty"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L245",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: removed property 'payload' in clip 0 on track 0: schema v1 declares 'namespace', 'type' and optional 'assembly' on every track and clip, and 'data' for payloads; type identity is never inherited between levels. See docs/data-authored-api.md."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L265",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: renamed property 'loops' in root: use 'loop'."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L286",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:AlphaTrack",
+     "side": "track",
+     "field": "NonExistentField",
+     "fieldType": "undeclared",
+     "fieldBytes": 0,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "123"
+     ]
+    }
+   ],
+   "fieldOccurrences": 1,
+   "fieldUniques": 1,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: unknown field name in track/payload: field 'NonExistentField' not found on type 'AlphaTrack' in track 0 (AlphaTrack)."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L307",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:AlphaClip",
+     "side": "clip",
+     "field": "UnknownField",
+     "fieldType": "undeclared",
+     "fieldBytes": 0,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    },
+    {
+     "type": "Tlb:AlphaTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    }
+   ],
+   "fieldOccurrences": 2,
+   "fieldUniques": 2,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: unknown field name in track/payload: field 'UnknownField' not found on type 'AlphaClip' in clip 0 on track 0 (AlphaClip)."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L328",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:AlphaTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "\"not_an_int\""
+     ]
+    }
+   ],
+   "fieldOccurrences": 1,
+   "fieldUniques": 1,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: wrong-typed value: field 'Code' in track 0 (AlphaTrack) expected int, got \"not_an_int\"."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L33",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:NonExistentTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "unresolved type (Tlb:NonExistentTrack)",
+   "bake": {
+    "ok": false,
+    "stderr": "skipped: unresolved type (Tlb:NonExistentTrack)"
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L349",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:AlphaClip",
+     "side": "clip",
+     "field": "Value",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "\"not_an_int\""
+     ]
+    },
+    {
+     "type": "Tlb:AlphaTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    }
+   ],
+   "fieldOccurrences": 2,
+   "fieldUniques": 2,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: wrong-typed value: field 'Value' in clip 0 on track 0 (AlphaClip) expected int, got \"not_an_int\"."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L370",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 3,
+   "duration": 20,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 3,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 5,
+    "stepCount": 5,
+    "frameBytes": 160
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: overlapping clips on one track: track 0 (AlphaTrack/AlphaClip) has more than two overlapping clips at tick 10."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L394",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 2,
+   "duration": 20,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 4,
+    "stepCount": 2,
+    "frameBytes": 64
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: overlapping clips on one track: track 0 (AlphaTrack/AlphaClip) has multiple clips starting at tick 5."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L417",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 2,
+   "duration": 12,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:DualTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 2,
+    "clipUniqueKeys": [
+     "Tlb:DualAlphaClip",
+     "Tlb:DualBetaClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:DualAlphaClip",
+     "side": "clip",
+     "field": "Value",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    },
+    {
+     "type": "Tlb:DualBetaClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "2"
+     ]
+    },
+    {
+     "type": "Tlb:DualTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "4"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 2,
+    "stageCount": 3,
+    "stepCount": 4,
+    "frameBytes": 128
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 458,
+     "tlb/hot-bytes": 288,
+     "tlb/metadata-bytes": 170,
+     "pair/table-bytes": 32,
+     "pair/count": 2,
+     "stage/count": 3,
+     "program/step-count": 4,
+     "frame-slot/region-bytes": 128,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:DualTrack|Tlb:DualAlphaClip": {
+      "trackType": "Tlb:DualTrack",
+      "clipType": "Tlb:DualAlphaClip",
+      "occurrences": 2,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 64,
+      "pooledFrameBytes": 64,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:DualTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "4"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:DualAlphaClip",
+        "side": "clip",
+        "field": "Value",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     },
+     "Tlb:DualTrack|Tlb:DualBetaClip": {
+      "trackType": "Tlb:DualTrack",
+      "clipType": "Tlb:DualBetaClip",
+      "occurrences": 2,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 64,
+      "pooledFrameBytes": 64,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:DualTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "4"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:DualBetaClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "2"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 128,
+    "pooledFrameBytes": 128,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 88,
+    "projectedTotalBytes": 546,
+    "projectedDeltaBytes": 88,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:DualTrack|Tlb:DualAlphaClip": {
+       "occurrences": 2,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      },
+      "Tlb:DualTrack|Tlb:DualBetaClip": {
+       "occurrences": 2,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      }
+     },
+     "pooledFrameBytes": 128,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 120,
+     "projectedTotalBytes": 578,
+     "projectedDeltaBytes": 120
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L458",
+   "class": "diagnostic",
+   "included": false,
+   "reason": "clip window outside [0, duration) or reversed"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L478",
+   "class": "diagnostic",
+   "included": false,
+   "reason": "clip window outside [0, duration) or reversed"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L498",
+   "class": "diagnostic",
+   "included": false,
+   "reason": "duplicate field: 'duration'"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L519",
+   "class": "diagnostic",
+   "included": false,
+   "reason": "clip namespace/type missing, dotted, or empty"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L53",
+   "class": "diagnostic",
+   "included": false,
+   "reason": "track namespace/type missing, dotted, or empty"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L539",
+   "class": "diagnostic",
+   "included": false,
+   "reason": "track clips missing or empty"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L73",
+   "class": "diagnostic",
+   "included": false,
+   "reason": "track namespace/type missing, dotted, or empty"
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/DiagnosticTests.cs#L93",
+   "class": "diagnostic",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:ManagedTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [],
+   "fieldOccurrences": 0,
+   "fieldUniques": 0,
+   "included": false,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 32
+   },
+   "bake": {
+    "ok": false,
+    "stderr": "Diagnostic error: track or clip not unmanaged: track type 'Tlb.ManagedTrack' is not an unmanaged type."
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/MetadataTests.cs#L14",
+   "class": "embedded",
+   "trackCount": 1,
+   "clipCount": 2,
+   "duration": 4,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:AlphaClip",
+     "side": "clip",
+     "field": "Value",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "11",
+      "22"
+     ]
+    },
+    {
+     "type": "Tlb:AlphaTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "77"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 2,
+    "stepCount": 2,
+    "frameBytes": 64
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 307,
+     "tlb/hot-bytes": 176,
+     "tlb/metadata-bytes": 131,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 2,
+     "program/step-count": 2,
+     "frame-slot/region-bytes": 64,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:AlphaTrack|Tlb:AlphaClip": {
+      "trackType": "Tlb:AlphaTrack",
+      "clipType": "Tlb:AlphaClip",
+      "occurrences": 2,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 64,
+      "pooledFrameBytes": 64,
+      "poolTableBytes": 48,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:AlphaTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "77"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:AlphaClip",
+        "side": "clip",
+        "field": "Value",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "11",
+         "22"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 64,
+    "pooledFrameBytes": 64,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 48,
+    "projectedTotalBytes": 355,
+    "projectedDeltaBytes": 48,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:AlphaTrack|Tlb:AlphaClip": {
+       "occurrences": 2,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 2,
+       "poolTableBytes": 64
+      }
+     },
+     "pooledFrameBytes": 64,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 64,
+     "projectedTotalBytes": 371,
+     "projectedDeltaBytes": 64
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/MultiPairBakeTests.cs#L102",
+   "class": "embedded",
+   "trackCount": 2,
+   "clipCount": 2,
+   "duration": 8,
+   "identity": {
+    "trackOccurrences": 2,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:AlphaTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:AlphaClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:AlphaClip",
+     "side": "clip",
+     "field": "Value",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1",
+      "2"
+     ]
+    },
+    {
+     "type": "Tlb:AlphaTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1",
+      "2"
+     ]
+    }
+   ],
+   "fieldOccurrences": 4,
+   "fieldUniques": 4,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 2,
+    "stepCount": 2,
+    "frameBytes": 64
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 348,
+     "tlb/hot-bytes": 176,
+     "tlb/metadata-bytes": 172,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 2,
+     "program/step-count": 2,
+     "frame-slot/region-bytes": 64,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 2,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:AlphaTrack|Tlb:AlphaClip": {
+      "trackType": "Tlb:AlphaTrack",
+      "clipType": "Tlb:AlphaClip",
+      "occurrences": 2,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 64,
+      "pooledFrameBytes": 64,
+      "poolTableBytes": 52,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:AlphaTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1",
+         "2"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       },
+       {
+        "type": "Tlb:AlphaClip",
+        "side": "clip",
+        "field": "Value",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1",
+         "2"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 64,
+    "pooledFrameBytes": 64,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 52,
+    "projectedTotalBytes": 400,
+    "projectedDeltaBytes": 52,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:AlphaTrack|Tlb:AlphaClip": {
+       "occurrences": 2,
+       "pooledStride": 32,
+       "structTrackUniques": 2,
+       "structClipUniques": 2,
+       "poolTableBytes": 68
+      }
+     },
+     "pooledFrameBytes": 64,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 68,
+     "projectedTotalBytes": 416,
+     "projectedDeltaBytes": 68
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/Recording.cs#L20",
+   "class": "embedded",
+   "trackCount": 2,
+   "clipCount": 4,
+   "duration": 8,
+   "identity": {
+    "trackOccurrences": 2,
+    "trackUniques": 2,
+    "trackUniqueKeys": [
+     "Tlb:DualTrack",
+     "Tlb:EchoTrack"
+    ],
+    "clipOccurrences": 4,
+    "clipUniques": 3,
+    "clipUniqueKeys": [
+     "Tlb:DualAlphaClip",
+     "Tlb:DualBetaClip",
+     "Tlb:EchoClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:DualAlphaClip",
+     "side": "clip",
+     "field": "Value",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "10",
+      "30"
+     ]
+    },
+    {
+     "type": "Tlb:DualBetaClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1.5"
+     ]
+    },
+    {
+     "type": "Tlb:DualTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    },
+    {
+     "type": "Tlb:EchoClip",
+     "side": "clip",
+     "field": "Value",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "7"
+     ]
+    },
+    {
+     "type": "Tlb:EchoTrack",
+     "side": "track",
+     "field": "Code",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "5"
+     ]
+    }
+   ],
+   "fieldOccurrences": 6,
+   "fieldUniques": 6,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 3,
+    "stageCount": 6,
+    "stepCount": 13,
+    "frameBytes": 416
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 1094,
+     "tlb/hot-bytes": 720,
+     "tlb/metadata-bytes": 374,
+     "pair/table-bytes": 48,
+     "pair/count": 3,
+     "stage/count": 6,
+     "program/step-count": 13,
+     "frame-slot/region-bytes": 416,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 2,
+     "label/clip-count": 4
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:DualTrack|Tlb:DualAlphaClip": {
+      "trackType": "Tlb:DualTrack",
+      "clipType": "Tlb:DualAlphaClip",
+      "occurrences": 6,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 192,
+      "pooledFrameBytes": 192,
+      "poolTableBytes": 48,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:DualTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:DualAlphaClip",
+        "side": "clip",
+        "field": "Value",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "10",
+         "30"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     },
+     "Tlb:EchoTrack|Tlb:EchoClip": {
+      "trackType": "Tlb:EchoTrack",
+      "clipType": "Tlb:EchoClip",
+      "occurrences": 3,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 96,
+      "pooledFrameBytes": 96,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:EchoTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "5"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:EchoClip",
+        "side": "clip",
+        "field": "Value",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "7"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     },
+     "Tlb:DualTrack|Tlb:DualBetaClip": {
+      "trackType": "Tlb:DualTrack",
+      "clipType": "Tlb:DualBetaClip",
+      "occurrences": 4,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 128,
+      "pooledFrameBytes": 128,
+      "poolTableBytes": 44,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:DualTrack",
+        "side": "track",
+        "field": "Code",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:DualBetaClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1.5"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 416,
+    "pooledFrameBytes": 416,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 136,
+    "projectedTotalBytes": 1230,
+    "projectedDeltaBytes": 136,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:DualTrack|Tlb:DualAlphaClip": {
+       "occurrences": 6,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 2,
+       "poolTableBytes": 64
+      },
+      "Tlb:EchoTrack|Tlb:EchoClip": {
+       "occurrences": 3,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      },
+      "Tlb:DualTrack|Tlb:DualBetaClip": {
+       "occurrences": 4,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 60
+      }
+     },
+     "pooledFrameBytes": 416,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 184,
+     "projectedTotalBytes": 1278,
+     "projectedDeltaBytes": 184
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Bake.Tests/WatchModeTests.cs#L15",
+   "class": "embedded",
+   "trackCount": 1,
+   "clipCount": 1,
+   "duration": 10,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:JobTrack"
+    ],
+    "clipOccurrences": 1,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:JobClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:JobClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "5"
+     ]
+    },
+    {
+     "type": "Tlb:JobClip",
+     "side": "clip",
+     "field": "Steps",
+     "fieldType": "int",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    },
+    {
+     "type": "Tlb:JobTrack",
+     "side": "track",
+     "field": "Multiplier",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "2"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1,
+    "stepCount": 1,
+    "frameBytes": 48
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 271,
+     "tlb/hot-bytes": 144,
+     "tlb/metadata-bytes": 127,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 1,
+     "program/step-count": 1,
+     "frame-slot/region-bytes": 48,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:JobTrack|Tlb:JobClip": {
+      "trackType": "Tlb:JobTrack",
+      "clipType": "Tlb:JobClip",
+      "occurrences": 1,
+      "baselineStride": 48,
+      "pooledStride": 32,
+      "baselineFrameBytes": 48,
+      "pooledFrameBytes": 32,
+      "poolTableBytes": 68,
+      "bytesSavedPerOccurrence": 16,
+      "breakEvenOccurrences": 4.25,
+      "fields": [
+       {
+        "type": "Tlb:JobTrack",
+        "side": "track",
+        "field": "Multiplier",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "2"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:JobClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "5"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       },
+       {
+        "type": "Tlb:JobClip",
+        "side": "clip",
+        "field": "Steps",
+        "fieldType": "int",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 2,
+        "poolTableBytes": 24
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 48,
+    "pooledFrameBytes": 32,
+    "frameBytesSaved": 16,
+    "poolTableBytes": 68,
+    "projectedTotalBytes": 323,
+    "projectedDeltaBytes": 52,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:JobTrack|Tlb:JobClip": {
+       "occurrences": 1,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1,
+       "poolTableBytes": 68
+      }
+     },
+     "pooledFrameBytes": 32,
+     "frameBytesSaved": 16,
+     "poolTableBytes": 68,
+     "projectedTotalBytes": 323,
+     "projectedDeltaBytes": 52
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Blender/fixtures/receipt_scene.json",
+   "class": "fixture",
+   "trackCount": 2,
+   "clipCount": 3,
+   "duration": 25,
+   "identity": {
+    "trackOccurrences": 2,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:BlendTrack"
+    ],
+    "clipOccurrences": 3,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:BlendClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:BlendClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 3,
+     "uniques": 3,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "0.5",
+      "0.75",
+      "2.5"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 5,
+    "stepCount": 5,
+    "frameBytes": 160
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 612,
+     "tlb/hot-bytes": 352,
+     "tlb/metadata-bytes": 260,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 5,
+     "program/step-count": 5,
+     "frame-slot/region-bytes": 160,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 2,
+     "label/clip-count": 3
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:BlendTrack|Tlb:BlendClip": {
+      "trackType": "Tlb:BlendTrack",
+      "clipType": "Tlb:BlendClip",
+      "occurrences": 5,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 160,
+      "pooledFrameBytes": 160,
+      "poolTableBytes": 52,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:BlendTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 0,
+        "uniques": 0,
+        "uniquenessRatio": 0.0,
+        "poolWidth": "byte",
+        "values": [],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:BlendClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 3,
+        "uniques": 3,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "0.5",
+         "0.75",
+         "2.5"
+        ],
+        "poolEntries": 4,
+        "poolTableBytes": 32
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 160,
+    "pooledFrameBytes": 160,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 52,
+    "projectedTotalBytes": 664,
+    "projectedDeltaBytes": 52,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:BlendTrack|Tlb:BlendClip": {
+       "occurrences": 5,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 3,
+       "poolTableBytes": 68
+      }
+     },
+     "pooledFrameBytes": 160,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 68,
+     "projectedTotalBytes": 680,
+     "projectedDeltaBytes": 68
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Blender/fixtures/receipt_scene_hand.json",
+   "class": "fixture",
+   "trackCount": 2,
+   "clipCount": 3,
+   "duration": 25,
+   "identity": {
+    "trackOccurrences": 2,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Tlb:BlendTrack"
+    ],
+    "clipOccurrences": 3,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Tlb:BlendClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Tlb:BlendClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 3,
+     "uniques": 3,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "0.5",
+      "0.75",
+      "2.5"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 5,
+    "stepCount": 5,
+    "frameBytes": 160
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 612,
+     "tlb/hot-bytes": 352,
+     "tlb/metadata-bytes": 260,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 5,
+     "program/step-count": 5,
+     "frame-slot/region-bytes": 160,
+     "instance/state-bytes": 16,
+     "label/root-count": 1,
+     "label/track-count": 2,
+     "label/clip-count": 3
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Tlb:BlendTrack|Tlb:BlendClip": {
+      "trackType": "Tlb:BlendTrack",
+      "clipType": "Tlb:BlendClip",
+      "occurrences": 5,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 160,
+      "pooledFrameBytes": 160,
+      "poolTableBytes": 52,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Tlb:BlendTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 0,
+        "uniques": 0,
+        "uniquenessRatio": 0.0,
+        "poolWidth": "byte",
+        "values": [],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Tlb:BlendClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 3,
+        "uniques": 3,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "0.5",
+         "0.75",
+         "2.5"
+        ],
+        "poolEntries": 4,
+        "poolTableBytes": 32
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 160,
+    "pooledFrameBytes": 160,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 52,
+    "projectedTotalBytes": 664,
+    "projectedDeltaBytes": 52,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Tlb:BlendTrack|Tlb:BlendClip": {
+       "occurrences": 5,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 3,
+       "poolTableBytes": 68
+      }
+     },
+     "pooledFrameBytes": 160,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 68,
+     "projectedTotalBytes": 680,
+     "projectedDeltaBytes": 68
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Playground/Play.Core/LiveAuthoring.cs#L77",
+   "class": "embedded",
+   "trackCount": 1,
+   "clipCount": 2,
+   "duration": 64,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Live:ScaleTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Live:AmountClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Live:AmountClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "undeclared",
+     "fieldBytes": 0,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "-2.5",
+      "1.5"
+     ]
+    },
+    {
+     "type": "Live:ScaleTrack",
+     "side": "track",
+     "field": "Scale",
+     "fieldType": "undeclared",
+     "fieldBytes": 0,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "2"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": false,
+   "reason": "unresolved type (Live:ScaleTrack)",
+   "bake": {
+    "ok": false,
+    "stderr": "skipped: unresolved type (Live:ScaleTrack)"
+   }
+  },
+  {
+   "id": "tools/Tl.Playground/Play.Core/Scenario.cs#L100",
+   "class": "embedded",
+   "included": false,
+   "reason": "source template with placeholders, not a document"
+  },
+  {
+   "id": "tools/Tl.Playground/presets/finite-clamp.json",
+   "class": "preset",
+   "trackCount": 1,
+   "clipCount": 2,
+   "duration": 64,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Play:ScaleTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Play:AmountClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Play:AmountClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "-2",
+      "1"
+     ]
+    },
+    {
+     "type": "Play:ScaleTrack",
+     "side": "track",
+     "field": "Scale",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 3,
+    "stepCount": 2,
+    "frameBytes": 64
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 321,
+     "tlb/hot-bytes": 192,
+     "tlb/metadata-bytes": 129,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 3,
+     "program/step-count": 2,
+     "frame-slot/region-bytes": 64,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Play:ScaleTrack|Play:AmountClip": {
+      "trackType": "Play:ScaleTrack",
+      "clipType": "Play:AmountClip",
+      "occurrences": 2,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 64,
+      "pooledFrameBytes": 64,
+      "poolTableBytes": 48,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Play:ScaleTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Play:AmountClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "-2",
+         "1"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 64,
+    "pooledFrameBytes": 64,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 48,
+    "projectedTotalBytes": 369,
+    "projectedDeltaBytes": 48,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Play:ScaleTrack|Play:AmountClip": {
+       "occurrences": 2,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 2,
+       "poolTableBytes": 64
+      }
+     },
+     "pooledFrameBytes": 64,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 64,
+     "projectedTotalBytes": 385,
+     "projectedDeltaBytes": 64
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Playground/presets/staggered.json",
+   "class": "preset",
+   "trackCount": 1,
+   "clipCount": 2,
+   "duration": 64,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Play:ScaleTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Play:AmountClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Play:AmountClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "-2",
+      "1"
+     ]
+    },
+    {
+     "type": "Play:ScaleTrack",
+     "side": "track",
+     "field": "Scale",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 3,
+    "stepCount": 2,
+    "frameBytes": 64
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 321,
+     "tlb/hot-bytes": 192,
+     "tlb/metadata-bytes": 129,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 3,
+     "program/step-count": 2,
+     "frame-slot/region-bytes": 64,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Play:ScaleTrack|Play:AmountClip": {
+      "trackType": "Play:ScaleTrack",
+      "clipType": "Play:AmountClip",
+      "occurrences": 2,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 64,
+      "pooledFrameBytes": 64,
+      "poolTableBytes": 48,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Play:ScaleTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Play:AmountClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "-2",
+         "1"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 64,
+    "pooledFrameBytes": 64,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 48,
+    "projectedTotalBytes": 369,
+    "projectedDeltaBytes": 48,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Play:ScaleTrack|Play:AmountClip": {
+       "occurrences": 2,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 2,
+       "poolTableBytes": 64
+      }
+     },
+     "pooledFrameBytes": 64,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 64,
+     "projectedTotalBytes": 385,
+     "projectedDeltaBytes": 64
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Playground/presets/uniform-crowd.json",
+   "class": "preset",
+   "trackCount": 1,
+   "clipCount": 2,
+   "duration": 64,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Play:ScaleTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Play:AmountClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Play:AmountClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "-2",
+      "1"
+     ]
+    },
+    {
+     "type": "Play:ScaleTrack",
+     "side": "track",
+     "field": "Scale",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 3,
+    "stepCount": 2,
+    "frameBytes": 64
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 321,
+     "tlb/hot-bytes": 192,
+     "tlb/metadata-bytes": 129,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 3,
+     "program/step-count": 2,
+     "frame-slot/region-bytes": 64,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Play:ScaleTrack|Play:AmountClip": {
+      "trackType": "Play:ScaleTrack",
+      "clipType": "Play:AmountClip",
+      "occurrences": 2,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 64,
+      "pooledFrameBytes": 64,
+      "poolTableBytes": 48,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Play:ScaleTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Play:AmountClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "-2",
+         "1"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 64,
+    "pooledFrameBytes": 64,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 48,
+    "projectedTotalBytes": 369,
+    "projectedDeltaBytes": 48,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Play:ScaleTrack|Play:AmountClip": {
+       "occurrences": 2,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 2,
+       "poolTableBytes": 64
+      }
+     },
+     "pooledFrameBytes": 64,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 64,
+     "projectedTotalBytes": 385,
+     "projectedDeltaBytes": 64
+    }
+   }
+  },
+  {
+   "id": "tools/Tl.Playground/presets/waves.json",
+   "class": "preset",
+   "trackCount": 1,
+   "clipCount": 2,
+   "duration": 64,
+   "identity": {
+    "trackOccurrences": 1,
+    "trackUniques": 1,
+    "trackUniqueKeys": [
+     "Play:ScaleTrack"
+    ],
+    "clipOccurrences": 2,
+    "clipUniques": 1,
+    "clipUniqueKeys": [
+     "Play:AmountClip"
+    ]
+   },
+   "fields": [
+    {
+     "type": "Play:AmountClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 2,
+     "uniques": 2,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "-2",
+      "1"
+     ]
+    },
+    {
+     "type": "Play:ScaleTrack",
+     "side": "track",
+     "field": "Scale",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    }
+   ],
+   "fieldOccurrences": 3,
+   "fieldUniques": 3,
+   "included": true,
+   "reason": "",
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 3,
+    "stepCount": 3,
+    "frameBytes": 96
+   },
+   "bake": {
+    "ok": true,
+    "report": {
+     "tlb/total-bytes": 369,
+     "tlb/hot-bytes": 240,
+     "tlb/metadata-bytes": 129,
+     "pair/table-bytes": 16,
+     "pair/count": 1,
+     "stage/count": 3,
+     "program/step-count": 3,
+     "frame-slot/region-bytes": 96,
+     "instance/state-bytes": 16,
+     "label/root-count": 0,
+     "label/track-count": 0,
+     "label/clip-count": 0
+    },
+    "layoutMismatches": []
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Play:ScaleTrack|Play:AmountClip": {
+      "trackType": "Play:ScaleTrack",
+      "clipType": "Play:AmountClip",
+      "occurrences": 3,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 96,
+      "pooledFrameBytes": 96,
+      "poolTableBytes": 48,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Play:ScaleTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Play:AmountClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 2,
+        "uniques": 2,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "-2",
+         "1"
+        ],
+        "poolEntries": 3,
+        "poolTableBytes": 28
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 96,
+    "pooledFrameBytes": 96,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 48,
+    "projectedTotalBytes": 417,
+    "projectedDeltaBytes": 48,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Play:ScaleTrack|Play:AmountClip": {
+       "occurrences": 3,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 2,
+       "poolTableBytes": 64
+      }
+     },
+     "pooledFrameBytes": 96,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 64,
+     "projectedTotalBytes": 433,
+     "projectedDeltaBytes": 64
+    }
+   }
+  }
+ ],
+ "synthetic": [
+  {
+   "id": "synthetic_shared10",
+   "class": "synthetic",
+   "fields": [
+    {
+     "type": "Play:AmountClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1000,
+     "uniques": 10,
+     "uniquenessRatio": 0.01,
+     "poolWidth": "byte",
+     "values": [
+      "0.5",
+      "1.5",
+      "2.5",
+      "3.5",
+      "4.5",
+      "5.5",
+      "6.5",
+      "7.5",
+      "8.5",
+      "9.5"
+     ]
+    },
+    {
+     "type": "Play:ScaleTrack",
+     "side": "track",
+     "field": "Scale",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    }
+   ],
+   "report": {
+    "tlb/total-bytes": 56193,
+    "tlb/hot-bytes": 56064,
+    "tlb/metadata-bytes": 129,
+    "pair/table-bytes": 16,
+    "pair/count": 1,
+    "stage/count": 1000,
+    "program/step-count": 1000,
+    "frame-slot/region-bytes": 32000,
+    "instance/state-bytes": 16,
+    "label/root-count": 0,
+    "label/track-count": 0,
+    "label/clip-count": 0
+   },
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1000,
+    "stepCount": 1000,
+    "frameBytes": 32000
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Play:ScaleTrack|Play:AmountClip": {
+      "trackType": "Play:ScaleTrack",
+      "clipType": "Play:AmountClip",
+      "occurrences": 1000,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 32000,
+      "pooledFrameBytes": 32000,
+      "poolTableBytes": 80,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Play:ScaleTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Play:AmountClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1000,
+        "uniques": 10,
+        "uniquenessRatio": 0.01,
+        "poolWidth": "byte",
+        "values": [
+         "0.5",
+         "1.5",
+         "2.5",
+         "3.5",
+         "4.5",
+         "5.5",
+         "6.5",
+         "7.5",
+         "8.5",
+         "9.5"
+        ],
+        "poolEntries": 11,
+        "poolTableBytes": 60
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 32000,
+    "pooledFrameBytes": 32000,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 80,
+    "projectedTotalBytes": 56273,
+    "projectedDeltaBytes": 80,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Play:ScaleTrack|Play:AmountClip": {
+       "occurrences": 1000,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 10,
+       "poolTableBytes": 96
+      }
+     },
+     "pooledFrameBytes": 32000,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 96,
+     "projectedTotalBytes": 56289,
+     "projectedDeltaBytes": 96
+    }
+   }
+  },
+  {
+   "id": "synthetic_unique1000",
+   "class": "synthetic",
+   "fields": [
+    {
+     "type": "Play:AmountClip",
+     "side": "clip",
+     "field": "Amount",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1000,
+     "uniques": 1000,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "ushort",
+     "values": [
+      "0.5",
+      "1.5",
+      "10.5",
+      "100.5",
+      "101.5",
+      "102.5",
+      "103.5",
+      "104.5",
+      "105.5",
+      "106.5",
+      "107.5",
+      "108.5",
+      "109.5",
+      "11.5",
+      "110.5",
+      "111.5",
+      "112.5",
+      "113.5",
+      "114.5",
+      "115.5",
+      "116.5",
+      "117.5",
+      "118.5",
+      "119.5",
+      "12.5",
+      "120.5",
+      "121.5",
+      "122.5",
+      "123.5",
+      "124.5",
+      "125.5",
+      "126.5",
+      "127.5",
+      "128.5",
+      "129.5",
+      "13.5",
+      "130.5",
+      "131.5",
+      "132.5",
+      "133.5",
+      "134.5",
+      "135.5",
+      "136.5",
+      "137.5",
+      "138.5",
+      "139.5",
+      "14.5",
+      "140.5",
+      "141.5",
+      "142.5",
+      "143.5",
+      "144.5",
+      "145.5",
+      "146.5",
+      "147.5",
+      "148.5",
+      "149.5",
+      "15.5",
+      "150.5",
+      "151.5",
+      "152.5",
+      "153.5",
+      "154.5",
+      "155.5",
+      "156.5",
+      "157.5",
+      "158.5",
+      "159.5",
+      "16.5",
+      "160.5",
+      "161.5",
+      "162.5",
+      "163.5",
+      "164.5",
+      "165.5",
+      "166.5",
+      "167.5",
+      "168.5",
+      "169.5",
+      "17.5",
+      "170.5",
+      "171.5",
+      "172.5",
+      "173.5",
+      "174.5",
+      "175.5",
+      "176.5",
+      "177.5",
+      "178.5",
+      "179.5",
+      "18.5",
+      "180.5",
+      "181.5",
+      "182.5",
+      "183.5",
+      "184.5",
+      "185.5",
+      "186.5",
+      "187.5",
+      "188.5",
+      "189.5",
+      "19.5",
+      "190.5",
+      "191.5",
+      "192.5",
+      "193.5",
+      "194.5",
+      "195.5",
+      "196.5",
+      "197.5",
+      "198.5",
+      "199.5",
+      "2.5",
+      "20.5",
+      "200.5",
+      "201.5",
+      "202.5",
+      "203.5",
+      "204.5",
+      "205.5",
+      "206.5",
+      "207.5",
+      "208.5",
+      "209.5",
+      "21.5",
+      "210.5",
+      "211.5",
+      "212.5",
+      "213.5",
+      "214.5",
+      "215.5",
+      "216.5",
+      "217.5",
+      "218.5",
+      "219.5",
+      "22.5",
+      "220.5",
+      "221.5",
+      "222.5",
+      "223.5",
+      "224.5",
+      "225.5",
+      "226.5",
+      "227.5",
+      "228.5",
+      "229.5",
+      "23.5",
+      "230.5",
+      "231.5",
+      "232.5",
+      "233.5",
+      "234.5",
+      "235.5",
+      "236.5",
+      "237.5",
+      "238.5",
+      "239.5",
+      "24.5",
+      "240.5",
+      "241.5",
+      "242.5",
+      "243.5",
+      "244.5",
+      "245.5",
+      "246.5",
+      "247.5",
+      "248.5",
+      "249.5",
+      "25.5",
+      "250.5",
+      "251.5",
+      "252.5",
+      "253.5",
+      "254.5",
+      "255.5",
+      "256.5",
+      "257.5",
+      "258.5",
+      "259.5",
+      "26.5",
+      "260.5",
+      "261.5",
+      "262.5",
+      "263.5",
+      "264.5",
+      "265.5",
+      "266.5",
+      "267.5",
+      "268.5",
+      "269.5",
+      "27.5",
+      "270.5",
+      "271.5",
+      "272.5",
+      "273.5",
+      "274.5",
+      "275.5",
+      "276.5",
+      "277.5",
+      "278.5",
+      "279.5",
+      "28.5",
+      "280.5",
+      "281.5",
+      "282.5",
+      "283.5",
+      "284.5",
+      "285.5",
+      "286.5",
+      "287.5",
+      "288.5",
+      "289.5",
+      "29.5",
+      "290.5",
+      "291.5",
+      "292.5",
+      "293.5",
+      "294.5",
+      "295.5",
+      "296.5",
+      "297.5",
+      "298.5",
+      "299.5",
+      "3.5",
+      "30.5",
+      "300.5",
+      "301.5",
+      "302.5",
+      "303.5",
+      "304.5",
+      "305.5",
+      "306.5",
+      "307.5",
+      "308.5",
+      "309.5",
+      "31.5",
+      "310.5",
+      "311.5",
+      "312.5",
+      "313.5",
+      "314.5",
+      "315.5",
+      "316.5",
+      "317.5",
+      "318.5",
+      "319.5",
+      "32.5",
+      "320.5",
+      "321.5",
+      "322.5",
+      "323.5",
+      "324.5",
+      "325.5",
+      "326.5",
+      "327.5",
+      "328.5",
+      "329.5",
+      "33.5",
+      "330.5",
+      "331.5",
+      "332.5",
+      "333.5",
+      "334.5",
+      "335.5",
+      "336.5",
+      "337.5",
+      "338.5",
+      "339.5",
+      "34.5",
+      "340.5",
+      "341.5",
+      "342.5",
+      "343.5",
+      "344.5",
+      "345.5",
+      "346.5",
+      "347.5",
+      "348.5",
+      "349.5",
+      "35.5",
+      "350.5",
+      "351.5",
+      "352.5",
+      "353.5",
+      "354.5",
+      "355.5",
+      "356.5",
+      "357.5",
+      "358.5",
+      "359.5",
+      "36.5",
+      "360.5",
+      "361.5",
+      "362.5",
+      "363.5",
+      "364.5",
+      "365.5",
+      "366.5",
+      "367.5",
+      "368.5",
+      "369.5",
+      "37.5",
+      "370.5",
+      "371.5",
+      "372.5",
+      "373.5",
+      "374.5",
+      "375.5",
+      "376.5",
+      "377.5",
+      "378.5",
+      "379.5",
+      "38.5",
+      "380.5",
+      "381.5",
+      "382.5",
+      "383.5",
+      "384.5",
+      "385.5",
+      "386.5",
+      "387.5",
+      "388.5",
+      "389.5",
+      "39.5",
+      "390.5",
+      "391.5",
+      "392.5",
+      "393.5",
+      "394.5",
+      "395.5",
+      "396.5",
+      "397.5",
+      "398.5",
+      "399.5",
+      "4.5",
+      "40.5",
+      "400.5",
+      "401.5",
+      "402.5",
+      "403.5",
+      "404.5",
+      "405.5",
+      "406.5",
+      "407.5",
+      "408.5",
+      "409.5",
+      "41.5",
+      "410.5",
+      "411.5",
+      "412.5",
+      "413.5",
+      "414.5",
+      "415.5",
+      "416.5",
+      "417.5",
+      "418.5",
+      "419.5",
+      "42.5",
+      "420.5",
+      "421.5",
+      "422.5",
+      "423.5",
+      "424.5",
+      "425.5",
+      "426.5",
+      "427.5",
+      "428.5",
+      "429.5",
+      "43.5",
+      "430.5",
+      "431.5",
+      "432.5",
+      "433.5",
+      "434.5",
+      "435.5",
+      "436.5",
+      "437.5",
+      "438.5",
+      "439.5",
+      "44.5",
+      "440.5",
+      "441.5",
+      "442.5",
+      "443.5",
+      "444.5",
+      "445.5",
+      "446.5",
+      "447.5",
+      "448.5",
+      "449.5",
+      "45.5",
+      "450.5",
+      "451.5",
+      "452.5",
+      "453.5",
+      "454.5",
+      "455.5",
+      "456.5",
+      "457.5",
+      "458.5",
+      "459.5",
+      "46.5",
+      "460.5",
+      "461.5",
+      "462.5",
+      "463.5",
+      "464.5",
+      "465.5",
+      "466.5",
+      "467.5",
+      "468.5",
+      "469.5",
+      "47.5",
+      "470.5",
+      "471.5",
+      "472.5",
+      "473.5",
+      "474.5",
+      "475.5",
+      "476.5",
+      "477.5",
+      "478.5",
+      "479.5",
+      "48.5",
+      "480.5",
+      "481.5",
+      "482.5",
+      "483.5",
+      "484.5",
+      "485.5",
+      "486.5",
+      "487.5",
+      "488.5",
+      "489.5",
+      "49.5",
+      "490.5",
+      "491.5",
+      "492.5",
+      "493.5",
+      "494.5",
+      "495.5",
+      "496.5",
+      "497.5",
+      "498.5",
+      "499.5",
+      "5.5",
+      "50.5",
+      "500.5",
+      "501.5",
+      "502.5",
+      "503.5",
+      "504.5",
+      "505.5",
+      "506.5",
+      "507.5",
+      "508.5",
+      "509.5",
+      "51.5",
+      "510.5",
+      "511.5",
+      "512.5",
+      "513.5",
+      "514.5",
+      "515.5",
+      "516.5",
+      "517.5",
+      "518.5",
+      "519.5",
+      "52.5",
+      "520.5",
+      "521.5",
+      "522.5",
+      "523.5",
+      "524.5",
+      "525.5",
+      "526.5",
+      "527.5",
+      "528.5",
+      "529.5",
+      "53.5",
+      "530.5",
+      "531.5",
+      "532.5",
+      "533.5",
+      "534.5",
+      "535.5",
+      "536.5",
+      "537.5",
+      "538.5",
+      "539.5",
+      "54.5",
+      "540.5",
+      "541.5",
+      "542.5",
+      "543.5",
+      "544.5",
+      "545.5",
+      "546.5",
+      "547.5",
+      "548.5",
+      "549.5",
+      "55.5",
+      "550.5",
+      "551.5",
+      "552.5",
+      "553.5",
+      "554.5",
+      "555.5",
+      "556.5",
+      "557.5",
+      "558.5",
+      "559.5",
+      "56.5",
+      "560.5",
+      "561.5",
+      "562.5",
+      "563.5",
+      "564.5",
+      "565.5",
+      "566.5",
+      "567.5",
+      "568.5",
+      "569.5",
+      "57.5",
+      "570.5",
+      "571.5",
+      "572.5",
+      "573.5",
+      "574.5",
+      "575.5",
+      "576.5",
+      "577.5",
+      "578.5",
+      "579.5",
+      "58.5",
+      "580.5",
+      "581.5",
+      "582.5",
+      "583.5",
+      "584.5",
+      "585.5",
+      "586.5",
+      "587.5",
+      "588.5",
+      "589.5",
+      "59.5",
+      "590.5",
+      "591.5",
+      "592.5",
+      "593.5",
+      "594.5",
+      "595.5",
+      "596.5",
+      "597.5",
+      "598.5",
+      "599.5",
+      "6.5",
+      "60.5",
+      "600.5",
+      "601.5",
+      "602.5",
+      "603.5",
+      "604.5",
+      "605.5",
+      "606.5",
+      "607.5",
+      "608.5",
+      "609.5",
+      "61.5",
+      "610.5",
+      "611.5",
+      "612.5",
+      "613.5",
+      "614.5",
+      "615.5",
+      "616.5",
+      "617.5",
+      "618.5",
+      "619.5",
+      "62.5",
+      "620.5",
+      "621.5",
+      "622.5",
+      "623.5",
+      "624.5",
+      "625.5",
+      "626.5",
+      "627.5",
+      "628.5",
+      "629.5",
+      "63.5",
+      "630.5",
+      "631.5",
+      "632.5",
+      "633.5",
+      "634.5",
+      "635.5",
+      "636.5",
+      "637.5",
+      "638.5",
+      "639.5",
+      "64.5",
+      "640.5",
+      "641.5",
+      "642.5",
+      "643.5",
+      "644.5",
+      "645.5",
+      "646.5",
+      "647.5",
+      "648.5",
+      "649.5",
+      "65.5",
+      "650.5",
+      "651.5",
+      "652.5",
+      "653.5",
+      "654.5",
+      "655.5",
+      "656.5",
+      "657.5",
+      "658.5",
+      "659.5",
+      "66.5",
+      "660.5",
+      "661.5",
+      "662.5",
+      "663.5",
+      "664.5",
+      "665.5",
+      "666.5",
+      "667.5",
+      "668.5",
+      "669.5",
+      "67.5",
+      "670.5",
+      "671.5",
+      "672.5",
+      "673.5",
+      "674.5",
+      "675.5",
+      "676.5",
+      "677.5",
+      "678.5",
+      "679.5",
+      "68.5",
+      "680.5",
+      "681.5",
+      "682.5",
+      "683.5",
+      "684.5",
+      "685.5",
+      "686.5",
+      "687.5",
+      "688.5",
+      "689.5",
+      "69.5",
+      "690.5",
+      "691.5",
+      "692.5",
+      "693.5",
+      "694.5",
+      "695.5",
+      "696.5",
+      "697.5",
+      "698.5",
+      "699.5",
+      "7.5",
+      "70.5",
+      "700.5",
+      "701.5",
+      "702.5",
+      "703.5",
+      "704.5",
+      "705.5",
+      "706.5",
+      "707.5",
+      "708.5",
+      "709.5",
+      "71.5",
+      "710.5",
+      "711.5",
+      "712.5",
+      "713.5",
+      "714.5",
+      "715.5",
+      "716.5",
+      "717.5",
+      "718.5",
+      "719.5",
+      "72.5",
+      "720.5",
+      "721.5",
+      "722.5",
+      "723.5",
+      "724.5",
+      "725.5",
+      "726.5",
+      "727.5",
+      "728.5",
+      "729.5",
+      "73.5",
+      "730.5",
+      "731.5",
+      "732.5",
+      "733.5",
+      "734.5",
+      "735.5",
+      "736.5",
+      "737.5",
+      "738.5",
+      "739.5",
+      "74.5",
+      "740.5",
+      "741.5",
+      "742.5",
+      "743.5",
+      "744.5",
+      "745.5",
+      "746.5",
+      "747.5",
+      "748.5",
+      "749.5",
+      "75.5",
+      "750.5",
+      "751.5",
+      "752.5",
+      "753.5",
+      "754.5",
+      "755.5",
+      "756.5",
+      "757.5",
+      "758.5",
+      "759.5",
+      "76.5",
+      "760.5",
+      "761.5",
+      "762.5",
+      "763.5",
+      "764.5",
+      "765.5",
+      "766.5",
+      "767.5",
+      "768.5",
+      "769.5",
+      "77.5",
+      "770.5",
+      "771.5",
+      "772.5",
+      "773.5",
+      "774.5",
+      "775.5",
+      "776.5",
+      "777.5",
+      "778.5",
+      "779.5",
+      "78.5",
+      "780.5",
+      "781.5",
+      "782.5",
+      "783.5",
+      "784.5",
+      "785.5",
+      "786.5",
+      "787.5",
+      "788.5",
+      "789.5",
+      "79.5",
+      "790.5",
+      "791.5",
+      "792.5",
+      "793.5",
+      "794.5",
+      "795.5",
+      "796.5",
+      "797.5",
+      "798.5",
+      "799.5",
+      "8.5",
+      "80.5",
+      "800.5",
+      "801.5",
+      "802.5",
+      "803.5",
+      "804.5",
+      "805.5",
+      "806.5",
+      "807.5",
+      "808.5",
+      "809.5",
+      "81.5",
+      "810.5",
+      "811.5",
+      "812.5",
+      "813.5",
+      "814.5",
+      "815.5",
+      "816.5",
+      "817.5",
+      "818.5",
+      "819.5",
+      "82.5",
+      "820.5",
+      "821.5",
+      "822.5",
+      "823.5",
+      "824.5",
+      "825.5",
+      "826.5",
+      "827.5",
+      "828.5",
+      "829.5",
+      "83.5",
+      "830.5",
+      "831.5",
+      "832.5",
+      "833.5",
+      "834.5",
+      "835.5",
+      "836.5",
+      "837.5",
+      "838.5",
+      "839.5",
+      "84.5",
+      "840.5",
+      "841.5",
+      "842.5",
+      "843.5",
+      "844.5",
+      "845.5",
+      "846.5",
+      "847.5",
+      "848.5",
+      "849.5",
+      "85.5",
+      "850.5",
+      "851.5",
+      "852.5",
+      "853.5",
+      "854.5",
+      "855.5",
+      "856.5",
+      "857.5",
+      "858.5",
+      "859.5",
+      "86.5",
+      "860.5",
+      "861.5",
+      "862.5",
+      "863.5",
+      "864.5",
+      "865.5",
+      "866.5",
+      "867.5",
+      "868.5",
+      "869.5",
+      "87.5",
+      "870.5",
+      "871.5",
+      "872.5",
+      "873.5",
+      "874.5",
+      "875.5",
+      "876.5",
+      "877.5",
+      "878.5",
+      "879.5",
+      "88.5",
+      "880.5",
+      "881.5",
+      "882.5",
+      "883.5",
+      "884.5",
+      "885.5",
+      "886.5",
+      "887.5",
+      "888.5",
+      "889.5",
+      "89.5",
+      "890.5",
+      "891.5",
+      "892.5",
+      "893.5",
+      "894.5",
+      "895.5",
+      "896.5",
+      "897.5",
+      "898.5",
+      "899.5",
+      "9.5",
+      "90.5",
+      "900.5",
+      "901.5",
+      "902.5",
+      "903.5",
+      "904.5",
+      "905.5",
+      "906.5",
+      "907.5",
+      "908.5",
+      "909.5",
+      "91.5",
+      "910.5",
+      "911.5",
+      "912.5",
+      "913.5",
+      "914.5",
+      "915.5",
+      "916.5",
+      "917.5",
+      "918.5",
+      "919.5",
+      "92.5",
+      "920.5",
+      "921.5",
+      "922.5",
+      "923.5",
+      "924.5",
+      "925.5",
+      "926.5",
+      "927.5",
+      "928.5",
+      "929.5",
+      "93.5",
+      "930.5",
+      "931.5",
+      "932.5",
+      "933.5",
+      "934.5",
+      "935.5",
+      "936.5",
+      "937.5",
+      "938.5",
+      "939.5",
+      "94.5",
+      "940.5",
+      "941.5",
+      "942.5",
+      "943.5",
+      "944.5",
+      "945.5",
+      "946.5",
+      "947.5",
+      "948.5",
+      "949.5",
+      "95.5",
+      "950.5",
+      "951.5",
+      "952.5",
+      "953.5",
+      "954.5",
+      "955.5",
+      "956.5",
+      "957.5",
+      "958.5",
+      "959.5",
+      "96.5",
+      "960.5",
+      "961.5",
+      "962.5",
+      "963.5",
+      "964.5",
+      "965.5",
+      "966.5",
+      "967.5",
+      "968.5",
+      "969.5",
+      "97.5",
+      "970.5",
+      "971.5",
+      "972.5",
+      "973.5",
+      "974.5",
+      "975.5",
+      "976.5",
+      "977.5",
+      "978.5",
+      "979.5",
+      "98.5",
+      "980.5",
+      "981.5",
+      "982.5",
+      "983.5",
+      "984.5",
+      "985.5",
+      "986.5",
+      "987.5",
+      "988.5",
+      "989.5",
+      "99.5",
+      "990.5",
+      "991.5",
+      "992.5",
+      "993.5",
+      "994.5",
+      "995.5",
+      "996.5",
+      "997.5",
+      "998.5",
+      "999.5"
+     ]
+    },
+    {
+     "type": "Play:ScaleTrack",
+     "side": "track",
+     "field": "Scale",
+     "fieldType": "float",
+     "fieldBytes": 4,
+     "occurrences": 1,
+     "uniques": 1,
+     "uniquenessRatio": 1.0,
+     "poolWidth": "byte",
+     "values": [
+      "1"
+     ]
+    }
+   ],
+   "report": {
+    "tlb/total-bytes": 56193,
+    "tlb/hot-bytes": 56064,
+    "tlb/metadata-bytes": 129,
+    "pair/table-bytes": 16,
+    "pair/count": 1,
+    "stage/count": 1000,
+    "program/step-count": 1000,
+    "frame-slot/region-bytes": 32000,
+    "instance/state-bytes": 16,
+    "label/root-count": 0,
+    "label/track-count": 0,
+    "label/clip-count": 0
+   },
+   "layout": {
+    "pairCount": 1,
+    "stageCount": 1000,
+    "stepCount": 1000,
+    "frameBytes": 32000
+   },
+   "projection": {
+    "model": "per-field index pools",
+    "perPair": {
+     "Play:ScaleTrack|Play:AmountClip": {
+      "trackType": "Play:ScaleTrack",
+      "clipType": "Play:AmountClip",
+      "occurrences": 1000,
+      "baselineStride": 32,
+      "pooledStride": 32,
+      "baselineFrameBytes": 32000,
+      "pooledFrameBytes": 32000,
+      "poolTableBytes": 4040,
+      "bytesSavedPerOccurrence": 0,
+      "breakEvenOccurrences": null,
+      "fields": [
+       {
+        "type": "Play:ScaleTrack",
+        "side": "track",
+        "field": "Scale",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1,
+        "uniques": 1,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "byte",
+        "values": [
+         "1"
+        ],
+        "poolEntries": 1,
+        "poolTableBytes": 20
+       },
+       {
+        "type": "Play:AmountClip",
+        "side": "clip",
+        "field": "Amount",
+        "fieldType": "float",
+        "fieldBytes": 4,
+        "occurrences": 1000,
+        "uniques": 1000,
+        "uniquenessRatio": 1.0,
+        "poolWidth": "ushort",
+        "values": [
+         "0.5",
+         "1.5",
+         "10.5",
+         "100.5",
+         "101.5",
+         "102.5",
+         "103.5",
+         "104.5",
+         "105.5",
+         "106.5",
+         "107.5",
+         "108.5",
+         "109.5",
+         "11.5",
+         "110.5",
+         "111.5",
+         "112.5",
+         "113.5",
+         "114.5",
+         "115.5",
+         "116.5",
+         "117.5",
+         "118.5",
+         "119.5",
+         "12.5",
+         "120.5",
+         "121.5",
+         "122.5",
+         "123.5",
+         "124.5",
+         "125.5",
+         "126.5",
+         "127.5",
+         "128.5",
+         "129.5",
+         "13.5",
+         "130.5",
+         "131.5",
+         "132.5",
+         "133.5",
+         "134.5",
+         "135.5",
+         "136.5",
+         "137.5",
+         "138.5",
+         "139.5",
+         "14.5",
+         "140.5",
+         "141.5",
+         "142.5",
+         "143.5",
+         "144.5",
+         "145.5",
+         "146.5",
+         "147.5",
+         "148.5",
+         "149.5",
+         "15.5",
+         "150.5",
+         "151.5",
+         "152.5",
+         "153.5",
+         "154.5",
+         "155.5",
+         "156.5",
+         "157.5",
+         "158.5",
+         "159.5",
+         "16.5",
+         "160.5",
+         "161.5",
+         "162.5",
+         "163.5",
+         "164.5",
+         "165.5",
+         "166.5",
+         "167.5",
+         "168.5",
+         "169.5",
+         "17.5",
+         "170.5",
+         "171.5",
+         "172.5",
+         "173.5",
+         "174.5",
+         "175.5",
+         "176.5",
+         "177.5",
+         "178.5",
+         "179.5",
+         "18.5",
+         "180.5",
+         "181.5",
+         "182.5",
+         "183.5",
+         "184.5",
+         "185.5",
+         "186.5",
+         "187.5",
+         "188.5",
+         "189.5",
+         "19.5",
+         "190.5",
+         "191.5",
+         "192.5",
+         "193.5",
+         "194.5",
+         "195.5",
+         "196.5",
+         "197.5",
+         "198.5",
+         "199.5",
+         "2.5",
+         "20.5",
+         "200.5",
+         "201.5",
+         "202.5",
+         "203.5",
+         "204.5",
+         "205.5",
+         "206.5",
+         "207.5",
+         "208.5",
+         "209.5",
+         "21.5",
+         "210.5",
+         "211.5",
+         "212.5",
+         "213.5",
+         "214.5",
+         "215.5",
+         "216.5",
+         "217.5",
+         "218.5",
+         "219.5",
+         "22.5",
+         "220.5",
+         "221.5",
+         "222.5",
+         "223.5",
+         "224.5",
+         "225.5",
+         "226.5",
+         "227.5",
+         "228.5",
+         "229.5",
+         "23.5",
+         "230.5",
+         "231.5",
+         "232.5",
+         "233.5",
+         "234.5",
+         "235.5",
+         "236.5",
+         "237.5",
+         "238.5",
+         "239.5",
+         "24.5",
+         "240.5",
+         "241.5",
+         "242.5",
+         "243.5",
+         "244.5",
+         "245.5",
+         "246.5",
+         "247.5",
+         "248.5",
+         "249.5",
+         "25.5",
+         "250.5",
+         "251.5",
+         "252.5",
+         "253.5",
+         "254.5",
+         "255.5",
+         "256.5",
+         "257.5",
+         "258.5",
+         "259.5",
+         "26.5",
+         "260.5",
+         "261.5",
+         "262.5",
+         "263.5",
+         "264.5",
+         "265.5",
+         "266.5",
+         "267.5",
+         "268.5",
+         "269.5",
+         "27.5",
+         "270.5",
+         "271.5",
+         "272.5",
+         "273.5",
+         "274.5",
+         "275.5",
+         "276.5",
+         "277.5",
+         "278.5",
+         "279.5",
+         "28.5",
+         "280.5",
+         "281.5",
+         "282.5",
+         "283.5",
+         "284.5",
+         "285.5",
+         "286.5",
+         "287.5",
+         "288.5",
+         "289.5",
+         "29.5",
+         "290.5",
+         "291.5",
+         "292.5",
+         "293.5",
+         "294.5",
+         "295.5",
+         "296.5",
+         "297.5",
+         "298.5",
+         "299.5",
+         "3.5",
+         "30.5",
+         "300.5",
+         "301.5",
+         "302.5",
+         "303.5",
+         "304.5",
+         "305.5",
+         "306.5",
+         "307.5",
+         "308.5",
+         "309.5",
+         "31.5",
+         "310.5",
+         "311.5",
+         "312.5",
+         "313.5",
+         "314.5",
+         "315.5",
+         "316.5",
+         "317.5",
+         "318.5",
+         "319.5",
+         "32.5",
+         "320.5",
+         "321.5",
+         "322.5",
+         "323.5",
+         "324.5",
+         "325.5",
+         "326.5",
+         "327.5",
+         "328.5",
+         "329.5",
+         "33.5",
+         "330.5",
+         "331.5",
+         "332.5",
+         "333.5",
+         "334.5",
+         "335.5",
+         "336.5",
+         "337.5",
+         "338.5",
+         "339.5",
+         "34.5",
+         "340.5",
+         "341.5",
+         "342.5",
+         "343.5",
+         "344.5",
+         "345.5",
+         "346.5",
+         "347.5",
+         "348.5",
+         "349.5",
+         "35.5",
+         "350.5",
+         "351.5",
+         "352.5",
+         "353.5",
+         "354.5",
+         "355.5",
+         "356.5",
+         "357.5",
+         "358.5",
+         "359.5",
+         "36.5",
+         "360.5",
+         "361.5",
+         "362.5",
+         "363.5",
+         "364.5",
+         "365.5",
+         "366.5",
+         "367.5",
+         "368.5",
+         "369.5",
+         "37.5",
+         "370.5",
+         "371.5",
+         "372.5",
+         "373.5",
+         "374.5",
+         "375.5",
+         "376.5",
+         "377.5",
+         "378.5",
+         "379.5",
+         "38.5",
+         "380.5",
+         "381.5",
+         "382.5",
+         "383.5",
+         "384.5",
+         "385.5",
+         "386.5",
+         "387.5",
+         "388.5",
+         "389.5",
+         "39.5",
+         "390.5",
+         "391.5",
+         "392.5",
+         "393.5",
+         "394.5",
+         "395.5",
+         "396.5",
+         "397.5",
+         "398.5",
+         "399.5",
+         "4.5",
+         "40.5",
+         "400.5",
+         "401.5",
+         "402.5",
+         "403.5",
+         "404.5",
+         "405.5",
+         "406.5",
+         "407.5",
+         "408.5",
+         "409.5",
+         "41.5",
+         "410.5",
+         "411.5",
+         "412.5",
+         "413.5",
+         "414.5",
+         "415.5",
+         "416.5",
+         "417.5",
+         "418.5",
+         "419.5",
+         "42.5",
+         "420.5",
+         "421.5",
+         "422.5",
+         "423.5",
+         "424.5",
+         "425.5",
+         "426.5",
+         "427.5",
+         "428.5",
+         "429.5",
+         "43.5",
+         "430.5",
+         "431.5",
+         "432.5",
+         "433.5",
+         "434.5",
+         "435.5",
+         "436.5",
+         "437.5",
+         "438.5",
+         "439.5",
+         "44.5",
+         "440.5",
+         "441.5",
+         "442.5",
+         "443.5",
+         "444.5",
+         "445.5",
+         "446.5",
+         "447.5",
+         "448.5",
+         "449.5",
+         "45.5",
+         "450.5",
+         "451.5",
+         "452.5",
+         "453.5",
+         "454.5",
+         "455.5",
+         "456.5",
+         "457.5",
+         "458.5",
+         "459.5",
+         "46.5",
+         "460.5",
+         "461.5",
+         "462.5",
+         "463.5",
+         "464.5",
+         "465.5",
+         "466.5",
+         "467.5",
+         "468.5",
+         "469.5",
+         "47.5",
+         "470.5",
+         "471.5",
+         "472.5",
+         "473.5",
+         "474.5",
+         "475.5",
+         "476.5",
+         "477.5",
+         "478.5",
+         "479.5",
+         "48.5",
+         "480.5",
+         "481.5",
+         "482.5",
+         "483.5",
+         "484.5",
+         "485.5",
+         "486.5",
+         "487.5",
+         "488.5",
+         "489.5",
+         "49.5",
+         "490.5",
+         "491.5",
+         "492.5",
+         "493.5",
+         "494.5",
+         "495.5",
+         "496.5",
+         "497.5",
+         "498.5",
+         "499.5",
+         "5.5",
+         "50.5",
+         "500.5",
+         "501.5",
+         "502.5",
+         "503.5",
+         "504.5",
+         "505.5",
+         "506.5",
+         "507.5",
+         "508.5",
+         "509.5",
+         "51.5",
+         "510.5",
+         "511.5",
+         "512.5",
+         "513.5",
+         "514.5",
+         "515.5",
+         "516.5",
+         "517.5",
+         "518.5",
+         "519.5",
+         "52.5",
+         "520.5",
+         "521.5",
+         "522.5",
+         "523.5",
+         "524.5",
+         "525.5",
+         "526.5",
+         "527.5",
+         "528.5",
+         "529.5",
+         "53.5",
+         "530.5",
+         "531.5",
+         "532.5",
+         "533.5",
+         "534.5",
+         "535.5",
+         "536.5",
+         "537.5",
+         "538.5",
+         "539.5",
+         "54.5",
+         "540.5",
+         "541.5",
+         "542.5",
+         "543.5",
+         "544.5",
+         "545.5",
+         "546.5",
+         "547.5",
+         "548.5",
+         "549.5",
+         "55.5",
+         "550.5",
+         "551.5",
+         "552.5",
+         "553.5",
+         "554.5",
+         "555.5",
+         "556.5",
+         "557.5",
+         "558.5",
+         "559.5",
+         "56.5",
+         "560.5",
+         "561.5",
+         "562.5",
+         "563.5",
+         "564.5",
+         "565.5",
+         "566.5",
+         "567.5",
+         "568.5",
+         "569.5",
+         "57.5",
+         "570.5",
+         "571.5",
+         "572.5",
+         "573.5",
+         "574.5",
+         "575.5",
+         "576.5",
+         "577.5",
+         "578.5",
+         "579.5",
+         "58.5",
+         "580.5",
+         "581.5",
+         "582.5",
+         "583.5",
+         "584.5",
+         "585.5",
+         "586.5",
+         "587.5",
+         "588.5",
+         "589.5",
+         "59.5",
+         "590.5",
+         "591.5",
+         "592.5",
+         "593.5",
+         "594.5",
+         "595.5",
+         "596.5",
+         "597.5",
+         "598.5",
+         "599.5",
+         "6.5",
+         "60.5",
+         "600.5",
+         "601.5",
+         "602.5",
+         "603.5",
+         "604.5",
+         "605.5",
+         "606.5",
+         "607.5",
+         "608.5",
+         "609.5",
+         "61.5",
+         "610.5",
+         "611.5",
+         "612.5",
+         "613.5",
+         "614.5",
+         "615.5",
+         "616.5",
+         "617.5",
+         "618.5",
+         "619.5",
+         "62.5",
+         "620.5",
+         "621.5",
+         "622.5",
+         "623.5",
+         "624.5",
+         "625.5",
+         "626.5",
+         "627.5",
+         "628.5",
+         "629.5",
+         "63.5",
+         "630.5",
+         "631.5",
+         "632.5",
+         "633.5",
+         "634.5",
+         "635.5",
+         "636.5",
+         "637.5",
+         "638.5",
+         "639.5",
+         "64.5",
+         "640.5",
+         "641.5",
+         "642.5",
+         "643.5",
+         "644.5",
+         "645.5",
+         "646.5",
+         "647.5",
+         "648.5",
+         "649.5",
+         "65.5",
+         "650.5",
+         "651.5",
+         "652.5",
+         "653.5",
+         "654.5",
+         "655.5",
+         "656.5",
+         "657.5",
+         "658.5",
+         "659.5",
+         "66.5",
+         "660.5",
+         "661.5",
+         "662.5",
+         "663.5",
+         "664.5",
+         "665.5",
+         "666.5",
+         "667.5",
+         "668.5",
+         "669.5",
+         "67.5",
+         "670.5",
+         "671.5",
+         "672.5",
+         "673.5",
+         "674.5",
+         "675.5",
+         "676.5",
+         "677.5",
+         "678.5",
+         "679.5",
+         "68.5",
+         "680.5",
+         "681.5",
+         "682.5",
+         "683.5",
+         "684.5",
+         "685.5",
+         "686.5",
+         "687.5",
+         "688.5",
+         "689.5",
+         "69.5",
+         "690.5",
+         "691.5",
+         "692.5",
+         "693.5",
+         "694.5",
+         "695.5",
+         "696.5",
+         "697.5",
+         "698.5",
+         "699.5",
+         "7.5",
+         "70.5",
+         "700.5",
+         "701.5",
+         "702.5",
+         "703.5",
+         "704.5",
+         "705.5",
+         "706.5",
+         "707.5",
+         "708.5",
+         "709.5",
+         "71.5",
+         "710.5",
+         "711.5",
+         "712.5",
+         "713.5",
+         "714.5",
+         "715.5",
+         "716.5",
+         "717.5",
+         "718.5",
+         "719.5",
+         "72.5",
+         "720.5",
+         "721.5",
+         "722.5",
+         "723.5",
+         "724.5",
+         "725.5",
+         "726.5",
+         "727.5",
+         "728.5",
+         "729.5",
+         "73.5",
+         "730.5",
+         "731.5",
+         "732.5",
+         "733.5",
+         "734.5",
+         "735.5",
+         "736.5",
+         "737.5",
+         "738.5",
+         "739.5",
+         "74.5",
+         "740.5",
+         "741.5",
+         "742.5",
+         "743.5",
+         "744.5",
+         "745.5",
+         "746.5",
+         "747.5",
+         "748.5",
+         "749.5",
+         "75.5",
+         "750.5",
+         "751.5",
+         "752.5",
+         "753.5",
+         "754.5",
+         "755.5",
+         "756.5",
+         "757.5",
+         "758.5",
+         "759.5",
+         "76.5",
+         "760.5",
+         "761.5",
+         "762.5",
+         "763.5",
+         "764.5",
+         "765.5",
+         "766.5",
+         "767.5",
+         "768.5",
+         "769.5",
+         "77.5",
+         "770.5",
+         "771.5",
+         "772.5",
+         "773.5",
+         "774.5",
+         "775.5",
+         "776.5",
+         "777.5",
+         "778.5",
+         "779.5",
+         "78.5",
+         "780.5",
+         "781.5",
+         "782.5",
+         "783.5",
+         "784.5",
+         "785.5",
+         "786.5",
+         "787.5",
+         "788.5",
+         "789.5",
+         "79.5",
+         "790.5",
+         "791.5",
+         "792.5",
+         "793.5",
+         "794.5",
+         "795.5",
+         "796.5",
+         "797.5",
+         "798.5",
+         "799.5",
+         "8.5",
+         "80.5",
+         "800.5",
+         "801.5",
+         "802.5",
+         "803.5",
+         "804.5",
+         "805.5",
+         "806.5",
+         "807.5",
+         "808.5",
+         "809.5",
+         "81.5",
+         "810.5",
+         "811.5",
+         "812.5",
+         "813.5",
+         "814.5",
+         "815.5",
+         "816.5",
+         "817.5",
+         "818.5",
+         "819.5",
+         "82.5",
+         "820.5",
+         "821.5",
+         "822.5",
+         "823.5",
+         "824.5",
+         "825.5",
+         "826.5",
+         "827.5",
+         "828.5",
+         "829.5",
+         "83.5",
+         "830.5",
+         "831.5",
+         "832.5",
+         "833.5",
+         "834.5",
+         "835.5",
+         "836.5",
+         "837.5",
+         "838.5",
+         "839.5",
+         "84.5",
+         "840.5",
+         "841.5",
+         "842.5",
+         "843.5",
+         "844.5",
+         "845.5",
+         "846.5",
+         "847.5",
+         "848.5",
+         "849.5",
+         "85.5",
+         "850.5",
+         "851.5",
+         "852.5",
+         "853.5",
+         "854.5",
+         "855.5",
+         "856.5",
+         "857.5",
+         "858.5",
+         "859.5",
+         "86.5",
+         "860.5",
+         "861.5",
+         "862.5",
+         "863.5",
+         "864.5",
+         "865.5",
+         "866.5",
+         "867.5",
+         "868.5",
+         "869.5",
+         "87.5",
+         "870.5",
+         "871.5",
+         "872.5",
+         "873.5",
+         "874.5",
+         "875.5",
+         "876.5",
+         "877.5",
+         "878.5",
+         "879.5",
+         "88.5",
+         "880.5",
+         "881.5",
+         "882.5",
+         "883.5",
+         "884.5",
+         "885.5",
+         "886.5",
+         "887.5",
+         "888.5",
+         "889.5",
+         "89.5",
+         "890.5",
+         "891.5",
+         "892.5",
+         "893.5",
+         "894.5",
+         "895.5",
+         "896.5",
+         "897.5",
+         "898.5",
+         "899.5",
+         "9.5",
+         "90.5",
+         "900.5",
+         "901.5",
+         "902.5",
+         "903.5",
+         "904.5",
+         "905.5",
+         "906.5",
+         "907.5",
+         "908.5",
+         "909.5",
+         "91.5",
+         "910.5",
+         "911.5",
+         "912.5",
+         "913.5",
+         "914.5",
+         "915.5",
+         "916.5",
+         "917.5",
+         "918.5",
+         "919.5",
+         "92.5",
+         "920.5",
+         "921.5",
+         "922.5",
+         "923.5",
+         "924.5",
+         "925.5",
+         "926.5",
+         "927.5",
+         "928.5",
+         "929.5",
+         "93.5",
+         "930.5",
+         "931.5",
+         "932.5",
+         "933.5",
+         "934.5",
+         "935.5",
+         "936.5",
+         "937.5",
+         "938.5",
+         "939.5",
+         "94.5",
+         "940.5",
+         "941.5",
+         "942.5",
+         "943.5",
+         "944.5",
+         "945.5",
+         "946.5",
+         "947.5",
+         "948.5",
+         "949.5",
+         "95.5",
+         "950.5",
+         "951.5",
+         "952.5",
+         "953.5",
+         "954.5",
+         "955.5",
+         "956.5",
+         "957.5",
+         "958.5",
+         "959.5",
+         "96.5",
+         "960.5",
+         "961.5",
+         "962.5",
+         "963.5",
+         "964.5",
+         "965.5",
+         "966.5",
+         "967.5",
+         "968.5",
+         "969.5",
+         "97.5",
+         "970.5",
+         "971.5",
+         "972.5",
+         "973.5",
+         "974.5",
+         "975.5",
+         "976.5",
+         "977.5",
+         "978.5",
+         "979.5",
+         "98.5",
+         "980.5",
+         "981.5",
+         "982.5",
+         "983.5",
+         "984.5",
+         "985.5",
+         "986.5",
+         "987.5",
+         "988.5",
+         "989.5",
+         "99.5",
+         "990.5",
+         "991.5",
+         "992.5",
+         "993.5",
+         "994.5",
+         "995.5",
+         "996.5",
+         "997.5",
+         "998.5",
+         "999.5"
+        ],
+        "poolEntries": 1001,
+        "poolTableBytes": 4020
+       }
+      ]
+     }
+    },
+    "baselineFrameBytes": 32000,
+    "pooledFrameBytes": 32000,
+    "frameBytesSaved": 0,
+    "poolTableBytes": 4040,
+    "projectedTotalBytes": 60233,
+    "projectedDeltaBytes": 4040,
+    "structModel": {
+     "model": "whole-value index pools (one index per slot side, pool entries are full structs)",
+     "perPair": {
+      "Play:ScaleTrack|Play:AmountClip": {
+       "occurrences": 1000,
+       "pooledStride": 32,
+       "structTrackUniques": 1,
+       "structClipUniques": 1000,
+       "poolTableBytes": 4056
+      }
+     },
+     "pooledFrameBytes": 32000,
+     "frameBytesSaved": 0,
+     "poolTableBytes": 4056,
+     "projectedTotalBytes": 60249,
+     "projectedDeltaBytes": 4056
+    }
+   }
+  }
+ ]
+}
