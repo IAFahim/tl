@@ -11,7 +11,7 @@ Timeline data and timeline behavior are separate. Designers author tracks, clips
 - **Deterministic bake** — same inputs, same bytes, on every machine and culture; content-keyed cache hits preserve timestamps
 - **Heterogeneous assets** — tracks and clips of different types in one asset; execution order is authored order (A-B-A preserved)
 - **Typed playback lane** — `Timeline<T>.Seek(positions, forward).Apply(effects)` advances every row exactly one frame over run-length groups; catch-up is repeated calls, rewind is `forward: false`
-- **Bind-time effect tables** — consumers are measured once per (pair, asset) with position-purity validation; no kernel catalog, no interpreter tier, one execution path
+- **Bind-time effect tables** — consumers are measured once per (pair, asset); no kernel catalog, no interpreter tier, one execution path
 - **Typed frame queries** — a read-only stage view over the row's currently selected step; never advances time
 - **NativeAOT-safe** — no generator assemblies in application output; one shared domain file compiles for both .NET and Unity
 - **Flawless install** — `dotnet add package` and run; package targets configure consuming projects automatically
@@ -82,7 +82,7 @@ namespace Combat
 }
 ```
 
-Track values hold immutable settings. Clip values hold immutable authored payload. A lane consumer writes exactly one `ref float` effect column and self-inverts through `Frame.Direction`, so rewind is exact; `BakedLane.Bind` validates at cold time that the fold depends only on position.
+Track values hold immutable settings. Clip values hold immutable authored payload. A lane consumer writes exactly one `ref float` effect column and self-inverts through `Frame.Direction`, so rewind is exact; `BakedLane.Bind` measures the fold once at cold time; position purity is an authoring contract, not a bind-time check (removed with the #113 purity probes).
 
 ### 3. Author and bake one timeline
 
