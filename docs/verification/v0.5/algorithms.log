@@ -1,6 +1,0 @@
-SmallCode: 132,608 exact trace comparisons passed; 8 clips; 256 ticks; 15 regions; region elements 360 B; dense elements 512 B; rank elements 40 B.
-SmallCode: benchmark receipts match for playback and random seeks.
-MediumCode: 155,648 exact trace comparisons passed; 64 clips; 4096 ticks; 113 regions; region elements 2712 B; dense elements 8192 B; rank elements 640 B.
-MediumCode: benchmark receipts match for playback and random seeks.
-LargeCode: 524,288 exact trace comparisons passed; 512 clips; 65536 ticks; 897 regions; region elements 21528 B; dense elements 131072 B; rank elements 10240 B.
-LargeCode: benchmark receipts match for playback and random seeks.

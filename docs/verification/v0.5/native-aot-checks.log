@@ -1,7 +1,0 @@
-Running NativeAOT smoke tests...
-Unbound consumer failure caught as expected: The automatic (entry, input, result) bridge bind needs dynamic code; under NativeAOT call Timeline`2.Bind<TInput,TResult>(index) once per pair instead.
-Wrong closure failure caught as expected: Timeline belongs to a different track/clip pair. (Parameter 'index')
-hub checksum: value=145 count=14
-generated checksum: value=25 count=5
-indexed checksum: value=85 count=3
-All NativeAOT smoke tests passed successfully!

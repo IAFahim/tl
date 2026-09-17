@@ -1,9 +1,0 @@
-  Determining projects to restore...
-  All projects are up-to-date for restore.
-  Tl.Core -> /home/i/Work/tl-integration/src/Tl.Core/bin/Release/net10.0/Tl.Core.dll
-  Tl.Gen -> /home/i/Work/tl-integration/src/Tl.Gen/bin/Release/net10.0/Tl.Gen.dll
-  Tl.Gen.Tests -> /home/i/Work/tl-integration/tests/Tl.Gen.Tests/bin/Release/net10.0/Tl.Gen.Tests.dll
-Test run for /home/i/Work/tl-integration/tests/Tl.Gen.Tests/bin/Release/net10.0/Tl.Gen.Tests.dll (.NETCoreApp,Version=v10.0)
-A total of 1 test files matched the specified pattern.
-
-Passed!  - Failed:     0, Passed:    14, Skipped:     0, Total:    14, Duration: 22 s - Tl.Gen.Tests.dll (net10.0)

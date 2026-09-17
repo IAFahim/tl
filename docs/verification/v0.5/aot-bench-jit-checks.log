@@ -1,9 +1,0 @@
-runtime: jit
-checks: batch-vs-single bit-exact, forward/backward mirror exact (Vitals + Fused16)
-checksums (JIT and AOT output must be identical):
-  Fused16Single(random)   522950
-  Fused16Batch8(random)   522950
-  Fused16Sequential       525255
-  VitalsSingle(random)    900738.4
-  VitalsBatch8(random)    900738.4
-  VitalsSequential        947561
