@@ -1,0 +1,44 @@
+@using Microsoft.AspNetCore.Components.Web
+@inject IJSRuntime JS
+
+<div id="@RootId" class="@ClassName"></div>
+<input type="hidden" id="@HiddenId" value="@Value" @oninput="OnHiddenInput" />
+
+@code
+{
+    [Parameter, EditorRequired] public string RootId { get; set; } = "";
+    [Parameter, EditorRequired] public string Language { get; set; } = "";
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public string ClassName { get; set; } = "";
+
+    string HiddenId => RootId + "-hidden";
+    bool _wired;
+
+    protected override bool ShouldRender() => false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_wired)
+        {
+            _wired = true;
+            if (ReadOnly)
+                await JS.InvokeVoidAsync("tlLiveEditor.initReadonly", RootId, Language, Value);
+            else
+                await JS.InvokeVoidAsync("tlLiveEditor.init", RootId, Language, Value, HiddenId);
+        }
+    }
+
+    async Task OnHiddenInput(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString() ?? "";
+        await ValueChanged.InvokeAsync(Value);
+    }
+
+    public async Task SetReadonlyValueAsync(string value)
+    {
+        Value = value;
+        await JS.InvokeVoidAsync("tlLiveEditor.setReadonlyValue", RootId, value);
+    }
+}
