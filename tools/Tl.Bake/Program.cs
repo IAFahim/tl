@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using Tl.Gen.Tlb;
 
 namespace Tl.Bake;
@@ -160,9 +159,8 @@ public static class Program
             }
         }
 
-        var json = File.ReadAllText(inputPath, Encoding.UTF8);
         var resolver = new BakerAssemblyResolver(assemblyPaths);
-        var bytes = TimelineBaker.BakeJson(json, resolver);
+        var bytes = TimelineBaker.BakeJson(jsonBytes, resolver);
 
         WriteOutput(outputPath, bytes);
 

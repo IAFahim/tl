@@ -26,6 +26,40 @@ public sealed class FusedParityTests
              """);
     }
 
+    [Theory]
+    [MemberData(nameof(Cases))]
+    public void FusedBytePathMatchesLegacyOracle(string name, string json)
+    {
+        var oldResult = Run(json, j => TimelineBaker.BakeJsonLegacy(j));
+        var newResult = Run(json, j => TimelineBaker.BakeJson(Encoding.UTF8.GetBytes(j)));
+        Assert.True(oldResult == newResult,
+            $"""
+             {name}: fused byte path diverged from the legacy oracle.
+             json: {Compact(json)}
+             old:  {oldResult}
+             new:  {newResult}
+             """);
+    }
+
+    [Fact]
+    public void ByteEntryRejectsInvalidUtf8WithDiagnostic()
+    {
+        ReadOnlySpan<byte> prefix = "{\"duration\":10,\"loop\":false,\"tracks\":[],\"name\":\"bad "u8;
+        ReadOnlySpan<byte> suffix = " byte\"}"u8;
+        var bytes = new byte[prefix.Length + 1 + suffix.Length];
+        prefix.CopyTo(bytes);
+        bytes[prefix.Length] = 0x80;
+        suffix.CopyTo(bytes.AsSpan(prefix.Length + 1));
+
+        var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(bytes));
+        Assert.Contains($"invalid UTF-8 in authoring JSON at byte {prefix.Length}", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("must be valid UTF-8", ex.Message, StringComparison.Ordinal);
+
+        var laundered = TimelineBaker.BakeJson(Encoding.UTF8.GetString(bytes));
+        var replacement = TimelineBaker.BakeJson("{\"duration\":10,\"loop\":false,\"tracks\":[],\"name\":\"bad \uFFFD byte\"}"u8.ToArray());
+        Assert.Equal(Convert.ToHexString(laundered), Convert.ToHexString(replacement));
+    }
+
     [Fact]
     public void FatClipBakesByteIdentical()
     {
