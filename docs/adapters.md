@@ -10,7 +10,7 @@ The repository keeps runtime, consumer binding, and target emission separate.
 
 Baked assets own type identity, timing, windows, and authored order; `Tl.Core` validates and imports them and owns selection and ordered execution. The generator owns consumer discovery and typed operation binding; its emitters never derive schedule semantics.
 
-Normal C# and supporting IDE builds run the incremental analyzer. `TlGenExport` runs the same frontend and backend when a physical, deterministic source snapshot is needed. Unity uses that export before script compilation so the Entities generator can discover the materialized jobs. Generator and Roslyn assemblies never enter .NET application, NativeAOT, Unity runtime, or player output.
+Normal C# and supporting IDE builds run the incremental analyzer. `TlGenExport` runs the same frontend and backend when a physical, deterministic source snapshot is needed. The Unity host package lives in the extracted [IAFahim/tl.unity](https://github.com/IAFahim/tl.unity) repository (see [unity](unity.md)). Generator and Roslyn assemblies never enter .NET application, NativeAOT, Unity runtime, or player output.
 
 The existing C backend lives in a separate repository extracted at commit `3e67333`. Its ABI v2 does not yet support data-authored assets. A C catalog migration must add a target binding for every required operation and payload while preserving the authored order; it must never claim to translate arbitrary C# bodies.
 
