@@ -18,7 +18,7 @@ Every asset shrinks by exactly 8 B per occurrence row; nothing else in the image
 
 ## Loader compatibility
 
-Version 2 images (1.0.0-alpha.8, 32 B rows, 16-aligned strides) still load: the loader relocates `trackIndex` from byte 24 to byte 6 inside its private block copy so the read path stays single-layout, and `tlb report`/`tlb strip` accept v2 through the same gate. Covered by `LegacyVersionTwoAssetsLoadAndPlayIdentically` (query frames and measured lane tables bit-compare v2 vs v3 images of the same authored data).
+Single-version loader (owner direction on PR #171, alpha contract: no cross-version compat machinery). Version 3 only; v1 and v2 (1.0.0-alpha.8, 32 B rows) byte images are rejected at load with `TLB magic or version invalid`, same as v1 before them. Covered by `LegacyVersionTwoAssetsAreRejected`, which converts a fresh v3 bake into the v2 layout with `LegacyV2Layout` and asserts the rejection. An earlier revision of this workstream carried a v2-accepting loader with load-time `trackIndex` relocation; it was removed before merge per the owner review.
 
 ## Timing
 

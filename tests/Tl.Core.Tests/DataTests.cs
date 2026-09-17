@@ -233,7 +233,7 @@ public unsafe class DataTests
     }
 
     [Fact]
-    public void LegacyVersionTwoAssetsLoadAndPlayIdentically()
+    public void LegacyVersionTwoAssetsAreRejected()
     {
         var current = new Baker()
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(5))
@@ -243,22 +243,9 @@ public unsafe class DataTests
             .Clip(1, 0, 4, new BlendClip(0f))
             .Clip(1, 2, 4, new BlendClip(10f))
             .Bake();
-        var legacyBytes = LegacyV2Layout(current);
-        Assert.Equal(2u, BitConverter.ToUInt32(legacyBytes, 4));
-
-        using var modernAsset = TimelineAsset.Load(current);
-        using var legacyAsset = TimelineAsset.Load(legacyBytes);
-        for (var position = 0u; position <= 4u; position++)
-        {
-            var modern = new TimelineComponent(modernAsset.Reference) { Position = (ushort)position };
-            var legacy = new TimelineComponent(legacyAsset.Reference) { Position = (ushort)position };
-            Assert.Equal(AlphaFrames(in modern), AlphaFrames(in legacy));
-            Assert.Equal(BlendFrames(in modern), BlendFrames(in legacy));
-        }
-
-        using var modernLanes = MeasuredLanes.Measure(modernAsset);
-        using var legacyLanes = MeasuredLanes.Measure(legacyAsset);
-        Assert.Equal(LaneWords(modernLanes), LaneWords(legacyLanes));
+        var legacy = LegacyV2Layout(current);
+        Assert.Equal(2u, BitConverter.ToUInt32(legacy, 4));
+        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(legacy));
     }
 
     private static byte[] LegacyV2Layout(byte[] current)
@@ -297,37 +284,5 @@ public unsafe class DataTests
             legacy[at + 24] = current[from + 6];
         }
         return legacy;
-    }
-
-    private static List<(int Track, int Flags, int Length, int Within, int Tick, int Code, int Value)> AlphaFrames(in TimelineComponent component)
-    {
-        var frames = new List<(int, int, int, int, int, int, int)>();
-        foreach (var frame in Timeline.Query<AlphaTrack, AlphaClip>(in component))
-            frames.Add((frame.TrackIndex, (int)frame.Flags, frame.ClipLength, frame.WithinClip, frame.TimelineTick, frame.Track.Code, frame.Clip.Value));
-        return frames;
-    }
-
-    private static List<(int Track, int Flags, int Length, int Within, int Tick, int ScaleBits, int AmountBits)> BlendFrames(in TimelineComponent component)
-    {
-        var frames = new List<(int, int, int, int, int, int, int)>();
-        foreach (var frame in Timeline.Query<BlendTrack, BlendClip>(in component))
-            frames.Add((frame.TrackIndex, (int)frame.Flags, frame.ClipLength, frame.WithinClip, frame.TimelineTick,
-                BitConverter.SingleToInt32Bits(frame.Track.Scale), BitConverter.SingleToInt32Bits(frame.Clip.Amount)));
-        return frames;
-    }
-
-    private static List<uint> LaneWords(MeasuredLanes lanes)
-    {
-        unsafe
-        {
-            var words = new List<uint>();
-            var duration = lanes.Duration;
-            for (var i = 0; i <= duration; i++)
-            {
-                words.Add(BitConverter.SingleToUInt32Bits(lanes.Forward[i]));
-                words.Add(BitConverter.SingleToUInt32Bits(lanes.Backward[i]));
-            }
-            return words;
-        }
     }
 }

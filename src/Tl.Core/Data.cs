@@ -46,7 +46,6 @@ unsafe struct SlotRow
 {
 	internal const ushort NoClipValue = 0xFFFF;
 	internal const uint RowBytes = 24u;
-	internal const uint LegacyRowBytes = 32u;
 
 	public ushort TrackValueIndex;
 	public ushort FirstValueIndex;
@@ -93,20 +92,7 @@ public readonly unsafe struct TimelineRef
 		Validate(baked);
 		var block = (byte*)NativeMemory.AlignedAlloc((nuint)((baked.Length + 63) & ~63), 64);
 		baked.CopyTo(new(block, baked.Length));
-		if (((NativeHeader*)block)->Version == 2u) RelocateLegacyTrackIndex(block);
 		return block;
-	}
-
-	static void RelocateLegacyTrackIndex(byte* block)
-	{
-		var header = (NativeHeader*)block;
-		var stages = (NativeStage*)(block + header->StageOffset);
-		for (var i = 0u; i < header->StageCount; i++)
-		{
-			var steps = (NativeStep*)(block + stages[i].ProgramOffset);
-			for (var j = 0u; j < stages[i].ProgramCount; j++)
-				block[steps[j].Slot + 6] = block[steps[j].Slot + 24];
-		}
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -263,10 +249,7 @@ public readonly unsafe struct TimelineRef
 		void Fail(string message) => throw new ArgumentException(message);
 		if (baked.Length < 64) Fail("TLB truncated.");
 		var h = MemoryMarshal.Read<NativeHeader>(baked);
-		if (h.Magic != 0x31424C54 || h.Version is not (2u or 3u)) Fail("TLB magic or version invalid.");
-		var legacy = h.Version == 2u;
-		var rowBytes = legacy ? SlotRow.LegacyRowBytes : SlotRow.RowBytes;
-		var rowAlignment = legacy ? 16u : 8u;
+		if (h.Magic != 0x31424C54 || h.Version != 3) Fail("TLB magic or version invalid.");
 		if (h.Duration > ushort.MaxValue) Fail("TLB duration exceeds the 65,535-tick position domain.");
 		if (h.Bytes != (uint)baked.Length) Fail("TLB size mismatch.");
 		if (h.HotLength == 0 || h.HotLength > h.Bytes) Fail("TLB hot length invalid.");
@@ -278,7 +261,7 @@ public readonly unsafe struct TimelineRef
 		for (var i = 0; i < pairs.Length; i++)
 		{
 			var pair = pairs[i];
-			if (pair.SlotStride % rowAlignment != 0 || pair.SlotStride < rowBytes) Fail("TLB slot stride must be aligned.");
+			if (pair.SlotStride % 8 != 0 || pair.SlotStride < SlotRow.RowBytes) Fail("TLB slot stride must be 8-aligned.");
 			ValidatePool(h, (ulong)h.PairOffset + 48ul * (uint)i + pair.TrackPoolOffset, pair.TrackPoolCount, pair.TrackValueBytes, Fail);
 			ValidatePool(h, (ulong)h.PairOffset + 48ul * (uint)i + pair.ClipPoolOffset, pair.ClipPoolCount, pair.ClipValueBytes, Fail);
 		}
@@ -295,7 +278,7 @@ public readonly unsafe struct TimelineRef
 				var step = steps[j];
 				if (step.Pair >= h.PairCount) Fail("TLB step pair out of bounds.");
 				var pair = pairs[(int)step.Pair];
-				if (step.Slot < h.FrameOffset || step.Slot % rowAlignment != 0 || (ulong)step.Slot + pair.SlotStride > h.HotLength) Fail("TLB slots must be aligned in bounds.");
+				if (step.Slot < h.FrameOffset || step.Slot % 8 != 0 || (ulong)step.Slot + pair.SlotStride > h.HotLength) Fail("TLB slots must be 8-aligned in bounds.");
 				ValidateRow(baked, (int)step.Slot, pair, Fail);
 			}
 			edge = stage.End;

@@ -10,7 +10,7 @@ Measures the shipped TLB v2 format — per-pair value pools of unique whole stru
 - Slot row 24 B uniform for every pair (was 32 B through Version 2; repacked in #168): `u16 trackValueIndex, u16 firstClipValueIndex, u16 secondClipValueIndex (0xFFFF = none), u8 trackIndex, u8 zero, u32 windowStart/End, factorStart/Span`. Slot strides and step slot offsets are 8-aligned (reads are scalar u16/u32/u8 through `SlotRow.ToFrame`; no vectorized row loads exist to require 16).
 - More than 65,535 unique values in one pool is a bake diagnostic naming the type and count.
 - Strip semantics unchanged: only the authoring metadata tail is strippable; pools are hot data.
-- `BakeCacheKey.ToolVersion` is `tlbake-bake-v4` (bumped in #168 with the row repack; `tlbake-bake-v3` covered #155's pooling). The loader accepts Version 2 (the 1.0.0-alpha.8 32 B row, 16-aligned stride) and Version 3; a Version 2 image keeps its rows but the loader relocates `trackIndex` from byte 24 to byte 6 inside its private block copy so the read path stays single-layout. Other versions are rejected at load (`TLB magic or version invalid`).
+- `BakeCacheKey.ToolVersion` is `tlbake-bake-v4` (bumped in #168 with the row repack; `tlbake-bake-v3` covered #155's pooling). The loader is single-version: assets whose header version is not 3 (the v1 and the 1.0.0-alpha.8 v2 32 B row) are rejected at load with `TLB magic or version invalid`; re-bake them with the current `tlb`.
 
 ## Workloads
 
