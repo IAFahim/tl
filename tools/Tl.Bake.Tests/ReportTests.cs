@@ -9,15 +9,15 @@ namespace Tl.Bake.Tests;
 public class ReportTests
 {
     private const string OracleReport =
-        "tlb/total-bytes: 1302\n" +
-        "tlb/hot-bytes: 928\n" +
+        "tlb/total-bytes: 1198\n" +
+        "tlb/hot-bytes: 824\n" +
         "tlb/metadata-bytes: 374\n" +
         "pair/table-bytes: 144\n" +
         "pair/count: 3\n" +
         "stage/count: 6\n" +
         "program/step-count: 13\n" +
         "pool/region-bytes: 96\n" +
-        "frame-slot/region-bytes: 416\n" +
+        "frame-slot/region-bytes: 312\n" +
         "instance/state-bytes: 16\n" +
         "pool/0/track-unique-count: 1\n" +
         "pool/0/clip-unique-count: 2\n" +
@@ -35,15 +35,15 @@ public class ReportTests
         "label/clip-count: 4\n";
 
     private const string StrippedReport =
-        "tlb/total-bytes: 928\n" +
-        "tlb/hot-bytes: 928\n" +
+        "tlb/total-bytes: 824\n" +
+        "tlb/hot-bytes: 824\n" +
         "tlb/metadata-bytes: 0\n" +
         "pair/table-bytes: 144\n" +
         "pair/count: 3\n" +
         "stage/count: 6\n" +
         "program/step-count: 13\n" +
         "pool/region-bytes: 96\n" +
-        "frame-slot/region-bytes: 416\n" +
+        "frame-slot/region-bytes: 312\n" +
         "instance/state-bytes: 16\n" +
         "pool/0/track-unique-count: 1\n" +
         "pool/0/clip-unique-count: 2\n" +

@@ -68,7 +68,7 @@ public unsafe class DataTests
         Assert.Throws<ArgumentException>(() => TimelineAsset.Load(magic));
 
         var version = FiniteBake();
-        version[4] = 3;
+        version[4] = 4;
         Assert.Throws<ArgumentException>(() => TimelineAsset.Load(version));
 
         var size = FiniteBake();

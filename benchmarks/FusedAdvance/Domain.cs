@@ -222,12 +222,12 @@ sealed class Baker
             foreach (var track in stageList[stage])
             {
                 occurrences.Add((cursor, pairIndex[track.Key], track, stage));
-                cursor += 32u;
+                cursor += 24u;
             }
 
         var bytes = new byte[cursor];
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), 0x31424C54u);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 2u);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 3u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), _loops ? 1u : 0u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), duration);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), (uint)_tracks.Count);
@@ -244,7 +244,7 @@ sealed class Baker
         {
             var at = (int)pairOffset + 48 * index;
             BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(at), pairKeys[index]);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 8), 32u);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 8), 24u);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 12), trackPoolOffsets[index]);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 16), (uint)trackPools[index].Count);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 20), (uint)trackValueBytes[index]);
@@ -312,7 +312,7 @@ sealed class Baker
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 12), windowEnd);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 16), factorStart);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 20), factorSpan);
-            bytes[at + 24] = occurrence.Track.Index;
+            bytes[at + 6] = occurrence.Track.Index;
         }
 
         return bytes;
