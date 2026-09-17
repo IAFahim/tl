@@ -172,6 +172,23 @@ var health      = new float[3];
 jumps.Gather(timelineIds).Seek(lastTick, true).Apply(health);   // whole crowd, one frame
 ```
 
+The pair-typed spelling makes that same crowd a one-liner when every timeline shares one `(T, C)` pair — the common designer reality where each character's timeline is a slight variation. `Timeline<TTrack, TClip>` owns the per-pair bank for the process: `Bind` returns a dense `ushort` handle per asset (never a pointer, never authored, never baked), and one call advances every row against its own timeline.
+
+```cs
+var bossH   = Timeline<DamageTrack, DamageClip>.Bind(TimelineAsset.Load(File.ReadAllBytes("boss.tlb")));
+var gruntH  = Timeline<DamageTrack, DamageClip>.Bind(TimelineAsset.Load(File.ReadAllBytes("grunt.tlb")));
+var eliteH  = Timeline<DamageTrack, DamageClip>.Bind(TimelineAsset.Load(File.ReadAllBytes("elite.tlb")));
+
+var handles = new ushort[] { bossH, gruntH, gruntH, eliteH };
+var lastTick = new ushort[] { 0, 0, 2, 5 };
+var health  = new float[4];
+
+Timeline<DamageTrack, DamageClip>.Seek(handles, lastTick, true).Apply(health);   // whole crowd, one frame
+Timeline<DamageTrack, DamageClip>.Advance(handles, lastTick, true, health);      // fused spelling
+```
+
+Handles come only from `Bind` at load time; a handle column, a position column, and an effect column of equal length are the whole call. The warm path is the same measured-table lane as the set (grouped rows still collapse into vector runs; 0 B), receipted bit-exact against per-asset lanes in `tests/Tl.Core.Tests` and in `benchmarks/PairHandles` — 0.20 ns/row with one handle for the batch, 0.57 with eight variants grouped, 1.33 with eight variants alternating per row, against 0.16 for the single-bound `BakedLane` gold path. Use `TimelineSet` when you want scoped ownership and disposal of the bank; use `Timeline<TTrack, TClip>` when the pair's timelines live for the process.
+
 There is deliberately **no multi-frame step parameter** and never will be. A game runs thousands of systems that must all observe every timeline tick — a 50-tick skip would hide 49 intermediate states from them. Lag catch-up is repeated single-frame calls, which also keeps every float fold bit-exact (a precomputed K-frame sum can round differently from K sequential folds). This is an owner decision.
 
 The same bytes drive the typed query lane, which reads a row's currently selected stage without advancing it:
