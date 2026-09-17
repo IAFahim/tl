@@ -41,6 +41,7 @@ public class AdvanceBenchmarks
     static readonly TimelineSet<LaneTrack, LaneClip> Set = Host.BuildSet(8);
 
     ushort[] _positions = null!;
+    ushort[] _laneIds = null!;
     ushort[] _ids = null!;
     float[] _effects = null!;
     int _probe;
@@ -53,7 +54,9 @@ public class AdvanceBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        Host.BindLane();
+        var laneSlot = Host.SlotLane();
+        _laneIds = new ushort[Rows];
+        Array.Fill(_laneIds, laneSlot);
         var clock = Shape switch
         {
             ShapeKind.LaneUniform or ShapeKind.LaneUniformBackward or ShapeKind.SetWavesOne => Clock.Uniform,
@@ -79,12 +82,12 @@ public class AdvanceBenchmarks
         switch (Shape)
         {
             case ShapeKind.LaneUniform or ShapeKind.LaneWaves or ShapeKind.LaneStaggered:
-                if (fused) Timeline<BakedLane<LaneTrack, LaneClip>>.Advance(positions, true, effects);
-                else Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(positions, true).Apply(effects);
+                if (fused) Timeline<LaneTrack, LaneClip>.Advance(_laneIds, positions, true, effects);
+                else Timeline<LaneTrack, LaneClip>.Seek(_laneIds, positions, true).Apply(effects);
                 break;
             case ShapeKind.LaneUniformBackward:
-                if (fused) Timeline<BakedLane<LaneTrack, LaneClip>>.Advance(positions, false, effects);
-                else Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(positions, false).Apply(effects);
+                if (fused) Timeline<LaneTrack, LaneClip>.Advance(_laneIds, positions, false, effects);
+                else Timeline<LaneTrack, LaneClip>.Seek(_laneIds, positions, false).Apply(effects);
                 break;
             default:
                 if (fused) Set.Advance(_ids, positions, true, effects);

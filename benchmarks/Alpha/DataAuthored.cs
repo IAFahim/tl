@@ -315,6 +315,7 @@ internal sealed class LaneCase : IDisposable
     internal const int Operations = 4096;
     private readonly int[] _deltas = new int[Operations];
     private readonly TimelineAsset _asset;
+    private readonly ushort[] _handles = new ushort[1];
     private readonly ushort[] _positions = new ushort[1];
     private readonly float[] _values = new float[1];
 
@@ -323,7 +324,7 @@ internal sealed class LaneCase : IDisposable
         Shape = shape;
         TickPatterns.Fill(_deltas, pattern);
         _asset = TimelineAsset.Load(Bake(shape));
-        BakedLane<AlphaTrack, AlphaClip>.Bind(_asset);
+        _handles[0] = Timeline<AlphaTrack, AlphaClip>.Slot(_asset);
     }
 
     internal TimelineShape Shape { get; }
@@ -333,7 +334,7 @@ internal sealed class LaneCase : IDisposable
         _positions[0] = 0;
         _values[0] = 0;
         for (var index = 0; index < _deltas.Length; index++)
-            Timeline<BakedLane<AlphaTrack, AlphaClip>>.Seek(_positions, _deltas[index] >= 0).Apply(_values);
+            Timeline<AlphaTrack, AlphaClip>.Seek(_handles, _positions, _deltas[index] >= 0).Apply(_values);
         return Checksum(_positions[0], _values[0]);
     }
 

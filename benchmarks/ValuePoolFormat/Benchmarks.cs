@@ -79,6 +79,7 @@ public class LaneApply
     [Params(100_000)]
     public int Rows;
 
+    ushort[] _laneIds = null!;
     ushort[] _uniform = null!;
     ushort[] _waves = null!;
     ushort[] _staggered = null!;
@@ -89,7 +90,9 @@ public class LaneApply
     [GlobalSetup]
     public void Setup()
     {
-        BakedLane<LaneBench.LaneTrack, LaneBench.LaneClip>.Bind(Host.LaneAsset);
+        var laneSlot = Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Slot(Host.LaneAsset);
+        _laneIds = new ushort[Rows];
+        Array.Fill(_laneIds, laneSlot);
         _uniform = Constant(Rows, 5);
         _waves = Seeds(Rows, 100);
         _staggered = Seeds(Rows, 1);
@@ -103,7 +106,7 @@ public class LaneApply
     {
         var positions = _uniform;
         var effects = _uniformEffects;
-        Timeline<BakedLane<LaneBench.LaneTrack, LaneBench.LaneClip>>.Advance(positions, true, effects);
+        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Advance(_laneIds, positions, true, effects);
         Consume(effects);
     }
 
@@ -112,7 +115,7 @@ public class LaneApply
     {
         var positions = _waves;
         var effects = _wavesEffects;
-        Timeline<BakedLane<LaneBench.LaneTrack, LaneBench.LaneClip>>.Advance(positions, true, effects);
+        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Advance(_laneIds, positions, true, effects);
         Consume(effects);
     }
 
@@ -121,7 +124,7 @@ public class LaneApply
     {
         var positions = _staggered;
         var effects = _staggeredEffects;
-        Timeline<BakedLane<LaneBench.LaneTrack, LaneBench.LaneClip>>.Advance(positions, true, effects);
+        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Advance(_laneIds, positions, true, effects);
         Consume(effects);
     }
 
@@ -130,7 +133,7 @@ public class LaneApply
     {
         var positions = _uniform;
         var effects = _uniformEffects;
-        Timeline<BakedLane<LaneBench.LaneTrack, LaneBench.LaneClip>>.Advance(positions, false, effects);
+        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Advance(_laneIds, positions, false, effects);
         Consume(effects);
     }
 

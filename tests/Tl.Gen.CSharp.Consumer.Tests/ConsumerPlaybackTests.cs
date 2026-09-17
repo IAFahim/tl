@@ -465,19 +465,19 @@ public sealed class ConsumerPlaybackTests
                     .Clip(0, 6u, 8u, new DamageClip(8f))
                     .Clip(0, 7u, 8u, new DamageClip(0f))
                     .Bake());
-                BakedLane<DamageTrack, DamageClip>.Bind(asset);
+                Timeline<DamageTrack, DamageClip>.Slot(asset);
                 var positions = new ushort[] { 0 };
                 var health = new float[] { 1000f };
                 var forward = new List<string>();
                 for (var tick = 0; tick < 8; tick++)
                 {
-                    Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health);
+                    Timeline<DamageTrack, DamageClip>.Advance(asset, positions, true, health);
                     forward.Add(F(health[0]));
                 }
                 var backward = new List<string>();
                 for (var tick = 0; tick < 8; tick++)
                 {
-                    Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, false).Apply(health);
+                    Timeline<DamageTrack, DamageClip>.Advance(asset, positions, false, health);
                     backward.Add(F(health[0]));
                 }
                 return string.Join("|", forward) + "#" + string.Join("|", backward) + "#" + F(health[0]) + "#" + Positions(positions[0]);
@@ -493,8 +493,8 @@ public sealed class ConsumerPlaybackTests
                     .Track<HealTrack, HealClip>(new HealTrack(1f))
                     .Clip(0, 0u, 2u, new HealClip(8f))
                     .Bake());
-                BakedLane<DamageTrack, DamageClip>.Bind(damage);
-                BakedLane<HealTrack, HealClip>.Bind(heal);
+                Timeline<DamageTrack, DamageClip>.Slot(damage);
+                Timeline<HealTrack, HealClip>.Slot(heal);
                 var damagePositions = new ushort[] { 0, 0 };
                 var damageHealth = new float[] { 1000f, 250f };
                 var healPositions = new ushort[] { 0 };
@@ -502,14 +502,14 @@ public sealed class ConsumerPlaybackTests
                 string Snapshot()
                     => F(damageHealth[0]) + "," + F(healHealth[0]) + "," + F(damageHealth[1]) + ","
                     + Positions(damagePositions[0], healPositions[0], damagePositions[1]);
-                Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(damagePositions, true).Apply(damageHealth);
-                Timeline<BakedLane<HealTrack, HealClip>>.Seek(healPositions, true).Apply(healHealth);
+                Timeline<DamageTrack, DamageClip>.Advance(damage, damagePositions, true, damageHealth);
+                Timeline<HealTrack, HealClip>.Advance(heal, healPositions, true, healHealth);
                 var first = Snapshot();
-                Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(damagePositions, true).Apply(damageHealth);
-                Timeline<BakedLane<HealTrack, HealClip>>.Seek(healPositions, true).Apply(healHealth);
+                Timeline<DamageTrack, DamageClip>.Advance(damage, damagePositions, true, damageHealth);
+                Timeline<HealTrack, HealClip>.Advance(heal, healPositions, true, healHealth);
                 var second = Snapshot();
-                Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(damagePositions, false).Apply(damageHealth);
-                Timeline<BakedLane<HealTrack, HealClip>>.Seek(healPositions, false).Apply(healHealth);
+                Timeline<DamageTrack, DamageClip>.Advance(damage, damagePositions, false, damageHealth);
+                Timeline<HealTrack, HealClip>.Advance(heal, healPositions, false, healHealth);
                 var third = Snapshot();
                 return first + "#" + second + "#" + third;
             }
@@ -524,8 +524,8 @@ public sealed class ConsumerPlaybackTests
                 var health = new float[] { 400f };
                 try
                 {
-                    BakedLane<GuardTrack, GuardClip>.Bind(guard);
-                    Timeline<BakedLane<GuardTrack, GuardClip>>.Seek(positions, true).Apply(health);
+                    Timeline<GuardTrack, GuardClip>.Slot(guard);
+                    Timeline<GuardTrack, GuardClip>.Advance(guard, positions, true, health);
                 }
                 catch (ArgumentException exception)
                 {
@@ -540,14 +540,14 @@ public sealed class ConsumerPlaybackTests
                     .Track<BuffTrack, BuffClip>(new BuffTrack(3f))
                     .Clip(0, 0u, 10u, new BuffClip(5f))
                     .Bake());
-                BakedLane<BuffTrack, BuffClip>.Bind(buff);
+                Timeline<BuffTrack, BuffClip>.Slot(buff);
                 var positions = new ushort[] { 0 };
                 var armor = new float[] { 10f };
-                Timeline<BakedLane<BuffTrack, BuffClip>>.Seek(positions, true).Apply(armor);
+                Timeline<BuffTrack, BuffClip>.Advance(buff, positions, true, armor);
                 var first = F(armor[0]);
-                Timeline<BakedLane<BuffTrack, BuffClip>>.Seek(positions, true).Apply(armor);
+                Timeline<BuffTrack, BuffClip>.Advance(buff, positions, true, armor);
                 var second = F(armor[0]);
-                Timeline<BakedLane<BuffTrack, BuffClip>>.Seek(positions, false).Apply(armor);
+                Timeline<BuffTrack, BuffClip>.Advance(buff, positions, false, armor);
                 var third = F(armor[0]);
                 return first + "#" + second + "#" + third;
             }

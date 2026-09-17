@@ -342,9 +342,9 @@ public static unsafe class Host
         PairRuntime<EdgeTrack, EdgeClip>.Consume(&ExecuteEdge, &BindFloat);
     }
 
-    public static void BindLane() => BakedLane<LaneTrack, LaneClip>.Bind(LoopingAsset);
+    public static ushort SlotLane() => Timeline<LaneTrack, LaneClip>.Slot(LoopingAsset);
 
-    public static void BindFinite() => BakedLane<EdgeTrack, EdgeClip>.Bind(FiniteAsset);
+    public static ushort SlotFinite() => Timeline<EdgeTrack, EdgeClip>.Slot(FiniteAsset);
 
     public static TimelineSet<LaneTrack, LaneClip> BuildSet(int timelines)
     {
