@@ -1,6 +1,6 @@
 # Value pool format A/B (issue #155)
 
-Measures the shipped TLB v2 format — per-pair value pools of unique whole structs plus fixed-width `ushort` slot index rows — on real assets baked from authoring JSON, against the inline-layout numbers from #149 and the lane baseline from #148/#153. Not in `tl.slnx`; standalone BenchmarkDotNet probe mirroring `benchmarks/FusedAdvance`.
+Measures the shipped TLB1 v3 format — per-pair value pools of unique whole structs plus fixed-width `ushort` slot index rows — on real assets baked from authoring JSON, against the inline-layout numbers from #149 and the lane baseline from #148/#153. Not in `tl.slnx`; standalone BenchmarkDotNet probe mirroring `benchmarks/FusedAdvance`.
 
 ## Format summary (TLB1 magic, Version 3)
 

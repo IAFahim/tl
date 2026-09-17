@@ -1,6 +1,6 @@
 # Tl.Bake
 
-The `tlb` command (package `Tl.Bake`) compiles designer-authored timeline JSON into canonical TLB1 binary assets for the [tl](https://github.com/IAFahim/tl) runtime. The command was named `tlbake` before 1.0.0-alpha.8. Since 1.0.0-alpha.8 the output is TLB1 v2; assets baked by earlier alphas are rejected at load with a diagnostic, so update the tool and re-bake.
+The `tlb` command (package `Tl.Bake`) compiles designer-authored timeline JSON into canonical TLB1 binary assets for the [tl](https://github.com/IAFahim/tl) runtime. The command was named `tlbake` before 1.0.0-alpha.8. The output is TLB1 v3 and the loader accepts v3 only; assets baked by earlier alphas (v1, or the v2 layout shipped through 1.0.0-alpha.8) are rejected at load with a diagnostic, so update the tool and re-bake.
 
 ```sh
 dotnet tool install --global Tl.Bake --prerelease --add-source <directory containing the Tl.Bake nupkg>
@@ -17,11 +17,12 @@ tlb --report boss.tlb
   (pair keys hash assembly-qualified names).
 - `--json` prints the authorable `(track, clip)` pairs the assemblies expose,
   with member names, so authoring tools can fill type lists automatically.
-- TLB1 v2 stores each pair's unique track and clip values once in per-pair
+- TLB1 v3 stores each pair's unique track and clip values once in per-pair
   value pools and references them from frame slots by fixed-width `ushort`
-  index (at most 65,535 unique values per pool). `--report` audits the split,
-  including `pool/<pair>/track-unique-count`, `pool/<pair>/clip-unique-count`,
-  and the totals `pool/unique-count` and `pool/value-bytes`.
+  index in 24 B, 8-aligned slot rows (at most 65,535 unique values per pool).
+  `--report` audits the split, including `pool/<pair>/track-unique-count`,
+  `pool/<pair>/clip-unique-count`, and the totals `pool/unique-count` and
+  `pool/value-bytes`.
 - `--watch` re-bakes on save: it bakes every input once at start, then
   rebuilds only files whose content hash changed, printing JSON events
   (`ready`, `rebuild`, `skip`, `diagnostic`). A directory input watches every
