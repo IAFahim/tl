@@ -250,8 +250,8 @@ internal static class WatchMode
 
         if (input == null)
         {
-            Console.Error.WriteLine("Usage: tlbake --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]");
-            Console.Error.WriteLine("       tlbake --watch <input-dir> [<output-dir>] [--assembly <path>]... [--debounce <ms>]");
+            Console.Error.WriteLine("Usage: tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]");
+            Console.Error.WriteLine("       tlb --watch <input-dir> [<output-dir>] [--assembly <path>]... [--debounce <ms>]");
             return 1;
         }
 

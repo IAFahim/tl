@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIG_PATH = ROOT / "tests" / "tlbake_cli" / "config.json"
+CONFIG_PATH = ROOT / "tests" / "tlb_cli" / "config.json"
 CONFIG = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 CLI_DLL = ROOT / "tools" / "Tl.Bake" / "bin" / "Release" / "net10.0" / "Tl.Bake.dll"
 TEST_ASSEMBLY = ROOT / "tools" / "Tl.Bake.Tests" / "bin" / "Release" / "net10.0" / "Tl.Bake.Tests.dll"
@@ -185,7 +185,7 @@ class TestTlBakeCli(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.temporary = tempfile.TemporaryDirectory(prefix="tlbake_cli_")
+        cls.temporary = tempfile.TemporaryDirectory(prefix="tlb_cli_")
         cls.out_dir = Path(cls.temporary.name)
         _prepare_binaries()
 

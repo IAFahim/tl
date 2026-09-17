@@ -74,11 +74,11 @@ public static class Program
     {
         if (args.Length < 2)
         {
-            Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]");
-            Console.Error.WriteLine("       tlbake --strip <input.tlb> <output.tlb>");
-            Console.Error.WriteLine("       tlbake --report <input.tlb>");
-            Console.Error.WriteLine("       tlbake --json --assembly <path>...");
-            Console.Error.WriteLine("       tlbake --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]");
+            Console.Error.WriteLine("Usage: tlb <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]");
+            Console.Error.WriteLine("       tlb --strip <input.tlb> <output.tlb>");
+            Console.Error.WriteLine("       tlb --report <input.tlb>");
+            Console.Error.WriteLine("       tlb --json --assembly <path>...");
+            Console.Error.WriteLine("       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]");
             return 1;
         }
 
@@ -124,7 +124,7 @@ public static class Program
 
         if (inputPath == null || outputPath == null)
         {
-            Console.Error.WriteLine("Usage: tlbake <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]");
+            Console.Error.WriteLine("Usage: tlb <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]");
             return 1;
         }
 
@@ -180,7 +180,7 @@ public static class Program
     {
         if (args.Length != 3)
         {
-            Console.Error.WriteLine("Usage: tlbake --strip <input.tlb> <output.tlb>");
+            Console.Error.WriteLine("Usage: tlb --strip <input.tlb> <output.tlb>");
             return 1;
         }
 
@@ -198,7 +198,7 @@ public static class Program
     {
         if (args.Length != 2)
         {
-            Console.Error.WriteLine("Usage: tlbake --report <input.tlb>");
+            Console.Error.WriteLine("Usage: tlb --report <input.tlb>");
             return 1;
         }
 

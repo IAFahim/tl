@@ -38,7 +38,7 @@ public class ReportTests
 
     private static string ReportOf(byte[] bytes)
     {
-        var path = Path.Combine(Path.GetTempPath(), "tlbake_report_" + Guid.NewGuid().ToString("N") + ".tlb");
+        var path = Path.Combine(Path.GetTempPath(), "tlb_report_" + Guid.NewGuid().ToString("N") + ".tlb");
         try
         {
             File.WriteAllBytes(path, bytes);
@@ -85,7 +85,7 @@ public class ReportTests
     [Fact]
     public void Report_OnNonTlb1Input_Fails()
     {
-        var path = Path.Combine(Path.GetTempPath(), "tlbake_report_" + Guid.NewGuid().ToString("N") + ".tlb");
+        var path = Path.Combine(Path.GetTempPath(), "tlb_report_" + Guid.NewGuid().ToString("N") + ".tlb");
         try
         {
             File.WriteAllBytes(path, [1, 2, 3]);

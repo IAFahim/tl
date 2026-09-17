@@ -232,7 +232,7 @@ public class WatchModeTests
 
         private WatchScope()
         {
-            _directory = Path.Combine(Path.GetTempPath(), "tlbake_watch_" + Guid.NewGuid().ToString("N"));
+            _directory = Path.Combine(Path.GetTempPath(), "tlb_watch_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_directory);
             EmptyDirectory = Path.Combine(_directory, "empty");
             Directory.CreateDirectory(EmptyDirectory);

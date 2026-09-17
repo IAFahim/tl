@@ -8,12 +8,12 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>tlbake</ToolCommandName>
+    <ToolCommandName>tlb</ToolCommandName>
     <PackageOutputPath>$(MSBuildProjectDirectory)\bin\$(Configuration)\</PackageOutputPath>
     <Version>$(TlVersion)</Version>
     <PackageId>Tl.Bake</PackageId>
     <Authors>IAFahim</Authors>
-    <Description>tlbake: deterministic JSON-to-TLB1 timeline baker with metadata stripping, content cache, and size reports.</Description>
+    <Description>tlb: deterministic JSON-to-TLB1 timeline baker with watch mode, metadata stripping, content cache, and size reports.</Description>
     <PackageProjectUrl>https://github.com/IAFahim/tl</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IAFahim/tl</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

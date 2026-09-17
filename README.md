@@ -6,7 +6,7 @@
 
 Try the [interactive cookbook/playground](https://iafahim.github.io/tl/) — live authoring-JSON editing and timeline playback in the browser, with [embeddable recipe pages](https://iafahim.github.io/tl/cookbook/).
 
-Timeline data and timeline behavior are separate. Designers author tracks, clips, windows, and loop points as JSON; a deterministic `tlbake` compile produces canonical TLB1 assets; typed C# consumers (`ITimelineJob<TTrack,TClip>`) fold what one active `(track, clip)` pair does into a borrowed float effect column. The runtime has no reflection, no delegates on warm paths, no runtime compilation, and no warm-path allocation — the same baked bytes drive .NET and Unity.
+Timeline data and timeline behavior are separate. Designers author tracks, clips, windows, and loop points as JSON; a deterministic `tlb` compile produces canonical TLB1 assets; typed C# consumers (`ITimelineJob<TTrack,TClip>`) fold what one active `(track, clip)` pair does into a borrowed float effect column. The runtime has no reflection, no delegates on warm paths, no runtime compilation, and no warm-path allocation — the same baked bytes drive .NET and Unity.
 
 - **Deterministic bake** — same inputs, same bytes, on every machine and culture; content-keyed cache hits preserve timestamps
 - **Heterogeneous assets** — tracks and clips of different types in one asset; execution order is authored order (A-B-A preserved)
@@ -31,8 +31,10 @@ The packages are development prereleases on [nuget.org](https://www.nuget.org/).
 
 ```sh
 dotnet add package Tl.CSharp --version 1.0.0-alpha.7
-dotnet tool install --global Tl.Bake --prerelease --version 1.0.0-alpha.7
+dotnet tool install --global Tl.Bake --prerelease
 ```
+
+The bake command is `tlb`. Releases published up to `1.0.0-alpha.7` install the same tool under the name `tlbake`; if `tlb` is not found, update the tool (`dotnet tool update --global Tl.Bake --prerelease`).
 
 For an offline install, copy the `.nupkg` files into a local `packages/` folder and append `--source ./packages` to both commands.
 
@@ -43,7 +45,7 @@ For an offline install, copy the `.nupkg` files into a local `packages/` folder 
 | `Tl.CSharp` | Recommended C# install: runtime plus build-time consumer binding |
 | `Tl.Runtime` | Small declaration, frame, state, and movement ABI |
 | `Tl.Gen.CSharp` | Build-time generator that binds typed consumers |
-| `Tl.Bake` | `dotnet tool` (command: `tlbake`): JSON to baked TLB1 assets |
+| `Tl.Bake` | `dotnet tool` (command: `tlb`): JSON to baked TLB1 assets, with watch mode, cache, report, and strip |
 
 ### 2. Define the domain
 
@@ -108,14 +110,33 @@ Track values hold immutable settings. Clip values hold immutable authored payloa
 }
 ```
 
-Bake with the `tlbake` tool, pointing `--assembly` at the compiled domain DLL so the baker resolves the authored type names. **The assembly name must match the assembly that ships those types at runtime** — pair keys hash assembly-qualified names. Baking is deterministic; cache hits preserve timestamps:
+Bake with the `tlb` tool, pointing `--assembly` at the compiled domain DLL so the baker resolves the authored type names. **The assembly name must match the assembly that ships those types at runtime** — pair keys hash assembly-qualified names. Baking is deterministic; cache hits preserve timestamps:
 
 ```sh
 dotnet build -c Release
-tlbake boss.json boss.tlb --assembly bin/Release/net10.0/MyApp.dll --cache ~/.tlbcache
+tlb boss.json boss.tlb --assembly bin/Release/net10.0/MyApp.dll --cache ~/.tlbcache
 ```
 
-`tlbake --report boss.tlb` audits sizes and `tlbake --strip boss.tlb boss.dist.tlb` trims authoring metadata for distribution.
+### The `tlb` command
+
+| invocation | purpose |
+| --- | --- |
+| `tlb <input.json> <output.tlb> [--assembly <dll>]... [--cache <dir>]` | bake one timeline |
+| `tlb --watch <input.json> <output.tlb> [--assembly <dll>]... [--debounce <ms>]` | re-bake on save |
+| `tlb --watch <input-dir> [<output-dir>] [--assembly <dll>]...` | watch every `*.json` in a directory |
+| `tlb --json --assembly <dll>...` | print the authorable `(track, clip)` pairs the assemblies expose |
+| `tlb --report <input.tlb>` | byte and section size audit |
+| `tlb --strip <input.tlb> <output.tlb>` | drop authoring metadata for distribution |
+
+**Watch mode** is the designer loop: it bakes every input once at startup, then re-bakes on save. Saves are debounced (default 100 ms, `--debounce` to tune), content that did not change is skipped by hash, and every action prints one JSON line — `ready`, `rebuild`, `skip`, or `diagnostic`. A bake error stays in the loop as a `diagnostic` event; fix the JSON, save, and it rebuilds. Editors and tooling can parse the event stream directly; `Ctrl+C` exits.
+
+`tlb --json --assembly ...` introspects the compiled domain and lists every blendable unmanaged `(track, clip)` pair with member names, so authoring tools can offer type lists without hand-maintaining them — the Blender bridge uses it to fill type names automatically.
+
+### What the baker deduplicates
+
+Authored game data repeats itself — the same namespace and type names on every track and clip. The bake stores each distinct **string once** in a single ordinal-sorted pool (timeline, track, and clip names; namespaces and type names; assembly names) and references pool entries by index from the type and label tables, so `"namespace": "TlPlayer"` written on a track and on all of its clips costs one pool entry. Each distinct track/clip **type pair** is stored once and shared by every track that uses it; two tracks of the same pair still keep their own clip data. Deduplication is per asset: one `.tlb` is self-contained, and identical strings in separately baked assets are stored per asset.
+
+Repeated **payloads are not deduplicated**, by design: the baked format is the execution layout, so every active stage embeds its `(track, clip)` values directly in the frame slot — track data is copied into each of the track's slots, and a clip spanning several stages appears in each of them. Floats, frame bounds, and windows are inline values, not pooled. Data member names (`"Velocity"`, `"Multiplier"`) are matched against the assembly at bake time and never stored in the asset at all. `tlb --report` shows the split: `tlb/metadata-bytes` is the pooled string/type/label tail, `tlb/hot-bytes` the execution region.
 
 ### 4. Bind, advance, and query
 
@@ -151,7 +172,7 @@ var health      = new float[3];
 jumps.Gather(timelineIds).Seek(lastTick, true).Apply(health);   // whole crowd, one frame
 ```
 
-There is deliberately **no multi-frame step parameter** and never will be. A game runs thousands of systems that must all observe every timeline tick — a 50-tick skip would hide 49 intermediate states from them. Lag catch-up is repeated single-frame calls, which also keeps every float fold bit-exact (a precomputed K-frame sum can round differently from K sequential folds). This is an owner decision; see `docs/typed-playback-lane.md`.
+There is deliberately **no multi-frame step parameter** and never will be. A game runs thousands of systems that must all observe every timeline tick — a 50-tick skip would hide 49 intermediate states from them. Lag catch-up is repeated single-frame calls, which also keeps every float fold bit-exact (a precomputed K-frame sum can round differently from K sequential folds). This is an owner decision.
 
 The same bytes drive the typed query lane, which reads a row's currently selected stage without advancing it:
 
@@ -181,8 +202,7 @@ The repository enforces a 300,000-byte budget over production source contents pl
 
 ## Performance
 
-Throughput is the typed lane's product shape; receipts and methodology in
-[docs/typed-playback-lane.md](docs/typed-playback-lane.md). `benchmarks/TypedPlaybackProto`
+Throughput is the typed lane's product shape. `benchmarks/TypedPlaybackProto`
 prints checksum-verified parity against a hand lane at 100k and 1M rows, and the runnable sample
 under `samples/ManyEntities` reproduces consumer-facing numbers with checksum-verified effects.
 
@@ -208,8 +228,7 @@ every set shape is bit-exact against per-asset static lanes, forward and backwar
 | set, one timeline, waves of 100, backward | 0.20 | 0.19 |
 | set, one looping timeline, staggered clocks, backward | 0.25 | 0.24 |
 
-Measured before the #113 frame slim (cycles column present); the #113 A/B in
-[docs/typed-playback-lane.md](docs/typed-playback-lane.md) re-measured the affected shapes at
+Measured before the #113 frame slim (cycles column present); the #113 A/B re-measured the affected shapes at
 parity or better on the same host family (finite staggered 0.38 -> 0.19 ns/row, static
 staggered 0.19 -> 0.15-0.17, alternating ids 1.67 -> 1.22), and the cycle column no longer
 exists in any shape.
@@ -239,13 +258,14 @@ timeline's measured tables live in the set's one contiguous native block:
 The warm path is column-native, so an archetype ECS (Unity DOTS, Frent, any chunk- or SoA-based
 job system) embeds tl without adapters: entities are rows, component arrays are the columns, and
 the runtime keeps no per-row state of its own. Prototype history with a real ECS host:
-[IAFahim/FrentFun](https://github.com/IAFahim/FrentFun); the shipped contract and receipts:
-[docs/typed-playback-lane.md](docs/typed-playback-lane.md).
+[IAFahim/FrentFun](https://github.com/IAFahim/FrentFun); the shipped receipts are recorded in
+issues [#104](https://github.com/IAFahim/tl/issues/104) and
+[#108](https://github.com/IAFahim/tl/issues/108).
 
 ### Lifecycle: bake once, bind once, advance per frame
 
-1. **Author and bake.** Flat-schema JSON in, deterministic `.tlb` bytes out (`tlbake`, Quick
-   Start above). The [Blender bridge](tools/Tl.Blender/README.md) exports the same JSON from NLA
+1. **Author and bake.** Flat-schema JSON in, deterministic `.tlb` bytes out (`tlb`, Quick
+   Start above). The Blender bridge (`tools/Tl.Blender`) exports the same JSON from NLA
    scenes and bakes through the same CLI, receipted byte-identical to hand authoring. Duration
    above the 65,535-tick `ushort` position cap is rejected at bake with a diagnostic naming both.
 2. **Load.** `TimelineAsset.Load(bytes)` is a cold validated import; the owner retains the
@@ -315,14 +335,13 @@ and repeated folds stay bit-exact where a precomputed K-frame sum can round diff
 ### What adoption costs
 
 Warm numbers are rows of the [Performance](#performance) table above (one million rows,
-i9-14900K, best of 5 over interleaved rounds); cold numbers are the #108 receipt in
-[docs/typed-playback-lane.md](docs/typed-playback-lane.md). Warm cost follows the data shape —
+i9-14900K, best of 5 over interleaved rounds); cold numbers are the #108 receipt. Warm cost follows the data shape —
 clock distribution and id grouping — not the authoring front-end:
 
 | adoption step | what you add | measured warm cost (table above) |
 | --- | --- | --- |
 | playback only: a hand-written `ITimelineLane<T>` | one closed-form lane type; no JSON, no bake, no generator | 0.13-0.18 ns/row (static lane rows) |
-| authored JSON assets | `tlbake`, domain structs, typed consumers, `TimelineSet` ids | 0.18-0.20 ns/row with ids grouped in waves or blocks of 100; 0.22 staggered on one looping timeline; 0.32 finite staggered; 0.48 at 16-row id blocks |
+| authored JSON assets | `tlb`, domain structs, typed consumers, `TimelineSet` ids | 0.18-0.20 ns/row with ids grouped in waves or blocks of 100; 0.22 staggered on one looping timeline; 0.32 finite staggered; 0.48 at 16-row id blocks |
 | Blender authoring | the bridge addon; same schema, same `.tlb` bytes | unchanged from authored JSON |
 | generated C# job binding | consumers discovered compilation-wide and installed at build by `Tl.Gen.CSharp` | unchanged — every front-end drives the same measured tables |
 
@@ -370,22 +389,28 @@ foreach (var (timeline, resistance, health) in
 | `src/Tl.CSharp` | One-package C# installation |
 | `samples/Mixed` | Data-authored timeline sample on the typed lane |
 | `samples/NuGetQuickStart` | Runnable quick start that consumes the published nuget.org packages; CI runs it on every build |
-| `samples/ManyEntities` | Typed lane vs hand SoA lanes with per-entity clocks; CI runs it |
-| `tools/Tl.Bake` | `tlbake` JSON-to-`TLB1` baker with cache, report, and strip |
+| `samples/ManyEntities` | Typed lane vs hand SoA lanes with per-entity clocks; CI runs it — `dotnet run -c Release` in the folder prints the sweep/pulse/churn ns-per-row parity table (typed lane wins where rows group; the hand lane wins the fully staggered sweep) |
+| `tools/Tl.Gen.Tlb` | Baking library: TLB1 writer, string/type metadata pool, bake cache keys, size reports |
+| `tools/Tl.Bake` | `tlb` CLI: JSON-to-TLB1 bake, `--watch`, `--json`, `--strip`, `--cache`, `--report` |
+| `tools/Tl.Blender` | Blender >= 5.0 NLA bridge: exports flat-schema JSON and bakes through the `tlb` CLI; type names come from `tl_nla` custom properties, preferences, or the single introspected pair; receipts in `tests/test_tl_blender.py` |
+| `tools/Tl.Playground` | Source of the live cookbook/playground linked above; `dotnet run --project tools/Tl.Playground/Playground.Native -c Release` prints the SMOKE receipt; the site is the `Playground` publish output deployed to gh-pages |
 | `tests/Tl.Alpha` | Typed-lane, data-authored, and allocation receipts |
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |
+| `tests/tlb_cli` | `tlb` CLI scenario harness (`config.json`); run via `python3 -m unittest discover -s tests -p test_tlb_cli.py` |
 | `benchmarks/Alpha` | Oracle and verification evidence for data-authored lane shapes |
 | `benchmarks/TypedPlaybackProto` | Typed lane parity and throughput at 100k-1M rows |
+
+`benchmarks/Alpha` is the only benchmark project in the solution; every other `benchmarks/*` directory and its result receipts are commit-scoped history of removed surfaces — their numbers apply only to the source and contract named in each local report.
 
 The data-authored Unity host package (`com.iafahim.tl`) lives in the [tl.unity](https://github.com/IAFahim/tl.unity) repository, published under the MIT license decided in issue #64.
 
 ## Documentation
 
-- [Data-authored API contract](docs/data-authored-api.md) — the frozen design contract
-- [Typed playback lane](docs/typed-playback-lane.md) — the shipped playback surface, contract, receipts, and verdicts
-- [Execution semantics](docs/semantics.md) — select, execute, commit, and movement laws of the removed alpha.3 catalog surface
-- [Architecture](docs/architecture.md) — package and boundary map
-- [Unity end-to-end](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md) — JSON bake to Unity ECS typed queries
+This README is the documentation. The Unity walkthrough lives in the tl.unity repository ([END-TO-END.md](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md)); the contributor protocol in [AGENTS.md](AGENTS.md); vulnerability reporting in [SECURITY.md](SECURITY.md). Design documents and benchmark receipt prose removed from the tree remain in git history.
+
+## Contributing
+
+Read [AGENTS.md](AGENTS.md) before changing code. Open an issue first for any public ABI, plan-schema, semantic, package-boundary, or benchmark-fixture change so the invariant and migration cost are visible. Keep pull requests focused on one observable result, stating the trigger, previous behavior, resulting behavior, validation, size delta, and target limitations; performance work includes exact receipts and a same-machine baseline/candidate comparison. Run the validation block in [AGENTS.md](AGENTS.md) before requesting review, and never commit generated scratch, credentials, or machine-local configuration.
 
 ## License
 
