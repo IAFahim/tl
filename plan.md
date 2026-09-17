@@ -6,9 +6,9 @@ This file is the enduring architecture, evidence, and release-gate plan. GitHub 
 
 ## Approved next API
 
-The owner approved [data-authored timelines and typed frame queries](docs/data-authored-api.md) on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns the design discussion, future implementation checklist and recoverable workstreams. Assets contain track and clip `data`, timing and order, without mandatory names or per-asset job bindings. Known type pairs drive `Timeline.Query` inside ECS loops or jobs, while a coordinator preserves signed selection, ordered consumers and delayed commit. The .NET entry is `Timeline.Rows(...).Read(...).Write(...).Tick(...)` over borrowed columns.
+The owner approved [data-authored timelines and typed frame queries](docs/data-authored-api.md) on 2026-09-11. [Issue #56](https://github.com/IAFahim/tl/issues/56) owns the design discussion, future implementation checklist and recoverable workstreams. Assets contain track and clip `data`, timing and order, without mandatory names or per-asset job bindings. Known type pairs drive `Timeline.Query` inside ECS loops or jobs, while a coordinator preserves signed selection, ordered consumers and delayed commit. The approved .NET entry was `Timeline.Rows(...).Read(...).Write(...).Tick(...)` over borrowed columns; the shipped lane is `Timeline<T>.Seek(...).Apply(...)` ([issue #104](https://github.com/IAFahim/tl/issues/104)).
 
-That document is the only authoring contract now that issue #65 removed the superseded authored surface. The remainder of this file retains the alpha.3 architecture narrative and its evidence as a design record; do not transfer alpha.3 performance receipts to the data-authored lane. A separately qualified version is required; the published alpha.3 tag stays fixed.
+That document is the only authoring contract now that issue #65 removed the superseded authored surface. The remainder of this file retains the alpha.3 architecture narrative and its evidence as a design record; do not transfer alpha.3 performance receipts to the data-authored lane. Separately qualified versions shipped through [issue #91](https://github.com/IAFahim/tl/issues/91) (1.0.0-alpha.6) and [issue #121](https://github.com/IAFahim/tl/issues/121) (1.0.0-alpha.7); the published alpha.3 tag stays fixed.
 
 Implementation resumed with the owner's authorization in [issue #56](https://github.com/IAFahim/tl/issues/56), and [issue #65](https://github.com/IAFahim/tl/issues/65) tracked removal of the superseded surface. Issue #56 contains the latest authorization and handoff.
 
@@ -72,7 +72,7 @@ Normal Roslyn and supporting IDE builds run incremental generation. `TlGenExport
 
 Unity source is materialized before script compilation because ordinary Roslyn generator output cannot feed another generator in the same compilation. The Unity surface moved to the extracted [IAFahim/tl.unity](https://github.com/IAFahim/tl.unity) repository; the publication and licensing decisions are recorded in [issue #64](https://github.com/IAFahim/tl/issues/64). This repository ships no UPM package.
 
-The C ABI v2 remains supported in its existing scope. Alpha.3 heterogeneous C catalogs, canonical neutral serialization, designer GUI import, cross-generated declarations, and runtime-loaded arbitrary schemas are deferred.
+The C backend moved to the extracted tl.c repository at commit `3e67333`; its ABI v2 does not yet support data-authored assets. Alpha.3 heterogeneous C catalogs, canonical neutral serialization, designer GUI import, cross-generated declarations, and runtime-loaded arbitrary schemas are deferred.
 
 ## Performance and size
 
@@ -105,15 +105,15 @@ dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
 dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
 dotnet run --project samples/Mixed -c Release --no-build
 dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
-dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true -p:NuGetAudit=false
+dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
 eng/release-artifacts --candidate issue-35 /tmp/tl-alpha3-release
 ```
 
 Execute the NativeAOT binary in default, capacity, and module-capacity modes. Measure strict production-only line and branch coverage. Run JetBrains Inspect Code and classify every material result. Historical Unity stable/preview EditMode/PlayMode, Mono/IL2CPP, Burst, leak, and package-isolation evidence remains in `docs/alpha3` and the v1.0.0-alpha.3 receipts. Another agent reviews the exact head after all docs and artifacts agree.
 
-The release set contains three nupkgs, one snupkg, a NativeAOT smoke archive, generation report, manifest, and checksums. Each artifact is built twice or otherwise reproducibly verified. Package version, tag, release title, source commit, repository ref, and manifest identity must agree.
+The release set contains four nupkgs, one snupkg, a NativeAOT smoke archive, generation report, manifest, and checksums. Each artifact is built twice or otherwise reproducibly verified. Package version, tag, release title, source commit, repository ref, and manifest identity must agree.
 
-The GitHub prerelease is authorized. At the alpha.3 gate NuGet publication remained disabled pending owner decisions; both have since settled — the MIT license is recorded in [issue #64](https://github.com/IAFahim/tl/issues/64), and the 1.0.0-alpha.5 packages are published on nuget.org through the owner-run `publish-nuget` workflow against the protected `nuget-production` environment. Never infer either from a green GitHub artifact build.
+The GitHub prerelease is authorized. At the alpha.3 gate NuGet publication remained disabled pending owner decisions; both have since settled — the MIT license is recorded in [issue #64](https://github.com/IAFahim/tl/issues/64), and the 1.0.0-alpha.7 packages are published on nuget.org through the owner-run `publish-nuget` workflow against the protected `nuget-production` environment. Never infer either from a green GitHub artifact build.
 
 ## Recovery
 
