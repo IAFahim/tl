@@ -24,7 +24,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;ecs;burst;unity;dotnet;deterministic;baked-assets</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.0.0-alpha.7: generated bindings emit the slim frame view (ushort timeline tick, ClipLength and WithinClip, no cycle or game tick) and keep the 4-slot consumer ABI diagnostic TLGEN68. The build-time CLI ships with the repository, not inside this package.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.8: generated bindings consume the TLB1 v2 pooled layout; the emitted consumer ABI is unchanged from alpha.7 (slim frame view, TLGEN68). The build-time CLI ships with the repository, not inside this package.</PackageReleaseNotes>
     <EnforceExtendedAnalyzerRules Condition="'$(TargetFramework)' == 'netstandard2.0'">true</EnforceExtendedAnalyzerRules>
   </PropertyGroup>
 

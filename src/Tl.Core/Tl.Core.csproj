@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageReleaseNotes>v1.0.0-alpha.7: the typed playback lane (Timeline&lt;T&gt;.Seek(...).Apply(...) over BakedLane measured tables) is the only playback surface; the frame view slims to ushort positions under a single 65,535-tick cap with ClipLength and WithinClip on Frame; MeasuredLanes shares tables across set binds with the TickPurity.WindowConstant opt-in fill. The Timeline.Rows facade, kernel catalog, cycle, and game tick are removed.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.8: TLB1 v2 — unique track and clip values are pooled per pair behind fixed-width ushort slot indices (smaller assets, same warm path); fused Advance entry points join Seek/Apply on the lane and set. The alpha.7 playback surface is otherwise unchanged.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
