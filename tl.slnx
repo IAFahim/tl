@@ -15,6 +15,7 @@
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Alpha/Alpha.csproj" />
+    <Project Path="benchmarks/PairHandles/PairHandles.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Tl.Gen.Tlb/Tl.Gen.Tlb.csproj" />

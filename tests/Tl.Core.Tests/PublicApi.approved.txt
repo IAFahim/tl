@@ -90,5 +90,10 @@ type Tl.TimelineState
 type Tl.Timeline`1
   Method Void Advance(System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Tl.TimelineLane`1[T] Seek(System.Span`1[System.UInt16], Boolean)
+type Tl.Timeline`2
+  Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method UInt16 Bind(Tl.TimelineAsset)
+  Method UInt16 Bind(Tl.TimelineAsset, Tl.MeasuredLanes)
+  Method Tl.TimelineSetLane`2[TTrack,TClip] Seek(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
 type Tl.TypeKey`1
   Field UInt64 Value
