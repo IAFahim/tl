@@ -231,4 +231,103 @@ public unsafe class DataTests
         var empty = default(TimelineComponent);
         Assert.False(Timeline.Query<AlphaTrack, AlphaClip>(in empty).MoveNext());
     }
+
+    [Fact]
+    public void LegacyVersionTwoAssetsLoadAndPlayIdentically()
+    {
+        var current = new Baker()
+            .Track<AlphaTrack, AlphaClip>(new AlphaTrack(5))
+            .Track<BlendTrack, BlendClip>(new BlendTrack(2f))
+            .Clip(0, 0, 2, new AlphaClip(11))
+            .Clip(0, 2, 4, new AlphaClip(22))
+            .Clip(1, 0, 4, new BlendClip(0f))
+            .Clip(1, 2, 4, new BlendClip(10f))
+            .Bake();
+        var legacyBytes = LegacyV2Layout(current);
+        Assert.Equal(2u, BitConverter.ToUInt32(legacyBytes, 4));
+
+        using var modernAsset = TimelineAsset.Load(current);
+        using var legacyAsset = TimelineAsset.Load(legacyBytes);
+        for (var position = 0u; position <= 4u; position++)
+        {
+            var modern = new TimelineComponent(modernAsset.Reference) { Position = (ushort)position };
+            var legacy = new TimelineComponent(legacyAsset.Reference) { Position = (ushort)position };
+            Assert.Equal(AlphaFrames(in modern), AlphaFrames(in legacy));
+            Assert.Equal(BlendFrames(in modern), BlendFrames(in legacy));
+        }
+
+        using var modernLanes = MeasuredLanes.Measure(modernAsset);
+        using var legacyLanes = MeasuredLanes.Measure(legacyAsset);
+        Assert.Equal(LaneWords(modernLanes), LaneWords(legacyLanes));
+    }
+
+    private static byte[] LegacyV2Layout(byte[] current)
+    {
+        uint Word(int at) => BitConverter.ToUInt32(current, at);
+        var frameOffset = (int)Word(40);
+        var hotLength = (int)Word(44);
+        var rowCount = (hotLength - frameOffset) / 24;
+        var legacy = new byte[current.Length + rowCount * 8];
+        Array.Copy(current, legacy, frameOffset);
+        BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(4), 2u);
+        BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(44), (uint)(hotLength + rowCount * 8));
+        BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(48), (uint)(current.Length + rowCount * 8));
+        var pairOffset = (int)Word(28);
+        var pairCount = (int)Word(24);
+        for (var index = 0; index < pairCount; index++)
+            BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(pairOffset + 48 * index + 8), 32u);
+        var stageOffset = (int)Word(32);
+        var stageCount = (int)Word(20);
+        for (var stage = 0; stage < stageCount; stage++)
+        {
+            var programOffset = (int)Word(stageOffset + 16 * stage + 8);
+            var programCount = (int)Word(stageOffset + 16 * stage + 12);
+            for (var step = 0; step < programCount; step++)
+            {
+                var slot = (int)Word(programOffset + 8 * step);
+                BinaryPrimitives.WriteUInt32LittleEndian(legacy.AsSpan(programOffset + 8 * step), (uint)(frameOffset + (slot - frameOffset) / 24 * 32));
+            }
+        }
+        for (var row = 0; row < rowCount; row++)
+        {
+            var from = frameOffset + row * 24;
+            var at = frameOffset + row * 32;
+            Array.Copy(current, from, legacy, at, 24);
+            legacy[at + 6] = 0;
+            legacy[at + 24] = current[from + 6];
+        }
+        return legacy;
+    }
+
+    private static List<(int Track, int Flags, int Length, int Within, int Tick, int Code, int Value)> AlphaFrames(in TimelineComponent component)
+    {
+        var frames = new List<(int, int, int, int, int, int, int)>();
+        foreach (var frame in Timeline.Query<AlphaTrack, AlphaClip>(in component))
+            frames.Add((frame.TrackIndex, (int)frame.Flags, frame.ClipLength, frame.WithinClip, frame.TimelineTick, frame.Track.Code, frame.Clip.Value));
+        return frames;
+    }
+
+    private static List<(int Track, int Flags, int Length, int Within, int Tick, int ScaleBits, int AmountBits)> BlendFrames(in TimelineComponent component)
+    {
+        var frames = new List<(int, int, int, int, int, int, int)>();
+        foreach (var frame in Timeline.Query<BlendTrack, BlendClip>(in component))
+            frames.Add((frame.TrackIndex, (int)frame.Flags, frame.ClipLength, frame.WithinClip, frame.TimelineTick,
+                BitConverter.SingleToInt32Bits(frame.Track.Scale), BitConverter.SingleToInt32Bits(frame.Clip.Amount)));
+        return frames;
+    }
+
+    private static List<uint> LaneWords(MeasuredLanes lanes)
+    {
+        unsafe
+        {
+            var words = new List<uint>();
+            var duration = lanes.Duration;
+            for (var i = 0; i <= duration; i++)
+            {
+                words.Add(BitConverter.SingleToUInt32Bits(lanes.Forward[i]));
+                words.Add(BitConverter.SingleToUInt32Bits(lanes.Backward[i]));
+            }
+            return words;
+        }
+    }
 }

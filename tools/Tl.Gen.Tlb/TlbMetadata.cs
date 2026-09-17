@@ -38,8 +38,9 @@ public static class TlbMetadata
     {
         if (tlb.Length < 64)
             throw new ArgumentException("TLB asset is truncated.");
+        var version = BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(4));
         if (BinaryPrimitives.ReadUInt32LittleEndian(tlb) != 0x31424C54u ||
-            BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(4)) != 3u ||
+            (version != 2u && version != 3u) ||
             BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(48)) != (uint)tlb.Length)
             throw new ArgumentException("TLB asset header is invalid.");
         var hotLength = BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(44));
