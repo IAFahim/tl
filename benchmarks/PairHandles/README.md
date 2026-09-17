@@ -8,7 +8,7 @@ Receipts for issue #160: the pair-typed many-timeline lane `Timeline<TTrack, TCl
 
 The same guarantee is unit-receipted in `tests/Tl.Core.Tests/PairHandleLaneTests.cs` (varied handles vs per-asset lanes, per-row looping durations, both `Bind` overloads, guards, 0 B warm).
 
-## Throughput (this machine, 100,000 rows, InProcess + default job, 0 B)
+## Throughput (this machine, 100,000 rows, InProcess + default job; table shows default-job medians)
 
 | Shape | Median | vs gold |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ The same guarantee is unit-receipted in `tests/Tl.Core.Tests/PairHandleLaneTests
 | `PairRuns8` — eight variants, rows grouped by handle | 57.0 us (0.570 ns/row) | 3.58x |
 | `PairAlternating8` — eight variants alternating per row | 132.6 us (1.326 ns/row) | 8.34x |
 
-Reading: `PairOne` sits exactly on the `TimelineSet` uniform path — the typed façade adds nothing over the set (it is the same slot bank and kernels). The grouped and alternating shapes are the set's known uniform-run and mixed-id costs; alternating per-row distinct assets carries the historical alternating-ids receipt (~1.2-1.7 ns/row in the #104/#113 records). Raw BDN output: `results/validated/`.
+Reading: `PairOne` sits exactly on the `TimelineSet` uniform path — the typed façade adds nothing over the set (it is the same slot bank and kernels). The grouped and alternating shapes are the set's known uniform-run and mixed-id costs; alternating per-row distinct assets carries the historical alternating-ids receipt (~1.2-1.7 ns/row in the #104/#113 records). Every default-job row allocates 0 B; the single 1 B on the InProcess alternating shape is the same emitted-toolchain harness artifact recorded for #148. Raw BDN output: `results/validated/`.
 
 ## Why handles are ushort
 
