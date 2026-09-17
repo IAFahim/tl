@@ -1,0 +1,44 @@
+{
+  "duration": 8,
+  "loop": false,
+  "tracks": [
+    {
+      "name": "left",
+      "namespace": "Tlb",
+      "type": "AlphaTrack",
+      "data": {
+        "Code": 1
+      },
+      "clips": [
+        {
+          "namespace": "Tlb",
+          "type": "AlphaClip",
+          "start": 0,
+          "end": 4,
+          "data": {
+            "Value": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "right",
+      "namespace": "Tlb",
+      "type": "AlphaTrack",
+      "data": {
+        "Code": 2
+      },
+      "clips": [
+        {
+          "namespace": "Tlb",
+          "type": "AlphaClip",
+          "start": 4,
+          "end": 8,
+          "data": {
+            "Value": 2
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "name": "oracle_asset",
+  "duration": 8,
+  "loop": false,
+  "tracks": [
+    {
+      "name": "combat",
+      "namespace": "Tlb",
+      "type": "DualTrack",
+      "data": {
+        "Code": 1
+      },
+      "clips": [
+        {
+          "name": "a1",
+          "namespace": "Tlb",
+          "type": "DualAlphaClip",
+          "start": 0,
+          "end": 6,
+          "data": {
+            "Value": 10
+          }
+        },
+        {
+          "name": "b1",
+          "namespace": "Tlb",
+          "type": "DualBetaClip",
+          "start": 1,
+          "end": 7,
+          "data": {
+            "Amount": 1.5
+          }
+        },
+        {
+          "name": "a2",
+          "namespace": "Tlb",
+          "type": "DualAlphaClip",
+          "start": 3,
+          "end": 8,
+          "data": {
+            "Value": 30
+          }
+        }
+      ]
+    },
+    {
+      "name": "echo_lane",
+      "namespace": "Tlb",
+      "type": "EchoTrack",
+      "data": {
+        "Code": 5
+      },
+      "clips": [
+        {
+          "name": "e1",
+          "namespace": "Tlb",
+          "type": "EchoClip",
+          "start": 0,
+          "end": 4,
+          "data": {
+            "Value": 7
+          }
+        }
+      ]
+    }
+  ]
+}

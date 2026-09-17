@@ -1,0 +1,25 @@
+{
+  "name": "window",
+  "duration": 20,
+  "loop": false,
+  "tracks": [
+    {
+      "namespace": "ManyEntities",
+      "type": "WindowTrack",
+      "data": {
+        "Power": 2
+      },
+      "clips": [
+        {
+          "namespace": "ManyEntities",
+          "type": "WindowClip",
+          "start": 0,
+          "end": 20,
+          "data": {
+            "Amount": 4
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -31,10 +31,10 @@ public static unsafe class PlayRuntime
             }
     }
 
-    static void ExecuteScale(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    static void ExecuteScale(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         AmountClip scratch = default;
-        var frame = TickFrame.ToFrame<ScaleTrack, AmountClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<ScaleTrack, AmountClip>(slot, pair, tick, flags, ref scratch);
         var sign = frame.Has(FrameFlags.Reverse) ? -1f : 1f;
         ((float*)columns[0])[row] += sign * frame.Clip.Amount * frame.Track.Scale;
     }

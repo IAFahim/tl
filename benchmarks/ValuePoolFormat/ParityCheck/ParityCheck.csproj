@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Tl.Core/Tl.Core.csproj" />
+    <ProjectReference Include="../../../tools/Tl.Gen.Tlb/Tl.Gen.Tlb.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../tools/Tl.Bake.Tests/FusedFixtures.cs" Link="Domain/FusedFixtures.cs" />
+    <Compile Include="../../../tools/Tl.Bake.Tests/FusedGlobalFixtures.cs" Link="Domain/FusedGlobalFixtures.cs" />
+    <Compile Include="../../../tools/Tl.Bake.Tests/IntrospectionFixtures.cs" Link="Domain/IntrospectionFixtures.cs" />
+    <Compile Include="../../../tools/Tl.Bake.Tests/TlbFixtures.cs" Link="Domain/TlbFixtures.cs" />
+    <Compile Include="../../../samples/ManyEntities/Domain.cs" Link="Domain/ManyEntities.cs" />
+    <Compile Include="../../../samples/NuGetQuickStart/Domain.cs" Link="Domain/NuGetQuickStart.cs" />
+  </ItemGroup>
+
+</Project>

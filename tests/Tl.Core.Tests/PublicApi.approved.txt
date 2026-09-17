@@ -44,16 +44,17 @@ type Tl.MeasuredLanes
   Property Boolean Looping
   Method Tl.MeasuredLanes Measure(Tl.TimelineAsset)
 type Tl.PairRuntime`2
-  Method Void Consume(System.Void(System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
-  Method Void Consume(System.Void(System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
-  Method Void Consume(System.Void(System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*), Tl.TickPurity)
+  Method Void Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
+  Method Void Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
+  Method Void Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*), Tl.TickPurity)
   Field UInt64 Key
 type Tl.TickFrame
   Field Tl.FrameFlags Flags
+  Field Void* Pair
   Field Void* Slot
   Field UInt16 TimelineTick
   Method Tl.Frame`2[TTrack,TClip] ToFrame[TTrack,TClip](TClip ByRef)
-  Method Tl.Frame`2[TTrack,TClip] ToFrame[TTrack,TClip](Void*, UInt16, Tl.FrameFlags, TClip ByRef)
+  Method Tl.Frame`2[TTrack,TClip] ToFrame[TTrack,TClip](Void*, Void*, UInt16, Tl.FrameFlags, TClip ByRef)
 type Tl.TickPurity
   Field Tl.TickPurity PerTick
   Field Tl.TickPurity WindowConstant

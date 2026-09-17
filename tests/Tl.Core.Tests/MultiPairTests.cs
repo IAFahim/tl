@@ -46,15 +46,15 @@ public unsafe class MultiPairTests
     {
     }
 
-    private static void DualAlphaExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void DualAlphaExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
     }
 
-    private static void DualBetaExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void DualBetaExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
     }
 
-    private static void EchoExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    private static void EchoExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
     }
     [Fact]

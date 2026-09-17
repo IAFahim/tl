@@ -8,7 +8,7 @@ namespace Tl.Gen.Tlb;
 
 public static class BakeCacheKey
 {
-    public const string ToolVersion = "tlbake-bake-v2";
+    public const string ToolVersion = "tlbake-bake-v3";
 
     public static byte[] Compute(byte[] inputJson, IReadOnlyList<byte[]> assemblyFiles, bool strip) =>
         Compute(ToolVersion, inputJson, assemblyFiles, strip);

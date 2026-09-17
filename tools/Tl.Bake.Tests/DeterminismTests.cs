@@ -105,8 +105,8 @@ public class DeterminismTests
 
         Assert.Equal(once, twice);
         Assert.False(TlbMetadata.HasMetadata(once));
-        Assert.Equal(0u, BitConverter.ToUInt32(once, 40));
-        Assert.Equal((uint)once.Length, BitConverter.ToUInt32(once, 44));
+        Assert.Equal((uint)once.Length, BitConverter.ToUInt32(once, 48));
+        Assert.Equal(BitConverter.ToUInt32(once, 44), BitConverter.ToUInt32(once, 48));
         using var asset = TimelineAsset.Load(once);
     }
 

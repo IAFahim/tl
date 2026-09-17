@@ -1,0 +1,67 @@
+{
+  "name": "boss_phase_one",
+  "duration": 64,
+  "loop": true,
+  "tracks": [
+    {
+      "name": "main_damage",
+      "namespace": "Tlb",
+      "type": "DualTrack",
+      "data": {
+        "Code": 2
+      },
+      "clips": [
+        {
+          "name": "opening_hit",
+          "namespace": "Tlb",
+          "type": "DualAlphaClip",
+          "start": 0,
+          "end": 12,
+          "data": {
+            "Value": 5
+          }
+        },
+        {
+          "name": "mid_stun",
+          "namespace": "Tlb",
+          "type": "DualBetaClip",
+          "start": 20,
+          "end": 26,
+          "data": {
+            "Amount": 2
+          }
+        },
+        {
+          "name": "heavy_hit",
+          "namespace": "Tlb",
+          "type": "DualAlphaClip",
+          "start": 40,
+          "end": 52,
+          "data": {
+            "Value": 9
+          }
+        }
+      ]
+    },
+    {
+      "name": "armor_buff",
+      "namespace": "Tlb",
+      "type": "BlendTrack",
+      "data": {
+        "Scale": 0.5
+      },
+      "clips": [
+        {
+          "name": "ramp_up",
+          "namespace": "Tlb",
+          "type": "BlendClip",
+          "start": 8,
+          "end": 30,
+          "data": {
+            "Amount": 3
+          }
+        }
+      ]
+    }
+  ]
+}

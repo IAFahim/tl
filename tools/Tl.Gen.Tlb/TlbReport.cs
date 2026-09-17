@@ -15,15 +15,14 @@ public static class TlbReport
         var totalBytes = (uint)tlb.Length;
         var pairOffset = Word(tlb, 28);
         var stageOffset = Word(tlb, 32);
-        var frameOffset = Word(tlb, 36);
+        var poolOffset = Word(tlb, 36);
+        var frameOffset = Word(tlb, 40);
         var pairCount = Word(tlb, 24);
         var stageCount = Word(tlb, 20);
-        if (pairOffset < 48 || (ulong)pairOffset + 16ul * pairCount > stageOffset)
-            throw new ArgumentException("TLB1 pair table is out of bounds.");
-        if ((ulong)stageOffset + 16ul * stageCount > hotBytes)
-            throw new ArgumentException("TLB1 stage table is out of bounds.");
-        if (frameOffset < (ulong)stageOffset + 16ul * stageCount || frameOffset > hotBytes)
-            throw new ArgumentException("TLB1 frame region is out of bounds.");
+        if (pairOffset < 64 || (ulong)pairOffset + 48ul * pairCount > stageOffset)
+            throw new ArgumentException("TLB pair table is out of bounds.");
+        if ((ulong)stageOffset + 16ul * stageCount > poolOffset || poolOffset > frameOffset || frameOffset > hotBytes)
+            throw new ArgumentException("TLB section layout is out of bounds.");
 
         ulong steps = 0;
         for (var index = 0; index < stageCount; index++)
@@ -37,11 +36,36 @@ public static class TlbReport
         Line(lines, "pair/count", pairCount);
         Line(lines, "stage/count", stageCount);
         Line(lines, "program/step-count", steps);
+        Line(lines, "pool/region-bytes", frameOffset - poolOffset);
         Line(lines, "frame-slot/region-bytes", hotBytes - frameOffset);
         Line(lines, "instance/state-bytes", (ulong)Unsafe.SizeOf<TimelineComponent>());
+        AppendPools(lines, tlb, (int)pairOffset, (int)pairCount);
         AppendLabels(lines, tlb);
         return lines.ToString();
     }
+
+    private static void AppendPools(StringBuilder lines, ReadOnlySpan<byte> tlb, int pairOffset, int pairCount)
+    {
+        ulong values = 0;
+        ulong valueBytes = 0;
+        for (var index = 0; index < pairCount; index++)
+        {
+            var at = pairOffset + 48 * index;
+            var trackCount = Word(tlb, at + 16);
+            var trackValueBytes = Word(tlb, at + 20);
+            var clipCount = Word(tlb, at + 28);
+            var clipValueBytes = Word(tlb, at + 32);
+            Line(lines, $"pool/{index}/track-unique-count", trackCount);
+            Line(lines, $"pool/{index}/clip-unique-count", clipCount);
+            Line(lines, $"pool/{index}/pool-bytes", Align16(trackCount * trackValueBytes) + Align16(clipCount * clipValueBytes));
+            values += trackCount + clipCount;
+            valueBytes += (ulong)trackCount * trackValueBytes + (ulong)clipCount * clipValueBytes;
+        }
+        Line(lines, "pool/unique-count", values);
+        Line(lines, "pool/value-bytes", valueBytes);
+    }
+
+    private static uint Align16(uint value) => (value + 15u) & ~15u;
 
     private static void AppendLabels(StringBuilder lines, ReadOnlySpan<byte> tlb)
     {

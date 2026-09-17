@@ -91,24 +91,24 @@ public static unsafe class Recording
             .SelectMany(group => group.OrderBy(record => record.Pair).Select(record => (record.Pair, record.Tick, record.Value)))
             .ToList();
 
-    static void AlphaExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    static void AlphaExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         Tlb.DualAlphaClip scratch = default;
-        var frame = TickFrame.ToFrame<Tlb.DualTrack, Tlb.DualAlphaClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<Tlb.DualTrack, Tlb.DualAlphaClip>(slot, pair, tick, flags, ref scratch);
         Records.Add(new TlbRecord('A', tick, frame.Clip.Value));
     }
 
-    static void BetaExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    static void BetaExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         Tlb.DualBetaClip scratch = default;
-        var frame = TickFrame.ToFrame<Tlb.DualTrack, Tlb.DualBetaClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<Tlb.DualTrack, Tlb.DualBetaClip>(slot, pair, tick, flags, ref scratch);
         Records.Add(new TlbRecord('B', tick, frame.Clip.Amount));
     }
 
-    static void EchoExecute(byte* slot, ushort tick, FrameFlags flags, void** columns, int row)
+    static void EchoExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         Tlb.EchoClip scratch = default;
-        var frame = TickFrame.ToFrame<Tlb.EchoTrack, Tlb.EchoClip>(slot, tick, flags, ref scratch);
+        var frame = TickFrame.ToFrame<Tlb.EchoTrack, Tlb.EchoClip>(slot, pair, tick, flags, ref scratch);
         Records.Add(new TlbRecord('E', tick, frame.Clip.Value));
     }
 
