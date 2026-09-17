@@ -9,29 +9,53 @@ namespace Tl.Bake.Tests;
 public class ReportTests
 {
     private const string OracleReport =
-        "tlb/total-bytes: 1094\n" +
-        "tlb/hot-bytes: 720\n" +
+        "tlb/total-bytes: 1302\n" +
+        "tlb/hot-bytes: 928\n" +
         "tlb/metadata-bytes: 374\n" +
-        "pair/table-bytes: 48\n" +
+        "pair/table-bytes: 144\n" +
         "pair/count: 3\n" +
         "stage/count: 6\n" +
         "program/step-count: 13\n" +
+        "pool/region-bytes: 96\n" +
         "frame-slot/region-bytes: 416\n" +
         "instance/state-bytes: 16\n" +
+        "pool/0/track-unique-count: 1\n" +
+        "pool/0/clip-unique-count: 2\n" +
+        "pool/0/pool-bytes: 32\n" +
+        "pool/1/track-unique-count: 1\n" +
+        "pool/1/clip-unique-count: 1\n" +
+        "pool/1/pool-bytes: 32\n" +
+        "pool/2/track-unique-count: 1\n" +
+        "pool/2/clip-unique-count: 1\n" +
+        "pool/2/pool-bytes: 32\n" +
+        "pool/unique-count: 7\n" +
+        "pool/value-bytes: 28\n" +
         "label/root-count: 1\n" +
         "label/track-count: 2\n" +
         "label/clip-count: 4\n";
 
     private const string StrippedReport =
-        "tlb/total-bytes: 720\n" +
-        "tlb/hot-bytes: 720\n" +
+        "tlb/total-bytes: 928\n" +
+        "tlb/hot-bytes: 928\n" +
         "tlb/metadata-bytes: 0\n" +
-        "pair/table-bytes: 48\n" +
+        "pair/table-bytes: 144\n" +
         "pair/count: 3\n" +
         "stage/count: 6\n" +
         "program/step-count: 13\n" +
+        "pool/region-bytes: 96\n" +
         "frame-slot/region-bytes: 416\n" +
         "instance/state-bytes: 16\n" +
+        "pool/0/track-unique-count: 1\n" +
+        "pool/0/clip-unique-count: 2\n" +
+        "pool/0/pool-bytes: 32\n" +
+        "pool/1/track-unique-count: 1\n" +
+        "pool/1/clip-unique-count: 1\n" +
+        "pool/1/pool-bytes: 32\n" +
+        "pool/2/track-unique-count: 1\n" +
+        "pool/2/clip-unique-count: 1\n" +
+        "pool/2/pool-bytes: 32\n" +
+        "pool/unique-count: 7\n" +
+        "pool/value-bytes: 28\n" +
         "label/root-count: 0\n" +
         "label/track-count: 0\n" +
         "label/clip-count: 0\n";

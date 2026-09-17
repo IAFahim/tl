@@ -1,0 +1,23 @@
+{
+  "duration": 20,
+  "tracks": [
+    {
+      "namespace": "Tlb",
+      "type": "AlphaTrack",
+      "clips": [
+        {
+          "namespace": "Tlb",
+          "type": "AlphaClip",
+          "start": 5,
+          "end": 15
+        },
+        {
+          "namespace": "Tlb",
+          "type": "AlphaClip",
+          "start": 5,
+          "end": 18
+        }
+      ]
+    }
+  ]
+}

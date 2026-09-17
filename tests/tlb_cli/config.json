@@ -8,7 +8,7 @@
       "options": { "assemblies": ["$testAssembly"] },
       "expected": {
         "exitCode": 0,
-        "output": { "path": "$out/alpha.tlb", "sha256": "19ea766222110b3655971d29af4e3f51aae7732c9fbbb6ddaf702d9ed5a90f91" }
+        "output": { "path": "$out/alpha.tlb", "sha256": "fb6a6a0108ee0519dcc948040c88db1a73086b9c11a6a42259db0553198f26db" }
       }
     },
     {
@@ -33,7 +33,7 @@
           { "stdoutContains": ["cache: miss"] },
           { "stdoutContains": ["cache: hit"] }
         ],
-        "output": { "path": "$out/alpha.tlb", "sha256": "19ea766222110b3655971d29af4e3f51aae7732c9fbbb6ddaf702d9ed5a90f91" }
+        "output": { "path": "$out/alpha.tlb", "sha256": "fb6a6a0108ee0519dcc948040c88db1a73086b9c11a6a42259db0553198f26db" }
       }
     },
     {
@@ -51,7 +51,7 @@
       "inputs": { "tlb": "$out/alpha.tlb" },
       "expected": {
         "exitCode": 0,
-        "stdoutContains": ["tlb/total-bytes: 424", "pair/count: 1", "label/clip-count: 2"]
+        "stdoutContains": ["tlb/total-bytes: 472", "pair/count: 1", "pool/0/track-unique-count: 1", "pool/0/clip-unique-count: 2", "pool/unique-count: 3", "label/clip-count: 2"]
       }
     },
     {
@@ -60,7 +60,7 @@
       "inputs": { "tlb": "$out/alpha.tlb" },
       "expected": {
         "exitCode": 0,
-        "output": { "path": "$out/alpha.stripped.tlb", "sha256": "de5d5187f8077ee6ca331e7e6a5a9bd1e638e0e2ba2b46ea514c529545f72fc9" }
+        "output": { "path": "$out/alpha.stripped.tlb", "sha256": "f5953dc5aaaee1806ca89dbf5363592676ae628e80ae1095b98f8e56ecfb7f34" }
       }
     },
     {

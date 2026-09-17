@@ -1,0 +1,24 @@
+{
+  "name": "Cone",
+  "duration": 3,
+  "loop": false,
+  "tracks": [
+    {
+      "name": "ticks",
+      "namespace": "",
+      "type": "GaGlobalTrack",
+      "clips": [
+        {
+          "name": "s1",
+          "namespace": "",
+          "type": "GaGlobalClip",
+          "data": {
+            "Amount": 0.5
+          },
+          "start": 1,
+          "end": 3
+        }
+      ]
+    }
+  ]
+}

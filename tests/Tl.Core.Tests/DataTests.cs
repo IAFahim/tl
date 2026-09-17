@@ -68,11 +68,11 @@ public unsafe class DataTests
         Assert.Throws<ArgumentException>(() => TimelineAsset.Load(magic));
 
         var version = FiniteBake();
-        version[4] = 2;
+        version[4] = 3;
         Assert.Throws<ArgumentException>(() => TimelineAsset.Load(version));
 
         var size = FiniteBake();
-        size[44] = 7;
+        size[48] = 7;
         Assert.Throws<ArgumentException>(() => TimelineAsset.Load(size));
 
         var misaligned = FiniteBake();
@@ -87,11 +87,11 @@ public unsafe class DataTests
             .Bake();
         var pairOffset = BitConverter.ToUInt32(unsorted, 28);
         var first = BinaryPrimitives.ReadUInt64LittleEndian(unsorted.AsSpan((int)pairOffset));
-        var second = BinaryPrimitives.ReadUInt64LittleEndian(unsorted.AsSpan((int)pairOffset + 16));
+        var second = BinaryPrimitives.ReadUInt64LittleEndian(unsorted.AsSpan((int)pairOffset + 48));
         if (first < second)
         {
             BinaryPrimitives.WriteUInt64LittleEndian(unsorted.AsSpan((int)pairOffset), second);
-            BinaryPrimitives.WriteUInt64LittleEndian(unsorted.AsSpan((int)pairOffset + 16), first);
+            BinaryPrimitives.WriteUInt64LittleEndian(unsorted.AsSpan((int)pairOffset + 48), first);
         }
 
         Assert.Throws<ArgumentException>(() => TimelineAsset.Load(unsorted));

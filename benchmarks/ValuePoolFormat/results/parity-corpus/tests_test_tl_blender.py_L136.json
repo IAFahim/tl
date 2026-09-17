@@ -1,0 +1,51 @@
+{
+  "name": "Cube",
+  "duration": 25,
+  "loop": true,
+  "tracks": [
+    {
+      "name": "hits",
+      "namespace": "",
+      "type": "GaGlobalTrack",
+      "clips": [
+        {
+          "name": "hit_a",
+          "namespace": "",
+          "type": "GaGlobalClip",
+          "data": {
+            "Amount": 2.5
+          },
+          "start": 0,
+          "end": 12
+        },
+        {
+          "name": "hit_b",
+          "namespace": "",
+          "type": "GaGlobalClip",
+          "data": {
+            "Amount": 1.0
+          },
+          "start": 19,
+          "end": 25
+        }
+      ]
+    },
+    {
+      "name": "rings",
+      "namespace": "",
+      "type": "GaGlobalTrack",
+      "clips": [
+        {
+          "name": "ring",
+          "namespace": "",
+          "type": "GaGlobalClip",
+          "data": {
+            "Amount": 0.75
+          },
+          "start": 4,
+          "end": 8
+        }
+      ]
+    }
+  ]
+}

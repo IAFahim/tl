@@ -18,14 +18,7 @@ internal interface IPairHelper
     ulong Key { get; }
     int ClipSize { get; }
     int TrackSize { get; }
-    ushort Stride { get; }
-    ISlotWriter CreateWriter();
     unsafe void CopyPayload(byte* dst, object box);
-}
-
-internal interface ISlotWriter
-{
-    unsafe void Write(byte* dst, byte* track, byte* first, bool hasSecond, byte* second, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan, byte trackIndex);
 }
 
 internal sealed class PairHelper<TTrack, TClip> : IPairHelper
@@ -35,30 +28,7 @@ internal sealed class PairHelper<TTrack, TClip> : IPairHelper
     public ulong Key => PairRuntime<TTrack, TClip>.Key;
     public int ClipSize => Unsafe.SizeOf<TClip>();
     public int TrackSize => Unsafe.SizeOf<TTrack>();
-    public ushort Stride => (ushort)((Unsafe.SizeOf<Slot<TTrack, TClip>>() + 15) & ~15);
-    public ISlotWriter CreateWriter() => new SlotWriter<TTrack, TClip>();
     public unsafe void CopyPayload(byte* dst, object box) => *(TClip*)dst = (TClip)box;
-}
-
-internal sealed unsafe class SlotWriter<TTrack, TClip> : ISlotWriter
-    where TTrack : unmanaged, IBlend<TClip>
-    where TClip : unmanaged
-{
-    public void Write(byte* dst, byte* track, byte* first, bool hasSecond, byte* second, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan, byte trackIndex)
-    {
-        var slot = new Slot<TTrack, TClip>
-        {
-            Track = *(TTrack*)track,
-            First = *(TClip*)first,
-            Second = hasSecond ? *(TClip*)second : default,
-            WindowStart = windowStart,
-            WindowEnd = windowEnd,
-            FactorStart = factorStart,
-            FactorSpan = factorSpan,
-            TrackIndex = trackIndex,
-        };
-        MemoryMarshal.Write(new Span<byte>(dst, sizeof(Slot<TTrack, TClip>)), in slot);
-    }
 }
 
 internal interface ITypeHelper
@@ -225,8 +195,7 @@ internal sealed class FastPairInfo
     internal Type ClipType = null!;
     internal ulong Key;
     internal int ClipSize;
-    internal ushort Stride;
-    internal ISlotWriter Writer = null!;
+    internal int TrackSize;
     internal IPairHelper Helper = null!;
     internal FieldTable Fields = null!;
     internal byte[] Pool = new byte[1 << 16];
@@ -355,8 +324,7 @@ internal static class TimelineBakerFast
             ClipType = clipType,
             Key = helper.Key,
             ClipSize = helper.ClipSize,
-            Stride = helper.Stride,
-            Writer = helper.CreateWriter(),
+            TrackSize = helper.TrackSize,
             Helper = helper,
             Fields = TableFor(clipType),
         };
@@ -1355,6 +1323,7 @@ internal static class TimelineBakerFastCore
         public FastPairInfo Pair = null!;
         public int TrackEntry;
         public byte[] TrackBytes = null!;
+        public ushort TrackValueIndex;
         public List<int> ClipIds = new();
     }
 
@@ -1644,22 +1613,38 @@ internal static class TimelineBakerFastCore
                     pairKeys.Add(lane.Pair.Key);
             pairKeys.Sort();
             var pairIndex = new Dictionary<ulong, int>();
-            var pairs = new (ulong Key, uint Stride)[pairKeys.Count];
             for (var i = 0; i < pairKeys.Count; i++)
-            {
                 pairIndex[pairKeys[i]] = i;
-                foreach (var lane in lanes)
-                    if (lane.Pair.Key == pairKeys[i])
-                    {
-                        pairs[i] = (pairKeys[i], lane.Pair.Stride);
-                        break;
-                    }
-            }
-            var pairTypes = new (Type Track, Type Clip)[pairs.Length];
+            var pairCount = pairKeys.Count;
+
+            var pairTypes = new (Type Track, Type Clip)[pairCount];
+            foreach (var lane in lanes)
+                pairTypes[pairIndex[lane.Pair.Key]] = (lane.Pair.TrackType, lane.Pair.ClipType);
+
+            var pools = new ValuePoolSet[pairCount];
+            var trackValueBytes = new int[pairCount];
+            var clipValueBytes = new int[pairCount];
             foreach (var lane in lanes)
             {
                 var index = pairIndex[lane.Pair.Key];
-                pairTypes[index] = (lane.Pair.TrackType, lane.Pair.ClipType);
+                if (pools[index] != null) continue;
+                var pair = lane.Pair;
+                var members = lanes.Where(item => item.Pair.Key == pair.Key).ToList();
+                pools[index] = ValuePoolSet.Build(
+                    members.Select(item => item.TrackBytes),
+                    members.SelectMany(item => item.ClipIds.Select(clipId => ClipImageOf(pair, clipId))),
+                    pair.TrackType.FullName ?? pair.TrackType.Name,
+                    pair.ClipType.FullName ?? pair.ClipType.Name);
+                trackValueBytes[index] = pair.TrackSize;
+                clipValueBytes[index] = pair.ClipSize;
+            }
+            var clipValueIndex = new ushort[_doc.Clips.Count];
+            foreach (var lane in lanes)
+            {
+                var pool = pools[pairIndex[lane.Pair.Key]];
+                lane.TrackValueIndex = pool.TrackIndex[lane.TrackBytes];
+                foreach (var clipId in lane.ClipIds)
+                    clipValueIndex[clipId] = pool.ClipIndex[ClipImageOf(lane.Pair, clipId)];
             }
 
             foreach (var lane in lanes)
@@ -1732,13 +1717,27 @@ internal static class TimelineBakerFastCore
                 stageCoverings[region] = coverings;
             }
 
-            var pairOffset = 48u;
-            var stageOffset = pairOffset + 16u * (uint)pairs.Length;
-            var programBase = stageOffset + 16u * (uint)stageCount;
+            var pairOffset = TlbLayout.HeaderBytes;
+            var stageOffset = pairOffset + TlbLayout.PairEntryBytes * (uint)pairCount;
+            var programBase = stageOffset + TlbLayout.StageEntryBytes * (uint)stageCount;
             var stepCount = 0;
             foreach (var actives in stageActives)
                 stepCount += actives.Length;
-            var frameOffset = (programBase + 8u * (uint)stepCount + 15u) & ~15u;
+            var poolOffset = TlbLayout.Align16(programBase + TlbLayout.StepBytes * (uint)stepCount);
+
+            var poolSpans = new (uint TrackRel, uint ClipRel, uint TrackCount, uint ClipCount)[pairCount];
+            var poolCursor = poolOffset;
+            for (var index = 0; index < pairCount; index++)
+            {
+                var pool = pools[index];
+                var pairAddress = pairOffset + TlbLayout.PairEntryBytes * (uint)index;
+                var trackRel = poolCursor - pairAddress;
+                poolCursor = TlbLayout.Align16(poolCursor + (uint)pool.TrackEntries.Count * (uint)trackValueBytes[index]);
+                var clipRel = poolCursor - pairAddress;
+                poolCursor = TlbLayout.Align16(poolCursor + (uint)pool.ClipEntries.Count * (uint)clipValueBytes[index]);
+                poolSpans[index] = (trackRel, clipRel, (uint)pool.TrackEntries.Count, (uint)pool.ClipEntries.Count);
+            }
+            var frameOffset = TlbLayout.Align16(poolCursor);
 
             var totalOccurrences = stepCount;
             var occurrenceOffsets = new uint[totalOccurrences];
@@ -1758,41 +1757,49 @@ internal static class TimelineBakerFastCore
                         occurrenceStage[oi] = stage;
                         occurrenceActiveIdx[oi] = i;
                         oi++;
-                        cursor += lane.Pair.Stride;
+                        cursor += TlbLayout.SlotRowBytes;
                     }
             }
 
             var hotLength = frameOffset;
             for (var oi = 0; oi < totalOccurrences; oi++)
-                hotLength += lanes[stageActives[occurrenceStage[oi]][occurrenceActiveIdx[oi]]].Pair.Stride;
+                hotLength += TlbLayout.SlotRowBytes;
 
             var tail = TlbMetadataBuilder.Build(pairTypes, labels);
             var bytes = new byte[hotLength + tail.Length];
 
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), 0x31424C54u);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 1u);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), TlbLayout.Magic);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), TlbLayout.Version);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), _doc.Loops ? 1u : 0u);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), duration);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), (uint)_doc.Tracks.Count);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(20), (uint)stageCount);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(24), (uint)pairs.Length);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(24), (uint)pairCount);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(28), pairOffset);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(32), stageOffset);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(36), frameOffset);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(40), (uint)hotLength);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(44), (uint)bytes.Length);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(36), poolOffset);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(40), frameOffset);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(44), hotLength);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(48), (uint)bytes.Length);
 
-            for (var index = 0; index < pairs.Length; index++)
+            for (var index = 0; index < pairCount; index++)
             {
-                BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan((int)pairOffset + 16 * index), pairs[index].Key);
-                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)pairOffset + 16 * index + 8), pairs[index].Stride);
+                var at = (int)pairOffset + 48 * index;
+                BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(at), pairKeys[index]);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 8), TlbLayout.SlotRowBytes);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 12), poolSpans[index].TrackRel);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 16), poolSpans[index].TrackCount);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 20), (uint)trackValueBytes[index]);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 24), poolSpans[index].ClipRel);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 28), poolSpans[index].ClipCount);
+                BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 32), (uint)clipValueBytes[index]);
             }
 
             var programOffset = programBase;
             var occurrenceCursor = 0;
             for (var stage = 0; stage < stageCount; stage++)
             {
-                var at = stageOffset + 16u * (uint)stage;
+                var at = stageOffset + TlbLayout.StageEntryBytes * (uint)stage;
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)at), stageEdges[stage].Start);
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)at + 4), stageEdges[stage].End);
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)at + 8), programOffset);
@@ -1801,8 +1808,26 @@ internal static class TimelineBakerFastCore
                 {
                     BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)programOffset), occurrenceOffsets[occurrenceCursor]);
                     BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)programOffset + 4), (uint)occurrencePairs[occurrenceCursor]);
-                    programOffset += 8u;
+                    programOffset += TlbLayout.StepBytes;
                     occurrenceCursor++;
+                }
+            }
+
+            for (var index = 0; index < pairCount; index++)
+            {
+                var pool = pools[index];
+                var pairAddress = (int)(pairOffset + TlbLayout.PairEntryBytes * (uint)index);
+                var at = pairAddress + (int)poolSpans[index].TrackRel;
+                foreach (var image in pool.TrackEntries)
+                {
+                    image.CopyTo(bytes, at);
+                    at += image.Length;
+                }
+                at = pairAddress + (int)poolSpans[index].ClipRel;
+                foreach (var image in pool.ClipEntries)
+                {
+                    image.CopyTo(bytes, at);
+                    at += image.Length;
                 }
             }
 
@@ -1810,7 +1835,6 @@ internal static class TimelineBakerFastCore
                 var oi = 0;
                 for (var stage = 0; stage < stageCount; stage++)
                 {
-                    var edge = stageEdges[stage].Start;
                     for (var i = 0; i < stageActives[stage].Length; i++)
                     {
                         var laneIdx = stageActives[stage][i];
@@ -1827,7 +1851,17 @@ internal static class TimelineBakerFastCore
                             factorStart = Math.Max(first.Start, second.Start);
                             factorSpan = Math.Min(first.End, second.End) - factorStart;
                         }
-                        WriteOccurrence(bytes, (int)occurrenceOffsets[oi], lane, first, second, windowStart, windowEnd, factorStart, factorSpan, (byte)lane.TrackEntry);
+                        TlbLayout.WriteRow(
+                            bytes,
+                            (int)occurrenceOffsets[oi],
+                            lane.TrackValueIndex,
+                            clipValueIndex[covering.First],
+                            covering.Second >= 0 ? clipValueIndex[covering.Second] : TlbLayout.NoClipIndex,
+                            windowStart,
+                            windowEnd,
+                            factorStart,
+                            factorSpan,
+                            (byte)lane.TrackEntry);
                         oi++;
                     }
                 }
@@ -1841,27 +1875,18 @@ internal static class TimelineBakerFastCore
             }
             catch (ArgumentException ex)
             {
-                throw new BakeDiagnosticException($"TLB1 validation failed: {ex.Message}");
+                throw new BakeDiagnosticException($"TLB validation failed: {ex.Message}");
             }
 
             return bytes;
         }
 
-        private static unsafe void WriteOccurrence(byte[] bytes, int offset, Lane lane, FastClip first, FastClip? second, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan, byte trackEntry)
+        private byte[] ClipImageOf(FastPairInfo pair, int clipId)
         {
-            fixed (byte* dst = bytes)
-            fixed (byte* track = lane.TrackBytes)
-            fixed (byte* pool = lane.Pair.Pool)
-            {
-                lane.Pair.Writer.Write(
-                    dst + offset,
-                    track,
-                    pool + first.PayloadOffset,
-                    second != null,
-                    second != null ? pool + second.PayloadOffset : pool,
-                    windowStart, windowEnd, factorStart, factorSpan,
-                    trackEntry);
-            }
+            var clip = _doc.Clips[clipId];
+            var image = new byte[pair.ClipSize];
+            Array.Copy(pair.Pool, clip.PayloadOffset, image, 0, pair.ClipSize);
+            return image;
         }
     }
 }

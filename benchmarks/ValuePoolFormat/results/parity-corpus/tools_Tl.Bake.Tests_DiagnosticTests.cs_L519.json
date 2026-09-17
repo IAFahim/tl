@@ -1,0 +1,16 @@
+{
+  "duration": 10,
+  "tracks": [
+    {
+      "namespace": "Tlb",
+      "type": "DualTrack",
+      "clips": [
+        {
+          "type": "DualAlphaClip",
+          "start": 0,
+          "end": 10
+        }
+      ]
+    }
+  ]
+}

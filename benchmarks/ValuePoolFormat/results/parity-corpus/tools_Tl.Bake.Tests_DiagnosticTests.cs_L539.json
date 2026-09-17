@@ -1,0 +1,10 @@
+{
+  "duration": 20,
+  "tracks": [
+    {
+      "namespace": "Tlb",
+      "type": "AlphaTrack",
+      "clips": []
+    }
+  ]
+}

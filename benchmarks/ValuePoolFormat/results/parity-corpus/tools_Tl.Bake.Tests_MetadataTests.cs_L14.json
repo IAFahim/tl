@@ -1,0 +1,33 @@
+{
+  "duration": 4,
+  "loop": false,
+  "tracks": [
+    {
+      "namespace": "Tlb",
+      "type": "AlphaTrack",
+      "data": {
+        "Code": 77
+      },
+      "clips": [
+        {
+          "namespace": "Tlb",
+          "type": "AlphaClip",
+          "start": 0,
+          "end": 2,
+          "data": {
+            "Value": 11
+          }
+        },
+        {
+          "namespace": "Tlb",
+          "type": "AlphaClip",
+          "start": 2,
+          "end": 4,
+          "data": {
+            "Value": 22
+          }
+        }
+      ]
+    }
+  ]
+}

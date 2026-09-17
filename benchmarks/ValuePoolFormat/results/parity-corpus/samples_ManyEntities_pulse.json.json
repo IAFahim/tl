@@ -1,0 +1,25 @@
+{
+  "name": "pulse",
+  "duration": 1,
+  "loop": true,
+  "tracks": [
+    {
+      "namespace": "ManyEntities",
+      "type": "PulseTrack",
+      "data": {
+        "Power": 3
+      },
+      "clips": [
+        {
+          "namespace": "ManyEntities",
+          "type": "PulseClip",
+          "start": 0,
+          "end": 1,
+          "data": {
+            "Amount": 5
+          }
+        }
+      ]
+    }
+  ]
+}

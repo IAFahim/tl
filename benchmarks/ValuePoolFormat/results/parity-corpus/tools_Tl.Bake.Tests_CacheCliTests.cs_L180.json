@@ -1,0 +1,17 @@
+{
+  "duration": 10,
+  "tracks": [
+    {
+      "namespace": "Nope",
+      "type": "MissingTrack",
+      "clips": [
+        {
+          "namespace": "Nope",
+          "type": "MissingClip",
+          "start": 0,
+          "end": 10
+        }
+      ]
+    }
+  ]
+}

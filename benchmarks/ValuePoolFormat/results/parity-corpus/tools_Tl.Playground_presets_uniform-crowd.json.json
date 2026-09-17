@@ -1,0 +1,33 @@
+{
+  "duration": 64,
+  "loop": true,
+  "tracks": [
+    {
+      "namespace": "Play",
+      "type": "ScaleTrack",
+      "data": {
+        "Scale": 1
+      },
+      "clips": [
+        {
+          "namespace": "Play",
+          "type": "AmountClip",
+          "data": {
+            "Amount": 1
+          },
+          "start": 0,
+          "end": 32
+        },
+        {
+          "namespace": "Play",
+          "type": "AmountClip",
+          "data": {
+            "Amount": -2
+          },
+          "start": 40,
+          "end": 64
+        }
+      ]
+    }
+  ]
+}

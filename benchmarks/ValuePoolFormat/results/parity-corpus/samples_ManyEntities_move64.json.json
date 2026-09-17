@@ -1,0 +1,25 @@
+{
+  "name": "move64",
+  "duration": 64,
+  "loop": true,
+  "tracks": [
+    {
+      "namespace": "ManyEntities",
+      "type": "MoveTrack",
+      "data": {
+        "Mult": 2.0
+      },
+      "clips": [
+        {
+          "namespace": "ManyEntities",
+          "type": "MoveClip",
+          "start": 0,
+          "end": 64,
+          "data": {
+            "Amount": 5
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "duration": 10,
+  "tracks": [
+    {
+      "namespace": "Tlb",
+      "type": "AlphaTrack",
+      "clips": [
+        {
+          "namespace": "Tlb",
+          "type": "DualBetaClip",
+          "start": 0,
+          "end": 10
+        }
+      ]
+    }
+  ]
+}
