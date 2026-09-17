@@ -188,7 +188,7 @@ Alpha suite, 47 paired `*DataAuthoredQueryBenchmarks*` medians, pristine
   process-wide `BindCache` in `src/Tl.Core/Data.cs` now publishes and restores
   resolved bind state across constructions; receipts and the remaining regime
   caveats live in
-  [memory-and-performance.md](memory-and-performance.md#shared-bind-cache).
+  [memory-and-performance.md](memory-and-performance.md#shared-bind-cache-removed-surface-retained-receipts).
 - **Multi-column fixed cost: ~300 ns/call** over the minimal write-only
   lane, visible only at tiny row counts; identical before and after.
 - **Read view at ~182 ns/call** was never on a benchmark before; kernel and
