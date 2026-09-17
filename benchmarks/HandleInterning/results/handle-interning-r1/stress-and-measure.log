@@ -1,0 +1,88 @@
+HandleInterning stress: 8 threads, seed 2611923443488327891
+scenario: same-bytes storm (keeper held)
+  PASS storm: no thread exceptions (clean)
+  PASS same bytes -> same handle under concurrency (1 distinct handles, all == keeper entry)
+  PASS exactly one native block allocated (1 allocation for 200000 loads)
+  PASS at most one live block at any moment (peak live 4096 bytes)
+  PASS one live entry while keeper holds (1 live)
+  PASS last release frees the entry (0 live)
+  PASS entry died exactly once (1 deaths)
+scenario: fold-once races
+  PASS fold: no thread exceptions (clean)
+  PASS concurrent first use -> identical effect (1.6038818)
+  PASS fold executed exactly once per (handle, pair) (1 folds)
+  PASS second pair folds independently once (1 folds)
+  PASS fold retention matches table size (67744 retained bytes)
+  PASS guarded walk: no thread exceptions (clean)
+  PASS 100000 guarded advances per thread -> identical sinks (102836.86)
+  PASS no fold during guarded warm walk (2 total folds)
+scenario: mixed payloads
+  PASS mixed: no thread exceptions (clean)
+  PASS shared payloads -> one handle each across threads (4 shared contents, all threads == keeper entries)
+  PASS distinct payloads -> distinct handles (8 thread-unique contents)
+  PASS one block per distinct held content (12 allocations)
+  PASS all released (0 live)
+  PASS native bytes balance (40960 alloc == 8192 freed + 32768 parked)
+scenario: reuse after free
+  PASS freed content re-loads into a fresh block (2 allocations for two loads)
+  PASS reloaded block contents match source bytes (first=233 len=4096)
+  PASS cell reuse bumps the generation so stale observers lose races (gen 2 -> 3)
+  PASS bytes balance across reuse cycles (53248 == 49152 + 4096)
+scenario: over-release detection
+  PASS double dispose is detected and counted instead of corrupting (over-releases 0 -> 1)
+  PASS over-release scenario ends clean (0 live)
+scenario: capacity policy
+  PASS table accepts entries up to the measured bound (15/16 slots capacity)
+  PASS exhaustion fails loudly, never evicts (threw after 15 held entries)
+  PASS capacity scenario releases cleanly (0 live)
+scenario: release races
+  PASS races: no thread exceptions (clean)
+  PASS release races end with zero live references (0 live)
+  PASS last-reference deaths executed during race (4260 deaths)
+  PASS allocation/death counts equal after races (4260 alloc vs 4260 deaths)
+  PASS native bytes balance after races (17503296 == 17499200 + 4096)
+scenario: gc compaction pressure
+  PASS gc pressure: no thread exceptions (clean)
+  PASS compacting GC ran during concurrent load storm (71958 full-blocking collect cycles)
+  PASS native bytes unaffected by compacting GC (2242286656 == 2242278464 + 8192)
+  PASS gc pressure scenario releases cleanly (0 live)
+scenario: same-bytes churn (no keeper)
+  thread 0: created=25000 disposed=25000
+  thread 1: created=25000 disposed=25000
+  thread 2: created=25000 disposed=25000
+  thread 3: created=25000 disposed=25000
+  thread 4: created=25000 disposed=25000
+  thread 5: created=25000 disposed=25000
+  thread 6: created=25000 disposed=25000
+  thread 7: created=25000 disposed=25000
+  PASS churn: no thread exceptions (clean)
+  counters: releases=200000 probeHits=13982 scanMatches=0 publishes=186018 deaths=186018 blips=2115 verifyFails=584 reverts=584 skipped=0 overReleases=2
+  PASS death/rebirth cycles balance (186018 rebirth allocations, alloc == free)
+  FAIL churn reuses the single interned slot without slot exhaustion or over-release (186018 rebirths, 2 over-releases, no exhaustion)
+  PASS single-content churn stays within the concurrent-load accounting bound (peak accounting window 32768 bytes (8 concurrent loads))
+  PASS churn ends with zero live references (0 live)
+  PASS native bytes balanced or parked in the graveyard (3004216384 == 3004212288 + 4096)
+scenario: final balance
+  PASS fold table bytes balance after ResetAll (67744 == 67744)
+  PASS fold table counts balance (2 == 2)
+  PASS total native bytes allocated == freed (3004216384 == 3004216384)
+  PASS total native blocks allocated == freed (553134 == 553134)
+  PASS graveyard drained (0 blocks parked)
+  totals: sink=4929722829 allocBytes=3004216384 foldBytes=67744
+stress: 1 FAILURES
+hand measurement: fold work over 256 cold pairs, warm loops 50000000 reps x 7 runs (median), Stopwatch
+
+  cold first-use (probe miss + fold + publish + resolve): median 38300 ns (38.3 us), min 29900 ns, max 81600 ns
+  steady-state guarded hit (owner+pair check then record walk): 1.252 ns/advance
+  no-guard direct statics (eager-bind world):                   1.212 ns/advance
+  unconditional indirect (hash probe per advance):              2.480 ns/advance
+  guard overhead vs no-guard: +0.040 ns; guard saving vs indirect: +1.228 ns
+
+  amortized first-call cost (fold + N guarded uses, vs N no-guard uses):
+   N          guarded total     no-guard total    amortized guard overhead/use
+           1            38301 ns                1 ns   38300.040 ns
+        1000            39552 ns             1212 ns     38.340 ns
+     1000000          1290392 ns          1212086 ns      0.078 ns
+
+  measure balance: fold 16826428 == 16826428, blocks 553135 == 553135 -> PASS
+EXIT=1
