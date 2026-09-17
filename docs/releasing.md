@@ -1,6 +1,6 @@
 # Release artifacts
 
-`release-artifacts` and `publish-nuget` are separate manual workflows. Building a GitHub prerelease cannot publish a NuGet package. The publish job runs only through the protected `nuget-production` environment on the owner's explicit dispatch; the MIT license decision is recorded in [issue #64](https://github.com/IAFahim/tl/issues/64) and the 1.0.0-alpha.6 packages are published on nuget.org.
+`release-artifacts` and `publish-nuget` are separate manual workflows. Building a GitHub prerelease cannot publish a NuGet package. The publish job runs only through the protected `nuget-production` environment on the owner's explicit dispatch; the MIT license decision is recorded in [issue #64](https://github.com/IAFahim/tl/issues/64) and the 1.0.0-alpha.7 packages are published on nuget.org.
 
 The artifact workflow checks out the fully qualified `refs/tags/<tag>` ref. It rejects a branch with the same short name, checks that the tag is `v` plus the package version, and requires the checked-out commit to be the tag target. It rejects tracked and untracked source changes, performs two isolated restores and builds with the repository commit and tag ref supplied explicitly to MSBuild, normalizes ZIP timestamps without recompressing entries, and requires the two complete package sets to be byte-identical.
 
@@ -10,7 +10,7 @@ The package contract verifies:
 - Every package identifies the exact repository commit and tag ref.
 - Every package path and dependency group matches the approved graph exactly.
 - `Tl.Runtime` has a portable symbol package with embedded source.
-- The generator portable PDB with embedded source stays under the build-only `tools` path.
+- The generator ships without a PDB; the only shipped PDBs are the `Tl.Bake` tool's build-only `tools` path and `Tl.Runtime`'s symbol package.
 - A clean consumer builds and runs from `Tl.CSharp` alone under the JIT and NativeAOT.
 - Generator and Roslyn assemblies do not enter either application output.
 
