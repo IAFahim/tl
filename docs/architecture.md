@@ -8,14 +8,14 @@ flowchart LR
     CS[C# consumer declarations] --> GEN[Tl.Gen.CSharp pair discovery]
     GEN --> BIND[Typed consumer binding]
     BAKE --> BYTES[Baked asset bytes]
-    BYTES --> CORE[Tl.Core validated import and coordinator]
+    BYTES --> CORE[Tl.Core validated import and execution]
     BIND --> CORE
     CORE --> NET[.NET rows and typed frame queries]
     BIND --> UNITY[Unity source materializer]
     UNITY --> ECS[Entities and Burst jobs]
 ```
 
-Baked assets carry type identity, timing, clip windows, and authored order. `Tl.Core` validates imported bytes, owns selection, ordered stage execution, and delayed commit, and exposes read-only typed frame queries. Its public records contain no Roslyn symbol, C# type spelling, callback body, or Unity type.
+Baked assets carry type identity, timing, clip windows, and authored order. `Tl.Core` validates imported bytes, owns selection and ordered stage execution, and exposes read-only typed frame queries. Its public records contain no Roslyn symbol, C# type spelling, callback body, or Unity type.
 
 `Tl.Gen.CSharp` owns Roslyn discovery of consumer pairs, C# semantic binding, operation signatures, diagnostics, and C# source emission. The adapter binds each valid `(track, clip)` consumer to the runtime's operation identities. Hosts consume the validated asset and binding rather than rebuilding regions or ordering independently.
 
@@ -68,20 +68,20 @@ The generator emits consumer bindings, not timeline definitions: one `TlConsumer
 
 - baked asset bytes (header, pair table, stage table, step programs, frame slots)
 - generated binding C# UTF-8 bytes
-- native bind-table bytes per (pair, asset): `2 * max(1, duration) * sizeof(float)`
-- per-row caller state: position (`uint`), cycle (`long`), effect columns
+- native bind-table bytes per (pair, asset): `28 * (duration + 1)`
+- per-row caller state: position (`ushort`), effect columns
 - managed and NativeAOT output bytes
 - warm managed allocation (0 B by receipt)
 
 ## Execution
 
-Warm .NET playback is the typed lane: `Timeline<T>.Seek(positions, forward).Apply(effects, cycles)` scans caller-borrowed columns for run-length groups, resolves each group's effect and next position once through `T`'s static abstract members, and applies with vector adds and fills. `T` is either a hand-authored `ITimelineLane<T>` or `BakedLane<TTrack,TClip>`, whose cold `Bind` measures per-position forward/backward float effects by running the interpreted cold executor over the loaded asset once per position, validating position purity. The hot body has no interface dispatch on the row path, no runtime lookup, reflection, boxing, or allocation.
+Warm .NET playback is the typed lane: `Timeline<T>.Seek(positions, forward).Apply(effects)` scans caller-borrowed columns for run-length groups, resolves each group's effect and next position once through `T`'s static abstract members, and applies with vector adds and fills. `T` is either a hand-authored `ITimelineLane<T>` or `BakedLane<TTrack,TClip>`, whose cold `Bind` measures per-position forward/backward float effects by running the interpreted cold executor over the loaded asset once per position, with `TickPurity.WindowConstant` consumers instead filling blend-constant windows from one evaluation per stage. The hot body has no interface dispatch on the row path, no runtime lookup, reflection, boxing, or allocation.
 
 One row may execute animation→damage→animation while another executes damage→animation; authored occurrence order and its exact reverse are captured in the measured tables. Cold execution and inspection use the interpreted `TimelineRef.Select/Execute` walk and the read-only typed frame queries. The supported parallel domain is row-local mutable components plus immutable shared data.
 
 ## State and lifetime
 
-Row state is caller-owned: a dense `uint` position column, a `long` cycle column, and float effect columns, borrowed only for a lane call. Game time belongs to the host; the lane advances exactly one frame per call. Finite movement clamps; looping movement wraps with explicit ±1 cycle deltas. Selection is pure and invokes no user code on the warm path.
+Row state is caller-owned: a dense `ushort` position column and float effect columns, borrowed only for a lane call. Game time belongs to the host; the lane advances exactly one frame per call. Finite movement clamps; looping movement wraps. Selection is pure and invokes no user code on the warm path.
 
 The lane's native effect tables are published per (pair, asset) by pointer swap at `Bind`; a rebind frees the previous tables, so a host rebinding a lane must quiesce its applies first (single-owner discipline, same shape as the asset rule). Generated consumer bindings live for the process and need no publication lock or reclamation protocol. [Ownership and staleness proofs](memory-and-performance.md) live with the memory rules.
 
