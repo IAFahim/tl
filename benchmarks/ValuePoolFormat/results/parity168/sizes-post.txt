@@ -1,0 +1,49 @@
+samples/ManyEntities/move64.json,358
+samples/ManyEntities/pulse.json,359
+samples/ManyEntities/window.json,362
+samples/NuGetQuickStart/boss.json,369
+tests/test_tl_blender.py#L136,647
+tests/test_tl_blender.py#L191,407
+tests/tlb_cli/fixtures/alpha.json,454
+tests/tlb_cli/fixtures/alpha_edited.json,454
+tests/tlb_cli/fixtures/broken.json,diagnostic,[3:3] duplicate field: 'duration'
+tools/Tl.Bake.Tests/CacheCliTests.cs#L180,diagnostic,unknown/unresolvable type: no loaded type named (Nope, MissingTrack) for track 0; reference the defining assembly and check the bare namespace/type spelling.
+tools/Tl.Bake.Tests/CacheCliTests.cs#L62,329
+tools/Tl.Bake.Tests/CliTests.cs#L19,329
+tools/Tl.Bake.Tests/CliTests.cs#L61,diagnostic,unknown/unresolvable type: no loaded type named (Nope, MissingTrack) for track 0; reference the defining assembly and check the bare namespace/type spelling.
+tools/Tl.Bake.Tests/DeterminismTests.cs#L13,1097
+tools/Tl.Bake.Tests/DeterminismTests.cs#L67,652
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L121,diagnostic,missing IBlend<>: track type 'Tlb.NoBlendTrack' on track 0 must implement Tl.IBlend<TClip>.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L13,diagnostic,duration 70000 exceeds the 65535-tick lane position column; the typed playback lane cannot bind longer timelines.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L141,diagnostic,clip type not blendable by track: track 0 resolves clip type 'Tlb.DualBetaClip' but track type 'Tlb.AlphaTrack' implements only these Tl.IBlend<TClip> pairings: Tlb.AlphaClip.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L162,diagnostic,ambiguous type: bare name (Tlb, Inner) matches multiple loaded types for track 0; declare 'assembly' with one of: Tlb.OuterOne+Inner in ParityCheck, Tlb.OuterTwo+Inner in ParityCheck.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L183,diagnostic,type resolution failed: assembly 'NotTheRightAssembly' does not contain (Tlb, AlphaTrack) for track 0; matching types exist in assembly(es): ParityCheck.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L205,diagnostic,removed property 'trackType' in track 0: schema v1 declares 'namespace', 'type' and optional 'assembly' on every track and clip, and 'data' for payloads; type identity is never inherited between levels. See docs/data-authored-api.md.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L225,diagnostic,removed property 'clipType' in clip 0 on track 0: schema v1 declares 'namespace', 'type' and optional 'assembly' on every track and clip, and 'data' for payloads; type identity is never inherited between levels. See docs/data-authored-api.md.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L245,diagnostic,removed property 'payload' in clip 0 on track 0: schema v1 declares 'namespace', 'type' and optional 'assembly' on every track and clip, and 'data' for payloads; type identity is never inherited between levels. See docs/data-authored-api.md.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L265,diagnostic,renamed property 'loops' in root: use 'loop'.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L286,diagnostic,unknown field name in track/payload: field 'NonExistentField' not found on type 'AlphaTrack' in track 0 (AlphaTrack).
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L307,diagnostic,unknown field name in track/payload: field 'UnknownField' not found on type 'AlphaClip' in clip 0 on track 0 (AlphaClip).
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L328,diagnostic,wrong-typed value: field 'Code' in track 0 (AlphaTrack) expected int, got "not_an_int".
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L33,diagnostic,unknown/unresolvable type: no loaded type named (Tlb, NonExistentTrack) for track 0; reference the defining assembly and check the bare namespace/type spelling.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L349,diagnostic,wrong-typed value: field 'Value' in clip 0 on track 0 (AlphaClip) expected int, got "not_an_int".
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L370,diagnostic,overlapping clips on one track: track 0 (AlphaTrack/AlphaClip) has more than two overlapping clips at tick 10.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L394,diagnostic,overlapping clips on one track: track 0 (AlphaTrack/AlphaClip) has multiple clips starting at tick 5.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L417,568
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L458,diagnostic,start >= end: clip [10, 5) on track 0 is empty or reversed.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L478,diagnostic,clips outside [0, duration]: clip [0, 25) on track 0 exceeds timeline duration 20.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L519,diagnostic,missing required property: clip 0 on track 0 needs 'namespace' (type identity is never inherited from the track).
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L53,diagnostic,dotted name rejected: 'namespace' in track 0 must be a bare name without '.', ',', '+' or '='; got 'Tlb.Sub'. Empty selects the global namespace.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L539,diagnostic,empty tracks with duration > 0 (stages must cover duration): track 0 has 0 clips.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L73,diagnostic,dotted name rejected: 'type' in track 0 must be a bare name without '.', ',', '+' or '='; got 'Outer.One'. Empty selects the global namespace.
+tools/Tl.Bake.Tests/DiagnosticTests.cs#L93,diagnostic,track or clip not unmanaged: track type 'Tlb.ManagedTrack' is not an unmanaged type.
+tools/Tl.Bake.Tests/MetadataTests.cs#L14,369
+tools/Tl.Bake.Tests/MultiPairBakeTests.cs#L102,410
+tools/Tl.Bake.Tests/Recording.cs#L20,1196
+tools/Tl.Bake.Tests/WatchModeTests.cs#L15,325
+tools/Tl.Blender/fixtures/receipt_scene.json,650
+tools/Tl.Blender/fixtures/receipt_scene_hand.json,650
+tools/Tl.Playground/presets/finite-clamp.json,387
+tools/Tl.Playground/presets/staggered.json,387
+tools/Tl.Playground/presets/uniform-crowd.json,387
+tools/Tl.Playground/presets/waves.json,427

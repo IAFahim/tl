@@ -1,0 +1,47 @@
+```
+
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+  Job-TZECNT : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+
+
+```
+| Method  | Job        | Toolchain              | IterationCount | IterationTime | WarmupCount | Shape               | Mean      | Error    | StdDev   | Median    | Ratio | RatioSD | Allocated | Alloc Ratio |
+|-------- |----------- |----------------------- |--------------- |-------------- |------------ |-------------------- |----------:|---------:|---------:|----------:|------:|--------:|----------:|------------:|
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **LaneUniform**         |  **10.88 μs** | **0.347 μs** | **0.341 μs** |  **11.07 μs** |  **1.00** |    **0.04** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | LaneUniform         |  11.03 μs | 0.604 μs | 0.594 μs |  11.10 μs |  1.02 |    0.06 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneUniform         |  10.36 μs | 0.200 μs | 0.205 μs |  10.45 μs |  1.00 |    0.03 |         - |          NA |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneUniform         |  10.77 μs | 0.215 μs | 0.279 μs |  10.96 μs |  1.04 |    0.03 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **LaneWaves**           |  **12.41 μs** | **0.349 μs** | **0.343 μs** |  **12.32 μs** |  **1.00** |    **0.04** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | LaneWaves           |  12.15 μs | 0.153 μs | 0.150 μs |  12.14 μs |  0.98 |    0.03 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneWaves           |  12.69 μs | 0.211 μs | 0.197 μs |  12.65 μs |  1.00 |    0.02 |         - |          NA |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneWaves           |  12.34 μs | 0.208 μs | 0.256 μs |  12.37 μs |  0.97 |    0.02 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **LaneStaggered**       |  **16.10 μs** | **0.010 μs** | **0.008 μs** |  **16.10 μs** |  **1.00** |    **0.00** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | LaneStaggered       |  15.83 μs | 0.010 μs | 0.010 μs |  15.83 μs |  0.98 |    0.00 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneStaggered       |  15.71 μs | 0.020 μs | 0.018 μs |  15.71 μs |  1.00 |    0.00 |         - |          NA |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneStaggered       |  15.90 μs | 0.019 μs | 0.015 μs |  15.89 μs |  1.01 |    0.00 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **LaneUniformBackward** |  **11.04 μs** | **0.037 μs** | **0.032 μs** |  **11.04 μs** |  **1.00** |    **0.00** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | LaneUniformBackward |  10.99 μs | 0.038 μs | 0.035 μs |  11.00 μs |  1.00 |    0.00 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneUniformBackward |  10.35 μs | 0.201 μs | 0.275 μs |  10.50 μs |  1.00 |    0.04 |         - |          NA |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | LaneUniformBackward |  10.91 μs | 0.211 μs | 0.235 μs |  11.00 μs |  1.06 |    0.04 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **SetWavesOne**         |  **14.89 μs** | **0.025 μs** | **0.024 μs** |  **14.89 μs** |  **1.00** |    **0.00** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | SetWavesOne         |  14.95 μs | 0.086 μs | 0.080 μs |  14.92 μs |  1.00 |    0.01 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | SetWavesOne         |  14.70 μs | 0.206 μs | 0.192 μs |  14.65 μs |  1.00 |    0.02 |         - |          NA |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | SetWavesOne         |  15.02 μs | 0.153 μs | 0.136 μs |  14.95 μs |  1.02 |    0.02 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| **TwoCall** | **Job-TZECNT** | **Default**                | **16**             | **200ms**         | **8**           | **SetStaggeredMixed**   | **121.09 μs** | **1.116 μs** | **1.096 μs** | **120.56 μs** |  **1.00** |    **0.01** |         **-** |          **NA** |
+| Fused   | Job-TZECNT | Default                | 16             | 200ms         | 8           | SetStaggeredMixed   | 124.60 μs | 3.062 μs | 2.864 μs | 125.37 μs |  1.03 |    0.02 |         - |          NA |
+|         |            |                        |                |               |             |                     |           |          |          |           |       |         |           |             |
+| TwoCall | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | SetStaggeredMixed   | 125.41 μs | 1.287 μs | 1.204 μs | 125.11 μs |  1.00 |    0.01 |       1 B |        1.00 |
+| Fused   | InProcess  | InProcessEmitToolchain | Default        | Default       | Default     | SetStaggeredMixed   | 135.01 μs | 1.746 μs | 1.633 μs | 135.29 μs |  1.08 |    0.02 |         - |        0.00 |

@@ -1,0 +1,82 @@
+{
+ "Fused|LaneStaggered": [
+  15857.358,
+  15876.488,
+  0.12
+ ],
+ "Fused|LaneUniform": [
+  10971.59,
+  10935.731,
+  -0.33
+ ],
+ "Fused|LaneUniformBackward": [
+  11062.126,
+  11011.915,
+  -0.45
+ ],
+ "Fused|LaneWaves": [
+  12359.419,
+  12042.972,
+  -2.56
+ ],
+ "Fused|SetStaggeredMixed": [
+  137185.975,
+  133476.33,
+  -2.7
+ ],
+ "Fused|SetWavesOne": [
+  15006.478,
+  14962.285,
+  -0.29
+ ],
+ "TwoCall|LaneStaggered": [
+  15629.553,
+  15675.983,
+  0.3
+ ],
+ "TwoCall|LaneUniform": [
+  10509.143,
+  10470.194,
+  -0.37
+ ],
+ "TwoCall|LaneUniformBackward": [
+  10499.193,
+  10496.372,
+  -0.03
+ ],
+ "TwoCall|LaneWaves": [
+  12453.195,
+  12313.322,
+  -1.12
+ ],
+ "TwoCall|SetStaggeredMixed": [
+  127176.89,
+  122693.301,
+  -3.53
+ ],
+ "TwoCall|SetWavesOne": [
+  14563.833,
+  14595.518,
+  0.22
+ ],
+ "Advance|LaneUniform": [
+  15776.387,
+  15742.315,
+  -0.22
+ ],
+ "Advance|PairAlternating8": [
+  130705.309,
+  132329.18,
+  1.24
+ ],
+ "Advance|PairOne": [
+  20348.525,
+  20384.096,
+  0.17
+ ],
+ "Advance|PairRuns8": [
+  56947.187,
+  57021.18,
+  0.13
+ ]
+}
