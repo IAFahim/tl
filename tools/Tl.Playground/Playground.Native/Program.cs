@@ -21,6 +21,8 @@ foreach (var name in Scenario.PresetNames)
     Console.WriteLine($"preset: {name} crowd={scenario.Crowd} pattern={scenario.Pattern} duration={engine.Duration} loop={engine.Loop} moved={engine.Last.Moved} OK");
 }
 
+Console.Write(LiveAuthoring.Receipt());
+
 if (Pin.Checksum == 0)
 {
     Console.WriteLine("native: preset and smoke receipts pass; pin the SMOKE checksum from the wasm receipt into Pin.Checksum");

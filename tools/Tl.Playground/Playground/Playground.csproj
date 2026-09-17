@@ -28,4 +28,13 @@
     <Copy SourceFiles="@(PresetFile)" DestinationFolder="$(PublishDir)wwwroot\presets" />
   </Target>
 
+
+  <Target Name="EmbedLiveReferenceAssemblies" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <_CoreCompileResourceInputs Include="@(ReferencePathWithRefAssemblies)" Condition="'%(Filename)' == 'Tl.Core'">
+        <LogicalName>LiveRef.Tl.Core.dll</LogicalName>
+      </_CoreCompileResourceInputs>
+    </ItemGroup>
+  </Target>
+
 </Project>
