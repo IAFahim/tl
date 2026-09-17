@@ -65,8 +65,8 @@ code, no indirection. Two implementations ship:
   system's job); the frame view carries no game tick at all since #113, and `Bind` freezes the
   single baseline fold
 - the position column is `ushort`: one frame moves one tick, and 65,535 ticks bounds any
-  designed timeline; the baker rejects duration above 65,535 at bake time (diagnostic with
-  line and column) and `Bind` keeps the same check for pre-existing bytes
+  designed timeline; the baker rejects duration above 65,535 at bake time and `Bind` keeps
+  the same check for pre-existing bytes
 - rebinding the same closed generic swaps the tables and frees the previous pair; the host must
   quiesce applies across a rebind (single-owner discipline, same shape as asset disposal);
   several same-pair assets that must coexist belong in a `TimelineSet` (next section)
@@ -174,10 +174,11 @@ Contract:
   shape with the table hoisted per chunk; mixed chunks scan (id, tick) pairs with one
   combined vector mask per 16 rows
 - singleton rows never pay the scan call (a one-compare pre-check ends the run instantly)
-  and apply through the baked movement tables with no per-row law branches; a chunk whose
-  first 64 rows have no adjacent-equal positions, one looping timeline, and AVX2 routes to
-  a gather applier — `vgatherps` folds the effect table over 16 staggered rows at once and
-  wrap/skip are mask arithmetic
+  and apply through the baked movement tables with no per-row law branches; a single-timeline
+  chunk routes to a gather applier when its first 64 rows have no adjacent-equal positions
+  (looping) or at most 24 adjacent-equal pairs (finite), the timeline is longer than one
+  tick, and AVX2 is present — `vgatherps` folds the effect table over 16 staggered rows at
+  once and wrap/skip are mask arithmetic
 
 Receipts (Intel Core i9-14900K, .NET 10, Release; 1M rows, 20-frame reps, best of 5 over 3
 interleaved rounds, real `Tl.Core`; parity bit-exact vs per-asset static lanes, forward
@@ -260,8 +261,9 @@ cycles); component-sorted crowds — the ECS norm — sit on the first rows of b
   sweep re-faults the working set.
 - **Bind-time measurement answers the table question.** Per-position effect tables come from
   the cold executor over the loaded asset (no authored table, no content-hash kernel): the
-  fold is exact for dyadic float domains and ULP-stable otherwise, and the position-purity
-  validation turns "consumers must be pure" from a convention into a bind-time error.
+  fold is exact for dyadic float domains and ULP-stable otherwise; position purity was a
+  bind-time error until the #113 rewrite removed the probe, leaving authoring review to own
+  the check.
 
 - **Catch-up time-skip is a validated prototype, not shipped.** Cumulative effect tables
   (one extra `duration+1` float table per bind) collapse K-frame catch-up from K passes to
