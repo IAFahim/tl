@@ -14,7 +14,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;ecs;burst;unity;dotnet;deterministic;baked-assets</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.0.0-alpha.7: the typed playback lane (Timeline&lt;T&gt;.Seek(...).Apply(...) over BakedLane) replaces the Timeline.Rows facade; the frame ABI slims to ushort positions with Cycle/GameTick removed and ClipLength/WithinClip added. Migrate with the repository release notes.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.8: TLB1 v2 pooled assets load through the same lane; fused Advance entry points join Seek/Apply. Re-bake assets with the new tool (v1 assets are rejected with a diagnostic).</PackageReleaseNotes>
     <TlGenPackOutput Condition="'$(TlGenPackOutput)' == ''">..\Tl.Gen.CSharp\bin\$(Configuration)\net10.0\</TlGenPackOutput>
     <TlGenAnalyzerPackOutput Condition="'$(TlGenAnalyzerPackOutput)' == ''">..\Tl.Gen.CSharp\bin\$(Configuration)\netstandard2.0\</TlGenAnalyzerPackOutput>
   </PropertyGroup>
