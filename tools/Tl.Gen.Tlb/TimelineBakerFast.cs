@@ -53,6 +53,8 @@ internal sealed class FieldEntry
     internal FieldInfo Field = null!;
     internal Type Declaring = null!;
     internal int FloatOrdinal = -1;
+    internal int Ordinal = -1;
+    internal int ByteOffset = -1;
 }
 
 internal enum FieldKind : byte
@@ -99,6 +101,8 @@ internal sealed class FieldTable
     {
         var list = ByName.Values.OrderBy(e => e.Name, StringComparer.Ordinal).ToList();
         Entries = list.ToArray();
+        for (var i = 0; i < Entries.Length; i++)
+            Entries[i].Ordinal = i;
         EntryHashes = new ulong[Entries.Length];
         EntryNames = new byte[Entries.Length][];
         var cap = 16;
@@ -283,7 +287,7 @@ internal static class TimelineBakerFast
     internal static byte[] BakeJsonUtf8(byte[] utf8, BakerAssemblyResolver? resolver = null)
     {
         resolver ??= new BakerAssemblyResolver();
-        var doc = ParseFast(utf8, resolver);
+        var doc = TimelineBakerSimd.TryParseFast(utf8, resolver, out var fast) ? fast : ParseFast(utf8, resolver);
         return TimelineBakerFastCore.BakeFast(doc, resolver);
     }
 
