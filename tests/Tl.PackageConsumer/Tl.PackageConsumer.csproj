@@ -10,4 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Tl.CSharp" Version="1.0.0-alpha.9" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/DomainBaker.cs" Link="Shared/DomainBaker.cs" />
+  </ItemGroup>
 </Project>
