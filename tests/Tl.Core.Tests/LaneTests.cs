@@ -2,6 +2,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Xunit;
 
+using Tl.TestSupport;
+
 namespace Tl.Core.Tests;
 
 public readonly record struct LaneClip(float Amount);
@@ -107,7 +109,7 @@ internal static unsafe class LanePairs
 
 public class LaneTests
 {
-    static byte[] LoopingBake() => new Baker()
+    static byte[] LoopingBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
         .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
         .Clip(0, 0, 4, new LaneClip(8))
@@ -116,18 +118,18 @@ public class LaneTests
         .Looping()
         .Bake();
 
-    static byte[] FiniteBake() => new Baker()
+    static byte[] FiniteBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
         .Clip(0, 0, 6, new LaneClip(5))
         .Bake();
 
-    static byte[] ImpureBake() => new Baker()
+    static byte[] ImpureBake() => new DomainBaker()
         .Track<ImpureTrack, ImpureClip>(new ImpureTrack(1f))
         .Clip(0, 0, 6, new ImpureClip(5))
         .Looping()
         .Bake();
 
-    static byte[] DualPairBake() => new Baker()
+    static byte[] DualPairBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
         .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
         .Track<OrphanTrack, OrphanClip>(new OrphanTrack(5))
@@ -138,7 +140,7 @@ public class LaneTests
         .Looping()
         .Bake();
 
-    static byte[] GammaBake() => new Baker()
+    static byte[] GammaBake() => new DomainBaker()
         .Track<GammaTrack, GammaClip>(new GammaTrack(1))
         .Clip(0, 0, 6, new GammaClip(5))
         .Looping()
@@ -336,7 +338,7 @@ public class LaneTests
     [Fact]
     public void BakedLanePropagatesConsumerFaults()
     {
-        using var asset = TimelineAsset.LoadAsset(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<BetaTrack, BetaClip>(new BetaTrack(1))
             .Clip(0, 0, 6, new BetaClip(5))
             .Looping()
@@ -362,7 +364,7 @@ public class LaneTests
     [Fact]
     public void BakedLaneFoldsConsumersInRegisteredOrder()
     {
-        using var asset = TimelineAsset.LoadAsset(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<OrderTrack, OrderClip>(new OrderTrack(1f))
             .Clip(0, 0, 2, new OrderClip(1f))
             .Looping()
@@ -376,7 +378,7 @@ public class LaneTests
     [Fact]
     public void BakedLaneBindsDurationOneLoopingAsset()
     {
-        using var asset = TimelineAsset.LoadAsset(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
             .Clip(0, 0, 1, new LaneClip(8))
             .Looping()
@@ -471,13 +473,13 @@ public class LaneTests
         Assert.Equal(0f, effects[0]);
     }
 
-    static byte[] ConstantBake() => new Baker()
+    static byte[] ConstantBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
         .Clip(0, 0, 6, new LaneClip(10))
         .Looping()
         .Bake();
 
-    static byte[] WideBake() => new Baker()
+    static byte[] WideBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
         .Clip(0, 2, 9, new LaneClip(4))
         .Bake();
@@ -840,11 +842,11 @@ public class LaneTests
         public static float InverseEffect(ushort position) => -1f;
     }
 
-    static byte[] EmptyBake() => new Baker()
+    static byte[] EmptyBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
         .Bake();
 
-    static byte[] SecondFiniteBake() => new Baker()
+    static byte[] SecondFiniteBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(3f))
         .Clip(0, 0, 9, new LaneClip(7))
         .Bake();
@@ -1308,11 +1310,11 @@ public class LaneTests
     [Fact]
     public void SetRejectsAddBeyondCapacity()
     {
-        var fill = new Baker()
+        var fill = new DomainBaker()
             .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
             .Clip(0, 0, 1, new LaneClip(1))
             .Bake();
-        var last = new Baker()
+        var last = new DomainBaker()
             .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
             .Clip(0, 0, 4, new LaneClip(8))
             .Clip(0, 3, 6, new LaneClip(4))
@@ -1359,7 +1361,7 @@ public class LaneTests
     [Fact]
     public void LoadRejectsOversizedDuration()
     {
-        Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(new Baker()
+        Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(new DomainBaker()
             .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
             .Clip(0, 0, 70000, new LaneClip(5))
             .Bake()));

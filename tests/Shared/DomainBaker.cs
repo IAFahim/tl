@@ -1,13 +1,13 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Tl;
 
-namespace Tl.Core.Tests;
+namespace Tl.TestSupport;
 
-
-internal sealed class Baker
+internal sealed class DomainBaker
 {
-        internal sealed class BakedClip
+    internal sealed class BakedClip
     {
         public required uint Start { get; init; }
         public required uint End { get; init; }
@@ -75,7 +75,7 @@ internal sealed class Baker
     private readonly List<BakedTrack> _tracks = [];
     private bool _loops;
 
-    public Baker Track<TTrack, TClip>(TTrack value) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
+    public DomainBaker Track<TTrack, TClip>(TTrack value) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
     {
         _tracks.Add(new BakedTrack<TTrack, TClip>
         {
@@ -86,13 +86,13 @@ internal sealed class Baker
         return this;
     }
 
-    public Baker Clip<TClip>(int track, uint start, uint end, TClip clip) where TClip : unmanaged
+    public DomainBaker Clip<TClip>(int track, uint start, uint end, TClip clip) where TClip : unmanaged
     {
         _tracks[track].Clips.Add(new BakedClip { Start = start, End = end, Value = clip });
         return this;
     }
 
-    public Baker Looping()
+    public DomainBaker Looping()
     {
         _loops = true;
         return this;

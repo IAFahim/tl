@@ -2,6 +2,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Xunit;
 
+using Tl.TestSupport;
+
 namespace Tl.Core.Tests;
 
 public class TotalMovementTests
@@ -14,12 +16,12 @@ public class TotalMovementTests
             => result = factor < 0.5f ? first : second;
     }
 
-    private static byte[] FiniteFixture() => new Baker()
+    private static byte[] FiniteFixture() => new DomainBaker()
         .Track<JobTrack, JobClip>(default)
         .Clip(0, 0u, 3u, new JobClip(1))
         .Bake();
 
-    private static byte[] LoopingFixture() => new Baker()
+    private static byte[] LoopingFixture() => new DomainBaker()
         .Track<JobTrack, JobClip>(default)
         .Clip(0, 0u, 2u, new JobClip(1))
         .Looping()

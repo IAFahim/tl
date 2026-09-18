@@ -2,6 +2,8 @@ using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using Xunit;
 
+using Tl.TestSupport;
+
 namespace Tl.Core.Tests;
 
 public readonly record struct AlphaClip(int Value);
@@ -52,7 +54,7 @@ public struct RowAlias
 public unsafe class DataTests
 {
 
-    private static byte[] FiniteBake() => new Baker()
+    private static byte[] FiniteBake() => new DomainBaker()
         .Track<AlphaTrack, AlphaClip>(new AlphaTrack(5))
         .Clip(0, 0, 1, new AlphaClip(11))
         .Clip(0, 2, 3, new AlphaClip(22))
@@ -79,7 +81,7 @@ public unsafe class DataTests
         misaligned[28] += 4;
         Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(misaligned));
 
-        var unsorted = new Baker()
+        var unsorted = new DomainBaker()
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(1))
             .Track<GammaTrack, GammaClip>(new GammaTrack(1))
             .Clip(0, 0, 1, new AlphaClip(1))
@@ -110,7 +112,7 @@ public unsafe class DataTests
     [Fact]
     public void QueryYieldsSingleClipFramesWithWindowFlags()
     {
-        using var asset = TimelineAsset.LoadAsset(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(5))
             .Clip(0, 1, 3, new AlphaClip(7))
             .Bake());
@@ -136,7 +138,7 @@ public unsafe class DataTests
     [Fact]
     public void QueryExposesClipWindowsAcrossOverlappingClips()
     {
-        using var asset = TimelineAsset.LoadAsset(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<BlendTrack, BlendClip>(new BlendTrack(1f))
             .Clip(0, 0, 4, new BlendClip(0f))
             .Clip(0, 2, 6, new BlendClip(10f))
@@ -173,7 +175,7 @@ public unsafe class DataTests
     [Fact]
     public void QueryYieldsBlendedFramesMatchingHandComputedFactor()
     {
-        using var asset = TimelineAsset.LoadAsset(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<BlendTrack, BlendClip>(new BlendTrack(1f))
             .Clip(0, 0, 4, new BlendClip(0f))
             .Clip(0, 2, 6, new BlendClip(10f))
@@ -189,7 +191,7 @@ public unsafe class DataTests
         component.Position = 4;
         Assert.Equal(10f, SingleBlendAmount(in component));
 
-        using var single = TimelineAsset.LoadAsset(new Baker()
+        using var single = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<BlendTrack, BlendClip>(new BlendTrack(1f))
             .Clip(0, 0, 3, new BlendClip(0f))
             .Clip(0, 2, 4, new BlendClip(8f))
@@ -208,7 +210,7 @@ public unsafe class DataTests
     [Fact]
     public void QueryPreservesAuthoredTrackOrderAndSkipsEmptyStages()
     {
-        using var asset = TimelineAsset.LoadAsset(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(1))
             .Track<BlendTrack, BlendClip>(new BlendTrack(1f))
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(2))
@@ -235,7 +237,7 @@ public unsafe class DataTests
     [Fact]
     public void LegacyVersionTwoAssetsAreRejected()
     {
-        var current = new Baker()
+        var current = new DomainBaker()
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(5))
             .Track<BlendTrack, BlendClip>(new BlendTrack(2f))
             .Clip(0, 0, 2, new AlphaClip(11))

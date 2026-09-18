@@ -1,11 +1,13 @@
 using Xunit;
 
+using Tl.TestSupport;
+
 namespace Tl.Core.Tests;
 
 public class InternTableTests
 {
     static byte[] Bytes(float scale, uint end)
-        => new Baker()
+        => new DomainBaker()
             .Track<HandleTrack, HandleClip>(new HandleTrack(scale))
             .Clip(0, 0, end, new HandleClip(1f))
             .Bake();
