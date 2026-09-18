@@ -17,8 +17,6 @@ internal static class Program
             return ParityCommand(args);
         if (args.Length >= 2 && args[0] == "timing")
             return TimingCommand(args);
-
-        Console.Error.WriteLine("usage: corpus [--out DIR] | parity <game.json> <small.json> | timing <game.json> [--rounds N] [--reps N] [--core N]");
         return 1;
     }
 
@@ -49,14 +47,31 @@ internal static class Program
             var legacy = ReceiptOf(() => TimelineBaker.BakeJsonLegacy(text, new BakerAssemblyResolver()));
             var fastString = ReceiptOf(() => TimelineBaker.BakeJson(text, new BakerAssemblyResolver()));
             var fastBytes = ReceiptOf(() => TimelineBakerFast.BakeJsonUtf8(bytes, new BakerAssemblyResolver()));
-            var equal = legacy == fastString && legacy == fastBytes;
+            var simd = SimdReceiptOf(bytes);
+            var equal = legacy == fastString && legacy == fastBytes && simd.Receipt == legacy;
             ok &= equal;
             Console.WriteLine($"{path}: {(equal ? "IDENTICAL" : "DIVERGED")}");
             Console.WriteLine($"  legacy {legacy}");
             Console.WriteLine($"  string {fastString}");
             Console.WriteLine($"  bytes  {fastBytes}");
+            Console.WriteLine($"  simd   {simd.Receipt} fastPathTaken={simd.Taken}");
         }
         return ok ? 0 : 1;
+    }
+
+    private static (string Receipt, bool Taken) SimdReceiptOf(byte[] bytes)
+    {
+        try
+        {
+            var taken = TimelineBakerSimd.TryParseFast(bytes, new BakerAssemblyResolver(), out var doc);
+            if (!taken)
+                return ("FALLBACK", false);
+            return ($"OK {Convert.ToHexString(SHA256.HashData(TimelineBakerFastCore.BakeFast(doc, new BakerAssemblyResolver()))).ToLowerInvariant()}", true);
+        }
+        catch (Exception ex)
+        {
+            return ($"REJECTED {ex.GetType().Name}: {ex.Message}", true);
+        }
     }
 
     private static string ReceiptOf(Func<byte[]> bake)
@@ -89,37 +104,42 @@ internal static class Program
         WarmUp(gamePath);
 
         var legacyTotal = new Stage();
-        var stringRead = new Stage();
-        var stringParse = new Stage();
-        var stringBake = new Stage();
-        var stringTotal = new Stage();
         var byteRead = new Stage();
         var byteParse = new Stage();
         var byteBake = new Stage();
         var byteTotal = new Stage();
         var loadStage = new Stage();
+        var simdScan = new Stage();
+        var simdParse = new Stage();
+        var simdBake = new Stage();
+        var simdTotal = new Stage();
 
         for (var round = 0; round < rounds; round++)
         {
             for (var rep = 0; rep < reps; rep++)
             {
-                stringRead.Take(() => File.ReadAllText(gamePath, Encoding.UTF8));
                 byteRead.Take(() => File.ReadAllBytes(gamePath));
-
-                var text = File.ReadAllText(gamePath, Encoding.UTF8);
                 var bytes = File.ReadAllBytes(gamePath);
 
-                stringParse.Take(() => TimelineBakerFast.ParseFast(Encoding.UTF8.GetBytes(text), new BakerAssemblyResolver()));
                 byteParse.Take(() => TimelineBakerFast.ParseFast(bytes, new BakerAssemblyResolver()));
-
-                var stringDoc = TimelineBakerFast.ParseFast(Encoding.UTF8.GetBytes(text), new BakerAssemblyResolver());
                 var byteDoc = TimelineBakerFast.ParseFast(bytes, new BakerAssemblyResolver());
-                stringBake.Take(() => TimelineBakerFastCore.BakeFast(stringDoc, new BakerAssemblyResolver()));
                 byteBake.Take(() => TimelineBakerFastCore.BakeFast(byteDoc, new BakerAssemblyResolver()));
 
-                stringTotal.Take(() => TimelineBaker.BakeJson(File.ReadAllText(gamePath, Encoding.UTF8), new BakerAssemblyResolver()));
                 byteTotal.Take(() => TimelineBaker.BakeJson(File.ReadAllBytes(gamePath), new BakerAssemblyResolver()));
                 legacyTotal.Take(() => TimelineBaker.BakeJsonLegacy(File.ReadAllText(gamePath, Encoding.UTF8), new BakerAssemblyResolver()));
+
+                simdScan.Take(() => TimelineBakerSimd.Scan(bytes));
+                simdParse.Take(() =>
+                {
+                    if (!TimelineBakerSimd.TryParseFast(bytes, new BakerAssemblyResolver(), out var simdDoc))
+                        throw new InvalidOperationException("simd fast path did not accept the corpus");
+                    _ = simdDoc;
+                });
+                var simdDocForBake = TimelineBakerSimd.TryParseFast(bytes, new BakerAssemblyResolver(), out var simdParsed)
+                    ? simdParsed
+                    : throw new InvalidOperationException("simd fast path did not accept the corpus");
+                simdBake.Take(() => TimelineBakerFastCore.BakeFast(simdDocForBake, new BakerAssemblyResolver()));
+                simdTotal.Take(() => TimelineBakerFast.BakeJsonUtf8(bytes, new BakerAssemblyResolver()));
 
                 var baked = TimelineBakerFast.BakeJsonUtf8(bytes, new BakerAssemblyResolver());
                 loadStage.Take(() =>
@@ -131,15 +151,16 @@ internal static class Program
         }
 
         Console.WriteLine();
-        Console.WriteLine("| stage | legacy-oracle ms | main-string ms | utf8-bytes ms |");
+        Console.WriteLine("| stage | legacy-oracle ms | ref-fused ms | simd ms |");
         Console.WriteLine("|---|---:|---:|---:|");
-        Console.WriteLine($"| read (transcode for string) | - | {stringRead.MsText} | {byteRead.MsText} |");
-        Console.WriteLine($"| parse | - | {stringParse.MsText} | {byteParse.MsText} |");
-        Console.WriteLine($"| bake | - | {stringBake.MsText} | {byteBake.MsText} |");
-        Console.WriteLine($"| total bake | {legacyTotal.MsText} | {stringTotal.MsText} | {byteTotal.MsText} |");
+        Console.WriteLine($"| read | - | {byteRead.MsText} | {byteRead.MsText} |");
+        Console.WriteLine($"| scan | - | - | {simdScan.MsText} |");
+        Console.WriteLine($"| parse | - | {byteParse.MsText} | {simdParse.MsText} |");
+        Console.WriteLine($"| bake | - | {byteBake.MsText} | {simdBake.MsText} |");
+        Console.WriteLine($"| total bake | {legacyTotal.MsText} | {byteTotal.MsText} | {simdTotal.MsText} |");
         Console.WriteLine($"| load (context) | - | {loadStage.MsText} | - |");
         Console.WriteLine();
-        Console.WriteLine($"allocation per total bake: legacy {legacyTotal.MbText} MB, string {stringTotal.MbText} MB, bytes {byteTotal.MbText} MB");
+        Console.WriteLine($"allocation per total bake: legacy {legacyTotal.MbText} MB, ref {byteTotal.MbText} MB, simd {simdTotal.MbText} MB; simd parse {simdParse.MbText} MB (scan {simdScan.MbText} MB)");
         return 0;
     }
 
@@ -151,6 +172,8 @@ internal static class Program
         {
             TimelineBakerFast.BakeJsonUtf8(bytes, new BakerAssemblyResolver());
             TimelineBaker.BakeJson(text, new BakerAssemblyResolver());
+            TimelineBakerFast.ParseFast(bytes, new BakerAssemblyResolver());
+            TimelineBakerSimd.Scan(bytes);
         }
     }
 
