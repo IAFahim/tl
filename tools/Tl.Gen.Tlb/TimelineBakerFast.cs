@@ -600,10 +600,20 @@ internal static class TimelineBakerFast
 
 internal sealed class DupScopePool
 {
-    private static readonly List<DupScope> Pool = new();
+    [ThreadStatic]
+    private static List<DupScope>? Pool;
 
-    internal static DupScope Rent() { if (Pool.Count == 0) return new DupScope(); var s = Pool[^1]; Pool.RemoveAt(Pool.Count - 1); return s; }
-    internal static void Return(DupScope s) => Pool.Add(s);
+    internal static DupScope Rent()
+    {
+        var pool = Pool ??= [];
+        if (pool.Count == 0)
+            return new DupScope();
+        var s = pool[^1];
+        pool.RemoveAt(pool.Count - 1);
+        return s;
+    }
+
+    internal static void Return(DupScope s) => (Pool ??= []).Add(s);
 }
 
 internal static class NameBytes

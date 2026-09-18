@@ -179,7 +179,7 @@ internal static class Program
         return 0;
     }
 
-    private sealed record BatchPass(double Ms, double[] ItemMs, double[] ItemAllocMb, double AllocMb, double OutputMb, ulong OutputSum, string GcCounts);
+    private sealed record BatchPass(string Mode, double Ms, double[] ItemMs, double[] ItemAllocMb, double AllocMb, double TotalAllocMb, double OutputMb, ulong OutputSum, string GcCounts);
 
     private static int BatchCommand(string[] args)
     {
@@ -188,8 +188,9 @@ internal static class Program
         var rounds = ParsedValueOf(args, "--rounds", 3);
         var reps = ParsedValueOf(args, "--reps", 5);
         var core = ParsedValueOf(args, "--core", 2);
+        var mode = ValueOf(args, "--mode") ?? "both";
 
-        if (OperatingSystem.IsLinux() || OperatingSystem.IsWindows())
+        if (core >= 0 && (OperatingSystem.IsLinux() || OperatingSystem.IsWindows()))
             Process.GetCurrentProcess().ProcessorAffinity = new IntPtr(1L << core);
 
         var batchDir = dir ?? Corpus.BatchDirectory(null);
@@ -204,35 +205,46 @@ internal static class Program
         var inputs = paths.Select(File.ReadAllBytes).ToArray();
         var inputBytes = inputs.Sum(b => (long)b.Length);
         var load1 = File.ReadLines("/proc/loadavg").First().Split(' ')[0];
-        Console.WriteLine($"batch {inputs.Length} files, {inputBytes} B ({inputBytes / (1024.0 * 1024.0):0.00} MB) input{(gamePath != null ? " + 20 MB game corpus appended" : "")}");
-        Console.WriteLine($"host {Environment.ProcessorCount} cores, loadavg1 {load1}, pinned core {core}, rounds {rounds}, reps {reps}, best-of reported (max in parens)");
+        Console.WriteLine($"batch {inputs.Length} files, {inputBytes} B ({inputBytes / (1024.0 * 1024.0):0.00} MB) input{(gamePath != null ? " + 20 MB game corpus appended" : "")}, workers {Environment.ProcessorCount}");
+        Console.WriteLine($"host cores {Environment.ProcessorCount}, loadavg1 {load1}, affinity {(core >= 0 ? $"core {core}" : "process default")}, mode {mode}, rounds {rounds}, reps {reps}, best-of reported (max in parens)");
         Console.WriteLine($"dotnet {Environment.Version}, gc {(System.Runtime.GCSettings.IsServerGC ? "server" : "workstation")}");
 
         var resolver = new BakerAssemblyResolver();
         for (var i = 0; i < 2; i++)
+        {
             _ = RunSerialBatchPass(inputs, resolver);
+            _ = RunParallelBatchPass(inputs, resolver);
+        }
 
         var passes = new List<BatchPass>();
         for (var round = 0; round < rounds; round++)
         {
             for (var rep = 0; rep < reps; rep++)
-                passes.Add(RunSerialBatchPass(inputs, resolver));
+            {
+                if (mode is "both" or "serial")
+                    passes.Add(RunSerialBatchPass(inputs, resolver));
+                if (mode is "both" or "parallel")
+                    passes.Add(RunParallelBatchPass(inputs, resolver));
+            }
             Console.WriteLine($"round {round} done");
         }
 
-        var best = passes.MinBy(p => p.Ms)!;
-        var worst = passes.MaxBy(p => p.Ms)!;
-        var cold = passes[0];
-        var steady = passes.OrderBy(p => p.AllocMb).First();
-        var itemMs = best.ItemMs;
-        var sorted = itemMs.OrderBy(x => x).ToArray();
-        Console.WriteLine();
-        Console.WriteLine("serial batch receipts");
-        Console.WriteLine($"  wall total: {best.Ms:0.00} ({worst.Ms:0.00}) ms over {inputs.Length} files, {inputBytes / (1024.0 * 1024.0) / (best.Ms / 1000.0):0.0} MB/s");
-        Console.WriteLine($"  per-item ms: min {sorted[0]:0.000}, p50 {sorted[sorted.Length / 2]:0.000}, p90 {sorted[(int)(sorted.Length * 0.9)]:0.000}, max {sorted[^1]:0.000}");
-        Console.WriteLine($"  output: {best.OutputMb:0.00} MB, sum {best.OutputSum:x16}");
-        Console.WriteLine($"  alloc per pass: cold {cold.AllocMb:0.00} MB -> steady {steady.AllocMb:0.00} MB; per-item steady mean {steady.ItemAllocMb.Average():0.0000} MB, max {steady.ItemAllocMb.Max():0.0000} MB");
-        Console.WriteLine($"  gc collections per steady pass: {steady.GcCounts}");
+        foreach (var passMode in passes.Select(p => p.Mode).Distinct().OrderBy(m => m))
+        {
+            var modePasses = passes.Where(p => p.Mode == passMode).ToArray();
+            var best = modePasses.MinBy(p => p.Ms)!;
+            var worst = modePasses.MaxBy(p => p.Ms)!;
+            var cold = modePasses[0];
+            var steady = modePasses.OrderBy(p => p.TotalAllocMb).First();
+            var sorted = best.ItemMs.OrderBy(x => x).ToArray();
+            Console.WriteLine();
+            Console.WriteLine($"{passMode} batch receipts");
+            Console.WriteLine($"  wall total: {best.Ms:0.00} ({worst.Ms:0.00}) ms over {inputs.Length} files, {inputBytes / (1024.0 * 1024.0) / (best.Ms / 1000.0):0.0} MB/s");
+            Console.WriteLine($"  per-item ms: min {sorted[0]:0.000}, p50 {sorted[sorted.Length / 2]:0.000}, p90 {sorted[(int)(sorted.Length * 0.9)]:0.000}, max {sorted[^1]:0.000}");
+            Console.WriteLine($"  output: {best.OutputMb:0.00} MB, sum {best.OutputSum:x16}");
+            Console.WriteLine($"  alloc per pass: cold {cold.TotalAllocMb:0.00} MB -> steady {steady.TotalAllocMb:0.00} MB process-wide; per-item steady mean {steady.ItemAllocMb.Average():0.0000} MB, max {steady.ItemAllocMb.Max():0.0000} MB");
+            Console.WriteLine($"  gc collections per steady pass: {steady.GcCounts}");
+        }
         return 0;
     }
 
@@ -244,7 +256,7 @@ internal static class Program
         var gc0 = GC.CollectionCount(0);
         var gc1 = GC.CollectionCount(1);
         var gc2 = GC.CollectionCount(2);
-        var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        var allocatedBefore = GC.GetTotalAllocatedBytes(precise: true);
         var start = Stopwatch.GetTimestamp();
         ulong sum = 0;
         for (var i = 0; i < inputs.Length; i++)
@@ -259,10 +271,39 @@ internal static class Program
         var ms = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
         var gcCounts = $"{GC.CollectionCount(0) - gc0}/{GC.CollectionCount(1) - gc1}/{GC.CollectionCount(2) - gc2}";
         return new BatchPass(
+            "serial",
             ms,
             itemMs,
             itemAllocMb,
             (GC.GetAllocatedBytesForCurrentThread() - allocatedBefore) / (1024.0 * 1024.0),
+            (GC.GetTotalAllocatedBytes(precise: true) - allocatedBefore) / (1024.0 * 1024.0),
+            outputs.Sum(o => (double)o.Length) / (1024.0 * 1024.0),
+            sum,
+            gcCounts);
+    }
+
+    private static BatchPass RunParallelBatchPass(byte[][] inputs, BakerAssemblyResolver resolver)
+    {
+        var itemAllocMb = new double[inputs.Length];
+        var itemMs = new double[inputs.Length];
+        var gc0 = GC.CollectionCount(0);
+        var gc1 = GC.CollectionCount(1);
+        var gc2 = GC.CollectionCount(2);
+        var allocatedBefore = GC.GetTotalAllocatedBytes(precise: true);
+        var start = Stopwatch.GetTimestamp();
+        var outputs = TimelineBaker.BakeJsonBatch(inputs, resolver);
+        var ms = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        ulong sum = 0;
+        for (var i = 0; i < outputs.Length; i++)
+            sum ^= (ulong)outputs[i].Length + BinaryPrimitives.ReadUInt64LittleEndian(outputs[i]);
+        var gcCounts = $"{GC.CollectionCount(0) - gc0}/{GC.CollectionCount(1) - gc1}/{GC.CollectionCount(2) - gc2}";
+        return new BatchPass(
+            "parallel",
+            ms,
+            itemMs,
+            itemAllocMb,
+            0,
+            (GC.GetTotalAllocatedBytes(precise: true) - allocatedBefore) / (1024.0 * 1024.0),
             outputs.Sum(o => (double)o.Length) / (1024.0 * 1024.0),
             sum,
             gcCounts);

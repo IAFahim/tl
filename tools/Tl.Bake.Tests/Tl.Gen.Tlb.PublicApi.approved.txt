@@ -13,6 +13,7 @@ type Tl.Gen.Tlb.BakerAssemblyResolver
 type Tl.Gen.Tlb.TimelineBaker
   Method Byte[] BakeJson(System.String, Tl.Gen.Tlb.BakerAssemblyResolver)
   Method Byte[] BakeJson(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver)
+  Method Byte[][] BakeJsonBatch(System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Tl.Gen.Tlb.BakerAssemblyResolver)
   Method Void CheckDuplicateKeys(System.String)
 type Tl.Gen.Tlb.TlbLabel
   Property Int32 ClipIndex
