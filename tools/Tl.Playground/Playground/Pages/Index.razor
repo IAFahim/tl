@@ -6,120 +6,120 @@
 @inject NavigationManager Nav
 @implements IDisposable
 
-<div class="wrap">
-    <header>
-        <h1>tl playground</h1>
-        <span class="muted">real Tl.Runtime playback over a baked timeline · deterministic · correctness only</span>
-        <a href="cookbook/index.html">cookbook</a>
-    </header>
-
-    <div class="panel">
-        <h2>Scenario</h2>
-        <div class="controls">
-            <label>crowd
-                <input type="number" min="@Scenario.MinCrowd" max="@Scenario.MaxCrowd" step="1"
-                       value="@Inv(_scenario.Crowd)" @onchange="@OnCrowdChange" />
-            </label>
-            <label>pattern
-                <select value="@PatternText" @onchange="@OnPatternChange">
-                    <option value="uniform">uniform</option>
-                    <option value="staggered">staggered</option>
-                    <option value="waves">waves</option>
-                </select>
-            </label>
-            <label>loop
-                <input type="checkbox" checked="@_scenario.Loop" @onchange="@OnLoopChange" />
-            </label>
-            <label>direction
-                <select value="@DirectionText" @onchange="@OnDirectionChange">
-                    <option value="fwd">forward</option>
-                    <option value="back">backward</option>
-                </select>
-            </label>
-            <button class="primary step" @onclick="@OnStep">step @DirectionText</button>
-            <button @onclick="@OnPlayPause">@(_playing ? "pause" : "play")</button>
-            <label>preset
-                <select @onchange="@OnPresetChange">
-                    <option value="" selected>load preset...</option>
-                    @foreach (var name in Scenario.PresetNames)
-                    {
-                        <option value="@name">@name</option>
-                    }
-                </select>
-            </label>
-        </div>
-        <div class="controls" style="margin-top:8px">
-            <label>scale <input type="range" min="0" max="4" step="0.25" value="@Inv(_scenario.TrackScale)" @onchange="@OnScaleChange" /> <b>@Inv(_scenario.TrackScale)</b></label>
-            <label>amount A <input type="range" min="-8" max="8" step="0.5" value="@Inv(_scenario.AmountA)" @onchange="@OnAmountAChange" /> <b>@Inv(_scenario.AmountA)</b></label>
-            <label>window A
-                <input type="number" min="0" max="@_scenario.Duration" value="@Inv(_scenario.WindowAStart)" @onchange="@OnWindowAStartChange" style="width:64px" />
-                <input type="number" min="1" max="@_scenario.Duration" value="@Inv(_scenario.WindowAEnd)" @onchange="@OnWindowAEndChange" style="width:64px" />
-            </label>
-            <label>amount B <input type="range" min="-8" max="8" step="0.5" value="@Inv(_scenario.AmountB)" @onchange="@OnAmountBChange" /> <b>@Inv(_scenario.AmountB)</b></label>
-            <label>window B
-                <input type="number" min="0" max="@_scenario.Duration" value="@Inv(_scenario.WindowBStart)" @onchange="@OnWindowBStartChange" style="width:64px" />
-                <input type="number" min="1" max="@_scenario.Duration" value="@Inv(_scenario.WindowBEnd)" @onchange="@OnWindowBEndChange" style="width:64px" />
-            </label>
-        </div>
-    </div>
-
-    <div class="panel">
-        <h2>Live columns</h2>
-        <div class="aggregates">
-            <span class="moved">moved <b>@(_engine?.Last.Moved ?? 0)</b></span>
-            <span class="skipped">skipped <b>@(_engine?.Last.Skipped ?? 0)</b></span>
-            <span class="wrapped">wrapped <b>@(_engine?.Last.Wrapped ?? 0)</b></span>
-            <span class="effect">effect total <b>@Inv(_engine?.Last.EffectTotal ?? 0f)</b></span>
-            <span class="muted">frame @(_frames) · crowd @(_engine?.Crowd ?? 0) · duration @(_engine?.Duration ?? 0) · loop @(_engine?.Loop ?? false)</span>
-        </div>
-        @if (_engine is null)
-        {
-            <div class="diagnostic">no timeline loaded</div>
-        }
-        else
-        {
-            <div class="strip">
-                @for (var row = 0; row < Math.Min(_engine.Crowd, StripCap); row++)
+<div class="page">
+    <div class="page-sub">real Tl.Runtime playback over a baked timeline · deterministic · correctness only</div>
+    <div class="split-grid split-index">
+        <section class="pane pane-preview">
+            <div class="pane-body">
+                <div class="scenario">
+                    <div class="controls">
+                        <label>crowd
+                            <input type="number" min="@Scenario.MinCrowd" max="@Scenario.MaxCrowd" step="1"
+                                   value="@Inv(_scenario.Crowd)" @onchange="@OnCrowdChange" />
+                        </label>
+                        <label>pattern
+                            <select value="@PatternText" @onchange="@OnPatternChange">
+                                <option value="uniform">uniform</option>
+                                <option value="staggered">staggered</option>
+                                <option value="waves">waves</option>
+                            </select>
+                        </label>
+                        <label>loop
+                            <input type="checkbox" checked="@_scenario.Loop" @onchange="@OnLoopChange" />
+                        </label>
+                        <label>direction
+                            <select value="@DirectionText" @onchange="@OnDirectionChange">
+                                <option value="fwd">forward</option>
+                                <option value="back">backward</option>
+                            </select>
+                        </label>
+                        <button class="primary step" @onclick="@OnStep">step @DirectionText</button>
+                        <button @onclick="@OnPlayPause">@(_playing ? "pause" : "play")</button>
+                        <label>preset
+                            <select @onchange="@OnPresetChange">
+                                <option value="" selected>load preset...</option>
+                                @foreach (var name in Scenario.PresetNames)
+                                {
+                                    <option value="@name">@name</option>
+                                }
+                            </select>
+                        </label>
+                    </div>
+                    <div class="controls">
+                        <label>scale <input type="range" min="0" max="4" step="0.25" value="@Inv(_scenario.TrackScale)" @onchange="@OnScaleChange" /> <b>@Inv(_scenario.TrackScale)</b></label>
+                        <label>amount A <input type="range" min="-8" max="8" step="0.5" value="@Inv(_scenario.AmountA)" @onchange="@OnAmountAChange" /> <b>@Inv(_scenario.AmountA)</b></label>
+                        <label>window A
+                            <input type="number" class="num-s" min="0" max="@_scenario.Duration" value="@Inv(_scenario.WindowAStart)" @onchange="@OnWindowAStartChange" />
+                            <input type="number" class="num-s" min="1" max="@_scenario.Duration" value="@Inv(_scenario.WindowAEnd)" @onchange="@OnWindowAEndChange" />
+                        </label>
+                        <label>amount B <input type="range" min="-8" max="8" step="0.5" value="@Inv(_scenario.AmountB)" @onchange="@OnAmountBChange" /> <b>@Inv(_scenario.AmountB)</b></label>
+                        <label>window B
+                            <input type="number" class="num-s" min="0" max="@_scenario.Duration" value="@Inv(_scenario.WindowBStart)" @onchange="@OnWindowBStartChange" />
+                            <input type="number" class="num-s" min="1" max="@_scenario.Duration" value="@Inv(_scenario.WindowBEnd)" @onchange="@OnWindowBEndChange" />
+                        </label>
+                    </div>
+                </div>
+                <h2 class="group">live columns</h2>
+                <div class="aggregates">
+                    <span class="moved">moved <b>@(_engine?.Last.Moved ?? 0)</b></span>
+                    <span class="skipped">skipped <b>@(_engine?.Last.Skipped ?? 0)</b></span>
+                    <span class="wrapped">wrapped <b>@(_engine?.Last.Wrapped ?? 0)</b></span>
+                    <span class="effect">effect total <b>@Inv(_engine?.Last.EffectTotal ?? 0f)</b></span>
+                    <span class="muted">frame @(_frames) · crowd @(_engine?.Crowd ?? 0) · duration @(_engine?.Duration ?? 0) · loop @(_engine?.Loop ?? false)</span>
+                </div>
+                @if (_engine is null)
                 {
-                    <div class="cell @CellClass(row)" style="@CellColor(row)" title="@CellTitle(row)"></div>
+                    <div class="diagnostic">no timeline loaded</div>
+                }
+                else
+                {
+                    <div class="strip">
+                        @for (var row = 0; row < Math.Min(_engine.Crowd, StripCap); row++)
+                        {
+                            <div class="cell @CellClass(row)" style="@CellColor(row)" title="@CellTitle(row)"></div>
+                        }
+                    </div>
+                    @if (_engine.Crowd > StripCap)
+                    {
+                        <div class="note">strip shows the first @StripCap of @(_engine.Crowd) rows; aggregates cover every row</div>
+                    }
+                    <table class="rows">
+                        <thead>
+                            <tr><th>row</th><th>id</th><th>position</th><th>effect</th><th>last frame</th></tr>
+                        </thead>
+                        <tbody>
+                            @for (var row = 0; row < Math.Min(_engine.Crowd, TableRows); row++)
+                            {
+                                <tr>
+                                    <td>@row</td>
+                                    <td>0</td>
+                                    <td class="pos">@_engine.Positions[row]</td>
+                                    <td>@Inv(_engine.Effects[row])</td>
+                                    <td class="@FlagClass(row)">@FlagText(row)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 }
             </div>
-            @if (_engine.Crowd > StripCap)
-            {
-                <div class="note">strip shows the first @StripCap of @(_engine.Crowd) rows; aggregates cover every row</div>
-            }
-            <table class="rows">
-                <thead>
-                    <tr><th>row</th><th>id</th><th>position</th><th>effect</th><th>last frame</th></tr>
-                </thead>
-                <tbody>
-                    @for (var row = 0; row < Math.Min(_engine.Crowd, TableRows); row++)
-                    {
-                        <tr>
-                            <td>@row</td>
-                            <td>0</td>
-                            <td class="pos">@_engine.Positions[row]</td>
-                            <td>@Inv(_engine.Effects[row])</td>
-                            <td class="@FlagClass(row)">@FlagText(row)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
+            <footer class="pg-foot">
+                playback runs <code>TimelineSet.Gather(ids).Seek(positions, forward).Apply(effects)</code> from the real
+                <code>Tl.Runtime</code>; the JSON box is baked by the real <code>TimelineBaker.BakeJson</code>.
+                Query parameters (<code>crowd, pattern, loop, dir, play, scale, amountA, windowA, amountB, windowB</code>) initialize
+                this embed and are written back to the URL.
+            </footer>
+        </section>
+        <div class="splitter splitter-x" role="separator" aria-orientation="vertical" tabindex="0"
+             aria-label="resize preview and editor panes"
+             data-before="0" data-after="2" data-min-before="320" data-min-after="300"></div>
+        <section class="pane pane-editor">
+            <div class="pane-head">
+                <h2>Authoring JSON (flat schema v1) — live bake</h2>
+            </div>
+            <textarea id="authoring" value="@_authoringJson" @oninput="@OnJsonInput" spellcheck="false"></textarea>
+            <div class="diagnostic @(_bakeOk ? "ok" : "")">@_diagnostic</div>
+        </section>
     </div>
-
-    <div class="panel">
-        <h2>Authoring JSON (flat schema v1) — live bake</h2>
-        <textarea id="authoring" value="@_authoringJson" @oninput="@OnJsonInput" spellcheck="false"></textarea>
-        <div class="diagnostic @(_bakeOk ? "ok" : "")">@_diagnostic</div>
-    </div>
-
-    <footer>
-        playback runs <code>TimelineSet.Gather(ids).Seek(positions, forward).Apply(effects)</code> from the real
-        <code>Tl.Runtime</code>; the JSON box is baked by the real <code>TimelineBaker.BakeJson</code>.
-        Query parameters (<code>crowd, pattern, loop, dir, play, scale, amountA, windowA, amountB, windowB</code>) initialize
-        this embed and are written back to the URL.
-    </footer>
 </div>
 
 @code {
@@ -169,6 +169,7 @@
     {
         if (firstRender)
             await JS.InvokeVoidAsync("play.syncQuery", Scenario.QueryString(_scenario.ToQuery()));
+        await JS.InvokeVoidAsync("play.wireSplitters");
         await JS.InvokeVoidAsync("play.measureHeight");
     }
 
