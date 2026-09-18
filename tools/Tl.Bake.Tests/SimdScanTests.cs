@@ -59,7 +59,7 @@ public sealed class SimdScanTests
     private static byte[] Utf8(string json) => Encoding.UTF8.GetBytes(json);
 
     private static bool TakesFastPath(string json) =>
-        TimelineBakerSimd.TryParseFast(Utf8(json), new BakerAssemblyResolver(), out _);
+        TimelineBakerSimd.TryParseFast(Utf8(json), new BakerAssemblyResolver(), null, out _);
 
     private static string Bake(string json) => Convert.ToHexString(SHA256.HashData(TimelineBaker.BakeJson(json)));
 
@@ -89,7 +89,7 @@ public sealed class SimdScanTests
         var legacy = ReceiptOf(() => BakeOracle.BakeJsonLegacy(json));
         var wired = ReceiptOf(() => TimelineBaker.BakeJson(json));
         Assert.Equal(legacy, wired);
-        if (TimelineBakerSimd.TryParseFast(Utf8(json), new BakerAssemblyResolver(), out var doc))
+        if (TimelineBakerSimd.TryParseFast(Utf8(json), new BakerAssemblyResolver(), null, out var doc))
         {
             var fast = ReceiptOf(() => TimelineBakerFastCore.BakeFast(doc, new BakerAssemblyResolver()));
             Assert.Equal(legacy, fast);
