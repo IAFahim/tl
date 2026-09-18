@@ -1,9 +1,10 @@
 using Tl;
+using Tl.TestSupport;
 
 var positions = new ushort[] { 0 };
 var vitality = new float[] { 0f };
 
-using var attack = TimelineAsset.Of(TimelineAsset.Load(new DataBaker()
+using var attack = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
     .Track<AnimationTrack, AnimationClip>(new AnimationTrack(1))
     .Track<DamageTrack, DamageClip>(new DamageTrack(2))
     .Track<AnimationTrack, AnimationClip>(new AnimationTrack(3))

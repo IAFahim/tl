@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" />
+    <Compile Include="../../tests/Shared/DomainBaker.cs" Link="Shared/DomainBaker.cs" />
   </ItemGroup>
 
 </Project>
