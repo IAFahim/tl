@@ -1,6 +1,6 @@
 # tl
 
-**tl** compiles designer-authored timeline data into deterministic execution — JSON in, baked `.tlb` bytes out, advanced by an unmanaged runtime on .NET and Unity. No reflection, no runtime compilation, 0 B per frame.
+**tl** compiles designer-authored timeline data into deterministic execution — JSON in, baked `.tlb` bytes out, advanced by an unmanaged runtime. No reflection, no runtime compilation, 0 B per frame.
 
 [![ci](https://github.com/IAFahim/tl/actions/workflows/ci.yml/badge.svg)](https://github.com/IAFahim/tl/actions/workflows/ci.yml)
 
@@ -13,48 +13,41 @@ dotnet add package Tl.CSharp --version 1.0.0-alpha.9
 dotnet tool install --global Tl.Bake --prerelease     # the tlb bake command
 ```
 
-.NET 10 (JIT + NativeAOT) via NuGet. Unity 6000+ via UPM: [`tl.unity`](https://github.com/IAFahim/tl.unity). Offline: append `--source ./packages`.
+## Get going
 
-## Showcase: a character that jumps
+One complete program lives at `samples/Showcase` — a JSON jump arc, baked, loaded, played:
 
-### 1. Define the domain
-
-```cs
-using Tl;
-
-namespace Game
-{
-    public readonly struct JumpClip
-    {
-        public readonly float Velocity;                 // height delta per tick
-        public JumpClip(float velocity) => Velocity = velocity;
-    }
-
-    public readonly struct JumpTrack : IBlend<JumpClip>
-    {
-        public readonly float Scale;
-        public JumpTrack(float scale) => Scale = scale;
-
-        public void Blend(in JumpClip first, in JumpClip second, float factor, out JumpClip result)
-            => result = new JumpClip(first.Velocity + (second.Velocity - first.Velocity) * factor);
-    }
-
-    public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
-    {
-        public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float y)
-            => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
-    }
-}
+```sh
+cd samples/Showcase
+dotnet build -c Release
+tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
+dotnet run -c Release --no-build
 ```
 
-- `IBlend<TClip>` — how two overlapping clips blend (authored factor)
-- `ITrack<TTrack, TClip>` — one consumer per pair, discovered compilation-wide: no registration, no catalog
-- one `ref float` column per consumer; `frame.Direction` makes rewind the exact inverse
-- track/clip structs are unmanaged and immutable
+You see:
 
-### 2. Author and bake one timeline
+```
+four characters jump, one call per frame:
+  tick  3   y =  6.0 m   ##
+  tick  6   y = 12.0 m   ####
+  tick  9   y = 18.0 m   ######
+  tick 12   y = 24.0 m   ########
+  tick 15   y = 30.0 m   ##########
+  tick 18   y = 24.0 m   ########
+  tick 21   y = 18.0 m   ######
+  tick 24   y = 12.0 m   ####
+  tick 27   y =  6.0 m   ##
+  tick 30   y =  0.0 m
 
-`jump.json` — half-open windows `[start, end)`, execution order is authored order, `data` maps onto struct fields:
+rewind walks the arc back exactly:
+  after 30 back ticks: y = 0.0 m, tick = 0
+
+Timeline.Bake marked entities 42, 43 as jumping; unmarked entities never reach the advance
+```
+
+## Author and bake one timeline
+
+The designer authors `jump.json` — half-open windows `[start, end)`, execution order is authored order, `data` maps onto struct fields, overlapping clips blend:
 
 ```json
 {
@@ -63,116 +56,88 @@ namespace Game
   "loop": true,
   "tracks": [
     {
-      "namespace": "Game",
+      "name": "arc",
+      "namespace": "Showcase",
       "type": "JumpTrack",
       "data": { "Scale": 1.0 },
       "clips": [
-        { "namespace": "Game", "type": "JumpClip", "start": 0,  "end": 15, "data": { "Velocity": 2.0 } },
-        { "namespace": "Game", "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } }
+        { "namespace": "Showcase", "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
+        { "namespace": "Showcase", "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } }
       ]
     }
   ]
 }
 ```
 
-```sh
-tlb jump.json jump.tlb --assembly bin/Release/net10.0/MyGame.dll
-```
-
-The assembly must be the one shipping those types at runtime (pair keys hash assembly-qualified names). Same input, same bytes, every machine and culture. `tlb --watch` re-bakes on save; `tlb --json --assembly ...` lists every authorable pair; `tlb --report` audits sizes; `tlb --strip` drops metadata.
-
-### 3. Load and play
+The names in the JSON are your C# types — three structs, one of them the consumer that writes the character's height:
 
 ```cs
-ushort jump = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
+public readonly record struct JumpClip(float Velocity);
 
-var tick = new ushort[] { 0 };
-var y    = new float[] { 0f };
-
-for (var frame = 0; frame < 30; frame++)
-    Timeline<JumpTrack, JumpClip>.Advance(jump, tick, true, y);
-
-// y[0] climbed to +30 and came back to 0 — the character jumped and landed; loop: true wraps
-```
-
-- `Load` interns the bytes and returns the timeline index — one dense `ushort`, the whole acquisition step
-- the first typed use folds the pair's measured tables once; every later call is a table read
-- one advance = one frame, always: finite timelines clamp, looping ones wrap, equal positions collapse into vector runs
-
-### 4. Rewind, catch-up, jump-to
-
-```cs
-Timeline<JumpTrack, JumpClip>.Advance(jump, tick, false, y);  // rewind — walks the arc back, bit-exact
-
-while (lag-- > 0)                                             // catch-up: repeated single-frame calls
-    Timeline<JumpTrack, JumpClip>.Advance(jump, tick, true, y);
-
-tick[0] = 12;                                                 // jump-to: the clock is your column —
-                                                              // write it and continue; no frames replayed
-```
-
-No multi-frame skip parameter exists, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` / the position column.
-
-### 5. Crowds — mixed timelines, one call
-
-```cs
-ushort jump  = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
-ushort hop   = TimelineAsset.Load(File.ReadAllBytes("hop.tlb"));
-ushort slam  = TimelineAsset.Load(File.ReadAllBytes("slam.tlb"));   // any timeline with the same pair
-
-var ids  = new ushort[] { jump, jump, hop, slam };
-var tick = new ushort[] { 0, 5, 0, 12 };
-var y    = new float[4];
-
-Timeline<JumpTrack, JumpClip>.Advance(ids, tick, true, y);          // whole crowd, one frame
-Timeline<JumpTrack, JumpClip>.Seek(ids, tick, true).Apply(y);       // same call, two steps
-
-var jumpTick = new ushort[] { 0, 5 };                               // jump's rows only — fastest shape,
-var jumpY    = new float[2];                                        // no index column at all
-Timeline<JumpTrack, JumpClip>.Advance(jump, jumpTick, true, jumpY);
-```
-
-## IBake — attach host markers
-
-The host-wiring API: declare what to attach when a timeline carrying your pair is baked onto an entity, then call one type-agnostic `Timeline.Bake`.
-
-```cs
-// 1. declare the wiring — on its own struct or directly on the consumer
-public readonly struct MoveYBake : IBake<MoveY, World, Entity>
+public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
 {
-    public static void Bake(MoveY consumer, World world, Entity entity)
-        => world.Add<JumpingTag>(entity);                     // your marker component
+    public void Blend(in JumpClip first, in JumpClip second, float factor, out JumpClip result)
+        => result = new(first.Velocity + (second.Velocity - first.Velocity) * factor);
 }
 
-public readonly struct Heal : ITrack<HealTrack, HealClip>, IBake<Heal, World> { ... }
-
-// 2. attach — one call, any loaded timeline; context arguments can be anything
-ushort jump = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
-Timeline.Bake(jump, world, entity);
-
-// 3. advance only marked entities — absence is structural, no filtering branch
-foreach (var chunk in world.Chunks<JumpingTag, Tick, Y>())
-    Timeline<JumpTrack, JumpClip>.Advance(jump, chunk.Ticks, forward, chunk.Y);
+public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
+{
+    public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float y)
+        => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
+}
 ```
 
-Rules:
+`ITrack<TTrack, TClip>` consumers are discovered compilation-wide — no registration, no catalog. `frame.Direction` is +1 forward and −1 backward, which is why rewind is exact. Bake with the CLI; `--assembly` names the DLL that ships those types (pair keys hash assembly-qualified names). Same input, same bytes, every machine and culture:
 
-- `IBake<TConsumer, T0, ..., T3>` — consumer first, then zero to four context types
-- a bake runs when every declared context type appears among the `Timeline.Bake(id, args...)` argument types: subset match, exact type identity, first argument of that type wins, declaration order is the parameter order
-- zero-context bakes run on every call; a missing context keeps the bake silent; extra arguments are ignored
-- discovered and validated at build time (TLGEN70-73 locate invalid shapes), installed into an unmanaged table at module init — no reflection, no runtime compilation, warm path untouched, repeated calls deterministic
-- manual install/inspection for hosts without the generator: `BakeRuntime<TTrack, TClip>.Bake(&thunk, TypeKey<World>.Value)`, `BakeCount`, `BakeContextCount(i)`, `BakeContextKey(i, c)`
-- a timeline that lacks the pair is a loud located diagnostic at first typed use — host wiring error, never designer data
+```sh
+tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
+```
 
-## Query without advancing
+Other commands: `tlb --watch` re-bakes on save, `tlb --json --assembly ...` lists every authorable pair, `tlb --report` audits sizes, `tlb --strip` drops authoring metadata.
+
+## The program
+
+The whole consumer side is one file (`samples/Showcase/Program.cs`):
 
 ```cs
-using var asset = TimelineAsset.Of(jump);
-
-foreach (var frame in Timeline.Query<JumpTrack, JumpClip>(
-             new TimelineComponent(asset.Reference) { Position = 7 }))
-    MoveY.Execute(in frame, ref y[0]);      // reads the arc at tick 7; never moves the clock
+ushort jump = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
 ```
+
+`Load` is the whole acquisition step — it validates, interns the bytes, and returns the timeline index, a dense `ushort`. The first typed use folds the pair's measured tables once; every later call is a table read.
+
+```cs
+var ids  = new ushort[] { jump, jump, jump, jump };
+var tick = new ushort[] { 0, 0, 0, 0 };
+var y    = new float[] { 0f, 0f, 0f, 0f };
+
+for (var frame = 1; frame <= 30; frame++)
+    Timeline<JumpTrack, JumpClip>.Advance(ids, tick, true, y);
+```
+
+Three caller-owned columns — timeline index, clock, effect — and one call advances every character one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Rewind is `forward: false` and returns columns bit-exactly:
+
+```cs
+for (var frame = 0; frame < 30; frame++)
+    Timeline<JumpTrack, JumpClip>.Advance(jump, tick, false, y);
+```
+
+There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
+
+Host wiring is declared, not registered — implement `IBake<TConsumer, ...TContext>` (zero to four context types) and one type-agnostic call attaches your markers at load time:
+
+```cs
+public readonly struct AttachJumping : IBake<MoveY, World, int>
+{
+    public static void Bake(MoveY consumer, World world, int entity)
+        => world.MarkJumping(entity);
+}
+
+var world = new World();
+Timeline.Bake(jump, world, 42);
+Timeline.Bake(jump, world, 43);
+```
+
+`Timeline.Bake(id, args...)` walks the timeline's pairs and runs every bake whose declared context types appear among the argument types — exact type match, first argument of that type wins, declaration order is the parameter order, zero-context bakes run on every call, a missing context keeps the bake silent. Discovered and validated at build time (TLGEN70-73), installed into an unmanaged table, warm path untouched. A timeline that lacks the pair is a loud located diagnostic at first typed use — host wiring error, never designer data. Reading without advancing: `Timeline.Query<TTrack, TClip>(in TimelineComponent)` is a read-only stage view that never moves the clock.
 
 ## Generated reports
 
@@ -180,59 +145,22 @@ foreach (var frame in Timeline.Query<JumpTrack, JumpClip>(
 dotnet msbuild -t:TlGenExport -p:Configuration=Release   # content-stable .g.cs snapshot + manifest
 ```
 
-## Benchmarks
+## Numbers
 
-One million rows per call, one frame per call (i9-14900K, .NET 10, Release; best of 5 × 3 interleaved rounds; every shape bit-exact forward and backward, 0 B warm) — fast to slow:
+One million characters, one frame per call (i9-14900K, .NET 10, Release; best of 5 × 3 interleaved rounds; every shape bit-exact forward and backward, 0 B warm):
 
-| workload | ms/frame | ns/row |
+| scenario | ms/frame | ns/character |
 | --- | ---: | ---: |
-| static hand lane, waves of 100 | 0.14 | 0.13 |
-| static hand lane, uniform clocks | 0.16 | 0.15 |
-| **one timeline index, grouped rows** | **0.19** | **0.18** |
-| 100 timelines, id blocks of 100, waves of 100 | 0.21 | 0.20 |
-| one looping timeline, staggered clocks | 0.24 | 0.22 |
-| finite timeline, staggered clocks | 0.34 | 0.32 |
-| plain floor (`effects += 1; positions += 1`) | 0.41 | 0.39 |
-| 16 timelines, id blocks of 16, waves of 100 | 0.50 | 0.48 |
-| ids alternating per row, staggered clocks | 1.80 | 1.72 |
+| whole crowd on one timeline (a raid jumping in sync) | 0.19 | 0.18 |
+| 100 timelines, crowds of 100 each (per-ability groups) | 0.21 | 0.20 |
+| one looping timeline, every character on its own clock | 0.24 | 0.22 |
+| one-shot finite timeline, staggered clocks | 0.34 | 0.32 |
+| hand-written loop for comparison (`effects += 1`) | 0.41 | 0.39 |
+| small squads: 16 timelines × 16 characters | 0.50 | 0.48 |
+| worst case: unsorted rows, a different timeline each | 1.80 | 1.72 |
 
-Crowd envelopes (100k rows): 0.18-0.19 one index · 0.32 eight grouped · 0.86 eight alternating · waves 0.17-0.20 grouped, 0.67-0.69 alternating. **Group rows by timeline index — ECS archetypes do it for free.**
+A hand-tuned single-timeline lane floors at 0.13-0.16; grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Bake and load of a full game's authoring file — 20 MB of JSON — takes 179.7 ms end to end and loads in 2.9 ms; the bake pools every repeated string and payload, so authored JSON shrinks on the way in. Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size. Caps: 65,535 ticks per timeline, 256 pairs per asset, types closed at build time.
 
-Bake/load (20 MB authoring corpus, `tools/Tl.Bake.Bench`): bake 179.7 ms end to end (legacy DOM path 3,393 ms); `Load` of the 15.8 MB result 2.9 ms. Memory: host columns 8 B/row (index 2 + position 2 + effect 4); per-timeline tables `28 * (duration + 1) + 48` bytes; `TimelineState` 8 B; 0 B warm.
+Receipts: `benchmarks/PairHandles`, `benchmarks/Alpha`, `tests/Tl.Alpha` — parity, allocation, and throughput evidence, run in CI on every push.
 
-## Unity ECS
-
-```sh
-# Package Manager → Add package from git URL
-https://github.com/IAFahim/tl.unity.git?path=com.iafahim.tl
-```
-
-```cs
-foreach (var (timeline, resistance, health) in
-         SystemAPI.Query<RefRO<TimelineComponent>, RefRO<Resistance>, RefRW<Health>>())
-    foreach (var frame in TimelineEcs.Query<DamageTrack, DamageClip>(in timeline.ValueRO))
-        ApplyDamage.Execute(in frame, in resistance.ValueRO, ref health.ValueRW);
-```
-
-Walkthrough: [tl.unity END-TO-END.md](https://github.com/IAFahim/tl.unity/blob/main/END-TO-END.md).
-
-## Scope
-
-- Types are closed at build time; new executable types require recompilation
-- Half-open windows `[start, end)`; execution order is authored clip order
-- Unmanaged track/clip/component data; assets cap at 65,535 ticks and 256 pairs
-- Designer GUI authoring and C asset consumption are deferred
-
-## Map
-
-| Path | What |
-| --- | --- |
-| `src/Tl.Core` | runtime, import, frames, movement, typed lane |
-| `src/Tl.Gen.CSharp` / `src/Tl.CSharp` | build-time generator / one-package install |
-| `tools/Tl.Bake` (`tlb`) + `tools/Tl.Gen.Tlb` | bake CLI + baking library |
-| `tools/Tl.Bake.Bench` · `tools/Tl.Blender` · `tools/Tl.Playground` | bake receipts · Blender bridge · live playground |
-| `samples/` Mixed · NuGetQuickStart · ManyEntities | samples; CI runs them all |
-| `tests/` Tl.Alpha · Tl.PackageConsumer · … | receipts |
-| `benchmarks/` Alpha · PairHandles · TypedPlaybackProto | parity + throughput receipts |
-
-Contributing: [AGENTS.md](AGENTS.md) · Security: [SECURITY.md](SECURITY.md) · License: [MIT](LICENSE) (issue #64)
+Contributing: [AGENTS.md](AGENTS.md) · Security: [SECURITY.md](SECURITY.md) · License: [MIT](LICENSE)

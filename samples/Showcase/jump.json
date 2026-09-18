@@ -1,0 +1,17 @@
+{
+  "name": "jump",
+  "duration": 30,
+  "loop": true,
+  "tracks": [
+    {
+      "name": "arc",
+      "namespace": "Showcase",
+      "type": "JumpTrack",
+      "data": { "Scale": 1.0 },
+      "clips": [
+        { "namespace": "Showcase", "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
+        { "namespace": "Showcase", "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } }
+      ]
+    }
+  ]
+}
