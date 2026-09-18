@@ -14,4 +14,13 @@ public sealed record JobDefinition(string TypeName, IReadOnlyList<TimelineSlot> 
 
 public sealed record JobConsumer(string TrackTypeName, string ClipTypeName, JobDefinition Job);
 
-public sealed record JobReadResult(IReadOnlyList<JobConsumer> Consumers, IReadOnlyList<DeclarationDiagnostic> Diagnostics);
+public sealed record BakeDeclaration(
+    string TypeName,
+    string ConsumerTypeName,
+    IReadOnlyList<string> ContextTypeNames,
+    IReadOnlyList<JobConsumer> Pairs);
+
+public sealed record JobReadResult(
+    IReadOnlyList<JobConsumer> Consumers,
+    IReadOnlyList<DeclarationDiagnostic> Diagnostics,
+    IReadOnlyList<BakeDeclaration> Bakes);
