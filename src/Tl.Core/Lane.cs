@@ -68,7 +68,7 @@ public ref struct TimelineLane<T>
         while (i < count)
         {
                 var position = positions[i];
-                var end = RunEnd(positions, i);
+                var end = LaneOps.RunEnd(positions, i, positions.Length);
                 float delta;
                 int next;
                 if (forward)
@@ -95,8 +95,8 @@ public ref struct TimelineLane<T>
                 }
                 else
                 {
-                    Add(effects, i, end, delta);
-                    Fill(positions, i, end, (ushort)next);
+                    LaneOps.Add(effects, i, end, delta);
+                    LaneOps.Fill(positions, i, end, (ushort)next);
                 }
             i = end;
         }
@@ -118,7 +118,7 @@ public ref struct TimelineLane<T>
         {
             var chunkEnd = i + Chunk;
             if (chunkEnd > count) chunkEnd = count;
-            if (gather && SingletonChunk(positions, i, chunkEnd))
+            if (gather && LaneOps.SingletonChunk(positions, i, chunkEnd))
             {
                 var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
                 if (blockEnd > i)
@@ -134,7 +134,7 @@ public ref struct TimelineLane<T>
             while (i < chunkEnd)
             {
                 var position = positions[i];
-                var end = RunEnd(positions, i);
+                var end = LaneOps.RunEnd(positions, i, positions.Length);
                 if (end == i + 1)
                 {
                     if (forward)
@@ -177,8 +177,8 @@ public ref struct TimelineLane<T>
                     delta = T.InverseEffect(tick);
                     next = tick;
                 }
-                Add(effects, i, end, delta);
-                Fill(positions, i, end, (ushort)next);
+                LaneOps.Add(effects, i, end, delta);
+                LaneOps.Fill(positions, i, end, (ushort)next);
                 i = end;
             }
         }
@@ -267,15 +267,6 @@ public ref struct TimelineLane<T>
         return pairs >= sample / 2;
     }
 
-    static bool SingletonChunk(Span<ushort> positions, int start, int end)
-    {
-        var probe = start + 64;
-        if (probe > end) probe = end;
-        for (var i = start + 1; i < probe; i++)
-            if (positions[i] == positions[i - 1]) return false;
-        return true;
-    }
-
     void Check(Span<float> effects)
     {
         var positions = _positions;
@@ -285,76 +276,6 @@ public ref struct TimelineLane<T>
             throw new ArgumentException("Lane columns must not overlap.");
     }
 
-    static int RunEnd(Span<ushort> positions, int start)
-    {
-        var count = positions.Length;
-        var value = positions[start];
-        var end = start + 1;
-        if (Vector512.IsHardwareAccelerated)
-        {
-            ref var first = ref MemoryMarshal.GetReference(positions);
-            var search = Vector512.Create(value);
-            var limit = count - 32;
-            while (end <= limit)
-            {
-                var mask = Vector512.ExtractMostSignificantBits(Vector512.Equals(Vector512.LoadUnsafe(ref first, (nuint)end), search));
-                if (mask != 0xFFFF_FFFFu) return end + BitOperations.TrailingZeroCount(~mask);
-                end += 32;
-            }
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            ref var first = ref MemoryMarshal.GetReference(positions);
-            var search = Vector256.Create(value);
-            var limit = count - 16;
-            while (end <= limit)
-            {
-                var mask = Vector256.ExtractMostSignificantBits(Vector256.Equals(Vector256.LoadUnsafe(ref first, (nuint)end), search));
-                if (mask != 0xFFFFu) return end + BitOperations.TrailingZeroCount(~mask);
-                end += 16;
-            }
-        }
-        while (end < count && positions[end] == value) end++;
-        return end;
-    }
-
-    static void Add(Span<float> values, int start, int end, float delta)
-    {
-        var length = end - start;
-        var i = 0;
-        if (Vector512.IsHardwareAccelerated)
-        {
-            var vector = Vector512.Create(delta);
-            var limit = length & ~15;
-            for (; i < limit; i += 16) Vector512.Add(Vector512.LoadUnsafe(ref values[start], (nuint)i), vector).StoreUnsafe(ref values[start], (nuint)i);
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            var vector = Vector256.Create(delta);
-            var limit = length & ~7;
-            for (; i < limit; i += 8) Vector256.Add(Vector256.LoadUnsafe(ref values[start], (nuint)i), vector).StoreUnsafe(ref values[start], (nuint)i);
-        }
-        for (; i < length; i++) values[start + i] += delta;
-    }
-
-    static void Fill(Span<ushort> values, int start, int end, ushort value)
-    {
-        var length = end - start;
-        var i = 0;
-        if (Vector512.IsHardwareAccelerated)
-        {
-            var vector = Vector512.Create(value);
-            var limit = length & ~31;
-            for (; i < limit; i += 32) vector.StoreUnsafe(ref values[start], (nuint)i);
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            var vector = Vector256.Create(value);
-            var limit = length & ~15;
-            for (; i < limit; i += 16) vector.StoreUnsafe(ref values[start], (nuint)i);
-        }
-        for (; i < length; i++) values[start + i] = value;
-    }
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -364,6 +285,90 @@ internal struct LaneMovementRecord
     public float Effect;
     public ushort Next;
     public ushort Pad;
+}
+
+internal static unsafe class LaneOps
+{
+    internal static int RunEnd(ReadOnlySpan<ushort> values, int start, int limit)
+    {
+        var value = values[start];
+        var end = start + 1;
+        if (Vector512.IsHardwareAccelerated)
+        {
+            ref var first = ref MemoryMarshal.GetReference(values);
+            var search = Vector512.Create(value);
+            var bound = limit - 32;
+            while (end <= bound)
+            {
+                var mask = (uint)Vector512.ExtractMostSignificantBits(Vector512.Equals(Vector512.LoadUnsafe(ref first, (nuint)end), search));
+                if (mask != 0xFFFF_FFFFu) return end + BitOperations.TrailingZeroCount(~mask);
+                end += 32;
+            }
+        }
+        else if (Vector256.IsHardwareAccelerated)
+        {
+            ref var first = ref MemoryMarshal.GetReference(values);
+            var search = Vector256.Create(value);
+            var bound = limit - 16;
+            while (end <= bound)
+            {
+                var mask = Vector256.ExtractMostSignificantBits(Vector256.Equals(Vector256.LoadUnsafe(ref first, (nuint)end), search));
+                if (mask != 0xFFFFu) return end + BitOperations.TrailingZeroCount(~mask);
+                end += 16;
+            }
+        }
+        while (end < limit && values[end] == value) end++;
+        return end;
+    }
+
+    internal static bool SingletonChunk(Span<ushort> positions, int start, int end)
+    {
+        var probe = start + 64;
+        if (probe > end) probe = end;
+        ref var origin = ref MemoryMarshal.GetReference(positions);
+        var j = start;
+        if (Vector.IsHardwareAccelerated)
+        {
+            var vectorLimit = probe - Vector<ushort>.Count - 1;
+            while (j <= vectorLimit)
+            {
+                if (Vector.EqualsAny(Vector.LoadUnsafe(ref origin, (nuint)j), Vector.LoadUnsafe(ref origin, (nuint)(j + 1)))) return false;
+                j += Vector<ushort>.Count;
+            }
+        }
+        for (var k = j; k < probe - 1; k++)
+            if (positions[k] == positions[k + 1]) return false;
+        return true;
+    }
+
+    internal static void Add(Span<float> values, int start, int end, float delta)
+    {
+        var length = end - start;
+        var i = 0;
+        if (Vector.IsHardwareAccelerated)
+        {
+            ref var origin = ref MemoryMarshal.GetReference(values);
+            var vector = new Vector<float>(delta);
+            var limit = length & ~(Vector<float>.Count - 1);
+            for (; i < limit; i += Vector<float>.Count)
+                (Vector.LoadUnsafe(ref origin, (nuint)(start + i)) + vector).StoreUnsafe(ref origin, (nuint)(start + i));
+        }
+        for (; i < length; i++) values[start + i] += delta;
+    }
+
+    internal static void Fill(Span<ushort> values, int start, int end, ushort value)
+    {
+        var length = end - start;
+        var i = 0;
+        if (Vector.IsHardwareAccelerated)
+        {
+            ref var origin = ref MemoryMarshal.GetReference(values);
+            var vector = new Vector<ushort>(value);
+            var limit = length & ~(Vector<ushort>.Count - 1);
+            for (; i < limit; i += Vector<ushort>.Count) vector.StoreUnsafe(ref origin, (nuint)(start + i));
+        }
+        for (; i < length; i++) values[start + i] = value;
+    }
 }
 
 internal static unsafe class LaneMovement
