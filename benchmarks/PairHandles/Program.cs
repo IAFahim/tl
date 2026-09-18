@@ -12,6 +12,8 @@ var artifactsIndex = Array.IndexOf(args, "--artifacts");
 var artifacts = artifactsIndex >= 0 && artifactsIndex + 1 < args.Length
     ? args[artifactsIndex + 1]
     : $"results/{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+var filterIndex = Array.IndexOf(args, "--filter");
+var filter = filterIndex >= 0 && filterIndex + 1 < args.Length ? args[filterIndex + 1] : "*";
 
 var failures = Parity.Run();
 if (failures != 0) return 1;
@@ -20,7 +22,7 @@ if (parityOnly) return 0;
 Console.WriteLine($"host: {Environment.OSVersion.VersionString}, {RuntimeInformation.FrameworkDescription}, procs {Environment.ProcessorCount}");
 Console.WriteLine($"benchmark artifacts: {Path.GetFullPath(artifacts)}");
 
-BenchmarkSwitcher.FromAssembly(typeof(PairHandleBenchmarks).Assembly).Run(["--filter", "*", "--artifacts", Path.GetFullPath(artifacts)]);
+BenchmarkSwitcher.FromAssembly(typeof(PairHandleBenchmarks).Assembly).Run(["--filter", filter, "--artifacts", Path.GetFullPath(artifacts)]);
 return 0;
 
 static class Parity

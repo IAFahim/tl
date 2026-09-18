@@ -339,6 +339,40 @@ public class PairHandleLaneTests
     }
 
     [Fact]
+    public void ChunkStraddlingStaggeredRunsMatchPerAssetUniformLanes()
+    {
+        var handles = BindVariants();
+        const int rows = 10_240;
+        var rowHandles = new ushort[rows];
+        var positions = new ushort[rows];
+        var effects = new float[rows];
+        for (var i = 0; i < rows; i++)
+        {
+            rowHandles[i] = handles[i / 5_000 % Assets];
+            positions[i] = (ushort)(i % 7);
+        }
+
+        AdvanceAgainstOracle(rowHandles, positions, effects, (ushort[])positions.Clone(), (float[])effects.Clone(), handles);
+    }
+
+    [Fact]
+    public void ChunkStraddlingBlocksMatchPerAssetUniformLanes()
+    {
+        var handles = BindVariants();
+        const int rows = 10_240;
+        var rowHandles = new ushort[rows];
+        var positions = new ushort[rows];
+        var effects = new float[rows];
+        for (var i = 0; i < rows; i++)
+        {
+            rowHandles[i] = handles[i / 100 % Assets];
+            positions[i] = (ushort)(i / 100 % 5);
+        }
+
+        AdvanceAgainstOracle(rowHandles, positions, effects, (ushort[])positions.Clone(), (float[])effects.Clone(), handles);
+    }
+
+    [Fact]
     public void AdvanceMatchesSeekApply()
     {
         var bound = BindVariants();
