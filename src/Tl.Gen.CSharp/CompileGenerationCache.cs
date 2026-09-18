@@ -102,9 +102,6 @@ internal static class CompileGenerationCache
         }
     }
 
-    internal static bool IsHit(string outputDirectory, string cacheKey, CompileGenerationManifest? manifest)
-        => MissReason(outputDirectory, cacheKey, manifest) is null;
-
     internal static string? MissReason(string outputDirectory, string cacheKey, CompileGenerationManifest? manifest)
     {
         if (manifest is null)
