@@ -92,18 +92,11 @@ internal static class CompileGenerationCache
 
             return manifest;
         }
-        catch (JsonException)
-        {
-            return null;
-        }
-        catch (IOException)
+        catch (Exception exception) when (exception is JsonException or IOException)
         {
             return null;
         }
     }
-
-    internal static bool IsHit(string outputDirectory, string cacheKey, CompileGenerationManifest? manifest)
-        => MissReason(outputDirectory, cacheKey, manifest) is null;
 
     internal static string? MissReason(string outputDirectory, string cacheKey, CompileGenerationManifest? manifest)
     {
@@ -205,7 +198,6 @@ internal static class CompileGenerationCache
         if (string.IsNullOrEmpty(relativePath)
             || Path.IsPathRooted(relativePath)
             || Path.GetFileName(relativePath) != relativePath
-            || relativePath.Contains('/')
             || relativePath.Contains('\\')
             || relativePath.Contains('\r')
             || relativePath.Contains('\n'))

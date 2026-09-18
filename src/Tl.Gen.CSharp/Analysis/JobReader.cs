@@ -1,6 +1,5 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp.Analysis;
@@ -8,7 +7,6 @@ namespace Tl.Gen.CSharp.Analysis;
 public static class JobReader
 {
     private sealed record Contracts(INamedTypeSymbol Job, INamedTypeSymbol Frame, INamedTypeSymbol Blend);
-    private sealed record Entry(INamedTypeSymbol Type, TypeDeclarationSyntax Syntax);
 
     public static JobReadResult Read(CSharpCompilation compilation)
     {
@@ -21,19 +19,19 @@ public static class JobReader
             var site = compilation.SyntaxTrees.SelectMany(static tree => tree.GetRoot().DescendantNodes())
                 .FirstOrDefault(static node => node.ToString().Contains("ITrack<", StringComparison.Ordinal));
             if (site is not null)
-                Error(errors, site, "TLGEN60", "The exact Tl job declaration contracts could not be resolved.");
+                Symbols.Error(errors, site, "TLGEN60", "The exact Tl job declaration contracts could not be resolved.");
             return new([], errors, []);
         }
-        var entries = Entries(compilation).OrderBy(static entry => Name(entry.Type), StringComparer.Ordinal).ToArray();
+        var entries = Symbols.Entries(compilation).OrderBy(static entry => Symbols.Name(entry.Type), StringComparer.Ordinal).ToArray();
         var consumers = new List<JobConsumer>();
         var pairs = new HashSet<string>(StringComparer.Ordinal);
         var reader = new Reader(compilation, errors);
         foreach (var entry in entries)
         {
             if (entry.Type.TypeKind == TypeKind.Interface) continue;
-            var markers = entry.Type.AllInterfaces.Where(item => Same(item.OriginalDefinition, contracts.Job)).ToArray();
+            var markers = entry.Type.AllInterfaces.Where(item => Symbols.Same(item.OriginalDefinition, contracts.Job)).ToArray();
             if (markers.Length == 0) continue;
-            void Err(string msg) => Error(errors, entry.Syntax, "TLGEN65", $"Job '{Name(entry.Type)}' {msg}");
+            void Err(string msg) => Symbols.Error(errors, entry.Syntax, "TLGEN65", $"Job '{Symbols.Name(entry.Type)}' {msg}");
             if (entry.Type.IsAbstract) { Err("cannot be abstract."); continue; }
             if (entry.Type.Arity > 0 || entry.Type.TypeParameters.Length > 0) { Err("cannot be generic; open type parameters cannot be registered as timeline jobs."); continue; }
             var discovered = new List<JobConsumer>();
@@ -44,13 +42,13 @@ public static class JobReader
                 var clip = marker.TypeArguments[1];
                 if (track.TypeKind == TypeKind.TypeParameter || clip.TypeKind == TypeKind.TypeParameter) { Err("cannot have open type parameters for its track or clip pairing."); valid = false; continue; }
                 var ok = true;
-                if (!track.IsUnmanagedType) { Err($"track type '{Name(track)}' must be an unmanaged type."); ok = false; }
-                if (!clip.IsUnmanagedType) { Err($"clip type '{Name(clip)}' must be an unmanaged type."); ok = false; }
-                if (ok && !track.AllInterfaces.Any(item => Same(item.OriginalDefinition, contracts.Blend) && item.TypeArguments.Length == 1 && Same(item.TypeArguments[0], clip))) { Err($"track type '{Name(track)}' must implement Tl.IBlend<{Name(clip)}>."); ok = false; }
+                if (!track.IsUnmanagedType) { Err($"track type '{Symbols.Name(track)}' must be an unmanaged type."); ok = false; }
+                if (!clip.IsUnmanagedType) { Err($"clip type '{Symbols.Name(clip)}' must be an unmanaged type."); ok = false; }
+                if (ok && !track.AllInterfaces.Any(item => Symbols.Same(item.OriginalDefinition, contracts.Blend) && item.TypeArguments.Length == 1 && Symbols.Same(item.TypeArguments[0], clip))) { Err($"track type '{Symbols.Name(track)}' must implement Tl.IBlend<{Symbols.Name(clip)}>."); ok = false; }
                 if (!ok) { valid = false; continue; }
                 var definition = reader.Execute(entry.Type, contracts.Frame.Construct(track, clip), compilation.Assembly, entry.Syntax);
                 if (definition is null) { valid = false; continue; }
-                discovered.Add(new(Name(track), Name(clip), definition));
+                discovered.Add(new(Symbols.Name(track), Symbols.Name(clip), definition));
             }
             if (!valid) continue;
             foreach (var consumer in discovered.OrderBy(static item => item.TrackTypeName + "\0" + item.ClipTypeName, StringComparer.Ordinal))
@@ -68,17 +66,17 @@ public static class JobReader
             var candidates = type.GetMembers("Execute").OfType<IMethodSymbol>().Where(method => !method.IsImplicitlyDeclared
                 && method.IsStatic && method.ReturnsVoid && method.Arity == 0 && method.MethodKind == MethodKind.Ordinary
                 && method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In
-                && Same(method.Parameters[0].Type, frame)
+                && Symbols.Same(method.Parameters[0].Type, frame)
                 && compilation.IsSymbolAccessibleWithin(method, owner)).ToArray();
             var method = candidates.Length == 1 ? candidates[0] : null;
             if (method is null)
             {
-                Error(errors, site, "TLGEN66", $"'{Name(type)}' must declare one accessible static void Execute beginning with in {Name(frame)}.");
+                Symbols.Error(errors, site, "TLGEN66", $"'{Symbols.Name(type)}' must declare one accessible static void Execute beginning with in {Symbols.Name(frame)}.");
                 return null;
             }
             if (method.Parameters.Length > 5)
             {
-                Error(errors, Site(method.Parameters[5], site), "TLGEN68", $"'{Name(type)}.Execute' declares {method.Parameters.Length - 1} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
+                Symbols.Error(errors, Site(method.Parameters[5], site), "TLGEN68", $"'{Symbols.Name(type)}.Execute' declares {method.Parameters.Length - 1} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
                 return null;
             }
             var slots = new List<TimelineSlot>();
@@ -86,12 +84,12 @@ public static class JobReader
             {
                 if (parameter.RefKind is not (RefKind.In or RefKind.Ref) || parameter.IsOptional || parameter.IsParams || !parameter.Type.IsUnmanagedType)
                 {
-                    Error(errors, Site(parameter, site), "TLGEN67", $"Every gameplay parameter of '{Name(type)}.Execute' must be a required unmanaged in or ref parameter; out is unsupported.");
+                    Symbols.Error(errors, Site(parameter, site), "TLGEN67", $"Every gameplay parameter of '{Symbols.Name(type)}.Execute' must be a required unmanaged in or ref parameter; out is unsupported.");
                     return null;
                 }
-                slots.Add(new(parameter.Name, Name(parameter.Type), parameter.RefKind == RefKind.In ? SlotMode.Input : SlotMode.Reference));
+                slots.Add(new(parameter.Name, Symbols.Name(parameter.Type), parameter.RefKind == RefKind.In ? SlotMode.Input : SlotMode.Reference));
             }
-            return new(Name(type), slots);
+            return new(Symbols.Name(type), slots);
         }
     }
 
@@ -102,28 +100,6 @@ public static class JobReader
         return types.Any(static type => type is null) ? null : new(types[0]!, types[1]!, types[2]!);
     }
 
-    private static IReadOnlyList<Entry> Entries(CSharpCompilation compilation)
-    {
-        var result = new List<Entry>();
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-        foreach (var tree in compilation.SyntaxTrees)
-        foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>())
-            if (compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax) is { } type && seen.Add(type))
-                result.Add(new(type, syntax));
-        return result;
-    }
-
     private static SyntaxNode Site(ISymbol symbol, SyntaxNode fallback) => symbol.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).FirstOrDefault() ?? fallback;
     private static string PairKey(string job, string track, string clip) => job + "\0" + track + "\0" + clip;
-    private static bool Same(ISymbol? left, ISymbol? right) => SymbolEqualityComparer.Default.Equals(left, right);
-    private static string Name(ITypeSymbol type) => type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-    private static void Error(ICollection<DeclarationDiagnostic> errors, SyntaxNode node, string code, string message)
-    {
-        var span = node.GetLocation().GetLineSpan();
-        errors.Add(new(span.Path, span.StartLinePosition.Line + 1, span.StartLinePosition.Character + 1, code, message)
-        {
-            SpanStart = node.SpanStart, SpanLength = node.Span.Length,
-            EndLine = span.EndLinePosition.Line + 1, EndColumn = span.EndLinePosition.Character + 1,
-        });
-    }
 }
