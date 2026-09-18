@@ -92,11 +92,7 @@ internal static class CompileGenerationCache
 
             return manifest;
         }
-        catch (JsonException)
-        {
-            return null;
-        }
-        catch (IOException)
+        catch (Exception exception) when (exception is JsonException or IOException)
         {
             return null;
         }
@@ -202,7 +198,6 @@ internal static class CompileGenerationCache
         if (string.IsNullOrEmpty(relativePath)
             || Path.IsPathRooted(relativePath)
             || Path.GetFileName(relativePath) != relativePath
-            || relativePath.Contains('/')
             || relativePath.Contains('\\')
             || relativePath.Contains('\r')
             || relativePath.Contains('\n'))
