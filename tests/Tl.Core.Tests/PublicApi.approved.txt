@@ -68,6 +68,11 @@ type Tl.TickPurity
   Field Tl.TickPurity WindowConstant
   Field Int32 value__
 type Tl.Timeline
+  Method Void Bake(UInt16)
+  Method Void Bake[T0](UInt16, T0)
+  Method Void Bake[T0,T1](UInt16, T0, T1)
+  Method Void Bake[T0,T1,T2](UInt16, T0, T1, T2)
+  Method Void Bake[T0,T1,T2,T3](UInt16, T0, T1, T2, T3)
   Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
 type Tl.TimelineAsset
   Method Void Dispose()
