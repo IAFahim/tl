@@ -1,6 +1,6 @@
 # tl
 
-**tl** compiles designer-authored timeline data into deterministic execution — JSON in, baked `.tlb` bytes out, advanced by an unmanaged runtime. No reflection, no runtime compilation, 0 B per frame.
+**tl** compiles designer-authored timeline data into deterministic execution — data first, an authoring step that bakes it, a game system that plays it. No reflection, no runtime compilation, 0 B per frame.
 
 [![ci](https://github.com/IAFahim/tl/actions/workflows/ci.yml/badge.svg)](https://github.com/IAFahim/tl/actions/workflows/ci.yml)
 
@@ -13,9 +13,9 @@ dotnet add package Tl.CSharp --version 1.0.0-alpha.9
 dotnet tool install --global Tl.Bake --prerelease     # the tlb bake command
 ```
 
-## Get going
+## Run the full thing
 
-One complete program lives at `samples/Showcase` — a JSON jump arc, baked, loaded, played:
+`samples/Showcase` is the whole pipeline — data, bake, system — in three commands:
 
 ```sh
 cd samples/Showcase
@@ -45,9 +45,9 @@ rewind walks the arc back exactly:
 Timeline.Bake marked entities 42, 43 as jumping; unmarked entities never reach the advance
 ```
 
-## Author and bake one timeline
+## Data
 
-The designer authors `jump.json` — half-open windows `[start, end)`, execution order is authored order, `data` maps onto struct fields, overlapping clips blend:
+The whole input is one JSON file per timeline — `samples/Showcase/jump.json`, authored by a designer, naming the game's own C# types:
 
 ```json
 {
@@ -69,7 +69,31 @@ The designer authors `jump.json` — half-open windows `[start, end)`, execution
 }
 ```
 
-The names in the JSON are your C# types — three structs, one of them the consumer that writes the character's height:
+- windows are half-open `[start, end)`; execution order is authored clip order
+- `data` fields map onto struct fields by name (`Scale` → `JumpTrack.Scale`)
+- two clips overlapping on one track blend through the type's `IBlend` with the authored factor
+- `loop: true` wraps at `duration`; finite timelines clamp
+- a timeline may mix track and clip types freely; caps are 65,535 ticks and 256 pairs per asset
+
+## Authoring
+
+`tlb` compiles the data to canonical TLB1 bytes — deterministic (same input, same bytes, every machine and culture), pooled (each distinct string, type, and payload stored once; repeated designer copy shrinks on the way in), and cached (content-keyed hits preserve timestamps):
+
+```sh
+tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
+```
+
+`--assembly` names the DLL that ships the JSON's types (pair keys hash assembly-qualified names). The designer loop:
+
+```sh
+tlb --watch jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
+```
+
+`--watch` bakes at startup, re-bakes on save (debounced, hash-skipped), and prints one JSON event per action (`ready`, `rebuild`, `skip`, `diagnostic`) — a broken file stays in the loop as a `diagnostic` until fixed. More: `tlb --json --assembly ...` lists every authorable pair for tooling, `tlb --report` audits asset sizes, `tlb --strip` drops authoring metadata for distribution. The Blender NLA bridge (`tools/Tl.Blender`) exports this same JSON and bakes through the same CLI.
+
+## System
+
+The game side is one file, `samples/Showcase/Program.cs`. Three structs per pair — the clip payload, the track settings with its blend, and the consumer that writes one effect column:
 
 ```cs
 public readonly record struct JumpClip(float Velocity);
@@ -87,23 +111,15 @@ public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
 }
 ```
 
-`ITrack<TTrack, TClip>` consumers are discovered compilation-wide — no registration, no catalog. `frame.Direction` is +1 forward and −1 backward, which is why rewind is exact. Bake with the CLI; `--assembly` names the DLL that ships those types (pair keys hash assembly-qualified names). Same input, same bytes, every machine and culture:
+`ITrack<TTrack, TClip>` consumers are discovered compilation-wide — no registration, no catalog. `frame.Direction` is +1 forward and −1 backward, which is why rewind is exact.
 
-```sh
-tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
-```
-
-Other commands: `tlb --watch` re-bakes on save, `tlb --json --assembly ...` lists every authorable pair, `tlb --report` audits sizes, `tlb --strip` drops authoring metadata.
-
-## The program
-
-The whole consumer side is one file (`samples/Showcase/Program.cs`):
+Loading is one call that returns the timeline's index — a dense `ushort`, the whole acquisition step. The first typed use folds the pair's measured tables once; every later call is a table read:
 
 ```cs
 ushort jump = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
 ```
 
-`Load` is the whole acquisition step — it validates, interns the bytes, and returns the timeline index, a dense `ushort`. The first typed use folds the pair's measured tables once; every later call is a table read.
+Per frame, three caller-owned columns — timeline index, clock, effect — and one call advances every character one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs:
 
 ```cs
 var ids  = new ushort[] { jump, jump, jump, jump };
@@ -114,14 +130,12 @@ for (var frame = 1; frame <= 30; frame++)
     Timeline<JumpTrack, JumpClip>.Advance(ids, tick, true, y);
 ```
 
-Three caller-owned columns — timeline index, clock, effect — and one call advances every character one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Rewind is `forward: false` and returns columns bit-exactly:
+Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
 
 ```cs
 for (var frame = 0; frame < 30; frame++)
     Timeline<JumpTrack, JumpClip>.Advance(jump, tick, false, y);
 ```
-
-There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
 
 Host wiring is declared, not registered — implement `IBake<TConsumer, ...TContext>` (zero to four context types) and one type-agnostic call attaches your markers at load time:
 
@@ -159,7 +173,7 @@ One million characters, one frame per call (i9-14900K, .NET 10, Release; best of
 | small squads: 16 timelines × 16 characters | 0.50 | 0.48 |
 | worst case: unsorted rows, a different timeline each | 1.80 | 1.72 |
 
-A hand-tuned single-timeline lane floors at 0.13-0.16; grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Bake and load of a full game's authoring file — 20 MB of JSON — takes 179.7 ms end to end and loads in 2.9 ms; the bake pools every repeated string and payload, so authored JSON shrinks on the way in. Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size. Caps: 65,535 ticks per timeline, 256 pairs per asset, types closed at build time.
+A hand-tuned single-timeline lane floors at 0.13-0.16; grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 20 MB of JSON — bakes in 71 ms and loads in 2.9 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
 
 Receipts: `benchmarks/PairHandles`, `benchmarks/Alpha`, `tests/Tl.Alpha` — parity, allocation, and throughput evidence, run in CI on every push.
 
