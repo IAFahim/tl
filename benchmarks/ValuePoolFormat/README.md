@@ -53,4 +53,4 @@ dotnet run --project benchmarks/ValuePoolFormat -c Release --no-build -- --verif
 dotnet run --project benchmarks/ValuePoolFormat -c Release --no-build -- --run validated
 ```
 
-Parity receipts for the format change (bit-identical playback, pre- vs post-change builds) live in `results/parity/`; baked-size deltas per corpus asset are in `results/parity/sizes.csv`.
+Parity receipts for the format change (bit-identical playback, pre- vs post-change builds) live in `results/parity/`; baked-size deltas per corpus asset are in `results/parity/sizes.csv`. The #168 24 B row receipts live beside them: the QueryScan A/B in `results/168ab-*` and the 49-document corpus replay with baked sizes in `results/parity168/`; `results/parity-corpus/` holds the corpus manifest.

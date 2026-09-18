@@ -172,27 +172,31 @@ static unsafe class TimelineTable
         AcquireGate();
         try
         {
-            if (index >= (uint)Volatile.Read(ref _nextId))
+            void Over()
             {
                 Interlocked.Increment(ref _overReleases);
+            }
+            if (index >= (uint)Volatile.Read(ref _nextId))
+            {
+                Over();
                 return;
             }
             var slot = Volatile.Read(ref ById[index]);
             if (slot < 0)
             {
-                Interlocked.Increment(ref _overReleases);
+                Over();
                 return;
             }
             var entry = Entries + slot;
             if (Volatile.Read(ref entry->State) != StateLive || entry->Id != index || (Volatile.Read(ref entry->Count) >> 32) != generation)
             {
-                Interlocked.Increment(ref _overReleases);
+                Over();
                 return;
             }
             var after = Interlocked.Decrement(ref entry->Count);
             if (after < 0)
             {
-                Interlocked.Increment(ref _overReleases);
+                Over();
                 Interlocked.Increment(ref entry->Count);
                 return;
             }

@@ -68,7 +68,7 @@ public ref struct TimelineLane<T>
         while (i < count)
         {
                 var position = positions[i];
-                var end = RunEnd(positions, i);
+                var end = LaneOps.RunEnd(positions, i, positions.Length);
                 float delta;
                 int next;
                 if (forward)
@@ -95,8 +95,8 @@ public ref struct TimelineLane<T>
                 }
                 else
                 {
-                    Add(effects, i, end, delta);
-                    Fill(positions, i, end, (ushort)next);
+                    LaneOps.Add(effects, i, end, delta);
+                    LaneOps.Fill(positions, i, end, (ushort)next);
                 }
             i = end;
         }
@@ -118,15 +118,15 @@ public ref struct TimelineLane<T>
         {
             var chunkEnd = i + Chunk;
             if (chunkEnd > count) chunkEnd = count;
-            if (gather && SingletonChunk(positions, i, chunkEnd))
+            if (gather && LaneOps.SingletonChunk(positions, i, chunkEnd))
             {
                 var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
                 if (blockEnd > i)
                 {
                     if (forward)
-                        GatherForward(positions, effects, i, blockEnd);
+                        LaneOps.GatherForward(LaneAccelerator<T>.ForwardEffects, T.Duration, true, positions, effects, i, blockEnd);
                     else
-                        GatherBackward(positions, effects, i, blockEnd);
+                        LaneOps.GatherBackward(LaneAccelerator<T>.BackwardByPosition, T.Duration, true, positions, effects, i, blockEnd);
                     i = blockEnd;
                     continue;
                 }
@@ -134,7 +134,7 @@ public ref struct TimelineLane<T>
             while (i < chunkEnd)
             {
                 var position = positions[i];
-                var end = RunEnd(positions, i);
+                var end = LaneOps.RunEnd(positions, i, positions.Length);
                 if (end == i + 1)
                 {
                     if (forward)
@@ -177,83 +177,10 @@ public ref struct TimelineLane<T>
                     delta = T.InverseEffect(tick);
                     next = tick;
                 }
-                Add(effects, i, end, delta);
-                Fill(positions, i, end, (ushort)next);
+                LaneOps.Add(effects, i, end, delta);
+                LaneOps.Fill(positions, i, end, (ushort)next);
                 i = end;
             }
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void GatherForward(Span<ushort> positions, Span<float> effects, int i, int limit)
-    {
-        var duration = T.Duration;
-        var eff = LaneAccelerator<T>.ForwardEffects;
-        var last = (ushort)(duration - 1);
-        var durationVector = Vector256.Create(duration);
-        var durationWide = Vector256.Create((uint)duration);
-        var lastVector = Vector256.Create(last);
-        var zero = Vector256<ushort>.Zero;
-        var one = Vector256.Create((ushort)1);
-        ref var p = ref MemoryMarshal.GetReference(positions);
-        ref var e = ref MemoryMarshal.GetReference(effects);
-        while (i < limit)
-        {
-            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
-            var wrapMask = Vector256.Equals(pos, lastVector);
-            var skipMask = Vector256.GreaterThan(pos, lastVector);
-            var next = pos + one;
-            next = Vector256.ConditionalSelect(wrapMask, zero, next);
-            next = Vector256.ConditionalSelect(skipMask, pos, next);
-            next.StoreUnsafe(ref p, (nuint)i);
-
-            var clamped = Vector256.Min(pos, durationVector);
-            (var wideLo, var wideHi) = Vector256.Widen(clamped);
-            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
-            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
-            var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
-            var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
-            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
-            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
-            i += 16;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void GatherBackward(Span<ushort> positions, Span<float> effects, int i, int limit)
-    {
-        var duration = T.Duration;
-        var eff = LaneAccelerator<T>.BackwardByPosition;
-        var durationVector = Vector256.Create(duration);
-        var durationWide = Vector256.Create((uint)duration);
-        var lastVector = Vector256.Create((ushort)(duration - 1));
-        var zero = Vector256<ushort>.Zero;
-        var step = Vector256.Create((ushort)0xFFFF);
-        ref var p = ref MemoryMarshal.GetReference(positions);
-        ref var e = ref MemoryMarshal.GetReference(effects);
-        while (i < limit)
-        {
-            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
-            var wrapMask = Vector256.Equals(pos, zero);
-            var skipMask = Vector256.GreaterThan(pos, durationVector) | Vector256.Equals(pos, durationVector);
-            var next = pos + step;
-            next = Vector256.ConditionalSelect(wrapMask, lastVector, next);
-            next = Vector256.ConditionalSelect(skipMask, pos, next);
-            next.StoreUnsafe(ref p, (nuint)i);
-
-            var clamped = Vector256.Min(pos, durationVector);
-            (var wideLo, var wideHi) = Vector256.Widen(clamped);
-            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
-            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
-            var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
-            var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
-            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
-            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
-            i += 16;
         }
     }
 
@@ -267,15 +194,6 @@ public ref struct TimelineLane<T>
         return pairs >= sample / 2;
     }
 
-    static bool SingletonChunk(Span<ushort> positions, int start, int end)
-    {
-        var probe = start + 64;
-        if (probe > end) probe = end;
-        for (var i = start + 1; i < probe; i++)
-            if (positions[i] == positions[i - 1]) return false;
-        return true;
-    }
-
     void Check(Span<float> effects)
     {
         var positions = _positions;
@@ -285,76 +203,6 @@ public ref struct TimelineLane<T>
             throw new ArgumentException("Lane columns must not overlap.");
     }
 
-    static int RunEnd(Span<ushort> positions, int start)
-    {
-        var count = positions.Length;
-        var value = positions[start];
-        var end = start + 1;
-        if (Vector512.IsHardwareAccelerated)
-        {
-            ref var first = ref MemoryMarshal.GetReference(positions);
-            var search = Vector512.Create(value);
-            var limit = count - 32;
-            while (end <= limit)
-            {
-                var mask = Vector512.ExtractMostSignificantBits(Vector512.Equals(Vector512.LoadUnsafe(ref first, (nuint)end), search));
-                if (mask != 0xFFFF_FFFFu) return end + BitOperations.TrailingZeroCount(~mask);
-                end += 32;
-            }
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            ref var first = ref MemoryMarshal.GetReference(positions);
-            var search = Vector256.Create(value);
-            var limit = count - 16;
-            while (end <= limit)
-            {
-                var mask = Vector256.ExtractMostSignificantBits(Vector256.Equals(Vector256.LoadUnsafe(ref first, (nuint)end), search));
-                if (mask != 0xFFFFu) return end + BitOperations.TrailingZeroCount(~mask);
-                end += 16;
-            }
-        }
-        while (end < count && positions[end] == value) end++;
-        return end;
-    }
-
-    static void Add(Span<float> values, int start, int end, float delta)
-    {
-        var length = end - start;
-        var i = 0;
-        if (Vector512.IsHardwareAccelerated)
-        {
-            var vector = Vector512.Create(delta);
-            var limit = length & ~15;
-            for (; i < limit; i += 16) Vector512.Add(Vector512.LoadUnsafe(ref values[start], (nuint)i), vector).StoreUnsafe(ref values[start], (nuint)i);
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            var vector = Vector256.Create(delta);
-            var limit = length & ~7;
-            for (; i < limit; i += 8) Vector256.Add(Vector256.LoadUnsafe(ref values[start], (nuint)i), vector).StoreUnsafe(ref values[start], (nuint)i);
-        }
-        for (; i < length; i++) values[start + i] += delta;
-    }
-
-    static void Fill(Span<ushort> values, int start, int end, ushort value)
-    {
-        var length = end - start;
-        var i = 0;
-        if (Vector512.IsHardwareAccelerated)
-        {
-            var vector = Vector512.Create(value);
-            var limit = length & ~31;
-            for (; i < limit; i += 32) vector.StoreUnsafe(ref values[start], (nuint)i);
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            var vector = Vector256.Create(value);
-            var limit = length & ~15;
-            for (; i < limit; i += 16) vector.StoreUnsafe(ref values[start], (nuint)i);
-        }
-        for (; i < length; i++) values[start + i] = value;
-    }
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -364,6 +212,224 @@ internal struct LaneMovementRecord
     public float Effect;
     public ushort Next;
     public ushort Pad;
+}
+
+internal static unsafe class LaneOps
+{
+    internal static int RunEnd(ReadOnlySpan<ushort> values, int start, int limit)
+    {
+        var value = values[start];
+        var end = start + 1;
+        if (Vector512.IsHardwareAccelerated)
+        {
+            ref var first = ref MemoryMarshal.GetReference(values);
+            var search = Vector512.Create(value);
+            var bound = limit - 32;
+            while (end <= bound)
+            {
+                var mask = (uint)Vector512.ExtractMostSignificantBits(Vector512.Equals(Vector512.LoadUnsafe(ref first, (nuint)end), search));
+                if (mask != 0xFFFF_FFFFu) return end + BitOperations.TrailingZeroCount(~mask);
+                end += 32;
+            }
+        }
+        else if (Vector256.IsHardwareAccelerated)
+        {
+            ref var first = ref MemoryMarshal.GetReference(values);
+            var search = Vector256.Create(value);
+            var bound = limit - 16;
+            while (end <= bound)
+            {
+                var mask = Vector256.ExtractMostSignificantBits(Vector256.Equals(Vector256.LoadUnsafe(ref first, (nuint)end), search));
+                if (mask != 0xFFFFu) return end + BitOperations.TrailingZeroCount(~mask);
+                end += 16;
+            }
+        }
+        while (end < limit && values[end] == value) end++;
+        return end;
+    }
+
+    internal static bool SingletonChunk(Span<ushort> positions, int start, int end)
+    {
+        var probe = start + 64;
+        if (probe > end) probe = end;
+        ref var origin = ref MemoryMarshal.GetReference(positions);
+        var j = start;
+        if (Vector.IsHardwareAccelerated)
+        {
+            var vectorLimit = probe - Vector<ushort>.Count - 1;
+            while (j <= vectorLimit)
+            {
+                if (Vector.EqualsAny(Vector.LoadUnsafe(ref origin, (nuint)j), Vector.LoadUnsafe(ref origin, (nuint)(j + 1)))) return false;
+                j += Vector<ushort>.Count;
+            }
+        }
+        for (var k = j; k < probe - 1; k++)
+            if (positions[k] == positions[k + 1]) return false;
+        return true;
+    }
+
+    internal static void Add(Span<float> values, int start, int end, float delta)
+    {
+        var length = end - start;
+        var i = 0;
+        if (Vector.IsHardwareAccelerated)
+        {
+            ref var origin = ref MemoryMarshal.GetReference(values);
+            var vector = new Vector<float>(delta);
+            var limit = length & ~(Vector<float>.Count - 1);
+            for (; i < limit; i += Vector<float>.Count)
+                (Vector.LoadUnsafe(ref origin, (nuint)(start + i)) + vector).StoreUnsafe(ref origin, (nuint)(start + i));
+        }
+        for (; i < length; i++) values[start + i] += delta;
+    }
+
+    internal static void Fill(Span<ushort> values, int start, int end, ushort value)
+    {
+        var length = end - start;
+        var i = 0;
+        if (Vector.IsHardwareAccelerated)
+        {
+            ref var origin = ref MemoryMarshal.GetReference(values);
+            var vector = new Vector<ushort>(value);
+            var limit = length & ~(Vector<ushort>.Count - 1);
+            for (; i < limit; i += Vector<ushort>.Count) vector.StoreUnsafe(ref origin, (nuint)(start + i));
+        }
+        for (; i < length; i++) values[start + i] = value;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    internal static unsafe void GatherForward(float* eff, ushort duration, bool wrap, Span<ushort> positions, Span<float> effects, int i, int limit)
+    {
+        var last = (ushort)(duration - 1);
+        var durationVector = Vector256.Create(duration);
+        var durationWide = Vector256.Create((uint)duration);
+        var lastVector = Vector256.Create(last);
+        var zero = Vector256<ushort>.Zero;
+        var one = Vector256.Create((ushort)1);
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        while (i < limit)
+        {
+            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+            var skipMask = Vector256.GreaterThan(pos, lastVector);
+            var next = pos + one;
+            if (wrap) next = Vector256.ConditionalSelect(Vector256.Equals(pos, lastVector), zero, next);
+            next = Vector256.ConditionalSelect(skipMask, pos, next);
+            next.StoreUnsafe(ref p, (nuint)i);
+
+            var clamped = Vector256.Min(pos, durationVector);
+            (var wideLo, var wideHi) = Vector256.Widen(clamped);
+            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
+            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
+            var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
+            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+            i += 16;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    internal static unsafe void GatherBackward(float* eff, ushort duration, bool wrap, Span<ushort> positions, Span<float> effects, int i, int limit)
+    {
+        var last = (ushort)(duration - 1);
+        var durationVector = Vector256.Create(duration);
+        var durationWide = Vector256.Create((uint)duration);
+        var lastVector = Vector256.Create(last);
+        var zero = Vector256<ushort>.Zero;
+        var zeroUint = Vector256<uint>.Zero;
+        var step = Vector256.Create((ushort)0xFFFF);
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        while (i < limit)
+        {
+            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+            var next = pos + step;
+            Vector256<ushort> skipMask;
+            if (wrap)
+            {
+                skipMask = Vector256.GreaterThan(pos, durationVector) | Vector256.Equals(pos, durationVector);
+                next = Vector256.ConditionalSelect(Vector256.Equals(pos, zero), lastVector, next);
+            }
+            else
+            {
+                skipMask = Vector256.Equals(pos, zero) | Vector256.GreaterThan(pos, durationVector);
+            }
+            next = Vector256.ConditionalSelect(skipMask, pos, next);
+            next.StoreUnsafe(ref p, (nuint)i);
+
+            var clamped = Vector256.Min(pos, durationVector);
+            (var wideLo, var wideHi) = Vector256.Widen(clamped);
+            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
+            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            Vector256<float> skipLo, skipHi;
+            if (wrap)
+            {
+                skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
+                skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
+            }
+            else
+            {
+                (var posLo, var posHi) = Vector256.Widen(pos);
+                skipLo = (Vector256.Equals(posLo, zeroUint) | Vector256.GreaterThan(posLo, durationWide)).AsSingle();
+                skipHi = (Vector256.Equals(posHi, zeroUint) | Vector256.GreaterThan(posHi, durationWide)).AsSingle();
+            }
+            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+            i += 16;
+        }
+    }
+}
+
+internal static unsafe class LaneMovement
+{
+    internal const ushort Skipped = LaneMovementRecord.Skipped;
+
+    internal static void Bake(float* forward, float* backward, ushort duration, bool looping, LaneMovementRecord* forwardRecords, LaneMovementRecord* backwardRecords, float* backwardByPosition)
+    {
+        var skipped = LaneMovementRecord.Skipped;
+        for (var p = 0u; p <= duration; p++)
+        {
+            if (p < duration)
+            {
+                var wraps = looping && p + 1 == duration;
+                forwardRecords[p] = new LaneMovementRecord { Effect = forward[p], Next = wraps ? (ushort)0 : (ushort)(p + 1) };
+                if (p == 0 && looping)
+                {
+                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
+                    backwardByPosition[p] = backward[duration - 1];
+                }
+                else if (p == 0)
+                {
+                    backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
+                    backwardByPosition[p] = 0f;
+                }
+                else
+                {
+                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[p - 1], Next = (ushort)(p - 1) };
+                    backwardByPosition[p] = backward[p - 1];
+                }
+            }
+            else
+            {
+                forwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
+                if (looping || duration == 0)
+                {
+                    backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
+                    backwardByPosition[p] = 0f;
+                }
+                else
+                {
+                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
+                    backwardByPosition[p] = backward[duration - 1];
+                }
+            }
+        }
+    }
 }
 
 internal static unsafe class LaneAccelerator<T>
@@ -422,7 +488,7 @@ static unsafe class LaneTable<TTrack, TClip>
         var forwardRecords = (LaneMovementRecord*)block;
         var backwardRecords = forwardRecords + duration + 1;
         var backwardByPosition = (float*)(backwardRecords + duration + 1);
-        Bake(forward, backward, duration, looping, forwardRecords, backwardRecords, backwardByPosition);
+        LaneMovement.Bake(forward, backward, duration, looping, forwardRecords, backwardRecords, backwardByPosition);
         var previousBlock = _recordBlock;
         var previousForward = Forward;
         var previousBackward = Backward;
@@ -446,47 +512,4 @@ static unsafe class LaneTable<TTrack, TClip>
         LaneAccelerator<BakedLane<TTrack, TClip>>.Backward = backwardRecords;
         LaneAccelerator<BakedLane<TTrack, TClip>>.Active = true;
     }
-
-    static void Bake(float* forward, float* backward, ushort duration, bool looping, LaneMovementRecord* forwardRecords, LaneMovementRecord* backwardRecords, float* backwardByPosition)
-    {
-        var skipped = LaneMovementRecord.Skipped;
-        for (var p = 0u; p <= duration; p++)
-        {
-            if (p < duration)
-            {
-                var wraps = looping && p + 1 == duration;
-                forwardRecords[p] = new LaneMovementRecord { Effect = forward[p], Next = wraps ? (ushort)0 : (ushort)(p + 1) };
-                if (p == 0 && looping)
-                {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
-                    backwardByPosition[p] = backward[duration - 1];
-                }
-                else if (p == 0)
-                {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                    backwardByPosition[p] = 0f;
-                }
-                else
-                {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[p - 1], Next = (ushort)(p - 1) };
-                    backwardByPosition[p] = backward[p - 1];
-                }
-            }
-            else
-            {
-                forwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                if (looping || duration == 0)
-                {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                    backwardByPosition[p] = 0f;
-                }
-                else
-                {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
-                    backwardByPosition[p] = backward[duration - 1];
-                }
-            }
-        }
-    }
-
 }
