@@ -63,9 +63,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
 
     internal ushort Add(TimelineAsset asset)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_count > ushort.MaxValue)
-            throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
+        CheckAdd();
         LaneGuards.ValidatePair<TTrack, TClip>(asset);
         using var measured = MeasuredLanes.Measure(asset);
         return Bind(checked((ushort)_count), measured);
@@ -73,9 +71,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
 
     internal ushort Add(TimelineAsset asset, MeasuredLanes measured)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_count > ushort.MaxValue)
-            throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
+        CheckAdd();
         measured.ValidateBinding(asset);
         LaneGuards.ValidatePair<TTrack, TClip>(asset);
         return Bind(checked((ushort)_count), measured);
@@ -83,12 +79,19 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
 
     internal ushort AddAt(ushort index, MeasuredLanes measured)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (_count > ushort.MaxValue || index >= ushort.MaxValue)
+        CheckAdd();
+        if (index >= ushort.MaxValue)
             throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
         if (index < _count && _slots[index].Forward != null)
             return index;
         return Bind(index, measured);
+    }
+
+    void CheckAdd()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_count > ushort.MaxValue)
+            throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
     }
 
     ushort Bind(ushort index, MeasuredLanes measured)

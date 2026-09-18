@@ -119,6 +119,12 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
     const int CacheStride = 64;
 
+    static void AdvanceOrFail(TimelineRef reference, bool reverse, uint position, out ushort tick, out FrameFlags flags)
+    {
+        if (!reference.Advance(reverse, (ushort)position, out _, out tick, out flags))
+            throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
+    }
+
     static void FillWindows(TimelineRef reference, float* forward, float* backward, uint duration, bool looping, int* chains, int pairs, void** columns, float* column)
     {
         var stageCount = reference.StageCount;
@@ -174,12 +180,10 @@ public sealed unsafe class MeasuredLanes : IDisposable
                     cachedSteps++;
                 }
 
-                if (!reference.Advance(false, (ushort)start, out _, out var forwardTick, out var forwardFlags))
-                    throw new InvalidOperationException($"Timeline measurement did not advance from position {start}.");
+                AdvanceOrFail(reference, false, start, out var forwardTick, out var forwardFlags);
                 Capture(reference, program, count, stepCached, stepCacheBase, forwardCache, chains, columns, column, forwardTick, forwardFlags, false);
                 var representativePosition = start + 1u == duration ? looping ? 0u : duration : start + 1u;
-                if (!reference.Advance(true, (ushort)representativePosition, out _, out var backwardTick, out var backwardFlags))
-                    throw new InvalidOperationException($"Timeline measurement did not advance from position {representativePosition}.");
+                AdvanceOrFail(reference, true, representativePosition, out var backwardTick, out var backwardFlags);
                 Capture(reference, program, count, stepCached, stepCacheBase, backwardCache, chains, columns, column, backwardTick, backwardFlags, true);
 
                 if (cachedSteps == count)
@@ -200,15 +204,13 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
                 for (var tick = start; tick < end; tick++)
                 {
-                    if (!reference.Advance(false, (ushort)tick, out _, out var tickForward, out var forwardFlag))
-                        throw new InvalidOperationException($"Timeline measurement did not advance from position {tick}.");
+                    AdvanceOrFail(reference, false, tick, out var tickForward, out var forwardFlag);
                     *column = 0f;
                     reference.ExecuteWindow(false, tickForward, forwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, forwardCache);
                     forward[tick] = *column;
 
                     var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-                    if (!reference.Advance(true, (ushort)backwardPosition, out _, out var tickBackward, out var backwardFlag))
-                        throw new InvalidOperationException($"Timeline measurement did not advance from position {backwardPosition}.");
+                    AdvanceOrFail(reference, true, backwardPosition, out var tickBackward, out var backwardFlag);
                     *column = 0f;
                     reference.ExecuteWindow(true, tickBackward, backwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, backwardCache);
                     backward[tick] = *column;
