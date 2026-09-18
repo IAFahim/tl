@@ -22,14 +22,24 @@ internal sealed class JsonStructuralIndex
         Blocks = blocks;
     }
 
-    internal static bool TryScan(byte[] utf8, out JsonStructuralIndex index)
+    internal static bool TryScan(byte[] utf8, BakeWorkspace? workspace, out JsonStructuralIndex index)
     {
         index = null!;
         if (!Avx2.IsSupported || utf8.Length == 0)
             return false;
         var blocks = (utf8.Length + BlockBytes - 1) / BlockBytes;
-        var structural = new ulong[blocks];
-        var quotes = new ulong[blocks];
+        ulong[] structural;
+        ulong[] quotes;
+        if (workspace?.RentMasks(blocks) is { } rented)
+        {
+            structural = rented.Structural;
+            quotes = rented.Quotes;
+        }
+        else
+        {
+            structural = new ulong[blocks];
+            quotes = new ulong[blocks];
+        }
         unsafe
         {
             fixed (byte* source = utf8)
@@ -37,7 +47,10 @@ internal sealed class JsonStructuralIndex
             fixed (ulong* quotesTarget = quotes)
             {
                 if (!ScanAvx2(source, utf8.Length, blocks, structuralTarget, quotesTarget))
+                {
+                    workspace?.ReturnMasks(structural, quotes);
                     return false;
+                }
             }
         }
         index = new JsonStructuralIndex(utf8, structural, quotes, blocks);

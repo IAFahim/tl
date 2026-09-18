@@ -22,6 +22,7 @@ internal sealed class WatchEngine
     private readonly Dictionary<string, WatchedFile> _byInput = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _hashes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _pending = new(StringComparer.Ordinal);
+    private readonly BakerAssemblyResolver _resolver;
 
     public WatchEngine(
         IReadOnlyList<WatchedFile> files,
@@ -35,6 +36,7 @@ internal sealed class WatchEngine
         _debounceMilliseconds = debounceMilliseconds;
         _events = events;
         _clock = clock ?? DefaultClock;
+        _resolver = new BakerAssemblyResolver(assemblyPaths);
         foreach (var file in files)
             _byInput[Path.GetFullPath(file.Input)] = file;
     }
@@ -49,8 +51,7 @@ internal sealed class WatchEngine
     public void InitialBake()
     {
         Ready();
-        foreach (var file in _files)
-            Process(file);
+        BakeFiles(_files);
     }
 
     public void OnEvent(string path)
@@ -70,11 +71,10 @@ internal sealed class WatchEngine
 
     public void Pump(DateTimeOffset now)
     {
-        foreach (var path in PendingReady(now))
-        {
+        var ready = PendingReady(now);
+        foreach (var path in ready)
             _pending.Remove(path);
-            Process(_byInput[path]);
-        }
+        BakeFiles(ready.Select(path => _byInput[path]));
     }
 
     private List<string> PendingReady(DateTimeOffset now) =>
@@ -84,52 +84,80 @@ internal sealed class WatchEngine
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToList();
 
-    private void Process(WatchedFile file)
+    private void BakeFiles(IEnumerable<WatchedFile> files)
     {
-        byte[] bytes;
-        try
-        {
-            bytes = File.ReadAllBytes(file.Input);
-        }
-        catch (IOException)
-        {
+        var ordered = files.ToList();
+        if (ordered.Count == 0)
             return;
-        }
-
-        var hash = HashOf(bytes);
-        if (_hashes.TryGetValue(file.Input, out var known) && known == hash)
+        byte[]?[] inputs = new byte[ordered.Count][];
+        var hashes = new string?[ordered.Count];
+        for (var i = 0; i < ordered.Count; i++)
         {
-            Emit("skip", writer =>
+            try
             {
-                writer.WriteString("input", file.Input);
-                writer.WriteString("hash", hash);
-            });
-            return;
+                var bytes = File.ReadAllBytes(ordered[i].Input);
+                inputs[i] = bytes;
+                hashes[i] = HashOf(bytes);
+            }
+            catch (IOException)
+            {
+            }
         }
 
-        var start = Stopwatch.GetTimestamp();
-        try
+        var bakeIndexes = new List<int>();
+        for (var i = 0; i < ordered.Count; i++)
         {
-            var resolver = new BakerAssemblyResolver(_assemblyPaths);
-            var output = TimelineBaker.BakeJson(bytes, resolver);
-            WriteIfChanged(file.Output, output);
-            _hashes[file.Input] = hash;
-            var duration = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            if (inputs[i] == null)
+                continue;
+            var file = ordered[i];
+            if (_hashes.TryGetValue(file.Input, out var known) && known == hashes[i])
+            {
+                var hash = hashes[i]!;
+                Emit("skip", writer =>
+                {
+                    writer.WriteString("input", file.Input);
+                    writer.WriteString("hash", hash);
+                });
+                continue;
+            }
+            bakeIndexes.Add(i);
+        }
+        if (bakeIndexes.Count == 0)
+            return;
+
+        var outcomes = TimelineBaker.BakeBatch(
+            bakeIndexes.Select(i => inputs[i]!).ToList(),
+            _resolver);
+
+        for (var k = 0; k < bakeIndexes.Count; k++)
+        {
+            var i = bakeIndexes[k];
+            var file = ordered[i];
+            var outcome = outcomes[k];
+            if (outcome.Error != null)
+            {
+                _hashes[file.Input] = hashes[i]!;
+                var message = outcome.Error.Message;
+                Emit("diagnostic", writer =>
+                {
+                    writer.WriteString("input", file.Input);
+                    writer.WriteString("message", message);
+                });
+                continue;
+            }
+            var writeStart = Stopwatch.GetTimestamp();
+            WriteIfChanged(file.Output, outcome.Bytes!);
+            _hashes[file.Input] = hashes[i]!;
+            var input = file.Input;
+            var output = file.Output;
+            var hash = hashes[i]!;
+            var duration = outcome.Ms + Stopwatch.GetElapsedTime(writeStart).TotalMilliseconds;
             Emit("rebuild", writer =>
             {
-                writer.WriteString("input", file.Input);
-                writer.WriteString("output", file.Output);
+                writer.WriteString("input", input);
+                writer.WriteString("output", output);
                 writer.WriteString("hash", hash);
                 writer.WriteNumber("durationMs", duration);
-            });
-        }
-        catch (Exception ex)
-        {
-            _hashes[file.Input] = hash;
-            Emit("diagnostic", writer =>
-            {
-                writer.WriteString("input", file.Input);
-                writer.WriteString("message", ex.Message);
             });
         }
     }

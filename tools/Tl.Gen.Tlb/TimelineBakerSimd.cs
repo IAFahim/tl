@@ -13,14 +13,14 @@ namespace Tl.Gen.Tlb;
 
 internal static class TimelineBakerSimd
 {
-    internal static bool TryParseFast(byte[] utf8, BakerAssemblyResolver resolver, out FastDoc doc)
+    internal static bool TryParseFast(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace, out FastDoc doc)
     {
         doc = null!;
-        if (!JsonStructuralIndex.TryScan(utf8, out var index))
+        if (!JsonStructuralIndex.TryScan(utf8, workspace, out var index))
             return false;
         try
         {
-            var walker = new SimdWalker(index, resolver);
+            var walker = new SimdWalker(index, resolver, workspace);
             return walker.TryParse(out doc);
         }
         catch (SimdBailException)
@@ -30,7 +30,7 @@ internal static class TimelineBakerSimd
     }
 
     internal static JsonStructuralIndex? Scan(byte[] utf8) =>
-        JsonStructuralIndex.TryScan(utf8, out var index) ? index : null;
+        JsonStructuralIndex.TryScan(utf8, null, out var index) ? index : null;
 }
 
 internal sealed class SimdCursor
@@ -109,24 +109,32 @@ internal sealed unsafe class SimdWalker
     private readonly ulong[] _structural;
     private readonly ulong[] _quotes;
     private readonly int _blocks;
+    private readonly BakeWorkspace? _workspace;
     private readonly BakerAssemblyResolver _resolver;
     private readonly SimdCursor _cursor;
     private ulong[] _seenBits = new ulong[8];
     private int _seenWords;
 
-    internal SimdWalker(JsonStructuralIndex index, BakerAssemblyResolver resolver)
+    internal SimdWalker(JsonStructuralIndex index, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null)
     {
         _utf8 = index.Utf8;
         _structural = index.Structural;
         _quotes = index.Quotes;
         _blocks = index.Blocks;
+        _workspace = workspace;
         _resolver = resolver;
         _cursor = SimdCursor.FromBeginning(_structural, _blocks);
     }
 
     internal bool TryParse(out FastDoc doc)
     {
-        doc = new FastDoc { Utf8 = _utf8, Resolver = _resolver };
+        doc = new FastDoc { Utf8 = _utf8, Resolver = _resolver, Workspace = _workspace };
+        if (_workspace != null)
+        {
+            _workspace.Warm(doc);
+            doc.LoanStructural = _structural;
+            doc.LoanQuotes = _quotes;
+        }
         ParseRoot(doc);
         return true;
     }
@@ -885,6 +893,7 @@ internal sealed unsafe class SimdWalker
         pair.EnsurePool(pair.ClipSize);
         clip.PayloadOffset = pair.PoolLength;
         pair.PoolLength += pair.ClipSize;
+        Array.Clear(pair.Pool, clip.PayloadOffset, pair.ClipSize);
         fixed (byte* pool = pair.Pool)
         {
             var slot = pool + clip.PayloadOffset;
@@ -988,29 +997,15 @@ internal sealed unsafe class SimdWalker
         }
     }
 
-    private static long MinOf(FieldKind kind) => kind switch
-    {
-        FieldKind.Bool => throw new InvalidOperationException("bool fields take literals"),
-        FieldKind.Byte => 0,
-        FieldKind.SByte => sbyte.MinValue,
-        FieldKind.Short => short.MinValue,
-        FieldKind.UShort => 0,
-        FieldKind.Int => int.MinValue,
-        FieldKind.UInt => 0,
-        _ => long.MinValue,
-    };
+    private static readonly long[] KindMin =
+        [0, 0, sbyte.MinValue, short.MinValue, 0, int.MinValue, 0, long.MinValue, long.MinValue, 0, 0, 0];
 
-    private static long MaxOf(FieldKind kind) => kind switch
-    {
-        FieldKind.Bool => throw new InvalidOperationException("bool fields take literals"),
-        FieldKind.Byte => byte.MaxValue,
-        FieldKind.SByte => sbyte.MaxValue,
-        FieldKind.Short => short.MaxValue,
-        FieldKind.UShort => ushort.MaxValue,
-        FieldKind.Int => int.MaxValue,
-        FieldKind.UInt => uint.MaxValue,
-        _ => long.MaxValue,
-    };
+    private static readonly long[] KindMax =
+        [0, byte.MaxValue, sbyte.MaxValue, short.MaxValue, ushort.MaxValue, int.MaxValue, uint.MaxValue, long.MaxValue, long.MaxValue, 0, 0, 0];
+
+    private static long MinOf(FieldKind kind) => KindMin[(int)kind];
+
+    private static long MaxOf(FieldKind kind) => KindMax[(int)kind];
 
     private static void WriteSigned(byte* target, FieldKind kind, long value)
     {

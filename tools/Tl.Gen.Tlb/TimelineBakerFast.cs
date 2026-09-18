@@ -2,6 +2,9 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -202,14 +205,14 @@ internal sealed class FastPairInfo
     internal int TrackSize;
     internal IPairHelper Helper = null!;
     internal FieldTable Fields = null!;
-    internal byte[] Pool = new byte[1 << 16];
+    internal byte[] Pool = [];
     internal int PoolLength;
 
     internal void EnsurePool(int size)
     {
         if (PoolLength + size <= Pool.Length)
             return;
-        var cap = Pool.Length;
+        var cap = Pool.Length == 0 ? 1 << 16 : Pool.Length;
         while (cap < PoolLength + size)
             cap *= 2;
         Array.Resize(ref Pool, cap);
@@ -264,6 +267,9 @@ internal sealed class FastDoc
     internal bool Loops;
     internal byte[] Utf8 = null!;
     internal BakerAssemblyResolver Resolver = null!;
+    internal BakeWorkspace? Workspace;
+    internal ulong[]? LoanStructural;
+    internal ulong[]? LoanQuotes;
     internal List<FastTrackInfo> Tracks = new();
     internal List<FastClip> Clips = new();
     internal List<FastPairInfo> Pairs = new();
@@ -284,16 +290,23 @@ internal static class TimelineBakerFast
         return BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver);
     }
 
-    internal static byte[] BakeJsonUtf8(byte[] utf8, BakerAssemblyResolver? resolver = null)
+    internal static byte[] BakeJsonUtf8(byte[] utf8, BakerAssemblyResolver? resolver = null, BakeWorkspace? workspace = null)
     {
         resolver ??= new BakerAssemblyResolver();
-        var doc = TimelineBakerSimd.TryParseFast(utf8, resolver, out var fast) ? fast : ParseFast(utf8, resolver);
-        return TimelineBakerFastCore.BakeFast(doc, resolver);
+        var doc = TimelineBakerSimd.TryParseFast(utf8, resolver, workspace, out var fast) ? fast : ParseFast(utf8, resolver, workspace);
+        try
+        {
+            return TimelineBakerFastCore.BakeFast(doc, resolver);
+        }
+        finally
+        {
+            workspace?.Reclaim(doc);
+        }
     }
 
-    internal static FastDoc ParseFast(byte[] utf8, BakerAssemblyResolver resolver)
+    internal static FastDoc ParseFast(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null)
     {
-        var walker = new Walker(utf8, resolver);
+        var walker = new Walker(utf8, resolver, workspace);
         walker.Run();
         return walker.Finish();
     }
@@ -332,6 +345,8 @@ internal static class TimelineBakerFast
             Helper = helper,
             Fields = TableFor(clipType),
         };
+        if (doc.Workspace?.RentPool(pair.Key) is { } rented)
+            pair.Pool = rented;
         pairId = doc.Pairs.Count;
         doc.Pairs.Add(pair);
         doc.PairIds[(trackType, clipType)] = pairId;
@@ -600,10 +615,20 @@ internal static class TimelineBakerFast
 
 internal sealed class DupScopePool
 {
-    private static readonly List<DupScope> Pool = new();
+    [ThreadStatic]
+    private static List<DupScope>? Pool;
 
-    internal static DupScope Rent() { if (Pool.Count == 0) return new DupScope(); var s = Pool[^1]; Pool.RemoveAt(Pool.Count - 1); return s; }
-    internal static void Return(DupScope s) => Pool.Add(s);
+    internal static DupScope Rent()
+    {
+        var pool = Pool ??= [];
+        if (pool.Count == 0)
+            return new DupScope();
+        var s = pool[^1];
+        pool.RemoveAt(pool.Count - 1);
+        return s;
+    }
+
+    internal static void Return(DupScope s) => (Pool ??= []).Add(s);
 }
 
 internal static class NameBytes
@@ -695,17 +720,9 @@ internal sealed class DupScope
         Decoded = null;
     }
 
-    private static ulong Hash(ReadOnlySpan<byte> bytes)
-    {
-        ulong h = 14695981039346656037;
-        foreach (var b in bytes)
-            h = (h ^ b) * 1099511628211;
-        return h;
-    }
-
     internal bool Find(ReadOnlySpan<byte> name, byte[] buffer)
     {
-        var h = Hash(name);
+        var h = FieldTable.HashOf(name);
         var i = (int)(h & (ulong)_mask);
         while (_slots[i] >= 0)
         {
@@ -722,7 +739,7 @@ internal sealed class DupScope
     {
         if ((_count + 1) * 4 >= (_mask + 1) * 3)
             Grow();
-        var h = Hash(name);
+        var h = FieldTable.HashOf(name);
         var i = (int)(h & (ulong)_mask);
         while (_slots[i] >= 0)
             i = (i + 1) & _mask;
@@ -770,11 +787,12 @@ internal ref struct Walker
     private int _seq;
     private readonly List<DupScope> _scopes = new();
 
-    internal Walker(byte[] utf8, BakerAssemblyResolver resolver)
+    internal Walker(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null)
     {
         _utf8 = utf8;
         _resolver = resolver;
-        _doc = new FastDoc { Utf8 = utf8, Resolver = resolver };
+        _doc = new FastDoc { Utf8 = utf8, Resolver = resolver, Workspace = workspace };
+        workspace?.Warm(_doc);
         _r = new Utf8JsonReader(utf8);
     }
 
@@ -1625,30 +1643,56 @@ internal static class TimelineBakerFastCore
             foreach (var lane in lanes)
                 pairTypes[pairIndex[lane.Pair.Key]] = (lane.Pair.TrackType, lane.Pair.ClipType);
 
-            var pools = new ValuePoolSet[pairCount];
+            var membersByPair = new List<Lane>[pairCount];
+            var pairByPair = new FastPairInfo[pairCount];
             var trackValueBytes = new int[pairCount];
             var clipValueBytes = new int[pairCount];
+            var trackSortedByPair = new int[pairCount][];
+            var trackSlotsByPair = new int[pairCount][];
+            var trackUniques = new int[pairCount];
+            var clipSortedByPair = new int[pairCount][];
+            var clipSlotsByPair = new int[pairCount][];
+            var clipUniques = new int[pairCount];
+            var clipOffsetsByPair = new int[pairCount][];
             foreach (var lane in lanes)
             {
                 var index = pairIndex[lane.Pair.Key];
-                if (pools[index] != null) continue;
+                if (membersByPair[index] != null) continue;
                 var pair = lane.Pair;
                 var members = lanes.Where(item => item.Pair.Key == pair.Key).ToList();
-                pools[index] = ValuePoolSet.Build(
-                    members.Select(item => item.TrackBytes),
-                    members.SelectMany(item => item.ClipIds.Select(clipId => ClipImageOf(pair, clipId))),
-                    pair.TrackType.FullName ?? pair.TrackType.Name,
-                    pair.ClipType.FullName ?? pair.ClipType.Name);
+                membersByPair[index] = members;
+                pairByPair[index] = pair;
                 trackValueBytes[index] = pair.TrackSize;
                 clipValueBytes[index] = pair.ClipSize;
+
+                var trackName = pair.TrackType.FullName ?? pair.TrackType.Name;
+                trackSlotsByPair[index] = DedupPool(members.Count, o => members[o].TrackBytes, out trackSortedByPair[index], out trackUniques[index], $"track type '{trackName}'");
+
+                var clipOffsets = new int[members.Sum(item => item.ClipIds.Count)];
+                var clipOccurrence = 0;
+                foreach (var member in members)
+                    foreach (var clipId in member.ClipIds)
+                        clipOffsets[clipOccurrence++] = _doc.Clips[clipId].PayloadOffset;
+                clipOffsetsByPair[index] = clipOffsets;
+                var clipName = pair.ClipType.FullName ?? pair.ClipType.Name;
+                clipSlotsByPair[index] = DedupPool(clipOffsets.Length, o => pair.Pool.AsSpan(clipOffsets[o], pair.ClipSize), out clipSortedByPair[index], out clipUniques[index], $"clip type '{clipName}'");
             }
             var clipValueIndex = new ushort[_doc.Clips.Count];
             foreach (var lane in lanes)
             {
-                var pool = pools[pairIndex[lane.Pair.Key]];
-                lane.TrackValueIndex = pool.TrackIndex[lane.TrackBytes];
+                var index = pairIndex[lane.Pair.Key];
+                var members = membersByPair[index];
+                lane.TrackValueIndex = (ushort)trackSlotsByPair[index][members.IndexOf(lane)];
+                var clipSlots = clipSlotsByPair[index];
+                var clipOffsets = clipOffsetsByPair[index];
+                var clipOccurrence = 0;
                 foreach (var clipId in lane.ClipIds)
-                    clipValueIndex[clipId] = pool.ClipIndex[ClipImageOf(lane.Pair, clipId)];
+                {
+                    while (clipOffsets[clipOccurrence] != _doc.Clips[clipId].PayloadOffset)
+                        clipOccurrence++;
+                    clipValueIndex[clipId] = (ushort)clipSlots[clipOccurrence];
+                    clipOccurrence++;
+                }
             }
 
             foreach (var lane in lanes)
@@ -1666,29 +1710,59 @@ internal static class TimelineBakerFastCore
             var activeMin = new List<int>(lanes.Count);
             var coveringFirst = new List<int>(lanes.Count);
             var coveringSecond = new List<int>(lanes.Count);
+            var coverTables = BuildCoverTables(lanes);
+            var vectorScan = Avx2.IsSupported;
             for (var region = 0; region < stageCount; region++)
             {
                 var edge = boundaries[region];
+                var edgeVector = Vector256.Create((int)(edge ^ 0x8000_0000u));
                 activeLaneIdx.Clear();
                 activeMin.Clear();
                 coveringFirst.Clear();
                 coveringSecond.Clear();
                 for (var laneIdx = 0; laneIdx < lanes.Count; laneIdx++)
                 {
-                    var clips = lanes[laneIdx].ClipIds;
                     int first = -1, second = -1;
                     var minAuthored = int.MaxValue;
-                    for (var i = 0; i < clips.Count; i++)
+                    var table = coverTables[laneIdx];
+                    if (vectorScan)
                     {
-                        var clip = _doc.Clips[clips[i]];
-                        if (clip.Start <= edge && edge < clip.End)
+                        for (var off = 0; off < table.Padded; off += 8)
                         {
-                            if (first < 0)
-                                first = clips[i];
-                            else
-                                second = clips[i];
-                            if (clip.AuthoredIndex < minAuthored)
-                                minAuthored = clip.AuthoredIndex;
+                            var laneStarts = table.Starts;
+                            var laneEnds = table.Ends;
+                            var notLe = Avx2.MoveMask(Avx2.CompareGreaterThan(Vector256.LoadUnsafe(ref laneStarts[off]).AsInt32(), edgeVector).AsSingle());
+                            var gtEnd = Avx2.MoveMask(Avx2.CompareGreaterThan(Vector256.LoadUnsafe(ref laneEnds[off]).AsInt32(), edgeVector).AsSingle());
+                            var bits = ~notLe & gtEnd;
+                            while (bits != 0)
+                            {
+                                var bit = BitOperations.TrailingZeroCount(bits);
+                                bits &= bits - 1;
+                                var pos = off + bit;
+                                if (first < 0)
+                                    first = table.Ids[pos];
+                                else if (second < 0)
+                                    second = table.Ids[pos];
+                                if (table.Authored[pos] < minAuthored)
+                                    minAuthored = table.Authored[pos];
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var clips = lanes[laneIdx].ClipIds;
+                        for (var i = 0; i < clips.Count; i++)
+                        {
+                            var clip = _doc.Clips[clips[i]];
+                            if (clip.Start <= edge && edge < clip.End)
+                            {
+                                if (first < 0)
+                                    first = clips[i];
+                                else
+                                    second = clips[i];
+                                if (clip.AuthoredIndex < minAuthored)
+                                    minAuthored = clip.AuthoredIndex;
+                            }
                         }
                     }
                     if (first >= 0)
@@ -1733,13 +1807,12 @@ internal static class TimelineBakerFastCore
             var poolCursor = poolOffset;
             for (var index = 0; index < pairCount; index++)
             {
-                var pool = pools[index];
                 var pairAddress = pairOffset + TlbLayout.PairEntryBytes * (uint)index;
                 var trackRel = poolCursor - pairAddress;
-                poolCursor = TlbLayout.Align16(poolCursor + (uint)pool.TrackEntries.Count * (uint)trackValueBytes[index]);
+                poolCursor = TlbLayout.Align16(poolCursor + (uint)trackUniques[index] * (uint)trackValueBytes[index]);
                 var clipRel = poolCursor - pairAddress;
-                poolCursor = TlbLayout.Align16(poolCursor + (uint)pool.ClipEntries.Count * (uint)clipValueBytes[index]);
-                poolSpans[index] = (trackRel, clipRel, (uint)pool.TrackEntries.Count, (uint)pool.ClipEntries.Count);
+                poolCursor = TlbLayout.Align16(poolCursor + (uint)clipUniques[index] * (uint)clipValueBytes[index]);
+                poolSpans[index] = (trackRel, clipRel, (uint)trackUniques[index], (uint)clipUniques[index]);
             }
             var frameOffset = TlbLayout.Align16(poolCursor);
 
@@ -1819,19 +1892,21 @@ internal static class TimelineBakerFastCore
 
             for (var index = 0; index < pairCount; index++)
             {
-                var pool = pools[index];
                 var pairAddress = (int)(pairOffset + TlbLayout.PairEntryBytes * (uint)index);
+                var trackBytes = trackValueBytes[index];
                 var at = pairAddress + (int)poolSpans[index].TrackRel;
-                foreach (var image in pool.TrackEntries)
+                foreach (var occurrence in trackSortedByPair[index])
                 {
-                    image.CopyTo(bytes, at);
-                    at += image.Length;
+                    membersByPair[index][occurrence].TrackBytes.CopyTo(bytes.AsSpan(at));
+                    at += trackBytes;
                 }
+                var pair = pairByPair[index];
+                var clipBytes = clipValueBytes[index];
                 at = pairAddress + (int)poolSpans[index].ClipRel;
-                foreach (var image in pool.ClipEntries)
+                foreach (var occurrence in clipSortedByPair[index])
                 {
-                    image.CopyTo(bytes, at);
-                    at += image.Length;
+                    pair.Pool.AsSpan(clipOffsetsByPair[index][occurrence], clipBytes).CopyTo(bytes.AsSpan(at));
+                    at += clipBytes;
                 }
             }
 
@@ -1885,12 +1960,89 @@ internal static class TimelineBakerFastCore
             return bytes;
         }
 
-        private byte[] ClipImageOf(FastPairInfo pair, int clipId)
+        private delegate ReadOnlySpan<byte> SpanOf(int occurrence);
+
+        private sealed record LaneCover(uint[] Starts, uint[] Ends, int[] Authored, int[] Ids, int Padded);
+
+        private LaneCover[] BuildCoverTables(List<Lane> lanes)
         {
-            var clip = _doc.Clips[clipId];
-            var image = new byte[pair.ClipSize];
-            Array.Copy(pair.Pool, clip.PayloadOffset, image, 0, pair.ClipSize);
-            return image;
+            const int width = 8;
+            var tables = new LaneCover[lanes.Count];
+            for (var laneIdx = 0; laneIdx < lanes.Count; laneIdx++)
+            {
+                var clips = lanes[laneIdx].ClipIds;
+                var padded = (clips.Count + width - 1) & ~(width - 1);
+                var starts = new uint[padded];
+                var ends = new uint[padded];
+                var authored = new int[padded];
+                var ids = new int[padded];
+                for (var i = 0; i < clips.Count; i++)
+                {
+                    var clip = _doc.Clips[clips[i]];
+                    starts[i] = clip.Start ^ 0x8000_0000u;
+                    ends[i] = clip.End ^ 0x8000_0000u;
+                    authored[i] = clip.AuthoredIndex;
+                    ids[i] = clips[i];
+                }
+                for (var i = clips.Count; i < padded; i++)
+                {
+                    starts[i] = 0x7FFF_FFFFu;
+                    ends[i] = 0xFFFF_FFFFu;
+                }
+                tables[laneIdx] = new LaneCover(starts, ends, authored, ids, padded);
+            }
+            return tables;
+        }
+
+        private static int[] DedupPool(int occurrenceCount, SpanOf spanOf, out int[] sortedUnique, out int uniqueCount, string overflowName)
+        {
+            var first = new Dictionary<ulong, int>(occurrenceCount);
+            var uniqueOf = new int[occurrenceCount];
+            var uniques = new List<int>(occurrenceCount);
+            for (var o = 0; o < occurrenceCount; o++)
+            {
+                var span = spanOf(o);
+                var hash = HashPoolSpan(span);
+                if (first.TryGetValue(hash, out var u) && spanOf(uniques[u]).SequenceEqual(span))
+                {
+                    uniqueOf[o] = uniques[u];
+                }
+                else
+                {
+                    first[hash] = uniques.Count;
+                    uniqueOf[o] = o;
+                    uniques.Add(o);
+                }
+            }
+            uniqueCount = uniques.Count;
+            if (uniqueCount > 65535)
+                throw new BakeDiagnosticException($"value pool overflow: {overflowName} has {uniqueCount} unique values in one pool; the fixed-width ushort slot index holds at most 65,535 entries.");
+            uniques.Sort((x, y) => spanOf(x).SequenceCompareTo(spanOf(y)));
+            sortedUnique = [.. uniques];
+            var slotOf = new int[occurrenceCount];
+            for (var slot = 0; slot < uniqueCount; slot++)
+                slotOf[sortedUnique[slot]] = slot;
+            for (var o = 0; o < occurrenceCount; o++)
+                uniqueOf[o] = slotOf[uniqueOf[o]];
+            return uniqueOf;
+        }
+
+        private static ulong HashPoolSpan(ReadOnlySpan<byte> span)
+        {
+            ulong hash = 14695981039346656037;
+            while (span.Length >= 8)
+            {
+                hash = (hash ^ System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(span)) * 1099511628211;
+                span = span[8..];
+            }
+            if (!span.IsEmpty)
+            {
+                ulong tail = 0;
+                for (var i = 0; i < span.Length; i++)
+                    tail |= (ulong)span[i] << (8 * i);
+                hash = (hash ^ tail) * 1099511628211;
+            }
+            return hash;
         }
     }
 }

@@ -172,65 +172,34 @@ public sealed class BakerAssemblyResolver
         return boxed;
     }
 
-    private static object ReadPrimitive(JsonElement elem, Type targetType, string fieldName, string contextName)
-    {
-        if (targetType == typeof(bool))
+        private static readonly Dictionary<Type, (Func<JsonElement, object?> Read, string Name)> NumberReaders = new()
         {
-            if (elem.ValueKind == JsonValueKind.True) return true;
-            if (elem.ValueKind == JsonValueKind.False) return false;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected bool, got {elem.ValueKind}.");
-        }
-        if (targetType == typeof(byte))
-        {
-            if (elem.ValueKind == JsonValueKind.Number && elem.TryGetByte(out var v)) return v;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected byte, got {elem.GetRawText()}.");
-        }
-        if (targetType == typeof(sbyte))
-        {
-            if (elem.ValueKind == JsonValueKind.Number && elem.TryGetSByte(out var v)) return v;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected sbyte, got {elem.GetRawText()}.");
-        }
-        if (targetType == typeof(short))
-        {
-            if (elem.ValueKind == JsonValueKind.Number && elem.TryGetInt16(out var v)) return v;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected short, got {elem.GetRawText()}.");
-        }
-        if (targetType == typeof(ushort))
-        {
-            if (elem.ValueKind == JsonValueKind.Number && elem.TryGetUInt16(out var v)) return v;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected ushort, got {elem.GetRawText()}.");
-        }
-        if (targetType == typeof(int))
-        {
-            if (elem.ValueKind == JsonValueKind.Number && elem.TryGetInt32(out var v)) return v;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected int, got {elem.GetRawText()}.");
-        }
-        if (targetType == typeof(uint))
-        {
-            if (elem.ValueKind == JsonValueKind.Number && elem.TryGetUInt32(out var v)) return v;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected uint, got {elem.GetRawText()}.");
-        }
-        if (targetType == typeof(long))
-        {
-            if (elem.ValueKind == JsonValueKind.Number && elem.TryGetInt64(out var v)) return v;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected long, got {elem.GetRawText()}.");
-        }
-        if (targetType == typeof(ulong))
-        {
-            if (elem.ValueKind == JsonValueKind.Number && elem.TryGetUInt64(out var v)) return v;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected ulong, got {elem.GetRawText()}.");
-        }
-        if (targetType == typeof(float))
-        {
-            if (elem.ValueKind == JsonValueKind.Number && elem.TryGetSingle(out var v)) return v;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected float, got {elem.GetRawText()}.");
-        }
-        if (targetType == typeof(double))
-        {
-            if (elem.ValueKind == JsonValueKind.Number && elem.TryGetDouble(out var v)) return v;
-            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected double, got {elem.GetRawText()}.");
-        }
+            [typeof(byte)] = (e => e.ValueKind == JsonValueKind.Number && e.TryGetByte(out var v) ? v : null, "byte"),
+            [typeof(sbyte)] = (e => e.ValueKind == JsonValueKind.Number && e.TryGetSByte(out var v) ? v : null, "sbyte"),
+            [typeof(short)] = (e => e.ValueKind == JsonValueKind.Number && e.TryGetInt16(out var v) ? v : null, "short"),
+            [typeof(ushort)] = (e => e.ValueKind == JsonValueKind.Number && e.TryGetUInt16(out var v) ? v : null, "ushort"),
+            [typeof(int)] = (e => e.ValueKind == JsonValueKind.Number && e.TryGetInt32(out var v) ? v : null, "int"),
+            [typeof(uint)] = (e => e.ValueKind == JsonValueKind.Number && e.TryGetUInt32(out var v) ? v : null, "uint"),
+            [typeof(long)] = (e => e.ValueKind == JsonValueKind.Number && e.TryGetInt64(out var v) ? v : null, "long"),
+            [typeof(ulong)] = (e => e.ValueKind == JsonValueKind.Number && e.TryGetUInt64(out var v) ? v : null, "ulong"),
+            [typeof(float)] = (e => e.ValueKind == JsonValueKind.Number && e.TryGetSingle(out var v) ? v : null, "float"),
+            [typeof(double)] = (e => e.ValueKind == JsonValueKind.Number && e.TryGetDouble(out var v) ? v : null, "double"),
+        };
 
-        throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} has unsupported primitive type '{targetType.Name}'.");
-    }
+        private static object ReadPrimitive(JsonElement elem, Type targetType, string fieldName, string contextName)
+        {
+            if (targetType == typeof(bool))
+            {
+                if (elem.ValueKind == JsonValueKind.True) return true;
+                if (elem.ValueKind == JsonValueKind.False) return false;
+                throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected bool, got {elem.ValueKind}.");
+            }
+            if (NumberReaders.TryGetValue(targetType, out var entry))
+            {
+                var value = entry.Read(elem);
+                if (value != null) return value;
+                throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} expected {entry.Name}, got {elem.GetRawText()}.");
+            }
+            throw new BakeDiagnosticException($"wrong-typed value: field '{fieldName}' in {contextName} has unsupported primitive type '{targetType.Name}'.");
+        }
 }

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Tl.Bake.Oracle;
 using Tl.Gen.Tlb;
 using Xunit;
 
@@ -58,7 +59,7 @@ public sealed class SimdScanTests
     private static byte[] Utf8(string json) => Encoding.UTF8.GetBytes(json);
 
     private static bool TakesFastPath(string json) =>
-        TimelineBakerSimd.TryParseFast(Utf8(json), new BakerAssemblyResolver(), out _);
+        TimelineBakerSimd.TryParseFast(Utf8(json), new BakerAssemblyResolver(), null, out _);
 
     private static string Bake(string json) => Convert.ToHexString(SHA256.HashData(TimelineBaker.BakeJson(json)));
 
@@ -71,7 +72,7 @@ public sealed class SimdScanTests
     {
         try
         {
-            TimelineBaker.BakeJsonLegacy(json);
+            BakeOracle.BakeJsonLegacy(json);
             return false;
         }
         catch (Exception)
@@ -85,10 +86,10 @@ public sealed class SimdScanTests
     public void RejectedDocumentsProduceIdenticalReceipts(string name, string json)
     {
         _ = name;
-        var legacy = ReceiptOf(() => TimelineBaker.BakeJsonLegacy(json));
+        var legacy = ReceiptOf(() => BakeOracle.BakeJsonLegacy(json));
         var wired = ReceiptOf(() => TimelineBaker.BakeJson(json));
         Assert.Equal(legacy, wired);
-        if (TimelineBakerSimd.TryParseFast(Utf8(json), new BakerAssemblyResolver(), out var doc))
+        if (TimelineBakerSimd.TryParseFast(Utf8(json), new BakerAssemblyResolver(), null, out var doc))
         {
             var fast = ReceiptOf(() => TimelineBakerFastCore.BakeFast(doc, new BakerAssemblyResolver()));
             Assert.Equal(legacy, fast);
@@ -114,7 +115,7 @@ public sealed class SimdScanTests
         var json = Doc("\"name\":\"root\",\"duration\":100,\"loop\":true",
             TrackJ("GaFatTrack", ClipJ("GaFatClip", data, "start:1;end:50", withRange: false) + "," + ClipJ("GaFatClip", Data(4), "start:60;end:99", withRange: false)));
         Assert.True(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -122,7 +123,7 @@ public sealed class SimdScanTests
     {
         var json = "\r\n  {  \"name\" :\t\"root\" , \"duration\" : 10 ,\n \"loop\" : false , \"tracks\" : [ { \"namespace\" : \"FusedBake\" , \"type\" : \"GaTrack0\" , \"clips\" : [ { \"namespace\":\"FusedBake\",\"type\":\"GaClip0\",\"start\":1,\"end\":9,\"data\":{ \"f0\" : 1.5 , \"f1\" : -0.25 } } ] } ] }  \n";
         Assert.True(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -130,7 +131,7 @@ public sealed class SimdScanTests
     {
         var json = Doc("\"name\":\"a,b:c[d]e{f}g\",\"duration\":10,\"loop\":false", TrackJ("GaTrack0", ClipJ("GaClip0", Data(1), "name:\"x,y\"")));
         Assert.True(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -139,7 +140,7 @@ public sealed class SimdScanTests
         var longName = new string('x', 500) + ",:" + new string('y', 500);
         var json = Doc($"\"name\":\"{longName}\",\"duration\":10,\"loop\":false", "");
         Assert.True(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -148,7 +149,7 @@ public sealed class SimdScanTests
         var json = Doc("\"name\":" + "\"\u8f68\u9053-\u00e9-\U0001F600\",\"duration\":10,\"loop\":false",
             TrackJ("GaTrack0", ClipJ("GaClip0", Data(1), "name:\"\u30d1\u30c6\u30a3\u30af\u30eb\"")));
         Assert.True(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -157,7 +158,7 @@ public sealed class SimdScanTests
         var data = "{\"f0\":0,\"f1\":-0.0,\"f2\":0.1,\"f3\":1999.999,\"f4\":1e3,\"f5\":-2.5e-2,\"f6\":1234.5678,\"f7\":199,\"f8\":7.0}";
         var json = Doc("\"duration\":10,\"loop\":false", TrackJ("GaFatTrack", ClipJ("GaFatClip", data)));
         Assert.True(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -166,7 +167,7 @@ public sealed class SimdScanTests
         var data = "{\"B\":true,\"Bt\":255,\"Sb\":-128,\"Sh\":-32768,\"Us\":65535,\"I\":2147483647,\"Ui\":4294967295,\"L\":9223372036854775807,\"Ul\":18446744073709551615,\"F\":1.5,\"D\":2.5}";
         var json = Doc("\"duration\":10,\"loop\":false", TrackJ("GaPrimTrack", ClipJ("GaPrimClip", data)));
         Assert.True(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -174,7 +175,7 @@ public sealed class SimdScanTests
     {
         var json = Doc("\"duration\":10,\"loop\":false", TrackJ("GaTrack0", ClipJ("GaClip0", "{}")));
         Assert.True(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -183,7 +184,7 @@ public sealed class SimdScanTests
         var json = Doc("\"duration\":10,\"loop\":false",
             "{\"namespace\":\"" + G + "\",\"type\":\"GaTrack0\",\"data\":{\"Scale\":2.5,\"Code\":7},\"clips\":[" + ClipJ("GaClip0", Data(2)) + "]}");
         Assert.True(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -191,7 +192,7 @@ public sealed class SimdScanTests
     {
         var json = "{\"duration\":0,\"loop\":false,\"tracks\":[]}";
         Assert.True(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -200,7 +201,7 @@ public sealed class SimdScanTests
         var data = "{\"f0\":3.4028235e38,\"f1\":1.4e-45}";
         var json = Doc("\"duration\":10,\"loop\":false", TrackJ("GaTrack0", ClipJ("GaClip0", data)));
         Assert.False(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -209,7 +210,7 @@ public sealed class SimdScanTests
         var json = Doc("\"duration\":10,\"loop\":false",
             TrackJ("GaTrack0", ClipJ("GaClip0", Data(1), "assembly:\"" + typeof(SimdScanTests).Assembly.GetName().Name + "\"")));
         Assert.False(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -218,6 +219,6 @@ public sealed class SimdScanTests
         var json = Doc("\"duration\":10,\"loop\":false",
             "{\"namespace\":\"" + G + "\",\"type\":\"GaTrack0\",\"clips\":[{\"data\":{\"f0\":7.5},\"namespace\":\"" + G + "\",\"type\":\"GaClip0\",\"start\":2,\"end\":8}]}");
         Assert.False(TakesFastPath(json));
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 }
