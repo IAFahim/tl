@@ -641,3 +641,63 @@ public struct G6Track : IBlend<G6Clip>
         result.I0 = factor >= 0.5f ? second.I0 : first.I0;
     }
 }
+
+[StructLayout(LayoutKind.Sequential)]
+public struct Tiny0Clip
+{
+    public float Velocity;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct Tiny0Track : IBlend<Tiny0Clip>
+{
+    public float Scale;
+
+    public void Blend(in Tiny0Clip first, in Tiny0Clip second, float factor, out Tiny0Clip result)
+    {
+        result = first;
+        result.Velocity = first.Velocity + (second.Velocity - first.Velocity) * factor;
+    }
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct Tiny1Clip
+{
+    public float X, Y;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct Tiny1Track : IBlend<Tiny1Clip>
+{
+    public float X, Y;
+
+    public void Blend(in Tiny1Clip first, in Tiny1Clip second, float factor, out Tiny1Clip result)
+    {
+        result = first;
+        result.X = first.X + (second.X - first.X) * factor;
+        result.Y = first.Y + (second.Y - first.Y) * factor;
+    }
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct Tiny2Clip
+{
+    public float Open;
+    public int State;
+    public bool Locked;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct Tiny2Track : IBlend<Tiny2Clip>
+{
+    public float Open;
+    public int State;
+    public bool Locked;
+
+    public void Blend(in Tiny2Clip first, in Tiny2Clip second, float factor, out Tiny2Clip result)
+    {
+        result = first;
+        result.Open = first.Open + (second.Open - first.Open) * factor;
+        result.State = factor >= 0.5f ? second.State : first.State;
+    }
+}
