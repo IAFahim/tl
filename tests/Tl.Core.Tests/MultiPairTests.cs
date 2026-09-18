@@ -1,5 +1,7 @@
 using Xunit;
 
+using Tl.TestSupport;
+
 namespace Tl.Core.Tests;
 
 public readonly record struct DualAlphaClip(int Value);
@@ -31,7 +33,7 @@ public unsafe class MultiPairTests
         PairRuntime<EchoTrack, EchoClip>.Consume(&EchoExecute, &NoBind);
     }
 
-    internal static byte[] DualFixture() => new Baker()
+    internal static byte[] DualFixture() => new DomainBaker()
         .Track<DualTrack, DualAlphaClip>(new DualTrack(1))
         .Track<EchoTrack, EchoClip>(new EchoTrack(5))
         .Track<DualTrack, DualBetaClip>(new DualTrack(2))

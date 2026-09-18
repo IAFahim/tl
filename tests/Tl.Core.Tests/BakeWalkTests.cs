@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using Xunit;
 
+using Tl.TestSupport;
+
 namespace Tl.Core.Tests;
 
 public sealed class BakeHost(string name)
@@ -17,7 +19,7 @@ public unsafe class BakeWalkTests
 {
     private static readonly List<string> Log = [];
 
-    private static byte[] TwoPairBake(int alphaClip, int gammaClip) => new Baker()
+    private static byte[] TwoPairBake(int alphaClip, int gammaClip) => new DomainBaker()
         .Track<AlphaTrack, AlphaClip>(new AlphaTrack(1))
         .Clip(0, 0, 1, new AlphaClip(alphaClip))
         .Track<GammaTrack, GammaClip>(new GammaTrack(1))
@@ -136,7 +138,7 @@ public unsafe class BakeWalkTests
     public void PairsWithoutInstalledBakesAreSilent()
     {
         var before = Log.Count;
-        using var timeline = TimelineAsset.LoadAsset(new Baker()
+        using var timeline = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<BetaTrack, BetaClip>(new BetaTrack(1))
             .Clip(0, 0, 1, new BetaClip(17))
             .Bake());
@@ -161,7 +163,7 @@ public unsafe class BakeWalkTests
     public void DeadIndicesThrowTheInternTableDiagnostic()
     {
         var before = Log.Count;
-        var timeline = TimelineAsset.LoadAsset(new Baker()
+        var timeline = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(1))
             .Clip(0, 0, 1, new AlphaClip(19))
             .Bake());
