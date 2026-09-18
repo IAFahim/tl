@@ -143,7 +143,7 @@ public sealed class FusedParityTests
 
     private static string Doc(string rootProps, string tracks) => "{" + rootProps + ",\"tracks\":[" + tracks + "]}";
 
-    private static IEnumerable<(string Name, string Json)> CaseList()
+    internal static IEnumerable<(string Name, string Json)> CaseList()
     {
         var clip0 = ClipJ("GaClip0", Data(4));
         var track0 = TrackJ("GaTrack0", clip0);
