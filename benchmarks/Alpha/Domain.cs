@@ -29,13 +29,13 @@ public readonly record struct BetaTrack(int Code) : IBlend<BetaClip>
         => result = new((int)(first.Amount + (second.Amount - first.Amount) * factor));
 }
 
-public readonly struct AlphaJob : ITimelineJob<AlphaTrack, AlphaClip>
+public readonly struct AlphaJob : ITimeline<AlphaTrack, AlphaClip>
 {
     public static void Execute(in Frame<AlphaTrack, AlphaClip> frame, ref float value)
         => value += frame.Direction * frame.Clip.Amount;
 }
 
-public readonly struct BetaJob : ITimelineJob<BetaTrack, BetaClip>
+public readonly struct BetaJob : ITimeline<BetaTrack, BetaClip>
 {
     public static void Execute(in Frame<BetaTrack, BetaClip> frame, ref float value)
         => value += frame.Direction * frame.Clip.Amount;

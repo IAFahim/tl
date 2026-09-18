@@ -2,7 +2,7 @@ using System.ComponentModel;
 
 namespace Tl;
 
-public interface ITimelineJob<TTrack, TClip>
+public interface ITimeline<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged;
 

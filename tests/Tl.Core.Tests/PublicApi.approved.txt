@@ -1,9 +1,3 @@
-type Tl.BakedLane`2
-  Method Void Bind(Tl.TimelineAsset)
-  Property UInt16 Duration
-  Method Single Effect(UInt16)
-  Method Single InverseEffect(UInt16)
-  Property Boolean Looping
 type Tl.FrameFlags
   Field Tl.FrameFlags ClipEnd
   Field Tl.FrameFlags ClipStart
@@ -32,12 +26,12 @@ type Tl.Frame`2
   Property UInt16 WithinClip
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
-type Tl.ITimelineJob`2
 type Tl.ITimelineLane`1
   Property UInt16 Duration
   Method Single Effect(UInt16)
   Method Single InverseEffect(UInt16)
   Property Boolean Looping
+type Tl.ITimeline`2
 type Tl.MeasuredLanes
   Method Void Dispose()
   Property UInt16 Duration
@@ -92,8 +86,9 @@ type Tl.Timeline`1
   Method Tl.TimelineLane`1[T] Seek(System.Span`1[System.UInt16], Boolean)
 type Tl.Timeline`2
   Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method UInt16 Bind(Tl.TimelineAsset)
-  Method UInt16 Bind(Tl.TimelineAsset, Tl.MeasuredLanes)
+  Method Void Advance(Tl.TimelineAsset, System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Tl.TimelineSetLane`2[TTrack,TClip] Seek(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
+  Method UInt16 Slot(Tl.TimelineAsset)
+  Method UInt16 Slot(Tl.TimelineAsset, Tl.MeasuredLanes)
 type Tl.TypeKey`1
   Field UInt64 Value

@@ -78,7 +78,7 @@ public class PairHandleLaneTests
         for (var variant = 0; variant < Assets; variant++)
         {
             using var asset = TimelineAsset.Load(VariantBake(variant));
-            handles[variant] = Timeline<HandleTrack, HandleClip>.Bind(asset);
+            handles[variant] = Timeline<HandleTrack, HandleClip>.Slot(asset);
         }
         return handles;
     }
@@ -92,11 +92,95 @@ public class PairHandleLaneTests
     }
 
     [Fact]
-    public void BindReturnsDenseHandles()
+    public void SlotReturnsDenseHandles()
     {
         var handles = BindVariants();
         for (var variant = 1; variant < Assets; variant++)
             Assert.Equal(handles[variant - 1] + 1, handles[variant]);
+    }
+
+    [Fact]
+    public void SlotIsStableAcrossRepeatedResolves()
+    {
+        using var asset = TimelineAsset.Load(VariantBake(2));
+        var first = Timeline<HandleTrack, HandleClip>.Slot(asset);
+        Assert.Equal(first, Timeline<HandleTrack, HandleClip>.Slot(asset));
+        using var other = TimelineAsset.Load(VariantBake(0));
+        var distinct = Timeline<HandleTrack, HandleClip>.Slot(other);
+        Assert.NotEqual(first, distinct);
+        Assert.Equal(first, Timeline<HandleTrack, HandleClip>.Slot(asset));
+    }
+
+    [Fact]
+    public void ScalarAdvanceMatchesOneSlotCrowdAdvance()
+    {
+        using var asset = TimelineAsset.Load(VariantBake(1));
+        var slot = Timeline<HandleTrack, HandleClip>.Slot(asset);
+        var crowdHandles = new ushort[Rows];
+        Array.Fill(crowdHandles, slot);
+        var scalarPositions = new ushort[Rows];
+        var crowdPositions = new ushort[Rows];
+        var scalarEffects = new float[Rows];
+        var crowdEffects = new float[Rows];
+        for (var i = 0; i < Rows; i++)
+        {
+            scalarPositions[i] = (ushort)(i % 7);
+            crowdPositions[i] = scalarPositions[i];
+            scalarEffects[i] = crowdEffects[i] = (i % 5) * 0.5f;
+        }
+        for (var step = 0; step < 80; step++)
+        {
+            var forward = step % 4 != 3;
+            Timeline<HandleTrack, HandleClip>.Advance(asset, scalarPositions, forward, scalarEffects);
+            Timeline<HandleTrack, HandleClip>.Advance(crowdHandles, crowdPositions, forward, crowdEffects);
+        }
+        Assert.Equal(crowdPositions, scalarPositions);
+        Assert.Equal(crowdEffects, scalarEffects);
+    }
+
+    [Fact]
+    public void WarmScalarAdvanceAllocatesZero()
+    {
+        using var asset = TimelineAsset.Load(VariantBake(0));
+        var positions = new ushort[256];
+        var effects = new float[256];
+        for (var i = 0; i < 256; i++)
+            positions[i] = (ushort)(i % 6);
+
+        long allocated;
+        for (var attempt = 0; ; attempt++)
+        {
+            for (var pass = 0; pass < 1_000; pass++)
+                Timeline<HandleTrack, HandleClip>.Advance(asset, positions, true, effects);
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var pass = 0; pass < 100_000; pass++)
+                Timeline<HandleTrack, HandleClip>.Advance(asset, positions, true, effects);
+            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            if (allocated == 0 || attempt >= 8) break;
+        }
+        Assert.Equal(0, allocated);
+    }
+
+    [Fact]
+    public void SlotOnAssetWithoutPairThrowsExistingDiagnostic()
+    {
+        using var asset = TimelineAsset.Load(new Baker()
+            .Track<IdleTrack, IdleClip>(new IdleTrack(1f))
+            .Clip(0, 0, 4, new IdleClip(1f))
+            .Bake());
+        var thrown = Assert.Throws<ArgumentException>(() => Timeline<HandleTrack, HandleClip>.Slot(asset));
+        Assert.Contains("does not contain the timeline pair", thrown.Message);
+    }
+
+    [Fact]
+    public void SlotWithoutRegisteredConsumerThrowsExistingDiagnostic()
+    {
+        using var asset = TimelineAsset.Load(new Baker()
+            .Track<IdleTrack, IdleClip>(new IdleTrack(1f))
+            .Clip(0, 0, 4, new IdleClip(1f))
+            .Bake());
+        var thrown = Assert.Throws<ArgumentException>(() => Timeline<IdleTrack, IdleClip>.Slot(asset));
+        Assert.Contains("No consumer is registered", thrown.Message);
     }
 
     [Fact]
@@ -292,13 +376,13 @@ public class PairHandleLaneTests
     }
 
     [Fact]
-    public void MeasuredOverloadMatchesPlainBind()
+    public void MeasuredOverloadMatchesPlainSlot()
     {
         using var plainAsset = TimelineAsset.Load(VariantBake(0));
         using var measuredAsset = TimelineAsset.Load(VariantBake(0));
-        var plain = Timeline<HandleTrack, HandleClip>.Bind(plainAsset);
+        var plain = Timeline<HandleTrack, HandleClip>.Slot(plainAsset);
         using var measured = MeasuredLanes.Measure(measuredAsset);
-        var measuredHandle = Timeline<HandleTrack, HandleClip>.Bind(measuredAsset, measured);
+        var measuredHandle = Timeline<HandleTrack, HandleClip>.Slot(measuredAsset, measured);
 
         var plainHandles = new ushort[64];
         var measuredHandles = new ushort[64];

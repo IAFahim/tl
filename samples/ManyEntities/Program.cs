@@ -8,7 +8,7 @@ namespace ManyEntities;
 // Both sides run the SAME workload and must produce identical checksums:
 //
 //   lane  the shipped typed lane: Timeline<T>.Seek(positions, forward).Apply(values)
-//         over BakedLane effect tables bound once per asset
+//         over effect tables measured once per asset at slot resolve
 //   hand  the per-asset SoA pattern from docs/playback-tables-design.md: precompute the
 //         frame value per position once, then sweep flat arrays by hand
 //
@@ -86,7 +86,7 @@ internal static class Program
     static bool Sweep(float[] values)
     {
         using var asset = TimelineAsset.Load(Bake("move64.json"));
-        BakedLane<MoveTrack, MoveClip>.Bind(asset);
+        Timeline<MoveTrack, MoveClip>.Slot(asset);
 
         var positions = new ushort[N];
         var laneValues = new float[N];
@@ -102,7 +102,7 @@ internal static class Program
         long LanePass()
         {
             for (var t = 0; t < Ticks; t++)
-                Timeline<BakedLane<MoveTrack, MoveClip>>.Seek(positions, true).Apply(laneValues);
+                Timeline<MoveTrack, MoveClip>.Advance(asset, positions, true, laneValues);
             long a = 0;
             for (var i = 0; i < N; i++) { a += (long)laneValues[i]; }
             return a;
@@ -133,7 +133,7 @@ internal static class Program
     static bool Pulse(float value)
     {
         using var asset = TimelineAsset.Load(Bake("pulse.json"));
-        BakedLane<PulseTrack, PulseClip>.Bind(asset);
+        Timeline<PulseTrack, PulseClip>.Slot(asset);
 
         var positions = new ushort[N];
         var laneValues = new float[N];
@@ -149,7 +149,7 @@ internal static class Program
         long LanePass()
         {
             for (var t = 0; t < Ticks; t++)
-                Timeline<BakedLane<PulseTrack, PulseClip>>.Seek(positions, true).Apply(laneValues);
+                Timeline<PulseTrack, PulseClip>.Advance(asset, positions, true, laneValues);
             long a = 0;
             for (var i = 0; i < N; i++) { a += (long)laneValues[i]; }
             return a;
@@ -176,7 +176,7 @@ internal static class Program
         const int Passes = 50;
         const int Capacity = 500_000;
         using var asset = TimelineAsset.Load(Bake("window.json"));
-        BakedLane<WindowTrack, WindowClip>.Bind(asset);
+        Timeline<WindowTrack, WindowClip>.Slot(asset);
 
         var positions = new ushort[Capacity];
         var laneValues = new float[Capacity];
@@ -199,7 +199,7 @@ internal static class Program
             {
                 for (var s = 0; s < SpawnPerPass; s++) { positions[count + s] = 0; laneValues[count + s] = 0; }
                 count += SpawnPerPass;
-                Timeline<BakedLane<WindowTrack, WindowClip>>.Seek(positions.AsSpan(0, count), true).Apply(laneValues.AsSpan(0, count));
+                Timeline<WindowTrack, WindowClip>.Advance(asset, positions.AsSpan(0, count), true, laneValues.AsSpan(0, count));
                 for (var i = 0; i < count; )
                 {
                     if (positions[i] < 20u) { i++; continue; }

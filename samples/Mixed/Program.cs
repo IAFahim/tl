@@ -12,16 +12,16 @@ using var attack = TimelineAsset.Load(new DataBaker()
     .Clip(1, 0u, 2u, new DamageClip(10f))
     .Clip(2, 0u, 2u, new AnimationClip(1f, 0f))
     .Bake());
-BakedLane<AnimationTrack, AnimationClip>.Bind(attack);
+Timeline<AnimationTrack, AnimationClip>.Slot(attack);
 
-Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, true).Apply(vitality);
-Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, true).Apply(vitality);
+Timeline<AnimationTrack, AnimationClip>.Advance(attack, positions, true, vitality);
+Timeline<AnimationTrack, AnimationClip>.Advance(attack, positions, true, vitality);
 
 if (positions[0] != 2 || vitality[0] != -9f)
     return 1;
 
-Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, false).Apply(vitality);
-Timeline<BakedLane<AnimationTrack, AnimationClip>>.Seek(positions, false).Apply(vitality);
+Timeline<AnimationTrack, AnimationClip>.Advance(attack, positions, false, vitality);
+Timeline<AnimationTrack, AnimationClip>.Advance(attack, positions, false, vitality);
 
 if (positions[0] != 0 || vitality[0] != 0f)
     return 2;
@@ -46,7 +46,7 @@ public readonly record struct DamageTrack(int Code) : IBlend<DamageClip>
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
-public readonly struct AnimationJob : ITimelineJob<AnimationTrack, AnimationClip>
+public readonly struct AnimationJob : ITimeline<AnimationTrack, AnimationClip>
 {
     public static void Execute(
         in Frame<AnimationTrack, AnimationClip> frame,
@@ -54,7 +54,7 @@ public readonly struct AnimationJob : ITimelineJob<AnimationTrack, AnimationClip
         => vitality += frame.Direction * (frame.Clip.X + frame.Clip.Y);
 }
 
-public readonly struct DamageJob : ITimelineJob<DamageTrack, DamageClip>
+public readonly struct DamageJob : ITimeline<DamageTrack, DamageClip>
 {
     public static void Execute(
         in Frame<DamageTrack, DamageClip> frame,

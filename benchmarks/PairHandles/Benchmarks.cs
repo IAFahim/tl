@@ -50,7 +50,7 @@ public class PairHandleBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        Host.BindLane();
+        var gold = Host.SlotGoldLane();
         var bank = Host.BindBank();
         var positions = new ushort[Rows];
         for (var i = 0; i < Rows; i++)
@@ -61,6 +61,7 @@ public class PairHandleBenchmarks
         for (var i = 0; i < Rows; i++)
             handles[i] = Shape switch
             {
+                ShapeKind.LaneUniform => gold,
                 ShapeKind.PairOne => bank[0],
                 ShapeKind.PairRuns8 or ShapeKind.PairRuns8Waves => bank[i * Host.Variants / Rows],
                 ShapeKind.PairBlocks8Waves => bank[i / 100 % Host.Variants],
@@ -77,12 +78,6 @@ public class PairHandleBenchmarks
     [Benchmark]
     public void Advance()
     {
-        if (Shape == ShapeKind.LaneUniform)
-        {
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Advance(_positions, true, _effects);
-            Sink += _positions[0];
-            return;
-        }
         Timeline<LaneTrack, LaneClip>.Advance(_handles, _positions, true, _effects);
         Sink += _positions[0];
     }

@@ -6,12 +6,12 @@
 
 Try the [interactive cookbook/playground](https://iafahim.github.io/tl/) — live authoring-JSON editing and timeline playback in the browser, with [embeddable recipe pages](https://iafahim.github.io/tl/cookbook/).
 
-Timeline data and timeline behavior are separate. Designers author tracks, clips, windows, and loop points as JSON; a deterministic `tlb` compile produces canonical TLB1 assets; typed C# consumers (`ITimelineJob<TTrack,TClip>`) fold what one active `(track, clip)` pair does into a borrowed float effect column. The runtime has no reflection, no delegates on warm paths, no runtime compilation, and no warm-path allocation — the same baked bytes drive .NET and Unity.
+Timeline data and timeline behavior are separate. Designers author tracks, clips, windows, and loop points as JSON; a deterministic `tlb` compile produces canonical TLB1 assets; typed C# consumers (`ITimeline<TTrack,TClip>`) fold what one active `(track, clip)` pair does into a borrowed float effect column. The runtime has no reflection, no delegates on warm paths, no runtime compilation, and no warm-path allocation — the same baked bytes drive .NET and Unity.
 
 - **Deterministic bake** — same inputs, same bytes, on every machine and culture; content-keyed cache hits preserve timestamps
 - **Heterogeneous assets** — tracks and clips of different types in one asset; execution order is authored order (A-B-A preserved)
 - **Typed playback lane** — `Timeline<T>.Seek(positions, forward).Apply(effects)` advances every row exactly one frame over run-length groups; catch-up is repeated calls, rewind is `forward: false`
-- **Bind-time effect tables** — consumers are measured once per (pair, asset); no kernel catalog, no interpreter tier, one execution path
+- **Resolve-time effect tables** — consumers are measured once per (pair, asset) at slot resolve; no kernel catalog, no interpreter tier, one execution path
 - **Typed frame queries** — a read-only stage view over the row's currently selected step; never advances time
 - **NativeAOT-safe** — no generator assemblies in application output; one shared domain file compiles for both .NET and Unity
 - **Flawless install** — `dotnet add package` and run; package targets configure consuming projects automatically
@@ -49,7 +49,7 @@ For an offline install, copy the `.nupkg` files into a local `packages/` folder 
 
 ### 2. Define the domain
 
-You author the domain values and one typed consumer per `(track, clip)` pair. `Tl` supplies `IBlend<TClip>`, `ITimelineJob<TTrack,TClip>`, and `Frame<TTrack,TClip>`; the generator discovers consumers compilation-wide, so there is no registration, catalog, or schema marker.
+You author the domain values and one typed consumer per `(track, clip)` pair. `Tl` supplies `IBlend<TClip>`, `ITimeline<TTrack,TClip>`, and `Frame<TTrack,TClip>`; the generator discovers consumers compilation-wide, so there is no registration, catalog, or schema marker.
 
 ```cs
 using Tl;
@@ -71,7 +71,7 @@ namespace Combat
             => result = new DamageClip(first.Amount + (second.Amount - first.Amount) * factor);
     }
 
-    public readonly struct ApplyDamage : ITimelineJob<DamageTrack, DamageClip>
+    public readonly struct ApplyDamage : ITimeline<DamageTrack, DamageClip>
     {
         public static void Execute(
             in Frame<DamageTrack, DamageClip> frame,
@@ -84,7 +84,7 @@ namespace Combat
 }
 ```
 
-Track values hold immutable settings. Clip values hold immutable authored payload. A lane consumer writes exactly one `ref float` effect column and self-inverts through `Frame.Direction`, so rewind is exact; `BakedLane.Bind` measures the fold once at cold time; position purity is an authoring contract, not a bind-time check (removed with the #113 purity probes).
+Track values hold immutable settings. Clip values hold immutable authored payload. A lane consumer writes exactly one `ref float` effect column and self-inverts through `Frame.Direction`, so rewind is exact; `Timeline<TTrack, TClip>.Slot` measures the fold once at attach time; position purity is an authoring contract, not a resolve-time check (removed with the #113 purity probes).
 
 ### 3. Author and bake one timeline
 
@@ -138,21 +138,23 @@ Authored game data repeats itself — the same namespace and type names on every
 
 Repeated **payloads are deduplicated too** (TLB1 v3): each pair's distinct track values and clip payloads are stored once in a per-pair value pool of unique whole structs, and every frame slot references them by fixed-width `ushort` index — track data repeated across the track's slots and a clip spanning several stages each cost one pool entry. More than 65,535 unique values in one pool is a bake diagnostic naming the type. Windows and blend-factor bounds stay inline in the 24 B slot row (`u16` pool indices, `u8` track index, `u32` window/factor bounds, 8-aligned). Data member names (`"Velocity"`, `"Multiplier"`) are matched against the assembly at bake time and never stored in the asset at all. Assets baked by earlier alphas carry the v1 or v2 layout and are rejected at load with a diagnostic; re-bake them with the current `tlb`. `tlb --report` shows the split: `tlb/metadata-bytes` is the pooled string/type/label tail, `tlb/hot-bytes` the execution region, and the `pool/*/unique-count` fields report the value pools.
 
-### 4. Bind, advance, and query
+### 4. Resolve, advance, and query
 
-The application owns the position and effect columns and the game clock. `TimelineAsset.Load` is a cold validated import; `BakedLane.Bind` measures the per-position effect tables once; dispose the asset after all readers are done.
+The application owns the position and effect columns and the game clock. `TimelineAsset.Load` is a cold validated import; `Timeline<TTrack, TClip>.Slot(asset)` resolves the asset into the pair's bank at attach time and measures the per-position effect tables once; dispose the asset after all readers are done.
 
 ```cs
 using var asset = TimelineAsset.Load(File.ReadAllBytes("boss.tlb"));
-BakedLane<DamageTrack, DamageClip>.Bind(asset);
+var boss = Timeline<DamageTrack, DamageClip>.Slot(asset);       // attach-time resolve, dense ushort slot
 
 var positions = new ushort[] { 0 };
 var health    = new float[] { 100f };
 
-Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health);   // one frame
-Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(health);   // catch-up call
-Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, false).Apply(health);  // rewind
+Timeline<DamageTrack, DamageClip>.Advance(asset, positions, true, health);   // one frame
+Timeline<DamageTrack, DamageClip>.Advance(asset, positions, true, health);   // catch-up call
+Timeline<DamageTrack, DamageClip>.Advance(asset, positions, false, health);  // rewind
 ```
+
+`Timeline<TTrack, TClip>` is the only public playback API. `Slot` is the attach-time resolve: cold, once per asset, it folds every registered consumer's effect for every position into the pair's process-lifetime bank and returns a dense `ushort` slot (never a pointer, never authored, never baked); repeated resolves of the same asset return the same slot, and distinct assets take consecutive slots. Two advance spellings share one kernel path: the scalar `Advance(asset, positions, forward, effects)` advances a whole column on one asset's slot, and the crowd `Advance(slots, positions, forward, effects)` advances a mixed crowd against a per-row slot column; `Seek(...).Apply(...)` remains the two-step form of the crowd spelling. The interned load handle of [#150](https://github.com/IAFahim/tl/issues/150) lands next and swaps the `TimelineAsset` parameter of `Slot` and the scalar advance for a `ushort` handle mechanically — `forward` stays pinned immediately after the handle in every advance signature.
 
 Every `Apply` advances each row exactly one frame: rows that would cross duration clamp on finite assets, looping assets wrap, and skipped rows leave their columns untouched. Rows sharing a position form one run — the per-row cost collapses toward a vector add on grouped storage. There is no engine cycle: hosts that need loop counts track wraps from the movement flags (`TimelineEnd` on looping timelines, `CompletedAfter`/`CompletedBefore` on finite ones, sign from `Reverse`) or from the position column, exactly as before — receipted in `tests/Tl.Alpha`.
 
@@ -172,22 +174,36 @@ var health      = new float[3];
 jumps.Gather(timelineIds).Seek(lastTick, true).Apply(health);   // whole crowd, one frame
 ```
 
-The pair-typed spelling makes that same crowd a one-liner when every timeline shares one `(T, C)` pair — the common designer reality where each character's timeline is a slight variation. `Timeline<TTrack, TClip>` owns the per-pair bank for the process: `Bind` returns a dense `ushort` handle per asset (never a pointer, never authored, never baked), and one call advances every row against its own timeline.
+The pair-typed spelling makes that same crowd a one-liner when every timeline shares one `(T, C)` pair — the common designer reality where each character's timeline is a slight variation. `Timeline<TTrack, TClip>` owns the per-pair bank for the process: `Slot` returns a dense `ushort` slot per asset (never a pointer, never authored, never baked), and one crowd call advances every row against its own timeline.
 
 ```cs
-var bossH   = Timeline<DamageTrack, DamageClip>.Bind(TimelineAsset.Load(File.ReadAllBytes("boss.tlb")));
-var gruntH  = Timeline<DamageTrack, DamageClip>.Bind(TimelineAsset.Load(File.ReadAllBytes("grunt.tlb")));
-var eliteH  = Timeline<DamageTrack, DamageClip>.Bind(TimelineAsset.Load(File.ReadAllBytes("elite.tlb")));
+var boss   = Timeline<DamageTrack, DamageClip>.Slot(TimelineAsset.Load(File.ReadAllBytes("boss.tlb")));
+var grunt  = Timeline<DamageTrack, DamageClip>.Slot(TimelineAsset.Load(File.ReadAllBytes("grunt.tlb")));
+var elite  = Timeline<DamageTrack, DamageClip>.Slot(TimelineAsset.Load(File.ReadAllBytes("elite.tlb")));
 
-var handles = new ushort[] { bossH, gruntH, gruntH, eliteH };
+var slots    = new ushort[] { boss, grunt, grunt, elite };
 var lastTick = new ushort[] { 0, 0, 2, 5 };
-var health  = new float[4];
+var health   = new float[4];
 
-Timeline<DamageTrack, DamageClip>.Seek(handles, lastTick, true).Apply(health);   // whole crowd, one frame
-Timeline<DamageTrack, DamageClip>.Advance(handles, lastTick, true, health);      // fused spelling
+Timeline<DamageTrack, DamageClip>.Seek(slots, lastTick, true).Apply(health);   // whole crowd, one frame
+Timeline<DamageTrack, DamageClip>.Advance(slots, lastTick, true, health);      // fused spelling
+Timeline<DamageTrack, DamageClip>.Advance(bossAsset, lastTick, true, health);  // scalar: whole column, one asset
 ```
 
-Handles come only from `Bind` at load time; a handle column, a position column, and an effect column of equal length are the whole call. The warm path is the same measured-table lane as the set (grouped rows still collapse into vector runs; 0 B), receipted bit-exact against per-asset lanes in `tests/Tl.Core.Tests` and in `benchmarks/PairHandles` — 0.18-0.19 ns/row with one handle for the batch (~1.13x gold), 0.32 with eight variants grouped (~2x), 0.86 with eight variants alternating per row (~5x), and wave positions at 0.17-0.18 grouped (~1.07x), 0.20 in handle/position blocks of 100 (~1.2x), 0.67-0.69 alternating (~4x), against 0.16 for the single-bound `BakedLane` gold path. The guard-free mixed singleton walk of #167 — a fused vector probe sends chunks whose positions all sit below the set's minimum duration, with no adjacent handle/position repeat, to a singleton walk of one record load, one slot-record chain, and the two column writes — is what carries the alternating shapes. Use `TimelineSet` when you want scoped ownership and disposal of the bank; use `Timeline<TTrack, TClip>` when the pair's timelines live for the process.
+Slots come only from `Slot` at attach time; a slot column, a position column, and an effect column of equal length are the whole crowd call. The warm path is the same measured-table lane as the set (grouped rows still collapse into vector runs; 0 B), receipted bit-exact against per-asset lanes in `tests/Tl.Core.Tests` and in `benchmarks/PairHandles` — 0.18-0.19 ns/row with one slot for the batch, 0.32 with eight variants grouped (~2x), 0.86 with eight variants alternating per row (~5x), and wave positions at 0.17-0.18 grouped, 0.20 in slot/position blocks of 100, 0.67-0.69 alternating. The #167 guard-free mixed singleton walk — a fused vector probe sends chunks whose positions all sit below the set's minimum duration, with no adjacent slot/position repeat, to a singleton walk of one record load, one slot-record chain, and the two column writes — carries the alternating shapes; the retired single-bound statics gold path measured 0.16 ns/row, and the #174 re-pointed uniform gold arm (one bank slot, constant column) sits on the uniform bank path within noise of the one-slot shape. Use `TimelineSet` when you want scoped ownership and disposal of the bank; use `Timeline<TTrack, TClip>` when the pair's timelines live for the process.
+
+**Structural membership.** A pair's packed columns contain only rows that have the pair. Membership is the host's own structure: an ECS host attaches a per-pair marker component and builds the pair's slot/position/effect columns from marked rows only, so an entity whose asset lacks the pair never reaches the timeline call at all. The engine deliberately has no absence API: `Slot` reports an asset that lacks the pair as a loud located diagnostic at attach time (a host wiring error, never designer data), and the hot path carries no per-frame absence handling — no sentinel rows, no filtering, no branch.
+
+**Consumer order.** One pair may be served by several consumers: each registers through `PairRuntime<TTrack, TClip>.Consume`, and the resolve folds them in registration order — a deterministic chain receipted by `BakedLaneFoldsConsumersInRegisteredOrder` in `tests/Tl.Core.Tests`. Cross-pair order is the host's call order: one advance per pair per frame, sequenced by the host.
+
+**Migrating from the two-path alpha** (one public playback API, [#174](https://github.com/IAFahim/tl/issues/174)):
+
+| alpha.8 spelling | one-API spelling |
+| --- | --- |
+| `BakedLane<T,C>.Bind(asset)` | `Timeline<T,C>.Slot(asset)` |
+| `Timeline<T,C>.Bind(asset)` / `Bind(asset, measured)` | `Timeline<T,C>.Slot(asset)` / `Slot(asset, measured)` |
+| `Timeline<BakedLane<T,C>>.Seek(positions, fwd).Apply(effects)` | `Timeline<T,C>.Advance(asset, positions, fwd, effects)` — or `Seek(slots, positions, fwd).Apply(effects)` with a slot column |
+| `Timeline<BakedLane<T,C>>.Advance(positions, fwd, effects)` | same substitution as above |
 
 There is deliberately **no multi-frame step parameter** and never will be. A game runs thousands of systems that must all observe every timeline tick — a 50-tick skip would hide 49 intermediate states from them. Lag catch-up is repeated single-frame calls, which also keeps every float fold bit-exact (a precomputed K-frame sum can round differently from K sequential folds). This is an owner decision.
 
@@ -279,7 +295,7 @@ the runtime keeps no per-row state of its own. Prototype history with a real ECS
 issues [#104](https://github.com/IAFahim/tl/issues/104) and
 [#108](https://github.com/IAFahim/tl/issues/108).
 
-### Lifecycle: bake once, bind once, advance per frame
+### Lifecycle: bake once, resolve once, advance per frame
 
 1. **Author and bake.** Flat-schema JSON in, deterministic `.tlb` bytes out (`tlb`, Quick
    Start above). The Blender bridge (`tools/Tl.Blender`) exports the same JSON from NLA
@@ -291,12 +307,13 @@ issues [#104](https://github.com/IAFahim/tl/issues/104) and
    backward float effect once each through the cold executor into aligned native tables —
    131,000 evaluations for the 65,500-tick asset of the #108 corpus receipt, 3.9 ms cold, once
    per load. `TimelineSet.Add(asset)` measures internally when the measurement is not shared.
-4. **Bind.** `TimelineSet<TTrack,TClip>.Add(asset)` — or `Add(asset, measured)` to reuse one
-   measurement across several sets (dispose it after the last `Add`) — appends the effect tables
-   plus 8-byte per-tick movement records into the set's one contiguous native block and returns
-   the timeline's dense `ushort` id, assigned at load time, never authored, never baked. The
-   asset may be disposed once `Add` returns. One asset per pair that never coexists with another
-   can skip the set and bind `BakedLane<TTrack,TClip>` instead.
+4. **Resolve.** `Timeline<TTrack,TClip>.Slot(asset)` — or `Slot(asset, measured)` to reuse one
+   measurement across several pairs (dispose it after the last resolve) — appends the effect
+   tables plus 8-byte per-tick movement records into the pair bank's one contiguous native block
+   and returns the timeline's dense `ushort` slot, assigned at attach time, never authored, never
+   baked. The asset may be disposed once `Slot` returns, and repeated resolves of the same asset
+   return the same slot. `TimelineSet<TTrack,TClip>.Add(asset)` remains the scoped-ownership
+   spelling of the same bank shape for hosts that create and dispose banks dynamically.
 5. **Advance.** One call moves every row exactly one frame over host columns:
 
 ```cs
@@ -331,7 +348,7 @@ and repeated folds stay bit-exact where a precomputed K-frame sum can round diff
   path; Unity DOTS hosts use the UPM package's coordinator and typed-query shape (next section).
 - Skipped rows (finite timelines past the end, boundary positions) are total no-ops: no fold, no
   movement, columns untouched. `Apply` validates column lengths and pairwise non-overlap; an
-  unbound id throws naming the row; an asset declaring more than 256 pairs is rejected at bind.
+  unbound id throws naming the row; an asset declaring more than 256 pairs is rejected at resolve.
 
 ### What the host does with outputs
 
@@ -416,7 +433,7 @@ foreach (var (timeline, resistance, health) in
 | `tests/Tl.PackageConsumer` | Isolated package-only JIT and NativeAOT consumer |
 | `tests/tlb_cli` | `tlb` CLI scenario harness (`config.json`); run via `python3 -m unittest discover -s tests -p test_tlb_cli.py` |
 | `benchmarks/Alpha` | Oracle and verification evidence for data-authored lane shapes |
-| `benchmarks/PairHandles` | Pair-typed lane receipts: parity against per-asset lanes and throughput versus the `BakedLane` gold path across uniform, grouped, alternating, and wave-position shapes |
+| `benchmarks/PairHandles` | Pair-typed lane receipts: parity against per-asset lanes and throughput across the one-slot uniform gold arm and the grouped, alternating, and wave-position shapes |
 | `benchmarks/TypedPlaybackProto` | Typed lane parity and throughput at 100k-1M rows |
 
 The solution carries three benchmark projects, `benchmarks/Alpha`, `benchmarks/PairHandles`, and `tools/Tl.Bake.Bench`; `benchmarks/FusedAdvance`, `benchmarks/TypedPlaybackProto`, and `benchmarks/ValuePoolFormat` are standalone probes documenting shipped surfaces (the fused-`Advance` verdict, typed-lane parity, the TLB1 v3 value pools); every other `benchmarks/*` directory and its result receipts are commit-scoped history of removed surfaces — their numbers apply only to the source and contract named in each local report.

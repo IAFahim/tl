@@ -9,7 +9,7 @@ public class PublicApiTests
     [Fact]
     public void PublicApiMatchesApproval()
     {
-        var assembly = typeof(ITimelineJob<,>).Assembly;
+        var assembly = typeof(ITimeline<,>).Assembly;
         var actual = GetPublicApi(assembly);
 
         var approvedPath = Path.Combine(AppContext.BaseDirectory, "PublicApi.approved.txt");

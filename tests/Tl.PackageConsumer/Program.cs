@@ -7,21 +7,21 @@ using var asset = TimelineAsset.Load(new PackageBaker()
     .Track<PackageTrack, PackageClip>(new PackageTrack())
     .Clip(0, 0u, 4u, new PackageClip(7))
     .Bake());
-BakedLane<PackageTrack, PackageClip>.Bind(asset);
+Timeline<PackageTrack, PackageClip>.Slot(asset);
 var positions = new ushort[1];
 var values = new float[1];
 
-Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, true).Apply(values);
+Timeline<PackageTrack, PackageClip>.Advance(asset, positions, true, values);
 
 if (positions[0] != 1 || values[0] != 7f)
     return 1;
 
-Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, false).Apply(values);
+Timeline<PackageTrack, PackageClip>.Advance(asset, positions, false, values);
 
 if (positions[0] != 0 || values[0] != 0f)
     return 2;
 
-Timeline<BakedLane<PackageTrack, PackageClip>>.Seek(positions, true).Apply(values);
+Timeline<PackageTrack, PackageClip>.Advance(asset, positions, true, values);
 Console.WriteLine((int)values[0]);
 return 0;
 
@@ -32,7 +32,7 @@ public readonly struct PackageTrack : IBlend<PackageClip>
         => result = factor < 0.5f ? first : second;
 }
 
-public readonly struct PackageJob : ITimelineJob<PackageTrack, PackageClip>
+public readonly struct PackageJob : ITimeline<PackageTrack, PackageClip>
 {
     public static void Execute(in Frame<PackageTrack, PackageClip> frame, ref float value)
         => value += frame.Direction * frame.Clip.Value;

@@ -7,33 +7,35 @@ internal static class Parity
 
     public static int Run()
     {
-        Host.BindLane();
+        var laneSlot = Host.SlotLane();
         using var set = Host.BuildSet(8);
         var failures = 0;
         foreach (var rows in new[] { 100_000, 1_000_000 })
             foreach (var clock in new[] { Clock.Uniform, Clock.Waves, Clock.Staggered })
                 foreach (var forward in new[] { true, false })
                 {
-                    failures += Lane(rows, clock, forward);
+                    failures += Lane(rows, clock, forward, laneSlot);
                     failures += Set(rows, clock, forward, mixedIds: true, set);
                 }
         failures += Set(100_000, Clock.Uniform, forward: true, mixedIds: false, set);
-        failures += Finite(100_000, Clock.Clamped, forward: true);
-        failures += Finite(100_000, Clock.Clamped, forward: false);
+        failures += Finite(100_000, Clock.Clamped, forward: true, Host.SlotFinite());
+        failures += Finite(100_000, Clock.Clamped, forward: false, Host.SlotFinite());
         Console.WriteLine(failures == 0 ? "parity: all cases PASS" : $"parity: {failures} case(s) FAILED");
         return failures;
     }
 
-    static int Lane(int rows, Clock clock, bool forward)
+    static int Lane(int rows, Clock clock, bool forward, ushort laneSlot)
     {
+        var ids = new ushort[rows];
+        Array.Fill(ids, laneSlot);
         var reference = Seeds.Positions(rows, clock);
         var candidate = Seeds.Positions(rows, clock);
         var referenceEffects = Seeds.Effects(rows);
         var candidateEffects = Seeds.Effects(rows);
         for (var pass = 0; pass < Passes; pass++)
         {
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(reference, forward).Apply(referenceEffects);
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Advance(candidate, forward, candidateEffects);
+            Timeline<LaneTrack, LaneClip>.Seek(ids, reference, forward).Apply(referenceEffects);
+            Timeline<LaneTrack, LaneClip>.Advance(ids, candidate, forward, candidateEffects);
         }
         return Report("lane", rows, clock, forward, reference, candidate, referenceEffects, candidateEffects);
     }
@@ -53,17 +55,18 @@ internal static class Parity
         return Report(mixedIds ? "set-mixed" : "set-one ", rows, clock, forward, reference, candidate, referenceEffects, candidateEffects);
     }
 
-    static int Finite(int rows, Clock clock, bool forward)
+    static int Finite(int rows, Clock clock, bool forward, ushort finiteSlot)
     {
-        Host.BindFinite();
+        var ids = new ushort[rows];
+        Array.Fill(ids, finiteSlot);
         var reference = Seeds.Positions(rows, clock);
         var candidate = Seeds.Positions(rows, clock);
         var referenceEffects = Seeds.Effects(rows);
         var candidateEffects = Seeds.Effects(rows);
         for (var pass = 0; pass < Passes; pass++)
         {
-            Timeline<BakedLane<EdgeTrack, EdgeClip>>.Seek(reference, forward).Apply(referenceEffects);
-            Timeline<BakedLane<EdgeTrack, EdgeClip>>.Advance(candidate, forward, candidateEffects);
+            Timeline<EdgeTrack, EdgeClip>.Seek(ids, reference, forward).Apply(referenceEffects);
+            Timeline<EdgeTrack, EdgeClip>.Advance(ids, candidate, forward, candidateEffects);
         }
         return Report("edge", rows, clock, forward, reference, candidate, referenceEffects, candidateEffects);
     }

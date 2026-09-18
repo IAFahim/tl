@@ -377,7 +377,7 @@ internal static unsafe class LaneAccelerator<T>
     public static bool Active;
 }
 
-public readonly struct BakedLane<TTrack, TClip> : ITimelineLane<BakedLane<TTrack, TClip>>
+internal readonly struct BakedLane<TTrack, TClip> : ITimelineLane<BakedLane<TTrack, TClip>>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
