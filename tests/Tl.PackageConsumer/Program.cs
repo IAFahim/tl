@@ -21,6 +21,12 @@ if (positions[0] != 0 || values[0] != 0f)
     return 2;
 
 Timeline<PackageTrack, PackageClip>.Advance(asset, positions, true, values);
+
+if (BakeRuntime<PackageTrack, PackageClip>.BakeCount != 1
+    || BakeRuntime<PackageTrack, PackageClip>.BakeContextCount(0) != 1
+    || BakeRuntime<PackageTrack, PackageClip>.BakeContextKey(0, 0) != TypeKey<PackageHost>.Value)
+    return 3;
+
 Console.WriteLine((int)values[0]);
 return 0;
 
@@ -31,10 +37,14 @@ public readonly struct PackageTrack : IBlend<PackageClip>
         => result = factor < 0.5f ? first : second;
 }
 
-public readonly struct PackageJob : ITrack<PackageTrack, PackageClip>
+public sealed class PackageHost { public int Marks; }
+
+public readonly struct PackageJob : ITrack<PackageTrack, PackageClip>, IBake<PackageJob, PackageHost>
 {
     public static void Execute(in Frame<PackageTrack, PackageClip> frame, ref float value)
         => value += frame.Direction * frame.Clip.Value;
+
+    public static void Bake(PackageJob consumer, PackageHost host) { host.Marks++; }
 }
 internal sealed class PackageBaker
 {

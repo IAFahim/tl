@@ -57,6 +57,14 @@ public sealed class ConsumerPlaybackTests
         Assert.Equal("2;1|Entity;2|World+Entity#1;1|World#0", result);
     }
 
+    [Fact]
+    public void ManualInstallsAppendInCallOrderAndBoundsAreLoud()
+    {
+        var result = Driver("ManualBake");
+
+        Assert.Equal("2;1|World;1|Entity#ArgumentOutOfRangeException", result);
+    }
+
     private static string Driver(string method)
     {
         var value = Fixture.Value.GetType("Domain.Playback")!.GetMethod(method)!.Invoke(null, null);
@@ -572,24 +580,44 @@ public sealed class ConsumerPlaybackTests
             }
 
             public static string Bakes()
+                => Dump<DamageTrack, DamageClip>() + "#" + Dump<HealTrack, HealClip>() + "#" + Dump<BuffTrack, BuffClip>();
+
+            public static unsafe string ManualBake()
             {
-                var damage = new List<string> { BakeRuntime<DamageTrack, DamageClip>.BakeCount.ToString(CultureInfo.InvariantCulture) };
-                for (var index = 0; index < BakeRuntime<DamageTrack, DamageClip>.BakeCount; index++)
+                BakeRuntime<GuardTrack, GuardClip>.Bake(&ManualGuardBakeA, TypeKey<World>.Value);
+                BakeRuntime<GuardTrack, GuardClip>.Bake(&ManualGuardBakeB, TypeKey<Entity>.Value);
+                var order = Dump<GuardTrack, GuardClip>();
+                string loud;
+                try
                 {
-                    var contexts = BakeRuntime<DamageTrack, DamageClip>.BakeContextCount(index);
+                    _ = BakeRuntime<GuardTrack, GuardClip>.BakeContextCount(99);
+                    loud = "silent";
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    loud = "ArgumentOutOfRangeException";
+                }
+                return order + "#" + loud;
+            }
+
+            static void ManualGuardBakeA(object[] __tlArgs) { }
+
+            static void ManualGuardBakeB(object[] __tlArgs) { }
+
+            static string Dump<TTrack, TClip>()
+                where TTrack : unmanaged, IBlend<TClip>
+                where TClip : unmanaged
+            {
+                var parts = new List<string> { BakeRuntime<TTrack, TClip>.BakeCount.ToString(CultureInfo.InvariantCulture) };
+                for (var index = 0; index < BakeRuntime<TTrack, TClip>.BakeCount; index++)
+                {
+                    var contexts = BakeRuntime<TTrack, TClip>.BakeContextCount(index);
                     var names = new List<string>();
                     for (var context = 0; context < contexts; context++)
-                    {
-                        var key = BakeRuntime<DamageTrack, DamageClip>.BakeContextKey(index, context);
-                        names.Add(Key(key));
-                    }
-                    damage.Add(contexts.ToString(CultureInfo.InvariantCulture) + "|" + string.Join("+", names));
+                        names.Add(Key(BakeRuntime<TTrack, TClip>.BakeContextKey(index, context)));
+                    parts.Add(contexts.ToString(CultureInfo.InvariantCulture) + "|" + string.Join("+", names));
                 }
-                var heal = BakeRuntime<HealTrack, HealClip>.BakeCount + ";"
-                    + BakeRuntime<HealTrack, HealClip>.BakeContextCount(0) + "|"
-                    + Key(BakeRuntime<HealTrack, HealClip>.BakeContextKey(0, 0));
-                var buff = BakeRuntime<BuffTrack, BuffClip>.BakeCount.ToString(CultureInfo.InvariantCulture);
-                return string.Join(";", damage) + "#" + heal + "#" + buff;
+                return string.Join(";", parts);
             }
 
             static string Key(ulong value)
