@@ -43,9 +43,9 @@ public unsafe class BakeWalkTests
     public void ZeroArgumentBakeRunsOnlyZeroContextBakes()
     {
         var before = Log.Count;
-        var timeline = TimelineAsset.Load(TwoPairBake(1, 2));
+        using var timeline = TimelineAsset.LoadAsset(TwoPairBake(1, 2));
 
-        Timeline.Bake(timeline);
+        Timeline.Bake(timeline.Index);
 
         Assert.Equal(["alpha:zero"], Log.GetRange(before, Log.Count - before));
     }
@@ -54,9 +54,9 @@ public unsafe class BakeWalkTests
     public void SubsetSatisfactionRunsEveryMatchInChainOrderAcrossPairsInPairKeyOrder()
     {
         var before = Log.Count;
-        var timeline = TimelineAsset.Load(TwoPairBake(3, 4));
+        using var timeline = TimelineAsset.LoadAsset(TwoPairBake(3, 4));
 
-        Timeline.Bake(timeline, new BakeHost("A"), new BakeId(5));
+        Timeline.Bake(timeline.Index, new BakeHost("A"), new BakeId(5));
 
         Assert.Equal(GammaLast("alpha:wide:A:5", "alpha:id:5", "alpha:zero"), Log.GetRange(before, Log.Count - before));
     }
@@ -64,14 +64,14 @@ public unsafe class BakeWalkTests
     [Fact]
     public void RepeatedBakesAreDeterministic()
     {
-        var timeline = TimelineAsset.Load(TwoPairBake(5, 6));
+        using var timeline = TimelineAsset.LoadAsset(TwoPairBake(5, 6));
         var first = Log.Count;
 
-        Timeline.Bake(timeline, new BakeHost("A"), new BakeId(6));
+        Timeline.Bake(timeline.Index, new BakeHost("A"), new BakeId(6));
         var recorded = Log.GetRange(first, Log.Count - first);
         var second = Log.Count;
 
-        Timeline.Bake(timeline, new BakeHost("A"), new BakeId(6));
+        Timeline.Bake(timeline.Index, new BakeHost("A"), new BakeId(6));
 
         Assert.Equal(recorded, Log.GetRange(second, Log.Count - second));
         Assert.Equal(GammaLast("alpha:wide:A:6", "alpha:id:6", "alpha:zero"), recorded);
@@ -81,9 +81,9 @@ public unsafe class BakeWalkTests
     public void CallerArgumentOrderDoesNotChangeTheDeclaredBinding()
     {
         var before = Log.Count;
-        var timeline = TimelineAsset.Load(TwoPairBake(7, 8));
+        using var timeline = TimelineAsset.LoadAsset(TwoPairBake(7, 8));
 
-        Timeline.Bake(timeline, new BakeId(7), new BakeHost("A"));
+        Timeline.Bake(timeline.Index, new BakeId(7), new BakeHost("A"));
 
         Assert.Equal(GammaLast("alpha:wide:A:7", "alpha:id:7", "alpha:zero"), Log.GetRange(before, Log.Count - before));
     }
@@ -92,9 +92,9 @@ public unsafe class BakeWalkTests
     public void BakesWhoseContextTypesAreNotPresentStaySilent()
     {
         var before = Log.Count;
-        var timeline = TimelineAsset.Load(TwoPairBake(9, 10));
+        using var timeline = TimelineAsset.LoadAsset(TwoPairBake(9, 10));
 
-        Timeline.Bake(timeline, new BakeHost("A"));
+        Timeline.Bake(timeline.Index, new BakeHost("A"));
 
         Assert.Equal(GammaLast("alpha:zero"), Log.GetRange(before, Log.Count - before));
     }
@@ -103,9 +103,9 @@ public unsafe class BakeWalkTests
     public void ExtraArgumentTypesAreIgnoredAndUnrelatedTypesDoNotSatisfy()
     {
         var before = Log.Count;
-        var timeline = TimelineAsset.Load(TwoPairBake(11, 12));
+        using var timeline = TimelineAsset.LoadAsset(TwoPairBake(11, 12));
 
-        Timeline.Bake(timeline, new BakeHost("A"), new BakeId(9), 42);
+        Timeline.Bake(timeline.Index, new BakeHost("A"), new BakeId(9), 42);
 
         Assert.Equal(GammaLast("alpha:wide:A:9", "alpha:id:9", "alpha:zero"), Log.GetRange(before, Log.Count - before));
     }
@@ -114,9 +114,9 @@ public unsafe class BakeWalkTests
     public void DuplicateArgumentTypesSatisfyAContextOnceWithTheFirstArgument()
     {
         var before = Log.Count;
-        var timeline = TimelineAsset.Load(TwoPairBake(13, 14));
+        using var timeline = TimelineAsset.LoadAsset(TwoPairBake(13, 14));
 
-        Timeline.Bake(timeline, new BakeHost("A"), new BakeHost("B"));
+        Timeline.Bake(timeline.Index, new BakeHost("A"), new BakeHost("B"));
 
         Assert.Equal(GammaLast("alpha:zero"), Log.GetRange(before, Log.Count - before));
     }
@@ -125,9 +125,9 @@ public unsafe class BakeWalkTests
     public void ContextIdentityIsTheStaticArgumentType()
     {
         var before = Log.Count;
-        var timeline = TimelineAsset.Load(TwoPairBake(15, 16));
+        using var timeline = TimelineAsset.LoadAsset(TwoPairBake(15, 16));
 
-        Timeline.Bake(timeline, (object)new BakeHost("A"), new BakeId(11));
+        Timeline.Bake(timeline.Index, (object)new BakeHost("A"), new BakeId(11));
 
         Assert.Equal(["alpha:id:11", "alpha:zero"], Log.GetRange(before, Log.Count - before));
     }
@@ -136,12 +136,12 @@ public unsafe class BakeWalkTests
     public void PairsWithoutInstalledBakesAreSilent()
     {
         var before = Log.Count;
-        var timeline = TimelineAsset.Load(new Baker()
+        using var timeline = TimelineAsset.LoadAsset(new Baker()
             .Track<BetaTrack, BetaClip>(new BetaTrack(1))
             .Clip(0, 0, 1, new BetaClip(17))
             .Bake());
 
-        Timeline.Bake(timeline, new BakeHost("A"), new BakeId(13));
+        Timeline.Bake(timeline.Index, new BakeHost("A"), new BakeId(13));
 
         Assert.Equal([], Log.GetRange(before, Log.Count - before));
     }
@@ -161,15 +161,16 @@ public unsafe class BakeWalkTests
     public void DeadIndicesThrowTheInternTableDiagnostic()
     {
         var before = Log.Count;
-        var timeline = TimelineAsset.Load(new Baker()
+        var timeline = TimelineAsset.LoadAsset(new Baker()
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(1))
             .Clip(0, 0, 1, new AlphaClip(19))
             .Bake());
-        TimelineAsset.Of(timeline).Dispose();
+        var index = timeline.Index;
+        timeline.Dispose();
 
-        var thrown = Assert.Throws<ArgumentException>(() => Timeline.Bake(timeline, new BakeHost("A"), new BakeId(15)));
+        var thrown = Assert.Throws<ArgumentException>(() => Timeline.Bake(index, new BakeHost("A"), new BakeId(15)));
 
-        Assert.Contains($"Timeline index {timeline} is not loaded", thrown.Message);
+        Assert.Contains($"Timeline index {index} is not loaded", thrown.Message);
         Assert.Equal([], Log.GetRange(before, Log.Count - before));
     }
 

@@ -54,7 +54,7 @@ public sealed class ConsumerPlaybackTests
     {
         var result = Driver("Bakes");
 
-        Assert.Equal("2;1|Entity;2|World+Entity#1;1|World#0", result);
+        Assert.Equal("4;1|Entity;2|World+Entity;2|World+Entity;3|World+Entity+GuardToken#1;1|World#0", result);
     }
 
     [Fact]
@@ -63,6 +63,22 @@ public sealed class ConsumerPlaybackTests
         var result = Driver("ManualBake");
 
         Assert.Equal("2;1|World;1|Entity#ArgumentOutOfRangeException", result);
+    }
+
+    [Fact]
+    public void TimelineBakeAttachesMarkersSubsetsAndGatesAdvancementEndToEnd()
+    {
+        var result = Driver("BakeWalk");
+
+        Assert.Equal("narrow:7,damage:7#7#silent#936|936#1000#2,2", result);
+    }
+
+    [Fact]
+    public void TimelineBakeWalksPairsInPairKeyOrder()
+    {
+        var result = Driver("BakePairOrder");
+
+        Assert.StartsWith("ordered:", result);
     }
 
     private static string Driver(string method)
@@ -121,9 +137,13 @@ public sealed class ConsumerPlaybackTests
 
         public struct Resistance { public float Scale; }
 
-        public sealed class World { public readonly List<string> Marks = []; }
+        public sealed class World { public readonly List<string> Marks = []; public readonly List<DamageTag> Tags = []; }
 
-        public readonly record struct Entity(int Id);
+        public readonly record struct Entity(World Owner, int Id);
+
+        public readonly record struct DamageTag(int Entity);
+
+        public readonly record struct GuardToken(int Level);
 
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
@@ -134,14 +154,24 @@ public sealed class ConsumerPlaybackTests
             }
         }
 
+        public readonly struct ApplyDamageBake : IBake<ApplyDamage, World, Entity>
+        {
+            public static void Bake(ApplyDamage consumer, World world, Entity entity) { world.Tags.Add(new DamageTag(entity.Id)); }
+        }
+
         public readonly struct ApplyDamageNarrowBake : IBake<ApplyDamage, Entity>
         {
-            public static void Bake(ApplyDamage consumer, Entity entity) { }
+            public static void Bake(ApplyDamage consumer, Entity entity) { entity.Owner.Marks.Add("narrow:" + entity.Id.ToString(CultureInfo.InvariantCulture)); }
         }
 
         public readonly struct ApplyDamageWideBake : IBake<ApplyDamage, World, Entity>
         {
             public static void Bake(ApplyDamage consumer, World world, Entity entity) { world.Marks.Add("damage:" + entity.Id.ToString(CultureInfo.InvariantCulture)); }
+        }
+
+        public readonly struct ApplyDamageGuardBake : IBake<ApplyDamage, World, Entity, GuardToken>
+        {
+            public static void Bake(ApplyDamage consumer, World world, Entity entity, GuardToken token) { world.Tags.Add(new DamageTag(-entity.Id)); }
         }
 
         public readonly struct ApplyHeal : ITrack<HealTrack, HealClip>, IBake<ApplyHeal, World>
@@ -582,6 +612,63 @@ public sealed class ConsumerPlaybackTests
             public static string Bakes()
                 => Dump<DamageTrack, DamageClip>() + "#" + Dump<HealTrack, HealClip>() + "#" + Dump<BuffTrack, BuffClip>();
 
+            public static string BakeWalk()
+            {
+                var world = new World();
+                var entity = new Entity(world, 7);
+                using var view = TimelineAsset.Of(TimelineAsset.Load(new Baker()
+                    .Track<DamageTrack, DamageClip>(new DamageTrack(4f))
+                    .Clip(0, 0u, 2u, new DamageClip(8f))
+                    .Bake()));
+                var timeline = view.Index;
+
+                Timeline.Bake(timeline, world, entity);
+
+                var marks = string.Join(",", world.Marks);
+                var tags = string.Join(",", world.Tags.Select(static tag => tag.Entity.ToString(CultureInfo.InvariantCulture)));
+
+                var bare = new World();
+                Timeline.Bake(timeline, bare);
+                var silent = bare.Marks.Count == 0 && bare.Tags.Count == 0 ? "silent" : "loud";
+
+                var markedPositions = new ushort[] { 0 };
+                var markedHealth = new float[] { 1000f };
+                var oraclePositions = new ushort[] { 0 };
+                var oracleHealth = new float[] { 1000f };
+                var idlePositions = new ushort[] { 0 };
+                var idleHealth = new float[] { 1000f };
+                var idleWorld = new World();
+                Timeline.Bake(timeline, idleWorld);
+                for (var frame = 0; frame < 4; frame++)
+                {
+                    foreach (var tag in world.Tags)
+                        Timeline<DamageTrack, DamageClip>.Advance(timeline, markedPositions, true, markedHealth);
+                    foreach (var tag in idleWorld.Tags)
+                        Timeline<DamageTrack, DamageClip>.Advance(timeline, idlePositions, true, idleHealth);
+                    Timeline<DamageTrack, DamageClip>.Advance(view, oraclePositions, true, oracleHealth);
+                }
+                return marks + "#" + tags + "#" + silent + "#"
+                    + F(markedHealth[0]) + "|" + F(oracleHealth[0]) + "#"
+                    + F(idleHealth[0]) + "#" + Positions(markedPositions[0], oraclePositions[0]);
+            }
+
+            public static string BakePairOrder()
+            {
+                var world = new World();
+                var entity = new Entity(world, 3);
+                var timeline = TimelineAsset.Load(new Baker()
+                    .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
+                    .Clip(0, 0u, 1u, new DamageClip(1f))
+                    .Track<HealTrack, HealClip>(new HealTrack(1f))
+                    .Clip(1, 0u, 1u, new HealClip(1f))
+                    .Bake());
+                Timeline.Bake(timeline, world, entity);
+                var expected = PairRuntime<DamageTrack, DamageClip>.Key < PairRuntime<HealTrack, HealClip>.Key
+                    ? new List<string> { "narrow:3", "damage:3", "heal" }
+                    : new List<string> { "heal", "narrow:3", "damage:3" };
+                return (world.Marks.SequenceEqual(expected) ? "ordered:" : "scrambled:") + string.Join(",", world.Marks);
+            }
+
             public static unsafe string ManualBake()
             {
                 BakeRuntime<GuardTrack, GuardClip>.Bake(&ManualGuardBakeA, TypeKey<World>.Value);
@@ -623,6 +710,7 @@ public sealed class ConsumerPlaybackTests
             static string Key(ulong value)
                 => value == TypeKey<World>.Value ? "World"
                 : value == TypeKey<Entity>.Value ? "Entity"
+                : value == TypeKey<GuardToken>.Value ? "GuardToken"
                 : value.ToString("X16", CultureInfo.InvariantCulture);
         }
         """;
