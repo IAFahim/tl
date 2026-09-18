@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Tl.PairHandlesProbe.PairHandleBenchmarks-20260919-005750</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+  Job-TZECNT : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Job </th><th>Toolchain       </th><th>IterationCount</th><th>IterationTime</th><th>WarmupCount</th><th>Shape         </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneUniform</td><td>18.25 &mu;s</td><td>0.045 &mu;s</td><td>0.042 &mu;s</td><td>18.23 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneUniform</td><td>18.39 &mu;s</td><td>0.178 &mu;s</td><td>0.139 &mu;s</td><td>18.32 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairOne</td><td>18.28 &mu;s</td><td>0.036 &mu;s</td><td>0.032 &mu;s</td><td>18.28 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairOne</td><td>18.12 &mu;s</td><td>0.245 &mu;s</td><td>0.205 &mu;s</td><td>18.06 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairRuns8</td><td>20.18 &mu;s</td><td>0.053 &mu;s</td><td>0.047 &mu;s</td><td>20.17 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairRuns8</td><td>20.42 &mu;s</td><td>0.092 &mu;s</td><td>0.072 &mu;s</td><td>20.39 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairAlternating8</td><td>80.56 &mu;s</td><td>2.250 &mu;s</td><td>2.209 &mu;s</td><td>81.73 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairAlternating8</td><td>79.50 &mu;s</td><td>0.374 &mu;s</td><td>0.349 &mu;s</td><td>79.58 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairRuns8Waves</td><td>17.28 &mu;s</td><td>0.192 &mu;s</td><td>0.180 &mu;s</td><td>17.19 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairRuns8Waves</td><td>17.22 &mu;s</td><td>0.291 &mu;s</td><td>0.272 &mu;s</td><td>17.16 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairBlocks8Waves</td><td>19.23 &mu;s</td><td>0.153 &mu;s</td><td>0.128 &mu;s</td><td>19.24 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairBlocks8Waves</td><td>20.34 &mu;s</td><td>0.333 &mu;s</td><td>0.342 &mu;s</td><td>20.24 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairA(...)Waves [21]</td><td>66.79 &mu;s</td><td>0.529 &mu;s</td><td>0.520 &mu;s</td><td>66.77 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairA(...)Waves [21]</td><td>62.20 &mu;s</td><td>0.951 &mu;s</td><td>0.890 &mu;s</td><td>62.67 &mu;s</td><td>1 B</td>
+</tr></tbody></table>
+</body>
+</html>
