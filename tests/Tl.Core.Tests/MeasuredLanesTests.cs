@@ -1,10 +1,12 @@
 using Xunit;
 
+using Tl.TestSupport;
+
 namespace Tl.Core.Tests;
 
 public class MeasuredLanesTests
 {
-    static byte[] LoopingBake() => new Baker()
+    static byte[] LoopingBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
         .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
         .Clip(0, 0, 4, new LaneClip(8))
@@ -13,17 +15,17 @@ public class MeasuredLanesTests
         .Looping()
         .Bake();
 
-    static byte[] FiniteBake() => new Baker()
+    static byte[] FiniteBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
         .Clip(0, 0, 6, new LaneClip(5))
         .Bake();
 
-    static byte[] FiniteVariantBake() => new Baker()
+    static byte[] FiniteVariantBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(9f))
         .Clip(0, 0, 6, new LaneClip(5))
         .Bake();
 
-    static byte[] DualPairBake() => new Baker()
+    static byte[] DualPairBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
         .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
         .Track<OrphanTrack, OrphanClip>(new OrphanTrack(5))
@@ -34,13 +36,13 @@ public class MeasuredLanesTests
         .Looping()
         .Bake();
 
-    static byte[] GammaBake() => new Baker()
+    static byte[] GammaBake() => new DomainBaker()
         .Track<GammaTrack, GammaClip>(new GammaTrack(1))
         .Clip(0, 0, 6, new GammaClip(5))
         .Looping()
         .Bake();
 
-    static byte[] EmptyBake() => new Baker()
+    static byte[] EmptyBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
         .Bake();
 
