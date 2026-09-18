@@ -30,31 +30,31 @@ internal readonly record struct ImpureTrack(float Multiplier) : IBlend<ImpureCli
     public void Blend(in ImpureClip first, in ImpureClip second, float factor, out ImpureClip result) => result = first;
 }
 
-internal readonly struct DamageJob : ITimeline<DamageTrack, DamageClip>
+internal readonly struct DamageJob : ITrack<DamageTrack, DamageClip>
 {
     public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref float vitality)
         => vitality -= frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
-internal readonly struct HealJob : ITimeline<HealTrack, HealClip>
+internal readonly struct HealJob : ITrack<HealTrack, HealClip>
 {
     public static void Execute(in Frame<HealTrack, HealClip> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
-internal readonly struct TandemFirstJob : ITimeline<TandemTrack, TandemClip>
+internal readonly struct TandemFirstJob : ITrack<TandemTrack, TandemClip>
 {
     public static void Execute(in Frame<TandemTrack, TandemClip> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
-internal readonly struct TandemSecondJob : ITimeline<TandemTrack, TandemClip>
+internal readonly struct TandemSecondJob : ITrack<TandemTrack, TandemClip>
 {
     public static void Execute(in Frame<TandemTrack, TandemClip> frame, ref float vitality)
         => vitality += frame.Direction * 7f;
 }
 
-internal readonly struct ImpureJob : ITimeline<ImpureTrack, ImpureClip>
+internal readonly struct ImpureJob : ITrack<ImpureTrack, ImpureClip>
 {
     public static void Execute(in Frame<ImpureTrack, ImpureClip> frame, ref float vitality)
         => vitality *= 2f;

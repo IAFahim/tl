@@ -24,6 +24,11 @@ type Tl.Frame`2
   Property TTrack& Track
   Property UInt16 TrackIndex
   Property UInt16 WithinClip
+type Tl.IBake`1
+type Tl.IBake`2
+type Tl.IBake`3
+type Tl.IBake`4
+type Tl.IBake`5
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.ITimelineLane`1
@@ -31,7 +36,7 @@ type Tl.ITimelineLane`1
   Method Single Effect(UInt16)
   Method Single InverseEffect(UInt16)
   Property Boolean Looping
-type Tl.ITimeline`2
+type Tl.ITrack`2
 type Tl.MeasuredLanes
   Method Void Dispose()
   Property UInt16 Duration

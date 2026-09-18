@@ -31,7 +31,7 @@ public readonly struct PackageTrack : IBlend<PackageClip>
         => result = factor < 0.5f ? first : second;
 }
 
-public readonly struct PackageJob : ITimeline<PackageTrack, PackageClip>
+public readonly struct PackageJob : ITrack<PackageTrack, PackageClip>
 {
     public static void Execute(in Frame<PackageTrack, PackageClip> frame, ref float value)
         => value += frame.Direction * frame.Clip.Value;

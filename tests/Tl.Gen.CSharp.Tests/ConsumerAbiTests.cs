@@ -18,7 +18,7 @@ public sealed class ConsumerAbiTests
             public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
         }
         public struct Mass { public float Value; }
-        public readonly struct OversizedJob : ITimeline<Track, Clip>
+        public readonly struct OversizedJob : ITrack<Track, Clip>
         {
             public static void Execute(in Frame<Track, Clip> frame, in Mass first, in Mass second, ref Mass third, ref Mass fourth, in Mass fifth) { }
         }
@@ -36,7 +36,7 @@ public sealed class ConsumerAbiTests
         public struct Beta { public float Value; }
         public struct Gamma { public float Value; }
         public struct Delta { public float Value; }
-        public readonly struct QuadJob : ITimeline<QuadTrack, QuadClip>
+        public readonly struct QuadJob : ITrack<QuadTrack, QuadClip>
         {
             public static void Execute(in Frame<QuadTrack, QuadClip> frame, in Alpha first, in Beta second, ref Gamma third, ref Delta fourth) { }
         }

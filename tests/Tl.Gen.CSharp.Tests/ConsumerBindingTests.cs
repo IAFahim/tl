@@ -21,7 +21,7 @@ public sealed class ConsumerBindingTests
         }
         public struct Resistance { public float Scale; }
         public struct Health { public float Value; }
-        public readonly struct ApplyDamage : ITimeline<DamageTrack, DamageClip>
+        public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
             public static void Execute(in Frame<DamageTrack, DamageClip> frame, in Resistance resistance, ref Health health)
             {
@@ -35,7 +35,7 @@ public sealed class ConsumerBindingTests
             public void Blend(in HealClip first, in HealClip second, float factor, out HealClip result)
                 => result = new HealClip(first.Amount + (second.Amount - first.Amount) * factor);
         }
-        public readonly struct ApplyHeal : ITimeline<HealTrack, HealClip>
+        public readonly struct ApplyHeal : ITrack<HealTrack, HealClip>
         {
             public static void Execute(in Frame<HealTrack, HealClip> frame, in Resistance resistance, ref Health health)
             {
@@ -55,7 +55,7 @@ public sealed class ConsumerBindingTests
                 => result = new BuffClip(first.Amount + (second.Amount - first.Amount) * factor);
         }
         public struct Armor { public float Value; }
-        public readonly struct ApplyBuff : ITimeline<BuffTrack, BuffClip>
+        public readonly struct ApplyBuff : ITrack<BuffTrack, BuffClip>
         {
             public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref Armor armor) { }
         }
@@ -108,7 +108,7 @@ public sealed class ConsumerBindingTests
             {
                 public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result) => result = first;
             }
-            public readonly struct GenericJob<T> : ITimeline<DamageTrack, DamageClip>
+            public readonly struct GenericJob<T> : ITrack<DamageTrack, DamageClip>
             {
                 public static void Execute(in Frame<DamageTrack, DamageClip> frame) { }
             }
@@ -130,7 +130,7 @@ public sealed class ConsumerBindingTests
             {
                 public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result) => result = first;
             }
-            public readonly struct GenericJob<T> : ITimeline<DamageTrack, DamageClip>
+            public readonly struct GenericJob<T> : ITrack<DamageTrack, DamageClip>
             {
                 public static void Execute(in Frame<DamageTrack, DamageClip> frame) { }
             }
@@ -157,7 +157,7 @@ public sealed class ConsumerBindingTests
             {
                 public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
             }
-            public readonly struct Job : ITimeline<ManagedTrack, Clip>
+            public readonly struct Job : ITrack<ManagedTrack, Clip>
             {
                 public static void Execute(in Frame<ManagedTrack, Clip> frame) { }
             }
@@ -176,7 +176,7 @@ public sealed class ConsumerBindingTests
             namespace Domain;
             public readonly record struct Clip(float Amount);
             public readonly record struct Track(float Multiplier);
-            public readonly struct Job : ITimeline<Track, Clip>
+            public readonly struct Job : ITrack<Track, Clip>
             {
                 public static void Execute(in Frame<Track, Clip> frame) { }
             }
@@ -201,7 +201,7 @@ public sealed class ConsumerBindingTests
                 public void Blend(in BetaClip first, in BetaClip second, float factor, out BetaClip result) => result = first;
             }
             public struct Health { public float Value; }
-            public readonly struct DualJob : ITimeline<DualTrack, BetaClip>, ITimeline<DualTrack, AlphaClip>
+            public readonly struct DualJob : ITrack<DualTrack, BetaClip>, ITrack<DualTrack, AlphaClip>
             {
                 public static void Execute(in Frame<DualTrack, AlphaClip> frame, ref Health health) { }
                 public static void Execute(in Frame<DualTrack, BetaClip> frame, ref Health health) { }
@@ -232,7 +232,7 @@ public sealed class ConsumerBindingTests
             var sourcePath = Path.Combine(directory, "Domain.cs");
             var referencesPath = Path.Combine(directory, "references.txt");
             File.WriteAllText(sourcePath, Source);
-            File.WriteAllLines(referencesPath, ReferencePaths().Append(typeof(ITimeline<,>).Assembly.Location + "\tplatform\tfalse"));
+            File.WriteAllLines(referencesPath, ReferencePaths().Append(typeof(ITrack<,>).Assembly.Location + "\tplatform\tfalse"));
 
             var first = Run(["--compile", "--output", directory, "--source", sourcePath, "--reference-list", referencesPath]);
             Assert.Equal(0, first.exit);
@@ -442,5 +442,5 @@ public sealed class ConsumerBindingTests
 
     internal static string[] ReferencePaths()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Append(typeof(ITimeline<,>).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
+            .Append(typeof(ITrack<,>).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
 }

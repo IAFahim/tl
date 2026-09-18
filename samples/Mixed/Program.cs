@@ -45,7 +45,7 @@ public readonly record struct DamageTrack(int Code) : IBlend<DamageClip>
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
-public readonly struct AnimationJob : ITimeline<AnimationTrack, AnimationClip>
+public readonly struct AnimationJob : ITrack<AnimationTrack, AnimationClip>
 {
     public static void Execute(
         in Frame<AnimationTrack, AnimationClip> frame,
@@ -53,7 +53,7 @@ public readonly struct AnimationJob : ITimeline<AnimationTrack, AnimationClip>
         => vitality += frame.Direction * (frame.Clip.X + frame.Clip.Y);
 }
 
-public readonly struct DamageJob : ITimeline<DamageTrack, DamageClip>
+public readonly struct DamageJob : ITrack<DamageTrack, DamageClip>
 {
     public static void Execute(
         in Frame<DamageTrack, DamageClip> frame,
