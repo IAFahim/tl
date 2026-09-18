@@ -286,6 +286,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
     where TClip : unmanaged
 {
     const int Chunk = 4096;
+    const int MinSegment = 128;
 
     readonly TimelineSet<TTrack, TClip> _set;
     readonly ReadOnlySpan<ushort> _ids;
@@ -349,36 +350,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
                     slot = slots + first;
                     uniformId = first;
                 }
-                var duration = slot->Duration;
-                var looping = slot->Looping != 0;
-                if (gather && duration > 1 && (looping
-                        ? SingletonChunk(positions, i, chunkEnd)
-                        : ShortRuns(positions, i, chunkEnd)))
-                {
-                    var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
-                    if (blockEnd > i)
-                    {
-                        if (forward)
-                        {
-                            if (looping)
-                                GatherForward(slot->Forward, duration, positions, effects, i, blockEnd);
-                            else
-                                GatherFiniteForward(slot->Forward, duration, positions, effects, i, blockEnd);
-                        }
-                        else
-                        {
-                            if (looping)
-                                GatherBackward(slot->BackwardByPosition, duration, positions, effects, i, blockEnd);
-                            else
-                                GatherFiniteBackward(slot->BackwardByPosition, duration, positions, effects, i, blockEnd);
-                        }
-                        i = blockEnd;
-                        continue;
-                    }
-                }
-                i = forward
-                    ? ApplyUniformForward(slot, positions, effects, i, chunkEnd)
-                    : ApplyUniformBackward(slot, positions, effects, i, chunkEnd);
+                i = ApplyUniformSegment(slot, positions, effects, i, chunkEnd, forward, gather);
             }
             else
             {
@@ -400,9 +372,20 @@ public ref struct TimelineSetLane<TTrack, TClip>
                     uniformId = -1;
                     slot = null;
                 }
-                i = forward
-                    ? ApplyMixedForward(ids, positions, effects, slots, minDuration, i, chunkEnd)
-                    : ApplyMixedBackward(ids, positions, effects, slots, minDuration, i, chunkEnd);
+                while (true)
+                {
+                    var segment = RunEnd(ids, i, chunkEnd);
+                    if (segment - i < MinSegment)
+                    {
+                        i = forward
+                            ? ApplyMixedForward(ids, positions, effects, slots, minDuration, i, chunkEnd)
+                            : ApplyMixedBackward(ids, positions, effects, slots, minDuration, i, chunkEnd);
+                        break;
+                    }
+                    i = ApplyUniformSegment(slots + ids[i], positions, effects, i, segment, forward, gather);
+                    if (i >= chunkEnd) break;
+                }
+                continue;
             }
         }
     }
@@ -420,8 +403,6 @@ public ref struct TimelineSetLane<TTrack, TClip>
         var count = positions.Length;
         if (count == 0) return;
         var slot = set._slots + index;
-        var duration = slot->Duration;
-        var looping = slot->Looping != 0;
         var gather = Avx2.IsSupported;
         var forward = _forward;
         var i = 0;
@@ -429,35 +410,42 @@ public ref struct TimelineSetLane<TTrack, TClip>
         {
             var chunkEnd = i + Chunk;
             if (chunkEnd > count) chunkEnd = count;
-            if (gather && duration > 1 && (looping
-                    ? SingletonChunk(positions, i, chunkEnd)
-                    : ShortRuns(positions, i, chunkEnd)))
-            {
-                var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
-                if (blockEnd > i)
-                {
-                    if (forward)
-                    {
-                        if (looping)
-                            GatherForward(slot->Forward, duration, positions, effects, i, blockEnd);
-                        else
-                            GatherFiniteForward(slot->Forward, duration, positions, effects, i, blockEnd);
-                    }
-                    else
-                    {
-                        if (looping)
-                            GatherBackward(slot->BackwardByPosition, duration, positions, effects, i, blockEnd);
-                        else
-                            GatherFiniteBackward(slot->BackwardByPosition, duration, positions, effects, i, blockEnd);
-                    }
-                    i = blockEnd;
-                    continue;
-                }
-            }
-            i = forward
-                ? ApplyUniformForward(slot, positions, effects, i, chunkEnd)
-                : ApplyUniformBackward(slot, positions, effects, i, chunkEnd);
+            i = ApplyUniformSegment(slot, positions, effects, i, chunkEnd, forward, gather);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe int ApplyUniformSegment(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, int i, int limit, bool forward, bool gather)
+    {
+        var duration = slot->Duration;
+        var looping = slot->Looping != 0;
+        if (gather && duration > 1 && (looping
+                ? SingletonChunk(positions, i, limit)
+                : ShortRuns(positions, i, limit)))
+        {
+            var blockEnd = i + ((limit - i) >> 4 << 4);
+            if (blockEnd > i)
+            {
+                if (forward)
+                {
+                    if (looping)
+                        GatherForward(slot->Forward, duration, positions, effects, i, blockEnd);
+                    else
+                        GatherFiniteForward(slot->Forward, duration, positions, effects, i, blockEnd);
+                }
+                else
+                {
+                    if (looping)
+                        GatherBackward(slot->BackwardByPosition, duration, positions, effects, i, blockEnd);
+                    else
+                        GatherFiniteBackward(slot->BackwardByPosition, duration, positions, effects, i, blockEnd);
+                }
+                i = blockEnd;
+            }
+        }
+        return forward
+            ? ApplyUniformForward(slot, positions, effects, i, limit)
+            : ApplyUniformBackward(slot, positions, effects, i, limit);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
@@ -988,13 +976,13 @@ public ref struct TimelineSetLane<TTrack, TClip>
     static void ThrowUnboundId(ushort id, int row)
         => throw new ArgumentException($"Timeline id {id} at row {row} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time, and the pair-typed bank resolves timeline indices on the first typed advance.");
 
-    static int RunEnd(Span<ushort> positions, int start, int limit)
+    static int RunEnd(ReadOnlySpan<ushort> values, int start, int limit)
     {
-        var value = positions[start];
+        var value = values[start];
         var end = start + 1;
         if (Vector512.IsHardwareAccelerated)
         {
-            ref var first = ref MemoryMarshal.GetReference(positions);
+            ref var first = ref MemoryMarshal.GetReference(values);
             var search = Vector512.Create(value);
             var bound = limit - 32;
             while (end <= bound)
@@ -1006,7 +994,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         }
         else if (Vector256.IsHardwareAccelerated)
         {
-            ref var first = ref MemoryMarshal.GetReference(positions);
+            ref var first = ref MemoryMarshal.GetReference(values);
             var search = Vector256.Create(value);
             var bound = limit - 16;
             while (end <= bound)
@@ -1016,7 +1004,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
                 end += 16;
             }
         }
-        while (end < limit && positions[end] == value) end++;
+        while (end < limit && values[end] == value) end++;
         return end;
     }
 
