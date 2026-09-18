@@ -135,43 +135,7 @@ public readonly unsafe struct TimelineRef
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 	internal void Execute(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns)
-	{
-		var stage = Header->StageCount == 1 ? (NativeStage*)(_p + Header->StageOffset) : StageOf(tick);
-		if (stage == null) return;
-		var steps = (NativeStep*)(_p + stage->ProgramOffset);
-		var consumers = PairTable.ConsumerAt;
-		var pairs = Pairs;
-		var count = (int)stage->ProgramCount;
-		var step = reverse ? steps + count - 1 : steps;
-		var stride = reverse ? -1 : 1;
-		int* rev = stackalloc int[64];
-		while (count-- > 0)
-		{
-			var slot = _p + step->Slot;
-			var pair = (byte*)(pairs + step->Pair);
-			var head = chains[(int)step->Pair];
-			if (reverse && head >= 0 && consumers[head].Next >= 0)
-			{
-				var n = 0;
-				for (var e = head; e >= 0; e = consumers[e].Next)
-				{
-					if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
-					rev[n++] = e;
-				}
-				while (n-- > 0)
-				{
-					var e = rev[n];
-					consumers[e].Execute(slot, pair, tick, flags, columns + consumers[e].Offset, row);
-				}
-			}
-			else
-			{
-				for (var entry = head; entry >= 0; entry = consumers[entry].Next)
-					consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
-			}
-			step += stride;
-		}
-	}
+		=> ExecuteWindow(reverse, tick, flags, row, chains, columns, null, null, null);
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 	internal void ExecuteWindow(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns, byte* stepCached, int* stepCacheBase, float* cacheValues)
@@ -191,7 +155,7 @@ public readonly unsafe struct TimelineRef
 			var slot = _p + step->Slot;
 			var pair = (byte*)(pairs + step->Pair);
 			var head = chains[(int)step->Pair];
-			if (stepCached[index] != 0)
+			if (stepCached != null && stepCached[index] != 0)
 			{
 				var cache = stepCacheBase[index];
 				if (reverse && head >= 0 && consumers[head].Next >= 0)
@@ -213,25 +177,7 @@ public readonly unsafe struct TimelineRef
 					}
 				}
 			}
-			else if (reverse && head >= 0 && consumers[head].Next >= 0)
-			{
-				var n = 0;
-				for (var e = head; e >= 0; e = consumers[e].Next)
-				{
-					if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
-					rev[n++] = e;
-				}
-				while (n-- > 0)
-				{
-					var e = rev[n];
-					consumers[e].Execute(slot, pair, tick, flags, columns + consumers[e].Offset, row);
-				}
-			}
-			else
-			{
-				for (var entry = head; entry >= 0; entry = consumers[entry].Next)
-					consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
-			}
+			else PairTable.RunChain(head, reverse, slot, pair, tick, flags, columns, row, null, null);
 			step += stride;
 		}
 	}
@@ -424,12 +370,38 @@ public readonly unsafe struct TickFrame
 		return length;
 	}
 
-	internal static int ChainNext(int entry) => ConsumerAt[entry].Next;
-
-	internal static void ExecuteEntry(int entry, byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	internal static int RunChain(int head, bool reverse, byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row, float* scratch, float* sink)
 	{
 		var consumers = ConsumerAt;
-		consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
+		var written = 0;
+		if (reverse && head >= 0 && consumers[head].Next >= 0)
+		{
+			int* rev = stackalloc int[64];
+			var n = 0;
+			for (var e = head; e >= 0; e = consumers[e].Next)
+			{
+				if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
+				rev[n++] = e;
+			}
+			while (n-- > 0)
+			{
+				var e = rev[n];
+				if (sink != null) *scratch = 0f;
+				consumers[e].Execute(slot, pair, tick, flags, columns + consumers[e].Offset, row);
+				if (sink != null) sink[written++] = *scratch;
+			}
+		}
+		else
+		{
+			for (var entry = head; entry >= 0; entry = consumers[entry].Next)
+			{
+				if (sink != null) *scratch = 0f;
+				consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
+				if (sink != null) sink[written++] = *scratch;
+			}
+		}
+		return written;
 	}
 
 	static int Probe(ulong key)
