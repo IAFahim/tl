@@ -300,7 +300,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
                 }
                 while (true)
                 {
-                    var segment = RunEnd(ids, i, chunkEnd);
+                    var segment = LaneOps.RunEnd(ids, i, chunkEnd);
                     if (segment - i < MinSegment)
                     {
                         i = forward
@@ -346,7 +346,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
         if (gather && duration > 1 && (looping
-                ? SingletonChunk(positions, i, limit)
+                ? LaneOps.SingletonChunk(positions, i, limit)
                 : ShortRuns(positions, i, limit)))
         {
             var blockEnd = i + ((limit - i) >> 4 << 4);
@@ -384,7 +384,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         while (i < limit)
         {
             var position = positions[i];
-            var end = i + 1 >= limit || positions[i + 1] != position ? i + 1 : RunEnd(positions, i, limit);
+            var end = i + 1 >= limit || positions[i + 1] != position ? i + 1 : LaneOps.RunEnd(positions, i, limit);
             if (position >= duration) { i = end; continue; }
             var delta = eff[position];
             var nextTick = (ushort)(position + 1);
@@ -396,8 +396,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
             }
             else
             {
-                Add(effects, i, end, delta);
-                Fill(positions, i, end, nextTick);
+                LaneOps.Add(effects, i, end, delta);
+                LaneOps.Fill(positions, i, end, nextTick);
             }
             i = end;
             while (i < limit && (i + 1 >= limit || positions[i + 1] != positions[i]))
@@ -425,7 +425,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         while (i < limit)
         {
             var position = positions[i];
-            var end = i + 1 >= limit || positions[i + 1] != position ? i + 1 : RunEnd(positions, i, limit);
+            var end = i + 1 >= limit || positions[i + 1] != position ? i + 1 : LaneOps.RunEnd(positions, i, limit);
             if (position == 0 && !looping || position > duration || looping && position == duration) { i = end; continue; }
             var tick = position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1);
             var delta = eff[tick];
@@ -437,8 +437,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
             }
             else
             {
-                Add(effects, i, end, delta);
-                Fill(positions, i, end, nextTick);
+                LaneOps.Add(effects, i, end, delta);
+                LaneOps.Fill(positions, i, end, nextTick);
             }
             i = end;
             while (i < limit && (i + 1 >= limit || positions[i + 1] != positions[i]))
@@ -487,8 +487,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
             var delta = slot->Forward[position];
             var next = (ushort)(position + 1);
             if (slot->Looping != 0 && next == duration) next = 0;
-            Add(effects, i, end, delta);
-            Fill(positions, i, end, next);
+            LaneOps.Add(effects, i, end, delta);
+            LaneOps.Fill(positions, i, end, next);
             i = end;
         }
         return limit;
@@ -525,8 +525,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
             if (position == 0 && !looping || position > duration || looping && position == duration) { i = end; continue; }
             var tick = position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1);
             var delta = slot->Backward[tick];
-            Add(effects, i, end, delta);
-            Fill(positions, i, end, tick);
+            LaneOps.Add(effects, i, end, delta);
+            LaneOps.Fill(positions, i, end, tick);
             i = end;
         }
         return limit;
@@ -717,66 +717,21 @@ public ref struct TimelineSetLane<TTrack, TClip>
         return equalPairs <= 24;
     }
 
-    static bool SingletonChunk(Span<ushort> positions, int start, int end)
-    {
-        var probe = start + 64;
-        if (probe > end) probe = end;
-        var j = start;
-        if (Vector512.IsHardwareAccelerated)
-        {
-            ref var origin = ref MemoryMarshal.GetReference(positions);
-            var vectorLimit = probe - 33;
-            while (j <= vectorLimit)
-            {
-                if ((uint)Vector512.ExtractMostSignificantBits(Vector512.Equals(Vector512.LoadUnsafe(ref origin, (nuint)j), Vector512.LoadUnsafe(ref origin, (nuint)(j + 1)))) != 0)
-                    return false;
-                j += 32;
-            }
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            ref var origin = ref MemoryMarshal.GetReference(positions);
-            var vectorLimit = probe - 17;
-            while (j <= vectorLimit)
-            {
-                if (Vector256.ExtractMostSignificantBits(Vector256.Equals(Vector256.LoadUnsafe(ref origin, (nuint)j), Vector256.LoadUnsafe(ref origin, (nuint)(j + 1)))) != 0)
-                    return false;
-                j += 16;
-            }
-        }
-        for (var k = j; k < probe - 1; k++)
-            if (positions[k] == positions[k + 1]) return false;
-        return true;
-    }
-
     static bool UniformChunk(ReadOnlySpan<ushort> ids, int start, int end, ushort first)
     {
         var i = start;
-        if (Vector512.IsHardwareAccelerated)
+        if (Vector.IsHardwareAccelerated)
         {
             ref var origin = ref MemoryMarshal.GetReference(ids);
-            var search = Vector512.Create(first);
-            var edge = end - 32;
-            var mismatch = Vector512<ushort>.Zero;
+            var search = new Vector<ushort>(first);
+            var edge = end - Vector<ushort>.Count;
+            var mismatch = Vector<ushort>.Zero;
             while (i <= edge)
             {
-                mismatch |= Vector512.Xor(Vector512.LoadUnsafe(ref origin, (nuint)i), search);
-                i += 32;
+                mismatch |= Vector.Xor(Vector.LoadUnsafe(ref origin, (nuint)i), search);
+                i += Vector<ushort>.Count;
             }
-            if (mismatch != Vector512<ushort>.Zero) return false;
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            ref var origin = ref MemoryMarshal.GetReference(ids);
-            var search = Vector256.Create(first);
-            var edge = end - 16;
-            var mismatch = Vector256<ushort>.Zero;
-            while (i <= edge)
-            {
-                mismatch |= Vector256.Xor(Vector256.LoadUnsafe(ref origin, (nuint)i), search);
-                i += 16;
-            }
-            if (mismatch != Vector256<ushort>.Zero) return false;
+            if (mismatch != Vector<ushort>.Zero) return false;
         }
         while (i < end)
         {
@@ -901,38 +856,6 @@ public ref struct TimelineSetLane<TTrack, TClip>
 
     static void ThrowUnboundId(ushort id, int row)
         => throw new ArgumentException($"Timeline id {id} at row {row} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time, and the pair-typed bank resolves timeline indices on the first typed advance.");
-
-    static int RunEnd(ReadOnlySpan<ushort> values, int start, int limit)
-    {
-        var value = values[start];
-        var end = start + 1;
-        if (Vector512.IsHardwareAccelerated)
-        {
-            ref var first = ref MemoryMarshal.GetReference(values);
-            var search = Vector512.Create(value);
-            var bound = limit - 32;
-            while (end <= bound)
-            {
-                var mask = (uint)Vector512.ExtractMostSignificantBits(Vector512.Equals(Vector512.LoadUnsafe(ref first, (nuint)end), search));
-                if (mask != 0xFFFF_FFFFu) return end + BitOperations.TrailingZeroCount(~mask);
-                end += 32;
-            }
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            ref var first = ref MemoryMarshal.GetReference(values);
-            var search = Vector256.Create(value);
-            var bound = limit - 16;
-            while (end <= bound)
-            {
-                var mask = Vector256.ExtractMostSignificantBits(Vector256.Equals(Vector256.LoadUnsafe(ref first, (nuint)end), search));
-                if (mask != 0xFFFFu) return end + BitOperations.TrailingZeroCount(~mask);
-                end += 16;
-            }
-        }
-        while (end < limit && values[end] == value) end++;
-        return end;
-    }
 
     static int RunEndTwo(ReadOnlySpan<ushort> ids, Span<ushort> positions, int start, int limit)
     {
