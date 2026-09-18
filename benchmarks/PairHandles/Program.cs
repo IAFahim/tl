@@ -22,7 +22,7 @@ if (parityOnly) return 0;
 Console.WriteLine($"host: {Environment.OSVersion.VersionString}, {RuntimeInformation.FrameworkDescription}, procs {Environment.ProcessorCount}");
 Console.WriteLine($"benchmark artifacts: {Path.GetFullPath(artifacts)}");
 
-BenchmarkSwitcher.FromAssembly(typeof(PairHandleBenchmarks).Assembly).Run(["--filter", "*", "--artifacts", Path.GetFullPath(artifacts)]);
+BenchmarkSwitcher.FromAssembly(typeof(PairHandleBenchmarks).Assembly).Run(["--filter", filter, "--artifacts", Path.GetFullPath(artifacts)]);
 return 0;
 
 static class Parity
