@@ -8,16 +8,16 @@ internal static class Parity
     public static int Run()
     {
         var laneSlot = Host.SlotLane();
-        using var set = Host.BuildSet(8);
+        var bank = Host.BuildIndices(8);
         var failures = 0;
         foreach (var rows in new[] { 100_000, 1_000_000 })
             foreach (var clock in new[] { Clock.Uniform, Clock.Waves, Clock.Staggered })
                 foreach (var forward in new[] { true, false })
                 {
                     failures += Lane(rows, clock, forward, laneSlot);
-                    failures += Set(rows, clock, forward, mixedIds: true, set);
+                    failures += Set(rows, clock, forward, mixedIds: true, bank);
                 }
-        failures += Set(100_000, Clock.Uniform, forward: true, mixedIds: false, set);
+        failures += Set(100_000, Clock.Uniform, forward: true, mixedIds: false, bank);
         failures += Finite(100_000, Clock.Clamped, forward: true, Host.SlotFinite());
         failures += Finite(100_000, Clock.Clamped, forward: false, Host.SlotFinite());
         Console.WriteLine(failures == 0 ? "parity: all cases PASS" : $"parity: {failures} case(s) FAILED");
@@ -40,17 +40,23 @@ internal static class Parity
         return Report("lane", rows, clock, forward, reference, candidate, referenceEffects, candidateEffects);
     }
 
-    static int Set(int rows, Clock clock, bool forward, bool mixedIds, TimelineSet<LaneTrack, LaneClip> set)
+    static int Set(int rows, Clock clock, bool forward, bool mixedIds, ushort[] bank)
     {
-        var ids = mixedIds ? Seeds.Ids(rows, 8) : new ushort[rows];
+        var ids = new ushort[rows];
+        if (mixedIds)
+        {
+            var dense = Seeds.Ids(rows, 8);
+            for (var i = 0; i < rows; i++)
+                ids[i] = bank[dense[i]];
+        }
         var reference = Seeds.Positions(rows, clock);
         var candidate = Seeds.Positions(rows, clock);
         var referenceEffects = Seeds.Effects(rows);
         var candidateEffects = Seeds.Effects(rows);
         for (var pass = 0; pass < Passes; pass++)
         {
-            set.Gather(ids).Seek(reference, forward).Apply(referenceEffects);
-            set.Advance(ids, candidate, forward, candidateEffects);
+            Timeline<LaneTrack, LaneClip>.Seek(ids, reference, forward).Apply(referenceEffects);
+            Timeline<LaneTrack, LaneClip>.Advance(ids, candidate, forward, candidateEffects);
         }
         return Report(mixedIds ? "set-mixed" : "set-one ", rows, clock, forward, reference, candidate, referenceEffects, candidateEffects);
     }

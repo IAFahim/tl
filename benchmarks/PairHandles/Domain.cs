@@ -349,13 +349,13 @@ public static unsafe class Host
         PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteLane, &BindFloat);
     }
 
-    public static ushort SlotGoldLane() => Timeline<LaneTrack, LaneClip>.Slot(LoopingAsset);
+    public static ushort SlotGoldLane() => LoopingAsset.Index;
 
     public static ushort[] BindBank()
     {
         var handles = new ushort[Variants];
         for (var variant = 0; variant < Variants; variant++)
-            handles[variant] = Timeline<LaneTrack, LaneClip>.Slot(VariantAssets[variant]);
+            handles[variant] = VariantAssets[variant].Index;
         return handles;
     }
 

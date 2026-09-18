@@ -38,7 +38,7 @@ public class AdvanceBenchmarks
     const int Rows = 100_000;
     const int ProbeMask = 0xFFFF;
 
-    static readonly TimelineSet<LaneTrack, LaneClip> Set = Host.BuildSet(8);
+    static readonly ushort[] Bank = Host.BuildIndices(8);
 
     ushort[] _positions = null!;
     ushort[] _laneIds = null!;
@@ -65,7 +65,15 @@ public class AdvanceBenchmarks
         };
         _positions = Seeds.Positions(Rows, clock);
         _effects = Seeds.Effects(Rows);
-        _ids = Shape == ShapeKind.SetStaggeredMixed ? Seeds.Ids(Rows, 8) : new ushort[Rows];
+        if (Shape == ShapeKind.SetStaggeredMixed)
+        {
+            var dense = Seeds.Ids(Rows, 8);
+            _ids = new ushort[Rows];
+            for (var i = 0; i < Rows; i++)
+                _ids[i] = Bank[dense[i]];
+        }
+        else
+            _ids = new ushort[Rows];
         _probe = 0;
     }
 
@@ -90,8 +98,8 @@ public class AdvanceBenchmarks
                 else Timeline<LaneTrack, LaneClip>.Seek(_laneIds, positions, false).Apply(effects);
                 break;
             default:
-                if (fused) Set.Advance(_ids, positions, true, effects);
-                else Set.Gather(_ids).Seek(positions, true).Apply(effects);
+                if (fused) Timeline<LaneTrack, LaneClip>.Advance(_ids, positions, true, effects);
+                else Timeline<LaneTrack, LaneClip>.Seek(_ids, positions, true).Apply(effects);
                 break;
         }
         Sink += BitConverter.SingleToInt32Bits(effects[ProbeMask & _probe++]);

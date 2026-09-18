@@ -86,7 +86,6 @@ internal static class Program
     static bool Sweep(float[] values)
     {
         using var asset = TimelineAsset.Of(TimelineAsset.Load(Bake("move64.json")));
-        Timeline<MoveTrack, MoveClip>.Slot(asset);
 
         var positions = new ushort[N];
         var laneValues = new float[N];
@@ -133,7 +132,6 @@ internal static class Program
     static bool Pulse(float value)
     {
         using var asset = TimelineAsset.Of(TimelineAsset.Load(Bake("pulse.json")));
-        Timeline<PulseTrack, PulseClip>.Slot(asset);
 
         var positions = new ushort[N];
         var laneValues = new float[N];
@@ -176,7 +174,6 @@ internal static class Program
         const int Passes = 50;
         const int Capacity = 500_000;
         using var asset = TimelineAsset.Of(TimelineAsset.Load(Bake("window.json")));
-        Timeline<WindowTrack, WindowClip>.Slot(asset);
 
         var positions = new ushort[Capacity];
         var laneValues = new float[Capacity];

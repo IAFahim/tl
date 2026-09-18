@@ -12,7 +12,6 @@ using var attack = TimelineAsset.Of(TimelineAsset.Load(new DataBaker()
     .Clip(1, 0u, 2u, new DamageClip(10f))
     .Clip(2, 0u, 2u, new AnimationClip(1f, 0f))
     .Bake()));
-Timeline<AnimationTrack, AnimationClip>.Slot(attack);
 
 Timeline<AnimationTrack, AnimationClip>.Advance(attack, positions, true, vitality);
 Timeline<AnimationTrack, AnimationClip>.Advance(attack, positions, true, vitality);

@@ -43,12 +43,21 @@ static class Parity
             oracleEffects[i] = effects[i] = (i % 17) * 0.5f;
         }
 
-        var sets = new TimelineSet<LaneTrack, LaneClip>[Host.Variants];
+        var groupedRows = new int[Host.Variants][];
         for (var variant = 0; variant < Host.Variants; variant++)
         {
-            sets[variant] = new TimelineSet<LaneTrack, LaneClip>();
-            sets[variant].Add(Host.VariantAssets[variant]);
+            var count = 0;
+            for (var i = 0; i < rows; i++)
+                if (handles[i] == bank[variant])
+                    count++;
+            groupedRows[variant] = new int[count];
+            var write = 0;
+            for (var i = 0; i < rows; i++)
+                if (handles[i] == bank[variant])
+                    groupedRows[variant][write++] = i;
         }
+        var groupPositions = new ushort[rows];
+        var groupEffects = new float[rows];
 
         for (var step = 0; step < steps; step++)
         {
@@ -56,30 +65,22 @@ static class Parity
             Timeline<LaneTrack, LaneClip>.Advance(handles, positions, forward, effects);
             for (var variant = 0; variant < Host.Variants; variant++)
             {
-                var count = 0;
-                for (var i = 0; i < rows; i++)
-                    if (handles[i] == bank[variant])
-                        count++;
-                var ids = new ushort[count];
-                var variantPositions = new ushort[count];
-                var variantEffects = new float[count];
+                var rowsOfVariant = groupedRows[variant];
                 var write = 0;
-                for (var i = 0; i < rows; i++)
-                    if (handles[i] == bank[variant])
-                    {
-                        variantPositions[write] = oraclePositions[i];
-                        variantEffects[write] = oracleEffects[i];
-                        write++;
-                    }
-                sets[variant].Advance(ids, variantPositions, forward, variantEffects);
+                foreach (var row in rowsOfVariant)
+                {
+                    groupPositions[write] = oraclePositions[row];
+                    groupEffects[write] = oracleEffects[row];
+                    write++;
+                }
+                Timeline<LaneTrack, LaneClip>.Advance(bank[variant], groupPositions.AsSpan(0, write), forward, groupEffects.AsSpan(0, write));
                 write = 0;
-                for (var i = 0; i < rows; i++)
-                    if (handles[i] == bank[variant])
-                    {
-                        oraclePositions[i] = variantPositions[write];
-                        oracleEffects[i] = variantEffects[write];
-                        write++;
-                    }
+                foreach (var row in rowsOfVariant)
+                {
+                    oraclePositions[row] = groupPositions[write];
+                    oracleEffects[row] = groupEffects[write];
+                    write++;
+                }
             }
         }
 
@@ -88,12 +89,12 @@ static class Parity
         {
             if (positions[i] != oraclePositions[i])
             {
-                Console.WriteLine($"parity position mismatch at row {i}: pair-typed {positions[i]} vs uniform {oraclePositions[i]}");
+                Console.WriteLine($"parity position mismatch at row {i}: pair-typed {positions[i]} vs per-index {oraclePositions[i]}");
                 failures++;
             }
             if (effects[i] != oracleEffects[i])
             {
-                Console.WriteLine($"parity effect mismatch at row {i}: pair-typed {effects[i]} vs uniform {oracleEffects[i]}");
+                Console.WriteLine($"parity effect mismatch at row {i}: pair-typed {effects[i]} vs per-index {oracleEffects[i]}");
                 failures++;
             }
         }
