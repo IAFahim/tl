@@ -11,7 +11,7 @@ public readonly struct DamageTrack : IBlend<DamageClip>
     public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)
         => result = new DamageClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
-public readonly struct ApplyDamage : ITimelineJob<DamageTrack, DamageClip>
+public readonly struct ApplyDamage : ITimeline<DamageTrack, DamageClip>
 {
     public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref float effect)
         => effect += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;

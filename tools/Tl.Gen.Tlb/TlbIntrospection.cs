@@ -113,7 +113,7 @@ internal static class TlbIntrospection
                 {
                     blendable[(type, iface.GetGenericArguments()[0])] = true;
                 }
-                else if (definition == typeof(ITimelineJob<,>))
+                else if (definition == typeof(ITimeline<,>))
                 {
                     var arguments = iface.GetGenericArguments();
                     var key = (arguments[0], arguments[1]);
@@ -150,7 +150,7 @@ internal static class TlbIntrospection
         {
             foreach (var iface in type.GetInterfaces())
             {
-                if (!iface.IsGenericType || iface.GetGenericTypeDefinition() != typeof(ITimelineJob<,>))
+                if (!iface.IsGenericType || iface.GetGenericTypeDefinition() != typeof(ITimeline<,>))
                     continue;
                 var arguments = iface.GetGenericArguments();
                 consumers.Add((type, arguments[0], arguments[1], OutputTypes(type, arguments[0], arguments[1])));

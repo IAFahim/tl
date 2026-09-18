@@ -72,7 +72,7 @@ public sealed class ConsumerPlaybackTests
 
     private static IEnumerable<MetadataReference> References()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Append(typeof(ITimelineJob<,>).Assembly.Location).Distinct(StringComparer.Ordinal)
+            .Append(typeof(ITimeline<,>).Assembly.Location).Distinct(StringComparer.Ordinal)
             .Select(static path => MetadataReference.CreateFromFile(path));
 
     private const string Domain = """
@@ -105,7 +105,7 @@ public sealed class ConsumerPlaybackTests
 
         public struct Resistance { public float Scale; }
 
-        public readonly struct ApplyDamage : ITimelineJob<DamageTrack, DamageClip>
+        public readonly struct ApplyDamage : ITimeline<DamageTrack, DamageClip>
         {
             public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref float health)
             {
@@ -114,7 +114,7 @@ public sealed class ConsumerPlaybackTests
             }
         }
 
-        public readonly struct ApplyHeal : ITimelineJob<HealTrack, HealClip>
+        public readonly struct ApplyHeal : ITimeline<HealTrack, HealClip>
         {
             public static void Execute(in Frame<HealTrack, HealClip> frame, ref float health)
             {
@@ -131,7 +131,7 @@ public sealed class ConsumerPlaybackTests
                 => result = new BuffClip(first.Amount + (second.Amount - first.Amount) * factor);
         }
 
-        public readonly struct ApplyBuff : ITimelineJob<BuffTrack, BuffClip>
+        public readonly struct ApplyBuff : ITimeline<BuffTrack, BuffClip>
         {
             public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref float armor)
             {
@@ -148,7 +148,7 @@ public sealed class ConsumerPlaybackTests
                 => result = new GuardClip(first.Amount + (second.Amount - first.Amount) * factor);
         }
 
-        public readonly struct ApplyGuarded : ITimelineJob<GuardTrack, GuardClip>
+        public readonly struct ApplyGuarded : ITimeline<GuardTrack, GuardClip>
         {
             public static void Execute(in Frame<GuardTrack, GuardClip> frame, in Resistance resistance, ref float health)
             {

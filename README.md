@@ -6,7 +6,7 @@
 
 Try the [interactive cookbook/playground](https://iafahim.github.io/tl/) — live authoring-JSON editing and timeline playback in the browser, with [embeddable recipe pages](https://iafahim.github.io/tl/cookbook/).
 
-Timeline data and timeline behavior are separate. Designers author tracks, clips, windows, and loop points as JSON; a deterministic `tlb` compile produces canonical TLB1 assets; typed C# consumers (`ITimelineJob<TTrack,TClip>`) fold what one active `(track, clip)` pair does into a borrowed float effect column. The runtime has no reflection, no delegates on warm paths, no runtime compilation, and no warm-path allocation — the same baked bytes drive .NET and Unity.
+Timeline data and timeline behavior are separate. Designers author tracks, clips, windows, and loop points as JSON; a deterministic `tlb` compile produces canonical TLB1 assets; typed C# consumers (`ITimeline<TTrack,TClip>`) fold what one active `(track, clip)` pair does into a borrowed float effect column. The runtime has no reflection, no delegates on warm paths, no runtime compilation, and no warm-path allocation — the same baked bytes drive .NET and Unity.
 
 - **Deterministic bake** — same inputs, same bytes, on every machine and culture; content-keyed cache hits preserve timestamps
 - **Heterogeneous assets** — tracks and clips of different types in one asset; execution order is authored order (A-B-A preserved)
@@ -49,7 +49,7 @@ For an offline install, copy the `.nupkg` files into a local `packages/` folder 
 
 ### 2. Define the domain
 
-You author the domain values and one typed consumer per `(track, clip)` pair. `Tl` supplies `IBlend<TClip>`, `ITimelineJob<TTrack,TClip>`, and `Frame<TTrack,TClip>`; the generator discovers consumers compilation-wide, so there is no registration, catalog, or schema marker.
+You author the domain values and one typed consumer per `(track, clip)` pair. `Tl` supplies `IBlend<TClip>`, `ITimeline<TTrack,TClip>`, and `Frame<TTrack,TClip>`; the generator discovers consumers compilation-wide, so there is no registration, catalog, or schema marker.
 
 ```cs
 using Tl;
@@ -71,7 +71,7 @@ namespace Combat
             => result = new DamageClip(first.Amount + (second.Amount - first.Amount) * factor);
     }
 
-    public readonly struct ApplyDamage : ITimelineJob<DamageTrack, DamageClip>
+    public readonly struct ApplyDamage : ITimeline<DamageTrack, DamageClip>
     {
         public static void Execute(
             in Frame<DamageTrack, DamageClip> frame,
