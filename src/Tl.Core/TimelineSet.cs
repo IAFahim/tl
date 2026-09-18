@@ -21,6 +21,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         public MovementRecord* BackwardRecords;
         public ushort Duration;
         public ushort Looping;
+        public ushort Absent;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -44,9 +45,29 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     nuint _records;
 
     internal int Holes => _holes;
+    internal int _pendingCursor;
+
+    internal int PendingCursor => _pendingCursor;
+
+    internal void AdvancePendingCursor(int limit)
+    {
+        while (_pendingCursor < limit && !IsPending((ushort)_pendingCursor))
+            _pendingCursor++;
+    }
 
     internal bool IsFolded(ushort index)
         => index < (uint)_count && _slots[index].Forward != null;
+
+    internal bool IsAbsent(ushort index)
+        => index < (uint)_count && _slots[index].Forward == null && _slots[index].Absent != 0;
+
+    internal bool IsPending(ushort index)
+        => index < (uint)_count && _slots[index].Forward == null && _slots[index].Absent == 0;
+
+    internal void MarkAbsent(ushort index)
+    {
+        _slots[index].Absent = 1;
+    }
 
     internal ushort Add(TimelineAsset asset)
     {
@@ -109,11 +130,11 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var slots = (Slot*)block;
         var floatBase = (float*)(block + slotBytes);
         var recordBase = (MovementRecord*)(block + recordOffset);
+        new Span<Slot>(slots + previousCount, (int)(capacity - (uint)previousCount)).Clear();
         if (previousCount > 0)
         {
             var copySlots = (long)((nuint)previousCount * (nuint)sizeof(Slot));
             Buffer.MemoryCopy(_slots, slots, copySlots, copySlots);
-            new Span<Slot>(slots + previousCount, (int)(capacity - (uint)previousCount)).Clear();
             var floatBytes = (long)(_floats * sizeof(float));
             Buffer.MemoryCopy(_data, floatBase, floatBytes, floatBytes);
             var recordBytes = (long)(_records * (nuint)sizeof(MovementRecord));

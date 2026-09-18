@@ -430,12 +430,77 @@ public class PairHandleLaneTests
     }
 
     [Fact]
-    public void WarmVariedAdvanceAllocatesZero()
+    public void IndexAdvanceMatchesPerAssetUniformOracleForwardAndBackward()
+    {
+        var handles = BindVariants();
+        for (var pattern = 0; pattern < Assets; pattern++)
+        {
+            var rowHandles = UniformHandles(handles, pattern);
+            var positions = new ushort[Rows];
+            var effects = new float[Rows];
+            for (var i = 0; i < Rows; i++)
+                positions[i] = (ushort)(i % 7);
+
+            var oraclePositions = (ushort[])positions.Clone();
+            var oracleEffects = (float[])effects.Clone();
+            using var oracle = UniformOracle.Create(rowHandles, handles, oraclePositions, oracleEffects);
+
+            for (var step = 0; step < 80; step++)
+            {
+                var forward = step % 4 != 3;
+                AdvanceGroupedByIndex(rowHandles, positions, forward, effects);
+                oracle.Advance(forward);
+            }
+
+            Assert.Equal(oraclePositions, positions);
+            Assert.Equal(oracleEffects, effects);
+        }
+    }
+
+    static void AdvanceGroupedByIndex(ushort[] rowHandles, ushort[] positions, bool forward, float[] effects)
+    {
+        var distinct = new ushort[Assets];
+        var distinctCount = 0;
+        for (var i = 0; i < rowHandles.Length; i++)
+        {
+            var known = false;
+            for (var k = 0; k < distinctCount; k++)
+                if (distinct[k] == rowHandles[i])
+                {
+                    known = true;
+                    break;
+                }
+            if (!known) distinct[distinctCount++] = rowHandles[i];
+        }
+        var groupPositions = new ushort[Rows];
+        var groupEffects = new float[Rows];
+        for (var k = 0; k < distinctCount; k++)
+        {
+            var index = distinct[k];
+            var write = 0;
+            for (var i = 0; i < rowHandles.Length; i++)
+                if (rowHandles[i] == index)
+                {
+                    groupPositions[write] = positions[i];
+                    groupEffects[write] = effects[i];
+                    write++;
+                }
+            Timeline<HandleTrack, HandleClip>.Advance(index, groupPositions.AsSpan(0, write), forward, groupEffects.AsSpan(0, write));
+            write = 0;
+            for (var i = 0; i < rowHandles.Length; i++)
+                if (rowHandles[i] == index)
+                {
+                    positions[i] = groupPositions[write];
+                    effects[i] = groupEffects[write];
+                    write++;
+                }
+        }
+    }
+
+    [Fact]
+    public void WarmIndexAdvanceAllocatesZero()
     {
         var bound = BindVariants();
-        var rowHandles = new ushort[256];
-        for (var i = 0; i < 256; i++)
-            rowHandles[i] = bound[(i + 2) % Assets];
         var positions = new ushort[256];
         var effects = new float[256];
         for (var i = 0; i < 256; i++)
@@ -445,10 +510,12 @@ public class PairHandleLaneTests
         for (var attempt = 0; ; attempt++)
         {
             for (var pass = 0; pass < 1_000; pass++)
-                Timeline<HandleTrack, HandleClip>.Advance(rowHandles, positions, true, effects);
+                for (var variant = 0; variant < Assets; variant++)
+                    Timeline<HandleTrack, HandleClip>.Advance(bound[variant], positions, true, effects);
             var before = GC.GetAllocatedBytesForCurrentThread();
-            for (var pass = 0; pass < 100_000; pass++)
-                Timeline<HandleTrack, HandleClip>.Advance(rowHandles, positions, true, effects);
+            for (var pass = 0; pass < 30_000; pass++)
+                for (var variant = 0; variant < Assets; variant++)
+                    Timeline<HandleTrack, HandleClip>.Advance(bound[variant], positions, true, effects);
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
         }

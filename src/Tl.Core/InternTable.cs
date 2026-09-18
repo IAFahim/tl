@@ -118,6 +118,19 @@ static unsafe class TimelineTable
         throw NotLoaded(index);
     }
 
+    internal static bool IsLive(ushort index)
+    {
+        AcquireGate();
+        try
+        {
+            return TryLive(index, out _);
+        }
+        finally
+        {
+            Volatile.Write(ref _gate, 0);
+        }
+    }
+
     internal static void Pin(ushort index, out long generation)
     {
         generation = 0;
