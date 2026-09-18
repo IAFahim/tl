@@ -492,11 +492,6 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 
 }
 
-public static class Timeline
-{
-    public static FrameQuery<TTrack, TClip> Query<TTrack, TClip>(in TimelineComponent component) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged => new(component);
-}
-
 public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
 {
 	readonly TimelineRef _block;

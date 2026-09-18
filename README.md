@@ -153,7 +153,7 @@ Timeline<DamageTrack, DamageClip>.Advance(boss, positions, true, health);    // 
 Timeline<DamageTrack, DamageClip>.Advance(boss, positions, false, health);   // rewind
 ```
 
-`Timeline<TTrack, TClip>` is the only public playback API. Resolution is implicit and lazy: the **first typed use** of an index for a pair — a per-index or crowd `Advance`, or `Seek(...).Apply(...)` — folds every registered consumer's effect for every position into the pair's process-lifetime bank and the index becomes that pair's bank slot; later calls are a folded-table read with no resolving work. Advance spellings share one kernel path: the per-index `Advance(index, positions, forward, effects)` advances one timeline's rows (the host groups rows per distinct timeline index per call), the scalar `Advance(asset, positions, forward, effects)` is the same spelling through a `TimelineAsset` view for non-ECS hosts, and the crowd `Advance(indices, positions, forward, effects)` advances a mixed crowd against a per-row index column; `Seek(...).Apply(...)` remains the two-step form of the crowd spelling. Interning, the index model, and the bake seam are tracked by [#180](https://github.com/IAFahim/tl/issues/180).
+`Timeline<TTrack, TClip>` is the only public playback API. Resolution is implicit and lazy: the **first typed use** of an index for a pair — a per-index or crowd `Advance`, or `Seek(...).Apply(...)` — folds every registered consumer's effect for every position into the pair's process-lifetime bank and the index becomes that pair's bank slot; later calls are a folded-table read with no resolving work. Advance spellings share one kernel path: the per-index `Advance(index, positions, forward, effects)` advances one timeline's rows (the host groups rows per distinct timeline index per call), the scalar `Advance(asset, positions, forward, effects)` is the same spelling through a `TimelineAsset` view for non-ECS hosts, and the crowd `Advance(indices, positions, forward, effects)` advances a mixed crowd against a per-row index column; `Seek(...).Apply(...)` remains the two-step form of the crowd spelling. Interning, the index model, and the bake seam below are the shipped [#180](https://github.com/IAFahim/tl/issues/180) contract.
 
 Every `Apply` advances each row exactly one frame: rows that would cross duration clamp on finite assets, looping assets wrap, and skipped rows leave their columns untouched. Rows sharing a position form one run — the per-row cost collapses toward a vector add on grouped storage. There is no engine cycle: hosts that need loop counts track wraps from the movement flags (`TimelineEnd` on looping timelines, `CompletedAfter`/`CompletedBefore` on finite ones, sign from `Reverse`) or from the position column, exactly as before — receipted in `tests/Tl.Alpha`.
 
@@ -175,9 +175,48 @@ Timeline<DamageTrack, DamageClip>.Advance(boss, lastTick, true, health);        
 
 Indices come only from `TimelineAsset.Load`; an index column, a position column, and an effect column of equal length are the whole crowd call, and the per-index spelling takes just the position and effect columns of one timeline's rows. The warm path is the same measured-table lane (grouped rows still collapse into vector runs; 0 B), receipted bit-exact against per-asset lanes in `tests/Tl.Core.Tests` and in `benchmarks/PairHandles` — 0.18-0.19 ns/row with one index for the batch, 0.32 with eight variants grouped (~2x), 0.86 with eight variants alternating per row (~5x), and wave positions at 0.17-0.18 grouped, 0.20 in index/position blocks of 100, 0.67-0.69 alternating; the [#180](https://github.com/IAFahim/tl/issues/180) index rerun (`benchmarks/PairHandles/results/180-atom1`) holds these envelopes with the id indirection. The #167 guard-free mixed singleton walk — a fused vector probe sends chunks whose positions all sit below the bank's minimum duration, with no adjacent index/position repeat, to a singleton walk of one record load, one slot-record chain, and the two column writes — carries the alternating shapes; the retired single-bound statics gold path measured 0.16 ns/row, and the #174 re-pointed uniform gold arm (one bank slot, constant column) sits on the uniform bank path within noise of the one-index shape.
 
-**Structural membership.** A pair's packed columns contain only rows that have the pair. Membership is the host's own structure: an ECS host attaches a per-pair marker component and builds the pair's index/position/effect columns from marked rows only, so an entity whose timeline lacks the pair never reaches the timeline call at all. The engine deliberately has no absence API: the first typed use of an index on a timeline that lacks the pair is a loud located diagnostic (a host wiring error, never designer data), and the warm path carries no per-frame absence handling — no sentinel rows, no filtering, no branch. The `Timeline.Bake(id, ...)` walk and the `IBake<TConsumer, ...TContext>` markers of [#180](https://github.com/IAFahim/tl/issues/180) (context arity bounded by the consumer ABI's 4 pointer slots) land with the generator workstream.
+**Structural membership.** A pair's packed columns contain only rows that have the pair. Membership is the host's own structure: an ECS host attaches a per-pair marker component and builds the pair's index/position/effect columns from marked rows only, so an entity whose timeline lacks the pair never reaches the timeline call at all. The engine deliberately has no absence API: the first typed use of an index on a timeline that lacks the pair is a loud located diagnostic (a host wiring error, never designer data), and the warm path carries no per-frame absence handling — no sentinel rows, no filtering, no branch. The data-driven way to attach those markers is the `Timeline.Bake(id, ...)` walk over the `IBake<TConsumer, ...TContext>` markers of [#180](https://github.com/IAFahim/tl/issues/180), below.
 
 **Consumer order.** One pair may be served by several consumers: each registers through `PairRuntime<TTrack, TClip>.Consume`, and the resolve folds them in registration order — a deterministic chain receipted by `BakedLaneFoldsConsumersInRegisteredOrder` in `tests/Tl.Core.Tests`. Cross-pair order is the host's call order: one advance per pair per frame, sequenced by the host.
+
+### Attach host markers with `Timeline.Bake`
+
+Consumers stay pure and host-agnostic; the host wiring is declared, not registered by hand. A bake declaration is a struct implementing `IBake<TConsumer, ...TContext>` — the first type argument names the consumer, the remaining zero to four arguments are the host context types the bake needs (the cap matches the consumer ABI's four pointer slots; only `IBake`1` through `IBake`5` exist). The declaration may sit on its own struct or on the consumer itself:
+
+```cs
+public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
+{
+    public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref float health) { ... }
+}
+
+public readonly struct ApplyDamageBake : IBake<ApplyDamage, World, Entity>
+{
+    public static void Bake(ApplyDamage consumer, World world, Entity entity)
+        => entity.Add<DamageTag>();
+}
+
+public readonly struct Heal : ITrack<HealTrack, HealClip>, IBake<Heal, World> { ... }
+```
+
+The C# generator discovers every closed `IBake`1..`5` instantiation over a registered consumer exactly like the consumers themselves, validates the shape before emission — one accessible static `void Bake` taking the consumer by value, then one by-value parameter per declared context in declared order; TLGEN70-73 locate and diagnose every invalid shape — and installs the dispatch into the cold unmanaged bake table at module init: a thunk function pointer plus the ordered `TypeKey` identity of each context, chained per timeline pair key in the generator's deterministic order (consumer type name, then context list, then bake name). No reflection, no runtime compilation, nothing GC-visible, and the warm playback path is untouched. Hosts outside the generator (or tests) install and inspect the same chains through `BakeRuntime<TTrack, TClip>`: `Bake(&thunk, TypeKey<Context>.Value, ...)` appends to the pair's chain in call order, and `BakeCount` / `BakeContextCount(i)` / `BakeContextKey(i, c)` read it back.
+
+One type-agnostic call attaches the markers of a loaded timeline:
+
+```cs
+ushort boss = TimelineAsset.Load(File.ReadAllBytes("boss.tlb"));
+Timeline.Bake(boss, world, entity);
+```
+
+`Timeline.Bake(id, args...)` is pure dispatch over the cold tables — it allocates nothing but the per-invocation argument boxes of the managed thunk ABI and never touches the intern table's warm path. It walks the timeline's pair keys in baked order and, per pair, runs every installed bake whose declared context list is satisfied by the argument types: every declared context type must appear among the static argument types (subset satisfaction, pass-to-all), each declared position binds the **first** argument of that type so declaration order wins over caller order, duplicate argument types satisfy a context once, extra and unrelated argument types are ignored, zero-context bakes run unconditionally, and a context that is not passed keeps that bake silent. Argument identity is the static type's `TypeKey` — exact type identity, no assignability. Repeated calls are deterministic, bake-less pairs are silent, and dead or unknown indices throw the intern-table diagnostic.
+
+Playback stays marker-gated: the host query loop iterates rows carrying the marker and advances them per timeline index — absence is structurally impossible inside the loop, because a marker exists only if this timeline was baked with that pair.
+
+```cs
+foreach (var chunk in world.Chunks<DamageTag, TimelineIndex, Tick, Health>())
+    Timeline<DamageTrack, DamageClip>.Advance(chunk.Indices, chunk.Ticks, forward, chunk.Health);
+```
+
+The subset-matching matrix, binding rules, and chain order are pinned by `BakeWalkTests` in `tests/Tl.Core.Tests` against hand-installed chains; the generator-backed flow — load, bake, marker-gated advance bit-matching the per-asset oracle — is receipted end-to-end in `tests/Tl.Gen.CSharp.Consumer.Tests`.
 
 **Migrating from the two-path alpha** (one public playback API, [#174](https://github.com/IAFahim/tl/issues/174)):
 
@@ -290,16 +329,19 @@ issues [#104](https://github.com/IAFahim/tl/issues/104) and
    return the same index, each `Load` holds one acquisition, and `TimelineAsset.Of(index)` is
    the metadata/dispose view (release the last acquisition of an index and its native block is
    reclaimed under the next load; reloading the same bytes revives the same index).
-3. **Measure once per asset.** `MeasuredLanes.Measure(asset)` folds every position's forward and
+3. **Attach markers.** `Timeline.Bake(index, hostContexts...)` walks the timeline's pairs once
+   and runs every declared `IBake` bake whose context list the arguments satisfy — the
+   data-driven, per-entity marker attach of the "Attach host markers" section above.
+4. **Measure once per asset.** `MeasuredLanes.Measure(asset)` folds every position's forward and
    backward float effect once each through the cold executor into aligned native tables —
    131,000 evaluations for the 65,500-tick asset of the #108 corpus receipt, 3.9 ms cold, once
    per load.
-4. **Resolve lazily.** The first typed use of an index for a pair — any `Timeline<T,C>` advance
+5. **Resolve lazily.** The first typed use of an index for a pair — any `Timeline<T,C>` advance
    or seek carrying that index — folds the measured effect tables plus 8-byte per-tick movement
    records into the pair bank's contiguous native block; the index is the pair's bank slot,
    assigned at load time, never authored, never baked. Later calls are a folded-table read; a
    timeline that lacks the pair is a loud located diagnostic at that first use.
-5. **Advance.** One call moves every row exactly one frame over host columns:
+6. **Advance.** One call moves every row exactly one frame over host columns:
 
 ```cs
 ushort boss    = TimelineAsset.Load(File.ReadAllBytes("boss.tlb"));
