@@ -1,7 +1,7 @@
 using System;
 using System.Security.Cryptography;
 using Tl;
-using Tl.Core.Tests;
+using Tl.TestSupport;
 using Tl.Gen.Tlb;
 using Xunit;
 
@@ -34,7 +34,7 @@ public unsafe class MetadataTests
     [Fact]
     public void MetadataAbsentAssetsStripToIdenticalCopy()
     {
-        var codeBytes = new Baker()
+        var codeBytes = new DomainBaker()
             .Track<Tlb.AlphaTrack, Tlb.AlphaClip>(new Tlb.AlphaTrack(3))
             .Clip(0, 0, 4, new Tlb.AlphaClip(9))
             .Bake();

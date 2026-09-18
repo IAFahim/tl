@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
 using Xunit;
 
+using Tl.TestSupport;
+
 namespace Tl.Core.Tests;
 
 public readonly record struct ConstClip(float Amount);
@@ -320,12 +322,12 @@ public class WindowConstantTests
     [Fact]
     public void DeclaredChainReplayKeepsDirectionalAccumulationOrder()
     {
-        var chainBake = new Baker()
+        var chainBake = new DomainBaker()
             .Track<ChainTrack, ChainClip>(new ChainTrack(1f))
             .Clip(0, 0u, 8u, new ChainClip(16777216f))
             .Looping()
             .Bake();
-        var mirrorBake = new Baker()
+        var mirrorBake = new DomainBaker()
             .Track<TChainTrack, TChainClip>(new TChainTrack(1f))
             .Clip(0, 0u, 8u, new TChainClip(16777216f))
             .Looping()
@@ -372,7 +374,7 @@ public class WindowConstantTests
         where TTrack : unmanaged, IBlend<TClip>
         where TClip : unmanaged
     {
-        var baker = new Baker().Track<TTrack, TClip>(track);
+        var baker = new DomainBaker().Track<TTrack, TClip>(track);
         foreach (var (start, end) in clips)
             baker.Clip(0, start, end, ClipOf<TClip>(start, end));
         if (looping) baker.Looping();
@@ -387,7 +389,7 @@ public class WindowConstantTests
         where TTrack1 : unmanaged, IBlend<TClip1>
         where TClip1 : unmanaged
     {
-        var baker = new Baker()
+        var baker = new DomainBaker()
             .Track<TTrack0, TClip0>(track0)
             .Track<TTrack1, TClip1>(track1);
         foreach (var (start, end) in clips0)

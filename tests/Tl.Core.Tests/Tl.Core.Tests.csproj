@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
+    <Compile Include="..\Shared\DomainBaker.cs" Link="Shared\DomainBaker.cs" />
   </ItemGroup>
 
   <ItemGroup>

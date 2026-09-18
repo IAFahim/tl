@@ -2,7 +2,7 @@ using System;
 using System.Security.Cryptography;
 using System.Text;
 using Tl;
-using Tl.Core.Tests;
+using Tl.TestSupport;
 using Tl.Gen.Tlb;
 using Xunit;
 
@@ -56,7 +56,7 @@ public class DeterminismTests
     [Fact]
     public void MetadataStrippedBakeEqualsCodeBaker()
     {
-        var codeBytes = new Baker()
+        var codeBytes = new DomainBaker()
             .Track<Tlb.AlphaTrack, Tlb.AlphaClip>(new Tlb.AlphaTrack(1))
             .Track<Tlb.BlendTrack, Tlb.BlendClip>(new Tlb.BlendTrack(2.5f))
             .Clip(0, 0, 10, new Tlb.AlphaClip(7))
