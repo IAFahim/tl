@@ -2,6 +2,9 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -1715,29 +1718,59 @@ internal static class TimelineBakerFastCore
             var activeMin = new List<int>(lanes.Count);
             var coveringFirst = new List<int>(lanes.Count);
             var coveringSecond = new List<int>(lanes.Count);
+            var coverTables = BuildCoverTables(lanes);
+            var vectorScan = Avx2.IsSupported;
             for (var region = 0; region < stageCount; region++)
             {
                 var edge = boundaries[region];
+                var edgeVector = Vector256.Create((int)(edge ^ 0x8000_0000u));
                 activeLaneIdx.Clear();
                 activeMin.Clear();
                 coveringFirst.Clear();
                 coveringSecond.Clear();
                 for (var laneIdx = 0; laneIdx < lanes.Count; laneIdx++)
                 {
-                    var clips = lanes[laneIdx].ClipIds;
                     int first = -1, second = -1;
                     var minAuthored = int.MaxValue;
-                    for (var i = 0; i < clips.Count; i++)
+                    var table = coverTables[laneIdx];
+                    if (vectorScan)
                     {
-                        var clip = _doc.Clips[clips[i]];
-                        if (clip.Start <= edge && edge < clip.End)
+                        for (var off = 0; off < table.Padded; off += 8)
                         {
-                            if (first < 0)
-                                first = clips[i];
-                            else
-                                second = clips[i];
-                            if (clip.AuthoredIndex < minAuthored)
-                                minAuthored = clip.AuthoredIndex;
+                            var laneStarts = table.Starts;
+                            var laneEnds = table.Ends;
+                            var notLe = Avx2.MoveMask(Avx2.CompareGreaterThan(Vector256.LoadUnsafe(ref laneStarts[off]).AsInt32(), edgeVector).AsSingle());
+                            var gtEnd = Avx2.MoveMask(Avx2.CompareGreaterThan(Vector256.LoadUnsafe(ref laneEnds[off]).AsInt32(), edgeVector).AsSingle());
+                            var bits = ~notLe & gtEnd;
+                            while (bits != 0)
+                            {
+                                var bit = BitOperations.TrailingZeroCount(bits);
+                                bits &= bits - 1;
+                                var pos = off + bit;
+                                if (first < 0)
+                                    first = table.Ids[pos];
+                                else if (second < 0)
+                                    second = table.Ids[pos];
+                                if (table.Authored[pos] < minAuthored)
+                                    minAuthored = table.Authored[pos];
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var clips = lanes[laneIdx].ClipIds;
+                        for (var i = 0; i < clips.Count; i++)
+                        {
+                            var clip = _doc.Clips[clips[i]];
+                            if (clip.Start <= edge && edge < clip.End)
+                            {
+                                if (first < 0)
+                                    first = clips[i];
+                                else
+                                    second = clips[i];
+                                if (clip.AuthoredIndex < minAuthored)
+                                    minAuthored = clip.AuthoredIndex;
+                            }
                         }
                     }
                     if (first >= 0)
@@ -1936,6 +1969,38 @@ internal static class TimelineBakerFastCore
         }
 
         private delegate ReadOnlySpan<byte> SpanOf(int occurrence);
+
+        private sealed record LaneCover(uint[] Starts, uint[] Ends, int[] Authored, int[] Ids, int Padded);
+
+        private LaneCover[] BuildCoverTables(List<Lane> lanes)
+        {
+            const int width = 8;
+            var tables = new LaneCover[lanes.Count];
+            for (var laneIdx = 0; laneIdx < lanes.Count; laneIdx++)
+            {
+                var clips = lanes[laneIdx].ClipIds;
+                var padded = (clips.Count + width - 1) & ~(width - 1);
+                var starts = new uint[padded];
+                var ends = new uint[padded];
+                var authored = new int[padded];
+                var ids = new int[padded];
+                for (var i = 0; i < clips.Count; i++)
+                {
+                    var clip = _doc.Clips[clips[i]];
+                    starts[i] = clip.Start ^ 0x8000_0000u;
+                    ends[i] = clip.End ^ 0x8000_0000u;
+                    authored[i] = clip.AuthoredIndex;
+                    ids[i] = clips[i];
+                }
+                for (var i = clips.Count; i < padded; i++)
+                {
+                    starts[i] = 0x7FFF_FFFFu;
+                    ends[i] = 0xFFFF_FFFFu;
+                }
+                tables[laneIdx] = new LaneCover(starts, ends, authored, ids, padded);
+            }
+            return tables;
+        }
 
         private static int[] DedupPool(int occurrenceCount, SpanOf spanOf, out int[] sortedUnique, out int uniqueCount, string overflowName)
         {
