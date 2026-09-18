@@ -720,17 +720,9 @@ internal sealed class DupScope
         Decoded = null;
     }
 
-    private static ulong Hash(ReadOnlySpan<byte> bytes)
-    {
-        ulong h = 14695981039346656037;
-        foreach (var b in bytes)
-            h = (h ^ b) * 1099511628211;
-        return h;
-    }
-
     internal bool Find(ReadOnlySpan<byte> name, byte[] buffer)
     {
-        var h = Hash(name);
+        var h = FieldTable.HashOf(name);
         var i = (int)(h & (ulong)_mask);
         while (_slots[i] >= 0)
         {
@@ -747,7 +739,7 @@ internal sealed class DupScope
     {
         if ((_count + 1) * 4 >= (_mask + 1) * 3)
             Grow();
-        var h = Hash(name);
+        var h = FieldTable.HashOf(name);
         var i = (int)(h & (ulong)_mask);
         while (_slots[i] >= 0)
             i = (i + 1) & _mask;
