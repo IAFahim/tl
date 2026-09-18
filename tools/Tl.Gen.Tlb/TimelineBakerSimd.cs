@@ -997,29 +997,15 @@ internal sealed unsafe class SimdWalker
         }
     }
 
-    private static long MinOf(FieldKind kind) => kind switch
-    {
-        FieldKind.Bool => throw new InvalidOperationException("bool fields take literals"),
-        FieldKind.Byte => 0,
-        FieldKind.SByte => sbyte.MinValue,
-        FieldKind.Short => short.MinValue,
-        FieldKind.UShort => 0,
-        FieldKind.Int => int.MinValue,
-        FieldKind.UInt => 0,
-        _ => long.MinValue,
-    };
+    private static readonly long[] KindMin =
+        [0, 0, sbyte.MinValue, short.MinValue, 0, int.MinValue, 0, long.MinValue, long.MinValue, 0, 0, 0];
 
-    private static long MaxOf(FieldKind kind) => kind switch
-    {
-        FieldKind.Bool => throw new InvalidOperationException("bool fields take literals"),
-        FieldKind.Byte => byte.MaxValue,
-        FieldKind.SByte => sbyte.MaxValue,
-        FieldKind.Short => short.MaxValue,
-        FieldKind.UShort => ushort.MaxValue,
-        FieldKind.Int => int.MaxValue,
-        FieldKind.UInt => uint.MaxValue,
-        _ => long.MaxValue,
-    };
+    private static readonly long[] KindMax =
+        [0, byte.MaxValue, sbyte.MaxValue, short.MaxValue, ushort.MaxValue, int.MaxValue, uint.MaxValue, long.MaxValue, long.MaxValue, 0, 0, 0];
+
+    private static long MinOf(FieldKind kind) => KindMin[(int)kind];
+
+    private static long MaxOf(FieldKind kind) => KindMax[(int)kind];
 
     private static void WriteSigned(byte* target, FieldKind kind, long value)
     {
