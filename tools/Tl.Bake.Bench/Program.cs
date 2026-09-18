@@ -69,7 +69,7 @@ internal static class Program
     {
         try
         {
-            var taken = TimelineBakerSimd.TryParseFast(bytes, new BakerAssemblyResolver(), out var doc);
+            var taken = TimelineBakerSimd.TryParseFast(bytes, new BakerAssemblyResolver(), null, out var doc);
             if (!taken)
                 return ("FALLBACK", false);
             return ($"OK {Convert.ToHexString(SHA256.HashData(TimelineBakerFastCore.BakeFast(doc, new BakerAssemblyResolver()))).ToLowerInvariant()}", true);
@@ -137,11 +137,11 @@ internal static class Program
                 simdScan.Take(() => TimelineBakerSimd.Scan(bytes));
                 simdParse.Take(() =>
                 {
-                    if (!TimelineBakerSimd.TryParseFast(bytes, new BakerAssemblyResolver(), out var simdDoc))
+                    if (!TimelineBakerSimd.TryParseFast(bytes, new BakerAssemblyResolver(), null, out var simdDoc))
                         throw new InvalidOperationException("simd fast path did not accept the corpus");
                     _ = simdDoc;
                 });
-                var simdDocForBake = TimelineBakerSimd.TryParseFast(bytes, new BakerAssemblyResolver(), out var simdParsed)
+                var simdDocForBake = TimelineBakerSimd.TryParseFast(bytes, new BakerAssemblyResolver(), null, out var simdParsed)
                     ? simdParsed
                     : throw new InvalidOperationException("simd fast path did not accept the corpus");
                 simdBake.Take(() => TimelineBakerFastCore.BakeFast(simdDocForBake, new BakerAssemblyResolver()));
@@ -285,14 +285,33 @@ internal static class Program
 
     private static BatchPass RunParallelBatchPass(byte[][] inputs, BakerAssemblyResolver resolver)
     {
+        var outputs = new byte[inputs.Length][];
         var itemAllocMb = new double[inputs.Length];
         var itemMs = new double[inputs.Length];
+        var workers = Math.Min(inputs.Length, Environment.ProcessorCount);
+        using var done = new CountdownEvent(workers);
         var gc0 = GC.CollectionCount(0);
         var gc1 = GC.CollectionCount(1);
         var gc2 = GC.CollectionCount(2);
         var allocatedBefore = GC.GetTotalAllocatedBytes(precise: true);
         var start = Stopwatch.GetTimestamp();
-        var outputs = TimelineBaker.BakeJsonBatch(inputs, resolver);
+        for (var w = 0; w < workers; w++)
+        {
+            var worker = w;
+            new Thread(() =>
+            {
+                for (var i = worker; i < inputs.Length; i += workers)
+                {
+                    var itemStart = Stopwatch.GetTimestamp();
+                    var itemAllocBefore = GC.GetAllocatedBytesForCurrentThread();
+                    outputs[i] = TimelineBakerFast.BakeJsonUtf8(inputs[i], resolver, BakeWorkspace.Shared);
+                    itemAllocMb[i] = (GC.GetAllocatedBytesForCurrentThread() - itemAllocBefore) / (1024.0 * 1024.0);
+                    itemMs[i] = Stopwatch.GetElapsedTime(itemStart).TotalMilliseconds;
+                }
+                done.Signal();
+            }).Start();
+        }
+        done.Wait();
         var ms = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
         ulong sum = 0;
         for (var i = 0; i < outputs.Length; i++)

@@ -103,6 +103,20 @@ public sealed class BatchParityTests
     }
 
     [Fact]
+    public void BatchReusedPoolKeepsMissingFieldsAtDefault()
+    {
+        var full = Doc("GaTrack0", "GaClip0", 3, 8, 100, Ns);
+        var sparse = Doc("GaTrack0", "GaClip0", 3, 1, 100, Ns);
+        var inputs = new[] { Encoding.UTF8.GetBytes(full), Encoding.UTF8.GetBytes(sparse), Encoding.UTF8.GetBytes(full) };
+        for (var round = 0; round < 3; round++)
+        {
+            var batched = TimelineBaker.BakeJsonBatch(inputs);
+            for (var i = 0; i < inputs.Length; i++)
+                Assert.Equal(TimelineBaker.BakeJson(inputs[i]), batched[i]);
+        }
+    }
+
+    [Fact]
     public void BatchEmptyInputYieldsEmptyOutput()
     {
         Assert.Empty(TimelineBaker.BakeJsonBatch([]));

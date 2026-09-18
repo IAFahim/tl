@@ -202,14 +202,14 @@ internal sealed class FastPairInfo
     internal int TrackSize;
     internal IPairHelper Helper = null!;
     internal FieldTable Fields = null!;
-    internal byte[] Pool = new byte[1 << 16];
+    internal byte[] Pool = [];
     internal int PoolLength;
 
     internal void EnsurePool(int size)
     {
         if (PoolLength + size <= Pool.Length)
             return;
-        var cap = Pool.Length;
+        var cap = Pool.Length == 0 ? 1 << 16 : Pool.Length;
         while (cap < PoolLength + size)
             cap *= 2;
         Array.Resize(ref Pool, cap);
@@ -264,6 +264,9 @@ internal sealed class FastDoc
     internal bool Loops;
     internal byte[] Utf8 = null!;
     internal BakerAssemblyResolver Resolver = null!;
+    internal BakeWorkspace? Workspace;
+    internal ulong[]? LoanStructural;
+    internal ulong[]? LoanQuotes;
     internal List<FastTrackInfo> Tracks = new();
     internal List<FastClip> Clips = new();
     internal List<FastPairInfo> Pairs = new();
@@ -284,16 +287,23 @@ internal static class TimelineBakerFast
         return BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver);
     }
 
-    internal static byte[] BakeJsonUtf8(byte[] utf8, BakerAssemblyResolver? resolver = null)
+    internal static byte[] BakeJsonUtf8(byte[] utf8, BakerAssemblyResolver? resolver = null, BakeWorkspace? workspace = null)
     {
         resolver ??= new BakerAssemblyResolver();
-        var doc = TimelineBakerSimd.TryParseFast(utf8, resolver, out var fast) ? fast : ParseFast(utf8, resolver);
-        return TimelineBakerFastCore.BakeFast(doc, resolver);
+        var doc = TimelineBakerSimd.TryParseFast(utf8, resolver, workspace, out var fast) ? fast : ParseFast(utf8, resolver, workspace);
+        try
+        {
+            return TimelineBakerFastCore.BakeFast(doc, resolver);
+        }
+        finally
+        {
+            workspace?.Reclaim(doc);
+        }
     }
 
-    internal static FastDoc ParseFast(byte[] utf8, BakerAssemblyResolver resolver)
+    internal static FastDoc ParseFast(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null)
     {
-        var walker = new Walker(utf8, resolver);
+        var walker = new Walker(utf8, resolver, workspace);
         walker.Run();
         return walker.Finish();
     }
@@ -332,6 +342,8 @@ internal static class TimelineBakerFast
             Helper = helper,
             Fields = TableFor(clipType),
         };
+        if (doc.Workspace?.RentPool(pair.Key) is { } rented)
+            pair.Pool = rented;
         pairId = doc.Pairs.Count;
         doc.Pairs.Add(pair);
         doc.PairIds[(trackType, clipType)] = pairId;
@@ -780,11 +792,12 @@ internal ref struct Walker
     private int _seq;
     private readonly List<DupScope> _scopes = new();
 
-    internal Walker(byte[] utf8, BakerAssemblyResolver resolver)
+    internal Walker(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null)
     {
         _utf8 = utf8;
         _resolver = resolver;
-        _doc = new FastDoc { Utf8 = utf8, Resolver = resolver };
+        _doc = new FastDoc { Utf8 = utf8, Resolver = resolver, Workspace = workspace };
+        workspace?.Warm(_doc);
         _r = new Utf8JsonReader(utf8);
     }
 
