@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Tl;
+using Tl.Bake.Oracle;
 using Tl.Gen.Tlb;
 
 namespace Tl.Bake.Bench;
@@ -49,7 +50,7 @@ internal static class Program
         {
             var bytes = File.ReadAllBytes(path);
             var text = Encoding.UTF8.GetString(bytes);
-            var legacy = ReceiptOf(() => TimelineBaker.BakeJsonLegacy(text, new BakerAssemblyResolver()));
+            var legacy = ReceiptOf(() => BakeOracle.BakeJsonLegacy(text, new BakerAssemblyResolver()));
             var fastString = ReceiptOf(() => TimelineBaker.BakeJson(text, new BakerAssemblyResolver()));
             var fastBytes = ReceiptOf(() => TimelineBakerFast.BakeJsonUtf8(bytes, new BakerAssemblyResolver()));
             var simd = SimdReceiptOf(bytes);
@@ -131,7 +132,7 @@ internal static class Program
                 byteBake.Take(() => TimelineBakerFastCore.BakeFast(byteDoc, new BakerAssemblyResolver()));
 
                 byteTotal.Take(() => TimelineBaker.BakeJson(File.ReadAllBytes(gamePath), new BakerAssemblyResolver()));
-                legacyTotal.Take(() => TimelineBaker.BakeJsonLegacy(File.ReadAllText(gamePath, Encoding.UTF8), new BakerAssemblyResolver()));
+                legacyTotal.Take(() => BakeOracle.BakeJsonLegacy(File.ReadAllText(gamePath, Encoding.UTF8), new BakerAssemblyResolver()));
 
                 simdScan.Take(() => TimelineBakerSimd.Scan(bytes));
                 simdParse.Take(() =>

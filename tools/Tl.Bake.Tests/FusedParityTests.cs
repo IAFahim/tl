@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Tl.Bake.Oracle;
 using Tl.Gen.Tlb;
 using Xunit;
 
@@ -15,7 +16,7 @@ public sealed class FusedParityTests
     [MemberData(nameof(Cases))]
     public void FusedPathMatchesLegacyOracle(string name, string json)
     {
-        var oldResult = Run(json, j => TimelineBaker.BakeJsonLegacy(j));
+        var oldResult = Run(json, j => BakeOracle.BakeJsonLegacy(j));
         var newResult = Run(json, j => TimelineBaker.BakeJson(j));
         Assert.True(oldResult == newResult,
             $"""
@@ -30,7 +31,7 @@ public sealed class FusedParityTests
     [MemberData(nameof(Cases))]
     public void FusedBytePathMatchesLegacyOracle(string name, string json)
     {
-        var oldResult = Run(json, j => TimelineBaker.BakeJsonLegacy(j));
+        var oldResult = Run(json, j => BakeOracle.BakeJsonLegacy(j));
         var newResult = Run(json, j => TimelineBaker.BakeJson(Encoding.UTF8.GetBytes(j)));
         Assert.True(oldResult == newResult,
             $"""
@@ -65,7 +66,7 @@ public sealed class FusedParityTests
     {
         var data = string.Join(",", Enumerable.Range(0, 64).Select(i => $"\"f{i}\":1.5"));
         var json = $"{{\"duration\":10,\"loop\":false,\"tracks\":[{{\"namespace\":\"{G}\",\"type\":\"GaFatTrack\",\"clips\":[{{\"namespace\":\"{G}\",\"type\":\"GaFatClip\",\"start\":1,\"end\":9,\"data\":{{{data}}}}}]}}]}}";
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -73,7 +74,7 @@ public sealed class FusedParityTests
     {
         var data = string.Join(",", Enumerable.Range(0, 64).Select(i => $"\"f{i}\":{i + 1}.25"));
         var json = $"{{\"duration\":10,\"loop\":false,\"tracks\":[{{\"namespace\":\"{G}\",\"type\":\"GaFatTrack\",\"clips\":[{{\"namespace\":\"{G}\",\"type\":\"GaFatClip\",\"start\":1,\"end\":9,\"data\":{{{data}}}}}]}}]}}";
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     [Fact]
@@ -81,7 +82,7 @@ public sealed class FusedParityTests
     {
         var data = string.Join(",", Enumerable.Range(0, 64).Select(i => $"\"f{i}\":2.5"));
         var json = $"{{\"duration\":100,\"loop\":false,\"tracks\":[{{\"namespace\":\"{G}\",\"type\":\"GaFatTrack\",\"clips\":[{{\"namespace\":\"{G}\",\"type\":\"GaFatClip\",\"start\":10,\"end\":30,\"data\":{{{data}}}}},{{\"namespace\":\"{G}\",\"type\":\"GaFatClip\",\"start\":20,\"end\":40,\"data\":{{{data}}}}}]}}]}}";
-        Assert.Equal(TimelineBaker.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
+        Assert.Equal(BakeOracle.BakeJsonLegacy(json), TimelineBaker.BakeJson(json));
     }
 
     private static string Run(string json, Func<string, byte[]> bake)
