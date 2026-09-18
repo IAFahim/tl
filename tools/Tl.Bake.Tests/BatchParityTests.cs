@@ -117,6 +117,37 @@ public sealed class BatchParityTests
     }
 
     [Fact]
+    public void RepeatedClipPayloadsDedupMatchesOracle()
+    {
+        var sb = new StringBuilder();
+        sb.Append("{\"duration\":40,\"loop\":true,\"tracks\":[{\"namespace\":\"").Append(Ns)
+          .Append("\",\"type\":\"GaTrack0\",\"clips\":[");
+        for (var c = 0; c < 4; c++)
+        {
+            if (c > 0)
+                sb.Append(',');
+            sb.Append("{\"namespace\":\"").Append(Ns).Append("\",\"type\":\"GaClip0\",\"start\":").Append(c * 10)
+              .Append(",\"end\":").Append((c + 1) * 10).Append(",\"data\":{");
+            for (var f = 0; f < 8; f++)
+            {
+                if (f > 0)
+                    sb.Append(',');
+                var source = c is 2 or 3 ? c - 2 : c;
+                sb.Append("\"f").Append(f).Append("\":").Append(source * 0.25 + 0.5);
+            }
+            sb.Append("}}");
+        }
+        sb.Append("]}]}");
+        var json = sb.ToString();
+        var input = Encoding.UTF8.GetBytes(json);
+        var legacy = BakeOracle.BakeJsonLegacy(json);
+        Assert.Equal(legacy, TimelineBaker.BakeJson(input));
+        var batched = TimelineBaker.BakeJsonBatch([input, input]);
+        Assert.Equal(legacy, batched[0]);
+        Assert.Equal(legacy, batched[1]);
+    }
+
+    [Fact]
     public void BatchEmptyInputYieldsEmptyOutput()
     {
         Assert.Empty(TimelineBaker.BakeJsonBatch([]));
