@@ -1,8 +1,0 @@
-{
-  "benchmarks/FusionHour/Generated/FusedPulse.g.cs": "90d9b0e9942c98fb37e7e06682156b9f410d5a96650ea09906374365c6faf720",
-  "benchmarks/FusionHour/Benchmarks.cs": "a7a24b4436becb28e28d76cf93b4a0a5dec78e6a55168415d68da92122fd14fc",
-  "benchmarks/FusionHour/Consumer.cs": "46a29392da570e683256d2136bff6cc3628d77cd458d945d709e89067104c92e",
-  "benchmarks/FusionHour/Verification.cs": "b1857737f9c78c97e4794672cb01450ce8dbf0af240799dd30e4a6e4d8307b85",
-  "benchmarks/FusionHour/Program.cs": "46cc56172f52cd53fddf27245d435c4ef6ce5b5712d8d5b5cb46b630bf5dce30",
-  "benchmarks/FusionGenerate/Program.cs": "80a4683b9db90ff99417cb39321ad73e96b122f7f6caf4317d517f16a5ec67fb"
-}
