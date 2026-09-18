@@ -30,31 +30,31 @@ internal readonly record struct ImpureTrack(float Multiplier) : IBlend<ImpureCli
     public void Blend(in ImpureClip first, in ImpureClip second, float factor, out ImpureClip result) => result = first;
 }
 
-internal readonly struct DamageJob : ITimeline<DamageTrack, DamageClip>
+internal readonly struct DamageJob : ITrack<DamageTrack, DamageClip>
 {
     public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref float vitality)
         => vitality -= frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
-internal readonly struct HealJob : ITimeline<HealTrack, HealClip>
+internal readonly struct HealJob : ITrack<HealTrack, HealClip>
 {
     public static void Execute(in Frame<HealTrack, HealClip> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
-internal readonly struct TandemFirstJob : ITimeline<TandemTrack, TandemClip>
+internal readonly struct TandemFirstJob : ITrack<TandemTrack, TandemClip>
 {
     public static void Execute(in Frame<TandemTrack, TandemClip> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
-internal readonly struct TandemSecondJob : ITimeline<TandemTrack, TandemClip>
+internal readonly struct TandemSecondJob : ITrack<TandemTrack, TandemClip>
 {
     public static void Execute(in Frame<TandemTrack, TandemClip> frame, ref float vitality)
         => vitality += frame.Direction * 7f;
 }
 
-internal readonly struct ImpureJob : ITimeline<ImpureTrack, ImpureClip>
+internal readonly struct ImpureJob : ITrack<ImpureTrack, ImpureClip>
 {
     public static void Execute(in Frame<ImpureTrack, ImpureClip> frame, ref float vitality)
         => vitality *= 2f;
@@ -388,7 +388,7 @@ internal static class DataAuthoredReceipts
                 .Clip(0, 0u, 12u, new DamageClip(5f));
             if (looping)
                 baker.Looping();
-            using var asset = TimelineAsset.Load(baker.Bake());
+            using var asset = TimelineAsset.LoadAsset(baker.Bake());
             BakedLane<DamageTrack, DamageClip>.Bind(asset);
             Require(BakedLane<DamageTrack, DamageClip>.Effect(0) == -10f, "effect table matches the authored fold");
             var duration = BakedLane<DamageTrack, DamageClip>.Duration;
@@ -419,7 +419,7 @@ internal static class DataAuthoredReceipts
 
     internal static void WrapCounts()
     {
-        using var asset = TimelineAsset.Load(new AlphaBaker()
+        using var asset = TimelineAsset.LoadAsset(new AlphaBaker()
             .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
             .Clip(0, 0u, 12u, new DamageClip(5f))
             .Looping()
@@ -476,7 +476,7 @@ internal static class DataAuthoredReceipts
 
     internal static void FoldAndBlend()
     {
-        using var asset = TimelineAsset.Load(new AlphaBaker()
+        using var asset = TimelineAsset.LoadAsset(new AlphaBaker()
             .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
             .Track<HealTrack, HealClip>(new HealTrack(1f))
             .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
@@ -500,7 +500,7 @@ internal static class DataAuthoredReceipts
 
     internal static void RewindAndCatchUp()
     {
-        using var asset = TimelineAsset.Load(new AlphaBaker()
+        using var asset = TimelineAsset.LoadAsset(new AlphaBaker()
             .Track<TandemTrack, TandemClip>(new TandemTrack(2f))
             .Clip(0, 0u, 6u, new TandemClip(4f))
             .Looping()
@@ -530,7 +530,7 @@ internal static class DataAuthoredReceipts
 
     internal static void Faults()
     {
-        using var impure = TimelineAsset.Load(new AlphaBaker()
+        using var impure = TimelineAsset.LoadAsset(new AlphaBaker()
             .Track<ImpureTrack, ImpureClip>(new ImpureTrack(1f))
             .Clip(0, 0u, 6u, new ImpureClip(5f))
             .Looping()
@@ -538,7 +538,7 @@ internal static class DataAuthoredReceipts
         BakedLane<ImpureTrack, ImpureClip>.Bind(impure);
         Require(BakedLane<ImpureTrack, ImpureClip>.Effect(0) == 0f, "column-folding consumer bakes its zero-seed baseline");
 
-        using var foreign = TimelineAsset.Load(new AlphaBaker()
+        using var foreign = TimelineAsset.LoadAsset(new AlphaBaker()
             .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
             .Clip(0, 0u, 6u, new DamageClip(5f))
             .Looping()
@@ -569,12 +569,12 @@ internal static class DataAuthoredReceipts
 
     internal static void TimelineSets()
     {
-        using var loopingAsset = TimelineAsset.Load(new AlphaBaker()
+        using var loopingAsset = TimelineAsset.LoadAsset(new AlphaBaker()
             .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
             .Clip(0, 0u, 12u, new DamageClip(5f))
             .Looping()
             .Bake());
-        using var finiteAsset = TimelineAsset.Load(new AlphaBaker()
+        using var finiteAsset = TimelineAsset.LoadAsset(new AlphaBaker()
             .Track<DamageTrack, DamageClip>(new DamageTrack(1f))
             .Clip(0, 2u, 8u, new DamageClip(4f))
             .Bake());
@@ -643,7 +643,7 @@ internal static class DataAuthoredReceipts
 
     internal static void Memory()
     {
-        using var asset = TimelineAsset.Load(new AlphaBaker()
+        using var asset = TimelineAsset.LoadAsset(new AlphaBaker()
             .Track<TandemTrack, TandemClip>(new TandemTrack(2f))
             .Clip(0, 0u, 64u, new TandemClip(1f))
             .Looping()
@@ -671,7 +671,7 @@ internal static class DataAuthoredReceipts
     internal static void BatchCapacity()
     {
         const int Rows = 200_000;
-        using var asset = TimelineAsset.Load(new AlphaBaker()
+        using var asset = TimelineAsset.LoadAsset(new AlphaBaker()
             .Track<TandemTrack, TandemClip>(new TandemTrack(1f))
             .Clip(0, 0u, 64u, new TandemClip(2f))
             .Looping()
@@ -699,7 +699,7 @@ internal static class DataAuthoredReceipts
         var baker = new AlphaBaker();
         for (var track = 1; track <= Tracks; track++)
             baker.Track<TandemTrack, TandemClip>(new TandemTrack(track)).Clip(track - 1, 0u, 64u, new TandemClip(1f));
-        using var asset = TimelineAsset.Load(baker.Looping().Bake());
+        using var asset = TimelineAsset.LoadAsset(baker.Looping().Bake());
         BakedLane<TandemTrack, TandemClip>.Bind(asset);
 
         var expected = 0f;

@@ -3,11 +3,10 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Tl;
 
-using var asset = TimelineAsset.Load(new PackageBaker()
+using var asset = TimelineAsset.Of(TimelineAsset.Load(new PackageBaker()
     .Track<PackageTrack, PackageClip>(new PackageTrack())
     .Clip(0, 0u, 4u, new PackageClip(7))
-    .Bake());
-Timeline<PackageTrack, PackageClip>.Slot(asset);
+    .Bake()));
 var positions = new ushort[1];
 var values = new float[1];
 
@@ -32,7 +31,7 @@ public readonly struct PackageTrack : IBlend<PackageClip>
         => result = factor < 0.5f ? first : second;
 }
 
-public readonly struct PackageJob : ITimeline<PackageTrack, PackageClip>
+public readonly struct PackageJob : ITrack<PackageTrack, PackageClip>
 {
     public static void Execute(in Frame<PackageTrack, PackageClip> frame, ref float value)
         => value += frame.Direction * frame.Clip.Value;

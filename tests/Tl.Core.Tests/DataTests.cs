@@ -61,23 +61,23 @@ public unsafe class DataTests
     [Fact]
     public void LoadRejectsCorruptBlocks()
     {
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(FiniteBake()[..^1]));
+        Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(FiniteBake()[..^1]));
 
         var magic = FiniteBake();
         magic[0] = (byte)'X';
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(magic));
+        Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(magic));
 
         var version = FiniteBake();
         version[4] = 4;
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(version));
+        Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(version));
 
         var size = FiniteBake();
         size[48] = 7;
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(size));
+        Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(size));
 
         var misaligned = FiniteBake();
         misaligned[28] += 4;
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(misaligned));
+        Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(misaligned));
 
         var unsorted = new Baker()
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(1))
@@ -94,13 +94,13 @@ public unsafe class DataTests
             BinaryPrimitives.WriteUInt64LittleEndian(unsorted.AsSpan((int)pairOffset + 48), first);
         }
 
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(unsorted));
+        Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(unsorted));
     }
 
     [Fact]
     public void DisposeFreesExactlyOnceAndIsIdempotent()
     {
-        var asset = TimelineAsset.Load(FiniteBake());
+        var asset = TimelineAsset.LoadAsset(FiniteBake());
         var component = new TimelineComponent(asset.Reference);
         Assert.False(Timeline.Query<AlphaTrack, AlphaClip>(in component).MoveNext() && component.Position > 0);
         asset.Dispose();
@@ -110,7 +110,7 @@ public unsafe class DataTests
     [Fact]
     public void QueryYieldsSingleClipFramesWithWindowFlags()
     {
-        using var asset = TimelineAsset.Load(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new Baker()
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(5))
             .Clip(0, 1, 3, new AlphaClip(7))
             .Bake());
@@ -136,7 +136,7 @@ public unsafe class DataTests
     [Fact]
     public void QueryExposesClipWindowsAcrossOverlappingClips()
     {
-        using var asset = TimelineAsset.Load(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new Baker()
             .Track<BlendTrack, BlendClip>(new BlendTrack(1f))
             .Clip(0, 0, 4, new BlendClip(0f))
             .Clip(0, 2, 6, new BlendClip(10f))
@@ -173,7 +173,7 @@ public unsafe class DataTests
     [Fact]
     public void QueryYieldsBlendedFramesMatchingHandComputedFactor()
     {
-        using var asset = TimelineAsset.Load(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new Baker()
             .Track<BlendTrack, BlendClip>(new BlendTrack(1f))
             .Clip(0, 0, 4, new BlendClip(0f))
             .Clip(0, 2, 6, new BlendClip(10f))
@@ -189,7 +189,7 @@ public unsafe class DataTests
         component.Position = 4;
         Assert.Equal(10f, SingleBlendAmount(in component));
 
-        using var single = TimelineAsset.Load(new Baker()
+        using var single = TimelineAsset.LoadAsset(new Baker()
             .Track<BlendTrack, BlendClip>(new BlendTrack(1f))
             .Clip(0, 0, 3, new BlendClip(0f))
             .Clip(0, 2, 4, new BlendClip(8f))
@@ -208,7 +208,7 @@ public unsafe class DataTests
     [Fact]
     public void QueryPreservesAuthoredTrackOrderAndSkipsEmptyStages()
     {
-        using var asset = TimelineAsset.Load(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new Baker()
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(1))
             .Track<BlendTrack, BlendClip>(new BlendTrack(1f))
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(2))
@@ -245,7 +245,7 @@ public unsafe class DataTests
             .Bake();
         var legacy = LegacyV2Layout(current);
         Assert.Equal(2u, BitConverter.ToUInt32(legacy, 4));
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(legacy));
+        Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(legacy));
     }
 
     private static byte[] LegacyV2Layout(byte[] current)

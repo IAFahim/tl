@@ -12,7 +12,7 @@ public static class PlayBake
     public static BakeResult Bake(string authoringJson)
     {
         var bytes = TimelineBaker.BakeJson(authoringJson);
-        using var probe = TimelineAsset.Load(bytes);
+        using var probe = TimelineAsset.LoadAsset(bytes);
         using var measured = MeasuredLanes.Measure(probe);
         return new BakeResult(bytes, measured.Duration, measured.Looping);
     }
@@ -52,7 +52,7 @@ public sealed class PlayEngine : IDisposable
     {
         _set?.Dispose();
         _asset?.Dispose();
-        _asset = TimelineAsset.Load(baked.Bytes);
+        _asset = TimelineAsset.LoadAsset(baked.Bytes);
         _set = new TimelineSet<ScaleTrack, AmountClip>();
         Duration = baked.Duration;
         Loop = baked.Loop;

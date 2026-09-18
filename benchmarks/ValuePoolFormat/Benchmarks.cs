@@ -90,7 +90,7 @@ public class LaneApply
     [GlobalSetup]
     public void Setup()
     {
-        var laneSlot = Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Slot(Host.LaneAsset);
+        var laneSlot = Host.LaneAsset.Index;
         _laneIds = new ushort[Rows];
         Array.Fill(_laneIds, laneSlot);
         _uniform = Constant(Rows, 5);

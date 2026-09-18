@@ -26,7 +26,11 @@ public sealed unsafe class MeasuredLanes : IDisposable
     public static MeasuredLanes Measure(TimelineAsset asset)
     {
         ArgumentNullException.ThrowIfNull(asset);
-        var reference = asset.Reference;
+        return Measure(asset.Reference);
+    }
+
+    internal static MeasuredLanes Measure(TimelineRef reference)
+    {
         if (reference.Address == 0) throw new ArgumentException("Timeline asset is not loaded.");
         var header = (NativeHeader*)reference._p;
         var duration = header->Duration;

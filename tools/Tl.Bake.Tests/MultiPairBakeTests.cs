@@ -125,7 +125,7 @@ public class MultiPairBakeTests
         var bytes = TimelineBaker.BakeJson(json);
         Assert.Equal(2u, BitConverter.ToUInt32(bytes, 16));
 
-        using var asset = TimelineAsset.Load(bytes);
+        using var asset = TimelineAsset.LoadAsset(bytes);
         var rows = new[] { new TimelineComponent(asset.Reference) };
         var codes = new List<int>();
         foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in rows[0]))

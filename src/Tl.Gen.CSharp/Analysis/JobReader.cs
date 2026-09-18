@@ -19,7 +19,7 @@ public static class JobReader
         if (contracts is null)
         {
             var site = compilation.SyntaxTrees.SelectMany(static tree => tree.GetRoot().DescendantNodes())
-                .FirstOrDefault(static node => node.ToString().Contains("ITimeline<", StringComparison.Ordinal));
+                .FirstOrDefault(static node => node.ToString().Contains("ITrack<", StringComparison.Ordinal));
             if (site is not null)
                 Error(errors, site, "TLGEN60", "The exact Tl job declaration contracts could not be resolved.");
             return new([], errors);
@@ -96,7 +96,7 @@ public static class JobReader
 
     private static Contracts? Contract(Compilation compilation)
     {
-        string[] names = ["Tl.ITimeline`2", "Tl.Frame`2", "Tl.IBlend`1"];
+        string[] names = ["Tl.ITrack`2", "Tl.Frame`2", "Tl.IBlend`1"];
         var types = names.Select(compilation.GetTypeByMetadataName).ToArray();
         return types.Any(static type => type is null) ? null : new(types[0]!, types[1]!, types[2]!);
     }

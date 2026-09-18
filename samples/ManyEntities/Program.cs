@@ -39,7 +39,7 @@ internal static class Program
     static float[] Precompute<TTrack, TClip>(byte[] baked, int duration, Func<Frame<TTrack, TClip>, float> value)
         where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
     {
-        using var asset = TimelineAsset.Load(baked);
+        using var asset = TimelineAsset.Of(TimelineAsset.Load(baked));
         var reference = asset.Reference;
         var table = new float[duration];
         for (ushort p = 0; p < duration; p++)
@@ -85,8 +85,7 @@ internal static class Program
 
     static bool Sweep(float[] values)
     {
-        using var asset = TimelineAsset.Load(Bake("move64.json"));
-        Timeline<MoveTrack, MoveClip>.Slot(asset);
+        using var asset = TimelineAsset.Of(TimelineAsset.Load(Bake("move64.json")));
 
         var positions = new ushort[N];
         var laneValues = new float[N];
@@ -132,8 +131,7 @@ internal static class Program
 
     static bool Pulse(float value)
     {
-        using var asset = TimelineAsset.Load(Bake("pulse.json"));
-        Timeline<PulseTrack, PulseClip>.Slot(asset);
+        using var asset = TimelineAsset.Of(TimelineAsset.Load(Bake("pulse.json")));
 
         var positions = new ushort[N];
         var laneValues = new float[N];
@@ -175,8 +173,7 @@ internal static class Program
         const int SpawnPerPass = 20_000;
         const int Passes = 50;
         const int Capacity = 500_000;
-        using var asset = TimelineAsset.Load(Bake("window.json"));
-        Timeline<WindowTrack, WindowClip>.Slot(asset);
+        using var asset = TimelineAsset.Of(TimelineAsset.Load(Bake("window.json")));
 
         var positions = new ushort[Capacity];
         var laneValues = new float[Capacity];

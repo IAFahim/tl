@@ -6,7 +6,7 @@ using System.Runtime.Intrinsics.X86;
 
 namespace Tl;
 
-public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
+internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
@@ -21,6 +21,7 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         public MovementRecord* BackwardRecords;
         public ushort Duration;
         public ushort Looping;
+        public ushort Absent;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -35,60 +36,114 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal float* _data;
     internal MovementRecord* _recordsBase;
     internal int _count;
+    internal int _holes;
+    internal bool _lazyResolve;
     internal bool _anyLooping;
     internal bool _disposed;
     internal ushort _minDuration;
     nuint _floats;
     nuint _records;
 
-    public ushort Add(TimelineAsset asset)
+    internal int Holes => _holes;
+    internal int _pendingCursor;
+
+    internal int PendingCursor => _pendingCursor;
+
+    internal void AdvancePendingCursor(int limit)
+    {
+        while (_pendingCursor < limit && !IsPending((ushort)_pendingCursor))
+            _pendingCursor++;
+    }
+
+    internal bool IsFolded(ushort index)
+        => index < (uint)_count && _slots[index].Forward != null;
+
+    internal bool IsAbsent(ushort index)
+        => index < (uint)_count && _slots[index].Forward == null && _slots[index].Absent != 0;
+
+    internal bool IsPending(ushort index)
+        => index < (uint)_count && _slots[index].Forward == null && _slots[index].Absent == 0;
+
+    internal void MarkAbsent(ushort index)
+    {
+        _slots[index].Absent = 1;
+    }
+
+    internal ushort Add(TimelineAsset asset)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_count > ushort.MaxValue)
             throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
         LaneGuards.ValidatePair<TTrack, TClip>(asset);
         using var measured = MeasuredLanes.Measure(asset);
-        return Bind(measured);
+        return Bind(checked((ushort)_count), measured);
     }
 
-    public ushort Add(TimelineAsset asset, MeasuredLanes measured)
+    internal ushort Add(TimelineAsset asset, MeasuredLanes measured)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_count > ushort.MaxValue)
             throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
         measured.ValidateBinding(asset);
         LaneGuards.ValidatePair<TTrack, TClip>(asset);
-        return Bind(measured);
+        return Bind(checked((ushort)_count), measured);
     }
 
-    ushort Bind(MeasuredLanes measured)
+    internal ushort AddAt(ushort index, MeasuredLanes measured)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_count > ushort.MaxValue || index >= ushort.MaxValue)
+            throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
+        if (index < _count && _slots[index].Forward != null)
+            return index;
+        return Bind(index, measured);
+    }
+
+    ushort Bind(ushort index, MeasuredLanes measured)
     {
         var forward = measured.Forward;
         var backward = measured.Backward;
         var duration = measured.Duration;
         var looping = measured.Looping;
-        if (_count == 0 || duration < _minDuration)
+        var previousCount = _count;
+        uint capacity;
+        if (index >= previousCount)
+        {
+            capacity = (uint)index + 1;
+            _holes += index - previousCount;
+            _count = index + 1;
+        }
+        else
+        {
+            capacity = (uint)previousCount;
+            _holes--;
+        }
+        var live = _count - _holes;
+        if (live == 1 || duration < _minDuration)
             _minDuration = duration;
         nuint ticks = Math.Max(1u, duration);
         nuint floats = _floats + (ticks + 1) * 3;
         nuint records = _records + (ticks + 1) * 2;
-        var slotBytes = (nuint)(_count + 1) * (nuint)sizeof(Slot);
+        var slotBytes = (nuint)capacity * (nuint)sizeof(Slot);
         var recordOffset = (slotBytes + floats * sizeof(float) + 7u) & ~7u;
         var block = (byte*)NativeMemory.AlignedAlloc(recordOffset + records * (nuint)sizeof(MovementRecord), 64);
         var slots = (Slot*)block;
         var floatBase = (float*)(block + slotBytes);
         var recordBase = (MovementRecord*)(block + recordOffset);
-        if (_count > 0)
+        new Span<Slot>(slots + previousCount, (int)(capacity - (uint)previousCount)).Clear();
+        if (previousCount > 0)
         {
-            Buffer.MemoryCopy(_slots, slots, (long)slotBytes, (long)slotBytes);
+            var copySlots = (long)((nuint)previousCount * (nuint)sizeof(Slot));
+            Buffer.MemoryCopy(_slots, slots, copySlots, copySlots);
             var floatBytes = (long)(_floats * sizeof(float));
             Buffer.MemoryCopy(_data, floatBase, floatBytes, floatBytes);
             var recordBytes = (long)(_records * (nuint)sizeof(MovementRecord));
             Buffer.MemoryCopy(_recordsBase, recordBase, recordBytes, recordBytes);
             var floatShift = (long)((byte*)floatBase - (byte*)_data);
             var recordShift = (long)((byte*)recordBase - (byte*)_recordsBase);
-            for (var k = 0; k < _count; k++)
+            for (var k = 0; k < previousCount; k++)
             {
+                if (slots[k].Forward == null) continue;
                 slots[k].Forward = (float*)((byte*)slots[k].Forward + floatShift);
                 slots[k].Backward = (float*)((byte*)slots[k].Backward + floatShift);
                 slots[k].BackwardByPosition = (float*)((byte*)slots[k].BackwardByPosition + floatShift);
@@ -156,7 +211,7 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 }
             }
         }
-        slots[_count] = new Slot
+        slots[index] = new Slot
         {
             Forward = forwardTable,
             Backward = backwardTable,
@@ -173,21 +228,22 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         _floats = floats;
         _records = records;
         _anyLooping |= looping;
-        var assigned = (ushort)_count;
-        _count++;
         if (previous != null)
             NativeMemory.AlignedFree(previous);
-        return assigned;
+        return index;
     }
 
-    public TimelineGather<TTrack, TClip> Gather(ReadOnlySpan<ushort> timelineIds)
+    internal TimelineGather<TTrack, TClip> Gather(ReadOnlySpan<ushort> timelineIds)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return new TimelineGather<TTrack, TClip>(this, timelineIds);
     }
 
-    public void Advance(ReadOnlySpan<ushort> timelineIds, Span<ushort> positions, bool forward, Span<float> effects)
+    internal void Advance(ReadOnlySpan<ushort> timelineIds, Span<ushort> positions, bool forward, Span<float> effects)
         => Gather(timelineIds).Seek(positions, forward).Apply(effects);
+
+    internal void ApplySlot(ushort index, Span<ushort> positions, bool forward, Span<float> effects)
+        => new TimelineSetLane<TTrack, TClip>(this, ReadOnlySpan<ushort>.Empty, positions, forward).ApplySlot(index, effects);
 
     public void Dispose()
     {
@@ -198,13 +254,14 @@ public sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         _data = null;
         _recordsBase = null;
         _count = 0;
+        _holes = 0;
         _minDuration = 0;
         if (previous != null)
             NativeMemory.AlignedFree(previous);
     }
 }
 
-public ref struct TimelineGather<TTrack, TClip>
+internal ref struct TimelineGather<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
@@ -217,10 +274,10 @@ public ref struct TimelineGather<TTrack, TClip>
         _ids = ids;
     }
 
-    public TimelineSetLane<TTrack, TClip> Seek(Span<ushort> positions, bool forward)
+    internal TimelineSetLane<TTrack, TClip> Seek(Span<ushort> positions, bool forward)
         => new(_set, _ids, positions, forward);
 
-    public void Advance(Span<ushort> positions, bool forward, Span<float> effects)
+    internal void Advance(Span<ushort> positions, bool forward, Span<float> effects)
         => Seek(positions, forward).Apply(effects);
 }
 
@@ -262,6 +319,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
         var slots = set._slots;
         var bound = set._count;
         var minDuration = set._minDuration;
+        var lazy = set._lazyResolve;
+        var holy = lazy && set._holes != 0;
         var gather = Avx2.IsSupported;
         var forward = _forward;
         var i = 0;
@@ -274,7 +333,17 @@ public ref struct TimelineSetLane<TTrack, TClip>
             var first = ids[i];
             if (UniformChunk(ids, i, chunkEnd, first))
             {
-                if (first >= bound) ThrowUnboundId(first, i);
+                if (first >= bound || slots[first].Forward == null)
+                {
+                    if (!lazy) ThrowUnboundId(first, i);
+                    Timeline<TTrack, TClip>.Resolve(first);
+                    slots = set._slots;
+                    bound = set._count;
+                    minDuration = set._minDuration;
+                    holy = set._holes != 0;
+                    uniformId = -1;
+                    slot = null;
+                }
                 if (first != uniformId)
                 {
                     slot = slots + first;
@@ -313,11 +382,81 @@ public ref struct TimelineSetLane<TTrack, TClip>
             }
             else
             {
-                ValidateChunk(ids, i, chunkEnd, bound);
+                if (holy)
+                    while (Timeline<TTrack, TClip>.ResolveChunk(set, ids, i, chunkEnd))
+                    {
+                        slots = set._slots;
+                        bound = set._count;
+                        minDuration = set._minDuration;
+                        uniformId = -1;
+                        slot = null;
+                    }
+                if (ValidateChunk(ids, i, chunkEnd, set, bound))
+                {
+                    slots = set._slots;
+                    bound = set._count;
+                    minDuration = set._minDuration;
+                    holy = set._holes != 0;
+                    uniformId = -1;
+                    slot = null;
+                }
                 i = forward
                     ? ApplyMixedForward(ids, positions, effects, slots, minDuration, i, chunkEnd)
                     : ApplyMixedBackward(ids, positions, effects, slots, minDuration, i, chunkEnd);
             }
+        }
+    }
+
+    internal unsafe void ApplySlot(ushort index, Span<float> effects)
+    {
+        var set = _set;
+        if (set._disposed)
+            throw new ObjectDisposedException(nameof(TimelineSet<TTrack, TClip>));
+        var positions = _positions;
+        if (effects.Length != positions.Length)
+            throw new ArgumentException("Column length must equal position count.");
+        if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(effects)))
+            throw new ArgumentException("Lane columns must not overlap.");
+        var count = positions.Length;
+        if (count == 0) return;
+        var slot = set._slots + index;
+        var duration = slot->Duration;
+        var looping = slot->Looping != 0;
+        var gather = Avx2.IsSupported;
+        var forward = _forward;
+        var i = 0;
+        while (i < count)
+        {
+            var chunkEnd = i + Chunk;
+            if (chunkEnd > count) chunkEnd = count;
+            if (gather && duration > 1 && (looping
+                    ? SingletonChunk(positions, i, chunkEnd)
+                    : ShortRuns(positions, i, chunkEnd)))
+            {
+                var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
+                if (blockEnd > i)
+                {
+                    if (forward)
+                    {
+                        if (looping)
+                            GatherForward(slot->Forward, duration, positions, effects, i, blockEnd);
+                        else
+                            GatherFiniteForward(slot->Forward, duration, positions, effects, i, blockEnd);
+                    }
+                    else
+                    {
+                        if (looping)
+                            GatherBackward(slot->BackwardByPosition, duration, positions, effects, i, blockEnd);
+                        else
+                            GatherFiniteBackward(slot->BackwardByPosition, duration, positions, effects, i, blockEnd);
+                    }
+                    i = blockEnd;
+                    continue;
+                }
+            }
+            i = forward
+                ? ApplyUniformForward(slot, positions, effects, i, chunkEnd)
+                : ApplyUniformBackward(slot, positions, effects, i, chunkEnd);
         }
     }
 
@@ -733,9 +872,10 @@ public ref struct TimelineSetLane<TTrack, TClip>
         return true;
     }
 
-    static unsafe void ValidateChunk(ReadOnlySpan<ushort> ids, int start, int end, int bound)
+    static unsafe bool ValidateChunk(ReadOnlySpan<ushort> ids, int start, int end, TimelineSet<TTrack, TClip> set, int bound)
     {
-        if (bound >= 65536) return;
+        if (bound >= 65536) return false;
+        var grew = false;
         var i = start;
         if (Vector512.IsHardwareAccelerated)
         {
@@ -752,7 +892,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
                 for (var k = start; k < end; k++)
                 {
                     var id = ids[k];
-                    if (id >= bound) ThrowUnboundId(id, k);
+                    if (id >= bound) grew |= ResolveOrThrow(set, id, k);
                 }
         }
         else if (Vector256.IsHardwareAccelerated)
@@ -770,15 +910,27 @@ public ref struct TimelineSetLane<TTrack, TClip>
                 for (var k = start; k < end; k++)
                 {
                     var id = ids[k];
-                    if (id >= bound) ThrowUnboundId(id, k);
+                    if (id >= bound) grew |= ResolveOrThrow(set, id, k);
                 }
         }
         while (i < end)
         {
             var id = ids[i];
-            if (id >= bound) ThrowUnboundId(id, i);
+            if (id >= bound) grew |= ResolveOrThrow(set, id, i);
             i++;
         }
+        return grew;
+    }
+
+    static bool ResolveOrThrow(TimelineSet<TTrack, TClip> set, ushort id, int row)
+    {
+        if (set._lazyResolve)
+        {
+            Timeline<TTrack, TClip>.Resolve(id);
+            return true;
+        }
+        ThrowUnboundId(id, row);
+        return false;
     }
 
     static bool FastMixedChunk(ReadOnlySpan<ushort> ids, Span<ushort> positions, int start, int end, int minDuration)
@@ -834,7 +986,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     static void ThrowUnboundId(ushort id, int row)
-        => throw new ArgumentException($"Timeline id {id} at row {row} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time.");
+        => throw new ArgumentException($"Timeline id {id} at row {row} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time, and the pair-typed bank resolves timeline indices on the first typed advance.");
 
     static int RunEnd(Span<ushort> positions, int start, int limit)
     {

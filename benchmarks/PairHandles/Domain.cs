@@ -317,12 +317,12 @@ public static unsafe class Host
     public const int Duration = 1024;
     public const int Variants = 8;
 
-    public static readonly TimelineAsset LoopingAsset = TimelineAsset.Load(new Baker()
+    public static readonly TimelineAsset LoopingAsset = TimelineAsset.Of(TimelineAsset.Load(new Baker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
         .Clip(0, 0, 600, new LaneClip(1.25f))
         .Clip(0, 600, 1024, new LaneClip(-0.5f))
         .Looping()
-        .Bake());
+        .Bake()));
 
     public static readonly TimelineAsset[] VariantAssets = BuildVariants();
 
@@ -333,12 +333,12 @@ public static unsafe class Host
         {
             var scale = 1f + variant * 0.25f;
             var split = 400 + variant * 80;
-            assets[variant] = TimelineAsset.Load(new Baker()
+            assets[variant] = TimelineAsset.Of(TimelineAsset.Load(new Baker()
                 .Track<LaneTrack, LaneClip>(new LaneTrack(scale))
                 .Clip(0, 0, (uint)split, new LaneClip(1.25f))
                 .Clip(0, (uint)split, Duration, new LaneClip(-0.5f))
                 .Looping()
-                .Bake());
+                .Bake()));
         }
         return assets;
     }
@@ -349,13 +349,13 @@ public static unsafe class Host
         PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteLane, &BindFloat);
     }
 
-    public static ushort SlotGoldLane() => Timeline<LaneTrack, LaneClip>.Slot(LoopingAsset);
+    public static ushort SlotGoldLane() => LoopingAsset.Index;
 
     public static ushort[] BindBank()
     {
         var handles = new ushort[Variants];
         for (var variant = 0; variant < Variants; variant++)
-            handles[variant] = Timeline<LaneTrack, LaneClip>.Slot(VariantAssets[variant]);
+            handles[variant] = VariantAssets[variant].Index;
         return handles;
     }
 

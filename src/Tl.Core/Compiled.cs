@@ -2,9 +2,19 @@ using System.ComponentModel;
 
 namespace Tl;
 
-public interface ITimeline<TTrack, TClip>
+public interface ITrack<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged;
+
+public interface IBake<TConsumer>;
+
+public interface IBake<TConsumer, TContext>;
+
+public interface IBake<TConsumer, TContext0, TContext1>;
+
+public interface IBake<TConsumer, TContext0, TContext1, TContext2>;
+
+public interface IBake<TConsumer, TContext0, TContext1, TContext2, TContext3>;
 
 public readonly ref struct Frame<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>

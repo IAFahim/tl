@@ -323,17 +323,17 @@ public static unsafe class Host
 {
     public const int Duration = 1024;
 
-    public static readonly TimelineAsset LoopingAsset = TimelineAsset.Load(new Baker()
+    public static readonly TimelineAsset LoopingAsset = TimelineAsset.Of(TimelineAsset.Load(new Baker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
         .Clip(0, 0, 600, new LaneClip(1.25f))
         .Clip(0, 600, 1024, new LaneClip(-0.5f))
         .Looping()
-        .Bake());
+        .Bake()));
 
-    public static readonly TimelineAsset FiniteAsset = TimelineAsset.Load(new Baker()
+    public static readonly TimelineAsset FiniteAsset = TimelineAsset.Of(TimelineAsset.Load(new Baker()
         .Track<EdgeTrack, EdgeClip>(new EdgeTrack(2f))
         .Clip(0, 0, 1024, new EdgeClip(0.75f))
-        .Bake());
+        .Bake()));
 
     [ModuleInitializer]
     internal static void Install()
@@ -342,15 +342,35 @@ public static unsafe class Host
         PairRuntime<EdgeTrack, EdgeClip>.Consume(&ExecuteEdge, &BindFloat);
     }
 
-    public static ushort SlotLane() => Timeline<LaneTrack, LaneClip>.Slot(LoopingAsset);
+    public static ushort SlotLane() => LoopingAsset.Index;
 
-    public static ushort SlotFinite() => Timeline<EdgeTrack, EdgeClip>.Slot(FiniteAsset);
+    public static ushort SlotFinite() => FiniteAsset.Index;
 
-    public static TimelineSet<LaneTrack, LaneClip> BuildSet(int timelines)
+    public static readonly TimelineAsset[] VariantAssets = BuildVariants();
+
+    static TimelineAsset[] BuildVariants()
     {
-        var set = new TimelineSet<LaneTrack, LaneClip>();
-        for (var i = 0; i < timelines; i++) set.Add(LoopingAsset);
-        return set;
+        var assets = new TimelineAsset[8];
+        for (var variant = 0; variant < 8; variant++)
+        {
+            var scale = 2f + variant * 0.03125f;
+            var split = 600;
+            assets[variant] = TimelineAsset.Of(TimelineAsset.Load(new Baker()
+                .Track<LaneTrack, LaneClip>(new LaneTrack(scale))
+                .Clip(0, 0, (uint)split, new LaneClip(1.25f))
+                .Clip(0, (uint)split, Duration, new LaneClip(-0.5f))
+                .Looping()
+                .Bake()));
+        }
+        return assets;
+    }
+
+    public static ushort[] BuildIndices(int timelines)
+    {
+        var indices = new ushort[timelines];
+        for (var i = 0; i < timelines; i++)
+            indices[i] = VariantAssets[i].Index;
+        return indices;
     }
 
     static void ExecuteLane(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)

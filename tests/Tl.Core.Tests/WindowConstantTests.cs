@@ -160,8 +160,8 @@ public class WindowConstantTests
     {        foreach (var duration in new uint[] { 1, 2, 63, 64, 65 })
         foreach (var looping in new[] { true, false })
         {
-            var declared = TimelineAsset.Load(Bake<ConstTrack, ConstClip>(new ConstTrack(2f), duration, looping, (0, duration)));
-            var mirror = TimelineAsset.Load(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(2f), duration, looping, (0, duration)));
+            var declared = TimelineAsset.LoadAsset(Bake<ConstTrack, ConstClip>(new ConstTrack(2f), duration, looping, (0, duration)));
+            var mirror = TimelineAsset.LoadAsset(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(2f), duration, looping, (0, duration)));
             try
             {
                 using var declaredLanes = MeasuredLanes.Measure(declared);
@@ -181,8 +181,8 @@ public class WindowConstantTests
     {
         foreach (var looping in new[] { true, false })
         {
-            var declared = TimelineAsset.Load(Bake<ConstTrack, ConstClip>(new ConstTrack(1.5f), 100, looping, (0, 1), (1, 64), (64, 65), (65, 100)));
-            var mirror = TimelineAsset.Load(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(1.5f), 100, looping, (0, 1), (1, 64), (64, 65), (65, 100)));
+            var declared = TimelineAsset.LoadAsset(Bake<ConstTrack, ConstClip>(new ConstTrack(1.5f), 100, looping, (0, 1), (1, 64), (64, 65), (65, 100)));
+            var mirror = TimelineAsset.LoadAsset(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(1.5f), 100, looping, (0, 1), (1, 64), (64, 65), (65, 100)));
             try
             {
                 using var declaredLanes = MeasuredLanes.Measure(declared);
@@ -200,8 +200,8 @@ public class WindowConstantTests
     [Fact]
     public void DeclaredWindowConstantMatchesPerTickAtLargeDuration()
     {
-        var declared = TimelineAsset.Load(Bake<ConstTrack, ConstClip>(new ConstTrack(1f), 65535, true, (0, 65535)));
-        var mirror = TimelineAsset.Load(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(1f), 65535, true, (0, 65535)));
+        var declared = TimelineAsset.LoadAsset(Bake<ConstTrack, ConstClip>(new ConstTrack(1f), 65535, true, (0, 65535)));
+        var mirror = TimelineAsset.LoadAsset(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(1f), 65535, true, (0, 65535)));
         try
         {
             using var declaredLanes = MeasuredLanes.Measure(declared);
@@ -220,8 +220,8 @@ public class WindowConstantTests
     {
         foreach (var looping in new[] { true, false })
         {
-            var declared = TimelineAsset.Load(Bake<ConstTrack, ConstClip>(new ConstTrack(2f), 12, looping, (0, 8), (4, 12)));
-            var mirror = TimelineAsset.Load(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(2f), 12, looping, (0, 8), (4, 12)));
+            var declared = TimelineAsset.LoadAsset(Bake<ConstTrack, ConstClip>(new ConstTrack(2f), 12, looping, (0, 8), (4, 12)));
+            var mirror = TimelineAsset.LoadAsset(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(2f), 12, looping, (0, 8), (4, 12)));
             try
             {
                 using var declaredLanes = MeasuredLanes.Measure(declared);
@@ -250,8 +250,8 @@ public class WindowConstantTests
             var mirror = BakeTwo<MirrorTrack, MirrorClip, MirrorTrack, MirrorClip>(
                 new MirrorTrack(2f), new MirrorTrack(3f), 40, looping,
                 new[] { (0u, 10u), (10u, 40u) }, new[] { (5u, 20u), (20u, 40u) });
-            var declaredAsset = TimelineAsset.Load(declared);
-            var mirrorAsset = TimelineAsset.Load(mirror);
+            var declaredAsset = TimelineAsset.LoadAsset(declared);
+            var mirrorAsset = TimelineAsset.LoadAsset(mirror);
             try
             {
                 using var declaredLanes = MeasuredLanes.Measure(declaredAsset);
@@ -277,8 +277,8 @@ public class WindowConstantTests
             var mirror = BakeTwo<MirrorTrack, MirrorClip, MirrorTrack, MirrorClip>(
                 new MirrorTrack(2f), new MirrorTrack(3f), 40, true,
                 new[] { (0u, 10u), (10u, 40u) }, new[] { (5u, 20u), (20u, 40u) });
-            var declaredAsset = TimelineAsset.Load(declared);
-            var mirrorAsset = TimelineAsset.Load(mirror);
+            var declaredAsset = TimelineAsset.LoadAsset(declared);
+            var mirrorAsset = TimelineAsset.LoadAsset(mirror);
             try
             {
                 using var declaredLanes = MeasuredLanes.Measure(declaredAsset);
@@ -296,8 +296,8 @@ public class WindowConstantTests
     [Fact]
     public void LyingDeclarationFillsWindowFirstTickDeterministically()
     {
-        var lying = TimelineAsset.Load(Bake<LyingTrack, LyingClip>(new LyingTrack(1f), 12, false, (2, 10)));
-        var honest = TimelineAsset.Load(Bake<TickTrack, TickClip>(new TickTrack(1f), 12, false, (2, 10)));
+        var lying = TimelineAsset.LoadAsset(Bake<LyingTrack, LyingClip>(new LyingTrack(1f), 12, false, (2, 10)));
+        var honest = TimelineAsset.LoadAsset(Bake<TickTrack, TickClip>(new TickTrack(1f), 12, false, (2, 10)));
         try
         {
             using var lyingLanes = MeasuredLanes.Measure(lying);
@@ -330,8 +330,8 @@ public class WindowConstantTests
             .Clip(0, 0u, 8u, new TChainClip(16777216f))
             .Looping()
             .Bake();
-        var chain = TimelineAsset.Load(chainBake);
-        var mirror = TimelineAsset.Load(mirrorBake);
+        var chain = TimelineAsset.LoadAsset(chainBake);
+        var mirror = TimelineAsset.LoadAsset(mirrorBake);
         try
         {
             using var chainLanes = MeasuredLanes.Measure(chain);
@@ -353,8 +353,8 @@ public class WindowConstantTests
     {
         var declared = Bake<ConstTrack, ConstClip>(new ConstTrack(1f), 0, false);
         var mirror = Bake<MirrorTrack, MirrorClip>(new MirrorTrack(1f), 0, false);
-        var declaredAsset = TimelineAsset.Load(declared);
-        var mirrorAsset = TimelineAsset.Load(mirror);
+        var declaredAsset = TimelineAsset.LoadAsset(declared);
+        var mirrorAsset = TimelineAsset.LoadAsset(mirror);
         try
         {
             using var declaredLanes = MeasuredLanes.Measure(declaredAsset);

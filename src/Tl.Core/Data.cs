@@ -87,14 +87,6 @@ public readonly unsafe struct TimelineRef
 	internal nint Address => (nint)_p;
 	internal uint PairCount => _p == null ? 0 : Header->PairCount;
 
-	internal static byte* Load(ReadOnlySpan<byte> baked)
-	{
-		Validate(baked);
-		var block = (byte*)NativeMemory.AlignedAlloc((nuint)((baked.Length + 63) & ~63), 64);
-		baked.CopyTo(new(block, baked.Length));
-		return block;
-	}
-
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	internal bool Advance(bool reverse, ushort pos, out ushort np, out ushort t, out FrameFlags f)
 	{
@@ -244,7 +236,7 @@ public readonly unsafe struct TimelineRef
 		}
 	}
 
-	static void Validate(ReadOnlySpan<byte> baked)
+	internal static void Validate(ReadOnlySpan<byte> baked)
 	{
 		void Fail(string message) => throw new ArgumentException(message);
 		if (baked.Length < 64) Fail("TLB truncated.");
@@ -305,14 +297,36 @@ public readonly unsafe struct TimelineRef
 
 public sealed unsafe class TimelineAsset : IDisposable
 {
-	nint _p;
-	TimelineAsset(nint p) => _p = p;
+	int _index;
+	long _generation;
 
-	public static TimelineAsset Load(ReadOnlySpan<byte> baked) => new((nint)TimelineRef.Load(baked));
+	TimelineAsset(ushort index, long generation)
+	{
+		_index = index;
+		_generation = generation;
+	}
 
-	public TimelineRef Reference => new((void*)_p);
+	public static ushort Load(ReadOnlySpan<byte> baked) => TimelineTable.Load(baked);
 
-	public void Dispose() { var p = Interlocked.Exchange(ref _p, 0); if (p != 0) NativeMemory.AlignedFree((void*)p); }
+	public static TimelineAsset Of(ushort index)
+	{
+		TimelineTable.Pin(index, out var generation);
+		return new TimelineAsset(index, generation);
+	}
+
+	internal static TimelineAsset LoadAsset(ReadOnlySpan<byte> baked) => Of(Load(baked));
+
+	public ushort Index => Volatile.Read(ref _index) < 0
+		? throw new InvalidOperationException("Timeline asset view is disposed; call TimelineAsset.Of on a live index.")
+		: (ushort)Volatile.Read(ref _index);
+
+	public TimelineRef Reference => Volatile.Read(ref _index) < 0 ? default : TimelineTable.Reference((ushort)Volatile.Read(ref _index));
+
+	public void Dispose()
+	{
+		var index = Interlocked.Exchange(ref _index, -1);
+		if (index >= 0) TimelineTable.Release((ushort)index, Volatile.Read(ref _generation));
+	}
 }
 
 [StructLayout(LayoutKind.Sequential)]

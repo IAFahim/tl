@@ -323,8 +323,8 @@ internal sealed class LaneCase : IDisposable
     {
         Shape = shape;
         TickPatterns.Fill(_deltas, pattern);
-        _asset = TimelineAsset.Load(Bake(shape));
-        _handles[0] = Timeline<AlphaTrack, AlphaClip>.Slot(_asset);
+        _asset = TimelineAsset.Of(TimelineAsset.Load(Bake(shape)));
+        _handles[0] = _asset.Index;
     }
 
     internal TimelineShape Shape { get; }
