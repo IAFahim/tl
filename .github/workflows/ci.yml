@@ -82,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           dotnet build samples/NuGetQuickStart/NuGetQuickStart.csproj -c Release
-          dotnet tool install --global Tl.Bake --version 1.0.0-alpha.8
+          dotnet tool install --global Tl.Bake --version 1.0.0-alpha.9
           tlb samples/NuGetQuickStart/boss.json samples/NuGetQuickStart/boss.tlb --assembly samples/NuGetQuickStart/bin/Release/net10.0/NuGetQuickStart.dll
           cd samples/NuGetQuickStart
           test "$(dotnet run -c Release --no-build)" = "flawless: health=80 position=2"

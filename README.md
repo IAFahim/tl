@@ -30,7 +30,7 @@ The packages are development prereleases on [nuget.org](https://www.nuget.org/).
 ### 1. Install
 
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.8
+dotnet add package Tl.CSharp --version 1.0.0-alpha.9
 dotnet tool install --global Tl.Bake --prerelease
 ```
 

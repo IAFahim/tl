@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageReleaseNotes>v1.0.0-alpha.8: TLB1 v2 — unique track and clip values are pooled per pair behind fixed-width ushort slot indices (smaller assets, same warm path); fused Advance entry points join Seek/Apply on the lane and set. The alpha.7 playback surface is otherwise unchanged.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.9: TLB1 v3 single-version loader (v1/v2 assets are rejected with a diagnostic). One playback API: TimelineAsset.Load returns an interned ushort timeline index; BakedLane, Bind, Slot, and the public TimelineSet are gone; the typed pair's Advance takes the index (per-index, crowd, or TimelineAsset spelling) and folds each (index, pair) lazily on first typed use. The consumer marker is renamed ITrack. New bake seam: IBake context markers, BakeRuntime installs, and the type-agnostic Timeline.Bake(id, contexts...) pass-to-all dispatch.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

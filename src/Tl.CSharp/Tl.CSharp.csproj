@@ -14,7 +14,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;ecs;burst;unity;dotnet;deterministic;baked-assets</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.0.0-alpha.8: TLB1 v2 pooled assets load through the same lane; fused Advance entry points join Seek/Apply. Re-bake assets with the new tool (v1 assets are rejected with a diagnostic).</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.9: TLB1 v3 assets only - re-bake with the new tool. TimelineAsset.Load returns the interned ushort timeline index; advance through the typed pair's Advance(index, positions, forward, effects); the consumer marker is renamed ITrack; declare IBake bakes and attach host markers with the type-agnostic Timeline.Bake(id, contexts...).</PackageReleaseNotes>
     <TlGenPackOutput Condition="'$(TlGenPackOutput)' == ''">..\Tl.Gen.CSharp\bin\$(Configuration)\net10.0\</TlGenPackOutput>
     <TlGenAnalyzerPackOutput Condition="'$(TlGenAnalyzerPackOutput)' == ''">..\Tl.Gen.CSharp\bin\$(Configuration)\netstandard2.0\</TlGenAnalyzerPackOutput>
   </PropertyGroup>

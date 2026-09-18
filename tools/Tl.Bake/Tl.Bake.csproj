@@ -22,7 +22,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;baker;tlb;cli;dotnet-tool;deterministic</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.0.0-alpha.8: the command is renamed tlbake to tlb and emits TLB1 v2 assets with per-pair value pools (--report gains pool/unique counts). Update the tool and re-bake; assets baked by earlier alphas are rejected with a diagnostic.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.9: emits TLB1 v3 assets (24-byte slot rows, trackIndex at byte 6) and validates that JSON input is UTF-8 with a located diagnostic. Assets baked by earlier alphas are rejected at load; update the tool and re-bake.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
