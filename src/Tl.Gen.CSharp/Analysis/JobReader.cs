@@ -22,7 +22,7 @@ public static class JobReader
                 .FirstOrDefault(static node => node.ToString().Contains("ITrack<", StringComparison.Ordinal));
             if (site is not null)
                 Error(errors, site, "TLGEN60", "The exact Tl job declaration contracts could not be resolved.");
-            return new([], errors);
+            return new([], errors, []);
         }
         var entries = Entries(compilation).OrderBy(static entry => Name(entry.Type), StringComparer.Ordinal).ToArray();
         var consumers = new List<JobConsumer>();
@@ -57,7 +57,8 @@ public static class JobReader
                 if (pairs.Add(PairKey(consumer.Job.TypeName, consumer.TrackTypeName, consumer.ClipTypeName)))
                     consumers.Add(consumer);
         }
-        return new(consumers, errors);
+        var bakes = BakeReader.Read(compilation, consumers, errors);
+        return new(consumers, errors, bakes);
     }
 
     private sealed class Reader(CSharpCompilation compilation, List<DeclarationDiagnostic> errors)

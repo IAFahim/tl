@@ -1,3 +1,5 @@
+type Tl.Gen.CSharp.Analysis.BakeReader
+  Method System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.BakeDeclaration] Read(Microsoft.CodeAnalysis.CSharp.CSharpCompilation, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobConsumer], System.Collections.Generic.List`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic])
 type Tl.Gen.CSharp.Analysis.DeclarationDiagnostic
   Method Tl.Gen.CSharp.Analysis.DeclarationDiagnostic <Clone>$()
   Property System.String Code
@@ -14,6 +16,17 @@ type Tl.Gen.CSharp.Analysis.JobReader
   Method Tl.Gen.CSharp.Model.JobReadResult Read(Microsoft.CodeAnalysis.CSharp.CSharpCompilation)
 type Tl.Gen.CSharp.GeneratorCli
   Method Int32 Main(System.String[])
+type Tl.Gen.CSharp.Model.BakeDeclaration
+  Method Tl.Gen.CSharp.Model.BakeDeclaration <Clone>$()
+  Property System.String ConsumerTypeName
+  Property System.Collections.Generic.IReadOnlyList`1[System.String] ContextTypeNames
+  Method Void Deconstruct(System.String ByRef, System.String ByRef, System.Collections.Generic.IReadOnlyList`1[System.String] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobConsumer] ByRef)
+  Method Boolean Equals(System.Object)
+  Method Boolean Equals(Tl.Gen.CSharp.Model.BakeDeclaration)
+  Method Int32 GetHashCode()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobConsumer] Pairs
+  Method System.String ToString()
+  Property System.String TypeName
 type Tl.Gen.CSharp.Model.JobConsumer
   Method Tl.Gen.CSharp.Model.JobConsumer <Clone>$()
   Property System.String ClipTypeName
@@ -35,8 +48,9 @@ type Tl.Gen.CSharp.Model.JobDefinition
   Property System.String TypeName
 type Tl.Gen.CSharp.Model.JobReadResult
   Method Tl.Gen.CSharp.Model.JobReadResult <Clone>$()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.BakeDeclaration] Bakes
   Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobConsumer] Consumers
-  Method Void Deconstruct(System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobConsumer] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic] ByRef)
+  Method Void Deconstruct(System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.JobConsumer] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.BakeDeclaration] ByRef)
   Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic] Diagnostics
   Method Boolean Equals(System.Object)
   Method Boolean Equals(Tl.Gen.CSharp.Model.JobReadResult)

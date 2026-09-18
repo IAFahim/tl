@@ -49,6 +49,22 @@ public sealed class ConsumerPlaybackTests
         Assert.Equal("25#40#25", result);
     }
 
+    [Fact]
+    public void DiscoveredBakesInstallDispatchEntriesIntoTheRuntimeTable()
+    {
+        var result = Driver("Bakes");
+
+        Assert.Equal("2;1|Entity;2|World+Entity#1;1|World#0", result);
+    }
+
+    [Fact]
+    public void ManualInstallsAppendInCallOrderAndBoundsAreLoud()
+    {
+        var result = Driver("ManualBake");
+
+        Assert.Equal("2;1|World;1|Entity#ArgumentOutOfRangeException", result);
+    }
+
     private static string Driver(string method)
     {
         var value = Fixture.Value.GetType("Domain.Playback")!.GetMethod(method)!.Invoke(null, null);
@@ -105,6 +121,10 @@ public sealed class ConsumerPlaybackTests
 
         public struct Resistance { public float Scale; }
 
+        public sealed class World { public readonly List<string> Marks = []; }
+
+        public readonly record struct Entity(int Id);
+
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
             public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref float health)
@@ -114,13 +134,25 @@ public sealed class ConsumerPlaybackTests
             }
         }
 
-        public readonly struct ApplyHeal : ITrack<HealTrack, HealClip>
+        public readonly struct ApplyDamageNarrowBake : IBake<ApplyDamage, Entity>
+        {
+            public static void Bake(ApplyDamage consumer, Entity entity) { }
+        }
+
+        public readonly struct ApplyDamageWideBake : IBake<ApplyDamage, World, Entity>
+        {
+            public static void Bake(ApplyDamage consumer, World world, Entity entity) { world.Marks.Add("damage:" + entity.Id.ToString(CultureInfo.InvariantCulture)); }
+        }
+
+        public readonly struct ApplyHeal : ITrack<HealTrack, HealClip>, IBake<ApplyHeal, World>
         {
             public static void Execute(in Frame<HealTrack, HealClip> frame, ref float health)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 health += frame.IsBackward ? -amount : amount;
             }
+
+            public static void Bake(ApplyHeal consumer, World world) { world.Marks.Add("heal"); }
         }
 
         public readonly record struct BuffClip(float Amount);
@@ -546,6 +578,52 @@ public sealed class ConsumerPlaybackTests
                 var third = F(armor[0]);
                 return first + "#" + second + "#" + third;
             }
+
+            public static string Bakes()
+                => Dump<DamageTrack, DamageClip>() + "#" + Dump<HealTrack, HealClip>() + "#" + Dump<BuffTrack, BuffClip>();
+
+            public static unsafe string ManualBake()
+            {
+                BakeRuntime<GuardTrack, GuardClip>.Bake(&ManualGuardBakeA, TypeKey<World>.Value);
+                BakeRuntime<GuardTrack, GuardClip>.Bake(&ManualGuardBakeB, TypeKey<Entity>.Value);
+                var order = Dump<GuardTrack, GuardClip>();
+                string loud;
+                try
+                {
+                    _ = BakeRuntime<GuardTrack, GuardClip>.BakeContextCount(99);
+                    loud = "silent";
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    loud = "ArgumentOutOfRangeException";
+                }
+                return order + "#" + loud;
+            }
+
+            static void ManualGuardBakeA(object[] __tlArgs) { }
+
+            static void ManualGuardBakeB(object[] __tlArgs) { }
+
+            static string Dump<TTrack, TClip>()
+                where TTrack : unmanaged, IBlend<TClip>
+                where TClip : unmanaged
+            {
+                var parts = new List<string> { BakeRuntime<TTrack, TClip>.BakeCount.ToString(CultureInfo.InvariantCulture) };
+                for (var index = 0; index < BakeRuntime<TTrack, TClip>.BakeCount; index++)
+                {
+                    var contexts = BakeRuntime<TTrack, TClip>.BakeContextCount(index);
+                    var names = new List<string>();
+                    for (var context = 0; context < contexts; context++)
+                        names.Add(Key(BakeRuntime<TTrack, TClip>.BakeContextKey(index, context)));
+                    parts.Add(contexts.ToString(CultureInfo.InvariantCulture) + "|" + string.Join("+", names));
+                }
+                return string.Join(";", parts);
+            }
+
+            static string Key(ulong value)
+                => value == TypeKey<World>.Value ? "World"
+                : value == TypeKey<Entity>.Value ? "Entity"
+                : value.ToString("X16", CultureInfo.InvariantCulture);
         }
         """;
 }

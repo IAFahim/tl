@@ -1,3 +1,12 @@
+type Tl.BakeRuntime`2
+  Method Void Bake(System.Void(System.Object[]))
+  Method Void Bake(System.Void(System.Object[]), UInt64)
+  Method Void Bake(System.Void(System.Object[]), UInt64, UInt64)
+  Method Void Bake(System.Void(System.Object[]), UInt64, UInt64, UInt64)
+  Method Void Bake(System.Void(System.Object[]), UInt64, UInt64, UInt64, UInt64)
+  Method Int32 BakeContextCount(Int32)
+  Method UInt64 BakeContextKey(Int32, Int32)
+  Property Int32 BakeCount
 type Tl.FrameFlags
   Field Tl.FrameFlags ClipEnd
   Field Tl.FrameFlags ClipStart
