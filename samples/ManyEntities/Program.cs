@@ -4,16 +4,6 @@ using Tl.Gen.Tlb;
 
 namespace ManyEntities;
 
-// Many entities, one shared timeline asset, every entity at its own clock position.
-// Both sides run the SAME workload and must produce identical checksums:
-//
-//   lane  the shipped typed lane: Timeline<T>.Seek(positions, forward).Apply(values)
-//         over effect tables measured once per asset at slot resolve
-//   hand  the per-asset SoA pattern from docs/playback-tables-design.md: precompute the
-//         frame value per position once, then sweep flat arrays by hand
-//
-// The hand side is the ceiling; the lane is the shipped path. Receipts live on the issue.
-
 internal static class Program
 {
     const int N = 200_000;
@@ -81,8 +71,6 @@ internal static class Program
         return parity;
     }
 
-    // ---------------- lane 1: sweep — staggered clocks on a shared 64-tick loop ----------------
-
     static bool Sweep(float[] values)
     {
         using var asset = TimelineAsset.Of(TimelineAsset.Load(Bake("move64.json")));
@@ -127,8 +115,6 @@ internal static class Program
         return Report("sweep", lMs, hMs, parity, N * (double)Ticks);
     }
 
-    // ---------------- lane 2: pulse — duration-1 looping, constant frame ----------------
-
     static bool Pulse(float value)
     {
         using var asset = TimelineAsset.Of(TimelineAsset.Load(Bake("pulse.json")));
@@ -165,8 +151,6 @@ internal static class Program
         var (lMs, hMs, parity) = Measure(Reset, LanePass, HandPass);
         return Report("pulse", lMs, hMs, parity, N * (double)Ticks);
     }
-
-    // ---------------- lane 3: churn — 20-tick windows spawning and retiring every pass (parry-window pattern) ----------------
 
     static bool Churn(float[] values)
     {

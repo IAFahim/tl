@@ -8,8 +8,8 @@
     <base href="./" />
     <link rel="stylesheet" href="../css/app.css" />
     <style>
-        iframe { width: 100%; height: 560px; border: 0; border-radius: 8px; }
-        pre { background: #0d1117; border: 1px solid var(--edge); border-radius: 6px; padding: 10px; font-size: 12px; overflow-x: auto; white-space: pre; }
+        iframe { width: 100%; height: clamp(480px, 78vh, 760px); border: 0; border-radius: 8px; }
+        pre { background: #0d1117; border: 1px solid var(--edge); border-radius: 6px; padding: 10px; font-size: 13px; overflow-x: auto; white-space: pre; }
     </style>
 </head>
 
@@ -45,7 +45,7 @@
         <div class="panel">
             <h2>Copyable embed</h2>
             <pre>&lt;iframe src="https://iafahim.github.io/tl/?crowd=96&amp;amp;pattern=uniform&amp;amp;loop=true&amp;amp;dir=fwd&amp;amp;play=true"
-        style="width:100%;height:560px;border:0" title="tl playground"&gt;&lt;/iframe&gt;</pre>
+        style="width:100%;height:720px;border:0" title="tl playground"&gt;&lt;/iframe&gt;</pre>
             <p class="note">
                 The app reads the query parameters on load, writes panel changes back to its URL, and posts
                 <code>{type:'setHeight',height}</code> to the parent after every render.
