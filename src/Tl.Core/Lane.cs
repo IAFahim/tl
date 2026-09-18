@@ -124,9 +124,9 @@ public ref struct TimelineLane<T>
                 if (blockEnd > i)
                 {
                     if (forward)
-                        GatherForward(positions, effects, i, blockEnd);
+                        LaneOps.GatherForward(LaneAccelerator<T>.ForwardEffects, T.Duration, true, positions, effects, i, blockEnd);
                     else
-                        GatherBackward(positions, effects, i, blockEnd);
+                        LaneOps.GatherBackward(LaneAccelerator<T>.BackwardByPosition, T.Duration, true, positions, effects, i, blockEnd);
                     i = blockEnd;
                     continue;
                 }
@@ -181,79 +181,6 @@ public ref struct TimelineLane<T>
                 LaneOps.Fill(positions, i, end, (ushort)next);
                 i = end;
             }
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void GatherForward(Span<ushort> positions, Span<float> effects, int i, int limit)
-    {
-        var duration = T.Duration;
-        var eff = LaneAccelerator<T>.ForwardEffects;
-        var last = (ushort)(duration - 1);
-        var durationVector = Vector256.Create(duration);
-        var durationWide = Vector256.Create((uint)duration);
-        var lastVector = Vector256.Create(last);
-        var zero = Vector256<ushort>.Zero;
-        var one = Vector256.Create((ushort)1);
-        ref var p = ref MemoryMarshal.GetReference(positions);
-        ref var e = ref MemoryMarshal.GetReference(effects);
-        while (i < limit)
-        {
-            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
-            var wrapMask = Vector256.Equals(pos, lastVector);
-            var skipMask = Vector256.GreaterThan(pos, lastVector);
-            var next = pos + one;
-            next = Vector256.ConditionalSelect(wrapMask, zero, next);
-            next = Vector256.ConditionalSelect(skipMask, pos, next);
-            next.StoreUnsafe(ref p, (nuint)i);
-
-            var clamped = Vector256.Min(pos, durationVector);
-            (var wideLo, var wideHi) = Vector256.Widen(clamped);
-            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
-            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
-            var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
-            var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
-            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
-            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
-            i += 16;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void GatherBackward(Span<ushort> positions, Span<float> effects, int i, int limit)
-    {
-        var duration = T.Duration;
-        var eff = LaneAccelerator<T>.BackwardByPosition;
-        var durationVector = Vector256.Create(duration);
-        var durationWide = Vector256.Create((uint)duration);
-        var lastVector = Vector256.Create((ushort)(duration - 1));
-        var zero = Vector256<ushort>.Zero;
-        var step = Vector256.Create((ushort)0xFFFF);
-        ref var p = ref MemoryMarshal.GetReference(positions);
-        ref var e = ref MemoryMarshal.GetReference(effects);
-        while (i < limit)
-        {
-            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
-            var wrapMask = Vector256.Equals(pos, zero);
-            var skipMask = Vector256.GreaterThan(pos, durationVector) | Vector256.Equals(pos, durationVector);
-            var next = pos + step;
-            next = Vector256.ConditionalSelect(wrapMask, lastVector, next);
-            next = Vector256.ConditionalSelect(skipMask, pos, next);
-            next.StoreUnsafe(ref p, (nuint)i);
-
-            var clamped = Vector256.Min(pos, durationVector);
-            (var wideLo, var wideHi) = Vector256.Widen(clamped);
-            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
-            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
-            var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
-            var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
-            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
-            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
-            i += 16;
         }
     }
 
@@ -368,6 +295,93 @@ internal static unsafe class LaneOps
             for (; i < limit; i += Vector<ushort>.Count) vector.StoreUnsafe(ref origin, (nuint)(start + i));
         }
         for (; i < length; i++) values[start + i] = value;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    internal static unsafe void GatherForward(float* eff, ushort duration, bool wrap, Span<ushort> positions, Span<float> effects, int i, int limit)
+    {
+        var last = (ushort)(duration - 1);
+        var durationVector = Vector256.Create(duration);
+        var durationWide = Vector256.Create((uint)duration);
+        var lastVector = Vector256.Create(last);
+        var zero = Vector256<ushort>.Zero;
+        var one = Vector256.Create((ushort)1);
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        while (i < limit)
+        {
+            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+            var skipMask = Vector256.GreaterThan(pos, lastVector);
+            var next = pos + one;
+            if (wrap) next = Vector256.ConditionalSelect(Vector256.Equals(pos, lastVector), zero, next);
+            next = Vector256.ConditionalSelect(skipMask, pos, next);
+            next.StoreUnsafe(ref p, (nuint)i);
+
+            var clamped = Vector256.Min(pos, durationVector);
+            (var wideLo, var wideHi) = Vector256.Widen(clamped);
+            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
+            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
+            var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
+            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+            i += 16;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    internal static unsafe void GatherBackward(float* eff, ushort duration, bool wrap, Span<ushort> positions, Span<float> effects, int i, int limit)
+    {
+        var last = (ushort)(duration - 1);
+        var durationVector = Vector256.Create(duration);
+        var durationWide = Vector256.Create((uint)duration);
+        var lastVector = Vector256.Create(last);
+        var zero = Vector256<ushort>.Zero;
+        var zeroUint = Vector256<uint>.Zero;
+        var step = Vector256.Create((ushort)0xFFFF);
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        while (i < limit)
+        {
+            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+            var next = pos + step;
+            Vector256<ushort> skipMask;
+            if (wrap)
+            {
+                skipMask = Vector256.GreaterThan(pos, durationVector) | Vector256.Equals(pos, durationVector);
+                next = Vector256.ConditionalSelect(Vector256.Equals(pos, zero), lastVector, next);
+            }
+            else
+            {
+                skipMask = Vector256.Equals(pos, zero) | Vector256.GreaterThan(pos, durationVector);
+            }
+            next = Vector256.ConditionalSelect(skipMask, pos, next);
+            next.StoreUnsafe(ref p, (nuint)i);
+
+            var clamped = Vector256.Min(pos, durationVector);
+            (var wideLo, var wideHi) = Vector256.Widen(clamped);
+            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
+            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            Vector256<float> skipLo, skipHi;
+            if (wrap)
+            {
+                skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
+                skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
+            }
+            else
+            {
+                (var posLo, var posHi) = Vector256.Widen(pos);
+                skipLo = (Vector256.Equals(posLo, zeroUint) | Vector256.GreaterThan(posLo, durationWide)).AsSingle();
+                skipHi = (Vector256.Equals(posHi, zeroUint) | Vector256.GreaterThan(posHi, durationWide)).AsSingle();
+            }
+            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+            i += 16;
+        }
     }
 }
 
