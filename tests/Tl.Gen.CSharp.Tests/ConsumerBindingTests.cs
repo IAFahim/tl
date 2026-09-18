@@ -238,9 +238,10 @@ public sealed class ConsumerBindingTests
             Assert.Equal(0, first.exit);
             Assert.Contains("cache miss", first.output);
             var report = File.ReadAllText(Path.Combine(directory, CompileGenerationCache.ReportFileName));
-            Assert.Contains("format\t3", report);
+            Assert.Contains("format\t4", report);
             Assert.Contains("backend\tcsharp", report);
             Assert.Contains("consumers\t2", report);
+            Assert.Contains("bakes\t0", report);
             Assert.Contains("generated-source-files\t1", report);
             Assert.Contains("artifact\tTlConsumerBinding.g.cs\tutf8-bytes=", report);
 
@@ -310,8 +311,9 @@ public sealed class ConsumerBindingTests
                 .ToDictionary(static path => path, path => File.ReadAllText(Path.Combine(directory, path)), StringComparer.Ordinal);
             Assert.Equal(cli, analyzer);
             var report = File.ReadAllText(Path.Combine(directory, CompileGenerationCache.ReportFileName));
-            Assert.Contains("format\t3", report);
+            Assert.Contains("format\t4", report);
             Assert.Contains("consumers\t2", report);
+            Assert.Contains("bakes\t0", report);
             Assert.Contains("generated-source-utf8-bytes", report);
         }
         finally

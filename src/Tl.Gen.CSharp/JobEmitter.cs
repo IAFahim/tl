@@ -8,9 +8,11 @@ internal static class JobEmitter
     internal static string Normalize(string content) => content.Replace("\r\n", "\n").Replace('\r', '\n');
 
     internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model)
-        => model.Consumers.Count == 0 ? [] : [new CompileArtifact("TlConsumerBinding.g.cs", Consumers(model.Consumers))];
+        => model.Consumers.Count == 0 && model.Bakes.Count == 0 ? [] : [new CompileArtifact("TlConsumerBinding.g.cs", Consumers(model.Consumers, model.Bakes))];
 
-    internal static string Consumers(IReadOnlyList<JobConsumer> consumers)
+    internal static string Consumers(IReadOnlyList<JobConsumer> consumers) => Consumers(consumers, []);
+
+    internal static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes)
     {
         var names = new HashSet<string>();
         var items = new List<(string Name, JobConsumer Consumer)>();
@@ -19,6 +21,14 @@ internal static class JobEmitter
             var name = consumer.Job.TypeName.Split('<')[0].Split('.', ':').Last();
             while (!names.Add(name)) name += "_";
             items.Add((name, consumer));
+        }
+        var bakeNames = new HashSet<string>();
+        var bakeItems = new List<(string Name, BakeDeclaration Bake)>();
+        foreach (var bake in bakes)
+        {
+            var name = bake.TypeName.Split('<')[0].Split('.', ':').Last();
+            while (!bakeNames.Add(name)) name += "_";
+            bakeItems.Add((name, bake));
         }
         var writer = new StringBuilder();
         void W(string text) => Line(writer, text);
@@ -29,6 +39,9 @@ internal static class JobEmitter
         W("{");
         foreach (var (name, consumer) in items)
             W($"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>.Consume(&Execute_{name}, &ExecuteRange_{name}, &Bind_{name});");
+        foreach (var (name, bake) in bakeItems)
+            foreach (var pair in bake.Pairs)
+                W($"global::Tl.BakeRuntime<{pair.TrackTypeName}, {pair.ClipTypeName}>.Bake(&Bake_{name}{ContextArguments(bake)});");
         W("}");
         foreach (var (name, consumer) in items)
         {
@@ -61,10 +74,23 @@ internal static class JobEmitter
             }
             W("}");
         }
+        foreach (var (name, bake) in bakeItems)
+        {
+            W($"private static void Bake_{name}(object[] __tlArgs)");
+            W("{");
+            W($"{bake.TypeName}.Bake(default({bake.ConsumerTypeName}){InvokeArguments(bake)});");
+            W("}");
+        }
         W("private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }");
         W("}");
         return writer.ToString();
     }
+
+    private static string ContextArguments(BakeDeclaration bake)
+        => string.Concat(bake.ContextTypeNames.Select(context => $", global::Tl.TypeKey<{context}>.Value"));
+
+    private static string InvokeArguments(BakeDeclaration bake)
+        => string.Concat(bake.ContextTypeNames.Select((context, index) => $", ({context})__tlArgs[{index}]"));
 
     private static string Arguments(IEnumerable<TimelineSlot> slots, string suffix = "")
         => string.Concat(slots.Select(slot => $", {Mode(slot)} @{slot.Name}{suffix}"));
