@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Mixed/Mixed.csproj" />
+    <Project Path="samples/Showcase/Showcase.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Tl.Core.Tests/Tl.Core.Tests.csproj" />
