@@ -3,10 +3,10 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Tl;
 
-using var asset = TimelineAsset.Load(new PackageBaker()
+using var asset = TimelineAsset.Of(TimelineAsset.Load(new PackageBaker()
     .Track<PackageTrack, PackageClip>(new PackageTrack())
     .Clip(0, 0u, 4u, new PackageClip(7))
-    .Bake());
+    .Bake()));
 Timeline<PackageTrack, PackageClip>.Slot(asset);
 var positions = new ushort[1];
 var values = new float[1];

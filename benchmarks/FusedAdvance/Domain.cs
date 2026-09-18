@@ -323,17 +323,17 @@ public static unsafe class Host
 {
     public const int Duration = 1024;
 
-    public static readonly TimelineAsset LoopingAsset = TimelineAsset.Load(new Baker()
+    public static readonly TimelineAsset LoopingAsset = TimelineAsset.Of(TimelineAsset.Load(new Baker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
         .Clip(0, 0, 600, new LaneClip(1.25f))
         .Clip(0, 600, 1024, new LaneClip(-0.5f))
         .Looping()
-        .Bake());
+        .Bake()));
 
-    public static readonly TimelineAsset FiniteAsset = TimelineAsset.Load(new Baker()
+    public static readonly TimelineAsset FiniteAsset = TimelineAsset.Of(TimelineAsset.Load(new Baker()
         .Track<EdgeTrack, EdgeClip>(new EdgeTrack(2f))
         .Clip(0, 0, 1024, new EdgeClip(0.75f))
-        .Bake());
+        .Bake()));
 
     [ModuleInitializer]
     internal static void Install()

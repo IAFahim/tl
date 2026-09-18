@@ -458,14 +458,13 @@ public sealed class ConsumerPlaybackTests
 
             public static string Blend()
             {
-                using var asset = TimelineAsset.Load(new Baker()
+                using var asset = TimelineAsset.Of(TimelineAsset.Load(new Baker()
                     .Track<DamageTrack, DamageClip>(new DamageTrack(4f))
                     .Clip(0, 0u, 2u, new DamageClip(8f))
                     .Clip(0, 2u, 4u, new DamageClip(4f))
                     .Clip(0, 6u, 8u, new DamageClip(8f))
                     .Clip(0, 7u, 8u, new DamageClip(0f))
-                    .Bake());
-                Timeline<DamageTrack, DamageClip>.Slot(asset);
+                    .Bake()));
                 var positions = new ushort[] { 0 };
                 var health = new float[] { 1000f };
                 var forward = new List<string>();
@@ -485,16 +484,14 @@ public sealed class ConsumerPlaybackTests
 
             public static string Rows()
             {
-                using var damage = TimelineAsset.Load(new Baker()
+                using var damage = TimelineAsset.Of(TimelineAsset.Load(new Baker()
                     .Track<DamageTrack, DamageClip>(new DamageTrack(4f))
                     .Clip(0, 0u, 2u, new DamageClip(8f))
-                    .Bake());
-                using var heal = TimelineAsset.Load(new Baker()
+                    .Bake()));
+                using var heal = TimelineAsset.Of(TimelineAsset.Load(new Baker()
                     .Track<HealTrack, HealClip>(new HealTrack(1f))
                     .Clip(0, 0u, 2u, new HealClip(8f))
-                    .Bake());
-                Timeline<DamageTrack, DamageClip>.Slot(damage);
-                Timeline<HealTrack, HealClip>.Slot(heal);
+                    .Bake()));
                 var damagePositions = new ushort[] { 0, 0 };
                 var damageHealth = new float[] { 1000f, 250f };
                 var healPositions = new ushort[] { 0 };
@@ -516,15 +513,14 @@ public sealed class ConsumerPlaybackTests
 
             public static string Missing()
             {
-                using var guard = TimelineAsset.Load(new Baker()
+                using var guard = TimelineAsset.Of(TimelineAsset.Load(new Baker()
                     .Track<GuardTrack, GuardClip>(new GuardTrack(2f))
                     .Clip(0, 0u, 2u, new GuardClip(8f))
-                    .Bake());
+                    .Bake()));
                 var positions = new ushort[] { 0 };
                 var health = new float[] { 400f };
                 try
                 {
-                    Timeline<GuardTrack, GuardClip>.Slot(guard);
                     Timeline<GuardTrack, GuardClip>.Advance(guard, positions, true, health);
                 }
                 catch (ArgumentException exception)
@@ -536,11 +532,10 @@ public sealed class ConsumerPlaybackTests
 
             public static string Standalone()
             {
-                using var buff = TimelineAsset.Load(new Baker()
+                using var buff = TimelineAsset.Of(TimelineAsset.Load(new Baker()
                     .Track<BuffTrack, BuffClip>(new BuffTrack(3f))
                     .Clip(0, 0u, 10u, new BuffClip(5f))
-                    .Bake());
-                Timeline<BuffTrack, BuffClip>.Slot(buff);
+                    .Bake()));
                 var positions = new ushort[] { 0 };
                 var armor = new float[] { 10f };
                 Timeline<BuffTrack, BuffClip>.Advance(buff, positions, true, armor);

@@ -691,7 +691,7 @@ public static class TimelineBaker
 
         try
         {
-            using var asset = TimelineAsset.Load(bytes);
+            _ = TimelineAsset.Load(bytes);
         }
         catch (ArgumentException ex)
         {

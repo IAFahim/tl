@@ -186,7 +186,7 @@ public static unsafe class Setup
         var inverse = lane.GetMethod("InverseEffect", BindingFlags.Public | BindingFlags.Static) ?? throw new InvalidOperationException("BakedLane.InverseEffect not found");
         var select = typeof(TimelineMovement).GetMethod("Select", BindingFlags.Public | BindingFlags.Static) ?? throw new InvalidOperationException("TimelineMovement.Select not found");
         var durationTick = (ushort)duration;
-        using var asset = TimelineAsset.Load(tlb);
+        using var asset = TimelineAsset.LoadAsset(tlb);
         bind.Invoke(null, [asset]);
         for (var t = 0; t < ticks; t++)
         {

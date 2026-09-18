@@ -73,7 +73,7 @@ public static unsafe class Recording
     public static List<(char Pair, uint Tick, float Value)> FramesOf(byte[] baked)
     {
         var frames = new List<(char, uint, float)>();
-        using var asset = TimelineAsset.Load(baked);
+        using var asset = TimelineAsset.LoadAsset(baked);
         for (var position = 0; position < 8; position++)
         {
             var component = new TimelineComponent(asset.Reference) { Position = (ushort)position };

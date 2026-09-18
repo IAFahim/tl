@@ -85,7 +85,7 @@ internal static class Program
                 writer.Append("B re ").Append(OneLine(ex.Message)).Append('\n');
                 continue;
             }
-            using var asset = TimelineAsset.Load(bytes);
+            using var asset = TimelineAsset.LoadAsset(bytes);
             for (var pair = 0; pair < Pairs.Count; pair++)
                 AppendLane(ref writer, asset, pair);
             var component = new TimelineComponent(asset.Reference);

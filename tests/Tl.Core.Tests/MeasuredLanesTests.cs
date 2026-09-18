@@ -47,8 +47,8 @@ public class MeasuredLanesTests
     [Fact]
     public void SharedMeasureReproducesAddBindBitExact()
     {
-        var looping = TimelineAsset.Load(LoopingBake());
-        var finite = TimelineAsset.Load(FiniteBake());
+        var looping = TimelineAsset.LoadAsset(LoopingBake());
+        var finite = TimelineAsset.LoadAsset(FiniteBake());
         try
         {
             using var directLooping = new TimelineSet<LaneTrack, LaneClip>();
@@ -79,7 +79,7 @@ public class MeasuredLanesTests
     [Fact]
     public void SharedMeasureServesIndependentSets()
     {
-        var asset = TimelineAsset.Load(LoopingBake());
+        var asset = TimelineAsset.LoadAsset(LoopingBake());
         try
         {
             using var first = new TimelineSet<LaneTrack, LaneClip>();
@@ -102,7 +102,7 @@ public class MeasuredLanesTests
     [Fact]
     public void SharedMeasureServesEveryPairOfTheAsset()
     {
-        var asset = TimelineAsset.Load(DualPairBake());
+        var asset = TimelineAsset.LoadAsset(DualPairBake());
         try
         {
             using var laneDirectSet = new TimelineSet<LaneTrack, LaneClip>();
@@ -126,8 +126,8 @@ public class MeasuredLanesTests
     [Fact]
     public void ForeignMeasuredLanesAreRejected()
     {
-        var alpha = TimelineAsset.Load(FiniteBake());
-        var beta = TimelineAsset.Load(FiniteVariantBake());
+        var alpha = TimelineAsset.LoadAsset(FiniteBake());
+        var beta = TimelineAsset.LoadAsset(FiniteVariantBake());
         try
         {
             using var measured = MeasuredLanes.Measure(alpha);
@@ -144,8 +144,8 @@ public class MeasuredLanesTests
     [Fact]
     public void SharedAddKeepsPairValidation()
     {
-        var dual = TimelineAsset.Load(DualPairBake());
-        var gamma = TimelineAsset.Load(GammaBake());
+        var dual = TimelineAsset.LoadAsset(DualPairBake());
+        var gamma = TimelineAsset.LoadAsset(GammaBake());
         try
         {
             using var measured = MeasuredLanes.Measure(gamma);
@@ -166,7 +166,7 @@ public class MeasuredLanesTests
     [Fact]
     public void DisposedMeasuredLanesAreRejected()
     {
-        var asset = TimelineAsset.Load(FiniteBake());
+        var asset = TimelineAsset.LoadAsset(FiniteBake());
         try
         {
             var measured = MeasuredLanes.Measure(asset);
@@ -183,7 +183,7 @@ public class MeasuredLanesTests
     [Fact]
     public void UnloadedAssetsAreRejected()
     {
-        var asset = TimelineAsset.Load(FiniteBake());
+        var asset = TimelineAsset.LoadAsset(FiniteBake());
         asset.Dispose();
         Assert.Throws<ArgumentException>(() => MeasuredLanes.Measure(asset));
     }
@@ -191,7 +191,7 @@ public class MeasuredLanesTests
     [Fact]
     public void EmptyAssetsBindThroughSharedMeasure()
     {
-        var asset = TimelineAsset.Load(EmptyBake());
+        var asset = TimelineAsset.LoadAsset(EmptyBake());
         try
         {
             using var direct = new TimelineSet<LaneTrack, LaneClip>();

@@ -71,8 +71,8 @@ public static unsafe class Host
     }
     """;
 
-    public static readonly TimelineAsset DualBlendAsset = TimelineAsset.Load(TimelineBaker.BakeJson(DualBlendJson));
-    public static readonly TimelineAsset LaneAsset = TimelineAsset.Load(TimelineBaker.BakeJson(LaneJson));
+    public static readonly TimelineAsset DualBlendAsset = TimelineAsset.Of(TimelineAsset.Load(TimelineBaker.BakeJson(DualBlendJson)));
+    public static readonly TimelineAsset LaneAsset = TimelineAsset.Of(TimelineAsset.Load(TimelineBaker.BakeJson(LaneJson)));
 
     [ModuleInitializer]
     internal static void Install()

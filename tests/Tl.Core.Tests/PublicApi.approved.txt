@@ -57,7 +57,9 @@ type Tl.Timeline
   Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
 type Tl.TimelineAsset
   Method Void Dispose()
-  Method Tl.TimelineAsset Load(System.ReadOnlySpan`1[System.Byte])
+  Property UInt16 Index
+  Method UInt16 Load(System.ReadOnlySpan`1[System.Byte])
+  Method Tl.TimelineAsset Of(UInt16)
   Property Tl.TimelineRef Reference
 type Tl.TimelineComponent
   Field UInt16 Position

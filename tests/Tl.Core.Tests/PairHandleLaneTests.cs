@@ -77,7 +77,7 @@ public class PairHandleLaneTests
         var handles = new ushort[Assets];
         for (var variant = 0; variant < Assets; variant++)
         {
-            using var asset = TimelineAsset.Load(VariantBake(variant));
+            using var asset = TimelineAsset.LoadAsset(VariantBake(variant));
             handles[variant] = Timeline<HandleTrack, HandleClip>.Slot(asset);
         }
         return handles;
@@ -102,10 +102,10 @@ public class PairHandleLaneTests
     [Fact]
     public void SlotIsStableAcrossRepeatedResolves()
     {
-        using var asset = TimelineAsset.Load(VariantBake(2));
+        using var asset = TimelineAsset.LoadAsset(VariantBake(2));
         var first = Timeline<HandleTrack, HandleClip>.Slot(asset);
         Assert.Equal(first, Timeline<HandleTrack, HandleClip>.Slot(asset));
-        using var other = TimelineAsset.Load(VariantBake(0));
+        using var other = TimelineAsset.LoadAsset(VariantBake(0));
         var distinct = Timeline<HandleTrack, HandleClip>.Slot(other);
         Assert.NotEqual(first, distinct);
         Assert.Equal(first, Timeline<HandleTrack, HandleClip>.Slot(asset));
@@ -114,7 +114,7 @@ public class PairHandleLaneTests
     [Fact]
     public void ScalarAdvanceMatchesOneSlotCrowdAdvance()
     {
-        using var asset = TimelineAsset.Load(VariantBake(1));
+        using var asset = TimelineAsset.LoadAsset(VariantBake(1));
         var slot = Timeline<HandleTrack, HandleClip>.Slot(asset);
         var crowdHandles = new ushort[Rows];
         Array.Fill(crowdHandles, slot);
@@ -141,7 +141,7 @@ public class PairHandleLaneTests
     [Fact]
     public void WarmScalarAdvanceAllocatesZero()
     {
-        using var asset = TimelineAsset.Load(VariantBake(0));
+        using var asset = TimelineAsset.LoadAsset(VariantBake(0));
         var positions = new ushort[256];
         var effects = new float[256];
         for (var i = 0; i < 256; i++)
@@ -164,7 +164,7 @@ public class PairHandleLaneTests
     [Fact]
     public void SlotOnAssetWithoutPairThrowsExistingDiagnostic()
     {
-        using var asset = TimelineAsset.Load(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new Baker()
             .Track<IdleTrack, IdleClip>(new IdleTrack(1f))
             .Clip(0, 0, 4, new IdleClip(1f))
             .Bake());
@@ -175,7 +175,7 @@ public class PairHandleLaneTests
     [Fact]
     public void SlotWithoutRegisteredConsumerThrowsExistingDiagnostic()
     {
-        using var asset = TimelineAsset.Load(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new Baker()
             .Track<IdleTrack, IdleClip>(new IdleTrack(1f))
             .Clip(0, 0, 4, new IdleClip(1f))
             .Bake());
@@ -233,7 +233,7 @@ public class PairHandleLaneTests
             for (var variant = 0; variant < Assets; variant++)
             {
                 var set = new TimelineSet<HandleTrack, HandleClip>();
-                set.Add(TimelineAsset.Load(VariantBake(variant)));
+                set.Add(TimelineAsset.LoadAsset(VariantBake(variant)));
                 oracle._sets[variant] = set;
             }
             return oracle;
@@ -378,8 +378,8 @@ public class PairHandleLaneTests
     [Fact]
     public void MeasuredOverloadMatchesPlainSlot()
     {
-        using var plainAsset = TimelineAsset.Load(VariantBake(0));
-        using var measuredAsset = TimelineAsset.Load(VariantBake(0));
+        using var plainAsset = TimelineAsset.LoadAsset(VariantBake(0));
+        using var measuredAsset = TimelineAsset.LoadAsset(VariantBake(0));
         var plain = Timeline<HandleTrack, HandleClip>.Slot(plainAsset);
         using var measured = MeasuredLanes.Measure(measuredAsset);
         var measuredHandle = Timeline<HandleTrack, HandleClip>.Slot(measuredAsset, measured);

@@ -60,7 +60,7 @@ public unsafe class MultiPairTests
     [Fact]
     public void DualPairFrameQueriesSeeOnlyTheirOwnPair()
     {
-        using var asset = TimelineAsset.Load(DualFixture());
+        using var asset = TimelineAsset.LoadAsset(DualFixture());
         var component = new TimelineComponent(asset.Reference) { Position = 4 };
 
         var alphas = new List<(int Code, float Value, int Track)>();

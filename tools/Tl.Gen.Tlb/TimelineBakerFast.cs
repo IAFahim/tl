@@ -1871,7 +1871,7 @@ internal static class TimelineBakerFastCore
 
             try
             {
-                using var asset = TimelineAsset.Load(bytes);
+                _ = TimelineAsset.Load(bytes);
             }
             catch (ArgumentException ex)
             {

@@ -264,7 +264,7 @@ public class TotalMovementTests
     [Fact]
     public void DataAuthoredFramesExposeTheFrozenShape()
     {
-        using var asset = TimelineAsset.Load(FiniteFixture());
+        using var asset = TimelineAsset.LoadAsset(FiniteFixture());
         var component = new TimelineComponent(asset.Reference);
 
         var queried = Timeline.Query<JobTrack, JobClip>(in component);

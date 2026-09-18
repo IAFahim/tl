@@ -214,7 +214,7 @@ public class LaneTests
     [Fact]
     public void BakedLaneTablesMatchAuthoredOracle()
     {
-        using var asset = TimelineAsset.Load(LoopingBake());
+        using var asset = TimelineAsset.LoadAsset(LoopingBake());
         BakedLane<LaneTrack, LaneClip>.Bind(asset);
 
         Assert.Equal(6, (int)BakedLane<LaneTrack, LaneClip>.Duration);
@@ -231,7 +231,7 @@ public class LaneTests
     {
         const int Rows = 257;
         const int Ticks = 80;
-        using var asset = TimelineAsset.Load(LoopingBake());
+        using var asset = TimelineAsset.LoadAsset(LoopingBake());
         BakedLane<LaneTrack, LaneClip>.Bind(asset);
 
         var lanePositions = new ushort[Rows];
@@ -267,7 +267,7 @@ public class LaneTests
     public void BakedLaneCatchUpMatchesOracleDelta()
     {
         const int Rows = 64;
-        using var asset = TimelineAsset.Load(LoopingBake());
+        using var asset = TimelineAsset.LoadAsset(LoopingBake());
         BakedLane<LaneTrack, LaneClip>.Bind(asset);
 
         var lanePositions = new ushort[Rows];
@@ -290,7 +290,7 @@ public class LaneTests
     {
         const int Rows = 16;
         const int Ticks = 10;
-        using var asset = TimelineAsset.Load(FiniteBake());
+        using var asset = TimelineAsset.LoadAsset(FiniteBake());
         BakedLane<LaneTrack, LaneClip>.Bind(asset);
 
         Assert.Equal(6, (int)BakedLane<LaneTrack, LaneClip>.Duration);
@@ -322,7 +322,7 @@ public class LaneTests
     [Fact]
     public void BakedLaneFoldsEveryPairOfTheAsset()
     {
-        using var asset = TimelineAsset.Load(DualPairBake());
+        using var asset = TimelineAsset.LoadAsset(DualPairBake());
         BakedLane<LaneTrack, LaneClip>.Bind(asset);
 
         Assert.Equal(6, (int)BakedLane<LaneTrack, LaneClip>.Duration);
@@ -336,7 +336,7 @@ public class LaneTests
     [Fact]
     public void BakedLanePropagatesConsumerFaults()
     {
-        using var asset = TimelineAsset.Load(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new Baker()
             .Track<BetaTrack, BetaClip>(new BetaTrack(1))
             .Clip(0, 0, 6, new BetaClip(5))
             .Looping()
@@ -347,7 +347,7 @@ public class LaneTests
     [Fact]
     public void BakedLaneBakesTheSingleBaselineFoldForColumnFoldingConsumers()
     {
-        using var asset = TimelineAsset.Load(ImpureBake());
+        using var asset = TimelineAsset.LoadAsset(ImpureBake());
         BakedLane<ImpureTrack, ImpureClip>.Bind(asset);
 
         Assert.Equal(0f, BakedLane<ImpureTrack, ImpureClip>.Effect(0));
@@ -362,7 +362,7 @@ public class LaneTests
     [Fact]
     public void BakedLaneFoldsConsumersInRegisteredOrder()
     {
-        using var asset = TimelineAsset.Load(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new Baker()
             .Track<OrderTrack, OrderClip>(new OrderTrack(1f))
             .Clip(0, 0, 2, new OrderClip(1f))
             .Looping()
@@ -376,7 +376,7 @@ public class LaneTests
     [Fact]
     public void BakedLaneBindsDurationOneLoopingAsset()
     {
-        using var asset = TimelineAsset.Load(new Baker()
+        using var asset = TimelineAsset.LoadAsset(new Baker()
             .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
             .Clip(0, 0, 1, new LaneClip(8))
             .Looping()
@@ -400,14 +400,14 @@ public class LaneTests
     [Fact]
     public void BakedLaneRejectsAssetWithoutPair()
     {
-        using var asset = TimelineAsset.Load(FiniteBake());
+        using var asset = TimelineAsset.LoadAsset(FiniteBake());
         Assert.Throws<ArgumentException>(() => BakedLane<ImpureTrack, ImpureClip>.Bind(asset));
     }
 
     [Fact]
     public void BakedLaneRejectsPairWithoutConsumer()
     {
-        using var asset = TimelineAsset.Load(GammaBake());
+        using var asset = TimelineAsset.LoadAsset(GammaBake());
         Assert.Throws<ArgumentException>(() => BakedLane<GammaTrack, GammaClip>.Bind(asset));
     }
 
@@ -417,7 +417,7 @@ public class LaneTests
         var positions = new ushort[256];
         var effects = new float[256];
 
-        using (var asset = TimelineAsset.Load(LoopingBake()))
+        using (var asset = TimelineAsset.LoadAsset(LoopingBake()))
             BakedLane<LaneTrack, LaneClip>.Bind(asset);
 
         for (var i = 0; i < 100; i++)
@@ -485,8 +485,8 @@ public class LaneTests
     [Fact]
     public void SetAppliesEachTimelineIndependently()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
-        using var constant = TimelineAsset.Load(ConstantBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
+        using var constant = TimelineAsset.LoadAsset(ConstantBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var loopingId = timelines.Add(looping);
         var constantId = timelines.Add(constant);
@@ -508,9 +508,9 @@ public class LaneTests
     [Fact]
     public void SetMatchesStaticLaneBitExact()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
-        using var constant = TimelineAsset.Load(ConstantBake());
-        using var wide = TimelineAsset.Load(WideBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
+        using var constant = TimelineAsset.LoadAsset(ConstantBake());
+        using var wide = TimelineAsset.LoadAsset(WideBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var loopingId = timelines.Add(looping);
         var constantId = timelines.Add(constant);
@@ -593,8 +593,8 @@ public class LaneTests
     [Fact]
     public void SetHandlesSmallCrowds()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
-        using var wide = TimelineAsset.Load(WideBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
+        using var wide = TimelineAsset.LoadAsset(WideBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var loopingId = timelines.Add(looping);
         var wideId = timelines.Add(wide);
@@ -627,7 +627,7 @@ public class LaneTests
     [Fact]
     public void SetGatherModeMatchesStaticLane()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var loopingId = timelines.Add(looping);
 
@@ -656,7 +656,7 @@ public class LaneTests
     [Fact]
     public void SetGatherLeavesSkippedRowEffectsBitExact()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var loopingId = timelines.Add(looping);
 
@@ -689,7 +689,7 @@ public class LaneTests
     [Fact]
     public void SetMixedPathLeavesSkippedRowEffectsBitExact()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
         timelines.Add(looping);
@@ -724,7 +724,7 @@ public class LaneTests
     [Fact]
     public void SetFiniteGatherLeavesSkippedRowEffectsBitExact()
     {
-        using var wide = TimelineAsset.Load(WideBake());
+        using var wide = TimelineAsset.LoadAsset(WideBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var wideId = timelines.Add(wide);
 
@@ -759,7 +759,7 @@ public class LaneTests
     [Fact]
     public void SetRejectsUnboundId()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
 
@@ -771,7 +771,7 @@ public class LaneTests
     [Fact]
     public void SetThrowsAfterDispose()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
         var lane = timelines.Gather(new ushort[] { 0 });
@@ -787,7 +787,7 @@ public class LaneTests
     [Fact]
     public unsafe void SetRejectsOverlappingColumns()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
 
@@ -810,7 +810,7 @@ public class LaneTests
         for (var i = 0; i < staggered.Length; i++)
             staggered[i] = (ushort)(i % 6);
         var effects = new float[256];
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
 
@@ -895,7 +895,7 @@ public class LaneTests
     [Fact]
     public void SetAddsZeroDurationTimeline()
     {
-        using var empty = TimelineAsset.Load(EmptyBake());
+        using var empty = TimelineAsset.LoadAsset(EmptyBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var emptyId = timelines.Add(empty);
         Assert.Equal(0, (int)emptyId);
@@ -912,7 +912,7 @@ public class LaneTests
     [Fact]
     public void SetRejectsRowColumnMismatch()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
         Assert.Throws<ArgumentException>(() =>
@@ -922,7 +922,7 @@ public class LaneTests
     [Fact]
     public void SetRejectsEffectsColumnMismatch()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
         Assert.Throws<ArgumentException>(() =>
@@ -932,7 +932,7 @@ public class LaneTests
     [Fact]
     public unsafe void SetRejectsIdsOverlappingEffects()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
 
@@ -949,7 +949,7 @@ public class LaneTests
     [Fact]
     public unsafe void SetRejectsPositionsOverlappingEffects()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
 
@@ -966,7 +966,7 @@ public class LaneTests
     [Fact]
     public void SetAppliesNothingWhenGatherIsEmpty()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
         timelines.Gather(Array.Empty<ushort>()).Seek(Array.Empty<ushort>(), true).Apply(Array.Empty<float>());
@@ -979,7 +979,7 @@ public class LaneTests
         empty.Dispose();
         empty.Dispose();
 
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         var populated = new TimelineSet<LaneTrack, LaneClip>();
         populated.Add(looping);
         populated.Dispose();
@@ -989,7 +989,7 @@ public class LaneTests
     [Fact]
     public void SetSplitsRowsAcrossChunks()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var loopingId = timelines.Add(looping);
 
@@ -1015,7 +1015,7 @@ public class LaneTests
     [Fact]
     public void SetAppliesUniformRunsForward()
     {
-        using var wide = TimelineAsset.Load(WideBake());
+        using var wide = TimelineAsset.LoadAsset(WideBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var wideId = timelines.Add(wide);
         var ids = new ushort[64];
@@ -1057,7 +1057,7 @@ public class LaneTests
     [Fact]
     public void SetAppliesUniformRunsBackward()
     {
-        using var wide = TimelineAsset.Load(WideBake());
+        using var wide = TimelineAsset.LoadAsset(WideBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var wideId = timelines.Add(wide);
         var ids = new ushort[70];
@@ -1086,7 +1086,7 @@ public class LaneTests
     [Fact]
     public void SetAppliesUniformWrapRuns()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var loopingId = timelines.Add(looping);
         var ids = new ushort[48];
@@ -1120,8 +1120,8 @@ public class LaneTests
     [Fact]
     public void SetAppliesMixedColumnsForwardAndBackward()
     {
-        using var wide = TimelineAsset.Load(WideBake());
-        using var second = TimelineAsset.Load(SecondFiniteBake());
+        using var wide = TimelineAsset.LoadAsset(WideBake());
+        using var second = TimelineAsset.LoadAsset(SecondFiniteBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var wideId = timelines.Add(wide);
         var secondId = timelines.Add(second);
@@ -1158,8 +1158,8 @@ public class LaneTests
     [Fact]
     public void SetAppliesMixedBackwardBoundaryPositions()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
-        using var wide = TimelineAsset.Load(WideBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
+        using var wide = TimelineAsset.LoadAsset(WideBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var loopingId = timelines.Add(looping);
         var wideId = timelines.Add(wide);
@@ -1187,8 +1187,8 @@ public class LaneTests
     [Fact]
     public void SetAppliesMixedRunsForward()
     {
-        using var wide = TimelineAsset.Load(WideBake());
-        using var second = TimelineAsset.Load(SecondFiniteBake());
+        using var wide = TimelineAsset.LoadAsset(WideBake());
+        using var second = TimelineAsset.LoadAsset(SecondFiniteBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var wideId = timelines.Add(wide);
         var secondId = timelines.Add(second);
@@ -1255,8 +1255,8 @@ public class LaneTests
     [Fact]
     public void SetAppliesMixedBackwardRunBoundaries()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
-        using var wide = TimelineAsset.Load(WideBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
+        using var wide = TimelineAsset.LoadAsset(WideBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var loopingId = timelines.Add(looping);
         var wideId = timelines.Add(wide);
@@ -1294,7 +1294,7 @@ public class LaneTests
     [Fact]
     public void SetRejectsUnboundIdInsideVectorWindow()
     {
-        using var looping = TimelineAsset.Load(LoopingBake());
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
 
@@ -1321,10 +1321,10 @@ public class LaneTests
         var timelines = new TimelineSet<LaneTrack, LaneClip>();
         for (var i = 0; i < 65535; i++)
         {
-            using var asset = TimelineAsset.Load(fill);
+            using var asset = TimelineAsset.LoadAsset(fill);
             Assert.Equal(i, (int)timelines.Add(asset));
         }
-        using var lastAsset = TimelineAsset.Load(last);
+        using var lastAsset = TimelineAsset.LoadAsset(last);
         Assert.Equal(65535, (int)timelines.Add(lastAsset));
 
         var ids = new ushort[17];
@@ -1343,7 +1343,7 @@ public class LaneTests
         timelines.Gather(lastIds).Seek(lastPositions, true).Apply(lastEffects);
         Assert.Equal(1, (int)lastPositions[0]);
 
-        using (var overflow = TimelineAsset.Load(fill))
+        using (var overflow = TimelineAsset.LoadAsset(fill))
             Assert.Throws<InvalidOperationException>(() => timelines.Add(overflow));
         timelines.Dispose();
     }
@@ -1351,7 +1351,7 @@ public class LaneTests
     [Fact]
     public void BakedLaneRejectsDisposedAsset()
     {
-        var asset = TimelineAsset.Load(LoopingBake());
+        var asset = TimelineAsset.LoadAsset(LoopingBake());
         asset.Dispose();
         Assert.Throws<ArgumentException>(() => BakedLane<LaneTrack, LaneClip>.Bind(asset));
     }
@@ -1359,7 +1359,7 @@ public class LaneTests
     [Fact]
     public void LoadRejectsOversizedDuration()
     {
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(new Baker()
+        Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(new Baker()
             .Track<LaneTrack, LaneClip>(new LaneTrack(1f))
             .Clip(0, 0, 70000, new LaneClip(5))
             .Bake()));
