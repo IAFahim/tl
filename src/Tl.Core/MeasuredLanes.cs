@@ -223,34 +223,13 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
     static void Capture(TimelineRef reference, NativeStep* program, int count, byte* stepCached, int* stepCacheBase, float* cacheValues, int* chains, void** columns, float* column, ushort tick, FrameFlags flags, bool reverse)
     {
-        int* rev = stackalloc int[CacheStride];
         for (var i = 0; i < count; i++)
         {
             if (stepCached[i] == 0) continue;
             var slot = reference._p + program[i].Slot;
             var pair = (byte*)(reference.Pairs + program[i].Pair);
             var head = chains[(int)program[i].Pair];
-            var cache = stepCacheBase[i];
-            if (reverse && head >= 0 && PairTable.ChainNext(head) >= 0)
-            {
-                var n = 0;
-                for (var e = head; e >= 0; e = PairTable.ChainNext(e)) rev[n++] = e;
-                while (n-- > 0)
-                {
-                    *column = 0f;
-                    PairTable.ExecuteEntry(rev[n], slot, pair, tick, flags, columns, 0);
-                    cacheValues[cache++] = *column;
-                }
-            }
-            else
-            {
-                for (var e = head; e >= 0; e = PairTable.ChainNext(e))
-                {
-                    *column = 0f;
-                    PairTable.ExecuteEntry(e, slot, pair, tick, flags, columns, 0);
-                    cacheValues[cache++] = *column;
-                }
-            }
+            PairTable.RunChain(head, reverse, slot, pair, tick, flags, columns, 0, column, cacheValues + stepCacheBase[i]);
         }
     }
 }

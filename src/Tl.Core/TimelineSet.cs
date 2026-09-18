@@ -17,24 +17,16 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         public float* Forward;
         public float* Backward;
         public float* BackwardByPosition;
-        public MovementRecord* ForwardRecords;
-        public MovementRecord* BackwardRecords;
+        public LaneMovementRecord* ForwardRecords;
+        public LaneMovementRecord* BackwardRecords;
         public ushort Duration;
         public ushort Looping;
         public ushort Absent;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe struct MovementRecord
-    {
-        public float Effect;
-        public ushort Next;
-        public ushort Pad;
-    }
-
     internal Slot* _slots;
     internal float* _data;
-    internal MovementRecord* _recordsBase;
+    internal LaneMovementRecord* _recordsBase;
     internal int _count;
     internal int _holes;
     internal bool _lazyResolve;
@@ -126,10 +118,10 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         nuint records = _records + (ticks + 1) * 2;
         var slotBytes = (nuint)capacity * (nuint)sizeof(Slot);
         var recordOffset = (slotBytes + floats * sizeof(float) + 7u) & ~7u;
-        var block = (byte*)NativeMemory.AlignedAlloc(recordOffset + records * (nuint)sizeof(MovementRecord), 64);
+        var block = (byte*)NativeMemory.AlignedAlloc(recordOffset + records * (nuint)sizeof(LaneMovementRecord), 64);
         var slots = (Slot*)block;
         var floatBase = (float*)(block + slotBytes);
-        var recordBase = (MovementRecord*)(block + recordOffset);
+        var recordBase = (LaneMovementRecord*)(block + recordOffset);
         new Span<Slot>(slots + previousCount, (int)(capacity - (uint)previousCount)).Clear();
         if (previousCount > 0)
         {
@@ -137,7 +129,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             Buffer.MemoryCopy(_slots, slots, copySlots, copySlots);
             var floatBytes = (long)(_floats * sizeof(float));
             Buffer.MemoryCopy(_data, floatBase, floatBytes, floatBytes);
-            var recordBytes = (long)(_records * (nuint)sizeof(MovementRecord));
+            var recordBytes = (long)(_records * (nuint)sizeof(LaneMovementRecord));
             Buffer.MemoryCopy(_recordsBase, recordBase, recordBytes, recordBytes);
             var floatShift = (long)((byte*)floatBase - (byte*)_data);
             var recordShift = (long)((byte*)recordBase - (byte*)_recordsBase);
@@ -147,8 +139,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 slots[k].Forward = (float*)((byte*)slots[k].Forward + floatShift);
                 slots[k].Backward = (float*)((byte*)slots[k].Backward + floatShift);
                 slots[k].BackwardByPosition = (float*)((byte*)slots[k].BackwardByPosition + floatShift);
-                slots[k].ForwardRecords = (MovementRecord*)((byte*)slots[k].ForwardRecords + recordShift);
-                slots[k].BackwardRecords = (MovementRecord*)((byte*)slots[k].BackwardRecords + recordShift);
+                slots[k].ForwardRecords = (LaneMovementRecord*)((byte*)slots[k].ForwardRecords + recordShift);
+                slots[k].BackwardRecords = (LaneMovementRecord*)((byte*)slots[k].BackwardRecords + recordShift);
             }
         }
         var forwardTable = floatBase + _floats;
@@ -161,56 +153,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         Buffer.MemoryCopy(backward, backwardTable, tableBytes, tableBytes);
         forwardTable[duration] = 0f;
         backwardTable[duration] = 0f;
-        for (var p = 0; p <= duration; p++)
-        {
-            if (p < duration)
-            {
-                var next = p + 1;
-                var wraps = looping && next == duration;
-                forwardRecords[p] = new MovementRecord
-                {
-                    Effect = forwardTable[p],
-                    Next = wraps ? (ushort)0 : (ushort)next,
-                };
-                if (p == 0)
-                {
-                    if (looping)
-                    {
-                        backwardRecords[p] = new MovementRecord { Effect = backwardTable[duration - 1], Next = (ushort)(duration - 1) };
-                        backwardByPosition[0] = backwardTable[duration - 1];
-                    }
-                    else
-                    {
-                        backwardRecords[p] = new MovementRecord { Effect = 0f, Next = TimelineSet<TTrack, TClip>.Skipped };
-                        backwardByPosition[0] = 0f;
-                    }
-                }
-                else
-                {
-                    backwardRecords[p] = new MovementRecord { Effect = backwardTable[p - 1], Next = (ushort)(p - 1) };
-                    backwardByPosition[p] = backwardTable[p - 1];
-                }
-            }
-            else
-            {
-                forwardRecords[p] = new MovementRecord { Effect = 0f, Next = TimelineSet<TTrack, TClip>.Skipped };
-                if (looping)
-                {
-                    backwardRecords[p] = new MovementRecord { Effect = 0f, Next = TimelineSet<TTrack, TClip>.Skipped };
-                    backwardByPosition[p] = 0f;
-                }
-                else if (duration == 0)
-                {
-                    backwardRecords[p] = new MovementRecord { Effect = 0f, Next = TimelineSet<TTrack, TClip>.Skipped };
-                    backwardByPosition[p] = 0f;
-                }
-                else
-                {
-                    backwardRecords[p] = new MovementRecord { Effect = backwardTable[duration - 1], Next = (ushort)(duration - 1) };
-                    backwardByPosition[p] = backwardTable[duration - 1];
-                }
-            }
-        }
+        LaneMovement.Bake(forwardTable, backwardTable, duration, looping, forwardRecords, backwardRecords, backwardByPosition);
         slots[index] = new Slot
         {
             Forward = forwardTable,
@@ -233,10 +176,10 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         return index;
     }
 
-    internal TimelineGather<TTrack, TClip> Gather(ReadOnlySpan<ushort> timelineIds)
+    internal TimelineSetLane<TTrack, TClip> Gather(ReadOnlySpan<ushort> timelineIds)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        return new TimelineGather<TTrack, TClip>(this, timelineIds);
+        return new(this, timelineIds, default, false);
     }
 
     internal void Advance(ReadOnlySpan<ushort> timelineIds, Span<ushort> positions, bool forward, Span<float> effects)
@@ -261,26 +204,6 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     }
 }
 
-internal ref struct TimelineGather<TTrack, TClip>
-    where TTrack : unmanaged, IBlend<TClip>
-    where TClip : unmanaged
-{
-    readonly TimelineSet<TTrack, TClip> _set;
-    readonly ReadOnlySpan<ushort> _ids;
-
-    internal TimelineGather(TimelineSet<TTrack, TClip> set, ReadOnlySpan<ushort> ids)
-    {
-        _set = set;
-        _ids = ids;
-    }
-
-    internal TimelineSetLane<TTrack, TClip> Seek(Span<ushort> positions, bool forward)
-        => new(_set, _ids, positions, forward);
-
-    internal void Advance(Span<ushort> positions, bool forward, Span<float> effects)
-        => Seek(positions, forward).Apply(effects);
-}
-
 public ref struct TimelineSetLane<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
@@ -300,6 +223,9 @@ public ref struct TimelineSetLane<TTrack, TClip>
         _positions = positions;
         _forward = forward;
     }
+
+    internal TimelineSetLane<TTrack, TClip> Seek(Span<ushort> positions, bool forward)
+        => new(_set, _ids, positions, forward);
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public unsafe void Apply(Span<float> effects)

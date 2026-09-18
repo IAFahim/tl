@@ -366,6 +366,53 @@ internal struct LaneMovementRecord
     public ushort Pad;
 }
 
+internal static unsafe class LaneMovement
+{
+    internal const ushort Skipped = LaneMovementRecord.Skipped;
+
+    internal static void Bake(float* forward, float* backward, ushort duration, bool looping, LaneMovementRecord* forwardRecords, LaneMovementRecord* backwardRecords, float* backwardByPosition)
+    {
+        var skipped = LaneMovementRecord.Skipped;
+        for (var p = 0u; p <= duration; p++)
+        {
+            if (p < duration)
+            {
+                var wraps = looping && p + 1 == duration;
+                forwardRecords[p] = new LaneMovementRecord { Effect = forward[p], Next = wraps ? (ushort)0 : (ushort)(p + 1) };
+                if (p == 0 && looping)
+                {
+                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
+                    backwardByPosition[p] = backward[duration - 1];
+                }
+                else if (p == 0)
+                {
+                    backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
+                    backwardByPosition[p] = 0f;
+                }
+                else
+                {
+                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[p - 1], Next = (ushort)(p - 1) };
+                    backwardByPosition[p] = backward[p - 1];
+                }
+            }
+            else
+            {
+                forwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
+                if (looping || duration == 0)
+                {
+                    backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
+                    backwardByPosition[p] = 0f;
+                }
+                else
+                {
+                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
+                    backwardByPosition[p] = backward[duration - 1];
+                }
+            }
+        }
+    }
+}
+
 internal static unsafe class LaneAccelerator<T>
     where T : unmanaged, ITimelineLane<T>
 {
@@ -422,7 +469,7 @@ static unsafe class LaneTable<TTrack, TClip>
         var forwardRecords = (LaneMovementRecord*)block;
         var backwardRecords = forwardRecords + duration + 1;
         var backwardByPosition = (float*)(backwardRecords + duration + 1);
-        Bake(forward, backward, duration, looping, forwardRecords, backwardRecords, backwardByPosition);
+        LaneMovement.Bake(forward, backward, duration, looping, forwardRecords, backwardRecords, backwardByPosition);
         var previousBlock = _recordBlock;
         var previousForward = Forward;
         var previousBackward = Backward;
@@ -446,47 +493,4 @@ static unsafe class LaneTable<TTrack, TClip>
         LaneAccelerator<BakedLane<TTrack, TClip>>.Backward = backwardRecords;
         LaneAccelerator<BakedLane<TTrack, TClip>>.Active = true;
     }
-
-    static void Bake(float* forward, float* backward, ushort duration, bool looping, LaneMovementRecord* forwardRecords, LaneMovementRecord* backwardRecords, float* backwardByPosition)
-    {
-        var skipped = LaneMovementRecord.Skipped;
-        for (var p = 0u; p <= duration; p++)
-        {
-            if (p < duration)
-            {
-                var wraps = looping && p + 1 == duration;
-                forwardRecords[p] = new LaneMovementRecord { Effect = forward[p], Next = wraps ? (ushort)0 : (ushort)(p + 1) };
-                if (p == 0 && looping)
-                {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
-                    backwardByPosition[p] = backward[duration - 1];
-                }
-                else if (p == 0)
-                {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                    backwardByPosition[p] = 0f;
-                }
-                else
-                {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[p - 1], Next = (ushort)(p - 1) };
-                    backwardByPosition[p] = backward[p - 1];
-                }
-            }
-            else
-            {
-                forwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                if (looping || duration == 0)
-                {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                    backwardByPosition[p] = 0f;
-                }
-                else
-                {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
-                    backwardByPosition[p] = backward[duration - 1];
-                }
-            }
-        }
-    }
-
 }
