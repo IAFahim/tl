@@ -37,3 +37,4 @@ __pycache__/
 
 # baked sample artifact (CI and README quick start regenerate it)
 samples/NuGetQuickStart/boss.tlb
+samples/Showcase/jump.tlb
