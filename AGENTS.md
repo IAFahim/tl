@@ -90,7 +90,7 @@ The owner resumed implementation on 2026-09-12 through [issue #56](https://githu
 
 ## Required validation
 
-Run the smallest relevant checks during development and this core gate before pushing. It is a subset of the complete gate: the Release gate adds the release-artifact verification (`python3 -m unittest discover -s tests -p test_release_artifacts.py`, `eng/release-artifacts --candidate`) and CI adds the NativeAOT isolation, package-only consumer, quick-start, and helper-script checks in `.github/workflows/ci.yml`.
+Run the smallest relevant checks during development and this core gate before pushing. It is a subset of the complete gate: the Release gate adds the release-artifact verification (`python3 -m unittest discover -s tests -p test_release_artifacts.py`, `eng/release-artifacts --candidate`) and the README-numbers consistency check (`python3 -m unittest discover -s tests -p test_readme_numbers.py`; refresh with `eng/refresh-numbers` on the release machine), and CI adds the NativeAOT isolation, package-only consumer, quick-start, and helper-script checks in `.github/workflows/ci.yml`. The live playground deploys automatically from `.github/workflows/deploy-playground.yml` on pushes to main that touch it or `src/`; `eng/deploy-playground <publish-dir>/wwwroot` performs the same deploy by hand.
 
 ```sh
 python3 benchmarks/source_budget.py

@@ -9,6 +9,7 @@ Live projects, receipts, and retained evidence for the tl playback engine.
 | `Alpha` | `tl.slnx`, AGENTS.md core gate (`--verify`), CI | Typed lane vs `TimelineMovement` oracle, 0 B warm allocation |
 | `PairHandles` | `tl.slnx`, README receipts | Pair-typed lane parity and throughput (`PairHandles/README.md`) |
 | `TypedPlaybackProto` | CI | Typed lane vs hand-table parity and throughput at 100k rows |
+| `Numbers` | `tl.slnx`, CI consistency test (`tests/test_readme_numbers.py`) | README Numbers generator: seven 1M-row scenarios plus a 19.3 MB corpus bake/load; `eng/refresh-numbers` re-measures and re-renders the README from `Numbers/results/numbers.json` |
 
 ## Standalone probes (not in `tl.slnx`)
 

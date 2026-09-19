@@ -1,0 +1,30 @@
+name: deploy-playground
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/Tl.Playground/**'
+      - 'src/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-playground
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: 10.0.401
+      - run: dotnet publish tools/Tl.Playground/Playground/Playground.csproj -c Release -o site
+      - run: eng/deploy-playground site/wwwroot
