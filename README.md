@@ -61,8 +61,8 @@ public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
     }
 }
 
-ushort jump = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
-var ids = new ushort[] { jump, jump, jump, jump };
+ushort jumpTimeline = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
+var ids = new ushort[] { jumpTimeline, jumpTimeline, jumpTimeline, jumpTimeline };
 var tick = new ushort[4];
 var y = new float[4];
 
@@ -138,8 +138,23 @@ Per frame, three caller-owned columns — timeline index, clock, effect — and 
 
 ```cs
 for (var frame = 0; frame < 30; frame++)
-    Timeline<JumpTrack, JumpClip>.Advance(jump, tick, false, y);
+    Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, tick, false, y);
 ```
+
+More systems on the same pair just declare the marker again — no registration, no chaining. Every consumer of `(JumpTrack, JumpClip)` runs inside the same one `Advance` call, folding its contribution into the effect column after the consumers before it:
+
+```cs
+public readonly struct ScreenShake : ITrack<JumpTrack, JumpClip>
+{
+    public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float shake)
+    {
+        if (frame.Has(FrameFlags.TimelineEnd))
+            shake += 1f;
+    }
+}
+```
+
+Consumers fold in consumer-name order (`MoveY` before `ScreenShake`) — ordinal, culture-independent, deterministic on every machine; rename a consumer to move it. Receipts: `TandemFirstJob` and `TandemSecondJob` in `tests/Tl.Alpha` both run from generated installs, and the fold order is pinned by `tests/Tl.Core.Tests`. Order across different pairs is the host's call order.
 
 Host wiring is declared, not registered — implement `IBake<TConsumer, ...TContext>` (zero to four context types) and one type-agnostic call attaches your markers at load time:
 
@@ -153,7 +168,7 @@ public readonly struct AttachJumping : IBake<MoveY, World, int>
 }
 
 var world = new World();
-Timeline.Bake(jump, world, 42); Timeline.Bake(jump, world, 43);
+Timeline.Bake(jumpTimeline, world, 42); Timeline.Bake(jumpTimeline, world, 43);
 ```
 
 `Timeline.Bake(id, args...)` walks the timeline's pairs and runs every bake whose declared context types appear among the argument types — exact type match, first argument of that type wins, declaration order is the parameter order, zero-context bakes run on every call, a missing context keeps the bake silent. Discovered and validated at build time (TLGEN70-73), installed into an unmanaged table, warm path untouched. A timeline that lacks the pair is a loud located diagnostic at first typed use — host wiring error, never designer data. Reading without advancing: `Timeline.Query<TTrack, TClip>(in TimelineComponent)` is a read-only stage view that never moves the clock.

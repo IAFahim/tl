@@ -1,9 +1,9 @@
 using Showcase;
 using Tl;
 
-ushort jump = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
+ushort jumpTimeline = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
 
-var ids  = new ushort[] { jump, jump, jump, jump };
+var ids  = new ushort[] { jumpTimeline, jumpTimeline, jumpTimeline, jumpTimeline };
 var tick = new ushort[] { 0, 0, 0, 0 };
 var y    = new float[] { 0f, 0f, 0f, 0f };
 
@@ -18,13 +18,13 @@ for (var frame = 1; frame <= 30; frame++)
 Console.WriteLine();
 Console.WriteLine("rewind walks the arc back exactly:");
 for (var frame = 0; frame < 30; frame++)
-    Timeline<JumpTrack, JumpClip>.Advance(jump, tick, false, y);
+    Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, tick, false, y);
 Console.WriteLine($"  after 30 back ticks: y = {y[0]:0.0} m, tick = {tick[0]}");
 
 Console.WriteLine();
 var world = new World();
-Timeline.Bake(jump, world, 42);
-Timeline.Bake(jump, world, 43);
+Timeline.Bake(jumpTimeline, world, 42);
+Timeline.Bake(jumpTimeline, world, 43);
 Console.WriteLine($"Timeline.Bake marked entities {string.Join(", ", world.Jumping)} as jumping; unmarked entities never reach the advance");
 
 namespace Showcase
