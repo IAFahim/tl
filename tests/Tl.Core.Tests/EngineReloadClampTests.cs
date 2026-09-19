@@ -4,7 +4,7 @@ using Tl.TestSupport;
 
 namespace Tl.Core.Tests;
 
-public class EngineReloaadClampTests
+public class EngineReloadClampTests
 {
     const ushort Duration = 8;
 
@@ -17,7 +17,7 @@ public class EngineReloaadClampTests
     }
 
     [Fact]
-    public void FiniteReloaadClampsTheSharedClockWhereTheLoopingBakeWrapped()
+    public void FiniteReloadClampsTheSharedClockWhereTheLoopingBakeWrapped()
     {
         var positions = new ushort[1];
         var effects = new float[1];
@@ -61,7 +61,7 @@ public class EngineReloaadClampTests
     }
 
     [Fact]
-    public void LoopingReloaadStillWrapsAfterAFinitePhase()
+    public void LoopingReloadStillWrapsAfterAFinitePhase()
     {
         var positions = new ushort[Duration];
         var effects = new float[Duration];
