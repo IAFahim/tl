@@ -22,7 +22,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;baker;tlb;cli;dotnet-tool;deterministic</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.0.0-alpha.9: emits TLB1 v3 assets (24-byte slot rows, trackIndex at byte 6) and validates that JSON input is UTF-8 with a located diagnostic. Assets baked by earlier alphas are rejected at load; update the tool and re-bake.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.10: tlb bakes JSON batches in parallel across all cores, byte-identical to serial (3.6x on 257 files); BakerAssemblyResolver.FromAssemblies scopes in-memory bake resolution; SIMD masks and a shared workspace cut a 20 MB bake from 71 to 60 ms. Playback surface unchanged; source, samples, and tooling byte budgets are enforced.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

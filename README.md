@@ -9,7 +9,7 @@ Live playground: [iafahim.github.io/tl](https://iafahim.github.io/tl/)
 ## Install
 
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.9
+dotnet add package Tl.CSharp --version 1.0.0-alpha.10
 dotnet tool install --global Tl.Bake --prerelease     # the tlb bake command
 ```
 

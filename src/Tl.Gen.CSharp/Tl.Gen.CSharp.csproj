@@ -24,7 +24,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;ecs;burst;unity;dotnet;deterministic;baked-assets</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v1.0.0-alpha.9: discovers IBake declarations over registered consumers, validates their shape (TLGEN70-73), and emits bake dispatch installs into the unmanaged bake table; the consumer metadata marker is renamed ITrack (ITimelineJob before this release).</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.0-alpha.10: tlb bakes JSON batches in parallel across all cores, byte-identical to serial (3.6x on 257 files); BakerAssemblyResolver.FromAssemblies scopes in-memory bake resolution; SIMD masks and a shared workspace cut a 20 MB bake from 71 to 60 ms. Playback surface unchanged; source, samples, and tooling byte budgets are enforced.</PackageReleaseNotes>
     <EnforceExtendedAnalyzerRules Condition="'$(TargetFramework)' == 'netstandard2.0'">true</EnforceExtendedAnalyzerRules>
   </PropertyGroup>
 
