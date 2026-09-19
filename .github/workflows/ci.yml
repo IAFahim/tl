@@ -27,6 +27,7 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
         with:
           dotnet-version: 10.0.x
+      - run: dotnet workload install wasm-tools
       - run: eng/test-isolated-output
       - run: python3 benchmarks/source_budget.py
       - run: python3 -m unittest discover -s benchmarks -p test_collect.py
@@ -40,6 +41,7 @@ jobs:
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
       - run: dotnet run --project samples/Mixed -c Release --no-build
+      - run: dotnet run --project tools/Tl.Playground/Playground.Smoke -c Release --no-build
       - run: dotnet run --project tools/Tl.Bake -c Release --no-build -- samples/Showcase/jump.json samples/Showcase/jump.tlb --assembly samples/Showcase/bin/Release/net10.0/Showcase.dll
       - name: Run the Showcase sample (json -> tlb -> play)
         working-directory: samples/Showcase

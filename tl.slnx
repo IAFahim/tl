@@ -25,5 +25,6 @@
     <Project Path="tools/Tl.Bake.Tests/Tl.Bake.Tests.csproj" />
     <Project Path="tools/Tl.Bake.Bench/Tl.Bake.Bench.csproj" />
     <Project Path="tools/Tl.Bake.Oracle/Tl.Bake.Oracle.csproj" />
+    <Project Path="tools/Tl.Playground/Playground.Smoke/Playground.Smoke.csproj" />
   </Folder>
 </Solution>
