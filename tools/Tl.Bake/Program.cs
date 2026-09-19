@@ -136,6 +136,13 @@ public static class Program
             return 1;
         }
 
+        if (assemblyPaths.Count == 0)
+        {
+            var discovered = Lazy.FindAssembly(inputPath);
+            if (discovered == null) return 1;
+            assemblyPaths.Add(discovered);
+        }
+
         var jsonBytes = File.ReadAllBytes(inputPath);
         var assemblyBytes = new List<byte[]>(assemblyPaths.Count);
         foreach (var path in assemblyPaths)
@@ -160,13 +167,6 @@ public static class Program
                 Console.WriteLine($"cache: hit {BakeCacheKey.Prefix(key)}");
                 return 0;
             }
-        }
-
-        if (assemblyPaths.Count == 0)
-        {
-            var discovered = Lazy.FindAssembly(inputPath);
-            if (discovered == null) return 1;
-            assemblyPaths.Add(discovered);
         }
 
         var resolver = new BakerAssemblyResolver(assemblyPaths);
