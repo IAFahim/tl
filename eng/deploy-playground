@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+site="${1:?usage: eng/deploy-playground <published-playground-wwwroot>}"
+root="$(git rev-parse --show-toplevel)"
+keep=" .nojekyll README.md dev "
+
+worktree="$(mktemp -d /tmp/tl-playground-XXXX)"
+cleanup() { git -C "$root" worktree remove --force "$worktree" 2>/dev/null || rm -rf "$worktree"; }
+trap cleanup EXIT
+git -C "$root" fetch origin gh-pages
+git -C "$root" worktree add "$worktree" origin/gh-pages
+
+shopt -s dotglob nullglob
+for entry in "$worktree"/*; do
+  name="$(basename "$entry")"
+  [ "$name" = ".git" ] && continue
+  case "$keep" in *" $name "*) continue ;; esac
+  rm -rf "$entry"
+done
+cp -a "$site"/. "$worktree"/
+[ -f "$worktree/.nojekyll" ] || touch "$worktree/.nojekyll"
+
+git -C "$worktree" add -A
+if git -C "$worktree" diff --cached --quiet; then
+  echo "gh-pages already matches the publish output"
+  exit 0
+fi
+identity=(-c user.name="playground-deploy" -c user.email="playground-deploy@users.noreply.github.com")
+if [ -n "${GITHUB_ACTIONS:-}" ]; then
+  identity=(-c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com")
+fi
+git -C "$worktree" "${identity[@]}" commit -m "deploy: playground $(git -C "$root" rev-parse --short HEAD)"
+git -C "$worktree" push origin HEAD:gh-pages
+echo "deployed gh-pages from $(git -C "$root" rev-parse --short HEAD)"
