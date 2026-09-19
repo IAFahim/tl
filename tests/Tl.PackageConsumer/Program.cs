@@ -8,17 +8,20 @@ using var asset = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
 var positions = new ushort[1];
 var values = new float[1];
 
-Timeline<PackageTrack, PackageClip>.Advance(asset, positions, true, values);
+Timeline<PackageTrack, PackageClip>.Apply(asset, positions, true, values);
+Timeline.Step(asset, positions, true);
 
 if (positions[0] != 1 || values[0] != 7f)
     return 1;
 
-Timeline<PackageTrack, PackageClip>.Advance(asset, positions, false, values);
+Timeline<PackageTrack, PackageClip>.Apply(asset, positions, false, values);
+Timeline.Step(asset, positions, false);
 
 if (positions[0] != 0 || values[0] != 0f)
     return 2;
 
-Timeline<PackageTrack, PackageClip>.Advance(asset, positions, true, values);
+Timeline<PackageTrack, PackageClip>.Apply(asset, positions, true, values);
+Timeline.Step(asset, positions, true);
 
 if (BakeRuntime<PackageTrack, PackageClip>.BakeCount != 1
     || BakeRuntime<PackageTrack, PackageClip>.BakeContextCount(0) != 1

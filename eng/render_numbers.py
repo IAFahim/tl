@@ -20,20 +20,28 @@ def load_receipt(root: Path) -> dict:
 
 def render(receipt: dict) -> str:
     scenarios = receipt["Scenarios"]
-    floor = min(s["Ns"] for s in scenarios if s["Id"] != "handwritten")
+    hot_floor = min(s["Hot"]["Ns"] for s in scenarios if s["Id"] != "handwritten")
+    cold_floor = min(s["Cold"]["Ns"] for s in scenarios if s["Id"] != "handwritten")
     bake = receipt["Bake"]
     lines = [
         f"One million characters, one frame per call ({cpu_short(receipt['Fingerprint']['Cpu'])}, .NET 10, Release; "
-        f"best of {receipt['Reps']} × {receipt['Rounds']} interleaved rounds; every shape bit-exact forward and backward, 0 B warm):",
+        f"best of {receipt['Reps']} × {receipt['Rounds']} rounds after a per-scenario steady-state warm-up "
+        "(at least 0.5 s and until the best frame is flat across three rounds); "
+        "hot = consecutive frames with the crowd cache-resident, cold = the seven crowds interleaved, re-read from memory each frame; "
+        "every shape bit-exact forward and backward, 0 B warm):",
         "",
-        "| scenario | ms/frame | ns/character |",
-        "| --- | ---: | ---: |",
+        "| scenario | hot ms/frame | hot ns/character | cold ms/frame | cold ns/character |",
+        "| --- | ---: | ---: | ---: | ---: |",
     ]
-    lines += [f"| {s['Label']} | {s['Ms']:.2f} | {s['Ns']:.2f} |" for s in scenarios]
+    lines += [
+        f"| {s['Label']} | {s['Hot']['Ms']:.2f} | {s['Hot']['Ns']:.2f} | {s['Cold']['Ms']:.2f} | {s['Cold']['Ns']:.2f} |"
+        for s in scenarios
+    ]
     lines += [
         "",
-        f"A single-timeline crowd floors at {floor:.2f} ns per character; grouping rows by timeline keeps every crowd on the fast rows "
-        "(ECS archetypes cluster identical rows for free). "
+        f"A single-timeline crowd floors at {hot_floor:.2f} ns per character hot and {cold_floor:.2f} cold — the hot column is the steady state "
+        "with the crowd cache-resident, the cold column is the same frame with the seven crowds interleaved so the working set streams from DRAM. "
+        "Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). "
         f"Authoring a full game's data — {bake['CorpusMb']:.1f} MB of JSON — bakes in {bake['BakeMs']:.0f} ms and loads in {bake['LoadMs']:.1f} ms. "
         "Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size.",
     ]
