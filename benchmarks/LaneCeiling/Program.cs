@@ -23,7 +23,10 @@ if (!timingOnly)
 }
 if (parityOnly) return 0;
 
+PublicPath.Install();
+
 var results = Timing.Run(rows, reps, rounds);
+results.AddRange(PublicPath.Time(rows, reps, rounds));
 
 Console.WriteLine();
 Console.WriteLine($"host {Environment.ProcessorCount} cores, {RuntimeInformation.ProcessArchitecture}, dotnet {Environment.Version}, pinned core {core}, {rows:N0} rows, best-of {rounds}x{reps}");
@@ -82,11 +85,12 @@ internal static unsafe class Timing
         foreach (var (duration, looping, forward, label) in durations)
         {
             var eff = Tables.BakeForward(duration, looping);
-            var byp = Tables.BakeBackwardByPosition(duration, looping);
+            var back = Tables.BakeBackwardRaw(duration);
+            var byp = Tables.ByPositionFrom(back, duration, looping);
             var effPad = Pad(eff, duration);
+            var backPad = Pad(back, duration);
             var bypPad = Pad(byp, duration);
             var rec = Tables.BakeRecords(eff, byp, duration, looping, forward);
-            var table = forward ? effPad : bypPad;
 
             foreach (var (shapeName, build) in shapes)
             {
@@ -99,6 +103,7 @@ internal static unsafe class Timing
                 {
                     if (!arm.Applies(duration, looping, forward)) continue;
                     var kernel = forward ? arm.Forward : arm.Backward;
+                    var table = forward ? effPad : (arm.BackwardUsesBackTable ? backPad : bypPad);
                     var best = double.MaxValue;
                     for (var round = 0; round < rounds; round++)
                     for (var rep = 0; rep < reps; rep++)
@@ -123,8 +128,10 @@ internal static unsafe class Timing
                 }
             }
 
-            NativeMemory.AlignedFree(eff); NativeMemory.AlignedFree(byp);
-            NativeMemory.AlignedFree(effPad); NativeMemory.AlignedFree(bypPad);
+            NativeMemory.AlignedFree(eff); NativeMemory.AlignedFree(back);
+            NativeMemory.AlignedFree(byp);
+            NativeMemory.AlignedFree(effPad); NativeMemory.AlignedFree(backPad);
+            NativeMemory.AlignedFree(bypPad);
             NativeMemory.AlignedFree(rec);
         }
         return results;

@@ -4,7 +4,7 @@ namespace Tl.LaneCeilingProbe;
 
 internal static unsafe class Parity
 {
-    internal sealed record KernelArm(string Name, Kernels.Kernel Forward, Kernels.Kernel Backward, Func<ushort, bool, bool, bool> Applies);
+    internal sealed record KernelArm(string Name, Kernels.Kernel Forward, Kernels.Kernel Backward, Func<ushort, bool, bool, bool> Applies, bool BackwardUsesBackTable = false);
 
     internal static readonly KernelArm[] Arms =
     [
@@ -12,7 +12,7 @@ internal static unsafe class Parity
         new("gather256", Kernels.Gather256Forward, Kernels.Gather256Backward, (_, _, _) => Avx2Guard()),
         new("dual256", Kernels.Dual256Forward, Kernels.Dual256Backward, (_, _, _) => Avx2Guard()),
         new("wide512", Kernels.Wide512Forward, Kernels.Wide512Backward, (_, _, _) => Avx2Guard()),
-        new("permute8", Kernels.Permute8Forward, Kernels.Permute8Backward, (d, looping, forward) => (forward || looping ? d <= 8 : d <= 7) && Avx2Guard()),
+        new("permute8", Kernels.Permute8Forward, Kernels.Permute8Backward, (d, _, _) => d <= 8 && Avx2Guard(), BackwardUsesBackTable: true),
         new("permute32", Kernels.Permute32Forward, Kernels.Permute32Backward, (d, looping, forward) => (forward || looping ? d <= 32 : d <= 31) && Avx2Guard()),
     ];
 
@@ -29,8 +29,10 @@ internal static unsafe class Parity
         foreach (var forward in new[] { true, false })
         {
             var eff = Tables.BakeForward(duration, looping);
-            var byp = Tables.BakeBackwardByPosition(duration, looping);
+            var back = Tables.BakeBackwardRaw(duration);
+            var byp = Tables.ByPositionFrom(back, duration, looping);
             var effPad = PadTo(eff, duration, looping);
+            var backPad = PadTo(back, duration, looping);
             var bypPad = PadTo(byp, duration, looping);
             var rec = Tables.BakeRecords(eff, byp, duration, looping, forward);
 
@@ -63,7 +65,7 @@ internal static unsafe class Parity
                         if (forward)
                             arm.Forward(effPad, rec, duration, looping, pp, fp, count);
                         else
-                            arm.Backward(bypPad, rec, duration, looping, pp, fp, count);
+                            arm.Backward(arm.BackwardUsesBackTable ? backPad : bypPad, rec, duration, looping, pp, fp, count);
                     }
                     if (!pos.AsSpan().SequenceEqual(expectedPos) || !BitIdentical(fx, expectedFx))
                     {
@@ -77,8 +79,10 @@ internal static unsafe class Parity
             }
 
             NativeMemory.AlignedFree(eff);
+            NativeMemory.AlignedFree(back);
             NativeMemory.AlignedFree(byp);
             NativeMemory.AlignedFree(effPad);
+            NativeMemory.AlignedFree(backPad);
             NativeMemory.AlignedFree(bypPad);
             NativeMemory.AlignedFree(rec);
         }

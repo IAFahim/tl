@@ -31,17 +31,28 @@ internal static unsafe class Tables
         return eff;
     }
 
-    internal static float* BakeBackwardByPosition(ushort duration, bool looping)
+    internal static float* BakeBackwardRaw(ushort duration)
     {
-        var back = BakeForward((ushort)(duration + 313), looping);
-        var byp = AllocFloats(duration + 1);
+        var back = AllocFloats(Math.Max(8, duration + 1));
+        var state = 0xC0FFEE15DEADBEEFul ^ duration;
+        for (var i = 0; i < duration; i++)
+        {
+            state ^= state << 13; state ^= state >> 7; state ^= state << 17;
+            back[i] = (float)((state >> 11) / 9007199254740992d) * 8f - 4f;
+        }
+        for (var i = duration; i < Math.Max(8, duration + 1); i++) back[i] = 0f;
+        return back;
+    }
+
+    internal static float* ByPositionFrom(float* back, ushort duration, bool looping)
+    {
+        var byp = AllocFloats(Math.Max(8, duration + 1));
         for (var p = 0; p <= duration; p++)
         {
             if (p == 0) byp[p] = looping ? back[duration - 1] : 0f;
             else if (p == duration) byp[p] = looping ? 0f : back[duration - 1];
             else byp[p] = back[p - 1];
         }
-        NativeMemory.AlignedFree(back);
         return byp;
     }
 
@@ -507,13 +518,12 @@ internal static unsafe class Kernels
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    internal static void Permute8Backward(float* byp, LaneRec* rec, ushort duration, bool looping, ushort* pos, float* fx, int count)
+    internal static void Permute8Backward(float* back, LaneRec* rec, ushort duration, bool looping, ushort* pos, float* fx, int count)
     {
-        var table = Vector256.Load(byp);
+        var table = Vector256.Load(back);
         var last = (ushort)(duration - 1);
         var durationVector = Vector256.Create(duration);
         var durationWide = Vector256.Create((uint)duration);
-        var lastWide = Vector256.Create((uint)last);
         var lastVector = Vector256.Create(last);
         var zero = Vector256<ushort>.Zero;
         var zeroUint = Vector256<uint>.Zero;
@@ -527,30 +537,29 @@ internal static unsafe class Kernels
             Vector256<ushort> skipMask;
             if (looping)
             {
-                skipMask = Vector256.GreaterThan(p, durationVector.AsUInt16()) | Vector256.Equals(p, durationVector.AsUInt16());
+                skipMask = Vector256.GreaterThan(p, durationVector) | Vector256.Equals(p, durationVector);
                 next = Vector256.ConditionalSelect(Vector256.Equals(p, zero), lastVector, next);
             }
             else
             {
-                skipMask = Vector256.Equals(p, zero) | Vector256.GreaterThan(p, durationVector.AsUInt16());
+                skipMask = Vector256.Equals(p, zero) | Vector256.GreaterThan(p, durationVector);
             }
             next = Vector256.ConditionalSelect(skipMask, p, next);
             next.Store(pos + i);
-            (var wideLo, var wideHi) = Vector256.Widen(p);
-            var idxLo = (wideLo & Vector256.Create(7u)).AsInt32();
-            var idxHi = (wideHi & Vector256.Create(7u)).AsInt32();
-            var gatherLo = Avx2.PermuteVar8x32(table, idxLo);
-            var gatherHi = Avx2.PermuteVar8x32(table, idxHi);
+            (var nextLo, var nextHi) = Vector256.Widen(next);
+            (var posLo, var posHi) = Vector256.Widen(p);
+            var gatherLo = Avx2.PermuteVar8x32(table, nextLo.AsInt32());
+            var gatherHi = Avx2.PermuteVar8x32(table, nextHi.AsInt32());
             Vector256<float> skipLo, skipHi;
             if (looping)
             {
-                skipLo = Vector256.GreaterThan(wideLo, lastWide).AsSingle();
-                skipHi = Vector256.GreaterThan(wideHi, lastWide).AsSingle();
+                skipLo = Vector256.Equals(nextLo, durationWide).AsSingle() | Vector256.GreaterThan(posLo, durationWide).AsSingle();
+                skipHi = Vector256.Equals(nextHi, durationWide).AsSingle() | Vector256.GreaterThan(posHi, durationWide).AsSingle();
             }
             else
             {
-                skipLo = (Vector256.Equals(wideLo, zeroUint) | Vector256.GreaterThan(wideLo, durationWide)).AsSingle();
-                skipHi = (Vector256.Equals(wideHi, zeroUint) | Vector256.GreaterThan(wideHi, durationWide)).AsSingle();
+                skipLo = (Vector256.Equals(posLo, zeroUint) | Vector256.GreaterThan(posLo, durationWide)).AsSingle();
+                skipHi = (Vector256.Equals(posHi, zeroUint) | Vector256.GreaterThan(posHi, durationWide)).AsSingle();
             }
             var effectLo = Vector256.Load(fx + i);
             Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).Store(fx + i);
@@ -558,7 +567,24 @@ internal static unsafe class Kernels
             Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).Store(fx + i + 8);
             i += 16;
         }
-        RefBackward(byp, rec, duration, looping, pos + i, fx + i, count - i);
+        RefBackward(BackwardByPositionOf(back, duration, looping), rec, duration, looping, pos + i, fx + i, count - i);
+    }
+
+    static float* _tailByp;
+    static float* _tailBypSource;
+    static ushort _tailBypDuration;
+    static bool _tailBypLooping;
+    static float* BackwardByPositionOf(float* back, ushort duration, bool looping)
+    {
+        if (_tailByp == null || _tailBypSource != back || _tailBypDuration != duration || _tailBypLooping != looping)
+        {
+            if (_tailByp != null) NativeMemory.AlignedFree(_tailByp);
+            _tailByp = Tables.ByPositionFrom(back, duration, looping);
+            _tailBypSource = back;
+            _tailBypDuration = duration;
+            _tailBypLooping = looping;
+        }
+        return _tailByp;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]

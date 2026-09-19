@@ -113,7 +113,8 @@ public ref struct TimelineLane<T>
         var forward = _forward;
         var i = 0;
         var records = forward ? LaneAccelerator<T>.Forward : LaneAccelerator<T>.Backward;
-        var gather = looping && duration > 1 && Avx2.IsSupported;
+        var gather = duration > 1 && Avx2.IsSupported;
+        var permute = duration <= 8 && Avx2.IsSupported;
         while (i < count)
         {
             var chunkEnd = i + Chunk;
@@ -124,9 +125,19 @@ public ref struct TimelineLane<T>
                 if (blockEnd > i)
                 {
                     if (forward)
-                        LaneOps.GatherForward(LaneAccelerator<T>.ForwardEffects, T.Duration, true, positions, effects, i, blockEnd);
+                    {
+                        if (permute)
+                            LaneOps.PermuteForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, effects, i, blockEnd);
+                        else
+                            LaneOps.GatherForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, effects, i, blockEnd);
+                    }
                     else
-                        LaneOps.GatherBackward(LaneAccelerator<T>.BackwardByPosition, T.Duration, true, positions, effects, i, blockEnd);
+                    {
+                        if (permute)
+                            LaneOps.PermuteBackward(LaneAccelerator<T>.BackwardEffects, T.Duration, looping, positions, effects, i, blockEnd);
+                        else
+                            LaneOps.GatherBackward(LaneAccelerator<T>.BackwardByPosition, T.Duration, looping, positions, effects, i, blockEnd);
+                    }
                     i = blockEnd;
                     continue;
                 }
@@ -298,6 +309,90 @@ internal static unsafe class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    internal static unsafe void PermuteForward(float* eff, ushort duration, bool wrap, Span<ushort> positions, Span<float> effects, int i, int limit)
+    {
+        var table = Vector256.Load(eff);
+        var last = (ushort)(duration - 1);
+        var lastWide = Vector256.Create((uint)last);
+        var lastVector = Vector256.Create(last);
+        var zero = Vector256<ushort>.Zero;
+        var one = Vector256.Create((ushort)1);
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        while (i < limit)
+        {
+            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+            var skipMask = Vector256.GreaterThan(pos, lastVector);
+            var next = pos + one;
+            if (wrap) next = Vector256.ConditionalSelect(Vector256.Equals(pos, lastVector), zero, next);
+            next = Vector256.ConditionalSelect(skipMask, pos, next);
+            next.StoreUnsafe(ref p, (nuint)i);
+            (var wideLo, var wideHi) = Vector256.Widen(pos);
+            var gatherLo = Avx2.PermuteVar8x32(table, wideLo.AsInt32());
+            var gatherHi = Avx2.PermuteVar8x32(table, wideHi.AsInt32());
+            var skipLo = Vector256.GreaterThan(wideLo, lastWide).AsSingle();
+            var skipHi = Vector256.GreaterThan(wideHi, lastWide).AsSingle();
+            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+            i += 16;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    internal static unsafe void PermuteBackward(float* backward, ushort duration, bool wrap, Span<ushort> positions, Span<float> effects, int i, int limit)
+    {
+        var table = Vector256.Load(backward);
+        var last = (ushort)(duration - 1);
+        var durationVector = Vector256.Create(duration);
+        var durationWide = Vector256.Create((uint)duration);
+        var lastVector = Vector256.Create(last);
+        var zero = Vector256<ushort>.Zero;
+        var zeroUint = Vector256<uint>.Zero;
+        var step = Vector256.Create((ushort)0xFFFF);
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        while (i < limit)
+        {
+            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+            var next = pos + step;
+            Vector256<ushort> skipMask;
+            if (wrap)
+            {
+                skipMask = Vector256.GreaterThan(pos, durationVector) | Vector256.Equals(pos, durationVector);
+                next = Vector256.ConditionalSelect(Vector256.Equals(pos, zero), lastVector, next);
+            }
+            else
+            {
+                skipMask = Vector256.Equals(pos, zero) | Vector256.GreaterThan(pos, durationVector);
+            }
+            next = Vector256.ConditionalSelect(skipMask, pos, next);
+            next.StoreUnsafe(ref p, (nuint)i);
+            (var nextLo, var nextHi) = Vector256.Widen(next);
+            (var posLo, var posHi) = Vector256.Widen(pos);
+            var gatherLo = Avx2.PermuteVar8x32(table, nextLo.AsInt32());
+            var gatherHi = Avx2.PermuteVar8x32(table, nextHi.AsInt32());
+            Vector256<float> skipLo, skipHi;
+            if (wrap)
+            {
+                skipLo = Vector256.Equals(nextLo, durationWide).AsSingle() | Vector256.GreaterThan(posLo, durationWide).AsSingle();
+                skipHi = Vector256.Equals(nextHi, durationWide).AsSingle() | Vector256.GreaterThan(posHi, durationWide).AsSingle();
+            }
+            else
+            {
+                skipLo = (Vector256.Equals(posLo, zeroUint) | Vector256.GreaterThan(posLo, durationWide)).AsSingle();
+                skipHi = (Vector256.Equals(posHi, zeroUint) | Vector256.GreaterThan(posHi, durationWide)).AsSingle();
+            }
+            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+            i += 16;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     internal static unsafe void GatherForward(float* eff, ushort duration, bool wrap, Span<ushort> positions, Span<float> effects, int i, int limit)
     {
         var last = (ushort)(duration - 1);
@@ -437,6 +532,7 @@ internal static unsafe class LaneAccelerator<T>
 {
     public const ushort Skipped = LaneMovementRecord.Skipped;
     public static float* ForwardEffects;
+    public static float* BackwardEffects;
     public static float* BackwardByPosition;
     public static LaneMovementRecord* Forward;
     public static LaneMovementRecord* Backward;
@@ -478,12 +574,15 @@ static unsafe class LaneTable<TTrack, TClip>
         using var measured = MeasuredLanes.Measure(asset);
         var duration = measured.Duration;
         var looping = measured.Looping;
-        var tableFloats = (nuint)(Math.Max(1u, duration) + 1u);
+        var measuredFloats = (nuint)duration + 1u;
+        var tableFloats = (nuint)Math.Max(8u, duration + 1u);
         var tableBytes = tableFloats * sizeof(float);
         var forward = (float*)NativeMemory.AlignedAlloc(tableBytes, 64);
         var backward = (float*)NativeMemory.AlignedAlloc(tableBytes, 64);
-        Buffer.MemoryCopy(measured.Forward, forward, (long)tableBytes, (long)tableBytes);
-        Buffer.MemoryCopy(measured.Backward, backward, (long)tableBytes, (long)tableBytes);
+        Buffer.MemoryCopy(measured.Forward, forward, (long)tableBytes, (long)(measuredFloats * sizeof(float)));
+        Buffer.MemoryCopy(measured.Backward, backward, (long)tableBytes, (long)(measuredFloats * sizeof(float)));
+        new Span<float>(forward + measuredFloats, (int)(tableFloats - measuredFloats)).Clear();
+        new Span<float>(backward + measuredFloats, (int)(tableFloats - measuredFloats)).Clear();
         var block = NativeMemory.AlignedAlloc((nuint)((duration + 1) * (2 * sizeof(LaneMovementRecord) + sizeof(float))), 64);
         var forwardRecords = (LaneMovementRecord*)block;
         var backwardRecords = forwardRecords + duration + 1;
@@ -507,6 +606,7 @@ static unsafe class LaneTable<TTrack, TClip>
         }
         if (previousBlock != null) NativeMemory.AlignedFree(previousBlock);
         LaneAccelerator<BakedLane<TTrack, TClip>>.ForwardEffects = forward;
+        LaneAccelerator<BakedLane<TTrack, TClip>>.BackwardEffects = backward;
         LaneAccelerator<BakedLane<TTrack, TClip>>.BackwardByPosition = backwardByPosition;
         LaneAccelerator<BakedLane<TTrack, TClip>>.Forward = forwardRecords;
         LaneAccelerator<BakedLane<TTrack, TClip>>.Backward = backwardRecords;
