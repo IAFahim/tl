@@ -46,6 +46,11 @@ type Tl.ITimelineLane`1
   Method Single InverseEffect(UInt16)
   Property Boolean Looping
 type Tl.ITrack`2
+type Tl.Lane`2
+  Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean, System.Span`1[TEffect])
+  Method Void Apply[TIndex,TPosition,TEffect](TIndex ByRef, TPosition ByRef, Boolean, TEffect ByRef)
+  Method Void Step[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean)
+  Method Void Step[TIndex,TPosition](TIndex ByRef, TPosition ByRef, Boolean)
 type Tl.MeasuredLanes
   Method Void Dispose()
   Property UInt16 Duration
