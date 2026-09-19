@@ -74,6 +74,9 @@ type Tl.Timeline
   Method Void Bake[T0,T1,T2](UInt16, T0, T1, T2)
   Method Void Bake[T0,T1,T2,T3](UInt16, T0, T1, T2, T3)
   Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
+  Method Void Step(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
+  Method Void Step(Tl.TimelineAsset, System.Span`1[System.UInt16], Boolean)
+  Method Void Step(UInt16, System.Span`1[System.UInt16], Boolean)
 type Tl.TimelineAsset
   Method Void Dispose()
   Property UInt16 Index
@@ -83,23 +86,18 @@ type Tl.TimelineAsset
 type Tl.TimelineComponent
   Field UInt16 Position
   Field Tl.TimelineRef Reference
-type Tl.TimelineLane`1
-  Method Void Apply(System.Span`1[System.Single])
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt16, Boolean, Boolean, Tl.TimelineState ByRef, UInt16 ByRef, Tl.FrameFlags ByRef)
 type Tl.TimelineRef
-type Tl.TimelineSetLane`2
-  Method Void Apply(System.Span`1[System.Single])
 type Tl.TimelineState
   Field UInt32 Asset
   Field UInt16 Position
 type Tl.Timeline`1
-  Method Void Advance(System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Tl.TimelineLane`1[T] Seek(System.Span`1[System.UInt16], Boolean)
+  Method Void Apply(System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Void Step(System.Span`1[System.UInt16], Boolean)
 type Tl.Timeline`2
-  Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Void Advance(UInt16, System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Void Advance(Tl.TimelineAsset, System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Tl.TimelineSetLane`2[TTrack,TClip] Seek(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
+  Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
 type Tl.TypeKey`1
   Field UInt64 Value

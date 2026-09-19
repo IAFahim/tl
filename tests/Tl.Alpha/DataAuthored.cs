@@ -103,7 +103,7 @@ internal static class DataAuthoredReceipts
             for (var tick = 0; tick < 200; tick++)
             {
                 var forward = tick % 3 != 2;
-                Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, forward).Apply(values);
+                Timeline<BakedLane<DamageTrack, DamageClip>>.Apply(positions, forward, values); Timeline<BakedLane<DamageTrack, DamageClip>>.Step(positions, forward);
                 for (var i = 0; i < positions.Length; i++)
                 {
                     if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i]), duration, looping, !forward, out var next, out var timelineTick, out _))
@@ -214,18 +214,18 @@ internal static class DataAuthoredReceipts
         var initialPositions = (ushort[])positions.Clone();
 
         for (var tick = 0; tick < 25; tick++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
+            { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Step(positions, true); }
         for (var tick = 0; tick < 25; tick++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, false).Apply(values);
+            { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, false, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Step(positions, false); }
 
         Require(positions.SequenceEqual(initialPositions), "rewind restores positions");
         Require(values.All(static value => value == 0f), "rewind restores values exactly");
 
-        Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
+        Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Step(positions, true);
         var single = values[0];
         for (var i = 0; i < 2; i++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
-        Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, false).Apply(values);
+            { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Step(positions, true); }
+        Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, false, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Step(positions, false);
         Require(values[0] == single * 2, "catch-up calls are linear and backward cancels one");
     }
 
@@ -251,7 +251,7 @@ internal static class DataAuthoredReceipts
     {
         var positions = new ushort[4];
         var values = new float[3];
-        RequireThrows<ArgumentException>(() => Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(positions, true).Apply(values), "length mismatch rejected");
+        RequireThrows<ArgumentException>(() => Timeline<BakedLane<DamageTrack, DamageClip>>.Apply(positions, true, values), "length mismatch rejected");
         values = new float[4];
         var buffer = new ushort[10];
         var overlappingPositions = buffer.AsSpan(0, 4);
@@ -259,7 +259,7 @@ internal static class DataAuthoredReceipts
         var threw = false;
         try
         {
-            Timeline<BakedLane<DamageTrack, DamageClip>>.Seek(overlappingPositions, true).Apply(overlapping);
+            Timeline<BakedLane<DamageTrack, DamageClip>>.Apply(overlappingPositions, true, overlapping); Timeline<BakedLane<DamageTrack, DamageClip>>.Step(overlappingPositions, true);
         }
         catch (ArgumentException)
         {
@@ -318,7 +318,7 @@ internal static class DataAuthoredReceipts
         for (var frame = 0; frame < Frames; frame++)
         {
             var forward = frame % 3 != 2;
-            timelines.Gather(ids).Seek(positions, forward).Apply(values);
+            timelines.Gather(ids).Seek(positions, forward).Apply(values); timelines.Step(ids, positions, forward);
             for (var i = 0; i < Rows; i++)
             {
                 var isLooping = ids[i] == loopingId;
@@ -357,10 +357,10 @@ internal static class DataAuthoredReceipts
         for (var attempt = 0; ; attempt++)
         {
             for (var pass = 0; pass < 1_000; pass++)
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
+                { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Step(positions, true); }
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var pass = 0; pass < 100_000; pass++)
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
+                { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Step(positions, true); }
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
         }
@@ -384,7 +384,7 @@ internal static class DataAuthoredReceipts
             positions[i] = (ushort)(i % 64);
 
         for (var tick = 0; tick < 64; tick++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
+            { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Step(positions, true); }
 
         long checksum = 0;
         for (var i = 0; i < Rows; i++)
@@ -411,7 +411,7 @@ internal static class DataAuthoredReceipts
         var positions = new ushort[16];
         var values = new float[16];
         for (var tick = 0; tick < 10; tick++)
-            Timeline<BakedLane<TandemTrack, TandemClip>>.Seek(positions, true).Apply(values);
+            { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Step(positions, true); }
         Require(values.All(value => value == expected * 10), "module capacity fold applied");
         Console.WriteLine($"module-capacity: {Tracks} tracks fold to {expected} per tick, x10 applied");
     }

@@ -24,6 +24,7 @@ static unsafe class TimelineTable
     }
 
     static byte* _block;
+    static uint* _motion;
     static int _capacity;
     static int _gate;
     static int _used;
@@ -43,7 +44,17 @@ static unsafe class TimelineTable
     static long _publishes;
     static nint _graveyard;
 
-    static TimelineTable() => Allocate(InitialCapacity);
+    static TimelineTable()
+    {
+        Allocate(InitialCapacity);
+        _motion = (uint*)NativeMemory.AlignedAlloc((nuint)(MaxCapacity * sizeof(uint)), 64);
+        new Span<uint>(_motion, MaxCapacity).Clear();
+    }
+
+    internal static uint* Motion => _motion;
+
+    static uint MotionOf(byte* block)
+        => ((NativeHeader*)block)->Duration | (((NativeHeader*)block)->Loops != 0 ? 0x80000000u : 0u);
 
     static Entry* Entries => (Entry*)_block;
     static int* ById => (int*)(_block + _capacity * sizeof(Entry));
@@ -203,6 +214,7 @@ static unsafe class TimelineTable
                 Volatile.Write(ref entry->State, StateLive);
                 return;
             }
+            Volatile.Write(ref _motion[index], 0u);
             var block = entry->Block;
             var bytes = entry->Bytes;
             entry->Block = null;
@@ -238,6 +250,7 @@ static unsafe class TimelineTable
         TimelineRef.Validate(baked);
         entry->Block = AllocateBlock(baked);
         entry->Bytes = baked.Length;
+        Volatile.Write(ref _motion[entry->Id], MotionOf(entry->Block));
         var generation = (ulong)Volatile.Read(ref entry->Count) >> 32;
         Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32 | 1));
         Volatile.Write(ref entry->State, StateLive);
@@ -260,6 +273,7 @@ static unsafe class TimelineTable
         var generation = (ulong)Volatile.Read(ref entry->Count) >> 32;
         Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32 | 1));
         Volatile.Write(ref entry->State, StateLive);
+        Volatile.Write(ref _motion[id], MotionOf(entry->Block));
         Volatile.Write(ref ById[id], (int)(entry - Entries));
         Interlocked.Increment(ref _live);
         Interlocked.Increment(ref _publishes);

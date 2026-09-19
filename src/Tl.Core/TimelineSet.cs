@@ -185,10 +185,29 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         return new(this, timelineIds, default, false);
     }
 
-    internal void Advance(ReadOnlySpan<ushort> timelineIds, Span<ushort> positions, bool forward, Span<float> effects)
+    internal void Apply(ReadOnlySpan<ushort> timelineIds, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
         => Gather(timelineIds).Seek(positions, forward).Apply(effects);
 
-    internal void ApplySlot(ushort index, Span<ushort> positions, bool forward, Span<float> effects)
+    internal void Step(ReadOnlySpan<ushort> ids, Span<ushort> positions, bool forward)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (ids.Length != positions.Length)
+            throw new ArgumentException("Column length must equal position count.");
+        var slots = _slots;
+        var bound = _count;
+        var reverse = !forward;
+        for (var i = 0; i < ids.Length; i++)
+        {
+            var id = ids[i];
+            if (id >= bound) continue;
+            var slot = slots + id;
+            if (slot->Forward == null) continue;
+            if (TimelineMovement.Advance(slot->Duration, slot->Looping != 0, reverse, positions[i], out var np, out _, out _))
+                positions[i] = np;
+        }
+    }
+
+    internal void ApplySlot(ushort index, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
         => new TimelineSetLane<TTrack, TClip>(this, ReadOnlySpan<ushort>.Empty, positions, forward).ApplySlot(index, effects);
 
     public void Dispose()
@@ -207,7 +226,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     }
 }
 
-public ref struct TimelineSetLane<TTrack, TClip>
+internal ref struct TimelineSetLane<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
@@ -216,10 +235,10 @@ public ref struct TimelineSetLane<TTrack, TClip>
 
     readonly TimelineSet<TTrack, TClip> _set;
     readonly ReadOnlySpan<ushort> _ids;
-    readonly Span<ushort> _positions;
+    readonly ReadOnlySpan<ushort> _positions;
     readonly bool _forward;
 
-    internal TimelineSetLane(TimelineSet<TTrack, TClip> set, ReadOnlySpan<ushort> ids, Span<ushort> positions, bool forward)
+    internal TimelineSetLane(TimelineSet<TTrack, TClip> set, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, bool forward)
     {
         _set = set;
         _ids = ids;
@@ -227,7 +246,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         _forward = forward;
     }
 
-    internal TimelineSetLane<TTrack, TClip> Seek(Span<ushort> positions, bool forward)
+    internal TimelineSetLane<TTrack, TClip> Seek(ReadOnlySpan<ushort> positions, bool forward)
         => new(_set, _ids, positions, forward);
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -351,7 +370,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyUniformSegment(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, int i, int limit, bool forward, bool gather)
+    static unsafe int ApplyUniformSegment(TimelineSet<TTrack, TClip>.Slot* slot, ReadOnlySpan<ushort> positions, Span<float> effects, int i, int limit, bool forward, bool gather)
     {
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
@@ -363,16 +382,16 @@ public ref struct TimelineSetLane<TTrack, TClip>
                 if (forward)
                 {
                     if (duration <= 8)
-                        LaneOps.PermuteForward(slot->Forward, duration, looping, positions, effects, i, blockEnd);
+                        LaneOps.EffPermuteForward(slot->Forward, duration, positions, effects, i, blockEnd);
                     else
-                        LaneOps.GatherForward(slot->Forward, duration, looping, positions, effects, i, blockEnd);
+                        LaneOps.EffectForward(slot->Forward, duration, positions, effects, i, blockEnd);
                 }
                 else
                 {
                     if (duration <= 8)
-                        LaneOps.PermuteBackward(slot->Backward, duration, looping, positions, effects, i, blockEnd);
+                        LaneOps.EffPermuteBackward(slot->Backward, duration, looping, positions, effects, i, blockEnd);
                     else
-                        LaneOps.GatherBackward(slot->BackwardByPosition, duration, looping, positions, effects, i, blockEnd);
+                        LaneOps.EffectBackward(slot->BackwardByPosition, duration, looping, positions, effects, i, blockEnd);
                 }
                 i = blockEnd;
             }
@@ -383,7 +402,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyUniformForward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, int i, int limit)
+    static unsafe int ApplyUniformForward(TimelineSet<TTrack, TClip>.Slot* slot, ReadOnlySpan<ushort> positions, Span<float> effects, int i, int limit)
     {
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
@@ -395,28 +414,16 @@ public ref struct TimelineSetLane<TTrack, TClip>
             var end = i + 1 >= limit || positions[i + 1] != position ? i + 1 : LaneOps.RunEnd(positions, i, limit);
             if (position >= duration) { i = end; continue; }
             var delta = eff[position];
-            var nextTick = (ushort)(position + 1);
-            if (looping && nextTick == duration) nextTick = 0;
             if (end == i + 1)
-            {
                 effects[i] += delta;
-                positions[i] = nextTick;
-            }
             else
-            {
                 LaneOps.Add(effects, i, end, delta);
-                LaneOps.Fill(positions, i, end, nextTick);
-            }
             i = end;
             while (i < limit && (i + 1 >= limit || positions[i + 1] != positions[i]))
             {
                 var p = positions[i];
                 if (p < duration)
-                {
-                    ref var r = ref records[p];
-                    effects[i] += r.Effect;
-                    positions[i] = r.Next;
-                }
+                    effects[i] += records[p].Effect;
                 i++;
             }
         }
@@ -424,7 +431,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyUniformBackward(TimelineSet<TTrack, TClip>.Slot* slot, Span<ushort> positions, Span<float> effects, int i, int limit)
+    static unsafe int ApplyUniformBackward(TimelineSet<TTrack, TClip>.Slot* slot, ReadOnlySpan<ushort> positions, Span<float> effects, int i, int limit)
     {
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
@@ -437,30 +444,16 @@ public ref struct TimelineSetLane<TTrack, TClip>
             if (position == 0 && !looping || position > duration || looping && position == duration) { i = end; continue; }
             var tick = position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1);
             var delta = eff[tick];
-            var nextTick = tick;
             if (end == i + 1)
-            {
                 effects[i] += delta;
-                positions[i] = nextTick;
-            }
             else
-            {
                 LaneOps.Add(effects, i, end, delta);
-                LaneOps.Fill(positions, i, end, nextTick);
-            }
             i = end;
             while (i < limit && (i + 1 >= limit || positions[i + 1] != positions[i]))
             {
                 var p = positions[i];
-                if (p <= duration)
-                {
-                    ref var r = ref records[p];
-                    if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
-                    {
-                        effects[i] += r.Effect;
-                        positions[i] = r.Next;
-                    }
-                }
+                if (p <= duration && records[p].Next != TimelineSet<TTrack, TClip>.Skipped)
+                    effects[i] += records[p].Effect;
                 i++;
             }
         }
@@ -468,7 +461,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
+    static unsafe int ApplyMixedForward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
         while (i < limit)
         {
@@ -478,11 +471,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
             {
                 var m = slots + id;
                 if (position < m->Duration)
-                {
-                    ref var r = ref m->ForwardRecords[position];
-                    effects[i] += r.Effect;
-                    positions[i] = r.Next;
-                }
+                    effects[i] += m->ForwardRecords[position].Effect;
                 i++;
                 continue;
             }
@@ -490,18 +479,14 @@ public ref struct TimelineSetLane<TTrack, TClip>
             var slot = slots + id;
             var duration = slot->Duration;
             if (position >= duration) { i = end; continue; }
-            var delta = slot->Forward[position];
-            var next = (ushort)(position + 1);
-            if (slot->Looping != 0 && next == duration) next = 0;
-            LaneOps.Add(effects, i, end, delta);
-            LaneOps.Fill(positions, i, end, next);
+            LaneOps.Add(effects, i, end, slot->Forward[position]);
             i = end;
         }
         return limit;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
+    static unsafe int ApplyMixedBackward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
         while (i < limit)
         {
@@ -510,15 +495,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
             if (i + 1 >= limit || ids[i + 1] != id || positions[i + 1] != position)
             {
                 var m = slots + id;
-                if (position <= m->Duration)
-                {
-                    ref var r = ref m->BackwardRecords[position];
-                    if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
-                    {
-                        effects[i] += r.Effect;
-                        positions[i] = r.Next;
-                    }
-                }
+                if (position <= m->Duration && m->BackwardRecords[position].Next != TimelineSet<TTrack, TClip>.Skipped)
+                    effects[i] += m->BackwardRecords[position].Effect;
                 i++;
                 continue;
             }
@@ -527,17 +505,14 @@ public ref struct TimelineSetLane<TTrack, TClip>
             var duration = slot->Duration;
             var looping = slot->Looping != 0;
             if (position == 0 && !looping || position > duration || looping && position == duration) { i = end; continue; }
-            var tick = position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1);
-            var delta = slot->Backward[tick];
-            LaneOps.Add(effects, i, end, delta);
-            LaneOps.Fill(positions, i, end, tick);
+            LaneOps.Add(effects, i, end, slot->Backward[position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1)]);
             i = end;
         }
         return limit;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int FastMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
+    static unsafe int FastMixedForward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
         var lastId = -1;
         LaneMovementRecord* lastRecords = null;
@@ -549,16 +524,14 @@ public ref struct TimelineSetLane<TTrack, TClip>
                 lastId = id;
                 lastRecords = slots[id].ForwardRecords;
             }
-            ref var r = ref lastRecords[positions[i]];
-            effects[i] += r.Effect;
-            positions[i] = r.Next;
+            effects[i] += lastRecords[positions[i]].Effect;
             i++;
         }
         return limit;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int FastMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
+    static unsafe int FastMixedBackward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
         var lastId = -1;
         LaneMovementRecord* lastRecords = null;
@@ -572,16 +545,13 @@ public ref struct TimelineSetLane<TTrack, TClip>
             }
             ref var r = ref lastRecords[positions[i]];
             if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
-            {
                 effects[i] += r.Effect;
-                positions[i] = r.Next;
-            }
             i++;
         }
         return limit;
     }
 
-    static bool ShortRuns(Span<ushort> positions, int start, int end)
+    static bool ShortRuns(ReadOnlySpan<ushort> positions, int start, int end)
     {
         var probe = start + 64;
         if (probe > end) probe = end;
@@ -685,7 +655,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
         return false;
     }
 
-    static unsafe bool FastMixedChunk(ReadOnlySpan<ushort> ids, Span<ushort> positions, int start, int end, int bound, int minDuration)
+    static unsafe bool FastMixedChunk(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int end, int bound, int minDuration)
     {
         if (bound <= 0) return false;
         var boundLimit = bound >= 65536 ? (ushort)65535 : (ushort)bound;
@@ -733,7 +703,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
     static void ThrowUnboundId(ushort id, int row)
         => throw new ArgumentException($"Timeline id {id} at row {row} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time, and the pair-typed bank resolves timeline indices on the first typed advance.");
 
-    static int RunEndTwo(ReadOnlySpan<ushort> ids, Span<ushort> positions, int start, int limit)
+    static int RunEndTwo(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int limit)
     {
         var id = ids[start];
         var tick = positions[start];

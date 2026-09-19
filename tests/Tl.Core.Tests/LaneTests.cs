@@ -154,7 +154,7 @@ public class LaneTests
         {
             var positions = new ushort[] { (ushort)position };
             var effects = new float[1];
-            Timeline<LawLane>.Seek(positions, forward == 0).Apply(effects);
+            Timeline<LawLane>.Apply(positions, forward == 0, effects); Timeline<LawLane>.Step(positions, forward == 0);
             var moved = TimelineMovement.Select(new TimelineState(1, (ushort)position), LawLane.Duration, LawLane.Looping, forward != 0, out var next, out _, out _);
             if (moved)
                 Assert.Equal(next.Position, positions[0]);
@@ -171,7 +171,7 @@ public class LaneTests
         {
             var positions = new ushort[] { (ushort)position };
             var effects = new float[1];
-            Timeline<LawFiniteLane>.Seek(positions, forward == 0).Apply(effects);
+            Timeline<LawFiniteLane>.Apply(positions, forward == 0, effects); Timeline<LawFiniteLane>.Step(positions, forward == 0);
             var moved = TimelineMovement.Select(new TimelineState(1, (ushort)position), LawFiniteLane.Duration, LawFiniteLane.Looping, forward != 0, out var next, out _, out _);
             if (moved)
                 Assert.Equal(next.Position, positions[0]);
@@ -186,7 +186,7 @@ public class LaneTests
         var positions = new ushort[] { 0, 0, 2, 2, 2, 5 };
         var effects = new float[positions.Length];
 
-        Timeline<LawLane>.Seek(positions, true).Apply(effects);
+        Timeline<LawLane>.Apply(positions, true, effects); Timeline<LawLane>.Step(positions, true);
 
         Assert.Equal(0f, effects[0]);
         Assert.Equal(0f, effects[1]);
@@ -247,7 +247,7 @@ public class LaneTests
 
         for (var tick = 0; tick < Ticks; tick++)
         {
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, true);
             Simulate(oraclePositions, oracleEffects, LoopingEffects, true, 1, 6, true);
             Assert.Equal(oraclePositions, lanePositions);
             Assert.Equal(oracleEffects, laneEffects);
@@ -255,7 +255,7 @@ public class LaneTests
 
         for (var tick = 0; tick < Ticks; tick++)
         {
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, false).Apply(laneEffects);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, false, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, false);
             Simulate(oraclePositions, oracleEffects, LoopingEffects, false, 1, 6, true);
             Assert.Equal(oraclePositions, lanePositions);
             Assert.Equal(oracleEffects, laneEffects);
@@ -280,7 +280,7 @@ public class LaneTests
             lanePositions[i] = oraclePositions[i] = (ushort)(i % 6);
 
         for (var call = 0; call < 3; call++)
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects);
+            { Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, true); }
         Simulate(oraclePositions, oracleEffects, LoopingEffects, true, 3, 6, true);
 
         Assert.Equal(oraclePositions, lanePositions);
@@ -313,7 +313,7 @@ public class LaneTests
 
         for (var tick = 0; tick < Ticks; tick++)
         {
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, true);
             Simulate(oraclePositions, oracleEffects, finiteEffects, true, 1, 6, false);
             Assert.Equal(oraclePositions, lanePositions);
             Assert.Equal(oracleEffects, laneEffects);
@@ -356,7 +356,7 @@ public class LaneTests
         Assert.Equal(0f, BakedLane<ImpureTrack, ImpureClip>.InverseEffect(0));
         var positions = new ushort[] { 0, 2, 4 };
         var effects = new float[3];
-        Timeline<BakedLane<ImpureTrack, ImpureClip>>.Seek(positions, true).Apply(effects);
+        Timeline<BakedLane<ImpureTrack, ImpureClip>>.Apply(positions, true, effects); Timeline<BakedLane<ImpureTrack, ImpureClip>>.Step(positions, true);
         Assert.Equal(new ushort[] { 1, 3, 5 }, positions);
         Assert.Equal(new float[] { 0f, 0f, 0f }, effects);
     }
@@ -391,10 +391,10 @@ public class LaneTests
 
         var positions = new ushort[] { 0 };
         var effects = new float[1];
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(positions, true).Apply(effects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(positions, true, effects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(positions, true);
         Assert.Equal(0, (int)positions[0]);
         Assert.Equal(23f, effects[0]);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(positions, false).Apply(effects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(positions, false, effects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(positions, false);
         Assert.Equal(0, (int)positions[0]);
         Assert.Equal(0f, effects[0]);
     }
@@ -424,8 +424,8 @@ public class LaneTests
 
         for (var i = 0; i < 100; i++)
         {
-            Timeline<LawLane>.Seek(positions, true).Apply(effects);
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(positions, false).Apply(effects);
+            Timeline<LawLane>.Apply(positions, true, effects); Timeline<LawLane>.Step(positions, true);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(positions, false, effects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(positions, false);
         }
 
         GC.Collect();
@@ -434,8 +434,8 @@ public class LaneTests
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < 100_000; i++)
         {
-            Timeline<LawLane>.Seek(positions, true).Apply(effects);
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(positions, false).Apply(effects);
+            Timeline<LawLane>.Apply(positions, true, effects); Timeline<LawLane>.Step(positions, true);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(positions, false, effects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(positions, false);
         }
         Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
     }
@@ -445,7 +445,7 @@ public class LaneTests
     {
         var positions = new ushort[4];
         var effects = new float[3];
-        Assert.Throws<ArgumentException>(() => Timeline<LawLane>.Seek(positions, true).Apply(effects));
+        Assert.Throws<ArgumentException>(() => Timeline<LawLane>.Apply(positions, true, effects));
     }
 
     [Fact]
@@ -455,7 +455,7 @@ public class LaneTests
         var positions = buffer.AsSpan(0, 4);
         var effects = MemoryMarshal.Cast<ushort, float>(buffer.AsSpan(1, 8));
         var threw = false;
-        try { Timeline<LawLane>.Seek(positions, true).Apply(effects); }
+        try { Timeline<LawLane>.Apply(positions, true, effects); }
         catch (ArgumentException) { threw = true; }
         Assert.True(threw);
     }
@@ -464,11 +464,11 @@ public class LaneTests
     public void SeekTreatsEmptyAndZeroDurationAsNoOp()
     {
         var positions = Array.Empty<ushort>();
-        Timeline<LawLane>.Seek(positions, true).Apply(Array.Empty<float>());
+        Timeline<LawLane>.Apply(positions, true, Array.Empty<float>()); Timeline<LawLane>.Step(positions, true);
 
         var effects = new float[1];
         var zero = new ushort[] { 3 };
-        Timeline<ZeroLane>.Seek(zero, true).Apply(effects);
+        Timeline<ZeroLane>.Apply(zero, true, effects); Timeline<ZeroLane>.Step(zero, true);
         Assert.Equal(3, (int)zero[0]);
         Assert.Equal(0f, effects[0]);
     }
@@ -499,7 +499,7 @@ public class LaneTests
         var positions = new ushort[] { 0, 0, 1 };
         var effects = new float[3];
 
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
 
         Assert.Equal(LoopingEffects[0], effects[0]);
         Assert.Equal(17f, effects[1]);
@@ -564,13 +564,13 @@ public class LaneTests
         for (var frame = 0; frame < 80; frame++)
         {
             var forward = frame % 3 != 2;
-            timelines.Gather(ids).Seek(positions, forward).Apply(effects);
+            timelines.Gather(ids).Seek(positions, forward).Apply(effects); timelines.Step(ids, positions, forward);
             BakedLane<LaneTrack, LaneClip>.Bind(looping);
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(loopPositions, forward).Apply(loopEffects);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(loopPositions, forward, loopEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(loopPositions, forward);
             BakedLane<LaneTrack, LaneClip>.Bind(constant);
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(constantPositions, forward).Apply(constantEffects);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(constantPositions, forward, constantEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(constantPositions, forward);
             BakedLane<LaneTrack, LaneClip>.Bind(wide);
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(widePositions, forward).Apply(wideEffects);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(widePositions, forward, wideEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(widePositions, forward);
             for (var j = 0; j < loopRows.Count; j++)
             {
                 var row = loopRows[j];
@@ -608,14 +608,14 @@ public class LaneTests
         BakedLane<LaneTrack, LaneClip>.Bind(looping);
         var loopPositions = new ushort[] { 4, 5, 0 };
         var loopEffects = new float[3];
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(loopPositions, true).Apply(loopEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(loopPositions, true, loopEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(loopPositions, true);
 
         BakedLane<LaneTrack, LaneClip>.Bind(wide);
         var widePositions = new ushort[] { 12, 8 };
         var wideEffects = new float[2];
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(widePositions, true).Apply(wideEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(widePositions, true, wideEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(widePositions, true);
 
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
 
         Assert.Equal(loopEffects[0], effects[0]);
         Assert.Equal(wideEffects[0], effects[1]);
@@ -647,9 +647,9 @@ public class LaneTests
         for (var frame = 0; frame < 80; frame++)
         {
             var forward = frame % 3 != 2;
-            timelines.Gather(ids).Seek(positions, forward).Apply(effects);
+            timelines.Gather(ids).Seek(positions, forward).Apply(effects); timelines.Step(ids, positions, forward);
             BakedLane<LaneTrack, LaneClip>.Bind(looping);
-            Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, forward).Apply(laneEffects);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, forward, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, forward);
             Assert.Equal(lanePositions, positions);
             Assert.Equal(laneEffects, effects);
         }
@@ -673,14 +673,14 @@ public class LaneTests
         effects[16] = MemoryMarshal.Read<float>(stackalloc byte[4] { 0x01, 0x00, 0x80, 0x7F });
         effects[17] = BitConverter.Int32BitsToSingle(unchecked((int)0x80000000));
 
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
 
         Assert.Equal(7, (int)positions[16]);
         Assert.Equal(6, (int)positions[17]);
         Assert.Equal(0x7F800001u, BitConverter.SingleToUInt32Bits(effects[16]));
         Assert.Equal(0x80000000u, BitConverter.SingleToUInt32Bits(effects[17]));
 
-        timelines.Gather(ids).Seek(positions, false).Apply(effects);
+        timelines.Gather(ids).Seek(positions, false).Apply(effects); timelines.Step(ids, positions, false);
 
         Assert.Equal(7, (int)positions[16]);
         Assert.Equal(6, (int)positions[17]);
@@ -708,14 +708,14 @@ public class LaneTests
         effects[16] = MemoryMarshal.Read<float>(stackalloc byte[4] { 0x01, 0x00, 0x80, 0x7F });
         effects[17] = BitConverter.Int32BitsToSingle(unchecked((int)0x80000000));
 
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
 
         Assert.Equal(7, (int)positions[16]);
         Assert.Equal(6, (int)positions[17]);
         Assert.Equal(0x7F800001u, BitConverter.SingleToUInt32Bits(effects[16]));
         Assert.Equal(0x80000000u, BitConverter.SingleToUInt32Bits(effects[17]));
 
-        timelines.Gather(ids).Seek(positions, false).Apply(effects);
+        timelines.Gather(ids).Seek(positions, false).Apply(effects); timelines.Step(ids, positions, false);
 
         Assert.Equal(7, (int)positions[16]);
         Assert.Equal(6, (int)positions[17]);
@@ -741,7 +741,7 @@ public class LaneTests
         effects[16] = MemoryMarshal.Read<float>(stackalloc byte[4] { 0x01, 0x00, 0x80, 0x7F });
         effects[17] = BitConverter.Int32BitsToSingle(unchecked((int)0x80000000));
 
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
 
         Assert.Equal(9, (int)positions[16]);
         Assert.Equal(9, (int)positions[17]);
@@ -750,7 +750,7 @@ public class LaneTests
 
         positions[16] = 10;
         positions[17] = 10;
-        timelines.Gather(ids).Seek(positions, false).Apply(effects);
+        timelines.Gather(ids).Seek(positions, false).Apply(effects); timelines.Step(ids, positions, false);
 
         Assert.Equal(10, (int)positions[16]);
         Assert.Equal(10, (int)positions[17]);
@@ -818,8 +818,8 @@ public class LaneTests
 
         for (var i = 0; i < 100; i++)
         {
-            timelines.Gather(ids).Seek(positions, true).Apply(effects);
-            timelines.Gather(ids).Seek(staggered, true).Apply(effects);
+            timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
+            timelines.Gather(ids).Seek(staggered, true).Apply(effects); timelines.Step(ids, staggered, true);
         }
 
         GC.Collect();
@@ -828,8 +828,8 @@ public class LaneTests
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < 100_000; i++)
         {
-            timelines.Gather(ids).Seek(positions, true).Apply(effects);
-            timelines.Gather(ids).Seek(staggered, true).Apply(effects);
+            timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
+            timelines.Gather(ids).Seek(staggered, true).Apply(effects); timelines.Step(ids, staggered, true);
         }
         Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
     }
@@ -905,8 +905,8 @@ public class LaneTests
         var ids = new ushort[] { emptyId, emptyId };
         var positions = new ushort[] { 0, 5 };
         var effects = new float[2];
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
-        timelines.Gather(ids).Seek(positions, false).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
+        timelines.Gather(ids).Seek(positions, false).Apply(effects); timelines.Step(ids, positions, false);
         Assert.Equal(new ushort[] { 0, 5 }, positions);
         Assert.Equal(new float[] { 0f, 0f }, effects);
     }
@@ -971,12 +971,12 @@ public class LaneTests
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         var loopingId = timelines.Add(looping);
-        timelines.Gather(Array.Empty<ushort>()).Seek(Array.Empty<ushort>(), true).Apply(Array.Empty<float>());
+        timelines.Gather(Array.Empty<ushort>()).Seek(Array.Empty<ushort>(), true).Apply(Array.Empty<float>()); timelines.Step(Array.Empty<ushort>(), Array.Empty<ushort>(), true);
 
         var ids = new ushort[] { loopingId };
         var positions = new ushort[] { 0 };
         var effects = new float[1];
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
         Assert.Equal(LoopingEffects[0], effects[0]);
         Assert.Equal(1, (int)positions[0]);
     }
@@ -1015,9 +1015,9 @@ public class LaneTests
         var lanePositions = (ushort[])positions.Clone();
         var laneEffects = new float[Rows];
         BakedLane<LaneTrack, LaneClip>.Bind(looping);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, true);
 
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
 
         Assert.Equal(lanePositions, positions);
         Assert.Equal(laneEffects, effects);
@@ -1037,8 +1037,8 @@ public class LaneTests
         var effects = new float[positions.Length];
         var lanePositions = (ushort[])positions.Clone();
         var laneEffects = new float[positions.Length];
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects);
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, true);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
         Assert.Equal(lanePositions, positions);
         Assert.Equal(laneEffects, effects);
 
@@ -1046,8 +1046,8 @@ public class LaneTests
         var bareEffects = new float[positions.Length];
         lanePositions = (ushort[])positions.Clone();
         laneEffects = new float[positions.Length];
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects);
-        timelines.Gather(ids).Seek(positions, true).Apply(bareEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, true);
+        timelines.Gather(ids).Seek(positions, true).Apply(bareEffects); timelines.Step(ids, positions, true);
         Assert.Equal(lanePositions, positions);
         Assert.Equal(laneEffects, bareEffects);
 
@@ -1059,8 +1059,8 @@ public class LaneTests
         var singleEffects = new float[16];
         var singleLanePositions = (ushort[])singles.Clone();
         var singleLaneEffects = new float[16];
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(singleLanePositions, true).Apply(singleLaneEffects);
-        timelines.Gather(singleIds).Seek(singles, true).Apply(singleEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(singleLanePositions, true, singleLaneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(singleLanePositions, true);
+        timelines.Gather(singleIds).Seek(singles, true).Apply(singleEffects); timelines.Step(singleIds, singles, true);
         Assert.Equal(singleLanePositions, singles);
         Assert.Equal(singleLaneEffects, singleEffects);
     }
@@ -1079,8 +1079,8 @@ public class LaneTests
         var effects = new float[positions.Length];
         var lanePositions = (ushort[])positions.Clone();
         var laneEffects = new float[positions.Length];
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, false).Apply(laneEffects);
-        timelines.Gather(ids).Seek(positions, false).Apply(effects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, false, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, false);
+        timelines.Gather(ids).Seek(positions, false).Apply(effects); timelines.Step(ids, positions, false);
         Assert.Equal(lanePositions, positions);
         Assert.Equal(laneEffects, effects);
 
@@ -1088,8 +1088,8 @@ public class LaneTests
         var bareEffects = new float[positions.Length];
         lanePositions = (ushort[])positions.Clone();
         laneEffects = new float[positions.Length];
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, false).Apply(laneEffects);
-        timelines.Gather(ids).Seek(positions, false).Apply(bareEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, false, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, false);
+        timelines.Gather(ids).Seek(positions, false).Apply(bareEffects); timelines.Step(ids, positions, false);
         Assert.Equal(lanePositions, positions);
         Assert.Equal(laneEffects, bareEffects);
     }
@@ -1117,13 +1117,13 @@ public class LaneTests
         var lanePositions = (ushort[])positions.Clone();
         var laneEffects = new float[positions.Length];
         BakedLane<LaneTrack, LaneClip>.Bind(looping);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, true).Apply(laneEffects);
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, true);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
         Assert.Equal(lanePositions, positions);
         Assert.Equal(laneEffects, effects);
 
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(lanePositions, false).Apply(laneEffects);
-        timelines.Gather(ids).Seek(positions, false).Apply(effects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, false, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(lanePositions, false);
+        timelines.Gather(ids).Seek(positions, false).Apply(effects); timelines.Step(ids, positions, false);
         Assert.Equal(lanePositions, positions);
         Assert.Equal(laneEffects, effects);
     }
@@ -1144,23 +1144,23 @@ public class LaneTests
         var widePositions = new ushort[] { 2, 9, 10 };
         var wideEffects = new float[3];
         BakedLane<LaneTrack, LaneClip>.Bind(wide);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(widePositions, true).Apply(wideEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(widePositions, true, wideEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(widePositions, true);
 
         var secondPositions = new ushort[] { 3, 4, 5 };
         var secondEffects = new float[3];
         BakedLane<LaneTrack, LaneClip>.Bind(second);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(secondPositions, true).Apply(secondEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(secondPositions, true, secondEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(secondPositions, true);
 
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
 
         Assert.Equal(new ushort[] { widePositions[0], secondPositions[0], widePositions[1], secondPositions[1], widePositions[2], secondPositions[2] }, positions);
         Assert.Equal(new float[] { wideEffects[0], secondEffects[0], wideEffects[1], secondEffects[1], wideEffects[2], secondEffects[2] }, effects);
 
         BakedLane<LaneTrack, LaneClip>.Bind(wide);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(widePositions, false).Apply(wideEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(widePositions, false, wideEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(widePositions, false);
         BakedLane<LaneTrack, LaneClip>.Bind(second);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(secondPositions, false).Apply(secondEffects);
-        timelines.Gather(ids).Seek(positions, false).Apply(effects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(secondPositions, false, secondEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(secondPositions, false);
+        timelines.Gather(ids).Seek(positions, false).Apply(effects); timelines.Step(ids, positions, false);
 
         Assert.Equal(new ushort[] { widePositions[0], secondPositions[0], widePositions[1], secondPositions[1], widePositions[2], secondPositions[2] }, positions);
         Assert.Equal(new float[] { wideEffects[0], secondEffects[0], wideEffects[1], secondEffects[1], wideEffects[2], secondEffects[2] }, effects);
@@ -1182,14 +1182,14 @@ public class LaneTests
         var loopPositions = new ushort[] { 6, 7, 0, 3 };
         var loopEffects = new float[4];
         BakedLane<LaneTrack, LaneClip>.Bind(looping);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(loopPositions, false).Apply(loopEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(loopPositions, false, loopEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(loopPositions, false);
 
         var widePositions = new ushort[] { 9, 10, 12, 1 };
         var wideEffects = new float[4];
         BakedLane<LaneTrack, LaneClip>.Bind(wide);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(widePositions, false).Apply(wideEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(widePositions, false, wideEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(widePositions, false);
 
-        timelines.Gather(ids).Seek(positions, false).Apply(effects);
+        timelines.Gather(ids).Seek(positions, false).Apply(effects); timelines.Step(ids, positions, false);
 
         Assert.Equal(new ushort[] { loopPositions[0], widePositions[0], loopPositions[1], widePositions[1], loopPositions[2], widePositions[2], loopPositions[3], widePositions[3] }, positions);
         Assert.Equal(new float[] { loopEffects[0], wideEffects[0], loopEffects[1], wideEffects[1], loopEffects[2], wideEffects[2], loopEffects[3], wideEffects[3] }, effects);
@@ -1219,22 +1219,22 @@ public class LaneTests
         Array.Fill(wideRunPositions, (ushort)3);
         var wideRunEffects = new float[40];
         BakedLane<LaneTrack, LaneClip>.Bind(wide);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(wideRunPositions, true).Apply(wideRunEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(wideRunPositions, true, wideRunEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(wideRunPositions, true);
 
         var secondRunPositions = new ushort[8];
         Array.Fill(secondRunPositions, (ushort)4);
         var secondRunEffects = new float[8];
         BakedLane<LaneTrack, LaneClip>.Bind(second);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(secondRunPositions, true).Apply(secondRunEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(secondRunPositions, true, secondRunEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(secondRunPositions, true);
 
         var tailPositions = new ushort[16];
         Array.Fill(tailPositions, (ushort)5, 0, 8);
         Array.Fill(tailPositions, (ushort)6, 8, 8);
         var tailEffects = new float[16];
         BakedLane<LaneTrack, LaneClip>.Bind(wide);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(tailPositions, true).Apply(tailEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(tailPositions, true, tailEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(tailPositions, true);
 
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
 
         for (var i = 0; i < 40; i++)
         {
@@ -1258,7 +1258,7 @@ public class LaneTests
         Array.Fill(barePositions, (ushort)5, 48, 8);
         Array.Fill(barePositions, (ushort)6, 56, 8);
         var bareEffects = new float[64];
-        timelines.Gather(ids).Seek(barePositions, true).Apply(bareEffects);
+        timelines.Gather(ids).Seek(barePositions, true).Apply(bareEffects); timelines.Step(ids, barePositions, true);
         Assert.Equal(positions, barePositions);
         Assert.Equal(effects, bareEffects);
     }
@@ -1287,11 +1287,11 @@ public class LaneTests
         var loopEffects = new float[8];
         var wideEffects = new float[8];
         BakedLane<LaneTrack, LaneClip>.Bind(looping);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(loopPositions, false).Apply(loopEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(loopPositions, false, loopEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(loopPositions, false);
         BakedLane<LaneTrack, LaneClip>.Bind(wide);
-        Timeline<BakedLane<LaneTrack, LaneClip>>.Seek(widePositions, false).Apply(wideEffects);
+        Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(widePositions, false, wideEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Step(widePositions, false);
 
-        timelines.Gather(ids).Seek(positions, false).Apply(effects);
+        timelines.Gather(ids).Seek(positions, false).Apply(effects); timelines.Step(ids, positions, false);
 
         for (var i = 0; i < 8; i++)
         {
@@ -1342,7 +1342,7 @@ public class LaneTests
         ids[16] = 65535;
         var positions = new ushort[17];
         var effects = new float[17];
-        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Step(ids, positions, true);
         Assert.Equal(1, (int)positions[16]);
         BakedLane<LaneTrack, LaneClip>.Bind(lastAsset);
         Assert.Equal(BakedLane<LaneTrack, LaneClip>.Effect(0), effects[16]);
@@ -1351,7 +1351,7 @@ public class LaneTests
         Array.Fill(lastIds, (ushort)65535);
         var lastPositions = new ushort[16];
         var lastEffects = new float[16];
-        timelines.Gather(lastIds).Seek(lastPositions, true).Apply(lastEffects);
+        timelines.Gather(lastIds).Seek(lastPositions, true).Apply(lastEffects); timelines.Step(lastIds, lastPositions, true);
         Assert.Equal(1, (int)lastPositions[0]);
 
         using (var overflow = TimelineAsset.LoadAsset(fill))

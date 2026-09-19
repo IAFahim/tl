@@ -34,8 +34,8 @@ internal static class Parity
         var candidateEffects = Seeds.Effects(rows);
         for (var pass = 0; pass < Passes; pass++)
         {
-            Timeline<LaneTrack, LaneClip>.Seek(ids, reference, forward).Apply(referenceEffects);
-            Timeline<LaneTrack, LaneClip>.Advance(ids, candidate, forward, candidateEffects);
+            Timeline<LaneTrack, LaneClip>.Apply(ids, reference, forward, referenceEffects); Timeline.Step(ids, reference, forward);
+            Timeline<LaneTrack, LaneClip>.Apply(ids, candidate, forward, candidateEffects); Timeline.Step(ids, candidate, forward);
         }
         return Report("lane", rows, clock, forward, reference, candidate, referenceEffects, candidateEffects);
     }
@@ -55,8 +55,8 @@ internal static class Parity
         var candidateEffects = Seeds.Effects(rows);
         for (var pass = 0; pass < Passes; pass++)
         {
-            Timeline<LaneTrack, LaneClip>.Seek(ids, reference, forward).Apply(referenceEffects);
-            Timeline<LaneTrack, LaneClip>.Advance(ids, candidate, forward, candidateEffects);
+            Timeline<LaneTrack, LaneClip>.Apply(ids, reference, forward, referenceEffects); Timeline.Step(ids, reference, forward);
+            Timeline<LaneTrack, LaneClip>.Apply(ids, candidate, forward, candidateEffects); Timeline.Step(ids, candidate, forward);
         }
         return Report(mixedIds ? "set-mixed" : "set-one ", rows, clock, forward, reference, candidate, referenceEffects, candidateEffects);
     }
@@ -71,8 +71,8 @@ internal static class Parity
         var candidateEffects = Seeds.Effects(rows);
         for (var pass = 0; pass < Passes; pass++)
         {
-            Timeline<EdgeTrack, EdgeClip>.Seek(ids, reference, forward).Apply(referenceEffects);
-            Timeline<EdgeTrack, EdgeClip>.Advance(ids, candidate, forward, candidateEffects);
+            Timeline<EdgeTrack, EdgeClip>.Apply(ids, reference, forward, referenceEffects); Timeline.Step(ids, reference, forward);
+            Timeline<EdgeTrack, EdgeClip>.Apply(ids, candidate, forward, candidateEffects); Timeline.Step(ids, candidate, forward);
         }
         return Report("edge", rows, clock, forward, reference, candidate, referenceEffects, candidateEffects);
     }

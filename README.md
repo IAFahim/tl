@@ -58,7 +58,8 @@ ushort jumpTimeline = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
 var tick = new ushort[1];
 var y = new float[1];
 for (var frame = 0; frame < 30; frame++)
-    Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, tick, true, y);
+    Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, true, y);
+    Timeline.Step(jumpTimeline, tick, true);
 ```
 
 `--auto` is opt-in and never guesses silently: exactly one loaded type of that bare name fills the `namespace`; zero or several stop the bake naming every candidate. `tlb --json --assembly bin/Release/net10.0/YourGame.dll` lists every authorable pair with its namespace, fields, and consumers — the source for filling tracks and clips by hand ([Type discovery](#type-discovery)). "Run the full thing" below is the same shape with four characters, rewind, and host wiring.
@@ -118,7 +119,8 @@ var y = new float[4];
 
 for (var frame = 1; frame <= 30; frame++)
 {
-    Timeline<JumpTrack, JumpClip>.Advance(ids, tick, true, y);
+    Timeline<JumpTrack, JumpClip>.Apply(ids, tick, true, y);
+    Timeline.Step(ids, tick, true);
     if (frame % 3 == 0)
         Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', (int)Math.Round(y[0] / 3))}");
 }
@@ -279,14 +281,15 @@ Timeline.Bake(jumpTimeline, world, 43);
 
 Bakes are host-timed — attach and transition effects, never per-frame work. The dispatch is a cold pass over the asset's pairs; the warm path never sees a bake.
 
-Per frame, three caller-owned columns — timeline index, clock, effect — and one call advances every character one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
+Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Step` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Step` moves it exactly once. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
 
 ```cs
 for (var frame = 0; frame < 30; frame++)
-    Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, tick, false, y);
+    Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, false, y);
+    Timeline.Step(jumpTimeline, tick, false);
 ```
 
-More systems on the same pair just declare the marker again — no registration, no chaining. Every consumer of `(JumpTrack, JumpClip)` runs inside the same one `Advance` call, folding its contribution into the effect column after the consumers before it:
+More systems on the same pair just declare the marker again — no registration, no chaining. Every consumer of `(JumpTrack, JumpClip)` runs inside the same one `Apply` call, folding its contribution into the effect column after the consumers before it:
 
 ```cs
 public readonly struct ScreenShake : ITrack<JumpTrack, JumpClip>

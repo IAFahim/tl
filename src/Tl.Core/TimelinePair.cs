@@ -6,13 +6,10 @@ public static unsafe class Timeline<TTrack, TClip>
 {
     static TimelineSet<TTrack, TClip>? _bank;
 
-    public static TimelineSetLane<TTrack, TClip> Seek(ReadOnlySpan<ushort> indices, Span<ushort> positions, bool forward)
-        => Bank().Gather(indices).Seek(positions, forward);
+    public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
+        => Bank().Apply(indices, positions, forward, effects);
 
-    public static void Advance(ReadOnlySpan<ushort> indices, Span<ushort> positions, bool forward, Span<float> effects)
-        => Bank().Advance(indices, positions, forward, effects);
-
-    public static void Advance(ushort index, Span<ushort> positions, bool forward, Span<float> effects)
+    public static void Apply(ushort index, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
     {
         var bank = Bank();
         if (!bank.IsFolded(index))
@@ -20,10 +17,10 @@ public static unsafe class Timeline<TTrack, TClip>
         bank.ApplySlot(index, positions, forward, effects);
     }
 
-    public static void Advance(TimelineAsset asset, Span<ushort> positions, bool forward, Span<float> effects)
+    public static void Apply(TimelineAsset asset, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
     {
         ArgumentNullException.ThrowIfNull(asset);
-        Advance(asset.Index, positions, forward, effects);
+        Apply(asset.Index, positions, forward, effects);
     }
 
     internal static void Resolve(ushort index)
