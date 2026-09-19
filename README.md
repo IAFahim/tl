@@ -15,7 +15,66 @@ dotnet tool install --global Tl.Bake --prerelease     # the tlb bake command
 
 ## Run the full thing
 
-`samples/Showcase` is the whole pipeline — data, bake, system — in three commands:
+`samples/Showcase` is the whole pipeline with the code inline — data, bake, system, output.
+
+**1 · the data** — `jump.json`, authored by a designer, naming the game's own C# types:
+
+```json
+{
+  "name": "jump", "duration": 30, "loop": true,
+  "tracks": [
+    {
+      "name": "arc", "namespace": "Showcase", "type": "JumpTrack", "data": { "Scale": 1.0 },
+      "clips": [
+        { "namespace": "Showcase", "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
+        { "namespace": "Showcase", "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } }
+      ]
+    }
+  ]
+}
+```
+
+**2 · the bake** — JSON to canonical TLB1 bytes, deterministic on every machine:
+
+```sh
+tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
+```
+
+**3 · the system** — `Program.cs`, three structs and one call per frame:
+
+```cs
+public readonly record struct JumpClip(float Velocity);
+
+public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
+{
+    public void Blend(in JumpClip first, in JumpClip second, float factor, out JumpClip result)
+    {
+        result = new JumpClip(first.Velocity + (second.Velocity - first.Velocity) * factor);
+    }
+}
+
+public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
+{
+    public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float y)
+    {
+        y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
+    }
+}
+
+ushort jump = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
+var ids = new ushort[] { jump, jump, jump, jump };
+var tick = new ushort[4];
+var y = new float[4];
+
+for (var frame = 1; frame <= 30; frame++)
+{
+    Timeline<JumpTrack, JumpClip>.Advance(ids, tick, true, y);
+    if (frame % 3 == 0)
+        Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', (int)Math.Round(y[0] / 3))}");
+}
+```
+
+Run it:
 
 ```sh
 cd samples/Showcase
@@ -47,27 +106,7 @@ Timeline.Bake marked entities 42, 43 as jumping; unmarked entities never reach t
 
 ## Data
 
-The whole input is one JSON file per timeline — `samples/Showcase/jump.json`, authored by a designer, naming the game's own C# types:
-
-```json
-{
-  "name": "jump",
-  "duration": 30,
-  "loop": true,
-  "tracks": [
-    {
-      "name": "arc",
-      "namespace": "Showcase",
-      "type": "JumpTrack",
-      "data": { "Scale": 1.0 },
-      "clips": [
-        { "namespace": "Showcase", "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
-        { "namespace": "Showcase", "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } }
-      ]
-    }
-  ]
-}
-```
+The JSON above is the whole input format — one file per timeline, authored by a designer, naming the game's own C# types:
 
 - windows are half-open `[start, end)`; execution order is authored clip order
 - `data` fields map onto struct fields by name (`Scale` → `JumpTrack.Scale`)
@@ -93,44 +132,9 @@ tlb --watch jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
 
 ## System
 
-The game side is one file, `samples/Showcase/Program.cs`. Three structs per pair — the clip payload, the track settings with its blend, and the consumer that writes one effect column:
+The three structs in the run above are the whole game side — the clip payload, the track settings with its blend, and the consumer that writes one effect column. `ITrack<TTrack, TClip>` consumers are discovered compilation-wide — no registration, no catalog. `frame.Direction` is +1 forward and −1 backward, which is why rewind is exact. Loading is one call that returns the timeline's index — a dense `ushort`, the whole acquisition step; the first typed use folds the pair's measured tables once, every later call is a table read.
 
-```cs
-public readonly record struct JumpClip(float Velocity);
-
-public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
-{
-    public void Blend(in JumpClip first, in JumpClip second, float factor, out JumpClip result)
-        => result = new(first.Velocity + (second.Velocity - first.Velocity) * factor);
-}
-
-public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
-{
-    public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float y)
-        => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
-}
-```
-
-`ITrack<TTrack, TClip>` consumers are discovered compilation-wide — no registration, no catalog. `frame.Direction` is +1 forward and −1 backward, which is why rewind is exact.
-
-Loading is one call that returns the timeline's index — a dense `ushort`, the whole acquisition step. The first typed use folds the pair's measured tables once; every later call is a table read:
-
-```cs
-ushort jump = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
-```
-
-Per frame, three caller-owned columns — timeline index, clock, effect — and one call advances every character one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs:
-
-```cs
-var ids  = new ushort[] { jump, jump, jump, jump };
-var tick = new ushort[] { 0, 0, 0, 0 };
-var y    = new float[] { 0f, 0f, 0f, 0f };
-
-for (var frame = 1; frame <= 30; frame++)
-    Timeline<JumpTrack, JumpClip>.Advance(ids, tick, true, y);
-```
-
-Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
+Per frame, three caller-owned columns — timeline index, clock, effect — and one call advances every character one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
 
 ```cs
 for (var frame = 0; frame < 30; frame++)
@@ -143,12 +147,13 @@ Host wiring is declared, not registered — implement `IBake<TConsumer, ...TCont
 public readonly struct AttachJumping : IBake<MoveY, World, int>
 {
     public static void Bake(MoveY consumer, World world, int entity)
-        => world.MarkJumping(entity);
+    {
+        world.MarkJumping(entity);
+    }
 }
 
 var world = new World();
-Timeline.Bake(jump, world, 42);
-Timeline.Bake(jump, world, 43);
+Timeline.Bake(jump, world, 42); Timeline.Bake(jump, world, 43);
 ```
 
 `Timeline.Bake(id, args...)` walks the timeline's pairs and runs every bake whose declared context types appear among the argument types — exact type match, first argument of that type wins, declaration order is the parameter order, zero-context bakes run on every call, a missing context keeps the bake silent. Discovered and validated at build time (TLGEN70-73), installed into an unmanaged table, warm path untouched. A timeline that lacks the pair is a loud located diagnostic at first typed use — host wiring error, never designer data. Reading without advancing: `Timeline.Query<TTrack, TClip>(in TimelineComponent)` is a read-only stage view that never moves the clock.
