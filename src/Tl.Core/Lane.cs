@@ -18,15 +18,19 @@ public interface ITimelineLane<T>
 public static class Timeline<T>
     where T : unmanaged, ITimelineLane<T>
 {
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
         => new TimelineLane<T>(positions, forward).Apply(effects);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
         => TimelineLane<T>.Apply(positions, next, forward, effects);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Step(Span<ushort> positions, bool forward)
         => TimelineLane<T>.Step(positions, positions, forward);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Step(ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
         => TimelineLane<T>.Step(positions, next, forward);
 }
@@ -39,12 +43,14 @@ internal ref struct TimelineLane<T>
     readonly ReadOnlySpan<ushort> _positions;
     readonly bool _forward;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal TimelineLane(ReadOnlySpan<ushort> positions, bool forward)
     {
         _positions = positions;
         _forward = forward;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal static void Step(ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         var duration = T.Duration;
@@ -75,6 +81,7 @@ internal ref struct TimelineLane<T>
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal static unsafe void Apply(ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
     {
         if (positions.Length != effects.Length || positions.Length != next.Length)
@@ -242,6 +249,7 @@ internal ref struct TimelineLane<T>
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     static bool RunShaped(ReadOnlySpan<ushort> positions)
     {
         var sample = positions.Length;
@@ -252,6 +260,7 @@ internal ref struct TimelineLane<T>
         return pairs >= sample / 2;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     void Check(Span<float> effects)
     {
         var positions = _positions;
@@ -274,6 +283,7 @@ internal struct LaneMovementRecord
 
 internal static unsafe class LaneOps
 {
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal static int RunEnd(ReadOnlySpan<ushort> values, int start, int limit)
     {
         var value = values[start];
@@ -306,6 +316,7 @@ internal static unsafe class LaneOps
         return end;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal static bool SingletonChunk(ReadOnlySpan<ushort> positions, int start, int end)
     {
         var probe = start + 64;
@@ -326,6 +337,7 @@ internal static unsafe class LaneOps
         return true;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal static void Add(Span<float> values, int start, int end, float delta)
     {
         var length = end - start;
@@ -341,6 +353,7 @@ internal static unsafe class LaneOps
         for (; i < length; i++) values[start + i] += delta;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal static void Fill(Span<ushort> values, int start, int end, ushort value)
     {
         var length = end - start;
@@ -620,7 +633,7 @@ internal static unsafe class LaneOps
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     static Vector256<uint> StepForwardWide(Vector256<uint> pos, Vector256<uint> duration, Vector256<int> loop, Vector256<uint> one, Vector256<uint> zero)
     {
         var next = pos + one;
@@ -628,7 +641,7 @@ internal static unsafe class LaneOps
         return Vector256.ConditionalSelect(Vector256.LessThan(pos, duration), next, pos);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     static Vector256<uint> StepBackwardWide(Vector256<uint> pos, Vector256<uint> duration, Vector256<int> loop, Vector256<uint> one, Vector256<uint> zero)
     {
         var prev = pos - one;

@@ -48,6 +48,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             _pendingCursor++;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal bool IsFolded(ushort index)
         => index < (uint)_count && _slots[index].Forward != null;
 
@@ -186,21 +187,26 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         return index;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal TimelineSetLane<TTrack, TClip> Gather(ReadOnlySpan<ushort> timelineIds)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return new(this, timelineIds, default, false);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal void Apply(ReadOnlySpan<ushort> timelineIds, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
         => Gather(timelineIds).Seek(positions, forward).Apply(effects);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal void Apply(ReadOnlySpan<ushort> timelineIds, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
         => Gather(timelineIds).Seek(positions, forward).Apply(effects, next);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal void Step(ReadOnlySpan<ushort> ids, Span<ushort> positions, bool forward)
         => Step(ids, positions, positions, forward);
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal void Step(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -254,9 +260,11 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             : positions[i];
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal void ApplySlot(ushort index, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
         => new TimelineSetLane<TTrack, TClip>(this, ReadOnlySpan<ushort>.Empty, positions, forward).ApplySlot(index, effects);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal void ApplySlot(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
         => new TimelineSetLane<TTrack, TClip>(this, ReadOnlySpan<ushort>.Empty, positions, forward).ApplySlot(index, effects, next);
 
@@ -288,6 +296,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     readonly ReadOnlySpan<ushort> _positions;
     readonly bool _forward;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal TimelineSetLane(TimelineSet<TTrack, TClip> set, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, bool forward)
     {
         _set = set;
@@ -296,6 +305,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         _forward = forward;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal TimelineSetLane<TTrack, TClip> Seek(ReadOnlySpan<ushort> positions, bool forward)
         => new(_set, _ids, positions, forward);
 
@@ -434,6 +444,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal unsafe void ApplySlot(ushort index, Span<float> effects, Span<ushort> next)
     {
         var set = _set;
@@ -693,6 +704,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         return limit;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     static bool ShortRuns(ReadOnlySpan<ushort> positions, int start, int end)
     {
         var probe = start + 64;
@@ -714,6 +726,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         return equalPairs <= 24;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     static bool UniformChunk(ReadOnlySpan<ushort> ids, int start, int end, ushort first)
     {
         var i = start;
@@ -736,6 +749,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         return true;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     static unsafe bool ValidateChunk(ReadOnlySpan<ushort> ids, int start, int end, TimelineSet<TTrack, TClip> set, int bound)
     {
         if (bound >= 65536) return false;
@@ -786,6 +800,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         return grew;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     static bool ResolveOrThrow(TimelineSet<TTrack, TClip> set, ushort id, int row)
     {
         if (set._lazyResolve)
@@ -797,6 +812,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         return false;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     static unsafe bool FastMixedChunk(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int end, int bound, int minDuration)
     {
         if (bound <= 0) return false;
@@ -845,6 +861,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     static void ThrowUnboundId(ushort id, int row)
         => throw new ArgumentException($"Timeline id {id} at row {row} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time, and the pair-typed bank resolves timeline indices on the first typed advance.");
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     static int RunEndTwo(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int limit)
     {
         var id = ids[start];
@@ -884,43 +901,5 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         }
         while (end < limit && ids[end] == id && positions[end] == tick) end++;
         return end;
-    }
-
-    static void Add(Span<float> values, int start, int end, float delta)
-    {
-        var length = end - start;
-        var i = 0;
-        if (Vector512.IsHardwareAccelerated)
-        {
-            var vector = Vector512.Create(delta);
-            var limit = length & ~15;
-            for (; i < limit; i += 16) Vector512.Add(Vector512.LoadUnsafe(ref values[start], (nuint)i), vector).StoreUnsafe(ref values[start], (nuint)i);
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            var vector = Vector256.Create(delta);
-            var limit = length & ~7;
-            for (; i < limit; i += 8) Vector256.Add(Vector256.LoadUnsafe(ref values[start], (nuint)i), vector).StoreUnsafe(ref values[start], (nuint)i);
-        }
-        for (; i < length; i++) values[start + i] += delta;
-    }
-
-    static void Fill(Span<ushort> values, int start, int end, ushort value)
-    {
-        var length = end - start;
-        var i = 0;
-        if (Vector512.IsHardwareAccelerated)
-        {
-            var vector = Vector512.Create(value);
-            var limit = length & ~31;
-            for (; i < limit; i += 32) vector.StoreUnsafe(ref values[start], (nuint)i);
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            var vector = Vector256.Create(value);
-            var limit = length & ~15;
-            for (; i < limit; i += 16) vector.StoreUnsafe(ref values[start], (nuint)i);
-        }
-        for (; i < length; i++) values[start + i] = value;
     }
 }
