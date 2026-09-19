@@ -27,6 +27,7 @@ jobs:
         with:
           dotnet-version: 10.0.401
       - run: python3 -m unittest discover -s tests -p test_release_artifacts.py
+      - run: python3 -m unittest discover -s tests -p test_readme_numbers.py
       - run: python3 benchmarks/source_budget.py
       - run: python3 -m unittest discover -s benchmarks -p test_collect.py
       - run: dotnet build tl.slnx -c Release -m:1
