@@ -12,60 +12,60 @@
     {
       "Id": "sync",
       "Label": "whole crowd on one timeline (a raid jumping in sync)",
-      "Ms": 0.5226,
-      "Ns": 0.5226,
+      "Ms": 0.5131,
+      "Ns": 0.5131,
       "Allocated": 0
     },
     {
       "Id": "groups",
       "Label": "100 timelines, crowds of 10,000 each (per-ability groups)",
-      "Ms": 0.7272,
-      "Ns": 0.7272,
+      "Ms": 0.711,
+      "Ns": 0.711,
       "Allocated": 0
     },
     {
       "Id": "own-clock",
       "Label": "one looping timeline, every character on its own clock",
-      "Ms": 0.5178,
-      "Ns": 0.5178,
+      "Ms": 0.4937,
+      "Ns": 0.4937,
       "Allocated": 0
     },
     {
       "Id": "finite",
       "Label": "one-shot finite timeline, staggered clocks",
-      "Ms": 0.5501,
-      "Ns": 0.5501,
+      "Ms": 0.5229,
+      "Ns": 0.5229,
       "Allocated": 0
     },
     {
       "Id": "handwritten",
       "Label": "hand-written loop for comparison (\u0060effects \u002B= 1\u0060)",
-      "Ms": 0.361,
-      "Ns": 0.361,
+      "Ms": 0.3539,
+      "Ns": 0.3539,
       "Allocated": 0
     },
     {
       "Id": "squads",
       "Label": "small squads: 16 timelines \u00D7 16 characters",
-      "Ms": 0.9004,
-      "Ns": 0.9004,
+      "Ms": 0.8358,
+      "Ns": 0.8358,
       "Allocated": 0
     },
     {
       "Id": "worst",
       "Label": "worst case: unsorted rows, a different timeline each",
-      "Ms": 1.0984,
-      "Ns": 1.0984,
+      "Ms": 1.0982,
+      "Ns": 1.0982,
       "Allocated": 0
     }
   ],
   "Bake": {
     "CorpusMb": 19.339241981506348,
     "CorpusFile": "numbers-game.json",
-    "BakeMs": 56.6823,
-    "LoadMs": 1.6129
+    "BakeMs": 55.2261,
+    "LoadMs": 1.5737
   },
   "Checksum": 2103072035,
-  "GeneratedUtc": "2026-09-19T06:49:37Z",
+  "GeneratedUtc": "2026-09-19T07:33:10Z",
   "Dotnet": "10.0.12"
 }
