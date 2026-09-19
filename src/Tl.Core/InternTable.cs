@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 
 namespace Tl;
 
@@ -67,11 +66,7 @@ static unsafe class TimelineTable
 
     internal static ushort Load(ReadOnlySpan<byte> baked)
     {
-        TimelineRef.Validate(baked);
-        Span<byte> digest = stackalloc byte[32];
-        SHA256.HashData(baked, digest);
-        var low = BitConverter.ToUInt64(digest);
-        var high = BitConverter.ToUInt64(digest.Slice(8));
+        Digest(baked, out var low, out var high);
         AcquireGate();
         try
         {
@@ -86,6 +81,7 @@ static unsafe class TimelineTable
                 }
                 return Revive(entry, baked);
             }
+            TimelineRef.Validate(baked);
             if (_nextId >= MaxCapacity)
                 throw new InvalidOperationException($"Timeline index domain exhausted: {MaxCapacity} distinct timeline contents over the process lifetime; indices are content identities and never move to other content.");
             if ((_used + 1) * 4 > _capacity * 3)
@@ -239,6 +235,7 @@ static unsafe class TimelineTable
 
     static ushort Revive(Entry* entry, ReadOnlySpan<byte> baked)
     {
+        TimelineRef.Validate(baked);
         entry->Block = AllocateBlock(baked);
         entry->Bytes = baked.Length;
         var generation = (ulong)Volatile.Read(ref entry->Count) >> 32;
@@ -383,5 +380,49 @@ static unsafe class TimelineTable
         h *= 0xC4CEB9FE1A85EC53UL;
         h ^= h >> 33;
         return h;
+    }
+
+    static void Digest(ReadOnlySpan<byte> data, out ulong low, out ulong high)
+    {
+        const ulong p5 = 2870177450012600261UL;
+        var length = (ulong)data.Length;
+        ulong a = length * p5 ^ 0x9E3779B97F4A7C15UL;
+        ulong b = length * p5 ^ 0xC2B2AE3D27D4EB4FUL;
+        ulong c = (length * p5 ^ 0x165667B19E3779F9UL) << 1;
+        ulong d = (length * p5 ^ 0x85EBCA77C2B2AE63UL) << 2;
+        fixed (byte* pinned = data)
+        {
+            var p = pinned;
+            var end = p + (data.Length & ~31);
+            while (p < end)
+            {
+                a = DigestRound(a, *(ulong*)p);
+                b = DigestRound(b, *(ulong*)(p + 8));
+                c = DigestRound(c, *(ulong*)(p + 16));
+                d = DigestRound(d, *(ulong*)(p + 24));
+                p += 32;
+            }
+            var tail = data.Length & 31;
+            for (var i = 0; i < tail; i++)
+                a = DigestRound(a, p[i] | 0x800UL);
+        }
+        low = DigestAvalanche(a ^ DigestAvalanche(c));
+        high = DigestAvalanche(b ^ DigestAvalanche(d ^ length));
+    }
+
+    static ulong DigestRound(ulong state, ulong lane)
+    {
+        var mixed = state ^ (lane * 14029467366897019727UL);
+        return ((mixed << 31) | (mixed >> 33)) * 11400714785074694791UL;
+    }
+
+    static ulong DigestAvalanche(ulong value)
+    {
+        value ^= value >> 33;
+        value *= 14029467366897019727UL;
+        value ^= value >> 29;
+        value *= 11400714785074694791UL;
+        value ^= value >> 32;
+        return value;
     }
 }

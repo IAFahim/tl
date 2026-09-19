@@ -292,6 +292,13 @@ public ref struct TimelineSetLane<TTrack, TClip>
                         uniformId = -1;
                         slot = null;
                     }
+                if (FastMixedChunk(ids, positions, i, chunkEnd, bound, minDuration))
+                {
+                    i = forward
+                        ? FastMixedForward(ids, positions, effects, slots, i, chunkEnd)
+                        : FastMixedBackward(ids, positions, effects, slots, i, chunkEnd);
+                    continue;
+                }
                 if (ValidateChunk(ids, i, chunkEnd, set, bound))
                 {
                     slots = set._slots;
@@ -307,8 +314,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
                     if (segment - i < MinSegment)
                     {
                         i = forward
-                            ? ApplyMixedForward(ids, positions, effects, slots, minDuration, i, chunkEnd)
-                            : ApplyMixedBackward(ids, positions, effects, slots, minDuration, i, chunkEnd);
+                            ? ApplyMixedForward(ids, positions, effects, slots, i, chunkEnd)
+                            : ApplyMixedBackward(ids, positions, effects, slots, i, chunkEnd);
                         break;
                     }
                     i = ApplyUniformSegment(slots + ids[i], positions, effects, i, segment, forward, gather);
@@ -348,9 +355,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
     {
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
-        if (gather && duration > 1 && (looping
-                ? LaneOps.SingletonChunk(positions, i, limit)
-                : ShortRuns(positions, i, limit)))
+        if (gather && duration > 1 && (looping || ShortRuns(positions, i, limit)))
         {
             var blockEnd = i + ((limit - i) >> 4 << 4);
             if (blockEnd > i)
@@ -453,10 +458,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int minDuration, int i, int limit)
+    static unsafe int ApplyMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
-        if (FastMixedChunk(ids, positions, i, limit, minDuration))
-            return FastMixedForward(ids, positions, effects, slots, i, limit);
         while (i < limit)
         {
             var id = ids[i];
@@ -488,10 +491,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int minDuration, int i, int limit)
+    static unsafe int ApplyMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
-        if (FastMixedChunk(ids, positions, i, limit, minDuration))
-            return FastMixedBackward(ids, positions, effects, slots, i, limit);
         while (i < limit)
         {
             var id = ids[i];
@@ -528,9 +529,17 @@ public ref struct TimelineSetLane<TTrack, TClip>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     static unsafe int FastMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
+        var lastId = -1;
+        LaneMovementRecord* lastRecords = null;
         while (i < limit)
         {
-            ref var r = ref slots[ids[i]].ForwardRecords[positions[i]];
+            var id = ids[i];
+            if (id != lastId)
+            {
+                lastId = id;
+                lastRecords = slots[id].ForwardRecords;
+            }
+            ref var r = ref lastRecords[positions[i]];
             effects[i] += r.Effect;
             positions[i] = r.Next;
             i++;
@@ -541,9 +550,17 @@ public ref struct TimelineSetLane<TTrack, TClip>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     static unsafe int FastMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
+        var lastId = -1;
+        LaneMovementRecord* lastRecords = null;
         while (i < limit)
         {
-            ref var r = ref slots[ids[i]].BackwardRecords[positions[i]];
+            var id = ids[i];
+            if (id != lastId)
+            {
+                lastId = id;
+                lastRecords = slots[id].BackwardRecords;
+            }
+            ref var r = ref lastRecords[positions[i]];
             if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
             {
                 effects[i] += r.Effect;
@@ -583,13 +600,11 @@ public ref struct TimelineSetLane<TTrack, TClip>
             ref var origin = ref MemoryMarshal.GetReference(ids);
             var search = new Vector<ushort>(first);
             var edge = end - Vector<ushort>.Count;
-            var mismatch = Vector<ushort>.Zero;
             while (i <= edge)
             {
-                mismatch |= Vector.Xor(Vector.LoadUnsafe(ref origin, (nuint)i), search);
+                if (Vector.Xor(Vector.LoadUnsafe(ref origin, (nuint)i), search) != Vector<ushort>.Zero) return false;
                 i += Vector<ushort>.Count;
             }
-            if (mismatch != Vector<ushort>.Zero) return false;
         }
         while (i < end)
         {
@@ -660,26 +675,24 @@ public ref struct TimelineSetLane<TTrack, TClip>
         return false;
     }
 
-    static bool FastMixedChunk(ReadOnlySpan<ushort> ids, Span<ushort> positions, int start, int end, int minDuration)
+    static unsafe bool FastMixedChunk(ReadOnlySpan<ushort> ids, Span<ushort> positions, int start, int end, int bound, int minDuration)
     {
+        if (bound <= 0) return false;
+        var boundLimit = bound >= 65536 ? (ushort)65535 : (ushort)bound;
         var i = start;
         if (Vector512.IsHardwareAccelerated)
         {
             ref var idOrigin = ref MemoryMarshal.GetReference(ids);
             ref var positionOrigin = ref MemoryMarshal.GetReference(positions);
+            var boundVector = Vector512.Create(boundLimit);
             var limit = Vector512.Create((ushort)minDuration);
             var highest = Vector512<ushort>.Zero;
             while (i + 32 < end)
             {
                 var id = Vector512.LoadUnsafe(ref idOrigin, (nuint)i);
-                var nextId = Vector512.LoadUnsafe(ref idOrigin, (nuint)(i + 1));
-                var position = Vector512.LoadUnsafe(ref positionOrigin, (nuint)i);
-                var nextPosition = Vector512.LoadUnsafe(ref positionOrigin, (nuint)(i + 1));
-                if ((Vector512.Equals(id, nextId) & Vector512.Equals(position, nextPosition)) != Vector512<ushort>.Zero)
-                    return false;
-                highest = Vector512.Max(highest, position);
-                if (Vector512.ExtractMostSignificantBits(Vector512.GreaterThanOrEqual(highest, limit)) != 0)
-                    return false;
+                if (Vector512.GreaterThanOrEqual(id, boundVector) != Vector512<ushort>.Zero) return false;
+                highest = Vector512.Max(highest, Vector512.LoadUnsafe(ref positionOrigin, (nuint)i));
+                if (Vector512.ExtractMostSignificantBits(Vector512.GreaterThanOrEqual(highest, limit)) != 0) return false;
                 i += 32;
             }
         }
@@ -687,27 +700,22 @@ public ref struct TimelineSetLane<TTrack, TClip>
         {
             ref var idOrigin = ref MemoryMarshal.GetReference(ids);
             ref var positionOrigin = ref MemoryMarshal.GetReference(positions);
+            var boundVector = Vector256.Create(boundLimit);
             var limit = Vector256.Create((ushort)minDuration);
             var highest = Vector256<ushort>.Zero;
             while (i + 16 < end)
             {
                 var id = Vector256.LoadUnsafe(ref idOrigin, (nuint)i);
-                var nextId = Vector256.LoadUnsafe(ref idOrigin, (nuint)(i + 1));
-                var position = Vector256.LoadUnsafe(ref positionOrigin, (nuint)i);
-                var nextPosition = Vector256.LoadUnsafe(ref positionOrigin, (nuint)(i + 1));
-                if ((Vector256.Equals(id, nextId) & Vector256.Equals(position, nextPosition)) != Vector256<ushort>.Zero)
-                    return false;
-                highest = Vector256.Max(highest, position);
-                if (Vector256.ExtractMostSignificantBits(Vector256.GreaterThanOrEqual(highest, limit)) != 0)
-                    return false;
+                if (Vector256.GreaterThanOrEqual(id, boundVector) != Vector256<ushort>.Zero) return false;
+                highest = Vector256.Max(highest, Vector256.LoadUnsafe(ref positionOrigin, (nuint)i));
+                if (Vector256.ExtractMostSignificantBits(Vector256.GreaterThanOrEqual(highest, limit)) != 0) return false;
                 i += 16;
             }
         }
         for (var k = i; k < end; k++)
         {
-            var position = positions[k];
-            if (position >= minDuration) return false;
-            if (k + 1 < end && ids[k] == ids[k + 1] && position == positions[k + 1]) return false;
+            if (ids[k] >= boundLimit) return false;
+            if (positions[k] >= minDuration) return false;
         }
         return true;
     }
