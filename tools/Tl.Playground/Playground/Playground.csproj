@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishTrimmed>false</PublishTrimmed>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -22,7 +23,6 @@
   <ItemGroup>
     <TrimmerRootAssembly Include="Play.Core" />
     <TrimmerRootAssembly Include="Tl.Gen.CSharp" />
-    <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
     <PresetFile Include="..\presets\*.json" />
   </ItemGroup>
 
