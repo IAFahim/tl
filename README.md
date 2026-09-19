@@ -123,7 +123,16 @@ The JSON above is the whole input format — one file per timeline, authored by 
 tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
 ```
 
-`--assembly` names the DLL that ships the JSON's types (pair keys hash assembly-qualified names). The designer loop:
+`--assembly` names the DLL that ships the JSON's types (pair keys hash assembly-qualified names). The explicit form always wins; the lazy forms fill in what is unambiguous:
+
+```sh
+tlb jump.json          # output defaults to jump.tlb beside the input; assembly discovered
+tlb                    # exactly one *.json in the directory; more than one names the candidates
+```
+
+Discovery sweeps the DLLs under the launch directory (skipping `.git`, `obj`, and friends) and keeps the ones defining every `(namespace, type)` pair the JSON references — exactly one is used, several fail naming them, zero fails naming the missing types and swept roots. `tlb.db` in the launch directory remembers the last resolution per JSON and is reused while the recorded DLL still exists and still defines the types; it is machine-local, gitignored, and rewritten on every re-sweep.
+
+The designer loop:
 
 ```sh
 tlb --watch jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll

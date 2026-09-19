@@ -85,7 +85,24 @@ public class CliTests
     [Fact]
     public void Cli_MissingArguments_ReturnsNonZero()
     {
-        var exitCode = Tl.Bake.Program.Main([]);
-        Assert.NotEqual(0, exitCode);
+        var tempDir = Path.Combine(Path.GetTempPath(), "tlb_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var previous = Directory.GetCurrentDirectory();
+        var stderr = new StringWriter();
+        var original = Console.Error;
+        try
+        {
+            Directory.SetCurrentDirectory(tempDir);
+            Console.SetError(stderr);
+            var exitCode = Tl.Bake.Program.Main([]);
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("No input given", stderr.ToString());
+        }
+        finally
+        {
+            Console.SetError(original);
+            Directory.SetCurrentDirectory(previous);
+            Directory.Delete(tempDir, true);
+        }
     }
 }
