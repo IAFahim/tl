@@ -23,6 +23,23 @@ public static unsafe class Timeline<TTrack, TClip>
         Apply(asset.Index, positions, forward, effects);
     }
 
+    public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
+        => Bank().Apply(indices, positions, next, forward, effects);
+
+    public static void Apply(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
+    {
+        var bank = Bank();
+        if (!bank.IsFolded(index))
+            Resolve(index);
+        bank.ApplySlot(index, positions, next, forward, effects);
+    }
+
+    public static void Apply(TimelineAsset asset, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
+    {
+        ArgumentNullException.ThrowIfNull(asset);
+        Apply(asset.Index, positions, next, forward, effects);
+    }
+
     internal static void Resolve(ushort index)
     {
         var bank = Bank();
