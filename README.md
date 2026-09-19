@@ -187,15 +187,15 @@ One million characters, one frame per call (i9-14900K, .NET 10, Release; best of
 
 | scenario | ms/frame | ns/character |
 | --- | ---: | ---: |
-| whole crowd on one timeline (a raid jumping in sync) | 0.60 | 0.60 |
-| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.71 | 0.71 |
-| one looping timeline, every character on its own clock | 0.51 | 0.51 |
-| one-shot finite timeline, staggered clocks | 0.51 | 0.51 |
-| hand-written loop for comparison (`effects += 1`) | 0.35 | 0.35 |
-| small squads: 16 timelines × 16 characters | 1.45 | 1.45 |
-| worst case: unsorted rows, a different timeline each | 1.51 | 1.51 |
+| whole crowd on one timeline (a raid jumping in sync) | 0.52 | 0.52 |
+| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.73 | 0.73 |
+| one looping timeline, every character on its own clock | 0.52 | 0.52 |
+| one-shot finite timeline, staggered clocks | 0.55 | 0.55 |
+| hand-written loop for comparison (`effects += 1`) | 0.36 | 0.36 |
+| small squads: 16 timelines × 16 characters | 0.90 | 0.90 |
+| worst case: unsorted rows, a different timeline each | 1.10 | 1.10 |
 
-A single-timeline crowd floors at 0.51 ns per character; grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 63 ms and loads in 7.7 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
+A single-timeline crowd floors at 0.52 ns per character; grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 57 ms and loads in 1.6 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
 <!-- /tl-numbers -->
 
 Receipts: `benchmarks/Numbers` (generates this section; `eng/refresh-numbers` re-measures and re-renders it from a fingerprinted receipt, and CI fails if the two disagree), `benchmarks/PairHandles`, `benchmarks/Alpha`, `tests/Tl.Alpha` — parity, allocation, and throughput evidence, run in CI on every push.
