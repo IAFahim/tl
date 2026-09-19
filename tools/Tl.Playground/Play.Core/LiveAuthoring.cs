@@ -19,6 +19,7 @@ public sealed class LiveRun
 {
     public ushort[] Positions = [];
     public float[] Effects = [];
+    public string[] Console = [];
     public int Ticks;
     public int Moved;
     public int Skipped;
@@ -28,6 +29,7 @@ public sealed class LiveRun
 public static class LiveAuthoring
 {
     static readonly List<Assembly> KeepAlive = [];
+    static readonly Dictionary<string, Assembly> Compiled = new(StringComparer.Ordinal);
     static int _compiles;
 
     public const string DefaultSource = """
@@ -94,6 +96,8 @@ public static unsafe class Setup
 
     public static LiveCompile Compile(string source)
     {
+        if (Compiled.TryGetValue(source, out var cached))
+            return new LiveCompile(cached, "", 0);
         var watch = Stopwatch.StartNew();
         try
         {
@@ -105,7 +109,7 @@ public static unsafe class Setup
             var parse = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None);
             var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, optimizationLevel: OptimizationLevel.Release)
                 .WithConcurrentBuild(false);
-            var compilation = CSharpCompilation.Create("Live" + _compiles++, [CSharpSyntaxTree.ParseText(source, parse)], references, options);
+            var compilation = CSharpCompilation.Create("Live" + _compiles++, [CSharpSyntaxTree.ParseText(source, parse), CSharpSyntaxTree.ParseText("global using System;", parse)], references, options);
             using var pe = new MemoryStream();
             var emit = compilation.Emit(pe);
             if (!emit.Success)
@@ -119,6 +123,7 @@ public static unsafe class Setup
             var context = new AssemblyLoadContext("live" + _compiles, isCollectible: false);
             var assembly = context.LoadFromStream(pe);
             KeepAlive.Add(assembly);
+            Compiled[source] = assembly;
             return new LiveCompile(assembly, "", watch.ElapsedMilliseconds);
         }
         catch (Exception ex)
@@ -150,8 +155,7 @@ public static unsafe class Setup
     {
         try
         {
-            var resolver = new BakerAssemblyResolver();
-            resolver.AddAssembly(assembly);
+            var resolver = BakerAssemblyResolver.FromAssemblies([assembly]);
             return (TimelineBaker.BakeJson(timelineJson, resolver), "");
         }
         catch (Exception ex)
@@ -178,6 +182,30 @@ public static unsafe class Setup
     public static LiveRun Run(Assembly assembly, byte[] tlb, int duration, bool looping, int rows, int ticks)
     {
         var run = new LiveRun { Positions = new ushort[rows], Effects = new float[rows], Ticks = ticks };
+        var console = new StringBuilder();
+        var prior = Console.Out;
+        Console.SetOut(new StringWriter(console, CultureInfo.InvariantCulture));
+        try
+        {
+            RunCore(run, assembly, tlb, duration, looping, rows, ticks);
+        }
+        finally
+        {
+            Console.SetOut(prior);
+        }
+        run.Console = console.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var hash = 14695981039346656037ul;
+        for (var i = 0; i < rows; i++)
+        {
+            hash = unchecked((hash ^ run.Positions[i]) * 1099511628211ul);
+            hash = unchecked((hash ^ (uint)BitConverter.SingleToInt32Bits(run.Effects[i])) * 1099511628211ul);
+        }
+        run.Checksum = hash;
+        return run;
+    }
+
+    static void RunCore(LiveRun run, Assembly assembly, byte[] tlb, int duration, bool looping, int rows, int ticks)
+    {
         InvokeSetup(assembly);
         var (track, clip) = FindPair(assembly);
         var lane = typeof(BakedLane<,>).MakeGenericType(track, clip);
@@ -207,14 +235,6 @@ public static unsafe class Setup
                 run.Moved++;
             }
         }
-        var hash = 14695981039346656037ul;
-        for (var i = 0; i < rows; i++)
-        {
-            hash = unchecked((hash ^ run.Positions[i]) * 1099511628211ul);
-            hash = unchecked((hash ^ (uint)BitConverter.SingleToInt32Bits(run.Effects[i])) * 1099511628211ul);
-        }
-        run.Checksum = hash;
-        return run;
     }
 
     static void InvokeSetup(Assembly assembly)

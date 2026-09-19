@@ -21,11 +21,11 @@ window.play = {
             var after = toNumber(el.getAttribute('data-after'), 2);
             var minBefore = toFloat(el.getAttribute('data-min-before'), 200);
             var minAfter = toFloat(el.getAttribute('data-min-after'), 200);
-            var start = 0;
+            var start = 0, base = null;
 
             el.addEventListener('pointerdown', function (e) {
-                var sizes = read();
-                if (!sizes) return;
+                base = read();
+                if (!base) return;
                 start = vertical ? e.clientY : e.clientX;
                 el.setPointerCapture(e.pointerId);
                 el.classList.add('dragging');
@@ -33,8 +33,8 @@ window.play = {
                 e.preventDefault();
             });
             el.addEventListener('pointermove', function (e) {
-                if (!el.classList.contains('dragging')) return;
-                apply(read(), (vertical ? e.clientY : e.clientX) - start);
+                if (!el.classList.contains('dragging') || !base) return;
+                apply(base, (vertical ? e.clientY : e.clientX) - start);
             });
             el.addEventListener('pointerup', end);
             el.addEventListener('pointercancel', end);
