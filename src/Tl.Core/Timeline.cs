@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
@@ -8,9 +9,11 @@ public static class Timeline
 {
     public static FrameQuery<TTrack, TClip> Query<TTrack, TClip>(in TimelineComponent component) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged => new(component);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static unsafe void Step(ReadOnlySpan<ushort> indices, Span<ushort> positions, bool forward)
         => Step(indices, positions, positions, forward);
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static unsafe void Step(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         if (indices.Length != positions.Length || positions.Length != next.Length)
@@ -44,18 +47,22 @@ public static class Timeline
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Step(TimelineAsset asset, Span<ushort> positions, bool forward)
         => Step(asset.Index, positions, positions, forward);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Step(TimelineAsset asset, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         ArgumentNullException.ThrowIfNull(asset);
         Step(asset.Index, positions, next, forward);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Step(ushort index, Span<ushort> positions, bool forward)
         => Step(index, positions, positions, forward);
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static unsafe void Step(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         var m = TimelineTable.Motion[index];
