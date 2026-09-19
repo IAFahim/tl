@@ -1457,7 +1457,7 @@ internal static class TimelineBakerFastCore
 
                 foreach (var clipType in groupOrder)
                 {
-                    var pair = _doc.Pairs[TimelineBakerFast.EnsurePair(_doc, trackType, clipType)];
+                    var pair = _doc.Pairs[_doc.PairIds[(trackType, clipType)]];
                     var lane = new Lane { Pair = pair, TrackEntry = ti, TrackBytes = info.TrackBytes! };
                     foreach (var clipId in info.ClipIds)
                         if (_doc.Clips[clipId].ClipType == clipType)
