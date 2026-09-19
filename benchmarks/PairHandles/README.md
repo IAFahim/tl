@@ -25,3 +25,10 @@ Reading: `PairOne` sits exactly on the `TimelineSet` uniform path and pays only 
 ## Why handles are ushort
 
 Handles are dense per-pair indices assigned by `Timeline<TTrack, TClip>.Slot` at load time (owner directive: never pointers, never authored, never baked). The per-pair bank holds at most 65,536 timelines, matching the format's own slot-index width; the warm loop resolves one native slot per row and the consumer stays statically known per closed generic.
+
+## Retained issue receipts
+
+- `results/180-atom1/` — issue #180 atom 1.
+- `results/193-*/` — issue #193 atoms and rechecks.
+- `results/r2-anchor/`, `results/r2-packed-recheck/`, `results/r2-packed-runendtwo/`, `results/r2-prefetch-deadend/`, `results/r2-pristine-recheck/`, `results/r2-runsplit/`, `results/r2-runsplit-rebase/` — issue #167 packed-runs ladder and dead ends.
+- `results/validated-console.log` — console capture of the cited `results/validated/` run.

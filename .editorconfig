@@ -6,8 +6,5 @@ generated_code = true
 [src/Tl.Core/Compiled.cs]
 resharper_unused_type_parameter_highlighting = none
 
-[benchmarks/Alpha/Benchmarks.cs]
-resharper_unused_auto_property_accessor_global_highlighting = none
-
 [src/Tl.Gen.CSharp/Polyfills.cs]
 resharper_check_namespace_highlighting = none

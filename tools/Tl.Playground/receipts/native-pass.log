@@ -1,3 +1,0 @@
-preset: waves crowd=256 pattern=Waves duration=64 loop=True moved=256 OK
-preset: finite-clamp crowd=128 pattern=Staggered duration=64 loop=False moved=128 OK
-NATIVE PASS checksum=7131578910045740992 pinned=7131578910045740992
