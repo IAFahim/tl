@@ -361,9 +361,19 @@ public ref struct TimelineSetLane<TTrack, TClip>
             if (blockEnd > i)
             {
                 if (forward)
-                    LaneOps.GatherForward(slot->Forward, duration, looping, positions, effects, i, blockEnd);
+                {
+                    if (duration <= 8)
+                        LaneOps.PermuteForward(slot->Forward, duration, looping, positions, effects, i, blockEnd);
+                    else
+                        LaneOps.GatherForward(slot->Forward, duration, looping, positions, effects, i, blockEnd);
+                }
                 else
-                    LaneOps.GatherBackward(slot->BackwardByPosition, duration, looping, positions, effects, i, blockEnd);
+                {
+                    if (duration <= 8)
+                        LaneOps.PermuteBackward(slot->Backward, duration, looping, positions, effects, i, blockEnd);
+                    else
+                        LaneOps.GatherBackward(slot->BackwardByPosition, duration, looping, positions, effects, i, blockEnd);
+                }
                 i = blockEnd;
             }
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
@@ -8,6 +9,7 @@ using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 
 namespace Tl.Gen.Tlb;
 
@@ -20,9 +22,9 @@ internal static class TimelineBakerSimd
             return false;
         if (!JsonStructuralIndex.TryScan(utf8, workspace, out var index))
             return false;
+        var walker = new SimdWalker(index, resolver, workspace);
         try
         {
-            var walker = new SimdWalker(index, resolver, workspace);
             return walker.TryParse(out doc);
         }
         catch (SimdBailException)
@@ -60,6 +62,13 @@ internal sealed class SimdCursor
     {
         var bit = start & 63;
         var rest = bit == 63 ? 0 : structural[start >> 6] & ~((2UL << bit) - 1);
+        return new(structural, blocks, end, start >> 6, rest);
+    }
+
+    internal static SimdCursor From(ulong[] structural, int blocks, int start, int end)
+    {
+        var bit = start & 63;
+        var rest = structural[start >> 6] & ~((1UL << bit) - 1);
         return new(structural, blocks, end, start >> 6, rest);
     }
 
@@ -113,7 +122,7 @@ internal sealed unsafe class SimdWalker
     private readonly int _blocks;
     private readonly BakeWorkspace? _workspace;
     private readonly BakerAssemblyResolver _resolver;
-    private readonly SimdCursor _cursor;
+    private SimdCursor _cursor;
     private ulong[] _seenBits = new ulong[8];
     private int _seenWords;
 
@@ -366,6 +375,11 @@ internal sealed unsafe class SimdWalker
             CheckGap(value + 1, element);
             return element + 1;
         }
+        if (PartitionDegree() >= 2
+            && TrackElements(value, out var opens, out var arrayClose)
+            && opens.Length >= MinPartitionTracks
+            && arrayClose - value >= MinPartitionBytes)
+            return PartitionedTracks(doc, opens, arrayClose, value);
         var clipValue = 0;
         while (true)
         {
@@ -384,6 +398,258 @@ internal sealed unsafe class SimdWalker
             element = Take();
             if (_utf8[element] == CloseBracket)
                 Bail();
+        }
+    }
+
+    private const int MinPartitionTracks = 8;
+    private const int MinPartitionBytes = 1 << 20;
+
+    private static int PartitionDegree()
+    {
+        if (int.TryParse(Environment.GetEnvironmentVariable("TL_BAKE_PARTITIONS"), out var forced) && forced >= 1)
+            return forced;
+        var available = Environment.ProcessorCount;
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsWindows())
+        {
+            try
+            {
+                var affinity = BitOperations.PopCount((ulong)Process.GetCurrentProcess().ProcessorAffinity);
+                if (affinity > 0)
+                    available = Math.Min(available, affinity);
+            }
+            catch (Exception) { }
+        }
+        return Math.Min(16, Math.Max(1, available / 2));
+    }
+
+    private bool TrackElements(int openBracket, out int[] opens, out int arrayClose)
+    {
+        opens = [];
+        arrayClose = -1;
+        var depth = 1;
+        var i = openBracket + 1;
+        var block = i >> 6;
+        var bit = i & 63;
+        var rest = _structural[block] & ~((1UL << bit) - 1);
+        var list = new List<int>();
+        while (true)
+        {
+            while (rest == 0)
+            {
+                block++;
+                if (block >= _blocks)
+                    return false;
+                rest = _structural[block];
+            }
+            var pos = (block << 6) + BitOperations.TrailingZeroCount(rest);
+            rest &= rest - 1;
+            var c = _utf8[pos];
+            if (depth == 1)
+            {
+                if (c == OpenBrace) { list.Add(pos); depth = 2; continue; }
+                if (c == CloseBracket) { arrayClose = pos; opens = [.. list]; return true; }
+                if (c != Comma) return false;
+            }
+            else if (c is OpenBrace or OpenBracket) depth++;
+            else if (c is CloseBrace or CloseBracket) depth--;
+        }
+    }
+
+    private int PartitionedTracks(FastDoc doc, int[] opens, int arrayClose, int value)
+    {
+        var degree = Math.Min(PartitionDegree(), opens.Length);
+        var sliceStarts = new int[degree];
+        var sliceEnds = new int[degree];
+        var per = opens.Length / degree;
+        var extra = opens.Length % degree;
+        var at = 0;
+        for (var k = 0; k < degree; k++)
+        {
+            var take = per + (k < extra ? 1 : 0);
+            sliceStarts[k] = k == 0 ? value + 1 : opens[at];
+            at += take;
+            sliceEnds[k] = k == degree - 1 ? arrayClose : opens[at];
+        }
+
+        var fragments = new FastDoc[degree];
+        var bailed = 0;
+        var fault = (Exception?)null;
+        if (degree == 1)
+        {
+            var frag = new FastDoc { Utf8 = _utf8, Resolver = _resolver };
+            var walker = new SimdWalker(_structural, _quotes, _blocks, _utf8, _resolver);
+            walker.ParseTrackSlice(frag, sliceStarts[0], sliceEnds[0], true);
+            fragments[0] = frag;
+        }
+        else
+        {
+            var workers = new Thread[degree - 1];
+            for (var k = 1; k < degree; k++)
+            {
+                var slice = k;
+                workers[k - 1] = new Thread(() => RunSlice(fragments, sliceStarts, sliceEnds, slice, degree, ref bailed, ref fault)) { IsBackground = true };
+            }
+            for (var k = 1; k < degree; k++)
+                workers[k - 1].Start();
+            RunSlice(fragments, sliceStarts, sliceEnds, 0, degree, ref bailed, ref fault);
+            for (var k = 1; k < degree; k++)
+                workers[k - 1].Join();
+        }
+        if (bailed != 0)
+            Bail();
+        if (fault != null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(fault).Throw();
+        MergeTracks(doc, fragments);
+        _cursor = SimdCursor.From(_structural, _blocks, arrayClose + 1, int.MaxValue);
+        return arrayClose + 1;
+    }
+
+    private void RunSlice(FastDoc[] fragments, int[] sliceStarts, int[] sliceEnds, int k, int degree, ref int bailed, ref Exception? fault)
+    {
+        var frag = new FastDoc { Utf8 = _utf8, Resolver = _resolver };
+        try
+        {
+            var walker = new SimdWalker(_structural, _quotes, _blocks, _utf8, _resolver);
+            walker.ParseTrackSlice(frag, sliceStarts[k], sliceEnds[k], k == degree - 1);
+        }
+        catch (SimdBailException)
+        {
+            Volatile.Write(ref bailed, 1);
+        }
+        catch (Exception e)
+        {
+            Interlocked.CompareExchange(ref fault, e, null);
+        }
+        fragments[k] = frag;
+    }
+
+    private SimdWalker(ulong[] structural, ulong[] quotes, int blocks, byte[] utf8, BakerAssemblyResolver resolver)
+    {
+        _utf8 = utf8;
+        _structural = structural;
+        _quotes = quotes;
+        _blocks = blocks;
+        _workspace = null;
+        _resolver = resolver;
+        _cursor = null!;
+    }
+
+    private void ParseTrackSlice(FastDoc doc, int start, int end, bool last)
+    {
+        _cursor = SimdCursor.From(_structural, _blocks, start, end);
+        var expectOpen = true;
+        var boundary = start;
+        while (true)
+        {
+            var pos = _cursor.Take();
+            if (pos < 0)
+            {
+                if (expectOpen && last) Bail();
+                CheckGap(boundary, end);
+                return;
+            }
+            var b = _utf8[pos];
+            if (b == OpenBrace)
+            {
+                if (!expectOpen) Bail();
+                CheckGap(boundary, pos);
+                var close = TrackObject(doc, pos);
+                boundary = close + 1;
+                expectOpen = false;
+            }
+            else if (b == Comma)
+            {
+                if (expectOpen) Bail();
+                CheckGap(boundary, pos);
+                boundary = pos + 1;
+                expectOpen = true;
+            }
+            else
+            {
+                Bail();
+            }
+        }
+    }
+
+    private static void MergeTracks(FastDoc doc, FastDoc[] fragments)
+    {
+        var remaps = new int[fragments.Length][];
+        var bases = new int[fragments.Length][];
+        var poolLength = new List<int>();
+        for (var p = 0; p < fragments.Length; p++)
+        {
+            var frag = fragments[p];
+            var remap = new int[frag.Pairs.Count];
+            var localBases = new int[frag.Pairs.Count];
+            for (var q = 0; q < frag.Pairs.Count; q++)
+            {
+                var pair = frag.Pairs[q];
+                var key = (pair.TrackType, pair.ClipType);
+                if (!doc.PairIds.TryGetValue(key, out var gid))
+                {
+                    gid = doc.Pairs.Count;
+                    doc.Pairs.Add(new FastPairInfo
+                    {
+                        TrackType = pair.TrackType,
+                        ClipType = pair.ClipType,
+                        Key = pair.Key,
+                        ClipSize = pair.ClipSize,
+                        TrackSize = pair.TrackSize,
+                        Helper = pair.Helper,
+                        Fields = pair.Fields,
+                    });
+                    doc.PairIds[key] = gid;
+                    poolLength.Add(0);
+                }
+                remap[q] = gid;
+                localBases[q] = poolLength[gid];
+                poolLength[gid] += pair.PoolLength;
+            }
+            remaps[p] = remap;
+            bases[p] = localBases;
+        }
+
+        for (var gid = 0; gid < doc.Pairs.Count; gid++)
+        {
+            doc.Pairs[gid].Pool = new byte[poolLength[gid]];
+            doc.Pairs[gid].PoolLength = poolLength[gid];
+        }
+        for (var p = 0; p < fragments.Length; p++)
+        {
+            var frag = fragments[p];
+            for (var q = 0; q < frag.Pairs.Count; q++)
+            {
+                var pair = frag.Pairs[q];
+                if (pair.PoolLength > 0)
+                    Buffer.BlockCopy(pair.Pool, 0, doc.Pairs[remaps[p][q]].Pool, bases[p][q], pair.PoolLength);
+            }
+        }
+
+        for (var p = 0; p < fragments.Length; p++)
+        {
+            var frag = fragments[p];
+            var trackBase = doc.Tracks.Count;
+            var clipBase = doc.Clips.Count;
+            foreach (var info in frag.Tracks)
+            {
+                for (var c = 0; c < info.ClipIds.Count; c++)
+                    info.ClipIds[c] += clipBase;
+                doc.Tracks.Add(info);
+            }
+            foreach (var clip in frag.Clips)
+            {
+                clip.TrackEntry += trackBase;
+                if (clip.PairId >= 0)
+                {
+                    var local = clip.PairId;
+                    clip.PairId = remaps[p][local];
+                    if (clip.PayloadOffset >= 0)
+                        clip.PayloadOffset += bases[p][local];
+                }
+                doc.Clips.Add(clip);
+            }
+            foreach (var entry in frag.ResolveCache)
+                doc.ResolveCache[entry.Key] = entry.Value;
         }
     }
 

@@ -99,7 +99,7 @@ internal static class Program
         var reps = ParsedValueOf(args, "--reps", 5);
         var core = ParsedValueOf(args, "--core", 2);
 
-        if (OperatingSystem.IsLinux() || OperatingSystem.IsWindows())
+        if (core >= 0 && (OperatingSystem.IsLinux() || OperatingSystem.IsWindows()))
             Process.GetCurrentProcess().ProcessorAffinity = new IntPtr(1 << core);
         var load1 = File.ReadLines("/proc/loadavg").First().Split(' ')[0];
 
