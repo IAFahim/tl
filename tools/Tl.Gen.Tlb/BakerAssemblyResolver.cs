@@ -108,14 +108,14 @@ public sealed class BakerAssemblyResolver
         if (candidates.Count == 1)
             return candidates[0];
 
-        var found = string.Join(", ", candidates
-            .Select(t => $"({FormatNamespace(t.Namespace ?? "")}, {t.Name}) in {t.Assembly.GetName().Name}")
-            .OrderBy(n => n, StringComparer.Ordinal));
         if (candidates.Count == 0)
         {
             var scope = assemblyName == null ? string.Empty : $" in assembly '{assemblyName}'";
             throw new BakeDiagnosticException($"unknown bare name: no loaded type named '{typeName}'{scope} for {context}; --auto fills a missing 'namespace' only when exactly one loaded type carries that bare name; write the 'namespace' explicitly.");
         }
+        var found = string.Join(", ", candidates
+            .Select(t => $"({FormatNamespace(t.Namespace ?? "")}, {t.Name}) in {t.Assembly.GetName().Name}")
+            .OrderBy(n => n, StringComparer.Ordinal));
         throw new BakeDiagnosticException($"ambiguous bare name: '{typeName}' matches {candidates.Count} loaded types for {context}: {found}; --auto fills a missing 'namespace' only when exactly one candidate exists; write the 'namespace' explicitly.");
     }
 

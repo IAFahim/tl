@@ -1015,7 +1015,24 @@ internal ref struct Walker
             TryResolveTrackType(info, $"track {trackIndex}");
         if (info.ResolveNeedsRefresh)
             RefreshTrackResolve(trackId, info);
+        RevisitDeferredClips(trackIndex, info);
         _doc.Tracks.Add(info);
+    }
+
+    private void RevisitDeferredClips(int trackIndex, FastTrackInfo info)
+    {
+        if (info.TrackType == null)
+            return;
+        foreach (var clipId in info.ClipIds)
+        {
+            var clip = _doc.Clips[clipId];
+            if (!clip.TypeSet || clip.TypeName.Length == 0 || clip.PairId >= 0 || clip.ClipType != null || clip.ClipTypeFailed)
+                continue;
+            var ctx = $"clip {clip.ClipIndex} on track {trackIndex}";
+            TryResolveClipPair(clip, info.TrackType, ctx);
+            if (clip.DataCaptured && clip.PairId >= 0 && !clip.PopulateDone)
+                PopulateDeferred(clip, ctx);
+        }
     }
 
     private void RefreshTrackResolve(int trackId, FastTrackInfo info)

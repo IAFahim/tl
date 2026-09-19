@@ -69,7 +69,9 @@ internal static class Lazy
         {
             var missing = string.Join(", ", pairs.Select(static pair => pair.Namespace is null ? $"<auto>.{pair.Type}" : $"{pair.Namespace}.{pair.Type}"));
             Console.Error.WriteLine($"Error: No dll under '{directory}' defines the types this JSON names: {missing}.");
-            Console.Error.WriteLine($"Scanned {candidates.Count} dlls. Fix: build the project or pass --assembly <path>.");
+            Console.Error.WriteLine(autoNamespace || pairs.All(static pair => pair.Namespace != null)
+                ? $"Scanned {candidates.Count} dlls. Fix: build the project or pass --assembly <path>."
+                : $"Scanned {candidates.Count} dlls. Fix: build the project and pass --assembly <path>, write the 'namespace' fields, or rerun with --auto to infer absent namespaces.");
             return null;
         }
         Console.Error.WriteLine($"Error: {matches.Count} dlls define every type this JSON names:");

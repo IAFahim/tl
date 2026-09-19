@@ -179,6 +179,50 @@ public class AutoNamespaceTests
             TimelineBaker.BakeJson(first, Resolver, autoNamespace: true),
             TimelineBaker.BakeJson(late, Resolver, autoNamespace: true));
     }
+
+    [Fact]
+    public void ClipsBeforeTrackType_AutoBake_IsByteIdenticalToExplicitBake()
+    {
+        const string absentClipsFirst = """
+        {
+          "duration": 10,
+          "loop": false,
+          "tracks": [
+            {
+              "clips": [ { "type": "AlphaClip", "start": 0, "end": 10, "data": { "Value": 5 } } ],
+              "type": "AlphaTrack",
+              "data": { "Code": 1 }
+            }
+          ]
+        }
+        """;
+
+        Assert.Equal(
+            TimelineBaker.BakeJson(ExplicitJson, Resolver),
+            TimelineBaker.BakeJson(absentClipsFirst, Resolver, autoNamespace: true));
+    }
+
+    [Fact]
+    public void ClipsBeforeTrackType_AutoAmbiguousClip_FailsWithLocatedDiagnostic()
+    {
+        const string json = """
+        {
+          "duration": 10,
+          "tracks": [
+            {
+              "clips": [ { "type": "TwinClip", "start": 0, "end": 10, "data": { "Value": 3 } } ],
+              "namespace": "TwinA",
+              "type": "TwinTrack"
+            }
+          ]
+        }
+        """;
+
+        var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json, Resolver, autoNamespace: true));
+
+        Assert.Contains("ambiguous bare name: 'TwinClip' matches 2 loaded types for clip 0 on track 0", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("write the 'namespace' explicitly", ex.Message, StringComparison.Ordinal);
+    }
 }
 
 public class AutoLazyDiscoveryTests : IDisposable
@@ -261,6 +305,7 @@ public class AutoLazyDiscoveryTests : IDisposable
         Assert.Contains("No dll under", result.Stderr);
         Assert.Contains("<auto>.AutoTrack", result.Stderr);
         Assert.Contains("<auto>.AutoClip", result.Stderr);
+        Assert.Contains("write the 'namespace' fields, or rerun with --auto", result.Stderr);
     }
 }
 
