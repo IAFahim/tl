@@ -14,14 +14,14 @@ using var attack = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
     .Clip(2, 0u, 2u, new AnimationClip(1f, 0f))
     .Bake()));
 
-Timeline<AnimationTrack, AnimationClip>.Advance(attack, positions, true, vitality);
-Timeline<AnimationTrack, AnimationClip>.Advance(attack, positions, true, vitality);
+Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, true, vitality); Timeline.Step(attack, positions, true);
+Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, true, vitality); Timeline.Step(attack, positions, true);
 
 if (positions[0] != 2 || vitality[0] != -9f)
     return 1;
 
-Timeline<AnimationTrack, AnimationClip>.Advance(attack, positions, false, vitality);
-Timeline<AnimationTrack, AnimationClip>.Advance(attack, positions, false, vitality);
+Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, false, vitality); Timeline.Step(attack, positions, false);
+Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, false, vitality); Timeline.Step(attack, positions, false);
 
 if (positions[0] != 0 || vitality[0] != 0f)
     return 2;

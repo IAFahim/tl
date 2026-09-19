@@ -58,7 +58,7 @@ public static class Play
         Console.WriteLine("four characters jump, one call per frame:");
         for (var frame = 1; frame <= 30; frame++)
         {
-            Timeline<JumpTrack, JumpClip>.Advance(ids, tick, true, y);
+            Timeline<JumpTrack, JumpClip>.Apply(ids, tick, true, y); Timeline.Step(ids, tick, true);
             if (frame % 3 == 0)
                 Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', (int)Math.Round(y[0] / 3))}");
         }
@@ -66,7 +66,7 @@ public static class Play
         Console.WriteLine();
         Console.WriteLine("rewind walks the arc back exactly:");
         for (var frame = 0; frame < 30; frame++)
-            Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, tick, false, y);
+            { Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, false, y); Timeline.Step(jumpTimeline, tick, false); }
         Console.WriteLine($"  after 30 back ticks: y = {y[0]:0.0} m, tick = {tick[0]}");
     }
 }
@@ -117,7 +117,7 @@ public static unsafe class Play
         Console.WriteLine("raw function-pointer consumer, no ITrack, no generator binding:");
         for (var frame = 1; frame <= 24; frame++)
         {
-            Timeline<ScaleTrack, AmountClip>.Advance(ids, tick, true, amount);
+            Timeline<ScaleTrack, AmountClip>.Apply(ids, tick, true, amount); Timeline.Step(ids, tick, true);
             if (frame % 4 == 0)
                 Console.WriteLine($"  tick {frame,2}   amount = {amount[0],6:0.0}");
         }

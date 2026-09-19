@@ -179,7 +179,7 @@ static void TickWorld<T>(World? x, int dir) where T : unmanaged, ITimelineLane<T
     for (var s = 0; s < x.N; s += Chunk)
     {
         var len = Math.Min(Chunk, x.N - s);
-        Timeline<T>.Seek(x.Pos.AsSpan(s, len), dir > 0).Apply(x.Hp.AsSpan(s, len));
+        Timeline<T>.Apply(x.Pos.AsSpan(s, len), dir > 0, x.Hp.AsSpan(s, len)); Timeline<T>.Step(x.Pos.AsSpan(s, len), dir > 0);
     }
 }
 
@@ -266,7 +266,7 @@ static class Sorted<T> where T : unmanaged, ITimelineLane<T>
         for (var c = 0; c < k; c++) { var v = counts[c]; counts[c] = total; total += v; }
         for (var i = 0; i < n; i++) sorted[counts[pos[i]]++] = i;
         for (var r = 0; r < n; r++) { var i = sorted[r]; sPos[r] = pos[i]; sHp[r] = hp[i]; }
-        Timeline<T>.Seek(sPos, true).Apply(sHp);
+        Timeline<T>.Apply(sPos, true, sHp); Timeline<T>.Step(sPos, true);
         for (var r = 0; r < n; r++) { var i = sorted[r]; pos[i] = sPos[r]; hp[i] = sHp[r]; }
     }
 }

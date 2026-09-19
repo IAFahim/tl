@@ -78,7 +78,7 @@ public class PairHandleBenchmarks
     [Benchmark]
     public void Advance()
     {
-        Timeline<LaneTrack, LaneClip>.Advance(_handles, _positions, true, _effects);
+        Timeline<LaneTrack, LaneClip>.Apply(_handles, _positions, true, _effects); Timeline.Step(_handles, _positions, true);
         Sink += _positions[0];
     }
 }

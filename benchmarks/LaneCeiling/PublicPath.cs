@@ -57,11 +57,11 @@ internal static unsafe class PublicPath
                     Array.Copy(seed, pos, rows);
                     Array.Copy(seedFx, fx, rows);
                     var t = Stopwatch.GetTimestamp();
-                    Timeline<ProbeTrack, ProbeClip>.Advance(index, pos, true, fx);
+                    Timeline<ProbeTrack, ProbeClip>.Apply(index, pos, true, fx); Timeline.Step(index, pos, true);
                     var ms = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                     if (ms < best) best = ms;
                 }
-                results.Add(new Row($"public/{name}", shapeName, "Timeline<TTrack,TClip>.Advance", best, best * 1_000_000.0 / rows, 0));
+                results.Add(new Row($"public/{name}", shapeName, "Timeline<TTrack,TClip>.Apply+Step", best, best * 1_000_000.0 / rows, 0));
             }
         }
         return results;

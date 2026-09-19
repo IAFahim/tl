@@ -10,7 +10,7 @@ var y    = new float[] { 0f, 0f, 0f, 0f };
 Console.WriteLine("four characters jump, one call per frame:");
 for (var frame = 1; frame <= 30; frame++)
 {
-    Timeline<JumpTrack, JumpClip>.Advance(ids, tick, true, y);
+    Timeline<JumpTrack, JumpClip>.Apply(ids, tick, true, y); Timeline.Step(ids, tick, true);
     if (frame % 3 == 0)
         Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', (int)Math.Round(y[0] / 3))}");
 }
@@ -18,7 +18,7 @@ for (var frame = 1; frame <= 30; frame++)
 Console.WriteLine();
 Console.WriteLine("rewind walks the arc back exactly:");
 for (var frame = 0; frame < 30; frame++)
-    Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, tick, false, y);
+    { Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, false, y); Timeline.Step(jumpTimeline, tick, false); }
 Console.WriteLine($"  after 30 back ticks: y = {y[0]:0.0} m, tick = {tick[0]}");
 
 Console.WriteLine();
