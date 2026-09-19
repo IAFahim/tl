@@ -301,6 +301,17 @@ public readonly struct ScreenShake : ITrack<JumpTrack, JumpClip>
 
 Consumers fold in consumer-name order (`MoveY` before `ScreenShake`) — ordinal, culture-independent, deterministic on every machine; rename a consumer to move it. Receipts: `TandemFirstJob` and `TandemSecondJob` in `tests/Tl.Alpha` both run from generated installs, and the fold order is pinned by `tests/Tl.Core.Tests`. Order across different pairs is the host's call order.
 
+A timeline's `tracks` may carry several pairs, and each pair is a separate `Advance` call — `Timeline<JumpTrack, JumpClip>` and `Timeline<HealTrack, HealClip>` are different banks. `Advance` mutates the clock column it is given, one step per call, so each pair needs its own column: sharing one column across two pair calls takes two steps per frame. For one clock across pairs, the coordinator owns it — `TimelineComponent.Position` moves once per frame and `Timeline.Query<TTrack, TClip>` reads each pair's frames without advancing:
+
+```cs
+var jumpTick = new ushort[4];
+var healTick = new ushort[4];
+var y = new float[4];
+var hp = new float[4];
+Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, jumpTick, true, y);
+Timeline<HealTrack, HealClip>.Advance(jumpTimeline, healTick, true, hp);
+```
+
 Host wiring is declared, not registered — implement `IBake<TConsumer, ...TContext>` (zero to four context types) and one type-agnostic call attaches your markers at load time:
 
 ```cs
