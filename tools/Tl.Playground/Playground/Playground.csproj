@@ -22,6 +22,7 @@
   <ItemGroup>
     <TrimmerRootAssembly Include="Play.Core" />
     <TrimmerRootAssembly Include="Tl.Gen.CSharp" />
+    <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
     <PresetFile Include="..\presets\*.json" />
   </ItemGroup>
 
