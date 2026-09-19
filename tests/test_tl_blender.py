@@ -590,10 +590,6 @@ class IgnoredSettingsTests(unittest.TestCase):
         self.assertEqual([], [message for severity, message in exported.report if severity == MAPPING.SEVERITY_WARNING])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class CompletedFake:
     def __init__(self, returncode=0, stdout="", stderr=""):
         self.returncode = returncode
@@ -657,13 +653,6 @@ class BakeRunTests(unittest.TestCase):
 
         with self.assertRaisesRegex(BAKE.BakeError, "failed to start"):
             BAKE.run_bake(["missing-cli", "a.json", "a.tlb"], runner=raise_os_error)
-
-
-class CompletedFake:
-    def __init__(self, returncode=0, stdout="", stderr=""):
-        self.returncode = returncode
-        self.stdout = stdout
-        self.stderr = stderr
 
 
 INTROSPECTION_DOCUMENT = {
@@ -873,3 +862,6 @@ class RealCliIntrospectionTests(unittest.TestCase):
         self.assertEqual("JobTrack", track["type"])
         self.assertEqual("JobClip", track["clips"][0]["type"])
 
+
+if __name__ == "__main__":
+    unittest.main()

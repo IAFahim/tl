@@ -102,13 +102,22 @@ public unsafe class DataTests
     [Fact]
     public void DisposeFreesExactlyOnceAndIsIdempotent()
     {
+        var beforeAlloc = TimelineTable.AllocCount;
         var asset = TimelineAsset.LoadAsset(FiniteBake());
-        var component = new TimelineComponent(asset.Reference);
-        Assert.False(Timeline.Query<AlphaTrack, AlphaClip>(in component).MoveNext() && component.Position > 0);
-        asset.Dispose();
-        asset.Dispose();
-    }
+        var allocated = TimelineTable.AllocCount - beforeAlloc;
+        var beforeFree = TimelineTable.FreeCount;
+        var beforeOverReleases = TimelineTable.OverReleases;
+        var index = asset.Index;
 
+        asset.Dispose();
+        asset.Dispose();
+
+        Assert.Equal(beforeAlloc + allocated, TimelineTable.AllocCount);
+        Assert.Equal(beforeOverReleases, TimelineTable.OverReleases);
+        Assert.Throws<ArgumentException>(() => TimelineAsset.Of(index));
+        TimelineTable.Drain();
+        Assert.Equal(allocated, TimelineTable.FreeCount - beforeFree);
+    }
     [Fact]
     public void QueryYieldsSingleClipFramesWithWindowFlags()
     {

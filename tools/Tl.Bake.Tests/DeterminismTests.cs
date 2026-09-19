@@ -43,8 +43,14 @@ public class DeterminismTests
     [Fact]
     public void SameJsonBakedTwice_ProducesIdenticalSha256()
     {
-        var bytes1 = TimelineBaker.BakeJson(OwnerSampleJson);
-        var bytes2 = TimelineBaker.BakeJson(OwnerSampleJson);
+        AssertBakeIsDeterministic(OwnerSampleJson);
+        AssertBakeIsDeterministic(Recording.OracleJson);
+    }
+
+    static void AssertBakeIsDeterministic(string json)
+    {
+        var bytes1 = TimelineBaker.BakeJson(json);
+        var bytes2 = TimelineBaker.BakeJson(json);
 
         var sha1 = Convert.ToHexString(SHA256.HashData(bytes1));
         var sha2 = Convert.ToHexString(SHA256.HashData(bytes2));
@@ -155,15 +161,5 @@ public class DeterminismTests
         {
             Directory.Delete(tempDir, true);
         }
-    }
-
-    private static string RepoRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null &&
-               !(Directory.Exists(Path.Combine(directory.FullName, "src", "Tl.Core")) &&
-                 Directory.Exists(Path.Combine(directory.FullName, "tests", "Tl.Core.Tests"))))
-            directory = directory.Parent;
-        return directory?.FullName ?? throw new InvalidOperationException("repository root not found");
     }
 }

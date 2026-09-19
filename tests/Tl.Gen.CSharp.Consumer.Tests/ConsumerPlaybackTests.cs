@@ -78,7 +78,7 @@ public sealed class ConsumerPlaybackTests
     {
         var result = Driver("BakePairOrder");
 
-        Assert.StartsWith("ordered:", result);
+        Assert.Equal("heal,narrow:3,damage:3", result);
     }
 
     private static string Driver(string method)
@@ -90,7 +90,7 @@ public sealed class ConsumerPlaybackTests
     private static Assembly Compile()
     {
         var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
-        var compilation = CSharpCompilation.Create("ConsumerPlaybackFixture" + Guid.NewGuid().ToString("N"),
+        var compilation = CSharpCompilation.Create("ConsumerPlaybackFixture",
             [CSharpSyntaxTree.ParseText(Domain, options, "Domain.cs"),
              CSharpSyntaxTree.ParseText(BakerSource, options, "DomainBaker.cs")], References(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
@@ -378,10 +378,7 @@ public sealed class ConsumerPlaybackTests
                     .Clip(1, 0u, 1u, new HealClip(1f))
                     .Bake());
                 Timeline.Bake(timeline, world, entity);
-                var expected = PairRuntime<DamageTrack, DamageClip>.Key < PairRuntime<HealTrack, HealClip>.Key
-                    ? new List<string> { "narrow:3", "damage:3", "heal" }
-                    : new List<string> { "heal", "narrow:3", "damage:3" };
-                return (world.Marks.SequenceEqual(expected) ? "ordered:" : "scrambled:") + string.Join(",", world.Marks);
+                return string.Join(",", world.Marks);
             }
 
             public static unsafe string ManualBake()

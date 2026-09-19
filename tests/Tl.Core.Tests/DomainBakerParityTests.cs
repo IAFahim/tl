@@ -1,11 +1,48 @@
 global using Baker = Tl.TestSupport.DomainBaker;
 
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using Tl;
 using Tl.TestSupport;
 using Xunit;
 
 namespace Tl.Core.Tests;
+
+internal static unsafe class BakerParityPairs
+{
+    [ModuleInitializer]
+    internal static void Install()
+    {
+        PairRuntime<BakerParityTrack, BakerParityClip>.Consume(&ExecuteParity, &BindFloat);
+        PairRuntime<BakerOtherTrack, BakerOtherClip>.Consume(&ExecuteOther, &BindFloat);
+    }
+
+    static void BindFloat(ulong* keys, int keyCount, byte* table)
+    {
+        for (var i = 0; i < keyCount; i++)
+            if (keys[i] == TypeKey<float>.Value)
+            {
+                table[0] = (byte)(i + 1);
+                return;
+            }
+    }
+
+    static void ExecuteParity(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
+    {
+        BakerParityClip scratch = default;
+        var frame = TickFrame.ToFrame<BakerParityTrack, BakerParityClip>(slot, pair, tick, flags, ref scratch);
+        var sign = frame.Has(FrameFlags.Reverse) ? -1f : 1f;
+        ((float*)columns[0])[row] += sign * frame.Clip.Amount * frame.Track.Scale;
+    }
+
+    static void ExecuteOther(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
+    {
+        BakerOtherClip scratch = default;
+        var frame = TickFrame.ToFrame<BakerOtherTrack, BakerOtherClip>(slot, pair, tick, flags, ref scratch);
+        var sign = frame.Has(FrameFlags.Reverse) ? -1f : 1f;
+        ((float*)columns[0])[row] += sign * frame.Clip.Amount * frame.Track.Scale;
+    }
+}
 
 public class DomainBakerParityTests
 {
@@ -34,8 +71,42 @@ public class DomainBakerParityTests
                 first = asset.Index;
             using var reloaded = TimelineAsset.Of(TimelineAsset.Load(bytes));
             Assert.Equal(first, reloaded.Index);
+
+            BakedLane<BakerParityTrack, BakerParityClip>.Bind(reloaded);
+            Assert.Equal(64, (int)BakedLane<BakerParityTrack, BakerParityClip>.Duration);
+            Assert.Equal(fixture is 1 or 3 or 5, BakedLane<BakerParityTrack, BakerParityClip>.Looping);
+            Assert.Equal(ParityEffectAtZero(fixture), BakedLane<BakerParityTrack, BakerParityClip>.Effect(0));
+            switch (fixture)
+            {
+                case 1:
+                    Assert.Equal(6f, BakedLane<BakerParityTrack, BakerParityClip>.Effect(40));
+                    break;
+                case 3:
+                    Assert.Equal(9f, BakedLane<BakerParityTrack, BakerParityClip>.Effect(0));
+                    BakedLane<BakerOtherTrack, BakerOtherClip>.Bind(reloaded);
+                    Assert.Equal(9f, BakedLane<BakerOtherTrack, BakerOtherClip>.Effect(0));
+                    break;
+                case 4:
+                    Assert.Equal(2f, BakedLane<BakerParityTrack, BakerParityClip>.Effect(48));
+                    BakedLane<BakerOtherTrack, BakerOtherClip>.Bind(reloaded);
+                    Assert.Equal(1f, BakedLane<BakerOtherTrack, BakerOtherClip>.Effect(16));
+                    break;
+                case 5:
+                    Assert.Equal(4f, BakedLane<BakerParityTrack, BakerParityClip>.Effect(48));
+                    break;
+            }
         }
     }
+
+    static float ParityEffectAtZero(int fixture) => fixture switch
+    {
+        1 => 2f,
+        2 => 7f,
+        3 => 9f,
+        4 => 1f,
+        5 => 2f,
+        _ => 1f,
+    };
 
     internal static string Hash(byte[] bytes)
         => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();

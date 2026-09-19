@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Tl.Gen.Tlb;
 using Xunit;
 
 namespace Tl.Bake.Tests;
@@ -39,8 +40,8 @@ public class CliTests
             Assert.Equal(0, exitCode);
             Assert.True(File.Exists(tlbPath));
             var bytes = File.ReadAllBytes(tlbPath);
-            Assert.True(bytes.Length >= 48);
-            Assert.True(Tl.Gen.Tlb.TlbMetadata.HasMetadata(bytes));
+            Assert.True(TlbMetadata.HasMetadata(bytes));
+            Assert.Equal(TimelineBaker.BakeJson(json), bytes);
         }
         finally
         {
@@ -83,7 +84,7 @@ public class CliTests
     }
 
     [Fact]
-    public void Cli_MissingArguments_ReturnsNonZero()
+    public void Cli_NoInputInEmptyDirectory_TeachesTheLazyFix()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), "tlb_test_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
@@ -96,12 +97,43 @@ public class CliTests
             Console.SetError(stderr);
             var exitCode = Tl.Bake.Program.Main([]);
             Assert.NotEqual(0, exitCode);
-            Assert.Contains("No input given", stderr.ToString());
+            Assert.Contains("No input given and no *.json found", stderr.ToString());
+            Assert.Contains("Fix: pass an input, e.g. 'tlb jump.json'.", stderr.ToString());
         }
         finally
         {
             Console.SetError(original);
             Directory.SetCurrentDirectory(previous);
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public void Cli_FlagWithoutInput_PrintsUsage()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "tlb_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var stderr = new StringWriter();
+        var original = Console.Error;
+        try
+        {
+            Console.SetError(stderr);
+            var exitCode = Tl.Bake.Program.Main(["--cache", tempDir]);
+            Assert.Equal(1, exitCode);
+            Assert.Equal(
+                string.Join("\n",
+                    "Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>]",
+                    "       tlb --strip <input.tlb> <output.tlb>",
+                    "       tlb --report <input.tlb>",
+                    "       tlb --json --assembly <path>...",
+                    "       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]",
+                    "With only an input, output defaults beside it and the assembly is discovered from the JSON's types.",
+                    ""),
+                stderr.ToString().Replace("\r\n", "\n"));
+        }
+        finally
+        {
+            Console.SetError(original);
             Directory.Delete(tempDir, true);
         }
     }
