@@ -6,6 +6,7 @@ type Tl.Gen.Tlb.BakeCacheKey
 type Tl.Gen.Tlb.BakeDiagnosticException
 type Tl.Gen.Tlb.BakerAssemblyResolver
   Method Void AddAssembly(System.Reflection.Assembly)
+  Method Tl.Gen.Tlb.BakerAssemblyResolver FromAssemblies(System.Collections.Generic.IEnumerable`1[System.Reflection.Assembly])
   Method Boolean IsUnmanaged(System.Type)
   Method System.Object PopulateStruct(System.Type, System.Text.Json.JsonElement, System.String)
   Method System.Type ResolveType(System.String, System.String, System.String, System.String)

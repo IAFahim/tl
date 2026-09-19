@@ -39,6 +39,20 @@ public sealed class BakerAssemblyResolver
 
     internal IReadOnlyList<Assembly> ReferencedAssemblies => _referenced;
 
+    public static BakerAssemblyResolver FromAssemblies(IEnumerable<Assembly> assemblies)
+    {
+        var resolver = new BakerAssemblyResolver();
+        resolver._assemblies.Clear();
+        foreach (var asm in assemblies)
+        {
+            if (!resolver._assemblies.Contains(asm))
+                resolver._assemblies.Add(asm);
+            if (!resolver._referenced.Contains(asm))
+                resolver._referenced.Add(asm);
+        }
+        return resolver;
+    }
+
     public void AddAssembly(Assembly assembly)
     {
         if (!_assemblies.Contains(assembly))

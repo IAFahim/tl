@@ -49,7 +49,7 @@
             sync(editor);
             if (hidden) {
                 hidden.value = editor.input.value;
-                hidden.dispatchEvent(new Event('input'));
+                hidden.dispatchEvent(new Event('input', { bubbles: true }));
             }
         });
     }
@@ -74,7 +74,8 @@
             editors.set(rootId, editor);
             wireHidden(editor, hiddenId);
             input.addEventListener('scroll', () => {
-                highlight.parentElement.scrollTop = input.scrollTop;
+                highlight.scrollTop = input.scrollTop;
+                highlight.scrollLeft = input.scrollLeft;
                 gutter.scrollTop = input.scrollTop;
             });
             input.addEventListener('keydown', (e) => {
@@ -88,7 +89,7 @@
                         const hidden = document.getElementById(hiddenId);
                         if (hidden) {
                             hidden.value = input.value;
-                            hidden.dispatchEvent(new Event('input'));
+                            hidden.dispatchEvent(new Event('input', { bubbles: true }));
                         }
                     }
                 }

@@ -60,16 +60,8 @@ body {
 .split-grid { flex: 1 1 auto; min-height: 0; display: grid; }
 .split-index { grid-template-columns: minmax(340px, 46fr) 6px minmax(300px, 54fr); }
 .split-live {
-    grid-template-columns: minmax(260px, 30fr) 6px minmax(220px, 25fr) 6px minmax(260px, 30fr);
-    grid-template-rows: minmax(180px, 58fr) 6px minmax(130px, 42fr);
+    grid-template-columns: minmax(260px, 27fr) 6px minmax(220px, 22fr) 6px minmax(260px, 27fr) 6px minmax(280px, 24fr);
 }
-.split-live > :nth-child(1) { grid-area: 1 / 1; }
-.split-live > :nth-child(2) { grid-area: 1 / 2; }
-.split-live > :nth-child(3) { grid-area: 1 / 3; }
-.split-live > :nth-child(4) { grid-area: 1 / 4; }
-.split-live > :nth-child(5) { grid-area: 1 / 5; }
-.split-live > :nth-child(6) { grid-area: 2 / 1 / 3 / -1; }
-.split-live > :nth-child(7) { grid-area: 3 / 1 / 4 / -1; }
 
 .splitter { position: relative; z-index: 2; background: var(--bg); touch-action: none; }
 .splitter::after { content: ""; position: absolute; inset: -3px; }
@@ -240,6 +232,18 @@ textarea#authoring:focus-visible { outline: none; }
 .editor-input::selection { background: rgba(79, 163, 255, 0.28); }
 .editor-readonly .editor-highlight { color: #c2d0dc; pointer-events: auto; }
 
+.run-console {
+    flex: none;
+    margin: 0 0 8px 0;
+    padding: 8px 10px;
+    color: var(--fg);
+    font: 12.5px/1.5 var(--mono);
+    white-space: pre-wrap;
+    background: var(--deep);
+    border: 1px solid var(--edge);
+    max-height: 220px;
+    overflow: auto;
+}
 .cp-diagnostics {
     flex: none;
     margin: 0;
