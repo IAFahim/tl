@@ -2,21 +2,34 @@
 @using System.Globalization
 @using Play
 @using Tl
+@implements IDisposable
 @inject IJSRuntime JS
 
 <div class="page">
-    <div class="page-sub">write the README system in C# · the shipped generator binds the consumer · bake the timeline · run Play.Run(byte[] tlb)</div>
-    <div class="split-grid split-live">
+    <div class="live-bar">
+        <button class="primary run-action" @onclick="RunNow" disabled="@Busy" aria-keyshortcuts="Control+Enter Meta+Enter">
+            @if (Busy)
+            {
+                <text>running…</text>
+            }
+            else
+            {
+                <span aria-hidden="true">▶</span>
+                <text> run</text>
+            }
+        </button>
+        <label class="bar-field">sample
+            <select value="@_preset" @onchange="OnPresetChange" disabled="@Busy" aria-label="sample source">
+                <option value="@ReadmePreset">readme · jump arc</option>
+                <option value="@RawPreset">raw binding (advanced)</option>
+            </select>
+        </label>
+        <span class="bar-note">ctrl+enter runs · baked bytes arrive as the Run parameter — the browser has no file system</span>
+    </div>
+    <div class="split-grid split-live" data-persist="tl-split-live">
         <section class="pane pane-code">
             <div class="pane-head">
-                <h2>1 · the system (C#)</h2>
-                <label class="head-field">sample
-                    <select value="@_preset" @onchange="OnPresetChange" disabled="@Busy" aria-label="sample source">
-                        <option value="@ReadmePreset">readme · jump arc</option>
-                        <option value="@RawPreset">raw binding (advanced)</option>
-                    </select>
-                </label>
-                <button class="primary head-action" @onclick="OnCompile" disabled="@Busy">compile</button>
+                <h2>1 · system (C#)</h2>
             </div>
             <LiveEditor @key="@($"code-{_preset}")" RootId="live-code" Language="csharp" Value="@_source"
                         ValueChanged="@OnSourceChanged" ClassName="editor-fill" />
@@ -28,7 +41,7 @@
 
         <section class="pane pane-types">
             <div class="pane-head">
-                <h2>2 · type data (JSON)</h2>
+                <h2>2 · type data</h2>
                 <span class="pane-note">tlb --json shape</span>
             </div>
             <LiveEditor @ref="_typeEditor" RootId="live-types" Language="json" Value="" ReadOnly="true" ClassName="editor-fill" />
@@ -40,53 +53,43 @@
 
         <section class="pane pane-timeline">
             <div class="pane-head">
-                <h2>3 · the data (timeline JSON)</h2>
-                <button class="primary head-action" @onclick="OnBakeAndRun" disabled="@Busy">bake &amp; run</button>
+                <h2>3 · data (timeline JSON)</h2>
             </div>
             <LiveEditor @key="@($"timeline-{_preset}")" RootId="live-timeline" Language="json" Value="@_timelineJson"
                         ValueChanged="@OnTimelineChanged" ClassName="editor-fill" />
         </section>
 
         <div class="splitter splitter-x" role="separator" aria-orientation="vertical" tabindex="0"
-             aria-label="resize timeline and output panes"
+             aria-label="resize timeline and result panes"
              data-before="4" data-after="6" data-min-before="240" data-min-after="260"></div>
 
         <section class="pane pane-run">
             <div class="pane-head">
-                <h2>output</h2>
-                <span class="pane-note">the baked bytes arrive as the Run parameter — the browser has no file system</span>
+                <h2>result</h2>
             </div>
             <div class="pane-body">
-                @if (_compiling)
+                @if (Busy)
                 {
-                    <p class="muted run-empty">compiling…</p>
-                }
-                else if (_running)
-                {
-                    <p class="muted run-empty">baking and running…</p>
+                    <p class="muted run-empty">running…</p>
                 }
                 else if (_compile is { Ok: false })
                 {
-                    <p class="error">compile failed — fix pane 1</p>
+                    <p class="error run-failed">compile failed — fix pane 1</p>
                     <pre class="cp-diagnostics">@_compile.Error</pre>
                 }
-                else if (_bakeError.Length > 0)
+                else if (_runError.Length > 0)
                 {
-                    <p class="error">run failed</p>
-                    <pre class="cp-diagnostics">@_bakeError</pre>
+                    <p class="error run-failed">run failed</p>
+                    <pre class="cp-diagnostics">@_runError</pre>
                 }
                 else if (_run is not null)
                 {
                     <pre class="run-console">@string.Join("\n", _run.Console)</pre>
                     <p class="muted run-stats">@($"compiled in {_compile!.CompileMs.ToString(CultureInfo.InvariantCulture)} ms · baked: {_bakeStats} · checksum {_run.Checksum.ToString(CultureInfo.InvariantCulture)}")</p>
                 }
-                else if (_compile is { Ok: true })
-                {
-                    <p class="muted run-empty">@($"compiled in {_compile.CompileMs.ToString(CultureInfo.InvariantCulture)} ms — now bake and run")</p>
-                }
                 else
                 {
-                    <p class="muted run-empty">a consumer implements ITrack&lt;TTrack, TClip&gt;; compiling with the shipped tl generator registers it through a generated module initializer. Play.Run(byte[] tlb) owns the playback loop — your Console.WriteLine lands here. compile, then bake &amp; run.</p>
+                    <p class="muted run-empty">add a public static Run(byte[] tlb) — run compiles, bakes and calls it; its Console.WriteLine lands here.</p>
                 }
             </div>
         </section>
@@ -101,16 +104,32 @@
     string _preset = ReadmePreset;
     string _source = LiveAuthoring.DefaultSource;
     string _timelineJson = LiveAuthoring.DefaultTimelineJson;
-    string _bakeError = "";
+    string _compiledSource = "";
+    string _runError = "";
     string _bakeStats = "";
     LiveCompile? _compile;
     LiveRun? _run;
-    bool _compiling;
     bool _running;
-
-    bool Busy => _compiling || _running;
-
     LiveEditor? _typeEditor;
+    DotNetObjectReference<Live>? _self;
+
+    bool Busy => _running;
+
+    public void Dispose()
+    {
+        _ = JS.InvokeVoidAsync("play.disposeRunKey");
+        _self?.Dispose();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _self = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("play.wireRunKey", _self);
+        }
+        await JS.InvokeVoidAsync("play.wireSplitters");
+    }
 
     void OnSourceChanged(string value) => _source = value;
 
@@ -123,50 +142,38 @@
         (_source, _timelineJson) = _preset == RawPreset
             ? (LiveAuthoring.RawBindingSource, LiveAuthoring.RawBindingTimelineJson)
             : (LiveAuthoring.DefaultSource, LiveAuthoring.DefaultTimelineJson);
+        _compiledSource = "";
         _compile = null;
         _run = null;
-        _bakeError = "";
+        _runError = "";
         _bakeStats = "";
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        await JS.InvokeVoidAsync("play.wireSplitters");
-    }
+    [JSInvokable]
+    public Task OnRunKey() => RunNow();
 
-    async Task OnCompile()
+    async Task RunNow()
     {
-        _compiling = true;
-        _compile = null;
-        _run = null;
-        _bakeError = "";
-        await InvokeAsync(StateHasChanged);
-        await Task.Run(() => _compile = LiveAuthoring.Compile(_source));
-        if (_compile is { Ok: true } && _typeEditor is not null)
-            await _typeEditor.SetReadonlyValueAsync(LiveAuthoring.TypeJson(_compile.Assembly!));
-        _compiling = false;
-        await InvokeAsync(StateHasChanged);
-    }
-
-    async Task OnBakeAndRun()
-    {
-        if (_compile is not { Ok: true })
-        {
-            _bakeError = "compile pane 1 first";
-            _run = null;
-            StateHasChanged();
-            return;
-        }
+        if (Busy) return;
         _running = true;
-        _bakeError = "";
         _run = null;
+        _runError = "";
+        _bakeStats = "";
         await InvokeAsync(StateHasChanged);
+        string? typeJson = null;
         await Task.Run(() =>
         {
+            if (_compiledSource != _source || _compile is not { Ok: true })
+            {
+                _compile = LiveAuthoring.Compile(_source);
+                _compiledSource = _compile.Ok ? _source : "";
+            }
+            if (_compile is not { Ok: true }) return;
+            typeJson = LiveAuthoring.TypeJson(_compile.Assembly!);
             var (bytes, error) = LiveAuthoring.Bake(_compile.Assembly!, _timelineJson);
             if (bytes.Length == 0)
             {
-                _bakeError = error;
+                _runError = error;
                 return;
             }
             _bakeStats = LiveAuthoring.BakeStats(bytes);
@@ -176,9 +183,11 @@
             }
             catch (Exception ex)
             {
-                _bakeError = ex.Message;
+                _runError = ex.Message;
             }
         });
+        if (typeJson is not null && _typeEditor is not null)
+            await _typeEditor.SetReadonlyValueAsync(typeJson);
         _running = false;
         await InvokeAsync(StateHasChanged);
     }
