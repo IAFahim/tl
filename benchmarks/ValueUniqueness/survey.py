@@ -41,8 +41,6 @@ STANDALONE_FILES = [
     "tests/tlb_cli/fixtures/alpha.json",
     "tests/tlb_cli/fixtures/alpha_edited.json",
     "tests/tlb_cli/fixtures/broken.json",
-    "tools/Tl.Blender/fixtures/receipt_scene.json",
-    "tools/Tl.Blender/fixtures/receipt_scene_hand.json",
     "tools/Tl.Playground/presets/finite-clamp.json",
     "tools/Tl.Playground/presets/staggered.json",
     "tools/Tl.Playground/presets/uniform-crowd.json",
