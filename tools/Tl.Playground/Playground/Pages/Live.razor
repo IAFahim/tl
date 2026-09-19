@@ -80,30 +80,11 @@
                 }
                 else
                 {
-                    <p class="muted run-empty">a track implements IBlend&lt;TClip&gt;; a public static parameterless Run() registers the consumer. compile, then bake &amp; run — half the ticks forward, half backward, through the real movement law. Console.WriteLine in your code lands here.</p>
+                    <p class="muted run-empty">a track implements IBlend&lt;TClip&gt;; a public static parameterless Run() registers the consumer. compile, then bake &amp; run — half the ticks forward, half backward, through the real movement law. Your Console.WriteLine and the run results land here.</p>
                 }
                 @if (_run?.Console.Length > 0)
                 {
                     <pre class="run-console">@string.Join("\n", _run.Console)</pre>
-                }
-                @if (_run is not null)
-                {
-                    <table class="run">
-                        <thead>
-                            <tr><th>row</th><th>position</th><th>effect (folded)</th></tr>
-                        </thead>
-                        <tbody>
-                            @for (var i = 0; i < _run.Positions.Length; i++)
-                            {
-                                var row = i;
-                                <tr>
-                                    <td>@row</td>
-                                    <td>@_run.Positions[row]</td>
-                                    <td>@_run.Effects[row].ToString("0.0###", CultureInfo.InvariantCulture)</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
                 }
             </div>
         </section>

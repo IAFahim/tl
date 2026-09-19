@@ -235,6 +235,8 @@ public static unsafe class Setup
                 run.Moved++;
             }
         }
+        for (var i = 0; i < rows; i++)
+            Console.WriteLine($"row {i}: position {run.Positions[i]}, effect {run.Effects[i].ToString("0.0###", CultureInfo.InvariantCulture)}");
     }
 
     static void InvokeSetup(Assembly assembly)

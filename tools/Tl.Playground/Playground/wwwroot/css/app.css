@@ -233,15 +233,15 @@ textarea#authoring:focus-visible { outline: none; }
 .editor-readonly .editor-highlight { color: #c2d0dc; pointer-events: auto; }
 
 .run-console {
-    flex: none;
-    margin: 0 0 8px 0;
+    flex: 1 1 auto;
+    min-height: 120px;
+    margin: 0;
     padding: 8px 10px;
     color: var(--fg);
     font: 12.5px/1.5 var(--mono);
     white-space: pre-wrap;
     background: var(--deep);
     border: 1px solid var(--edge);
-    max-height: 220px;
     overflow: auto;
 }
 .cp-diagnostics {
