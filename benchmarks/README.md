@@ -31,4 +31,4 @@ Each owns a README that carries its verdict and cites its receipt directories un
 
 ## Historical harness projects
 
-`Algorithms`, `AotBench`, `ConsumerChecks`, `ConsumerGenerate`, `Dispatch`, `FusionChecks`, `FusionGenerate`, `FusionHour`, `Generate`, `GenerateHooks`, `KernelCompare`, `Native`, `Review`, `Routing`, plus `run.py`, `Hooks.cs`, and `Shared.cs`, target removed surfaces and are outside the solution, CI, and the core gate. Their measurement directories were removed under issue #195; `git log` retains every receipt. Their code remains only until the owner directs otherwise.
+`Algorithms`, `AotBench`, `ConsumerChecks`, `ConsumerGenerate`, `Dispatch`, `FusionChecks`, `FusionGenerate`, `FusionHour`, `Generate`, `GenerateHooks`, `KernelCompare`, `Native`, and `Review` targeted removed surfaces, stayed outside the solution, CI, and the core gate, and were removed under issue #207 after the tracked-file necessity audit. `git log` retains every receipt.
