@@ -233,17 +233,19 @@ textarea#authoring:focus-visible { outline: none; }
 .editor-readonly .editor-highlight { color: #c2d0dc; pointer-events: auto; }
 
 .run-console {
-    flex: 1 1 auto;
+    flex: none;
     min-height: 120px;
     margin: 0;
     padding: 8px 10px;
-    color: var(--fg);
+    color: var(--text);
     font: 12.5px/1.5 var(--mono);
-    white-space: pre-wrap;
+    white-space: pre;
     background: var(--deep);
-    border: 1px solid var(--edge);
+    border: 0;
+    border-bottom: 1px solid var(--edge);
     overflow: auto;
 }
+.run-stats { margin: 0; padding: 6px 10px; font-size: 12px; font-variant-numeric: tabular-nums; }
 .cp-diagnostics {
     flex: none;
     margin: 0;
