@@ -161,7 +161,7 @@ Timeline.Bake marked entities 42, 43 as jumping; unmarked entities never reach t
 The JSON above is the whole input format — one file per timeline, authored by a designer, naming the game's own C# types:
 
 - windows are half-open `[start, end)`; execution order is authored clip order
-- `data` fields map onto struct fields by name (`Scale` → `JumpTrack.Scale`)
+- `data` fields map onto struct fields by name (`Scale` → `JumpTrack.Scale`); an omitted `data` on a track or clip bakes the type's default state — the same payload as `"data": {}`
 - an optional `name` on the timeline, each track, and each clip labels the asset for tools and reports; `--strip` drops the labels
 - two clips overlapping on one track blend through the type's `IBlend` with the authored factor
 - `loop: true` wraps at `duration`; finite timelines clamp
