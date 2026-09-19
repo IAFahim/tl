@@ -26,8 +26,8 @@ dotnet tool install --global Tl.Bake --prerelease     # the tlb bake command
     {
       "name": "arc", "namespace": "Showcase", "type": "JumpTrack", "data": { "Scale": 1.0 },
       "clips": [
-        { "namespace": "Showcase", "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
-        { "namespace": "Showcase", "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } }
+        { "name": "rise", "namespace": "Showcase", "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
+        { "name": "fall", "namespace": "Showcase", "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } }
       ]
     }
   ]
@@ -110,6 +110,7 @@ The JSON above is the whole input format — one file per timeline, authored by 
 
 - windows are half-open `[start, end)`; execution order is authored clip order
 - `data` fields map onto struct fields by name (`Scale` → `JumpTrack.Scale`)
+- an optional `name` on the timeline, each track, and each clip labels the asset for tools and reports; `--strip` drops the labels
 - two clips overlapping on one track blend through the type's `IBlend` with the authored factor
 - `loop: true` wraps at `duration`; finite timelines clamp
 - a timeline may mix track and clip types freely; caps are 65,535 ticks and 256 pairs per asset
