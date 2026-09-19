@@ -71,14 +71,11 @@ public static class Program
 
     private static int Bake(string[] args)
     {
-        if (args.Length < 2)
+        if (args.Length == 0)
         {
-            Console.Error.WriteLine("Usage: tlb <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]");
-            Console.Error.WriteLine("       tlb --strip <input.tlb> <output.tlb>");
-            Console.Error.WriteLine("       tlb --report <input.tlb>");
-            Console.Error.WriteLine("       tlb --json --assembly <path>...");
-            Console.Error.WriteLine("       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]");
-            return 1;
+            var guessed = Lazy.FindSingleJson(Directory.GetCurrentDirectory());
+            if (guessed == null) return 1;
+            args = [guessed];
         }
 
         string? inputPath = null;
@@ -121,11 +118,17 @@ public static class Program
             }
         }
 
-        if (inputPath == null || outputPath == null)
+        if (inputPath == null)
         {
-            Console.Error.WriteLine("Usage: tlb <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]");
+            Console.Error.WriteLine("Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>]");
+            Console.Error.WriteLine("       tlb --strip <input.tlb> <output.tlb>");
+            Console.Error.WriteLine("       tlb --report <input.tlb>");
+            Console.Error.WriteLine("       tlb --json --assembly <path>...");
+            Console.Error.WriteLine("       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]");
+            Console.Error.WriteLine("With only an input, output defaults beside it and the assembly is discovered from the JSON's types.");
             return 1;
         }
+        outputPath ??= Lazy.DefaultOutput(inputPath);
 
         if (!File.Exists(inputPath))
         {
@@ -157,6 +160,13 @@ public static class Program
                 Console.WriteLine($"cache: hit {BakeCacheKey.Prefix(key)}");
                 return 0;
             }
+        }
+
+        if (assemblyPaths.Count == 0)
+        {
+            var discovered = Lazy.FindAssembly(inputPath);
+            if (discovered == null) return 1;
+            assemblyPaths.Add(discovered);
         }
 
         var resolver = new BakerAssemblyResolver(assemblyPaths);

@@ -34,4 +34,8 @@
     <ProjectReference Include="..\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.Reflection.MetadataLoadContext" Version="9.0.4" />
+  </ItemGroup>
+
 </Project>

@@ -5,6 +5,8 @@ The `tlb` command (package `Tl.Bake`) compiles designer-authored timeline JSON i
 ```sh
 dotnet tool install --global Tl.Bake --prerelease --add-source <directory containing the Tl.Bake nupkg>
 tlb boss.json boss.tlb --assembly MyGame.Domain.dll
+tlb boss.json              # output defaults to boss.tlb; assembly discovered from the JSON's types
+tlb                        # exactly one *.json in the directory
 tlb --json --assembly MyGame.Domain.dll
 tlb --watch boss.json boss.tlb --assembly MyGame.Domain.dll
 tlb --strip boss.tlb boss.ship.tlb
@@ -14,7 +16,14 @@ tlb --report boss.tlb
 - Deterministic: identical inputs produce byte-identical assets.
 - `--assembly` names the assemblies containing the track/clip structs; the
   assembly name must match the assembly that ships those types at runtime
-  (pair keys hash assembly-qualified names).
+  (pair keys hash assembly-qualified names). Explicit `--assembly` always
+  wins and skips discovery.
+- Lazy forms: `tlb boss.json` defaults the output to `boss.tlb` beside the
+  input and discovers the assembly by sweeping DLLs under the launch
+  directory for one defining every `(namespace, type)` pair the JSON
+  references; bare `tlb` requires exactly one `*.json` in the directory.
+  `tlb.db` in the launch directory caches the last resolution per JSON,
+  is machine-local (gitignored), and is rewritten whenever it goes stale.
 - `--json` prints the authorable `(track, clip)` pairs the assemblies expose,
   with member names, so authoring tools can fill type lists automatically.
 - TLB1 v3 stores each pair's unique track and clip values once in per-pair
