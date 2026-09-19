@@ -18,6 +18,7 @@ cmd = [
     "dotnet", "run", "--project", "benchmarks/Numbers", "-c", "Release", "--no-build", "--",
     "--corpus", str(root / "benchmarks/Numbers/results/corpus"),
     "--out", str(receipt_path),
+    "--steady",
     *extra,
 ]
 print("$", " ".join(cmd), flush=True)
