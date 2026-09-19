@@ -281,7 +281,17 @@ Timeline.Bake(jumpTimeline, world, 43);
 
 Bakes are host-timed — attach and transition effects, never per-frame work. The dispatch is a cold pass over the asset's pairs; the warm path never sees a bake.
 
-Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Step` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Step` moves it exactly once. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
+Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Step` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Step` moves it exactly once. A single system that owns its clock column outright may fuse the pair into `Apply(ids, clocks, next, forward, fx)` — `next` may be the same array for in-place — one pass, same result as `Apply` + `Step`. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
+
+```cs
+// shared clock — safe to fan out to every pair system, step once:
+Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, jumpFx);
+Timeline<HealTrack, HealClip>.Apply(ids, clocks, true, healFx);
+Timeline.Step(ids, clocks, true);
+
+// or one owned column — fused, single pass:
+Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, clocks, true, jumpFx);
+```
 
 ```cs
 for (var frame = 0; frame < 30; frame++)
@@ -334,15 +344,15 @@ One million characters, one frame per call (i9-14900K, .NET 10, Release; best of
 
 | scenario | ms/frame | ns/character |
 | --- | ---: | ---: |
-| whole crowd on one timeline (a raid jumping in sync) | 0.51 | 0.51 |
+| whole crowd on one timeline (a raid jumping in sync) | 0.54 | 0.54 |
 | 100 timelines, crowds of 10,000 each (per-ability groups) | 0.71 | 0.71 |
-| one looping timeline, every character on its own clock | 0.49 | 0.49 |
-| one-shot finite timeline, staggered clocks | 0.52 | 0.52 |
-| hand-written loop for comparison (`effects += 1`) | 0.35 | 0.35 |
-| small squads: 16 timelines × 16 characters | 0.84 | 0.84 |
-| worst case: unsorted rows, a different timeline each | 1.10 | 1.10 |
+| one looping timeline, every character on its own clock | 0.52 | 0.52 |
+| one-shot finite timeline, staggered clocks | 0.57 | 0.57 |
+| hand-written loop for comparison (`effects += 1`) | 0.34 | 0.34 |
+| small squads: 16 timelines × 16 characters | 0.77 | 0.77 |
+| worst case: unsorted rows, a different timeline each | 1.23 | 1.23 |
 
-A single-timeline crowd floors at 0.49 ns per character; grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 55 ms and loads in 1.6 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
+A single-timeline crowd floors at 0.52 ns per character; grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 58 ms and loads in 1.5 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
 <!-- /tl-numbers -->
 
 Receipts: `benchmarks/Numbers` (generates this section; `eng/refresh-numbers` re-measures and re-renders it from a fingerprinted receipt, and CI fails if the two disagree), `benchmarks/PairHandles`, `benchmarks/Alpha`, `tests/Tl.Alpha` — parity, allocation, and throughput evidence, run in CI on every push.

@@ -190,7 +190,7 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
                 Effects[i] += 1f;
             return;
         }
-        Timeline<LaneTrack, LaneClip>.Apply(Ids, Positions, true, Effects); Timeline.Step(Ids, Positions, true);
+        Timeline<LaneTrack, LaneClip>.Apply(Ids, Positions, Positions, true, Effects);
     }
 
     public void StepBack()
@@ -201,7 +201,7 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
                 Effects[i] -= 1f;
             return;
         }
-        Timeline<LaneTrack, LaneClip>.Apply(Ids, Positions, false, Effects); Timeline.Step(Ids, Positions, false);
+        Timeline<LaneTrack, LaneClip>.Apply(Ids, Positions, Positions, false, Effects);
     }
 }
 

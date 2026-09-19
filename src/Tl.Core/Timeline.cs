@@ -9,8 +9,11 @@ public static class Timeline
     public static FrameQuery<TTrack, TClip> Query<TTrack, TClip>(in TimelineComponent component) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged => new(component);
 
     public static unsafe void Step(ReadOnlySpan<ushort> indices, Span<ushort> positions, bool forward)
+        => Step(indices, positions, positions, forward);
+
+    public static unsafe void Step(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
-        if (indices.Length != positions.Length)
+        if (indices.Length != positions.Length || positions.Length != next.Length)
             throw new ArgumentException("Column length must equal position count.");
         var count = positions.Length;
         var motion = TimelineTable.Motion;
@@ -25,36 +28,55 @@ public static class Timeline
                 if (Vector256.EqualsAll(Vector256.LoadUnsafe(ref MemoryMarshal.GetReference(indices), (nuint)i), Vector256.Create(indices[i])))
                 {
                     var m = motion[indices[i]];
-                    if (forward) LaneOps.StepForward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, i, block);
-                    else LaneOps.StepBackward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, i, block);
+                    if (forward) LaneOps.StepForward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
+                    else LaneOps.StepBackward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
                 }
-                else LaneOps.StepRows(motion, indices, positions, forward, i, block);
+                else LaneOps.StepRows(motion, indices, positions, next, forward, i, block);
                 i = block;
             }
         }
         for (; i < count; i++)
         {
             var m = motion[indices[i]];
-            if (TimelineMovement.Advance((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, reverse, positions[i], out var np, out _, out _))
-                positions[i] = np;
+            next[i] = TimelineMovement.Advance((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, reverse, positions[i], out var np, out _, out _)
+                ? np
+                : positions[i];
         }
     }
 
     public static void Step(TimelineAsset asset, Span<ushort> positions, bool forward)
+        => Step(asset.Index, positions, positions, forward);
+
+    public static void Step(TimelineAsset asset, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         ArgumentNullException.ThrowIfNull(asset);
-        Step(asset.Index, positions, forward);
+        Step(asset.Index, positions, next, forward);
     }
 
-    public static unsafe void Step(ushort index, Span<ushort> positions, bool forward)
+    public static void Step(ushort index, Span<ushort> positions, bool forward)
+        => Step(index, positions, positions, forward);
+
+    public static unsafe void Step(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
-        var reverse = !forward;
         var m = TimelineTable.Motion[index];
         var duration = (ushort)(m & 0xFFFF);
         var looping = (m & 0x80000000u) != 0;
-        for (var i = 0; i < positions.Length; i++)
-            if (TimelineMovement.Advance(duration, looping, reverse, positions[i], out var np, out _, out _))
-                positions[i] = np;
+        var count = positions.Length;
+        var reverse = !forward;
+        var i = 0;
+        if (Avx2.IsSupported && duration > 0)
+        {
+            var bound = count - (count & 15);
+            if (forward) LaneOps.StepForward(duration, looping, positions, next, 0, bound);
+            else LaneOps.StepBackward(duration, looping, positions, next, 0, bound);
+            i = bound;
+        }
+        for (; i < count; i++)
+        {
+            next[i] = TimelineMovement.Advance(duration, looping, reverse, positions[i], out var np, out _, out _)
+                ? np
+                : positions[i];
+        }
     }
 
     public static void Bake(ushort timeline)

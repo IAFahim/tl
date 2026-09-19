@@ -75,8 +75,11 @@ type Tl.Timeline
   Method Void Bake[T0,T1,T2,T3](UInt16, T0, T1, T2, T3)
   Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
   Method Void Step(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
+  Method Void Step(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
   Method Void Step(Tl.TimelineAsset, System.Span`1[System.UInt16], Boolean)
+  Method Void Step(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
   Method Void Step(UInt16, System.Span`1[System.UInt16], Boolean)
+  Method Void Step(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
 type Tl.TimelineAsset
   Method Void Dispose()
   Property UInt16 Index
@@ -94,10 +97,15 @@ type Tl.TimelineState
   Field UInt16 Position
 type Tl.Timeline`1
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Step(System.Span`1[System.UInt16], Boolean)
+  Method Void Step(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
 type Tl.Timeline`2
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
 type Tl.TypeKey`1
   Field UInt64 Value
