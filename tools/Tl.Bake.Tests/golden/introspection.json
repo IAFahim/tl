@@ -1056,6 +1056,38 @@
     {
       "track": {
         "namespace": "Tlb",
+        "name": "AutoTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "AutoClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Value",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.AutoClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
         "name": "BlendTrack",
         "assembly": "Tl.Bake.Tests",
         "size": 4,
@@ -1290,6 +1322,70 @@
       "unmanaged": true,
       "trackPairings": [
         "Tlb.PropertyClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "TwinA",
+        "name": "TwinTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "TwinA",
+        "name": "TwinClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Value",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "TwinA.TwinClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "TwinB",
+        "name": "TwinTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "TwinB",
+        "name": "TwinClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Value",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "TwinB.TwinClip"
       ],
       "consumers": []
     }

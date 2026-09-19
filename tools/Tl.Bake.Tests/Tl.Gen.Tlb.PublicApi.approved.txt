@@ -12,9 +12,9 @@ type Tl.Gen.Tlb.BakerAssemblyResolver
   Method System.Type ResolveType(System.String, System.String, System.String, System.String)
   Method Void ValidateUnmanaged(System.Type, System.Type)
 type Tl.Gen.Tlb.TimelineBaker
-  Method Byte[] BakeJson(System.String, Tl.Gen.Tlb.BakerAssemblyResolver)
-  Method Byte[] BakeJson(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver)
-  Method Byte[][] BakeJsonBatch(System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Tl.Gen.Tlb.BakerAssemblyResolver)
+  Method Byte[] BakeJson(System.String, Tl.Gen.Tlb.BakerAssemblyResolver, Boolean)
+  Method Byte[] BakeJson(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver, Boolean)
+  Method Byte[][] BakeJsonBatch(System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Tl.Gen.Tlb.BakerAssemblyResolver, Boolean)
 type Tl.Gen.Tlb.TlbLabel
   Property Int32 ClipIndex
   Property System.String Name

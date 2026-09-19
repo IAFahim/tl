@@ -13,9 +13,11 @@ namespace Tl.Gen.Tlb;
 
 internal static class TimelineBakerSimd
 {
-    internal static bool TryParseFast(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace, out FastDoc doc)
+    internal static bool TryParseFast(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace, out FastDoc doc, bool autoNamespace = false)
     {
         doc = null!;
+        if (autoNamespace)
+            return false;
         if (!JsonStructuralIndex.TryScan(utf8, workspace, out var index))
             return false;
         try

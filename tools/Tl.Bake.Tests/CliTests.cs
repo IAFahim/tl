@@ -122,11 +122,11 @@ public class CliTests
             Assert.Equal(1, exitCode);
             Assert.Equal(
                 string.Join("\n",
-                    "Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>]",
+                    "Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]",
                     "       tlb --strip <input.tlb> <output.tlb>",
                     "       tlb --report <input.tlb>",
                     "       tlb --json --assembly <path>...",
-                    "       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]",
+                    "       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>] [--auto]",
                     "With only an input, output defaults beside it and the assembly is discovered from the JSON's types.",
                     ""),
                 stderr.ToString().Replace("\r\n", "\n"));

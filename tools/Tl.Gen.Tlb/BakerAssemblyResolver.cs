@@ -91,6 +91,34 @@ public sealed class BakerAssemblyResolver
         throw new BakeDiagnosticException($"ambiguous type: bare name ({FormatNamespace(@namespace)}, {typeName}) matches multiple loaded types for {context}; declare 'assembly' with one of: {names}.");
     }
 
+    internal Type ResolveInferredType(string typeName, string? assemblyName, string context)
+    {
+        ValidateBareName(typeName, allowGlobal: false, "type", context);
+
+        var candidates = new List<Type>();
+        foreach (var asm in EnumerateCandidateAssemblies())
+        {
+            if (assemblyName != null && !string.Equals(asm.GetName().Name, assemblyName, StringComparison.OrdinalIgnoreCase))
+                continue;
+            foreach (var type in GetTypesSafe(asm))
+                if (string.Equals(type.Name, typeName, StringComparison.Ordinal))
+                    candidates.Add(type);
+        }
+
+        if (candidates.Count == 1)
+            return candidates[0];
+
+        if (candidates.Count == 0)
+        {
+            var scope = assemblyName == null ? string.Empty : $" in assembly '{assemblyName}'";
+            throw new BakeDiagnosticException($"unknown bare name: no loaded type named '{typeName}'{scope} for {context}; --auto fills a missing 'namespace' only when exactly one loaded type carries that bare name; write the 'namespace' explicitly.");
+        }
+        var found = string.Join(", ", candidates
+            .Select(t => $"({FormatNamespace(t.Namespace ?? "")}, {t.Name}) in {t.Assembly.GetName().Name}")
+            .OrderBy(n => n, StringComparer.Ordinal));
+        throw new BakeDiagnosticException($"ambiguous bare name: '{typeName}' matches {candidates.Count} loaded types for {context}: {found}; --auto fills a missing 'namespace' only when exactly one candidate exists; write the 'namespace' explicitly.");
+    }
+
     private static string FormatNamespace(string @namespace) => @namespace.Length == 0 ? "<global>" : @namespace;
 
     private static void ValidateBareName(string value, bool allowGlobal, string field, string context)

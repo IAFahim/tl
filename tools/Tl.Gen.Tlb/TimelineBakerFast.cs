@@ -229,6 +229,7 @@ internal sealed class FastTrackInfo
     internal Type? TrackType;
     internal bool TrackTypeFailed;
     internal bool ResolveNeedsRefresh;
+    internal string? InferError;
     internal byte[]? TrackBytes;
     internal bool PopulateDone;
     internal int DataStart = -1, DataEnd = -1;
@@ -250,6 +251,7 @@ internal sealed class FastClip
     internal bool NsSet;
     internal bool TypeSet;
     internal bool ResolveNeedsRefresh;
+    internal string? InferError;
     internal int PairId = -1;
     internal Type? ClipType;
     internal bool ClipTypeFailed;
@@ -284,16 +286,16 @@ internal static class TimelineBakerFast
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Type, Type), bool> BlendCache = new();
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, ITypeHelper> TypeHelpers = new();
 
-    internal static byte[] BakeJson(string json, BakerAssemblyResolver? resolver = null)
+    internal static byte[] BakeJson(string json, BakerAssemblyResolver? resolver = null, bool autoNamespace = false)
     {
         resolver ??= new BakerAssemblyResolver();
-        return BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver);
+        return BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver, null, autoNamespace);
     }
 
-    internal static byte[] BakeJsonUtf8(byte[] utf8, BakerAssemblyResolver? resolver = null, BakeWorkspace? workspace = null)
+    internal static byte[] BakeJsonUtf8(byte[] utf8, BakerAssemblyResolver? resolver = null, BakeWorkspace? workspace = null, bool autoNamespace = false)
     {
         resolver ??= new BakerAssemblyResolver();
-        var doc = TimelineBakerSimd.TryParseFast(utf8, resolver, workspace, out var fast) ? fast : ParseFast(utf8, resolver, workspace);
+        var doc = TimelineBakerSimd.TryParseFast(utf8, resolver, workspace, out var fast, autoNamespace) ? fast : ParseFast(utf8, resolver, workspace, autoNamespace);
         try
         {
             return TimelineBakerFastCore.BakeFast(doc, resolver);
@@ -304,9 +306,9 @@ internal static class TimelineBakerFast
         }
     }
 
-    internal static FastDoc ParseFast(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null)
+    internal static FastDoc ParseFast(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null, bool autoNamespace = false)
     {
-        var walker = new Walker(utf8, resolver, workspace);
+        var walker = new Walker(utf8, resolver, workspace, autoNamespace);
         walker.Run();
         return walker.Finish();
     }
@@ -785,12 +787,14 @@ internal ref struct Walker
     private readonly FastDoc _doc;
     private readonly List<(int Group, int Rank, int Seq, string Message)> _pending = new();
     private int _seq;
+    private readonly bool _auto;
     private readonly List<DupScope> _scopes = new();
 
-    internal Walker(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null)
+    internal Walker(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null, bool autoNamespace = false)
     {
         _utf8 = utf8;
         _resolver = resolver;
+        _auto = autoNamespace;
         _doc = new FastDoc { Utf8 = utf8, Resolver = resolver, Workspace = workspace };
         workspace?.Warm(_doc);
         _r = new Utf8JsonReader(utf8);
@@ -956,7 +960,7 @@ internal ref struct Walker
                         if (info.TrackType != null || info.TrackTypeFailed)
                             info.ResolveNeedsRefresh = true;
                         else
-                            TryResolveTrackType(info);
+                            TryResolveTrackType(info, $"track {trackIndex}");
                     }
                     break;
                 case "assembly":
@@ -986,7 +990,7 @@ internal ref struct Walker
                     }
                     hasClips = true;
                     if (info.HaveType && info.TrackType == null && !info.TrackTypeFailed)
-                        TryResolveTrackType(info);
+                        TryResolveTrackType(info, $"track {trackIndex}");
                     ParseClips(trackIndex, trackId, info);
                     if (info.ResolveNeedsRefresh)
                         RefreshTrackResolve(trackId, info);
@@ -1001,17 +1005,34 @@ internal ref struct Walker
         PopScope();
         if (info.ClipArrayError != null)
             PendingTrackProp(trackIndex, info.ClipArrayError);
-        if (!info.HaveNs)
+        if (!_auto && !info.HaveNs)
             PendingTrackPost(trackIndex, $"missing required property: track {trackIndex} needs 'namespace'.");
         if (!info.HaveType)
             PendingTrackPost(trackIndex, $"missing required property: track {trackIndex} needs 'type'.");
         if (!hasClips)
             PendingTrackPost(trackIndex, $"Track at index {trackIndex} missing required 'clips' array.");
         if (info.HaveType && info.TrackType == null && !info.TrackTypeFailed)
-            TryResolveTrackType(info);
+            TryResolveTrackType(info, $"track {trackIndex}");
         if (info.ResolveNeedsRefresh)
             RefreshTrackResolve(trackId, info);
+        RevisitDeferredClips(trackIndex, info);
         _doc.Tracks.Add(info);
+    }
+
+    private void RevisitDeferredClips(int trackIndex, FastTrackInfo info)
+    {
+        if (info.TrackType == null)
+            return;
+        foreach (var clipId in info.ClipIds)
+        {
+            var clip = _doc.Clips[clipId];
+            if (!clip.TypeSet || clip.TypeName.Length == 0 || clip.PairId >= 0 || clip.ClipType != null || clip.ClipTypeFailed)
+                continue;
+            var ctx = $"clip {clip.ClipIndex} on track {trackIndex}";
+            TryResolveClipPair(clip, info.TrackType, ctx);
+            if (clip.DataCaptured && clip.PairId >= 0 && !clip.PopulateDone)
+                PopulateDeferred(clip, ctx);
+        }
     }
 
     private void RefreshTrackResolve(int trackId, FastTrackInfo info)
@@ -1020,7 +1041,8 @@ internal ref struct Walker
         info.TrackType = null;
         info.TrackTypeFailed = false;
         info.ResolveNeedsRefresh = false;
-        TryResolveTrackType(info);
+        info.InferError = null;
+        TryResolveTrackType(info, $"track {trackId}");
         if (info.TrackTypeFailed || !ReferenceEquals(info.TrackType, previousType))
             foreach (var clipId in info.ClipIds)
             {
@@ -1031,11 +1053,25 @@ internal ref struct Walker
                 clip.PayloadOffset = -1;
                 clip.PopulateError = null;
                 clip.PopulateDone = false;
+                clip.InferError = null;
             }
     }
 
-    private void TryResolveTrackType(FastTrackInfo info)
+    private void TryResolveTrackType(FastTrackInfo info, string context)
     {
+        if (_auto && !info.HaveNs && info.TypeName.Length > 0 && !info.TrackTypeFailed && info.TrackType == null)
+        {
+            try
+            {
+                info.Ns = _resolver.ResolveInferredType(info.TypeName, info.Asm, context).Namespace ?? "";
+            }
+            catch (BakeDiagnosticException ex)
+            {
+                info.InferError = ex.Message;
+                info.TrackTypeFailed = true;
+                return;
+            }
+        }
         var key = (info.Ns, info.TypeName, info.Asm);
         if (_doc.ResolveCache.TryGetValue(key, out var cached))
         {
@@ -1044,7 +1080,7 @@ internal ref struct Walker
         }
         try
         {
-            var t = _resolver.ResolveType(info.Ns, info.TypeName, info.Asm, "track ?");
+            var t = _resolver.ResolveType(info.Ns, info.TypeName, info.Asm, context);
             _doc.ResolveCache[key] = t;
             info.TrackType = t;
         }
@@ -1116,7 +1152,7 @@ internal ref struct Walker
                     else if (clip.ClipType != null || clip.ClipTypeFailed)
                         clip.ResolveNeedsRefresh = true;
                     else if (info.TrackType != null)
-                        TryResolveClipPair(clip, info.TrackType);
+                        TryResolveClipPair(clip, info.TrackType, ctx);
                     break;
                 case "assembly":
                     _r.Read();
@@ -1161,25 +1197,26 @@ internal ref struct Walker
             }
         }
         PopScope();
-        if (!clip.NsSet)
+        if (!_auto && !clip.NsSet)
             PendingClip(trackIndex, $"missing required property: {ctx} needs 'namespace' (type identity is never inherited from the track).");
         if (!clip.TypeSet)
             PendingClip(trackIndex, $"missing required property: {ctx} needs 'type' (type identity is never inherited from the track).");
         if (!haveStart || !haveEnd)
             PendingClip(trackIndex, $"Clip {clipIndex} on track {trackIndex} missing 'start' or 'end'.");
         if (clip.TypeSet && clip.TypeName.Length > 0 && clip.PairId < 0 && clip.ClipType == null && !clip.ClipTypeFailed && info.TrackType != null)
-            TryResolveClipPair(clip, info.TrackType);
+            TryResolveClipPair(clip, info.TrackType, ctx);
         if (clip.ResolveNeedsRefresh)
-            RefreshClipResolve(clip, info.TrackType);
+            RefreshClipResolve(clip, info.TrackType, ctx);
         if (clip.DataCaptured && clip.PairId >= 0)
             PopulateDeferred(clip, ctx);
         info.ClipIds.Add(_doc.Clips.Count);
         _doc.Clips.Add(clip);
     }
 
-    private void RefreshClipResolve(FastClip clip, Type? trackType)
+    private void RefreshClipResolve(FastClip clip, Type? trackType, string context)
     {
         clip.ResolveNeedsRefresh = false;
+        clip.InferError = null;
         if (trackType == null)
             return;
         var previousType = clip.ClipType;
@@ -1190,7 +1227,7 @@ internal ref struct Walker
         clip.PayloadOffset = -1;
         clip.PopulateError = null;
         clip.PopulateDone = false;
-        TryResolveClipPair(clip, trackType);
+        TryResolveClipPair(clip, trackType, context);
         if (previousFailed != clip.ClipTypeFailed || !ReferenceEquals(previousType, clip.ClipType))
         {
             clip.PairId = -1;
@@ -1202,14 +1239,27 @@ internal ref struct Walker
         }
     }
 
-    private void TryResolveClipPair(FastClip clip, Type trackType)
+    private void TryResolveClipPair(FastClip clip, Type trackType, string context)
     {
+        if (_auto && !clip.NsSet && clip.TypeName.Length > 0 && !clip.ClipTypeFailed && clip.ClipType == null)
+        {
+            try
+            {
+                clip.Ns = _resolver.ResolveInferredType(clip.TypeName, clip.Asm, context).Namespace ?? "";
+            }
+            catch (BakeDiagnosticException ex)
+            {
+                clip.InferError = ex.Message;
+                clip.ClipTypeFailed = true;
+                return;
+            }
+        }
         var key = (clip.Ns, clip.TypeName, clip.Asm);
         if (!_doc.ResolveCache.TryGetValue(key, out var clipType))
         {
             try
             {
-                clipType = _resolver.ResolveType(clip.Ns, clip.TypeName, clip.Asm, "clip ?");
+                clipType = _resolver.ResolveType(clip.Ns, clip.TypeName, clip.Asm, context);
                 _doc.ResolveCache[key] = clipType;
             }
             catch (BakeDiagnosticException)
@@ -1476,6 +1526,8 @@ internal static class TimelineBakerFastCore
 
         private Type ResolveTrack(FastTrackInfo info, int ti)
         {
+            if (info.InferError != null)
+                throw new BakeDiagnosticException(info.InferError);
             if (!info.TrackTypeFailed)
                 return info.TrackType!;
             _resolver.ResolveType(info.Ns, info.TypeName, info.Asm, $"track {ti}");
@@ -1531,6 +1583,8 @@ internal static class TimelineBakerFastCore
 
         private Type ResolveClip(FastClip clip, int ti)
         {
+            if (clip.InferError != null)
+                throw new BakeDiagnosticException(clip.InferError);
             if (clip.ClipTypeFailed)
             {
                 _resolver.ResolveType(clip.Ns, clip.TypeName, clip.Asm, $"clip {clip.ClipIndex} on track {ti}");

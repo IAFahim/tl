@@ -81,6 +81,7 @@ public static class Program
         string? inputPath = null;
         string? outputPath = null;
         string? cacheDir = null;
+        var autoNamespace = false;
         var assemblyPaths = new List<string>();
 
         for (int i = 0; i < args.Length; i++)
@@ -93,6 +94,10 @@ public static class Program
                     return 1;
                 }
                 assemblyPaths.Add(args[++i]);
+            }
+            else if (args[i] == "--auto")
+            {
+                autoNamespace = true;
             }
             else if (args[i] == "--cache")
             {
@@ -120,11 +125,11 @@ public static class Program
 
         if (inputPath == null)
         {
-            Console.Error.WriteLine("Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>]");
+            Console.Error.WriteLine("Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]");
             Console.Error.WriteLine("       tlb --strip <input.tlb> <output.tlb>");
             Console.Error.WriteLine("       tlb --report <input.tlb>");
             Console.Error.WriteLine("       tlb --json --assembly <path>...");
-            Console.Error.WriteLine("       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]");
+            Console.Error.WriteLine("       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>] [--auto]");
             Console.Error.WriteLine("With only an input, output defaults beside it and the assembly is discovered from the JSON's types.");
             return 1;
         }
@@ -138,7 +143,7 @@ public static class Program
 
         if (assemblyPaths.Count == 0)
         {
-            var discovered = Lazy.FindAssembly(inputPath);
+            var discovered = Lazy.FindAssembly(inputPath, autoNamespace);
             if (discovered == null) return 1;
             assemblyPaths.Add(discovered);
         }
@@ -170,7 +175,7 @@ public static class Program
         }
 
         var resolver = new BakerAssemblyResolver(assemblyPaths);
-        var bytes = TimelineBaker.BakeJson(jsonBytes, resolver);
+        var bytes = TimelineBaker.BakeJson(jsonBytes, resolver, autoNamespace);
 
         WriteOutput(outputPath, bytes);
 

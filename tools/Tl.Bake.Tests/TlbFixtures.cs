@@ -7,6 +7,18 @@ public readonly struct AlphaClip(int value)
     public readonly int Value = value;
 }
 
+public readonly struct AutoClip(int value)
+{
+    public readonly int Value = value;
+}
+
+public readonly struct AutoTrack(int code) : IBlend<AutoClip>
+{
+    public readonly int Code = code;
+
+    public void Blend(in AutoClip first, in AutoClip second, float factor, out AutoClip result) => result = first;
+}
+
 public readonly struct AlphaTrack(int code) : IBlend<AlphaClip>
 {
     public readonly int Code = code;

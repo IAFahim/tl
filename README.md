@@ -13,6 +13,56 @@ dotnet add package Tl.CSharp --version 1.0.0-alpha.10
 dotnet tool install --global Tl.Bake --prerelease     # the tlb bake command
 ```
 
+## Get started
+
+Three structs and one JSON file — a first timeline in a minute. Put the structs and `jump.json` in a console project:
+
+```cs
+public readonly record struct JumpClip(float Velocity);
+
+public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
+{
+    public void Blend(in JumpClip first, in JumpClip second, float factor, out JumpClip result)
+        => result = new JumpClip(first.Velocity + (second.Velocity - first.Velocity) * factor);
+}
+
+public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
+{
+    public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float y)
+        => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
+}
+```
+
+```json
+{
+  "duration": 30, "loop": true,
+  "tracks": [
+    { "type": "JumpTrack", "data": { "Scale": 1.0 },
+      "clips": [ { "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
+                 { "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } } ] }
+  ]
+}
+```
+
+Build, then bake with `--auto` — namespaces are inferred from the built assembly, so the JSON above needs none:
+
+```sh
+dotnet build -c Release
+tlb jump.json jump.tlb --auto
+```
+
+Play it — one call advances every row one frame; after the full loop `y` is back at 0, the arc risen and fallen. Put the loop in `Program.cs` and `dotnet run`:
+
+```cs
+ushort jumpTimeline = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
+var tick = new ushort[1];
+var y = new float[1];
+for (var frame = 0; frame < 30; frame++)
+    Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, tick, true, y);
+```
+
+`--auto` is opt-in and never guesses silently: exactly one loaded type of that bare name fills the `namespace`; zero or several stop the bake naming every candidate. `tlb --json --assembly bin/Release/net10.0/YourGame.dll` lists every authorable pair with its namespace, fields, and consumers — the source for filling tracks and clips by hand ([Type discovery](#type-discovery)). "Run the full thing" below is the same shape with four characters, rewind, and host wiring.
+
 ## Run the full thing
 
 `samples/Showcase` is the whole pipeline with the code inline — data, bake, system, output.
@@ -128,9 +178,12 @@ tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
 ```sh
 tlb jump.json          # output defaults to jump.tlb beside the input; assembly discovered
 tlb                    # exactly one *.json in the directory; more than one names the candidates
+tlb jump.json jump.tlb --auto   # namespace inferred where absent (see below)
 ```
 
 Discovery sweeps the DLLs under the launch directory (skipping `.git`, `obj`, and friends) and keeps the ones defining every `(namespace, type)` pair the JSON references — exactly one is used, several fail naming them, zero fails naming the missing types and swept roots. `tlb.db` in the launch directory remembers the last resolution per JSON and is reused while the recorded DLL still exists and still defines the types; it is machine-local, gitignored, and rewritten on every re-sweep.
+
+`--auto` (opt-in, bake and `--watch`) infers a missing `namespace` at authoring time: the loaded assemblies — narrowed by an authored `assembly` when present — are searched for types whose bare name equals the authored `type`. Exactly one match fills the namespace; zero or several fail with a diagnostic naming every candidate and the repair. Inference runs only where the property is absent, per track and per clip — an authored `namespace` always wins, and `"namespace": ""` still selects the global namespace. Inferred bakes are byte-identical to writing the namespaces by hand; namespace written after `clips` still wins, and clip identity is never taken from the track.
 
 The designer loop:
 
@@ -138,7 +191,74 @@ The designer loop:
 tlb --watch jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
 ```
 
-`--watch` bakes at startup, re-bakes on save (debounced, hash-skipped), and prints one JSON event per action (`ready`, `rebuild`, `skip`, `diagnostic`) — a broken file stays in the loop as a `diagnostic` until fixed. More: `tlb --json --assembly ...` lists every authorable pair for tooling, `tlb --report` audits asset sizes, `tlb --strip` drops authoring metadata for distribution. The Blender NLA bridge (`tools/Tl.Blender`) exports this same JSON and bakes through the same CLI.
+`--watch` bakes at startup, re-bakes on save (debounced, hash-skipped), and prints one JSON event per action (`ready`, `rebuild`, `skip`, `diagnostic`) — a broken file stays in the loop as a `diagnostic` until fixed. More: `tlb --report` audits asset sizes, `tlb --strip` drops authoring metadata for distribution. The Blender NLA bridge (`tools/Tl.Blender`) exports this same JSON and bakes through the same CLI.
+
+### Type discovery
+
+`tlb --json --assembly bin/Release/net10.0/Showcase.dll` lists every authorable pair in the given assemblies — the authoritative answer to "what can this JSON name?", captured live from `samples/Showcase`:
+
+```json
+{
+  "schemaVersion": 1,
+  "assemblies": [
+    "Showcase"
+  ],
+  "pairs": [
+    {
+      "track": {
+        "namespace": "Showcase",
+        "name": "JumpTrack",
+        "assembly": "Showcase",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Showcase",
+        "name": "JumpClip",
+        "assembly": "Showcase",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Velocity",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Showcase.JumpClip"
+      ],
+      "consumers": [
+        {
+          "name": "Showcase.MoveY",
+          "assembly": "Showcase",
+          "outputs": [
+            "float"
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+- `schemaVersion` — output contract version; tooling pins it before reading anything else
+- `assemblies` — simple names of the assemblies the pairs were collected from
+- `pairs` — every `(track, clip)` combination the bake accepts, ordered by track then clip
+- `track` / `clip` — the authoring identity: `namespace` is what the JSON's `namespace` field spells, `name` is the `type`, `assembly` is the simple name `--assembly` takes; write the pair's `data` from `fields` (name and value type)
+- `size` — struct byte size; omitted for managed types, which never bake
+- `blendable` — the track implements `IBlend<this clip>`; only blendable pairs produce lanes
+- `unmanaged` — both structs are unmanaged; a `false` pair fails the bake
+- `trackPairings` — every clip type this track can blend (the full `IBlend<>` set)
+- `consumers` — discovered `ITrack<track, clip>` jobs and the effect columns their `Execute` writes (`outputs`)
+
+Each `pairs` entry maps onto one track and its clips: the track entry names `(track.namespace, track.name)`, each clip entry names `(clip.namespace, clip.name)`, and `data` sets exactly the listed `fields`. With `--auto` the namespaces can be left out entirely; use this listing to check spellings, pick among same-named types, and see which consumers fold into a pair.
 
 ## System
 
