@@ -13,14 +13,7 @@ public class PublicApiTests
         var actual = GetPublicApi(assembly);
 
         var approvedPath = Path.Combine(AppContext.BaseDirectory, "Tl.Gen.Tlb.PublicApi.approved.txt");
-        if (!File.Exists(approvedPath))
-        {
-            File.WriteAllText(approvedPath, actual);
-            var sourcePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../Tl.Gen.Tlb.PublicApi.approved.txt"));
-            if (Directory.Exists(Path.GetDirectoryName(sourcePath)))
-                File.WriteAllText(sourcePath, actual);
-        }
-
+        Assert.True(File.Exists(approvedPath), "Missing public API approval: Tl.Gen.Tlb.PublicApi.approved.txt");
         var expected = File.ReadAllText(approvedPath);
         Assert.Equal(expected.Replace("\r\n", "\n"), actual.Replace("\r\n", "\n"));
     }

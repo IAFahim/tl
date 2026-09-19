@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Tl.Gen.Tlb;
 using Xunit;
 
 namespace Tl.Bake.Tests;
@@ -39,8 +40,8 @@ public class CliTests
             Assert.Equal(0, exitCode);
             Assert.True(File.Exists(tlbPath));
             var bytes = File.ReadAllBytes(tlbPath);
-            Assert.True(bytes.Length >= 48);
-            Assert.True(Tl.Gen.Tlb.TlbMetadata.HasMetadata(bytes));
+            Assert.True(TlbMetadata.HasMetadata(bytes));
+            Assert.Equal(TimelineBaker.BakeJson(json), bytes);
         }
         finally
         {
@@ -85,7 +86,27 @@ public class CliTests
     [Fact]
     public void Cli_MissingArguments_ReturnsNonZero()
     {
-        var exitCode = Tl.Bake.Program.Main([]);
-        Assert.NotEqual(0, exitCode);
+        var error = new StringWriter();
+        var original = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            var exitCode = Tl.Bake.Program.Main([]);
+            Assert.Equal(1, exitCode);
+        }
+        finally
+        {
+            Console.SetError(original);
+        }
+
+        Assert.Equal(
+            string.Join("\n",
+                "Usage: tlb <input.json> <output.tlb> [--assembly <path>]... [--cache <dir>]",
+                "       tlb --strip <input.tlb> <output.tlb>",
+                "       tlb --report <input.tlb>",
+                "       tlb --json --assembly <path>...",
+                "       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]",
+                ""),
+            error.ToString().Replace("\r\n", "\n"));
     }
 }

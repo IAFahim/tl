@@ -46,13 +46,29 @@ public class IntrospectionTests
     [Fact]
     public void JsonMode_WithoutAssemblies_Fails()
     {
-        Assert.NotEqual(0, Program.Main(["--json"]));
+        Assert.Equal("Error: --json requires at least one --assembly path\n", RunJson(["--json"]));
     }
 
     [Fact]
     public void JsonMode_WithUnexpectedArgument_Fails()
     {
-        Assert.NotEqual(0, Program.Main(["--json", "extra.json", "--assembly", typeof(Tlb.JobTrack).Assembly.Location]));
+        Assert.Equal("Error: Unexpected argument 'extra.json'\n", RunJson(["--json", "extra.json", "--assembly", typeof(Tlb.JobTrack).Assembly.Location]));
+    }
+
+    static string RunJson(string[] args)
+    {
+        var error = new StringWriter();
+        var original = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            Assert.Equal(1, Program.Main(args));
+        }
+        finally
+        {
+            Console.SetError(original);
+        }
+        return error.ToString().Replace("\r\n", "\n");
     }
 
     private static string ExpectedGolden()

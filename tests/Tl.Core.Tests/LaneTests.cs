@@ -970,8 +970,15 @@ public class LaneTests
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
-        timelines.Add(looping);
+        var loopingId = timelines.Add(looping);
         timelines.Gather(Array.Empty<ushort>()).Seek(Array.Empty<ushort>(), true).Apply(Array.Empty<float>());
+
+        var ids = new ushort[] { loopingId };
+        var positions = new ushort[] { 0 };
+        var effects = new float[1];
+        timelines.Gather(ids).Seek(positions, true).Apply(effects);
+        Assert.Equal(LoopingEffects[0], effects[0]);
+        Assert.Equal(1, (int)positions[0]);
     }
 
     [Fact]
@@ -980,12 +987,14 @@ public class LaneTests
         var empty = new TimelineSet<LaneTrack, LaneClip>();
         empty.Dispose();
         empty.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => empty.Gather(Array.Empty<ushort>()));
 
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         var populated = new TimelineSet<LaneTrack, LaneClip>();
         populated.Add(looping);
         populated.Dispose();
         populated.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => populated.Gather(new ushort[] { 0 }));
     }
 
     [Fact]

@@ -1,22 +1,10 @@
-using System;
 using System.Collections.Generic;
 using Tl;
 
 namespace Tl.Bake.Tests;
 
-public readonly record struct TlbRecord(char Pair, uint Tick, float Value);
-
-public static unsafe class Recording
+public static class Recording
 {
-    public static readonly List<TlbRecord> Records = [];
-
-    static Recording()
-    {
-        PairRuntime<Tlb.DualTrack, Tlb.DualAlphaClip>.Consume(&AlphaExecute, &NoBind);
-        PairRuntime<Tlb.DualTrack, Tlb.DualBetaClip>.Consume(&BetaExecute, &NoBind);
-        PairRuntime<Tlb.EchoTrack, Tlb.EchoClip>.Consume(&EchoExecute, &NoBind);
-    }
-
     public static string OracleJson => """
     {
       "name": "oracle_asset",
@@ -47,26 +35,26 @@ public static unsafe class Recording
     }
     """;
 
-    public static List<TlbRecord> ForwardOracle(uint gameTick) =>
+    public static List<(char Pair, uint Tick, float Value)> ForwardOracle() =>
     [
-        new('A', 0u, 10f),
-        new('E', 0u, 7f),
-        new('A', 1u, 10f),
-        new('B', 1u, 1.5f),
-        new('E', 1u, 7f),
-        new('A', 2u, 10f),
-        new('B', 2u, 1.5f),
-        new('E', 2u, 7f),
-        new('A', 3u, 10f),
-        new('B', 3u, 1.5f),
-        new('E', 3u, 7f),
-        new('A', 4u, 20f),
-        new('B', 4u, 1.5f),
-        new('A', 5u, 30f),
-        new('B', 5u, 1.5f),
-        new('B', 6u, 1.5f),
-        new('A', 6u, 30f),
-        new('A', 7u, 30f),
+        ('A', 0u, 10f),
+        ('E', 0u, 7f),
+        ('A', 1u, 10f),
+        ('B', 1u, 1.5f),
+        ('E', 1u, 7f),
+        ('A', 2u, 10f),
+        ('B', 2u, 1.5f),
+        ('E', 2u, 7f),
+        ('A', 3u, 10f),
+        ('B', 3u, 1.5f),
+        ('E', 3u, 7f),
+        ('A', 4u, 20f),
+        ('B', 4u, 1.5f),
+        ('A', 5u, 30f),
+        ('B', 5u, 1.5f),
+        ('B', 6u, 1.5f),
+        ('A', 6u, 30f),
+        ('A', 7u, 30f),
     ];
 
 
@@ -85,34 +73,9 @@ public static unsafe class Recording
     }
 
     public static List<(char Pair, uint Tick, float Value)> OracleFrames() =>
-        ForwardOracle(0u)
+        ForwardOracle()
             .GroupBy(record => record.Tick)
             .OrderBy(group => group.Key)
             .SelectMany(group => group.OrderBy(record => record.Pair).Select(record => (record.Pair, record.Tick, record.Value)))
             .ToList();
-
-    static void AlphaExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
-    {
-        Tlb.DualAlphaClip scratch = default;
-        var frame = TickFrame.ToFrame<Tlb.DualTrack, Tlb.DualAlphaClip>(slot, pair, tick, flags, ref scratch);
-        Records.Add(new TlbRecord('A', tick, frame.Clip.Value));
-    }
-
-    static void BetaExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
-    {
-        Tlb.DualBetaClip scratch = default;
-        var frame = TickFrame.ToFrame<Tlb.DualTrack, Tlb.DualBetaClip>(slot, pair, tick, flags, ref scratch);
-        Records.Add(new TlbRecord('B', tick, frame.Clip.Amount));
-    }
-
-    static void EchoExecute(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
-    {
-        Tlb.EchoClip scratch = default;
-        var frame = TickFrame.ToFrame<Tlb.EchoTrack, Tlb.EchoClip>(slot, pair, tick, flags, ref scratch);
-        Records.Add(new TlbRecord('E', tick, frame.Clip.Value));
-    }
-
-    static void NoBind(ulong* keys, int count, byte* asset)
-    {
-    }
 }

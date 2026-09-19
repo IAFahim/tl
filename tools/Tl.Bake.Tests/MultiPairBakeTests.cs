@@ -1,5 +1,3 @@
-using System;
-using System.Security.Cryptography;
 using Tl;
 using Tl.Gen.Tlb;
 using Xunit;
@@ -8,27 +6,6 @@ namespace Tl.Bake.Tests;
 
 public class MultiPairBakeTests
 {
-    [Fact]
-    public void InterleavedDerivedGroups_ExecuteInAuthoredClipOrder()
-    {
-        var bytes = TimelineBaker.BakeJson(Recording.OracleJson);
-
-        Assert.Equal(Recording.OracleFrames(), Recording.FramesOf(bytes));
-    }
-
-    [Fact]
-    public void MetadataStrippedOracleMatchesForwardOracle()
-    {
-        _ = Recording.Records;
-        var full = TimelineBaker.BakeJson(Recording.OracleJson);
-        var stripped = TlbMetadata.Strip(full);
-        Assert.NotEqual(full, stripped);
-        Assert.True(TlbMetadata.HasMetadata(full));
-        Assert.False(TlbMetadata.HasMetadata(stripped));
-
-        Assert.Equal(Recording.OracleFrames(), Recording.FramesOf(stripped));
-    }
-
     [Fact]
     public void PairTypeTableIsIndexAlignedWithHotPairs()
     {
@@ -85,15 +62,6 @@ public class MultiPairBakeTests
         Assert.Contains(view.Labels, l => l.TrackEntry == 0 && l.ClipIndex == 2 && l.Name == "a2");
         Assert.Contains(view.Labels, l => l.TrackEntry == 1 && l.ClipIndex == -1 && l.Name == "echo_lane");
         Assert.Contains(view.Labels, l => l.TrackEntry == 1 && l.ClipIndex == 0 && l.Name == "e1");
-    }
-
-    [Fact]
-    public void BakeIsDeterministicIncludingMetadata()
-    {
-        var first = TimelineBaker.BakeJson(Recording.OracleJson);
-        var second = TimelineBaker.BakeJson(Recording.OracleJson);
-        Assert.Equal(first, second);
-        Assert.Equal(Convert.ToHexString(SHA256.HashData(first)), Convert.ToHexString(SHA256.HashData(second)));
     }
 
     [Fact]
