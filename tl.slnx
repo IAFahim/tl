@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Tl.CSharp/Tl.CSharp.csproj" />
     <Project Path="src/Tl.Core/Tl.Core.csproj" />
+    <Project Path="src/Tl.Frent/Tl.Frent.csproj" />
     <Project Path="src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj" />
   </Folder>
   <Folder Name="/samples/">
