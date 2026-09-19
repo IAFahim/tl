@@ -235,6 +235,7 @@ static unsafe class TimelineTable
 
     static ushort Revive(Entry* entry, ReadOnlySpan<byte> baked)
     {
+        TimelineRef.Validate(baked);
         entry->Block = AllocateBlock(baked);
         entry->Bytes = baked.Length;
         var generation = (ulong)Volatile.Read(ref entry->Count) >> 32;

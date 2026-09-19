@@ -314,8 +314,8 @@ public ref struct TimelineSetLane<TTrack, TClip>
                     if (segment - i < MinSegment)
                     {
                         i = forward
-                            ? ApplyMixedForward(ids, positions, effects, slots, minDuration, i, chunkEnd)
-                            : ApplyMixedBackward(ids, positions, effects, slots, minDuration, i, chunkEnd);
+                            ? ApplyMixedForward(ids, positions, effects, slots, i, chunkEnd)
+                            : ApplyMixedBackward(ids, positions, effects, slots, i, chunkEnd);
                         break;
                     }
                     i = ApplyUniformSegment(slots + ids[i], positions, effects, i, segment, forward, gather);
@@ -458,7 +458,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int minDuration, int i, int limit)
+    static unsafe int ApplyMixedForward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
         while (i < limit)
         {
@@ -491,7 +491,7 @@ public ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int minDuration, int i, int limit)
+    static unsafe int ApplyMixedBackward(ReadOnlySpan<ushort> ids, Span<ushort> positions, Span<float> effects, TimelineSet<TTrack, TClip>.Slot* slots, int i, int limit)
     {
         while (i < limit)
         {
