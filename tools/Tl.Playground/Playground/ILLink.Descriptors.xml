@@ -1,8 +1,0 @@
-<linker>
-  <assembly fullname="System.Console">
-    <type fullname="System.Console" preserve="All" />
-  </assembly>
-  <assembly fullname="System.Runtime">
-    <type fullname="System.Math" preserve="All" />
-  </assembly>
-</linker>
