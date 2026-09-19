@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Tl.Core\Tl.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Tl.Gen.CSharp\Tl.Gen.CSharp.csproj" />
     <ProjectReference Include="..\..\..\tools\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
     <EmbeddedResource Include="..\presets\*.json" LogicalName="%(Filename)%(Extension)" />
   </ItemGroup>

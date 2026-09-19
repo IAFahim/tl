@@ -1,25 +1,25 @@
 @code
 {
-    private string _view = "playground";
+    private string _view = "live";
 }
 
 <div class="app">
     <header class="app-bar">
         <span class="brand"><b>tl</b> playground</span>
         <nav class="view-tabs">
-            <button class="@(_view == "playground" ? "view-tab active" : "view-tab")" @onclick='() => _view = "playground"'>playground</button>
             <button class="@(_view == "live" ? "view-tab active" : "view-tab")" @onclick='() => _view = "live"'>live authoring</button>
+            <button class="@(_view == "playground" ? "view-tab active" : "view-tab")" @onclick='() => _view = "playground"'>playground</button>
         </nav>
         <a class="app-link" href="cookbook/index.html">cookbook</a>
     </header>
     <main class="app-main">
-        @if (_view == "live")
+        @if (_view == "playground")
         {
-            <Live />
+            <Index />
         }
         else
         {
-            <Index />
+            <Live />
         }
     </main>
 </div>

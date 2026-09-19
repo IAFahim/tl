@@ -264,6 +264,21 @@ Each `pairs` entry maps onto one track and its clips: the track entry names `(tr
 
 The three structs in the run above are the whole game side — the clip payload, the track settings with its blend, and the consumer that writes one effect column. `ITrack<TTrack, TClip>` consumers are discovered compilation-wide — no registration, no catalog. `frame.Direction` is +1 forward and −1 backward, which is why rewind is exact. Loading is one call that returns the timeline's index — a dense `ushort`, the whole acquisition step; the first typed use folds the pair's measured tables once, every later call is a table read.
 
+Hooking a timeline into game state — marking entities, spawning effects, notifying systems — is the one-shot bake surface. A bake is a marker struct implementing `IBake<TConsumer>` (up to four context types, `IBake<TConsumer, TContext0..TContext3>`) with a static `Bake` method; `TConsumer` names the `ITrack` consumer it hangs off. The generator discovers bakes compilation-wide alongside consumers and registers each per `(track, clip)` pair in the same generated binding. `Timeline.Bake` walks the loaded asset's pairs and fires every bake whose declared context types all match the arguments you pass, type by type:
+
+```cs
+public readonly struct AttachJumping : IBake<MoveY, World, int>
+{
+    public static void Bake(MoveY consumer, World world, int entity)
+        => world.MarkJumping(entity);
+}
+
+Timeline.Bake(jumpTimeline, world, 42);
+Timeline.Bake(jumpTimeline, world, 43);
+```
+
+Bakes are host-timed — attach and transition effects, never per-frame work. The dispatch is a cold pass over the asset's pairs; the warm path never sees a bake.
+
 Per frame, three caller-owned columns — timeline index, clock, effect — and one call advances every character one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
 
 ```cs
