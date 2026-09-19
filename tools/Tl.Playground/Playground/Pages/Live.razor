@@ -11,12 +11,12 @@
             <div class="pane-head">
                 <h2>1 · the system (C#)</h2>
                 <label class="head-field">sample
-                    <select value="@_preset" @onchange="OnPresetChange">
+                    <select value="@_preset" @onchange="OnPresetChange" disabled="@Busy" aria-label="sample source">
                         <option value="@ReadmePreset">readme · jump arc</option>
                         <option value="@RawPreset">raw binding (advanced)</option>
                     </select>
                 </label>
-                <button class="primary head-action" @onclick="OnCompile">compile</button>
+                <button class="primary head-action" @onclick="OnCompile" disabled="@Busy">compile</button>
             </div>
             <LiveEditor @key="@($"code-{_preset}")" RootId="live-code" Language="csharp" Value="@_source"
                         ValueChanged="@OnSourceChanged" ClassName="editor-fill" />
@@ -41,7 +41,7 @@
         <section class="pane pane-timeline">
             <div class="pane-head">
                 <h2>3 · the data (timeline JSON)</h2>
-                <button class="primary head-action" @onclick="OnBakeAndRun">bake &amp; run</button>
+                <button class="primary head-action" @onclick="OnBakeAndRun" disabled="@Busy">bake &amp; run</button>
             </div>
             <LiveEditor @key="@($"timeline-{_preset}")" RootId="live-timeline" Language="json" Value="@_timelineJson"
                         ValueChanged="@OnTimelineChanged" ClassName="editor-fill" />
@@ -108,6 +108,8 @@
     bool _compiling;
     bool _running;
 
+    bool Busy => _compiling || _running;
+
     LiveEditor? _typeEditor;
 
     void OnSourceChanged(string value) => _source = value;
@@ -116,6 +118,7 @@
 
     void OnPresetChange(ChangeEventArgs e)
     {
+        if (Busy) return;
         _preset = e.Value?.ToString() ?? ReadmePreset;
         (_source, _timelineJson) = _preset == RawPreset
             ? (LiveAuthoring.RawBindingSource, LiveAuthoring.RawBindingTimelineJson)

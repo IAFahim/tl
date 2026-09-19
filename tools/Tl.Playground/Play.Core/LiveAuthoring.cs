@@ -176,22 +176,23 @@ public static unsafe class Play
             var parse = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None);
             var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, optimizationLevel: OptimizationLevel.Release)
                 .WithConcurrentBuild(false);
-            var compilation = CSharpCompilation.Create("Live" + _compiles, [CSharpSyntaxTree.ParseText(source, parse), CSharpSyntaxTree.ParseText("global using System;", parse)], references, options);
+            var compilationName = "Live" + _compiles;
             _compiles++;
+            var compilation = CSharpCompilation.Create(compilationName, [CSharpSyntaxTree.ParseText(source, parse), CSharpSyntaxTree.ParseText("global using System;", parse)], references, options);
             var driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator()]);
             driver.RunGeneratorsAndUpdateCompilation(compilation, out var generated, out var generatorDiagnostics);
+            var errors = new StringBuilder();
+            foreach (var diagnostic in generatorDiagnostics.Where(d => d.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning).Take(20))
+                errors.AppendLine(diagnostic.ToString());
             using var pe = new MemoryStream();
             var emit = generated.Emit(pe);
-            var errors = new StringBuilder();
-            foreach (var diagnostic in generatorDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Take(20))
-                errors.AppendLine(diagnostic.ToString());
-            if (!emit.Success)
+            if (errors.Length == 0 && !emit.Success)
                 foreach (var diagnostic in emit.Diagnostics.Where(d => d.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning).Take(20))
                     errors.AppendLine(diagnostic.ToString());
             if (errors.Length > 0)
                 return new LiveCompile(null, errors.ToString(), watch.ElapsedMilliseconds);
             pe.Position = 0;
-            var context = new AssemblyLoadContext("live" + _compiles, isCollectible: false);
+            var context = new AssemblyLoadContext(compilationName, isCollectible: false);
             var assembly = context.LoadFromStream(pe);
             KeepAlive.Add(assembly);
             Compiled[source] = assembly;
@@ -261,7 +262,7 @@ public static unsafe class Play
             CultureInfo.CurrentCulture = priorCulture;
             CultureInfo.CurrentUICulture = priorUICulture;
         }
-        run.Console = console.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        run.Console = console.ToString().Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
         var hash = 14695981039346656037ul;
         foreach (var b in Encoding.UTF8.GetBytes(console.ToString()))
             hash = unchecked((hash ^ b) * 1099511628211ul);
@@ -271,16 +272,39 @@ public static unsafe class Play
 
     static void InvokeRun(Assembly assembly, byte[] tlb)
     {
-        foreach (var type in assembly.GetTypes())
+        Type[] types;
+        try
+        {
+            types = assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            types = [.. ex.Types.Where(t => t is not null)!];
+        }
+        var entries = new List<MethodInfo>();
+        foreach (var type in types)
             foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
                 if (method.Name != "Run") continue;
                 var parameters = method.GetParameters();
                 if (parameters.Length != 1 || parameters[0].ParameterType != typeof(byte[])) continue;
-                method.Invoke(null, [tlb]);
-                return;
+                entries.Add(method);
             }
-        throw new InvalidOperationException("the compiled code has no public static Run(byte[]) entry; add Play.Run(byte[] tlb) with the playback loop");
+        if (entries.Count == 0)
+            throw new InvalidOperationException("the compiled code has no public static Run(byte[]) entry; add Play.Run(byte[] tlb) with the playback loop");
+        if (entries.Count > 1)
+        {
+            var names = entries.Select(e => $"{e.DeclaringType?.FullName}.{e.Name}").OrderBy(n => n, StringComparer.Ordinal).Distinct();
+            throw new InvalidOperationException($"ambiguous Run(byte[]) entry: {entries.Count} public static Run(byte[]) methods compiled ({string.Join(", ", names)}); keep exactly one playback entry");
+        }
+        try
+        {
+            entries[0].Invoke(null, [tlb]);
+        }
+        catch (TargetInvocationException ex)
+        {
+            throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message, ex.InnerException);
+        }
     }
 
     public static string Receipt()
@@ -303,6 +327,15 @@ public static unsafe class Play
         Require(run.Console.Any(line => line.StartsWith("  tick 30   y =  0.0 m", StringComparison.Ordinal)), "arc landing line missing");
         Require(run.Console.Contains("rewind walks the arc back exactly:"), "rewind header missing");
         Require(run.Console.Contains("  after 30 back ticks: y = 0.0 m, tick = 0"), "rewind line missing");
+
+        var replay = Compile(DefaultSource + "\n// replay");
+        if (!replay.Ok)
+            throw new InvalidOperationException($"live receipt recompile failed: {replay.Error}");
+        var (replayBytes, replayBakeError) = Bake(replay.Assembly!, DefaultTimelineJson);
+        if (replayBytes.Length == 0)
+            throw new InvalidOperationException($"live receipt recompile bake failed: {replayBakeError}");
+        var replayRun = Run(replay.Assembly!, replayBytes);
+        Require(replayRun.Console.Contains("  tick  3   y =  6.0 m   ##"), "recompiled source must bind and apply the consumer exactly once");
 
         var raw = Compile(RawBindingSource);
         if (!raw.Ok)
