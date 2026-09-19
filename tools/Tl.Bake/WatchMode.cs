@@ -17,6 +17,7 @@ internal sealed class WatchEngine
     private readonly IReadOnlyList<WatchedFile> _files;
     private readonly string[] _assemblyPaths;
     private readonly int _debounceMilliseconds;
+    private readonly bool _autoNamespace;
     private readonly TextWriter _events;
     private readonly Func<DateTimeOffset> _clock;
     private readonly Dictionary<string, WatchedFile> _byInput = new(StringComparer.Ordinal);
@@ -29,11 +30,13 @@ internal sealed class WatchEngine
         string[] assemblyPaths,
         int debounceMilliseconds,
         TextWriter events,
-        Func<DateTimeOffset>? clock = null)
+        Func<DateTimeOffset>? clock = null,
+        bool autoNamespace = false)
     {
         _files = files;
         _assemblyPaths = assemblyPaths;
         _debounceMilliseconds = debounceMilliseconds;
+        _autoNamespace = autoNamespace;
         _events = events;
         _clock = clock ?? DefaultClock;
         _resolver = new BakerAssemblyResolver(assemblyPaths);
@@ -127,7 +130,8 @@ internal sealed class WatchEngine
 
         var outcomes = TimelineBaker.BakeBatch(
             bakeIndexes.Select(i => inputs[i]!).ToList(),
-            _resolver);
+            _resolver,
+            _autoNamespace);
 
         for (var k = 0; k < bakeIndexes.Count; k++)
         {
@@ -240,6 +244,7 @@ internal static class WatchMode
         string? input = null;
         string? output = null;
         var debounce = DefaultDebounceMilliseconds;
+        var autoNamespace = false;
         var assemblyPaths = new List<string>();
 
         for (var i = 1; i < args.Length; i++)
@@ -252,6 +257,10 @@ internal static class WatchMode
                     return 1;
                 }
                 assemblyPaths.Add(args[++i]);
+            }
+            else if (args[i] == "--auto")
+            {
+                autoNamespace = true;
             }
             else if (args[i] == "--debounce")
             {
@@ -278,8 +287,8 @@ internal static class WatchMode
 
         if (input == null)
         {
-            Console.Error.WriteLine("Usage: tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>]");
-            Console.Error.WriteLine("       tlb --watch <input-dir> [<output-dir>] [--assembly <path>]... [--debounce <ms>]");
+            Console.Error.WriteLine("Usage: tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>] [--auto]");
+            Console.Error.WriteLine("       tlb --watch <input-dir> [<output-dir>] [--assembly <path>]... [--debounce <ms>] [--auto]");
             return 1;
         }
 
@@ -303,7 +312,7 @@ internal static class WatchMode
             }
         }
 
-        var engine = new WatchEngine(files, [.. assemblyPaths], debounce, events, clock);
+        var engine = new WatchEngine(files, [.. assemblyPaths], debounce, events, clock, autoNamespace);
         using var watchers = new WatcherSet(files, engine);
         engine.InitialBake();
 

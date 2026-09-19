@@ -35,7 +35,7 @@ internal static class Lazy
     internal static string DefaultOutput(string jsonPath) =>
         Path.Combine(Path.GetDirectoryName(Path.GetFullPath(jsonPath))!, Path.GetFileNameWithoutExtension(jsonPath) + ".tlb");
 
-    internal static string? FindAssembly(string jsonPath)
+    internal static string? FindAssembly(string jsonPath, bool autoNamespace = false)
     {
         var pairs = ReferencedPairs(jsonPath);
         if (pairs.Count == 0)
@@ -47,7 +47,7 @@ internal static class Lazy
         var directory = Directory.GetCurrentDirectory();
         var fingerprint = Fingerprint(pairs);
         var cache = Cache.Load(directory);
-        if (cache.TryGet(Path.GetFullPath(jsonPath), fingerprint, out var cached) && DefinesAll(cached, pairs))
+        if (cache.TryGet(Path.GetFullPath(jsonPath), fingerprint, out var cached) && DefinesAll(cached, pairs, autoNamespace))
         {
             Console.WriteLine($"assembly: {cached} (cached in tlb.db)");
             return cached;
@@ -55,7 +55,7 @@ internal static class Lazy
         var candidates = Sweep(directory);
         var matches = new List<string>();
         foreach (var candidate in candidates)
-            if (DefinesAll(candidate, pairs))
+            if (DefinesAll(candidate, pairs, autoNamespace))
                 matches.Add(candidate);
         matches = PreferRelease(matches);
         if (matches.Count == 1)
@@ -67,7 +67,7 @@ internal static class Lazy
         }
         if (matches.Count == 0)
         {
-            var missing = string.Join(", ", pairs.Select(static pair => $"{pair.Namespace}.{pair.Type}"));
+            var missing = string.Join(", ", pairs.Select(static pair => pair.Namespace is null ? $"<auto>.{pair.Type}" : $"{pair.Namespace}.{pair.Type}"));
             Console.Error.WriteLine($"Error: No dll under '{directory}' defines the types this JSON names: {missing}.");
             Console.Error.WriteLine($"Scanned {candidates.Count} dlls. Fix: build the project or pass --assembly <path>.");
             return null;
@@ -79,9 +79,9 @@ internal static class Lazy
         return null;
     }
 
-    internal static List<(string Namespace, string Type)> ReferencedPairs(string jsonPath)
+    internal static List<(string? Namespace, string Type)> ReferencedPairs(string jsonPath)
     {
-        var pairs = new List<(string, string)>();
+        var pairs = new List<(string?, string)>();
         using var document = JsonDocument.Parse(File.ReadAllText(jsonPath));
         if (!document.RootElement.TryGetProperty("tracks", out var tracks) || tracks.ValueKind != JsonValueKind.Array) return pairs;
         foreach (var track in tracks.EnumerateArray())
@@ -94,12 +94,12 @@ internal static class Lazy
         return pairs;
     }
 
-    static void AddPair(JsonElement element, List<(string, string)> pairs)
+    static void AddPair(JsonElement element, List<(string? Namespace, string Type)> pairs)
     {
         if (!element.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String) return;
-        var ns = element.TryGetProperty("namespace", out var namespaceElement) && namespaceElement.ValueKind == JsonValueKind.String
+        string? ns = element.TryGetProperty("namespace", out var namespaceElement) && namespaceElement.ValueKind == JsonValueKind.String
             ? namespaceElement.GetString()!
-            : "";
+            : null;
         var pair = (ns, type.GetString()!);
         if (!pairs.Contains(pair)) pairs.Add(pair);
     }
@@ -133,7 +133,7 @@ internal static class Lazy
         return release.Count > 0 ? release : matches;
     }
 
-    internal static bool DefinesAll(string assemblyPath, List<(string Namespace, string Type)> pairs)
+    internal static bool DefinesAll(string assemblyPath, List<(string? Namespace, string Type)> pairs, bool autoNamespace = false)
     {
         if (!File.Exists(assemblyPath)) return false;
         try
@@ -157,7 +157,7 @@ internal static class Lazy
             {
                 var found = false;
                 foreach (var type in types)
-                    if (type.Name == group.Type && type.Namespace == group.Namespace)
+                    if (Defines(type, group, autoNamespace))
                     {
                         found = true;
                         break;
@@ -172,11 +172,16 @@ internal static class Lazy
         }
     }
 
-    static string Fingerprint(List<(string Namespace, string Type)> pairs)
+    static bool Defines(Type type, (string? Namespace, string Type) pair, bool autoNamespace) =>
+        type.Name == pair.Type && (pair.Namespace != null
+            ? type.Namespace == pair.Namespace
+            : autoNamespace);
+
+    static string Fingerprint(List<(string? Namespace, string Type)> pairs)
     {
         var builder = new StringBuilder();
         foreach (var pair in pairs.OrderBy(static pair => pair.Namespace, StringComparer.Ordinal).ThenBy(static pair => pair.Type, StringComparer.Ordinal))
-            builder.Append(pair.Namespace).Append('\0').Append(pair.Type).Append('\0');
+            builder.Append(pair.Namespace ?? "<auto>").Append('\0').Append(pair.Type).Append('\0');
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString())))[..16];
     }
 
