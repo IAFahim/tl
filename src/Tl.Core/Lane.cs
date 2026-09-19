@@ -202,7 +202,7 @@ internal ref struct TimelineLane<T>
         {
             var chunkEnd = i + Chunk;
             if (chunkEnd > count) chunkEnd = count;
-            if (gather && LaneOps.SingletonChunk(positions, i, chunkEnd))
+            if (gather && LaneOps.StaggeredEnds(positions, i, chunkEnd))
             {
                 var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
                 if (blockEnd > i)
@@ -336,6 +336,10 @@ internal static unsafe class LaneOps
             if (positions[k] == positions[k + 1]) return false;
         return true;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    internal static bool StaggeredEnds(ReadOnlySpan<ushort> positions, int start, int end)
+        => SingletonChunk(positions, start, end) && (end - 64 <= start || SingletonChunk(positions, end - 64, end));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal static void Add(Span<float> values, int start, int end, float delta)
