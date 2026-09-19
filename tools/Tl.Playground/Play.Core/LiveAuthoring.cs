@@ -5,7 +5,7 @@ using System.Runtime.Loader;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Tl;
+using Tl.Gen.CSharp;
 using Tl.Gen.Tlb;
 
 namespace Play;
@@ -17,12 +17,7 @@ public sealed record LiveCompile(Assembly? Assembly, string Error, long CompileM
 
 public sealed class LiveRun
 {
-    public ushort[] Positions = [];
-    public float[] Effects = [];
     public string[] Console = [];
-    public int Ticks;
-    public int Moved;
-    public int Skipped;
     public ulong Checksum;
 }
 
@@ -33,6 +28,66 @@ public static class LiveAuthoring
     static int _compiles;
 
     public const string DefaultSource = """
+using Tl;
+
+namespace Live;
+
+public readonly record struct JumpClip(float Velocity);
+
+public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
+{
+    public void Blend(in JumpClip first, in JumpClip second, float factor, out JumpClip result)
+        => result = new JumpClip(first.Velocity + (second.Velocity - first.Velocity) * factor);
+}
+
+public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
+{
+    public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float y)
+        => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
+}
+
+public static class Play
+{
+    public static void Run(byte[] jumpTlb)
+    {
+        ushort jumpTimeline = TimelineAsset.Load(jumpTlb);
+        var ids = new ushort[] { jumpTimeline, jumpTimeline, jumpTimeline, jumpTimeline };
+        var tick = new ushort[4];
+        var y = new float[4];
+
+        Console.WriteLine("four characters jump, one call per frame:");
+        for (var frame = 1; frame <= 30; frame++)
+        {
+            Timeline<JumpTrack, JumpClip>.Advance(ids, tick, true, y);
+            if (frame % 3 == 0)
+                Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', (int)Math.Round(y[0] / 3))}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("rewind walks the arc back exactly:");
+        for (var frame = 0; frame < 30; frame++)
+            Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, tick, false, y);
+        Console.WriteLine($"  after 30 back ticks: y = {y[0]:0.0} m, tick = {tick[0]}");
+    }
+}
+""";
+
+    public const string DefaultTimelineJson = """
+{
+  "name": "jump", "duration": 30, "loop": true,
+  "tracks": [
+    {
+      "name": "arc", "namespace": "Live", "type": "JumpTrack", "data": { "Scale": 1.0 },
+      "clips": [
+        { "name": "rise", "namespace": "Live", "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
+        { "name": "fall", "namespace": "Live", "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } }
+      ]
+    }
+  ]
+}
+""";
+
+    public const string RawBindingSource = """
 using System.Threading;
 using Tl;
 
@@ -46,14 +101,26 @@ public readonly record struct ScaleTrack(float Scale) : IBlend<AmountClip>
         => result = new AmountClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
-public static unsafe class Setup
+public static unsafe class Play
 {
     static int _installed;
 
-    public static void Run()
+    public static void Run(byte[] scaleTlb)
     {
-        if (Interlocked.Exchange(ref _installed, 1) == 1) return;
-        PairRuntime<ScaleTrack, AmountClip>.Consume(&ExecuteScale, &BindFloat);
+        if (Interlocked.Exchange(ref _installed, 1) == 0)
+            PairRuntime<ScaleTrack, AmountClip>.Consume(&ExecuteAmount, &BindFloat);
+        ushort timeline = TimelineAsset.Load(scaleTlb);
+        var ids = new ushort[] { timeline, timeline, timeline, timeline };
+        var tick = new ushort[4];
+        var amount = new float[4];
+
+        Console.WriteLine("raw function-pointer consumer, no ITrack, no generator binding:");
+        for (var frame = 1; frame <= 24; frame++)
+        {
+            Timeline<ScaleTrack, AmountClip>.Advance(ids, tick, true, amount);
+            if (frame % 4 == 0)
+                Console.WriteLine($"  tick {frame,2}   amount = {amount[0],6:0.0}");
+        }
     }
 
     static void BindFloat(ulong* keys, int keyCount, byte* table)
@@ -66,7 +133,7 @@ public static unsafe class Setup
             }
     }
 
-    static void ExecuteScale(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
+    static void ExecuteAmount(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         AmountClip scratch = default;
         var frame = TickFrame.ToFrame<ScaleTrack, AmountClip>(slot, pair, tick, flags, ref scratch);
@@ -76,7 +143,7 @@ public static unsafe class Setup
 }
 """;
 
-    public const string DefaultTimelineJson = """
+    public const string RawBindingTimelineJson = """
 {
   "duration": 64,
   "loop": true,
@@ -109,18 +176,23 @@ public static unsafe class Setup
             var parse = new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.None);
             var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, optimizationLevel: OptimizationLevel.Release)
                 .WithConcurrentBuild(false);
-            var compilation = CSharpCompilation.Create("Live" + _compiles++, [CSharpSyntaxTree.ParseText(source, parse), CSharpSyntaxTree.ParseText("global using System;", parse)], references, options);
+            var compilationName = "Live" + _compiles;
+            _compiles++;
+            var compilation = CSharpCompilation.Create(compilationName, [CSharpSyntaxTree.ParseText(source, parse), CSharpSyntaxTree.ParseText("global using System;", parse)], references, options);
+            var driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator()]);
+            driver.RunGeneratorsAndUpdateCompilation(compilation, out var generated, out var generatorDiagnostics);
+            var errors = new StringBuilder();
+            foreach (var diagnostic in generatorDiagnostics.Where(d => d.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning).Take(20))
+                errors.AppendLine(diagnostic.ToString());
             using var pe = new MemoryStream();
-            var emit = compilation.Emit(pe);
-            if (!emit.Success)
-            {
-                var errors = new StringBuilder();
+            var emit = generated.Emit(pe);
+            if (errors.Length == 0 && !emit.Success)
                 foreach (var diagnostic in emit.Diagnostics.Where(d => d.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning).Take(20))
                     errors.AppendLine(diagnostic.ToString());
+            if (errors.Length > 0)
                 return new LiveCompile(null, errors.ToString(), watch.ElapsedMilliseconds);
-            }
             pe.Position = 0;
-            var context = new AssemblyLoadContext("live" + _compiles, isCollectible: false);
+            var context = new AssemblyLoadContext(compilationName, isCollectible: false);
             var assembly = context.LoadFromStream(pe);
             KeepAlive.Add(assembly);
             Compiled[source] = assembly;
@@ -170,102 +242,118 @@ public static unsafe class Setup
         return $"bytes={tlb.Length} types={view.Types.Count} pairs={view.PairTypes.Count} labels={view.Labels.Count}";
     }
 
-    public static (Type Track, Type Clip) FindPair(Assembly assembly)
+    public static LiveRun Run(Assembly assembly, byte[] tlb)
     {
-        foreach (var type in assembly.GetTypes())
-            foreach (var face in type.GetInterfaces())
-                if (face.IsGenericType && face.GetGenericTypeDefinition() == typeof(IBlend<>))
-                    return (type, face.GetGenericArguments()[0]);
-        throw new InvalidOperationException("live run needs a track type implementing IBlend<TClip>; the compiled code has none");
-    }
-
-    public static LiveRun Run(Assembly assembly, byte[] tlb, int duration, bool looping, int rows, int ticks)
-    {
-        var run = new LiveRun { Positions = new ushort[rows], Effects = new float[rows], Ticks = ticks };
+        var run = new LiveRun();
         var console = new StringBuilder();
-        var prior = Console.Out;
+        var priorOut = Console.Out;
+        var priorCulture = CultureInfo.CurrentCulture;
+        var priorUICulture = CultureInfo.CurrentUICulture;
         Console.SetOut(new StringWriter(console, CultureInfo.InvariantCulture));
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
         try
         {
-            RunCore(run, assembly, tlb, duration, looping, rows, ticks);
+            InvokeRun(assembly, tlb);
         }
         finally
         {
-            Console.SetOut(prior);
+            Console.SetOut(priorOut);
+            CultureInfo.CurrentCulture = priorCulture;
+            CultureInfo.CurrentUICulture = priorUICulture;
         }
-        run.Console = console.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        run.Console = console.ToString().Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
         var hash = 14695981039346656037ul;
-        for (var i = 0; i < rows; i++)
-        {
-            hash = unchecked((hash ^ run.Positions[i]) * 1099511628211ul);
-            hash = unchecked((hash ^ (uint)BitConverter.SingleToInt32Bits(run.Effects[i])) * 1099511628211ul);
-        }
+        foreach (var b in Encoding.UTF8.GetBytes(console.ToString()))
+            hash = unchecked((hash ^ b) * 1099511628211ul);
         run.Checksum = hash;
         return run;
     }
 
-    static void RunCore(LiveRun run, Assembly assembly, byte[] tlb, int duration, bool looping, int rows, int ticks)
+    static void InvokeRun(Assembly assembly, byte[] tlb)
     {
-        InvokeSetup(assembly);
-        var (track, clip) = FindPair(assembly);
-        var lane = typeof(BakedLane<,>).MakeGenericType(track, clip);
-        var bind = lane.GetMethod("Bind", BindingFlags.Public | BindingFlags.Static) ?? throw new InvalidOperationException("BakedLane.Bind not found");
-        var effect = lane.GetMethod("Effect", BindingFlags.Public | BindingFlags.Static) ?? throw new InvalidOperationException("BakedLane.Effect not found");
-        var inverse = lane.GetMethod("InverseEffect", BindingFlags.Public | BindingFlags.Static) ?? throw new InvalidOperationException("BakedLane.InverseEffect not found");
-        var select = typeof(TimelineMovement).GetMethod("Select", BindingFlags.Public | BindingFlags.Static) ?? throw new InvalidOperationException("TimelineMovement.Select not found");
-        var durationTick = (ushort)duration;
-        using var asset = TimelineAsset.LoadAsset(tlb);
-        bind.Invoke(null, [asset]);
-        for (var t = 0; t < ticks; t++)
+        Type[] types;
+        try
         {
-            var forward = t < (ticks + 1) / 2;
-            for (var i = 0; i < rows; i++)
+            types = assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            types = [.. ex.Types.Where(t => t is not null)!];
+        }
+        var entries = new List<MethodInfo>();
+        foreach (var type in types)
+            foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
-                var args = new object?[] { new TimelineState(1, run.Positions[i]), durationTick, looping, !forward, null, (ushort)0, FrameFlags.None };
-                if ((bool)select.Invoke(null, args)! is false)
-                {
-                    run.Skipped++;
-                    continue;
-                }
-                var next = (TimelineState)args[4]!;
-                var tick = (ushort)args[5]!;
-                var delta = (float)(forward ? effect : inverse).Invoke(null, [tick])!;
-                run.Effects[i] += delta;
-                run.Positions[i] = next.Position;
-                run.Moved++;
+                if (method.Name != "Run") continue;
+                var parameters = method.GetParameters();
+                if (parameters.Length != 1 || parameters[0].ParameterType != typeof(byte[])) continue;
+                entries.Add(method);
             }
-        }
-        for (var i = 0; i < rows; i++)
-            Console.WriteLine($"row {i}: position {run.Positions[i]}, effect {run.Effects[i].ToString("0.0###", CultureInfo.InvariantCulture)}");
-    }
-
-    static void InvokeSetup(Assembly assembly)
-    {
-        foreach (var type in assembly.GetTypes())
+        if (entries.Count == 0)
+            throw new InvalidOperationException("the compiled code has no public static Run(byte[]) entry; add Play.Run(byte[] tlb) with the playback loop");
+        if (entries.Count > 1)
         {
-            var run = type.GetMethod("Run", BindingFlags.Public | BindingFlags.Static, null, Type.EmptyTypes, null);
-            if (run is null) continue;
-            run.Invoke(null, null);
-            return;
+            var names = entries.Select(e => $"{e.DeclaringType?.FullName}.{e.Name}").OrderBy(n => n, StringComparer.Ordinal).Distinct();
+            throw new InvalidOperationException($"ambiguous Run(byte[]) entry: {entries.Count} public static Run(byte[]) methods compiled ({string.Join(", ", names)}); keep exactly one playback entry");
+        }
+        try
+        {
+            entries[0].Invoke(null, [tlb]);
+        }
+        catch (TargetInvocationException ex)
+        {
+            throw new InvalidOperationException(ex.InnerException?.Message ?? ex.Message, ex.InnerException);
         }
     }
 
-    public static string Receipt(int rows = 8, int ticks = 41)
+    public static string Receipt()
     {
         var report = new StringBuilder();
         var compile = Compile(DefaultSource);
         if (!compile.Ok)
             throw new InvalidOperationException($"live receipt failed to compile: {compile.Error}");
         var json = TypeJson(compile.Assembly!);
-        if (!json.Contains("\"ScaleTrack\"", StringComparison.Ordinal) || !json.Contains("\"blendable\": true", StringComparison.Ordinal))
-            throw new InvalidOperationException($"live receipt type json missing the sample pair: {json}");
+        if (!json.Contains("\"Live.MoveY\"", StringComparison.Ordinal) || !json.Contains("\"consumers\"", StringComparison.Ordinal))
+            throw new InvalidOperationException($"live receipt introspection missing the MoveY consumer: {json}");
         var (bytes, bakeError) = Bake(compile.Assembly!, DefaultTimelineJson);
         if (bytes.Length == 0)
             throw new InvalidOperationException($"live receipt bake failed: {bakeError}");
-        var run = Run(compile.Assembly!, bytes, duration: 64, looping: true, rows, ticks);
-        if (run.Moved == 0)
-            throw new InvalidOperationException("live receipt moved zero rows");
-        report.AppendLine($"LIVE PASS compileMs={compile.CompileMs.ToString(CultureInfo.InvariantCulture)} bytes={bytes.Length} moved={run.Moved} skipped={run.Skipped} checksum={run.Checksum.ToString(CultureInfo.InvariantCulture)}");
+        var run = Run(compile.Assembly!, bytes);
+        Require(run.Console.Length == 13, $"arc run printed {run.Console.Length} lines, expected 13");
+        Require(run.Console[0] == "four characters jump, one call per frame:", $"arc header: {run.Console[0]}");
+        Require(run.Console.Contains("  tick  3   y =  6.0 m   ##"), "arc rise line missing");
+        Require(run.Console.Any(line => line.StartsWith("  tick 15   y = 30.0 m   ##########", StringComparison.Ordinal)), "arc apex line missing");
+        Require(run.Console.Any(line => line.StartsWith("  tick 30   y =  0.0 m", StringComparison.Ordinal)), "arc landing line missing");
+        Require(run.Console.Contains("rewind walks the arc back exactly:"), "rewind header missing");
+        Require(run.Console.Contains("  after 30 back ticks: y = 0.0 m, tick = 0"), "rewind line missing");
+
+        var replay = Compile(DefaultSource + "\n// replay");
+        if (!replay.Ok)
+            throw new InvalidOperationException($"live receipt recompile failed: {replay.Error}");
+        var (replayBytes, replayBakeError) = Bake(replay.Assembly!, DefaultTimelineJson);
+        if (replayBytes.Length == 0)
+            throw new InvalidOperationException($"live receipt recompile bake failed: {replayBakeError}");
+        var replayRun = Run(replay.Assembly!, replayBytes);
+        Require(replayRun.Console.Contains("  tick  3   y =  6.0 m   ##"), "recompiled source must bind and apply the consumer exactly once");
+
+        var raw = Compile(RawBindingSource);
+        if (!raw.Ok)
+            throw new InvalidOperationException($"live receipt raw preset failed to compile: {raw.Error}");
+        var rawJson = TypeJson(raw.Assembly!);
+        if (!rawJson.Contains("\"consumers\": []", StringComparison.Ordinal))
+            throw new InvalidOperationException($"raw preset must register no consumers: {rawJson}");
+        var (rawBytes, rawBakeError) = Bake(raw.Assembly!, RawBindingTimelineJson);
+        if (rawBytes.Length == 0)
+            throw new InvalidOperationException($"live receipt raw bake failed: {rawBakeError}");
+        var rawRun = Run(raw.Assembly!, rawBytes);
+        Require(rawRun.Console.Contains("  tick  4   amount =   12.0"), "raw preset single-registration line missing");
+        report.AppendLine($"LIVE PASS compileMs={compile.CompileMs.ToString(CultureInfo.InvariantCulture)} bytes={bytes.Length} lines={run.Console.Length} checksum={run.Checksum.ToString(CultureInfo.InvariantCulture)}");
         return report.ToString();
+    }
+
+    static void Require(bool condition, string detail)
+    {
+        if (!condition) throw new InvalidOperationException($"live receipt failed: {detail}");
     }
 }

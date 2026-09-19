@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <TrimmerRootAssembly Include="Play.Core" />
+    <TrimmerRootAssembly Include="Tl.Gen.CSharp" />
     <PresetFile Include="..\presets\*.json" />
   </ItemGroup>
 

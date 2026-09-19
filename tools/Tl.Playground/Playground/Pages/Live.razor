@@ -5,14 +5,20 @@
 @inject IJSRuntime JS
 
 <div class="page">
-    <div class="page-sub">write the C# pair · get the type JSON · author the timeline JSON · bake and run</div>
+    <div class="page-sub">write the README system in C# · the shipped generator binds the consumer · bake the timeline · run Play.Run(byte[] tlb)</div>
     <div class="split-grid split-live">
         <section class="pane pane-code">
             <div class="pane-head">
-                <h2>1 · code (C#)</h2>
-                <button class="primary head-action" @onclick="OnCompile">compile</button>
+                <h2>1 · the system (C#)</h2>
+                <label class="head-field">sample
+                    <select value="@_preset" @onchange="OnPresetChange" disabled="@Busy" aria-label="sample source">
+                        <option value="@ReadmePreset">readme · jump arc</option>
+                        <option value="@RawPreset">raw binding (advanced)</option>
+                    </select>
+                </label>
+                <button class="primary head-action" @onclick="OnCompile" disabled="@Busy">compile</button>
             </div>
-            <LiveEditor @ref="_codeEditor" RootId="live-code" Language="csharp" Value="@_source"
+            <LiveEditor @key="@($"code-{_preset}")" RootId="live-code" Language="csharp" Value="@_source"
                         ValueChanged="@OnSourceChanged" ClassName="editor-fill" />
         </section>
 
@@ -34,10 +40,10 @@
 
         <section class="pane pane-timeline">
             <div class="pane-head">
-                <h2>3 · timeline JSON</h2>
-                <button class="primary head-action" @onclick="OnBakeAndRun">bake &amp; run</button>
+                <h2>3 · the data (timeline JSON)</h2>
+                <button class="primary head-action" @onclick="OnBakeAndRun" disabled="@Busy">bake &amp; run</button>
             </div>
-            <LiveEditor @ref="_timelineEditor" RootId="live-timeline" Language="json" Value="@_timelineJson"
+            <LiveEditor @key="@($"timeline-{_preset}")" RootId="live-timeline" Language="json" Value="@_timelineJson"
                         ValueChanged="@OnTimelineChanged" ClassName="editor-fill" />
         </section>
 
@@ -48,17 +54,16 @@
         <section class="pane pane-run">
             <div class="pane-head">
                 <h2>output</h2>
-                <label class="head-field">rows <input type="number" min="1" max="16" step="1" value="@Inv(_rows)" @onchange="OnRowsChange" /></label>
-                <label class="head-field">ticks <input type="number" min="1" max="256" step="1" value="@Inv(_ticks)" @onchange="OnTicksChange" /></label>
+                <span class="pane-note">the baked bytes arrive as the Run parameter — the browser has no file system</span>
             </div>
             <div class="pane-body">
                 @if (_compiling)
                 {
-                    <p class="muted">compiling…</p>
+                    <p class="muted run-empty">compiling…</p>
                 }
                 else if (_running)
                 {
-                    <p class="muted">baking and running…</p>
+                    <p class="muted run-empty">baking and running…</p>
                 }
                 else if (_compile is { Ok: false })
                 {
@@ -67,24 +72,21 @@
                 }
                 else if (_bakeError.Length > 0)
                 {
-                    <p class="error">bake failed</p>
+                    <p class="error">run failed</p>
                     <pre class="cp-diagnostics">@_bakeError</pre>
                 }
                 else if (_run is not null)
                 {
-                    <p class="muted">@($"compiled in {_compile!.CompileMs.ToString(CultureInfo.InvariantCulture)} ms · baked: {_bakeStats} · moved {_run.Moved} · skipped {_run.Skipped} · checksum {_run.Checksum.ToString(CultureInfo.InvariantCulture)}")</p>
+                    <pre class="run-console">@string.Join("\n", _run.Console)</pre>
+                    <p class="muted run-stats">@($"compiled in {_compile!.CompileMs.ToString(CultureInfo.InvariantCulture)} ms · baked: {_bakeStats} · checksum {_run.Checksum.ToString(CultureInfo.InvariantCulture)}")</p>
                 }
                 else if (_compile is { Ok: true })
                 {
-                    <p class="muted">@($"compiled in {_compile.CompileMs.ToString(CultureInfo.InvariantCulture)} ms")</p>
+                    <p class="muted run-empty">@($"compiled in {_compile.CompileMs.ToString(CultureInfo.InvariantCulture)} ms — now bake and run")</p>
                 }
                 else
                 {
-                    <p class="muted run-empty">a track implements IBlend&lt;TClip&gt;; a public static parameterless Run() registers the consumer. compile, then bake &amp; run — half the ticks forward, half backward, through the real movement law. Your Console.WriteLine and the run results land here.</p>
-                }
-                @if (_run?.Console.Length > 0)
-                {
-                    <pre class="run-console">@string.Join("\n", _run.Console)</pre>
+                    <p class="muted run-empty">a consumer implements ITrack&lt;TTrack, TClip&gt;; compiling with the shipped tl generator registers it through a generated module initializer. Play.Run(byte[] tlb) owns the playback loop — your Console.WriteLine lands here. compile, then bake &amp; run.</p>
                 }
             </div>
         </section>
@@ -93,6 +95,10 @@
 
 @code
 {
+    const string ReadmePreset = "readme";
+    const string RawPreset = "raw";
+
+    string _preset = ReadmePreset;
     string _source = LiveAuthoring.DefaultSource;
     string _timelineJson = LiveAuthoring.DefaultTimelineJson;
     string _bakeError = "";
@@ -101,18 +107,27 @@
     LiveRun? _run;
     bool _compiling;
     bool _running;
-    int _rows = 8;
-    int _ticks = 41;
 
-    LiveEditor? _codeEditor;
+    bool Busy => _compiling || _running;
+
     LiveEditor? _typeEditor;
-    LiveEditor? _timelineEditor;
-
-    static string Inv(int value) => value.ToString(CultureInfo.InvariantCulture);
 
     void OnSourceChanged(string value) => _source = value;
 
     void OnTimelineChanged(string value) => _timelineJson = value;
+
+    void OnPresetChange(ChangeEventArgs e)
+    {
+        if (Busy) return;
+        _preset = e.Value?.ToString() ?? ReadmePreset;
+        (_source, _timelineJson) = _preset == RawPreset
+            ? (LiveAuthoring.RawBindingSource, LiveAuthoring.RawBindingTimelineJson)
+            : (LiveAuthoring.DefaultSource, LiveAuthoring.DefaultTimelineJson);
+        _compile = null;
+        _run = null;
+        _bakeError = "";
+        _bakeStats = "";
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -157,12 +172,7 @@
             _bakeStats = LiveAuthoring.BakeStats(bytes);
             try
             {
-                using var document = System.Text.Json.JsonDocument.Parse(_timelineJson);
-                var duration = 64;
-                var looping = true;
-                if (document.RootElement.TryGetProperty("duration", out var d) && d.TryGetInt32(out var parsed)) duration = parsed;
-                if (document.RootElement.TryGetProperty("loop", out var l) && l.ValueKind == System.Text.Json.JsonValueKind.False) looping = false;
-                _run = LiveAuthoring.Run(_compile.Assembly!, bytes, duration, looping, _rows, _ticks);
+                _run = LiveAuthoring.Run(_compile.Assembly!, bytes);
             }
             catch (Exception ex)
             {
@@ -171,15 +181,5 @@
         });
         _running = false;
         await InvokeAsync(StateHasChanged);
-    }
-
-    void OnRowsChange(ChangeEventArgs e)
-    {
-        if (int.TryParse(e.Value?.ToString(), out var value)) _rows = Math.Clamp(value, 1, 16);
-    }
-
-    void OnTicksChange(ChangeEventArgs e)
-    {
-        if (int.TryParse(e.Value?.ToString(), out var value)) _ticks = Math.Clamp(value, 1, 256);
     }
 }
