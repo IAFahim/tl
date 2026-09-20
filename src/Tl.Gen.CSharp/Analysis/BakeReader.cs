@@ -100,7 +100,7 @@ public static class BakeReader
             method = candidates[0];
             return true;
         }
-        Symbols.Error(errors, site, "TLGEN71", $"Bake '{Symbols.Name(type)}' must declare exactly one accessible static void Bake; every parameter may be by value, in, or ref of any type (including Span<T> and ReadOnlySpan<T>), and a parameter whose type is exactly the consumer type '{Symbols.Name(consumer)}' receives the registered consumer instance; out, optional, and params parameters are unsupported.");
+        Symbols.Error(errors, site, "TLGEN71", $"Bake '{Symbols.Name(type)}' must declare exactly one accessible static void Bake; every parameter may be by value, in, or ref of any type (including Span<T> and ReadOnlySpan<T>), and a parameter whose type is exactly the consumer type '{Symbols.Name(consumer)}' is bound to default(TConsumer), because consumers are static and the parameter participates only in the per-pair bake signature match; out, optional, and params parameters are unsupported.");
         method = null!;
         return false;
     }
