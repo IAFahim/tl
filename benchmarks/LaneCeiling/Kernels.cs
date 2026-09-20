@@ -570,6 +570,100 @@ internal static unsafe class Kernels
         RefBackward(BackwardByPositionOf(back, duration, looping), rec, duration, looping, pos + i, fx + i, count - i);
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    internal static void Permute8Forward128(float* eff, LaneRec* rec, ushort duration, bool looping, ushort* pos, float* fx, int count)
+    {
+        var tableLow = Vector128.Load(eff);
+        var tableHigh = Vector128.Load(eff + 4);
+        var last = (ushort)(duration - 1);
+        var lastVector = Vector128.Create(last);
+        var lastWide = Vector128.Create((uint)last);
+        var zero = Vector128<ushort>.Zero;
+        var one = Vector128.Create((ushort)1);
+        var laneLow = Vector128.Create(3u);
+        var laneHigh = Vector128.Create(4u);
+        var i = 0;
+        var bound = count & ~7;
+        while (i < bound)
+        {
+            var p = Vector128.Load(pos + i);
+            var skipMask = Vector128.GreaterThan(p, lastVector);
+            var next = p + one;
+            if (looping) next = Vector128.ConditionalSelect(Vector128.Equals(p, lastVector), zero, next);
+            next = Vector128.ConditionalSelect(skipMask, p, next);
+            next.Store(pos + i);
+            (var wideLo, var wideHi) = Vector128.Widen(p);
+            var e0 = Vector128.Load(fx + i);
+            Vector128.ConditionalSelect(Vector128.GreaterThan(wideLo, lastWide).AsSingle(), e0, e0 + Permute8(tableLow, tableHigh, wideLo, laneLow, laneHigh)).Store(fx + i);
+            var e1 = Vector128.Load(fx + i + 4);
+            Vector128.ConditionalSelect(Vector128.GreaterThan(wideHi, lastWide).AsSingle(), e1, e1 + Permute8(tableLow, tableHigh, wideHi, laneLow, laneHigh)).Store(fx + i + 4);
+            i += 8;
+        }
+        RefForward(eff, rec, duration, looping, pos + i, fx + i, count - i);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static Vector128<float> Permute8(Vector128<float> tableLow, Vector128<float> tableHigh, Vector128<uint> index, Vector128<uint> laneLow, Vector128<uint> laneHigh)
+    {
+        var lanes = index & laneLow;
+        var fromLow = Vector128.Shuffle(tableLow, lanes.AsInt32());
+        var fromHigh = Vector128.Shuffle(tableHigh, lanes.AsInt32());
+        return Vector128.ConditionalSelect(Vector128.Equals(index & laneHigh, laneHigh).AsSingle(), fromHigh, fromLow);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    internal static void Permute8Backward128(float* back, LaneRec* rec, ushort duration, bool looping, ushort* pos, float* fx, int count)
+    {
+        var tableLow = Vector128.Load(back);
+        var tableHigh = Vector128.Load(back + 4);
+        var last = (ushort)(duration - 1);
+        var durationVector = Vector128.Create(duration);
+        var lastVector = Vector128.Create(last);
+        var zero = Vector128<ushort>.Zero;
+        var zeroUint = Vector128<uint>.Zero;
+        var step = Vector128.Create((ushort)0xFFFF);
+        var laneLow = Vector128.Create(3u);
+        var laneHigh = Vector128.Create(4u);
+        var i = 0;
+        var bound = count & ~7;
+        while (i < bound)
+        {
+            var p = Vector128.Load(pos + i);
+            var next = p + step;
+            Vector128<ushort> skipMask;
+            if (looping)
+            {
+                skipMask = Vector128.GreaterThan(p, durationVector) | Vector128.Equals(p, durationVector);
+                next = Vector128.ConditionalSelect(Vector128.Equals(p, zero), lastVector, next);
+            }
+            else
+            {
+                skipMask = Vector128.Equals(p, zero) | Vector128.GreaterThan(p, durationVector);
+            }
+            next = Vector128.ConditionalSelect(skipMask, p, next);
+            next.Store(pos + i);
+            (var nextLo, var nextHi) = Vector128.Widen(next);
+            (var posLo, var posHi) = Vector128.Widen(p);
+            Vector128<float> skipLo, skipHi;
+            if (looping)
+            {
+                skipLo = Vector128.Equals(nextLo, Vector128.Create((uint)duration)).AsSingle() | Vector128.GreaterThan(posLo, Vector128.Create((uint)duration)).AsSingle();
+                skipHi = Vector128.Equals(nextHi, Vector128.Create((uint)duration)).AsSingle() | Vector128.GreaterThan(posHi, Vector128.Create((uint)duration)).AsSingle();
+            }
+            else
+            {
+                skipLo = (Vector128.Equals(posLo, zeroUint) | Vector128.GreaterThan(posLo, Vector128.Create((uint)duration))).AsSingle();
+                skipHi = (Vector128.Equals(posHi, zeroUint) | Vector128.GreaterThan(posHi, Vector128.Create((uint)duration))).AsSingle();
+            }
+            var e0 = Vector128.Load(fx + i);
+            Vector128.ConditionalSelect(skipLo, e0, e0 + Permute8(tableLow, tableHigh, nextLo, laneLow, laneHigh)).Store(fx + i);
+            var e1 = Vector128.Load(fx + i + 4);
+            Vector128.ConditionalSelect(skipHi, e1, e1 + Permute8(tableLow, tableHigh, nextHi, laneLow, laneHigh)).Store(fx + i + 4);
+            i += 8;
+        }
+        RefBackward(BackwardByPositionOf(back, duration, looping), rec, duration, looping, pos + i, fx + i, count - i);
+    }
+
     static float* _tailByp;
     static float* _tailBypSource;
     static ushort _tailBypDuration;

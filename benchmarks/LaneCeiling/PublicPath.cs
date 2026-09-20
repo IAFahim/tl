@@ -51,17 +51,60 @@ internal static unsafe class PublicPath
                 var seedFx = Fx(rows);
                 var fx = (float[])seedFx.Clone();
                 var best = double.MaxValue;
+                var allocated = 0L;
                 for (var round = 0; round < rounds; round++)
                 for (var rep = 0; rep < reps; rep++)
                 {
                     Array.Copy(seed, pos, rows);
                     Array.Copy(seedFx, fx, rows);
+                    var before = GC.GetTotalAllocatedBytes(precise: true);
                     var t = Stopwatch.GetTimestamp();
                     Timeline<ProbeTrack, ProbeClip>.Apply(index, pos, true, fx); Timeline.Advance(index, pos, true);
                     var ms = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+                    allocated = GC.GetTotalAllocatedBytes(precise: true) - before;
                     if (ms < best) best = ms;
                 }
-                results.Add(new Row($"public/{name}", shapeName, "Timeline<TTrack,TClip>.Apply+Step", best, best * 1_000_000.0 / rows, 0));
+                results.Add(new Row($"public/{name}", shapeName, "Timeline<TTrack,TClip>.Apply+Step", best, best * 1_000_000.0 / rows, allocated));
+            }
+            {
+                var ids = new ushort[rows];
+                Array.Fill(ids, index);
+                var pos = new ushort[rows];
+                var seed = Uniform(rows);
+                var best = double.MaxValue;
+                var allocated = 0L;
+                for (var round = 0; round < rounds; round++)
+                for (var rep = 0; rep < reps; rep++)
+                {
+                    Array.Copy(seed, pos, rows);
+                    var before = GC.GetTotalAllocatedBytes(precise: true);
+                    var t = Stopwatch.GetTimestamp();
+                    Timeline<ProbeTrack, ProbeClip>.Advance(index, pos, true);
+                    var ms = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+                    allocated = GC.GetTotalAllocatedBytes(precise: true) - before;
+                    if (ms < best) best = ms;
+                }
+                results.Add(new Row($"public/{name}", "uniform", "Timeline.Advance(index)", best, best * 1_000_000.0 / rows, allocated));
+            }
+            {
+                var ids = new ushort[rows];
+                Array.Fill(ids, index);
+                var pos = new ushort[rows];
+                var seed = Uniform(rows);
+                var best = double.MaxValue;
+                var allocated = 0L;
+                for (var round = 0; round < rounds; round++)
+                for (var rep = 0; rep < reps; rep++)
+                {
+                    Array.Copy(seed, pos, rows);
+                    var before = GC.GetTotalAllocatedBytes(precise: true);
+                    var t = Stopwatch.GetTimestamp();
+                    Timeline<ProbeTrack, ProbeClip>.Advance(ids, pos, true);
+                    var ms = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
+                    allocated = GC.GetTotalAllocatedBytes(precise: true) - before;
+                    if (ms < best) best = ms;
+                }
+                results.Add(new Row($"public/{name}", "uniform", "Timeline.Advance(ids)", best, best * 1_000_000.0 / rows, allocated));
             }
         }
         return results;

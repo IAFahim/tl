@@ -13,10 +13,13 @@ internal static unsafe class Parity
         new("dual256", Kernels.Dual256Forward, Kernels.Dual256Backward, (_, _, _) => Avx2Guard()),
         new("wide512", Kernels.Wide512Forward, Kernels.Wide512Backward, (_, _, _) => Avx2Guard()),
         new("permute8", Kernels.Permute8Forward, Kernels.Permute8Backward, (d, _, _) => d <= 8 && Avx2Guard(), BackwardUsesBackTable: true),
+        new("permute8x128", Kernels.Permute8Forward128, Kernels.Permute8Backward128, (d, _, _) => d <= 8 && Vector128Guard(), BackwardUsesBackTable: true),
         new("permute32", Kernels.Permute32Forward, Kernels.Permute32Backward, (d, looping, forward) => (forward || looping ? d <= 32 : d <= 31) && Avx2Guard()),
     ];
 
     static bool Avx2Guard() => System.Runtime.Intrinsics.X86.Avx2.IsSupported;
+
+    static bool Vector128Guard() => System.Runtime.Intrinsics.Vector128.IsHardwareAccelerated;
 
     static readonly ushort[] Durations = [1, 2, 4, 6, 8, 15, 16, 17, 31, 32, 33, 255, 1024, 65500];
 

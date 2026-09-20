@@ -175,12 +175,12 @@ public partial class SmallSpanRecordTests
             Timeline.Advance(index, single, singleNext, true);
             Timeline.Advance(index, positions, next, true);
         }
-        var before = GC.GetTotalAllocatedBytes(precise: true);
+        var before = GC.GetAllocatedBytesForCurrentThread();
         Timeline<RoutingTrack, RoutingClip>.Apply(index, positions, next, true, effects);
         Timeline<RoutingTrack, RoutingClip>.Apply(index, single, true, singleFx);
         Timeline.Advance(index, single, singleNext, true);
         Timeline.Advance(index, positions, next, true);
-        Assert.Equal(0, GC.GetTotalAllocatedBytes(precise: true) - before);
+        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
     }
 
     static void AssertFrameParity(ushort[] ids, ushort index, ushort[] schedule, bool forward)
