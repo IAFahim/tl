@@ -13,7 +13,9 @@ public sealed class BakeHost(string name)
 
 public readonly record struct BakeId(int Value);
 
-public readonly record struct BakeMissingToken(int Level);
+    public readonly record struct BakeMissingToken(int Level);
+
+    public readonly record struct BakeCounter(int Value);
 
 public unsafe class BakeWalkTests
 {
@@ -39,6 +41,34 @@ public unsafe class BakeWalkTests
         BakeRuntime<AlphaTrack, AlphaClip>.Bake(&AlphaZero);
         BakeRuntime<AlphaTrack, AlphaClip>.Bake(&AlphaMissing, TypeKey<BakeHost>.Value, TypeKey<BakeId>.Value, TypeKey<BakeMissingToken>.Value);
         BakeRuntime<GammaTrack, GammaClip>.Bake(&GammaWorld, TypeKey<BakeHost>.Value);
+        BakeRuntime<AlphaTrack, AlphaClip>.Bake(&AlphaMutate, TypeKey<BakeCounter>.Value);
+        BakeRuntime<AlphaTrack, AlphaClip>.Bake(&AlphaDoubled, TypeKey<BakeCounter>.Value, TypeKey<BakeCounter>.Value);
+    }
+
+    [Fact]
+    public void RefParameterWritesFlowBackToTheCallerVariable()
+    {
+        var counter = new BakeCounter(7);
+        using var timeline = TimelineAsset.LoadAsset(TwoPairBake(1, 2));
+        var before = Log.Count;
+
+        Timeline.Bake(timeline.Index, counter);
+
+        Assert.Equal(8, counter.Value);
+        Assert.Equal(["alpha:zero", "alpha:mutate:8"], Log.GetRange(before, Log.Count - before));
+    }
+
+    [Fact]
+    public void ChainsDeclaringMoreParametersThanArgumentsStaySilent()
+    {
+        var counter = new BakeCounter(1);
+        using var timeline = TimelineAsset.LoadAsset(TwoPairBake(3, 4));
+        var before = Log.Count;
+
+        Timeline.Bake(timeline.Index, counter);
+
+        Assert.Equal(2, counter.Value);
+        Assert.DoesNotContain(Log.GetRange(before, Log.Count - before), static entry => entry == "alpha:doubled");
     }
 
     [Fact]
@@ -176,15 +206,24 @@ public unsafe class BakeWalkTests
         Assert.Equal([], Log.GetRange(before, Log.Count - before));
     }
 
-    private static void AlphaWide(object[] arguments)
-        => Log.Add("alpha:wide:" + ((BakeHost)arguments[0]).Name + ":" + ((BakeId)arguments[1]).Value.ToString(CultureInfo.InvariantCulture));
+    private static unsafe void AlphaWide(byte** arguments)
+        => Log.Add("alpha:wide:" + Unsafe.AsRef<BakeHost>(arguments[0]).Name + ":" + Unsafe.AsRef<BakeId>(arguments[1]).Value.ToString(CultureInfo.InvariantCulture));
 
-    private static void AlphaOnlyId(object[] arguments)
-        => Log.Add("alpha:id:" + ((BakeId)arguments[0]).Value.ToString(CultureInfo.InvariantCulture));
+    private static unsafe void AlphaOnlyId(byte** arguments)
+        => Log.Add("alpha:id:" + Unsafe.AsRef<BakeId>(arguments[0]).Value.ToString(CultureInfo.InvariantCulture));
 
-    private static void AlphaZero(object[] arguments) => Log.Add("alpha:zero");
+    private static unsafe void AlphaZero(byte** arguments) => Log.Add("alpha:zero");
 
-    private static void AlphaMissing(object[] arguments) => Log.Add("alpha:never");
+    private static unsafe void AlphaMissing(byte** arguments) => Log.Add("alpha:never");
 
-    private static void GammaWorld(object[] arguments) => Log.Add("gamma:world:" + ((BakeHost)arguments[0]).Name);
+    private static unsafe void GammaWorld(byte** arguments) => Log.Add("gamma:world:" + Unsafe.AsRef<BakeHost>(arguments[0]).Name);
+
+    private static unsafe void AlphaMutate(byte** arguments)
+    {
+        ref var counter = ref Unsafe.AsRef<BakeCounter>(arguments[0]);
+        counter = new BakeCounter(counter.Value + 1);
+        Log.Add("alpha:mutate:" + counter.Value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static unsafe void AlphaDoubled(byte** arguments) => Log.Add("alpha:doubled");
 }

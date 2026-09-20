@@ -274,12 +274,12 @@ Each `pairs` entry maps onto one track and its clips: the track entry names `(tr
 
 The three structs in the run above are the whole game side — the clip payload, the track settings with its blend, and the consumer that writes one effect column. `ITrack<TTrack, TClip>` consumers are discovered compilation-wide — no registration, no catalog. `frame.Direction` is +1 forward and −1 backward, which is why rewind is exact. Loading is one call that returns the timeline's index — a dense `ushort`, the whole acquisition step; the first typed use folds the pair's measured tables once, every later call is a table read.
 
-Hooking a timeline into game state — marking entities, spawning effects, notifying systems — is the one-shot bake surface. A bake is a marker struct implementing `IBake<TConsumer>` (up to four context types, `IBake<TConsumer, TContext0..TContext3>`) with a static `Bake` method; `TConsumer` names the `ITrack` consumer it hangs off. The generator discovers bakes compilation-wide alongside consumers and registers each per `(track, clip)` pair in the same generated binding. `Timeline.Bake` walks the loaded asset's pairs and fires every bake whose declared context types all match the arguments you pass, type by type:
+Hooking a timeline into game state — marking entities, spawning effects, notifying systems — is the one-shot bake surface. A bake is a marker struct implementing `IBake<TConsumer>` with a static `Bake` method whose signature is the contract: any parameters, each by value, `in`, or `ref`, of any type (including `Span<T>`/`ReadOnlySpan<T>`); a parameter typed exactly `TConsumer` receives the registered consumer instance, and every other parameter is host state you pass to `Timeline.Bake`. The generator reads the declared signature, infers the forwarding dispatch, and registers each bake per `(track, clip)` pair in the same generated binding — "add whatever parameter you want and it source gens it for me":
 
 ```cs
-public readonly struct AttachJumping : IBake<MoveY, World, int>
+public readonly struct AttachJumping : IBake<MoveY>
 {
-    public static void Bake(MoveY consumer, World world, int entity)
+    public static void Bake(World world, int entity)
         => world.MarkJumping(entity);
 }
 
@@ -287,7 +287,7 @@ Timeline.Bake(jumpTimeline, world, 42);
 Timeline.Bake(jumpTimeline, world, 43);
 ```
 
-Bakes are host-timed — attach and transition effects, never per-frame work. The dispatch is a cold pass over the asset's pairs; the warm path never sees a bake.
+`ref` parameters write through to the caller's variable, `in` parameters avoid copies, and a `Span<Entity>` parameter bakes a whole spawned wave in one call. Bakes are host-timed — attach and transition effects, never per-frame work — so managed state is legal at bake time. The dispatch is a cold pass over the asset's pairs; the warm path never sees a bake.
 
 Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Advance` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Advance` moves it exactly once, and a per-system `Advance` multiplies the frame. A single system that owns its clock column outright may fuse the pair into `Apply(ids, clocks, next, forward, fx)` — `next` may be the same array for in-place — one pass, same result as `Apply` + `Advance`. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
 
@@ -333,12 +333,12 @@ public readonly struct ScreenShake : ITrack<JumpTrack, JumpClip>
 
 Consumers fold in consumer-name order (`MoveY` before `ScreenShake`) — ordinal, culture-independent, deterministic on every machine; rename a consumer to move it. Receipts: `TandemFirstJob` and `TandemSecondJob` in `tests/Tl.Alpha` both run from generated installs, and the fold order is pinned by `tests/Tl.Core.Tests`. Order across different pairs is the host's call order.
 
-Host wiring is declared, not registered — implement `IBake<TConsumer, ...TContext>` (zero to four context types) and one type-agnostic call attaches your markers at load time:
+Host wiring is declared, not registered — implement `IBake<TConsumer>` with the `Bake` signature you want and one type-agnostic call attaches your markers at load time:
 
 ```cs
-public readonly struct AttachJumping : IBake<MoveY, World, int>
+public readonly struct AttachJumping : IBake<MoveY>
 {
-    public static void Bake(MoveY consumer, World world, int entity)
+    public static void Bake(World world, int entity)
     {
         world.MarkJumping(entity);
     }
@@ -348,7 +348,9 @@ var world = new World();
 Timeline.Bake(jumpTimeline, world, 42); Timeline.Bake(jumpTimeline, world, 43);
 ```
 
-`Timeline.Bake(id, args...)` walks the timeline's pairs and runs every bake whose declared context types appear among the argument types — exact type match, first argument of that type wins, declaration order is the parameter order, zero-context bakes run on every call, a missing context keeps the bake silent. Discovered and validated at build time (TLGEN70-73), installed into an unmanaged table, warm path untouched. A timeline that lacks the pair is a loud located diagnostic at first typed use — host wiring error, never designer data. Reading without advancing: `Timeline.Query<TTrack, TClip>(in TimelineComponent)` is a read-only stage view that never moves the clock.
+`Timeline.Bake(id, args...)` walks the timeline's pairs and runs every bake whose declared parameter types all appear among the argument types — exact type match, first argument of that type wins, declaration order does not matter, parameterless bakes run on every call, a missing type keeps the bake silent. Every bake registered to one `(track, clip)` pair must declare an identical parameter list (TLGEN74 names both signatures otherwise); bakes on different pairs of the same asset may differ and still dispatch in one call. Pass an lvalue for a parameter the bake mutates by `ref` — the write lands in your variable, exactly like any `ref` API. Discovered, signature-checked, and validated at build time (TLGEN70-74), installed into an unmanaged table, warm path untouched. A timeline that lacks the pair is a loud located diagnostic at first typed use — host wiring error, never designer data. Reading without advancing: `Timeline.Query<TTrack, TClip>(in TimelineComponent)` is a read-only stage view that never moves the clock.
+
+Package consumers: pack the local repos first (`dotnet pack src/Tl.Core src/Tl.Gen.CSharp src/Tl.CSharp -c Release -o artifacts/packages`) and restore against that folder with an isolated `NUGET_PACKAGES` — otherwise the stale nuget.org package wins the cache and the build fails with misleading TLGEN66 `Execute` errors.
 
 ## Bank blocks and stable views
 
