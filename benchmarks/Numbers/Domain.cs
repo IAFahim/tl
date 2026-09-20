@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using Tl;
 using Tl.Gen.Tlb;
@@ -12,6 +14,30 @@ public readonly record struct LaneTrack(float Scale) : IBlend<LaneClip>
 {
     public void Blend(in LaneClip first, in LaneClip second, float factor, out LaneClip result)
         => result = new LaneClip(first.Amount + (second.Amount - first.Amount) * factor);
+}
+
+internal static class Domain
+{
+    public static void AddScalar(Span<float> effects, float delta)
+    {
+        for (var i = 0; i < effects.Length; i++)
+            effects[i] += delta;
+    }
+
+    public static void AddVector(Span<float> effects, float delta)
+    {
+        ref var start = ref MemoryMarshal.GetReference(effects);
+        var width = Vector<float>.Count;
+        var wide = new Vector<float>(delta);
+        var i = 0;
+        for (; i <= effects.Length - width; i += width)
+        {
+            ref var at = ref Unsafe.Add(ref start, i);
+            (Vector.LoadUnsafe(ref at) + wide).StoreUnsafe(ref at);
+        }
+        for (; i < effects.Length; i++)
+            Unsafe.Add(ref start, i) += delta;
+    }
 }
 
 public static unsafe class Host

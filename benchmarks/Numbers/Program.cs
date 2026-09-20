@@ -71,7 +71,8 @@ var scenarios = new List<Scenario>
     new("groups", "100 timelines, crowds of 10,000 each (per-ability groups)", Playback(static i => Host.Variants[(i / 10_000) % Host.Timelines], static i => (ushort)(i % Host.Duration))),
     new("own-clock", "one looping timeline, every character on its own clock", Playback(static _ => Host.Gold, static i => (ushort)(i % Host.Duration))),
     new("finite", "one-shot finite timeline, staggered clocks", Playback(static _ => Host.Finite, static i => (ushort)(i % (Host.Duration / 2)))),
-    new("handwritten", "hand-written loop for comparison (`effects += 1`)", null),
+    new("handwritten", "hand-written scalar loop (`effects[i] += 1f`)", null),
+    new("handwritten-simd", "hand-written SIMD loop (`Vector<float>` add, scalar tail)", null, handVector: true),
     new("squads", "small squads: 16 timelines × 16 characters", Playback(static i => Host.Variants[(i / 16) % 16], static i => (ushort)(i % Host.Duration))),
     new("worst", "worst case: unsorted rows, a different timeline each", Playback(static i => Host.Variants[i % Host.Timelines], static i => (ushort)(i % Host.Duration))),
 };
@@ -118,7 +119,6 @@ foreach (var scenario in scenarios)
 var checksum = 0ul;
 foreach (var scenario in scenarios)
 {
-    if (scenario.Run is null && !scenario.SharedClock) continue;
     var positions = (ushort[])scenario.Positions.Clone();
     var effects = (float[])scenario.Effects.Clone();
     var sink = scenario.Sink;
@@ -455,12 +455,13 @@ internal static class SteadyArms
     }
 }
 
-internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, Func<int, ushort> Positions)? run, bool sharedClock = false)
+internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, Func<int, ushort> Positions)? run, bool sharedClock = false, bool handVector = false)
 {
     public string Id = id;
     public string Label = label;
     public (Func<int, ushort> Ids, Func<int, ushort> Positions)? Run = run;
     public bool SharedClock = sharedClock;
+    public bool HandVector = handVector;
     public ushort Clock = 5;
     public ushort[] Ids = [];
     public ushort[] Positions = [];
@@ -483,8 +484,8 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
         }
         if (Run is null)
         {
-            for (var i = 0; i < Effects.Length; i++)
-                Effects[i] += 1f;
+            if (HandVector) Domain.AddVector(Effects, 1f);
+            else Domain.AddScalar(Effects, 1f);
             return;
         }
         Timeline<LaneTrack, LaneClip>.Apply(Ids, Positions, Positions, true, Effects);
@@ -500,8 +501,8 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
         }
         if (Run is null)
         {
-            for (var i = 0; i < Effects.Length; i++)
-                Effects[i] -= 1f;
+            if (HandVector) Domain.AddVector(Effects, -1f);
+            else Domain.AddScalar(Effects, -1f);
             return;
         }
         Timeline<LaneTrack, LaneClip>.Apply(Ids, Positions, Positions, false, Effects);
