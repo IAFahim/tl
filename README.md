@@ -9,8 +9,8 @@ Live playground: [iafahim.github.io/tl](https://iafahim.github.io/tl/)
 ## Install
 
 ```sh
-dotnet add package Tl.CSharp --version 1.0.0-alpha.10
-dotnet tool install --global Tl.Bake --prerelease     # the tlb bake command
+dotnet add package Tl.CSharp --version 1.0.0
+dotnet tool install --global Tl.Bake     # the tlb bake command
 ```
 
 ## Get started
@@ -65,8 +65,6 @@ for (var frame = 0; frame < 30; frame++)
 ```
 
 A crowd that shares one clock — the raid jumping in sync — can drop the clock column entirely and hold that clock once: `Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, clock, true, jumpFx)` folds the whole crowd in one broadcast pass, and `Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, ref clock, true)` advances the single clock ([Shared clocks](#system)).
-
-Until the next release, the published pin above still ships the pre-1.0 surface: a consumer of the published `1.0.0-alpha.10` package writes the `Execute` consumer and one fused `Advance` call, and bakes with explicit `namespace` fields and `--assembly` — the [migration notes](#run-the-full-thing) map the spellings.
 
 `--auto` is opt-in and never guesses silently: exactly one loaded type of that bare name fills the `namespace`; zero or several stop the bake naming every candidate. `tlb --json --assembly bin/Release/net10.0/YourGame.dll` lists every authorable pair with its namespace, fields, and consumers — the source for filling tracks and clips by hand ([Type discovery](#type-discovery)). "Run the full thing" below is the same shape with four characters, rewind, and host wiring.
 
