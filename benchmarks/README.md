@@ -23,6 +23,7 @@ Each owns a README that carries its verdict and cites its receipt directories un
 
 - `ValuePooling/results/validated` — measured rejection of per-row value pools.
 - `ValueUniqueness/results` — corpus uniqueness survey behind the pool design.
+- `LaneCeiling` — #222 ceiling-probe verdict record (`LaneCeiling/README.md`, raw runs under `LaneCeiling/results/`): rejected the `Vector512` AVX-512 stand-in and dual-256 ILP on the AVX2 host (gather latency bounds the scattered path); accepted and shipped the d<=8 permute kernel and track-partitioned parallel bake (PR #235).
 
 ## Harness
 
