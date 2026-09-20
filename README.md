@@ -59,10 +59,10 @@ var tick = new ushort[1];
 var y = new float[1];
 for (var frame = 0; frame < 30; frame++)
     Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, true, y);
-    Timeline.Step(jumpTimeline, tick, true);
+    Timeline.Advance(jumpTimeline, tick, true);
 ```
 
-A crowd that shares one clock — the raid jumping in sync — can drop the clock column entirely and hold that clock once: `Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, clock, true, jumpFx)` folds the whole crowd in one broadcast pass, and `Timeline<JumpTrack, JumpClip>.Step(jumpTimeline, ref clock, true)` advances the single clock ([Shared clocks](#system)).
+A crowd that shares one clock — the raid jumping in sync — can drop the clock column entirely and hold that clock once: `Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, clock, true, jumpFx)` folds the whole crowd in one broadcast pass, and `Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, ref clock, true)` advances the single clock ([Shared clocks](#system)).
 
 `--auto` is opt-in and never guesses silently: exactly one loaded type of that bare name fills the `namespace`; zero or several stop the bake naming every candidate. `tlb --json --assembly bin/Release/net10.0/YourGame.dll` lists every authorable pair with its namespace, fields, and consumers — the source for filling tracks and clips by hand ([Type discovery](#type-discovery)). "Run the full thing" below is the same shape with four characters, rewind, and host wiring.
 
@@ -122,7 +122,7 @@ var y = new float[4];
 for (var frame = 1; frame <= 30; frame++)
 {
     Timeline<JumpTrack, JumpClip>.Apply(ids, tick, true, y);
-    Timeline.Step(ids, tick, true);
+    Timeline.Advance(ids, tick, true);
     if (frame % 3 == 0)
         Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', (int)Math.Round(y[0] / 3))}");
 }
@@ -158,7 +158,7 @@ rewind walks the arc back exactly:
 Timeline.Bake marked entities 42, 43 as jumping; unmarked entities never reach the advance
 ```
 
-Migration from earlier packages: the consumer method `Execute` is now `OnActive`.
+Migration from earlier packages: the consumer method `Execute` is now `OnActive`; the advance method `Step` is now `Advance` (pre-1.0 renames ship without compatibility aliases).
 
 ## Data
 
@@ -285,31 +285,31 @@ Timeline.Bake(jumpTimeline, world, 43);
 
 Bakes are host-timed — attach and transition effects, never per-frame work. The dispatch is a cold pass over the asset's pairs; the warm path never sees a bake.
 
-Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Step` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Step` moves it exactly once. A single system that owns its clock column outright may fuse the pair into `Apply(ids, clocks, next, forward, fx)` — `next` may be the same array for in-place — one pass, same result as `Apply` + `Step`. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
+Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Advance` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Advance` moves it exactly once. A single system that owns its clock column outright may fuse the pair into `Apply(ids, clocks, next, forward, fx)` — `next` may be the same array for in-place — one pass, same result as `Apply` + `Advance`. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
 
 ```cs
 // shared clock column — safe to fan out to every pair system, step once:
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, jumpFx);
 Timeline<HealTrack, HealClip>.Apply(ids, clocks, true, healFx);
-Timeline.Step(ids, clocks, true);
+Timeline.Advance(ids, clocks, true);
 
 // or one owned column — fused, single pass:
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, clocks, true, jumpFx);
 ```
 
-A whole crowd on one clock needs no clock column at all: the clock is one `ushort`, `Apply(index, clock, forward, fx)` folds the span in one broadcast pass — no per-row position read, no per-row clock write, no ids scan, effects bit-identical to the per-row path at the same clock value — and `Step(index, ref clock, forward)` advances that one clock in O(1). A clock past the end of a finite timeline skips the whole span, exactly like the per-row law. At one million rows this is the shipped floor: 0.08 ns per character hot, 0.17 cold (the `shared-clock` row above).
+A whole crowd on one clock needs no clock column at all: the clock is one `ushort`, `Apply(index, clock, forward, fx)` folds the span in one broadcast pass — no per-row position read, no per-row clock write, no ids scan, effects bit-identical to the per-row path at the same clock value — and `Advance(index, ref clock, forward)` advances that one clock in O(1). A clock past the end of a finite timeline skips the whole span, exactly like the per-row law. At one million rows this is the shipped floor: 0.08 ns per character hot, 0.16 cold (the `shared-clock` row above).
 
 ```cs
 // whole crowd on one clock — the clock is a scalar:
 Timeline<JumpTrack, JumpClip>.Apply(raid, clock, true, jumpFx);
 Timeline<HealTrack, HealClip>.Apply(raid, clock, true, healFx);
-Timeline<JumpTrack, JumpClip>.Step(raid, ref clock, true);
+Timeline<JumpTrack, JumpClip>.Advance(raid, ref clock, true);
 ```
 
 ```cs
 for (var frame = 0; frame < 30; frame++)
     Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, false, y);
-    Timeline.Step(jumpTimeline, tick, false);
+    Timeline.Advance(jumpTimeline, tick, false);
 ```
 
 More systems on the same pair just declare the marker again — no registration, no chaining. Every consumer of `(JumpTrack, JumpClip)` runs inside the same one `Apply` call, folding its contribution into the effect column after the consumers before it:
@@ -369,7 +369,7 @@ The proofs owed before a pointer leaves the runtime:
 - **Identity** — a slot's identity is `(pair key, dense ushort index)`; index to content is fixed at first fold, a re-bake is a new index, and there is no silent rebind: binding a folded index returns it unchanged, and content-identical binds share the same block. An index whose asset is later disposed keeps its folded tables, because the bank copies at bind and the asset is refcounted independently. Identity inherits the intern table's 128-bit collision tolerance.
 - **Safe reclamation** — immovability is the reclamation proof: per-index blocks, the live arrays, retired directories, motion words, and dedupe-table arrays are all freed in `Dispose` — nothing bank-attributable stays allocated after it — so there is no late reclamation, no graveyard, and no epoch a consumer must track.
 
-Host guidance for Unity/Burst and C consumers: resolve at load and capture `SlotView`s per index into component or chunk metadata — never resolve or bounds-check inside a hot loop. Run a pair system over a whole chunk back-to-back while it is cache-resident (the interleaved 56 MB working set measured 0.36–0.39 ns/row DRAM-bound against 0.22 hot), parallelise across chunks in the host (8 P-cores each holding an L2-resident slice), and prefer per-index calls for grouped archetypes. The runtime ships one deterministic single-thread fold and takes no lock on the warm path. What cannot be promised stays unpromised: staggered per-row clocks at 1M rows floor at ~0.14–0.17 ns/row single-core (gather-bound), and DRAM-cold frames at ~0.30 (bandwidth-bound), on the reference host. Which intrinsic tier a host mirrors per CPU class is pending #244; every tier reads only the view's five tables. Adopting the view is additive: existing `Apply`/`Step` code is unchanged, and `SlotView` is plain data with no managed object, function pointer, or serialization story — process-local native memory, never valid across processes or an endianness boundary.
+Host guidance for Unity/Burst and C consumers: resolve at load and capture `SlotView`s per index into component or chunk metadata — never resolve or bounds-check inside a hot loop. Run a pair system over a whole chunk back-to-back while it is cache-resident (the interleaved 56 MB working set measured 0.36–0.39 ns/row DRAM-bound against 0.22 hot), parallelise across chunks in the host (8 P-cores each holding an L2-resident slice), and prefer per-index calls for grouped archetypes. The runtime ships one deterministic single-thread fold and takes no lock on the warm path. What cannot be promised stays unpromised: staggered per-row clocks at 1M rows floor at ~0.14–0.17 ns/row single-core (gather-bound), and DRAM-cold frames at ~0.30 (bandwidth-bound), on the reference host. Which intrinsic tier a host mirrors per CPU class is pending #244; every tier reads only the view's five tables. Adopting the view is additive: existing `Apply`/`Advance` code is unchanged, and `SlotView` is plain data with no managed object, function pointer, or serialization story — process-local native memory, never valid across processes or an endianness boundary.
 
 ## Generated reports
 
