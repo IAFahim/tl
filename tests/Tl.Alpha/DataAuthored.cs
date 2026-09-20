@@ -76,8 +76,12 @@ internal static class DataAuthoredReceipts
         RewindAndCatchUp();
         TimelineSets();
         Faults();
+#if TL_CHECKED
         Validation();
         Console.WriteLine("receipts: movement, wrap-count, fold+blend, rewind, catch-up, timeline sets, faults, validation PASS");
+#else
+        Console.WriteLine("receipts: movement, wrap-count, fold+blend, rewind, catch-up, timeline sets, faults PASS");
+#endif
     }
 
     internal static void MovementLaw()
@@ -247,6 +251,7 @@ internal static class DataAuthoredReceipts
         RequireThrows<ArgumentException>(() => BakedLane<HealTrack, HealClip>.Bind(foreign), "asset without the pair rejected at bind");
     }
 
+#if TL_CHECKED
     internal static void Validation()
     {
         var positions = new ushort[4];
@@ -267,6 +272,7 @@ internal static class DataAuthoredReceipts
         }
         Require(threw, "overlapping columns rejected");
     }
+#endif
 
     internal static void TimelineSets()
     {
@@ -338,7 +344,9 @@ internal static class DataAuthoredReceipts
             timelines.Gather(new ushort[] { loopingId, 2 }).Seek(new ushort[] { 0, 0 }, true).Apply(new float[2]), "unbound timeline id rejected");
 
         timelines.Dispose();
+#if TL_CHECKED
         RequireThrows<ObjectDisposedException>(() => timelines.Gather(ids), "disposed set rejected");
+#endif
         Console.WriteLine($"timeline sets: {Rows} rows over 2 baked timelines x {Frames} frames, ids {loopingId}/{finiteId}, uniform, gather, streak, and mixed chunk paths");
     }
 
