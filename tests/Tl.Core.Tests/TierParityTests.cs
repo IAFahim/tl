@@ -73,7 +73,6 @@ public unsafe class TierParityTests
     public void RewindFramesStayBitExactOnEveryRouting(ushort duration, bool looping, bool forward)
     {
         var index = TimelineAsset.Load(Bake(duration, looping));
-        var slot = Timeline<RoutingTrack, RoutingClip>.View(index);
         var ids = new ushort[Rows];
         Array.Fill(ids, index);
         var positions = Schedules(duration)[3];

@@ -163,7 +163,7 @@ public static class Timeline
         for (var pair = 0; pair < count; pair++)
         {
             var key = pairs[pair].Key;
-            for (var entry = BakeTable.Head(key); entry >= 0; entry = BakeTable.EntryAt[entry].Next)
+            for (var entry = BakeTable.HeadOf(key); entry >= 0; entry = BakeTable.EntryAt[entry].Next)
             {
                 var bake = BakeTable.EntryAt + entry;
                 if (bake->ParamCount > arguments.Length) continue;

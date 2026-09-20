@@ -216,7 +216,7 @@ public class MeasuredLanesTests
         TimelineSet<TTrack, TClip> second,
         ushort secondId,
         ushort duration,
-        bool looping)
+        bool _)
         where TTrack : unmanaged, IBlend<TClip>
         where TClip : unmanaged
     {

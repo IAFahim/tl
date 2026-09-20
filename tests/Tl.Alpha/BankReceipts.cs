@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Tl;
 using Tl.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 
 internal readonly record struct BankClip(float Amount);
 
@@ -95,6 +96,7 @@ internal readonly record struct W61;
 internal readonly record struct W62;
 internal readonly record struct W63;
 
+[SuppressMessage("ReSharper", "UnusedTypeParameter", Justification = "K distinguishes pair-typed instantiations")]
 internal readonly record struct BankClip<K>(float Amount) where K : unmanaged;
 
 internal readonly record struct BankTrack<K>(float Scale) : IBlend<BankClip<K>> where K : unmanaged
@@ -297,19 +299,20 @@ internal readonly struct JobW31 : ITrack<BankTrack<W31>, BankClip<W31>>
 
 internal static class BankReceipts
 {
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     internal static void Capacity()
     {
         Require(Unsafe.SizeOf<SlotView>() == 64, "SlotView header is 64 bytes");
-        const int Domain = 65536;
-        const int Distinct = 49152;
+        const int domain = 65536;
+        const int distinct = 49152;
         using var timelines = new TimelineSet<BankTrack, BankClip>();
-        for (var i = 0; i < Distinct; i++)
+        for (var i = 0; i < distinct; i++)
         {
             using var asset = TimelineAsset.LoadAsset(BakeBank(i + 1f, 1));
             Require(timelines.Add(asset) == i, $"sequential id {i}");
         }
         using var duplicate = TimelineAsset.LoadAsset(BakeBank(1f, 1));
-        for (var i = Distinct; i < Domain - 1; i++)
+        for (var i = distinct; i < domain - 1; i++)
             Require(timelines.Add(duplicate) == i, $"shared id {i}");
         using var measuredDuplicate = MeasuredLanes.Measure(duplicate);
         Require(timelines.AddAt(65535, measuredDuplicate) == 65535, "AddAt binds the 65535 id the old cap refused");
@@ -321,15 +324,15 @@ internal static class BankReceipts
             Require(shared.RecordBytes == 8 && shared.AbiVersion == SlotView.AbiVersionV1 && shared.Generation > 0, "domain edge header");
         }
         RequireThrows<InvalidOperationException>(() => timelines.Add(duplicate), "the 65,537th add is full");
-        Require(timelines.BlockCount == Distinct && timelines.SharedHits == Domain - Distinct, "the full-domain bank dedupes every content-identical id");
-        Console.WriteLine($"bank-capacity: {Domain} ids on {Distinct} distinct one-tick blocks ({Domain - Distinct} shared), block bytes {timelines.HeaderBytes + timelines.TableBytes}, headers {timelines.HeaderBytes}, tables {timelines.TableBytes}, directories+retired {timelines.DirectoryBytes}, retained {timelines.RetainedBytes}");
+        Require(timelines.BlockCount == distinct && timelines.SharedHits == domain - distinct, "the full-domain bank dedupes every content-identical id");
+        Console.WriteLine($"bank-capacity: {domain} ids on {distinct} distinct one-tick blocks ({domain - distinct} shared), block bytes {timelines.HeaderBytes + timelines.TableBytes}, headers {timelines.HeaderBytes}, tables {timelines.TableBytes}, directories+retired {timelines.DirectoryBytes}, retained {timelines.RetainedBytes}");
 
-        var ids = new ushort[Domain];
-        for (var i = 0; i < Domain; i++) ids[i] = (ushort)i;
+        var ids = new ushort[domain];
+        for (var i = 0; i < domain; i++) ids[i] = (ushort)i;
         Shuffle(ids, 1234);
-        var positions = new ushort[Domain];
-        var effects = new float[Domain];
-        for (var i = 0; i < Domain; i++) positions[i] = (ushort)(i & 1);
+        var positions = new ushort[domain];
+        var effects = new float[domain];
+        for (var i = 0; i < domain; i++) positions[i] = (ushort)(i & 1);
         for (var frame = 0; frame < 4; frame++)
             { timelines.Apply(ids, positions, true, effects); timelines.Advance(ids, positions, true); }
         var before = GC.GetAllocatedBytesForCurrentThread();
@@ -340,22 +343,23 @@ internal static class BankReceipts
         Console.WriteLine("bank-capacity: shuffled 65,536-id crowd apply+step retained 0 B");
     }
 
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     internal static void Concurrency()
     {
-        const int ReaderIds = 64;
-        const int Frames = 200;
-        const int Readers = 4;
-        const int Publishers = 4;
-        const int PublishesPer = 400;
-        for (ushort i = 0; i < ReaderIds; i++)
+        const int readerIds = 64;
+        const int frames = 200;
+        const int readerCount = 4;
+        const int publisherCount = 4;
+        const int publishesPer = 400;
+        for (ushort i = 0; i < readerIds; i++)
         {
             using var asset = TimelineAsset.LoadAsset(BakeBank(i + 1f, 8));
             ReadOnlySpan<ushort> onePosition = [0];
             Timeline<BankTrack, BankClip>.Apply(asset.Index, onePosition, true, new float[1]);
         }
-        var captured = new SlotView[ReaderIds];
-        var capturedHashes = new ulong[ReaderIds];
-        for (ushort i = 0; i < ReaderIds; i++)
+        var captured = new SlotView[readerIds];
+        var capturedHashes = new ulong[readerIds];
+        for (ushort i = 0; i < readerIds; i++)
         {
             captured[i] = Timeline<BankTrack, BankClip>.View(i);
             capturedHashes[i] = HashView(captured[i]);
@@ -364,18 +368,18 @@ internal static class BankReceipts
         var ids = new ushort[512];
         var positions = new ushort[512];
         var reference = new float[512];
-        for (var i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i % ReaderIds); positions[i] = (ushort)(i * 3 % 8); }
+        for (var i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i % readerIds); positions[i] = (ushort)(i * 3 % 8); }
         var referencePositions = (ushort[])positions.Clone();
-        for (var frame = 0; frame < Frames; frame++)
+        for (var frame = 0; frame < frames; frame++)
             Timeline<BankTrack, BankClip>.Apply(ids, referencePositions, frame % 7 != 6, reference);
 
-        var stableHashes = new ulong[Publishers, PublishesPer];
-        var publishedIndexes = new ushort[Publishers, PublishesPer];
-        using var barrier = new Barrier(Readers + Publishers);
-        var readers = new Thread[Readers];
-        var readerAllocated = new long[Readers];
-        var readerMatch = new bool[Readers];
-        for (var r = 0; r < Readers; r++)
+        var stableHashes = new ulong[publisherCount, publishesPer];
+        var publishedIndexes = new ushort[publisherCount, publishesPer];
+        using var barrier = new Barrier(readerCount + publisherCount);
+        var readers = new Thread[readerCount];
+        var readerAllocated = new long[readerCount];
+        var readerMatch = new bool[readerCount];
+        for (var r = 0; r < readerCount; r++)
         {
             var reader = r;
             readers[r] = new Thread(() =>
@@ -388,26 +392,26 @@ internal static class BankReceipts
                 Array.Clear(effects);
                 barrier.SignalAndWait();
                 var before = GC.GetAllocatedBytesForCurrentThread();
-                for (var frame = 0; frame < Frames; frame++)
+                for (var frame = 0; frame < frames; frame++)
                     Timeline<BankTrack, BankClip>.Apply(readerIds, readerPositions, frame % 7 != 6, effects);
                 readerAllocated[reader] = GC.GetAllocatedBytesForCurrentThread() - before;
                 readerMatch[reader] = effects.AsSpan().SequenceEqual(reference);
             });
             readers[r].Start();
         }
-        var publishers = new Thread[Publishers];
-        for (var p = 0; p < Publishers; p++)
+        var publishers = new Thread[publisherCount];
+        for (var p = 0; p < publisherCount; p++)
         {
             var publisher = p;
             publishers[p] = new Thread(() =>
             {
                 ReadOnlySpan<ushort> onePosition = [0];
                 var oneEffect = new float[1];
-                var loaded = new List<TimelineAsset>(PublishesPer);
+                var loaded = new List<TimelineAsset>(publishesPer);
                 barrier.SignalAndWait();
-                for (var n = 0; n < PublishesPer; n++)
+                for (var n = 0; n < publishesPer; n++)
                 {
-                    var asset = TimelineAsset.LoadAsset(BakeBank(ReaderIds + publisher * PublishesPer + n + 1f, 8));
+                    var asset = TimelineAsset.LoadAsset(BakeBank(readerIds + publisher * publishesPer + n + 1f, 8));
                     loaded.Add(asset);
                     publishedIndexes[publisher, n] = asset.Index;
                     Timeline<BankTrack, BankClip>.Apply(asset.Index, onePosition, true, oneEffect);
@@ -420,52 +424,54 @@ internal static class BankReceipts
         foreach (var thread in readers) thread.Join();
         foreach (var thread in publishers) thread.Join();
 
-        for (ushort i = 0; i < ReaderIds; i++)
+        for (ushort i = 0; i < readerIds; i++)
         {
             Require(HashView(Timeline<BankTrack, BankClip>.View(i)) == capturedHashes[i], $"reader view {i} is byte-stable and never rebound");
             Require(HashView(captured[i]) == capturedHashes[i], $"captured copy {i} unchanged");
         }
-        for (var p = 0; p < Publishers; p++)
-            for (var n = 0; n < PublishesPer; n++)
+        for (var p = 0; p < publisherCount; p++)
+            for (var n = 0; n < publishesPer; n++)
                 Require(HashView(Timeline<BankTrack, BankClip>.View(publishedIndexes[p, n])) == stableHashes[p, n], $"published view {publishedIndexes[p, n]} stable");
-        for (var r = 0; r < Readers; r++)
+        for (var r = 0; r < readerCount; r++)
         {
             Require(readerMatch[r], $"reader {r} checksums equal the single-threaded reference");
             Require(readerAllocated[r] == 0, $"reader {r} allocated {readerAllocated[r]} B");
         }
-        Console.WriteLine($"bank-concurrency: {Readers} readers x {Frames} frames over {ReaderIds} held views against {Publishers} publishers x {PublishesPer} resolves; checksums, view stability, and 0 B reader allocation PASS");
+        Console.WriteLine($"bank-concurrency: {readerCount} readers x {frames} frames over {readerIds} held views against {publisherCount} publishers x {publishesPer} resolves; checksums, view stability, and 0 B reader allocation PASS");
     }
 
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
+    [SuppressMessage("ReSharper", "DisposeOnUsingVariable", Justification = "explicit dispose exercises dispose semantics; using is the backstop")]
     internal static void ViewShapes()
     {
-        const int Contents = 32;
+        const int contents = 32;
         var keepAlive = new List<TimelineAsset>();
-        for (var i = 0; i < Contents; i++)
+        for (var i = 0; i < contents; i++)
         {
             var asset = TimelineAsset.LoadAsset(BakeBank(i + 1f, 64));
             keepAlive.Add(asset);
             ReadOnlySpan<ushort> onePosition = [0];
             Timeline<BankTrack, BankClip>.Apply(asset.Index, onePosition, true, new float[1]);
         }
-        var views = new SlotView[Contents];
-        for (ushort i = 0; i < Contents; i++)
+        var views = new SlotView[contents];
+        for (ushort i = 0; i < contents; i++)
         {
             views[i] = Timeline<BankTrack, BankClip>.View(i);
             Require(views[i].Duration == 64 && views[i].TableTicks == 65, $"view {i} layout");
         }
-        const int Rows = 256;
-        const int Steps = 8;
-        var ids = new ushort[Rows];
-        var positions = new ushort[Rows];
-        var effects = new float[Rows];
-        for (var i = 0; i < Rows; i++) { ids[i] = (ushort)(i % Contents); positions[i] = (ushort)(i * 7 % 64); }
+        const int rows = 256;
+        const int steps = 8;
+        var ids = new ushort[rows];
+        var positions = new ushort[rows];
+        var effects = new float[rows];
+        for (var i = 0; i < rows; i++) { ids[i] = (ushort)(i % contents); positions[i] = (ushort)(i * 7 % 64); }
 
         var oraclePositions = (ushort[])positions.Clone();
-        var oracle = new float[Rows];
+        var oracle = new float[rows];
         Timeline<BankTrack, BankClip>.Apply(ids, oraclePositions, true, oracle);
         unsafe
         {
-            for (var i = 0; i < Rows; i++)
+            for (var i = 0; i < rows; i++)
                 effects[i] += views[ids[i]].Forward[positions[i]];
         }
         Require(effects.AsSpan().SequenceEqual(oracle), "shared-clock add matches the crowd fold");
@@ -473,14 +479,14 @@ internal static class BankReceipts
         Array.Clear(effects);
         var walkPositions = (ushort[])positions.Clone();
         var oracleWalkPositions = (ushort[])positions.Clone();
-        var oracleWalk = new float[Rows];
+        var oracleWalk = new float[rows];
         unsafe
         {
-            for (var i = 0; i < Rows; i++)
+            for (var i = 0; i < rows; i++)
             {
                 var records = views[ids[i]].ForwardRecords;
                 var position = walkPositions[i];
-                for (var step = 0; step < Steps && position < views[ids[i]].Duration; step++)
+                for (var step = 0; step < steps && position < views[ids[i]].Duration; step++)
                 {
                     ref var record = ref records[position];
                     effects[i] += record.Effect;
@@ -489,20 +495,20 @@ internal static class BankReceipts
                 walkPositions[i] = position;
             }
         }
-        for (var step = 0; step < Steps; step++)
+        for (var step = 0; step < steps; step++)
             { Timeline<BankTrack, BankClip>.Apply(ids, oracleWalkPositions, true, oracleWalk); Timeline.Advance(ids, oracleWalkPositions, true); }
         Require(effects.AsSpan().SequenceEqual(oracleWalk), "per-entity record walk matches the folded law");
         Require(walkPositions.AsSpan().SequenceEqual(oracleWalkPositions), "record walk clocks match the movement law");
 
         Array.Clear(effects);
-        var scatter = new ushort[Rows];
-        for (var i = 0; i < Rows; i++) scatter[i] = (ushort)(i * 11 % 65);
-        var oracleBackward = new float[Rows];
+        var scatter = new ushort[rows];
+        for (var i = 0; i < rows; i++) scatter[i] = (ushort)(i * 11 % 65);
+        var oracleBackward = new float[rows];
         var oracleScatter = (ushort[])scatter.Clone();
         Timeline<BankTrack, BankClip>.Apply(ids, oracleScatter, false, oracleBackward);
         unsafe
         {
-            for (var i = 0; i < Rows; i++)
+            for (var i = 0; i < rows; i++)
                 effects[i] += views[ids[i]].BackwardByPosition[scatter[i]];
         }
         Require(effects.AsSpan().SequenceEqual(oracleBackward), "gather-equivalent backward reads match the crowd fold");
@@ -534,12 +540,13 @@ internal static class BankReceipts
 
         foreach (var asset in keepAlive) asset.Dispose();
 #if TL_CHECKED
-        Console.WriteLine($"bank-views: shared-clock add, per-entity record walk, and gather-equivalent reads over {Contents} held views are bit-exact; absent, pair-less, never-bound, and disposed acquisition semantics PASS");
+        Console.WriteLine($"bank-views: shared-clock add, per-entity record walk, and gather-equivalent reads over {contents} held views are bit-exact; absent, pair-less, never-bound, and disposed acquisition semantics PASS");
 #else
-        Console.WriteLine($"bank-views: shared-clock add, per-entity record walk, and gather-equivalent reads over {Contents} held views are bit-exact; absent, pair-less, and never-bound acquisition semantics PASS");
+        Console.WriteLine($"bank-views: shared-clock add, per-entity record walk, and gather-equivalent reads over {contents} held views are bit-exact; absent, pair-less, and never-bound acquisition semantics PASS");
 #endif
     }
 
+    [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
     internal static void Workload()
     {
         var baker = new DomainBaker();
@@ -566,17 +573,17 @@ internal static class BankReceipts
         }
         Console.WriteLine($"bank-workload: a 100-clip timeline block is {64 + 28 * 101} B (64-B header + 28 B per tick)");
 
-        const int Instances = 512;
-        var ids = new ushort[Instances];
-        var positions = new ushort[Instances];
-        var oracle = new float[Instances];
-        for (var i = 0; i < Instances; i++) { ids[i] = clips.Index; positions[i] = (ushort)(i % 100); }
+        const int instances = 512;
+        var ids = new ushort[instances];
+        var positions = new ushort[instances];
+        var oracle = new float[instances];
+        for (var i = 0; i < instances; i++) { ids[i] = clips.Index; positions[i] = (ushort)(i % 100); }
         var oraclePositions = (ushort[])positions.Clone();
         for (var frame = 0; frame < 16; frame++)
             { Timeline<BankTrack, BankClip>.Apply(ids, oraclePositions, true, oracle); Timeline.Advance(ids, oraclePositions, true); }
         unsafe
         {
-            for (var i = 0; i < Instances; i++)
+            for (var i = 0; i < instances; i++)
             {
                 var total = 0f;
                 var position = positions[i];
@@ -590,32 +597,33 @@ internal static class BankReceipts
                 Require(total == oracle[i], $"instance {i} view walk matches the crowd fold");
             }
         }
-        Console.WriteLine($"bank-workload: {Instances} instances ride one shared block through (index, position) columns, walks bit-exact");
+        Console.WriteLine($"bank-workload: {instances} instances ride one shared block through (index, position) columns, walks bit-exact");
     }
 
+    [SuppressMessage("ReSharper", "DisposeOnUsingVariable", Justification = "explicit dispose exercises dispose semantics; using is the backstop")]
     internal static void Retained()
     {
-        const int Distinct = 1024;
-        const int Ids = 65535;
+        const int distinct = 1024;
+        const int idCount = 65535;
         using var timelines = new TimelineSet<BankTrack, BankClip>();
-        for (var i = 0; i < Distinct; i++)
+        for (var i = 0; i < distinct; i++)
         {
             using var asset = TimelineAsset.LoadAsset(BakeBank(i + 1f, 8));
             Require(timelines.Add(asset) == i, $"distinct id {i}");
         }
         using var duplicate = TimelineAsset.LoadAsset(BakeBank(1f, 8));
-        for (var i = Distinct; i < Ids; i++)
+        for (var i = distinct; i < idCount; i++)
             Require(timelines.Add(duplicate) == i, $"shared id {i}");
-        Require(timelines.BlockCount == Distinct, "only the distinct contents own blocks");
-        Require(timelines.SharedHits == Ids - Distinct, "every duplicate shares the interned content block");
-        Console.WriteLine($"bank-retained: {Ids} ids on {Distinct} distinct 9-tick tables; blocks {timelines.BlockCount}, shared {timelines.SharedHits}, headers {timelines.HeaderBytes} B, tables {timelines.TableBytes} B, directories+retired {timelines.DirectoryBytes} B, retained {timelines.RetainedBytes} B, header+directory overhead {(double)(timelines.HeaderBytes + timelines.DirectoryBytes) / timelines.TableBytes:F2}x tables");
+        Require(timelines.BlockCount == distinct, "only the distinct contents own blocks");
+        Require(timelines.SharedHits == idCount - distinct, "every duplicate shares the interned content block");
+        Console.WriteLine($"bank-retained: {idCount} ids on {distinct} distinct 9-tick tables; blocks {timelines.BlockCount}, shared {timelines.SharedHits}, headers {timelines.HeaderBytes} B, tables {timelines.TableBytes} B, directories+retired {timelines.DirectoryBytes} B, retained {timelines.RetainedBytes} B, header+directory overhead {(double)(timelines.HeaderBytes + timelines.DirectoryBytes) / timelines.TableBytes:F2}x tables");
 
-        var ids = new ushort[Ids];
-        for (ushort i = 0; i < Ids; i++) ids[i] = i;
+        var ids = new ushort[idCount];
+        for (ushort i = 0; i < idCount; i++) ids[i] = i;
         Shuffle(ids, 7);
-        var positions = new ushort[Ids];
-        var effects = new float[Ids];
-        for (var i = 0; i < Ids; i++) positions[i] = (ushort)(i % 8);
+        var positions = new ushort[idCount];
+        var effects = new float[idCount];
+        for (var i = 0; i < idCount; i++) positions[i] = (ushort)(i % 8);
         for (var frame = 0; frame < 4; frame++)
             { timelines.Apply(ids, positions, true, effects); timelines.Advance(ids, positions, true); }
         var before = GC.GetAllocatedBytesForCurrentThread();
@@ -631,6 +639,7 @@ internal static class BankReceipts
         Console.WriteLine($"bank-retained: dispose freed {beforeDispose} B, 0 bank-attributable bytes remain");
     }
 
+    [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
     internal static unsafe void StaleSnapshot()
     {
         using var timelines = new TimelineSet<BankTrack, BankClip>();
@@ -657,16 +666,16 @@ internal static class BankReceipts
                 Require(view->Forward[0] == i + 1f && view->Forward[8] == 0f, $"stale entry {i} tables intact");
             }
         }
-        const int Rows = 256;
-        var ids = new ushort[Rows];
-        var positions = new ushort[Rows];
-        var effects = new float[Rows];
-        for (var i = 0; i < Rows; i++) { ids[i] = (ushort)(i % 64); positions[i] = (ushort)(i * 3 % 8); }
-        var oracle = new float[Rows];
+        const int rows = 256;
+        var ids = new ushort[rows];
+        var positions = new ushort[rows];
+        var effects = new float[rows];
+        for (var i = 0; i < rows; i++) { ids[i] = (ushort)(i % 64); positions[i] = (ushort)(i * 3 % 8); }
+        var oracle = new float[rows];
         var oraclePositions = (ushort[])positions.Clone();
         
         {
-            for (var i = 0; i < Rows; i++)
+            for (var i = 0; i < rows; i++)
             {
                 var view = stale[ids[i]];
                 effects[i] += view->Forward[positions[i]];
@@ -677,7 +686,7 @@ internal static class BankReceipts
         Array.Clear(effects);
         
         {
-            for (var i = 0; i < Rows; i++)
+            for (var i = 0; i < rows; i++)
             {
                 var records = stale[ids[i]]->ForwardRecords;
                 var position = positions[i];
@@ -689,7 +698,7 @@ internal static class BankReceipts
                 }
             }
         }
-        var walkOracle = new float[Rows];
+        var walkOracle = new float[rows];
         for (var step = 0; step < 8; step++)
             { timelines.Apply(ids, oraclePositions, true, walkOracle); timelines.Advance(ids, oraclePositions, true); }
         Require(effects.AsSpan().SequenceEqual(walkOracle), "stale-snapshot record walk matches the folded law");

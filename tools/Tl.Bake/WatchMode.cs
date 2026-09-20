@@ -11,7 +11,6 @@ internal sealed record WatchedFile(string Input, string Output);
 internal sealed class WatchEngine
 {
     private readonly IReadOnlyList<WatchedFile> _files;
-    private readonly string[] _assemblyPaths;
     private readonly int _debounceMilliseconds;
     private readonly bool _autoNamespace;
     private readonly TextWriter _events;
@@ -30,7 +29,6 @@ internal sealed class WatchEngine
         bool autoNamespace = false)
     {
         _files = files;
-        _assemblyPaths = assemblyPaths;
         _debounceMilliseconds = debounceMilliseconds;
         _autoNamespace = autoNamespace;
         _events = events;

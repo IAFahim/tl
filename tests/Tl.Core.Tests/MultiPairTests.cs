@@ -1,6 +1,7 @@
 using Xunit;
 
 using Tl.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Core.Tests;
 
@@ -8,6 +9,7 @@ public readonly record struct DualAlphaClip(int Value);
 
 public readonly record struct DualBetaClip(float Amount);
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct EchoClip(int Value);
 
 public readonly record struct DualTrack(int Code) : IBlend<DualAlphaClip>, IBlend<DualBetaClip>
@@ -19,6 +21,7 @@ public readonly record struct DualTrack(int Code) : IBlend<DualAlphaClip>, IBlen
         => result = new DualBetaClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct EchoTrack(int Code) : IBlend<EchoClip>
 {
     public void Blend(in EchoClip first, in EchoClip second, float factor, out EchoClip result) => result = first;

@@ -130,7 +130,6 @@ internal sealed class FieldTable
 
     private static FloatApplier BuildFloatApplier(List<FieldEntry> floatEntries, Type declaring)
     {
-        var entries = floatEntries;
     {
         var method = new DynamicMethod(
             "apply_floats_" + declaring.Name,
@@ -1719,7 +1718,7 @@ internal static class TimelineBakerFastCore
                 trackValueBytes[index] = pair.TrackSize;
                 clipValueBytes[index] = pair.ClipSize;
 
-                var trackName = pair.TrackType.FullName ?? pair.TrackType.Name;
+                var trackName = pair.TrackType.FullName;
                 trackSlotsByPair[index] = DedupPool(members.Count, o => members[o].TrackBytes, out trackSortedByPair[index], out trackUniques[index], $"track type '{trackName}'");
 
                 var clipOffsets = new int[members.Sum(item => item.ClipIds.Count)];
@@ -1785,8 +1784,8 @@ internal static class TimelineBakerFastCore
                         {
                             var laneStarts = table.Starts;
                             var laneEnds = table.Ends;
-                            var notLe = Avx2.MoveMask(Avx2.CompareGreaterThan(Vector256.LoadUnsafe(ref laneStarts[off]).AsInt32(), edgeVector).AsSingle());
-                            var gtEnd = Avx2.MoveMask(Avx2.CompareGreaterThan(Vector256.LoadUnsafe(ref laneEnds[off]).AsInt32(), edgeVector).AsSingle());
+                            var notLe = Avx.MoveMask(Avx2.CompareGreaterThan(Vector256.LoadUnsafe(ref laneStarts[off]).AsInt32(), edgeVector).AsSingle());
+                            var gtEnd = Avx.MoveMask(Avx2.CompareGreaterThan(Vector256.LoadUnsafe(ref laneEnds[off]).AsInt32(), edgeVector).AsSingle());
                             var bits = ~notLe & gtEnd;
                             while (bits != 0)
                             {
@@ -1873,8 +1872,6 @@ internal static class TimelineBakerFastCore
             var totalOccurrences = stepCount;
             var occurrenceOffsets = new uint[totalOccurrences];
             var occurrencePairs = new int[totalOccurrences];
-            var occurrenceStage = new int[totalOccurrences];
-            var occurrenceActiveIdx = new int[totalOccurrences];
             {
                 var oi = 0;
                 var cursor = frameOffset;
@@ -1885,8 +1882,6 @@ internal static class TimelineBakerFastCore
                         var lane = lanes[laneIdx];
                         occurrenceOffsets[oi] = cursor;
                         occurrencePairs[oi] = pairIndex[lane.Pair.Key];
-                        occurrenceStage[oi] = stage;
-                        occurrenceActiveIdx[oi] = i;
                         oi++;
                         cursor += TlbLayout.SlotRowBytes;
                     }

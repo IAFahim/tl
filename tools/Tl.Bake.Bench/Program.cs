@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Tl.Bake.Oracle;
 using Tl.Gen.Tlb;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Bake.Bench;
 
@@ -281,6 +282,7 @@ internal static class Program
             gcCounts);
     }
 
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     private static BatchPass RunParallelBatchPass(byte[][] inputs, BakerAssemblyResolver resolver)
     {
         var outputs = new byte[inputs.Length][];

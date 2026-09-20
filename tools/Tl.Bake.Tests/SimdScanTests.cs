@@ -61,8 +61,6 @@ public sealed class SimdScanTests
     private static bool TakesFastPath(string json) =>
         TimelineBakerSimd.TryParseFast(Utf8(json), new BakerAssemblyResolver(), null, out _);
 
-    private static string Bake(string json) => Convert.ToHexString(SHA256.HashData(TimelineBaker.BakeJson(json)));
-
     public static IEnumerable<object[]> InvalidCases() =>
         FusedParityTests.CaseList()
             .Where(c => IsRejected(c.Json))

@@ -131,11 +131,13 @@ sealed class Baker
             cuts.Add(0u);
             cuts.Add(duration);
             foreach (var track in _tracks)
+            {
                 foreach (var clip in track.Clips)
                 {
                     cuts.Add(clip.Start);
                     cuts.Add(clip.End);
                 }
+            }
         }
 
         var boundaries = cuts.ToArray();

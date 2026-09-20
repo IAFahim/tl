@@ -1,6 +1,7 @@
 #if TL_CHECKED
 using System.Runtime.InteropServices;
 using Xunit;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Core.Tests;
 
@@ -27,6 +28,7 @@ public partial class LaneTests
     }
 
     [Fact]
+    [SuppressMessage("ReSharper", "DisposeOnUsingVariable", Justification = "explicit dispose exercises dispose semantics; using is the backstop")]
     public void SetThrowsAfterDispose()
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());

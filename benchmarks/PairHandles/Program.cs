@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using BenchmarkDotNet.Running;
 using Tl;
 using PairHandles;
+using System.Diagnostics.CodeAnalysis;
 
 CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
@@ -27,6 +28,7 @@ return 0;
 
 static class Parity
 {
+    [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
     public static int Run()
     {
         const int rows = 8192;

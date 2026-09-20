@@ -1,5 +1,6 @@
 using System.Reflection;
 using Xunit;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Core.Tests;
 
@@ -103,6 +104,7 @@ public class WarmPathTierTests
     ];
 
     [Fact]
+    [SuppressMessage("ReSharper", "BitwiseOperatorOnEnumWithoutFlags", Justification = "reflection flags bitmask check")]
     public void WarmPathMethodsCarryTier0EscapeAttribute()
     {
         Assert.NotEmpty(Allowlist);

@@ -114,13 +114,13 @@ public unsafe class RecordArenaTests
     public void GrowthPreservesPublishedSegmentsAtStableOffsets()
     {
         using var set = new TimelineSet<RoutingTrack, RoutingClip>();
-        var staleIds = BakeSet(set, Enumerable.Repeat((ushort)8, 100).Select((d, i) => ((ushort)8, i % 2 == 0, 1f + i)).ToArray());
+        var staleIds = BakeSet(set, Enumerable.Repeat((ushort)8, 100).Select((_, i) => ((ushort)8, i % 2 == 0, 1f + i)).ToArray());
         var staleForward = set._arenaForward;
         var staleBackward = set._arenaBackward;
         var staleBases = set._arenaBases;
         var staleCapacity = set._arenaCapacity;
 
-        var grownIds = BakeSet(set, Enumerable.Repeat((ushort)8, 400).Select((d, i) => ((ushort)8, i % 2 == 0, 2f + i)).ToArray());
+        var grownIds = BakeSet(set, Enumerable.Repeat((ushort)8, 400).Select((_, i) => ((ushort)8, i % 2 == 0, 2f + i)).ToArray());
         Assert.True(set._arenaCapacity > staleCapacity, "the appends doubled the arena");
 
         foreach (var id in staleIds)

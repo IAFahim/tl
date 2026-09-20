@@ -21,11 +21,6 @@ public class TotalMovementTests
         .Clip(0, 0u, 3u, new JobClip(1))
         .Bake();
 
-    private static byte[] LoopingFixture() => new DomainBaker()
-        .Track<JobTrack, JobClip>(default)
-        .Clip(0, 0u, 2u, new JobClip(1))
-        .Looping()
-        .Bake();
     public static TheoryData<uint, ushort, ushort, bool, bool, ushort, ushort, FrameFlags> FiniteCases => new()
     {
         { 0, 7, 3, false, false, 7, 0, FrameFlags.None },
@@ -328,7 +323,7 @@ public class TotalMovementTests
         Assert.True(reverseFlags.HasFlag(FrameFlags.Reverse));
 
         var finiteEnd = new TimelineState(1, 2);
-        Assert.True(TimelineMovement.Select(in finiteEnd, 3, false, false, out _, out var completedTick, out var completedFlags));
+        Assert.True(TimelineMovement.Select(in finiteEnd, 3, false, false, out _, out _, out var completedFlags));
         Assert.True(completedFlags.HasFlag(FrameFlags.CompletedAfter));
 
         var finitePastEnd = new TimelineState(1, 3);

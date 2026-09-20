@@ -72,8 +72,6 @@ internal sealed class JsonStructuralIndex
     {
         var structuralHigh = StructuralHigh;
         var structuralLow = StructuralLow;
-        var whitespaceHigh = WhitespaceHigh;
-        var whitespaceLow = WhitespaceLow;
         var nibbleMask = Vector256.Create((byte)0x0F);
         var quoteByte = Vector256.Create((byte)0x22);
         var backslashByte = Vector256.Create((byte)0x5C);

@@ -1,5 +1,6 @@
 using Tl;
 using Tl.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 
 var positions = new ushort[] { 0 };
 var vitality = new[] { 0f };
@@ -32,6 +33,7 @@ return 0;
 public readonly record struct AnimationClip(float X, float Y);
 public readonly record struct DamageClip(float Amount);
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct AnimationTrack(int Code) : IBlend<AnimationClip>
 {
     public void Blend(in AnimationClip first, in AnimationClip second, float factor, out AnimationClip result)
@@ -40,6 +42,7 @@ public readonly record struct AnimationTrack(int Code) : IBlend<AnimationClip>
             first.Y + (second.Y - first.Y) * factor);
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct DamageTrack(int Code) : IBlend<DamageClip>
 {
     public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)

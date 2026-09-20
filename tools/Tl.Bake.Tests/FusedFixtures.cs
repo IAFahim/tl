@@ -1,7 +1,9 @@
 using Tl;
+using System.Diagnostics.CodeAnalysis;
 
 namespace FusedBake;
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct GaTrack0(float Scale, int Code) : IBlend<GaClip0>
 {
     public void Blend(in GaClip0 first, in GaClip0 second, float factor, out GaClip0 result)
@@ -142,6 +144,7 @@ public struct GaClip0
     public float F63;
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct GaTrack1(float Scale, int Code) : IBlend<GaClip1>
 {
     public void Blend(in GaClip1 first, in GaClip1 second, float factor, out GaClip1 result) => result = default;
@@ -152,6 +155,7 @@ public struct GaClip1
     public float F0;
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct GaFatTrack(float Scale) : IBlend<GaFatClip>
 {
     public void Blend(in GaFatClip first, in GaFatClip second, float factor, out GaFatClip result)
@@ -292,6 +296,7 @@ public struct GaFatClip
     public float F63;
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct GaPrimTrack(float Scale) : IBlend<GaPrimClip>
 {
     public void Blend(in GaPrimClip first, in GaPrimClip second, float factor, out GaPrimClip result)
@@ -326,6 +331,7 @@ public struct GaPrimClip
     public double D;
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct GaStrTrack(float Scale) : IBlend<GaStrClip>
 {
     public void Blend(in GaStrClip first, in GaStrClip second, float factor, out GaStrClip result) => result = default;
@@ -336,6 +342,7 @@ public struct GaStrClip
     public char Code;
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct GaBareTrack(float Scale);
 
 public sealed class GaClassTrack : IBlend<GaClip0>

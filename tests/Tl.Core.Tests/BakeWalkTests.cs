@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Xunit;
 
 using Tl.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Core.Tests;
 
@@ -13,6 +14,7 @@ public sealed class BakeHost(string name)
 
 public readonly record struct BakeId(int Value);
 
+    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
     public readonly record struct BakeMissingToken(int Level);
 
     public readonly record struct BakeCounter(int Value);

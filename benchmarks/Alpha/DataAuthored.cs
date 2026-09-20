@@ -1,5 +1,6 @@
 using Tl;
 using Tl.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 
 internal static class TickPatterns
 {
@@ -27,6 +28,7 @@ internal sealed class LaneCase : IDisposable
         _handles[0] = _asset.Index;
     }
 
+    [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global", Justification = "fixture model carries the authored shape")]
     internal TimelineShape Shape { get; }
 
     internal long Run()

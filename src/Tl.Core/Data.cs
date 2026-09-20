@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl;
 
@@ -55,6 +56,7 @@ struct NativeStep { public uint Slot, Pair; }
 	public uint FactorStart;
 	public uint FactorSpan;
 
+	[SuppressMessage("ReSharper", "RedundantUnsafeContext")]
 	internal static unsafe Frame<TTrack, TClip> ToFrame<TTrack, TClip>(SlotRow* row, byte* pair, ushort tick, FrameFlags flags, TClip* scratch)
 		where TTrack : unmanaged, IBlend<TClip>
 		where TClip : unmanaged
@@ -78,6 +80,7 @@ struct NativeStep { public uint Slot, Pair; }
 }
 public readonly unsafe struct TimelineRef
 {
+	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	internal readonly byte* _p;
 	internal TimelineRef(void* p) => _p = (byte*)p;
 
@@ -129,7 +132,7 @@ public readonly unsafe struct TimelineRef
 	internal void Resolve(Span<int> chains)
 	{
 		var pairs = Pairs;
-		for (var i = 0; i < PairCount; i++) chains[i] = PairTable.Head(pairs[i].Key);
+		for (var i = 0; i < PairCount; i++) chains[i] = PairTable.HeadOf(pairs[i].Key);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -309,6 +312,7 @@ public readonly unsafe struct TickFrame
 	struct Slot { public ulong Key; public int Head; }
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
+	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + sizeof(Consumer) * ConsumerCapacity), 64);
 	static volatile int _gate;
 	static int _windowConstant;
@@ -415,14 +419,14 @@ public readonly unsafe struct TickFrame
 		}
 	}
 
-	internal static int Head(ulong key)
+	internal static int HeadOf(ulong key)
 	{
 		var slots = SlotAt;
 		var slot = Probe(key);
 		return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
 	}
 
-	internal static void Bind(TimelineRef asset, ulong* keys, int keyCount, byte* indices, byte* rSlots, byte* rCols, ref int rCount, ref ulong boundMask)
+	internal static void BindPair(TimelineRef asset, ulong* keys, int keyCount, byte* indices, byte* rSlots, byte* rCols, ref int rCount, ref ulong boundMask)
 	{
 		var slots = SlotAt;
 		var consumers = ConsumerAt;

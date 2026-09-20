@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Xunit;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Core.Tests;
 
@@ -11,8 +12,10 @@ public readonly record struct HandleTrack(float Scale) : IBlend<HandleClip>
         => result = new HandleClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct IdleClip(float Amount);
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct IdleTrack(float Scale) : IBlend<IdleClip>
 {
     public void Blend(in IdleClip first, in IdleClip second, float factor, out IdleClip result)
@@ -287,7 +290,7 @@ public class PairHandleLaneTests
         public void Dispose()
         {
             foreach (var set in _sets)
-                set?.Dispose();
+                set.Dispose();
         }
     }
 

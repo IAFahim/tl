@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl;
 
@@ -38,6 +39,7 @@ static unsafe class BakeTable
     struct Slot { public ulong Key; public int Head, Tail; }
 
     const int SlotCount = 256, Capacity = 1024;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(sizeof(Slot) * SlotCount + sizeof(Entry) * Capacity), 64);
     static volatile int _gate;
     static int _bakes;
@@ -84,7 +86,7 @@ static unsafe class BakeTable
         }
     }
 
-    internal static int Head(ulong pairKey)
+    internal static int HeadOf(ulong pairKey)
     {
         var slots = SlotAt;
         var slot = Probe(pairKey);
@@ -94,23 +96,23 @@ static unsafe class BakeTable
     internal static int ChainLength(ulong pairKey)
     {
         var length = 0;
-        for (var entry = Head(pairKey); entry >= 0; entry = EntryAt[entry].Next) length++;
+        for (var entry = HeadOf(pairKey); entry >= 0; entry = EntryAt[entry].Next) length++;
         return length;
     }
 
     internal static Entry* At(ulong pairKey, int index)
     {
-        if (index < 0) throw BakeIndex();
-        for (var entry = Head(pairKey); entry >= 0; entry = EntryAt[entry].Next)
+        if (index < 0) throw BakeIndex(index);
+        for (var entry = HeadOf(pairKey); entry >= 0; entry = EntryAt[entry].Next)
         {
             if (index == 0) return EntryAt + entry;
             index--;
         }
-        throw BakeIndex();
+        throw BakeIndex(index);
     }
 
-    static ArgumentOutOfRangeException BakeIndex()
-        => new("index", "Bake index is outside the registered bake chain for this timeline pair.");
+    static ArgumentOutOfRangeException BakeIndex(int index)
+        => new(nameof(index), "Bake index is outside the registered bake chain for this timeline pair.");
 
     static int Probe(ulong key)
     {

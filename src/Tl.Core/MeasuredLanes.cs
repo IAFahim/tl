@@ -82,7 +82,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         byte* refreshColumns = stackalloc byte[256];
         var refreshCount = 0;
         ulong boundMask = 0;
-        PairTable.Bind(reference, keys, 1, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);
+        PairTable.BindPair(reference, keys, 1, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);
         float* column = stackalloc float[1];
         void** bases = stackalloc void*[1];
         bases[0] = column;
@@ -92,7 +92,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
         if (!PairTable.AnyWindowConstant)
         {
-            float Measure(uint position, bool reverse)
+            float ProbeColumn(uint position, bool reverse)
             {
                 *column = 0f;
                 if (!reference.Select(reverse, (ushort)position, out _, out var tick, out var flags))
@@ -104,8 +104,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
             for (var tick = 0u; tick < duration; tick++)
             {
                 var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-                forward[tick] = Measure(tick, false);
-                backward[tick] = Measure(backwardPosition, true);
+                forward[tick] = ProbeColumn(tick, false);
+                backward[tick] = ProbeColumn(backwardPosition, true);
             }
         }
         else
@@ -246,6 +246,6 @@ internal static class LaneGuards
         if (reference.Address == 0) throw new ArgumentException("Timeline asset is not loaded.");
         var key = PairRuntime<TTrack, TClip>.Key;
         if (!reference.Uses(key)) throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
-        if (PairTable.Head(key) < 0) throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
+        if (PairTable.HeadOf(key) < 0) throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
     }
 }

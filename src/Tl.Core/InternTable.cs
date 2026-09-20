@@ -144,7 +144,7 @@ static unsafe class TimelineTable
         AcquireGate();
         try
         {
-            if (TryLive(index, out var block))
+            if (TryLive(index, out var _))
             {
                 var entry = Entries + Volatile.Read(ref ById[index]);
                 generation = Volatile.Read(ref entry->Count) >> 32;

@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl;
 
@@ -77,36 +78,93 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         }
     }
 
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal SlotView** _views;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal byte* _absent;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal uint* _motion;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal SlotView** _shared;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal LaneMovementRecord* _arenaForward;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal LaneMovementRecord* _arenaBackward;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal uint* _arenaBases;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal void* _retired;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _viewCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _absentCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _motionCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _sharedCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _arenaCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _arenaBaseCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _sharedUsed;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _blockCount;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _sharedHits;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal long _headerTotal;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal long _tableTotal;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal long _directoryTotal;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal long _arenaTotal;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _arenaUsed;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _count;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _holes;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _lazyResolve;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _anyLooping;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _disposed;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal ushort _minDuration;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _pendingCursor;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal ulong _generation;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _gate;
 
     internal int Holes => _holes;

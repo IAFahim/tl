@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Xunit;
 
 using Tl.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Core.Tests;
 
@@ -14,15 +15,19 @@ public readonly record struct LaneTrack(float Scale) : IBlend<LaneClip>
         => result = new LaneClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct ImpureClip(float Amount);
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct ImpureTrack(float Scale) : IBlend<ImpureClip>
 {
     public void Blend(in ImpureClip first, in ImpureClip second, float factor, out ImpureClip result) => result = first;
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct OrderClip(float Amount);
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct OrderTrack(float Scale) : IBlend<OrderClip>
 {
     public void Blend(in OrderClip first, in OrderClip second, float factor, out OrderClip result) => result = first;

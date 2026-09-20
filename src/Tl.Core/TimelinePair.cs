@@ -196,7 +196,7 @@ public static unsafe class Timeline<TTrack, TClip>
         var key = PairRuntime<TTrack, TClip>.Key;
         if (!reference.Uses(key))
             throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
-        if (PairTable.Head(key) < 0)
+        if (PairTable.HeadOf(key) < 0)
             throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
         using var measured = MeasuredLanes.Measure(reference);
         bank.AddAt(index, measured);
@@ -217,7 +217,7 @@ public static unsafe class Timeline<TTrack, TClip>
             bank.MarkAbsent(index);
             return;
         }
-        if (PairTable.Head(key) < 0) return;
+        if (PairTable.HeadOf(key) < 0) return;
         using var measured = MeasuredLanes.Measure(reference);
         bank.AddAt(index, measured);
     }

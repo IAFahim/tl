@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using Xunit;
 
 using Tl.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Core.Tests;
 
@@ -13,15 +14,19 @@ public readonly record struct AlphaTrack(int Code) : IBlend<AlphaClip>
         => result = factor < 0.5f ? first : second;
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct BetaClip(int Value);
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct BetaTrack(int Code) : IBlend<BetaClip>
 {
     public void Blend(in BetaClip first, in BetaClip second, float factor, out BetaClip result) => result = first;
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct GammaClip(int Value);
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct GammaTrack(int Code) : IBlend<GammaClip>
 {
     public void Blend(in GammaClip first, in GammaClip second, float factor, out GammaClip result) => result = first;
@@ -29,6 +34,7 @@ public readonly record struct GammaTrack(int Code) : IBlend<GammaClip>
 
 public readonly record struct BlendClip(float Amount);
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct BlendTrack(float Scale) : IBlend<BlendClip>
 {
     public void Blend(in BlendClip first, in BlendClip second, float factor, out BlendClip result)

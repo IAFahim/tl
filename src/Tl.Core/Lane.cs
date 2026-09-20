@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl;
 
@@ -136,8 +137,6 @@ internal ref struct TimelineLane<T>
         var count = positions.Length;
         var duration = T.Duration;
         if (count == 0 || duration == 0) return;
-        var looping = T.Looping;
-        var forward = _forward;
         if (!LaneAccelerator<T>.Active || RunShaped(_positions))
         {
             ApplyRuns(effects);
@@ -175,7 +174,7 @@ internal ref struct TimelineLane<T>
                     effects[i] += delta;
                 else
                     LaneOps.Add(effects, i, end, delta);
-            i = end;
+                i = end;
         }
     }
 
@@ -384,6 +383,7 @@ internal static class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
     internal static unsafe void EffPermuteForward(float* eff, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit)
     {
         var hasNext = !nextColumn.IsEmpty;
@@ -463,6 +463,7 @@ internal static class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
     internal static unsafe void EffPermuteBackward(float* backward, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit)
     {
         var hasNext = !nextColumn.IsEmpty;
@@ -550,6 +551,7 @@ internal static class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
     internal static unsafe void EffectForward(float* eff, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit)
     {
         var durationVector = Vector256.Create(duration);
@@ -587,6 +589,7 @@ internal static class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
     internal static unsafe void EffectBackward(float* byp, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit)
     {
         var durationVector = Vector256.Create(duration);
@@ -749,6 +752,7 @@ internal static class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
     internal static unsafe void AdvanceRows(uint* motion, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, bool forward, int i, int limit)
     {
         ref var idRef = ref MemoryMarshal.GetReference(ids);
@@ -910,11 +914,18 @@ internal static unsafe class LaneAccelerator<T>
     where T : unmanaged, ITimelineLane<T>
 {
     public const ushort Skipped = LaneMovementRecord.Skipped;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static float* ForwardEffects;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static float* BackwardEffects;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static float* BackwardByPosition;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static LaneMovementRecord* Forward;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static LaneMovementRecord* Backward;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static bool Active;
 }
 
@@ -934,13 +945,20 @@ static unsafe class LaneTable<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static float* Forward;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static float* Backward;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static LaneMovementRecord* ForwardRecords;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static LaneMovementRecord* BackwardRecords;
     public static float* BackwardByPosition;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static ushort Duration;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static bool Looping;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     static void* _recordBlock;
 
     public static float Effect(ushort position) => Forward[position];

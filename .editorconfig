@@ -8,3 +8,18 @@ resharper_unused_type_parameter_highlighting = none
 
 [src/Tl.Gen.CSharp/Polyfills.cs]
 resharper_check_namespace_highlighting = none
+
+[tools/Tl.Bake.Tests/TlbFixtures.cs]
+resharper_check_namespace_highlighting = none
+
+[tools/Tl.Bake.Tests/IntrospectionFixtures.cs]
+resharper_check_namespace_highlighting = none
+
+[tools/Tl.Bake.Tests/FusedFixtures.cs]
+resharper_check_namespace_highlighting = none
+
+[tools/Tl.Bake.Tests/FusedGlobalFixtures.cs]
+resharper_check_namespace_highlighting = none
+
+[benchmarks/Numbers/Domain.cs]
+resharper_check_namespace_highlighting = none
