@@ -336,10 +336,10 @@ internal static class SteadyShapes
                 for (var i = 0; i < entityRows; i++)
                     Timeline<LaneTrack, LaneClip>.Apply(gold, new ReadOnlySpan<ushort>(in pos[i]), new Span<ushort>(ref pos[i]), true, new Span<float>(ref fx[i]));
             }),
-            ("per-entity-lane", "one entity at a time: Lane<T,C>.Apply", () => Seed(pos), () =>
+            ("per-entity-lane", "one entity at a time: Timeline<T,C>.Apply", () => Seed(pos), () =>
             {
                 for (var i = 0; i < entityRows; i++)
-                    Lane<LaneTrack, LaneClip>.Apply(gold, pos[i], true, ref fx[i]);
+                    Timeline<LaneTrack, LaneClip>.Apply(gold, pos[i], true, ref fx[i]);
             }),
             ("shared-clock-crowd", "crowd on one clock: shared-clock Apply + scalar Step", () => Seed(pos), () =>
             {

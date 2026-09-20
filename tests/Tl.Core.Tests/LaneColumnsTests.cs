@@ -82,8 +82,8 @@ public class LaneColumnsTests
 
         for (var tick = 0; tick < Ticks; tick++)
         {
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(ids, positions, true, effects);
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(ids, positions, true);
+            Timeline<LaneColumnsTrack, LaneColumnsClip>.Apply(ids, positions, true, effects);
+            Timeline<LaneColumnsTrack, LaneColumnsClip>.Advance(ids, positions, true);
             Timeline<LaneColumnsTrack, LaneColumnsClip>.Apply(rawIds, rawPos, true, rawFx);
             Timeline.Advance(rawIds, rawPos, true);
         }
@@ -109,10 +109,10 @@ public class LaneColumnsTests
 
         for (var tick = 0; tick < Ticks; tick++)
         {
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, position, true, ref effect);
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(in index, ref position, true);
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(spanIds, spanPositions, true, spanEffects);
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(spanIds, spanPositions, true);
+            Timeline<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, position, true, ref effect);
+            Timeline<LaneColumnsTrack, LaneColumnsClip>.Advance(in index, ref position, true);
+            Timeline<LaneColumnsTrack, LaneColumnsClip>.Apply(spanIds, spanPositions, true, spanEffects);
+            Timeline<LaneColumnsTrack, LaneColumnsClip>.Advance(spanIds, spanPositions, true);
         }
 
         Assert.Equal(spanPositions[0].Value, position.Value);
@@ -132,7 +132,7 @@ public class LaneColumnsTests
             positions[i] = new TestPosition((ushort)(i % Duration));
         }
 
-        Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(ids, positions, true, effects);
+        Timeline<LaneColumnsTrack, LaneColumnsClip>.Apply(ids, positions, true, effects);
 
         for (var i = 0; i < N; i++)
             Assert.Equal((ushort)(i % Duration), positions[i].Value);
@@ -145,7 +145,7 @@ public class LaneColumnsTests
             rawPos[i] = (ushort)(i % Duration);
         }
 
-        Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(ids, positions, true);
+        Timeline<LaneColumnsTrack, LaneColumnsClip>.Advance(ids, positions, true);
         Timeline.Advance(rawIds, rawPos, true);
 
         for (var i = 0; i < N; i++)
@@ -160,11 +160,11 @@ public class LaneColumnsTests
         var position = new TestPosition(3);
         var effect = new TestEffect();
 
-        Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, position, true, ref effect);
+        Timeline<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, position, true, ref effect);
 
         Assert.Equal((ushort)3, position.Value);
 
-        Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(in index, ref position, true);
+        Timeline<LaneColumnsTrack, LaneColumnsClip>.Advance(in index, ref position, true);
 
         var rawPos = new ushort[] { 3 };
         Timeline.Advance(new ushort[] { asset }, rawPos, true);
@@ -178,6 +178,6 @@ public class LaneColumnsTests
         var positions = new TestPosition[1];
         var effects = new TestEffect[1];
         Assert.Throws<ArgumentException>(
-            () => Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(ids, positions, true, effects));
+            () => Timeline<LaneColumnsTrack, LaneColumnsClip>.Apply(ids, positions, true, effects));
     }
 }

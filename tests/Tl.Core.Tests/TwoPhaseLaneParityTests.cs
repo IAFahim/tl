@@ -68,10 +68,10 @@ public class TwoPhaseLaneParityTests
             var fusedFx = new float[] { 1.5f };
             for (var frame = 0; frame < 9; frame++)
             {
-                Lane<RoutingTrack, RoutingClip>.Apply(typedId, splitPos, forward, ref splitFx);
+                Timeline<RoutingTrack, RoutingClip>.Apply(typedId, splitPos, forward, ref splitFx);
                 Timeline<RoutingTrack, RoutingClip>.Apply(index, fusedPos, fusedPos, forward, fusedFx);
                 Assert.Equal(fusedFx[0], splitFx.Value);
-                Lane<RoutingTrack, RoutingClip>.Advance(typedId, ref splitPos, forward);
+                Timeline<RoutingTrack, RoutingClip>.Advance(typedId, ref splitPos, forward);
                 Assert.Equal(fusedPos[0], splitPos.Value);
             }
         }
@@ -79,11 +79,11 @@ public class TwoPhaseLaneParityTests
 
     static void Frame(TestIndex[] ids, ushort[] rawIds, TestPosition[] splitPos, TestEffect[] splitFx, ushort[] fusedPos, float[] fusedFx, bool forward)
     {
-        Lane<RoutingTrack, RoutingClip>.Apply(ids, splitPos, forward, splitFx);
+        Timeline<RoutingTrack, RoutingClip>.Apply(ids, splitPos, forward, splitFx);
         Timeline<RoutingTrack, RoutingClip>.Apply(rawIds, fusedPos, fusedPos, forward, fusedFx);
         for (var i = 0; i < splitFx.Length; i++)
             Assert.Equal(fusedFx[i], splitFx[i].Value);
-        Lane<RoutingTrack, RoutingClip>.Advance(ids, splitPos, forward);
+        Timeline<RoutingTrack, RoutingClip>.Advance(ids, splitPos, forward);
         for (var i = 0; i < splitPos.Length; i++)
             Assert.Equal(fusedPos[i], splitPos[i].Value);
     }

@@ -52,22 +52,22 @@ public partial class SmallSpanRecordTests
         {
             var lanePos = new TestPosition { Value = position };
             var laneFx = new TestEffect { Value = 1.5f };
-            Lane<RoutingTrack, RoutingClip>.Apply(index, lanePos, forward, ref laneFx);
+            Timeline<RoutingTrack, RoutingClip>.Apply(index, lanePos, forward, ref laneFx);
             var laneAdvanced = lanePos;
-            Lane<RoutingTrack, RoutingClip>.Advance(index, ref laneAdvanced, forward);
+            Timeline<RoutingTrack, RoutingClip>.Advance(index, ref laneAdvanced, forward);
 
             var typedId = new TestIndex { Value = index };
             var typedPos = new TestPosition { Value = position };
             var typedFx = new TestEffect { Value = 1.5f };
-            Lane<RoutingTrack, RoutingClip>.Apply(typedId, typedPos, forward, ref typedFx);
+            Timeline<RoutingTrack, RoutingClip>.Apply(typedId, typedPos, forward, ref typedFx);
             var typedAdvanced = typedPos;
-            Lane<RoutingTrack, RoutingClip>.Advance(typedId, ref typedAdvanced, forward);
+            Timeline<RoutingTrack, RoutingClip>.Advance(typedId, ref typedAdvanced, forward);
 
             var spanIds = new TestIndex[] { new(index) };
             var spanPos = new TestPosition[] { new(position) };
             var spanFx = new TestEffect[] { new() { Value = 1.5f } };
-            Lane<RoutingTrack, RoutingClip>.Apply((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward, (Span<TestEffect>)spanFx);
-            Lane<RoutingTrack, RoutingClip>.Advance((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
+            Timeline<RoutingTrack, RoutingClip>.Apply((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward, (Span<TestEffect>)spanFx);
+            Timeline<RoutingTrack, RoutingClip>.Advance((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
 
             var shortIds = new ushort[] { index };
             var shortPos = new ushort[] { position };
@@ -94,15 +94,15 @@ public partial class SmallSpanRecordTests
         foreach (var forward in new[] { true, false })
         {
             var lanePos = new TestPosition { Value = position };
-            Lane<RoutingTrack, RoutingClip>.Advance(index, ref lanePos, forward);
+            Timeline<RoutingTrack, RoutingClip>.Advance(index, ref lanePos, forward);
 
             var typedId = new TestIndex { Value = index };
             var typedPos = new TestPosition { Value = position };
-            Lane<RoutingTrack, RoutingClip>.Advance(typedId, ref typedPos, forward);
+            Timeline<RoutingTrack, RoutingClip>.Advance(typedId, ref typedPos, forward);
 
             var spanIds = new TestIndex[] { new(index) };
             var spanPos = new TestPosition[] { new(position) };
-            Lane<RoutingTrack, RoutingClip>.Advance((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
+            Timeline<RoutingTrack, RoutingClip>.Advance((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
 
             var shortIds = new ushort[] { index };
             var shortPos = new ushort[] { position };
