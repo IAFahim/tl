@@ -1447,12 +1447,12 @@ internal static class TimelineBakerFastCore
 
                     if (clip.PopulateError != null)
                         throw new BakeDiagnosticException(clip.PopulateError);
-                    if (clip.DataCaptured && !clip.PopulateDone)
+                    if (!clip.PopulateDone)
                     {
                         if (clip.PairId < 0)
                             clip.PairId = TimelineBakerFast.EnsurePair(_doc, trackType, clipType);
                         if (clip.PairId >= 0)
-                            PopulateDeferredClip(clip, ti);
+                            PopulateClip(clip, ti, clip.DataCaptured);
                         else
                             clip.PopulateDone = true;
                     }
@@ -1639,7 +1639,7 @@ internal static class TimelineBakerFastCore
             }
         }
 
-        private unsafe void PopulateDeferredClip(FastClip clip, int ti)
+        private unsafe void PopulateClip(FastClip clip, int ti, bool authored)
         {
             var pair = _doc.Pairs[clip.PairId];
             if (!TimelineBakerFast.IsUnmanagedCached(pair.ClipType))
@@ -1647,16 +1647,21 @@ internal static class TimelineBakerFastCore
                 clip.PopulateDone = true;
                 return;
             }
-            var contextName = $"clip {clip.ClipIndex} on track {ti} ({pair.ClipType.Name})";
             pair.EnsurePool(pair.ClipSize);
             clip.PayloadOffset = pair.PoolLength;
             pair.PoolLength += pair.ClipSize;
-            var box = Activator.CreateInstance(pair.ClipType)!;
-            clip.PopulateError = TimelineBakerFast.PopulateSliceUtf8(_doc.Utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName);
-            if (clip.PopulateError != null)
-                throw new BakeDiagnosticException(clip.PopulateError);
-            fixed (byte* dst = pair.Pool)
-                pair.Helper.CopyPayload(dst + clip.PayloadOffset, box);
+            if (authored)
+            {
+                var contextName = $"clip {clip.ClipIndex} on track {ti} ({pair.ClipType.Name})";
+                var box = Activator.CreateInstance(pair.ClipType)!;
+                clip.PopulateError = TimelineBakerFast.PopulateSliceUtf8(_doc.Utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName);
+                if (clip.PopulateError != null)
+                    throw new BakeDiagnosticException(clip.PopulateError);
+                fixed (byte* dst = pair.Pool)
+                    pair.Helper.CopyPayload(dst + clip.PayloadOffset, box);
+            }
+            else
+                Array.Clear(pair.Pool, clip.PayloadOffset, pair.ClipSize);
             clip.PopulateDone = true;
         }
 

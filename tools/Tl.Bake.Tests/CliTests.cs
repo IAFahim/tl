@@ -50,6 +50,49 @@ public class CliTests
     }
 
     [Fact]
+    public void Cli_WithDatalessClip_ReturnsZeroAndBakesDefaultPayload()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "tlb_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var jsonPath = Path.Combine(tempDir, "dataless.json");
+            var tlbPath = Path.Combine(tempDir, "dataless.tlb");
+
+            var json = """
+            {
+              "duration": 10,
+              "loop": false,
+              "tracks": [
+                {
+                  "namespace": "Tlb",
+                  "type": "AlphaTrack",
+                  "data": { "Code": 1 },
+                  "clips": [
+                    { "namespace": "Tlb", "type": "AlphaClip", "start": 0, "end": 10 }
+                  ]
+                }
+              ]
+            }
+            """;
+            File.WriteAllText(jsonPath, json);
+
+            var asmPath = typeof(Tlb.AlphaTrack).Assembly.Location;
+            var exitCode = Tl.Bake.Program.Main([jsonPath, tlbPath, "--assembly", asmPath]);
+            Assert.Equal(0, exitCode);
+            Assert.True(File.Exists(tlbPath));
+            var bytes = File.ReadAllBytes(tlbPath);
+            Assert.True(TlbMetadata.HasMetadata(bytes));
+            Assert.Equal(TimelineBaker.BakeJson(json), bytes);
+            Assert.Equal(TimelineBaker.BakeJson(json.Replace("\"end\": 10 }", "\"end\": 10, \"data\": {} }")), bytes);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
     public void Cli_WithDiagnosticError_ReturnsNonZero()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), "tlb_test_" + Guid.NewGuid().ToString("N"));
