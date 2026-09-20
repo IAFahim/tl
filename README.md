@@ -344,15 +344,15 @@ One million characters, one frame per call (i9-14900K, .NET 10, Release; best of
 
 | scenario | hot ms/frame | hot ns/character | cold ms/frame | cold ns/character |
 | --- | ---: | ---: | ---: | ---: |
-| whole crowd on one timeline (a raid jumping in sync) | 0.22 | 0.22 | 0.39 | 0.39 |
-| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.36 | 0.36 | 0.56 | 0.56 |
-| one looping timeline, every character on its own clock | 0.21 | 0.21 | 0.39 | 0.39 |
-| one-shot finite timeline, staggered clocks | 0.09 | 0.09 | 0.21 | 0.21 |
-| hand-written loop for comparison (`effects += 1`) | 0.35 | 0.35 | 0.42 | 0.42 |
-| small squads: 16 timelines × 16 characters | 0.54 | 0.54 | 0.67 | 0.67 |
-| worst case: unsorted rows, a different timeline each | 0.95 | 0.95 | 1.18 | 1.18 |
+| whole crowd on one timeline (a raid jumping in sync) | 0.17 | 0.17 | 0.34 | 0.34 |
+| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.36 | 0.36 | 0.47 | 0.47 |
+| one looping timeline, every character on its own clock | 0.21 | 0.21 | 0.33 | 0.33 |
+| one-shot finite timeline, staggered clocks | 0.09 | 0.09 | 0.17 | 0.17 |
+| hand-written loop for comparison (`effects += 1`) | 0.33 | 0.33 | 0.38 | 0.38 |
+| small squads: 16 timelines × 16 characters | 0.51 | 0.51 | 0.59 | 0.59 |
+| worst case: unsorted rows, a different timeline each | 0.90 | 0.90 | 0.99 | 0.99 |
 
-A single-timeline crowd floors at 0.09 ns per character hot and 0.21 cold — the hot column is the steady state with the crowd cache-resident, the cold column is the same frame with the seven crowds interleaved so the working set streams from DRAM. Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 60 ms and loads in 1.7 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
+A single-timeline crowd floors at 0.09 ns per character hot and 0.17 cold — the hot column is the steady state with the crowd cache-resident, the cold column is the same frame with the seven crowds interleaved so the working set streams from DRAM. Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 55 ms and loads in 1.7 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
 <!-- /tl-numbers -->
 
 Receipts: `benchmarks/Numbers` (generates this section; `eng/refresh-numbers` re-measures and re-renders it from a fingerprinted receipt, and CI fails if the two disagree), `benchmarks/PairHandles`, `benchmarks/Alpha`, `tests/Tl.Alpha` — parity, allocation, and throughput evidence, run in CI on every push.

@@ -246,6 +246,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         for (; i < count; i++) StepRow(ids, positions, next, motion, slots, bound, reverse, i);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     static unsafe void StepRow(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, uint* motion, Slot* slots, int bound, bool reverse, int i)
     {
         var id = ids[i];
@@ -478,27 +479,24 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     {
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
-        if (gather && duration > 1 && (looping || ShortRuns(positions, i, limit)))
+        var blockEnd = i + ((limit - i) >> 4 << 4);
+        if (gather && blockEnd > i && duration > 1 && (looping ? LaneOps.StaggeredEnds(positions, i, blockEnd) : ShortRuns(positions, i, blockEnd)))
         {
-            var blockEnd = i + ((limit - i) >> 4 << 4);
-            if (blockEnd > i)
+            if (forward)
             {
-                if (forward)
-                {
-                    if (duration <= 8)
-                        LaneOps.EffPermuteForward(slot->Forward, duration, looping, positions, next, effects, i, blockEnd);
-                    else
-                        LaneOps.EffectForward(slot->Forward, duration, looping, positions, next, effects, i, blockEnd);
-                }
+                if (duration <= 8)
+                    LaneOps.EffPermuteForward(slot->Forward, duration, looping, positions, next, effects, i, blockEnd);
                 else
-                {
-                    if (duration <= 8)
-                        LaneOps.EffPermuteBackward(slot->Backward, duration, looping, positions, next, effects, i, blockEnd);
-                    else
-                        LaneOps.EffectBackward(slot->BackwardByPosition, duration, looping, positions, next, effects, i, blockEnd);
-                }
-                i = blockEnd;
+                    LaneOps.EffectForward(slot->Forward, duration, looping, positions, next, effects, i, blockEnd);
             }
+            else
+            {
+                if (duration <= 8)
+                    LaneOps.EffPermuteBackward(slot->Backward, duration, looping, positions, next, effects, i, blockEnd);
+                else
+                    LaneOps.EffectBackward(slot->BackwardByPosition, duration, looping, positions, next, effects, i, blockEnd);
+            }
+            i = blockEnd;
         }
         return forward
             ? ApplyUniformForward(slot, positions, next, effects, i, limit)

@@ -202,28 +202,25 @@ internal ref struct TimelineLane<T>
         {
             var chunkEnd = i + Chunk;
             if (chunkEnd > count) chunkEnd = count;
-            if (gather && LaneOps.SingletonChunk(positions, i, chunkEnd))
+            var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
+            if (gather && blockEnd > i && LaneOps.StaggeredEnds(positions, i, blockEnd))
             {
-                var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
-                if (blockEnd > i)
+                if (forward)
                 {
-                    if (forward)
-                    {
-                        if (permute)
-                            LaneOps.EffPermuteForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
-                        else
-                            LaneOps.EffectForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
-                    }
+                    if (permute)
+                        LaneOps.EffPermuteForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
                     else
-                    {
-                        if (permute)
-                            LaneOps.EffPermuteBackward(LaneAccelerator<T>.BackwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
-                        else
-                            LaneOps.EffectBackward(LaneAccelerator<T>.BackwardByPosition, T.Duration, looping, positions, default, effects, i, blockEnd);
-                    }
-                    i = blockEnd;
-                    continue;
+                        LaneOps.EffectForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
                 }
+                else
+                {
+                    if (permute)
+                        LaneOps.EffPermuteBackward(LaneAccelerator<T>.BackwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
+                    else
+                        LaneOps.EffectBackward(LaneAccelerator<T>.BackwardByPosition, T.Duration, looping, positions, default, effects, i, blockEnd);
+                }
+                i = blockEnd;
+                continue;
             }
             while (i < chunkEnd)
             {
@@ -335,6 +332,16 @@ internal static unsafe class LaneOps
         for (var k = j; k < probe - 1; k++)
             if (positions[k] == positions[k + 1]) return false;
         return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    internal static bool StaggeredEnds(ReadOnlySpan<ushort> positions, int start, int end)
+    {
+        var headEnd = start + 32;
+        if (headEnd > end) headEnd = end;
+        if (!SingletonChunk(positions, start, headEnd)) return false;
+        var tailStart = end - 32;
+        return tailStart <= headEnd || SingletonChunk(positions, tailStart, end);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
