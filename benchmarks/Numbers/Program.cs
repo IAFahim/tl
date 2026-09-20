@@ -67,6 +67,7 @@ var steadyShapes = steady ? SteadyShapes.Run(steadyRows, rounds, reps) : null;
 var scenarios = new List<Scenario>
 {
     new("sync", "whole crowd on one timeline (a raid jumping in sync)", Playback(static _ => Host.Gold, static _ => (ushort)5)),
+    new("shared-clock", "crowd on one clock: shared-clock Apply + scalar Step", null, sharedClock: true),
     new("groups", "100 timelines, crowds of 10,000 each (per-ability groups)", Playback(static i => Host.Variants[(i / 10_000) % Host.Timelines], static i => (ushort)(i % Host.Duration))),
     new("own-clock", "one looping timeline, every character on its own clock", Playback(static _ => Host.Gold, static i => (ushort)(i % Host.Duration))),
     new("finite", "one-shot finite timeline, staggered clocks", Playback(static _ => Host.Finite, static i => (ushort)(i % (Host.Duration / 2)))),
@@ -117,15 +118,16 @@ foreach (var scenario in scenarios)
 var checksum = 0ul;
 foreach (var scenario in scenarios)
 {
-    if (scenario.Run is null) continue;
+    if (scenario.Run is null && !scenario.SharedClock) continue;
     var positions = (ushort[])scenario.Positions.Clone();
     var effects = (float[])scenario.Effects.Clone();
+    var sink = scenario.Sink;
     for (var tick = 0; tick < 100; tick++) scenario.Step();
     for (var tick = 0; tick < 100; tick++) scenario.StepBack();
-    if (!scenario.Positions.AsSpan().SequenceEqual(positions) || !scenario.Effects.AsSpan().SequenceEqual(effects))
+    if (!scenario.Positions.AsSpan().SequenceEqual(positions) || !scenario.Effects.AsSpan().SequenceEqual(effects) || scenario.Sink != sink)
         throw new InvalidOperationException(
-            $"scenario '{scenario.Id}' did not rewind bit-exactly: positions {(scenario.Positions.AsSpan().SequenceEqual(positions) ? "ok" : "differ")}, effects {(scenario.Effects.AsSpan().SequenceEqual(effects) ? "ok" : "differ")}.");
-    checksum = checksum * 31 + (ulong)scenario.Positions[0] + (ulong)scenario.Effects[0];
+            $"scenario '{scenario.Id}' did not rewind bit-exactly: positions {(scenario.Positions.AsSpan().SequenceEqual(positions) ? "ok" : "differ")}, effects {(scenario.Effects.AsSpan().SequenceEqual(effects) ? "ok" : "differ")}, sink {(scenario.Sink == sink ? "ok" : "differ")}.");
+    checksum = checksum * 31 + (ulong)scenario.Sink + (ulong)scenario.Effects[0];
 }
 
 foreach (var scenario in scenarios)
@@ -339,6 +341,12 @@ internal static class SteadyShapes
                 for (var i = 0; i < entityRows; i++)
                     Lane<LaneTrack, LaneClip>.Apply(gold, ref pos[i], true, ref fx[i]);
             }),
+            ("shared-clock-crowd", "crowd on one clock: shared-clock Apply + scalar Step", () => Seed(pos), () =>
+            {
+                var clock = (ushort)(entityRows % Host.Duration);
+                Timeline<LaneTrack, LaneClip>.Apply(gold, clock, true, fx);
+                Timeline<LaneTrack, LaneClip>.Step(gold, ref clock, true);
+            }),
             ("per-entity-record-floor", "hand record table (floor)", () => Seed(pos), () =>
             {
                 for (var i = 0; i < entityRows; i++)
@@ -447,11 +455,13 @@ internal static class SteadyArms
     }
 }
 
-internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, Func<int, ushort> Positions)? run)
+internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, Func<int, ushort> Positions)? run, bool sharedClock = false)
 {
     public string Id = id;
     public string Label = label;
     public (Func<int, ushort> Ids, Func<int, ushort> Positions)? Run = run;
+    public bool SharedClock = sharedClock;
+    public ushort Clock = 5;
     public ushort[] Ids = [];
     public ushort[] Positions = [];
     public float[] Effects = [];
@@ -461,8 +471,16 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
     public int WarmupFrames;
     public long Allocated;
 
+    public ulong Sink => SharedClock ? Clock : Positions[0];
+
     public void Step()
     {
+        if (SharedClock)
+        {
+            Timeline<LaneTrack, LaneClip>.Apply(Host.Gold, Clock, true, Effects);
+            Timeline<LaneTrack, LaneClip>.Step(Host.Gold, ref Clock, true);
+            return;
+        }
         if (Run is null)
         {
             for (var i = 0; i < Effects.Length; i++)
@@ -474,6 +492,12 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
 
     public void StepBack()
     {
+        if (SharedClock)
+        {
+            Timeline<LaneTrack, LaneClip>.Apply(Host.Gold, Clock, false, Effects);
+            Timeline<LaneTrack, LaneClip>.Step(Host.Gold, ref Clock, false);
+            return;
+        }
         if (Run is null)
         {
             for (var i = 0; i < Effects.Length; i++)

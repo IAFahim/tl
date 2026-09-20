@@ -6,8 +6,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "eng"))
 import render_numbers
 
-SCENARIO_IDS = ["sync", "groups", "own-clock", "finite", "handwritten", "squads", "worst"]
-STEADY_SHAPE_IDS = ["per-entity-apply-step", "per-entity-fused", "per-entity-lane", "per-entity-record-floor"]
+SCENARIO_IDS = ["sync", "shared-clock", "groups", "own-clock", "finite", "handwritten", "squads", "worst"]
+STEADY_SHAPE_IDS = ["per-entity-apply-step", "per-entity-fused", "per-entity-lane", "shared-clock-crowd", "per-entity-record-floor"]
 STEADY_ARM_IDS = ["avx2-off", "hwintrinsic-off"]
 
 

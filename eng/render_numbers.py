@@ -20,6 +20,7 @@ def load_receipt(root: Path) -> dict:
 
 def render(receipt: dict) -> str:
     scenarios = receipt["Scenarios"]
+    crowds = len(scenarios)
     hot_floor = min(s["Hot"]["Ns"] for s in scenarios if s["Id"] != "handwritten")
     cold_floor = min(s["Cold"]["Ns"] for s in scenarios if s["Id"] != "handwritten")
     bake = receipt["Bake"]
@@ -27,7 +28,7 @@ def render(receipt: dict) -> str:
         f"One million characters, one frame per call ({cpu_short(receipt['Fingerprint']['Cpu'])}, .NET 10, Release; "
         f"best of {receipt['Reps']} × {receipt['Rounds']} rounds after a per-scenario steady-state warm-up "
         "(at least 0.5 s and until the best frame is flat across three rounds); "
-        "hot = consecutive frames with the crowd cache-resident, cold = the seven crowds interleaved, re-read from memory each frame; "
+        f"hot = consecutive frames with the crowd cache-resident, cold = the {crowds} crowds interleaved, re-read from memory each frame; "
         "every shape bit-exact forward and backward, 0 B warm):",
         "",
         "| scenario | hot ms/frame | hot ns/character | cold ms/frame | cold ns/character |",
@@ -40,7 +41,7 @@ def render(receipt: dict) -> str:
     lines += [
         "",
         f"A single-timeline crowd floors at {hot_floor:.2f} ns per character hot and {cold_floor:.2f} cold — the hot column is the steady state "
-        "with the crowd cache-resident, the cold column is the same frame with the seven crowds interleaved so the working set streams from DRAM. "
+        f"with the crowd cache-resident, the cold column is the same frame with the {crowds} crowds interleaved so the working set streams from DRAM. "
         "Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). "
         f"Authoring a full game's data — {bake['CorpusMb']:.1f} MB of JSON — bakes in {bake['BakeMs']:.0f} ms and loads in {bake['LoadMs']:.1f} ms. "
         "Memory: 8 B per character of host columns, `28 * (duration + 1) + 64` bytes of tables per timeline, 0 B allocated per frame at any crowd size.",
