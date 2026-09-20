@@ -18,13 +18,15 @@
                 <text> run</text>
             }
         </button>
-        <label class="bar-field">sample
-            <select value="@_preset" @onchange="OnPresetChange" disabled="@Busy" aria-label="sample source">
-                <option value="@ReadmePreset">readme · jump arc</option>
-                <option value="@RawPreset">raw binding (advanced)</option>
+        <label class="bar-field">examples
+            <select value="@_preset" @onchange="OnPresetChange" disabled="@Busy" aria-label="example gallery">
+                @foreach (var example in Examples.All)
+                {
+                    <option value="@example.Id">@example.Label</option>
+                }
             </select>
         </label>
-        <span class="bar-note">ctrl+enter runs · baked bytes arrive as the Run parameter — the browser has no file system</span>
+        <span class="bar-note">@Description · ctrl+enter runs · baked bytes arrive as the Run parameter — the browser has no file system</span>
     </div>
     <div class="split-grid split-live" data-persist="tl-split-live">
         <section class="pane pane-code">
@@ -89,7 +91,7 @@
                 }
                 else
                 {
-                    <p class="muted run-empty">add a public static Run(byte[] tlb) — run compiles, bakes and calls it; its Console.WriteLine lands here.</p>
+                    <p class="muted run-empty">add a public static Run(byte[] tlb) — run compiles, bakes and calls it; its Console.WriteLine lands here. Run(byte[][] tlbs) receives every timeline when the data pane holds a JSON array.</p>
                 }
             </div>
         </section>
@@ -98,10 +100,7 @@
 
 @code
 {
-    const string ReadmePreset = "readme";
-    const string RawPreset = "raw";
-
-    string _preset = ReadmePreset;
+    string _preset = Examples.Readme.Id;
     string _source = LiveAuthoring.DefaultSource;
     string _timelineJson = LiveAuthoring.DefaultTimelineJson;
     string _compiledSource = "";
@@ -112,6 +111,10 @@
     bool _running;
     LiveEditor? _typeEditor;
     DotNetObjectReference<Live>? _self;
+
+    Example Current => Examples.Of(_preset);
+
+    string Description => Current.Description;
 
     bool Busy => _running;
 
@@ -138,10 +141,10 @@
     void OnPresetChange(ChangeEventArgs e)
     {
         if (Busy) return;
-        _preset = e.Value?.ToString() ?? ReadmePreset;
-        (_source, _timelineJson) = _preset == RawPreset
-            ? (LiveAuthoring.RawBindingSource, LiveAuthoring.RawBindingTimelineJson)
-            : (LiveAuthoring.DefaultSource, LiveAuthoring.DefaultTimelineJson);
+        var example = Examples.Of(e.Value?.ToString() ?? Examples.Readme.Id);
+        _preset = example.Id;
+        _source = example.Source;
+        _timelineJson = example.TimelineJson;
         _compiledSource = "";
         _compile = null;
         _run = null;
@@ -170,16 +173,16 @@
             }
             if (_compile is not { Ok: true }) return;
             typeJson = LiveAuthoring.TypeJson(_compile.Assembly!);
-            var (bytes, error) = LiveAuthoring.Bake(_compile.Assembly!, _timelineJson);
-            if (bytes.Length == 0)
+            var (packages, error) = LiveAuthoring.BakeAll(_compile.Assembly!, _timelineJson);
+            if (packages.Length == 0)
             {
                 _runError = error;
                 return;
             }
-            _bakeStats = LiveAuthoring.BakeStats(bytes);
+            _bakeStats = LiveAuthoring.BakeStats(packages);
             try
             {
-                _run = LiveAuthoring.Run(_compile.Assembly!, bytes);
+                _run = LiveAuthoring.Run(_compile.Assembly!, packages);
             }
             catch (Exception ex)
             {
