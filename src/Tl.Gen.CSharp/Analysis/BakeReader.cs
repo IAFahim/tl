@@ -71,15 +71,19 @@ public static class BakeReader
             foreach (var pair in item.Bake.Pairs)
             {
                 var key = pair.TrackTypeName + "\0" + pair.ClipTypeName;
-                if (!chains.TryGetValue(key, out var first))
-                    chains[key] = (item.Bake, item.Signature);
-                else if (first.Bake.SignatureKey != item.Bake.SignatureKey)
+                if (chains.TryGetValue(key, out var first) && first.Bake.SignatureKey != item.Bake.SignatureKey)
                 {
                     Symbols.Error(errors, item.Syntax, "TLGEN74", $"Bakes '{first.Bake.TypeName}' and '{item.Bake.TypeName}' bind pair ({pair.TrackTypeName}, {pair.ClipTypeName}) with different bake parameter lists: '{first.Signature}' and '{item.Signature}'; every bake registered to one pair must declare an identical parameter list.");
                     conflict = true;
                 }
             }
-            if (!conflict) accepted.Add(item);
+            if (conflict) continue;
+            foreach (var pair in item.Bake.Pairs)
+            {
+                var key = pair.TrackTypeName + "\0" + pair.ClipTypeName;
+                if (!chains.ContainsKey(key)) chains[key] = (item.Bake, item.Signature);
+            }
+            accepted.Add(item);
         }
         return accepted
             .OrderBy(static item => item.Bake.ConsumerTypeName, StringComparer.Ordinal)
