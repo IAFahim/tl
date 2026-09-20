@@ -21,8 +21,10 @@ def load_receipt(root: Path) -> dict:
 def render(receipt: dict) -> str:
     scenarios = receipt["Scenarios"]
     crowds = len(scenarios)
-    hot_floor = min(s["Hot"]["Ns"] for s in scenarios if s["Id"] != "handwritten")
-    cold_floor = min(s["Cold"]["Ns"] for s in scenarios if s["Id"] != "handwritten")
+    hands = {"handwritten", "handwritten-simd"}
+    hot_floor = min(s["Hot"]["Ns"] for s in scenarios if s["Id"] not in hands)
+    cold_floor = min(s["Cold"]["Ns"] for s in scenarios if s["Id"] not in hands)
+    simd = next(s for s in scenarios if s["Id"] == "handwritten-simd")
     bake = receipt["Bake"]
     lines = [
         f"One million characters, one frame per call ({cpu_short(receipt['Fingerprint']['Cpu'])}, .NET 10, Release; "
@@ -42,6 +44,8 @@ def render(receipt: dict) -> str:
         "",
         f"A single-timeline crowd floors at {hot_floor:.2f} ns per character hot and {cold_floor:.2f} cold — the hot column is the steady state "
         f"with the crowd cache-resident, the cold column is the same frame with the {crowds} crowds interleaved so the working set streams from DRAM. "
+        f"The hand-written SIMD row is the traffic floor of this machine ({simd['Hot']['Ns']:.2f} hot, {simd['Cold']['Ns']:.2f} cold); "
+        "the shared-clock crowd sits on it and the per-row-clock crowds carry 4 more bytes per character. "
         "Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). "
         f"Authoring a full game's data — {bake['CorpusMb']:.1f} MB of JSON — bakes in {bake['BakeMs']:.0f} ms and loads in {bake['LoadMs']:.1f} ms. "
         "Memory: 8 B per character of host columns, `28 * (duration + 1) + 64` bytes of tables per timeline, 0 B allocated per frame at any crowd size.",
