@@ -59,8 +59,50 @@ public static class Timeline
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static void Step(ushort index, Span<ushort> positions, bool forward)
-        => Step(index, positions, positions, forward);
+    public static unsafe void Step(ushort index, Span<ushort> positions, bool forward)
+    {
+        if (positions.Length <= LaneOps.SmallSpan)
+        {
+            StepRecords(TimelineTable.Motion[index], positions, positions, forward);
+            return;
+        }
+        Step(index, positions, positions, forward);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe void StepRecords(uint motion, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
+    {
+        var duration = (ushort)(motion & 0xFFFF);
+        var looping = (motion & 0x80000000u) != 0;
+        if (forward) StepRecordsForward(duration, looping, positions, next);
+        else StepRecordsBackward(duration, looping, positions, next);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static void StepRecordsForward(ushort duration, bool looping, ReadOnlySpan<ushort> positions, Span<ushort> next)
+    {
+        for (var i = 0; i < positions.Length; i++)
+        {
+            var p = positions[i];
+            if (p < duration)
+            {
+                p++;
+                if (looping && p == duration) p = 0;
+            }
+            next[i] = p;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static void StepRecordsBackward(ushort duration, bool looping, ReadOnlySpan<ushort> positions, Span<ushort> next)
+    {
+        for (var i = 0; i < positions.Length; i++)
+        {
+            var p = positions[i];
+            if (looping) next[i] = p < duration ? (p == 0 ? (ushort)(duration - 1) : (ushort)(p - 1)) : p;
+            else next[i] = p > 0 && p <= duration ? (ushort)(p - 1) : p;
+        }
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static unsafe void Step(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
@@ -70,6 +112,11 @@ public static class Timeline
         var looping = (m & 0x80000000u) != 0;
         var count = positions.Length;
         var reverse = !forward;
+        if (count <= LaneOps.SmallSpan)
+        {
+            StepRecords(m, positions, next, forward);
+            return;
+        }
         var i = 0;
         if (Avx2.IsSupported && duration > 0)
         {

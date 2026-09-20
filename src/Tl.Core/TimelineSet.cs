@@ -16,6 +16,74 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     const int TableBytesPerTick = 28;
     const int RetirePadBytes = 16;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    internal SlotView* FoldedView(ushort index)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return index < (uint)_count ? (SlotView*)Volatile.Read(ref *(long*)(_views + index)) : null;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    internal void ApplyRecords(SlotView* slot, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
+        => ApplyRecords(slot, positions, default, forward, effects);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    internal void ApplyRecords(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
+    {
+        var hasNext = !next.IsEmpty;
+        if (effects.Length != positions.Length || (hasNext && next.Length != positions.Length))
+            throw new ArgumentException("Column length must equal position count.");
+        var sameClock = hasNext && Unsafe.AreSame(ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next));
+        if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(effects))
+            || (!sameClock && (MemoryMarshal.AsBytes(effects).Overlaps(MemoryMarshal.AsBytes(next))
+                || MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(next)))))
+            throw new ArgumentException("Lane columns must not overlap.");
+        if (forward) ApplyRecordsForward(slot, positions, next, effects);
+        else ApplyRecordsBackward(slot, positions, next, effects);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe void ApplyRecordsForward(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
+    {
+        var duration = slot->Duration;
+        var records = slot->ForwardRecords;
+        var hasNext = !next.IsEmpty;
+        for (var i = 0; i < positions.Length; i++)
+        {
+            var position = positions[i];
+            if (position < duration)
+            {
+                ref var r = ref records[position];
+                effects[i] += r.Effect;
+                if (hasNext) next[i] = r.Next;
+            }
+            else if (hasNext) next[i] = position;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe void ApplyRecordsBackward(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
+    {
+        var duration = slot->Duration;
+        var records = slot->BackwardRecords;
+        var hasNext = !next.IsEmpty;
+        for (var i = 0; i < positions.Length; i++)
+        {
+            var position = positions[i];
+            if (position <= duration)
+            {
+                ref var r = ref records[position];
+                if (r.Next != Skipped)
+                {
+                    effects[i] += r.Effect;
+                    if (hasNext) next[i] = r.Next;
+                    continue;
+                }
+            }
+            if (hasNext) next[i] = position;
+        }
+    }
+
     internal SlotView** _views;
     internal byte* _absent;
     internal uint* _motion;
@@ -702,6 +770,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     effects[i] += r.Effect;
                     if (hasNext) next[i] = r.Next;
                 }
+                else if (hasNext) next[i] = p;
                 i++;
             }
         }
@@ -742,6 +811,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     effects[i] += records[p].Effect;
                     if (hasNext) next[i] = records[p].Next;
                 }
+                else if (hasNext) next[i] = p;
                 i++;
             }
         }
