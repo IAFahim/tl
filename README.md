@@ -403,17 +403,17 @@ One million characters, one frame per call (i9-14900K, .NET 10, Release; best of
 
 | scenario | hot ms/frame | hot ns/character | cold ms/frame | cold ns/character |
 | --- | ---: | ---: | ---: | ---: |
-| whole crowd on one timeline (a raid jumping in sync) | 0.17 | 0.17 | 0.37 | 0.37 |
-| crowd on one clock: shared-clock Apply + scalar Advance | 0.08 | 0.08 | 0.17 | 0.17 |
-| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.35 | 0.35 | 0.50 | 0.50 |
-| one looping timeline, every character on its own clock | 0.21 | 0.21 | 0.34 | 0.34 |
+| whole crowd on one timeline (a raid jumping in sync) | 0.17 | 0.17 | 0.34 | 0.34 |
+| crowd on one clock: shared-clock Apply + scalar Advance | 0.08 | 0.08 | 0.16 | 0.16 |
+| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.30 | 0.30 | 0.44 | 0.44 |
+| one looping timeline, every character on its own clock | 0.21 | 0.21 | 0.35 | 0.35 |
 | one-shot finite timeline, staggered clocks | 0.09 | 0.09 | 0.19 | 0.19 |
 | hand-written scalar loop (`effects[i] += 1f`) | 0.18 | 0.18 | 0.26 | 0.26 |
-| hand-written SIMD loop (`Vector<float>` add, scalar tail) | 0.08 | 0.08 | 0.16 | 0.16 |
-| small squads: 16 timelines × 16 characters | 0.50 | 0.50 | 0.61 | 0.61 |
-| worst case: unsorted rows, a different timeline each | 1.01 | 1.01 | 1.10 | 1.10 |
+| hand-written SIMD loop (`Vector<float>` add, scalar tail) | 0.08 | 0.08 | 0.17 | 0.17 |
+| small squads: 16 timelines × 16 characters | 0.39 | 0.39 | 0.48 | 0.48 |
+| worst case: unsorted rows, a different timeline each | 0.51 | 0.51 | 0.59 | 0.59 |
 
-A single-timeline crowd floors at 0.08 ns per character hot and 0.17 cold — the hot column is the steady state with the crowd cache-resident, the cold column is the same frame with the 9 crowds interleaved so the working set streams from DRAM. The hand-written SIMD row is the traffic floor of this machine (0.08 hot, 0.16 cold); the shared-clock crowd sits on it and the per-row-clock crowds carry 4 more bytes per character. Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 53 ms and loads in 1.6 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 64` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
+A single-timeline crowd floors at 0.08 ns per character hot and 0.16 cold — the hot column is the steady state with the crowd cache-resident, the cold column is the same frame with the 9 crowds interleaved so the working set streams from DRAM. The hand-written SIMD row is the traffic floor of this machine (0.08 hot, 0.17 cold); the shared-clock crowd sits on it and the per-row-clock crowds carry 4 more bytes per character. Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 53 ms and loads in 1.5 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 64` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
 <!-- /tl-numbers -->
 
 ### The code that gets each row
