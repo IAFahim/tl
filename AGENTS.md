@@ -90,6 +90,7 @@ The owner resumed implementation on 2026-09-12 through [issue #56](https://githu
 
 - Generated definitions are immutable static data with process lifetime. Their exact bytes remain bounded and reported.
 - The runtime data path is unmanaged. No managed arrays, registries, caches, or other GC-visible state on or reachable from playback, query, or asset storage; native blocks, value types, and function pointers only. Borrows of caller-owned columns for the ref-struct lifetime are the sole exception. The single owner handle of a native block may be a managed object holding only the pointer. This keeps the runtime loadable by ECS/Burst job compilation. Baking, import, and generator tooling may use managed types freely; their output must be unmanaged.
+- The playback path defines no managed error surface: it throws no exceptions and returns no managed types; programmer misuse fails fast. Error classes are prevented structurally at authoring or bind time, where diagnostics live.
 - Query state and component columns are caller-owned; generated queries borrow them only for the ref-struct lifetime.
 - Any future runtime-loaded definition storage requires explicit publication, ownership, identity, and safe-reclamation proofs.
 - Runtime and generated data layouts use explicit widths where they cross an ABI. Each native ABI defines size, alignment, version, ownership, failure behavior, and endianness scope.
