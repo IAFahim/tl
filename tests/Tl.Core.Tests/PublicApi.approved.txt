@@ -53,7 +53,7 @@ type Tl.LaneMovementRecord
 type Tl.Lane`2
   Method Void Advance[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean)
   Method Void Advance[TIndex,TPosition](TIndex ByRef, TPosition ByRef, Boolean)
-  Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean, System.Span`1[TEffect])
+  Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
   Method Void Apply[TIndex,TPosition,TEffect](TIndex ByRef, TPosition ByRef, Boolean, TEffect ByRef)
 type Tl.MeasuredLanes
   Method Void Dispose()

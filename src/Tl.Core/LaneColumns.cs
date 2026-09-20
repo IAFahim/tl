@@ -8,7 +8,7 @@ public static class Lane<TTrack, TClip>
     where TClip : unmanaged
 {
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public static void Apply<TIndex, TPosition, TEffect>(ReadOnlySpan<TIndex> indices, Span<TPosition> positions, bool forward, Span<TEffect> effects)
+    public static void Apply<TIndex, TPosition, TEffect>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects)
         where TIndex : struct
         where TPosition : struct
         where TEffect : struct
@@ -32,7 +32,7 @@ public static class Lane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public static void Apply<TIndex, TPosition, TEffect>(in TIndex index, ref TPosition position, bool forward, ref TEffect effect)
+    public static void Apply<TIndex, TPosition, TEffect>(in TIndex index, in TPosition position, bool forward, ref TEffect effect)
         where TIndex : struct
         where TPosition : struct
         where TEffect : struct
@@ -40,7 +40,7 @@ public static class Lane<TTrack, TClip>
         CheckSizes<TIndex, TPosition, TEffect>();
         Timeline<TTrack, TClip>.Apply(
             Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
-            MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TPosition, ushort>(ref position), 1),
+            MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TPosition, ushort>(ref Unsafe.AsRef(in position)), 1),
             forward,
             MemoryMarshal.CreateSpan(ref Unsafe.As<TEffect, float>(ref effect), 1));
     }

@@ -8,20 +8,29 @@ using var asset = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
 var positions = new ushort[1];
 var values = new float[1];
 
+ReadOnlySpan<float> golden = [7f, 14f, 21f];
+for (var frame = 0; frame < golden.Length; frame++)
+{
+    Timeline<PackageTrack, PackageClip>.Apply(asset, positions, true, values);
+    Timeline.Advance(asset, positions, true);
+    if (values[0] != golden[frame] || positions[0] != (frame + 1) % 4)
+        return 1;
+}
+
+ReadOnlySpan<float> rewind = [14f, 7f, 0f];
+for (var frame = 0; frame < rewind.Length; frame++)
+{
+    Timeline<PackageTrack, PackageClip>.Apply(asset, positions, false, values);
+    Timeline.Advance(asset, positions, false);
+    if (values[0] != rewind[frame] || positions[0] != 2 - frame)
+        return 2;
+}
+
 Timeline<PackageTrack, PackageClip>.Apply(asset, positions, true, values);
 Timeline.Advance(asset, positions, true);
 
 if (positions[0] != 1 || values[0] != 7f)
-    return 1;
-
-Timeline<PackageTrack, PackageClip>.Apply(asset, positions, false, values);
-Timeline.Advance(asset, positions, false);
-
-if (positions[0] != 0 || values[0] != 0f)
-    return 2;
-
-Timeline<PackageTrack, PackageClip>.Apply(asset, positions, true, values);
-Timeline.Advance(asset, positions, true);
+    return 7;
 
 unsafe
 {

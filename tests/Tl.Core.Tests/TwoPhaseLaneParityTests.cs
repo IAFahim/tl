@@ -68,7 +68,7 @@ public class TwoPhaseLaneParityTests
             var fusedFx = new float[] { 1.5f };
             for (var frame = 0; frame < 9; frame++)
             {
-                Lane<RoutingTrack, RoutingClip>.Apply(typedId, ref splitPos, forward, ref splitFx);
+                Lane<RoutingTrack, RoutingClip>.Apply(typedId, splitPos, forward, ref splitFx);
                 Timeline<RoutingTrack, RoutingClip>.Apply(index, fusedPos, fusedPos, forward, fusedFx);
                 Assert.Equal(fusedFx[0], splitFx.Value);
                 Lane<RoutingTrack, RoutingClip>.Advance(typedId, ref splitPos, forward);

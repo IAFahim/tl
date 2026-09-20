@@ -339,7 +339,7 @@ internal static class SteadyShapes
             ("per-entity-lane", "one entity at a time: Lane<T,C>.Apply", () => Seed(pos), () =>
             {
                 for (var i = 0; i < entityRows; i++)
-                    Lane<LaneTrack, LaneClip>.Apply(gold, ref pos[i], true, ref fx[i]);
+                    Lane<LaneTrack, LaneClip>.Apply(gold, pos[i], true, ref fx[i]);
             }),
             ("shared-clock-crowd", "crowd on one clock: shared-clock Apply + scalar Step", () => Seed(pos), () =>
             {

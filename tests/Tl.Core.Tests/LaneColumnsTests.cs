@@ -109,7 +109,7 @@ public class LaneColumnsTests
 
         for (var tick = 0; tick < Ticks; tick++)
         {
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, ref position, true, ref effect);
+            Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, position, true, ref effect);
             Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(in index, ref position, true);
             Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(spanIds, spanPositions, true, spanEffects);
             Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(spanIds, spanPositions, true);
@@ -160,7 +160,7 @@ public class LaneColumnsTests
         var position = new TestPosition(3);
         var effect = new TestEffect();
 
-        Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, ref position, true, ref effect);
+        Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, position, true, ref effect);
 
         Assert.Equal((ushort)3, position.Value);
 
