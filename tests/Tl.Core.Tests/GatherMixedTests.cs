@@ -234,4 +234,72 @@ public unsafe class GatherMixedTests
         Assert.True(expectedPositions.AsSpan().SequenceEqual(positions), "positions diverged on a holey set");
         Assert.True(((ReadOnlySpan<float>)expectedFx).SequenceEqual(fx), "effects diverged on a holey set");
     }
+
+    [Fact]
+    public void PendingIdOnAGatedChunkFailsLoudlyInsteadOfApplyingIdZeroRecords()
+    {
+        using var set = new TimelineSet<GatherTrack, GatherClip>();
+        var bound = BakeSet(set, (16, true, 1.5f), (16, true, 2f), (16, true, 3f));
+        using var gap = TimelineAsset.LoadAsset(Bake(16, true, 9f));
+        set.AddAt(200, MeasuredLanes.Measure(gap));
+        Assert.True(set.Holes > 0, "ids 3..199 stay pending below the AddAt gap");
+        Assert.True(set.IsPending(5), "id 5 is a pending id inside the bound");
+        var rows = 64;
+        var idColumn = new ushort[rows];
+        var positions = new ushort[rows];
+        for (var i = 0; i < rows; i++)
+        {
+            idColumn[i] = bound[i % bound.Length];
+            positions[i] = (ushort)(i % 16);
+        }
+        idColumn[63] = 5;
+        positions[63] = 7;
+        var fx = Seed(rows);
+        var thrown = Assert.ThrowsAny<Exception>(() => set.Apply(idColumn, positions, positions, true, fx));
+        Assert.True(thrown is NullReferenceException or AccessViolationException,
+            $"the pending row must fail loudly, got {thrown.GetType().Name}: {thrown.Message}");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PendingIdRowsHoldOnTheMixedFallbackRoute(bool forward)
+    {
+        using var set = new TimelineSet<GatherTrack, GatherClip>();
+        var bound = BakeSet(set, (16, true, 1.5f), (16, true, 2f), (16, true, 3f));
+        using var gap = TimelineAsset.LoadAsset(Bake(16, true, 9f));
+        set.AddAt(200, MeasuredLanes.Measure(gap));
+        Assert.True(set.Holes > 0, "ids 3..199 stay pending below the AddAt gap");
+        var rows = 64;
+        var idColumn = new ushort[rows];
+        var positions = new ushort[rows];
+        for (var i = 0; i < rows; i++)
+        {
+            idColumn[i] = bound[i % bound.Length];
+            positions[i] = (ushort)(i % 16);
+        }
+        idColumn[63] = 5;
+        positions[63] = 300;
+        var fx = Seed(rows);
+        var fxBefore = (float[])fx.Clone();
+        var positionsBefore = (ushort[])positions.Clone();
+        var expectedFx = (float[])fx.Clone();
+        var expectedPositions = (ushort[])positions.Clone();
+        var expectedNext = new ushort[rows];
+        var actualNext = new ushort[rows];
+        for (var i = 0; i < rows; i++)
+        {
+            if (idColumn[i] == 5)
+                continue;
+            var slot = set.View(idColumn[i]);
+            RecordWalk(slot, expectedPositions.AsSpan(i, 1), expectedNext.AsSpan(i, 1), forward, expectedFx.AsSpan(i, 1));
+        }
+        set.Apply(idColumn, positions, actualNext, forward, fx);
+        Assert.Equal(positionsBefore[63], positions[63]);
+        Assert.Equal(fxBefore[63], fx[63]);
+        Assert.Equal(positionsBefore[63], actualNext[63]);
+        Assert.True(expectedPositions.AsSpan(0, 63).SequenceEqual(positions.AsSpan(0, 63)), "bound-row positions match the oracle");
+        Assert.True(((ReadOnlySpan<float>)expectedFx.AsSpan(0, 63)).SequenceEqual(fx.AsSpan(0, 63)), "bound-row effects match the oracle");
+        Assert.True(expectedNext.AsSpan(0, 63).SequenceEqual(actualNext.AsSpan(0, 63)), "bound-row next column matches the oracle");
+    }
 }
