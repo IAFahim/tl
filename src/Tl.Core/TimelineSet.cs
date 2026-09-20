@@ -14,6 +14,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     const int InitialCapacity = 1024;
     const int BlockHeaderBytes = 64;
     const int TableBytesPerTick = 28;
+    const int RetirePadBytes = 16;
 
     internal SlotView** _views;
     internal byte* _absent;
@@ -172,24 +173,25 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         if (capacity >= needed) return;
         nuint next = capacity == 0 ? InitialCapacity : capacity;
         while (next < needed) next *= 2;
-        var allocated = NativeMemory.AlignedAlloc(next * elementBytes, 64);
-        _directoryTotal += (long)(next * elementBytes);
-        Unsafe.InitBlock(allocated, 0, checked((uint)(next * elementBytes)));
+        var bytes = next * elementBytes;
+        var allocated = NativeMemory.AlignedAlloc(bytes + RetirePadBytes, 64);
+        _directoryTotal += (long)(bytes + RetirePadBytes);
+        Unsafe.InitBlock(allocated, 0, checked((uint)(bytes + RetirePadBytes)));
         if (capacity != 0)
         {
             var oldBytes = capacity * elementBytes;
             Buffer.MemoryCopy(current, allocated, (long)oldBytes, (long)oldBytes);
-            *(void**)current = _retired;
-            _retired = current;
+            Retire((byte*)current + oldBytes, current);
         }
         current = allocated;
         capacity = next;
     }
 
-    void Retire(void* array)
+    void Retire(void* pad, void* origin)
     {
-        *(void**)array = _retired;
-        _retired = array;
+        *(void**)pad = _retired;
+        *(void**)((byte*)pad + 8) = origin;
+        _retired = pad;
     }
 
     SlotView* FindShared(MeasuredLanes measured, ushort duration, bool looping, nuint ticks, ulong hash)
@@ -211,9 +213,10 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     {
         if (_sharedCapacity != 0 && used * 4 <= _sharedCapacity * 3) return;
         nuint next = _sharedCapacity == 0 ? InitialCapacity : _sharedCapacity * 2;
-        var allocated = (SlotView**)NativeMemory.AlignedAlloc(next * (nuint)sizeof(SlotView*), 64);
-        Unsafe.InitBlock(allocated, 0, (uint)(next * (nuint)sizeof(SlotView*)));
-        _directoryTotal += (long)(next * (nuint)sizeof(SlotView*));
+        var bytes = next * (nuint)sizeof(SlotView*);
+        var allocated = (SlotView**)NativeMemory.AlignedAlloc(bytes + RetirePadBytes, 64);
+        Unsafe.InitBlock(allocated, 0, (uint)(bytes + RetirePadBytes));
+        _directoryTotal += (long)(bytes + RetirePadBytes);
         var previous = _shared;
         var previousCapacity = _sharedCapacity;
         for (nuint i = 0; i < previousCapacity; i++)
@@ -224,7 +227,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         _shared = allocated;
         _sharedCapacity = next;
         if (previousCapacity != 0)
-            Retire(previous);
+            Retire((byte*)previous + previousCapacity * (nuint)sizeof(SlotView*), previous);
     }
 
     void PlaceShared(ulong hash, SlotView* view)
@@ -411,14 +414,19 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             if (_disposed) return;
             _disposed = true;
             var shared = _shared;
-            for (nuint i = 0; i < _sharedCapacity; i++)
-                if (shared[i] != null)
-                    NativeMemory.AlignedFree(shared[i]);
+            if (shared != null)
+                for (nuint i = 0; i < _sharedCapacity; i++)
+                    if (shared[i] != null)
+                        NativeMemory.AlignedFree(shared[i]);
+            if (_views != null) NativeMemory.AlignedFree(_views);
+            if (_absent != null) NativeMemory.AlignedFree(_absent);
+            if (_motion != null) NativeMemory.AlignedFree(_motion);
+            if (shared != null) NativeMemory.AlignedFree(shared);
             var node = _retired;
             while (node != null)
             {
                 var next = *(void**)node;
-                NativeMemory.AlignedFree(node);
+                NativeMemory.AlignedFree(*(void**)((byte*)node + 8));
                 node = next;
             }
             _views = null;
@@ -435,6 +443,11 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             _holes = 0;
             _minDuration = 0;
             _pendingCursor = 0;
+            _blockCount = 0;
+            _sharedHits = 0;
+            _headerTotal = 0;
+            _tableTotal = 0;
+            _directoryTotal = 0;
         }
         finally
         {

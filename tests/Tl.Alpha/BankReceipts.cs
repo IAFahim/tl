@@ -618,6 +618,81 @@ internal static class BankReceipts
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Require(allocated == 0, $"warm retained crowd allocated {allocated} B");
         Console.WriteLine("bank-retained: shuffled 65,535-id crowd apply+step retained 0 B");
+        var beforeDispose = timelines.RetainedBytes;
+        Require(beforeDispose == timelines.RetainedBytes, "retained accounting is stable");
+        timelines.Dispose();
+        Require(timelines.RetainedBytes == 0, "dispose frees every bank-attributable byte");
+        Console.WriteLine($"bank-retained: dispose freed {beforeDispose} B, 0 bank-attributable bytes remain");
+    }
+
+    internal static unsafe void StaleSnapshot()
+    {
+        using var timelines = new TimelineSet<BankTrack, BankClip>();
+        for (var i = 0; i < 64; i++)
+        {
+            using var asset = TimelineAsset.LoadAsset(BakeBank(i + 1f, 8));
+            Require(timelines.Add(asset) == i, $"stale setup id {i}");
+        }
+        var stale = timelines._views;
+        var capturedHashes = new ulong[64];
+        for (var i = 0; i < 64; i++)
+            capturedHashes[i] = HashView(*stale[i]);
+        for (var i = 64; i < 4200; i++)
+        {
+            using var asset = TimelineAsset.LoadAsset(BakeBank(i + 1f, 8));
+            Require(timelines.Add(asset) == i, $"growth id {i}");
+        }
+        unsafe
+        {
+            for (var i = 0; i < 64; i++)
+            {
+                var view = stale[i];
+                Require(view != null && view->Duration == 8 && view->TableTicks == 9, $"stale entry {i} survives the growths");
+                Require(view->Forward[0] == i + 1f && view->Forward[8] == 0f, $"stale entry {i} tables intact");
+            }
+        }
+        const int Rows = 256;
+        var ids = new ushort[Rows];
+        var positions = new ushort[Rows];
+        var effects = new float[Rows];
+        for (var i = 0; i < Rows; i++) { ids[i] = (ushort)(i % 64); positions[i] = (ushort)(i * 3 % 8); }
+        var oracle = new float[Rows];
+        var oraclePositions = (ushort[])positions.Clone();
+        unsafe
+        {
+            for (var i = 0; i < Rows; i++)
+            {
+                var view = stale[ids[i]];
+                effects[i] += view->Forward[positions[i]];
+            }
+        }
+        timelines.Apply(ids, oraclePositions, true, oracle);
+        Require(effects.AsSpan().SequenceEqual(oracle), "stale-snapshot reads match the crowd fold");
+        Array.Clear(effects);
+        unsafe
+        {
+            for (var i = 0; i < Rows; i++)
+            {
+                var records = stale[ids[i]]->ForwardRecords;
+                var position = positions[i];
+                for (var step = 0; step < 8 && position < 8; step++)
+                {
+                    ref var record = ref records[position];
+                    effects[i] += record.Effect;
+                    position = record.Next;
+                }
+            }
+        }
+        var walkOracle = new float[Rows];
+        for (var step = 0; step < 8; step++)
+            { timelines.Apply(ids, oraclePositions, true, walkOracle); timelines.Step(ids, oraclePositions, true); }
+        Require(effects.AsSpan().SequenceEqual(walkOracle), "stale-snapshot record walk matches the folded law");
+        unsafe
+        {
+            for (var i = 0; i < 64; i++)
+                Require(HashView(*stale[i]) == capturedHashes[i] && HashView(timelines.View((ushort)i)) == capturedHashes[i], $"view {i} byte-stable through the growths");
+        }
+        Console.WriteLine("bank-stale: a directory snapshot captured before three doublings still folds 64 ids bit-exactly with byte-stable blocks");
     }
 
     static byte[] BakeBank(float amount, ushort end)

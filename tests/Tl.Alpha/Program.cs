@@ -37,6 +37,12 @@ if (args is ["--bank-workload"])
     return 0;
 }
 
+if (args is ["--bank-stale"])
+{
+    BankReceipts.StaleSnapshot();
+    return 0;
+}
+
 Require(args.Length == 0);
 DataAuthoredReceipts.All();
 DataAuthoredReceipts.Memory();
