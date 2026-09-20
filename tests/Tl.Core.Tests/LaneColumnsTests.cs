@@ -83,6 +83,7 @@ public class LaneColumnsTests
         for (var tick = 0; tick < Ticks; tick++)
         {
             Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(ids, positions, true, effects);
+            Lane<LaneColumnsTrack, LaneColumnsClip>.Step(ids, positions, true);
             Timeline<LaneColumnsTrack, LaneColumnsClip>.Apply(rawIds, rawPos, true, rawFx);
             Timeline.Step(rawIds, rawPos, true);
         }
@@ -109,7 +110,9 @@ public class LaneColumnsTests
         for (var tick = 0; tick < Ticks; tick++)
         {
             Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, ref position, true, ref effect);
+            Lane<LaneColumnsTrack, LaneColumnsClip>.Step(in index, ref position, true);
             Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(spanIds, spanPositions, true, spanEffects);
+            Lane<LaneColumnsTrack, LaneColumnsClip>.Step(spanIds, spanPositions, true);
         }
 
         Assert.Equal(spanPositions[0].Value, position.Value);
@@ -117,28 +120,55 @@ public class LaneColumnsTests
     }
 
     [Fact]
-    public void StepOnlyMatchesFusedPositions()
+    public void ApplyLeavesPositionsUntouchedUntilStep()
     {
         ushort asset = BakeJump();
         var ids = new TestIndex[N];
-        var stepped = new TestPosition[N];
-        var fused = new TestPosition[N];
+        var positions = new TestPosition[N];
         var effects = new TestEffect[N];
         for (var i = 0; i < N; i++)
         {
             ids[i] = new TestIndex(asset);
-            stepped[i] = new TestPosition((ushort)(i % Duration));
-            fused[i] = new TestPosition((ushort)(i % Duration));
+            positions[i] = new TestPosition((ushort)(i % Duration));
         }
 
-        for (var tick = 0; tick < Ticks; tick++)
-        {
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Step(ids, stepped, true);
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(ids, fused, true, effects);
-        }
+        Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(ids, positions, true, effects);
 
         for (var i = 0; i < N; i++)
-            Assert.Equal(fused[i].Value, stepped[i].Value);
+            Assert.Equal((ushort)(i % Duration), positions[i].Value);
+
+        var rawIds = new ushort[N];
+        var rawPos = new ushort[N];
+        for (var i = 0; i < N; i++)
+        {
+            rawIds[i] = asset;
+            rawPos[i] = (ushort)(i % Duration);
+        }
+
+        Lane<LaneColumnsTrack, LaneColumnsClip>.Step(ids, positions, true);
+        Timeline.Step(rawIds, rawPos, true);
+
+        for (var i = 0; i < N; i++)
+            Assert.Equal(rawPos[i], positions[i].Value);
+    }
+
+    [Fact]
+    public void PerEntityApplyLeavesPositionUntouchedUntilStep()
+    {
+        ushort asset = BakeJump();
+        var index = new TestIndex(asset);
+        var position = new TestPosition(3);
+        var effect = new TestEffect();
+
+        Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, ref position, true, ref effect);
+
+        Assert.Equal((ushort)3, position.Value);
+
+        Lane<LaneColumnsTrack, LaneColumnsClip>.Step(in index, ref position, true);
+
+        var rawPos = new ushort[] { 3 };
+        Timeline.Step(new ushort[] { asset }, rawPos, true);
+        Assert.Equal(rawPos[0], position.Value);
     }
 
     [Fact]
