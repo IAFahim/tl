@@ -163,6 +163,31 @@ public static unsafe class Timeline<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply<TIndex, TPosition, TEffect>(ReadOnlySpan<int> rows, ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects)
+        where TIndex : struct
+        where TPosition : struct
+        where TEffect : struct
+    {
+        CheckSizes<TIndex, TPosition, TEffect>();
+        Bank().ApplyRows(
+            rows,
+            MemoryMarshal.Cast<TIndex, ushort>(indices),
+            MemoryMarshal.Cast<TPosition, ushort>(positions),
+            forward,
+            MemoryMarshal.Cast<TEffect, float>(effects));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Advance<TIndex, TPosition>(ReadOnlySpan<int> rows, ReadOnlySpan<TIndex> indices, Span<TPosition> positions, bool forward)
+        where TIndex : struct
+        where TPosition : struct
+    {
+        if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
+            ThrowColumnSizes();
+        Bank().AdvanceRows(rows, MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Advance<TIndex, TPosition>(in TIndex index, ref TPosition position, bool forward)
         where TIndex : struct
         where TPosition : struct

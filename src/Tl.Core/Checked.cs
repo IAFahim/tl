@@ -61,6 +61,38 @@ internal static class Checked
     {
         if (next.Length != positions.Length) Fail.ColumnLength(positions.Length, next.Length);
     }
+
+    [Conditional("TL_CHECKED")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Rows(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects)
+    {
+        if (effects.Length != positions.Length) Fail.ColumnLength(positions.Length, effects.Length);
+        if (indices.Length != positions.Length) Fail.ColumnLength(positions.Length, indices.Length);
+        if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(effects))) Fail.ColumnOverlap();
+        if (MemoryMarshal.AsBytes(indices).Overlaps(MemoryMarshal.AsBytes(positions))
+            || MemoryMarshal.AsBytes(indices).Overlaps(MemoryMarshal.AsBytes(effects))) Fail.ColumnOverlap();
+        RowBounds(rows, indices);
+    }
+
+    [Conditional("TL_CHECKED")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Rows(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, Span<ushort> positions)
+    {
+        if (indices.Length != positions.Length) Fail.ColumnLength(positions.Length, indices.Length);
+        if (MemoryMarshal.AsBytes(indices).Overlaps(MemoryMarshal.AsBytes(positions))) Fail.ColumnOverlap();
+        RowBounds(rows, indices);
+    }
+
+    [Conditional("TL_CHECKED")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static void RowBounds(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> columns)
+    {
+        if (MemoryMarshal.AsBytes(rows).Overlaps(MemoryMarshal.AsBytes(columns))) Fail.ColumnOverlap();
+        var count = columns.Length;
+        for (var i = 0; i < rows.Length; i++)
+            if ((uint)rows[i] >= (uint)count)
+                Fail.RowOutsideColumns(i, rows[i], count);
+    }
 }
 
 internal static class Fail
@@ -72,6 +104,10 @@ internal static class Fail
     [DoesNotReturn]
     internal static void ColumnOverlap()
         => throw new ArgumentException("Lane columns must not overlap.");
+
+    [DoesNotReturn]
+    internal static void RowOutsideColumns(int batch, int row, int count)
+        => throw new ArgumentException($"Row {batch} selects entity {row}, outside columns of length {count}.");
 
     [DoesNotReturn]
     internal static void Disposed()
