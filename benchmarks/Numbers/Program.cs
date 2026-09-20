@@ -436,7 +436,7 @@ internal static class SteadyShapes
     {
         var table = new Rec[Host.Duration + 1];
         for (var p = 0; p < Host.Duration; p++)
-            table[p] = new Rec { Effect = p < 614 ? 2.5f : -1f, Next = (ushort)(p + 1 == Host.Duration ? 0 : p + 1) };
+            table[p] = new Rec { Effect = p < 614 ? 2.5f : -1f, Next = (ushort)(p + 1 == Host.Duration ? 0 : p + 1), Pad = 0 };
         return table;
     }
 }
