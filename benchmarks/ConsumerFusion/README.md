@@ -46,22 +46,11 @@ Calling that body separately for each active track would change both the callbac
 
 Timeline eligibility is still restricted to the supported Pulse payload, track storage, blend law, and literal authoring grammar. The operation contract accepts unmanaged input and result types; an operation body may still allocate or access external state. Zero allocation is a measured property of these consumers, not a consequence of using the interface.
 
-## Reproduction
+## Receipt
 
-From this worktree root:
+Closed receipt (#300 finding 3.2, owner decision of September 20, 2026, delegated on the #142 trail). The harness measured the per-work operation contract against the interpreter and normal compiled references for the Sum, State, and Effect consumers over sequential, seeded-random, and repeated tick streams: 54 baseline cases plus the 18-case batch-inlining follow-up, each invocation processing 65,536 ticks from fresh result/playback state with scalar and batch arms seeing identical ticks, inputs, and effects. Every fused arm was faster than both matched references, every MemoryDiagnoser result read 0 B/tick, and both the baseline and the inlined candidate passed 215,273 exact comparisons under JIT and NativeAOT.
 
-```sh
-python3 benchmarks/ConsumerFusion/prepare.py --inline-batch
-taskset -c 4 env NuGetAudit=false dotnet benchmarks/ConsumerFusion/bin/Release/net10.0/ConsumerFusion.dll --filter '*ConsumerBenchmarks*' --artifacts benchmarks/ConsumerFusion/results/measurement
-```
-
-The selected candidate requests inlining of the batch methods. Omit --inline-batch to reproduce the original baseline. Run the benchmark command only after preparation succeeds. Preparation regenerates the source, hashes generated and consumer code, forces a rebuild, and executes verification. Command-local NuGetAudit=false accommodates this environment; it is not added to published package settings. CPU arguments to prepare.py are configurable. Benchmarks require logical CPU 4 on the measurement machine; worker builds use other cores and pause during timing.
-
-Each invocation processes 65,536 ticks from fresh result/playback state and returns every observable result field plus full Playback. Inputs rotate through four Scale/Bias combinations every eight ticks in all arms. Sequential, seeded random, and repeated streams use the v0.5 tick distributions. Scalar and batch arms see the same ticks, inputs, and effects. Setup checks receipts and exercises all arms for five seconds before sixteen BenchmarkDotNet warmup and twelve measurement iterations. Requested iteration duration is 250 ms; full JSON and MemoryDiagnoser results are retained.
-
-The retained generated-kernel path has no managed payload/work arrays. Authoring, generation, benchmark setup arrays, and the runtime reference engine have separate allocation/lifetime costs. The current eight-byte little-endian Playback construction convention remains an experimental ABI dependency.
-
-The production src directory remains unchanged. All experimental source and emitted code has a real byte cost, which must be included if promoted under the 200,000-byte source budget.
+Its reproduction tooling was removed under issue #207: the `ConsumerGenerate` generator step is gone, no buildable project remains, and `prepare.py` is retained only as an inert record of the chain. The results stand as receipts — the tables below, the correctness and machine-code proofs, and the retained files under `results/` are the measurement record and have not been re-run since.
 
 ## Measured baseline
 
