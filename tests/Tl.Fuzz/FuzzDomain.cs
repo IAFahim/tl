@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Tl;
 
 namespace Tl.Fuzz;
@@ -13,9 +12,12 @@ public readonly record struct FuzzTrack(float Scale) : IBlend<FuzzClip>
 
 public static unsafe class FuzzPairs
 {
-    [ModuleInitializer]
-    internal static void Install()
+    static bool _installed;
+
+    public static void Install()
     {
+        if (_installed) return;
+        _installed = true;
         PairRuntime<FuzzTrack, FuzzClip>.Consume(&Execute, &BindFloat);
         PairRuntime<FuzzDomain.FuzzJsonTrack, FuzzDomain.FuzzJsonClip>.Consume(&ExecuteJson, &BindFloat);
     }

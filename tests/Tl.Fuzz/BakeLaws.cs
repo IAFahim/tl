@@ -7,6 +7,7 @@ namespace Tl.Fuzz.Laws;
 
 public unsafe class BakeLaws
 {
+    static BakeLaws() => FuzzPairs.Install();
     const string SingleTrackJson = """
     {"name":"laws_asset","duration":9,"loop":true,"tracks":[
       {"name":"t1","namespace":"FuzzDomain","type":"FuzzJsonTrack","data":{"Scale":0.5},"clips":[

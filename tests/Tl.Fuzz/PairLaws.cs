@@ -5,6 +5,7 @@ namespace Tl.Fuzz.Laws;
 
 public unsafe class PairLaws
 {
+    static PairLaws() => FuzzPairs.Install();
     [Fact]
     public void FoldMatchesTheClipModelForEveryPosition()
     {
