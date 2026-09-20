@@ -273,6 +273,8 @@ public static unsafe class Play
                     return ([], "a timeline entry baked to zero bytes");
                 packages.Add(baked);
             }
+            if (packages.Count == 0)
+                return ([], "the data pane holds no timelines; write one timeline document per array element");
             return ([.. packages], "");
         }
         catch (JsonException ex)
@@ -338,20 +340,20 @@ public static unsafe class Play
         {
             types = [.. ex.Types.Where(t => t is not null)!];
         }
-        MethodInfo? single = null;
-        MethodInfo? batch = null;
+        var singles = new List<MethodInfo>();
+        var batches = new List<MethodInfo>();
         foreach (var type in types)
             foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
                 if (method.Name != "Run") continue;
                 var parameters = method.GetParameters();
                 if (parameters.Length != 1) continue;
-                if (parameters[0].ParameterType == typeof(byte[])) single = method;
-                else if (parameters[0].ParameterType == typeof(byte[][])) batch = method;
+                if (parameters[0].ParameterType == typeof(byte[])) singles.Add(method);
+                else if (parameters[0].ParameterType == typeof(byte[][])) batches.Add(method);
             }
         var entries = new List<MethodInfo>();
-        if (single is not null) entries.Add(single);
-        if (batch is not null) entries.Add(batch);
+        entries.AddRange(singles);
+        entries.AddRange(batches);
         if (entries.Count == 0)
             throw new InvalidOperationException("the compiled code has no public static Run(byte[] tlb) or Run(byte[][] tlbs) entry; add a playback entry that takes the baked timelines");
         if (entries.Count > 1)
