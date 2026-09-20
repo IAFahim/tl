@@ -206,7 +206,7 @@ var receipt = new Receipt(
         scenario.WarmupFrames,
         scenario.Allocated))],
     steady ? new SteadyReceipt(steadyRows, steadyShapes!, [.. armReceipts]) : null,
-    new BakeReceipt(corpusBytes, Path.GetFileName(corpusPath), bakeMs, loadMs),
+    only is null ? new BakeReceipt(corpusBytes, Path.GetFileName(corpusPath), bakeMs, loadMs) : null,
     checksum,
     new TieringReceipt(
         Environment.GetEnvironmentVariable("DOTNET_TieredCompilation"),
@@ -225,9 +225,16 @@ foreach (var scenario in scenarios)
         $"scenario/{scenario.Id}: hot {Format(scenario.HotMs)} ms ({Format(scenario.HotMs * 1_000_000.0 / rows)} ns/char), " +
         $"cold {Format(scenario.ColdMs)} ms ({Format(scenario.ColdMs * 1_000_000.0 / rows)} ns/char), " +
         $"{scenario.Allocated} B, warmup {scenario.WarmupMs.ToString("0", CultureInfo.InvariantCulture)} ms / {scenario.WarmupFrames} frames");
-Console.WriteLine($"bake/corpus-mb: {corpusBytes.ToString("0.0#", CultureInfo.InvariantCulture)}");
-Console.WriteLine($"bake/total-ms: {bakeMs.ToString("0.0#", CultureInfo.InvariantCulture)}");
-Console.WriteLine($"load/ms: {loadMs.ToString("0.0#", CultureInfo.InvariantCulture)}");
+if (only is null)
+{
+    Console.WriteLine($"bake/corpus-mb: {corpusBytes.ToString("0.0#", CultureInfo.InvariantCulture)}");
+    Console.WriteLine($"bake/total-ms: {bakeMs.ToString("0.0#", CultureInfo.InvariantCulture)}");
+    Console.WriteLine($"load/ms: {loadMs.ToString("0.0#", CultureInfo.InvariantCulture)}");
+}
+else
+{
+    Console.WriteLine($"bake: skipped (--only {string.Join(',', only)})");
+}
 Console.WriteLine($"sink/checksum: {checksum}");
 
 if (outPath is not null)
@@ -555,7 +562,7 @@ internal sealed record Receipt(
     int Reps,
     ScenarioReceipt[] Scenarios,
     SteadyReceipt? Steady,
-    BakeReceipt Bake,
+    BakeReceipt? Bake,
     ulong Checksum,
     TieringReceipt Tiering,
     string GeneratedUtc,
