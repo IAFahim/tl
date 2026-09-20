@@ -20,7 +20,7 @@ public sealed class ConsumerAbiTests
         public struct Mass { public float Value; }
         public readonly struct OversizedJob : ITrack<Track, Clip>
         {
-            public static void Execute(in Frame<Track, Clip> frame, in Mass first, in Mass second, ref Mass third, ref Mass fourth, in Mass fifth) { }
+            public static void OnActive(in Frame<Track, Clip> frame, in Mass first, in Mass second, ref Mass third, ref Mass fourth, in Mass fifth) { }
         }
         """;
 
@@ -38,7 +38,7 @@ public sealed class ConsumerAbiTests
         public struct Delta { public float Value; }
         public readonly struct QuadJob : ITrack<QuadTrack, QuadClip>
         {
-            public static void Execute(in Frame<QuadTrack, QuadClip> frame, in Alpha first, in Beta second, ref Gamma third, ref Delta fourth) { }
+            public static void OnActive(in Frame<QuadTrack, QuadClip> frame, in Alpha first, in Beta second, ref Gamma third, ref Delta fourth) { }
         }
         """;
 
@@ -48,18 +48,18 @@ public sealed class ConsumerAbiTests
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         internal static void Install()
         {
-        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&Execute_QuadJob, &ExecuteRange_QuadJob, &Bind_QuadJob);
+        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&OnActive_QuadJob, &OnActiveRange_QuadJob, &Bind_QuadJob);
         }
-        private static void Execute_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
+        private static void OnActive_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
         {
         global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
         var @first = (global::Domain.Alpha*)__tlColumns[0];
         var @second = (global::Domain.Beta*)__tlColumns[1];
         var @third = (global::Domain.Gamma*)__tlColumns[2];
         var @fourth = (global::Domain.Delta*)__tlColumns[3];
-        global::Domain.QuadJob.Execute(in __tlTyped, in @first[__tlRow], in @second[__tlRow], ref @third[__tlRow], ref @fourth[__tlRow]);
+        global::Domain.QuadJob.OnActive(in __tlTyped, in @first[__tlRow], in @second[__tlRow], ref @third[__tlRow], ref @fourth[__tlRow]);
         }
-        private static void ExecuteRange_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
+        private static void OnActiveRange_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
         {
         global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
         var @first = (global::Domain.Alpha*)__tlColumns[0];
@@ -67,7 +67,7 @@ public sealed class ConsumerAbiTests
         var @third = (global::Domain.Gamma*)__tlColumns[2];
         var @fourth = (global::Domain.Delta*)__tlColumns[3];
         for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)
-        global::Domain.QuadJob.Execute(in __tlTyped, in @first[__tlRow], in @second[__tlRow], ref @third[__tlRow], ref @fourth[__tlRow]);
+        global::Domain.QuadJob.OnActive(in __tlTyped, in @first[__tlRow], in @second[__tlRow], ref @third[__tlRow], ref @fourth[__tlRow]);
         }
         private static void Bind_QuadJob(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)
         {

@@ -162,12 +162,12 @@ internal static class TlbIntrospection
 
     private static string[] OutputTypes(Type jobType, Type trackType, Type clipType)
     {
-        var execute = jobType.GetMethod("Execute", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-        if (execute is null)
+        var onActive = jobType.GetMethod("OnActive", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        if (onActive is null)
             return [];
         var frame = typeof(Frame<,>).MakeGenericType(trackType, clipType);
         var outputs = new List<string>();
-        foreach (var parameter in execute.GetParameters())
+        foreach (var parameter in onActive.GetParameters())
         {
             if (!parameter.ParameterType.IsByRef)
                 continue;

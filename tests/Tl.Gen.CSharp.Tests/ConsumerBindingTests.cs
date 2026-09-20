@@ -23,7 +23,7 @@ public sealed class ConsumerBindingTests
         public struct Health { public float Value; }
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
-            public static void Execute(in Frame<DamageTrack, DamageClip> frame, in Resistance resistance, ref Health health)
+            public static void OnActive(in Frame<DamageTrack, DamageClip> frame, in Resistance resistance, ref Health health)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier * resistance.Scale;
                 health.Value += frame.IsBackward ? amount : -amount;
@@ -37,7 +37,7 @@ public sealed class ConsumerBindingTests
         }
         public readonly struct ApplyHeal : ITrack<HealTrack, HealClip>
         {
-            public static void Execute(in Frame<HealTrack, HealClip> frame, in Resistance resistance, ref Health health)
+            public static void OnActive(in Frame<HealTrack, HealClip> frame, in Resistance resistance, ref Health health)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier * resistance.Scale;
                 health.Value += frame.IsBackward ? -amount : amount;
@@ -57,7 +57,7 @@ public sealed class ConsumerBindingTests
         public struct Armor { public float Value; }
         public readonly struct ApplyBuff : ITrack<BuffTrack, BuffClip>
         {
-            public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref Armor armor) { }
+            public static void OnActive(in Frame<BuffTrack, BuffClip> frame, ref Armor armor) { }
         }
         """;
 
@@ -72,15 +72,15 @@ public sealed class ConsumerBindingTests
         var install = binding[..installEnd];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&Execute_ApplyDamage, &ExecuteRange_ApplyDamage, &Bind_ApplyDamage);",
-            "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.Consume(&Execute_ApplyHeal, &ExecuteRange_ApplyHeal, &Bind_ApplyHeal);",
+            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&OnActive_ApplyDamage, &OnActiveRange_ApplyDamage, &Bind_ApplyDamage);",
+            "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.Consume(&OnActive_ApplyHeal, &OnActiveRange_ApplyHeal, &Bind_ApplyHeal);",
         ], install.Split('\n')[5..^1]);
-        Assert.Contains("private static void Execute_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
-        Assert.Contains("private static void ExecuteRange_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)", binding);
+        Assert.Contains("private static void OnActive_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
+        Assert.Contains("private static void OnActiveRange_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)", binding);
         Assert.Contains("global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);", binding);
         Assert.Contains("var @resistance = (global::Domain.Resistance*)__tlColumns[0];", binding);
         Assert.Contains("var @health = (global::Domain.Health*)__tlColumns[1];", binding);
-        Assert.Contains("global::Domain.ApplyDamage.Execute(in __tlTyped, in @resistance[__tlRow], ref @health[__tlRow]);", binding);
+        Assert.Contains("global::Domain.ApplyDamage.OnActive(in __tlTyped, in @resistance[__tlRow], ref @health[__tlRow]);", binding);
         Assert.Contains("for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)", binding);
         Assert.Contains("private static void Bind_ApplyDamage(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)", binding);
         Assert.Contains("var __tlIdx0 = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<global::Domain.Resistance>.Value);", binding);
@@ -94,7 +94,7 @@ public sealed class ConsumerBindingTests
         var (sources, diagnostics) = GenerateWithDiagnostics(StandaloneSource);
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
-        Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&Execute_ApplyBuff, &ExecuteRange_ApplyBuff, &Bind_ApplyBuff);", binding);
+        Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&OnActive_ApplyBuff, &OnActiveRange_ApplyBuff, &Bind_ApplyBuff);", binding);
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class ConsumerBindingTests
             }
             public readonly struct GenericJob<T> : ITrack<DamageTrack, DamageClip>
             {
-                public static void Execute(in Frame<DamageTrack, DamageClip> frame) { }
+                public static void OnActive(in Frame<DamageTrack, DamageClip> frame) { }
             }
             """;
         var (_, diagnostics) = GenerateWithDiagnostics(source);
@@ -132,7 +132,7 @@ public sealed class ConsumerBindingTests
             }
             public readonly struct GenericJob<T> : ITrack<DamageTrack, DamageClip>
             {
-                public static void Execute(in Frame<DamageTrack, DamageClip> frame) { }
+                public static void OnActive(in Frame<DamageTrack, DamageClip> frame) { }
             }
             """;
         var compilation = Compilation(source);
@@ -159,7 +159,7 @@ public sealed class ConsumerBindingTests
             }
             public readonly struct Job : ITrack<ManagedTrack, Clip>
             {
-                public static void Execute(in Frame<ManagedTrack, Clip> frame) { }
+                public static void OnActive(in Frame<ManagedTrack, Clip> frame) { }
             }
             """;
         var (_, diagnostics) = GenerateWithDiagnostics(source);
@@ -178,7 +178,7 @@ public sealed class ConsumerBindingTests
             public readonly record struct Track(float Multiplier);
             public readonly struct Job : ITrack<Track, Clip>
             {
-                public static void Execute(in Frame<Track, Clip> frame) { }
+                public static void OnActive(in Frame<Track, Clip> frame) { }
             }
             """;
         var (_, diagnostics) = GenerateWithDiagnostics(source);
@@ -203,8 +203,8 @@ public sealed class ConsumerBindingTests
             public struct Health { public float Value; }
             public readonly struct DualJob : ITrack<DualTrack, BetaClip>, ITrack<DualTrack, AlphaClip>
             {
-                public static void Execute(in Frame<DualTrack, AlphaClip> frame, ref Health health) { }
-                public static void Execute(in Frame<DualTrack, BetaClip> frame, ref Health health) { }
+                public static void OnActive(in Frame<DualTrack, AlphaClip> frame, ref Health health) { }
+                public static void OnActive(in Frame<DualTrack, BetaClip> frame, ref Health health) { }
             }
             """;
         var (sources, diagnostics) = GenerateWithDiagnostics(source);
@@ -214,12 +214,12 @@ public sealed class ConsumerBindingTests
         var install = binding[..installEnd];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&Execute_DualJob, &ExecuteRange_DualJob, &Bind_DualJob);",
-            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&Execute_DualJob_, &ExecuteRange_DualJob_, &Bind_DualJob_);",
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&OnActive_DualJob, &OnActiveRange_DualJob, &Bind_DualJob);",
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&OnActive_DualJob_, &OnActiveRange_DualJob_, &Bind_DualJob_);",
         ], install.Split('\n')[5..^1]);
         Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.AlphaClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);", binding);
         Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.BetaClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);", binding);
-        Assert.Contains("global::Domain.DualJob.Execute(in __tlTyped, ref @health[__tlRow]);", binding);
+        Assert.Contains("global::Domain.DualJob.OnActive(in __tlTyped, ref @health[__tlRow]);", binding);
     }
 
     [Fact]

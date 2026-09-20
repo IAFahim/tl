@@ -22,7 +22,7 @@ public sealed class BakeReaderTests
         public readonly record struct Entity(int Id);
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
-            public static void Execute(in Frame<DamageTrack, DamageClip> frame) { }
+            public static void OnActive(in Frame<DamageTrack, DamageClip> frame) { }
         }
         """;
 
@@ -62,7 +62,7 @@ public sealed class BakeReaderTests
             public sealed class World { public int Marks; }
             public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>, IBake<ApplyDamage, World>
             {
-                public static void Execute(in Frame<DamageTrack, DamageClip> frame) { }
+                public static void OnActive(in Frame<DamageTrack, DamageClip> frame) { }
                 public static void Bake(ApplyDamage consumer, World world) { world.Marks++; }
             }
             """;
@@ -158,8 +158,8 @@ public sealed class BakeReaderTests
             public sealed class World { public int Marks; }
             public readonly struct DualJob : ITrack<DualTrack, AlphaClip>, ITrack<DualTrack, BetaClip>, IBake<DualJob, World>
             {
-                public static void Execute(in Frame<DualTrack, AlphaClip> frame) { }
-                public static void Execute(in Frame<DualTrack, BetaClip> frame) { }
+                public static void OnActive(in Frame<DualTrack, AlphaClip> frame) { }
+                public static void OnActive(in Frame<DualTrack, BetaClip> frame) { }
                 public static void Bake(DualJob consumer, World world) { world.Marks++; }
             }
             """;
@@ -219,8 +219,8 @@ public sealed class BakeReaderTests
             public sealed class World { public int Marks; }
             public readonly struct DualJob : ITrack<DualTrack, AlphaClip>, ITrack<DualTrack, BetaClip>, IBake<DualJob, World>
             {
-                public static void Execute(in Frame<DualTrack, AlphaClip> frame) { }
-                public static void Execute(in Frame<DualTrack, BetaClip> frame) { }
+                public static void OnActive(in Frame<DualTrack, AlphaClip> frame) { }
+                public static void OnActive(in Frame<DualTrack, BetaClip> frame) { }
                 public static void Bake(DualJob consumer, World world) { world.Marks++; }
             }
             """;
@@ -259,7 +259,7 @@ public sealed class BakeReaderTests
         var install = binding[..binding.IndexOf("}", StringComparison.Ordinal)];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&Execute_ApplyDamage, &ExecuteRange_ApplyDamage, &Bind_ApplyDamage);",
+            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&OnActive_ApplyDamage, &OnActiveRange_ApplyDamage, &Bind_ApplyDamage);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_NarrowBake, global::Tl.TypeKey<global::Domain.Entity>.Value);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_AlphaBake, global::Tl.TypeKey<global::Domain.World>.Value);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ZetaBake, global::Tl.TypeKey<global::Domain.World>.Value);",
@@ -457,7 +457,7 @@ public sealed class BakeReaderTests
             public sealed class World { public int Marks; }
             public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
             {
-                public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref Health health) { }
+                public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref Health health) { }
             }
             public readonly struct ApplyDamageBake : IBake<ApplyDamage, World>
             {
@@ -476,21 +476,21 @@ public sealed class BakeReaderTests
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         internal static void Install()
         {
-        global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&Execute_ApplyDamage, &ExecuteRange_ApplyDamage, &Bind_ApplyDamage);
+        global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&OnActive_ApplyDamage, &OnActiveRange_ApplyDamage, &Bind_ApplyDamage);
         global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ApplyDamageBake, global::Tl.TypeKey<global::Domain.World>.Value);
         }
-        private static void Execute_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
+        private static void OnActive_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
         {
         global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
         var @health = (global::Domain.Health*)__tlColumns[0];
-        global::Domain.ApplyDamage.Execute(in __tlTyped, ref @health[__tlRow]);
+        global::Domain.ApplyDamage.OnActive(in __tlTyped, ref @health[__tlRow]);
         }
-        private static void ExecuteRange_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
+        private static void OnActiveRange_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
         {
         global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
         var @health = (global::Domain.Health*)__tlColumns[0];
         for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)
-        global::Domain.ApplyDamage.Execute(in __tlTyped, ref @health[__tlRow]);
+        global::Domain.ApplyDamage.OnActive(in __tlTyped, ref @health[__tlRow]);
         }
         private static void Bind_ApplyDamage(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)
         {

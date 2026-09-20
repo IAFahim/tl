@@ -63,7 +63,7 @@ public static class JobReader
     {
         public JobDefinition? Execute(INamedTypeSymbol type, ITypeSymbol frame, ISymbol owner, SyntaxNode site)
         {
-            var candidates = type.GetMembers("Execute").OfType<IMethodSymbol>().Where(method => !method.IsImplicitlyDeclared
+            var candidates = type.GetMembers("OnActive").OfType<IMethodSymbol>().Where(method => !method.IsImplicitlyDeclared
                 && method.IsStatic && method.ReturnsVoid && method.Arity == 0 && method.MethodKind == MethodKind.Ordinary
                 && method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In
                 && Symbols.Same(method.Parameters[0].Type, frame)
@@ -71,12 +71,12 @@ public static class JobReader
             var method = candidates.Length == 1 ? candidates[0] : null;
             if (method is null)
             {
-                Symbols.Error(errors, site, "TLGEN66", $"'{Symbols.Name(type)}' must declare one accessible static void Execute beginning with in {Symbols.Name(frame)}.");
+                Symbols.Error(errors, site, "TLGEN66", $"'{Symbols.Name(type)}' must declare one accessible static void OnActive beginning with in {Symbols.Name(frame)}.");
                 return null;
             }
             if (method.Parameters.Length > 5)
             {
-                Symbols.Error(errors, Site(method.Parameters[5], site), "TLGEN68", $"'{Symbols.Name(type)}.Execute' declares {method.Parameters.Length - 1} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
+                Symbols.Error(errors, Site(method.Parameters[5], site), "TLGEN68", $"'{Symbols.Name(type)}.OnActive' declares {method.Parameters.Length - 1} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
                 return null;
             }
             var slots = new List<TimelineSlot>();
@@ -84,7 +84,7 @@ public static class JobReader
             {
                 if (parameter.RefKind is not (RefKind.In or RefKind.Ref) || parameter.IsOptional || parameter.IsParams || !parameter.Type.IsUnmanagedType)
                 {
-                    Symbols.Error(errors, Site(parameter, site), "TLGEN67", $"Every gameplay parameter of '{Symbols.Name(type)}.Execute' must be a required unmanaged in or ref parameter; out is unsupported.");
+                    Symbols.Error(errors, Site(parameter, site), "TLGEN67", $"Every gameplay parameter of '{Symbols.Name(type)}.OnActive' must be a required unmanaged in or ref parameter; out is unsupported.");
                     return null;
                 }
                 slots.Add(new(parameter.Name, Symbols.Name(parameter.Type), parameter.RefKind == RefKind.In ? SlotMode.Input : SlotMode.Reference));

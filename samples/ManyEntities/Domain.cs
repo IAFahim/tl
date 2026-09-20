@@ -22,18 +22,18 @@ public readonly record struct WindowClip(int Amount);
 
 public struct MoveJob : ITrack<MoveTrack, MoveClip>
 {
-    public static void Execute(in Frame<MoveTrack, MoveClip> f, ref float value)
+    public static void OnActive(in Frame<MoveTrack, MoveClip> f, ref float value)
         => value += f.Clip.Amount * f.Track.Mult + f.TimelineTick;
 }
 
 public struct PulseJob : ITrack<PulseTrack, PulseClip>
 {
-    public static void Execute(in Frame<PulseTrack, PulseClip> f, ref float value)
+    public static void OnActive(in Frame<PulseTrack, PulseClip> f, ref float value)
         => value += f.Clip.Amount * f.Track.Power;
 }
 
 public struct WindowJob : ITrack<WindowTrack, WindowClip>
 {
-    public static void Execute(in Frame<WindowTrack, WindowClip> f, ref float value)
+    public static void OnActive(in Frame<WindowTrack, WindowClip> f, ref float value)
         => value += f.Clip.Amount * f.Track.Power;
 }

@@ -12,7 +12,7 @@ internal readonly record struct BankTrack(float Scale) : IBlend<BankClip>
 
 internal readonly struct BankJob : ITrack<BankTrack, BankClip>
 {
-    public static void Execute(in Frame<BankTrack, BankClip> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack, BankClip> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
@@ -26,7 +26,7 @@ internal readonly record struct BankDamageTrack(float Multiplier) : IBlend<BankD
 
 internal readonly struct BankDamageJob : ITrack<BankDamageTrack, BankDamageClip>
 {
-    public static void Execute(in Frame<BankDamageTrack, BankDamageClip> frame, ref float vitality)
+    public static void OnActive(in Frame<BankDamageTrack, BankDamageClip> frame, ref float vitality)
         => vitality -= frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
@@ -105,193 +105,193 @@ internal readonly record struct BankTrack<K>(float Scale) : IBlend<BankClip<K>> 
 
 internal readonly struct JobW0 : ITrack<BankTrack<W0>, BankClip<W0>>
 {
-    public static void Execute(in Frame<BankTrack<W0>, BankClip<W0>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W0>, BankClip<W0>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW1 : ITrack<BankTrack<W1>, BankClip<W1>>
 {
-    public static void Execute(in Frame<BankTrack<W1>, BankClip<W1>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W1>, BankClip<W1>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW2 : ITrack<BankTrack<W2>, BankClip<W2>>
 {
-    public static void Execute(in Frame<BankTrack<W2>, BankClip<W2>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W2>, BankClip<W2>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW3 : ITrack<BankTrack<W3>, BankClip<W3>>
 {
-    public static void Execute(in Frame<BankTrack<W3>, BankClip<W3>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W3>, BankClip<W3>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW4 : ITrack<BankTrack<W4>, BankClip<W4>>
 {
-    public static void Execute(in Frame<BankTrack<W4>, BankClip<W4>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W4>, BankClip<W4>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW5 : ITrack<BankTrack<W5>, BankClip<W5>>
 {
-    public static void Execute(in Frame<BankTrack<W5>, BankClip<W5>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W5>, BankClip<W5>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW6 : ITrack<BankTrack<W6>, BankClip<W6>>
 {
-    public static void Execute(in Frame<BankTrack<W6>, BankClip<W6>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W6>, BankClip<W6>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW7 : ITrack<BankTrack<W7>, BankClip<W7>>
 {
-    public static void Execute(in Frame<BankTrack<W7>, BankClip<W7>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W7>, BankClip<W7>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW8 : ITrack<BankTrack<W8>, BankClip<W8>>
 {
-    public static void Execute(in Frame<BankTrack<W8>, BankClip<W8>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W8>, BankClip<W8>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW9 : ITrack<BankTrack<W9>, BankClip<W9>>
 {
-    public static void Execute(in Frame<BankTrack<W9>, BankClip<W9>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W9>, BankClip<W9>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW10 : ITrack<BankTrack<W10>, BankClip<W10>>
 {
-    public static void Execute(in Frame<BankTrack<W10>, BankClip<W10>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W10>, BankClip<W10>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW11 : ITrack<BankTrack<W11>, BankClip<W11>>
 {
-    public static void Execute(in Frame<BankTrack<W11>, BankClip<W11>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W11>, BankClip<W11>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW12 : ITrack<BankTrack<W12>, BankClip<W12>>
 {
-    public static void Execute(in Frame<BankTrack<W12>, BankClip<W12>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W12>, BankClip<W12>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW13 : ITrack<BankTrack<W13>, BankClip<W13>>
 {
-    public static void Execute(in Frame<BankTrack<W13>, BankClip<W13>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W13>, BankClip<W13>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW14 : ITrack<BankTrack<W14>, BankClip<W14>>
 {
-    public static void Execute(in Frame<BankTrack<W14>, BankClip<W14>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W14>, BankClip<W14>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW15 : ITrack<BankTrack<W15>, BankClip<W15>>
 {
-    public static void Execute(in Frame<BankTrack<W15>, BankClip<W15>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W15>, BankClip<W15>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW16 : ITrack<BankTrack<W16>, BankClip<W16>>
 {
-    public static void Execute(in Frame<BankTrack<W16>, BankClip<W16>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W16>, BankClip<W16>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW17 : ITrack<BankTrack<W17>, BankClip<W17>>
 {
-    public static void Execute(in Frame<BankTrack<W17>, BankClip<W17>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W17>, BankClip<W17>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW18 : ITrack<BankTrack<W18>, BankClip<W18>>
 {
-    public static void Execute(in Frame<BankTrack<W18>, BankClip<W18>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W18>, BankClip<W18>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW19 : ITrack<BankTrack<W19>, BankClip<W19>>
 {
-    public static void Execute(in Frame<BankTrack<W19>, BankClip<W19>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W19>, BankClip<W19>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW20 : ITrack<BankTrack<W20>, BankClip<W20>>
 {
-    public static void Execute(in Frame<BankTrack<W20>, BankClip<W20>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W20>, BankClip<W20>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW21 : ITrack<BankTrack<W21>, BankClip<W21>>
 {
-    public static void Execute(in Frame<BankTrack<W21>, BankClip<W21>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W21>, BankClip<W21>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW22 : ITrack<BankTrack<W22>, BankClip<W22>>
 {
-    public static void Execute(in Frame<BankTrack<W22>, BankClip<W22>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W22>, BankClip<W22>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW23 : ITrack<BankTrack<W23>, BankClip<W23>>
 {
-    public static void Execute(in Frame<BankTrack<W23>, BankClip<W23>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W23>, BankClip<W23>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW24 : ITrack<BankTrack<W24>, BankClip<W24>>
 {
-    public static void Execute(in Frame<BankTrack<W24>, BankClip<W24>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W24>, BankClip<W24>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW25 : ITrack<BankTrack<W25>, BankClip<W25>>
 {
-    public static void Execute(in Frame<BankTrack<W25>, BankClip<W25>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W25>, BankClip<W25>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW26 : ITrack<BankTrack<W26>, BankClip<W26>>
 {
-    public static void Execute(in Frame<BankTrack<W26>, BankClip<W26>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W26>, BankClip<W26>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW27 : ITrack<BankTrack<W27>, BankClip<W27>>
 {
-    public static void Execute(in Frame<BankTrack<W27>, BankClip<W27>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W27>, BankClip<W27>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW28 : ITrack<BankTrack<W28>, BankClip<W28>>
 {
-    public static void Execute(in Frame<BankTrack<W28>, BankClip<W28>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W28>, BankClip<W28>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW29 : ITrack<BankTrack<W29>, BankClip<W29>>
 {
-    public static void Execute(in Frame<BankTrack<W29>, BankClip<W29>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W29>, BankClip<W29>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW30 : ITrack<BankTrack<W30>, BankClip<W30>>
 {
-    public static void Execute(in Frame<BankTrack<W30>, BankClip<W30>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W30>, BankClip<W30>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
 internal readonly struct JobW31 : ITrack<BankTrack<W31>, BankClip<W31>>
 {
-    public static void Execute(in Frame<BankTrack<W31>, BankClip<W31>> frame, ref float vitality)
+    public static void OnActive(in Frame<BankTrack<W31>, BankClip<W31>> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 
