@@ -2,6 +2,7 @@ using System;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Tl.Gen.Tlb;
 using Xunit;
 
@@ -94,6 +95,30 @@ public class BakePrimitivesCoverageTests
         Assert.Equal(-0.5d, FastNumber.PartsToDouble(5, -1, negative: true, hard: false));
     }
 
+    [Theory]
+    [InlineData(JsonTokenType.StartObject, "Object")]
+    [InlineData(JsonTokenType.None, "None")]
+    public void KindNameOfValue_DirectArms(JsonTokenType token, string expected) =>
+        Assert.Equal(expected, TimelineBakerFast.KindNameOfValue(token));
+
+    [Fact]
+    public void WalkerRun_EmptyInput_ThrowsReaderErrorAtTheWalker()
+    {
+        var walker = new Walker([], Resolver, null, autoNamespace: false);
+        JsonException? failure = null;
+        try
+        {
+            walker.Run();
+        }
+        catch (JsonException ex)
+        {
+            failure = ex;
+        }
+
+        Assert.NotNull(failure);
+        Assert.Contains("does not contain any JSON tokens", failure.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Prefix_RequiresAFullDigest()
     {
@@ -176,6 +201,8 @@ public class BakePrimitivesCoverageTests
         if (numbersDll is null)
             return;
 
+        Assert.Throws<FileNotFoundException>(() => new BakerAssemblyResolver([Path.Combine(Path.GetTempPath(), "tlb_missing_" + Guid.NewGuid().ToString("N") + ".dll")]));
+
         var fromPaths = new BakerAssemblyResolver([numbersDll]);
         var assembly = System.Reflection.Assembly.LoadFrom(numbersDll);
         Assert.Contains(assembly, fromPaths.ReferencedAssemblies);
@@ -183,9 +210,9 @@ public class BakePrimitivesCoverageTests
         Assert.NotNull(laneTrack);
         Assert.Equal(laneTrack, fromPaths.ResolveType("NumbersBench", "LaneTrack", "Numbers", "track 0"));
 
-        var fresh = new BakerAssemblyResolver();
-        fresh.AddAssembly(assembly);
-        Assert.Equal(laneTrack, fresh.ResolveType("NumbersBench", "LaneTrack", null, "track 0"));
+        var scoped = BakerAssemblyResolver.FromAssemblies([typeof(Tlb.AlphaTrack).Assembly]);
+        scoped.AddAssembly(assembly);
+        Assert.Equal(laneTrack, scoped.ResolveType("NumbersBench", "LaneTrack", null, "track 0"));
     }
 
     private static string? FindRepositoryFile(string relative)
