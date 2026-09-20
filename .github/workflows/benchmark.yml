@@ -27,3 +27,14 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet build benchmarks/Alpha/Alpha.csproj -c Release
       - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
+
+  external-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Check classified external link targets
+        run: python3 -m unittest discover -s tests -p test_links.py
+        env:
+          TL_LINK_HEAD_CHECK: "1"
