@@ -489,6 +489,47 @@ public sealed class BakeReaderTests
     }
 
     [Fact]
+    public void ConflictDroppedBakeLeavesItsOtherPairsUnseeded()
+    {
+        const string bakes = """
+            public readonly record struct BetaClip(float Amount);
+            public readonly record struct BetaTrack(float Gain) : IBlend<BetaClip>
+            {
+                public void Blend(in BetaClip first, in BetaClip second, float factor, out BetaClip result) => result = first;
+            }
+            public readonly struct BetaJob : ITrack<BetaTrack, BetaClip>
+            {
+                public static void OnActive(in Frame<BetaTrack, BetaClip> frame) { }
+            }
+            public readonly struct DualJob : ITrack<DamageTrack, DamageClip>, ITrack<BetaTrack, BetaClip>
+            {
+                public static void OnActive(in Frame<DamageTrack, DamageClip> frame) { }
+                public static void OnActive(in Frame<BetaTrack, BetaClip> frame) { }
+            }
+            public readonly struct AnchorBake : IBake<ApplyDamage>
+            {
+                public static void Bake(Entity entity) { }
+            }
+            public readonly struct DualBake : IBake<DualJob>
+            {
+                public static void Bake(World world) { }
+            }
+            public readonly struct GoodBake : IBake<BetaJob>
+            {
+                public static void Bake(Entity entity) { }
+            }
+            """;
+        var (sources, diagnostics) = GenerateWithDiagnostics(Domain + bakes);
+
+        Assert.Empty(sources);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("TLGEN74", diagnostic.Id);
+        Assert.Contains("'global::Domain.AnchorBake' and 'global::Domain.DualBake' bind pair (global::Domain.DamageTrack, global::Domain.DamageClip)", diagnostic.GetMessage());
+        Assert.DoesNotContain("GoodBake", diagnostic.GetMessage());
+        Assert.DoesNotContain("BetaTrack", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void SameSignatureBakesOnOnePairCompose()
     {
         const string bakes = Domain + """
