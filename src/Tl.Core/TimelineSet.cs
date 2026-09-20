@@ -81,17 +81,24 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal byte* _absent;
     internal uint* _motion;
     internal SlotView** _shared;
+    internal LaneMovementRecord* _arenaForward;
+    internal LaneMovementRecord* _arenaBackward;
+    internal uint* _arenaBases;
     internal void* _retired;
     internal nuint _viewCapacity;
     internal nuint _absentCapacity;
     internal nuint _motionCapacity;
     internal nuint _sharedCapacity;
+    internal nuint _arenaCapacity;
+    internal nuint _arenaBaseCapacity;
     internal int _sharedUsed;
     internal int _blockCount;
     internal int _sharedHits;
     internal long _headerTotal;
     internal long _tableTotal;
     internal long _directoryTotal;
+    internal long _arenaTotal;
+    internal int _arenaUsed;
     internal int _count;
     internal int _holes;
     internal bool _lazyResolve;
@@ -103,7 +110,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal int _gate;
 
     internal int Holes => _holes;
-    internal long RetainedBytes => _headerTotal + _tableTotal + _directoryTotal;
+    internal long ArenaBytes => _arenaTotal;
+    internal long RetainedBytes => _headerTotal + _tableTotal + _directoryTotal + _arenaTotal;
     internal long HeaderBytes => _headerTotal;
     internal long TableBytes => _tableTotal;
     internal long DirectoryBytes => _directoryTotal;
@@ -205,6 +213,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             {
                 _sharedHits++;
             }
+            AppendArena(index, view);
             _absent[index] = 0;
             _motion[index] = duration | (looping ? 0x80000000u : 0u);
             Volatile.Write(ref *(long*)(_views + index), (long)view);
@@ -227,6 +236,43 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         {
             Volatile.Write(ref _gate, 0);
         }
+    }
+
+    void AppendArena(ushort index, SlotView* view)
+    {
+        void* bases = _arenaBases;
+        Ensure(ref bases, ref _arenaBaseCapacity, sizeof(uint), (nuint)index + 1);
+        _arenaBases = (uint*)bases;
+        var ticks = view->TableTicks;
+        var used = (nuint)_arenaUsed;
+        if (used + ticks > _arenaCapacity) GrowArena(used + ticks);
+        var offset = checked((uint)used);
+        var recordBytes = checked((int)(ticks * sizeof(LaneMovementRecord)));
+        Buffer.MemoryCopy(view->ForwardRecords, _arenaForward + offset, recordBytes, recordBytes);
+        Buffer.MemoryCopy(view->BackwardRecords, _arenaBackward + offset, recordBytes, recordBytes);
+        _arenaBases[index] = offset;
+        _arenaUsed = checked((int)(used + ticks));
+    }
+
+    void GrowArena(nuint needed)
+    {
+        nuint next = _arenaCapacity == 0 ? InitialCapacity : _arenaCapacity;
+        while (next < needed) next *= 2;
+        var bytes = next * (nuint)sizeof(LaneMovementRecord);
+        var forward = (LaneMovementRecord*)NativeMemory.AlignedAlloc(bytes + RetirePadBytes, 64);
+        var backward = (LaneMovementRecord*)NativeMemory.AlignedAlloc(bytes + RetirePadBytes, 64);
+        _arenaTotal += (long)(2 * (bytes + RetirePadBytes));
+        if (_arenaCapacity != 0)
+        {
+            var usedBytes = (long)((nuint)_arenaUsed * (nuint)sizeof(LaneMovementRecord));
+            Buffer.MemoryCopy(_arenaForward, forward, usedBytes, usedBytes);
+            Buffer.MemoryCopy(_arenaBackward, backward, usedBytes, usedBytes);
+            Retire((byte*)_arenaForward + (nuint)usedBytes, _arenaForward);
+            Retire((byte*)_arenaBackward + (nuint)usedBytes, _arenaBackward);
+        }
+        _arenaForward = forward;
+        _arenaBackward = backward;
+        _arenaCapacity = next;
     }
 
     void Ensure(ref void* current, ref nuint capacity, nuint elementBytes, nuint needed)
@@ -514,6 +560,9 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             if (_absent != null) NativeMemory.AlignedFree(_absent);
             if (_motion != null) NativeMemory.AlignedFree(_motion);
             if (shared != null) NativeMemory.AlignedFree(shared);
+            if (_arenaForward != null) NativeMemory.AlignedFree(_arenaForward);
+            if (_arenaBackward != null) NativeMemory.AlignedFree(_arenaBackward);
+            if (_arenaBases != null) NativeMemory.AlignedFree(_arenaBases);
             var node = _retired;
             while (node != null)
             {
@@ -525,11 +574,18 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             _absent = null;
             _motion = null;
             _shared = null;
+            _arenaForward = null;
+            _arenaBackward = null;
+            _arenaBases = null;
             _retired = null;
             _viewCapacity = 0;
             _absentCapacity = 0;
             _motionCapacity = 0;
             _sharedCapacity = 0;
+            _arenaCapacity = 0;
+            _arenaBaseCapacity = 0;
+            _arenaUsed = 0;
+            _arenaTotal = 0;
             _sharedUsed = 0;
             _count = 0;
             _holes = 0;
