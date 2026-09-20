@@ -109,7 +109,7 @@ public class WarmPathTierTests
         new(typeof(Checked), nameof(Checked.Columns), 4, null, WarmMode.Inline),
         new(typeof(Checked), nameof(Checked.Rows), 4, null, WarmMode.Inline),
         new(typeof(Checked), nameof(Checked.Rows), 3, null, WarmMode.Inline),
-        new(typeof(Checked), "RowBounds", 2, null, WarmMode.Inline),
+        new(typeof(Checked), "RowBounds", 4, null, WarmMode.Inline),
         new(typeof(Checked), nameof(Checked.Length), 2, null, WarmMode.Inline),
     ];
 

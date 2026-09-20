@@ -71,7 +71,7 @@ internal static class Checked
         if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(effects))) Fail.ColumnOverlap();
         if (MemoryMarshal.AsBytes(indices).Overlaps(MemoryMarshal.AsBytes(positions))
             || MemoryMarshal.AsBytes(indices).Overlaps(MemoryMarshal.AsBytes(effects))) Fail.ColumnOverlap();
-        RowBounds(rows, indices);
+        RowBounds(rows, indices, positions, effects);
     }
 
     [Conditional("TL_CHECKED")]
@@ -80,15 +80,17 @@ internal static class Checked
     {
         if (indices.Length != positions.Length) Fail.ColumnLength(positions.Length, indices.Length);
         if (MemoryMarshal.AsBytes(indices).Overlaps(MemoryMarshal.AsBytes(positions))) Fail.ColumnOverlap();
-        RowBounds(rows, indices);
+        RowBounds(rows, indices, positions, default);
     }
 
     [Conditional("TL_CHECKED")]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static void RowBounds(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> columns)
+    static void RowBounds(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects)
     {
-        if (MemoryMarshal.AsBytes(rows).Overlaps(MemoryMarshal.AsBytes(columns))) Fail.ColumnOverlap();
-        var count = columns.Length;
+        if (MemoryMarshal.AsBytes(rows).Overlaps(MemoryMarshal.AsBytes(indices))
+            || MemoryMarshal.AsBytes(rows).Overlaps(MemoryMarshal.AsBytes(positions))
+            || MemoryMarshal.AsBytes(rows).Overlaps(MemoryMarshal.AsBytes(effects))) Fail.ColumnOverlap();
+        var count = indices.Length;
         for (var i = 0; i < rows.Length; i++)
             if ((uint)rows[i] >= (uint)count)
                 Fail.RowOutsideColumns(i, rows[i], count);

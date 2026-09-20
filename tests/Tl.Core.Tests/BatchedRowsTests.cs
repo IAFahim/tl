@@ -134,6 +134,47 @@ public class BatchedRowsTests
     }
 
     [Fact]
+    public void DuplicateRowsFoldPerOccurrenceWithoutAdvancingPositions()
+    {
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
+        var ids = SingleIdColumn(4, looping.Index);
+        var rows = new[] { 3, 3, 0 };
+
+        var positions = new ushort[] { 2, 0, 1, 3 };
+        var effects = new float[] { 0f, 10f, 20f, 1.5f };
+        Timeline<BatchRowsTrack, BatchRowsClip>.Apply(rows, ids, positions, true, effects);
+        Assert.Equal(new ushort[] { 2, 0, 1, 3 }, positions);
+        Assert.Equal(new float[] { 3f, 10f, 20f, 7.5f }, effects);
+
+        Timeline<BatchRowsTrack, BatchRowsClip>.Advance(rows, ids, positions, true);
+        Assert.Equal(new ushort[] { 3, 0, 1, 1 }, positions);
+    }
+
+    [Fact]
+    public void DuplicateRowsMatchSequentialPerEntityCallsInBothDirections()
+    {
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
+        using var finite = TimelineAsset.LoadAsset(FiniteBake());
+        var ids = new ushort[] { looping.Index, looping.Index, finite.Index, looping.Index, finite.Index, looping.Index };
+        var rows = new[] { 3, 3, 2, 3, 5, 5 };
+        var positions = new ushort[] { 3, 1, 4, 2, 5, 0 };
+        var effects = SeededEffects(6);
+
+        foreach (var forward in new[] { true, false })
+        {
+            var expected = Sequential(ids, positions, effects, rows, forward);
+
+            var batchPositions = (ushort[])positions.Clone();
+            var batchEffects = (float[])effects.Clone();
+            Timeline<BatchRowsTrack, BatchRowsClip>.Apply(rows, ids, batchPositions, forward, batchEffects);
+            Timeline<BatchRowsTrack, BatchRowsClip>.Advance(rows, ids, batchPositions, forward);
+
+            Assert.Equal(expected.Positions, batchPositions);
+            Assert.Equal(expected.Effects, batchEffects);
+        }
+    }
+
+    [Fact]
     public void EmptyBatchChangesNothing()
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
@@ -400,6 +441,44 @@ public class BatchedRowsCheckedTests
             var positions = MemoryMarshal.Cast<float, ushort>(buffer);
             set.ApplyRows(rows, positions.Slice(0, 8), positions.Slice(8, 8), true, new float[8]);
         });
+    }
+
+    [Fact]
+    public void BatchRejectsRowsOverlappingPositionAndEffectColumns()
+    {
+        using var looping = TimelineAsset.LoadAsset(LoopingBake());
+        using var set = new TimelineSet<BatchRowsTrack, BatchRowsClip>();
+        set.Add(looping);
+
+        var positionBuffer = new float[16];
+        var rowsOverPositions = MemoryMarshal.Cast<float, int>(positionBuffer.AsSpan(0, 2));
+        var positions = MemoryMarshal.Cast<float, ushort>(positionBuffer.AsSpan(1, 2));
+        var threw = false;
+        try { set.ApplyRows(rowsOverPositions, new ushort[4], positions, true, new float[4]); }
+        catch (ArgumentException ex) { threw = ex.Message == "Lane columns must not overlap."; }
+        Assert.True(threw);
+
+        var effectBuffer = new float[16];
+        var rowsOverEffects = MemoryMarshal.Cast<float, int>(effectBuffer.AsSpan(0, 2));
+        threw = false;
+        try { set.ApplyRows(rowsOverEffects, new ushort[4], new ushort[4], true, effectBuffer.AsSpan(1, 4)); }
+        catch (ArgumentException ex) { threw = ex.Message == "Lane columns must not overlap."; }
+        Assert.True(threw);
+
+        var advanceBuffer = new float[16];
+        var rowsOverAdvancePositions = MemoryMarshal.Cast<float, int>(advanceBuffer.AsSpan(0, 2));
+        var advancePositions = MemoryMarshal.Cast<float, ushort>(advanceBuffer.AsSpan(1, 2));
+        threw = false;
+        try { set.AdvanceRows(rowsOverAdvancePositions, new ushort[4], advancePositions, true); }
+        catch (ArgumentException ex) { threw = ex.Message == "Lane columns must not overlap."; }
+        Assert.True(threw);
+
+        var publicBuffer = new float[16];
+        var publicRows = MemoryMarshal.Cast<float, int>(publicBuffer.AsSpan(0, 2));
+        threw = false;
+        try { Timeline<BatchRowsTrack, BatchRowsClip>.Apply(publicRows, new ushort[4], new ushort[4], true, publicBuffer.AsSpan(1, 4)); }
+        catch (ArgumentException ex) { threw = ex.Message == "Lane columns must not overlap."; }
+        Assert.True(threw);
     }
 
     [Fact]
