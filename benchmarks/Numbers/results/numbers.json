@@ -26,7 +26,7 @@
     },
     {
       "Id": "shared-clock",
-      "Label": "crowd on one clock: shared-clock Apply \u002B scalar Step",
+      "Label": "crowd on one clock: shared-clock Apply \u002B scalar Advance",
       "Hot": {
         "Ms": 0.0814,
         "Ns": 0.0814
@@ -150,7 +150,7 @@
     "Shapes": [
       {
         "Id": "per-entity-apply-step",
-        "Label": "one entity at a time: 1-row Apply \u002B 1-row Step",
+        "Label": "one entity at a time: 1-row Apply \u002B 1-row Advance",
         "Ms": 0.1948,
         "Ns": 1.948,
         "WarmupMs": 500.1184,
@@ -177,7 +177,7 @@
       },
       {
         "Id": "shared-clock-crowd",
-        "Label": "crowd on one clock: shared-clock Apply \u002B scalar Step",
+        "Label": "crowd on one clock: shared-clock Apply \u002B scalar Advance",
         "Ms": 0.0053,
         "Ns": 0.053,
         "WarmupMs": 500.0003,
@@ -219,7 +219,7 @@
           },
           {
             "Id": "step-index-uniform",
-            "Label": "single timeline, uniform clocks, clock step only",
+            "Label": "single timeline, uniform clocks, clock advance only",
             "Ms": 0.0598,
             "Ns": 0.0598,
             "WarmupMs": 500.0496,
