@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 
 namespace Tl.Gen.Tlb;
 
@@ -264,6 +266,8 @@ internal static class FastNumber
             digits++;
         }
     }
+
+    [SuppressMessage("ReSharper", "RedundantCast", Justification = "casts select the numeric operator; removal changes resolution")]
 
     internal static float PartsToFloat(ulong mantissa, int exponent, bool negative, bool hard)
     {

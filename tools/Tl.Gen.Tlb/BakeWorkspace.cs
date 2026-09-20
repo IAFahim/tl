@@ -68,8 +68,8 @@ internal sealed class BakeWorkspace
     internal void Reclaim(FastDoc doc)
     {
         foreach (var pair in doc.Pairs)
-            if (pair._pool.Length > 0)
-                ReturnPool(pair.Key, pair._pool);
+            if (pair.Pool.Length > 0)
+                ReturnPool(pair.Key, pair.Pool);
         if (doc.LoanStructural != null && doc.LoanQuotes != null)
             ReturnMasks(doc.LoanStructural, doc.LoanQuotes);
         foreach (var entry in doc.ResolveCache)

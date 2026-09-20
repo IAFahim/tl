@@ -96,12 +96,12 @@ internal readonly record struct W61;
 internal readonly record struct W62;
 internal readonly record struct W63;
 
-[SuppressMessage("ReSharper", "UnusedTypeParameter", Justification = "K distinguishes pair-typed instantiations")]
-internal readonly record struct BankClip<K>(float Amount) where K : unmanaged;
+[SuppressMessage("ReSharper", "UnusedTypeParameter", Justification = "TK distinguishes pair-typed instantiations")]
+internal readonly record struct BankClip<TK>(float Amount) where TK : unmanaged;
 
-internal readonly record struct BankTrack<K>(float Scale) : IBlend<BankClip<K>> where K : unmanaged
+internal readonly record struct BankTrack<TK>(float Scale) : IBlend<BankClip<TK>> where TK : unmanaged
 {
-    public void Blend(in BankClip<K> first, in BankClip<K> second, float factor, out BankClip<K> result)
+    public void Blend(in BankClip<TK> first, in BankClip<TK> second, float factor, out BankClip<TK> result)
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
@@ -346,20 +346,20 @@ internal static class BankReceipts
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     internal static void Concurrency()
     {
-        const int readerIds = 64;
+        const int readerIdCount = 64;
         const int frames = 200;
         const int readerCount = 4;
         const int publisherCount = 4;
         const int publishesPer = 400;
-        for (ushort i = 0; i < readerIds; i++)
+        for (ushort i = 0; i < readerIdCount; i++)
         {
             using var asset = TimelineAsset.LoadAsset(BakeBank(i + 1f, 8));
             ReadOnlySpan<ushort> onePosition = [0];
             Timeline<BankTrack, BankClip>.Apply(asset.Index, onePosition, true, new float[1]);
         }
-        var captured = new SlotView[readerIds];
-        var capturedHashes = new ulong[readerIds];
-        for (ushort i = 0; i < readerIds; i++)
+        var captured = new SlotView[readerIdCount];
+        var capturedHashes = new ulong[readerIdCount];
+        for (ushort i = 0; i < readerIdCount; i++)
         {
             captured[i] = Timeline<BankTrack, BankClip>.View(i);
             capturedHashes[i] = HashView(captured[i]);
@@ -368,7 +368,7 @@ internal static class BankReceipts
         var ids = new ushort[512];
         var positions = new ushort[512];
         var reference = new float[512];
-        for (var i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i % readerIds); positions[i] = (ushort)(i * 3 % 8); }
+        for (var i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i % readerIdCount); positions[i] = (ushort)(i * 3 % 8); }
         var referencePositions = (ushort[])positions.Clone();
         for (var frame = 0; frame < frames; frame++)
             Timeline<BankTrack, BankClip>.Apply(ids, referencePositions, frame % 7 != 6, reference);
@@ -384,16 +384,16 @@ internal static class BankReceipts
             var reader = r;
             readers[r] = new Thread(() =>
             {
-                var readerIds = (ushort[])ids.Clone();
+                var readerIdCount = (ushort[])ids.Clone();
                 var readerPositions = (ushort[])positions.Clone();
                 var effects = new float[512];
                 for (var frame = 0; frame < 20; frame++)
-                    Timeline<BankTrack, BankClip>.Apply(readerIds, readerPositions, true, effects);
+                    Timeline<BankTrack, BankClip>.Apply(readerIdCount, readerPositions, true, effects);
                 Array.Clear(effects);
                 barrier.SignalAndWait();
                 var before = GC.GetAllocatedBytesForCurrentThread();
                 for (var frame = 0; frame < frames; frame++)
-                    Timeline<BankTrack, BankClip>.Apply(readerIds, readerPositions, frame % 7 != 6, effects);
+                    Timeline<BankTrack, BankClip>.Apply(readerIdCount, readerPositions, frame % 7 != 6, effects);
                 readerAllocated[reader] = GC.GetAllocatedBytesForCurrentThread() - before;
                 readerMatch[reader] = effects.AsSpan().SequenceEqual(reference);
             });
@@ -411,7 +411,7 @@ internal static class BankReceipts
                 barrier.SignalAndWait();
                 for (var n = 0; n < publishesPer; n++)
                 {
-                    var asset = TimelineAsset.LoadAsset(BakeBank(readerIds + publisher * publishesPer + n + 1f, 8));
+                    var asset = TimelineAsset.LoadAsset(BakeBank(readerIdCount + publisher * publishesPer + n + 1f, 8));
                     loaded.Add(asset);
                     publishedIndexes[publisher, n] = asset.Index;
                     Timeline<BankTrack, BankClip>.Apply(asset.Index, onePosition, true, oneEffect);
@@ -424,7 +424,7 @@ internal static class BankReceipts
         foreach (var thread in readers) thread.Join();
         foreach (var thread in publishers) thread.Join();
 
-        for (ushort i = 0; i < readerIds; i++)
+        for (ushort i = 0; i < readerIdCount; i++)
         {
             Require(HashView(Timeline<BankTrack, BankClip>.View(i)) == capturedHashes[i], $"reader view {i} is byte-stable and never rebound");
             Require(HashView(captured[i]) == capturedHashes[i], $"captured copy {i} unchanged");
@@ -437,7 +437,7 @@ internal static class BankReceipts
             Require(readerMatch[r], $"reader {r} checksums equal the single-threaded reference");
             Require(readerAllocated[r] == 0, $"reader {r} allocated {readerAllocated[r]} B");
         }
-        Console.WriteLine($"bank-concurrency: {readerCount} readers x {frames} frames over {readerIds} held views against {publisherCount} publishers x {publishesPer} resolves; checksums, view stability, and 0 B reader allocation PASS");
+        Console.WriteLine($"bank-concurrency: {readerCount} readers x {frames} frames over {readerIdCount} held views against {publisherCount} publishers x {publishesPer} resolves; checksums, view stability, and 0 B reader allocation PASS");
     }
 
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
@@ -722,17 +722,17 @@ internal static class BankReceipts
             .Clip(0, 0u, 8u, new BankDamageClip(3f))
             .Bake();
 
-    static DomainBaker BakeKind<K>(DomainBaker baker, int slot) where K : unmanaged
+    static DomainBaker BakeKind<TK>(DomainBaker baker, int slot) where TK : unmanaged
         => baker
-            .Track<BankTrack<K>, BankClip<K>>(new BankTrack<K>(1f))
-            .Clip(slot, 0u, 8u, new BankClip<K>(1f))
-            .Clip(slot, 8u, 16u, new BankClip<K>(2f));
+            .Track<BankTrack<TK>, BankClip<TK>>(new BankTrack<TK>(1f))
+            .Clip(slot, 0u, 8u, new BankClip<TK>(1f))
+            .Clip(slot, 8u, 16u, new BankClip<TK>(2f));
 
-    static SlotView FoldKind<K>(ushort index) where K : unmanaged
+    static SlotView FoldKind<TK>(ushort index) where TK : unmanaged
     {
         ReadOnlySpan<ushort> onePosition = [0];
-        Timeline<BankTrack<K>, BankClip<K>>.Apply(index, onePosition, true, new float[1]);
-        return Timeline<BankTrack<K>, BankClip<K>>.View(index);
+        Timeline<BankTrack<TK>, BankClip<TK>>.Apply(index, onePosition, true, new float[1]);
+        return Timeline<BankTrack<TK>, BankClip<TK>>.View(index);
     }
 
     static readonly Func<DomainBaker, int, DomainBaker>[] KindBakes = [BakeKind<W0>, BakeKind<W1>, BakeKind<W2>, BakeKind<W3>, BakeKind<W4>, BakeKind<W5>, BakeKind<W6>, BakeKind<W7>, BakeKind<W8>, BakeKind<W9>, BakeKind<W10>, BakeKind<W11>, BakeKind<W12>, BakeKind<W13>, BakeKind<W14>, BakeKind<W15>, BakeKind<W16>, BakeKind<W17>, BakeKind<W18>, BakeKind<W19>, BakeKind<W20>, BakeKind<W21>, BakeKind<W22>, BakeKind<W23>, BakeKind<W24>, BakeKind<W25>, BakeKind<W26>, BakeKind<W27>, BakeKind<W28>, BakeKind<W29>, BakeKind<W30>, BakeKind<W31>, BakeKind<W32>, BakeKind<W33>, BakeKind<W34>, BakeKind<W35>, BakeKind<W36>, BakeKind<W37>, BakeKind<W38>, BakeKind<W39>, BakeKind<W40>, BakeKind<W41>, BakeKind<W42>, BakeKind<W43>, BakeKind<W44>, BakeKind<W45>, BakeKind<W46>, BakeKind<W47>, BakeKind<W48>, BakeKind<W49>, BakeKind<W50>, BakeKind<W51>, BakeKind<W52>, BakeKind<W53>, BakeKind<W54>, BakeKind<W55>, BakeKind<W56>, BakeKind<W57>, BakeKind<W58>, BakeKind<W59>, BakeKind<W60>, BakeKind<W61>, BakeKind<W62>, BakeKind<W63>];

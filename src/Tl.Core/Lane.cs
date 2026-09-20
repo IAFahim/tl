@@ -953,6 +953,7 @@ static unsafe class LaneTable<TTrack, TClip>
     public static LaneMovementRecord* ForwardRecords;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static LaneMovementRecord* BackwardRecords;
+    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static float* BackwardByPosition;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static ushort Duration;

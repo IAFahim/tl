@@ -415,15 +415,15 @@ internal static class DataAuthoredReceipts
     [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
     internal static void ModuleCapacity()
     {
-        const int Tracks = 256;
+        const int tracks = 256;
         var baker = new DomainBaker();
-        for (var track = 1; track <= Tracks; track++)
+        for (var track = 1; track <= tracks; track++)
             baker.Track<TandemTrack, TandemClip>(new TandemTrack(track)).Clip(track - 1, 0u, 64u, new TandemClip(1f));
         using var asset = TimelineAsset.LoadAsset(baker.Looping().Bake());
         BakedLane<TandemTrack, TandemClip>.Bind(asset);
 
         var expected = 0f;
-        for (var track = 1; track <= Tracks; track++)
+        for (var track = 1; track <= tracks; track++)
             expected += track + 7f;
         for (var tick = 0; tick < 64; tick++)
             Require(BakedLane<TandemTrack, TandemClip>.Effect((ushort)tick) == expected, $"module fold at {tick}");
@@ -433,7 +433,7 @@ internal static class DataAuthoredReceipts
         for (var tick = 0; tick < 10; tick++)
             { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true); }
         Require(values.All(value => value == expected * 10), "module capacity fold applied");
-        Console.WriteLine($"module-capacity: {Tracks} tracks fold to {expected} per tick, x10 applied");
+        Console.WriteLine($"module-capacity: {tracks} tracks fold to {expected} per tick, x10 applied");
     }
 
     static void Require(bool condition, string label)

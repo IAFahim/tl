@@ -23,3 +23,6 @@ resharper_check_namespace_highlighting = none
 
 [benchmarks/Numbers/Domain.cs]
 resharper_check_namespace_highlighting = none
+
+[tools/Tl.Bake.Tests/FusedFixtures.cs]
+resharper_inconsistent_naming_highlighting = none

@@ -111,6 +111,7 @@ static unsafe class BakeTable
         throw BakeIndex(index);
     }
 
+    [SuppressMessage("ReSharper", "EntityNameCapturedOnly.Local", Justification = "paramName via nameof is the diagnostic convention")]
     static ArgumentOutOfRangeException BakeIndex(int index)
         => new(nameof(index), "Bake index is outside the registered bake chain for this timeline pair.");
 

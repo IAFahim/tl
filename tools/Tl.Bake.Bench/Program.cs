@@ -179,6 +179,7 @@ internal static class Program
         return 0;
     }
 
+    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "printed via record ToString in receipts")]
     private sealed record BatchPass(string Mode, double Ms, double[] ItemMs, double[] ItemAllocMb, double AllocMb, double TotalAllocMb, double OutputMb, ulong OutputSum, string GcCounts);
 
     private static int BatchCommand(string[] args)

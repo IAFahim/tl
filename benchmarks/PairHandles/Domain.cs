@@ -122,8 +122,12 @@ sealed class Baker
     {
         var duration = 0u;
         foreach (var track in _tracks)
+        {
             foreach (var clip in track.Clips)
+            {
                 duration = Math.Max(duration, clip.End);
+            }
+        }
 
         var cuts = new SortedSet<uint>();
         if (duration != 0)

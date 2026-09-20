@@ -199,17 +199,17 @@ internal sealed class FastPairInfo
     internal int TrackSize;
     internal IPairHelper Helper = null!;
     internal FieldTable Fields = null!;
-    internal byte[] _pool = [];
+    internal byte[] Pool = [];
     internal int PoolLength;
 
     internal void EnsurePool(int size)
     {
-        if (PoolLength + size <= _pool.Length)
+        if (PoolLength + size <= Pool.Length)
             return;
-        var cap = _pool.Length == 0 ? 1 << 16 : _pool.Length;
+        var cap = Pool.Length == 0 ? 1 << 16 : Pool.Length;
         while (cap < PoolLength + size)
             cap *= 2;
-        Array.Resize(ref _pool, cap);
+        Array.Resize(ref Pool, cap);
     }
 }
 
@@ -342,7 +342,7 @@ internal static class TimelineBakerFast
             Fields = TableFor(clipType),
         };
         if (doc.Workspace?.RentPool(pair.Key) is { } rented)
-            pair._pool = rented;
+            pair.Pool = rented;
         pairId = doc.Pairs.Count;
         doc.Pairs.Add(pair);
         doc.PairIds[(trackType, clipType)] = pairId;
@@ -1304,7 +1304,7 @@ internal ref struct Walker
         }
         if (err == null)
         {
-            fixed (byte* dst = pair._pool)
+            fixed (byte* dst = pair.Pool)
                 pair.Helper.CopyPayload(dst + clip.PayloadOffset, box);
         }
         clip.PopulateError = err;
@@ -1651,11 +1651,11 @@ internal static class TimelineBakerFastCore
                 clip.PopulateError = TimelineBakerFast.PopulateSliceUtf8(_doc.Utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName);
                 if (clip.PopulateError != null)
                     throw new BakeDiagnosticException(clip.PopulateError);
-                fixed (byte* dst = pair._pool)
+                fixed (byte* dst = pair.Pool)
                     pair.Helper.CopyPayload(dst + clip.PayloadOffset, box);
             }
             else
-                Array.Clear(pair._pool, clip.PayloadOffset, pair.ClipSize);
+                Array.Clear(pair.Pool, clip.PayloadOffset, pair.ClipSize);
             clip.PopulateDone = true;
         }
 
@@ -1727,8 +1727,8 @@ internal static class TimelineBakerFastCore
                     foreach (var clipId in member.ClipIds)
                         clipOffsets[clipOccurrence++] = _doc.Clips[clipId].PayloadOffset;
                 clipOffsetsByPair[index] = clipOffsets;
-                var clipName = pair.ClipType.FullName ?? pair.ClipType.Name;
-                clipSlotsByPair[index] = DedupPool(clipOffsets.Length, o => pair._pool.AsSpan(clipOffsets[o], pair.ClipSize), out clipSortedByPair[index], out clipUniques[index], $"clip type '{clipName}'");
+                var clipName = pair.ClipType.FullName;
+                clipSlotsByPair[index] = DedupPool(clipOffsets.Length, o => pair.Pool.AsSpan(clipOffsets[o], pair.ClipSize), out clipSortedByPair[index], out clipUniques[index], $"clip type '{clipName}'");
             }
             var clipValueIndex = new ushort[_doc.Clips.Count];
             foreach (var lane in lanes)
@@ -1954,7 +1954,7 @@ internal static class TimelineBakerFastCore
                 at = pairAddress + (int)poolSpans[index].ClipRel;
                 foreach (var occurrence in clipSortedByPair[index])
                 {
-                    pair._pool.AsSpan(clipOffsetsByPair[index][occurrence], clipBytes).CopyTo(bytes.AsSpan(at));
+                    pair.Pool.AsSpan(clipOffsetsByPair[index][occurrence], clipBytes).CopyTo(bytes.AsSpan(at));
                     at += clipBytes;
                 }
             }

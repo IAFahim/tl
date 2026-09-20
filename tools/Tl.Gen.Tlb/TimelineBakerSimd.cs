@@ -608,7 +608,7 @@ internal sealed unsafe class SimdWalker
 
         for (var gid = 0; gid < doc.Pairs.Count; gid++)
         {
-            doc.Pairs[gid]._pool = new byte[poolLength[gid]];
+            doc.Pairs[gid].Pool = new byte[poolLength[gid]];
             doc.Pairs[gid].PoolLength = poolLength[gid];
         }
         for (var p = 0; p < fragments.Length; p++)
@@ -618,7 +618,7 @@ internal sealed unsafe class SimdWalker
             {
                 var pair = frag.Pairs[q];
                 if (pair.PoolLength > 0)
-                    Buffer.BlockCopy(pair._pool, 0, doc.Pairs[remaps[p][q]]._pool, bases[p][q], pair.PoolLength);
+                    Buffer.BlockCopy(pair.Pool, 0, doc.Pairs[remaps[p][q]].Pool, bases[p][q], pair.PoolLength);
             }
         }
 
@@ -1158,8 +1158,8 @@ internal sealed unsafe class SimdWalker
         pair.EnsurePool(pair.ClipSize);
         clip.PayloadOffset = pair.PoolLength;
         pair.PoolLength += pair.ClipSize;
-        Array.Clear(pair._pool, clip.PayloadOffset, pair.ClipSize);
-        fixed (byte* pool = pair._pool)
+        Array.Clear(pair.Pool, clip.PayloadOffset, pair.ClipSize);
+        fixed (byte* pool = pair.Pool)
         {
             var slot = pool + clip.PayloadOffset;
             var nameOpen = Take();

@@ -1,6 +1,7 @@
 using Tl;
 using Tl.TestSupport;
 using System.Diagnostics.CodeAnalysis;
+[module: SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
 
 var positions = new ushort[] { 0 };
 var vitality = new[] { 0f };
