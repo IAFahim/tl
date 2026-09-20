@@ -67,7 +67,7 @@ var steadyShapes = steady ? SteadyShapes.Run(steadyRows, rounds, reps) : null;
 var scenarios = new List<Scenario>
 {
     new("sync", "whole crowd on one timeline (a raid jumping in sync)", Playback(static _ => Host.Gold, static _ => (ushort)5)),
-    new("shared-clock", "crowd on one clock: shared-clock Apply + scalar Step", null, sharedClock: true),
+    new("shared-clock", "crowd on one clock: shared-clock Apply + scalar Advance", null, sharedClock: true),
     new("groups", "100 timelines, crowds of 10,000 each (per-ability groups)", Playback(static i => Host.Variants[(i / 10_000) % Host.Timelines], static i => (ushort)(i % Host.Duration))),
     new("own-clock", "one looping timeline, every character on its own clock", Playback(static _ => Host.Gold, static i => (ushort)(i % Host.Duration))),
     new("finite", "one-shot finite timeline, staggered clocks", Playback(static _ => Host.Finite, static i => (ushort)(i % (Host.Duration / 2)))),
@@ -323,7 +323,7 @@ internal static class SteadyShapes
         var records = Records();
         var shapes = new (string Id, string Label, Action Seed, Action Run)[]
         {
-            ("per-entity-apply-step", "one entity at a time: 1-row Apply + 1-row Step", () => Seed(pos), () =>
+            ("per-entity-apply-step", "one entity at a time: 1-row Apply + 1-row Advance", () => Seed(pos), () =>
             {
                 for (var i = 0; i < entityRows; i++)
                 {
@@ -341,7 +341,7 @@ internal static class SteadyShapes
                 for (var i = 0; i < entityRows; i++)
                     Timeline<LaneTrack, LaneClip>.Apply(gold, pos[i], true, ref fx[i]);
             }),
-            ("shared-clock-crowd", "crowd on one clock: shared-clock Apply + scalar Step", () => Seed(pos), () =>
+            ("shared-clock-crowd", "crowd on one clock: shared-clock Apply + scalar Advance", () => Seed(pos), () =>
             {
                 var clock = (ushort)(entityRows % Host.Duration);
                 Timeline<LaneTrack, LaneClip>.Apply(gold, clock, true, fx);
@@ -416,7 +416,7 @@ internal static class SteadyArms
             {
                 ("index-fused-staggered", "single timeline, staggered clocks", staggered, () => Timeline<LaneTrack, LaneClip>.Apply(gold, pos, pos, true, fx)),
                 ("index-fused-uniform", "single timeline, uniform clocks", uniform, () => Timeline<LaneTrack, LaneClip>.Apply(gold, pos, pos, true, fx)),
-                ("step-index-uniform", "single timeline, uniform clocks, clock step only", uniform, () => Timeline.Advance(gold, pos, true)),
+                ("step-index-uniform", "single timeline, uniform clocks, clock advance only", uniform, () => Timeline.Advance(gold, pos, true)),
             },
             "hwintrinsic-off" => new (string Id, string Label, ushort[] Seed, Action Run)[]
             {
