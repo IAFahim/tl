@@ -279,6 +279,8 @@ public struct LaneMovementRecord
 
 internal static unsafe class LaneOps
 {
+    internal const int SmallSpan = 15;
+
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal static int RunEnd(ReadOnlySpan<ushort> values, int start, int limit)
     {

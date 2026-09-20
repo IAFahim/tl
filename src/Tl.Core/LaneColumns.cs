@@ -40,11 +40,10 @@ public static class Lane<TTrack, TClip>
         where TEffect : struct
     {
         CheckSizes<TIndex, TPosition, TEffect>();
-        ref var slot = ref Unsafe.As<TPosition, ushort>(ref position);
         Timeline<TTrack, TClip>.Apply(
-            MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)), 1),
-            MemoryMarshal.CreateReadOnlySpan(ref slot, 1),
-            MemoryMarshal.CreateSpan(ref slot, 1),
+            Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
+            MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TPosition, ushort>(ref position), 1),
+            MemoryMarshal.CreateSpan(ref Unsafe.As<TPosition, ushort>(ref position), 1),
             forward,
             MemoryMarshal.CreateSpan(ref Unsafe.As<TEffect, float>(ref effect), 1));
     }
@@ -57,7 +56,7 @@ public static class Lane<TTrack, TClip>
         if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
             ThrowColumnSizes();
         Timeline.Step(
-            MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)), 1),
+            Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
             MemoryMarshal.CreateSpan(ref Unsafe.As<TPosition, ushort>(ref position), 1),
             forward);
     }
