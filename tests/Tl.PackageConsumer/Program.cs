@@ -23,6 +23,23 @@ if (positions[0] != 0 || values[0] != 0f)
 Timeline<PackageTrack, PackageClip>.Apply(asset, positions, true, values);
 Timeline.Step(asset, positions, true);
 
+unsafe
+{
+    var view = Timeline<PackageTrack, PackageClip>.View(asset.Index);
+    if (view.Duration != 4 || view.TableTicks != 5 || view.RecordBytes != 8
+        || view.AbiVersion != SlotView.AbiVersionV1 || view.Generation == 0
+        || view.Forward == null || view.Backward == null || view.BackwardByPosition == null
+        || view.ForwardRecords == null || view.BackwardRecords == null)
+        return 4;
+
+    if (view.Forward[0] != 7f || view.Forward[4] != 0f || view.Backward[3] != -7f)
+        return 5;
+
+    if (view.ForwardRecords[0].Effect != 7f || view.ForwardRecords[0].Next != 1
+        || view.ForwardRecords[3].Next != 4 || view.ForwardRecords[4].Next != LaneMovementRecord.Skipped)
+        return 6;
+}
+
 if (BakeRuntime<PackageTrack, PackageClip>.BakeCount != 1
     || BakeRuntime<PackageTrack, PackageClip>.BakeContextCount(0) != 1
     || BakeRuntime<PackageTrack, PackageClip>.BakeContextKey(0, 0) != TypeKey<PackageHost>.Value)
