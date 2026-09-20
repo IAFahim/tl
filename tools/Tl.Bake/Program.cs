@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using Tl.Gen.Tlb;
 
 namespace Tl.Bake;
@@ -181,7 +178,7 @@ public static class Program
 
         if (cacheDir != null)
         {
-            Directory.CreateDirectory(cacheDir!);
+            Directory.CreateDirectory(cacheDir);
             File.WriteAllBytes(tlbEntry!, bytes);
             Console.WriteLine($"cache: miss {BakeCacheKey.Prefix(key!)}");
         }

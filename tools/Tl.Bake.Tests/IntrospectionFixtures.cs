@@ -1,4 +1,5 @@
 using Tl;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tlb;
 
@@ -24,6 +25,7 @@ public readonly struct DamageJob : ITrack<JobTrack, JobClip>
 
 public readonly struct Temperature
 {
+    [SuppressMessage("ReSharper", "UnassignedReadonlyField", Justification = "fixture model field")]
     public readonly float Degrees;
 }
 

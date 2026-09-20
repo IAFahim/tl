@@ -47,7 +47,7 @@ public static unsafe class Timeline<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static unsafe void Advance(ushort index, ref ushort position, bool forward)
+    public static void Advance(ushort index, ref ushort position, bool forward)
     {
         var bank = Bank();
         var slot = bank.FoldedView(index);
@@ -68,7 +68,7 @@ public static unsafe class Timeline<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void ApplySharedClock(SlotView* slot, ushort position, bool forward, Span<float> effects)
+    static void ApplySharedClock(SlotView* slot, ushort position, bool forward, Span<float> effects)
     {
         float delta;
         if (forward)
@@ -145,7 +145,7 @@ public static unsafe class Timeline<TTrack, TClip>
     {
         if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
             ThrowColumnSizes();
-        global::Tl.Timeline.Advance(MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
+        Timeline.Advance(MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
@@ -169,7 +169,7 @@ public static unsafe class Timeline<TTrack, TClip>
     {
         if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
             ThrowColumnSizes();
-        global::Tl.Timeline.Advance(
+        Timeline.Advance(
             Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
             MemoryMarshal.CreateSpan(ref Unsafe.As<TPosition, ushort>(ref position), 1),
             forward);
@@ -196,7 +196,7 @@ public static unsafe class Timeline<TTrack, TClip>
         var key = PairRuntime<TTrack, TClip>.Key;
         if (!reference.Uses(key))
             throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
-        if (PairTable.Head(key) < 0)
+        if (PairTable.HeadOf(key) < 0)
             throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
         using var measured = MeasuredLanes.Measure(reference);
         bank.AddAt(index, measured);
@@ -217,7 +217,7 @@ public static unsafe class Timeline<TTrack, TClip>
             bank.MarkAbsent(index);
             return;
         }
-        if (PairTable.Head(key) < 0) return;
+        if (PairTable.HeadOf(key) < 0) return;
         using var measured = MeasuredLanes.Measure(reference);
         bank.AddAt(index, measured);
     }

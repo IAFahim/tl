@@ -1,15 +1,10 @@
-using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Numerics;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
 
 namespace Tl.Gen.Tlb;
 
@@ -215,7 +210,7 @@ internal sealed unsafe class SimdWalker
             Bail();
         CheckGap(open + 1, first);
         var valueEnd = RootMember(doc, first, ref seenDuration, ref seenTracks, ref seenName, ref seenLoop);
-        var close = -1;
+        int close;
         while (true)
         {
             var separator = Take();
@@ -404,6 +399,7 @@ internal sealed unsafe class SimdWalker
     private const int MinPartitionTracks = 8;
     private const int MinPartitionBytes = 1 << 20;
 
+    [SuppressMessage("ReSharper", "EmptyGeneralCatchClause", Justification = "affinity probe may fail on locked-down hosts; fall back to processor count")]
     private static int PartitionDegree()
     {
         if (int.TryParse(Environment.GetEnvironmentVariable("TL_BAKE_PARTITIONS"), out var forced) && forced >= 1)
@@ -455,6 +451,7 @@ internal sealed unsafe class SimdWalker
         }
     }
 
+    [SuppressMessage("ReSharper", "AccessToModifiedClosure", Justification = "live capture consumed inside the invoked body")]
     private int PartitionedTracks(FastDoc doc, int[] opens, int arrayClose, int value)
     {
         var degree = Math.Min(PartitionDegree(), opens.Length);
@@ -666,7 +663,7 @@ internal sealed unsafe class SimdWalker
             Bail();
         CheckGap(open + 1, nameOpen);
         var valueEnd = TrackMember(doc, info, nameOpen, ref seenName, ref seenNs, ref seenType, ref seenClips, ref seenData);
-        var close = -1;
+        int close;
         while (true)
         {
             var separator = Take();
@@ -843,7 +840,7 @@ internal sealed unsafe class SimdWalker
         }
     }
 
-    private int ClipObject(FastDoc doc, FastTrackInfo info, int trackIndex, int clipIndex, int open)
+    private int ClipObject(FastDoc doc, FastTrackInfo info, int _, int clipIndex, int open)
     {
         var clip = new FastClip
         {
@@ -862,7 +859,7 @@ internal sealed unsafe class SimdWalker
             Bail();
         CheckGap(open + 1, nameOpen);
         var valueEnd = ClipMember(doc, info, clip, nameOpen, ref seenName, ref seenNs, ref seenType, ref seenStart, ref seenEnd, ref seenData);
-        var close = -1;
+        int close;
         while (true)
         {
             var separator = Take();
@@ -1006,7 +1003,7 @@ internal sealed unsafe class SimdWalker
         return clip.PairId >= 0;
     }
 
-    private int TrackDataValue(FastDoc doc, FastTrackInfo info, int value)
+    private int TrackDataValue(FastDoc _, FastTrackInfo info, int value)
     {
         if (_utf8[value] != OpenBrace)
             Bail();
@@ -1020,7 +1017,7 @@ internal sealed unsafe class SimdWalker
         return close + 1;
     }
 
-    private int SkipContainer(int open)
+    private int SkipContainer(int _)
     {
         var depth = 1;
         while (true)
@@ -1058,7 +1055,7 @@ internal sealed unsafe class SimdWalker
             var separator = cursor.Take();
             if (separator < 0)
                 Bail();
-            CheckGap(LastValueEnd, separator);
+            CheckGap(_lastValueEnd, separator);
             var b = _utf8[separator];
             if (b == Comma)
             {
@@ -1075,9 +1072,9 @@ internal sealed unsafe class SimdWalker
         }
     }
 
-    private int LastValueEnd;
+    private int _lastValueEnd;
 
-    private void RegionMember(SimdCursor cursor, FieldTable table, int nameOpen, int separator, int regionEnd)
+    private void RegionMember(SimdCursor cursor, FieldTable table, int nameOpen, int _, int regionEnd)
     {
         var nameClose = NextQuote(nameOpen + 1);
         if (nameClose < 0)
@@ -1098,7 +1095,7 @@ internal sealed unsafe class SimdWalker
         MarkSeen(entry.Ordinal);
         int valueEnd;
         var first = _utf8[valueStart];
-        if (isStructuralValueAt(valueStart, bound))
+        if (IsStructuralValueAt(valueStart, bound))
         {
             if (first == Quote)
             {
@@ -1130,10 +1127,10 @@ internal sealed unsafe class SimdWalker
         {
             Bail();
         }
-        LastValueEnd = valueEnd;
+        _lastValueEnd = valueEnd;
     }
 
-    private bool isStructuralValueAt(int valueStart, int bound) => valueStart == bound;
+    private bool IsStructuralValueAt(int valueStart, int bound) => valueStart == bound;
 
     private void MarkSeen(int ordinal)
     {
@@ -1196,7 +1193,7 @@ internal sealed unsafe class SimdWalker
         }
     }
 
-    private int CloseDataObject(FastDoc doc, FastClip clip, int open, int close)
+    private int CloseDataObject(FastDoc _, FastClip clip, int open, int close)
     {
         clip.DataStart = open;
         clip.DataEnd = close + 1;
@@ -1280,7 +1277,7 @@ internal sealed unsafe class SimdWalker
         switch (kind)
         {
             case FieldKind.Byte:
-                *(byte*)target = (byte)value;
+                *target = (byte)value;
                 break;
             case FieldKind.SByte:
                 *(sbyte*)target = (sbyte)value;

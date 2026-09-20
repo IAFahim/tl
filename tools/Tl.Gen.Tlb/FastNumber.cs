@@ -1,4 +1,5 @@
-using System;
+using System.Diagnostics.CodeAnalysis;
+
 
 namespace Tl.Gen.Tlb;
 
@@ -266,6 +267,8 @@ internal static class FastNumber
         }
     }
 
+    [SuppressMessage("ReSharper", "RedundantCast", Justification = "casts select the numeric operator; removal changes resolution")]
+
     internal static float PartsToFloat(ulong mantissa, int exponent, bool negative, bool hard)
     {
         if (hard || exponent > 27 || exponent < -400)
@@ -288,7 +291,7 @@ internal static class FastNumber
         var k = -exponent;
         if (k <= 10 && mantissa <= 0xFFFFFF)
         {
-            var divided = (float)((double)mantissa / Pow10Double[k]);
+            var divided = (float)(mantissa / Pow10Double[k]);
             return float.IsInfinity(divided) ? float.NaN : (negative ? -divided : divided);
         }
         return float.NaN;
@@ -304,9 +307,9 @@ internal static class FastNumber
             return double.NaN;
         double value;
         if (exponent >= 0)
-            value = (double)mantissa * Pow10Double[exponent];
+            value = mantissa * Pow10Double[exponent];
         else
-            value = (double)mantissa / Pow10Double[-exponent];
+            value = mantissa / Pow10Double[-exponent];
         if (double.IsInfinity(value))
             return double.NaN;
         return negative ? -value : value;

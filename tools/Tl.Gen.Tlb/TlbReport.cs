@@ -1,9 +1,7 @@
-using System;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
-using Tl;
 
 namespace Tl.Gen.Tlb;
 
@@ -19,9 +17,9 @@ public static class TlbReport
         var frameOffset = Word(tlb, 40);
         var pairCount = Word(tlb, 24);
         var stageCount = Word(tlb, 20);
-        if (pairOffset < 64 || (ulong)pairOffset + 48ul * pairCount > stageOffset)
+        if (pairOffset < 64 || pairOffset + 48ul * pairCount > stageOffset)
             throw new ArgumentException("TLB pair table is out of bounds.");
-        if ((ulong)stageOffset + 16ul * stageCount > poolOffset || poolOffset > frameOffset || frameOffset > hotBytes)
+        if (stageOffset + 16ul * stageCount > poolOffset || poolOffset > frameOffset || frameOffset > hotBytes)
             throw new ArgumentException("TLB section layout is out of bounds.");
 
         ulong steps = 0;

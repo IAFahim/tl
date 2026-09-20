@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
-using Tl;
 using Tl.TestSupport;
 using Xunit;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Core.Tests;
 
@@ -13,12 +13,14 @@ public readonly record struct LaneColumnsTrack(float Scale) : IBlend<LaneColumns
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct TestIndex(ushort Value);
 
 public record struct TestPosition(ushort Value);
 
 public struct TestEffect { public float Value; }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 readonly record struct WrongIndex(int Value);
 
 internal static unsafe class LaneColumnsPairs
@@ -167,7 +169,7 @@ public class LaneColumnsTests
         Timeline<LaneColumnsTrack, LaneColumnsClip>.Advance(in index, ref position, true);
 
         var rawPos = new ushort[] { 3 };
-        Timeline.Advance(new ushort[] { asset }, rawPos, true);
+        Timeline.Advance(new [] { asset }, rawPos, true);
         Assert.Equal(rawPos[0], position.Value);
     }
 

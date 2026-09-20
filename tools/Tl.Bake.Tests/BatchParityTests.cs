@@ -58,7 +58,7 @@ public sealed class BatchParityTests
         });
         Assert.IsType<BakeDiagnosticException>(batchError);
         Assert.NotNull(serialError);
-        Assert.Equal(serialError!.GetType(), batchError!.GetType());
+        Assert.Equal(serialError.GetType(), batchError.GetType());
         Assert.Equal(serialError.Message, batchError.Message);
     }
 
@@ -77,7 +77,7 @@ public sealed class BatchParityTests
         var batchError = Record.Exception(() => TimelineBaker.BakeJsonBatch(inputs));
         var expected = Record.Exception(() => _ = TimelineBaker.BakeJson(inputs[1]));
         Assert.NotNull(expected);
-        Assert.Equal(expected!.GetType(), batchError!.GetType());
+        Assert.Equal(expected.GetType(), batchError!.GetType());
         Assert.Equal(expected.Message, batchError.Message);
     }
 
@@ -87,7 +87,7 @@ public sealed class BatchParityTests
         var docs = new List<string>
         {
             Doc("GaTrack0", "GaClip0", 4, 8, 120, Ns),
-            Doc("GaTrack0", "GaClip0", 3, 1, 90, Ns, null, rootName: "\\u0041bc"),
+            Doc("GaTrack0", "GaClip0", 3, 1, 90, Ns, rootName: "\\u0041bc"),
             Doc("GaPrimTrack", "GaPrimClip", 2, 0, 80, Ns, "\"B\":true,\"Bt\":7,\"Sb\":-3,\"Sh\":300,\"Us\":60000,\"I\":-5,\"Ui\":7,\"L\":-9,\"Ul\":11,\"F\":1.5,\"D\":2.5"),
             Doc("AlphaTrack", "AlphaClip", 3, 0, 60, "Tlb", "\"Value\":4"),
             Doc("BlendTrack", "BlendClip", 2, 0, 60, "Tlb", "\"Amount\":0.5"),

@@ -180,7 +180,7 @@ public class SharedClockCrowdTests
     {
         using var asset = TimelineAsset.LoadAsset(LoopingBake());
         var effects = new float[64];
-        Timeline<HandleTrack, HandleClip>.Apply(asset.Index, (ushort)0, true, effects);
+        Timeline<HandleTrack, HandleClip>.Apply(asset.Index, 0, true, effects);
         for (var i = 0; i < effects.Length; i++)
             Assert.Equal(8f, effects[i]);
     }

@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Tl;
 using Tl.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 
 internal readonly record struct DamageClip(float Amount);
 internal readonly record struct DamageTrack(float Multiplier) : IBlend<DamageClip>
@@ -23,7 +24,9 @@ internal readonly record struct TandemTrack(float Multiplier) : IBlend<TandemCli
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 internal readonly record struct ImpureClip(float Amount);
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 internal readonly record struct ImpureTrack(float Multiplier) : IBlend<ImpureClip>
 {
     public void Blend(in ImpureClip first, in ImpureClip second, float factor, out ImpureClip result) => result = first;
@@ -84,6 +87,7 @@ internal static class DataAuthoredReceipts
 #endif
     }
 
+    [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
     internal static void MovementLaw()
     {
         foreach (var looping in new[] { true, false })
@@ -130,26 +134,26 @@ internal static class DataAuthoredReceipts
             .Looping()
             .Bake());
         BakedLane<DamageTrack, DamageClip>.Bind(asset);
-        const ushort Duration = 12;
-        const int Rows = 48;
-        const int Steps = 400;
+        const ushort duration = 12;
+        const int rows = 48;
+        const int steps = 400;
 
         var random = new Random(113);
-        var positions = new ushort[Rows];
-        var loops = new long[Rows];
-        var oraclePositions = new ushort[Rows];
-        var oracleLoops = new long[Rows];
+        var positions = new ushort[rows];
+        var loops = new long[rows];
+        var oraclePositions = new ushort[rows];
+        var oracleLoops = new long[rows];
         long forwardWraps = 0, backwardWraps = 0;
-        for (var i = 0; i < Rows; i++)
-            positions[i] = oraclePositions[i] = (ushort)(i * 7 % Duration);
+        for (var i = 0; i < rows; i++)
+            positions[i] = oraclePositions[i] = (ushort)(i * 7 % duration);
 
-        for (var step = 0; step < Steps; step++)
+        for (var step = 0; step < steps; step++)
         {
             var forward = random.Next(3) != 2;
             var reverse = !forward;
-            for (var i = 0; i < Rows; i++)
+            for (var i = 0; i < rows; i++)
             {
-                if (!TimelineMovement.Select(new TimelineState(1, positions[i]), Duration, true, reverse, out var next, out _, out var flags))
+                if (!TimelineMovement.Select(new TimelineState(1, positions[i]), duration, true, reverse, out var next, out _, out var flags))
                     continue;
                 if ((flags & FrameFlags.TimelineEnd) != 0)
                 {
@@ -159,11 +163,11 @@ internal static class DataAuthoredReceipts
                 }
                 positions[i] = next.Position;
             }
-            for (var i = 0; i < Rows; i++)
+            for (var i = 0; i < rows; i++)
             {
-                if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i]), Duration, true, reverse, out var next, out var tick, out _))
+                if (!TimelineMovement.Select(new TimelineState(1, oraclePositions[i]), duration, true, reverse, out var next, out var tick, out _))
                     continue;
-                if (tick == Duration - 1)
+                if (tick == duration - 1)
                     oracleLoops[i] += reverse ? -1 : 1;
                 oraclePositions[i] = next.Position;
             }
@@ -173,12 +177,13 @@ internal static class DataAuthoredReceipts
         Require(loops.SequenceEqual(oracleLoops), "flag-reconstructed loop counts match the removed engine cycle");
 
         long laneSum = 0, oracleSum = 0;
-        for (var i = 0; i < Rows; i++) { laneSum += loops[i]; oracleSum += oracleLoops[i]; }
+        for (var i = 0; i < rows; i++) { laneSum += loops[i]; oracleSum += oracleLoops[i]; }
         Require(laneSum == oracleSum, "wrap receipt loop totals agree");
         Require(forwardWraps > 0 && backwardWraps > 0, "wrap receipt exercised wraps in both directions on the randomized schedule");
-        Console.WriteLine($"wrap-count: {Rows} rows x {Steps} randomized steps reconstruct loop counts from TimelineEnd/Reverse flags (finite wraps carry CompletedAfter/CompletedBefore)");
+        Console.WriteLine($"wrap-count: {rows} rows x {steps} randomized steps reconstruct loop counts from TimelineEnd/Reverse flags (finite wraps carry CompletedAfter/CompletedBefore)");
     }
 
+    [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
     internal static void FoldAndBlend()
     {
         using var asset = TimelineAsset.LoadAsset(new DomainBaker()
@@ -203,6 +208,7 @@ internal static class DataAuthoredReceipts
         }
     }
 
+    [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
     internal static void RewindAndCatchUp()
     {
         using var asset = TimelineAsset.LoadAsset(new DomainBaker()
@@ -233,6 +239,7 @@ internal static class DataAuthoredReceipts
         Require(values[0] == single * 2, "catch-up calls are linear and backward cancels one");
     }
 
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     internal static void Faults()
     {
         using var impure = TimelineAsset.LoadAsset(new DomainBaker()
@@ -252,6 +259,7 @@ internal static class DataAuthoredReceipts
     }
 
 #if TL_CHECKED
+    [SuppressMessage("ReSharper", "AccessToModifiedClosure", Justification = "live capture consumed inside the invoked body")]
     internal static void Validation()
     {
         var positions = new ushort[4];
@@ -274,6 +282,8 @@ internal static class DataAuthoredReceipts
     }
 #endif
 
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
+    [SuppressMessage("ReSharper", "DisposeOnUsingVariable", Justification = "explicit dispose exercises dispose semantics; using is the backstop")]
     internal static void TimelineSets()
     {
         using var loopingAsset = TimelineAsset.LoadAsset(new DomainBaker()
@@ -308,24 +318,24 @@ internal static class DataAuthoredReceipts
         var loopingId = timelines.Add(loopingAsset);
         var finiteId = timelines.Add(finiteAsset);
 
-        const int Rows = 700;
-        const int Frames = 120;
-        var ids = new ushort[Rows];
-        var positions = new ushort[Rows];
-        var values = new float[Rows];
-        for (var i = 0; i < Rows; i++)
+        const int rows = 700;
+        const int frames = 120;
+        var ids = new ushort[rows];
+        var positions = new ushort[rows];
+        var values = new float[rows];
+        for (var i = 0; i < rows; i++)
         {
             ids[i] = i < 300 ? loopingId : i % 2 == 0 ? finiteId : loopingId;
             positions[i] = (ushort)(i % 14);
         }
         var oraclePositions = (ushort[])positions.Clone();
-        var oracleValues = new float[Rows];
+        var oracleValues = new float[rows];
 
-        for (var frame = 0; frame < Frames; frame++)
+        for (var frame = 0; frame < frames; frame++)
         {
             var forward = frame % 3 != 2;
             timelines.Gather(ids).Seek(positions, forward).Apply(values); timelines.Advance(ids, positions, forward);
-            for (var i = 0; i < Rows; i++)
+            for (var i = 0; i < rows; i++)
             {
                 var isLooping = ids[i] == loopingId;
                 var duration = isLooping ? loopingDuration : finiteDuration;
@@ -347,7 +357,7 @@ internal static class DataAuthoredReceipts
 #if TL_CHECKED
         RequireThrows<ObjectDisposedException>(() => timelines.Gather(ids), "disposed set rejected");
 #endif
-        Console.WriteLine($"timeline sets: {Rows} rows over 2 baked timelines x {Frames} frames, ids {loopingId}/{finiteId}, uniform, gather, streak, and mixed chunk paths");
+        Console.WriteLine($"timeline sets: {rows} rows over 2 baked timelines x {frames} frames, ids {loopingId}/{finiteId}, uniform, gather, streak, and mixed chunk paths");
     }
 
     internal static void Memory()
@@ -377,41 +387,43 @@ internal static class DataAuthoredReceipts
         Console.WriteLine($"frame bytes: TimelineState 8, TimelineComponent 16, movement record 8");
     }
 
+    [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
     internal static void BatchCapacity()
     {
-        const int Rows = 200_000;
+        const int rows = 200_000;
         using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<TandemTrack, TandemClip>(new TandemTrack(1f))
             .Clip(0, 0u, 64u, new TandemClip(2f))
             .Looping()
             .Bake());
         BakedLane<TandemTrack, TandemClip>.Bind(asset);
-        var positions = new ushort[Rows];
-        var values = new float[Rows];
-        for (var i = 0; i < Rows; i++)
+        var positions = new ushort[rows];
+        var values = new float[rows];
+        for (var i = 0; i < rows; i++)
             positions[i] = (ushort)(i % 64);
 
         for (var tick = 0; tick < 64; tick++)
             { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true); }
 
         long checksum = 0;
-        for (var i = 0; i < Rows; i++)
+        for (var i = 0; i < rows; i++)
             checksum = unchecked(checksum * 31 + (long)values[i]);
         Require(values.All(static value => value == 576f), "capacity fold is 64 ticks x 9 per row on every row");
-        Console.WriteLine($"capacity: {Rows} rows x 64 ticks checksum {checksum}");
+        Console.WriteLine($"capacity: {rows} rows x 64 ticks checksum {checksum}");
     }
 
+    [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
     internal static void ModuleCapacity()
     {
-        const int Tracks = 256;
+        const int tracks = 256;
         var baker = new DomainBaker();
-        for (var track = 1; track <= Tracks; track++)
+        for (var track = 1; track <= tracks; track++)
             baker.Track<TandemTrack, TandemClip>(new TandemTrack(track)).Clip(track - 1, 0u, 64u, new TandemClip(1f));
         using var asset = TimelineAsset.LoadAsset(baker.Looping().Bake());
         BakedLane<TandemTrack, TandemClip>.Bind(asset);
 
         var expected = 0f;
-        for (var track = 1; track <= Tracks; track++)
+        for (var track = 1; track <= tracks; track++)
             expected += track + 7f;
         for (var tick = 0; tick < 64; tick++)
             Require(BakedLane<TandemTrack, TandemClip>.Effect((ushort)tick) == expected, $"module fold at {tick}");
@@ -421,7 +433,7 @@ internal static class DataAuthoredReceipts
         for (var tick = 0; tick < 10; tick++)
             { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true); }
         Require(values.All(value => value == expected * 10), "module capacity fold applied");
-        Console.WriteLine($"module-capacity: {Tracks} tracks fold to {expected} per tick, x10 applied");
+        Console.WriteLine($"module-capacity: {tracks} tracks fold to {expected} per tick, x10 applied");
     }
 
     static void Require(bool condition, string label)

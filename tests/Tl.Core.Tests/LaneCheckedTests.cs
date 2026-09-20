@@ -1,6 +1,7 @@
 #if TL_CHECKED
 using System.Runtime.InteropServices;
 using Xunit;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Core.Tests;
 
@@ -15,7 +16,7 @@ public partial class LaneTests
     }
 
     [Fact]
-    public unsafe void SeekRejectsOverlappingColumns()
+    public void SeekRejectsOverlappingColumns()
     {
         var buffer = new ushort[10];
         var positions = buffer.AsSpan(0, 4);
@@ -27,6 +28,7 @@ public partial class LaneTests
     }
 
     [Fact]
+    [SuppressMessage("ReSharper", "DisposeOnUsingVariable", Justification = "explicit dispose exercises dispose semantics; using is the backstop")]
     public void SetThrowsAfterDispose()
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
@@ -43,7 +45,7 @@ public partial class LaneTests
     }
 
     [Fact]
-    public unsafe void SetRejectsOverlappingColumns()
+    public void SetRejectsOverlappingColumns()
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
@@ -80,7 +82,7 @@ public partial class LaneTests
     }
 
     [Fact]
-    public unsafe void SetRejectsIdsOverlappingEffects()
+    public void SetRejectsIdsOverlappingEffects()
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
@@ -97,7 +99,7 @@ public partial class LaneTests
     }
 
     [Fact]
-    public unsafe void SetRejectsPositionsOverlappingEffects()
+    public void SetRejectsPositionsOverlappingEffects()
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();

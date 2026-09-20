@@ -1,11 +1,10 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using Tl;
 using Tl.Bake.Oracle;
 using Tl.Gen.Tlb;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Bake.Bench;
 
@@ -180,6 +179,7 @@ internal static class Program
         return 0;
     }
 
+    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "printed via record ToString in receipts")]
     private sealed record BatchPass(string Mode, double Ms, double[] ItemMs, double[] ItemAllocMb, double AllocMb, double TotalAllocMb, double OutputMb, ulong OutputSum, string GcCounts);
 
     private static int BatchCommand(string[] args)
@@ -283,6 +283,7 @@ internal static class Program
             gcCounts);
     }
 
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     private static BatchPass RunParallelBatchPass(byte[][] inputs, BakerAssemblyResolver resolver)
     {
         var outputs = new byte[inputs.Length][];

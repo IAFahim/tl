@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Xunit;
 
 using Tl.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Core.Tests;
 
@@ -45,7 +46,11 @@ public readonly record struct ChainTrack(float Scale) : IBlend<ChainClip>
         => result = new ChainClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
+[SuppressMessage("ReSharper", "InconsistentNaming", Justification = "T-prefixed twin of the Chain fixture family; jb suggestion collides with the original")]
+
 public readonly record struct TChainClip(float Amount);
+
+[SuppressMessage("ReSharper", "InconsistentNaming", Justification = "T-prefixed twin of the Chain fixture family; jb suggestion collides with the original")]
 
 public readonly record struct TChainTrack(float Scale) : IBlend<TChainClip>
 {
@@ -128,6 +133,8 @@ internal static unsafe class WindowPairs
 
     private static void ChainOneB(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] += 1f;
+
+    [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "T-prefixed twin of the Chain fixture family; jb suggestion collides with the original")]
 
     private static void TChainScale(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
@@ -271,7 +278,7 @@ public class WindowConstantTests
     [Fact]
     public void SamePairTwoTracksDeclaredMatchesPerTick()
     {
-        foreach (var looping in new[] { true, false })
+        foreach (var _ in new[] { true, false })
         {
             var declared = BakeTwo<ConstTrack, ConstClip, ConstTrack, ConstClip>(
                 new ConstTrack(2f), new ConstTrack(3f), 40, true,
@@ -370,7 +377,7 @@ public class WindowConstantTests
         }
     }
 
-    static byte[] Bake<TTrack, TClip>(TTrack track, uint duration, bool looping, params (uint Start, uint End)[] clips)
+    static byte[] Bake<TTrack, TClip>(TTrack track, uint _, bool looping, params (uint Start, uint End)[] clips)
         where TTrack : unmanaged, IBlend<TClip>
         where TClip : unmanaged
     {
@@ -382,7 +389,7 @@ public class WindowConstantTests
     }
 
     static byte[] BakeTwo<TTrack0, TClip0, TTrack1, TClip1>(
-        TTrack0 track0, TTrack1 track1, uint duration, bool looping,
+        TTrack0 track0, TTrack1 track1, uint _, bool looping,
         (uint Start, uint End)[] clips0, (uint Start, uint End)[] clips1)
         where TTrack0 : unmanaged, IBlend<TClip0>
         where TClip0 : unmanaged

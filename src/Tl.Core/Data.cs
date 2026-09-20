@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Threading;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl;
 
@@ -42,7 +42,7 @@ struct NativeStage { public uint Start, End, ProgramOffset, ProgramCount; }
 struct NativeStep { public uint Slot, Pair; }
 
 [StructLayout(LayoutKind.Sequential)]
-unsafe struct SlotRow
+ struct SlotRow
 {
 	internal const ushort NoClipValue = 0xFFFF;
 	internal const uint RowBytes = 24u;
@@ -56,6 +56,7 @@ unsafe struct SlotRow
 	public uint FactorStart;
 	public uint FactorSpan;
 
+	[SuppressMessage("ReSharper", "RedundantUnsafeContext")]
 	internal static unsafe Frame<TTrack, TClip> ToFrame<TTrack, TClip>(SlotRow* row, byte* pair, ushort tick, FrameFlags flags, TClip* scratch)
 		where TTrack : unmanaged, IBlend<TClip>
 		where TClip : unmanaged
@@ -79,6 +80,7 @@ unsafe struct SlotRow
 }
 public readonly unsafe struct TimelineRef
 {
+	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	internal readonly byte* _p;
 	internal TimelineRef(void* p) => _p = (byte*)p;
 
@@ -130,7 +132,7 @@ public readonly unsafe struct TimelineRef
 	internal void Resolve(Span<int> chains)
 	{
 		var pairs = Pairs;
-		for (var i = 0; i < PairCount; i++) chains[i] = PairTable.Head(pairs[i].Key);
+		for (var i = 0; i < PairCount; i++) chains[i] = PairTable.HeadOf(pairs[i].Key);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -192,24 +194,24 @@ public readonly unsafe struct TimelineRef
 		if (h.Bytes != (uint)baked.Length) Fail("TLB size mismatch.");
 		if (h.HotLength == 0 || h.HotLength > h.Bytes) Fail("TLB hot length invalid.");
 		if (h.PairOffset < 64 || (h.PairOffset | h.StageOffset | h.PoolOffset | h.FrameOffset) % 8 != 0) Fail("TLB offsets must be 8-aligned.");
-		if ((ulong)h.PairOffset + 48ul * h.PairCount > h.StageOffset) Fail("TLB pair table out of bounds.");
-		if ((ulong)h.StageOffset + 16ul * h.StageCount > h.PoolOffset || h.PoolOffset > h.FrameOffset || h.FrameOffset > h.HotLength) Fail("TLB sections out of bounds.");
+		if (h.PairOffset + 48ul * h.PairCount > h.StageOffset) Fail("TLB pair table out of bounds.");
+		if (h.StageOffset + 16ul * h.StageCount > h.PoolOffset || h.PoolOffset > h.FrameOffset || h.FrameOffset > h.HotLength) Fail("TLB sections out of bounds.");
 		var pairs = MemoryMarshal.Cast<byte, NativePair>(baked.Slice((int)h.PairOffset, 48 * (int)h.PairCount));
 		for (var i = 1; i < pairs.Length; i++) if (pairs[i - 1].Key >= pairs[i].Key) Fail("TLB pair keys must be sorted.");
 		for (var i = 0; i < pairs.Length; i++)
 		{
 			var pair = pairs[i];
 			if (pair.SlotStride % 8 != 0 || pair.SlotStride < SlotRow.RowBytes) Fail("TLB slot stride must be 8-aligned.");
-			ValidatePool(h, (ulong)h.PairOffset + 48ul * (uint)i + pair.TrackPoolOffset, pair.TrackPoolCount, pair.TrackValueBytes, Fail);
-			ValidatePool(h, (ulong)h.PairOffset + 48ul * (uint)i + pair.ClipPoolOffset, pair.ClipPoolCount, pair.ClipValueBytes, Fail);
+			ValidatePool(h, h.PairOffset + 48ul * (uint)i + pair.TrackPoolOffset, pair.TrackPoolCount, pair.TrackValueBytes, Fail);
+			ValidatePool(h, h.PairOffset + 48ul * (uint)i + pair.ClipPoolOffset, pair.ClipPoolCount, pair.ClipValueBytes, Fail);
 		}
 		var stages = MemoryMarshal.Cast<byte, NativeStage>(baked.Slice((int)h.StageOffset, 16 * (int)h.StageCount));
-		var programs = (ulong)h.StageOffset + 16ul * h.StageCount;
+		var programs = h.StageOffset + 16ul * h.StageCount;
 		uint edge = 0;
 		for (var i = 0; i < stages.Length; i++)
 		{
 			var stage = stages[i];
-			if (stage.Start != edge || stage.ProgramOffset < programs || stage.ProgramOffset % 8 != 0 || (ulong)stage.ProgramOffset + 8ul * stage.ProgramCount > h.PoolOffset) Fail("TLB stages must be monotonic.");
+			if (stage.Start != edge || stage.ProgramOffset < programs || stage.ProgramOffset % 8 != 0 || stage.ProgramOffset + 8ul * stage.ProgramCount > h.PoolOffset) Fail("TLB stages must be monotonic.");
 			var steps = MemoryMarshal.Cast<byte, NativeStep>(baked.Slice((int)stage.ProgramOffset, 8 * (int)stage.ProgramCount));
 			for (var j = 0; j < steps.Length; j++)
 			{
@@ -241,7 +243,7 @@ public readonly unsafe struct TimelineRef
 	}
 }
 
-public sealed unsafe class TimelineAsset : IDisposable
+public sealed class TimelineAsset : IDisposable
 {
 	int _index;
 	long _generation;
@@ -310,6 +312,7 @@ public readonly unsafe struct TickFrame
 	struct Slot { public ulong Key; public int Head; }
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
+	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + sizeof(Consumer) * ConsumerCapacity), 64);
 	static volatile int _gate;
 	static int _windowConstant;
@@ -416,14 +419,14 @@ public readonly unsafe struct TickFrame
 		}
 	}
 
-	internal static int Head(ulong key)
+	internal static int HeadOf(ulong key)
 	{
 		var slots = SlotAt;
 		var slot = Probe(key);
 		return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
 	}
 
-	internal static void Bind(TimelineRef asset, ulong* keys, int keyCount, byte* indices, byte* rSlots, byte* rCols, ref int rCount, ref ulong boundMask)
+	internal static void BindPair(TimelineRef asset, ulong* keys, int keyCount, byte* indices, byte* rSlots, byte* rCols, ref int rCount, ref ulong boundMask)
 	{
 		var slots = SlotAt;
 		var consumers = ConsumerAt;

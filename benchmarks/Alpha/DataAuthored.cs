@@ -1,5 +1,6 @@
 using Tl;
 using Tl.TestSupport;
+using System.Diagnostics.CodeAnalysis;
 
 internal static class TickPatterns
 {
@@ -27,6 +28,7 @@ internal sealed class LaneCase : IDisposable
         _handles[0] = _asset.Index;
     }
 
+    [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global", Justification = "fixture model carries the authored shape")]
     internal TimelineShape Shape { get; }
 
     internal long Run()
@@ -34,7 +36,7 @@ internal sealed class LaneCase : IDisposable
         _positions[0] = 0;
         _values[0] = 0;
         for (var index = 0; index < _deltas.Length; index++)
-            { { Timeline<AlphaTrack, AlphaClip>.Apply(_handles, _positions, _deltas[index] >= 0, _values); Timeline.Advance(_handles, _positions, _deltas[index] >= 0); }; }
+            { { Timeline<AlphaTrack, AlphaClip>.Apply(_handles, _positions, _deltas[index] >= 0, _values); Timeline.Advance(_handles, _positions, _deltas[index] >= 0); } }
         return Checksum(_positions[0], _values[0]);
     }
 

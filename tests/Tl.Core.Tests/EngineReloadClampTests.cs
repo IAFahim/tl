@@ -23,7 +23,7 @@ public class EngineReloadClampTests
         var effects = new float[1];
         using var looping = TimelineAsset.LoadAsset(Bake(looping: true));
         using var loopingSet = new TimelineSet<LaneTrack, LaneClip>();
-        var loopingIds = new ushort[] { loopingSet.Add(looping) };
+        var loopingIds = new[] { loopingSet.Add(looping) };
         for (var step = 0; step < 8; step++)
             EngineStep(looping, loopingSet, loopingIds, positions, effects, forward: true, looping: true);
         Assert.Equal(0, positions[0]);
@@ -40,7 +40,7 @@ public class EngineReloadClampTests
         try
         {
             using var finiteSet = new TimelineSet<LaneTrack, LaneClip>();
-            var finiteIds = new ushort[] { finiteSet.Add(finite) };
+            var finiteIds = new[] { finiteSet.Add(finite) };
             Assert.Equal(Duration - 1, positions[0]);
             EngineStep(finite, finiteSet, finiteIds, positions, effects, forward: true, looping: false);
             Assert.Equal(Duration, positions[0]);

@@ -130,7 +130,7 @@ internal static class Corpus
         var edges = new uint[ClipsPerTrack];
         for (var j = 0; j < ClipsPerTrack; j++)
         {
-            var ideal = (uint)((j + 1) * (long)Duration / ClipsPerTrack);
+            var ideal = (uint)((j + 1) * Duration / ClipsPerTrack);
             var jitter = rng.NextUInt32() % 400;
             var edge = j == ClipsPerTrack - 1 ? Duration : ideal - 200 + jitter;
             if (j > 0 && edge <= edges[j - 1])

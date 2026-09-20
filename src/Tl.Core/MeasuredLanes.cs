@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Tl;
@@ -36,8 +35,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var duration = header->Duration;
         if (duration > ushort.MaxValue) throw new ArgumentException($"Asset duration {duration} exceeds the 65535-tick lane position column.");
         var looping = header->Loops != 0;
-        var forward = (float*)NativeMemory.AlignedAlloc((nuint)((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
-        var backward = (float*)NativeMemory.AlignedAlloc((nuint)((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
+        var forward = (float*)NativeMemory.AlignedAlloc(((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
+        var backward = (float*)NativeMemory.AlignedAlloc(((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
         try
         {
             Fill(reference, forward, backward, duration, looping);
@@ -83,7 +82,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         byte* refreshColumns = stackalloc byte[256];
         var refreshCount = 0;
         ulong boundMask = 0;
-        PairTable.Bind(reference, keys, 1, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);
+        PairTable.BindPair(reference, keys, 1, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);
         float* column = stackalloc float[1];
         void** bases = stackalloc void*[1];
         bases[0] = column;
@@ -93,7 +92,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
         if (!PairTable.AnyWindowConstant)
         {
-            float Measure(uint position, bool reverse)
+            float ProbeColumn(uint position, bool reverse)
             {
                 *column = 0f;
                 if (!reference.Select(reverse, (ushort)position, out _, out var tick, out var flags))
@@ -105,8 +104,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
             for (var tick = 0u; tick < duration; tick++)
             {
                 var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-                forward[tick] = Measure(tick, false);
-                backward[tick] = Measure(backwardPosition, true);
+                forward[tick] = ProbeColumn(tick, false);
+                backward[tick] = ProbeColumn(backwardPosition, true);
             }
         }
         else
@@ -247,6 +246,6 @@ internal static class LaneGuards
         if (reference.Address == 0) throw new ArgumentException("Timeline asset is not loaded.");
         var key = PairRuntime<TTrack, TClip>.Key;
         if (!reference.Uses(key)) throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
-        if (PairTable.Head(key) < 0) throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
+        if (PairTable.HeadOf(key) < 0) throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
     }
 }

@@ -1,4 +1,3 @@
-using System;
 using Tl.Gen.Tlb;
 using Tlb;
 using Xunit;
@@ -111,7 +110,7 @@ public class DiagnosticTests
     public void ClipNotUnmanaged_ThrowsDiagnostic()
     {
         var ex = Assert.Throws<BakeDiagnosticException>(() =>
-            BakerAssemblyResolver.ValidateUnmanaged(typeof(Tlb.AlphaTrack), typeof(ManagedClip)));
+            BakerAssemblyResolver.ValidateUnmanaged(typeof(AlphaTrack), typeof(ManagedClip)));
         Assert.Contains("track or clip not unmanaged", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -153,7 +152,7 @@ public class DiagnosticTests
 
         var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json));
         Assert.Contains("clip type not blendable by track", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(typeof(Tlb.DualBetaClip).FullName!, ex.Message, StringComparison.Ordinal);
+        Assert.Contains(typeof(DualBetaClip).FullName!, ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -196,7 +195,7 @@ public class DiagnosticTests
 
         var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json));
         Assert.Contains("does not contain", ex.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(typeof(Tlb.AlphaTrack).Assembly.GetName().Name!, ex.Message, StringComparison.Ordinal);
+        Assert.Contains(typeof(AlphaTrack).Assembly.GetName().Name!, ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -433,19 +432,19 @@ public class DiagnosticTests
 
         var bytes = TimelineBaker.BakeJson(json);
         using var asset = TimelineAsset.LoadAsset(bytes);
-        var rows = new[] { new Tl.TimelineComponent(asset.Reference) };
+        var rows = new[] { new TimelineComponent(asset.Reference) };
         rows[0].Position = 5;
-        Tlb.DualTrack track = default;
-        Tlb.DualAlphaClip alpha = default;
-        Tlb.DualBetaClip beta = default;
-        foreach (var frame in Tl.Timeline.Query<Tlb.DualTrack, Tlb.DualAlphaClip>(in rows[0]))
+        DualTrack track = default;
+        DualAlphaClip alpha = default;
+        DualBetaClip beta = default;
+        foreach (var frame in Timeline.Query<DualTrack, DualAlphaClip>(in rows[0]))
         {
             track = frame.Track;
             alpha = frame.Clip;
         }
         Assert.Equal(4, track.Code);
         Assert.Equal(1, alpha.Value);
-        foreach (var frame in Tl.Timeline.Query<Tlb.DualTrack, Tlb.DualBetaClip>(in rows[0]))
+        foreach (var frame in Timeline.Query<DualTrack, DualBetaClip>(in rows[0]))
         {
             beta = frame.Clip;
         }

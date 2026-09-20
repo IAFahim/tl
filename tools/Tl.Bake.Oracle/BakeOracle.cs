@@ -1,13 +1,10 @@
-using System;
 using System.Buffers.Binary;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-using Tl;
 using Tl.Gen.Tlb;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Bake.Oracle;
 
@@ -462,6 +459,8 @@ public static class BakeOracle
         }
     }
 
+    [SuppressMessage("ReSharper", "ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract", Justification = "jb nullable-contract false positive on method-group lambda")]
+
     private static byte[] BakeCore(List<ITrackBaker> lanes, int trackEntryCount, uint duration, bool loops, List<(int Track, int Clip, string Name)> labels)
     {
         var cuts = new SortedSet<uint>();
@@ -590,7 +589,7 @@ public static class BakeOracle
         for (var index = 0; index < pairKeys.Length; index++)
         {
             var at = (int)pairOffset + 48 * index;
-            var (trackRel, clipRel, trackBytes, clipBytes, trackCount, clipCount) = poolSpans[index];
+            var (trackRel, clipRel, _, _, trackCount, clipCount) = poolSpans[index];
             BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(at), pairKeys[index]);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 8), TlbLayout.SlotRowBytes);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 12), trackRel);

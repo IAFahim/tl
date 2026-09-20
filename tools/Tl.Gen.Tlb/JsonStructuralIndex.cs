@@ -1,5 +1,3 @@
-using System;
-using System.Numerics;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 
@@ -59,8 +57,6 @@ internal sealed class JsonStructuralIndex
 
     private static readonly Vector256<byte> StructuralHigh = Replicate(0x00, 0x00, 0x20, 0x80, 0x00, 0x50, 0x00, 0x50);
     private static readonly Vector256<byte> StructuralLow = Replicate(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x40, 0x20, 0x10);
-    private static readonly Vector256<byte> WhitespaceHigh = Replicate(0x70, 0x00, 0x80);
-    private static readonly Vector256<byte> WhitespaceLow = Replicate(0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x20, 0x00, 0x00, 0x10);
 
     private static Vector256<byte> Replicate(params byte[] table)
     {
@@ -74,8 +70,6 @@ internal sealed class JsonStructuralIndex
     {
         var structuralHigh = StructuralHigh;
         var structuralLow = StructuralLow;
-        var whitespaceHigh = WhitespaceHigh;
-        var whitespaceLow = WhitespaceLow;
         var nibbleMask = Vector256.Create((byte)0x0F);
         var quoteByte = Vector256.Create((byte)0x22);
         var backslashByte = Vector256.Create((byte)0x5C);
@@ -111,9 +105,9 @@ internal sealed class JsonStructuralIndex
                     input = Avx.LoadVector256(tailPtr);
             }
             var wideOp = (ulong)ClassifyMask(input, structuralHigh, structuralLow, nibbleMask, zero);
-            var wideQuote = (ulong)(uint)Avx2.CompareEqual(input, quoteByte).ExtractMostSignificantBits();
-            var wideBackslash = (ulong)(uint)Avx2.CompareEqual(input, backslashByte).ExtractMostSignificantBits();
-            var wideControl = (ulong)(uint)Avx2.CompareEqual(Avx2.And(input, controlMask), zero).ExtractMostSignificantBits();
+            var wideQuote = (ulong)Avx2.CompareEqual(input, quoteByte).ExtractMostSignificantBits();
+            var wideBackslash = (ulong)Avx2.CompareEqual(input, backslashByte).ExtractMostSignificantBits();
+            var wideControl = (ulong)Avx2.CompareEqual(Avx2.And(input, controlMask), zero).ExtractMostSignificantBits();
             if ((chunk & 1) == 0)
             {
                 opBits = wideOp;

@@ -1,7 +1,4 @@
-using System;
 using System.Security.Cryptography;
-using System.Text;
-using Tl;
 using Tl.TestSupport;
 using Tl.Gen.Tlb;
 using Xunit;
@@ -148,8 +145,8 @@ public class DeterminismTests
             File.WriteAllText(jsonPath, Recording.OracleJson);
             var asmPath = typeof(Tlb.AlphaTrack).Assembly.Location;
 
-            Assert.Equal(0, Tl.Bake.Program.Main([jsonPath, fullTlb, "--assembly", asmPath]));
-            Assert.Equal(0, Tl.Bake.Program.Main(["--strip", fullTlb, strippedTlb]));
+            Assert.Equal(0, Program.Main([jsonPath, fullTlb, "--assembly", asmPath]));
+            Assert.Equal(0, Program.Main(["--strip", fullTlb, strippedTlb]));
 
             var full = File.ReadAllBytes(fullTlb);
             var stripped = File.ReadAllBytes(strippedTlb);

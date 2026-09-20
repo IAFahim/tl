@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.IO;
 using System.Text;
 using Tl.Gen.Tlb;
 using Xunit;
@@ -273,7 +271,7 @@ public class AutoLazyDiscoveryTests : IDisposable
     {
         Directory.CreateDirectory(directory);
         File.Copy(typeof(Tlb.AlphaTrack).Assembly.Location, Path.Combine(directory, "Tl.Bake.Tests.dll"));
-        File.Copy(typeof(Tl.IBlend<>).Assembly.Location, Path.Combine(directory, Path.GetFileName(typeof(Tl.IBlend<>).Assembly.Location)));
+        File.Copy(typeof(IBlend<>).Assembly.Location, Path.Combine(directory, Path.GetFileName(typeof(IBlend<>).Assembly.Location)));
     }
 
     [Fact]
@@ -344,7 +342,7 @@ public class AutoCliTests
             int exitCode;
             try
             {
-                exitCode = Tl.Bake.Program.Main(["--auto", jsonPath, tlbPath, "--assembly", AssemblyPath]);
+                exitCode = Program.Main(["--auto", jsonPath, tlbPath, "--assembly", AssemblyPath]);
             }
             finally
             {
@@ -376,7 +374,7 @@ public class AutoCliTests
             var outputPath = Path.Combine(tempDir, "auto.tlb");
             File.WriteAllText(inputPath, AutoJson);
 
-            var exitCode = Tl.Bake.WatchMode.Run(
+            var exitCode = WatchMode.Run(
                 ["--watch", inputPath, outputPath, "--assembly", AssemblyPath, "--auto", "--debounce", "5"],
                 sink,
                 cancelled: () => true);

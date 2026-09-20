@@ -9,7 +9,7 @@ public static class Timeline
     public static FrameQuery<TTrack, TClip> Query<TTrack, TClip>(in TimelineComponent component) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged => new(component);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static unsafe void Advance(ReadOnlySpan<ushort> indices, Span<ushort> positions, bool forward)
+    public static void Advance(ReadOnlySpan<ushort> indices, Span<ushort> positions, bool forward)
         => Advance(indices, positions, positions, forward);
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -70,7 +70,7 @@ public static class Timeline
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void AdvanceRecords(uint motion, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
+    static void AdvanceRecords(uint motion, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         var duration = (ushort)(motion & 0xFFFF);
         var looping = (motion & 0x80000000u) != 0;
@@ -163,7 +163,7 @@ public static class Timeline
         for (var pair = 0; pair < count; pair++)
         {
             var key = pairs[pair].Key;
-            for (var entry = BakeTable.Head(key); entry >= 0; entry = BakeTable.EntryAt[entry].Next)
+            for (var entry = BakeTable.HeadOf(key); entry >= 0; entry = BakeTable.EntryAt[entry].Next)
             {
                 var bake = BakeTable.EntryAt + entry;
                 if (bake->ParamCount > arguments.Length) continue;

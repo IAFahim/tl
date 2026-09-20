@@ -1,4 +1,3 @@
-using System;
 
 namespace Tl.Gen.Tlb;
 

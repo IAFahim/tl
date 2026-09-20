@@ -1,4 +1,3 @@
-using System;
 using System.Text;
 using Tl.Gen.Tlb;
 using Xunit;
@@ -57,13 +56,13 @@ public class DatalessClipTests
     {
         var (doc, resolver) = ParseSimd(DatalessJson);
         var bytes = TimelineBakerFastCore.BakeFast(doc, resolver);
-        using var asset = Tl.TimelineAsset.LoadAsset(bytes);
-        var row = new Tl.TimelineComponent(asset.Reference);
+        using var asset = TimelineAsset.LoadAsset(bytes);
+        var row = new TimelineComponent(asset.Reference);
         row.Position = 5;
         Tlb.AlphaTrack track = default;
         Tlb.AlphaClip clip = default;
         var frames = 0;
-        foreach (var frame in Tl.Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in row))
+        foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in row))
         {
             track = frame.Track;
             clip = frame.Clip;
@@ -90,12 +89,12 @@ public class DatalessClipTests
     {
         var (doc, resolver) = ParseSimd(MixedJson);
         var bytes = TimelineBakerFastCore.BakeFast(doc, resolver);
-        using var asset = Tl.TimelineAsset.LoadAsset(bytes);
-        var row = new Tl.TimelineComponent(asset.Reference);
+        using var asset = TimelineAsset.LoadAsset(bytes);
+        var row = new TimelineComponent(asset.Reference);
         row.Position = 2;
         Tlb.AlphaClip defaultClip = default;
         var defaultFrames = 0;
-        foreach (var frame in Tl.Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in row))
+        foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in row))
         {
             defaultClip = frame.Clip;
             defaultFrames++;
@@ -105,7 +104,7 @@ public class DatalessClipTests
         row.Position = 7;
         Tlb.AlphaClip authoredClip = default;
         var authoredFrames = 0;
-        foreach (var frame in Tl.Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in row))
+        foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in row))
         {
             authoredClip = frame.Clip;
             authoredFrames++;

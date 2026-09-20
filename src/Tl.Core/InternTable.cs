@@ -47,7 +47,7 @@ static unsafe class TimelineTable
     static TimelineTable()
     {
         Allocate(InitialCapacity);
-        _motion = (uint*)NativeMemory.AlignedAlloc((nuint)(MaxCapacity * sizeof(uint)), 64);
+        _motion = (uint*)NativeMemory.AlignedAlloc((MaxCapacity * sizeof(uint)), 64);
         new Span<uint>(_motion, MaxCapacity).Clear();
     }
 
@@ -144,7 +144,7 @@ static unsafe class TimelineTable
         AcquireGate();
         try
         {
-            if (TryLive(index, out var block))
+            if (TryLive(index, out var _))
             {
                 var entry = Entries + Volatile.Read(ref ById[index]);
                 generation = Volatile.Read(ref entry->Count) >> 32;
@@ -350,7 +350,7 @@ static unsafe class TimelineTable
         *(byte**)block = (byte*)Volatile.Read(ref _graveyard);
         *(nint*)(block + 8) = bytes;
         Volatile.Write(ref _graveyard, (nint)block);
-        Interlocked.Add(ref _graveyardBytes, (long)bytes);
+        Interlocked.Add(ref _graveyardBytes, bytes);
         Interlocked.Increment(ref _graveyardCount);
     }
 
@@ -362,7 +362,7 @@ static unsafe class TimelineTable
             var current = (byte*)node;
             node = *(nint*)current;
             var bytes = *(nint*)(current + 8);
-            Interlocked.Add(ref _freeBytes, (long)bytes);
+            Interlocked.Add(ref _freeBytes, bytes);
             Interlocked.Increment(ref _freeCount);
             NativeMemory.AlignedFree(current);
         }

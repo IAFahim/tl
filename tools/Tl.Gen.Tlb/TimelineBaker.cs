@@ -1,7 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Text;
-using System.Threading;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Gen.Tlb;
 
@@ -57,6 +55,7 @@ public static class TimelineBaker
         }
     }
 
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     internal static BatchOutcome[] BakeBatch(IReadOnlyList<byte[]> utf8Jsons, BakerAssemblyResolver resolver, bool autoNamespace = false)
     {
         var outcomes = new BatchOutcome[utf8Jsons.Count];
@@ -90,7 +89,7 @@ public static class TimelineBaker
         var offset = 0;
         while (offset < span.Length)
         {
-            var status = System.Text.Rune.DecodeFromUtf8(span[offset..], out _, out var consumed);
+            var status = Rune.DecodeFromUtf8(span[offset..], out _, out var consumed);
             if (status != System.Buffers.OperationStatus.Done)
                 return offset;
             offset += consumed;

@@ -2,7 +2,6 @@ global using Baker = Tl.TestSupport.DomainBaker;
 
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
-using Tl;
 using Tl.TestSupport;
 using Xunit;
 
@@ -73,7 +72,7 @@ public class DomainBakerParityTests
             Assert.Equal(first, reloaded.Index);
 
             BakedLane<BakerParityTrack, BakerParityClip>.Bind(reloaded);
-            Assert.Equal(64, (int)BakedLane<BakerParityTrack, BakerParityClip>.Duration);
+            Assert.Equal(64, BakedLane<BakerParityTrack, BakerParityClip>.Duration);
             Assert.Equal(fixture is 1 or 3 or 5, BakedLane<BakerParityTrack, BakerParityClip>.Looping);
             Assert.Equal(ParityEffectAtZero(fixture), BakedLane<BakerParityTrack, BakerParityClip>.Effect(0));
             switch (fixture)

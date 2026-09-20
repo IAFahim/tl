@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl;
 
@@ -36,7 +37,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void ApplyRecordsForward(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
+    static void ApplyRecordsForward(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
     {
         var duration = slot->Duration;
         var records = slot->ForwardRecords;
@@ -55,7 +56,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void ApplyRecordsBackward(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
+    static void ApplyRecordsBackward(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
     {
         var duration = slot->Duration;
         var records = slot->BackwardRecords;
@@ -77,36 +78,93 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         }
     }
 
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal SlotView** _views;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal byte* _absent;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal uint* _motion;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal SlotView** _shared;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal LaneMovementRecord* _arenaForward;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal LaneMovementRecord* _arenaBackward;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal uint* _arenaBases;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal void* _retired;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _viewCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _absentCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _motionCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _sharedCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _arenaCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _arenaBaseCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _sharedUsed;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _blockCount;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _sharedHits;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal long _headerTotal;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal long _tableTotal;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal long _directoryTotal;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal long _arenaTotal;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _arenaUsed;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _count;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _holes;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _lazyResolve;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _anyLooping;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _disposed;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal ushort _minDuration;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _pendingCursor;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal ulong _generation;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _gate;
 
     internal int Holes => _holes;
@@ -195,7 +253,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             void* motion = _motion;
             Ensure(ref views, ref _viewCapacity, (nuint)sizeof(SlotView*), (nuint)index + 1);
             Ensure(ref absent, ref _absentCapacity, 1, (nuint)index + 1);
-            Ensure(ref motion, ref _motionCapacity, (nuint)sizeof(uint), (nuint)index + 1);
+            Ensure(ref motion, ref _motionCapacity, sizeof(uint), (nuint)index + 1);
             _views = (SlotView**)views;
             _absent = (byte*)absent;
             _motion = (uint*)motion;
@@ -508,7 +566,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    static unsafe void AdvanceRow(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, uint* motion, SlotView** views, int bound, bool reverse, int i)
+    static void AdvanceRow(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, uint* motion, SlotView** views, int bound, bool reverse, int i)
     {
         var id = ids[i];
         if (id >= bound || Volatile.Read(ref *(long*)(views + id)) == 0)
@@ -740,13 +798,12 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     i = ApplyUniformSegment(views[segmentId], positions, next, effects, i, segment, forward, gather, ArenaRecords(forward, arenaOk, arenaForward, arenaBackward, arenaBases, segmentId));
                     if (i >= chunkEnd) break;
                 }
-                continue;
             }
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public unsafe void Apply(Span<float> effects) => Apply(effects, default);
+    public void Apply(Span<float> effects) => Apply(effects, default);
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal unsafe void ApplySlot(ushort index, Span<float> effects)
@@ -1111,8 +1168,8 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     static unsafe int FastMixedForward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
     {
         var hasNext = !next.IsEmpty;
-        var lastId = -1;
-        LaneMovementRecord* lastRecords = null;
+        var lastId = ids[i];
+        LaneMovementRecord* lastRecords = views[lastId]->ForwardRecords;
         while (i < limit)
         {
             var id = ids[i];
@@ -1133,8 +1190,8 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     static unsafe int FastMixedBackward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
     {
         var hasNext = !next.IsEmpty;
-        var lastId = -1;
-        LaneMovementRecord* lastRecords = null;
+        var lastId = ids[i];
+        LaneMovementRecord* lastRecords = views[lastId]->BackwardRecords;
         while (i < limit)
         {
             var id = ids[i];
@@ -1211,7 +1268,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    static unsafe bool ValidateChunk(ReadOnlySpan<ushort> ids, int start, int end, TimelineSet<TTrack, TClip> set, int bound)
+    static bool ValidateChunk(ReadOnlySpan<ushort> ids, int start, int end, TimelineSet<TTrack, TClip> set, int bound)
     {
         if (bound >= 65536) return false;
         var grew = false;
@@ -1292,7 +1349,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    static unsafe bool FastMixedChunk(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int end, int bound, int minDuration)
+    static bool FastMixedChunk(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int end, int bound, int minDuration)
     {
         if (bound <= 0) return false;
         var boundLimit = bound >= 65536 ? (ushort)65535 : (ushort)bound;

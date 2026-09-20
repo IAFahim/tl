@@ -21,11 +21,6 @@ public class TotalMovementTests
         .Clip(0, 0u, 3u, new JobClip(1))
         .Bake();
 
-    private static byte[] LoopingFixture() => new DomainBaker()
-        .Track<JobTrack, JobClip>(default)
-        .Clip(0, 0u, 2u, new JobClip(1))
-        .Looping()
-        .Bake();
     public static TheoryData<uint, ushort, ushort, bool, bool, ushort, ushort, FrameFlags> FiniteCases => new()
     {
         { 0, 7, 3, false, false, 7, 0, FrameFlags.None },
@@ -139,12 +134,12 @@ public class TotalMovementTests
         var count = Replay(ref state, 5, false, int.MaxValue, ticks);
         Assert.Equal(5, count);
         Assert.Equal(new ushort[] { 0, 1, 2, 3, 4 }, ticks[..count].ToArray());
-        Assert.Equal(5, (int)state.Position);
+        Assert.Equal(5, state.Position);
 
         count = Replay(ref state, 5, false, int.MinValue, ticks);
         Assert.Equal(5, count);
         Assert.Equal(new ushort[] { 4, 3, 2, 1, 0 }, ticks[..count].ToArray());
-        Assert.Equal(0, (int)state.Position);
+        Assert.Equal(0, state.Position);
 
         var empty = default(TimelineState);
         count = Replay(ref empty, ushort.MaxValue, false, int.MinValue, ticks);
@@ -184,8 +179,8 @@ public class TotalMovementTests
         }
 
         Assert.Equal(new[] { 1, 3 }, calls);
-        Assert.Equal(1, (int)states[0].Position);
-        Assert.Equal(3, (int)states[1].Position);
+        Assert.Equal(1, states[0].Position);
+        Assert.Equal(3, states[1].Position);
     }
     [Fact]
     public void FiniteClampingDoesNotClaimInverseMovement()
@@ -195,27 +190,27 @@ public class TotalMovementTests
 
         Assert.Equal(2, Replay(ref state, 3, false, 10, ticks));
         Assert.Equal(3, Replay(ref state, 3, false, -10, ticks));
-        Assert.Equal(0, (int)state.Position);
+        Assert.Equal(0, state.Position);
     }
     [Fact]
     public void LoopReplayCrossesMultipleWrapsAndImmediateReverseRestoresPosition()
     {
         Span<ushort> ticks = stackalloc ushort[8];
-        var state = new TimelineState(1, 0);
+        var state = new TimelineState(1);
 
         Assert.Equal(5, Replay(ref state, 2, true, 5, ticks));
         Assert.Equal(new ushort[] { 0, 1, 0, 1, 0 }, ticks[..5].ToArray());
-        Assert.Equal(1, (int)state.Position);
+        Assert.Equal(1, state.Position);
 
         Assert.Equal(5, Replay(ref state, 2, true, -5, ticks));
         Assert.Equal(new ushort[] { 0, 1, 0, 1, 0 }, ticks[..5].ToArray());
-        Assert.Equal(0, (int)state.Position);
+        Assert.Equal(0, state.Position);
 
         state = new TimelineState(1, 1);
         Assert.True(TimelineMovement.Select(in state, 2, true, false, out var wrapped, out var forwardTick, out var forwardFlags));
         Assert.True(TimelineMovement.Select(in wrapped, 2, true, true, out var restored, out var reverseTick, out var reverseFlags));
-        Assert.Equal(1, (int)forwardTick);
-        Assert.Equal(1, (int)reverseTick);
+        Assert.Equal(1, forwardTick);
+        Assert.Equal(1, reverseTick);
         Assert.True(forwardFlags.HasFlag(FrameFlags.TimelineEnd));
         Assert.True(reverseFlags.HasFlag(FrameFlags.TimelineEnd));
         Assert.Equal(state, restored);
@@ -252,15 +247,15 @@ public class TotalMovementTests
         var committed = new TimelineState(73);
 
         Assert.True(TimelineMovement.Select(in committed, 2, false, false, out var pending, out var tick, out _));
-        Assert.Equal(0, (int)committed.Position);
-        Assert.Equal(0, (int)tick);
+        Assert.Equal(0, committed.Position);
+        Assert.Equal(0, tick);
 
         Assert.True(TimelineMovement.Select(in committed, 2, false, false, out var repeated, out var repeatedTick, out _));
         AssertState(pending, repeated);
         Assert.Equal(tick, repeatedTick);
 
         committed = pending;
-        Assert.Equal(1, (int)committed.Position);
+        Assert.Equal(1, committed.Position);
     }
 
     [Fact]
@@ -321,14 +316,14 @@ public class TotalMovementTests
         Assert.True(forwardFlags.HasFlag(FrameFlags.TimelineEnd));
         Assert.False(forwardFlags.HasFlag(FrameFlags.Reverse));
 
-        var loopingStart = new TimelineState(1, 0);
+        var loopingStart = new TimelineState(1);
         Assert.True(TimelineMovement.Select(in loopingStart, 4, true, true, out _, out var reverseTick, out var reverseFlags));
         Assert.Equal((ushort)3, reverseTick);
         Assert.True(reverseFlags.HasFlag(FrameFlags.TimelineEnd));
         Assert.True(reverseFlags.HasFlag(FrameFlags.Reverse));
 
         var finiteEnd = new TimelineState(1, 2);
-        Assert.True(TimelineMovement.Select(in finiteEnd, 3, false, false, out _, out var completedTick, out var completedFlags));
+        Assert.True(TimelineMovement.Select(in finiteEnd, 3, false, false, out _, out _, out var completedFlags));
         Assert.True(completedFlags.HasFlag(FrameFlags.CompletedAfter));
 
         var finitePastEnd = new TimelineState(1, 3);
@@ -376,7 +371,7 @@ public class TotalMovementTests
             out var tick,
             out var flags));
         AssertState(state, next);
-        Assert.Equal(0, (int)tick);
+        Assert.Equal(0, tick);
         Assert.Equal(FrameFlags.None, flags);
     }
 

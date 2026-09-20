@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.IO;
 using System.Text;
 using System.Text.Json;
 using Xunit;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Tl.Bake.Tests;
 
@@ -145,6 +145,8 @@ public class WatchModeTests
     }
 
     [Fact]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
+    [SuppressMessage("ReSharper", "AccessToModifiedClosure", Justification = "live capture consumed inside the invoked body")]
     public void RealWatcher_RenameOverInput_RebuildsAndSkipsIdenticalRewrite()
     {
         using var scope = WatchScope.Create();
