@@ -16,8 +16,7 @@ public static class Timeline
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static unsafe void Advance(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
-        if (indices.Length != positions.Length || positions.Length != next.Length)
-            throw new ArgumentException("Column length must equal position count.");
+        Checked.Columns(indices, positions, next);
         var count = positions.Length;
         var motion = TimelineTable.Motion;
         var reverse = !forward;

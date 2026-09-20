@@ -101,3 +101,17 @@ jobs:
           dotnet build benchmarks/TypedPlaybackProto/TypedPlaybackProto.csproj -c Release
           dotnet run --project benchmarks/TypedPlaybackProto -c Release --no-build -- 100000
       - run: eng/release-artifacts --candidate ci artifacts/release
+
+  checked:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: 10.0.x
+      - name: Build the checked configuration (TL_CHECKED)
+        run: dotnet build tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -m:1 -p:NuGetAudit=false -p:TlChecked=true -o artifacts/checked-tests
+      - name: Run the suite with misuse diagnostics active
+        run: dotnet test artifacts/checked-tests/Tl.Core.Tests.dll -p:NuGetAudit=false

@@ -84,8 +84,8 @@ internal ref struct TimelineLane<T>
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal static unsafe void Apply(ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
     {
-        if (positions.Length != effects.Length || positions.Length != next.Length)
-            throw new ArgumentException("Column length must equal position count.");
+        Checked.Columns(positions, next, effects);
+        Checked.Length(positions, next);
         var duration = T.Duration;
         var count = positions.Length;
         if (count == 0) return;
@@ -139,7 +139,7 @@ internal ref struct TimelineLane<T>
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public unsafe void Apply(Span<float> effects)
     {
-        Check(effects);
+        Checked.Columns(_positions, effects);
         var positions = _positions;
         var count = positions.Length;
         var duration = T.Duration;
@@ -255,16 +255,6 @@ internal ref struct TimelineLane<T>
         for (var i = 1; i < sample; i++)
             if (positions[i] == positions[i - 1]) pairs++;
         return pairs >= sample / 2;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    void Check(Span<float> effects)
-    {
-        var positions = _positions;
-        if (effects.Length != positions.Length)
-            throw new ArgumentException("Column length must equal position count.");
-        if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(effects)))
-            throw new ArgumentException("Lane columns must not overlap.");
     }
 
 }

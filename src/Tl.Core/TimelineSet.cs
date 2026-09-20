@@ -19,7 +19,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal SlotView* FoldedView(ushort index)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        Checked.Live(_disposed);
         return index < (uint)_count ? (SlotView*)Volatile.Read(ref *(long*)(_views + index)) : null;
     }
 
@@ -30,14 +30,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal void ApplyRecords(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
     {
-        var hasNext = !next.IsEmpty;
-        if (effects.Length != positions.Length || (hasNext && next.Length != positions.Length))
-            throw new ArgumentException("Column length must equal position count.");
-        var sameClock = hasNext && Unsafe.AreSame(ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next));
-        if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(effects))
-            || (!sameClock && (MemoryMarshal.AsBytes(effects).Overlaps(MemoryMarshal.AsBytes(next))
-                || MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(next)))))
-            throw new ArgumentException("Lane columns must not overlap.");
+        Checked.Columns(positions, next, effects);
         if (forward) ApplyRecordsForward(slot, positions, next, effects);
         else ApplyRecordsBackward(slot, positions, next, effects);
     }
@@ -166,7 +159,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
 
     internal ushort AddAt(ushort index, MeasuredLanes measured)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        Checked.Live(_disposed);
         if (index < _count && _views[index] != null)
             return index;
         return Bind(index, measured);
@@ -174,7 +167,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
 
     void CheckAdd()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        Checked.Live(_disposed);
         if (_count > ushort.MaxValue)
             throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
     }
@@ -388,7 +381,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal TimelineSetLane<TTrack, TClip> Gather(ReadOnlySpan<ushort> timelineIds)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        Checked.Live(_disposed);
         return new(this, timelineIds, default, false);
     }
 
@@ -407,9 +400,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal void Advance(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        if (ids.Length != positions.Length || positions.Length != next.Length)
-            throw new ArgumentException("Column length must equal position count.");
+        Checked.Live(_disposed);
+        Checked.Columns(ids, positions, next);
         var count = positions.Length;
         var motion = _motion;
         var views = _views;
@@ -469,7 +461,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
 
     internal SlotView View(ushort index)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        Checked.Live(_disposed);
         return *_views[index];
     }
 
@@ -553,21 +545,10 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     public unsafe void Apply(Span<float> effects, Span<ushort> next)
     {
         var set = _set;
-        if (set._disposed)
-            throw new ObjectDisposedException(nameof(TimelineSet<TTrack, TClip>));
+        Checked.Live(set._disposed);
         var ids = _ids;
         var positions = _positions;
-        var hasNext = !next.IsEmpty;
-        if (ids.Length != positions.Length || effects.Length != positions.Length || (hasNext && next.Length != positions.Length))
-            throw new ArgumentException("Column length must equal position count.");
-        var sameClock = hasNext && Unsafe.AreSame(ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next));
-        if (MemoryMarshal.AsBytes(ids).Overlaps(MemoryMarshal.AsBytes(positions))
-            || MemoryMarshal.AsBytes(ids).Overlaps(MemoryMarshal.AsBytes(effects))
-            || MemoryMarshal.AsBytes(ids).Overlaps(MemoryMarshal.AsBytes(next))
-            || MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(effects))
-            || MemoryMarshal.AsBytes(effects).Overlaps(MemoryMarshal.AsBytes(next))
-            || (!sameClock && MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(next))))
-            throw new ArgumentException("Lane columns must not overlap.");
+        Checked.Columns(ids, positions, next, effects);
         var count = positions.Length;
         if (count == 0) return;
         var views = set._views;
@@ -657,13 +638,9 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     internal unsafe void ApplySlot(ushort index, Span<float> effects)
     {
         var set = _set;
-        if (set._disposed)
-            throw new ObjectDisposedException(nameof(TimelineSet<TTrack, TClip>));
+        Checked.Live(set._disposed);
         var positions = _positions;
-        if (effects.Length != positions.Length)
-            throw new ArgumentException("Column length must equal position count.");
-        if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(effects)))
-            throw new ArgumentException("Lane columns must not overlap.");
+        Checked.Columns(positions, effects);
         var count = positions.Length;
         if (count == 0) return;
         var slot = set._views[index];
@@ -682,17 +659,9 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     internal unsafe void ApplySlot(ushort index, Span<float> effects, Span<ushort> next)
     {
         var set = _set;
-        if (set._disposed)
-            throw new ObjectDisposedException(nameof(TimelineSet<TTrack, TClip>));
+        Checked.Live(set._disposed);
         var positions = _positions;
-        var hasNext = !next.IsEmpty;
-        if (effects.Length != positions.Length || (hasNext && next.Length != positions.Length))
-            throw new ArgumentException("Column length must equal position count.");
-        var sameClock = hasNext && Unsafe.AreSame(ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next));
-        if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(effects))
-            || MemoryMarshal.AsBytes(effects).Overlaps(MemoryMarshal.AsBytes(next))
-            || (!sameClock && MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(next))))
-            throw new ArgumentException("Lane columns must not overlap.");
+        Checked.Columns(positions, next, effects);
         var count = positions.Length;
         if (count == 0) return;
         var slot = set._views[index];

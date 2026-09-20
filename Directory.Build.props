@@ -10,4 +10,7 @@
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
+  <PropertyGroup>
+    <DefineConstants Condition="('$(Configuration)' == '' or '$(Configuration)' == 'Debug') or '$(TlChecked)' == 'true'">$(DefineConstants);TL_CHECKED</DefineConstants>
+  </PropertyGroup>
 </Project>
