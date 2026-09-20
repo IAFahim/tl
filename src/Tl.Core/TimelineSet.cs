@@ -702,12 +702,9 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     }
                 if (FastMixedChunk(ids, positions, i, chunkEnd, bound, minDuration))
                 {
-                    if (arenaOk && minDuration != ushort.MaxValue)
-                        i = ArenaCrowdWalk(ids, positions, next, effects, forward ? arenaForward : arenaBackward, arenaBases, i, chunkEnd);
-                    else
-                        i = forward
-                            ? FastMixedForward(ids, positions, next, effects, views, i, chunkEnd)
-                            : FastMixedBackward(ids, positions, next, effects, views, i, chunkEnd);
+                    i = forward
+                        ? FastMixedForward(ids, positions, next, effects, views, i, chunkEnd)
+                        : FastMixedBackward(ids, positions, next, effects, views, i, chunkEnd);
                     continue;
                 }
                 if (ValidateChunk(ids, i, chunkEnd, set, bound))
@@ -867,29 +864,6 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                 }
             }
             if (hasNext) Unsafe.Add(ref n, (nuint)i) = position;
-        }
-        return limit;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ArenaCrowdWalk(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, LaneMovementRecord* arena, uint* bases, int i, int limit)
-    {
-        var hasNext = !next.IsEmpty;
-        ref var idOrigin = ref MemoryMarshal.GetReference(ids);
-        ref var p = ref MemoryMarshal.GetReference(positions);
-        ref var n = ref MemoryMarshal.GetReference(next);
-        ref var e = ref MemoryMarshal.GetReference(effects);
-        for (; i < limit; i++)
-        {
-            var records = arena + bases[Unsafe.Add(ref idOrigin, (nuint)i)];
-            var position = Unsafe.Add(ref p, (nuint)i);
-            ref var r = ref records[position];
-            if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
-            {
-                Unsafe.Add(ref e, (nuint)i) += r.Effect;
-                if (hasNext) Unsafe.Add(ref n, (nuint)i) = r.Next;
-            }
-            else if (hasNext) Unsafe.Add(ref n, (nuint)i) = position;
         }
         return limit;
     }
