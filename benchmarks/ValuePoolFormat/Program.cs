@@ -57,7 +57,7 @@ internal static class Program
             state ^= state << 17;
             laneEffects[i] = (float)((state >> 11) / 9007199254740992d) * 64f - 32f;
         }
-        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Apply(Host.LaneAsset, lanePositions, true, laneEffects); Timeline.Step(Host.LaneAsset, lanePositions, true);
+        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Apply(Host.LaneAsset, lanePositions, true, laneEffects); Timeline.Advance(Host.LaneAsset, lanePositions, true);
         var positionFnv = 14695981039346656037ul;
         var effectFnv = 14695981039346656037ul;
         foreach (var position in lanePositions)

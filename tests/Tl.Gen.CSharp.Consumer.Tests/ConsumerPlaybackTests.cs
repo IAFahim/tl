@@ -247,13 +247,13 @@ public sealed class ConsumerPlaybackTests
                 var forward = new List<string>();
                 for (var tick = 0; tick < 8; tick++)
                 {
-                    Timeline<DamageTrack, DamageClip>.Apply(asset, positions, true, health); Timeline.Step(asset, positions, true);
+                    Timeline<DamageTrack, DamageClip>.Apply(asset, positions, true, health); Timeline.Advance(asset, positions, true);
                     forward.Add(F(health[0]));
                 }
                 var backward = new List<string>();
                 for (var tick = 0; tick < 8; tick++)
                 {
-                    Timeline<DamageTrack, DamageClip>.Apply(asset, positions, false, health); Timeline.Step(asset, positions, false);
+                    Timeline<DamageTrack, DamageClip>.Apply(asset, positions, false, health); Timeline.Advance(asset, positions, false);
                     backward.Add(F(health[0]));
                 }
                 return string.Join("|", forward) + "#" + string.Join("|", backward) + "#" + F(health[0]) + "#" + Positions(positions[0]);
@@ -276,14 +276,14 @@ public sealed class ConsumerPlaybackTests
                 string Snapshot()
                     => F(damageHealth[0]) + "," + F(healHealth[0]) + "," + F(damageHealth[1]) + ","
                     + Positions(damagePositions[0], healPositions[0], damagePositions[1]);
-                Timeline<DamageTrack, DamageClip>.Apply(damage, damagePositions, true, damageHealth); Timeline.Step(damage, damagePositions, true);
-                Timeline<HealTrack, HealClip>.Apply(heal, healPositions, true, healHealth); Timeline.Step(heal, healPositions, true);
+                Timeline<DamageTrack, DamageClip>.Apply(damage, damagePositions, true, damageHealth); Timeline.Advance(damage, damagePositions, true);
+                Timeline<HealTrack, HealClip>.Apply(heal, healPositions, true, healHealth); Timeline.Advance(heal, healPositions, true);
                 var first = Snapshot();
-                Timeline<DamageTrack, DamageClip>.Apply(damage, damagePositions, true, damageHealth); Timeline.Step(damage, damagePositions, true);
-                Timeline<HealTrack, HealClip>.Apply(heal, healPositions, true, healHealth); Timeline.Step(heal, healPositions, true);
+                Timeline<DamageTrack, DamageClip>.Apply(damage, damagePositions, true, damageHealth); Timeline.Advance(damage, damagePositions, true);
+                Timeline<HealTrack, HealClip>.Apply(heal, healPositions, true, healHealth); Timeline.Advance(heal, healPositions, true);
                 var second = Snapshot();
-                Timeline<DamageTrack, DamageClip>.Apply(damage, damagePositions, false, damageHealth); Timeline.Step(damage, damagePositions, false);
-                Timeline<HealTrack, HealClip>.Apply(heal, healPositions, false, healHealth); Timeline.Step(heal, healPositions, false);
+                Timeline<DamageTrack, DamageClip>.Apply(damage, damagePositions, false, damageHealth); Timeline.Advance(damage, damagePositions, false);
+                Timeline<HealTrack, HealClip>.Apply(heal, healPositions, false, healHealth); Timeline.Advance(heal, healPositions, false);
                 var third = Snapshot();
                 return first + "#" + second + "#" + third;
             }
@@ -298,7 +298,7 @@ public sealed class ConsumerPlaybackTests
                 var health = new float[] { 400f };
                 try
                 {
-                    Timeline<GuardTrack, GuardClip>.Apply(guard, positions, true, health); Timeline.Step(guard, positions, true);
+                    Timeline<GuardTrack, GuardClip>.Apply(guard, positions, true, health); Timeline.Advance(guard, positions, true);
                 }
                 catch (ArgumentException exception)
                 {
@@ -315,11 +315,11 @@ public sealed class ConsumerPlaybackTests
                     .Bake()));
                 var positions = new ushort[] { 0 };
                 var armor = new float[] { 10f };
-                Timeline<BuffTrack, BuffClip>.Apply(buff, positions, true, armor); Timeline.Step(buff, positions, true);
+                Timeline<BuffTrack, BuffClip>.Apply(buff, positions, true, armor); Timeline.Advance(buff, positions, true);
                 var first = F(armor[0]);
-                Timeline<BuffTrack, BuffClip>.Apply(buff, positions, true, armor); Timeline.Step(buff, positions, true);
+                Timeline<BuffTrack, BuffClip>.Apply(buff, positions, true, armor); Timeline.Advance(buff, positions, true);
                 var second = F(armor[0]);
-                Timeline<BuffTrack, BuffClip>.Apply(buff, positions, false, armor); Timeline.Step(buff, positions, false);
+                Timeline<BuffTrack, BuffClip>.Apply(buff, positions, false, armor); Timeline.Advance(buff, positions, false);
                 var third = F(armor[0]);
                 return first + "#" + second + "#" + third;
             }
@@ -357,10 +357,10 @@ public sealed class ConsumerPlaybackTests
                 for (var frame = 0; frame < 4; frame++)
                 {
                     foreach (var tag in world.Tags)
-                        { Timeline<DamageTrack, DamageClip>.Apply(timeline, markedPositions, true, markedHealth); Timeline.Step(timeline, markedPositions, true); }
+                        { Timeline<DamageTrack, DamageClip>.Apply(timeline, markedPositions, true, markedHealth); Timeline.Advance(timeline, markedPositions, true); }
                     foreach (var tag in idleWorld.Tags)
-                        { Timeline<DamageTrack, DamageClip>.Apply(timeline, idlePositions, true, idleHealth); Timeline.Step(timeline, idlePositions, true); }
-                    Timeline<DamageTrack, DamageClip>.Apply(view, oraclePositions, true, oracleHealth); Timeline.Step(view, oraclePositions, true);
+                        { Timeline<DamageTrack, DamageClip>.Apply(timeline, idlePositions, true, idleHealth); Timeline.Advance(timeline, idlePositions, true); }
+                    Timeline<DamageTrack, DamageClip>.Apply(view, oraclePositions, true, oracleHealth); Timeline.Advance(view, oraclePositions, true);
                 }
                 return marks + "#" + tags + "#" + silent + "#"
                     + F(markedHealth[0]) + "|" + F(oracleHealth[0]) + "#"

@@ -57,7 +57,7 @@ internal static unsafe class PublicPath
                     Array.Copy(seed, pos, rows);
                     Array.Copy(seedFx, fx, rows);
                     var t = Stopwatch.GetTimestamp();
-                    Timeline<ProbeTrack, ProbeClip>.Apply(index, pos, true, fx); Timeline.Step(index, pos, true);
+                    Timeline<ProbeTrack, ProbeClip>.Apply(index, pos, true, fx); Timeline.Advance(index, pos, true);
                     var ms = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                     if (ms < best) best = ms;
                 }

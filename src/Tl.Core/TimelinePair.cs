@@ -46,7 +46,7 @@ public static unsafe class Timeline<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static unsafe void Step(ushort index, ref ushort position, bool forward)
+    public static unsafe void Advance(ushort index, ref ushort position, bool forward)
     {
         var bank = Bank();
         var slot = bank.FoldedView(index);

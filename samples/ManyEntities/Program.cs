@@ -89,7 +89,7 @@ internal static class Program
         long LanePass()
         {
             for (var t = 0; t < Ticks; t++)
-                { Timeline<MoveTrack, MoveClip>.Apply(asset, positions, true, laneValues); Timeline.Step(asset, positions, true); }
+                { Timeline<MoveTrack, MoveClip>.Apply(asset, positions, true, laneValues); Timeline.Advance(asset, positions, true); }
             long a = 0;
             for (var i = 0; i < N; i++) { a += (long)laneValues[i]; }
             return a;
@@ -133,7 +133,7 @@ internal static class Program
         long LanePass()
         {
             for (var t = 0; t < Ticks; t++)
-                { Timeline<PulseTrack, PulseClip>.Apply(asset, positions, true, laneValues); Timeline.Step(asset, positions, true); }
+                { Timeline<PulseTrack, PulseClip>.Apply(asset, positions, true, laneValues); Timeline.Advance(asset, positions, true); }
             long a = 0;
             for (var i = 0; i < N; i++) { a += (long)laneValues[i]; }
             return a;
@@ -180,7 +180,7 @@ internal static class Program
             {
                 for (var s = 0; s < SpawnPerPass; s++) { positions[count + s] = 0; laneValues[count + s] = 0; }
                 count += SpawnPerPass;
-                Timeline<WindowTrack, WindowClip>.Apply(asset, positions.AsSpan(0, count), true, laneValues.AsSpan(0, count)); Timeline.Step(asset, positions.AsSpan(0, count), true);
+                Timeline<WindowTrack, WindowClip>.Apply(asset, positions.AsSpan(0, count), true, laneValues.AsSpan(0, count)); Timeline.Advance(asset, positions.AsSpan(0, count), true);
                 for (var i = 0; i < count; )
                 {
                     if (positions[i] < 20u) { i++; continue; }

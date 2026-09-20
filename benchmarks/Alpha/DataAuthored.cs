@@ -34,7 +34,7 @@ internal sealed class LaneCase : IDisposable
         _positions[0] = 0;
         _values[0] = 0;
         for (var index = 0; index < _deltas.Length; index++)
-            { { Timeline<AlphaTrack, AlphaClip>.Apply(_handles, _positions, _deltas[index] >= 0, _values); Timeline.Step(_handles, _positions, _deltas[index] >= 0); }; }
+            { { Timeline<AlphaTrack, AlphaClip>.Apply(_handles, _positions, _deltas[index] >= 0, _values); Timeline.Advance(_handles, _positions, _deltas[index] >= 0); }; }
         return Checksum(_positions[0], _values[0]);
     }
 

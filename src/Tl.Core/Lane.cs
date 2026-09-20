@@ -27,12 +27,12 @@ public static class Timeline<T>
         => TimelineLane<T>.Apply(positions, next, forward, effects);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static void Step(Span<ushort> positions, bool forward)
-        => TimelineLane<T>.Step(positions, positions, forward);
+    public static void Advance(Span<ushort> positions, bool forward)
+        => TimelineLane<T>.Advance(positions, positions, forward);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static void Step(ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
-        => TimelineLane<T>.Step(positions, next, forward);
+    public static void Advance(ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
+        => TimelineLane<T>.Advance(positions, next, forward);
 }
 
 internal ref struct TimelineLane<T>
@@ -51,7 +51,7 @@ internal ref struct TimelineLane<T>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    internal static void Step(ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
+    internal static void Advance(ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         var duration = T.Duration;
         var count = positions.Length;
@@ -62,8 +62,8 @@ internal ref struct TimelineLane<T>
         if (Avx2.IsSupported)
         {
             var end = count - (count & 15);
-            if (forward) LaneOps.StepForward(duration, looping, positions, next, 0, end);
-            else LaneOps.StepBackward(duration, looping, positions, next, 0, end);
+            if (forward) LaneOps.AdvanceForward(duration, looping, positions, next, 0, end);
+            else LaneOps.AdvanceBackward(duration, looping, positions, next, 0, end);
             i = end;
         }
         var last = (ushort)(duration - 1);
@@ -557,7 +557,7 @@ internal static unsafe class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    internal static unsafe void StepForward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
+    internal static unsafe void AdvanceForward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
     {
         var lastVector = Vector256.Create((ushort)(duration - 1));
         var zero = Vector256<ushort>.Zero;
@@ -576,7 +576,7 @@ internal static unsafe class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    internal static unsafe void StepBackward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
+    internal static unsafe void AdvanceBackward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
     {
         var lastVector = Vector256.Create((ushort)(duration - 1));
         var durationVector = Vector256.Create(duration);
@@ -605,7 +605,7 @@ internal static unsafe class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    internal static unsafe void StepRows(uint* motion, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, bool forward, int i, int limit)
+    internal static unsafe void AdvanceRows(uint* motion, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, bool forward, int i, int limit)
     {
         var one = Vector256.Create(1u);
         var zero = Vector256<uint>.Zero;
@@ -628,13 +628,13 @@ internal static unsafe class LaneOps
             Vector256<uint> nextLo, nextHi;
             if (forward)
             {
-                nextLo = StepForwardWide(posLo, durLo, loopLo, one, zero);
-                nextHi = StepForwardWide(posHi, durHi, loopHi, one, zero);
+                nextLo = AdvanceForwardWide(posLo, durLo, loopLo, one, zero);
+                nextHi = AdvanceForwardWide(posHi, durHi, loopHi, one, zero);
             }
             else
             {
-                nextLo = StepBackwardWide(posLo, durLo, loopLo, one, zero);
-                nextHi = StepBackwardWide(posHi, durHi, loopHi, one, zero);
+                nextLo = AdvanceBackwardWide(posLo, durLo, loopLo, one, zero);
+                nextHi = AdvanceBackwardWide(posHi, durHi, loopHi, one, zero);
             }
             Vector256.Narrow(nextLo, nextHi).StoreUnsafe(ref n, (nuint)i);
             i += 16;
@@ -642,7 +642,7 @@ internal static unsafe class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static Vector256<uint> StepForwardWide(Vector256<uint> pos, Vector256<uint> duration, Vector256<int> loop, Vector256<uint> one, Vector256<uint> zero)
+    static Vector256<uint> AdvanceForwardWide(Vector256<uint> pos, Vector256<uint> duration, Vector256<int> loop, Vector256<uint> one, Vector256<uint> zero)
     {
         var next = pos + one;
         next = Vector256.ConditionalSelect(Vector256.Equals(pos, duration - one) & loop.AsUInt32(), zero, next);
@@ -650,7 +650,7 @@ internal static unsafe class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static Vector256<uint> StepBackwardWide(Vector256<uint> pos, Vector256<uint> duration, Vector256<int> loop, Vector256<uint> one, Vector256<uint> zero)
+    static Vector256<uint> AdvanceBackwardWide(Vector256<uint> pos, Vector256<uint> duration, Vector256<int> loop, Vector256<uint> one, Vector256<uint> zero)
     {
         var prev = pos - one;
         var loopNext = Vector256.ConditionalSelect(Vector256.Equals(pos, zero), duration - one, prev);

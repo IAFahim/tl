@@ -328,7 +328,7 @@ internal static class SteadyShapes
                 for (var i = 0; i < entityRows; i++)
                 {
                     Timeline<LaneTrack, LaneClip>.Apply(gold, new ReadOnlySpan<ushort>(in pos[i]), true, new Span<float>(ref fx[i]));
-                    Timeline.Step(gold, new Span<ushort>(ref pos[i]), true);
+                    Timeline.Advance(gold, new Span<ushort>(ref pos[i]), true);
                 }
             }),
             ("per-entity-fused", "one entity at a time: fused 1-row Apply", () => Seed(pos), () =>
@@ -345,7 +345,7 @@ internal static class SteadyShapes
             {
                 var clock = (ushort)(entityRows % Host.Duration);
                 Timeline<LaneTrack, LaneClip>.Apply(gold, clock, true, fx);
-                Timeline<LaneTrack, LaneClip>.Step(gold, ref clock, true);
+                Timeline<LaneTrack, LaneClip>.Advance(gold, ref clock, true);
             }),
             ("per-entity-record-floor", "hand record table (floor)", () => Seed(pos), () =>
             {
@@ -416,7 +416,7 @@ internal static class SteadyArms
             {
                 ("index-fused-staggered", "single timeline, staggered clocks", staggered, () => Timeline<LaneTrack, LaneClip>.Apply(gold, pos, pos, true, fx)),
                 ("index-fused-uniform", "single timeline, uniform clocks", uniform, () => Timeline<LaneTrack, LaneClip>.Apply(gold, pos, pos, true, fx)),
-                ("step-index-uniform", "single timeline, uniform clocks, clock step only", uniform, () => Timeline.Step(gold, pos, true)),
+                ("step-index-uniform", "single timeline, uniform clocks, clock step only", uniform, () => Timeline.Advance(gold, pos, true)),
             },
             "hwintrinsic-off" => new (string Id, string Label, ushort[] Seed, Action Run)[]
             {
@@ -478,7 +478,7 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
         if (SharedClock)
         {
             Timeline<LaneTrack, LaneClip>.Apply(Host.Gold, Clock, true, Effects);
-            Timeline<LaneTrack, LaneClip>.Step(Host.Gold, ref Clock, true);
+            Timeline<LaneTrack, LaneClip>.Advance(Host.Gold, ref Clock, true);
             return;
         }
         if (Run is null)
@@ -495,7 +495,7 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
         if (SharedClock)
         {
             Timeline<LaneTrack, LaneClip>.Apply(Host.Gold, Clock, false, Effects);
-            Timeline<LaneTrack, LaneClip>.Step(Host.Gold, ref Clock, false);
+            Timeline<LaneTrack, LaneClip>.Advance(Host.Gold, ref Clock, false);
             return;
         }
         if (Run is null)

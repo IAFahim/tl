@@ -54,20 +54,20 @@ public class SmallSpanRecordTests
             var laneFx = new TestEffect { Value = 1.5f };
             Lane<RoutingTrack, RoutingClip>.Apply(index, ref lanePos, forward, ref laneFx);
             var laneAdvanced = lanePos;
-            Lane<RoutingTrack, RoutingClip>.Step(index, ref laneAdvanced, forward);
+            Lane<RoutingTrack, RoutingClip>.Advance(index, ref laneAdvanced, forward);
 
             var typedId = new TestIndex { Value = index };
             var typedPos = new TestPosition { Value = position };
             var typedFx = new TestEffect { Value = 1.5f };
             Lane<RoutingTrack, RoutingClip>.Apply(typedId, ref typedPos, forward, ref typedFx);
             var typedAdvanced = typedPos;
-            Lane<RoutingTrack, RoutingClip>.Step(typedId, ref typedAdvanced, forward);
+            Lane<RoutingTrack, RoutingClip>.Advance(typedId, ref typedAdvanced, forward);
 
             var spanIds = new TestIndex[] { new(index) };
             var spanPos = new TestPosition[] { new(position) };
             var spanFx = new TestEffect[] { new() { Value = 1.5f } };
             Lane<RoutingTrack, RoutingClip>.Apply((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward, (Span<TestEffect>)spanFx);
-            Lane<RoutingTrack, RoutingClip>.Step((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
+            Lane<RoutingTrack, RoutingClip>.Advance((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
 
             var shortIds = new ushort[] { index };
             var shortPos = new ushort[] { position };
@@ -94,19 +94,19 @@ public class SmallSpanRecordTests
         foreach (var forward in new[] { true, false })
         {
             var lanePos = new TestPosition { Value = position };
-            Lane<RoutingTrack, RoutingClip>.Step(index, ref lanePos, forward);
+            Lane<RoutingTrack, RoutingClip>.Advance(index, ref lanePos, forward);
 
             var typedId = new TestIndex { Value = index };
             var typedPos = new TestPosition { Value = position };
-            Lane<RoutingTrack, RoutingClip>.Step(typedId, ref typedPos, forward);
+            Lane<RoutingTrack, RoutingClip>.Advance(typedId, ref typedPos, forward);
 
             var spanIds = new TestIndex[] { new(index) };
             var spanPos = new TestPosition[] { new(position) };
-            Lane<RoutingTrack, RoutingClip>.Step((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
+            Lane<RoutingTrack, RoutingClip>.Advance((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
 
             var shortIds = new ushort[] { index };
             var shortPos = new ushort[] { position };
-            Timeline.Step((ReadOnlySpan<ushort>)shortIds, shortPos, forward);
+            Timeline.Advance((ReadOnlySpan<ushort>)shortIds, shortPos, forward);
 
             Assert.Equal(typedPos.Value, lanePos.Value);
             Assert.Equal(spanPos[0].Value, lanePos.Value);
@@ -172,14 +172,14 @@ public class SmallSpanRecordTests
         {
             Timeline<RoutingTrack, RoutingClip>.Apply(index, positions, next, true, effects);
             Timeline<RoutingTrack, RoutingClip>.Apply(index, single, true, singleFx);
-            Timeline.Step(index, single, singleNext, true);
-            Timeline.Step(index, positions, next, true);
+            Timeline.Advance(index, single, singleNext, true);
+            Timeline.Advance(index, positions, next, true);
         }
         var before = GC.GetTotalAllocatedBytes(precise: true);
         Timeline<RoutingTrack, RoutingClip>.Apply(index, positions, next, true, effects);
         Timeline<RoutingTrack, RoutingClip>.Apply(index, single, true, singleFx);
-        Timeline.Step(index, single, singleNext, true);
-        Timeline.Step(index, positions, next, true);
+        Timeline.Advance(index, single, singleNext, true);
+        Timeline.Advance(index, positions, next, true);
         Assert.Equal(0, GC.GetTotalAllocatedBytes(precise: true) - before);
     }
 
@@ -244,10 +244,10 @@ public class SmallSpanRecordTests
 
         var crowdStepPos = (ushort[])schedule.Clone();
         var crowdStepNext = new ushort[rows];
-        Timeline.Step(ids.AsSpan(0, rows), crowdStepPos, crowdStepNext, forward);
+        Timeline.Advance(ids.AsSpan(0, rows), crowdStepPos, crowdStepNext, forward);
         var smallStepPos = (ushort[])schedule.Clone();
         var smallStepNext = new ushort[rows];
-        Timeline.Step(index, smallStepPos, smallStepNext, forward);
+        Timeline.Advance(index, smallStepPos, smallStepNext, forward);
         Assert.Equal(crowdStepPos, smallStepPos);
         Assert.Equal(crowdStepNext, smallStepNext);
     }

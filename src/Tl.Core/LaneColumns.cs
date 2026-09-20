@@ -22,13 +22,13 @@ public static class Lane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public static void Step<TIndex, TPosition>(ReadOnlySpan<TIndex> indices, Span<TPosition> positions, bool forward)
+    public static void Advance<TIndex, TPosition>(ReadOnlySpan<TIndex> indices, Span<TPosition> positions, bool forward)
         where TIndex : struct
         where TPosition : struct
     {
         if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
             ThrowColumnSizes();
-        Timeline.Step(MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
+        Timeline.Advance(MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -46,13 +46,13 @@ public static class Lane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public static void Step<TIndex, TPosition>(in TIndex index, ref TPosition position, bool forward)
+    public static void Advance<TIndex, TPosition>(in TIndex index, ref TPosition position, bool forward)
         where TIndex : struct
         where TPosition : struct
     {
         if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
             ThrowColumnSizes();
-        Timeline.Step(
+        Timeline.Advance(
             Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
             MemoryMarshal.CreateSpan(ref Unsafe.As<TPosition, ushort>(ref position), 1),
             forward);

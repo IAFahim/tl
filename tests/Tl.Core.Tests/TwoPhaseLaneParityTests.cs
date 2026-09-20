@@ -71,7 +71,7 @@ public class TwoPhaseLaneParityTests
                 Lane<RoutingTrack, RoutingClip>.Apply(typedId, ref splitPos, forward, ref splitFx);
                 Timeline<RoutingTrack, RoutingClip>.Apply(index, fusedPos, fusedPos, forward, fusedFx);
                 Assert.Equal(fusedFx[0], splitFx.Value);
-                Lane<RoutingTrack, RoutingClip>.Step(typedId, ref splitPos, forward);
+                Lane<RoutingTrack, RoutingClip>.Advance(typedId, ref splitPos, forward);
                 Assert.Equal(fusedPos[0], splitPos.Value);
             }
         }
@@ -83,7 +83,7 @@ public class TwoPhaseLaneParityTests
         Timeline<RoutingTrack, RoutingClip>.Apply(rawIds, fusedPos, fusedPos, forward, fusedFx);
         for (var i = 0; i < splitFx.Length; i++)
             Assert.Equal(fusedFx[i], splitFx[i].Value);
-        Lane<RoutingTrack, RoutingClip>.Step(ids, splitPos, forward);
+        Lane<RoutingTrack, RoutingClip>.Advance(ids, splitPos, forward);
         for (var i = 0; i < splitPos.Length; i++)
             Assert.Equal(fusedPos[i], splitPos[i].Value);
     }

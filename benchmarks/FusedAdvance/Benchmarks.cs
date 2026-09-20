@@ -90,16 +90,16 @@ public class AdvanceBenchmarks
         switch (Shape)
         {
             case ShapeKind.LaneUniform or ShapeKind.LaneWaves or ShapeKind.LaneStaggered:
-                if (fused) { Timeline<LaneTrack, LaneClip>.Apply(_laneIds, positions, true, effects); Timeline.Step(_laneIds, positions, true); }
-                else { Timeline<LaneTrack, LaneClip>.Apply(_laneIds, positions, true, effects); Timeline.Step(_laneIds, positions, true); }
+                if (fused) { Timeline<LaneTrack, LaneClip>.Apply(_laneIds, positions, true, effects); Timeline.Advance(_laneIds, positions, true); }
+                else { Timeline<LaneTrack, LaneClip>.Apply(_laneIds, positions, true, effects); Timeline.Advance(_laneIds, positions, true); }
                 break;
             case ShapeKind.LaneUniformBackward:
-                if (fused) { Timeline<LaneTrack, LaneClip>.Apply(_laneIds, positions, false, effects); Timeline.Step(_laneIds, positions, false); }
-                else { Timeline<LaneTrack, LaneClip>.Apply(_laneIds, positions, false, effects); Timeline.Step(_laneIds, positions, false); }
+                if (fused) { Timeline<LaneTrack, LaneClip>.Apply(_laneIds, positions, false, effects); Timeline.Advance(_laneIds, positions, false); }
+                else { Timeline<LaneTrack, LaneClip>.Apply(_laneIds, positions, false, effects); Timeline.Advance(_laneIds, positions, false); }
                 break;
             default:
-                if (fused) { Timeline<LaneTrack, LaneClip>.Apply(_ids, positions, true, effects); Timeline.Step(_ids, positions, true); }
-                else { Timeline<LaneTrack, LaneClip>.Apply(_ids, positions, true, effects); Timeline.Step(_ids, positions, true); }
+                if (fused) { Timeline<LaneTrack, LaneClip>.Apply(_ids, positions, true, effects); Timeline.Advance(_ids, positions, true); }
+                else { Timeline<LaneTrack, LaneClip>.Apply(_ids, positions, true, effects); Timeline.Advance(_ids, positions, true); }
                 break;
         }
         Sink += BitConverter.SingleToInt32Bits(effects[ProbeMask & _probe++]);

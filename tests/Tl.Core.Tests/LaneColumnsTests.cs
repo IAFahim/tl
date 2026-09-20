@@ -83,9 +83,9 @@ public class LaneColumnsTests
         for (var tick = 0; tick < Ticks; tick++)
         {
             Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(ids, positions, true, effects);
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Step(ids, positions, true);
+            Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(ids, positions, true);
             Timeline<LaneColumnsTrack, LaneColumnsClip>.Apply(rawIds, rawPos, true, rawFx);
-            Timeline.Step(rawIds, rawPos, true);
+            Timeline.Advance(rawIds, rawPos, true);
         }
 
         for (var i = 0; i < N; i++)
@@ -110,9 +110,9 @@ public class LaneColumnsTests
         for (var tick = 0; tick < Ticks; tick++)
         {
             Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(in index, ref position, true, ref effect);
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Step(in index, ref position, true);
+            Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(in index, ref position, true);
             Lane<LaneColumnsTrack, LaneColumnsClip>.Apply(spanIds, spanPositions, true, spanEffects);
-            Lane<LaneColumnsTrack, LaneColumnsClip>.Step(spanIds, spanPositions, true);
+            Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(spanIds, spanPositions, true);
         }
 
         Assert.Equal(spanPositions[0].Value, position.Value);
@@ -145,8 +145,8 @@ public class LaneColumnsTests
             rawPos[i] = (ushort)(i % Duration);
         }
 
-        Lane<LaneColumnsTrack, LaneColumnsClip>.Step(ids, positions, true);
-        Timeline.Step(rawIds, rawPos, true);
+        Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(ids, positions, true);
+        Timeline.Advance(rawIds, rawPos, true);
 
         for (var i = 0; i < N; i++)
             Assert.Equal(rawPos[i], positions[i].Value);
@@ -164,10 +164,10 @@ public class LaneColumnsTests
 
         Assert.Equal((ushort)3, position.Value);
 
-        Lane<LaneColumnsTrack, LaneColumnsClip>.Step(in index, ref position, true);
+        Lane<LaneColumnsTrack, LaneColumnsClip>.Advance(in index, ref position, true);
 
         var rawPos = new ushort[] { 3 };
-        Timeline.Step(new ushort[] { asset }, rawPos, true);
+        Timeline.Advance(new ushort[] { asset }, rawPos, true);
         Assert.Equal(rawPos[0], position.Value);
     }
 

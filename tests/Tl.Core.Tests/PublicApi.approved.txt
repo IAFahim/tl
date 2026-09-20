@@ -51,10 +51,10 @@ type Tl.LaneMovementRecord
   Field UInt16 Next
   Field UInt16 Skipped
 type Tl.Lane`2
+  Method Void Advance[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean)
+  Method Void Advance[TIndex,TPosition](TIndex ByRef, TPosition ByRef, Boolean)
   Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean, System.Span`1[TEffect])
   Method Void Apply[TIndex,TPosition,TEffect](TIndex ByRef, TPosition ByRef, Boolean, TEffect ByRef)
-  Method Void Step[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean)
-  Method Void Step[TIndex,TPosition](TIndex ByRef, TPosition ByRef, Boolean)
 type Tl.MeasuredLanes
   Method Void Dispose()
   Property UInt16 Duration
@@ -91,18 +91,18 @@ type Tl.TickPurity
   Field Tl.TickPurity WindowConstant
   Field Int32 value__
 type Tl.Timeline
+  Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
+  Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
+  Method Void Advance(Tl.TimelineAsset, System.Span`1[System.UInt16], Boolean)
+  Method Void Advance(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
+  Method Void Advance(UInt16, System.Span`1[System.UInt16], Boolean)
+  Method Void Advance(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
   Method Void Bake(UInt16)
   Method Void Bake[T0](UInt16, T0)
   Method Void Bake[T0,T1](UInt16, T0, T1)
   Method Void Bake[T0,T1,T2](UInt16, T0, T1, T2)
   Method Void Bake[T0,T1,T2,T3](UInt16, T0, T1, T2, T3)
   Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
-  Method Void Step(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
-  Method Void Step(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
-  Method Void Step(Tl.TimelineAsset, System.Span`1[System.UInt16], Boolean)
-  Method Void Step(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
-  Method Void Step(UInt16, System.Span`1[System.UInt16], Boolean)
-  Method Void Step(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
 type Tl.TimelineAsset
   Method Void Dispose()
   Property UInt16 Index
@@ -119,11 +119,12 @@ type Tl.TimelineState
   Field UInt32 Asset
   Field UInt16 Position
 type Tl.Timeline`1
+  Method Void Advance(System.Span`1[System.UInt16], Boolean)
+  Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Void Step(System.Span`1[System.UInt16], Boolean)
-  Method Void Step(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
 type Tl.Timeline`2
+  Method Void Advance(UInt16, UInt16 ByRef, Boolean)
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(UInt16, UInt16, Boolean, System.Span`1[System.Single])
@@ -131,7 +132,6 @@ type Tl.Timeline`2
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Void Step(UInt16, UInt16 ByRef, Boolean)
   Method Tl.SlotView View(UInt16)
   Method Tl.SlotView View(Tl.TimelineAsset)
 type Tl.TypeKey`1

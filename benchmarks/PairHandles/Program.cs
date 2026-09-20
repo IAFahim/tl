@@ -64,7 +64,7 @@ static class Parity
         for (var step = 0; step < steps; step++)
         {
             var forward = step % 5 != 4;
-            Timeline<LaneTrack, LaneClip>.Apply(handles, positions, forward, effects); Timeline.Step(handles, positions, forward);
+            Timeline<LaneTrack, LaneClip>.Apply(handles, positions, forward, effects); Timeline.Advance(handles, positions, forward);
             for (var variant = 0; variant < Host.Variants; variant++)
             {
                 var rowsOfVariant = groupedRows[variant];
@@ -75,7 +75,7 @@ static class Parity
                     groupEffects[write] = oracleEffects[row];
                     write++;
                 }
-                Timeline<LaneTrack, LaneClip>.Apply(bank[variant], groupPositions.AsSpan(0, write), forward, groupEffects.AsSpan(0, write)); Timeline.Step(bank[variant], groupPositions.AsSpan(0, write), forward);
+                Timeline<LaneTrack, LaneClip>.Apply(bank[variant], groupPositions.AsSpan(0, write), forward, groupEffects.AsSpan(0, write)); Timeline.Advance(bank[variant], groupPositions.AsSpan(0, write), forward);
                 write = 0;
                 foreach (var row in rowsOfVariant)
                 {

@@ -106,7 +106,7 @@ public class LaneApply
     {
         var positions = _uniform;
         var effects = _uniformEffects;
-        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Apply(_laneIds, positions, true, effects); Timeline.Step(_laneIds, positions, true);
+        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Apply(_laneIds, positions, true, effects); Timeline.Advance(_laneIds, positions, true);
         Consume(effects);
     }
 
@@ -115,7 +115,7 @@ public class LaneApply
     {
         var positions = _waves;
         var effects = _wavesEffects;
-        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Apply(_laneIds, positions, true, effects); Timeline.Step(_laneIds, positions, true);
+        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Apply(_laneIds, positions, true, effects); Timeline.Advance(_laneIds, positions, true);
         Consume(effects);
     }
 
@@ -124,7 +124,7 @@ public class LaneApply
     {
         var positions = _staggered;
         var effects = _staggeredEffects;
-        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Apply(_laneIds, positions, true, effects); Timeline.Step(_laneIds, positions, true);
+        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Apply(_laneIds, positions, true, effects); Timeline.Advance(_laneIds, positions, true);
         Consume(effects);
     }
 
@@ -133,7 +133,7 @@ public class LaneApply
     {
         var positions = _uniform;
         var effects = _uniformEffects;
-        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Apply(_laneIds, positions, false, effects); Timeline.Step(_laneIds, positions, false);
+        Timeline<LaneBench.LaneTrack, LaneBench.LaneClip>.Apply(_laneIds, positions, false, effects); Timeline.Advance(_laneIds, positions, false);
         Consume(effects);
     }
 
