@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Tl;
 
@@ -122,6 +123,70 @@ public static unsafe class Timeline<TTrack, TClip>
         ArgumentNullException.ThrowIfNull(asset);
         Apply(asset.Index, positions, next, forward, effects);
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply<TIndex, TPosition, TEffect>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects)
+        where TIndex : struct
+        where TPosition : struct
+        where TEffect : struct
+    {
+        CheckSizes<TIndex, TPosition, TEffect>();
+        Apply(
+            MemoryMarshal.Cast<TIndex, ushort>(indices),
+            MemoryMarshal.Cast<TPosition, ushort>(positions),
+            forward,
+            MemoryMarshal.Cast<TEffect, float>(effects));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Advance<TIndex, TPosition>(ReadOnlySpan<TIndex> indices, Span<TPosition> positions, bool forward)
+        where TIndex : struct
+        where TPosition : struct
+    {
+        if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
+            ThrowColumnSizes();
+        global::Tl.Timeline.Advance(MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply<TIndex, TPosition, TEffect>(in TIndex index, in TPosition position, bool forward, ref TEffect effect)
+        where TIndex : struct
+        where TPosition : struct
+        where TEffect : struct
+    {
+        CheckSizes<TIndex, TPosition, TEffect>();
+        Apply(
+            Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
+            MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TPosition, ushort>(ref Unsafe.AsRef(in position)), 1),
+            forward,
+            MemoryMarshal.CreateSpan(ref Unsafe.As<TEffect, float>(ref effect), 1));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Advance<TIndex, TPosition>(in TIndex index, ref TPosition position, bool forward)
+        where TIndex : struct
+        where TPosition : struct
+    {
+        if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
+            ThrowColumnSizes();
+        global::Tl.Timeline.Advance(
+            Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
+            MemoryMarshal.CreateSpan(ref Unsafe.As<TPosition, ushort>(ref position), 1),
+            forward);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static void CheckSizes<TIndex, TPosition, TEffect>()
+        where TIndex : struct
+        where TPosition : struct
+        where TEffect : struct
+    {
+        if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2 || Unsafe.SizeOf<TEffect>() != 4)
+            ThrowColumnSizes();
+    }
+
+    static void ThrowColumnSizes()
+        => throw new ArgumentException("Timeline columns must be single-field: index ushort, position ushort, effect float.");
 
     internal static void Resolve(ushort index)
     {

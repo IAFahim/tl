@@ -42,11 +42,6 @@ type Tl.LaneMovementRecord
   Field Single Effect
   Field UInt16 Next
   Field UInt16 Skipped
-type Tl.Lane`2
-  Method Void Advance[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean)
-  Method Void Advance[TIndex,TPosition](TIndex ByRef, TPosition ByRef, Boolean)
-  Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
-  Method Void Apply[TIndex,TPosition,TEffect](TIndex ByRef, TPosition ByRef, Boolean, TEffect ByRef)
 type Tl.MeasuredLanes
   Method Void Dispose()
   Property UInt16 Duration
@@ -117,6 +112,8 @@ type Tl.Timeline`1
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
 type Tl.Timeline`2
   Method Void Advance(UInt16, UInt16 ByRef, Boolean)
+  Method Void Advance[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean)
+  Method Void Advance[TIndex,TPosition](TIndex ByRef, TPosition ByRef, Boolean)
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(UInt16, UInt16, Boolean, System.Span`1[System.Single])
@@ -124,6 +121,8 @@ type Tl.Timeline`2
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
+  Method Void Apply[TIndex,TPosition,TEffect](TIndex ByRef, TPosition ByRef, Boolean, TEffect ByRef)
   Method Tl.SlotView View(UInt16)
   Method Tl.SlotView View(Tl.TimelineAsset)
 type Tl.TypeKey`1
