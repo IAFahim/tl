@@ -8,31 +8,19 @@ public static unsafe class BakeRuntime<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
-    public static void Bake(delegate*<object[], void> invoke)
-        => BakeTable.Install(PairRuntime<TTrack, TClip>.Key, invoke, []);
-
-    public static void Bake(delegate*<object[], void> invoke, ulong context0)
-        => BakeTable.Install(PairRuntime<TTrack, TClip>.Key, invoke, [context0]);
-
-    public static void Bake(delegate*<object[], void> invoke, ulong context0, ulong context1)
-        => BakeTable.Install(PairRuntime<TTrack, TClip>.Key, invoke, [context0, context1]);
-
-    public static void Bake(delegate*<object[], void> invoke, ulong context0, ulong context1, ulong context2)
-        => BakeTable.Install(PairRuntime<TTrack, TClip>.Key, invoke, [context0, context1, context2]);
-
-    public static void Bake(delegate*<object[], void> invoke, ulong context0, ulong context1, ulong context2, ulong context3)
-        => BakeTable.Install(PairRuntime<TTrack, TClip>.Key, invoke, [context0, context1, context2, context3]);
+    public static void Bake(delegate*<byte**, void> invoke, params ReadOnlySpan<ulong> paramKeys)
+        => BakeTable.Install(PairRuntime<TTrack, TClip>.Key, invoke, paramKeys);
 
     public static int BakeCount => BakeTable.ChainLength(PairRuntime<TTrack, TClip>.Key);
 
-    public static int BakeContextCount(int index) => Entry(index)->ContextCount;
+    public static int BakeParameterCount(int index) => Entry(index)->ParamCount;
 
-    public static ulong BakeContextKey(int index, int context)
+    public static ulong BakeParameterKey(int index, int parameter)
     {
         var entry = Entry(index);
-        if ((uint)context >= (uint)entry->ContextCount)
-            throw new ArgumentOutOfRangeException(nameof(context));
-        return entry->Contexts[context];
+        if ((uint)parameter >= (uint)entry->ParamCount)
+            throw new ArgumentOutOfRangeException(nameof(parameter));
+        return entry->ParamKeys[parameter];
     }
 
     static BakeTable.Entry* Entry(int index) => BakeTable.At(PairRuntime<TTrack, TClip>.Key, index);
@@ -43,9 +31,9 @@ static unsafe class BakeTable
     internal struct Entry
     {
         public int Next, Pair;
-        public int ContextCount;
-        public fixed ulong Contexts[4];
-        public delegate*<object[], void> Invoke;
+        public int ParamCount;
+        public ulong* ParamKeys;
+        public delegate*<byte**, void> Invoke;
     }
 
     struct Slot { public ulong Key; public int Head, Tail; }
@@ -61,7 +49,7 @@ static unsafe class BakeTable
     internal static Entry* EntryAt => (Entry*)(_block + sizeof(Slot) * SlotCount);
     internal static int Count => Volatile.Read(ref _bakes);
 
-    internal static void Install(ulong pairKey, delegate*<object[], void> invoke, ReadOnlySpan<ulong> contexts)
+    internal static void Install(ulong pairKey, delegate*<byte**, void> invoke, ReadOnlySpan<ulong> paramKeys)
     {
         while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
         try
@@ -78,8 +66,13 @@ static unsafe class BakeTable
             var entry = EntryAt + _bakes;
             entry->Next = -1;
             entry->Pair = slot;
-            entry->ContextCount = contexts.Length;
-            for (var i = 0; i < contexts.Length; i++) entry->Contexts[i] = contexts[i];
+            entry->ParamCount = paramKeys.Length;
+            if (paramKeys.Length > 0)
+            {
+                entry->ParamKeys = (ulong*)NativeMemory.Alloc((nuint)paramKeys.Length * sizeof(ulong));
+                paramKeys.CopyTo(new Span<ulong>(entry->ParamKeys, paramKeys.Length));
+            }
+            else entry->ParamKeys = null;
             entry->Invoke = invoke;
             if (slots[slot].Tail < 0) slots[slot].Head = _bakes;
             else EntryAt[slots[slot].Tail].Next = _bakes;

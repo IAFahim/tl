@@ -41,7 +41,7 @@ internal static class JobEmitter
             W($"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>.Consume(&OnActive_{name}, &OnActiveRange_{name}, &Bind_{name});");
         foreach (var (name, bake) in bakeItems)
             foreach (var pair in bake.Pairs)
-                W($"global::Tl.BakeRuntime<{pair.TrackTypeName}, {pair.ClipTypeName}>.Bake(&Bake_{name}{ContextArguments(bake)});");
+                W($"global::Tl.BakeRuntime<{pair.TrackTypeName}, {pair.ClipTypeName}>.Bake(&Bake_{name}{StateKeys(bake)});");
         W("}");
         foreach (var (name, consumer) in items)
         {
@@ -76,9 +76,18 @@ internal static class JobEmitter
         }
         foreach (var (name, bake) in bakeItems)
         {
-            W($"private static void Bake_{name}(object[] __tlArgs)");
+            W($"private static void Bake_{name}(byte** __tlArgs)");
             W("{");
-            W($"{bake.TypeName}.Bake(default({bake.ConsumerTypeName}){InvokeArguments(bake)});");
+            if (bake.Parameters.Any(static parameter => parameter.IsConsumer))
+                W($"{bake.ConsumerTypeName} __tlConsumer = default;");
+            var slots = 0;
+            foreach (var parameter in bake.Parameters)
+            {
+                if (parameter.IsConsumer) continue;
+                W($"ref {parameter.TypeName} __tlArg{slots} = ref global::System.Runtime.CompilerServices.Unsafe.AsRef<{parameter.TypeName}>(__tlArgs[{slots}]);");
+                slots++;
+            }
+            W($"{bake.TypeName}.Bake({ForwardArguments(bake)});");
             W("}");
         }
         W("private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }");
@@ -86,11 +95,26 @@ internal static class JobEmitter
         return writer.ToString();
     }
 
-    private static string ContextArguments(BakeDeclaration bake)
-        => string.Concat(bake.ContextTypeNames.Select(context => $", global::Tl.TypeKey<{context}>.Value"));
+    private static string StateKeys(BakeDeclaration bake)
+        => string.Concat(bake.Parameters.Where(static parameter => !parameter.IsConsumer)
+            .Select(parameter => $", global::Tl.TypeKey<{parameter.TypeName}>.Value"));
 
-    private static string InvokeArguments(BakeDeclaration bake)
-        => string.Concat(bake.ContextTypeNames.Select((context, index) => $", ({context})__tlArgs[{index}]"));
+    private static string ForwardArguments(BakeDeclaration bake)
+    {
+        var forward = new List<string>();
+        var slots = 0;
+        foreach (var parameter in bake.Parameters)
+        {
+            if (parameter.IsConsumer)
+                forward.Add($"{Modifier(parameter.Modifier)}__tlConsumer");
+            else
+                forward.Add($"{Modifier(parameter.Modifier)}__tlArg{slots++}");
+        }
+        return string.Join(", ", forward);
+    }
+
+    private static string Modifier(BakeModifier modifier)
+        => modifier == BakeModifier.In ? "in " : modifier == BakeModifier.Ref ? "ref " : "";
 
     private static string Arguments(IEnumerable<TimelineSlot> slots, string suffix = "")
         => string.Concat(slots.Select(slot => $", {Mode(slot)} @{slot.Name}{suffix}"));

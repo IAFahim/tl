@@ -14,11 +14,24 @@ public sealed record JobDefinition(string TypeName, IReadOnlyList<TimelineSlot> 
 
 public sealed record JobConsumer(string TrackTypeName, string ClipTypeName, JobDefinition Job);
 
+public enum BakeModifier : byte
+{
+    Value,
+    In,
+    Ref,
+}
+
+public sealed record BakeParameter(string TypeName, BakeModifier Modifier, bool IsConsumer);
+
 public sealed record BakeDeclaration(
     string TypeName,
     string ConsumerTypeName,
-    IReadOnlyList<string> ContextTypeNames,
-    IReadOnlyList<JobConsumer> Pairs);
+    IReadOnlyList<BakeParameter> Parameters,
+    IReadOnlyList<JobConsumer> Pairs)
+{
+    public string SignatureKey => string.Join("\0", Parameters
+        .Select(static parameter => $"{parameter.TypeName}\0{(byte)parameter.Modifier}\0{(parameter.IsConsumer ? 1 : 0)}"));
+}
 
 public sealed record JobReadResult(
     IReadOnlyList<JobConsumer> Consumers,

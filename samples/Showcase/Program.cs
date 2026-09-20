@@ -43,9 +43,9 @@ namespace Showcase
             => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
     }
 
-    public readonly struct AttachJumping : IBake<MoveY, World, int>
+    public readonly struct AttachJumping : IBake<MoveY>
     {
-        public static void Bake(MoveY consumer, World world, int entity)
+        public static void Bake(World world, int entity)
             => world.MarkJumping(entity);
     }
 

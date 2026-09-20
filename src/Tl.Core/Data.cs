@@ -12,7 +12,7 @@ static class Keying
 	internal static ulong Of(string text) { var hash = Seed; foreach (var c in text) hash = (hash ^ c) * Prime; return hash | 1; }
 }
 
-public static class TypeKey<T>
+public static class TypeKey<T> where T : allows ref struct
 {
 	public static readonly ulong Value = Keying.Of(typeof(T).AssemblyQualifiedName!);
 }

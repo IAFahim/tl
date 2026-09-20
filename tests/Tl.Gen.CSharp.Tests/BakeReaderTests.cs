@@ -27,14 +27,14 @@ public sealed class BakeReaderTests
         """;
 
     private const string SeparateBake = """
-        public readonly struct ApplyDamageBake : IBake<ApplyDamage, World, Entity>
+        public readonly struct ApplyDamageBake : IBake<ApplyDamage>
         {
-            public static void Bake(ApplyDamage consumer, World world, Entity entity) { world.Marks++; }
+            public static void Bake(World world, Entity entity) { world.Marks++; }
         }
         """;
 
     [Fact]
-    public void DiscoversSeparateBakeStructWithConsumerPairingAndOrderedContexts()
+    public void DiscoversSeparateBakeStructWithConsumerPairingAndFreeFormParameters()
     {
         var result = Read(Domain + SeparateBake);
 
@@ -42,14 +42,18 @@ public sealed class BakeReaderTests
         var bake = Assert.Single(result.Bakes);
         Assert.Equal("global::Domain.ApplyDamageBake", bake.TypeName);
         Assert.Equal("global::Domain.ApplyDamage", bake.ConsumerTypeName);
-        Assert.Equal(["global::Domain.World", "global::Domain.Entity"], bake.ContextTypeNames);
+        Assert.Equal(
+        [
+            new BakeParameter("global::Domain.World", BakeModifier.Value, false),
+            new BakeParameter("global::Domain.Entity", BakeModifier.Value, false),
+        ], bake.Parameters);
         var pair = Assert.Single(bake.Pairs);
         Assert.Equal("global::Domain.DamageTrack", pair.TrackTypeName);
         Assert.Equal("global::Domain.DamageClip", pair.ClipTypeName);
     }
 
     [Fact]
-    public void DiscoversOnConsumerBakeWithTheConsumerAsItsOwnFirstParameter()
+    public void DiscoversOnConsumerBakeWithMixedModifiersAndConsumerParameter()
     {
         const string source = """
             using Tl;
@@ -60,10 +64,10 @@ public sealed class BakeReaderTests
                 public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result) => result = first;
             }
             public sealed class World { public int Marks; }
-            public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>, IBake<ApplyDamage, World>
+            public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>, IBake<ApplyDamage>
             {
                 public static void OnActive(in Frame<DamageTrack, DamageClip> frame) { }
-                public static void Bake(ApplyDamage consumer, World world) { world.Marks++; }
+                public static void Bake(in ApplyDamage consumer, in World world) { world.Marks++; }
             }
             """;
         var result = Read(source);
@@ -72,73 +76,105 @@ public sealed class BakeReaderTests
         var bake = Assert.Single(result.Bakes);
         Assert.Equal("global::Domain.ApplyDamage", bake.TypeName);
         Assert.Equal("global::Domain.ApplyDamage", bake.ConsumerTypeName);
-        Assert.Equal(["global::Domain.World"], bake.ContextTypeNames);
+        Assert.Equal(
+        [
+            new BakeParameter("global::Domain.ApplyDamage", BakeModifier.In, true),
+            new BakeParameter("global::Domain.World", BakeModifier.In, false),
+        ], bake.Parameters);
         Assert.Single(bake.Pairs);
     }
 
     [Fact]
-    public void DiscoversZeroContextBakeMarkedWithTheOneArgumentInterface()
+    public void DiscoversParameterlessBakeMarkedWithTheOneArgumentInterface()
     {
         const string bake = """
             public readonly struct ApplyDamageBake : IBake<ApplyDamage>
             {
-                public static void Bake(ApplyDamage consumer) { }
+                public static void Bake() { }
             }
             """;
         var result = Read(Domain + bake);
 
         var declaration = Assert.Single(result.Bakes);
-        Assert.Empty(declaration.ContextTypeNames);
+        Assert.Empty(declaration.Parameters);
     }
 
     [Fact]
-    public void DiscoversFourContextBakeAtTheArityCap()
+    public void DiscoversBakesBeyondTheOldContextCapWithSpanParameters()
     {
         const string bake = """
             public readonly struct C0 { }
             public readonly struct C1 { }
             public readonly struct C2 { }
             public readonly struct C3 { }
-            public readonly struct CapBake : IBake<ApplyDamage, C0, C1, C2, C3>
+            public readonly struct C4 { }
+            public readonly struct WideBake : IBake<ApplyDamage>
             {
-                public static void Bake(ApplyDamage consumer, C0 c0, C1 c1, C2 c2, C3 c3) { }
+                public static void Bake(in C0 c0, ref C1 c1, C2 c2, global::System.Span<C3> c3, global::System.ReadOnlySpan<C4> c4) { }
             }
             """;
         var result = Read(Domain + bake);
 
+        Assert.Empty(result.Diagnostics);
         var declaration = Assert.Single(result.Bakes);
-        Assert.Equal(4, declaration.ContextTypeNames.Count);
+        Assert.Equal(
+        [
+            new BakeParameter("global::Domain.C0", BakeModifier.In, false),
+            new BakeParameter("global::Domain.C1", BakeModifier.Ref, false),
+            new BakeParameter("global::Domain.C2", BakeModifier.Value, false),
+            new BakeParameter("global::System.Span<global::Domain.C3>", BakeModifier.Value, false),
+            new BakeParameter("global::System.ReadOnlySpan<global::Domain.C4>", BakeModifier.Value, false),
+        ], declaration.Parameters);
     }
 
     [Fact]
-    public void MultipleBakesSortByConsumerThenContextsThenBakeTypeName()
+    public void MultipleBakesSortByConsumerThenSignatureThenBakeTypeName()
     {
         const string bakes = """
-            public readonly struct ZetaBake : IBake<ApplyDamage, World>
+            public readonly record struct BetaClip(float Amount);
+            public readonly record struct BetaTrack(float Gain) : IBlend<BetaClip>
             {
-                public static void Bake(ApplyDamage consumer, World world) { }
+                public void Blend(in BetaClip first, in BetaClip second, float factor, out BetaClip result) => result = first;
             }
-            public readonly struct AlphaBake : IBake<ApplyDamage, World>
+            public readonly struct ApplyBeta : ITrack<BetaTrack, BetaClip>
             {
-                public static void Bake(ApplyDamage consumer, World world) { }
+                public static void OnActive(in Frame<BetaTrack, BetaClip> frame) { }
             }
-            public readonly struct AlphaBakeWide : IBake<ApplyDamage, World, Entity>
+            public readonly record struct GammaClip(float Amount);
+            public readonly record struct GammaTrack(float Gain) : IBlend<GammaClip>
             {
-                public static void Bake(ApplyDamage consumer, World world, Entity entity) { }
+                public void Blend(in GammaClip first, in GammaClip second, float factor, out GammaClip result) => result = first;
             }
-            public readonly struct NarrowBake : IBake<ApplyDamage, Entity>
+            public readonly struct ApplyGamma : ITrack<GammaTrack, GammaClip>
             {
-                public static void Bake(ApplyDamage consumer, Entity entity) { }
+                public static void OnActive(in Frame<GammaTrack, GammaClip> frame) { }
+            }
+            public readonly struct ZetaBake : IBake<ApplyDamage>
+            {
+                public static void Bake(World world) { }
+            }
+            public readonly struct AlphaBake : IBake<ApplyDamage>
+            {
+                public static void Bake(World world) { }
+            }
+            public readonly struct AlphaWideBake : IBake<ApplyBeta>
+            {
+                public static void Bake(World world, Entity entity) { }
+            }
+            public readonly struct NarrowBake : IBake<ApplyGamma>
+            {
+                public static void Bake(Entity entity) { }
             }
             """;
         var result = Read(Domain + bakes);
 
+        Assert.Empty(result.Diagnostics);
         Assert.Equal(
         [
-            "global::Domain.NarrowBake",
+            "global::Domain.AlphaWideBake",
             "global::Domain.AlphaBake",
             "global::Domain.ZetaBake",
-            "global::Domain.AlphaBakeWide",
+            "global::Domain.NarrowBake",
         ], result.Bakes.Select(static bake => bake.TypeName));
     }
 
@@ -156,11 +192,11 @@ public sealed class BakeReaderTests
                 public void Blend(in BetaClip first, in BetaClip second, float factor, out BetaClip result) => result = first;
             }
             public sealed class World { public int Marks; }
-            public readonly struct DualJob : ITrack<DualTrack, AlphaClip>, ITrack<DualTrack, BetaClip>, IBake<DualJob, World>
+            public readonly struct DualJob : ITrack<DualTrack, AlphaClip>, ITrack<DualTrack, BetaClip>, IBake<DualJob>
             {
                 public static void OnActive(in Frame<DualTrack, AlphaClip> frame) { }
                 public static void OnActive(in Frame<DualTrack, BetaClip> frame) { }
-                public static void Bake(DualJob consumer, World world) { world.Marks++; }
+                public static void Bake(World world) { world.Marks++; }
             }
             """;
         var result = Read(source);
@@ -182,17 +218,39 @@ public sealed class BakeReaderTests
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
         Assert.Contains("global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ApplyDamageBake, global::Tl.TypeKey<global::Domain.World>.Value, global::Tl.TypeKey<global::Domain.Entity>.Value);", binding);
-        Assert.Contains("private static void Bake_ApplyDamageBake(object[] __tlArgs)", binding);
-        Assert.Contains("global::Domain.ApplyDamageBake.Bake(default(global::Domain.ApplyDamage), (global::Domain.World)__tlArgs[0], (global::Domain.Entity)__tlArgs[1]);", binding);
+        Assert.Contains("private static void Bake_ApplyDamageBake(byte** __tlArgs)", binding);
+        Assert.Contains("ref global::Domain.World __tlArg0 = ref global::System.Runtime.CompilerServices.Unsafe.AsRef<global::Domain.World>(__tlArgs[0]);", binding);
+        Assert.Contains("ref global::Domain.Entity __tlArg1 = ref global::System.Runtime.CompilerServices.Unsafe.AsRef<global::Domain.Entity>(__tlArgs[1]);", binding);
+        Assert.Contains("global::Domain.ApplyDamageBake.Bake(__tlArg0, __tlArg1);", binding);
     }
 
     [Fact]
-    public void ZeroContextBakeEmitsInvokelessRegistration()
+    public void MixedModifierBakeForwardsEachDeclaredModifier()
     {
         const string bake = """
             public readonly struct ApplyDamageBake : IBake<ApplyDamage>
             {
-                public static void Bake(ApplyDamage consumer) { }
+                public static void Bake(ApplyDamage consumer, in World world, ref Entity entity) { world.Marks++; entity.Id++; }
+            }
+            """;
+        var (sources, diagnostics) = GenerateWithDiagnostics(Domain + bake);
+
+        Assert.Empty(diagnostics);
+        var binding = Assert.Single(sources).Value;
+        Assert.Contains("global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ApplyDamageBake, global::Tl.TypeKey<global::Domain.World>.Value, global::Tl.TypeKey<global::Domain.Entity>.Value);", binding);
+        Assert.Contains("global::Domain.ApplyDamage __tlConsumer = default;", binding);
+        Assert.Contains("ref global::Domain.World __tlArg0 = ref global::System.Runtime.CompilerServices.Unsafe.AsRef<global::Domain.World>(__tlArgs[0]);", binding);
+        Assert.Contains("ref global::Domain.Entity __tlArg1 = ref global::System.Runtime.CompilerServices.Unsafe.AsRef<global::Domain.Entity>(__tlArgs[1]);", binding);
+        Assert.Contains("global::Domain.ApplyDamageBake.Bake(__tlConsumer, in __tlArg0, ref __tlArg1);", binding);
+    }
+
+    [Fact]
+    public void ParameterlessBakeEmitsInvokelessRegistration()
+    {
+        const string bake = """
+            public readonly struct ApplyDamageBake : IBake<ApplyDamage>
+            {
+                public static void Bake() { }
             }
             """;
         var (sources, diagnostics) = GenerateWithDiagnostics(Domain + bake);
@@ -200,7 +258,7 @@ public sealed class BakeReaderTests
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
         Assert.Contains("global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ApplyDamageBake);", binding);
-        Assert.Contains("global::Domain.ApplyDamageBake.Bake(default(global::Domain.ApplyDamage));", binding);
+        Assert.Contains("global::Domain.ApplyDamageBake.Bake();", binding);
     }
 
     [Fact]
@@ -217,11 +275,11 @@ public sealed class BakeReaderTests
                 public void Blend(in BetaClip first, in BetaClip second, float factor, out BetaClip result) => result = first;
             }
             public sealed class World { public int Marks; }
-            public readonly struct DualJob : ITrack<DualTrack, AlphaClip>, ITrack<DualTrack, BetaClip>, IBake<DualJob, World>
+            public readonly struct DualJob : ITrack<DualTrack, AlphaClip>, ITrack<DualTrack, BetaClip>, IBake<DualJob>
             {
                 public static void OnActive(in Frame<DualTrack, AlphaClip> frame) { }
                 public static void OnActive(in Frame<DualTrack, BetaClip> frame) { }
-                public static void Bake(DualJob consumer, World world) { world.Marks++; }
+                public static void Bake(World world) { world.Marks++; }
             }
             """;
         var (sources, diagnostics) = GenerateWithDiagnostics(source);
@@ -239,17 +297,17 @@ public sealed class BakeReaderTests
     public void BakeInstallsFollowTheSortedBakeOrderAfterTheConsumerInstalls()
     {
         const string bakes = """
-            public readonly struct ZetaBake : IBake<ApplyDamage, World>
+            public readonly struct ZetaBake : IBake<ApplyDamage>
             {
-                public static void Bake(ApplyDamage consumer, World world) { }
+                public static void Bake(World world) { }
             }
-            public readonly struct AlphaBake : IBake<ApplyDamage, World>
+            public readonly struct AlphaBake : IBake<ApplyDamage>
             {
-                public static void Bake(ApplyDamage consumer, World world) { }
+                public static void Bake(World world) { }
             }
-            public readonly struct NarrowBake : IBake<ApplyDamage, Entity>
+            public readonly struct NarrowBake : IBake<ApplyDamage>
             {
-                public static void Bake(ApplyDamage consumer, Entity entity) { }
+                public static void Bake(World world) { }
             }
             """;
         var (sources, diagnostics) = GenerateWithDiagnostics(Domain + bakes);
@@ -260,8 +318,8 @@ public sealed class BakeReaderTests
         Assert.Equal(
         [
             "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&OnActive_ApplyDamage, &OnActiveRange_ApplyDamage, &Bind_ApplyDamage);",
-            "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_NarrowBake, global::Tl.TypeKey<global::Domain.Entity>.Value);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_AlphaBake, global::Tl.TypeKey<global::Domain.World>.Value);",
+            "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_NarrowBake, global::Tl.TypeKey<global::Domain.World>.Value);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ZetaBake, global::Tl.TypeKey<global::Domain.World>.Value);",
         ], install.Split('\n')[5..^1]);
     }
@@ -284,7 +342,7 @@ public sealed class BakeReaderTests
     public void RejectsAbstractBakeDeclarationWithDiagnostic()
     {
         const string bake = """
-            public abstract class AbstractBake : IBake<ApplyDamage, World> { }
+            public abstract class AbstractBake : IBake<ApplyDamage> { }
             """;
         Rejects(bake, "TLGEN70", "cannot be abstract");
     }
@@ -293,9 +351,9 @@ public sealed class BakeReaderTests
     public void RejectsNonStructBakeDeclarationWithDiagnostic()
     {
         const string bake = """
-            public sealed class ClassBake : IBake<ApplyDamage, World>
+            public sealed class ClassBake : IBake<ApplyDamage>
             {
-                public static void Bake(ApplyDamage consumer, World world) { }
+                public static void Bake(World world) { }
             }
             """;
         Rejects(bake, "TLGEN70", "must be a struct; bakes are declared on structs");
@@ -305,9 +363,9 @@ public sealed class BakeReaderTests
     public void RejectsGenericBakeDeclarationWithDiagnostic()
     {
         const string bake = """
-            public readonly struct GenericBake<T> : IBake<ApplyDamage, World>
+            public readonly struct GenericBake<T> : IBake<ApplyDamage>
             {
-                public static void Bake(ApplyDamage consumer, World world) { }
+                public static void Bake(World world) { }
             }
             """;
         Rejects(bake, "TLGEN70", "cannot be generic; open type parameters cannot be registered as bakes");
@@ -318,7 +376,7 @@ public sealed class BakeReaderTests
     {
         const string bake = """
             public readonly struct NotAConsumer { }
-            public readonly struct StrayBake : IBake<NotAConsumer, World>
+            public readonly struct StrayBake : IBake<NotAConsumer>
             {
                 public static void Bake(NotAConsumer consumer, World world) { }
             }
@@ -327,15 +385,15 @@ public sealed class BakeReaderTests
     }
 
     [Fact]
-    public void RejectsInaccessibleContextTypeWithDiagnostic()
+    public void RejectsInaccessibleParameterTypeWithDiagnostic()
     {
         const string bake = """
             public static class Host
             {
                 private sealed class HiddenWorld { }
-                private readonly struct HiddenBake : IBake<ApplyDamage, HiddenWorld>
+                internal readonly struct HiddenBake : IBake<ApplyDamage>
                 {
-                    public static void Bake(ApplyDamage consumer, HiddenWorld world) { }
+                    public static void Bake(HiddenWorld world) { }
                 }
             }
             """;
@@ -346,74 +404,108 @@ public sealed class BakeReaderTests
     public void RejectsBakeWithoutAMatchingMethodShapeWithDiagnostic()
     {
         Rejects("""
-            public readonly struct ApplyDamageBake : IBake<ApplyDamage, World, Entity> { }
-            """, "TLGEN71", "must declare one accessible static void Bake");
+            public readonly struct ApplyDamageBake : IBake<ApplyDamage> { }
+            """, "TLGEN71", "must declare exactly one accessible static void Bake");
     }
 
     [Fact]
     public void RejectsInstanceBakeMethodWithDiagnostic()
     {
         Rejects("""
-            public readonly struct ApplyDamageBake : IBake<ApplyDamage, World>
+            public readonly struct ApplyDamageBake : IBake<ApplyDamage>
             {
-                public void Bake(ApplyDamage consumer, World world) { }
+                public void Bake(World world) { }
             }
-            """, "TLGEN71", "must declare one accessible static void Bake");
-    }
-
-    [Fact]
-    public void RejectsWrongFirstParameterTypeWithDiagnostic()
-    {
-        Rejects("""
-            public readonly struct ApplyDamageBake : IBake<ApplyDamage, World>
-            {
-                public static void Bake(World world, Entity entity) { }
-            }
-            """, "TLGEN71", "first parameter is the consumer type 'global::Domain.ApplyDamage' by value");
-    }
-
-    [Fact]
-    public void RejectsOutOfOrderContextParametersWithDiagnostic()
-    {
-        Rejects("""
-            public readonly struct ApplyDamageBake : IBake<ApplyDamage, World, Entity>
-            {
-                public static void Bake(ApplyDamage consumer, Entity entity, World world) { }
-            }
-            """, "TLGEN71", "followed by one by-value parameter per declared context type in order");
-    }
-
-    [Fact]
-    public void RejectsContextParameterArityMismatchWithDiagnostic()
-    {
-        Rejects("""
-            public readonly struct ApplyDamageBake : IBake<ApplyDamage, World>
-            {
-                public static void Bake(ApplyDamage consumer) { }
-            }
-            """, "TLGEN71", "one by-value parameter per declared context type in order");
-    }
-
-    [Fact]
-    public void RejectsByRefBakeParametersWithDiagnostic()
-    {
-        Rejects("""
-            public readonly struct ApplyDamageBake : IBake<ApplyDamage, World>
-            {
-                public static void Bake(in ApplyDamage consumer, in World world) { }
-            }
-            """, "TLGEN71", "by value");
+            """, "TLGEN71", "must declare exactly one accessible static void Bake");
     }
 
     [Fact]
     public void RejectsNonVoidBakeWithDiagnostic()
     {
         Rejects("""
-            public readonly struct ApplyDamageBake : IBake<ApplyDamage, World>
+            public readonly struct ApplyDamageBake : IBake<ApplyDamage>
             {
-                public static int Bake(ApplyDamage consumer, World world) => 0;
+                public static int Bake(World world) => 0;
             }
             """, "TLGEN71", "static void Bake");
+    }
+
+    [Fact]
+    public void RejectsOutOptionalAndParamsBakeParametersWithDiagnostic()
+    {
+        Rejects("""
+            public readonly struct OutBake : IBake<ApplyDamage>
+            {
+                public static void Bake(out World world) { world = null!; }
+            }
+            """, "TLGEN71", "out, optional, and params parameters are unsupported");
+
+        Rejects("""
+            public readonly struct OptionalBake : IBake<ApplyDamage>
+            {
+                public static void Bake(World world = null) { }
+            }
+            """, "TLGEN71", "out, optional, and params parameters are unsupported");
+
+        Rejects("""
+            public readonly struct ParamsBake : IBake<ApplyDamage>
+            {
+                public static void Bake(params Entity[] entities) { }
+            }
+            """, "TLGEN71", "out, optional, and params parameters are unsupported");
+    }
+
+    [Fact]
+    public void RejectsSeveralBakeMethodCandidatesWithOneDiagnostic()
+    {
+        Rejects("""
+            public readonly struct ApplyDamageBake : IBake<ApplyDamage>
+            {
+                public static void Bake(World world) { }
+                public static void Bake(Entity entity) { }
+            }
+            """, "TLGEN71", "must declare exactly one accessible static void Bake");
+    }
+
+    [Fact]
+    public void RejectsMismatchedParameterListsOnOnePairWithOneLocatedDiagnostic()
+    {
+        const string bakes = Domain + """
+            public readonly struct WorldOnlyBake : IBake<ApplyDamage>
+            {
+                public static void Bake(World world) { }
+            }
+            public readonly struct WorldAndEntityBake : IBake<ApplyDamage>
+            {
+                public static void Bake(in World world, ref Entity entity) { }
+            }
+            """;
+        var (sources, diagnostics) = GenerateWithDiagnostics(bakes);
+
+        Assert.Empty(sources);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("TLGEN74", diagnostic.Id);
+        Assert.Contains("'global::Domain.WorldAndEntityBake' and 'global::Domain.WorldOnlyBake' bind pair (global::Domain.DamageTrack, global::Domain.DamageClip) with different bake parameter lists: 'global::Domain.WorldAndEntityBake.Bake(in global::Domain.World world, ref global::Domain.Entity entity)' and 'global::Domain.WorldOnlyBake.Bake(global::Domain.World world)'", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void SameSignatureBakesOnOnePairCompose()
+    {
+        const string bakes = Domain + """
+            public readonly struct FirstBake : IBake<ApplyDamage>
+            {
+                public static void Bake(in World world, ref Entity entity) { world.Marks++; }
+            }
+            public readonly struct SecondBake : IBake<ApplyDamage>
+            {
+                public static void Bake(in World world, ref Entity entity) { }
+            }
+            """;
+        var (sources, diagnostics) = GenerateWithDiagnostics(bakes);
+
+        Assert.Empty(diagnostics);
+        var binding = Assert.Single(sources).Value;
+        Assert.Equal(2, binding.Split('\n').Count(static line => line.Contains(".Bake(&Bake_", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -421,7 +513,7 @@ public sealed class BakeReaderTests
     {
         const string stray = Domain + """
             public readonly struct NotAConsumer { }
-            public readonly struct StrayBake : IBake<NotAConsumer, World>
+            public readonly struct StrayBake : IBake<NotAConsumer>
             {
                 public static void Bake(NotAConsumer consumer, World world) { }
             }
@@ -459,9 +551,9 @@ public sealed class BakeReaderTests
             {
                 public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref Health health) { }
             }
-            public readonly struct ApplyDamageBake : IBake<ApplyDamage, World>
+            public readonly struct ApplyDamageBake : IBake<ApplyDamage>
             {
-                public static void Bake(ApplyDamage consumer, World world) { world.Marks++; }
+                public static void Bake(in World world) { world.Marks++; }
             }
             """;
         var (sources, diagnostics) = GenerateWithDiagnostics(source);
@@ -498,9 +590,10 @@ public sealed class BakeReaderTests
         if (__tlIdx0 < 0) throw new global::System.ArgumentException("global::Domain.ApplyDamage: required column missing for registered consumer: global::Domain.Health");
         __tlIndices[0] = (byte)(__tlIdx0 + 1);
         }
-        private static void Bake_ApplyDamageBake(object[] __tlArgs)
+        private static void Bake_ApplyDamageBake(byte** __tlArgs)
         {
-        global::Domain.ApplyDamageBake.Bake(default(global::Domain.ApplyDamage), (global::Domain.World)__tlArgs[0]);
+        ref global::Domain.World __tlArg0 = ref global::System.Runtime.CompilerServices.Unsafe.AsRef<global::Domain.World>(__tlArgs[0]);
+        global::Domain.ApplyDamageBake.Bake(in __tlArg0);
         }
         private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }
         }
@@ -540,5 +633,5 @@ public sealed class BakeReaderTests
 
     internal static string[] ReferencePaths()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Append(typeof(IBake<,>).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
+            .Append(typeof(IBake<>).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
 }

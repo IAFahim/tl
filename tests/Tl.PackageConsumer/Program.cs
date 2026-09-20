@@ -50,8 +50,8 @@ unsafe
 }
 
 if (BakeRuntime<PackageTrack, PackageClip>.BakeCount != 1
-    || BakeRuntime<PackageTrack, PackageClip>.BakeContextCount(0) != 1
-    || BakeRuntime<PackageTrack, PackageClip>.BakeContextKey(0, 0) != TypeKey<PackageHost>.Value)
+    || BakeRuntime<PackageTrack, PackageClip>.BakeParameterCount(0) != 1
+    || BakeRuntime<PackageTrack, PackageClip>.BakeParameterKey(0, 0) != TypeKey<PackageHost>.Value)
     return 3;
 
 Console.WriteLine((int)values[0]);
@@ -66,10 +66,10 @@ public readonly struct PackageTrack : IBlend<PackageClip>
 
 public sealed class PackageHost { public int Marks; }
 
-public readonly struct PackageJob : ITrack<PackageTrack, PackageClip>, IBake<PackageJob, PackageHost>
+public readonly struct PackageJob : ITrack<PackageTrack, PackageClip>, IBake<PackageJob>
 {
     public static void OnActive(in Frame<PackageTrack, PackageClip> frame, ref float value)
         => value += frame.Direction * frame.Clip.Value;
 
-    public static void Bake(PackageJob consumer, PackageHost host) { host.Marks++; }
+    public static void Bake(PackageHost host) { host.Marks++; }
 }
