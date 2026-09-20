@@ -3,36 +3,84 @@
     "Lane": "loop6/fwd",
     "Shape": "staggered",
     "Kernel": "record",
-    "Ms": 0.4541,
-    "Ns": 0.4541,
+    "Ms": 0.4534,
+    "Ns": 0.4534,
     "Allocated": 0
   },
   {
     "Lane": "loop6/fwd",
     "Shape": "staggered",
     "Kernel": "streamadd-floor",
-    "Ms": 3.5561,
-    "Ns": 3.5561,
+    "Ms": 3.5656,
+    "Ns": 3.5656,
     "Allocated": 0
   },
   {
     "Lane": "loop6/fwd",
     "Shape": "uniform",
     "Kernel": "record",
-    "Ms": 0.4528,
-    "Ns": 0.4528,
+    "Ms": 0.4531,
+    "Ns": 0.4531,
     "Allocated": 0
   },
   {
     "Lane": "loop6/fwd",
     "Shape": "uniform",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2912,
-    "Ns": 0.2912,
+    "Ms": 0.2886,
+    "Ns": 0.2886,
     "Allocated": 0
   },
   {
     "Lane": "loop6/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4538,
+    "Ns": 0.4538,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2879,
+    "Ns": 0.2879,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.4588,
+    "Ns": 0.4588,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2893,
+    "Ns": 0.2893,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.4541,
+    "Ns": 0.4541,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.293,
+    "Ns": 0.293,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
     "Shape": "waves100",
     "Kernel": "record",
     "Ms": 0.4539,
@@ -40,127 +88,31 @@
     "Allocated": 0
   },
   {
-    "Lane": "loop6/fwd",
-    "Shape": "waves100",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2905,
-    "Ns": 0.2905,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "staggered",
-    "Kernel": "record",
-    "Ms": 0.457,
-    "Ns": 0.457,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "staggered",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2886,
-    "Ns": 0.2886,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "uniform",
-    "Kernel": "record",
-    "Ms": 0.4538,
-    "Ns": 0.4538,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "uniform",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2939,
-    "Ns": 0.2939,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "waves100",
-    "Kernel": "record",
-    "Ms": 0.4541,
-    "Ns": 0.4541,
-    "Allocated": 0
-  },
-  {
     "Lane": "loop16/fwd",
     "Shape": "waves100",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2901,
-    "Ns": 0.2901,
+    "Ms": 0.2917,
+    "Ns": 0.2917,
     "Allocated": 0
   },
   {
     "Lane": "loop32/fwd",
     "Shape": "staggered",
     "Kernel": "record",
-    "Ms": 0.4567,
-    "Ns": 0.4567,
+    "Ms": 0.4583,
+    "Ns": 0.4583,
     "Allocated": 0
   },
   {
     "Lane": "loop32/fwd",
     "Shape": "staggered",
     "Kernel": "streamadd-floor",
-    "Ms": 0.341,
-    "Ns": 0.341,
+    "Ms": 0.2913,
+    "Ns": 0.2913,
     "Allocated": 0
   },
   {
     "Lane": "loop32/fwd",
-    "Shape": "uniform",
-    "Kernel": "record",
-    "Ms": 0.4536,
-    "Ns": 0.4536,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop32/fwd",
-    "Shape": "uniform",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2979,
-    "Ns": 0.2979,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop32/fwd",
-    "Shape": "waves100",
-    "Kernel": "record",
-    "Ms": 0.4532,
-    "Ns": 0.4532,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop32/fwd",
-    "Shape": "waves100",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2901,
-    "Ns": 0.2901,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/fwd",
-    "Shape": "staggered",
-    "Kernel": "record",
-    "Ms": 0.4548,
-    "Ns": 0.4548,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/fwd",
-    "Shape": "staggered",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.3138,
-    "Ns": 0.3138,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/fwd",
     "Shape": "uniform",
     "Kernel": "record",
     "Ms": 0.4541,
@@ -168,55 +120,7 @@
     "Allocated": 0
   },
   {
-    "Lane": "loop1024/fwd",
-    "Shape": "uniform",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2936,
-    "Ns": 0.2936,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/fwd",
-    "Shape": "waves100",
-    "Kernel": "record",
-    "Ms": 0.4578,
-    "Ns": 0.4578,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/fwd",
-    "Shape": "waves100",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.3081,
-    "Ns": 0.3081,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/bwd",
-    "Shape": "staggered",
-    "Kernel": "record",
-    "Ms": 0.5728,
-    "Ns": 0.5728,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/bwd",
-    "Shape": "staggered",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2906,
-    "Ns": 0.2906,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/bwd",
-    "Shape": "uniform",
-    "Kernel": "record",
-    "Ms": 0.5732,
-    "Ns": 0.5732,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/bwd",
+    "Lane": "loop32/fwd",
     "Shape": "uniform",
     "Kernel": "streamadd-floor",
     "Ms": 0.2906,
@@ -224,163 +128,259 @@
     "Allocated": 0
   },
   {
-    "Lane": "loop1024/bwd",
+    "Lane": "loop32/fwd",
     "Shape": "waves100",
     "Kernel": "record",
-    "Ms": 0.5742,
-    "Ns": 0.5742,
+    "Ms": 0.4547,
+    "Ns": 0.4547,
     "Allocated": 0
   },
   {
-    "Lane": "loop1024/bwd",
+    "Lane": "loop32/fwd",
     "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.291,
+    "Ns": 0.291,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.456,
+    "Ns": 0.456,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.3002,
+    "Ns": 0.3002,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.4544,
+    "Ns": 0.4544,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "uniform",
     "Kernel": "streamadd-floor",
     "Ms": 0.2882,
     "Ns": 0.2882,
     "Allocated": 0
   },
   {
+    "Lane": "loop1024/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4558,
+    "Ns": 0.4558,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2883,
+    "Ns": 0.2883,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.5733,
+    "Ns": 0.5733,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2916,
+    "Ns": 0.2916,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.5746,
+    "Ns": 0.5746,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.295,
+    "Ns": 0.295,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.5744,
+    "Ns": 0.5744,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2887,
+    "Ns": 0.2887,
+    "Allocated": 0
+  },
+  {
     "Lane": "finite1024/fwd",
     "Shape": "staggered",
     "Kernel": "record",
-    "Ms": 0.454,
-    "Ns": 0.454,
+    "Ms": 0.4546,
+    "Ns": 0.4546,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/fwd",
     "Shape": "staggered",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2888,
-    "Ns": 0.2888,
+    "Ms": 0.295,
+    "Ns": 0.295,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/fwd",
     "Shape": "uniform",
     "Kernel": "record",
-    "Ms": 0.4536,
-    "Ns": 0.4536,
+    "Ms": 0.4532,
+    "Ns": 0.4532,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/fwd",
     "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2884,
+    "Ns": 0.2884,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4545,
+    "Ns": 0.4545,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/fwd",
+    "Shape": "waves100",
     "Kernel": "streamadd-floor",
     "Ms": 0.2892,
     "Ns": 0.2892,
     "Allocated": 0
   },
   {
-    "Lane": "finite1024/fwd",
-    "Shape": "waves100",
-    "Kernel": "record",
-    "Ms": 0.4551,
-    "Ns": 0.4551,
-    "Allocated": 0
-  },
-  {
-    "Lane": "finite1024/fwd",
-    "Shape": "waves100",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2971,
-    "Ns": 0.2971,
-    "Allocated": 0
-  },
-  {
     "Lane": "finite1024/bwd",
     "Shape": "staggered",
     "Kernel": "record",
-    "Ms": 0.5801,
-    "Ns": 0.5801,
+    "Ms": 0.5796,
+    "Ns": 0.5796,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/bwd",
     "Shape": "staggered",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2886,
-    "Ns": 0.2886,
+    "Ms": 0.2955,
+    "Ns": 0.2955,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/bwd",
     "Shape": "uniform",
     "Kernel": "record",
-    "Ms": 0.5737,
-    "Ns": 0.5737,
+    "Ms": 0.5739,
+    "Ns": 0.5739,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/bwd",
     "Shape": "uniform",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2908,
-    "Ns": 0.2908,
+    "Ms": 0.2866,
+    "Ns": 0.2866,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/bwd",
     "Shape": "waves100",
     "Kernel": "record",
-    "Ms": 0.5758,
-    "Ns": 0.5758,
+    "Ms": 0.5736,
+    "Ns": 0.5736,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/bwd",
     "Shape": "waves100",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2914,
-    "Ns": 0.2914,
+    "Ms": 0.2995,
+    "Ns": 0.2995,
     "Allocated": 0
   },
   {
     "Lane": "public/loop6",
     "Shape": "staggered",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 0.9656,
-    "Ns": 0.9656,
+    "Ms": 0.9634,
+    "Ns": 0.9634,
     "Allocated": 0
   },
   {
     "Lane": "public/loop6",
     "Shape": "uniform",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 0.9579,
-    "Ns": 0.9579,
+    "Ms": 0.9574,
+    "Ns": 0.9574,
     "Allocated": 0
   },
   {
     "Lane": "public/loop6",
     "Shape": "uniform",
     "Kernel": "Timeline.Advance(index)",
-    "Ms": 0.3955,
-    "Ns": 0.3955,
+    "Ms": 0.3953,
+    "Ns": 0.3953,
     "Allocated": 0
   },
   {
     "Lane": "public/loop6",
     "Shape": "uniform",
     "Kernel": "Timeline.Advance(ids)",
-    "Ms": 1.0506,
-    "Ns": 1.0506,
+    "Ms": 1.0529,
+    "Ns": 1.0529,
     "Allocated": 0
   },
   {
     "Lane": "public/loop1024",
     "Shape": "staggered",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 1.2029,
-    "Ns": 1.2029,
+    "Ms": 1.1997,
+    "Ns": 1.1997,
     "Allocated": 0
   },
   {
     "Lane": "public/loop1024",
     "Shape": "uniform",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 0.9544,
-    "Ns": 0.9544,
+    "Ms": 0.9562,
+    "Ns": 0.9562,
     "Allocated": 0
   },
   {
@@ -395,40 +395,40 @@
     "Lane": "public/loop1024",
     "Shape": "uniform",
     "Kernel": "Timeline.Advance(ids)",
-    "Ms": 1.0461,
-    "Ns": 1.0461,
+    "Ms": 1.0502,
+    "Ns": 1.0502,
     "Allocated": 0
   },
   {
     "Lane": "public/finite1024",
     "Shape": "staggered",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 1.1541,
-    "Ns": 1.1541,
+    "Ms": 1.1497,
+    "Ns": 1.1497,
     "Allocated": 0
   },
   {
     "Lane": "public/finite1024",
     "Shape": "uniform",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 0.92,
-    "Ns": 0.92,
+    "Ms": 0.9112,
+    "Ns": 0.9112,
     "Allocated": 0
   },
   {
     "Lane": "public/finite1024",
     "Shape": "uniform",
     "Kernel": "Timeline.Advance(index)",
-    "Ms": 0.3527,
-    "Ns": 0.3527,
+    "Ms": 0.3624,
+    "Ns": 0.3624,
     "Allocated": 0
   },
   {
     "Lane": "public/finite1024",
     "Shape": "uniform",
     "Kernel": "Timeline.Advance(ids)",
-    "Ms": 1.0666,
-    "Ns": 1.0666,
+    "Ms": 1.068,
+    "Ns": 1.068,
     "Allocated": 0
   }
 ]

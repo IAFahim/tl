@@ -3,28 +3,188 @@
     "Lane": "loop6/fwd",
     "Shape": "staggered",
     "Kernel": "record",
-    "Ms": 0.453,
-    "Ns": 0.453,
+    "Ms": 0.4533,
+    "Ns": 0.4533,
     "Allocated": 0
   },
   {
     "Lane": "loop6/fwd",
     "Shape": "staggered",
     "Kernel": "permute8x128",
-    "Ms": 0.3921,
-    "Ns": 0.3921,
+    "Ms": 0.3922,
+    "Ns": 0.3922,
     "Allocated": 0
   },
   {
     "Lane": "loop6/fwd",
     "Shape": "staggered",
     "Kernel": "streamadd-floor",
-    "Ms": 5.4371,
-    "Ns": 5.4371,
+    "Ms": 5.3534,
+    "Ns": 5.3534,
     "Allocated": 0
   },
   {
     "Lane": "loop6/fwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.453,
+    "Ns": 0.453,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "uniform",
+    "Kernel": "permute8x128",
+    "Ms": 0.392,
+    "Ns": 0.392,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2885,
+    "Ns": 0.2885,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4531,
+    "Ns": 0.4531,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "waves100",
+    "Kernel": "permute8x128",
+    "Ms": 0.3919,
+    "Ns": 0.3919,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2964,
+    "Ns": 0.2964,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.4531,
+    "Ns": 0.4531,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2936,
+    "Ns": 0.2936,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.4535,
+    "Ns": 0.4535,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2927,
+    "Ns": 0.2927,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4537,
+    "Ns": 0.4537,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2885,
+    "Ns": 0.2885,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.4572,
+    "Ns": 0.4572,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.3177,
+    "Ns": 0.3177,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.4538,
+    "Ns": 0.4538,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2962,
+    "Ns": 0.2962,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4533,
+    "Ns": 0.4533,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2944,
+    "Ns": 0.2944,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.4539,
+    "Ns": 0.4539,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2959,
+    "Ns": 0.2959,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
     "Shape": "uniform",
     "Kernel": "record",
     "Ms": 0.4533,
@@ -32,215 +192,7 @@
     "Allocated": 0
   },
   {
-    "Lane": "loop6/fwd",
-    "Shape": "uniform",
-    "Kernel": "permute8x128",
-    "Ms": 0.392,
-    "Ns": 0.392,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop6/fwd",
-    "Shape": "uniform",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2875,
-    "Ns": 0.2875,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop6/fwd",
-    "Shape": "waves100",
-    "Kernel": "record",
-    "Ms": 0.4534,
-    "Ns": 0.4534,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop6/fwd",
-    "Shape": "waves100",
-    "Kernel": "permute8x128",
-    "Ms": 0.392,
-    "Ns": 0.392,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop6/fwd",
-    "Shape": "waves100",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2878,
-    "Ns": 0.2878,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "staggered",
-    "Kernel": "record",
-    "Ms": 0.4578,
-    "Ns": 0.4578,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "staggered",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.3027,
-    "Ns": 0.3027,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "uniform",
-    "Kernel": "record",
-    "Ms": 0.4576,
-    "Ns": 0.4576,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "uniform",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.3003,
-    "Ns": 0.3003,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "waves100",
-    "Kernel": "record",
-    "Ms": 0.4537,
-    "Ns": 0.4537,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop16/fwd",
-    "Shape": "waves100",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2884,
-    "Ns": 0.2884,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop32/fwd",
-    "Shape": "staggered",
-    "Kernel": "record",
-    "Ms": 0.4565,
-    "Ns": 0.4565,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop32/fwd",
-    "Shape": "staggered",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2928,
-    "Ns": 0.2928,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop32/fwd",
-    "Shape": "uniform",
-    "Kernel": "record",
-    "Ms": 0.4537,
-    "Ns": 0.4537,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop32/fwd",
-    "Shape": "uniform",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2951,
-    "Ns": 0.2951,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop32/fwd",
-    "Shape": "waves100",
-    "Kernel": "record",
-    "Ms": 0.4539,
-    "Ns": 0.4539,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop32/fwd",
-    "Shape": "waves100",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2876,
-    "Ns": 0.2876,
-    "Allocated": 0
-  },
-  {
     "Lane": "loop1024/fwd",
-    "Shape": "staggered",
-    "Kernel": "record",
-    "Ms": 0.4556,
-    "Ns": 0.4556,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/fwd",
-    "Shape": "staggered",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2947,
-    "Ns": 0.2947,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/fwd",
-    "Shape": "uniform",
-    "Kernel": "record",
-    "Ms": 0.4536,
-    "Ns": 0.4536,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/fwd",
-    "Shape": "uniform",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.3033,
-    "Ns": 0.3033,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/fwd",
-    "Shape": "waves100",
-    "Kernel": "record",
-    "Ms": 0.4542,
-    "Ns": 0.4542,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/fwd",
-    "Shape": "waves100",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.315,
-    "Ns": 0.315,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/bwd",
-    "Shape": "staggered",
-    "Kernel": "record",
-    "Ms": 0.5723,
-    "Ns": 0.5723,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/bwd",
-    "Shape": "staggered",
-    "Kernel": "streamadd-floor",
-    "Ms": 0.2881,
-    "Ns": 0.2881,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/bwd",
-    "Shape": "uniform",
-    "Kernel": "record",
-    "Ms": 0.5746,
-    "Ns": 0.5746,
-    "Allocated": 0
-  },
-  {
-    "Lane": "loop1024/bwd",
     "Shape": "uniform",
     "Kernel": "streamadd-floor",
     "Ms": 0.2882,
@@ -248,67 +200,115 @@
     "Allocated": 0
   },
   {
+    "Lane": "loop1024/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4538,
+    "Ns": 0.4538,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.3079,
+    "Ns": 0.3079,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.5731,
+    "Ns": 0.5731,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.3219,
+    "Ns": 0.3219,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.5734,
+    "Ns": 0.5734,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2893,
+    "Ns": 0.2893,
+    "Allocated": 0
+  },
+  {
     "Lane": "loop1024/bwd",
     "Shape": "waves100",
     "Kernel": "record",
-    "Ms": 0.5739,
-    "Ns": 0.5739,
+    "Ms": 0.5737,
+    "Ns": 0.5737,
     "Allocated": 0
   },
   {
     "Lane": "loop1024/bwd",
     "Shape": "waves100",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2939,
-    "Ns": 0.2939,
+    "Ms": 0.3063,
+    "Ns": 0.3063,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/fwd",
     "Shape": "staggered",
     "Kernel": "record",
-    "Ms": 0.4539,
-    "Ns": 0.4539,
+    "Ms": 0.4537,
+    "Ns": 0.4537,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/fwd",
     "Shape": "staggered",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2881,
-    "Ns": 0.2881,
+    "Ms": 0.2926,
+    "Ns": 0.2926,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/fwd",
     "Shape": "uniform",
     "Kernel": "record",
-    "Ms": 0.4534,
-    "Ns": 0.4534,
+    "Ms": 0.4532,
+    "Ns": 0.4532,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/fwd",
     "Shape": "uniform",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2878,
-    "Ns": 0.2878,
+    "Ms": 0.2876,
+    "Ns": 0.2876,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/fwd",
     "Shape": "waves100",
     "Kernel": "record",
-    "Ms": 0.453,
-    "Ns": 0.453,
+    "Ms": 0.454,
+    "Ns": 0.454,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/fwd",
     "Shape": "waves100",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2989,
-    "Ns": 0.2989,
+    "Ms": 0.3295,
+    "Ns": 0.3295,
     "Allocated": 0
   },
   {
@@ -323,8 +323,8 @@
     "Lane": "finite1024/bwd",
     "Shape": "staggered",
     "Kernel": "streamadd-floor",
-    "Ms": 0.3011,
-    "Ns": 0.3011,
+    "Ms": 0.2885,
+    "Ns": 0.2885,
     "Allocated": 0
   },
   {
@@ -339,40 +339,40 @@
     "Lane": "finite1024/bwd",
     "Shape": "uniform",
     "Kernel": "streamadd-floor",
-    "Ms": 0.288,
-    "Ns": 0.288,
+    "Ms": 0.2924,
+    "Ns": 0.2924,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/bwd",
     "Shape": "waves100",
     "Kernel": "record",
-    "Ms": 0.5732,
-    "Ns": 0.5732,
+    "Ms": 0.5733,
+    "Ns": 0.5733,
     "Allocated": 0
   },
   {
     "Lane": "finite1024/bwd",
     "Shape": "waves100",
     "Kernel": "streamadd-floor",
-    "Ms": 0.2969,
-    "Ns": 0.2969,
+    "Ms": 0.2872,
+    "Ns": 0.2872,
     "Allocated": 0
   },
   {
     "Lane": "public/loop6",
     "Shape": "staggered",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 0.3962,
-    "Ns": 0.3962,
+    "Ms": 0.3972,
+    "Ns": 0.3972,
     "Allocated": 0
   },
   {
     "Lane": "public/loop6",
     "Shape": "uniform",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 0.183,
-    "Ns": 0.183,
+    "Ms": 0.1831,
+    "Ns": 0.1831,
     "Allocated": 0
   },
   {
@@ -387,56 +387,56 @@
     "Lane": "public/loop6",
     "Shape": "uniform",
     "Kernel": "Timeline.Advance(ids)",
-    "Ms": 0.1891,
-    "Ns": 0.1891,
+    "Ms": 0.1874,
+    "Ns": 0.1874,
     "Allocated": 0
   },
   {
     "Lane": "public/loop1024",
     "Shape": "staggered",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 0.8597,
-    "Ns": 0.8597,
+    "Ms": 0.8544,
+    "Ns": 0.8544,
     "Allocated": 0
   },
   {
     "Lane": "public/loop1024",
     "Shape": "uniform",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 0.1806,
-    "Ns": 0.1806,
+    "Ms": 0.1805,
+    "Ns": 0.1805,
     "Allocated": 0
   },
   {
     "Lane": "public/loop1024",
     "Shape": "uniform",
     "Kernel": "Timeline.Advance(index)",
-    "Ms": 0.0593,
-    "Ns": 0.0593,
+    "Ms": 0.0594,
+    "Ns": 0.0594,
     "Allocated": 0
   },
   {
     "Lane": "public/loop1024",
     "Shape": "uniform",
     "Kernel": "Timeline.Advance(ids)",
-    "Ms": 0.1877,
-    "Ns": 0.1877,
+    "Ms": 0.1869,
+    "Ns": 0.1869,
     "Allocated": 0
   },
   {
     "Lane": "public/finite1024",
     "Shape": "staggered",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 0.8516,
-    "Ns": 0.8516,
+    "Ms": 0.8523,
+    "Ns": 0.8523,
     "Allocated": 0
   },
   {
     "Lane": "public/finite1024",
     "Shape": "uniform",
     "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
-    "Ms": 0.1804,
-    "Ns": 0.1804,
+    "Ms": 0.179,
+    "Ns": 0.179,
     "Allocated": 0
   },
   {
@@ -451,8 +451,8 @@
     "Lane": "public/finite1024",
     "Shape": "uniform",
     "Kernel": "Timeline.Advance(ids)",
-    "Ms": 0.1774,
-    "Ns": 0.1774,
+    "Ms": 0.1783,
+    "Ns": 0.1783,
     "Allocated": 0
   }
 ]
