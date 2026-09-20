@@ -1,5 +1,3 @@
-using System;
-using System.Numerics;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 
@@ -111,9 +109,9 @@ internal sealed class JsonStructuralIndex
                     input = Avx.LoadVector256(tailPtr);
             }
             var wideOp = (ulong)ClassifyMask(input, structuralHigh, structuralLow, nibbleMask, zero);
-            var wideQuote = (ulong)(uint)Avx2.CompareEqual(input, quoteByte).ExtractMostSignificantBits();
-            var wideBackslash = (ulong)(uint)Avx2.CompareEqual(input, backslashByte).ExtractMostSignificantBits();
-            var wideControl = (ulong)(uint)Avx2.CompareEqual(Avx2.And(input, controlMask), zero).ExtractMostSignificantBits();
+            var wideQuote = (ulong)Avx2.CompareEqual(input, quoteByte).ExtractMostSignificantBits();
+            var wideBackslash = (ulong)Avx2.CompareEqual(input, backslashByte).ExtractMostSignificantBits();
+            var wideControl = (ulong)Avx2.CompareEqual(Avx2.And(input, controlMask), zero).ExtractMostSignificantBits();
             if ((chunk & 1) == 0)
             {
                 opBits = wideOp;

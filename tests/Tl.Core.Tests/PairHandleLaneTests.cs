@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Xunit;
 
 namespace Tl.Core.Tests;
@@ -429,7 +428,7 @@ public class PairHandleLaneTests
         using var measured = MeasuredLanes.Measure(asset);
         var index = asset.Index;
         Timeline<HandleTrack, HandleClip>.Apply(index, Span<ushort>.Empty, true, Span<float>.Empty); Timeline.Advance(index, Span<ushort>.Empty, true);
-        Assert.Equal(4, (int)measured.Duration);
+        Assert.Equal(4, measured.Duration);
         Assert.True(measured.Looping);
         var positions = new ushort[64];
         var effects = new float[64];
@@ -548,11 +547,11 @@ public class PairHandleLaneTests
         {
             for (var pass = 0; pass < 1_000; pass++)
                 for (var variant = 0; variant < Assets; variant++)
-                    { { Timeline<HandleTrack, HandleClip>.Apply(bound[variant], positions, true, effects); Timeline.Advance(bound[variant], positions, true); }; }
+                    { { Timeline<HandleTrack, HandleClip>.Apply(bound[variant], positions, true, effects); Timeline.Advance(bound[variant], positions, true); } }
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var pass = 0; pass < 30_000; pass++)
                 for (var variant = 0; variant < Assets; variant++)
-                    { { Timeline<HandleTrack, HandleClip>.Apply(bound[variant], positions, true, effects); Timeline.Advance(bound[variant], positions, true); }; }
+                    { { Timeline<HandleTrack, HandleClip>.Apply(bound[variant], positions, true, effects); Timeline.Advance(bound[variant], positions, true); } }
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
         }

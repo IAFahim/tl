@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 
 namespace Tl.Gen.Tlb;
 
@@ -70,8 +68,8 @@ internal sealed class BakeWorkspace
     internal void Reclaim(FastDoc doc)
     {
         foreach (var pair in doc.Pairs)
-            if (pair.Pool.Length > 0)
-                ReturnPool(pair.Key, pair.Pool);
+            if (pair._pool.Length > 0)
+                ReturnPool(pair.Key, pair._pool);
         if (doc.LoanStructural != null && doc.LoanQuotes != null)
             ReturnMasks(doc.LoanStructural, doc.LoanQuotes);
         foreach (var entry in doc.ResolveCache)

@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using BenchmarkDotNet.Running;
 using Tl;
-using Tl.PairHandlesProbe;
+using PairHandles;
 
 CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;

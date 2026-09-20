@@ -57,7 +57,7 @@ public class MeasuredLanesTests
             using var sharedLooping = new TimelineSet<LaneTrack, LaneClip>();
             var directLoopingId = directLooping.Add(looping);
             using var loopingLanes = MeasuredLanes.Measure(looping);
-            Assert.Equal(6, (int)loopingLanes.Duration);
+            Assert.Equal(6, loopingLanes.Duration);
             Assert.True(loopingLanes.Looping);
             var sharedLoopingId = sharedLooping.Add(looping, loopingLanes);
             AssertSamePlayback(directLooping, directLoopingId, sharedLooping, sharedLoopingId, 6, true);
@@ -66,7 +66,7 @@ public class MeasuredLanesTests
             using var sharedFinite = new TimelineSet<LaneTrack, LaneClip>();
             var directFiniteId = directFinite.Add(finite);
             using var finiteLanes = MeasuredLanes.Measure(finite);
-            Assert.Equal(6, (int)finiteLanes.Duration);
+            Assert.Equal(6, finiteLanes.Duration);
             Assert.False(finiteLanes.Looping);
             var sharedFiniteId = sharedFinite.Add(finite, finiteLanes);
             AssertSamePlayback(directFinite, directFiniteId, sharedFinite, sharedFiniteId, 6, false);
@@ -90,8 +90,8 @@ public class MeasuredLanesTests
             using var measured = MeasuredLanes.Measure(asset);
             var secondId = second.Add(asset, measured);
             var thirdId = second.Add(asset, measured);
-            Assert.Equal(0, (int)secondId);
-            Assert.Equal(1, (int)thirdId);
+            Assert.Equal(0, secondId);
+            Assert.Equal(1, thirdId);
             AssertSamePlayback(first, firstId, second, secondId, 6, true);
             AssertSamePlayback(first, firstId, second, thirdId, 6, true);
         }
@@ -200,7 +200,7 @@ public class MeasuredLanesTests
             using var shared = new TimelineSet<LaneTrack, LaneClip>();
             var directId = direct.Add(asset);
             using var measured = MeasuredLanes.Measure(asset);
-            Assert.Equal(0, (int)measured.Duration);
+            Assert.Equal(0, measured.Duration);
             var sharedId = shared.Add(asset, measured);
             AssertSamePlayback(direct, directId, shared, sharedId, 0, false);
         }
@@ -237,8 +237,8 @@ public class MeasuredLanesTests
         where TTrack : unmanaged, IBlend<TClip>
         where TClip : unmanaged
     {
-        var ids = new ushort[] { id };
-        var positions = new ushort[] { start };
+        var ids = new[] { id };
+        var positions = new[] { start };
         var effects = new float[1];
         var seenPositions = new ushort[steps];
         var seenEffects = new float[steps];

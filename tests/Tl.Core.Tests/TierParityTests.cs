@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-using Tl.TestSupport;
 using Xunit;
 
 namespace Tl.Core.Tests;
@@ -203,7 +201,7 @@ public unsafe class TierParityTests
         var baker = new Baker()
             .Track<RoutingTrack, RoutingClip>(new RoutingTrack(2f))
             .Clip(0, 0u, (uint)(duration * 6 / 10), new RoutingClip(1.25f))
-            .Clip(0, (uint)(duration * 6 / 10), (uint)duration, new RoutingClip(-0.5f));
+            .Clip(0, (uint)(duration * 6 / 10), duration, new RoutingClip(-0.5f));
         if (looping) baker.Looping();
         return baker.Bake();
     }

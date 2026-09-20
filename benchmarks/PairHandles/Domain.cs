@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Tl;
 
-namespace Tl.PairHandlesProbe;
+namespace PairHandles;
 
 public readonly record struct LaneClip(float Amount);
 
@@ -57,7 +57,7 @@ sealed class Baker
 
         public override byte[] ClipImage(BakedClip clip)
         {
-            var value = (TClip)clip.Value!;
+            var value = (TClip)clip.Value;
             var image = new byte[ClipValueBytes];
             MemoryMarshal.Write(image, in value);
             return image;
@@ -178,8 +178,8 @@ sealed class Baker
             clipPools[index] = clipUnique;
             trackIndices[index] = new Dictionary<byte[], ushort>(trackUnique.Count, new ImageBytesComparer());
             clipIndices[index] = new Dictionary<byte[], ushort>(clipUnique.Count, new ImageBytesComparer());
-            for (var i = 0; i < trackUnique.Count; i++) trackIndices[index][(byte[])trackUnique[i]] = (ushort)i;
-            for (var i = 0; i < clipUnique.Count; i++) clipIndices[index][(byte[])clipUnique[i]] = (ushort)i;
+            for (var i = 0; i < trackUnique.Count; i++) trackIndices[index][trackUnique[i]] = (ushort)i;
+            for (var i = 0; i < clipUnique.Count; i++) clipIndices[index][clipUnique[i]] = (ushort)i;
         }
 
         foreach (var track in _tracks)

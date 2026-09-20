@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Text;
 using Tl.Gen.Tlb;
 using Xunit;
 
@@ -71,7 +68,7 @@ public class ReportTests
             try
             {
                 Console.SetOut(capture);
-                Assert.Equal(0, Tl.Bake.Program.Main(["--report", path]));
+                Assert.Equal(0, Program.Main(["--report", path]));
             }
             finally
             {
@@ -118,7 +115,7 @@ public class ReportTests
             try
             {
                 Console.SetOut(capture);
-                Assert.NotEqual(0, Tl.Bake.Program.Main(["--report", path]));
+                Assert.NotEqual(0, Program.Main(["--report", path]));
             }
             finally
             {

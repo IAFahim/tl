@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using Tl;
 using Tl.TestSupport;
 using Xunit;
 
@@ -167,7 +166,7 @@ public class LaneColumnsTests
         Timeline<LaneColumnsTrack, LaneColumnsClip>.Advance(in index, ref position, true);
 
         var rawPos = new ushort[] { 3 };
-        Timeline.Advance(new ushort[] { asset }, rawPos, true);
+        Timeline.Advance(new [] { asset }, rawPos, true);
         Assert.Equal(rawPos[0], position.Value);
     }
 

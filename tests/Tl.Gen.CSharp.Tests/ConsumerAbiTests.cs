@@ -1,7 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Tl.Gen.CSharp;
 using Tl.Gen.CSharp.Model;
 using Xunit;
 

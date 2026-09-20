@@ -1,6 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Tl.TestSupport;
 using Xunit;
 
 namespace Tl.Core.Tests;
@@ -47,7 +45,7 @@ public unsafe class RecordArenaTests
         var baker = new Baker()
             .Track<RoutingTrack, RoutingClip>(new RoutingTrack(scale))
             .Clip(0, 0u, (uint)(duration * 6 / 10), new RoutingClip(1.25f))
-            .Clip(0, (uint)(duration * 6 / 10), (uint)duration, new RoutingClip(-0.5f));
+            .Clip(0, (uint)(duration * 6 / 10), duration, new RoutingClip(-0.5f));
         if (looping) baker.Looping();
         return baker.Bake();
     }
@@ -63,7 +61,7 @@ public unsafe class RecordArenaTests
         return ids;
     }
 
-    static unsafe void AssertSegmentBytes(TimelineSet<RoutingTrack, RoutingClip> set, ushort id)
+    static void AssertSegmentBytes(TimelineSet<RoutingTrack, RoutingClip> set, ushort id)
     {
         var view = set.View(id);
         var bytes = (int)(view.TableTicks * sizeof(LaneMovementRecord));
@@ -163,7 +161,7 @@ public unsafe class RecordArenaTests
         var baker = new Baker()
             .Track<ArenaTrack, ArenaClip>(new ArenaTrack(scale))
             .Clip(0, 0u, (uint)(duration * 6 / 10), new ArenaClip(1.25f))
-            .Clip(0, (uint)(duration * 6 / 10), (uint)duration, new ArenaClip(-0.5f));
+            .Clip(0, (uint)(duration * 6 / 10), duration, new ArenaClip(-0.5f));
         if (looping) baker.Looping();
         return baker.Bake();
     }

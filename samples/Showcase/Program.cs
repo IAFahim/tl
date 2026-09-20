@@ -3,9 +3,9 @@ using Tl;
 
 ushort jumpTimeline = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
 
-var ids  = new ushort[] { jumpTimeline, jumpTimeline, jumpTimeline, jumpTimeline };
+var ids  = new[] { jumpTimeline, jumpTimeline, jumpTimeline, jumpTimeline };
 var tick = new ushort[] { 0, 0, 0, 0 };
-var y    = new float[] { 0f, 0f, 0f, 0f };
+var y    = new[] { 0f, 0f, 0f, 0f };
 
 Console.WriteLine("four characters jump, one call per frame:");
 for (var frame = 1; frame <= 30; frame++)

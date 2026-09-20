@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Text;
-using System.Threading;
 
 namespace Tl.Gen.Tlb;
 
@@ -90,7 +87,7 @@ public static class TimelineBaker
         var offset = 0;
         while (offset < span.Length)
         {
-            var status = System.Text.Rune.DecodeFromUtf8(span[offset..], out _, out var consumed);
+            var status = Rune.DecodeFromUtf8(span[offset..], out _, out var consumed);
             if (status != System.Buffers.OperationStatus.Done)
                 return offset;
             offset += consumed;

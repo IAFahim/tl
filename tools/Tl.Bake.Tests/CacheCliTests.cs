@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Text;
 using Tl.Gen.Tlb;
 using Xunit;
 
@@ -39,7 +36,7 @@ public sealed class CliRun : IDisposable
         try
         {
             Console.SetOut(capture);
-            var exit = Tl.Bake.Program.Main(args);
+            var exit = Program.Main(args);
             return (exit, capture.ToString());
         }
         finally

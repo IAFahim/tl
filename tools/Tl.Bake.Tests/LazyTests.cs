@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Text;
 using Xunit;
 
 namespace Tl.Bake.Tests;
@@ -51,7 +48,7 @@ public class LazyTests : IDisposable
     {
         Directory.CreateDirectory(directory);
         File.Copy(typeof(Tlb.AlphaTrack).Assembly.Location, Path.Combine(directory, "Tl.Bake.Tests.dll"));
-        File.Copy(typeof(Tl.IBlend<>).Assembly.Location, Path.Combine(directory, Path.GetFileName(typeof(Tl.IBlend<>).Assembly.Location)));
+        File.Copy(typeof(IBlend<>).Assembly.Location, Path.Combine(directory, Path.GetFileName(typeof(IBlend<>).Assembly.Location)));
     }
 
     [Fact]

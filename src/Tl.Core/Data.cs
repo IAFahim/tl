@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Threading;
 
 namespace Tl;
 
@@ -42,7 +41,7 @@ struct NativeStage { public uint Start, End, ProgramOffset, ProgramCount; }
 struct NativeStep { public uint Slot, Pair; }
 
 [StructLayout(LayoutKind.Sequential)]
-unsafe struct SlotRow
+ struct SlotRow
 {
 	internal const ushort NoClipValue = 0xFFFF;
 	internal const uint RowBytes = 24u;
@@ -192,24 +191,24 @@ public readonly unsafe struct TimelineRef
 		if (h.Bytes != (uint)baked.Length) Fail("TLB size mismatch.");
 		if (h.HotLength == 0 || h.HotLength > h.Bytes) Fail("TLB hot length invalid.");
 		if (h.PairOffset < 64 || (h.PairOffset | h.StageOffset | h.PoolOffset | h.FrameOffset) % 8 != 0) Fail("TLB offsets must be 8-aligned.");
-		if ((ulong)h.PairOffset + 48ul * h.PairCount > h.StageOffset) Fail("TLB pair table out of bounds.");
-		if ((ulong)h.StageOffset + 16ul * h.StageCount > h.PoolOffset || h.PoolOffset > h.FrameOffset || h.FrameOffset > h.HotLength) Fail("TLB sections out of bounds.");
+		if (h.PairOffset + 48ul * h.PairCount > h.StageOffset) Fail("TLB pair table out of bounds.");
+		if (h.StageOffset + 16ul * h.StageCount > h.PoolOffset || h.PoolOffset > h.FrameOffset || h.FrameOffset > h.HotLength) Fail("TLB sections out of bounds.");
 		var pairs = MemoryMarshal.Cast<byte, NativePair>(baked.Slice((int)h.PairOffset, 48 * (int)h.PairCount));
 		for (var i = 1; i < pairs.Length; i++) if (pairs[i - 1].Key >= pairs[i].Key) Fail("TLB pair keys must be sorted.");
 		for (var i = 0; i < pairs.Length; i++)
 		{
 			var pair = pairs[i];
 			if (pair.SlotStride % 8 != 0 || pair.SlotStride < SlotRow.RowBytes) Fail("TLB slot stride must be 8-aligned.");
-			ValidatePool(h, (ulong)h.PairOffset + 48ul * (uint)i + pair.TrackPoolOffset, pair.TrackPoolCount, pair.TrackValueBytes, Fail);
-			ValidatePool(h, (ulong)h.PairOffset + 48ul * (uint)i + pair.ClipPoolOffset, pair.ClipPoolCount, pair.ClipValueBytes, Fail);
+			ValidatePool(h, h.PairOffset + 48ul * (uint)i + pair.TrackPoolOffset, pair.TrackPoolCount, pair.TrackValueBytes, Fail);
+			ValidatePool(h, h.PairOffset + 48ul * (uint)i + pair.ClipPoolOffset, pair.ClipPoolCount, pair.ClipValueBytes, Fail);
 		}
 		var stages = MemoryMarshal.Cast<byte, NativeStage>(baked.Slice((int)h.StageOffset, 16 * (int)h.StageCount));
-		var programs = (ulong)h.StageOffset + 16ul * h.StageCount;
+		var programs = h.StageOffset + 16ul * h.StageCount;
 		uint edge = 0;
 		for (var i = 0; i < stages.Length; i++)
 		{
 			var stage = stages[i];
-			if (stage.Start != edge || stage.ProgramOffset < programs || stage.ProgramOffset % 8 != 0 || (ulong)stage.ProgramOffset + 8ul * stage.ProgramCount > h.PoolOffset) Fail("TLB stages must be monotonic.");
+			if (stage.Start != edge || stage.ProgramOffset < programs || stage.ProgramOffset % 8 != 0 || stage.ProgramOffset + 8ul * stage.ProgramCount > h.PoolOffset) Fail("TLB stages must be monotonic.");
 			var steps = MemoryMarshal.Cast<byte, NativeStep>(baked.Slice((int)stage.ProgramOffset, 8 * (int)stage.ProgramCount));
 			for (var j = 0; j < steps.Length; j++)
 			{
@@ -241,7 +240,7 @@ public readonly unsafe struct TimelineRef
 	}
 }
 
-public sealed unsafe class TimelineAsset : IDisposable
+public sealed class TimelineAsset : IDisposable
 {
 	int _index;
 	long _generation;

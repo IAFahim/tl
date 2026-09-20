@@ -7,7 +7,7 @@ using BenchmarkDotNet.Jobs;
 using Perfolizer.Horology;
 using Tl;
 
-namespace Tl.PairHandlesProbe;
+namespace PairHandles;
 
 public sealed class PairHandlesConfig : ManualConfig
 {

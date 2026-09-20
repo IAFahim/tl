@@ -1,7 +1,4 @@
-using System;
 using System.Buffers.Binary;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace Tl.Gen.Tlb;
@@ -158,7 +155,7 @@ public sealed class TlbMetadataView
 
     private static void Check(int total, uint offset, ulong length)
     {
-        if ((ulong)offset + length > (ulong)total)
+        if (offset + length > (ulong)total)
             throw new ArgumentException("TLB1 metadata tail sections out of bounds.");
     }
 }

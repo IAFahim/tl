@@ -1,7 +1,4 @@
-using System;
 using System.Buffers.Binary;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
@@ -9,10 +6,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-using Tl;
 
 namespace Tl.Gen.Tlb;
 
@@ -133,7 +128,7 @@ internal sealed class FieldTable
         FloatApply = floatCount > 0 ? BuildFloatApplier(Entries.Where(e => e.Kind == FieldKind.Float).ToList(), Entries[0].Declaring) : null;
     }
 
-    private static unsafe FloatApplier BuildFloatApplier(List<FieldEntry> floatEntries, Type declaring)
+    private static FloatApplier BuildFloatApplier(List<FieldEntry> floatEntries, Type declaring)
     {
         var entries = floatEntries;
     {
@@ -205,17 +200,17 @@ internal sealed class FastPairInfo
     internal int TrackSize;
     internal IPairHelper Helper = null!;
     internal FieldTable Fields = null!;
-    internal byte[] Pool = [];
+    internal byte[] _pool = [];
     internal int PoolLength;
 
     internal void EnsurePool(int size)
     {
-        if (PoolLength + size <= Pool.Length)
+        if (PoolLength + size <= _pool.Length)
             return;
-        var cap = Pool.Length == 0 ? 1 << 16 : Pool.Length;
+        var cap = _pool.Length == 0 ? 1 << 16 : _pool.Length;
         while (cap < PoolLength + size)
             cap *= 2;
-        Array.Resize(ref Pool, cap);
+        Array.Resize(ref _pool, cap);
     }
 }
 
@@ -348,7 +343,7 @@ internal static class TimelineBakerFast
             Fields = TableFor(clipType),
         };
         if (doc.Workspace?.RentPool(pair.Key) is { } rented)
-            pair.Pool = rented;
+            pair._pool = rented;
         pairId = doc.Pairs.Count;
         doc.Pairs.Add(pair);
         doc.PairIds[(trackType, clipType)] = pairId;
@@ -618,11 +613,11 @@ internal static class TimelineBakerFast
 internal sealed class DupScopePool
 {
     [ThreadStatic]
-    private static List<DupScope>? Pool;
+    private static List<DupScope>? _pool;
 
     internal static DupScope Rent()
     {
-        var pool = Pool ??= [];
+        var pool = _pool ??= [];
         if (pool.Count == 0)
             return new DupScope();
         var s = pool[^1];
@@ -630,7 +625,7 @@ internal sealed class DupScopePool
         return s;
     }
 
-    internal static void Return(DupScope s) => (Pool ??= []).Add(s);
+    internal static void Return(DupScope s) => (_pool ??= []).Add(s);
 }
 
 internal static class NameBytes
@@ -1310,7 +1305,7 @@ internal ref struct Walker
         }
         if (err == null)
         {
-            fixed (byte* dst = pair.Pool)
+            fixed (byte* dst = pair._pool)
                 pair.Helper.CopyPayload(dst + clip.PayloadOffset, box);
         }
         clip.PopulateError = err;
@@ -1657,11 +1652,11 @@ internal static class TimelineBakerFastCore
                 clip.PopulateError = TimelineBakerFast.PopulateSliceUtf8(_doc.Utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName);
                 if (clip.PopulateError != null)
                     throw new BakeDiagnosticException(clip.PopulateError);
-                fixed (byte* dst = pair.Pool)
+                fixed (byte* dst = pair._pool)
                     pair.Helper.CopyPayload(dst + clip.PayloadOffset, box);
             }
             else
-                Array.Clear(pair.Pool, clip.PayloadOffset, pair.ClipSize);
+                Array.Clear(pair._pool, clip.PayloadOffset, pair.ClipSize);
             clip.PopulateDone = true;
         }
 
@@ -1734,7 +1729,7 @@ internal static class TimelineBakerFastCore
                         clipOffsets[clipOccurrence++] = _doc.Clips[clipId].PayloadOffset;
                 clipOffsetsByPair[index] = clipOffsets;
                 var clipName = pair.ClipType.FullName ?? pair.ClipType.Name;
-                clipSlotsByPair[index] = DedupPool(clipOffsets.Length, o => pair.Pool.AsSpan(clipOffsets[o], pair.ClipSize), out clipSortedByPair[index], out clipUniques[index], $"clip type '{clipName}'");
+                clipSlotsByPair[index] = DedupPool(clipOffsets.Length, o => pair._pool.AsSpan(clipOffsets[o], pair.ClipSize), out clipSortedByPair[index], out clipUniques[index], $"clip type '{clipName}'");
             }
             var clipValueIndex = new ushort[_doc.Clips.Count];
             foreach (var lane in lanes)
@@ -1964,7 +1959,7 @@ internal static class TimelineBakerFastCore
                 at = pairAddress + (int)poolSpans[index].ClipRel;
                 foreach (var occurrence in clipSortedByPair[index])
                 {
-                    pair.Pool.AsSpan(clipOffsetsByPair[index][occurrence], clipBytes).CopyTo(bytes.AsSpan(at));
+                    pair._pool.AsSpan(clipOffsetsByPair[index][occurrence], clipBytes).CopyTo(bytes.AsSpan(at));
                     at += clipBytes;
                 }
             }
@@ -2091,7 +2086,7 @@ internal static class TimelineBakerFastCore
             ulong hash = 14695981039346656037;
             while (span.Length >= 8)
             {
-                hash = (hash ^ System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(span)) * 1099511628211;
+                hash = (hash ^ BinaryPrimitives.ReadUInt64LittleEndian(span)) * 1099511628211;
                 span = span[8..];
             }
             if (!span.IsEmpty)

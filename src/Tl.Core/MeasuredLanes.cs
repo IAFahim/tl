@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Tl;
@@ -36,8 +35,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var duration = header->Duration;
         if (duration > ushort.MaxValue) throw new ArgumentException($"Asset duration {duration} exceeds the 65535-tick lane position column.");
         var looping = header->Loops != 0;
-        var forward = (float*)NativeMemory.AlignedAlloc((nuint)((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
-        var backward = (float*)NativeMemory.AlignedAlloc((nuint)((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
+        var forward = (float*)NativeMemory.AlignedAlloc(((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
+        var backward = (float*)NativeMemory.AlignedAlloc(((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
         try
         {
             Fill(reference, forward, backward, duration, looping);

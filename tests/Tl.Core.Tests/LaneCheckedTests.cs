@@ -15,7 +15,7 @@ public partial class LaneTests
     }
 
     [Fact]
-    public unsafe void SeekRejectsOverlappingColumns()
+    public void SeekRejectsOverlappingColumns()
     {
         var buffer = new ushort[10];
         var positions = buffer.AsSpan(0, 4);
@@ -43,7 +43,7 @@ public partial class LaneTests
     }
 
     [Fact]
-    public unsafe void SetRejectsOverlappingColumns()
+    public void SetRejectsOverlappingColumns()
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
@@ -80,7 +80,7 @@ public partial class LaneTests
     }
 
     [Fact]
-    public unsafe void SetRejectsIdsOverlappingEffects()
+    public void SetRejectsIdsOverlappingEffects()
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
@@ -97,7 +97,7 @@ public partial class LaneTests
     }
 
     [Fact]
-    public unsafe void SetRejectsPositionsOverlappingEffects()
+    public void SetRejectsPositionsOverlappingEffects()
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();

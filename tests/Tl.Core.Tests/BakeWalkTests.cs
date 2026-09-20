@@ -206,24 +206,24 @@ public unsafe class BakeWalkTests
         Assert.Equal([], Log.GetRange(before, Log.Count - before));
     }
 
-    private static unsafe void AlphaWide(byte** arguments)
+    private static void AlphaWide(byte** arguments)
         => Log.Add("alpha:wide:" + Unsafe.AsRef<BakeHost>(arguments[0]).Name + ":" + Unsafe.AsRef<BakeId>(arguments[1]).Value.ToString(CultureInfo.InvariantCulture));
 
-    private static unsafe void AlphaOnlyId(byte** arguments)
+    private static void AlphaOnlyId(byte** arguments)
         => Log.Add("alpha:id:" + Unsafe.AsRef<BakeId>(arguments[0]).Value.ToString(CultureInfo.InvariantCulture));
 
-    private static unsafe void AlphaZero(byte** arguments) => Log.Add("alpha:zero");
+    private static void AlphaZero(byte** arguments) => Log.Add("alpha:zero");
 
-    private static unsafe void AlphaMissing(byte** arguments) => Log.Add("alpha:never");
+    private static void AlphaMissing(byte** arguments) => Log.Add("alpha:never");
 
-    private static unsafe void GammaWorld(byte** arguments) => Log.Add("gamma:world:" + Unsafe.AsRef<BakeHost>(arguments[0]).Name);
+    private static void GammaWorld(byte** arguments) => Log.Add("gamma:world:" + Unsafe.AsRef<BakeHost>(arguments[0]).Name);
 
-    private static unsafe void AlphaMutate(byte** arguments)
+    private static void AlphaMutate(byte** arguments)
     {
         ref var counter = ref Unsafe.AsRef<BakeCounter>(arguments[0]);
         counter = new BakeCounter(counter.Value + 1);
         Log.Add("alpha:mutate:" + counter.Value.ToString(CultureInfo.InvariantCulture));
     }
 
-    private static unsafe void AlphaDoubled(byte** arguments) => Log.Add("alpha:doubled");
+    private static void AlphaDoubled(byte** arguments) => Log.Add("alpha:doubled");
 }

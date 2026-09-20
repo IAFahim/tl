@@ -1,13 +1,10 @@
-using System;
-using System.Security.Cryptography;
-using Tl;
 using Tl.TestSupport;
 using Tl.Gen.Tlb;
 using Xunit;
 
 namespace Tl.Bake.Tests;
 
-public unsafe class MetadataTests
+public class MetadataTests
 {
     private static byte[] BakeUniqueAsset()
     {

@@ -43,7 +43,7 @@ public class InternTableTests
         Assert.Equal(first, second);
         TimelineAsset.Of(first).Dispose();
         using var survivor = TimelineAsset.Of(second);
-        Assert.NotEqual((nint)0, survivor.Reference.Address);
+        Assert.NotEqual(0, survivor.Reference.Address);
         TimelineAsset.Of(second).Dispose();
         Assert.Throws<ArgumentException>(() => TimelineAsset.Of(first));
         Assert.Throws<ArgumentException>(() => survivor.Reference);
@@ -69,7 +69,7 @@ public class InternTableTests
         var second = TimelineAsset.Load(bytes);
         Assert.Equal(first, second);
         using var revived = TimelineAsset.Of(second);
-        Assert.NotEqual((nint)0, revived.Reference.Address);
+        Assert.NotEqual(0, revived.Reference.Address);
     }
 
     [Fact]

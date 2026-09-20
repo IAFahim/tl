@@ -1,15 +1,10 @@
-using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Numerics;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
 
 namespace Tl.Gen.Tlb;
 
@@ -611,7 +606,7 @@ internal sealed unsafe class SimdWalker
 
         for (var gid = 0; gid < doc.Pairs.Count; gid++)
         {
-            doc.Pairs[gid].Pool = new byte[poolLength[gid]];
+            doc.Pairs[gid]._pool = new byte[poolLength[gid]];
             doc.Pairs[gid].PoolLength = poolLength[gid];
         }
         for (var p = 0; p < fragments.Length; p++)
@@ -621,7 +616,7 @@ internal sealed unsafe class SimdWalker
             {
                 var pair = frag.Pairs[q];
                 if (pair.PoolLength > 0)
-                    Buffer.BlockCopy(pair.Pool, 0, doc.Pairs[remaps[p][q]].Pool, bases[p][q], pair.PoolLength);
+                    Buffer.BlockCopy(pair._pool, 0, doc.Pairs[remaps[p][q]]._pool, bases[p][q], pair.PoolLength);
             }
         }
 
@@ -1058,7 +1053,7 @@ internal sealed unsafe class SimdWalker
             var separator = cursor.Take();
             if (separator < 0)
                 Bail();
-            CheckGap(LastValueEnd, separator);
+            CheckGap(_lastValueEnd, separator);
             var b = _utf8[separator];
             if (b == Comma)
             {
@@ -1075,7 +1070,7 @@ internal sealed unsafe class SimdWalker
         }
     }
 
-    private int LastValueEnd;
+    private int _lastValueEnd;
 
     private void RegionMember(SimdCursor cursor, FieldTable table, int nameOpen, int separator, int regionEnd)
     {
@@ -1098,7 +1093,7 @@ internal sealed unsafe class SimdWalker
         MarkSeen(entry.Ordinal);
         int valueEnd;
         var first = _utf8[valueStart];
-        if (isStructuralValueAt(valueStart, bound))
+        if (IsStructuralValueAt(valueStart, bound))
         {
             if (first == Quote)
             {
@@ -1130,10 +1125,10 @@ internal sealed unsafe class SimdWalker
         {
             Bail();
         }
-        LastValueEnd = valueEnd;
+        _lastValueEnd = valueEnd;
     }
 
-    private bool isStructuralValueAt(int valueStart, int bound) => valueStart == bound;
+    private bool IsStructuralValueAt(int valueStart, int bound) => valueStart == bound;
 
     private void MarkSeen(int ordinal)
     {
@@ -1161,8 +1156,8 @@ internal sealed unsafe class SimdWalker
         pair.EnsurePool(pair.ClipSize);
         clip.PayloadOffset = pair.PoolLength;
         pair.PoolLength += pair.ClipSize;
-        Array.Clear(pair.Pool, clip.PayloadOffset, pair.ClipSize);
-        fixed (byte* pool = pair.Pool)
+        Array.Clear(pair._pool, clip.PayloadOffset, pair.ClipSize);
+        fixed (byte* pool = pair._pool)
         {
             var slot = pool + clip.PayloadOffset;
             var nameOpen = Take();
@@ -1280,7 +1275,7 @@ internal sealed unsafe class SimdWalker
         switch (kind)
         {
             case FieldKind.Byte:
-                *(byte*)target = (byte)value;
+                *target = (byte)value;
                 break;
             case FieldKind.SByte:
                 *(sbyte*)target = (sbyte)value;

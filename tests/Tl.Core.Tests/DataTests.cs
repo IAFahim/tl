@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.Runtime.InteropServices;
 using Xunit;
 
 using Tl.TestSupport;
@@ -51,7 +50,7 @@ public struct RowAlias
     public long A, B, C;
 }
 
-public unsafe class DataTests
+public class DataTests
 {
 
     private static byte[] FiniteBake() => new DomainBaker()

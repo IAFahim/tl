@@ -47,7 +47,7 @@ public static unsafe class Timeline<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static unsafe void Advance(ushort index, ref ushort position, bool forward)
+    public static void Advance(ushort index, ref ushort position, bool forward)
     {
         var bank = Bank();
         var slot = bank.FoldedView(index);
@@ -68,7 +68,7 @@ public static unsafe class Timeline<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void ApplySharedClock(SlotView* slot, ushort position, bool forward, Span<float> effects)
+    static void ApplySharedClock(SlotView* slot, ushort position, bool forward, Span<float> effects)
     {
         float delta;
         if (forward)
@@ -145,7 +145,7 @@ public static unsafe class Timeline<TTrack, TClip>
     {
         if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
             ThrowColumnSizes();
-        global::Tl.Timeline.Advance(MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
+        Timeline.Advance(MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
@@ -169,7 +169,7 @@ public static unsafe class Timeline<TTrack, TClip>
     {
         if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
             ThrowColumnSizes();
-        global::Tl.Timeline.Advance(
+        Timeline.Advance(
             Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
             MemoryMarshal.CreateSpan(ref Unsafe.As<TPosition, ushort>(ref position), 1),
             forward);

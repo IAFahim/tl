@@ -129,7 +129,7 @@ internal ref struct TimelineLane<T>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public unsafe void Apply(Span<float> effects)
+    public void Apply(Span<float> effects)
     {
         Checked.Columns(_positions, effects);
         var positions = _positions;
@@ -147,7 +147,7 @@ internal ref struct TimelineLane<T>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    unsafe void ApplyRuns(Span<float> effects)
+    void ApplyRuns(Span<float> effects)
     {
         var positions = _positions;
         var count = positions.Length;
@@ -259,7 +259,7 @@ public struct LaneMovementRecord
     public ushort Next;
 }
 
-internal static unsafe class LaneOps
+internal static class LaneOps
 {
     internal const int SmallSpan = 15;
 
@@ -643,7 +643,7 @@ internal static unsafe class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    internal static unsafe void AdvanceForward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
+    internal static void AdvanceForward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
     {
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
@@ -686,7 +686,7 @@ internal static unsafe class LaneOps
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    internal static unsafe void AdvanceBackward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
+    internal static void AdvanceBackward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
     {
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);

@@ -648,7 +648,7 @@ internal static class BankReceipts
             using var asset = TimelineAsset.LoadAsset(BakeBank(i + 1f, 8));
             Require(timelines.Add(asset) == i, $"growth id {i}");
         }
-        unsafe
+        
         {
             for (var i = 0; i < 64; i++)
             {
@@ -664,7 +664,7 @@ internal static class BankReceipts
         for (var i = 0; i < Rows; i++) { ids[i] = (ushort)(i % 64); positions[i] = (ushort)(i * 3 % 8); }
         var oracle = new float[Rows];
         var oraclePositions = (ushort[])positions.Clone();
-        unsafe
+        
         {
             for (var i = 0; i < Rows; i++)
             {
@@ -675,7 +675,7 @@ internal static class BankReceipts
         timelines.Apply(ids, oraclePositions, true, oracle);
         Require(effects.AsSpan().SequenceEqual(oracle), "stale-snapshot reads match the crowd fold");
         Array.Clear(effects);
-        unsafe
+        
         {
             for (var i = 0; i < Rows; i++)
             {
@@ -693,7 +693,7 @@ internal static class BankReceipts
         for (var step = 0; step < 8; step++)
             { timelines.Apply(ids, oraclePositions, true, walkOracle); timelines.Advance(ids, oraclePositions, true); }
         Require(effects.AsSpan().SequenceEqual(walkOracle), "stale-snapshot record walk matches the folded law");
-        unsafe
+        
         {
             for (var i = 0; i < 64; i++)
                 Require(HashView(*stale[i]) == capturedHashes[i] && HashView(timelines.View((ushort)i)) == capturedHashes[i], $"view {i} byte-stable through the growths");

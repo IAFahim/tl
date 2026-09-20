@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using Tl.Gen.Tlb;
 using Xunit;
 
@@ -36,7 +34,7 @@ public class CliTests
             File.WriteAllText(jsonPath, json);
 
             var asmPath = typeof(Tlb.AlphaTrack).Assembly.Location;
-            var exitCode = Tl.Bake.Program.Main([jsonPath, tlbPath, "--assembly", asmPath]);
+            var exitCode = Program.Main([jsonPath, tlbPath, "--assembly", asmPath]);
             Assert.Equal(0, exitCode);
             Assert.True(File.Exists(tlbPath));
             var bytes = File.ReadAllBytes(tlbPath);
@@ -78,7 +76,7 @@ public class CliTests
             File.WriteAllText(jsonPath, json);
 
             var asmPath = typeof(Tlb.AlphaTrack).Assembly.Location;
-            var exitCode = Tl.Bake.Program.Main([jsonPath, tlbPath, "--assembly", asmPath]);
+            var exitCode = Program.Main([jsonPath, tlbPath, "--assembly", asmPath]);
             Assert.Equal(0, exitCode);
             Assert.True(File.Exists(tlbPath));
             var bytes = File.ReadAllBytes(tlbPath);
@@ -116,7 +114,7 @@ public class CliTests
             """;
             File.WriteAllText(jsonPath, json);
 
-            var exitCode = Tl.Bake.Program.Main([jsonPath, tlbPath]);
+            var exitCode = Program.Main([jsonPath, tlbPath]);
             Assert.NotEqual(0, exitCode);
             Assert.False(File.Exists(tlbPath));
         }
@@ -138,7 +136,7 @@ public class CliTests
         {
             Directory.SetCurrentDirectory(tempDir);
             Console.SetError(stderr);
-            var exitCode = Tl.Bake.Program.Main([]);
+            var exitCode = Program.Main([]);
             Assert.NotEqual(0, exitCode);
             Assert.Contains("No input given and no *.json found", stderr.ToString());
             Assert.Contains("Fix: pass an input, e.g. 'tlb jump.json'.", stderr.ToString());
@@ -161,7 +159,7 @@ public class CliTests
         try
         {
             Console.SetError(stderr);
-            var exitCode = Tl.Bake.Program.Main(["--cache", tempDir]);
+            var exitCode = Program.Main(["--cache", tempDir]);
             Assert.Equal(1, exitCode);
             Assert.Equal(
                 string.Join("\n",

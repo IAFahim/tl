@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-using Tl.TestSupport;
 using Xunit;
 
 namespace Tl.Core.Tests;
@@ -69,10 +67,10 @@ public partial class SmallSpanRecordTests
             Timeline<RoutingTrack, RoutingClip>.Apply((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward, (Span<TestEffect>)spanFx);
             Timeline<RoutingTrack, RoutingClip>.Advance((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
 
-            var shortIds = new ushort[] { index };
-            var shortPos = new ushort[] { position };
+            var shortIds = new [] { index };
+            var shortPos = new [] { position };
             var shortNext = new ushort[1];
-            var shortEffects = new float[] { 1.5f };
+            var shortEffects = new[] { 1.5f };
             Timeline<RoutingTrack, RoutingClip>.Apply((ReadOnlySpan<ushort>)shortIds, shortPos, shortNext, forward, shortEffects);
 
             Assert.Equal(typedFx.Value, laneFx.Value);
@@ -104,8 +102,8 @@ public partial class SmallSpanRecordTests
             var spanPos = new TestPosition[] { new(position) };
             Timeline<RoutingTrack, RoutingClip>.Advance((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
 
-            var shortIds = new ushort[] { index };
-            var shortPos = new ushort[] { position };
+            var shortIds = new [] { index };
+            var shortPos = new [] { position };
             Timeline.Advance((ReadOnlySpan<ushort>)shortIds, shortPos, forward);
 
             Assert.Equal(typedPos.Value, lanePos.Value);
@@ -120,7 +118,7 @@ public partial class SmallSpanRecordTests
         var index = TimelineAsset.Load(Bake(10, looping: true, 2f));
         var positions = new ushort[] { 9 };
         var next = new ushort[1];
-        var effects = new float[] { 1.5f };
+        var effects = new [] { 1.5f };
         Timeline<RoutingTrack, RoutingClip>.Apply(index, positions, next, true, effects);
         Assert.Equal((ushort)0, next[0]);
         Assert.Equal((ushort)10, Timeline<RoutingTrack, RoutingClip>.View(index).Duration);
@@ -135,14 +133,14 @@ public partial class SmallSpanRecordTests
         var positions = new ushort[] { 5, 12, 11, 3 };
         var next = new ushort[4];
         var effects = new float[4];
-        Timeline<RoutingTrack, RoutingClip>.Apply((ReadOnlySpan<ushort>)ids.AsSpan(0, 4), positions, next, true, effects);
+        Timeline<RoutingTrack, RoutingClip>.Apply(ids.AsSpan(0, 4), positions, next, true, effects);
         Assert.Equal(new ushort[] { 6, 12, 11, 4 }, next);
 
         Array.Fill(ids, index);
         positions = [5, 12, 11, 3];
         next = new ushort[4];
         effects = new float[4];
-        Timeline<RoutingTrack, RoutingClip>.Apply((ReadOnlySpan<ushort>)ids.AsSpan(0, 4), positions, next, false, effects);
+        Timeline<RoutingTrack, RoutingClip>.Apply(ids.AsSpan(0, 4), positions, next, false, effects);
         Assert.Equal(new ushort[] { 4, 12, 11, 2 }, next);
     }
 
@@ -274,7 +272,7 @@ public partial class SmallSpanRecordTests
         var baker = new Baker()
             .Track<RoutingTrack, RoutingClip>(new RoutingTrack(scale))
             .Clip(0, 0u, (uint)(duration * 6 / 10), new RoutingClip(1.25f))
-            .Clip(0, (uint)(duration * 6 / 10), (uint)duration, new RoutingClip(-0.5f));
+            .Clip(0, (uint)(duration * 6 / 10), duration, new RoutingClip(-0.5f));
         if (looping) baker.Looping();
         return baker.Bake();
     }
@@ -289,7 +287,7 @@ internal static class SmallSpanProbe
     internal static ushort[][] Schedules(int rows, ushort duration)
     {
         var choices = new ushort[] { 0, (ushort)(duration / 2), (ushort)(duration - 1), duration, (ushort)(duration + 1) };
-        var schedules = new ushort[][] { Uniform(rows, choices), Runs(rows, choices, 0x51ED2701ul + (uint)(rows * 31 + duration)), Mixed(rows, choices, 0x9E3779B9ul ^ (uint)(rows * 40503 + duration * 7)) };
+        var schedules = new [] { Uniform(rows, choices), Runs(rows, choices, 0x51ED2701ul + (uint)(rows * 31 + duration)), Mixed(rows, choices, 0x9E3779B9ul ^ (uint)(rows * 40503 + duration * 7)) };
         return schedules;
     }
 
