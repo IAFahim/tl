@@ -48,6 +48,21 @@ class ReadmeNumbersTests(unittest.TestCase):
         self.assertIsNone(receipt["Tiering"]["EnableAVX2"])
         self.assertIsNone(receipt["Tiering"]["EnableHWIntrinsic"])
 
+    def test_render_omits_bake_sentence_when_receipt_has_no_bake(self):
+        """A receipt with 'Bake': None omits the bake sentence from the closing paragraph.
+        A receipt filtered to exclude handwritten-simd instead raises StopIteration at
+        render()'s simd lookup (pre-existing behavior, noted on #309's close-out): the
+        renderer is receipt-shaped and refresh-numbers receipts always carry that row."""
+        scenarios = [
+            {"Id": "shared-clock", "Label": "shared clock", "Hot": {"Ms": 0.31, "Ns": 310.0}, "Cold": {"Ms": 1.1, "Ns": 1100.0}},
+            {"Id": "handwritten-simd", "Label": "hand-written SIMD", "Hot": {"Ms": 0.25, "Ns": 250.0}, "Cold": {"Ms": 0.9, "Ns": 900.0}},
+        ]
+        receipt = {"Fingerprint": {"Cpu": "Test CPU"}, "Reps": 5, "Rounds": 3, "Scenarios": scenarios, "Bake": None}
+        rendered = render_numbers.render(receipt)
+        self.assertNotIn("bakes in", rendered)
+        receipt["Bake"] = {"CorpusMb": 24.0, "BakeMs": 900, "LoadMs": 1.2}
+        self.assertIn("bakes in 900 ms", render_numbers.render(receipt))
+
 
 if __name__ == "__main__":
     unittest.main()
