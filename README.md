@@ -51,18 +51,22 @@ dotnet build -c Release
 tlb jump.json jump.tlb --auto
 ```
 
-Play it — one call advances every row one frame; after the full loop `y` is back at 0, the arc risen and fallen. Put the loop in `Program.cs` and `dotnet run`:
+Play it — `Apply` folds every row's effect and `Advance` advances every clock one frame; after the full loop `y` is back at 0, the arc risen and fallen. Put the loop in `Program.cs` and `dotnet run`:
 
 ```cs
 ushort jumpTimeline = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
 var tick = new ushort[1];
 var y = new float[1];
 for (var frame = 0; frame < 30; frame++)
+{
     Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, true, y);
     Timeline.Advance(jumpTimeline, tick, true);
+}
 ```
 
 A crowd that shares one clock — the raid jumping in sync — can drop the clock column entirely and hold that clock once: `Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, clock, true, jumpFx)` folds the whole crowd in one broadcast pass, and `Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, ref clock, true)` advances the single clock ([Shared clocks](#system)).
+
+Until the next release, the published pin above still ships the pre-1.0 surface: a consumer of the published `1.0.0-alpha.10` package writes the `Execute` consumer and one fused `Advance` call, and bakes with explicit `namespace` fields and `--assembly` — the [migration notes](#run-the-full-thing) map the spellings.
 
 `--auto` is opt-in and never guesses silently: exactly one loaded type of that bare name fills the `namespace`; zero or several stop the bake naming every candidate. `tlb --json --assembly bin/Release/net10.0/YourGame.dll` lists every authorable pair with its namespace, fields, and consumers — the source for filling tracks and clips by hand ([Type discovery](#type-discovery)). "Run the full thing" below is the same shape with four characters, rewind, and host wiring.
 
@@ -285,10 +289,10 @@ Timeline.Bake(jumpTimeline, world, 43);
 
 Bakes are host-timed — attach and transition effects, never per-frame work. The dispatch is a cold pass over the asset's pairs; the warm path never sees a bake.
 
-Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Advance` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Advance` moves it exactly once. A single system that owns its clock column outright may fuse the pair into `Apply(ids, clocks, next, forward, fx)` — `next` may be the same array for in-place — one pass, same result as `Apply` + `Advance`. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
+Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Advance` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Advance` moves it exactly once, and a per-system `Advance` multiplies the frame. A single system that owns its clock column outright may fuse the pair into `Apply(ids, clocks, next, forward, fx)` — `next` may be the same array for in-place — one pass, same result as `Apply` + `Advance`. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
 
 ```cs
-// shared clock column — safe to fan out to every pair system, step once:
+// shared clock column — safe to fan out to every pair system, advance once:
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, jumpFx);
 Timeline<HealTrack, HealClip>.Apply(ids, clocks, true, healFx);
 Timeline.Advance(ids, clocks, true);
@@ -308,8 +312,10 @@ Timeline<JumpTrack, JumpClip>.Advance(raid, ref clock, true);
 
 ```cs
 for (var frame = 0; frame < 30; frame++)
+{
     Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, false, y);
     Timeline.Advance(jumpTimeline, tick, false);
+}
 ```
 
 More systems on the same pair just declare the marker again — no registration, no chaining. Every consumer of `(JumpTrack, JumpClip)` runs inside the same one `Apply` call, folding its contribution into the effect column after the consumers before it:
