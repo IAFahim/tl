@@ -17,7 +17,7 @@ ns/row from `results/lane-ceiling-avx2.json`, `loop6/fwd` staggered unless noted
 | # | Proposal claim | Verdict | Evidence |
 |---|---|---|---|
 | 1 | AVX-512 dual-register tiling, 32 rows/iteration | Rejected on this host | `wide512` (`Vector512`) lowers to 2x ymm without AVX-512: 0.171 vs shipped `gather256` 0.157. Gather latency, not vector width, bounds the scattered path; the proposal's ~0.5 cy/row omits `vpgatherdd` cost (~10-40 cy per vector). A native AVX-512 verdict needs AVX-512 hardware — open, owner decision. |
-| 2 | Dual-256 ILP | Rejected — wash | `dual256` 0.155 vs 0.157, within noise at every shape. |
+| 2 | Dual-256 ILP | Rejected | `dual256` 0.155 vs 0.157 at the reference shape; a wash on looping shapes, leaving a small finite/backward edge (~3-4%, e.g. 0.1855 vs 0.1944 uniform) on the table. |
 | 3 | Register-resident permute lookup, d <= 8 | **Accepted** | `permute8` 0.119 vs 0.157 gather. Shipped as the d<=8 kernel behind `Timeline<TTrack,TClip>.Advance` (PR #235); recorded shipped-path receipt: 0.172 -> 0.125 ns/row (-27%) on d=6 looping. |
 | 4 | Register-resident permute lookup, d <= 32 | Rejected | `permute32` 0.226 — slower than the gather at every tested shape and duration. |
 | 5 | 128-bit permute variant (post-probe arm, #244) | Rejected | `permute8x128` 0.392. |
@@ -76,8 +76,8 @@ Parse was ~75% of bake, which is why track partitioning was the only bake-side a
 Recorded with numbers so they are not retried blindly:
 
 - `Parallel.For` on a cold threadpool: ~650 ms wall vs ~42 ms serial parse for the same work (~16x worse); dedicated threads avoid the ramp.
-- `Vector512` as an AVX-512 stand-in on this host: 0.168-0.173 ns/row — neutral-to-worse versus the shipped 0.157 gather; 2x ymm lowering adds width without adding gather throughput.
-- `dual256` ILP: 0.155-0.194 across shapes — within noise of `gather256` everywhere.
+- `Vector512` as an AVX-512 stand-in on this host: 0.168-0.175 on forward loop rows, 0.191-0.196 backward (finite forward fast-path rows 0.153-0.163) — neutral-to-worse versus the shipped gather (0.151-0.195 across shapes); 2x ymm lowering adds width without adding gather throughput.
+- `dual256` ILP: 0.151-0.187 across shapes in `results/lane-ceiling-avx2.json` — a wash against `gather256` on looping shapes; the small consistent finite/backward edge (~3-4%, e.g. 0.1855 vs 0.1944 uniform) was left on the table.
 - `permute32`: 0.226-0.229 — the 32-entry cross-lane permute costs more than the gather it replaces.
 - `permute8x128`: 0.392 — the 128-bit split does two shuffles plus widening per 8 rows and loses to both the 256-bit permute and the gather.
 - `SimdCursor.After` is strictly-after; adjacent `]}`/`[{` pairs need the inclusive `From` entry point.
@@ -89,7 +89,6 @@ Recorded with numbers so they are not retried blindly:
 - This directory is outside the `benchmarks/source_budget.py` scopes (`src`, `samples`, `shipped-tools`); it costs 0 budget bytes.
 - Shipped code changes proven here landed via PR #235 (`src/Tl.Core/Lane.cs`, `TimelinePair`/`TimelineSet` kernel dispatch, `tools/Tl.Gen.Tlb` track partition). This directory owns only the harness, the retained receipts, and this record.
 - The record-walk double-gather cell is owned by #295 and was not probed here.
-- Indexing in `benchmarks/README.md` and the matching `test_inventory.py` waiver removal land after #314 merges.
 
 ## Reproduce
 

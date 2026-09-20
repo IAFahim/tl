@@ -13,9 +13,7 @@ INDEX_SOURCES = {
     "benchmark.yml": (ROOT / ".github" / "workflows" / "benchmark.yml").read_text(encoding="utf-8"),
     "benchmarks/README.md": README,
 }
-PROJECT_WAIVERS = {
-    "LaneCeiling": "unindexed probe; owner decision pending (#300 3.1)",
-}
+PROJECT_WAIVERS = {}
 REPRODUCTION_WAIVERS = {
     "ConsumerFusion": "reproduction chain references the removed ConsumerGenerate generator and a missing project; owner decision pending (#300 3.2)",
 }
