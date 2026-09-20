@@ -2004,7 +2004,7 @@ internal static class TimelineBakerFastCore
 
             try
             {
-                _ = TimelineAsset.Load(bytes);
+                using var probe = TimelineAsset.Of(TimelineAsset.Load(bytes));
             }
             catch (ArgumentException ex)
             {
