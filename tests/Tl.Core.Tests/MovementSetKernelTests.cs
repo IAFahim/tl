@@ -18,6 +18,17 @@ public unsafe class MovementSetKernelTests
         .Looping()
         .Bake();
 
+    static byte[] MixedLoopingBake() => new DomainBaker()
+        .Track<MovementWrapTrack, MovementWrapClip>(new MovementWrapTrack(2f))
+        .Clip(0, 0, 4, new MovementWrapClip(3f))
+        .Looping()
+        .Bake();
+
+    static byte[] MixedFiniteBake() => new DomainBaker()
+        .Track<MovementWrapTrack, MovementWrapClip>(new MovementWrapTrack(2f))
+        .Clip(0, 0, 4, new MovementWrapClip(4f))
+        .Bake();
+
     [Fact]
     public void AddAtTracksHolesAndSkipsRebind()
     {
@@ -153,6 +164,26 @@ public unsafe class MovementSetKernelTests
 
         Assert.Equal(new ushort[] { 1, 4, 1, 4, 1, 4 }, next);
         Assert.Equal(new float[] { -6f, 0f, -4f, 0f, -6f, 0f }, effects);
+    }
+
+    [Fact]
+    public void FastMixedBackwardLeavesSkippedFiniteOriginRowsBitExact()
+    {
+        using var looping = TimelineAsset.LoadAsset(MixedLoopingBake());
+        using var finite = TimelineAsset.LoadAsset(MixedFiniteBake());
+        using var set = new TimelineSet<MovementWrapTrack, MovementWrapClip>();
+        var loopingId = set.Add(looping);
+        var finiteId = set.Add(finite);
+
+        var ids = new ushort[] { loopingId, finiteId, loopingId, finiteId };
+        var positions = new ushort[] { 1, 0, 1, 0 };
+        var next = new ushort[positions.Length];
+        var effects = new float[] { 0.5f, 1.5f, 2.5f, 3.5f };
+
+        set.Apply(ids, positions, next, false, effects);
+
+        Assert.Equal(new ushort[] { 0, 0, 0, 0 }, next);
+        Assert.Equal(new float[] { -5.5f, 1.5f, -3.5f, 3.5f }, effects);
     }
 
     [Fact]
