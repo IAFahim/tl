@@ -128,7 +128,7 @@ for (var frame = 1; frame <= 30; frame++)
     Timeline<JumpTrack, JumpClip>.Apply(ids, tick, true, y);
     Timeline.Advance(ids, tick, true);
     if (frame % 3 == 0)
-        Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', (int)Math.Round(y[0] / 3))}");
+        Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', Math.Max(0, (int)Math.Round(y[0] / 3)))}");
 }
 ```
 

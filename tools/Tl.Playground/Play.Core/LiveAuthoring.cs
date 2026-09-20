@@ -60,7 +60,7 @@ public static class Play
         {
             Timeline<JumpTrack, JumpClip>.Apply(ids, tick, true, y); Timeline.Advance(ids, tick, true);
             if (frame % 3 == 0)
-                Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', (int)Math.Round(y[0] / 3))}");
+                Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', Math.Max(0, (int)Math.Round(y[0] / 3)))}");
         }
 
         Console.WriteLine();
@@ -85,6 +85,14 @@ public static class Play
     }
   ]
 }
+""";
+
+    public const string ReproducerTimelineJson = """
+{ "name": "jump", "duration": 30, "loop": true,
+  "tracks": [ { "name": "arc", "namespace": "Live", "type": "JumpTrack", "data": { "Scale": 1.0 },
+    "clips": [
+      { "name": "rise", "namespace": "Live", "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
+      { "name": "fall", "namespace": "Live", "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -3.0 } } ] } ] }
 """;
 
     public const string RawBindingSource = """
@@ -336,6 +344,38 @@ public static unsafe class Play
         var replayRun = Run(replay.Assembly!, replayBytes);
         Require(replayRun.Console.Contains("  tick  3   y =  6.0 m   ##"), "recompiled source must bind and apply the consumer exactly once");
 
+        var (fallBytes, fallBakeError) = Bake(compile.Assembly!, ReproducerTimelineJson);
+        if (fallBytes.Length == 0)
+            throw new InvalidOperationException($"live receipt reproducer bake failed: {fallBakeError}");
+        var fallRun = Run(compile.Assembly!, fallBytes);
+        Require(fallRun.Console.Length == 13, $"reproducer arc run printed {fallRun.Console.Length} lines, expected 13");
+        Require(fallRun.Console.Any(line => line.StartsWith("  tick 27   y = -6.0 m", StringComparison.Ordinal)), "reproducer negative-bar frame missing");
+        Require(fallRun.Console.Any(line => line.StartsWith("  tick 30   y = -15.0 m", StringComparison.Ordinal)), "reproducer landing line missing");
+        Require(fallRun.Console[^1] == "  after 30 back ticks: y = 0.0 m, tick = 0", $"reproducer rewind line: {fallRun.Console[^1]}");
+
+        var shapes = new (string Name, string Json)[]
+        {
+            ("end == duration", ReproducerTimelineJson),
+            ("end == duration - 1", ShapeJson(30, true, (0, 15, 2f), (15, 29, -3f))),
+            ("duration == 1", ShapeJson(1, true, (0, 1, 2f))),
+            ("adjacent shared tick", ShapeJson(30, true, (0, 10, 2f), (10, 20, -3f), (20, 30, -1f))),
+            ("loop=false end == duration", ShapeJson(30, false, (0, 15, 2f), (15, 30, -3f))),
+        };
+        foreach (var (name, shapeJson) in shapes)
+        {
+            var (shapeBytes, shapeError) = Bake(compile.Assembly!, shapeJson);
+            if (shapeBytes.Length == 0)
+                throw new InvalidOperationException($"live receipt matrix bake failed for {name}: {shapeError}");
+            var shapeRun = Run(compile.Assembly!, shapeBytes);
+            Require(shapeRun.Console.Length == 13, $"matrix {name} printed {shapeRun.Console.Length} lines, expected 13");
+            Require(shapeRun.Console[^1] == "  after 30 back ticks: y = 0.0 m, tick = 0", $"matrix {name} rewind line: {shapeRun.Console[^1]}");
+        }
+
+        var (emptyBytes, emptyError) = Bake(compile.Assembly!, ShapeJson(30, true, (0, 15, 2f), (15, 15, -3f)));
+        Require(emptyBytes.Length == 0 && emptyError.Contains("start >= end", StringComparison.Ordinal), $"matrix start == end must reject with a located diagnostic, got: {emptyError}");
+        var (outsideBytes, outsideError) = Bake(compile.Assembly!, ShapeJson(30, true, (0, 35, 2f)));
+        Require(outsideBytes.Length == 0 && outsideError.Contains("clips outside [0, duration]", StringComparison.Ordinal), $"matrix end > duration must reject with a located diagnostic, got: {outsideError}");
+
         var raw = Compile(RawBindingSource);
         if (!raw.Ok)
             throw new InvalidOperationException($"live receipt raw preset failed to compile: {raw.Error}");
@@ -348,7 +388,20 @@ public static unsafe class Play
         var rawRun = Run(raw.Assembly!, rawBytes);
         Require(rawRun.Console.Contains("  tick  4   amount =   12.0"), "raw preset single-registration line missing");
         report.AppendLine($"LIVE PASS compileMs={compile.CompileMs.ToString(CultureInfo.InvariantCulture)} bytes={bytes.Length} lines={run.Console.Length} checksum={run.Checksum.ToString(CultureInfo.InvariantCulture)}");
+        report.AppendLine($"MATRIX PASS shapes={shapes.Length} checksum={fallRun.Checksum.ToString(CultureInfo.InvariantCulture)}");
         return report.ToString();
+    }
+
+    static string ShapeJson(int duration, bool loop, params (int Start, int End, float Velocity)[] clips)
+    {
+        var rows = new StringBuilder();
+        foreach (var (start, end, velocity) in clips)
+        {
+            if (rows.Length > 0)
+                rows.Append(", ");
+            rows.Append(CultureInfo.InvariantCulture, $"{{ \"namespace\": \"Live\", \"type\": \"JumpClip\", \"start\": {start}, \"end\": {end}, \"data\": {{ \"Velocity\": {velocity.ToString("0.0", CultureInfo.InvariantCulture)} }} }}");
+        }
+        return string.Create(CultureInfo.InvariantCulture, $"{{ \"duration\": {duration}, \"loop\": {(loop ? "true" : "false")}, \"tracks\": [ {{ \"namespace\": \"Live\", \"type\": \"JumpTrack\", \"data\": {{ \"Scale\": 1.0 }}, \"clips\": [ {rows} ] }} ] }}");
     }
 
     static void Require(bool condition, string detail)
