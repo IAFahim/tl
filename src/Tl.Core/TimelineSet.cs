@@ -81,17 +81,24 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal byte* _absent;
     internal uint* _motion;
     internal SlotView** _shared;
+    internal LaneMovementRecord* _arenaForward;
+    internal LaneMovementRecord* _arenaBackward;
+    internal uint* _arenaBases;
     internal void* _retired;
     internal nuint _viewCapacity;
     internal nuint _absentCapacity;
     internal nuint _motionCapacity;
     internal nuint _sharedCapacity;
+    internal nuint _arenaCapacity;
+    internal nuint _arenaBaseCapacity;
     internal int _sharedUsed;
     internal int _blockCount;
     internal int _sharedHits;
     internal long _headerTotal;
     internal long _tableTotal;
     internal long _directoryTotal;
+    internal long _arenaTotal;
+    internal int _arenaUsed;
     internal int _count;
     internal int _holes;
     internal bool _lazyResolve;
@@ -103,7 +110,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal int _gate;
 
     internal int Holes => _holes;
-    internal long RetainedBytes => _headerTotal + _tableTotal + _directoryTotal;
+    internal long ArenaBytes => _arenaTotal;
+    internal long RetainedBytes => _headerTotal + _tableTotal + _directoryTotal + _arenaTotal;
     internal long HeaderBytes => _headerTotal;
     internal long TableBytes => _tableTotal;
     internal long DirectoryBytes => _directoryTotal;
@@ -205,6 +213,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             {
                 _sharedHits++;
             }
+            AppendArena(index, view);
             _absent[index] = 0;
             _motion[index] = duration | (looping ? 0x80000000u : 0u);
             Volatile.Write(ref *(long*)(_views + index), (long)view);
@@ -227,6 +236,43 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         {
             Volatile.Write(ref _gate, 0);
         }
+    }
+
+    void AppendArena(ushort index, SlotView* view)
+    {
+        void* bases = _arenaBases;
+        Ensure(ref bases, ref _arenaBaseCapacity, sizeof(uint), (nuint)index + 1);
+        _arenaBases = (uint*)bases;
+        var ticks = view->TableTicks;
+        var used = (nuint)_arenaUsed;
+        if (used + ticks > _arenaCapacity) GrowArena(used + ticks);
+        var offset = checked((uint)used);
+        var recordBytes = checked((int)(ticks * sizeof(LaneMovementRecord)));
+        Buffer.MemoryCopy(view->ForwardRecords, _arenaForward + offset, recordBytes, recordBytes);
+        Buffer.MemoryCopy(view->BackwardRecords, _arenaBackward + offset, recordBytes, recordBytes);
+        _arenaBases[index] = offset;
+        _arenaUsed = checked((int)(used + ticks));
+    }
+
+    void GrowArena(nuint needed)
+    {
+        nuint next = _arenaCapacity == 0 ? InitialCapacity : _arenaCapacity;
+        while (next < needed) next *= 2;
+        var bytes = next * (nuint)sizeof(LaneMovementRecord);
+        var forward = (LaneMovementRecord*)NativeMemory.AlignedAlloc(bytes + RetirePadBytes, 64);
+        var backward = (LaneMovementRecord*)NativeMemory.AlignedAlloc(bytes + RetirePadBytes, 64);
+        _arenaTotal += (long)(2 * (bytes + RetirePadBytes));
+        if (_arenaCapacity != 0)
+        {
+            var usedBytes = (long)((nuint)_arenaUsed * (nuint)sizeof(LaneMovementRecord));
+            Buffer.MemoryCopy(_arenaForward, forward, usedBytes, usedBytes);
+            Buffer.MemoryCopy(_arenaBackward, backward, usedBytes, usedBytes);
+            Retire((byte*)_arenaForward + (nuint)usedBytes, _arenaForward);
+            Retire((byte*)_arenaBackward + (nuint)usedBytes, _arenaBackward);
+        }
+        _arenaForward = forward;
+        _arenaBackward = backward;
+        _arenaCapacity = next;
     }
 
     void Ensure(ref void* current, ref nuint capacity, nuint elementBytes, nuint needed)
@@ -514,6 +560,9 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             if (_absent != null) NativeMemory.AlignedFree(_absent);
             if (_motion != null) NativeMemory.AlignedFree(_motion);
             if (shared != null) NativeMemory.AlignedFree(shared);
+            if (_arenaForward != null) NativeMemory.AlignedFree(_arenaForward);
+            if (_arenaBackward != null) NativeMemory.AlignedFree(_arenaBackward);
+            if (_arenaBases != null) NativeMemory.AlignedFree(_arenaBases);
             var node = _retired;
             while (node != null)
             {
@@ -525,11 +574,18 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             _absent = null;
             _motion = null;
             _shared = null;
+            _arenaForward = null;
+            _arenaBackward = null;
+            _arenaBases = null;
             _retired = null;
             _viewCapacity = 0;
             _absentCapacity = 0;
             _motionCapacity = 0;
             _sharedCapacity = 0;
+            _arenaCapacity = 0;
+            _arenaBaseCapacity = 0;
+            _arenaUsed = 0;
+            _arenaTotal = 0;
             _sharedUsed = 0;
             _count = 0;
             _holes = 0;
@@ -593,6 +649,11 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         var i = 0;
         var uniformId = -1;
         SlotView* slot = null;
+        var arenaForward = set._arenaForward;
+        var arenaBackward = set._arenaBackward;
+        var arenaBases = set._arenaBases;
+        var motion = set._motion;
+        var arenaOk = set._holes == 0;
         while (i < count)
         {
             var chunkEnd = i + Chunk;
@@ -608,6 +669,11 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     bound = set._count;
                     minDuration = set._minDuration;
                     holy = set._holes != 0;
+                    arenaForward = set._arenaForward;
+                    arenaBackward = set._arenaBackward;
+                    arenaBases = set._arenaBases;
+                    motion = set._motion;
+                    arenaOk = set._holes == 0;
                     uniformId = -1;
                     slot = null;
                 }
@@ -616,7 +682,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     slot = views[first];
                     uniformId = first;
                 }
-                i = ApplyUniformSegment(slot, positions, next, effects, i, chunkEnd, forward, gather);
+                i = ApplyUniformSegment(slot, positions, next, effects, i, chunkEnd, forward, gather, ArenaRecords(forward, arenaOk, arenaForward, arenaBackward, arenaBases, first));
             }
             else
             {
@@ -626,6 +692,11 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                         views = set._views;
                         bound = set._count;
                         minDuration = set._minDuration;
+                        arenaForward = set._arenaForward;
+                        arenaBackward = set._arenaBackward;
+                        arenaBases = set._arenaBases;
+                        motion = set._motion;
+                        arenaOk = set._holes == 0;
                         uniformId = -1;
                         slot = null;
                     }
@@ -642,6 +713,11 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     bound = set._count;
                     minDuration = set._minDuration;
                     holy = set._holes != 0;
+                    arenaForward = set._arenaForward;
+                    arenaBackward = set._arenaBackward;
+                    arenaBases = set._arenaBases;
+                    motion = set._motion;
+                    arenaOk = set._holes == 0;
                     uniformId = -1;
                     slot = null;
                 }
@@ -650,12 +726,18 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     var segment = LaneOps.RunEnd(ids, i, chunkEnd);
                     if (segment - i < MinSegment)
                     {
-                        i = forward
-                            ? ApplyMixedForward(ids, positions, next, effects, views, i, chunkEnd)
-                            : ApplyMixedBackward(ids, positions, next, effects, views, i, chunkEnd);
+                        if (arenaOk)
+                            i = forward
+                                ? ArenaMixedForward(ids, positions, next, effects, motion, arenaForward, arenaBases, i, chunkEnd)
+                                : ArenaMixedBackward(ids, positions, next, effects, motion, arenaBackward, arenaBases, i, chunkEnd);
+                        else
+                            i = forward
+                                ? ApplyMixedForward(ids, positions, next, effects, views, i, chunkEnd)
+                                : ApplyMixedBackward(ids, positions, next, effects, views, i, chunkEnd);
                         break;
                     }
-                    i = ApplyUniformSegment(views[ids[i]], positions, next, effects, i, segment, forward, gather);
+                    var segmentId = ids[i];
+                    i = ApplyUniformSegment(views[segmentId], positions, next, effects, i, segment, forward, gather, ArenaRecords(forward, arenaOk, arenaForward, arenaBackward, arenaBases, segmentId));
                     if (i >= chunkEnd) break;
                 }
                 continue;
@@ -678,12 +760,13 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         var slot = set._views[index];
         var gather = Avx2.IsSupported || Vector128.IsHardwareAccelerated;
         var forward = _forward;
+        var records = (forward ? set._arenaForward : set._arenaBackward) + set._arenaBases[index];
         var i = 0;
         while (i < count)
         {
             var chunkEnd = i + Chunk;
             if (chunkEnd > count) chunkEnd = count;
-            i = ApplyUniformSegment(slot, positions, default, effects, i, chunkEnd, forward, gather);
+            i = ApplyUniformSegment(slot, positions, default, effects, i, chunkEnd, forward, gather, records);
         }
     }
 
@@ -699,17 +782,18 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         var slot = set._views[index];
         var gather = Avx2.IsSupported || Vector128.IsHardwareAccelerated;
         var forward = _forward;
+        var records = (forward ? set._arenaForward : set._arenaBackward) + set._arenaBases[index];
         var i = 0;
         while (i < count)
         {
             var chunkEnd = i + Chunk;
             if (chunkEnd > count) chunkEnd = count;
-            i = ApplyUniformSegment(slot, positions, next, effects, i, chunkEnd, forward, gather);
+            i = ApplyUniformSegment(slot, positions, next, effects, i, chunkEnd, forward, gather, records);
         }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyUniformSegment(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, int i, int limit, bool forward, bool gather)
+    static unsafe int ApplyUniformSegment(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, int i, int limit, bool forward, bool gather, LaneMovementRecord* records)
     {
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
@@ -733,9 +817,132 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                 i = blockEnd;
             }
         }
+        if (records != null && i < limit && (looping ? LaneOps.StaggeredEnds(positions, i, limit) : ShortRuns(positions, i, limit)))
+            return ArenaUniformWalk(records, positions, next, effects, i, limit, forward, duration);
         return forward
             ? ApplyUniformForward(slot, positions, next, effects, i, limit)
             : ApplyUniformBackward(slot, positions, next, effects, i, limit);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe LaneMovementRecord* ArenaRecords(bool forward, bool arenaOk, LaneMovementRecord* arenaForward, LaneMovementRecord* arenaBackward, uint* arenaBases, ushort id)
+        => !arenaOk ? null : (forward ? arenaForward : arenaBackward) + arenaBases[id];
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe int ArenaUniformWalk(LaneMovementRecord* records, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, int i, int limit, bool forward, ushort duration)
+    {
+        var hasNext = !next.IsEmpty;
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var n = ref MemoryMarshal.GetReference(next);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        if (forward)
+        {
+            for (; i < limit; i++)
+            {
+                var position = Unsafe.Add(ref p, (nuint)i);
+                if (position < duration)
+                {
+                    ref var r = ref records[position];
+                    Unsafe.Add(ref e, (nuint)i) += r.Effect;
+                    if (hasNext) Unsafe.Add(ref n, (nuint)i) = r.Next;
+                }
+                else if (hasNext) Unsafe.Add(ref n, (nuint)i) = position;
+            }
+            return limit;
+        }
+        for (; i < limit; i++)
+        {
+            var position = Unsafe.Add(ref p, (nuint)i);
+            if (position <= duration)
+            {
+                ref var r = ref records[position];
+                if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
+                {
+                    Unsafe.Add(ref e, (nuint)i) += r.Effect;
+                    if (hasNext) Unsafe.Add(ref n, (nuint)i) = r.Next;
+                    continue;
+                }
+            }
+            if (hasNext) Unsafe.Add(ref n, (nuint)i) = position;
+        }
+        return limit;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe int ArenaMixedForward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, uint* motion, LaneMovementRecord* arena, uint* bases, int i, int limit)
+    {
+        var hasNext = !next.IsEmpty;
+        while (i < limit)
+        {
+            var id = ids[i];
+            var position = positions[i];
+            var records = arena + bases[id];
+            var duration = (ushort)(motion[id] & 0xFFFF);
+            if (i + 1 >= limit || ids[i + 1] != id || positions[i + 1] != position)
+            {
+                if (position < duration)
+                {
+                    ref var r = ref records[position];
+                    effects[i] += r.Effect;
+                    if (hasNext) next[i] = r.Next;
+                }
+                else if (hasNext) next[i] = position;
+                i++;
+                continue;
+            }
+            var end = RunEndTwo(ids, positions, i, limit);
+            if (position >= duration) { if (hasNext) LaneOps.Fill(next, i, end, position); i = end; continue; }
+            ref var run = ref records[position];
+            LaneOps.Add(effects, i, end, run.Effect);
+            if (hasNext) LaneOps.Fill(next, i, end, run.Next);
+            i = end;
+        }
+        return limit;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe int ArenaMixedBackward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, uint* motion, LaneMovementRecord* arena, uint* bases, int i, int limit)
+    {
+        var hasNext = !next.IsEmpty;
+        while (i < limit)
+        {
+            var id = ids[i];
+            var position = positions[i];
+            var records = arena + bases[id];
+            var duration = (ushort)(motion[id] & 0xFFFF);
+            if (i + 1 >= limit || ids[i + 1] != id || positions[i + 1] != position)
+            {
+                if (position <= duration)
+                {
+                    ref var r = ref records[position];
+                    if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
+                    {
+                        effects[i] += r.Effect;
+                        if (hasNext) next[i] = r.Next;
+                        i++;
+                        continue;
+                    }
+                }
+                if (hasNext) next[i] = position;
+                i++;
+                continue;
+            }
+            var end = RunEndTwo(ids, positions, i, limit);
+            if (position <= duration)
+            {
+                ref var r = ref records[position];
+                if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
+                {
+                    LaneOps.Add(effects, i, end, r.Effect);
+                    if (hasNext) LaneOps.Fill(next, i, end, r.Next);
+                    i = end;
+                    continue;
+                }
+            }
+            if (hasNext) LaneOps.Fill(next, i, end, position);
+            i = end;
+        }
+        return limit;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
