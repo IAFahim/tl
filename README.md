@@ -310,6 +310,14 @@ Timeline<HealTrack, HealClip>.Apply(raid, clock, true, healFx);
 Timeline<JumpTrack, JumpClip>.Advance(raid, ref clock, true);
 ```
 
+Entities that never form a crowd — a sparse set scattered across the host's own storage — pay the per-call contract once per batch instead of once per entity: `Timeline<JumpTrack, JumpClip>.Apply(rows, ids, tick, true, jumpY)` folds the entities at `rows[i]`, reading each row's id, clock, and effect straight from the host's columns (`ids[rows[i]]`, `tick[rows[i]]`, `jumpY[rows[i]]`), and `Timeline<JumpTrack, JumpClip>.Advance(rows, ids, tick, true)` moves those clocks. The result is bit-identical to calling the per-entity overload once per row, with no scratch columns and 0 B allocated: the columns stay the host's own (any 2-byte index and position struct, any 4-byte effect struct), unbound ids resolve lazily inside the batch, and a checked build validates column coherence and row bounds once per call.
+
+```cs
+// sparse set of jumpers, scattered rows of the host's component columns:
+Timeline<JumpTrack, JumpClip>.Apply(jumperRows, jumperIds, jumperTicks, true, jumpY);
+Timeline<JumpTrack, JumpClip>.Advance(jumperRows, jumperIds, jumperTicks, true);
+```
+
 ```cs
 for (var frame = 0; frame < 30; frame++)
 {

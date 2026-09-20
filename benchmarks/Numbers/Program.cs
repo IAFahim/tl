@@ -328,6 +328,10 @@ internal static class SteadyShapes
         var pos = new ushort[entityRows];
         var fx = Seeds.Effects(entityRows);
         var records = Records();
+        var sparseRows = ScatteredRows(entityRows);
+        var denseRows = DenseRows(entityRows);
+        var sparseIds = new ushort[entityRows];
+        Array.Fill(sparseIds, gold);
         var shapes = new (string Id, string Label, Action Seed, Action Run)[]
         {
             ("per-entity-apply-step", "one entity at a time: 1-row Apply + 1-row Advance", () => Seed(pos), () =>
@@ -363,6 +367,30 @@ internal static class SteadyShapes
                     pos[i] = r.Next;
                 }
             }),
+            ("sparse-separate-apply-step", "scattered entities: separate 1-row Apply + Advance through row handles", () => Seed(pos), () =>
+            {
+                for (var k = 0; k < entityRows; k++)
+                {
+                    var r = sparseRows[k];
+                    Timeline<LaneTrack, LaneClip>.Apply(gold, new ReadOnlySpan<ushort>(in pos[r]), true, new Span<float>(ref fx[r]));
+                    Timeline.Advance(gold, new Span<ushort>(ref pos[r]), true);
+                }
+            }),
+            ("sparse-batch-apply-step", "scattered entities: rows-gather batched Apply + Advance", () => Seed(pos), () =>
+            {
+                Timeline<LaneTrack, LaneClip>.Apply(sparseRows, sparseIds, pos, true, fx);
+                Timeline<LaneTrack, LaneClip>.Advance(sparseRows, sparseIds, pos, true);
+            }),
+            ("sparse-batch-dense-list", "compacted sparse list (dense rows): batched Apply + Advance", () => Seed(pos), () =>
+            {
+                Timeline<LaneTrack, LaneClip>.Apply(denseRows, sparseIds, pos, true, fx);
+                Timeline<LaneTrack, LaneClip>.Advance(denseRows, sparseIds, pos, true);
+            }),
+            ("sparse-list-crowd-apply-step", "compacted sparse list: crowd Apply + raw Advance (existing surface)", () => Seed(pos), () =>
+            {
+                Timeline<LaneTrack, LaneClip>.Apply(sparseIds, pos, true, fx);
+                Timeline.Advance(sparseIds, pos, true);
+            }),
         };
         var receipts = new ShapeReceipt[shapes.Length];
         for (var i = 0; i < shapes.Length; i++)
@@ -375,6 +403,27 @@ internal static class SteadyShapes
                 $"{receipts[i].Ns.ToString("0.00", CultureInfo.InvariantCulture)} ns/entity, {receipts[i].Allocated} B");
         }
         return receipts;
+    }
+
+    static int[] ScatteredRows(int count)
+    {
+        var rows = new int[count];
+        for (var i = 0; i < count; i++) rows[i] = i;
+        var state = 0x9E3779B97F4A7C15ul;
+        for (var i = count - 1; i > 0; i--)
+        {
+            state = state * 6364136223846793005ul + 1442695040888963407ul;
+            var j = (int)((state >> 33) % (ulong)(i + 1));
+            (rows[i], rows[j]) = (rows[j], rows[i]);
+        }
+        return rows;
+    }
+
+    static int[] DenseRows(int count)
+    {
+        var rows = new int[count];
+        for (var i = 0; i < count; i++) rows[i] = i;
+        return rows;
     }
 
     static void Seed(ushort[] pos)
