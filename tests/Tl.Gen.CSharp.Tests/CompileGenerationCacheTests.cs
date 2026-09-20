@@ -82,6 +82,25 @@ public sealed class CompileGenerationCacheTests
     }
 
     [Fact]
+    public void MissReasonDistinguishesAMissingFromAnInvalidManifest()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "tl-compile-cache-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            Assert.Equal("manifest missing", CompileGenerationCache.MissReason(directory, "key", null));
+
+            File.WriteAllText(Path.Combine(directory, CompileGenerationCache.ManifestFileName), "{ not a valid manifest");
+
+            Assert.Equal("manifest invalid", CompileGenerationCache.MissReason(directory, "key", null));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
     public void MissReasonReportsMissingArtifact()
     {
         using var cache = new CacheDirectory(CompileArtifact("Alpha.g.cs", AlphaContent));
@@ -184,6 +203,22 @@ public sealed class CompileGenerationCacheTests
 
         Assert.Throws<InvalidOperationException>(() => CompileGenerationCache.Synchronize(
             cache.Directory, cache.Key, [new CompileArtifact(relativePath, "content")], ReportBody, null));
+    }
+
+    [Fact]
+    public void SynchronizeCleansTheTempFileWhenAnArtifactTargetIsADirectory()
+    {
+        using var cache = new CacheDirectory();
+        var targetPath = Path.Combine(cache.Directory, "Alpha.g.cs");
+        Directory.CreateDirectory(targetPath);
+
+        Assert.Throws<IOException>(() => CompileGenerationCache.Synchronize(
+            cache.Directory, cache.Key, [new CompileArtifact("Alpha.g.cs", AlphaContent)], ReportBody, null));
+
+        Assert.True(Directory.Exists(targetPath));
+        Assert.DoesNotContain(
+            Directory.EnumerateFiles(cache.Directory),
+            static path => path.EndsWith(".tmp", StringComparison.Ordinal));
     }
 
     [Fact]

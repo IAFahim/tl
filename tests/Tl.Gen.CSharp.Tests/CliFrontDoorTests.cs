@@ -4,6 +4,7 @@ using Xunit;
 
 namespace Tl.Gen.CSharp.Tests;
 
+// Shares ConsumerBindingTests's implicit xunit collection so its Console.SetOut capture and the Console.SetError capture below can never run concurrently.
 [Collection("Tl.Gen.CSharp.Tests.ConsumerBindingTests")]
 public sealed class CliFrontDoorTests
 {
