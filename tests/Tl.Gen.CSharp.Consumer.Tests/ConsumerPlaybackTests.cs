@@ -113,6 +113,14 @@ public sealed class ConsumerPlaybackTests
         Assert.Equal("spawn:1,spawn:2,spawn:3", result);
     }
 
+    [Fact]
+    public void ConsumerTypedBakeParameterIsBoundToDefaultBecauseConsumersAreStateless()
+    {
+        var result = Driver("ConsumerParameter");
+
+        Assert.Equal("probe:0", result);
+    }
+
     private static string Driver(string method)
     {
         var value = Fixture.Value.GetType("Domain.Playback")!.GetMethod(method)!.Invoke(null, null);
@@ -277,6 +285,26 @@ public sealed class ConsumerPlaybackTests
         public readonly struct EntityMutateBake : IBake<ApplyBuff>
         {
             public static void Bake(ref Entity entity) => entity = new Entity(entity.Owner, entity.Id + 1);
+        }
+
+        public readonly record struct ProbeClip(byte Amount);
+
+        public readonly record struct ProbeTrack(byte Gain) : IBlend<ProbeClip>
+        {
+            public void Blend(in ProbeClip first, in ProbeClip second, float factor, out ProbeClip result) => result = first;
+        }
+
+        public readonly struct ProbeJob : ITrack<ProbeTrack, ProbeClip>
+        {
+            public readonly int Observed;
+
+            public static void OnActive(in Frame<ProbeTrack, ProbeClip> frame) { }
+        }
+
+        public readonly struct ProbeStateBake : IBake<ProbeJob>
+        {
+            public static void Bake(ProbeJob consumer, in World world)
+                => world.Marks.Add("probe:" + consumer.Observed.ToString(CultureInfo.InvariantCulture));
         }
 
         }
@@ -533,6 +561,19 @@ public sealed class ConsumerPlaybackTests
                 Timeline.Bake(view.Index, world, entities);
 
                 return string.Join(",", world.Marks.OrderBy(static item => item, StringComparer.Ordinal));
+            }
+
+            public static string ConsumerParameter()
+            {
+                var world = new World();
+                using var view = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<ProbeTrack, ProbeClip>(new ProbeTrack(1))
+                    .Clip(0, 0u, 2u, new ProbeClip(1))
+                    .Bake()));
+
+                Timeline.Bake(view.Index, world);
+
+                return string.Join(",", world.Marks);
             }
 
             public static string BakePairOrder()
