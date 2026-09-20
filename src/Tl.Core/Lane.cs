@@ -563,7 +563,7 @@ internal static class LaneOps
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
         ref var e = ref MemoryMarshal.GetReference(effects);
-        while (i < limit)
+        while (i + 16 <= limit)
         {
             var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
             if (hasNext)
@@ -602,7 +602,7 @@ internal static class LaneOps
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
         ref var e = ref MemoryMarshal.GetReference(effects);
-        while (i < limit)
+        while (i + 16 <= limit)
         {
             var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
             if (hasNext)
