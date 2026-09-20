@@ -886,6 +886,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         var lazy = set._lazyResolve;
         var holy = lazy && set._holes != 0;
         var gather = Avx2.IsSupported || Vector128.IsHardwareAccelerated;
+        var gatherAvx2 = Avx2.IsSupported;
         var forward = _forward;
         var i = 0;
         var uniformId = -1;
@@ -943,9 +944,18 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     }
                 if (FastMixedChunk(ids, positions, i, chunkEnd, bound, minDuration))
                 {
-                    i = forward
-                        ? FastMixedForward(ids, positions, next, effects, views, i, chunkEnd)
-                        : FastMixedBackward(ids, positions, next, effects, views, i, chunkEnd);
+                    if (gatherAvx2 && arenaOk)
+                    {
+                        i = forward
+                            ? GatherMixedForward(ids, positions, next, effects, arenaForward, arenaBases, i, chunkEnd)
+                            : GatherMixedBackward(ids, positions, next, effects, arenaBackward, arenaBases, i, chunkEnd);
+                    }
+                    else
+                    {
+                        i = forward
+                            ? FastMixedForward(ids, positions, next, effects, views, i, chunkEnd)
+                            : FastMixedBackward(ids, positions, next, effects, views, i, chunkEnd);
+                    }
                     continue;
                 }
                 if (ValidateChunk(ids, i, chunkEnd, set, bound))
@@ -1392,6 +1402,148 @@ internal ref struct TimelineSetLane<TTrack, TClip>
             }
             else if (hasNext) next[i] = p;
             i++;
+        }
+        return limit;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe int GatherMixedForward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, LaneMovementRecord* arena, uint* bases, int i, int limit)
+    {
+        var hasNext = !next.IsEmpty;
+        ref var idRef = ref MemoryMarshal.GetReference(ids);
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var n = ref MemoryMarshal.GetReference(next);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        var effectLanes = Vector256.Create(0, 2, 4, 6, 0, 0, 0, 0);
+        var nextLanes = Vector256.Create(1, 3, 5, 7, 0, 0, 0, 0);
+        var lowWord = Vector128.Create(0xFFFFu);
+        if (i + 16 <= limit)
+        {
+            var baseLo = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef)).AsInt32(), 4).AsUInt32();
+            var baseHi = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef, 8)).AsInt32(), 4).AsUInt32();
+            while (i + 16 <= limit)
+            {
+                var currLo = baseLo;
+                var currHi = baseHi;
+                var block = i + 16;
+                if (block + 16 <= limit)
+                {
+                    baseLo = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef, (nuint)block)).AsInt32(), 4).AsUInt32();
+                    baseHi = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef, (nuint)(block + 8))).AsInt32(), 4).AsUInt32();
+                }
+                var posv = Vector256.LoadUnsafe(ref p, (nuint)i);
+                (var posLo, var posHi) = Vector256.Widen(posv);
+                var idxLo = currLo + posLo;
+                var idxHi = currHi + posHi;
+                var rec0 = Avx2.GatherVector256((ulong*)arena, idxLo.GetLower().AsInt32(), 8);
+                var rec1 = Avx2.GatherVector256((ulong*)arena, idxLo.GetUpper().AsInt32(), 8);
+                var rec2 = Avx2.GatherVector256((ulong*)arena, idxHi.GetLower().AsInt32(), 8);
+                var rec3 = Avx2.GatherVector256((ulong*)arena, idxHi.GetUpper().AsInt32(), 8);
+                var eff0 = Avx2.PermuteVar8x32(rec0.AsInt32(), effectLanes).GetLower().AsSingle();
+                var eff1 = Avx2.PermuteVar8x32(rec1.AsInt32(), effectLanes).GetLower().AsSingle();
+                var eff2 = Avx2.PermuteVar8x32(rec2.AsInt32(), effectLanes).GetLower().AsSingle();
+                var eff3 = Avx2.PermuteVar8x32(rec3.AsInt32(), effectLanes).GetLower().AsSingle();
+                var effLo = Avx.InsertVector128(eff0.ToVector256(), eff1, 1);
+                var effHi = Avx.InsertVector128(eff2.ToVector256(), eff3, 1);
+                var fxLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+                (fxLo + effLo).StoreUnsafe(ref e, (nuint)i);
+                var fxHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+                (fxHi + effHi).StoreUnsafe(ref e, (nuint)(i + 8));
+                if (hasNext)
+                {
+                    var nx0 = Avx2.PermuteVar8x32(rec0.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                    var nx1 = Avx2.PermuteVar8x32(rec1.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                    var nx2 = Avx2.PermuteVar8x32(rec2.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                    var nx3 = Avx2.PermuteVar8x32(rec3.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                    var nextLo = Avx.InsertVector128(nx0.ToVector256(), nx1, 1);
+                    var nextHi = Avx.InsertVector128(nx2.ToVector256(), nx3, 1);
+                    Vector256.Narrow(nextLo, nextHi).StoreUnsafe(ref n, (nuint)i);
+                }
+                i = block;
+            }
+        }
+        for (; i < limit; i++)
+        {
+            var records = arena + bases[Unsafe.Add(ref idRef, (nuint)i)];
+            ref var r = ref records[Unsafe.Add(ref p, (nuint)i)];
+            Unsafe.Add(ref e, (nuint)i) += r.Effect;
+            if (hasNext) Unsafe.Add(ref n, (nuint)i) = r.Next;
+        }
+        return limit;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe int GatherMixedBackward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, LaneMovementRecord* arena, uint* bases, int i, int limit)
+    {
+        var hasNext = !next.IsEmpty;
+        ref var idRef = ref MemoryMarshal.GetReference(ids);
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var n = ref MemoryMarshal.GetReference(next);
+        ref var e = ref MemoryMarshal.GetReference(effects);
+        var effectLanes = Vector256.Create(0, 2, 4, 6, 0, 0, 0, 0);
+        var nextLanes = Vector256.Create(1, 3, 5, 7, 0, 0, 0, 0);
+        var lowWord = Vector128.Create(0xFFFFu);
+        var skipWord = Vector128.Create(0xFFFFu);
+        if (i + 16 <= limit)
+        {
+            var baseLo = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef)).AsInt32(), 4).AsUInt32();
+            var baseHi = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef, 8)).AsInt32(), 4).AsUInt32();
+            while (i + 16 <= limit)
+            {
+                var currLo = baseLo;
+                var currHi = baseHi;
+                var block = i + 16;
+                if (block + 16 <= limit)
+                {
+                    baseLo = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef, (nuint)block)).AsInt32(), 4).AsUInt32();
+                    baseHi = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef, (nuint)(block + 8))).AsInt32(), 4).AsUInt32();
+                }
+                var posv = Vector256.LoadUnsafe(ref p, (nuint)i);
+                (var posLo, var posHi) = Vector256.Widen(posv);
+                var idxLo = currLo + posLo;
+                var idxHi = currHi + posHi;
+                var rec0 = Avx2.GatherVector256((ulong*)arena, idxLo.GetLower().AsInt32(), 8);
+                var rec1 = Avx2.GatherVector256((ulong*)arena, idxLo.GetUpper().AsInt32(), 8);
+                var rec2 = Avx2.GatherVector256((ulong*)arena, idxHi.GetLower().AsInt32(), 8);
+                var rec3 = Avx2.GatherVector256((ulong*)arena, idxHi.GetUpper().AsInt32(), 8);
+                var eff0 = Avx2.PermuteVar8x32(rec0.AsInt32(), effectLanes).GetLower().AsSingle();
+                var eff1 = Avx2.PermuteVar8x32(rec1.AsInt32(), effectLanes).GetLower().AsSingle();
+                var eff2 = Avx2.PermuteVar8x32(rec2.AsInt32(), effectLanes).GetLower().AsSingle();
+                var eff3 = Avx2.PermuteVar8x32(rec3.AsInt32(), effectLanes).GetLower().AsSingle();
+                var effLo = Avx.InsertVector128(eff0.ToVector256(), eff1, 1);
+                var effHi = Avx.InsertVector128(eff2.ToVector256(), eff3, 1);
+                var nx0 = Avx2.PermuteVar8x32(rec0.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                var nx1 = Avx2.PermuteVar8x32(rec1.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                var nx2 = Avx2.PermuteVar8x32(rec2.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                var nx3 = Avx2.PermuteVar8x32(rec3.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                var skipLo = Avx.InsertVector128(Avx2.CompareEqual(nx0, skipWord).ToVector256(), Avx2.CompareEqual(nx1, skipWord), 1).AsSingle();
+                var skipHi = Avx.InsertVector128(Avx2.CompareEqual(nx2, skipWord).ToVector256(), Avx2.CompareEqual(nx3, skipWord), 1).AsSingle();
+                var fxLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+                Avx2.BlendVariable(fxLo + effLo, fxLo, skipLo).StoreUnsafe(ref e, (nuint)i);
+                var fxHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+                Avx2.BlendVariable(fxHi + effHi, fxHi, skipHi).StoreUnsafe(ref e, (nuint)(i + 8));
+                if (hasNext)
+                {
+                    var nextLo = Avx.InsertVector128(nx0.ToVector256(), nx1, 1);
+                    var nextHi = Avx.InsertVector128(nx2.ToVector256(), nx3, 1);
+                    var outLo = Avx2.BlendVariable(nextLo.AsSingle(), posLo.AsSingle(), skipLo).AsUInt32();
+                    var outHi = Avx2.BlendVariable(nextHi.AsSingle(), posHi.AsSingle(), skipHi).AsUInt32();
+                    Vector256.Narrow(outLo, outHi).StoreUnsafe(ref n, (nuint)i);
+                }
+                i = block;
+            }
+        }
+        for (; i < limit; i++)
+        {
+            var records = arena + bases[Unsafe.Add(ref idRef, (nuint)i)];
+            var pos = Unsafe.Add(ref p, (nuint)i);
+            ref var r = ref records[pos];
+            if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
+            {
+                Unsafe.Add(ref e, (nuint)i) += r.Effect;
+                if (hasNext) Unsafe.Add(ref n, (nuint)i) = r.Next;
+            }
+            else if (hasNext) Unsafe.Add(ref n, (nuint)i) = pos;
         }
         return limit;
     }
