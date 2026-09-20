@@ -38,7 +38,7 @@ internal static class JobEmitter
         W("internal static void Install()");
         W("{");
         foreach (var (name, consumer) in items)
-            W($"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>.Consume(&Execute_{name}, &ExecuteRange_{name}, &Bind_{name});");
+            W($"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>.Consume(&OnActive_{name}, &OnActiveRange_{name}, &Bind_{name});");
         foreach (var (name, bake) in bakeItems)
             foreach (var pair in bake.Pairs)
                 W($"global::Tl.BakeRuntime<{pair.TrackTypeName}, {pair.ClipTypeName}>.Bake(&Bake_{name}{ContextArguments(bake)});");
@@ -46,20 +46,20 @@ internal static class JobEmitter
         foreach (var (name, consumer) in items)
         {
             var job = consumer.Job;
-            W($"private static void Execute_{name}(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)");
+            W($"private static void OnActive_{name}(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)");
             W("{");
             W($"{consumer.ClipTypeName} __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<{consumer.TrackTypeName}, {consumer.ClipTypeName}>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);");
             for (var i = 0; i < job.Slots.Count; i++)
                 W($"var @{job.Slots[i].Name} = ({job.Slots[i].TypeName}*)__tlColumns[{i}];");
-            W($"{job.TypeName}.Execute(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
+            W($"{job.TypeName}.OnActive(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
             W("}");
-            W($"private static void ExecuteRange_{name}(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)");
+            W($"private static void OnActiveRange_{name}(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)");
             W("{");
             W($"{consumer.ClipTypeName} __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<{consumer.TrackTypeName}, {consumer.ClipTypeName}>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);");
             for (var i = 0; i < job.Slots.Count; i++)
                 W($"var @{job.Slots[i].Name} = ({job.Slots[i].TypeName}*)__tlColumns[{i}];");
             W("for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)");
-            W($"{job.TypeName}.Execute(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
+            W($"{job.TypeName}.OnActive(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
             W("}");
             W($"private static void Bind_{name}(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)");
             W("{");

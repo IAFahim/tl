@@ -18,7 +18,7 @@ public readonly struct JobTrack(float multiplier) : IBlend<JobClip>
 
 public readonly struct DamageJob : ITrack<JobTrack, JobClip>
 {
-    public static void Execute(in Frame<JobTrack, JobClip> frame, ref float health)
+    public static void OnActive(in Frame<JobTrack, JobClip> frame, ref float health)
         => health += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
@@ -29,7 +29,7 @@ public readonly struct Temperature
 
 public readonly struct SensorJob : ITrack<JobTrack, JobClip>
 {
-    public static void Execute(
+    public static void OnActive(
         in Frame<JobTrack, JobClip> frame,
         in Temperature ambient,
         ref double reading,

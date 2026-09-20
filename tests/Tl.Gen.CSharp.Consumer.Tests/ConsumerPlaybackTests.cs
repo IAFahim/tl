@@ -153,7 +153,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
-            public static void Execute(in Frame<DamageTrack, DamageClip> frame, ref float health)
+            public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float health)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 health += frame.IsBackward ? amount : -amount;
@@ -182,7 +182,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct ApplyHeal : ITrack<HealTrack, HealClip>, IBake<ApplyHeal, World>
         {
-            public static void Execute(in Frame<HealTrack, HealClip> frame, ref float health)
+            public static void OnActive(in Frame<HealTrack, HealClip> frame, ref float health)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 health += frame.IsBackward ? -amount : amount;
@@ -201,7 +201,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct ApplyBuff : ITrack<BuffTrack, BuffClip>
         {
-            public static void Execute(in Frame<BuffTrack, BuffClip> frame, ref float armor)
+            public static void OnActive(in Frame<BuffTrack, BuffClip> frame, ref float armor)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 armor += frame.IsBackward ? -amount : amount;
@@ -218,7 +218,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct ApplyGuarded : ITrack<GuardTrack, GuardClip>
         {
-            public static void Execute(in Frame<GuardTrack, GuardClip> frame, in Resistance resistance, ref float health)
+            public static void OnActive(in Frame<GuardTrack, GuardClip> frame, in Resistance resistance, ref float health)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier * resistance.Scale;
                 health += frame.IsBackward ? amount : -amount;

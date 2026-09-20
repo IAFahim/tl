@@ -39,7 +39,7 @@ namespace Showcase
 
     public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
     {
-        public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float y)
+        public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
             => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
     }
 

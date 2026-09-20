@@ -28,7 +28,7 @@ public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
 
 public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
 {
-    public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float y)
+    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
         => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
 }
 ```
@@ -106,7 +106,7 @@ public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
 
 public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
 {
-    public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float y)
+    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
     {
         y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
     }
@@ -155,6 +155,8 @@ rewind walks the arc back exactly:
 
 Timeline.Bake marked entities 42, 43 as jumping; unmarked entities never reach the advance
 ```
+
+Migration from earlier packages: the consumer method `Execute` is now `OnActive`.
 
 ## Data
 
@@ -258,7 +260,7 @@ tlb --watch jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
 - `blendable` — the track implements `IBlend<this clip>`; only blendable pairs produce lanes
 - `unmanaged` — both structs are unmanaged; a `false` pair fails the bake
 - `trackPairings` — every clip type this track can blend (the full `IBlend<>` set)
-- `consumers` — discovered `ITrack<track, clip>` jobs and the effect columns their `Execute` writes (`outputs`)
+- `consumers` — discovered `ITrack<track, clip>` jobs and the effect columns their `OnActive` writes (`outputs`)
 
 Each `pairs` entry maps onto one track and its clips: the track entry names `(track.namespace, track.name)`, each clip entry names `(clip.namespace, clip.name)`, and `data` sets exactly the listed `fields`. With `--auto` the namespaces can be left out entirely; use this listing to check spellings, pick among same-named types, and see which consumers fold into a pair.
 
@@ -304,7 +306,7 @@ More systems on the same pair just declare the marker again — no registration,
 ```cs
 public readonly struct ScreenShake : ITrack<JumpTrack, JumpClip>
 {
-    public static void Execute(in Frame<JumpTrack, JumpClip> frame, ref float shake)
+    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float shake)
     {
         if (frame.Has(FrameFlags.TimelineEnd))
             shake += 1f;
