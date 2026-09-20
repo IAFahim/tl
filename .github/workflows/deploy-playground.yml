@@ -6,6 +6,10 @@ on:
     paths:
       - 'tools/Tl.Playground/**'
       - 'src/**'
+      - 'samples/**'
+      - 'benchmarks/Numbers/**'
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
