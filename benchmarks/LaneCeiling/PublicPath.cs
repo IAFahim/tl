@@ -79,7 +79,7 @@ internal static unsafe class PublicPath
                     Array.Copy(seed, pos, rows);
                     var before = GC.GetTotalAllocatedBytes(precise: true);
                     var t = Stopwatch.GetTimestamp();
-                    Timeline<ProbeTrack, ProbeClip>.Advance(index, pos, true);
+                    Timeline.Advance(index, pos, true);
                     var ms = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                     allocated = GC.GetTotalAllocatedBytes(precise: true) - before;
                     if (ms < best) best = ms;
@@ -99,7 +99,7 @@ internal static unsafe class PublicPath
                     Array.Copy(seed, pos, rows);
                     var before = GC.GetTotalAllocatedBytes(precise: true);
                     var t = Stopwatch.GetTimestamp();
-                    Timeline<ProbeTrack, ProbeClip>.Advance(ids, pos, true);
+                    Timeline.Advance(ids, pos, true);
                     var ms = Stopwatch.GetElapsedTime(t).TotalMilliseconds;
                     allocated = GC.GetTotalAllocatedBytes(precise: true) - before;
                     if (ms < best) best = ms;

@@ -714,7 +714,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
         var blockEnd = i + ((limit - i) >> 4 << 4);
-        if (gather && duration > 1 && blockEnd > i && (looping ? LaneOps.StaggeredEnds(positions, i, blockEnd) : ShortRuns(positions, i, blockEnd)))
+        if (gather && duration > 1 && blockEnd > i && (Avx2.IsSupported || duration <= 8 && Vector128.IsHardwareAccelerated) && (looping ? LaneOps.StaggeredEnds(positions, i, blockEnd) : ShortRuns(positions, i, blockEnd)))
         {
             if (duration <= 8)
             {
