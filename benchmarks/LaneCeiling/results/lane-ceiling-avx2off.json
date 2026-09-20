@@ -1,0 +1,458 @@
+[
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.4533,
+    "Ns": 0.4533,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "staggered",
+    "Kernel": "permute8x128",
+    "Ms": 0.3922,
+    "Ns": 0.3922,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 5.3534,
+    "Ns": 5.3534,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.453,
+    "Ns": 0.453,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "uniform",
+    "Kernel": "permute8x128",
+    "Ms": 0.392,
+    "Ns": 0.392,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2885,
+    "Ns": 0.2885,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4531,
+    "Ns": 0.4531,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "waves100",
+    "Kernel": "permute8x128",
+    "Ms": 0.3919,
+    "Ns": 0.3919,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop6/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2964,
+    "Ns": 0.2964,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.4531,
+    "Ns": 0.4531,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2936,
+    "Ns": 0.2936,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.4535,
+    "Ns": 0.4535,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2927,
+    "Ns": 0.2927,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4537,
+    "Ns": 0.4537,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop16/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2885,
+    "Ns": 0.2885,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.4572,
+    "Ns": 0.4572,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.3177,
+    "Ns": 0.3177,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.4538,
+    "Ns": 0.4538,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2962,
+    "Ns": 0.2962,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4533,
+    "Ns": 0.4533,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop32/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2944,
+    "Ns": 0.2944,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.4539,
+    "Ns": 0.4539,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2959,
+    "Ns": 0.2959,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.4533,
+    "Ns": 0.4533,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2882,
+    "Ns": 0.2882,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.4538,
+    "Ns": 0.4538,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.3079,
+    "Ns": 0.3079,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.5731,
+    "Ns": 0.5731,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.3219,
+    "Ns": 0.3219,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.5734,
+    "Ns": 0.5734,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2893,
+    "Ns": 0.2893,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.5737,
+    "Ns": 0.5737,
+    "Allocated": 0
+  },
+  {
+    "Lane": "loop1024/bwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.3063,
+    "Ns": 0.3063,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/fwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.4537,
+    "Ns": 0.4537,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/fwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2926,
+    "Ns": 0.2926,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/fwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.4532,
+    "Ns": 0.4532,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/fwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2876,
+    "Ns": 0.2876,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/fwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.454,
+    "Ns": 0.454,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/fwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.3295,
+    "Ns": 0.3295,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/bwd",
+    "Shape": "staggered",
+    "Kernel": "record",
+    "Ms": 0.5801,
+    "Ns": 0.5801,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/bwd",
+    "Shape": "staggered",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2885,
+    "Ns": 0.2885,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/bwd",
+    "Shape": "uniform",
+    "Kernel": "record",
+    "Ms": 0.5736,
+    "Ns": 0.5736,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/bwd",
+    "Shape": "uniform",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2924,
+    "Ns": 0.2924,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/bwd",
+    "Shape": "waves100",
+    "Kernel": "record",
+    "Ms": 0.5733,
+    "Ns": 0.5733,
+    "Allocated": 0
+  },
+  {
+    "Lane": "finite1024/bwd",
+    "Shape": "waves100",
+    "Kernel": "streamadd-floor",
+    "Ms": 0.2872,
+    "Ns": 0.2872,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/loop6",
+    "Shape": "staggered",
+    "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
+    "Ms": 0.3972,
+    "Ns": 0.3972,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/loop6",
+    "Shape": "uniform",
+    "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
+    "Ms": 0.1831,
+    "Ns": 0.1831,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/loop6",
+    "Shape": "uniform",
+    "Kernel": "Timeline.Advance(index)",
+    "Ms": 0.0594,
+    "Ns": 0.0594,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/loop6",
+    "Shape": "uniform",
+    "Kernel": "Timeline.Advance(ids)",
+    "Ms": 0.1874,
+    "Ns": 0.1874,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/loop1024",
+    "Shape": "staggered",
+    "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
+    "Ms": 0.8544,
+    "Ns": 0.8544,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/loop1024",
+    "Shape": "uniform",
+    "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
+    "Ms": 0.1805,
+    "Ns": 0.1805,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/loop1024",
+    "Shape": "uniform",
+    "Kernel": "Timeline.Advance(index)",
+    "Ms": 0.0594,
+    "Ns": 0.0594,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/loop1024",
+    "Shape": "uniform",
+    "Kernel": "Timeline.Advance(ids)",
+    "Ms": 0.1869,
+    "Ns": 0.1869,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/finite1024",
+    "Shape": "staggered",
+    "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
+    "Ms": 0.8523,
+    "Ns": 0.8523,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/finite1024",
+    "Shape": "uniform",
+    "Kernel": "Timeline\u003CTTrack,TClip\u003E.Apply\u002BStep",
+    "Ms": 0.179,
+    "Ns": 0.179,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/finite1024",
+    "Shape": "uniform",
+    "Kernel": "Timeline.Advance(index)",
+    "Ms": 0.055,
+    "Ns": 0.055,
+    "Allocated": 0
+  },
+  {
+    "Lane": "public/finite1024",
+    "Shape": "uniform",
+    "Kernel": "Timeline.Advance(ids)",
+    "Ms": 0.1783,
+    "Ns": 0.1783,
+    "Allocated": 0
+  }
+]

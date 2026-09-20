@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
-using System.Runtime.Intrinsics.X86;
 
 namespace Tl;
 
@@ -19,30 +18,32 @@ public static class Timeline
         Checked.Columns(indices, positions, next);
         var count = positions.Length;
         var motion = TimelineTable.Motion;
-        var reverse = !forward;
         var i = 0;
-        if (Avx2.IsSupported)
+        var bound = count - (count & 15);
+        while (i < bound)
         {
-            var bound = count - (count & 15);
-            while (i < bound)
+            var block = i + 16;
+            if (Vector256.EqualsAll(Vector256.LoadUnsafe(ref MemoryMarshal.GetReference(indices), (nuint)i), Vector256.Create(indices[i])))
             {
-                var block = i + 16;
-                if (Vector256.EqualsAll(Vector256.LoadUnsafe(ref MemoryMarshal.GetReference(indices), (nuint)i), Vector256.Create(indices[i])))
-                {
-                    var m = motion[indices[i]];
-                    if (forward) LaneOps.AdvanceForward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
-                    else LaneOps.AdvanceBackward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
-                }
-                else LaneOps.AdvanceRows(motion, indices, positions, next, forward, i, block);
-                i = block;
+                var m = motion[indices[i]];
+                if (forward) LaneOps.AdvanceForward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
+                else LaneOps.AdvanceBackward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
             }
+            else LaneOps.AdvanceRows(motion, indices, positions, next, forward, i, block);
+            i = block;
         }
         for (; i < count; i++)
         {
             var m = motion[indices[i]];
-            next[i] = TimelineMovement.Advance((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, reverse, positions[i], out var np, out _, out _)
-                ? np
-                : positions[i];
+            var duration = (ushort)(m & 0xFFFF);
+            var looping = (m & 0x80000000u) != 0;
+            var pos = positions[i];
+            if (forward)
+                next[i] = pos < duration ? (looping && pos + 1 == duration ? (ushort)0 : (ushort)(pos + 1)) : pos;
+            else
+                next[i] = looping
+                    ? pos < duration ? (pos == 0 ? (ushort)(duration - 1) : (ushort)(pos - 1)) : pos
+                    : pos > 0 && pos <= duration ? (ushort)(pos - 1) : pos;
         }
     }
 
@@ -110,26 +111,18 @@ public static class Timeline
         var duration = (ushort)(m & 0xFFFF);
         var looping = (m & 0x80000000u) != 0;
         var count = positions.Length;
-        var reverse = !forward;
         if (count <= LaneOps.SmallSpan)
         {
             AdvanceRecords(m, positions, next, forward);
             return;
         }
-        var i = 0;
-        if (Avx2.IsSupported && duration > 0)
+        if (duration > 0)
         {
-            var bound = count - (count & 15);
-            if (forward) LaneOps.AdvanceForward(duration, looping, positions, next, 0, bound);
-            else LaneOps.AdvanceBackward(duration, looping, positions, next, 0, bound);
-            i = bound;
+            if (forward) LaneOps.AdvanceForward(duration, looping, positions, next, 0, count);
+            else LaneOps.AdvanceBackward(duration, looping, positions, next, 0, count);
+            return;
         }
-        for (; i < count; i++)
-        {
-            next[i] = TimelineMovement.Advance(duration, looping, reverse, positions[i], out var np, out _, out _)
-                ? np
-                : positions[i];
-        }
+        positions.CopyTo(next);
     }
 
     public static void Bake(ushort timeline)

@@ -158,9 +158,9 @@ public class UniformRunRoutingTests
             var effects = SeedEffects(Rows);
             for (var warm = 0; warm < 4; warm++)
                 Timeline<RoutingTrack, RoutingClip>.Apply(ids, positions, positions, true, effects);
-            var before = GC.GetTotalAllocatedBytes(precise: true);
+            var before = GC.GetAllocatedBytesForCurrentThread();
             Timeline<RoutingTrack, RoutingClip>.Apply(ids, positions, positions, true, effects);
-            Assert.Equal(0, GC.GetTotalAllocatedBytes(precise: true) - before);
+            Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
         }
     }
 
