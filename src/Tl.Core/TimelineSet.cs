@@ -588,7 +588,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         var minDuration = set._minDuration;
         var lazy = set._lazyResolve;
         var holy = lazy && set._holes != 0;
-        var gather = Avx2.IsSupported;
+        var gather = Avx2.IsSupported || Vector128.IsHardwareAccelerated;
         var forward = _forward;
         var i = 0;
         var uniformId = -1;
@@ -676,7 +676,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         var count = positions.Length;
         if (count == 0) return;
         var slot = set._views[index];
-        var gather = Avx2.IsSupported;
+        var gather = Avx2.IsSupported || Vector128.IsHardwareAccelerated;
         var forward = _forward;
         var i = 0;
         while (i < count)
@@ -697,7 +697,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         var count = positions.Length;
         if (count == 0) return;
         var slot = set._views[index];
-        var gather = Avx2.IsSupported;
+        var gather = Avx2.IsSupported || Vector128.IsHardwareAccelerated;
         var forward = _forward;
         var i = 0;
         while (i < count)
@@ -714,23 +714,24 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
         var blockEnd = i + ((limit - i) >> 4 << 4);
-        if (gather && blockEnd > i && duration > 1 && (looping ? LaneOps.StaggeredEnds(positions, i, blockEnd) : ShortRuns(positions, i, blockEnd)))
+        if (gather && duration > 1 && blockEnd > i && (looping ? LaneOps.StaggeredEnds(positions, i, blockEnd) : ShortRuns(positions, i, blockEnd)))
         {
-            if (forward)
+            if (duration <= 8)
             {
-                if (duration <= 8)
+                if (forward)
                     LaneOps.EffPermuteForward(slot->Forward, duration, looping, positions, next, effects, i, blockEnd);
                 else
-                    LaneOps.EffectForward(slot->Forward, duration, looping, positions, next, effects, i, blockEnd);
-            }
-            else
-            {
-                if (duration <= 8)
                     LaneOps.EffPermuteBackward(slot->Backward, duration, looping, positions, next, effects, i, blockEnd);
+                i = blockEnd;
+            }
+            else if (Avx2.IsSupported)
+            {
+                if (forward)
+                    LaneOps.EffectForward(slot->Forward, duration, looping, positions, next, effects, i, blockEnd);
                 else
                     LaneOps.EffectBackward(slot->BackwardByPosition, duration, looping, positions, next, effects, i, blockEnd);
+                i = blockEnd;
             }
-            i = blockEnd;
         }
         return forward
             ? ApplyUniformForward(slot, positions, next, effects, i, limit)
@@ -965,6 +966,15 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                 j += 16;
             }
         }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            var vectorLimit = probe - 9;
+            while (j <= vectorLimit)
+            {
+                equalPairs += BitOperations.PopCount(Vector128.ExtractMostSignificantBits(Vector128.Equals(Vector128.LoadUnsafe(ref origin, (nuint)j), Vector128.LoadUnsafe(ref origin, (nuint)(j + 1)))) & 0xFF);
+                j += 8;
+            }
+        }
         for (var k = j; k < probe - 1; k++)
             if (positions[k] == positions[k + 1]) equalPairs++;
         return equalPairs <= 24;
@@ -1035,6 +1045,24 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     if (id >= bound) grew |= ResolveOrThrow(set, id, k);
                 }
         }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            ref var origin = ref MemoryMarshal.GetReference(ids);
+            var boundVector = Vector128.Create((ushort)bound);
+            var edge = end - 8;
+            var over = Vector128<ushort>.Zero;
+            while (i <= edge)
+            {
+                over |= Vector128.GreaterThanOrEqual(Vector128.LoadUnsafe(ref origin, (nuint)i), boundVector);
+                i += 8;
+            }
+            if (over != Vector128<ushort>.Zero)
+                for (var k = start; k < end; k++)
+                {
+                    var id = ids[k];
+                    if (id >= bound) grew |= ResolveOrThrow(set, id, k);
+                }
+        }
         while (i < end)
         {
             var id = ids[i];
@@ -1094,6 +1122,22 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                 i += 16;
             }
         }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            ref var idOrigin = ref MemoryMarshal.GetReference(ids);
+            ref var positionOrigin = ref MemoryMarshal.GetReference(positions);
+            var boundVector = Vector128.Create(boundLimit);
+            var limit = Vector128.Create((ushort)minDuration);
+            var highest = Vector128<ushort>.Zero;
+            while (i + 8 < end)
+            {
+                var id = Vector128.LoadUnsafe(ref idOrigin, (nuint)i);
+                if (Vector128.GreaterThanOrEqual(id, boundVector) != Vector128<ushort>.Zero) return false;
+                highest = Vector128.Max(highest, Vector128.LoadUnsafe(ref positionOrigin, (nuint)i));
+                if (Vector128.ExtractMostSignificantBits(Vector128.GreaterThanOrEqual(highest, limit)) != 0) return false;
+                i += 8;
+            }
+        }
         for (var k = i; k < end; k++)
         {
             if (ids[k] >= boundLimit) return false;
@@ -1141,6 +1185,22 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                 var mask = idMask & tickMask;
                 if (mask != 0xFFFFu) return end + BitOperations.TrailingZeroCount(~mask);
                 end += 16;
+            }
+        }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            ref var idFirst = ref MemoryMarshal.GetReference(ids);
+            ref var positionFirst = ref MemoryMarshal.GetReference(positions);
+            var idSearch = Vector128.Create(id);
+            var tickSearch = Vector128.Create(tick);
+            var bound = limit - 8;
+            while (end <= bound)
+            {
+                var idMask = Vector128.ExtractMostSignificantBits(Vector128.Equals(Vector128.LoadUnsafe(ref idFirst, (nuint)end), idSearch)) & 0xFF;
+                var tickMask = Vector128.ExtractMostSignificantBits(Vector128.Equals(Vector128.LoadUnsafe(ref positionFirst, (nuint)end), tickSearch)) & 0xFF;
+                var mask = idMask & tickMask;
+                if (mask != 0xFF) return end + BitOperations.TrailingZeroCount(~mask & 0xFF);
+                end += 8;
             }
         }
         while (end < limit && ids[end] == id && positions[end] == tick) end++;

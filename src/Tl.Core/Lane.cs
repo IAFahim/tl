@@ -74,7 +74,7 @@ internal ref struct TimelineLane<T>
         var active = LaneAccelerator<T>.Active;
         var records = forward ? LaneAccelerator<T>.Forward : LaneAccelerator<T>.Backward;
         var i = 0;
-        if (Avx2.IsSupported && active && duration > 1)
+        if (active && duration > 1 && (Avx2.IsSupported || duration <= 8 && Vector128.IsHardwareAccelerated))
         {
             var end = count - (count & 15);
             if (forward)
@@ -189,24 +189,24 @@ internal ref struct TimelineLane<T>
         var forward = _forward;
         var i = 0;
         var gather = duration > 1 && Avx2.IsSupported;
-        var permute = duration <= 8 && Avx2.IsSupported;
+        var permute = duration <= 8 && (Avx2.IsSupported || Vector128.IsHardwareAccelerated);
         while (i < count)
         {
             var chunkEnd = i + Chunk;
             if (chunkEnd > count) chunkEnd = count;
             var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
-            if (gather && blockEnd > i && LaneOps.StaggeredEnds(positions, i, blockEnd))
+            if ((gather || permute) && duration > 1 && blockEnd > i && LaneOps.StaggeredEnds(positions, i, blockEnd))
             {
                 if (forward)
                 {
-                    if (permute)
+                    if (duration <= 8)
                         LaneOps.EffPermuteForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
                     else
                         LaneOps.EffectForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
                 }
                 else
                 {
-                    if (permute)
+                    if (duration <= 8)
                         LaneOps.EffPermuteBackward(LaneAccelerator<T>.BackwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
                     else
                         LaneOps.EffectBackward(LaneAccelerator<T>.BackwardByPosition, T.Duration, looping, positions, default, effects, i, blockEnd);
@@ -292,6 +292,18 @@ internal static unsafe class LaneOps
                 end += 16;
             }
         }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            ref var first = ref MemoryMarshal.GetReference(values);
+            var search = Vector128.Create(value);
+            var bound = limit - 8;
+            while (end <= bound)
+            {
+                var mask = Vector128.ExtractMostSignificantBits(Vector128.Equals(Vector128.LoadUnsafe(ref first, (nuint)end), search)) & 0xFF;
+                if (mask != 0xFF) return end + BitOperations.TrailingZeroCount(~mask & 0xFF);
+                end += 8;
+            }
+        }
         while (end < limit && values[end] == value) end++;
         return end;
     }
@@ -332,13 +344,20 @@ internal static unsafe class LaneOps
     {
         var length = end - start;
         var i = 0;
-        if (Vector.IsHardwareAccelerated)
+        ref var origin = ref MemoryMarshal.GetReference(values);
+        if (Avx.IsSupported)
         {
-            ref var origin = ref MemoryMarshal.GetReference(values);
-            var vector = new Vector<float>(delta);
-            var limit = length & ~(Vector<float>.Count - 1);
-            for (; i < limit; i += Vector<float>.Count)
-                (Vector.LoadUnsafe(ref origin, (nuint)(start + i)) + vector).StoreUnsafe(ref origin, (nuint)(start + i));
+            var vector = Vector256.Create(delta);
+            var limit = length & ~7;
+            for (; i < limit; i += 8)
+                (Vector256.LoadUnsafe(ref origin, (nuint)(start + i)) + vector).StoreUnsafe(ref origin, (nuint)(start + i));
+        }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            var vector = Vector128.Create(delta);
+            var limit = length & ~3;
+            for (; i < limit; i += 4)
+                (Vector128.LoadUnsafe(ref origin, (nuint)(start + i)) + vector).StoreUnsafe(ref origin, (nuint)(start + i));
         }
         for (; i < length; i++) values[start + i] += delta;
     }
@@ -348,12 +367,18 @@ internal static unsafe class LaneOps
     {
         var length = end - start;
         var i = 0;
-        if (Vector.IsHardwareAccelerated)
+        ref var origin = ref MemoryMarshal.GetReference(values);
+        if (Avx2.IsSupported)
         {
-            ref var origin = ref MemoryMarshal.GetReference(values);
-            var vector = new Vector<ushort>(value);
-            var limit = length & ~(Vector<ushort>.Count - 1);
-            for (; i < limit; i += Vector<ushort>.Count) vector.StoreUnsafe(ref origin, (nuint)(start + i));
+            var vector = Vector256.Create(value);
+            var limit = length & ~15;
+            for (; i < limit; i += 16) vector.StoreUnsafe(ref origin, (nuint)(start + i));
+        }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            var vector = Vector128.Create(value);
+            var limit = length & ~7;
+            for (; i < limit; i += 8) vector.StoreUnsafe(ref origin, (nuint)(start + i));
         }
         for (; i < length; i++) values[start + i] = value;
     }
@@ -361,87 +386,166 @@ internal static unsafe class LaneOps
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     internal static unsafe void EffPermuteForward(float* eff, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit)
     {
-        var table = Vector256.Load(eff);
-        var last = (ushort)(duration - 1);
-        var lastWide = Vector256.Create((uint)last);
-        var lastVector = Vector256.Create(last);
-        var zero = Vector256<ushort>.Zero;
-        var one = Vector256.Create((ushort)1);
         var hasNext = !nextColumn.IsEmpty;
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
         ref var e = ref MemoryMarshal.GetReference(effects);
-        while (i < limit)
+        var last = (ushort)(duration - 1);
+        if (Vector256.IsHardwareAccelerated)
         {
-            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
-            if (hasNext)
+            var table = Vector256.Load(eff);
+            var lastWide = Vector256.Create((uint)last);
+            var lastVector = Vector256.Create(last);
+            var zero = Vector256<ushort>.Zero;
+            var one = Vector256.Create((ushort)1);
+            while (i + 16 <= limit)
             {
-                var skipMask = Vector256.GreaterThan(pos, lastVector);
-                var next = pos + one;
-                if (wrap) next = Vector256.ConditionalSelect(Vector256.Equals(pos, lastVector), zero, next);
-                next = Vector256.ConditionalSelect(skipMask, pos, next);
-                next.StoreUnsafe(ref n, (nuint)i);
+                var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+                if (hasNext)
+                {
+                    var skipMask = Vector256.GreaterThan(pos, lastVector);
+                    var next = pos + one;
+                    if (wrap) next = Vector256.ConditionalSelect(Vector256.Equals(pos, lastVector), zero, next);
+                    next = Vector256.ConditionalSelect(skipMask, pos, next);
+                    next.StoreUnsafe(ref n, (nuint)i);
+                }
+                (var wideLo, var wideHi) = Vector256.Widen(pos);
+                var gatherLo = Avx2.PermuteVar8x32(table, wideLo.AsInt32());
+                var gatherHi = Avx2.PermuteVar8x32(table, wideHi.AsInt32());
+                var skipLo = Vector256.GreaterThan(wideLo, lastWide).AsSingle();
+                var skipHi = Vector256.GreaterThan(wideHi, lastWide).AsSingle();
+                var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+                Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+                var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+                Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+                i += 16;
             }
-            (var wideLo, var wideHi) = Vector256.Widen(pos);
-            var gatherLo = Avx2.PermuteVar8x32(table, wideLo.AsInt32());
-            var gatherHi = Avx2.PermuteVar8x32(table, wideHi.AsInt32());
-            var skipLo = Vector256.GreaterThan(wideLo, lastWide).AsSingle();
-            var skipHi = Vector256.GreaterThan(wideHi, lastWide).AsSingle();
-            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
-            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
-            i += 16;
         }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            var tableLow = Vector128.Load(eff);
+            var tableHigh = Vector128.Load(eff + 4);
+            var lastWide = Vector128.Create((uint)last);
+            var lastVector = Vector128.Create(last);
+            var zero = Vector128<ushort>.Zero;
+            var one = Vector128.Create((ushort)1);
+            var laneLow = Vector128.Create(3u);
+            var laneHigh = Vector128.Create(4u);
+            var end = limit - 7;
+            while (i < end)
+            {
+                var pos = Vector128.LoadUnsafe(ref p, (nuint)i);
+                if (hasNext)
+                {
+                    var skipMask = Vector128.GreaterThan(pos, lastVector);
+                    var next = pos + one;
+                    if (wrap) next = Vector128.ConditionalSelect(Vector128.Equals(pos, lastVector), zero, next);
+                    next = Vector128.ConditionalSelect(skipMask, pos, next);
+                    next.StoreUnsafe(ref n, (nuint)i);
+                }
+                (var wideLo, var wideHi) = Vector128.Widen(pos);
+                var effectLo = Vector128.LoadUnsafe(ref e, (nuint)i);
+                Vector128.ConditionalSelect(Vector128.GreaterThan(wideLo, lastWide).AsSingle(), effectLo, effectLo + Permute8(tableLow, tableHigh, wideLo, laneLow, laneHigh)).StoreUnsafe(ref e, (nuint)i);
+                var effectHi = Vector128.LoadUnsafe(ref e, (nuint)(i + 4));
+                Vector128.ConditionalSelect(Vector128.GreaterThan(wideHi, lastWide).AsSingle(), effectHi, effectHi + Permute8(tableLow, tableHigh, wideHi, laneLow, laneHigh)).StoreUnsafe(ref e, (nuint)(i + 4));
+                i += 8;
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static Vector128<float> Permute8(Vector128<float> tableLow, Vector128<float> tableHigh, Vector128<uint> index, Vector128<uint> laneLow, Vector128<uint> laneHigh)
+    {
+        var lanes = index & laneLow;
+        var fromLow = Vector128.Shuffle(tableLow, lanes.AsInt32());
+        var fromHigh = Vector128.Shuffle(tableHigh, lanes.AsInt32());
+        return Vector128.ConditionalSelect(Vector128.Equals(index & laneHigh, laneHigh).AsSingle(), fromHigh, fromLow);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     internal static unsafe void EffPermuteBackward(float* backward, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit)
     {
-        var table = Vector256.Load(backward);
-        var last = (ushort)(duration - 1);
-        var lastVector = Vector256.Create(last);
-        var lastWide = Vector256.Create((uint)last);
-        var durationWide = Vector256.Create((uint)duration);
-        var zeroUint = Vector256<uint>.Zero;
-        var zero = Vector256<ushort>.Zero;
-        var step = Vector256.Create((ushort)0xFFFF);
         var hasNext = !nextColumn.IsEmpty;
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
         ref var e = ref MemoryMarshal.GetReference(effects);
-        while (i < limit)
+        var last = (ushort)(duration - 1);
+        if (Vector256.IsHardwareAccelerated)
         {
-            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
-            var index = Vector256.ConditionalSelect(Vector256.Equals(pos, zero), lastVector, pos + step);
-            if (hasNext)
+            var table = Vector256.Load(backward);
+            var lastVector = Vector256.Create(last);
+            var lastWide = Vector256.Create((uint)last);
+            var durationWide = Vector256.Create((uint)duration);
+            var zeroUint = Vector256<uint>.Zero;
+            var zero = Vector256<ushort>.Zero;
+            var step = Vector256.Create((ushort)0xFFFF);
+            while (i + 16 <= limit)
             {
-                Vector256<ushort> moveMask;
-                if (wrap) moveMask = Vector256.LessThanOrEqual(pos, lastVector);
-                else moveMask = Vector256.GreaterThan(pos, zero) & Vector256.LessThanOrEqual(pos, Vector256.Create(duration));
-                var next = Vector256.ConditionalSelect(moveMask, index, pos);
-                next.StoreUnsafe(ref n, (nuint)i);
+                var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+                var index = Vector256.ConditionalSelect(Vector256.Equals(pos, zero), lastVector, pos + step);
+                if (hasNext)
+                {
+                    Vector256<ushort> moveMask;
+                    if (wrap) moveMask = Vector256.LessThanOrEqual(pos, lastVector);
+                    else moveMask = Vector256.GreaterThan(pos, zero) & Vector256.LessThanOrEqual(pos, Vector256.Create(duration));
+                    var next = Vector256.ConditionalSelect(moveMask, index, pos);
+                    next.StoreUnsafe(ref n, (nuint)i);
+                }
+                (var indexLo, var indexHi) = Vector256.Widen(index);
+                var gatherLo = Avx2.PermuteVar8x32(table, indexLo.AsInt32());
+                var gatherHi = Avx2.PermuteVar8x32(table, indexHi.AsInt32());
+                (var posLo, var posHi) = Vector256.Widen(pos);
+                Vector256<float> skipLo, skipHi;
+                if (wrap)
+                {
+                    skipLo = Vector256.GreaterThan(posLo, lastWide).AsSingle();
+                    skipHi = Vector256.GreaterThan(posHi, lastWide).AsSingle();
+                }
+                else
+                {
+                    skipLo = (Vector256.Equals(posLo, zeroUint) | Vector256.GreaterThan(posLo, durationWide)).AsSingle();
+                    skipHi = (Vector256.Equals(posHi, zeroUint) | Vector256.GreaterThan(posHi, durationWide)).AsSingle();
+                }
+                var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
+                Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
+                var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
+                Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+                i += 16;
             }
-            (var indexLo, var indexHi) = Vector256.Widen(index);
-            var gatherLo = Avx2.PermuteVar8x32(table, indexLo.AsInt32());
-            var gatherHi = Avx2.PermuteVar8x32(table, indexHi.AsInt32());
-            (var posLo, var posHi) = Vector256.Widen(pos);
-            Vector256<float> skipLo, skipHi;
-            if (wrap)
+        }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            var tableLow = Vector128.Load(backward);
+            var tableHigh = Vector128.Load(backward + 4);
+            var lastVector = Vector128.Create(last);
+            var lastWide = Vector128.Create((uint)last);
+            var durationWide = Vector128.Create((uint)duration);
+            var zeroUint = Vector128<uint>.Zero;
+            var zero = Vector128<ushort>.Zero;
+            var step = Vector128.Create((ushort)0xFFFF);
+            var laneLow = Vector128.Create(3u);
+            var laneHigh = Vector128.Create(4u);
+            var end = limit - 7;
+            while (i < end)
             {
-                skipLo = Vector256.GreaterThan(posLo, lastWide).AsSingle();
-                skipHi = Vector256.GreaterThan(posHi, lastWide).AsSingle();
+                var pos = Vector128.LoadUnsafe(ref p, (nuint)i);
+                var index = Vector128.ConditionalSelect(Vector128.Equals(pos, zero), lastVector, pos + step);
+                if (hasNext)
+                {
+                    Vector128<ushort> moveMask;
+                    if (wrap) moveMask = Vector128.LessThanOrEqual(pos, lastVector);
+                    else moveMask = Vector128.GreaterThan(pos, zero) & Vector128.LessThanOrEqual(pos, Vector128.Create(duration));
+                    var next = Vector128.ConditionalSelect(moveMask, index, pos);
+                    next.StoreUnsafe(ref n, (nuint)i);
+                }
+                (var indexLo, var indexHi) = Vector128.Widen(index);
+                (var posLo, var posHi) = Vector128.Widen(pos);
+                var effectLo = Vector128.LoadUnsafe(ref e, (nuint)i);
+                Vector128.ConditionalSelect(wrap ? Vector128.GreaterThan(posLo, lastWide).AsSingle() : (Vector128.Equals(posLo, zeroUint) | Vector128.GreaterThan(posLo, durationWide)).AsSingle(), effectLo, effectLo + Permute8(tableLow, tableHigh, indexLo, laneLow, laneHigh)).StoreUnsafe(ref e, (nuint)i);
+                var effectHi = Vector128.LoadUnsafe(ref e, (nuint)(i + 4));
+                Vector128.ConditionalSelect(wrap ? Vector128.GreaterThan(posHi, lastWide).AsSingle() : (Vector128.Equals(posHi, zeroUint) | Vector128.GreaterThan(posHi, durationWide)).AsSingle(), effectHi, effectHi + Permute8(tableLow, tableHigh, indexHi, laneLow, laneHigh)).StoreUnsafe(ref e, (nuint)(i + 4));
+                i += 8;
             }
-            else
-            {
-                skipLo = (Vector256.Equals(posLo, zeroUint) | Vector256.GreaterThan(posLo, durationWide)).AsSingle();
-                skipHi = (Vector256.Equals(posHi, zeroUint) | Vector256.GreaterThan(posHi, durationWide)).AsSingle();
-            }
-            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
-            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
-            i += 16;
         }
     }
 
@@ -549,7 +653,7 @@ internal static unsafe class LaneOps
             var lastVector = Vector256.Create(last);
             var zero = Vector256<ushort>.Zero;
             var one = Vector256.Create((ushort)1);
-            while (i < limit)
+            while (i + 16 <= limit)
             {
                 var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
                 var next = pos + one;
@@ -564,8 +668,7 @@ internal static unsafe class LaneOps
             var lastVector = Vector128.Create(last);
             var zero = Vector128<ushort>.Zero;
             var one = Vector128.Create((ushort)1);
-            var end = limit - 7;
-            while (i < end)
+            while (i + 8 <= limit)
             {
                 var pos = Vector128.LoadUnsafe(ref p, (nuint)i);
                 var next = pos + one;
@@ -594,7 +697,7 @@ internal static unsafe class LaneOps
             var durationVector = Vector256.Create(duration);
             var zero = Vector256<ushort>.Zero;
             var step = Vector256.Create((ushort)0xFFFF);
-            while (i < limit)
+            while (i + 16 <= limit)
             {
                 var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
                 var next = pos + step;
@@ -619,8 +722,7 @@ internal static unsafe class LaneOps
             var durationVector = Vector128.Create(duration);
             var zero = Vector128<ushort>.Zero;
             var step = Vector128.Create((ushort)0xFFFF);
-            var end = limit - 7;
-            while (i < end)
+            while (i + 8 <= limit)
             {
                 var pos = Vector128.LoadUnsafe(ref p, (nuint)i);
                 var next = pos + step;
@@ -655,7 +757,7 @@ internal static unsafe class LaneOps
         var one = Vector256.Create(1u);
         var zero = Vector256<uint>.Zero;
         var low = Vector256.Create(0xFFFFu);
-        while (i < limit && Avx2.IsSupported)
+        while (i + 16 <= limit && Avx2.IsSupported)
         {
             var idv = Vector256.LoadUnsafe(ref idRef, (nuint)i);
             (var idLo, var idHi) = Vector256.Widen(idv);
