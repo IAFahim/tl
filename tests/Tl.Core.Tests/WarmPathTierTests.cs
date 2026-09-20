@@ -66,7 +66,6 @@ public class WarmPathTierTests
         new(typeof(TimelineLane<LawLane>), "ApplyRuns", 1, null, WarmMode.Optimize),
         new(typeof(TimelineLane<LawLane>), "ApplyAccelerated", 1, null, WarmMode.Optimize),
         new(typeof(TimelineLane<LawLane>), "RunShaped", 1, null, WarmMode.Inline),
-        new(typeof(TimelineLane<LawLane>), "Check", 1, null, WarmMode.Inline),
         new(typeof(Timeline), nameof(Timeline.Advance), 3, "ReadOnlySpan`1", WarmMode.Inline),
         new(typeof(Timeline), nameof(Timeline.Advance), 4, "ReadOnlySpan`1", WarmMode.Optimize),
         new(typeof(Timeline), nameof(Timeline.Advance), 3, "TimelineAsset", WarmMode.Inline),
@@ -93,6 +92,11 @@ public class WarmPathTierTests
         new(typeof(Lane<LaneTrack, LaneClip>), nameof(Lane<LaneTrack, LaneClip>.Apply), 4, null, WarmMode.Optimize),
         new(typeof(Lane<LaneTrack, LaneClip>), nameof(Lane<LaneTrack, LaneClip>.Advance), 3, null, WarmMode.Optimize),
         new(typeof(Lane<LaneTrack, LaneClip>), "CheckSizes", 0, null, WarmMode.Inline),
+        new(typeof(Checked), nameof(Checked.Live), 1, null, WarmMode.Inline),
+        new(typeof(Checked), nameof(Checked.Columns), 2, null, WarmMode.Inline),
+        new(typeof(Checked), nameof(Checked.Columns), 3, null, WarmMode.Inline),
+        new(typeof(Checked), nameof(Checked.Columns), 4, null, WarmMode.Inline),
+        new(typeof(Checked), nameof(Checked.Length), 2, null, WarmMode.Inline),
     ];
 
     [Fact]

@@ -528,10 +528,16 @@ internal static class BankReceipts
         using var member = TimelineAsset.LoadAsset(BakeBank(901f, 8));
         disposed.Add(member);
         disposed.Dispose();
+#if TL_CHECKED
         RequireThrows<ObjectDisposedException>(() => disposed.View(0), "disposed bank rejects views");
+#endif
 
         foreach (var asset in keepAlive) asset.Dispose();
+#if TL_CHECKED
         Console.WriteLine($"bank-views: shared-clock add, per-entity record walk, and gather-equivalent reads over {Contents} held views are bit-exact; absent, pair-less, never-bound, and disposed acquisition semantics PASS");
+#else
+        Console.WriteLine($"bank-views: shared-clock add, per-entity record walk, and gather-equivalent reads over {Contents} held views are bit-exact; absent, pair-less, and never-bound acquisition semantics PASS");
+#endif
     }
 
     internal static void Workload()

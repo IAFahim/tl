@@ -111,6 +111,7 @@ dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
 dotnet run --project samples/Mixed -c Release --no-build
 dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
 dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
+dotnet test tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -p:TlChecked=true -p:NuGetAudit=false
 ```
 
 Run JetBrains Inspect Code when available. Classify remaining findings explicitly; do not suppress a real defect or add configuration solely to make a count zero.
