@@ -9,19 +9,19 @@ var positions = new ushort[1];
 var values = new float[1];
 
 Timeline<PackageTrack, PackageClip>.Apply(asset, positions, true, values);
-Timeline.Step(asset, positions, true);
+Timeline.Advance(asset, positions, true);
 
 if (positions[0] != 1 || values[0] != 7f)
     return 1;
 
 Timeline<PackageTrack, PackageClip>.Apply(asset, positions, false, values);
-Timeline.Step(asset, positions, false);
+Timeline.Advance(asset, positions, false);
 
 if (positions[0] != 0 || values[0] != 0f)
     return 2;
 
 Timeline<PackageTrack, PackageClip>.Apply(asset, positions, true, values);
-Timeline.Step(asset, positions, true);
+Timeline.Advance(asset, positions, true);
 
 unsafe
 {

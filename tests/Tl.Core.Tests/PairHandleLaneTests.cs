@@ -79,7 +79,7 @@ public class PairHandleLaneTests
         {
             using var asset = TimelineAsset.LoadAsset(VariantBake(variant));
             handles[variant] = asset.Index;
-            Timeline<HandleTrack, HandleClip>.Apply(asset.Index, Span<ushort>.Empty, true, Span<float>.Empty); Timeline.Step(asset.Index, Span<ushort>.Empty, true);
+            Timeline<HandleTrack, HandleClip>.Apply(asset.Index, Span<ushort>.Empty, true, Span<float>.Empty); Timeline.Advance(asset.Index, Span<ushort>.Empty, true);
         }
         return handles;
     }
@@ -124,7 +124,7 @@ public class PairHandleLaneTests
     {
         using var asset = TimelineAsset.LoadAsset(VariantBake(1));
         var slot = asset.Index;
-        Timeline<HandleTrack, HandleClip>.Apply(slot, Span<ushort>.Empty, true, Span<float>.Empty); Timeline.Step(slot, Span<ushort>.Empty, true);
+        Timeline<HandleTrack, HandleClip>.Apply(slot, Span<ushort>.Empty, true, Span<float>.Empty); Timeline.Advance(slot, Span<ushort>.Empty, true);
         var crowdHandles = new ushort[Rows];
         Array.Fill(crowdHandles, slot);
         var scalarPositions = new ushort[Rows];
@@ -140,8 +140,8 @@ public class PairHandleLaneTests
         for (var step = 0; step < 80; step++)
         {
             var forward = step % 4 != 3;
-            Timeline<HandleTrack, HandleClip>.Apply(asset, scalarPositions, forward, scalarEffects); Timeline.Step(asset, scalarPositions, forward);
-            Timeline<HandleTrack, HandleClip>.Apply(crowdHandles, crowdPositions, forward, crowdEffects); Timeline.Step(crowdHandles, crowdPositions, forward);
+            Timeline<HandleTrack, HandleClip>.Apply(asset, scalarPositions, forward, scalarEffects); Timeline.Advance(asset, scalarPositions, forward);
+            Timeline<HandleTrack, HandleClip>.Apply(crowdHandles, crowdPositions, forward, crowdEffects); Timeline.Advance(crowdHandles, crowdPositions, forward);
         }
         Assert.Equal(crowdPositions, scalarPositions);
         Assert.Equal(crowdEffects, scalarEffects);
@@ -160,10 +160,10 @@ public class PairHandleLaneTests
         for (var attempt = 0; ; attempt++)
         {
             for (var pass = 0; pass < 1_000; pass++)
-                { Timeline<HandleTrack, HandleClip>.Apply(asset, positions, true, effects); Timeline.Step(asset, positions, true); }
+                { Timeline<HandleTrack, HandleClip>.Apply(asset, positions, true, effects); Timeline.Advance(asset, positions, true); }
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var pass = 0; pass < 100_000; pass++)
-                { Timeline<HandleTrack, HandleClip>.Apply(asset, positions, true, effects); Timeline.Step(asset, positions, true); }
+                { Timeline<HandleTrack, HandleClip>.Apply(asset, positions, true, effects); Timeline.Advance(asset, positions, true); }
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
         }
@@ -215,7 +215,7 @@ public class PairHandleLaneTests
             for (var step = 0; step < 80; step++)
             {
                 var forward = step % 4 != 3;
-                Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positions, forward, effects); Timeline.Step(rowHandles, positions, forward);
+                Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positions, forward, effects); Timeline.Advance(rowHandles, positions, forward);
                 oracle.Advance(forward);
             }
 
@@ -273,7 +273,7 @@ public class PairHandleLaneTests
                         effects[write] = _effects[i];
                         write++;
                     }
-                _sets[variant].Apply(ids, positions, forward, effects); _sets[variant].Step(ids, positions, forward);
+                _sets[variant].Apply(ids, positions, forward, effects); _sets[variant].Advance(ids, positions, forward);
                 write = 0;
                 for (var i = 0; i < _rowHandles.Length; i++)
                     if (_rowHandles[i] == handle)
@@ -298,7 +298,7 @@ public class PairHandleLaneTests
         for (var step = 0; step < 80; step++)
         {
             var forward = step % 4 != 3;
-            Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positions, forward, effects); Timeline.Step(rowHandles, positions, forward);
+            Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positions, forward, effects); Timeline.Advance(rowHandles, positions, forward);
             oracle.Advance(forward);
         }
         Assert.Equal(oraclePositions, positions);
@@ -389,8 +389,8 @@ public class PairHandleLaneTests
         for (var step = 0; step < 20; step++)
         {
             var forward = step % 3 != 2;
-            Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positionsA, forward, effectsA); Timeline.Step(rowHandles, positionsA, forward);
-            Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positionsB, forward, effectsB); Timeline.Step(rowHandles, positionsB, forward);
+            Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positionsA, forward, effectsA); Timeline.Advance(rowHandles, positionsA, forward);
+            Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positionsB, forward, effectsB); Timeline.Advance(rowHandles, positionsB, forward);
         }
         Assert.Equal(positionsB, positionsA);
         Assert.Equal(effectsB, effectsA);
@@ -417,7 +417,7 @@ public class PairHandleLaneTests
         }
         const int steps = 43;
         for (var step = 0; step < steps; step++)
-            { Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positions, true, effects); Timeline.Step(rowHandles, positions, true); }
+            { Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positions, true, effects); Timeline.Advance(rowHandles, positions, true); }
         for (var i = 0; i < Rows; i++)
             Assert.Equal((ushort)((starts[i] + steps) % durations[rowHandles[i]]), positions[i]);
     }
@@ -428,14 +428,14 @@ public class PairHandleLaneTests
         using var asset = TimelineAsset.LoadAsset(VariantBake(0));
         using var measured = MeasuredLanes.Measure(asset);
         var index = asset.Index;
-        Timeline<HandleTrack, HandleClip>.Apply(index, Span<ushort>.Empty, true, Span<float>.Empty); Timeline.Step(index, Span<ushort>.Empty, true);
+        Timeline<HandleTrack, HandleClip>.Apply(index, Span<ushort>.Empty, true, Span<float>.Empty); Timeline.Advance(index, Span<ushort>.Empty, true);
         Assert.Equal(4, (int)measured.Duration);
         Assert.True(measured.Looping);
         var positions = new ushort[64];
         var effects = new float[64];
         for (var i = 0; i < 64; i++)
             positions[i] = (ushort)(i % 4);
-        Timeline<HandleTrack, HandleClip>.Apply(index, positions, true, effects); Timeline.Step(index, positions, true);
+        Timeline<HandleTrack, HandleClip>.Apply(index, positions, true, effects); Timeline.Advance(index, positions, true);
         for (var i = 0; i < 64; i++)
             Assert.Equal(8f, effects[i]);
     }
@@ -522,7 +522,7 @@ public class PairHandleLaneTests
                     groupEffects[write] = effects[i];
                     write++;
                 }
-            Timeline<HandleTrack, HandleClip>.Apply(index, groupPositions.AsSpan(0, write), forward, groupEffects.AsSpan(0, write)); Timeline.Step(index, groupPositions.AsSpan(0, write), forward);
+            Timeline<HandleTrack, HandleClip>.Apply(index, groupPositions.AsSpan(0, write), forward, groupEffects.AsSpan(0, write)); Timeline.Advance(index, groupPositions.AsSpan(0, write), forward);
             write = 0;
             for (var i = 0; i < rowHandles.Length; i++)
                 if (rowHandles[i] == index)
@@ -548,11 +548,11 @@ public class PairHandleLaneTests
         {
             for (var pass = 0; pass < 1_000; pass++)
                 for (var variant = 0; variant < Assets; variant++)
-                    { { Timeline<HandleTrack, HandleClip>.Apply(bound[variant], positions, true, effects); Timeline.Step(bound[variant], positions, true); }; }
+                    { { Timeline<HandleTrack, HandleClip>.Apply(bound[variant], positions, true, effects); Timeline.Advance(bound[variant], positions, true); }; }
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var pass = 0; pass < 30_000; pass++)
                 for (var variant = 0; variant < Assets; variant++)
-                    { { Timeline<HandleTrack, HandleClip>.Apply(bound[variant], positions, true, effects); Timeline.Step(bound[variant], positions, true); }; }
+                    { { Timeline<HandleTrack, HandleClip>.Apply(bound[variant], positions, true, effects); Timeline.Advance(bound[variant], positions, true); }; }
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
         }

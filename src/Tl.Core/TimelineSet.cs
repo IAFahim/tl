@@ -401,11 +401,11 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         => Gather(timelineIds).Seek(positions, forward).Apply(effects, next);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    internal void Step(ReadOnlySpan<ushort> ids, Span<ushort> positions, bool forward)
-        => Step(ids, positions, positions, forward);
+    internal void Advance(ReadOnlySpan<ushort> ids, Span<ushort> positions, bool forward)
+        => Advance(ids, positions, positions, forward);
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    internal void Step(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
+    internal void Advance(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (ids.Length != positions.Length || positions.Length != next.Length)
@@ -429,23 +429,23 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                     if (Vector256.EqualsAll(idv, Vector256.Create(ids[i])))
                     {
                         var m = motion[ids[i]];
-                        if (forward) LaneOps.StepForward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
-                        else LaneOps.StepBackward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
+                        if (forward) LaneOps.AdvanceForward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
+                        else LaneOps.AdvanceBackward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
                     }
-                    else LaneOps.StepRows(motion, ids, positions, next, forward, i, block);
+                    else LaneOps.AdvanceRows(motion, ids, positions, next, forward, i, block);
                 }
                 else
                 {
-                    for (var k = i; k < block; k++) StepRow(ids, positions, next, motion, views, bound, reverse, k);
+                    for (var k = i; k < block; k++) AdvanceRow(ids, positions, next, motion, views, bound, reverse, k);
                 }
                 i = block;
             }
         }
-        for (; i < count; i++) StepRow(ids, positions, next, motion, views, bound, reverse, i);
+        for (; i < count; i++) AdvanceRow(ids, positions, next, motion, views, bound, reverse, i);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    static unsafe void StepRow(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, uint* motion, SlotView** views, int bound, bool reverse, int i)
+    static unsafe void AdvanceRow(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, uint* motion, SlotView** views, int bound, bool reverse, int i)
     {
         var id = ids[i];
         if (id >= bound || Volatile.Read(ref *(long*)(views + id)) == 0)

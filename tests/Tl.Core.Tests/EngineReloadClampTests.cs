@@ -101,7 +101,7 @@ public class EngineReloadClampTests
     {
         var before = (ushort[])positions.Clone();
         set.Gather(ids).Seek(positions, forward).Apply(effects);
-        Timeline.Step(asset, positions, forward);
+        Timeline.Advance(asset, positions, forward);
         for (var row = 0; row < positions.Length; row++)
         {
             var selected = TimelineMovement.Select(new TimelineState(1, before[row]), Duration, looping, !forward, out var next, out _, out _);

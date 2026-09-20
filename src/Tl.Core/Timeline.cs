@@ -10,11 +10,11 @@ public static class Timeline
     public static FrameQuery<TTrack, TClip> Query<TTrack, TClip>(in TimelineComponent component) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged => new(component);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static unsafe void Step(ReadOnlySpan<ushort> indices, Span<ushort> positions, bool forward)
-        => Step(indices, positions, positions, forward);
+    public static unsafe void Advance(ReadOnlySpan<ushort> indices, Span<ushort> positions, bool forward)
+        => Advance(indices, positions, positions, forward);
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public static unsafe void Step(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
+    public static unsafe void Advance(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         if (indices.Length != positions.Length || positions.Length != next.Length)
             throw new ArgumentException("Column length must equal position count.");
@@ -31,10 +31,10 @@ public static class Timeline
                 if (Vector256.EqualsAll(Vector256.LoadUnsafe(ref MemoryMarshal.GetReference(indices), (nuint)i), Vector256.Create(indices[i])))
                 {
                     var m = motion[indices[i]];
-                    if (forward) LaneOps.StepForward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
-                    else LaneOps.StepBackward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
+                    if (forward) LaneOps.AdvanceForward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
+                    else LaneOps.AdvanceBackward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
                 }
-                else LaneOps.StepRows(motion, indices, positions, next, forward, i, block);
+                else LaneOps.AdvanceRows(motion, indices, positions, next, forward, i, block);
                 i = block;
             }
         }
@@ -48,38 +48,38 @@ public static class Timeline
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static void Step(TimelineAsset asset, Span<ushort> positions, bool forward)
-        => Step(asset.Index, positions, positions, forward);
+    public static void Advance(TimelineAsset asset, Span<ushort> positions, bool forward)
+        => Advance(asset.Index, positions, positions, forward);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static void Step(TimelineAsset asset, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
+    public static void Advance(TimelineAsset asset, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         ArgumentNullException.ThrowIfNull(asset);
-        Step(asset.Index, positions, next, forward);
+        Advance(asset.Index, positions, next, forward);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    public static unsafe void Step(ushort index, Span<ushort> positions, bool forward)
+    public static unsafe void Advance(ushort index, Span<ushort> positions, bool forward)
     {
         if (positions.Length <= LaneOps.SmallSpan)
         {
-            StepRecords(TimelineTable.Motion[index], positions, positions, forward);
+            AdvanceRecords(TimelineTable.Motion[index], positions, positions, forward);
             return;
         }
-        Step(index, positions, positions, forward);
+        Advance(index, positions, positions, forward);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe void StepRecords(uint motion, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
+    static unsafe void AdvanceRecords(uint motion, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         var duration = (ushort)(motion & 0xFFFF);
         var looping = (motion & 0x80000000u) != 0;
-        if (forward) StepRecordsForward(duration, looping, positions, next);
-        else StepRecordsBackward(duration, looping, positions, next);
+        if (forward) AdvanceRecordsForward(duration, looping, positions, next);
+        else AdvanceRecordsBackward(duration, looping, positions, next);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static void StepRecordsForward(ushort duration, bool looping, ReadOnlySpan<ushort> positions, Span<ushort> next)
+    static void AdvanceRecordsForward(ushort duration, bool looping, ReadOnlySpan<ushort> positions, Span<ushort> next)
     {
         for (var i = 0; i < positions.Length; i++)
         {
@@ -94,7 +94,7 @@ public static class Timeline
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static void StepRecordsBackward(ushort duration, bool looping, ReadOnlySpan<ushort> positions, Span<ushort> next)
+    static void AdvanceRecordsBackward(ushort duration, bool looping, ReadOnlySpan<ushort> positions, Span<ushort> next)
     {
         for (var i = 0; i < positions.Length; i++)
         {
@@ -105,7 +105,7 @@ public static class Timeline
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public static unsafe void Step(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
+    public static unsafe void Advance(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         var m = TimelineTable.Motion[index];
         var duration = (ushort)(m & 0xFFFF);
@@ -114,15 +114,15 @@ public static class Timeline
         var reverse = !forward;
         if (count <= LaneOps.SmallSpan)
         {
-            StepRecords(m, positions, next, forward);
+            AdvanceRecords(m, positions, next, forward);
             return;
         }
         var i = 0;
         if (Avx2.IsSupported && duration > 0)
         {
             var bound = count - (count & 15);
-            if (forward) LaneOps.StepForward(duration, looping, positions, next, 0, bound);
-            else LaneOps.StepBackward(duration, looping, positions, next, 0, bound);
+            if (forward) LaneOps.AdvanceForward(duration, looping, positions, next, 0, bound);
+            else LaneOps.AdvanceBackward(duration, looping, positions, next, 0, bound);
             i = bound;
         }
         for (; i < count; i++)

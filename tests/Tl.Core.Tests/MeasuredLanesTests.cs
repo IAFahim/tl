@@ -244,7 +244,7 @@ public class MeasuredLanesTests
         var seenEffects = new float[steps];
         for (var step = 0; step < steps; step++)
         {
-            set.Gather(ids).Seek(positions, forward).Apply(effects); set.Step(ids, positions, forward);
+            set.Gather(ids).Seek(positions, forward).Apply(effects); set.Advance(ids, positions, forward);
             seenPositions[step] = positions[0];
             seenEffects[step] = effects[0];
         }

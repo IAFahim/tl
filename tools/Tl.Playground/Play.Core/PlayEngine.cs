@@ -81,7 +81,7 @@ public sealed class PlayEngine : IDisposable
     public FrameStats Step(bool forward)
     {
         _positions.CopyTo(_before, 0);
-        _set!.Gather(_ids).Seek(_positions, forward).Apply(_effects); Timeline.Step(_asset!, _positions, forward);
+        _set!.Gather(_ids).Seek(_positions, forward).Apply(_effects); Timeline.Advance(_asset!, _positions, forward);
         var moved = 0;
         var skipped = 0;
         var wrapped = 0;

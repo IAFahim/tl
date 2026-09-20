@@ -118,6 +118,7 @@ Run JetBrains Inspect Code when available. Classify remaining findings explicitl
 ## Public API and release rules
 
 - Public API changes require approval-file updates, migration documentation, package version review, and package-only consumer validation.
+- Before 1.0, public API changes ship without compatibility shims or obsolete aliases — rename or remove directly and record the migration in the release notes.
 - A release tag points to the exact validated commit. Package versions, tag, release title, generated checksums, and repository commit metadata agree.
 - Never move a published tag. Use the next prerelease identifier.
 - Do not choose a license, publish to NuGet, or make legal compatibility claims without the repository owner's explicit decision.

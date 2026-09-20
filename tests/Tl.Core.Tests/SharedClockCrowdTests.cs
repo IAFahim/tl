@@ -55,7 +55,7 @@ public class SharedClockCrowdTests
     static void Bind(ushort index)
     {
         Timeline<HandleTrack, HandleClip>.Apply(index, Span<ushort>.Empty, true, Span<float>.Empty);
-        Timeline.Step(index, Span<ushort>.Empty, true);
+        Timeline.Advance(index, Span<ushort>.Empty, true);
     }
 
     [Fact]
@@ -96,9 +96,9 @@ public class SharedClockCrowdTests
                     {
                         var uniform = new ushort[37];
                         Array.Fill(uniform, (ushort)start);
-                        Timeline.Step(index, uniform, forward);
+                        Timeline.Advance(index, uniform, forward);
                         var clock = (ushort)start;
-                        Timeline<HandleTrack, HandleClip>.Step(index, ref clock, forward);
+                        Timeline<HandleTrack, HandleClip>.Advance(index, ref clock, forward);
                         var allMatch = true;
                         for (var i = 0; i < uniform.Length; i++)
                             allMatch &= uniform[i] == clock;
@@ -128,9 +128,9 @@ public class SharedClockCrowdTests
                     {
                         var forward = step % 4 != 3;
                         Timeline<HandleTrack, HandleClip>.Apply(index, uniform, forward, perRowEffects);
-                        Timeline.Step(index, uniform, forward);
+                        Timeline.Advance(index, uniform, forward);
                         Timeline<HandleTrack, HandleClip>.Apply(index, clock, forward, sharedEffects);
-                        Timeline<HandleTrack, HandleClip>.Step(index, ref clock, forward);
+                        Timeline<HandleTrack, HandleClip>.Advance(index, ref clock, forward);
                         var allMatch = true;
                         for (var i = 0; i < uniform.Length; i++)
                             allMatch &= uniform[i] == clock;
@@ -199,13 +199,13 @@ public class SharedClockCrowdTests
             for (var pass = 0; pass < 1_000; pass++)
             {
                 Timeline<HandleTrack, HandleClip>.Apply(index, clock, true, effects);
-                Timeline<HandleTrack, HandleClip>.Step(index, ref clock, true);
+                Timeline<HandleTrack, HandleClip>.Advance(index, ref clock, true);
             }
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var pass = 0; pass < 100_000; pass++)
             {
                 Timeline<HandleTrack, HandleClip>.Apply(index, clock, true, effects);
-                Timeline<HandleTrack, HandleClip>.Step(index, ref clock, true);
+                Timeline<HandleTrack, HandleClip>.Advance(index, ref clock, true);
             }
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
