@@ -46,6 +46,10 @@ type Tl.ITimelineLane`1
   Method Single InverseEffect(UInt16)
   Property Boolean Looping
 type Tl.ITrack`2
+type Tl.LaneMovementRecord
+  Field Single Effect
+  Field UInt16 Next
+  Field UInt16 Skipped
 type Tl.Lane`2
   Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean, System.Span`1[TEffect])
   Method Void Apply[TIndex,TPosition,TEffect](TIndex ByRef, TPosition ByRef, Boolean, TEffect ByRef)
@@ -61,6 +65,20 @@ type Tl.PairRuntime`2
   Method Void Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*))
   Method Void Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*), Tl.TickPurity)
   Field UInt64 Key
+type Tl.SlotView
+  Field UInt16 AbiVersion
+  Field UInt16 AbiVersionV1
+  Field UInt16 Absent
+  Field Single* Backward
+  Field Single* BackwardByPosition
+  Field Tl.LaneMovementRecord* BackwardRecords
+  Field UInt16 Duration
+  Field Single* Forward
+  Field Tl.LaneMovementRecord* ForwardRecords
+  Field UInt64 Generation
+  Field UInt16 Looping
+  Field UInt16 RecordBytes
+  Field UInt32 TableTicks
 type Tl.TickFrame
   Field Tl.FrameFlags Flags
   Field Void* Pair
@@ -112,5 +130,7 @@ type Tl.Timeline`2
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Tl.SlotView View(UInt16)
+  Method Tl.SlotView View(Tl.TimelineAsset)
 type Tl.TypeKey`1
   Field UInt64 Value

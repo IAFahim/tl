@@ -85,7 +85,7 @@ public static unsafe class Timeline<TTrack, TClip>
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal static bool ResolveChunk(TimelineSet<TTrack, TClip> set, ReadOnlySpan<ushort> indices, int start, int end)
     {
-        var slots = set._slots;
+        var views = set._views;
         var bound = (uint)set._count;
         for (var i = start; i < end; i++)
         {
@@ -95,13 +95,32 @@ public static unsafe class Timeline<TTrack, TClip>
                 Resolve(index);
                 return true;
             }
-            if (slots[index].Forward != null) continue;
-            if (slots[index].Absent != 0)
-                throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
+            if (views[index] != null) continue;
             Resolve(index);
             return true;
         }
         return false;
+    }
+
+    public static SlotView View(ushort index)
+    {
+        var bank = Bank();
+        if (bank.IsFolded(index)) return bank.View(index);
+        if (bank.IsAbsent(index))
+            return new SlotView
+            {
+                Absent = 1,
+                RecordBytes = (ushort)sizeof(LaneMovementRecord),
+                AbiVersion = SlotView.AbiVersionV1,
+            };
+        Resolve(index);
+        return bank.View(index);
+    }
+
+    public static SlotView View(TimelineAsset asset)
+    {
+        ArgumentNullException.ThrowIfNull(asset);
+        return View(asset.Index);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]

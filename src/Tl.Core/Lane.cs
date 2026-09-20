@@ -270,12 +270,11 @@ internal ref struct TimelineLane<T>
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct LaneMovementRecord
+public struct LaneMovementRecord
 {
     public const ushort Skipped = 0xFFFF;
     public float Effect;
     public ushort Next;
-    public ushort Pad;
 }
 
 internal static unsafe class LaneOps
