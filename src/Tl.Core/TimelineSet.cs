@@ -174,6 +174,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         while (next < needed) next *= 2;
         var allocated = NativeMemory.AlignedAlloc(next * elementBytes, 64);
         _directoryTotal += (long)(next * elementBytes);
+        Unsafe.InitBlock(allocated, 0, checked((uint)(next * elementBytes)));
         if (capacity != 0)
         {
             var oldBytes = capacity * elementBytes;
@@ -181,7 +182,6 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             *(void**)current = _retired;
             _retired = current;
         }
-        Unsafe.InitBlock(allocated, 0, checked((uint)(next * elementBytes)));
         current = allocated;
         capacity = next;
     }
