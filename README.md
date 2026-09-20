@@ -331,6 +331,33 @@ Timeline.Bake(jumpTimeline, world, 42); Timeline.Bake(jumpTimeline, world, 43);
 
 `Timeline.Bake(id, args...)` walks the timeline's pairs and runs every bake whose declared context types appear among the argument types — exact type match, first argument of that type wins, declaration order is the parameter order, zero-context bakes run on every call, a missing context keeps the bake silent. Discovered and validated at build time (TLGEN70-73), installed into an unmanaged table, warm path untouched. A timeline that lacks the pair is a loud located diagnostic at first typed use — host wiring error, never designer data. Reading without advancing: `Timeline.Query<TTrack, TClip>(in TimelineComponent)` is a read-only stage view that never moves the clock.
 
+## Bank blocks and stable views
+
+Every pair bank — the per-`(Track, Clip)` storage behind `Timeline<Track, Clip>` — allocates one immutable block per bound timeline index: a 64-byte `SlotView` header followed by the five measured tables, 64-aligned, `64 + 28 * (max(1, duration) + 1)` bytes per block. Blocks never move for the bank's lifetime; the id directory, motion words, and absent markers grow by doubling and retire superseded arrays onto a retired chain that is freed only when the bank is disposed. Nothing duplicates clip or track values per consumer, per entity, or per index: the bank dedupes on folded values — each bind hashes `(duration, looping, forward, backward)` and shares an existing block when the measured bytes compare equal, which every content-identical asset is — and per-entity state stays `(index id, position)` columns.
+
+Hosts and other language runtimes acquire a view — a 64-byte `SlotView` copy — and may keep it for the bank's lifetime:
+
+| field | offset | meaning |
+| --- | ---: | --- |
+| `Forward`, `Backward`, `BackwardByPosition` | 0 / 8 / 16 | effect tables, `TableTicks` IEEE-754 binary32 elements each |
+| `ForwardRecords`, `BackwardRecords` | 24 / 32 | movement-record walks, `TableTicks` elements at `RecordBytes` stride |
+| `Duration`, `Looping`, `Absent` | 40 / 42 / 44 | baked duration in ticks, wrap flag, bound-but-pair-less marker |
+| `TableTicks` | 48 | element count of each table (`max(1, duration) + 1`) |
+| `RecordBytes` | 52 | stride of one `LaneMovementRecord` (8: `Effect` float, `Next` ushort) |
+| `AbiVersion` | 54 | 1; consumers reject unknown versions — a layout change is version 2, never silent drift |
+| `Generation` | 56 | bank publication counter at bake time, diagnostics only |
+
+`Timeline<JumpTrack, JumpClip>.View(jumpTimeline)` returns the copy. Acquisition resolves a pending index first; a swept-absent index returns `Absent = 1` with null table pointers and `TableTicks = 0`; a never-bound index throws `ArgumentException`; a disposed bank throws `ObjectDisposedException`. The first 48 bytes are byte-compatible with the runtime's internal slot layout, so the playback kernels and a host mirror read the same offsets. The bank holds 65,536 dense ids per pair, 0-based with no sentinel; the 65,537th add throws `InvalidOperationException`.
+
+The proofs owed before a pointer leaves the runtime:
+
+- **Publication** — a block becomes visible only after its tables are baked and its header written; the directory entry is the publication point, written with release semantics under a bank gate that also serializes bind, absent-marking, and dispose (closing the concurrent-bind race). Readers are lock-free: published blocks are immutable, a stale directory snapshot keeps reading a retired array whose every entry is untouched — the retired chain is linked in each array's private tail pad, outside reader-visible bytes — and a read that misses a just-published index falls back to resolve, which re-checks under the gate. Allocation precedes every counter commit, so a failed allocation leaves the bank untouched.
+- **Ownership** — the bank owns all blocks, directories, retired arrays, and the content-dedupe table; views and every captured pointer borrow. Disposing the bank invalidates every view and pointer with no callback or keepalive; use after dispose is a usage error with the same standing as every other raw-pointer borrow in the runtime.
+- **Identity** — a slot's identity is `(pair key, dense ushort index)`; index to content is fixed at first fold, a re-bake is a new index, and there is no silent rebind: binding a folded index returns it unchanged, and content-identical binds share the same block. An index whose asset is later disposed keeps its folded tables, because the bank copies at bind and the asset is refcounted independently. Identity inherits the intern table's 128-bit collision tolerance.
+- **Safe reclamation** — immovability is the reclamation proof: per-index blocks, the live arrays, retired directories, motion words, and dedupe-table arrays are all freed in `Dispose` — nothing bank-attributable stays allocated after it — so there is no late reclamation, no graveyard, and no epoch a consumer must track.
+
+Host guidance for Unity/Burst and C consumers: resolve at load and capture `SlotView`s per index into component or chunk metadata — never resolve or bounds-check inside a hot loop. Run a pair system over a whole chunk back-to-back while it is cache-resident (the interleaved 56 MB working set measured 0.36–0.39 ns/row DRAM-bound against 0.22 hot), parallelise across chunks in the host (8 P-cores each holding an L2-resident slice), and prefer per-index calls for grouped archetypes. The runtime ships one deterministic single-thread fold and takes no lock on the warm path. What cannot be promised stays unpromised: staggered per-row clocks at 1M rows floor at ~0.14–0.17 ns/row single-core (gather-bound), and DRAM-cold frames at ~0.30 (bandwidth-bound), on the reference host. Which intrinsic tier a host mirrors per CPU class is pending #244; every tier reads only the view's five tables. Adopting the view is additive: existing `Apply`/`Step` code is unchanged, and `SlotView` is plain data with no managed object, function pointer, or serialization story — process-local native memory, never valid across processes or an endianness boundary.
+
 ## Generated reports
 
 ```sh
@@ -340,19 +367,19 @@ dotnet msbuild -t:TlGenExport -p:Configuration=Release   # content-stable .g.cs 
 ## Numbers
 
 <!-- tl-numbers: generated by eng/refresh-numbers from benchmarks/Numbers/results/numbers.json; edit the renderer, not this block -->
-One million characters, one frame per call (i9-14900K, .NET 10, Release; best of 5 × 3 interleaved rounds; every shape bit-exact forward and backward, 0 B warm):
+One million characters, one frame per call (i9-14900K, .NET 10, Release; best of 5 × 3 rounds after a per-scenario steady-state warm-up (at least 0.5 s and until the best frame is flat across three rounds); hot = consecutive frames with the crowd cache-resident, cold = the seven crowds interleaved, re-read from memory each frame; every shape bit-exact forward and backward, 0 B warm):
 
-| scenario | ms/frame | ns/character |
-| --- | ---: | ---: |
-| whole crowd on one timeline (a raid jumping in sync) | 0.54 | 0.54 |
-| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.71 | 0.71 |
-| one looping timeline, every character on its own clock | 0.52 | 0.52 |
-| one-shot finite timeline, staggered clocks | 0.57 | 0.57 |
-| hand-written loop for comparison (`effects += 1`) | 0.34 | 0.34 |
-| small squads: 16 timelines × 16 characters | 0.77 | 0.77 |
-| worst case: unsorted rows, a different timeline each | 1.23 | 1.23 |
+| scenario | hot ms/frame | hot ns/character | cold ms/frame | cold ns/character |
+| --- | ---: | ---: | ---: | ---: |
+| whole crowd on one timeline (a raid jumping in sync) | 0.17 | 0.17 | 0.34 | 0.34 |
+| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.36 | 0.36 | 0.47 | 0.47 |
+| one looping timeline, every character on its own clock | 0.21 | 0.21 | 0.33 | 0.33 |
+| one-shot finite timeline, staggered clocks | 0.09 | 0.09 | 0.17 | 0.17 |
+| hand-written loop for comparison (`effects += 1`) | 0.33 | 0.33 | 0.38 | 0.38 |
+| small squads: 16 timelines × 16 characters | 0.51 | 0.51 | 0.59 | 0.59 |
+| worst case: unsorted rows, a different timeline each | 0.90 | 0.90 | 0.99 | 0.99 |
 
-A single-timeline crowd floors at 0.52 ns per character; grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 58 ms and loads in 1.5 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 48` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
+A single-timeline crowd floors at 0.09 ns per character hot and 0.17 cold — the hot column is the steady state with the crowd cache-resident, the cold column is the same frame with the seven crowds interleaved so the working set streams from DRAM. Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 55 ms and loads in 1.7 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 64` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
 <!-- /tl-numbers -->
 
 Receipts: `benchmarks/Numbers` (generates this section; `eng/refresh-numbers` re-measures and re-renders it from a fingerprinted receipt, and CI fails if the two disagree), `benchmarks/PairHandles`, `benchmarks/Alpha`, `tests/Tl.Alpha` — parity, allocation, and throughput evidence, run in CI on every push.

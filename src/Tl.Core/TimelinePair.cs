@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Tl;
 
 public static unsafe class Timeline<TTrack, TClip>
@@ -6,9 +8,11 @@ public static unsafe class Timeline<TTrack, TClip>
 {
     static TimelineSet<TTrack, TClip>? _bank;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
         => Bank().Apply(indices, positions, forward, effects);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ushort index, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
     {
         var bank = Bank();
@@ -17,15 +21,18 @@ public static unsafe class Timeline<TTrack, TClip>
         bank.ApplySlot(index, positions, forward, effects);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(TimelineAsset asset, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
     {
         ArgumentNullException.ThrowIfNull(asset);
         Apply(asset.Index, positions, forward, effects);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
         => Bank().Apply(indices, positions, next, forward, effects);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
     {
         var bank = Bank();
@@ -34,6 +41,7 @@ public static unsafe class Timeline<TTrack, TClip>
         bank.ApplySlot(index, positions, next, forward, effects);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(TimelineAsset asset, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
     {
         ArgumentNullException.ThrowIfNull(asset);
@@ -74,9 +82,10 @@ public static unsafe class Timeline<TTrack, TClip>
         bank.AddAt(index, measured);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal static bool ResolveChunk(TimelineSet<TTrack, TClip> set, ReadOnlySpan<ushort> indices, int start, int end)
     {
-        var slots = set._slots;
+        var views = set._views;
         var bound = (uint)set._count;
         for (var i = start; i < end; i++)
         {
@@ -86,15 +95,35 @@ public static unsafe class Timeline<TTrack, TClip>
                 Resolve(index);
                 return true;
             }
-            if (slots[index].Forward != null) continue;
-            if (slots[index].Absent != 0)
-                throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
+            if (views[index] != null) continue;
             Resolve(index);
             return true;
         }
         return false;
     }
 
+    public static SlotView View(ushort index)
+    {
+        var bank = Bank();
+        if (bank.IsFolded(index)) return bank.View(index);
+        if (bank.IsAbsent(index))
+            return new SlotView
+            {
+                Absent = 1,
+                RecordBytes = (ushort)sizeof(LaneMovementRecord),
+                AbiVersion = SlotView.AbiVersionV1,
+            };
+        Resolve(index);
+        return bank.View(index);
+    }
+
+    public static SlotView View(TimelineAsset asset)
+    {
+        ArgumentNullException.ThrowIfNull(asset);
+        return View(asset.Index);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     static TimelineSet<TTrack, TClip> Bank()
     {
         var bank = _bank;

@@ -137,8 +137,7 @@ public static unsafe class Play
     {
         AmountClip scratch = default;
         var frame = TickFrame.ToFrame<ScaleTrack, AmountClip>(slot, pair, tick, flags, ref scratch);
-        var sign = frame.Has(FrameFlags.Reverse) ? -1f : 1f;
-        ((float*)columns[0])[row] += sign * frame.Clip.Amount * frame.Track.Scale;
+        ((float*)columns[0])[row] += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
     }
 }
 """;
