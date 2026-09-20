@@ -46,22 +46,11 @@ Calling that body separately for each active track would change both the callbac
 
 Timeline eligibility is still restricted to the supported Pulse payload, track storage, blend law, and literal authoring grammar. The operation contract accepts unmanaged input and result types; an operation body may still allocate or access external state. Zero allocation is a measured property of these consumers, not a consequence of using the interface.
 
-## Reproduction
+## Receipt
 
-From this worktree root:
+Closed receipt (#300 finding 3.2, owner decision of September 20, 2026, delegated on the #142 trail). The harness measured the per-work operation contract against the interpreter and normal compiled references for the Sum, State, and Effect consumers over sequential, seeded-random, and repeated tick streams: 54 baseline cases plus the 18-case batch-inlining follow-up, each invocation processing 65,536 ticks from fresh result/playback state with scalar and batch arms seeing identical ticks, inputs, and effects. Every fused arm was faster than both matched references, every MemoryDiagnoser result read 0 B/tick, and both the baseline and the inlined candidate passed 215,273 exact comparisons under JIT and NativeAOT.
 
-```sh
-python3 benchmarks/ConsumerFusion/prepare.py --inline-batch
-taskset -c 4 env NuGetAudit=false dotnet benchmarks/ConsumerFusion/bin/Release/net10.0/ConsumerFusion.dll --filter '*ConsumerBenchmarks*' --artifacts benchmarks/ConsumerFusion/results/measurement
-```
-
-The selected candidate requests inlining of the batch methods. Omit --inline-batch to reproduce the original baseline. Run the benchmark command only after preparation succeeds. Preparation regenerates the source, hashes generated and consumer code, forces a rebuild, and executes verification. Command-local NuGetAudit=false accommodates this environment; it is not added to published package settings. CPU arguments to prepare.py are configurable. Benchmarks require logical CPU 4 on the measurement machine; worker builds use other cores and pause during timing.
-
-Each invocation processes 65,536 ticks from fresh result/playback state and returns every observable result field plus full Playback. Inputs rotate through four Scale/Bias combinations every eight ticks in all arms. Sequential, seeded random, and repeated streams use the v0.5 tick distributions. Scalar and batch arms see the same ticks, inputs, and effects. Setup checks receipts and exercises all arms for five seconds before sixteen BenchmarkDotNet warmup and twelve measurement iterations. Requested iteration duration is 250 ms; full JSON and MemoryDiagnoser results are retained.
-
-The retained generated-kernel path has no managed payload/work arrays. Authoring, generation, benchmark setup arrays, and the runtime reference engine have separate allocation/lifetime costs. The current eight-byte little-endian Playback construction convention remains an experimental ABI dependency.
-
-The production src directory remains unchanged. All experimental source and emitted code has a real byte cost, which must be included if promoted under the 200,000-byte source budget.
+Its reproduction tooling was removed under issue #207: the `ConsumerGenerate` generator step is gone, no buildable project remains, and `prepare.py` is retained only as an inert record of the chain. The results stand as receipts — the tables below, the correctness and machine-code proofs, and the retained files under `results/` are the measurement record and have not been re-run since.
 
 ## Measured baseline
 
@@ -116,9 +105,9 @@ These are individual forward span method bodies, not whole-program sizes. Native
 
 ## Integration boundary
 
-The published v0.5 API and all production src files are unchanged. This branch contains an executable experiment and its verification harness. Automatic conversion of arbitrary existing consumers, transparent backend selection through the existing API, a general semantic frontend, ARM64/Burst validation, and a many-timeline code-size policy are not implemented.
+The published v0.5 API and all production src files are unchanged. This branch was an executable experiment and its verification harness; the reproduction chain was removed under #207 (see Receipt above). Automatic conversion of arbitrary existing consumers, transparent backend selection through the existing API, a general semantic frontend, ARM64/Burst validation, and a many-timeline code-size policy are not implemented.
 
-The production budget remains **186,154 / 200,000 decimal bytes**, counting file contents plus relative paths and one newline per path. Keeping this experiment outside src does not make its implementation free: promotion must budget its generator and shared contract, replace/factor existing implementation where appropriate, and separately account for emitted code and native code per timeline and consumer. [Budget receipt](results/proof/source-budget.txt).
+The production budget at measurement time was **186,154 / 200,000 decimal bytes**, counting file contents plus relative paths and one newline per path. Keeping this experiment outside src does not make its implementation free: promotion must budget its generator and shared contract, replace/factor existing implementation where appropriate, and separately account for emitted code and native code per timeline and consumer. [Budget receipt](results/proof/source-budget.txt).
 
 ## Batch inlining experiment
 
@@ -136,12 +125,12 @@ The baseline assembly identified a remaining call boundary in the eight-tick pat
 | EffectConsumer | Random | 12.529 | 12.942 | +3.3% | -2.8% |
 | EffectConsumer | Repeated | 6.026 | 5.845 | -3.0% | -1.4% |
 
-Negative change means less time. The inlined candidate reaches **1.195 ns/tick for sequential Sum** and **1.843 ns/tick for sequential State with runtime inputs**. It is retained as the checked-in example and reproduced with --inline-batch. This is eight-tick throughput with complete result/playback receipts, not a claim of 1–2 ns latency for every call.
+Negative change means less time. The inlined candidate reached **1.195 ns/tick for sequential Sum** and **1.843 ns/tick for sequential State with runtime inputs**. It was reproduced with --inline-batch and retained as the checked-in example. This is eight-tick throughput with complete result/playback receipts, not a claim of 1–2 ns latency for every call.
 
-It is not a universally better switch: Effect/Random increased from 12.529 to 12.942 ns/tick (+3.3%), while its scalar control improved 2.8%. Effect/Sequential was effectively unchanged. The baseline remains reproducible by omitting --inline-batch. These results favor inlining for the demonstrated Sum/State consumers; an automatic production policy must consider consumer work and code growth instead of enabling it indiscriminately.
+It is not a universally better switch: Effect/Random increased from 12.529 to 12.942 ns/tick (+3.3%), while its scalar control improved 2.8%. Effect/Sequential was effectively unchanged. The baseline figures were produced by omitting --inline-batch; that preparation chain is removed (see Receipt above), so these runs stand as receipts rather than a repeatable procedure. These results favor inlining for the demonstrated Sum/State consumers; an automatic production policy must consider consumer work and code growth instead of enabling it indiscriminately.
 
 After inlining, the complete benchmark batch caller bodies are 1,055 B for Sum, 3,532 B for State, and 5,236 B for Effect in the diagnostic Tier-1 run. There is no FusedPulse call in those bodies; Effect still calls Notify. Caller sizes and standalone kernel sizes measure different scopes, and code can be duplicated into multiple callers. [Selected JIT assembly](results/inline-batch/proof/jit-disassembly).
 
 All 18 follow-up cases completed with 0 B/tick allocation. The selected output also passed the full 215,273-comparison battery under JIT and NativeAOT. The generation grammar passed eight rejection probes. [Preparation and JIT proof](results/inline-batch/proof/prepare.txt), [NativeAOT proof](results/inline-batch/proof/aot-verification.txt), [all follow-up measurements](results/inline-batch/summary.csv).
 
-The generator is 26,150 C# bytes, the shared experimental contracts are 1,195 bytes, and selected emitted Pulse source is 32,983 bytes. The 110-byte increase from baseline emission is just the two attributes. These counts exclude benchmark consumers, verification, reports, project files, and dependencies. Simply adding the generator and contracts to the current production src would exceed its remaining 13,846-byte budget; production integration requires replacing or factoring code.
+The generator was 26,150 C# bytes, the shared experimental contracts 1,195 bytes, and selected emitted Pulse source 32,983 bytes. The 110-byte increase from baseline emission was just the two attributes. These counts exclude benchmark consumers, verification, reports, project files, and dependencies. At the time, simply adding the generator and contracts to the production src would have exceeded its remaining 13,846-byte budget; production integration requires replacing or factoring code.

@@ -29,6 +29,7 @@ Each owns a README that carries its verdict and cites its receipt directories un
 
 - `collect.py` + `test_collect.py` — BenchmarkDotNet report collection with environment fingerprinting (unit-tested in CI).
 - `source_budget.py` — enforced source budgets (`src` 300,000 B, `samples` 32,000 B).
+- `tools/Tl.Bake.Bench` — manual baked-asset harness with `corpus`, `parity`, `timing`, `batch`, and `batchcorpus` subcommands (#300 3.4); kept in `tl.slnx` for the compile gate, and its `tools/Tl.Bake.Bench/Fixtures.cs` is shared into `benchmarks/Numbers`.
 
 ## Historical harness projects
 

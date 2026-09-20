@@ -163,3 +163,23 @@ jobs:
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
       - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
+
+  tier-env:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -m:1 -p:NuGetAudit=false
+      - name: Vector128 fallback tier (DOTNET_EnableAVX2=0)
+        env:
+          DOTNET_EnableAVX2: "0"
+        run: dotnet test tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release --no-build -p:NuGetAudit=false
+      - name: Scalar tier (DOTNET_EnableHWIntrinsic=0)
+        env:
+          DOTNET_EnableHWIntrinsic: "0"
+        run: dotnet test tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release --no-build -p:NuGetAudit=false

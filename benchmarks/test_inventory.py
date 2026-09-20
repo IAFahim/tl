@@ -14,9 +14,7 @@ INDEX_SOURCES = {
     "benchmarks/README.md": README,
 }
 PROJECT_WAIVERS = {}
-REPRODUCTION_WAIVERS = {
-    "ConsumerFusion": "reproduction chain references the removed ConsumerGenerate generator and a missing project; owner decision pending (#300 3.2)",
-}
+REPRODUCTION_WAIVERS = {}
 REPRODUCTION_HEADINGS = ("## Reproduction", "## Repro")
 RETIRED_TOKENS = ("Step", "Execute")
 PATH_SUFFIXES = (".csproj", ".cs", ".py", ".json", ".md", ".sh", ".txt", ".csv", ".slnx")
