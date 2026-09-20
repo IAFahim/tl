@@ -31,9 +31,13 @@ jobs:
       - run: eng/test-isolated-output
       - run: python3 benchmarks/source_budget.py
       - run: python3 -m unittest discover -s benchmarks -p test_collect.py
+      - run: python3 -m unittest discover -s benchmarks -p test_inventory.py
       - run: python3 -m unittest discover -s tests -p test_release_artifacts.py
       - run: python3 -m unittest discover -s tests -p test_readme_numbers.py
       - run: python3 -m unittest discover -s tests -p test_tl_blender.py
+      - run: python3 -m unittest discover -s tests -p test_links.py
+      - run: python3 -m unittest discover -s tests -p test_samples_inventory.py
+      - run: python3 -m unittest discover -s tests -p test_dead_code.py
       - run: dotnet build tl.slnx -c Release -m:1 -p:NuGetAudit=false
       - run: dotnet test tl.slnx -c Release --no-build -p:NuGetAudit=false
       - run: python3 -m unittest discover -s tests -p test_tlb_cli.py
