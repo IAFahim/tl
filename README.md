@@ -51,7 +51,7 @@ dotnet build -c Release
 tlb jump.json jump.tlb --auto
 ```
 
-Play it — `Apply` folds every row's effect and `Advance` advances every clock one frame; after the full loop `y` is back at 0, the arc risen and fallen. Put the loop in `Program.cs` and `dotnet run`:
+Play it — `Apply` folds every row's effect and `Advance` advances every clock one frame; `Apply` is pure over the clock and never moves it, the one `Advance` call after every `Apply` does. After the full loop `y` is back at 0, the arc risen and fallen. Put the loop in `Program.cs` and `dotnet run`:
 
 ```cs
 ushort jumpTimeline = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
@@ -162,7 +162,7 @@ rewind walks the arc back exactly:
 Timeline.Bake marked entities 42, 43 as jumping; unmarked entities never reach the advance
 ```
 
-Migration from earlier packages: the consumer method `Execute` is now `OnActive`; the advance method `Step` is now `Advance` (pre-1.0 renames ship without compatibility aliases).
+Migration from earlier packages: add an `Advance` call after every `Apply` — `Apply` gathers effects and never moves the clock, and its `positions` parameter is now `ReadOnlySpan` (existing `Span` callers compile unchanged; the per-entity overload takes the position `in`, so call sites spelling `ref` drop it); the consumer method `Execute` is now `OnActive`; the advance method `Step` is now `Advance` (pre-1.0 renames ship without compatibility aliases).
 
 ## Data
 
