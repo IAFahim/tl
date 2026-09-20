@@ -23,6 +23,8 @@ public class BakePrimitivesCoverageTests
     [InlineData("-9223372036854775809", 0, 20)]
     [InlineData("9223372036854775808", 0, 19)]
     [InlineData("abc", 0, 3)]
+    [InlineData("0x", 0, 2)]
+    [InlineData("-0x", 0, 3)]
     public void ScanSignedInteger_RejectsOutOfRangeAndMalformedTokens(string text, int start, int bound)
     {
         Assert.False(FastNumber.ScanSignedInteger(
@@ -56,6 +58,8 @@ public class BakePrimitivesCoverageTests
     [Fact]
     public void ScanUnsigned64_RejectsSignsAndOverflow()
     {
+        Assert.False(FastNumber.ScanUnsigned64(Utf8(""), 0, 0, out _, out _));
+        Assert.False(FastNumber.ScanUnsigned64(Utf8(" \t "), 0, 3, out _, out _));
         Assert.False(FastNumber.ScanUnsigned64(Utf8("-1"), 0, 2, out _, out _));
         Assert.False(FastNumber.ScanUnsigned64(Utf8("18446744073709551616"), 0, 20, out _, out _));
 
@@ -65,6 +69,19 @@ public class BakePrimitivesCoverageTests
 
         Assert.True(FastNumber.ScanUnsigned64(Utf8(" 18446744073709551615 "), 0, 22, out _, out var max));
         Assert.Equal(18446744073709551615UL, max);
+    }
+
+    [Fact]
+    public void HotLength_RejectsAnOutofRangeHotLength()
+    {
+        var header = new byte[64];
+        BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(0), 0x31424C54u);
+        BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(4), 3u);
+        BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(48), (uint)header.Length);
+        Assert.Throws<ArgumentException>(() => TlbMetadata.HotLength(header));
+
+        BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(44), (uint)header.Length + 1);
+        Assert.Throws<ArgumentException>(() => TlbMetadata.HotLength(header));
     }
 
     [Fact]
@@ -150,6 +167,36 @@ public class BakePrimitivesCoverageTests
         resolver.AddAssembly(typeof(Tlb.AlphaTrack).Assembly);
 
         Assert.Equal(TimelineBaker.BakeJson(AlphaDoc, Resolver), TimelineBaker.BakeJson(AlphaDoc, resolver));
+    }
+
+    [Fact]
+    public void Resolver_ConstructorAndAddAssembly_AbsorbANotYetLoadedAssembly()
+    {
+        var numbersDll = FindRepositoryFile(Path.Combine("benchmarks", "Numbers", "bin", "Release", "net10.0", "Numbers.dll"));
+        if (numbersDll is null)
+            return;
+
+        var fromPaths = new BakerAssemblyResolver([numbersDll]);
+        var assembly = System.Reflection.Assembly.LoadFrom(numbersDll);
+        Assert.Contains(assembly, fromPaths.ReferencedAssemblies);
+        var laneTrack = assembly.GetType("NumbersBench.LaneTrack");
+        Assert.NotNull(laneTrack);
+        Assert.Equal(laneTrack, fromPaths.ResolveType("NumbersBench", "LaneTrack", "Numbers", "track 0"));
+
+        var fresh = new BakerAssemblyResolver();
+        fresh.AddAssembly(assembly);
+        Assert.Equal(laneTrack, fresh.ResolveType("NumbersBench", "LaneTrack", null, "track 0"));
+    }
+
+    private static string? FindRepositoryFile(string relative)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "tl.slnx")))
+            directory = directory.Parent;
+        if (directory is null)
+            return null;
+        var candidate = Path.Combine(directory.FullName, relative);
+        return File.Exists(candidate) ? candidate : null;
     }
 
     [Fact]

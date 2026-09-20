@@ -81,7 +81,7 @@ public class SimdWalkerCoverageTests
     {
         if (!Avx2Available)
             return;
-        var json = PaddedTracksDoc(10, 90 * 1024, "");
+        var json = PaddedTracksDoc(10, 110 * 1024, "");
         Assert.ThrowsAny<JsonException>(() => BakeWithPartitions(json, 2));
     }
 
@@ -90,7 +90,7 @@ public class SimdWalkerCoverageTests
     {
         if (!Avx2Available)
             return;
-        var json = PaddedTracksDoc(10, 90 * 1024, ",", head: " , ");
+        var json = PaddedTracksDoc(10, 110 * 1024, ",", head: " , ");
         Assert.ThrowsAny<JsonException>(() => BakeWithPartitions(json, 2));
     }
 
@@ -99,7 +99,7 @@ public class SimdWalkerCoverageTests
     {
         if (!Avx2Available)
             return;
-        var json = PaddedTracksDoc(10, 90 * 1024, ",");
+        var json = PaddedTracksDoc(10, 110 * 1024, ",");
         var colonBetweenLastTrackAndClose = json.Insert(json.Length - 3, " : ");
         Assert.ThrowsAny<JsonException>(() => BakeWithPartitions(colonBetweenLastTrackAndClose, 2));
     }
@@ -110,7 +110,7 @@ public class SimdWalkerCoverageTests
         if (!Avx2Available)
             return;
         var builder = new StringBuilder("{\"duration\":40,\"loop\":false,\"tracks\":[");
-        var pad = new string(' ', 90 * 1024);
+        var pad = new string(' ', 110 * 1024);
         for (var i = 0; i < 9; i++)
         {
             if (i > 0)
@@ -166,6 +166,13 @@ public class SimdWalkerCoverageTests
     {
         yield return Case("root member missing colon", """{"duration" 10,"tracks":[]}""");
         yield return Case("loop literal wrong token", """{"duration":10,"loop":truex,"tracks":[]}""");
+        yield return Case("track object colon first", """{"duration":10,"tracks":[{:1}]}""");
+        yield return Case("track trailing comma", """{"duration":10,"tracks":[{"namespace":"Tlb","type":"AlphaTrack","clips":[],}]}""");
+        yield return Case("track separator not comma", """{"duration":10,"tracks":[{"namespace":"Tlb" :,"type":"AlphaTrack","clips":[]}]}""");
+        yield return Case("track data invalid literal", """{"duration":10,"tracks":[{"namespace":"Tlb","type":"AlphaTrack","data":{"Code":tru},"clips":[]}]}""");
+        yield return Case("clip data colon first", """{"duration":10,"tracks":[{"namespace":"Tlb","type":"AlphaTrack","clips":[{"namespace":"Tlb","type":"AlphaClip","start":0,"end":9,"data":{:1}}]}]}""");
+        yield return Case("clip data trailing comma", """{"duration":10,"tracks":[{"namespace":"Tlb","type":"AlphaTrack","clips":[{"namespace":"Tlb","type":"AlphaClip","start":0,"end":9,"data":{"Value":1,}}]}]}""");
+        yield return Case("clip data separator not comma", """{"duration":10,"tracks":[{"namespace":"Tlb","type":"AlphaTrack","clips":[{"namespace":"Tlb","type":"AlphaClip","start":0,"end":9,"data":{"Value":1:}}]}]}""");
         yield return Case("loop literal trailing junk", """{"duration":10,"loop":true x,"tracks":[]}""");
         yield return Case("tracks separator not comma", """{"duration":10,"tracks":[""" + AlphaTrackJson + " :]}");
         yield return Case("clips trailing separator", """{"duration":10,"tracks":[{"namespace":"Tlb","type":"AlphaTrack","clips":[""" + ValidClipJson + ",]}]}");
@@ -241,6 +248,23 @@ public class SimdWalkerCoverageTests
         Assert.Equal(
             Receipt(BakeOracle.BakeJsonLegacy(json, Resolver)),
             Receipt(TimelineBaker.BakeJson(json, Resolver)));
+    }
+
+    [Fact]
+    public void TrackDataSignedExponentNumbers_BakeIdenticallyToOracle()
+    {
+        var json =
+            """{"duration":40,"loop":false,"tracks":[{"namespace":"Tlb","type":"BlendTrack","data":{"Scale":-1.5e+2},"clips":[{"namespace":"Tlb","type":"BlendClip","start":0,"end":20,"data":{"Amount":7e-1}}]}]}""";
+        Assert.Equal(
+            Receipt(BakeOracle.BakeJsonLegacy(json, Resolver)),
+            Receipt(TimelineBaker.BakeJson(json, Resolver)));
+    }
+
+    [Fact]
+    public void RawControlCharacterInString_FailsTheScan()
+    {
+        var json = "{\"duration\":10,\"name\":\"a\u0001b\",\"tracks\":[]}";
+        Assert.ThrowsAny<JsonException>(() => TimelineBaker.BakeJson(json, Resolver));
     }
 
     [Fact]

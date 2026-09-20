@@ -104,11 +104,31 @@ public class SlowWalkerCoverageTests
     public void UnknownFieldWithNestedContainers_IsSkippedWithDuplicateScanning_AndReported()
     {
         const string json =
-            """{"duration":10,"tracks":[{"namespace":"Tlb","type":"AlphaTrack","clips":[{"namespace":"Tlb","type":"AlphaClip","start":0,"end":10,"data":{"zzz":[{"a":[1,{"b":2}]},[2]],"Value":5}}]}]}""";
+            """{"duration":10,"tracks":[{"namespace":"Tlb","type":"AlphaTrack","clips":[{"namespace":"Tlb","type":"AlphaClip","start":0,"end":10,"data":{"zzz":[{"a":[1,{"b":2}]},[2]],"nn":{"in":{"deep":1}},"Value":5}}]}]}""";
 
         var diagnostic = Assert.Throws<BakeDiagnosticException>(() => BakeSlow(json));
         Assert.Contains("unknown field", diagnostic.Message, StringComparison.Ordinal);
         Assert.Contains("zzz", diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("""{"duration":10,"tracks":[{"namespace":"Tlb","type":"AlphaTrack","data":{"Code":1,"C\u006Fde":2},"clips":[]}]}""")]
+    [InlineData("""{"duration":10,"tracks":[{"namespace":"Tlb","type":"AlphaTrack","data":{"C\u006Fde":1,"C\u006Fde":2},"clips":[]}]}""")]
+    public void EscapedDuplicateFieldNames_AreRejected(string json)
+    {
+        var diagnostic = Assert.Throws<BakeDiagnosticException>(() => BakeSlow(json));
+        Assert.Contains("duplicate field", diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EscapedWellKnownPropertyNames_DecodeAndBakeIdenticallyToOracle()
+    {
+        const string json =
+            """{"\u0064uration":20,"\u0074racks":[{"\u006Eamespace":"Tlb","\u0074ype":"AlphaTrack","clips":[{"\u006Eamespace":"Tlb","type":"AlphaClip","start":0,"end":20,"data":{"\u0056alue":4}}]}]}""";
+
+        Assert.Equal(
+            Receipt(BakeOracle.BakeJsonLegacy(json, Resolver)),
+            Receipt(BakeSlow(json)));
     }
 
     [Fact]
@@ -209,6 +229,17 @@ public class SlowWalkerCoverageTests
 
         var diagnostic = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json, Resolver));
         Assert.Contains("unmanaged", diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ManagedTrackTypeWithBadData_ReportsTheLocatedPopulateDiagnostic()
+    {
+        const string json =
+            """{"duration":10,"tracks":[{"namespace":"FusedBake","type":"GaClassTrack","data":{"ghost":1},"clips":[{"namespace":"FusedBake","type":"GaClip0","start":0,"end":10,"data":{"Code":1}}]}]}""";
+
+        var diagnostic = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json, Resolver));
+        Assert.Contains("unknown field", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("ghost", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]

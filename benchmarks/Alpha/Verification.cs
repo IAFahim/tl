@@ -23,5 +23,6 @@ internal static class Verification
         if (allocated != 0)
             throw new InvalidOperationException($"Warm lane run allocated {allocated} B.");
         Console.WriteLine($"allocation: 128 x {LaneCase.Operations} sixteen-track lane runs retained {allocated} B");
+        CoverageArms.Run();
     }
 }
