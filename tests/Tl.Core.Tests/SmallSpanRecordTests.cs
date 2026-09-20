@@ -52,14 +52,14 @@ public class SmallSpanRecordTests
         {
             var lanePos = new TestPosition { Value = position };
             var laneFx = new TestEffect { Value = 1.5f };
-            Lane<RoutingTrack, RoutingClip>.Apply(index, ref lanePos, forward, ref laneFx);
+            Lane<RoutingTrack, RoutingClip>.Apply(index, lanePos, forward, ref laneFx);
             var laneAdvanced = lanePos;
             Lane<RoutingTrack, RoutingClip>.Advance(index, ref laneAdvanced, forward);
 
             var typedId = new TestIndex { Value = index };
             var typedPos = new TestPosition { Value = position };
             var typedFx = new TestEffect { Value = 1.5f };
-            Lane<RoutingTrack, RoutingClip>.Apply(typedId, ref typedPos, forward, ref typedFx);
+            Lane<RoutingTrack, RoutingClip>.Apply(typedId, typedPos, forward, ref typedFx);
             var typedAdvanced = typedPos;
             Lane<RoutingTrack, RoutingClip>.Advance(typedId, ref typedAdvanced, forward);
 
