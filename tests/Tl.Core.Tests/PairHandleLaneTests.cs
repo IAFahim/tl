@@ -453,10 +453,13 @@ public class PairHandleLaneTests
     [Fact]
     public void UnloadedIndexInCrowdKeepsDiagnostic()
     {
-        BindVariants();
+        var bound = BindVariants();
         var rowHandles = new ushort[4];
         var positions = new ushort[4];
         var effects = new float[4];
+        rowHandles[0] = bound[0];
+        rowHandles[1] = bound[0];
+        rowHandles[3] = bound[0];
         rowHandles[2] = ushort.MaxValue;
         var thrown = Assert.Throws<ArgumentException>(() =>
             Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positions, true, effects));
