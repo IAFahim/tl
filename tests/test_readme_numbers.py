@@ -33,7 +33,7 @@ class ReadmeNumbersTests(unittest.TestCase):
 
     def test_receipt_records_steady_baselines_and_tiering_state(self):
         receipt = render_numbers.load_receipt(ROOT)
-        self.assertEqual(receipt["Checksum"], 2103072035)
+        self.assertEqual(receipt["Checksum"], 66003337067)
         self.assertEqual([s["Id"] for s in receipt["Steady"]["Shapes"]], STEADY_SHAPE_IDS)
         for shape in receipt["Steady"]["Shapes"]:
             self.assertEqual(shape["Allocated"], 0, shape["Id"])
