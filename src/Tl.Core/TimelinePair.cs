@@ -55,18 +55,15 @@ public static unsafe class Timeline<TTrack, TClip>
             Resolve(index);
             slot = bank.FoldedView(index);
         }
-        var duration = slot->Duration;
-        var looping = slot->Looping != 0;
+        var p = position;
         if (forward)
         {
-            if (position < duration)
-                position = looping && position + 1 == duration ? (ushort)0 : (ushort)(position + 1);
+            if (p < slot->Duration) position = slot->ForwardRecords[p].Next;
+            return;
         }
-        else
-        {
-            if (looping ? position < duration : position > 0 && position <= duration)
-                position = position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1);
-        }
+        if (p > slot->Duration) return;
+        var next = slot->BackwardRecords[p].Next;
+        if (next != LaneMovementRecord.Skipped) position = next;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
