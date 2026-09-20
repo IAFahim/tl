@@ -408,9 +408,9 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var bound = _count;
         var reverse = !forward;
         var i = 0;
-        var boundVector = Vector256.Create((ushort)bound);
-        if (Avx2.IsSupported)
+        if (Vector256.IsHardwareAccelerated)
         {
+            var boundVector = Vector256.Create((ushort)bound);
             var blockEnd = count - (count & 15);
             while (i < blockEnd)
             {
@@ -419,6 +419,31 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 if (Vector256.LessThanAll(idv, boundVector))
                 {
                     if (Vector256.EqualsAll(idv, Vector256.Create(ids[i])))
+                    {
+                        var m = motion[ids[i]];
+                        if (forward) LaneOps.AdvanceForward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
+                        else LaneOps.AdvanceBackward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
+                    }
+                    else LaneOps.AdvanceRows(motion, ids, positions, next, forward, i, block);
+                }
+                else
+                {
+                    for (var k = i; k < block; k++) AdvanceRow(ids, positions, next, motion, views, bound, reverse, k);
+                }
+                i = block;
+            }
+        }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            var boundVector = Vector128.Create((ushort)bound);
+            var blockEnd = count - (count & 7);
+            while (i < blockEnd)
+            {
+                var block = i + 8;
+                var idv = Vector128.LoadUnsafe(ref MemoryMarshal.GetReference(ids), (nuint)i);
+                if (Vector128.LessThanAll(idv, boundVector))
+                {
+                    if (Vector128.EqualsAll(idv, Vector128.Create(ids[i])))
                     {
                         var m = motion[ids[i]];
                         if (forward) LaneOps.AdvanceForward((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, positions, next, i, block);
@@ -446,9 +471,16 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             return;
         }
         var m = motion[id];
-        next[i] = TimelineMovement.Advance((ushort)(m & 0xFFFF), (m & 0x80000000u) != 0, reverse, positions[i], out var np, out _, out _)
-            ? np
-            : positions[i];
+        var duration = (ushort)(m & 0xFFFF);
+        var looping = (m & 0x80000000u) != 0;
+        var pos = positions[i];
+        var forward = !reverse;
+        if (forward)
+            next[i] = pos < duration ? (looping && pos + 1 == duration ? (ushort)0 : (ushort)(pos + 1)) : pos;
+        else
+            next[i] = looping
+                ? pos < duration ? (pos == 0 ? (ushort)(duration - 1) : (ushort)(pos - 1)) : pos
+                : pos > 0 && pos <= duration ? (ushort)(pos - 1) : pos;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]

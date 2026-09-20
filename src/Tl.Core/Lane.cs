@@ -57,28 +57,8 @@ internal ref struct TimelineLane<T>
         var count = positions.Length;
         if (count == 0) return;
         if (duration == 0) { positions.CopyTo(next); return; }
-        var looping = T.Looping;
-        var i = 0;
-        if (Avx2.IsSupported)
-        {
-            var end = count - (count & 15);
-            if (forward) LaneOps.AdvanceForward(duration, looping, positions, next, 0, end);
-            else LaneOps.AdvanceBackward(duration, looping, positions, next, 0, end);
-            i = end;
-        }
-        var last = (ushort)(duration - 1);
-        for (; i < count; i++)
-        {
-            var pos = positions[i];
-            if (forward)
-            {
-                next[i] = pos > last ? pos : looping && pos == last ? (ushort)0 : (ushort)(pos + 1);
-            }
-            else
-            {
-                next[i] = (looping ? pos > last : pos == 0 || pos > duration) ? pos : (ushort)(pos == 0 ? last : pos - 1);
-            }
-        }
+        if (forward) LaneOps.AdvanceForward(duration, T.Looping, positions, next, 0, count);
+        else LaneOps.AdvanceBackward(duration, T.Looping, positions, next, 0, count);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -93,7 +73,6 @@ internal ref struct TimelineLane<T>
         var looping = T.Looping;
         var active = LaneAccelerator<T>.Active;
         var records = forward ? LaneAccelerator<T>.Forward : LaneAccelerator<T>.Backward;
-        var reverse = !forward;
         var i = 0;
         if (Avx2.IsSupported && active && duration > 1)
         {
@@ -127,12 +106,25 @@ internal ref struct TimelineLane<T>
                     continue;
                 }
             }
-            if (TimelineMovement.Advance(duration, looping, reverse, pos, out var np, out var tick, out _))
+            if (forward)
             {
-                effects[i] += forward ? T.Effect(pos) : T.InverseEffect(tick);
-                next[i] = np;
+                if (pos < duration)
+                {
+                    effects[i] += T.Effect(pos);
+                    next[i] = looping && pos + 1 == duration ? (ushort)0 : (ushort)(pos + 1);
+                }
+                else next[i] = pos;
             }
-            else next[i] = pos;
+            else
+            {
+                if (looping ? pos < duration : pos > 0 && pos <= duration)
+                {
+                    var tick = pos == 0 ? (ushort)(duration - 1) : (ushort)(pos - 1);
+                    effects[i] += T.InverseEffect(tick);
+                    next[i] = tick;
+                }
+                else next[i] = pos;
+            }
         }
     }
 
@@ -549,85 +541,178 @@ internal static unsafe class LaneOps
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     internal static unsafe void AdvanceForward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
     {
-        var lastVector = Vector256.Create((ushort)(duration - 1));
-        var zero = Vector256<ushort>.Zero;
-        var one = Vector256.Create((ushort)1);
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
-        while (i < limit)
+        var last = (ushort)(duration - 1);
+        if (Vector256.IsHardwareAccelerated)
         {
-            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
-            var next = pos + one;
-            if (wrap) next = Vector256.ConditionalSelect(Vector256.Equals(pos, lastVector), zero, next);
-            next = Vector256.ConditionalSelect(Vector256.LessThanOrEqual(pos, lastVector), next, pos);
-            next.StoreUnsafe(ref n, (nuint)i);
-            i += 16;
+            var lastVector = Vector256.Create(last);
+            var zero = Vector256<ushort>.Zero;
+            var one = Vector256.Create((ushort)1);
+            while (i < limit)
+            {
+                var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+                var next = pos + one;
+                if (wrap) next = Vector256.ConditionalSelect(Vector256.Equals(pos, lastVector), zero, next);
+                next = Vector256.ConditionalSelect(Vector256.LessThanOrEqual(pos, lastVector), next, pos);
+                next.StoreUnsafe(ref n, (nuint)i);
+                i += 16;
+            }
+        }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            var lastVector = Vector128.Create(last);
+            var zero = Vector128<ushort>.Zero;
+            var one = Vector128.Create((ushort)1);
+            var end = limit - 7;
+            while (i < end)
+            {
+                var pos = Vector128.LoadUnsafe(ref p, (nuint)i);
+                var next = pos + one;
+                if (wrap) next = Vector128.ConditionalSelect(Vector128.Equals(pos, lastVector), zero, next);
+                next = Vector128.ConditionalSelect(Vector128.LessThanOrEqual(pos, lastVector), next, pos);
+                next.StoreUnsafe(ref n, (nuint)i);
+                i += 8;
+            }
+        }
+        for (; i < limit; i++)
+        {
+            var pos = positions[i];
+            nextColumn[i] = pos > last ? pos : wrap && pos == last ? (ushort)0 : (ushort)(pos + 1);
         }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     internal static unsafe void AdvanceBackward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
     {
-        var lastVector = Vector256.Create((ushort)(duration - 1));
-        var durationVector = Vector256.Create(duration);
-        var zero = Vector256<ushort>.Zero;
-        var step = Vector256.Create((ushort)0xFFFF);
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
-        while (i < limit)
+        var last = (ushort)(duration - 1);
+        if (Vector256.IsHardwareAccelerated)
         {
-            var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
-            var next = pos + step;
-            Vector256<ushort> move;
-            if (wrap)
+            var lastVector = Vector256.Create(last);
+            var durationVector = Vector256.Create(duration);
+            var zero = Vector256<ushort>.Zero;
+            var step = Vector256.Create((ushort)0xFFFF);
+            while (i < limit)
             {
-                move = Vector256.LessThanOrEqual(pos, lastVector);
-                next = Vector256.ConditionalSelect(Vector256.Equals(pos, zero), lastVector, next);
+                var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
+                var next = pos + step;
+                Vector256<ushort> move;
+                if (wrap)
+                {
+                    move = Vector256.LessThanOrEqual(pos, lastVector);
+                    next = Vector256.ConditionalSelect(Vector256.Equals(pos, zero), lastVector, next);
+                }
+                else
+                {
+                    move = Vector256.GreaterThan(pos, zero) & Vector256.LessThanOrEqual(pos, durationVector);
+                }
+                next = Vector256.ConditionalSelect(move, next, pos);
+                next.StoreUnsafe(ref n, (nuint)i);
+                i += 16;
             }
-            else
+        }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            var lastVector = Vector128.Create(last);
+            var durationVector = Vector128.Create(duration);
+            var zero = Vector128<ushort>.Zero;
+            var step = Vector128.Create((ushort)0xFFFF);
+            var end = limit - 7;
+            while (i < end)
             {
-                move = Vector256.GreaterThan(pos, zero) & Vector256.LessThanOrEqual(pos, durationVector);
+                var pos = Vector128.LoadUnsafe(ref p, (nuint)i);
+                var next = pos + step;
+                Vector128<ushort> move;
+                if (wrap)
+                {
+                    move = Vector128.LessThanOrEqual(pos, lastVector);
+                    next = Vector128.ConditionalSelect(Vector128.Equals(pos, zero), lastVector, next);
+                }
+                else
+                {
+                    move = Vector128.GreaterThan(pos, zero) & Vector128.LessThanOrEqual(pos, durationVector);
+                }
+                next = Vector128.ConditionalSelect(move, next, pos);
+                next.StoreUnsafe(ref n, (nuint)i);
+                i += 8;
             }
-            next = Vector256.ConditionalSelect(move, next, pos);
-            next.StoreUnsafe(ref n, (nuint)i);
-            i += 16;
+        }
+        for (; i < limit; i++)
+        {
+            var pos = positions[i];
+            nextColumn[i] = (wrap ? pos > last : pos == 0 || pos > duration) ? pos : (ushort)(pos == 0 ? last : pos - 1);
         }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     internal static unsafe void AdvanceRows(uint* motion, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, bool forward, int i, int limit)
     {
-        var one = Vector256.Create(1u);
-        var zero = Vector256<uint>.Zero;
-        var low = Vector256.Create(0xFFFFu);
         ref var idRef = ref MemoryMarshal.GetReference(ids);
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
-        while (i < limit)
+        var one = Vector256.Create(1u);
+        var zero = Vector256<uint>.Zero;
+        var low = Vector256.Create(0xFFFFu);
+        while (i < limit && Avx2.IsSupported)
         {
             var idv = Vector256.LoadUnsafe(ref idRef, (nuint)i);
             (var idLo, var idHi) = Vector256.Widen(idv);
             var mLo = Avx2.GatherVector256((int*)motion, idLo.AsInt32(), 4).AsUInt32();
             var mHi = Avx2.GatherVector256((int*)motion, idHi.AsInt32(), 4).AsUInt32();
-            var durLo = mLo & low;
-            var durHi = mHi & low;
-            var loopLo = Vector256.LessThan(mLo.AsInt32(), Vector256<int>.Zero);
-            var loopHi = Vector256.LessThan(mHi.AsInt32(), Vector256<int>.Zero);
             var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
             (var posLo, var posHi) = Vector256.Widen(pos);
             Vector256<uint> nextLo, nextHi;
             if (forward)
-            {
-                nextLo = AdvanceForwardWide(posLo, durLo, loopLo, one, zero);
-                nextHi = AdvanceForwardWide(posHi, durHi, loopHi, one, zero);
-            }
+                (nextLo, nextHi) = (AdvanceForwardWide(posLo, mLo & low, Vector256.LessThan(mLo.AsInt32(), Vector256<int>.Zero), one, zero), AdvanceForwardWide(posHi, mHi & low, Vector256.LessThan(mHi.AsInt32(), Vector256<int>.Zero), one, zero));
             else
-            {
-                nextLo = AdvanceBackwardWide(posLo, durLo, loopLo, one, zero);
-                nextHi = AdvanceBackwardWide(posHi, durHi, loopHi, one, zero);
-            }
+                (nextLo, nextHi) = (AdvanceBackwardWide(posLo, mLo & low, Vector256.LessThan(mLo.AsInt32(), Vector256<int>.Zero), one, zero), AdvanceBackwardWide(posHi, mHi & low, Vector256.LessThan(mHi.AsInt32(), Vector256<int>.Zero), one, zero));
             Vector256.Narrow(nextLo, nextHi).StoreUnsafe(ref n, (nuint)i);
             i += 16;
+        }
+        if (Vector128.IsHardwareAccelerated && limit - i >= 8)
+        {
+            var end = i + (limit - i & ~7);
+            var oneNarrow = Vector128.Create(1u);
+            var zeroNarrow = Vector128<uint>.Zero;
+            while (i < end)
+            {
+                var idv = Vector128.LoadUnsafe(ref idRef, (nuint)i);
+                (var idFirst, var idSecond) = Vector128.Widen(idv);
+                var mFirst = Vector128.Create(
+                    motion[idFirst.ToScalar()],
+                    motion[idFirst.GetElement(1)],
+                    motion[idFirst.GetElement(2)],
+                    motion[idFirst.GetElement(3)]);
+                var mSecond = Vector128.Create(
+                    motion[idSecond.ToScalar()],
+                    motion[idSecond.GetElement(1)],
+                    motion[idSecond.GetElement(2)],
+                    motion[idSecond.GetElement(3)]);
+                var pos = Vector128.LoadUnsafe(ref p, (nuint)i);
+                (var posFirst, var posSecond) = Vector128.Widen(pos);
+                Vector128<uint> nextFirst, nextSecond;
+                if (forward)
+                    (nextFirst, nextSecond) = (AdvanceForwardNarrow(posFirst, mFirst & Vector128.Create(0xFFFFu), Vector128.LessThan(mFirst.AsInt32(), Vector128<int>.Zero), oneNarrow, zeroNarrow), AdvanceForwardNarrow(posSecond, mSecond & Vector128.Create(0xFFFFu), Vector128.LessThan(mSecond.AsInt32(), Vector128<int>.Zero), oneNarrow, zeroNarrow));
+                else
+                    (nextFirst, nextSecond) = (AdvanceBackwardNarrow(posFirst, mFirst & Vector128.Create(0xFFFFu), Vector128.LessThan(mFirst.AsInt32(), Vector128<int>.Zero), oneNarrow, zeroNarrow), AdvanceBackwardNarrow(posSecond, mSecond & Vector128.Create(0xFFFFu), Vector128.LessThan(mSecond.AsInt32(), Vector128<int>.Zero), oneNarrow, zeroNarrow));
+                Vector128.Narrow(nextFirst, nextSecond).StoreUnsafe(ref n, (nuint)i);
+                i += 8;
+            }
+        }
+        for (; i < limit; i++)
+        {
+            var m = motion[ids[i]];
+            var duration = (ushort)(m & 0xFFFF);
+            var looping = (m & 0x80000000u) != 0;
+            var pos = positions[i];
+            if (forward)
+                nextColumn[i] = pos < duration ? (looping && pos + 1 == duration ? (ushort)0 : (ushort)(pos + 1)) : pos;
+            else
+                nextColumn[i] = looping
+                    ? pos < duration ? (pos == 0 ? (ushort)(duration - 1) : (ushort)(pos - 1)) : pos
+                    : pos > 0 && pos <= duration ? (ushort)(pos - 1) : pos;
         }
     }
 
@@ -649,6 +734,26 @@ internal static unsafe class LaneOps
         var next = Vector256.ConditionalSelect(loop.AsUInt32(), loopNext, prev);
         var move = Vector256.ConditionalSelect(loop.AsUInt32(), loopMove, finiteMove);
         return Vector256.ConditionalSelect(move, next, pos);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static Vector128<uint> AdvanceForwardNarrow(Vector128<uint> pos, Vector128<uint> duration, Vector128<int> loop, Vector128<uint> one, Vector128<uint> zero)
+    {
+        var next = pos + one;
+        next = Vector128.ConditionalSelect(Vector128.Equals(pos, duration - one) & loop.AsUInt32(), zero, next);
+        return Vector128.ConditionalSelect(Vector128.LessThan(pos, duration), next, pos);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static Vector128<uint> AdvanceBackwardNarrow(Vector128<uint> pos, Vector128<uint> duration, Vector128<int> loop, Vector128<uint> one, Vector128<uint> zero)
+    {
+        var prev = pos - one;
+        var loopNext = Vector128.ConditionalSelect(Vector128.Equals(pos, zero), duration - one, prev);
+        var loopMove = Vector128.LessThan(pos, duration);
+        var finiteMove = Vector128.GreaterThan(pos, zero) & Vector128.LessThanOrEqual(pos, duration);
+        var next = Vector128.ConditionalSelect(loop.AsUInt32(), loopNext, prev);
+        var move = Vector128.ConditionalSelect(loop.AsUInt32(), loopMove, finiteMove);
+        return Vector128.ConditionalSelect(move, next, pos);
     }
 }
 
