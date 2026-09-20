@@ -53,16 +53,21 @@ public class SmallSpanRecordTests
             var lanePos = new TestPosition { Value = position };
             var laneFx = new TestEffect { Value = 1.5f };
             Lane<RoutingTrack, RoutingClip>.Apply(index, ref lanePos, forward, ref laneFx);
+            var laneAdvanced = lanePos;
+            Lane<RoutingTrack, RoutingClip>.Step(index, ref laneAdvanced, forward);
 
             var typedId = new TestIndex { Value = index };
             var typedPos = new TestPosition { Value = position };
             var typedFx = new TestEffect { Value = 1.5f };
             Lane<RoutingTrack, RoutingClip>.Apply(typedId, ref typedPos, forward, ref typedFx);
+            var typedAdvanced = typedPos;
+            Lane<RoutingTrack, RoutingClip>.Step(typedId, ref typedAdvanced, forward);
 
             var spanIds = new TestIndex[] { new(index) };
             var spanPos = new TestPosition[] { new(position) };
             var spanFx = new TestEffect[] { new() { Value = 1.5f } };
             Lane<RoutingTrack, RoutingClip>.Apply((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward, (Span<TestEffect>)spanFx);
+            Lane<RoutingTrack, RoutingClip>.Step((ReadOnlySpan<TestIndex>)spanIds, spanPos, forward);
 
             var shortIds = new ushort[] { index };
             var shortPos = new ushort[] { position };
@@ -70,12 +75,13 @@ public class SmallSpanRecordTests
             var shortEffects = new float[] { 1.5f };
             Timeline<RoutingTrack, RoutingClip>.Apply((ReadOnlySpan<ushort>)shortIds, shortPos, shortNext, forward, shortEffects);
 
-            Assert.Equal(typedPos.Value, lanePos.Value);
             Assert.Equal(typedFx.Value, laneFx.Value);
             Assert.Equal(spanFx[0].Value, laneFx.Value);
-            Assert.Equal(spanPos[0].Value, lanePos.Value);
-            Assert.Equal(shortNext[0], lanePos.Value);
             Assert.Equal(shortEffects[0], laneFx.Value);
+            Assert.Equal(typedPos.Value, lanePos.Value);
+            Assert.Equal(typedAdvanced.Value, laneAdvanced.Value);
+            Assert.Equal(shortNext[0], laneAdvanced.Value);
+            Assert.Equal(spanPos[0].Value, laneAdvanced.Value);
         }
     }
 
