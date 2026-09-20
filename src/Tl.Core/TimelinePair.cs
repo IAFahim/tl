@@ -16,9 +16,20 @@ public static unsafe class Timeline<TTrack, TClip>
     public static void Apply(ushort index, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
     {
         var bank = Bank();
-        if (!bank.IsFolded(index))
+        if (positions.Length > LaneOps.SmallSpan)
+        {
+            if (!bank.IsFolded(index))
+                Resolve(index);
+            bank.ApplySlot(index, positions, forward, effects);
+            return;
+        }
+        var slot = bank.FoldedView(index);
+        if (slot is null)
+        {
             Resolve(index);
-        bank.ApplySlot(index, positions, forward, effects);
+            slot = bank.FoldedView(index);
+        }
+        bank.ApplyRecords(slot, positions, forward, effects);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
@@ -36,9 +47,20 @@ public static unsafe class Timeline<TTrack, TClip>
     public static void Apply(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
     {
         var bank = Bank();
-        if (!bank.IsFolded(index))
+        if (positions.Length > LaneOps.SmallSpan)
+        {
+            if (!bank.IsFolded(index))
+                Resolve(index);
+            bank.ApplySlot(index, positions, next, forward, effects);
+            return;
+        }
+        var slot = bank.FoldedView(index);
+        if (slot is null)
+        {
             Resolve(index);
-        bank.ApplySlot(index, positions, next, forward, effects);
+            slot = bank.FoldedView(index);
+        }
+        bank.ApplyRecords(slot, positions, next, forward, effects);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
