@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
+using System.Text.Json;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Tl.Gen.CSharp;
@@ -243,13 +244,64 @@ public static unsafe class Play
         }
     }
 
+    public static (byte[][] Packages, string Error) BakeAll(Assembly assembly, string timelineJson)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(timelineJson);
+            if (document.RootElement.ValueKind is not JsonValueKind.Array)
+            {
+                var (bytes, error) = Bake(assembly, timelineJson);
+                if (bytes.Length == 0)
+                    return ([], error);
+                return ([bytes], "");
+            }
+            var resolver = BakerAssemblyResolver.FromAssemblies([assembly]);
+            var packages = new List<byte[]>();
+            foreach (var element in document.RootElement.EnumerateArray())
+            {
+                byte[] baked;
+                try
+                {
+                    baked = TimelineBaker.BakeJson(element.GetRawText(), resolver);
+                }
+                catch (Exception ex)
+                {
+                    return ([], ex.Message);
+                }
+                if (baked.Length == 0)
+                    return ([], "a timeline entry baked to zero bytes");
+                packages.Add(baked);
+            }
+            if (packages.Count == 0)
+                return ([], "the data pane holds no timelines; write one timeline document per array element");
+            return ([.. packages], "");
+        }
+        catch (JsonException ex)
+        {
+            return ([], ex.Message);
+        }
+    }
+
     public static string BakeStats(byte[] tlb)
     {
         var view = TlbMetadata.Read(tlb);
         return $"bytes={tlb.Length} types={view.Types.Count} pairs={view.PairTypes.Count} labels={view.Labels.Count}";
     }
 
-    public static LiveRun Run(Assembly assembly, byte[] tlb)
+    public static string BakeStats(byte[][] packages)
+    {
+        if (packages.Length == 1)
+            return BakeStats(packages[0]);
+        var total = 0;
+        foreach (var package in packages)
+            total += package.Length;
+        return $"packages={packages.Length} bytes={total}";
+    }
+
+    public static LiveRun Run(Assembly assembly, byte[] tlb) => Run(assembly, [tlb]);
+
+    public static LiveRun Run(Assembly assembly, byte[][] packages)
     {
         var run = new LiveRun();
         var console = new StringBuilder();
@@ -261,7 +313,7 @@ public static unsafe class Play
         CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
         try
         {
-            InvokeRun(assembly, tlb);
+            InvokeRun(assembly, packages);
         }
         finally
         {
@@ -277,7 +329,7 @@ public static unsafe class Play
         return run;
     }
 
-    static void InvokeRun(Assembly assembly, byte[] tlb)
+    static void InvokeRun(Assembly assembly, byte[][] packages)
     {
         Type[] types;
         try
@@ -288,25 +340,43 @@ public static unsafe class Play
         {
             types = [.. ex.Types.Where(t => t is not null)!];
         }
-        var entries = new List<MethodInfo>();
+        var singles = new List<MethodInfo>();
+        var batches = new List<MethodInfo>();
         foreach (var type in types)
             foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
             {
                 if (method.Name != "Run") continue;
                 var parameters = method.GetParameters();
-                if (parameters.Length != 1 || parameters[0].ParameterType != typeof(byte[])) continue;
-                entries.Add(method);
+                if (parameters.Length != 1) continue;
+                if (parameters[0].ParameterType == typeof(byte[])) singles.Add(method);
+                else if (parameters[0].ParameterType == typeof(byte[][])) batches.Add(method);
             }
+        var entries = new List<MethodInfo>();
+        entries.AddRange(singles);
+        entries.AddRange(batches);
         if (entries.Count == 0)
-            throw new InvalidOperationException("the compiled code has no public static Run(byte[]) entry; add Play.Run(byte[] tlb) with the playback loop");
+            throw new InvalidOperationException("the compiled code has no public static Run(byte[] tlb) or Run(byte[][] tlbs) entry; add a playback entry that takes the baked timelines");
         if (entries.Count > 1)
         {
             var names = entries.Select(e => $"{e.DeclaringType?.FullName}.{e.Name}").OrderBy(n => n, StringComparer.Ordinal).Distinct();
-            throw new InvalidOperationException($"ambiguous Run(byte[]) entry: {entries.Count} public static Run(byte[]) methods compiled ({string.Join(", ", names)}); keep exactly one playback entry");
+            throw new InvalidOperationException($"ambiguous Run entry: {entries.Count} public static Run(byte[]) / Run(byte[][]) methods compiled ({string.Join(", ", names)}); keep exactly one playback entry");
         }
+        var entryMethod = entries[0];
+        if (entryMethod.GetParameters()[0].ParameterType == typeof(byte[][]))
+        {
+            InvokeEntry(entryMethod, packages);
+            return;
+        }
+        if (packages.Length != 1)
+            throw new InvalidOperationException($"the data pane holds {packages.Length} baked timelines but Run takes one byte[]; use Run(byte[][] tlbs) and load each package with TimelineAsset.Load");
+        InvokeEntry(entryMethod, packages[0]);
+    }
+
+    static void InvokeEntry(MethodInfo entry, object argument)
+    {
         try
         {
-            entries[0].Invoke(null, [tlb]);
+            entry.Invoke(null, [argument]);
         }
         catch (TargetInvocationException ex)
         {
