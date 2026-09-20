@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpFuzz" Version="2.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
+    <ProjectReference Include="..\..\tools\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Tl.Fuzz\FuzzBake.cs" Link="Shared\FuzzBake.cs" />
+    <Compile Include="..\Tl.Fuzz\FuzzDomain.cs" Link="Shared\FuzzDomain.cs" />
+    <Compile Include="..\Tl.Fuzz\FuzzJsonDomain.cs" Link="Shared\FuzzJsonDomain.cs" />
+    <Compile Include="..\Tl.Fuzz\FuzzAssets.cs" Link="Shared\FuzzAssets.cs" />
+    <Compile Include="..\Tl.Fuzz\FuzzRandom.cs" Link="Shared\FuzzRandom.cs" />
+    <Compile Include="..\Tl.Fuzz\FuzzContract.cs" Link="Shared\FuzzContract.cs" />
+  </ItemGroup>
+
+</Project>

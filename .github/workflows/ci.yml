@@ -113,3 +113,31 @@ jobs:
           dotnet-version: 10.0.x
       - name: Build and test the checked configuration (TL_CHECKED)
         run: dotnet test tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -p:TlChecked=true -p:NuGetAudit=false
+
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: 10.0.x
+      - name: Install AFL++
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq afl++
+      - name: Property laws plus deterministic mutation fuzz
+        run: dotnet test tests/Tl.Fuzz/Tl.Fuzz.csproj -c Release -p:NuGetAudit=false
+      - name: Coverage-guided smoke (60 seconds per boundary)
+        run: |
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          dotnet tool install --global SharpFuzz.CommandLine --version 2.3.0
+          eng/fuzz-smoke 60
+      - name: Upload fuzz findings on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fuzz-findings
+          path: artifacts/fuzz/out-*/
+          if-no-files-found: ignore

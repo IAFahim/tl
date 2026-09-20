@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Time-boxed coverage-guided fuzz smoke for the TLB byte boundary and the authoring JSON boundary (issue #303).
+# usage: eng/fuzz-smoke [seconds-per-target]
+# env: FUZZ_SECONDS, FUZZ_WORK, AFL_FUZZ, AFL_LD_PATH
+# Requires afl-fuzz (AFL++); without it the script explains the fallback — the deterministic
+# mutation fuzz in tests/Tl.Fuzz stays the always-on boundary check in CI.
+set -euo pipefail
+
+seconds=${1:-${FUZZ_SECONDS:-60}}
+repo=$(cd "$(dirname "$0")/.." && pwd)
+work=${FUZZ_WORK:-"$repo/artifacts/fuzz"}
+
+afl=${AFL_FUZZ:-$(command -v afl-fuzz || true)}
+if [[ -z ${afl:-} ]]; then
+  for candidate in "$HOME/.local/afl/bin/afl-fuzz"; do
+    if [[ -x $candidate ]]; then afl=$candidate; break; fi
+  done
+fi
+if [[ -z ${afl:-} ]]; then
+  echo "afl-fuzz not found. Build AFL++ without sudo:"
+  echo "  git clone --depth 1 --branch v5.03c https://github.com/AFLplusplus/AFLplusplus.git /tmp/aflpp"
+  echo "  make -C /tmp/aflpp PREFIX=\$HOME/.local/afl all install"
+  echo "Until then the deterministic mutation fuzz in tests/Tl.Fuzz covers the boundaries."
+  exit 3
+fi
+
+afl_dir=$(dirname "$afl")
+if [[ -n ${AFL_LD_PATH:-} ]]; then
+  export LD_LIBRARY_PATH="${AFL_LD_PATH}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+export AFL_SKIP_CPUFREQ=1
+export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+export AFL_NO_AFFINITY=1
+export AFL_MAP_SIZE=65536
+# SharpFuzz implements its own .NET fork server; afl-fuzz's native-instrumentation
+# check does not apply to managed targets.
+export AFL_SKIP_BIN_CHECK=1
+
+rm -rf "$work"
+mkdir -p "$work/publish"
+
+dotnet publish "$repo/tests/Tl.Fuzz.Harness/Tl.Fuzz.Harness.csproj" -c Release -r linux-x64 --self-contained true -p:NuGetAudit=false -o "$work/publish"
+
+# Seed corpus is generated while the binaries are still uninstrumented: SharpFuzz
+# probes crash outside Fuzzer.Run because the coverage map is not attached yet.
+harness="$work/publish/Tl.Fuzz.Harness"
+TL_FUZZ_TARGET=seed "$harness" "$work/corpus"
+
+if ! command -v sharpfuzz >/dev/null 2>&1; then
+  dotnet tool install --global SharpFuzz.CommandLine --version 2.3.0
+fi
+# Only the fuzzed libraries are instrumented, never the entry assembly: its
+# probes would run before the coverage map is attached and fault on entry.
+sharpfuzz "$work/publish/Tl.Core.dll"
+sharpfuzz "$work/publish/Tl.Gen.Tlb.dll"
+
+dict=""
+for candidate in "$afl_dir/../share/afl/json.dict" /usr/local/share/afl/json.dict /usr/share/afl/json.dict; do
+  if [[ -f $candidate ]]; then dict=$candidate; break; fi
+done
+
+fail=0
+printf '%-10s %10s %12s %8s %8s\n' TARGET EXECS EDGES CRASHES HANGS
+for target in tlb json json-auto; do
+  out="$work/out-$target"
+  input="$work/corpus/$target"
+  extra=()
+  if [[ $target != tlb && -n $dict ]]; then extra=(-x "$dict"); fi
+  TL_FUZZ_TARGET=$target "$afl" -i "$input" -o "$out" -V "$seconds" -m none -t 3000 "${extra[@]}" -- "$harness" >/dev/null 2>&1 || true
+  stats="$out/default/fuzzer_stats"
+  if [[ ! -f $stats ]]; then
+    printf '%-10s %10s %12s %8s %8s\n' "$target" "no-stats" "-" "-" "-"
+    fail=1
+    continue
+  fi
+  execs=$(sed -n 's/^execs_done *: *//p' "$stats")
+  edges=$(sed -n 's/^edges_found *: *//p' "$stats")
+  crashes=$(sed -n 's/^saved_crashes *: *//p' "$stats")
+  hangs=$(sed -n 's/^saved_hangs *: *//p' "$stats")
+  printf '%-10s %10s %12s %8s %8s\n' "$target" "${execs:-?}" "${edges:-?}" "${crashes:-?}" "${hangs:-?}"
+  if [[ ${crashes:-0} != 0 || ${hangs:-0} != 0 ]]; then
+    echo "FAIL: $target reported crashes/hangs; reproducers:" >&2
+    ls "$out/default/crashes" "$out/default/hangs" 2>/dev/null >&2 || true
+    fail=1
+  fi
+done
+
+if [[ $fail == 0 ]]; then
+  echo "fuzz smoke clean: no crashes, no hangs in ${seconds}s per target"
+fi
+exit $fail
