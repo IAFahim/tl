@@ -51,6 +51,8 @@ public class WarmPathTierTests
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "RunEndTwo", 4, null, WarmMode.Optimize),
         new(typeof(Timeline<LaneTrack, LaneClip>), nameof(Timeline<LaneTrack, LaneClip>.Apply), 4, null, WarmMode.Inline),
         new(typeof(Timeline<LaneTrack, LaneClip>), nameof(Timeline<LaneTrack, LaneClip>.Apply), 5, null, WarmMode.Inline),
+        new(typeof(Timeline<LaneTrack, LaneClip>), nameof(Timeline<LaneTrack, LaneClip>.Step), 3, "UInt16", WarmMode.Inline),
+        new(typeof(Timeline<LaneTrack, LaneClip>), "ApplySharedClock", 4, null, WarmMode.Optimize),
         new(typeof(Timeline<LaneTrack, LaneClip>), "Bank", 0, null, WarmMode.Inline),
         new(typeof(Timeline<LaneTrack, LaneClip>), nameof(Timeline<LaneTrack, LaneClip>.ResolveChunk), 4, null, WarmMode.Optimize),
         new(typeof(Timeline<LawLane>), nameof(Timeline<LawLane>.Apply), 3, null, WarmMode.Inline),

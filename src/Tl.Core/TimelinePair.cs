@@ -33,6 +33,52 @@ public static unsafe class Timeline<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply(ushort index, ushort position, bool forward, Span<float> effects)
+    {
+        var bank = Bank();
+        var slot = bank.FoldedView(index);
+        if (slot is null)
+        {
+            Resolve(index);
+            slot = bank.FoldedView(index);
+        }
+        ApplySharedClock(slot, position, forward, effects);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static unsafe void Step(ushort index, ref ushort position, bool forward)
+    {
+        var bank = Bank();
+        var slot = bank.FoldedView(index);
+        if (slot is null)
+        {
+            Resolve(index);
+            slot = bank.FoldedView(index);
+        }
+        if (TimelineMovement.Advance(slot->Duration, slot->Looping != 0, !forward, position, out var next, out _, out _))
+            position = next;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe void ApplySharedClock(SlotView* slot, ushort position, bool forward, Span<float> effects)
+    {
+        float delta;
+        if (forward)
+        {
+            if (position >= slot->Duration) return;
+            delta = slot->ForwardRecords[position].Effect;
+        }
+        else
+        {
+            if (position > slot->Duration) return;
+            ref var record = ref slot->BackwardRecords[position];
+            if (record.Next == LaneMovementRecord.Skipped) return;
+            delta = record.Effect;
+        }
+        LaneOps.Add(effects, 0, effects.Length, delta);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(TimelineAsset asset, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
     {
         ArgumentNullException.ThrowIfNull(asset);

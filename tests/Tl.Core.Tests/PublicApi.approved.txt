@@ -126,10 +126,12 @@ type Tl.Timeline`1
 type Tl.Timeline`2
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Void Apply(UInt16, UInt16, Boolean, System.Span`1[System.Single])
   Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
+  Method Void Step(UInt16, UInt16 ByRef, Boolean)
   Method Tl.SlotView View(UInt16)
   Method Tl.SlotView View(Tl.TimelineAsset)
 type Tl.TypeKey`1
