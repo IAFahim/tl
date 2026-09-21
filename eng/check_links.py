@@ -14,9 +14,7 @@ ALLOWED_PREFIXES = (
     "https://nuget.org/",
     "https://iafahim.github.io/",
 )
-WAIVED_EXTERNAL = {
-    "https://github.com/IAFahim/tl.unity": "private tl.unity repository; owner decision pending (#300 1.1)",
-}
+WAIVED_EXTERNAL = {}
 
 
 def markdown_files(root):

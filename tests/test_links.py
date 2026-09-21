@@ -9,8 +9,6 @@ SPEC = importlib.util.spec_from_file_location("check_links", ROOT / "eng" / "che
 CHECK_LINKS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CHECK_LINKS)
 
-WAIVED_URL = "https://github.com/IAFahim/tl.unity"
-
 
 class LinkTests(unittest.TestCase):
     def test_every_relative_and_anchor_link_resolves(self):
@@ -30,7 +28,8 @@ class LinkTests(unittest.TestCase):
 
     def test_waiver_tracks_a_checked_in_link(self):
         walked = "\n".join(path.read_text(encoding="utf-8") for path in CHECK_LINKS.markdown_files(ROOT))
-        self.assertIn(f"({WAIVED_URL})", walked)
+        for url in CHECK_LINKS.WAIVED_EXTERNAL:
+            self.assertIn(f"({url})", walked)
 
     @unittest.skipUnless(os.environ.get("TL_LINK_HEAD_CHECK") == "1", "external HEAD checks run only in the scheduled lane")
     def test_classified_external_targets_are_alive(self):
