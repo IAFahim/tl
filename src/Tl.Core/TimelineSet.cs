@@ -632,13 +632,34 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal void ApplySlot(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
         => new TimelineSetLane<TTrack, TClip>(this, ReadOnlySpan<ushort>.Empty, positions, forward).ApplySlot(index, effects, next);
 
+    interface IRowWalk
+    {
+        static abstract LaneMovementRecord* Table(SlotView* slot);
+        static abstract bool InRange(ushort position, int duration);
+        static abstract bool Playable(LaneMovementRecord record);
+    }
+
+    readonly struct ForwardRows : IRowWalk
+    {
+        public static LaneMovementRecord* Table(SlotView* slot) => slot->ForwardRecords;
+        public static bool InRange(ushort position, int duration) => position < duration;
+        public static bool Playable(LaneMovementRecord record) => true;
+    }
+
+    readonly struct BackwardRows : IRowWalk
+    {
+        public static LaneMovementRecord* Table(SlotView* slot) => slot->BackwardRecords;
+        public static bool InRange(ushort position, int duration) => position <= duration;
+        public static bool Playable(LaneMovementRecord record) => record.Next != Skipped;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal void ApplyRows(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
     {
         Checked.Live(_disposed);
         Checked.Rows(rows, indices, positions, effects);
-        if (forward) ApplyRowsForward(rows, indices, positions, effects);
-        else ApplyRowsBackward(rows, indices, positions, effects);
+        if (forward) ApplyRowsCore<ForwardRows>(rows, indices, positions, effects);
+        else ApplyRowsCore<BackwardRows>(rows, indices, positions, effects);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
@@ -646,12 +667,12 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     {
         Checked.Live(_disposed);
         Checked.Rows(rows, indices, positions);
-        if (forward) AdvanceRowsForward(rows, indices, positions);
-        else AdvanceRowsBackward(rows, indices, positions);
+        if (forward) AdvanceRowsCore<ForwardRows>(rows, indices, positions);
+        else AdvanceRowsCore<BackwardRows>(rows, indices, positions);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    unsafe void ApplyRowsForward(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects)
+    unsafe void ApplyRowsCore<TDir>(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects) where TDir : struct, IRowWalk
     {
         var views = _views;
         var bound = _count;
@@ -679,57 +700,20 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 }
                 lastId = id;
                 duration = slot->Duration;
-                records = slot->ForwardRecords;
+                records = TDir.Table(slot);
             }
             var position = Unsafe.Add(ref posOrigin, row);
-            if (position < duration)
-                Unsafe.Add(ref fxOrigin, row) += records[position].Effect;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    unsafe void ApplyRowsBackward(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects)
-    {
-        var views = _views;
-        var bound = _count;
-        var lazy = _lazyResolve;
-        ref var rowOrigin = ref MemoryMarshal.GetReference(rows);
-        ref var idOrigin = ref MemoryMarshal.GetReference(indices);
-        ref var posOrigin = ref MemoryMarshal.GetReference(positions);
-        ref var fxOrigin = ref MemoryMarshal.GetReference(effects);
-        var lastId = -1;
-        LaneMovementRecord* records = null;
-        var duration = 0;
-        for (var i = 0; i < rows.Length; i++)
-        {
-            var row = (nuint)Unsafe.Add(ref rowOrigin, i);
-            var id = Unsafe.Add(ref idOrigin, row);
-            if (id != lastId)
-            {
-                var slot = id < (uint)bound ? views[id] : null;
-                if (slot is null)
-                {
-                    ResolveRow(id, i, lazy);
-                    views = _views;
-                    bound = _count;
-                    slot = views[id];
-                }
-                lastId = id;
-                duration = slot->Duration;
-                records = slot->BackwardRecords;
-            }
-            var position = Unsafe.Add(ref posOrigin, row);
-            if (position <= duration)
+            if (TDir.InRange(position, duration))
             {
                 ref var r = ref records[position];
-                if (r.Next != Skipped)
+                if (TDir.Playable(r))
                     Unsafe.Add(ref fxOrigin, row) += r.Effect;
             }
         }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    unsafe void AdvanceRowsForward(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, Span<ushort> positions)
+    unsafe void AdvanceRowsCore<TDir>(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, Span<ushort> positions) where TDir : struct, IRowWalk
     {
         var views = _views;
         var bound = _count;
@@ -756,50 +740,14 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 }
                 lastId = id;
                 duration = slot->Duration;
-                records = slot->ForwardRecords;
+                records = TDir.Table(slot);
             }
             var position = Unsafe.Add(ref posOrigin, row);
-            if (position < duration)
-                Unsafe.Add(ref posOrigin, row) = records[position].Next;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    unsafe void AdvanceRowsBackward(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, Span<ushort> positions)
-    {
-        var views = _views;
-        var bound = _count;
-        var lazy = _lazyResolve;
-        ref var rowOrigin = ref MemoryMarshal.GetReference(rows);
-        ref var idOrigin = ref MemoryMarshal.GetReference(indices);
-        ref var posOrigin = ref MemoryMarshal.GetReference(positions);
-        var lastId = -1;
-        LaneMovementRecord* records = null;
-        var duration = 0;
-        for (var i = 0; i < rows.Length; i++)
-        {
-            var row = (nuint)Unsafe.Add(ref rowOrigin, i);
-            var id = Unsafe.Add(ref idOrigin, row);
-            if (id != lastId)
+            if (TDir.InRange(position, duration))
             {
-                var slot = id < (uint)bound ? views[id] : null;
-                if (slot is null)
-                {
-                    ResolveRow(id, i, lazy);
-                    views = _views;
-                    bound = _count;
-                    slot = views[id];
-                }
-                lastId = id;
-                duration = slot->Duration;
-                records = slot->BackwardRecords;
-            }
-            var position = Unsafe.Add(ref posOrigin, row);
-            if (position <= duration)
-            {
-                var next = records[position].Next;
-                if (next != Skipped)
-                    Unsafe.Add(ref posOrigin, row) = next;
+                ref var r = ref records[position];
+                if (TDir.Playable(r))
+                    Unsafe.Add(ref posOrigin, row) = r.Next;
             }
         }
     }
