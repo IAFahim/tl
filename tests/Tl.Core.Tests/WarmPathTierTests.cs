@@ -40,7 +40,7 @@ public class WarmPathTierTests
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), nameof(TimelineSetLane<LaneTrack, LaneClip>.ApplySlot), 3, null, WarmMode.Optimize),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ApplyUniformSegment", 9, null, WarmMode.Optimize),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ArenaRecords", 6, null, WarmMode.Inline),
-        new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ArenaUniformWalk", 8, null, WarmMode.Optimize),
+        new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ArenaUniformWalk", 7, null, WarmMode.Optimize),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ArenaMixed", 10, null, WarmMode.Optimize),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ApplyUniform", 7, null, WarmMode.Optimize),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ApplyMixed", 8, null, WarmMode.Optimize),
