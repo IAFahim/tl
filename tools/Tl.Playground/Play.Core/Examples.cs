@@ -81,6 +81,20 @@ public static class Examples
         GroupsSource,
         GroupsTimelineJson);
 
+    public static readonly Example Mixed = new(
+        "mixed",
+        "mixed sample · three tracks, crossfade, rewind",
+        "the samples/Mixed attack timeline, three tracks on two ticks: AnimationTrack 1 steps X+Y = 3 on tick 1, then its clips (2,1) and (6,3) overlap on tick 2 and crossfade at factor 0.5 to +6, AnimationTrack 3 shuffles +1 per tick, DamageTrack 2 hits 10 per tick — two forward ticks land at vitality -9, position 2 and two rewind ticks restore exactly 0",
+        MixedSource,
+        MixedTimelineJson);
+
+    public static readonly Example Showcase = new(
+        "showcase",
+        "showcase sample · jump arc + Timeline.Bake",
+        "the samples/Showcase program: four characters jump the 30-tick arc (velocity 2 m/tick, apex y = 30 m at tick 15), 30 rewind ticks land at exactly 0.0 m, then Timeline.Bake walks the AttachJumping marker and marks entities 42 and 43 jumping",
+        ShowcaseSource,
+        LiveAuthoring.DefaultTimelineJson);
+
     public static readonly Example Raw = new(
         "raw",
         "raw binding (advanced)",
@@ -88,7 +102,7 @@ public static class Examples
         LiveAuthoring.RawBindingSource,
         LiveAuthoring.RawBindingTimelineJson);
 
-    public static readonly Example[] All = [Readme, Boss, SharedClock, SyncCrowd, Groups, Raw];
+    public static readonly Example[] All = [Readme, Boss, SharedClock, SyncCrowd, Groups, Mixed, Showcase, Raw];
 
     public static Example Of(string id) => All.FirstOrDefault(example => example.Id == id) ?? Readme;
 
@@ -241,6 +255,139 @@ public static class Play
 }
 """;
 
+    const string MixedSource = """
+using Tl;
+
+namespace Live;
+
+public readonly record struct AnimationClip(float X, float Y);
+
+public readonly record struct DamageClip(float Amount);
+
+public readonly record struct AnimationTrack(int Code) : IBlend<AnimationClip>
+{
+    public void Blend(in AnimationClip first, in AnimationClip second, float factor, out AnimationClip result)
+        => result = new AnimationClip(
+            first.X + (second.X - first.X) * factor,
+            first.Y + (second.Y - first.Y) * factor);
+}
+
+public readonly record struct DamageTrack(int Code) : IBlend<DamageClip>
+{
+    public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result)
+        => result = new DamageClip(first.Amount + (second.Amount - first.Amount) * factor);
+}
+
+public readonly struct AnimationJob : ITrack<AnimationTrack, AnimationClip>
+{
+    public static void OnActive(in Frame<AnimationTrack, AnimationClip> frame, ref float vitality)
+        => vitality += frame.Direction * (frame.Clip.X + frame.Clip.Y);
+}
+
+public readonly struct DamageJob : ITrack<DamageTrack, DamageClip>
+{
+    public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float vitality)
+        => vitality -= frame.Direction * frame.Clip.Amount;
+}
+
+public static class Play
+{
+    public static void Run(byte[] attackTlb)
+    {
+        ushort attack = TimelineAsset.Load(attackTlb);
+        var positions = new ushort[] { 0 };
+        var vitality = new[] { 0f };
+        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, true, vitality); Timeline.Advance(attack, positions, true);
+        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, true, vitality); Timeline.Advance(attack, positions, true);
+        Console.WriteLine($"after two forward ticks: vitality={vitality[0]} position={positions[0]}");
+        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, false, vitality); Timeline.Advance(attack, positions, false);
+        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, false, vitality); Timeline.Advance(attack, positions, false);
+        Console.WriteLine($"after two rewind ticks: vitality={vitality[0]} position={positions[0]}");
+    }
+}
+""";
+
+    const string MixedTimelineJson = """
+{
+  "name": "attack", "duration": 2, "loop": false,
+  "tracks": [
+    { "name": "walk-a", "namespace": "Live", "type": "AnimationTrack", "data": { "Code": 1 },
+      "clips": [
+        { "name": "step", "namespace": "Live", "type": "AnimationClip", "start": 0, "end": 2, "data": { "X": 2, "Y": 1 } },
+        { "name": "stride", "namespace": "Live", "type": "AnimationClip", "start": 1, "end": 2, "data": { "X": 6, "Y": 3 } }
+      ] },
+    { "name": "hurt", "namespace": "Live", "type": "DamageTrack", "data": { "Code": 2 },
+      "clips": [ { "name": "hit", "namespace": "Live", "type": "DamageClip", "start": 0, "end": 2, "data": { "Amount": 10 } } ] },
+    { "name": "walk-b", "namespace": "Live", "type": "AnimationTrack", "data": { "Code": 3 },
+      "clips": [ { "name": "shuffle", "namespace": "Live", "type": "AnimationClip", "start": 0, "end": 2, "data": { "X": 1, "Y": 0 } } ] }
+  ]
+}
+""";
+
+    const string ShowcaseSource = """
+using System.Collections.Generic;
+using Tl;
+
+namespace Live;
+
+public readonly record struct JumpClip(float Velocity);
+
+public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
+{
+    public void Blend(in JumpClip first, in JumpClip second, float factor, out JumpClip result)
+        => result = new JumpClip(first.Velocity + (second.Velocity - first.Velocity) * factor);
+}
+
+public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
+{
+    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
+        => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
+}
+
+public readonly struct AttachJumping : IBake<MoveY>
+{
+    public static void Bake(World world, int entity)
+        => world.MarkJumping(entity);
+}
+
+public sealed class World
+{
+    public readonly List<int> Jumping = [];
+    public void MarkJumping(int entity) => Jumping.Add(entity);
+}
+
+public static class Play
+{
+    public static void Run(byte[] jumpTlb)
+    {
+        ushort jumpTimeline = TimelineAsset.Load(jumpTlb);
+        var ids = new ushort[] { jumpTimeline, jumpTimeline, jumpTimeline, jumpTimeline };
+        var tick = new ushort[] { 0, 0, 0, 0 };
+        var y = new[] { 0f, 0f, 0f, 0f };
+
+        Console.WriteLine("four characters jump, one call per frame:");
+        for (var frame = 1; frame <= 30; frame++)
+        {
+            Timeline<JumpTrack, JumpClip>.Apply(ids, tick, true, y); Timeline.Advance(ids, tick, true);
+            if (frame % 3 == 0)
+                Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', Math.Max(0, (int)Math.Round(y[0] / 3)))}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("rewind walks the arc back exactly:");
+        for (var frame = 0; frame < 30; frame++)
+            { Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, false, y); Timeline.Advance(jumpTimeline, tick, false); }
+        Console.WriteLine($"  after 30 back ticks: y = {y[0]:0.0} m, tick = {tick[0]}");
+
+        Console.WriteLine();
+        var world = new World();
+        Timeline.Bake(jumpTimeline, world, 42);
+        Timeline.Bake(jumpTimeline, world, 43);
+        Console.WriteLine($"Timeline.Bake marked entities {string.Join(", ", world.Jumping)} as jumping; unmarked entities never reach the advance");
+    }
+}
+""";
+
     public static string Validate()
     {
         var report = new StringBuilder();
@@ -260,7 +407,18 @@ public static class Play
         Require(groups.Console.Length > 1, "groups run printed no console output");
         Require(groups.Console[0].StartsWith("1,000,000 goblins across 100 ability groups:", StringComparison.Ordinal), $"groups header shape: {groups.Console[0]}");
         Require(groups.Console[^1].StartsWith("after 60 ticks: group 7 runs timeline ", StringComparison.Ordinal), $"groups tail line: {groups.Console[^1]}");
-        report.Append($"EXAMPLE PASS crowd rows={CrowdRows} groups={CrowdRows / CrowdGroupSize} frames={CrowdFrames} shared={shared.Checksum} sync={sync.Checksum} groups={groups.Checksum}");
+
+        var mixed = Execute(Mixed);
+        Require(mixed.Console.Contains("after two forward ticks: vitality=-9 position=2"), $"mixed forward receipt: {mixed.Console[^1]}");
+        Require(mixed.Console.Contains("after two rewind ticks: vitality=0 position=0"), $"mixed rewind receipt: {mixed.Console[^1]}");
+
+        var showcase = Execute(Showcase);
+        Require(showcase.Console.Length == 14, $"showcase run printed {showcase.Console.Length} lines, expected 14");
+        Require(showcase.Console[^2] == "  after 30 back ticks: y = 0.0 m, tick = 0", $"showcase rewind line: {showcase.Console[^2]}");
+        Require(showcase.Console[^1] == "Timeline.Bake marked entities 42, 43 as jumping; unmarked entities never reach the advance", $"showcase bake line: {showcase.Console[^1]}");
+
+        report.Append($"EXAMPLE PASS crowd rows={CrowdRows} groups={CrowdRows / CrowdGroupSize} frames={CrowdFrames} shared={shared.Checksum} sync={sync.Checksum} groups={groups.Checksum}; ");
+        report.Append($"EXAMPLE PASS samples mixed={mixed.Checksum} showcase={showcase.Checksum}");
         return report.ToString();
     }
 

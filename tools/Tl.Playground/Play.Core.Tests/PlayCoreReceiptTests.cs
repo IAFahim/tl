@@ -38,7 +38,7 @@ public class PlayCoreReceiptTests
 
         Assert.StartsWith("EXAMPLE PASS boss health=80 position=2; ", receipt, StringComparison.Ordinal);
         Assert.Matches(
-            @"EXAMPLE PASS crowd rows=1000000 groups=100 frames=60 shared=\d+ sync=\d+ groups=\d+",
+            @"EXAMPLE PASS crowd rows=1000000 groups=100 frames=60 shared=\d+ sync=\d+ groups=\d+; EXAMPLE PASS samples mixed=308154984194266103 showcase=295696093477130562",
             receipt["EXAMPLE PASS boss health=80 position=2; ".Length..]);
     }
 }
