@@ -182,7 +182,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
                 Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
                 if (!reference.Select(reverse, (ushort)position, out _, out var tick, out var flags))
                     throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
-                reference.Execute(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns);
+                reference.ExecuteWindow(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns, null, null, null);
                 CopyLanes(table, lanes, laneCell, tick);
             }
 

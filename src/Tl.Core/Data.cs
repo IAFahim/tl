@@ -149,10 +149,6 @@ public readonly unsafe struct TimelineRef
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
-	internal void Execute(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns)
-		=> ExecuteWindow(reverse, tick, flags, row, chains, columns, null, null, null);
-
-	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 	internal void ExecuteDispatch(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns)
 	{
 		var stage = Header->StageCount == 1 ? (NativeStage*)(_p + Header->StageOffset) : StageOf(tick);
@@ -449,7 +445,7 @@ public readonly unsafe struct TickFrame
 			for (var e = head; e >= 0; e = consumers[e].Next)
 			{
 				if (consumers[e].DispatchOnly == 0) continue;
-				if (columns == null && consumers[e].Keys != null) ThrowUnfedLiveColumn(e);
+				if (columns == null && consumers[e].Keys != null) ThrowUnfedLiveColumn(e, -1);
 				if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
 				rev[n++] = e;
 			}
@@ -458,22 +454,24 @@ public readonly unsafe struct TickFrame
 		else for (var entry = head; entry >= 0; entry = consumers[entry].Next)
 			if (consumers[entry].DispatchOnly != 0)
 			{
-				if (columns == null && consumers[entry].Keys != null) ThrowUnfedLiveColumn(entry);
+				if (columns == null && consumers[entry].Keys != null) ThrowUnfedLiveColumn(entry, -1);
 				consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
 			}
 	}
 
 	[DoesNotReturn]
-	internal static void ThrowUnfedLiveColumn(int entry)
+	internal static void ThrowUnfedLiveColumn(int entry, int slot)
 	{
 		var consumers = ConsumerAt;
-		ulong* keys = stackalloc ulong[4];
-		byte* meta = stackalloc byte[4];
-		var n = Math.Min(consumers[entry].Keys(keys, meta), 4);
-		var required = -1;
-		for (var j = 0; j < n && required < 0; j++) if ((meta[j] & 0x60) == 0) required = j;
-		for (var j = 0; j < n && required < 0; j++) if ((meta[j] & 0x20) != 0) required = j;
-		if (required >= 0 && consumers[entry].Diag != null) consumers[entry].Diag(0, required);
+		if (slot < 0)
+		{
+			ulong* keys = stackalloc ulong[4];
+			byte* meta = stackalloc byte[4];
+			var n = Math.Min(consumers[entry].Keys(keys, meta), 4);
+			for (var j = 0; j < n && slot < 0; j++) if ((meta[j] & 0x60) == 0) slot = j;
+			for (var j = 0; j < n && slot < 0; j++) if ((meta[j] & 0x20) != 0) slot = j;
+		}
+		if (slot >= 0 && consumers[entry].Diag != null) consumers[entry].Diag(0, slot);
 		throw new ArgumentException("A live timeline consumer requires caller columns.");
 	}
 
