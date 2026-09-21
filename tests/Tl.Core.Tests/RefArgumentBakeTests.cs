@@ -23,6 +23,10 @@ public readonly record struct RefBakeTag(int Level);
 
 public readonly record struct RefBakeCounter(int Value);
 
+public readonly record struct RefBakePair(int Value);
+
+public readonly record struct RefBakeTrio(int Value);
+
 public unsafe class RefArgumentBakeTests
 {
     private static readonly List<string> Log = [];
@@ -42,6 +46,8 @@ public unsafe class RefArgumentBakeTests
         BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&Increment, TypeKey<RefBakeCounter>.Value);
         BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&AddLevel, TypeKey<RefBakeToken>.Value, TypeKey<RefBakeCounter>.Value);
         BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&AddTag, TypeKey<RefBakeTag>.Value, TypeKey<RefBakeCounter>.Value);
+        BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&AddPair, TypeKey<RefBakePair>.Value, TypeKey<RefBakePair>.Value);
+        BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&AddTokenTrio, TypeKey<RefBakeToken>.Value, TypeKey<RefBakeTrio>.Value, TypeKey<RefBakeTrio>.Value);
     }
 
     [Fact]
@@ -98,6 +104,49 @@ public unsafe class RefArgumentBakeTests
 
         Assert.Equal(23, counter.Value);
         Assert.Equal(["ref:increment:8", "ref:addlevel:13", "ref:addtag:23"], Log.GetRange(before, Log.Count - before));
+    }
+
+    [Fact]
+    public void RepeatedTypeArgumentsBindDistinctParameterSlots()
+    {
+        var first = new RefBakePair(7);
+        var second = new RefBakePair(20);
+        using var timeline = TimelineAsset.LoadAsset(ProbeBake(1));
+        var before = Log.Count;
+
+        Timeline.Bake(timeline.Index, in first, in second);
+
+        Assert.Equal(107, first.Value);
+        Assert.Equal(21, second.Value);
+        Assert.Equal(["ref:addpair:107:21"], Log.GetRange(before, Log.Count - before));
+    }
+
+    [Fact]
+    public void RepeatedTypeArgumentsInterleavedWithOtherTypesKeepTypeKeyedOrder()
+    {
+        var first = new RefBakeTrio(1);
+        var second = new RefBakeTrio(2);
+        using var timeline = TimelineAsset.LoadAsset(ProbeBake(1));
+        var before = Log.Count;
+
+        Timeline.Bake(timeline.Index, in first, new RefBakeToken(5), in second);
+
+        Assert.Equal(6, first.Value);
+        Assert.Equal(52, second.Value);
+        Assert.Equal(["ref:tokentrio:6:52"], Log.GetRange(before, Log.Count - before));
+    }
+
+    [Fact]
+    public void RepeatedTypeParametersWithoutEnoughDistinctArgumentsDoNotFire()
+    {
+        var only = new RefBakePair(7);
+        using var timeline = TimelineAsset.LoadAsset(ProbeBake(1));
+        var before = Log.Count;
+
+        Timeline.Bake(timeline.Index, in only, new RefBakeToken(9));
+
+        Assert.Equal(7, only.Value);
+        Assert.Equal([], Log.GetRange(before, Log.Count - before));
     }
 
     [Fact]
@@ -182,5 +231,24 @@ public unsafe class RefArgumentBakeTests
         ref var counter = ref Unsafe.AsRef<RefBakeCounter>(arguments[1]);
         counter = new RefBakeCounter(counter.Value + Unsafe.AsRef<RefBakeTag>(arguments[0]).Level);
         Log.Add("ref:addtag:" + counter.Value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static void AddPair(byte** arguments)
+    {
+        ref var first = ref Unsafe.AsRef<RefBakePair>(arguments[0]);
+        ref var second = ref Unsafe.AsRef<RefBakePair>(arguments[1]);
+        first = new RefBakePair(first.Value + 100);
+        second = new RefBakePair(second.Value + 1);
+        Log.Add("ref:addpair:" + first.Value.ToString(CultureInfo.InvariantCulture) + ":" + second.Value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static void AddTokenTrio(byte** arguments)
+    {
+        var level = Unsafe.AsRef<RefBakeToken>(arguments[0]).Level;
+        ref var first = ref Unsafe.AsRef<RefBakeTrio>(arguments[1]);
+        ref var second = ref Unsafe.AsRef<RefBakeTrio>(arguments[2]);
+        first = new RefBakeTrio(first.Value + level);
+        second = new RefBakeTrio(second.Value + level * 10);
+        Log.Add("ref:tokentrio:" + first.Value.ToString(CultureInfo.InvariantCulture) + ":" + second.Value.ToString(CultureInfo.InvariantCulture));
     }
 }
