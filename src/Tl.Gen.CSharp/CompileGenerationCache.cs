@@ -81,15 +81,11 @@ internal static class CompileGenerationCache
                 return null;
 
             var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var output in manifest.Outputs)
-            {
-                if (output == null
-                    || !IsOwnedPath(output.RelativePath)
-                    || !paths.Add(output.RelativePath)
-                    || output.ContentHash is not { Length: 64 })
-                    return null;
-            }
-
+            if (manifest.Outputs.Any(output => output == null
+                || !IsOwnedPath(output.RelativePath)
+                || !paths.Add(output.RelativePath)
+                || output.ContentHash is not { Length: 64 }))
+                return null;
             return manifest;
         }
         catch (Exception exception) when (exception is JsonException or IOException)

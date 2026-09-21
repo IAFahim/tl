@@ -150,12 +150,7 @@ public static class JobReader
             return new(name, slots, dispatch, liveFrame, memo is not null, live);
 
             string ResultName(int ordinal)
-            {
-                var seen = -1;
-                for (var i = 0; i < slots.Count; i++)
-                    if (slots[i].Mode == SlotMode.Output && ++seen == ordinal) return slots[i].TypeName;
-                return "";
-            }
+                => slots.Where(static slot => slot.Mode == SlotMode.Output).Select(static slot => slot.TypeName).ElementAtOrDefault(ordinal) ?? "";
         }
 
         private JobDefinition? Err(SyntaxNode site, string code, string message)

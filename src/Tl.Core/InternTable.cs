@@ -179,10 +179,7 @@ static unsafe class TimelineTable
         AcquireGate();
         try
         {
-            void Over()
-            {
-                Interlocked.Increment(ref _overReleases);
-            }
+            void Over() => Interlocked.Increment(ref _overReleases);
             if (index >= (uint)Volatile.Read(ref _nextId))
             {
                 Over();

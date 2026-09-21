@@ -29,7 +29,12 @@ public static unsafe class Timeline<TTrack, TClip>
 			bank.ApplySlot(index, positions, forward, effects);
 			return;
 		}
-		var slot = Folded(index);
+		var slot = bank.FoldedView(index);
+		if (slot is null)
+		{
+			Resolve(index);
+			slot = bank.FoldedView(index);
+		}
 		bank.ApplyRecords(slot, positions, forward, effects);
 	}
 
@@ -37,14 +42,27 @@ public static unsafe class Timeline<TTrack, TClip>
 	public static void Apply(ushort index, ushort position, bool forward, Span<float> effects)
 	{
 		Checked.Domain(index, position);
-		ApplySharedClock(Folded(index), position, forward, effects);
+		var bank = Bank();
+		var slot = bank.FoldedView(index);
+		if (slot is null)
+		{
+			Resolve(index);
+			slot = bank.FoldedView(index);
+		}
+		ApplySharedClock(slot, position, forward, effects);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static void Advance(ushort index, ref ushort position, bool forward)
 	{
 		Checked.Domain(index, position);
-		var slot = Folded(index);
+		var bank = Bank();
+		var slot = bank.FoldedView(index);
+		if (slot is null)
+		{
+			Resolve(index);
+			slot = bank.FoldedView(index);
+		}
 		var p = position;
 		if (forward)
 		{
@@ -54,18 +72,6 @@ public static unsafe class Timeline<TTrack, TClip>
 		if (p > slot->Duration) return;
 		var next = slot->BackwardRecords[p].Next;
 		if (next != LaneMovementRecord.Skipped) position = next;
-	}
-
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-	static SlotView* Folded(ushort index)
-	{
-		var slot = Bank().FoldedView(index);
-		if (slot is null)
-		{
-			Resolve(index);
-			slot = Bank().FoldedView(index);
-		}
-		return slot;
 	}
 
 	[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
@@ -281,7 +287,12 @@ public static unsafe class Timeline<TTrack, TClip>
 			bank.ApplySlot(index, positions, next, forward, effects);
 			return;
 		}
-		var slot = Folded(index);
+		var slot = bank.FoldedView(index);
+		if (slot is null)
+		{
+			Resolve(index);
+			slot = bank.FoldedView(index);
+		}
 		bank.ApplyRecords(slot, positions, next, forward, effects);
 	}
 
