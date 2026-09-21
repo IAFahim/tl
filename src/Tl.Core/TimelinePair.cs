@@ -223,7 +223,7 @@ public static unsafe class Timeline<TTrack, TClip>
             throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
         if (PairTable.HeadOf(key) < 0)
             throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
-        using var measured = MeasuredLanes.Measure(reference);
+        using var measured = MeasuredLanes.Measure(reference, key);
         bank.AddAt(index, measured);
         var cursor = bank.PendingCursor;
         for (var below = cursor; below < index; below++)
@@ -243,7 +243,7 @@ public static unsafe class Timeline<TTrack, TClip>
             return;
         }
         if (PairTable.HeadOf(key) < 0) return;
-        using var measured = MeasuredLanes.Measure(reference);
+        using var measured = MeasuredLanes.Measure(reference, key);
         bank.AddAt(index, measured);
     }
 

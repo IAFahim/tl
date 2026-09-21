@@ -28,7 +28,9 @@ public sealed unsafe class MeasuredLanes : IDisposable
         return Measure(asset.Reference);
     }
 
-    internal static MeasuredLanes Measure(TimelineRef reference)
+    internal static MeasuredLanes Measure(TimelineRef reference) => Measure(reference, 0);
+
+    internal static MeasuredLanes Measure(TimelineRef reference, ulong pairKey)
     {
         if (reference.Address == 0) throw new ArgumentException("Timeline asset is not loaded.");
         var header = (NativeHeader*)reference._p;
@@ -39,7 +41,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var backward = (float*)NativeMemory.AlignedAlloc(((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
         try
         {
-            Fill(reference, forward, backward, duration, looping);
+            Fill(reference, pairKey, forward, backward, duration, looping);
         }
         catch
         {
@@ -69,12 +71,13 @@ public sealed unsafe class MeasuredLanes : IDisposable
         if (Source != reference.Address) throw new ArgumentException("Measured lanes were measured from a different TimelineAsset instance.");
     }
 
-    static void Fill(TimelineRef reference, float* forward, float* backward, uint duration, bool looping)
+    static void Fill(TimelineRef reference, ulong pairKey, float* forward, float* backward, uint duration, bool looping)
     {
         var pairs = checked((int)reference.PairCount);
         if (pairs > 256) throw new ArgumentException("Asset declares more than 256 timeline pairs; the typed lane cannot bind it.");
         int* chains = stackalloc int[pairs];
         reference.Resolve(new Span<int>(chains, pairs));
+        if (pairKey != 0) IsolatePair(new Span<int>(chains, pairs), reference.Pairs, pairKey);
         ulong* keys = stackalloc ulong[1];
         keys[0] = TypeKey<float>.Value;
         byte* indices = stackalloc byte[256];
@@ -114,6 +117,12 @@ public sealed unsafe class MeasuredLanes : IDisposable
         }
         forward[duration] = 0f;
         backward[duration] = 0f;
+    }
+
+    static void IsolatePair(Span<int> chains, NativePair* pairs, ulong pairKey)
+    {
+        for (var i = 0; i < chains.Length; i++)
+            if (pairs[i].Key != pairKey) chains[i] = -1;
     }
 
     const int CacheStride = 64;
