@@ -50,6 +50,13 @@ public unsafe class MovementPairBankTests
         .Looping()
         .Bake();
 
+    static ushort InDomain(int position) =>
+#if TL_CHECKED
+        (ushort)Math.Min(position, 4);
+#else
+        (ushort)position;
+#endif
+
     static byte[] HolePairBake() => new DomainBaker()
         .Track<MovementHoleTrack, MovementHoleClip>(new MovementHoleTrack(5))
         .Clip(0, 0, 4, new MovementHoleClip(7))
@@ -64,7 +71,7 @@ public unsafe class MovementPairBankTests
     public void ApplyLargeSpanResolvesUnfoldedIndex()
     {
         var asset = Load(WrapBake(3f));
-        var positions = Enumerable.Range(0, 32).Select(i => (ushort)(i * 5 % 9)).ToArray();
+        var positions = Enumerable.Range(0, 32).Select(i => InDomain(i * 5 % 9)).ToArray();
         var next = new ushort[positions.Length];
         var effects = new float[positions.Length];
 
@@ -89,7 +96,7 @@ public unsafe class MovementPairBankTests
     public void ApplyLargeSpanWithoutNextResolvesUnfoldedIndex()
     {
         var asset = Load(WrapBake(9.5f));
-        var positions = Enumerable.Range(0, 24).Select(i => (ushort)(i * 7 % 8)).ToArray();
+        var positions = Enumerable.Range(0, 24).Select(i => InDomain(i * 7 % 8)).ToArray();
         var effects = new float[positions.Length];
 
         Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, positions, true, effects);
@@ -108,7 +115,7 @@ public unsafe class MovementPairBankTests
         Assert.Equal(7f, forward[0]);
 
         var skipped = new float[1];
-        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, (ushort)5, true, skipped);
+        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, InDomain(5), true, skipped);
         Assert.Equal(0f, skipped[0]);
 
         var backward = new float[1];
@@ -131,9 +138,11 @@ public unsafe class MovementPairBankTests
         position = 3;
         Timeline<MovementWrapTrack, MovementWrapClip>.Advance(asset.Index, ref position, true);
         Assert.Equal(0, (int)position);
+#if !TL_CHECKED
         position = 9;
         Timeline<MovementWrapTrack, MovementWrapClip>.Advance(asset.Index, ref position, true);
         Assert.Equal(9, (int)position);
+#endif
         position = 4;
         Timeline<MovementWrapTrack, MovementWrapClip>.Advance(asset.Index, ref position, false);
         Assert.Equal(4, (int)position);
@@ -149,7 +158,7 @@ public unsafe class MovementPairBankTests
     public void ApplyColumnsLargeSpanResolvesUnfoldedIndex()
     {
         var asset = Load(WrapBake(5.5f));
-        var positions = Enumerable.Range(0, 24).Select(i => (ushort)(i * 3 % 8)).ToArray();
+        var positions = Enumerable.Range(0, 24).Select(i => InDomain(i * 3 % 8)).ToArray();
         var next = new ushort[positions.Length];
         var effects = new float[positions.Length];
 
@@ -188,13 +197,13 @@ public unsafe class MovementPairBankTests
     public void ApplyAssetColumnsOverloadMatchesIndexOverload()
     {
         var asset = Load(WrapBake(7.5f));
-        var positions = new ushort[] { 0, 2, 3, 6 };
+        var positions = new ushort[] { 0, 2, 3, InDomain(6) };
         var next = new ushort[positions.Length];
         var effects = new float[positions.Length];
 
         Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset, positions, next, true, effects);
 
-        Assert.Equal(new ushort[] { 1, 3, 0, 6 }, next);
+        Assert.Equal(new ushort[] { 1, 3, 0, InDomain(6) }, next);
         Assert.Equal(new float[] { 15f, 15f, 15f, 0f }, effects);
 
         Assert.Throws<ArgumentNullException>(() =>

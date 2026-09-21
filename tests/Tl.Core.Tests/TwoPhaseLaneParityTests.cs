@@ -57,7 +57,12 @@ public class TwoPhaseLaneParityTests
         const ushort duration = 10;
         var index = TimelineAsset.Load(Bake(duration, looping: true));
         var typedId = new TestIndex { Value = index };
-        foreach (var position in new ushort[] { 0, 5, 9, 10, 11 })
+#if TL_CHECKED
+        var positionSweep = new ushort[] { 0, 5, 9, 10, 4 };
+#else
+        var positionSweep = new ushort[] { 0, 5, 9, 10, 11 };
+#endif
+        foreach (var position in positionSweep)
         foreach (var forward in new[] { true, false })
         {
             var splitPos = new TestPosition { Value = position };

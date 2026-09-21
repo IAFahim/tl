@@ -11,11 +11,15 @@ public static unsafe class Timeline<TTrack, TClip>
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
-        => Bank().Apply(indices, positions, forward, effects);
+    {
+        Checked.Domain(indices, positions);
+        Bank().Apply(indices, positions, forward, effects);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ushort index, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
     {
+        Checked.Domain(index, positions);
         var bank = Bank();
         if (positions.Length > LaneOps.SmallSpan)
         {
@@ -36,6 +40,7 @@ public static unsafe class Timeline<TTrack, TClip>
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ushort index, ushort position, bool forward, Span<float> effects)
     {
+        Checked.Domain(index, position);
         var bank = Bank();
         var slot = bank.FoldedView(index);
         if (slot is null)
@@ -49,6 +54,7 @@ public static unsafe class Timeline<TTrack, TClip>
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Advance(ushort index, ref ushort position, bool forward)
     {
+        Checked.Domain(index, position);
         var bank = Bank();
         var slot = bank.FoldedView(index);
         if (slot is null)
@@ -90,6 +96,7 @@ public static unsafe class Timeline<TTrack, TClip>
     public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward)
     {
         Checked.Columns(indices, positions);
+        Checked.Domain(indices, positions);
         var key = PairRuntime<TTrack, TClip>.Key;
         var reverse = !forward;
         int* chains = stackalloc int[256];
@@ -114,6 +121,7 @@ public static unsafe class Timeline<TTrack, TClip>
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ushort index, ReadOnlySpan<ushort> positions, bool forward)
     {
+        Checked.Domain(index, positions);
         var reference = TimelineTable.Reference(index);
         var key = PairRuntime<TTrack, TClip>.Key;
         var reverse = !forward;
@@ -128,6 +136,7 @@ public static unsafe class Timeline<TTrack, TClip>
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ushort index, ushort position, bool forward)
     {
+        Checked.Domain(index, position);
         var reference = TimelineTable.Reference(index);
         var key = PairRuntime<TTrack, TClip>.Key;
         var reverse = !forward;
@@ -142,6 +151,7 @@ public static unsafe class Timeline<TTrack, TClip>
     public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> from, ReadOnlySpan<ushort> to, bool forward)
     {
         Checked.Range(indices, from, to);
+        Checked.Domain(indices, from);
         var key = PairRuntime<TTrack, TClip>.Key;
         if (PairTable.HeadOf(key) < 0) return;
         var reverse = !forward;
@@ -176,6 +186,7 @@ public static unsafe class Timeline<TTrack, TClip>
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ushort index, ushort from, ushort to, bool forward)
     {
+        Checked.Domain(index, from);
         var reference = TimelineTable.Reference(index);
         var key = PairRuntime<TTrack, TClip>.Key;
         if (!reference.Uses(key) || PairTable.HeadOf(key) < 0) return;
@@ -260,11 +271,15 @@ public static unsafe class Timeline<TTrack, TClip>
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
-        => Bank().Apply(indices, positions, next, forward, effects);
+    {
+        Checked.Domain(indices, positions);
+        Bank().Apply(indices, positions, next, forward, effects);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
     {
+        Checked.Domain(index, positions);
         var bank = Bank();
         if (positions.Length > LaneOps.SmallSpan)
         {
@@ -334,12 +349,10 @@ public static unsafe class Timeline<TTrack, TClip>
         where TEffect : struct
     {
         CheckSizes<TIndex, TPosition, TEffect>();
-        Bank().ApplyRows(
-            rows,
-            MemoryMarshal.Cast<TIndex, ushort>(indices),
-            MemoryMarshal.Cast<TPosition, ushort>(positions),
-            forward,
-            MemoryMarshal.Cast<TEffect, float>(effects));
+        var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
+        var positions16 = MemoryMarshal.Cast<TPosition, ushort>(positions);
+        Checked.Domain(indices16, positions16);
+        Bank().ApplyRows(rows, indices16, positions16, forward, MemoryMarshal.Cast<TEffect, float>(effects));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
@@ -349,7 +362,10 @@ public static unsafe class Timeline<TTrack, TClip>
     {
         if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
             ThrowColumnSizes();
-        Bank().AdvanceRows(rows, MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
+        var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
+        var positions16 = MemoryMarshal.Cast<TPosition, ushort>(positions);
+        Checked.Domain(indices16, positions16);
+        Bank().AdvanceRows(rows, indices16, positions16, forward);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]

@@ -16,6 +16,7 @@ public static class Timeline
     public static unsafe void Advance(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         Checked.Columns(indices, positions, next);
+        Checked.Domain(indices, positions);
         var count = positions.Length;
         var motion = TimelineTable.Motion;
         var i = 0;
@@ -61,6 +62,7 @@ public static class Timeline
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static unsafe void Advance(ushort index, Span<ushort> positions, bool forward)
     {
+        Checked.Domain(index, positions);
         if (positions.Length <= LaneOps.SmallSpan)
         {
             AdvanceRecords(TimelineTable.Motion[index], positions, positions, forward);
@@ -107,6 +109,7 @@ public static class Timeline
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static unsafe void Advance(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
+        Checked.Domain(index, positions);
         var m = TimelineTable.Motion[index];
         var duration = (ushort)(m & 0xFFFF);
         var looping = (m & 0x80000000u) != 0;

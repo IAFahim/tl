@@ -54,6 +54,15 @@ public class PairHandleLaneTests
     const int Rows = 512;
     const int Assets = 3;
 
+#if TL_CHECKED
+    const int SeedModulo6 = 5;
+    const int SeedModulo7 = 5;
+    static readonly List<TimelineAsset> Pinned = [];
+#else
+    const int SeedModulo6 = 6;
+    const int SeedModulo7 = 7;
+#endif
+
     static byte[] VariantBake(int variant)
         => variant switch
         {
@@ -79,9 +88,14 @@ public class PairHandleLaneTests
         var handles = new ushort[Assets];
         for (var variant = 0; variant < Assets; variant++)
         {
+#if TL_CHECKED
+            Pinned.Add(TimelineAsset.LoadAsset(VariantBake(variant)));
+            handles[variant] = Pinned[^1].Index;
+#else
             using var asset = TimelineAsset.LoadAsset(VariantBake(variant));
             handles[variant] = asset.Index;
-            Timeline<HandleTrack, HandleClip>.Apply(asset.Index, Span<ushort>.Empty, true, Span<float>.Empty); Timeline.Advance(asset.Index, Span<ushort>.Empty, true);
+#endif
+            Timeline<HandleTrack, HandleClip>.Apply(handles[variant], Span<ushort>.Empty, true, Span<float>.Empty); Timeline.Advance(handles[variant], Span<ushort>.Empty, true);
         }
         return handles;
     }
@@ -156,7 +170,7 @@ public class PairHandleLaneTests
         var positions = new ushort[256];
         var effects = new float[256];
         for (var i = 0; i < 256; i++)
-            positions[i] = (ushort)(i % 6);
+            positions[i] = (ushort)(i % SeedModulo6);
 
         long allocated;
         for (var attempt = 0; ; attempt++)
@@ -208,7 +222,7 @@ public class PairHandleLaneTests
             var positions = new ushort[Rows];
             var effects = new float[Rows];
             for (var i = 0; i < Rows; i++)
-                positions[i] = (ushort)(i % 7);
+                positions[i] = (ushort)(i % SeedModulo7);
 
             var oraclePositions = (ushort[])positions.Clone();
             var oracleEffects = (float[])effects.Clone();
@@ -351,7 +365,7 @@ public class PairHandleLaneTests
         for (var i = 0; i < rows; i++)
         {
             rowHandles[i] = handles[i / 5_000 % Assets];
-            positions[i] = (ushort)(i % 7);
+            positions[i] = (ushort)(i % SeedModulo7);
         }
 
         AdvanceAgainstOracle(rowHandles, positions, effects, (ushort[])positions.Clone(), (float[])effects.Clone(), handles);
@@ -478,7 +492,7 @@ public class PairHandleLaneTests
             var positions = new ushort[Rows];
             var effects = new float[Rows];
             for (var i = 0; i < Rows; i++)
-                positions[i] = (ushort)(i % 7);
+                positions[i] = (ushort)(i % SeedModulo7);
 
             var oraclePositions = (ushort[])positions.Clone();
             var oracleEffects = (float[])effects.Clone();
@@ -543,21 +557,32 @@ public class PairHandleLaneTests
         var positions = new ushort[256];
         var effects = new float[256];
         for (var i = 0; i < 256; i++)
-            positions[i] = (ushort)(i % 6);
+            positions[i] = (ushort)(i % SeedModulo6);
+#if TL_CHECKED
+        var perVariant = new ushort[Assets][];
+        for (var variant = 0; variant < Assets; variant++) perVariant[variant] = (ushort[])positions.Clone();
+#endif
 
         long allocated;
         for (var attempt = 0; ; attempt++)
         {
             for (var pass = 0; pass < 1_000; pass++)
                 for (var variant = 0; variant < Assets; variant++)
-                    { { Timeline<HandleTrack, HandleClip>.Apply(bound[variant], positions, true, effects); Timeline.Advance(bound[variant], positions, true); } }
+                    { { var column = Column(variant); Timeline<HandleTrack, HandleClip>.Apply(bound[variant], column, true, effects); Timeline.Advance(bound[variant], column, true); } }
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var pass = 0; pass < 30_000; pass++)
                 for (var variant = 0; variant < Assets; variant++)
-                    { { Timeline<HandleTrack, HandleClip>.Apply(bound[variant], positions, true, effects); Timeline.Advance(bound[variant], positions, true); } }
+                    { { var column = Column(variant); Timeline<HandleTrack, HandleClip>.Apply(bound[variant], column, true, effects); Timeline.Advance(bound[variant], column, true); } }
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
         }
         Assert.Equal(0, allocated);
+
+        ushort[] Column(int variant) =>
+#if TL_CHECKED
+            perVariant[variant];
+#else
+            positions;
+#endif
     }
 }

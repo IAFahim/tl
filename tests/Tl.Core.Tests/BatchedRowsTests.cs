@@ -120,7 +120,11 @@ public class BatchedRowsTests
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         var ids = SingleIdColumn(6, looping.Index);
         var rows = new[] { 0, 1, 2, 3, 4, 5 };
+#if TL_CHECKED
+        var positions = new ushort[] { 0, 3, 4, 2, 1, 4 };
+#else
         var positions = new ushort[] { 0, 3, 4, 5, 1, 7 };
+#endif
         var effects = new float[] { 0f, 0f, 0f, 0f, 0f, 0f };
 
         var expected = Sequential(ids, positions, effects, rows, forward: true);
@@ -129,8 +133,13 @@ public class BatchedRowsTests
 
         Assert.Equal(expected.Positions, positions);
         Assert.Equal(expected.Effects, effects);
+#if TL_CHECKED
+        Assert.Equal(new ushort[] { 1, 0, 4, 3, 2, 4 }, positions);
+        Assert.Equal(new float[] { 3f, 3f, 0f, 3f, 3f, 0f }, effects);
+#else
         Assert.Equal(new ushort[] { 1, 0, 4, 5, 2, 7 }, positions);
         Assert.Equal(new float[] { 3f, 3f, 0f, 0f, 3f, 0f }, effects);
+#endif
     }
 
     [Fact]
@@ -157,7 +166,11 @@ public class BatchedRowsTests
         using var finite = TimelineAsset.LoadAsset(FiniteBake());
         var ids = new ushort[] { looping.Index, looping.Index, finite.Index, looping.Index, finite.Index, looping.Index };
         var rows = new[] { 3, 3, 2, 3, 5, 5 };
+#if TL_CHECKED
+        var positions = new ushort[] { 3, 1, 4, 2, 4, 0 };
+#else
         var positions = new ushort[] { 3, 1, 4, 2, 5, 0 };
+#endif
         var effects = SeededEffects(6);
 
         foreach (var forward in new[] { true, false })
@@ -343,7 +356,13 @@ public class BatchedRowsTests
         ushort[] boundaries = [0, 1, 3, 4, 5, 7, 2, 6];
         var positions = new ushort[count];
         for (var i = 0; i < count; i++)
-            positions[i] = boundaries[i % boundaries.Length];
+        {
+            var boundary = boundaries[i % boundaries.Length];
+#if TL_CHECKED
+            if (boundary > Duration) boundary = Duration;
+#endif
+            positions[i] = boundary;
+        }
         return positions;
     }
 

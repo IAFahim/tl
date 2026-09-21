@@ -37,9 +37,11 @@ public class SharedClockCrowdTests
         (ushort)(duration / 2),
         (ushort)(duration - 1),
         duration,
+#if !TL_CHECKED
         (ushort)(duration + 1),
         (ushort)(duration + 40),
         ushort.MaxValue,
+#endif
     ];
 
     static readonly int[] RowCounts = [3, 15, 16, 4096, 65536];
@@ -91,7 +93,13 @@ public class SharedClockCrowdTests
             {
                 var index = asset.Index;
                 Bind(index);
-                for (var start = 0; start <= duration + 2; start++)
+                var maxStart =
+#if TL_CHECKED
+                    duration;
+#else
+                    duration + 2;
+#endif
+                for (var start = 0; start <= maxStart; start++)
                     foreach (var forward in new[] { true, false })
                     {
                         var uniform = new ushort[37];

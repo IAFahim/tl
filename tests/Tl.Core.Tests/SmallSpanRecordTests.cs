@@ -45,7 +45,12 @@ public partial class SmallSpanRecordTests
     {
         const ushort duration = 10;
         var index = TimelineAsset.Load(Bake(duration, looping: true, 2f));
-        foreach (var position in new ushort[] { 0, 5, 9, 10, 11 })
+#if TL_CHECKED
+        var positionSweep = new ushort[] { 0, 5, 9, 10, 4 };
+#else
+        var positionSweep = new ushort[] { 0, 5, 9, 10, 11 };
+#endif
+        foreach (var position in positionSweep)
         foreach (var forward in new[] { true, false })
         {
             var lanePos = new TestPosition { Value = position };
@@ -88,7 +93,12 @@ public partial class SmallSpanRecordTests
     {
         const ushort duration = 10;
         var index = TimelineAsset.Load(Bake(duration, looping: true, 2f));
-        foreach (var position in new ushort[] { 0, 5, 9, 10, 11 })
+#if TL_CHECKED
+        var positionSweep = new ushort[] { 0, 5, 9, 10, 4 };
+#else
+        var positionSweep = new ushort[] { 0, 5, 9, 10, 11 };
+#endif
+        foreach (var position in positionSweep)
         foreach (var forward in new[] { true, false })
         {
             var lanePos = new TestPosition { Value = position };
@@ -133,6 +143,10 @@ public partial class SmallSpanRecordTests
         var positions = new ushort[] { 5, 12, 11, 3 };
         var next = new ushort[4];
         var effects = new float[4];
+#if TL_CHECKED
+        Assert.Throws<ArgumentException>(() => Timeline<RoutingTrack, RoutingClip>.Apply(ids.AsSpan(0, 4), positions, next, true, effects));
+        Assert.Throws<ArgumentException>(() => Timeline<RoutingTrack, RoutingClip>.Apply(ids.AsSpan(0, 4), positions, next, false, effects));
+#else
         Timeline<RoutingTrack, RoutingClip>.Apply(ids.AsSpan(0, 4), positions, next, true, effects);
         Assert.Equal(new ushort[] { 6, 12, 11, 4 }, next);
 
@@ -142,6 +156,7 @@ public partial class SmallSpanRecordTests
         effects = new float[4];
         Timeline<RoutingTrack, RoutingClip>.Apply(ids.AsSpan(0, 4), positions, next, false, effects);
         Assert.Equal(new ushort[] { 4, 12, 11, 2 }, next);
+#endif
     }
 
     [Fact]
@@ -151,8 +166,12 @@ public partial class SmallSpanRecordTests
         var positions = new ushort[] { 5, 12, 11, 3 };
         var next = new ushort[4];
         var effects = new float[4];
+#if TL_CHECKED
+        Assert.Throws<ArgumentException>(() => Timeline<RoutingTrack, RoutingClip>.Apply(index, positions, next, true, effects));
+#else
         Timeline<RoutingTrack, RoutingClip>.Apply(index, positions, next, true, effects);
         Assert.Equal(new ushort[] { 6, 12, 11, 4 }, next);
+#endif
     }
 
     [Fact]
@@ -286,7 +305,11 @@ internal static class SmallSpanProbe
 
     internal static ushort[][] Schedules(int rows, ushort duration)
     {
+#if TL_CHECKED
+        var choices = new ushort[] { 0, (ushort)(duration / 2), (ushort)(duration - 1), duration, duration };
+#else
         var choices = new ushort[] { 0, (ushort)(duration / 2), (ushort)(duration - 1), duration, (ushort)(duration + 1) };
+#endif
         var schedules = new [] { Uniform(rows, choices), Runs(rows, choices, 0x51ED2701ul + (uint)(rows * 31 + duration)), Mixed(rows, choices, 0x9E3779B9ul ^ (uint)(rows * 40503 + duration * 7)) };
         return schedules;
     }
