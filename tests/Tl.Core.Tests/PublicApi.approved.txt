@@ -90,6 +90,10 @@ type Tl.Timeline
   Method Void Bake[T0,T1](UInt16, T0 ByRef, T1 ByRef)
   Method Void Bake[T0,T1,T2](UInt16, T0 ByRef, T1 ByRef, T2 ByRef)
   Method Void Bake[T0,T1,T2,T3](UInt16, T0 ByRef, T1 ByRef, T2 ByRef, T3 ByRef)
+  Method Void BakeRef[T0](UInt16, T0 ByRef)
+  Method Void BakeRef[T0,T1](UInt16, T0 ByRef, T1 ByRef)
+  Method Void BakeRef[T0,T1,T2](UInt16, T0 ByRef, T1 ByRef, T2 ByRef)
+  Method Void BakeRef[T0,T1,T2,T3](UInt16, T0 ByRef, T1 ByRef, T2 ByRef, T3 ByRef)
   Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
 type Tl.TimelineAsset
   Method Void Dispose()
