@@ -184,7 +184,11 @@ public unsafe class RecordArenaTests
         for (var i = 0; i < rows; i++)
         {
             ids[i] = indices[i % variants];
+#if TL_CHECKED
+            positions[i] = staggeredBeyondMin ? (ushort)(i % (minDuration + 1)) : (ushort)(i % (minDuration - 1));
+#else
             positions[i] = staggeredBeyondMin ? (ushort)(i % 1024) : (ushort)(i % (minDuration - 1));
+#endif
         }
         return (ids, positions, assets);
     }

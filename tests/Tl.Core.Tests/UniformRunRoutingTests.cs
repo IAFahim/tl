@@ -65,7 +65,13 @@ public class UniformRunRoutingTests
 
     static ushort[] UniformHead(int rows, ushort duration) => Map(rows, i => i < 200 ? (ushort)5 : (ushort)(i % duration));
 
-    static ushort[] UniformSkips(int rows, ushort duration) => Map(rows, i => i % 512 == 5 ? (ushort)(duration + 3) : (ushort)5);
+    static ushort[] UniformSkips(int rows, ushort duration) => Map(rows, i => i % 512 == 5 ? SkipEdge(duration) : (ushort)5);
+
+#if TL_CHECKED
+    static ushort SkipEdge(ushort duration) => duration;
+#else
+    static ushort SkipEdge(ushort duration) => (ushort)(duration + 3);
+#endif
 
     static ushort[] Map(int rows, Func<int, ushort> shape)
     {

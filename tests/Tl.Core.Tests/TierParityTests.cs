@@ -184,7 +184,14 @@ public unsafe class TierParityTests
         for (var i = 0; i < Rows; i++) waves[i] = (ushort)(i / 100 % duration);
         var edges = new ushort[Rows];
         var edgeValues = new ushort[] { 0, 1, (ushort)(duration - 1), duration, (ushort)Math.Min(65535, duration + 1), 65535, 7, (ushort)(duration / 2) };
-        for (var i = 0; i < Rows; i++) edges[i] = edgeValues[i % edgeValues.Length];
+        for (var i = 0; i < Rows; i++)
+        {
+            var edge = edgeValues[i % edgeValues.Length];
+#if TL_CHECKED
+            if (edge > duration) edge = duration;
+#endif
+            edges[i] = edge;
+        }
         return [staggered, uniform, waves, edges];
     }
 

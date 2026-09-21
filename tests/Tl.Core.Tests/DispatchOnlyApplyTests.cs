@@ -239,7 +239,11 @@ public unsafe class DispatchOnlyApplyTests
         var positions = new ushort[] { 1, 2, 5 };
         Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, positions, true);
         using var sound = TimelineAsset.LoadAsset(TwoPairBake());
+#if TL_CHECKED
+        Assert.Throws<ArgumentException>(() => Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(sound.Index, new ushort[] { 8, 9, 40 }, true));
+#else
         Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(sound.Index, new ushort[] { 8, 9, 40 }, true);
+#endif
         Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(sound.Index, new ushort[] { 0 }, false);
         Assert.Equal(0, DispatchLog.HitCount);
     }
@@ -354,8 +358,10 @@ public unsafe class DispatchOnlyApplyTests
             [(ushort)11, (ushort)22, (ushort)22, (ushort)22],
             DispatchLog.Trail().Select(hit => hit.Code).ToArray());
         DispatchLog.Reset();
+#if !TL_CHECKED
         Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, (ushort)9, (ushort)3, true);
         Assert.Equal(0, DispatchLog.HitCount);
+#endif
     }
 
     [Fact]

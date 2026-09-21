@@ -104,6 +104,37 @@ internal static class Checked
 
     [Conditional("TL_CHECKED")]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static unsafe void Domain(ushort index, ushort position)
+    {
+        var duration = (ushort)(TimelineTable.Motion[index] & 0xFFFF);
+        if (position > duration) Fail.PositionOutsideDomain(0, index, position, duration);
+    }
+
+    [Conditional("TL_CHECKED")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static unsafe void Domain(ushort index, ReadOnlySpan<ushort> positions)
+    {
+        var duration = (ushort)(TimelineTable.Motion[index] & 0xFFFF);
+        for (var i = 0; i < positions.Length; i++)
+            if (positions[i] > duration) Fail.PositionOutsideDomain(i, index, positions[i], duration);
+    }
+
+    [Conditional("TL_CHECKED")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static unsafe void Domain(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions)
+    {
+        if (indices.Length != positions.Length) return;
+        var motion = TimelineTable.Motion;
+        for (var i = 0; i < positions.Length; i++)
+        {
+            var index = indices[i];
+            var duration = (ushort)(motion[index] & 0xFFFF);
+            if (positions[i] > duration) Fail.PositionOutsideDomain(i, index, positions[i], duration);
+        }
+    }
+
+    [Conditional("TL_CHECKED")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static void RowBounds(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects)
     {
         if (MemoryMarshal.AsBytes(rows).Overlaps(MemoryMarshal.AsBytes(indices))
@@ -129,6 +160,10 @@ internal static class Fail
     [DoesNotReturn]
     internal static void RowOutsideColumns(int batch, int row, int count)
         => throw new ArgumentException($"Row {batch} selects entity {row}, outside columns of length {count}.");
+
+    [DoesNotReturn]
+    internal static void PositionOutsideDomain(int row, int index, int position, int duration)
+        => throw new ArgumentException($"Row {row} position {position} is outside timeline {index} duration {duration}.");
 
     [DoesNotReturn]
     internal static void Disposed()
