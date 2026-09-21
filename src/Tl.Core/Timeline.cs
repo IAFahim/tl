@@ -202,11 +202,19 @@ public static class Timeline
         {
             var bound = -1;
             for (var argument = 0; argument < present.Length; argument++)
-                if (present[argument] == bake->ParamKeys[parameter])
-                {
-                    bound = argument;
-                    break;
-                }
+            {
+                if (present[argument] != bake->ParamKeys[parameter]) continue;
+                var taken = false;
+                for (var earlier = 0; earlier < parameter; earlier++)
+                    if (binding[earlier] == argument)
+                    {
+                        taken = true;
+                        break;
+                    }
+                if (taken) continue;
+                bound = argument;
+                break;
+            }
             if (bound < 0) return false;
             binding[parameter] = bound;
         }
