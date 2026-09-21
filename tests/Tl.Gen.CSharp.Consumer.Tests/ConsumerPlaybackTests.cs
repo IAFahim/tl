@@ -50,6 +50,22 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
+    public void OnMemoSpellingFoldsIdenticallyToTheRefFloatMeasuredShape()
+    {
+        var result = Driver("Memo");
+
+        Assert.Equal("25#40#25", result);
+    }
+
+    [Fact]
+    public void MultiOutputMemoFoldsIntoTypedLanesAndApplyReadsEachColumn()
+    {
+        var result = Driver("DualMemo");
+
+        Assert.Equal("10,10,10#3,3,3#-10,-10#-3,-3", result);
+    }
+
+    [Fact]
     public void DiscoveredBakesInstallDispatchEntriesIntoTheRuntimeTable()
     {
         var result = Driver("Bakes");
@@ -236,6 +252,41 @@ public sealed class ConsumerPlaybackTests
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 armor += frame.IsBackward ? -amount : amount;
+            }
+        }
+
+        public readonly record struct MemoClip(float Amount);
+
+        public readonly record struct MemoTrack(float Multiplier) : IBlend<MemoClip>
+        {
+            public void Blend(in MemoClip first, in MemoClip second, float factor, out MemoClip result)
+                => result = new MemoClip(first.Amount + (second.Amount - first.Amount) * factor);
+        }
+
+        public readonly struct MemoBuff : ITrack<MemoTrack, MemoClip>
+        {
+            public static void OnMemo(in Frame<MemoTrack, MemoClip> frame, out float armor)
+            {
+                var amount = frame.Clip.Amount * frame.Track.Multiplier;
+                armor = frame.IsBackward ? -amount : amount;
+            }
+        }
+
+        public readonly record struct DualClip(float Amount, int Ticks);
+
+        public readonly record struct DualTrack(float Multiplier) : IBlend<DualClip>
+        {
+            public void Blend(in DualClip first, in DualClip second, float factor, out DualClip result)
+                => result = new DualClip(first.Amount + (second.Amount - first.Amount) * factor, second.Ticks);
+        }
+
+        public readonly struct DualMemo : ITrack<DualTrack, DualClip>
+        {
+            public static void OnMemo(in Frame<DualTrack, DualClip> frame, out float armor, out int ticks)
+            {
+                var amount = frame.Clip.Amount * frame.Track.Multiplier;
+                armor = frame.IsBackward ? -amount : amount;
+                ticks = frame.IsBackward ? -frame.Clip.Ticks : frame.Clip.Ticks;
             }
         }
 
@@ -469,6 +520,42 @@ public sealed class ConsumerPlaybackTests
                 Timeline<BuffTrack, BuffClip>.Apply(buff, positions, false, armor); Timeline.Advance(buff, positions, false);
                 var third = F(armor[0]);
                 return first + "#" + second + "#" + third;
+            }
+
+            public static string Memo()
+            {
+                using var buff = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<MemoTrack, MemoClip>(new MemoTrack(3f))
+                    .Clip(0, 0u, 10u, new MemoClip(5f))
+                    .Bake()));
+                var positions = new ushort[] { 0 };
+                var armor = new float[] { 10f };
+                Timeline<MemoTrack, MemoClip>.Apply(buff, positions, true, armor); Timeline.Advance(buff, positions, true);
+                var first = F(armor[0]);
+                Timeline<MemoTrack, MemoClip>.Apply(buff, positions, true, armor); Timeline.Advance(buff, positions, true);
+                var second = F(armor[0]);
+                Timeline<MemoTrack, MemoClip>.Apply(buff, positions, false, armor); Timeline.Advance(buff, positions, false);
+                var third = F(armor[0]);
+                return first + "#" + second + "#" + third;
+            }
+
+            public static string DualMemo()
+            {
+                using var dual = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<DualTrack, DualClip>(new DualTrack(2f))
+                    .Clip(0, 0u, 4u, new DualClip(5f, 3))
+                    .Bake()));
+                var indices = new ushort[] { dual.Index, dual.Index, dual.Index };
+                var positions = new ushort[] { 0, 1, 2 };
+                var armor = new float[3];
+                var ticks = new int[3];
+                Timeline<DualTrack, DualClip>.Apply(indices, positions, true, armor, ticks);
+                var backPositions = new ushort[] { 1, 2 };
+                var backArmor = new float[2];
+                var backTicks = new int[2];
+                Timeline<DualTrack, DualClip>.Apply(new ushort[] { dual.Index, dual.Index }, backPositions, false, backArmor, backTicks);
+                return string.Join(",", armor.Select(F)) + "#" + string.Join(",", ticks.Select(x => x.ToString(CultureInfo.InvariantCulture)))
+                    + "#" + string.Join(",", backArmor.Select(F)) + "#" + string.Join(",", backTicks.Select(x => x.ToString(CultureInfo.InvariantCulture)));
             }
 
             public static string Bakes()

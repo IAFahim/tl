@@ -2,15 +2,11 @@ using Tl.Gen.CSharp.Analysis;
 
 namespace Tl.Gen.CSharp.Model;
 
-public enum SlotMode : byte
-{
-    Input,
-    Reference,
-}
+public enum SlotMode : byte { Input, Reference, Output }
 
-public sealed record TimelineSlot(string Name, string TypeName, SlotMode Mode);
+public sealed record TimelineSlot(string Name, string TypeName, SlotMode Mode, byte Size = 4);
 
-public sealed record JobDefinition(string TypeName, IReadOnlyList<TimelineSlot> Slots);
+public sealed record JobDefinition(string TypeName, IReadOnlyList<TimelineSlot> Slots, bool Dispatch = false, bool LiveFrame = false, bool MemoMethod = false);
 
 public sealed record JobConsumer(string TrackTypeName, string ClipTypeName, JobDefinition Job);
 

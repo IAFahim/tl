@@ -38,9 +38,16 @@ internal static class JobEmitter
         W("internal static void Install()");
         W("{");
         foreach (var (name, consumer) in items)
-            W(consumer.Job.Slots.Count == 0
-                ? $"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>.ConsumeDispatch(&OnActive_{name});"
-                : $"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>.Consume(&OnActive_{name}, &OnActiveRange_{name}, &Bind_{name});");
+        {
+            var runtime = $"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>";
+            if (consumer.Job.Slots.Count > 0)
+            {
+                var memo = consumer.Job.MemoMethod ? "OnMemo" : "OnActive";
+                W($"{runtime}.Consume(&{memo}_{name}, &{memo}Range_{name}, {(consumer.Job.MemoMethod ? $"&Keys_{name}" : $"&Bind_{name}")});");
+            }
+            if (consumer.Job.Dispatch)
+                W($"{runtime}.ConsumeDispatch(&OnActive_{name});");
+        }
         foreach (var (name, bake) in bakeItems)
             foreach (var pair in bake.Pairs)
                 W($"global::Tl.BakeRuntime<{pair.TrackTypeName}, {pair.ClipTypeName}>.Bake(&Bake_{name}{StateKeys(bake)});");
@@ -48,34 +55,54 @@ internal static class JobEmitter
         foreach (var (name, consumer) in items)
         {
             var job = consumer.Job;
-            W($"private static void OnActive_{name}(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)");
-            W("{");
-            W($"{consumer.ClipTypeName} __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<{consumer.TrackTypeName}, {consumer.ClipTypeName}>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);");
-            for (var i = 0; i < job.Slots.Count; i++)
-                W($"var @{job.Slots[i].Name} = ({job.Slots[i].TypeName}*)__tlColumns[{i}];");
-            W($"{job.TypeName}.OnActive(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
-            W("}");
-            if (job.Slots.Count == 0) continue;
-            W($"private static void OnActiveRange_{name}(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)");
-            W("{");
-            W($"{consumer.ClipTypeName} __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<{consumer.TrackTypeName}, {consumer.ClipTypeName}>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);");
-            for (var i = 0; i < job.Slots.Count; i++)
-                W($"var @{job.Slots[i].Name} = ({job.Slots[i].TypeName}*)__tlColumns[{i}];");
-            W("for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)");
-            W($"{job.TypeName}.OnActive(in __tlTyped{Arguments(job.Slots, "[__tlRow]")});");
-            W("}");
-            W($"private static void Bind_{name}(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)");
-            W("{");
-            if (job.Slots.Count > 4)
-                W($"throw new global::System.InvalidOperationException(\"{job.TypeName}: {job.Slots.Count} gameplay parameters exceed the 4-slot consumer ABI; regenerate the binding with a matching Tl generator.\");");
-            for (var i = 0; i < job.Slots.Count; i++)
+            void Thunk(string method, IReadOnlyList<TimelineSlot> slots, bool frameArg, bool ranged)
             {
-                var slot = job.Slots[i];
-                W($"var __tlIdx{i} = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<{slot.TypeName}>.Value);");
-                W($"if (__tlIdx{i} < 0) throw new global::System.ArgumentException(\"{job.TypeName}: required column missing for registered consumer: {slot.TypeName}\");");
-                W($"__tlIndices[{i}] = (byte)(__tlIdx{i} + 1);");
+                W($"private static void {method}{(ranged ? "Range" : "")}_{name}(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow{(ranged ? "Start, int __tlRowCount" : "")})");
+                W("{");
+                if (frameArg)
+                    W($"{consumer.ClipTypeName} __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<{consumer.TrackTypeName}, {consumer.ClipTypeName}>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);");
+                for (var i = 0; i < slots.Count; i++)
+                    W($"var @{slots[i].Name} = ({slots[i].TypeName}*)__tlColumns[{i}];");
+                var rest = Arguments(slots, "[__tlRow]");
+                var call = frameArg ? "in __tlTyped" + rest : rest.Length == 0 ? "" : rest.Substring(2);
+                if (ranged) W("for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)");
+                W($"{job.TypeName}.{method}({call});");
+                W("}");
             }
-            W("}");
+            if (job.Slots.Count > 0)
+            {
+                var memo = job.MemoMethod ? "OnMemo" : "OnActive";
+                Thunk(memo, job.Slots, true, false);
+                Thunk(memo, job.Slots, true, true);
+                if (job.MemoMethod)
+                {
+                    W($"private static int Keys_{name}(ulong* __tlKeys, byte* __tlMeta)");
+                    W("{");
+                    for (var i = 0; i < job.Slots.Count; i++)
+                    {
+                        var slot = job.Slots[i];
+                        W($"if (__tlKeys != null) {{ __tlKeys[{i}] = global::Tl.TypeKey<{slot.TypeName}>.Value; __tlMeta[{i}] = {slot.Size | (slot.Mode == SlotMode.Output ? 16 : 0)}; }}");
+                    }
+                    W($"return {job.Slots.Count};");
+                    W("}");
+                }
+                else
+                {
+                    W($"private static void Bind_{name}(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)");
+                W("{");
+                if (job.Slots.Count > 4)
+                    W($"throw new global::System.InvalidOperationException(\"{job.TypeName}: {job.Slots.Count} gameplay parameters exceed the 4-slot consumer ABI; regenerate the binding with a matching Tl generator.\");");
+                for (var i = 0; i < job.Slots.Count; i++)
+                {
+                    var slot = job.Slots[i];
+                    W($"var __tlIdx{i} = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<{slot.TypeName}>.Value);\n"
+                        + $"if (__tlIdx{i} < 0) throw new global::System.ArgumentException(\"{job.TypeName}: required column missing for registered consumer: {slot.TypeName}\");\n"
+                        + $"__tlIndices[{i}] = (byte)(__tlIdx{i} + 1);");
+                }
+                    W("}");
+                }
+            }
+            if (job.Dispatch) Thunk("OnActive", [], job.LiveFrame, false);
         }
         foreach (var (name, bake) in bakeItems)
         {
@@ -122,6 +149,6 @@ internal static class JobEmitter
     private static string Arguments(IEnumerable<TimelineSlot> slots, string suffix = "")
         => string.Concat(slots.Select(slot => $", {Mode(slot)} @{slot.Name}{suffix}"));
 
-    private static string Mode(TimelineSlot slot) => slot.Mode == SlotMode.Input ? "in" : "ref";
+    private static string Mode(TimelineSlot slot) => slot.Mode == SlotMode.Input ? "in" : slot.Mode == SlotMode.Output ? "out" : "ref";
     private static void Line(StringBuilder writer, string text) => writer.Append(text).Append('\n');
 }

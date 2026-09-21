@@ -13,7 +13,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
 {
     internal const ushort Skipped = LaneMovementRecord.Skipped;
     const int InitialCapacity = 1024;
-    const int BlockHeaderBytes = 64;
+    const int BlockHeaderBytes = 72;
     const int TableBytesPerTick = 28;
     const int RetirePadBytes = 16;
 
@@ -32,49 +32,25 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal void ApplyRecords(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
     {
         Checked.Columns(positions, next, effects);
-        if (forward) ApplyRecordsForward(slot, positions, next, effects);
-        else ApplyRecordsBackward(slot, positions, next, effects);
+        ApplyRecords(slot, positions, next, effects, forward);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static void ApplyRecordsForward(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
+    static void ApplyRecords(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, bool forward)
     {
         var duration = slot->Duration;
-        var records = slot->ForwardRecords;
+        var records = forward ? slot->ForwardRecords : slot->BackwardRecords;
         var hasNext = !next.IsEmpty;
         for (var i = 0; i < positions.Length; i++)
         {
             var position = positions[i];
-            if (position < duration)
+            ref var r = ref records[position];
+            if (forward ? position < duration : position <= duration && r.Next != Skipped)
             {
-                ref var r = ref records[position];
                 effects[i] += r.Effect;
                 if (hasNext) next[i] = r.Next;
             }
             else if (hasNext) next[i] = position;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static void ApplyRecordsBackward(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
-    {
-        var duration = slot->Duration;
-        var records = slot->BackwardRecords;
-        var hasNext = !next.IsEmpty;
-        for (var i = 0; i < positions.Length; i++)
-        {
-            var position = positions[i];
-            if (position <= duration)
-            {
-                ref var r = ref records[position];
-                if (r.Next != Skipped)
-                {
-                    effects[i] += r.Effect;
-                    if (hasNext) next[i] = r.Next;
-                    continue;
-                }
-            }
-            if (hasNext) next[i] = position;
         }
     }
 
@@ -257,7 +233,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             _views = (SlotView**)views;
             _absent = (byte*)absent;
             _motion = (uint*)motion;
-            var hash = HashTables(duration, looping ? (ushort)1 : (ushort)0, measured.Forward, measured.Backward, ticks);
+            var hash = HashTables(duration, looping ? (ushort)1 : (ushort)0, measured.Forward, measured.Backward, measured.LaneCount, ticks);
             EnsureShared((nuint)(_sharedUsed + 1));
             var generation = _generation + 1;
             var view = FindShared(measured, duration, looping, ticks, hash);
@@ -407,21 +383,29 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
 
     static bool SameTables(SlotView* candidate, MeasuredLanes measured, ushort duration, bool looping, nuint ticks)
     {
-        if (candidate->Duration != duration || candidate->Looping != (ushort)(looping ? 1 : 0) || candidate->TableTicks != ticks)
+        if (candidate->Duration != duration || candidate->Looping != (ushort)(looping ? 1 : 0) || candidate->TableTicks != ticks || candidate->ResultCount != measured.LaneCount)
             return false;
         var bytes = checked((int)(ticks * sizeof(float)));
-        return new ReadOnlySpan<byte>(candidate->Forward, bytes).SequenceEqual(new ReadOnlySpan<byte>(measured.Forward, bytes))
-            && new ReadOnlySpan<byte>(candidate->Backward, bytes).SequenceEqual(new ReadOnlySpan<byte>(measured.Backward, bytes));
+        var keys = LaneKeysOf(candidate);
+        for (var l = 0; l < measured.LaneCount; l++)
+            if (keys[l] != measured.LaneKeys[l]
+                || !new ReadOnlySpan<byte>(candidate->Forward + (nuint)l * ticks, bytes).SequenceEqual(new ReadOnlySpan<byte>(measured.LaneForward[l], bytes))
+                || !new ReadOnlySpan<byte>(candidate->Backward + (nuint)l * ticks, bytes).SequenceEqual(new ReadOnlySpan<byte>(measured.LaneBackward[l], bytes)))
+                return false;
+        return true;
     }
 
     static ulong HashOf(SlotView* view)
-        => HashTables(view->Duration, view->Looping, view->Forward, view->Backward, view->TableTicks);
+        => HashTables(view->Duration, view->Looping, view->Forward, view->Backward, view->ResultCount, view->TableTicks);
 
-    static ulong HashTables(ushort duration, ushort looping, float* forward, float* backward, nuint ticks)
+    static ulong* LaneKeysOf(SlotView* view) => (ulong*)(view->BackwardRecords + view->TableTicks * (nuint)view->ResultCount);
+
+    static ulong HashTables(ushort duration, ushort looping, float* forward, float* backward, int lanes, nuint ticks)
     {
-        var h = Mix(0x9E3779B97F4A7C15UL ^ ((ulong)duration << 1) ^ looping ^ ((ulong)ticks << 32));
-        for (nuint i = 0; i < ticks; i++)
-            h = Mix(h ^ *(uint*)(forward + i) | ((ulong)*(uint*)(backward + i) << 32));
+        var h = Mix(0x9E3779B97F4A7C15UL ^ ((ulong)duration << 1) ^ looping ^ ((ulong)ticks << 32) ^ (ulong)lanes);
+        for (var l = 0; l < lanes; l++)
+            for (nuint i = 0; i < ticks; i++)
+                h = Mix(h ^ *(uint*)(forward + (nuint)l * ticks + i) | ((ulong)*(uint*)(backward + (nuint)l * ticks + i) << 32));
         return h;
     }
 
@@ -437,16 +421,22 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
 
     SlotView* BakeBlock(MeasuredLanes measured, ushort duration, bool looping, nuint ticks, ulong generation)
     {
-        var block = (byte*)NativeMemory.AlignedAlloc((nuint)(BlockHeaderBytes + TableBytesPerTick * (long)ticks), 64);
+        var lanes = measured.LaneCount;
+        var block = (byte*)NativeMemory.AlignedAlloc((nuint)(BlockHeaderBytes + TableBytesPerTick * (long)ticks * lanes + lanes * 8), 64);
         var forward = (float*)(block + BlockHeaderBytes);
-        var backward = forward + ticks;
-        var backwardByPosition = backward + ticks;
-        var forwardRecords = (LaneMovementRecord*)(backwardByPosition + ticks);
-        var backwardRecords = forwardRecords + ticks;
+        var backward = forward + ticks * (nuint)lanes;
+        var backwardByPosition = backward + ticks * (nuint)lanes;
+        var forwardRecords = (LaneMovementRecord*)(backwardByPosition + ticks * (nuint)lanes);
+        var backwardRecords = forwardRecords + ticks * (nuint)lanes;
+        var keys = (ulong*)(backwardRecords + ticks * (nuint)lanes);
         var tableBytes = (long)(ticks * sizeof(float));
-        Buffer.MemoryCopy(measured.Forward, forward, tableBytes, tableBytes);
-        Buffer.MemoryCopy(measured.Backward, backward, tableBytes, tableBytes);
-        LaneMovement.Bake(forward, backward, duration, looping, forwardRecords, backwardRecords, backwardByPosition);
+        for (var l = 0; l < lanes; l++)
+        {
+            Buffer.MemoryCopy(measured.LaneForward[l], forward + (nuint)l * ticks, tableBytes, tableBytes);
+            Buffer.MemoryCopy(measured.LaneBackward[l], backward + (nuint)l * ticks, tableBytes, tableBytes);
+            LaneMovement.Bake(forward + (nuint)l * ticks, backward + (nuint)l * ticks, duration, looping, forwardRecords + (nuint)l * ticks, backwardRecords + (nuint)l * ticks, backwardByPosition + (nuint)l * ticks);
+            keys[l] = measured.LaneKeys[l];
+        }
         *(SlotView*)block = new SlotView
         {
             Forward = forward,
@@ -459,12 +449,13 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             Absent = 0,
             TableTicks = (uint)ticks,
             RecordBytes = (ushort)sizeof(LaneMovementRecord),
+            ResultCount = (ushort)lanes,
             AbiVersion = SlotView.AbiVersionV1,
             Generation = generation,
         };
         _blockCount++;
         _headerTotal += BlockHeaderBytes;
-        _tableTotal += TableBytesPerTick * (long)ticks;
+        _tableTotal += TableBytesPerTick * (long)ticks * lanes;
         return (SlotView*)block;
     }
 
@@ -585,6 +576,52 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             next[i] = looping
                 ? pos < duration ? (pos == 0 ? (ushort)(duration - 1) : (ushort)(pos - 1)) : pos
                 : pos > 0 && pos <= duration ? (ushort)(pos - 1) : pos;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    internal bool HasView(ushort index) => index < _count && Volatile.Read(ref *(long*)(_views + index)) != 0;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    internal int LaneFor(ushort index, ulong key, int ordinal)
+    {
+        var view = _views[index];
+        if (view == null) return -1;
+        var keys = LaneKeysOf(view);
+        var seen = 0;
+        for (var l = 0; l < view->ResultCount; l++)
+            if (keys[l] == key && seen++ == ordinal) return l;
+        return -1;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    internal unsafe void ApplyLane<T>(ushort index, ReadOnlySpan<ushort> positions, bool forward, int lane, Span<T> column) where T : unmanaged
+    {
+        Checked.Live(_disposed);
+        if (positions.Length != column.Length) throw new ArgumentException("positions and column must have equal length.");
+        var view = _views[index];
+        if (view == null) return;
+        var duration = view->Duration;
+        var records = (forward ? view->ForwardRecords : view->BackwardRecords) + (nuint)lane * view->TableTicks;
+        ref var p = ref MemoryMarshal.GetReference(positions);
+        ref var c = ref MemoryMarshal.GetReference(column);
+        for (var i = 0; i < positions.Length; i++)
+        {
+            var pos = Unsafe.Add(ref p, (nuint)i);
+            ref var r = ref records[pos];
+            if (forward ? pos < duration : pos <= duration && r.Next != Skipped)
+                Unsafe.Add(ref c, (nuint)i) = Combine(Unsafe.Add(ref c, (nuint)i), Unsafe.ReadUnaligned<T>(records + pos));
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static T Combine<T>(T a, T b) where T : unmanaged
+    {
+        if (typeof(T) == typeof(bool)) { var v = Unsafe.As<T, bool>(ref a) | Unsafe.As<T, bool>(ref b); return Unsafe.As<bool, T>(ref v); }
+        if (typeof(T) == typeof(float)) { var v = Unsafe.As<T, float>(ref a) + Unsafe.As<T, float>(ref b); return Unsafe.As<float, T>(ref v); }
+        if (sizeof(T) == 4) { var v = Unsafe.As<T, int>(ref a) + Unsafe.As<T, int>(ref b); return Unsafe.As<int, T>(ref v); }
+        if (sizeof(T) == 2) { var v = (ushort)(Unsafe.As<T, ushort>(ref a) + Unsafe.As<T, ushort>(ref b)); return Unsafe.As<ushort, T>(ref v); }
+        var v1 = (byte)(Unsafe.As<T, byte>(ref a) + Unsafe.As<T, byte>(ref b));
+        return Unsafe.As<byte, T>(ref v1);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
@@ -944,18 +981,9 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     }
                 if (FastMixedChunk(ids, positions, i, chunkEnd, bound, minDuration))
                 {
-                    if (gatherAvx2 && arenaOk)
-                    {
-                        i = forward
-                            ? GatherMixedForward(ids, positions, next, effects, arenaForward, arenaBases, i, chunkEnd)
-                            : GatherMixedBackward(ids, positions, next, effects, arenaBackward, arenaBases, i, chunkEnd);
-                    }
-                    else
-                    {
-                        i = forward
-                            ? FastMixedForward(ids, positions, next, effects, views, i, chunkEnd)
-                            : FastMixedBackward(ids, positions, next, effects, views, i, chunkEnd);
-                    }
+                    i = gatherAvx2 && arenaOk
+                        ? GatherMixed(forward, ids, positions, next, effects, forward ? arenaForward : arenaBackward, arenaBases, i, chunkEnd)
+                        : FastMixed(forward, ids, positions, next, effects, views, i, chunkEnd);
                     continue;
                 }
                 if (ValidateChunk(ids, i, chunkEnd, set, bound))
@@ -977,14 +1005,9 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     var segment = LaneOps.RunEnd(ids, i, chunkEnd);
                     if (segment - i < MinSegment)
                     {
-                        if (arenaOk)
-                            i = forward
-                                ? ArenaMixedForward(ids, positions, next, effects, motion, arenaForward, arenaBases, i, chunkEnd)
-                                : ArenaMixedBackward(ids, positions, next, effects, motion, arenaBackward, arenaBases, i, chunkEnd);
-                        else
-                            i = forward
-                                ? ApplyMixedForward(ids, positions, next, effects, views, i, chunkEnd)
-                                : ApplyMixedBackward(ids, positions, next, effects, views, i, chunkEnd);
+                        i = arenaOk
+                            ? ArenaMixed(forward, ids, positions, next, effects, motion, forward ? arenaForward : arenaBackward, arenaBases, i, chunkEnd)
+                            : ApplyMixed(forward, ids, positions, next, effects, views, i, chunkEnd);
                         break;
                     }
                     var segmentId = ids[i];
@@ -1069,9 +1092,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
         }
         if (records != null && i < limit && (looping ? LaneOps.StaggeredEnds(positions, i, limit) : ShortRuns(positions, i, limit)))
             return ArenaUniformWalk(records, positions, next, effects, i, limit, forward, duration);
-        return forward
-            ? ApplyUniformForward(slot, positions, next, effects, i, limit)
-            : ApplyUniformBackward(slot, positions, next, effects, i, limit);
+        return ApplyUniform(slot, positions, next, effects, i, limit, forward);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
@@ -1119,20 +1140,20 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ArenaMixedForward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, uint* motion, LaneMovementRecord* arena, uint* bases, int i, int limit)
+    static unsafe int ArenaMixed(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, uint* motion, LaneMovementRecord* arena, uint* bases, int i, int limit)
     {
         var hasNext = !next.IsEmpty;
         while (i < limit)
         {
             var id = ids[i];
             var position = positions[i];
-            var records = arena + bases[id];
+            ref var r = ref (arena + bases[id])[position];
             var duration = (ushort)(motion[id] & 0xFFFF);
+            var hit = forward ? position < duration : position <= duration && r.Next != TimelineSet<TTrack, TClip>.Skipped;
             if (i + 1 >= limit || ids[i + 1] != id || positions[i + 1] != position)
             {
-                if (position < duration)
+                if (hit)
                 {
-                    ref var r = ref records[position];
                     effects[i] += r.Effect;
                     if (hasNext) next[i] = r.Next;
                 }
@@ -1141,134 +1162,52 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                 continue;
             }
             var end = RunEndTwo(ids, positions, i, limit);
-            if (position >= duration) { if (hasNext) LaneOps.Fill(next, i, end, position); i = end; continue; }
-            ref var run = ref records[position];
-            LaneOps.Add(effects, i, end, run.Effect);
-            if (hasNext) LaneOps.Fill(next, i, end, run.Next);
+            if (hit)
+            {
+                LaneOps.Add(effects, i, end, r.Effect);
+                if (hasNext) LaneOps.Fill(next, i, end, r.Next);
+            }
+            else if (hasNext) LaneOps.Fill(next, i, end, position);
             i = end;
         }
         return limit;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ArenaMixedBackward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, uint* motion, LaneMovementRecord* arena, uint* bases, int i, int limit)
-    {
-        var hasNext = !next.IsEmpty;
-        while (i < limit)
-        {
-            var id = ids[i];
-            var position = positions[i];
-            var records = arena + bases[id];
-            var duration = (ushort)(motion[id] & 0xFFFF);
-            if (i + 1 >= limit || ids[i + 1] != id || positions[i + 1] != position)
-            {
-                if (position <= duration)
-                {
-                    ref var r = ref records[position];
-                    if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
-                    {
-                        effects[i] += r.Effect;
-                        if (hasNext) next[i] = r.Next;
-                        i++;
-                        continue;
-                    }
-                }
-                if (hasNext) next[i] = position;
-                i++;
-                continue;
-            }
-            var end = RunEndTwo(ids, positions, i, limit);
-            if (position <= duration)
-            {
-                ref var r = ref records[position];
-                if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
-                {
-                    LaneOps.Add(effects, i, end, r.Effect);
-                    if (hasNext) LaneOps.Fill(next, i, end, r.Next);
-                    i = end;
-                    continue;
-                }
-            }
-            if (hasNext) LaneOps.Fill(next, i, end, position);
-            i = end;
-        }
-        return limit;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyUniformForward(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, int i, int limit)
+    static unsafe int ApplyUniform(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, int i, int limit, bool forward)
     {
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
-        var eff = slot->Forward;
-        var records = slot->ForwardRecords;
+        var eff = forward ? slot->Forward : slot->Backward;
+        var records = forward ? slot->ForwardRecords : slot->BackwardRecords;
         var hasNext = !next.IsEmpty;
         while (i < limit)
         {
             var position = positions[i];
             var end = i + 1 >= limit || positions[i + 1] != position ? i + 1 : LaneOps.RunEnd(positions, i, limit);
-            if (position >= duration) { if (hasNext) LaneOps.Fill(next, i, end, position); i = end; continue; }
-            var delta = eff[position];
-            if (end == i + 1)
-            {
-                effects[i] += delta;
-                if (hasNext) next[i] = looping && position + 1 == duration ? (ushort)0 : (ushort)(position + 1);
-            }
-            else
-            {
-                LaneOps.Add(effects, i, end, delta);
-                if (hasNext) LaneOps.Fill(next, i, end, looping && position + 1 == duration ? (ushort)0 : (ushort)(position + 1));
-            }
-            i = end;
-            while (i < limit && (i + 1 >= limit || positions[i + 1] != positions[i]))
-            {
-                var p = positions[i];
-                if (p < duration)
-                {
-                    ref var r = ref records[p];
-                    effects[i] += r.Effect;
-                    if (hasNext) next[i] = r.Next;
-                }
-                else if (hasNext) next[i] = p;
-                i++;
-            }
-        }
-        return limit;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyUniformBackward(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, int i, int limit)
-    {
-        var duration = slot->Duration;
-        var looping = slot->Looping != 0;
-        var eff = slot->Backward;
-        var records = slot->BackwardRecords;
-        var hasNext = !next.IsEmpty;
-        while (i < limit)
-        {
-            var position = positions[i];
-            var end = i + 1 >= limit || positions[i + 1] != position ? i + 1 : LaneOps.RunEnd(positions, i, limit);
-            if (position == 0 && !looping || position > duration || looping && position == duration) { if (hasNext) LaneOps.Fill(next, i, end, position); i = end; continue; }
-            var tick = position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1);
+            if (forward ? position >= duration : position == 0 && !looping || position > duration || looping && position == duration) { if (hasNext) LaneOps.Fill(next, i, end, position); i = end; continue; }
+            var tick = forward ? position : (ushort)(position == 0 ? duration - 1 : position - 1);
+            var step = forward ? (ushort)(looping && position + 1 == duration ? 0 : position + 1) : tick;
             var delta = eff[tick];
             if (end == i + 1)
             {
                 effects[i] += delta;
-                if (hasNext) next[i] = tick;
+                if (hasNext) next[i] = step;
             }
             else
             {
                 LaneOps.Add(effects, i, end, delta);
-                if (hasNext) LaneOps.Fill(next, i, end, tick);
+                if (hasNext) LaneOps.Fill(next, i, end, step);
             }
             i = end;
             while (i < limit && (i + 1 >= limit || positions[i + 1] != positions[i]))
             {
                 var p = positions[i];
-                if (p <= duration && records[p].Next != TimelineSet<TTrack, TClip>.Skipped)
+                ref var r = ref records[p];
+                if (forward ? p < duration : p <= duration && r.Next != TimelineSet<TTrack, TClip>.Skipped)
                 {
-                    effects[i] += records[p].Effect;
-                    if (hasNext) next[i] = records[p].Next;
+                    effects[i] += r.Effect;
+                    if (hasNext) next[i] = r.Next;
                 }
                 else if (hasNext) next[i] = p;
                 i++;
@@ -1278,7 +1217,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyMixedForward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
+    static unsafe int ApplyMixed(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
     {
         var hasNext = !next.IsEmpty;
         while (i < limit)
@@ -1292,11 +1231,13 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                 i++;
                 continue;
             }
+            var duration = slot->Duration;
+            var records = forward ? slot->ForwardRecords : slot->BackwardRecords;
             if (i + 1 >= limit || ids[i + 1] != id || positions[i + 1] != position)
             {
-                if (position < slot->Duration)
+                if (forward ? position < duration : position <= duration && records[position].Next != TimelineSet<TTrack, TClip>.Skipped)
                 {
-                    ref var r = ref slot->ForwardRecords[position];
+                    ref var r = ref records[position];
                     effects[i] += r.Effect;
                     if (hasNext) next[i] = r.Next;
                 }
@@ -1305,97 +1246,33 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                 continue;
             }
             var end = RunEndTwo(ids, positions, i, limit);
-            var duration = slot->Duration;
-            if (position >= duration) { if (hasNext) LaneOps.Fill(next, i, end, position); i = end; continue; }
-            LaneOps.Add(effects, i, end, slot->Forward[position]);
-            if (hasNext) LaneOps.Fill(next, i, end, slot->Looping != 0 && position + 1 == duration ? (ushort)0 : (ushort)(position + 1));
-            i = end;
-        }
-        return limit;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ApplyMixedBackward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
-    {
-        var hasNext = !next.IsEmpty;
-        while (i < limit)
-        {
-            var id = ids[i];
-            var position = positions[i];
-            var slot = views[id];
-            if (slot == null)
-            {
-                if (hasNext) next[i] = position;
-                i++;
-                continue;
-            }
-            if (i + 1 >= limit || ids[i + 1] != id || positions[i + 1] != position)
-            {
-                if (position <= slot->Duration)
-                {
-                    ref var r = ref slot->BackwardRecords[position];
-                    if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
-                    {
-                        effects[i] += r.Effect;
-                        if (hasNext) next[i] = r.Next;
-                    }
-                    else if (hasNext) next[i] = position;
-                }
-                else if (hasNext) next[i] = position;
-                i++;
-                continue;
-            }
-            var end = RunEndTwo(ids, positions, i, limit);
-            var duration = slot->Duration;
             var looping = slot->Looping != 0;
-            if (position == 0 && !looping || position > duration || looping && position == duration) { if (hasNext) LaneOps.Fill(next, i, end, position); i = end; continue; }
-            var tick = position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1);
-            LaneOps.Add(effects, i, end, slot->Backward[tick]);
-            if (hasNext) LaneOps.Fill(next, i, end, tick);
+            if (forward ? position >= duration : position == 0 && !looping || position > duration || looping && position == duration) { if (hasNext) LaneOps.Fill(next, i, end, position); i = end; continue; }
+            var tick = forward ? position : (ushort)(position == 0 ? duration - 1 : position - 1);
+            LaneOps.Add(effects, i, end, (forward ? slot->Forward : slot->Backward)[tick]);
+            if (hasNext) LaneOps.Fill(next, i, end, forward ? (ushort)(looping && position + 1 == duration ? 0 : position + 1) : tick);
             i = end;
         }
         return limit;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int FastMixedForward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
+    static unsafe int FastMixed(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
     {
         var hasNext = !next.IsEmpty;
         var lastId = ids[i];
-        LaneMovementRecord* lastRecords = views[lastId]->ForwardRecords;
+        LaneMovementRecord* lastRecords = forward ? views[lastId]->ForwardRecords : views[lastId]->BackwardRecords;
         while (i < limit)
         {
             var id = ids[i];
             if (id != lastId)
             {
                 lastId = id;
-                lastRecords = views[id]->ForwardRecords;
-            }
-            ref var r = ref lastRecords[positions[i]];
-            effects[i] += r.Effect;
-            if (hasNext) next[i] = r.Next;
-            i++;
-        }
-        return limit;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int FastMixedBackward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
-    {
-        var hasNext = !next.IsEmpty;
-        var lastId = ids[i];
-        LaneMovementRecord* lastRecords = views[lastId]->BackwardRecords;
-        while (i < limit)
-        {
-            var id = ids[i];
-            if (id != lastId)
-            {
-                lastId = id;
-                lastRecords = views[id]->BackwardRecords;
+                lastRecords = forward ? views[id]->ForwardRecords : views[id]->BackwardRecords;
             }
             var p = positions[i];
             ref var r = ref lastRecords[p];
-            if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
+            if (forward || r.Next != TimelineSet<TTrack, TClip>.Skipped)
             {
                 effects[i] += r.Effect;
                 if (hasNext) next[i] = r.Next;
@@ -1407,73 +1284,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int GatherMixedForward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, LaneMovementRecord* arena, uint* bases, int i, int limit)
-    {
-        var hasNext = !next.IsEmpty;
-        ref var idRef = ref MemoryMarshal.GetReference(ids);
-        ref var p = ref MemoryMarshal.GetReference(positions);
-        ref var n = ref MemoryMarshal.GetReference(next);
-        ref var e = ref MemoryMarshal.GetReference(effects);
-        var effectLanes = Vector256.Create(0, 2, 4, 6, 0, 0, 0, 0);
-        var nextLanes = Vector256.Create(1, 3, 5, 7, 0, 0, 0, 0);
-        var lowWord = Vector128.Create(0xFFFFu);
-        if (i + 16 <= limit)
-        {
-            var baseLo = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef)).AsInt32(), 4).AsUInt32();
-            var baseHi = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef, 8)).AsInt32(), 4).AsUInt32();
-            while (i + 16 <= limit)
-            {
-                var currLo = baseLo;
-                var currHi = baseHi;
-                var block = i + 16;
-                if (block + 16 <= limit)
-                {
-                    baseLo = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef, (nuint)block)).AsInt32(), 4).AsUInt32();
-                    baseHi = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef, (nuint)(block + 8))).AsInt32(), 4).AsUInt32();
-                }
-                var posv = Vector256.LoadUnsafe(ref p, (nuint)i);
-                (var posLo, var posHi) = Vector256.Widen(posv);
-                var idxLo = currLo + posLo;
-                var idxHi = currHi + posHi;
-                var rec0 = Avx2.GatherVector256((ulong*)arena, idxLo.GetLower().AsInt32(), 8);
-                var rec1 = Avx2.GatherVector256((ulong*)arena, idxLo.GetUpper().AsInt32(), 8);
-                var rec2 = Avx2.GatherVector256((ulong*)arena, idxHi.GetLower().AsInt32(), 8);
-                var rec3 = Avx2.GatherVector256((ulong*)arena, idxHi.GetUpper().AsInt32(), 8);
-                var eff0 = Avx2.PermuteVar8x32(rec0.AsInt32(), effectLanes).GetLower().AsSingle();
-                var eff1 = Avx2.PermuteVar8x32(rec1.AsInt32(), effectLanes).GetLower().AsSingle();
-                var eff2 = Avx2.PermuteVar8x32(rec2.AsInt32(), effectLanes).GetLower().AsSingle();
-                var eff3 = Avx2.PermuteVar8x32(rec3.AsInt32(), effectLanes).GetLower().AsSingle();
-                var effLo = Avx.InsertVector128(eff0.ToVector256(), eff1, 1);
-                var effHi = Avx.InsertVector128(eff2.ToVector256(), eff3, 1);
-                var fxLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-                (fxLo + effLo).StoreUnsafe(ref e, (nuint)i);
-                var fxHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-                (fxHi + effHi).StoreUnsafe(ref e, (nuint)(i + 8));
-                if (hasNext)
-                {
-                    var nx0 = Avx2.PermuteVar8x32(rec0.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
-                    var nx1 = Avx2.PermuteVar8x32(rec1.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
-                    var nx2 = Avx2.PermuteVar8x32(rec2.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
-                    var nx3 = Avx2.PermuteVar8x32(rec3.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
-                    var nextLo = Avx.InsertVector128(nx0.ToVector256(), nx1, 1);
-                    var nextHi = Avx.InsertVector128(nx2.ToVector256(), nx3, 1);
-                    Vector256.Narrow(nextLo, nextHi).StoreUnsafe(ref n, (nuint)i);
-                }
-                i = block;
-            }
-        }
-        for (; i < limit; i++)
-        {
-            var records = arena + bases[Unsafe.Add(ref idRef, (nuint)i)];
-            ref var r = ref records[Unsafe.Add(ref p, (nuint)i)];
-            Unsafe.Add(ref e, (nuint)i) += r.Effect;
-            if (hasNext) Unsafe.Add(ref n, (nuint)i) = r.Next;
-        }
-        return limit;
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int GatherMixedBackward(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, LaneMovementRecord* arena, uint* bases, int i, int limit)
+    static unsafe int GatherMixed(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, LaneMovementRecord* arena, uint* bases, int i, int limit)
     {
         var hasNext = !next.IsEmpty;
         ref var idRef = ref MemoryMarshal.GetReference(ids);
@@ -1512,23 +1323,37 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                 var eff3 = Avx2.PermuteVar8x32(rec3.AsInt32(), effectLanes).GetLower().AsSingle();
                 var effLo = Avx.InsertVector128(eff0.ToVector256(), eff1, 1);
                 var effHi = Avx.InsertVector128(eff2.ToVector256(), eff3, 1);
-                var nx0 = Avx2.PermuteVar8x32(rec0.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
-                var nx1 = Avx2.PermuteVar8x32(rec1.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
-                var nx2 = Avx2.PermuteVar8x32(rec2.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
-                var nx3 = Avx2.PermuteVar8x32(rec3.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
-                var skipLo = Avx.InsertVector128(Avx2.CompareEqual(nx0, skipWord).ToVector256(), Avx2.CompareEqual(nx1, skipWord), 1).AsSingle();
-                var skipHi = Avx.InsertVector128(Avx2.CompareEqual(nx2, skipWord).ToVector256(), Avx2.CompareEqual(nx3, skipWord), 1).AsSingle();
                 var fxLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-                Avx2.BlendVariable(fxLo + effLo, fxLo, skipLo).StoreUnsafe(ref e, (nuint)i);
                 var fxHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-                Avx2.BlendVariable(fxHi + effHi, fxHi, skipHi).StoreUnsafe(ref e, (nuint)(i + 8));
-                if (hasNext)
+                if (forward)
                 {
-                    var nextLo = Avx.InsertVector128(nx0.ToVector256(), nx1, 1);
-                    var nextHi = Avx.InsertVector128(nx2.ToVector256(), nx3, 1);
-                    var outLo = Avx2.BlendVariable(nextLo.AsSingle(), posLo.AsSingle(), skipLo).AsUInt32();
-                    var outHi = Avx2.BlendVariable(nextHi.AsSingle(), posHi.AsSingle(), skipHi).AsUInt32();
-                    Vector256.Narrow(outLo, outHi).StoreUnsafe(ref n, (nuint)i);
+                    (fxLo + effLo).StoreUnsafe(ref e, (nuint)i);
+                    (fxHi + effHi).StoreUnsafe(ref e, (nuint)(i + 8));
+                    if (hasNext)
+                    {
+                        var nx0 = Avx2.PermuteVar8x32(rec0.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                        var nx1 = Avx2.PermuteVar8x32(rec1.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                        var nx2 = Avx2.PermuteVar8x32(rec2.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                        var nx3 = Avx2.PermuteVar8x32(rec3.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                        Vector256.Narrow(Avx.InsertVector128(nx0.ToVector256(), nx1, 1), Avx.InsertVector128(nx2.ToVector256(), nx3, 1)).StoreUnsafe(ref n, (nuint)i);
+                    }
+                }
+                else
+                {
+                    var nx0 = Avx2.PermuteVar8x32(rec0.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                    var nx1 = Avx2.PermuteVar8x32(rec1.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                    var nx2 = Avx2.PermuteVar8x32(rec2.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                    var nx3 = Avx2.PermuteVar8x32(rec3.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
+                    var skipLo = Avx.InsertVector128(Avx2.CompareEqual(nx0, skipWord).ToVector256(), Avx2.CompareEqual(nx1, skipWord), 1).AsSingle();
+                    var skipHi = Avx.InsertVector128(Avx2.CompareEqual(nx2, skipWord).ToVector256(), Avx2.CompareEqual(nx3, skipWord), 1).AsSingle();
+                    Avx2.BlendVariable(fxLo + effLo, fxLo, skipLo).StoreUnsafe(ref e, (nuint)i);
+                    Avx2.BlendVariable(fxHi + effHi, fxHi, skipHi).StoreUnsafe(ref e, (nuint)(i + 8));
+                    if (hasNext)
+                    {
+                        var outLo = Avx2.BlendVariable(Avx.InsertVector128(nx0.ToVector256(), nx1, 1).AsSingle(), posLo.AsSingle(), skipLo).AsUInt32();
+                        var outHi = Avx2.BlendVariable(Avx.InsertVector128(nx2.ToVector256(), nx3, 1).AsSingle(), posHi.AsSingle(), skipHi).AsUInt32();
+                        Vector256.Narrow(outLo, outHi).StoreUnsafe(ref n, (nuint)i);
+                    }
                 }
                 i = block;
             }
@@ -1538,7 +1363,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
             var records = arena + bases[Unsafe.Add(ref idRef, (nuint)i)];
             var pos = Unsafe.Add(ref p, (nuint)i);
             ref var r = ref records[pos];
-            if (r.Next != TimelineSet<TTrack, TClip>.Skipped)
+            if (forward || r.Next != TimelineSet<TTrack, TClip>.Skipped)
             {
                 Unsafe.Add(ref e, (nuint)i) += r.Effect;
                 if (hasNext) Unsafe.Add(ref n, (nuint)i) = r.Next;
