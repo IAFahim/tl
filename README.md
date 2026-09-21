@@ -339,6 +339,40 @@ public readonly struct ScreenShake : ITrack<JumpTrack, JumpClip>
 
 Consumers fold in consumer-name order (`MoveY` before `ScreenShake`) — ordinal, culture-independent, deterministic on every machine; rename a consumer to move it. Receipts: `TandemFirstJob` and `TandemSecondJob` in `tests/Tl.Alpha` both run from generated installs, and the fold order is pinned by `tests/Tl.Core.Tests`. Order across different pairs is the host's call order.
 
+### The two consumer shapes
+
+`OnActive`'s signature picks the lane. With a `ref float` output the consumer is **measured, not executed**: on the first typed `Apply`, `Advance`, or `View` of a `(loaded asset, pair)` the runtime runs it once per tick in both directions over a scratch column — `duration × 2` invocations — writes one `float` per tick and direction into the pair bank's native tables, and freezes the result for the process lifetime. Every row on that asset replays the same frozen table; the consumer body never runs again for that `(asset, pair)`. Consequences, all contract:
+
+- The measured consumer is a **pure function of the frame** — `frame.Clip`, `frame.Track`, `frame.TimelineTick`, `frame.Flags` are the only stable inputs. A read of live gameplay state freezes whatever it held at first typed use.
+- The `ref float` is **write-only**: every probe starts from `0f`, so accumulate (`y += contribution`) and never read the incoming value.
+- Direction comes from `frame.Direction` (`+1` forward, `−1` backward) — the backward table is measured too, and a sign-blind formula makes rewind wrong rather than absent.
+- **Side effects misfire**: audio, logs, and mutations inside a `ref` consumer fire `duration × 2` times at fold time on a probe row and never during playback. Prints in the output of the first typed call are the cold fold running, not playback — the pass is deliberately unlabeled, so treat consumer output at that moment as measurement, not behavior.
+- **Changed data means a new `Load`** — new bytes intern to a new index and fold fresh; an already-folded `(asset, pair)` is never re-folded.
+
+The other shape — `OnActive(in Frame<TTrack, TClip> frame)` with no `ref` — never folds: the effects-less `Apply(ids, positions, forward)` executes it live, once per row per frame, in row order. Audio cues, logging, markers, and reads of live host state belong there; the frame carries clip, track, tick, and flags — never a row or entity column, so entity-correlated work stays host-side.
+
+Rule of thumb: **the `ref` shape carries the number — a pure per-tick contribution, frozen and shared by every row; the dispatch shape carries the effect on the world — live, per row.**
+
+```cs
+public readonly struct JumpArc : ITrack<JumpTrack, JumpClip>
+{
+    // measured: the number — a pure function of baked frame data
+    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
+        => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
+}
+
+public readonly struct JumpAudio : ITrack<JumpTrack, JumpClip>
+{
+    // dispatch: live per row — the clip boundary cue fires when a row crosses it
+    public static void OnActive(in Frame<JumpTrack, JumpClip> frame)
+    {
+        if (frame.Has(FrameFlags.ClipStart)) Audio.Cue(frame.Clip.Sound);
+    }
+}
+```
+
+Variation is authored, not measured: short and tall jumps are separate assets that each fold their own table, continuous scaling folds a unit asset and multiplies host-side after `Apply`, and live modifiers — wind, bounce, authority — layer on outside the consumer entirely.
+
 Host wiring is declared, not registered — implement `IBake<TConsumer>` with the `Bake` signature you want and one type-agnostic call attaches your markers at load time:
 
 ```cs
@@ -385,7 +419,7 @@ Hosts and other language runtimes acquire a view — a 64-byte `SlotView` copy �
 
 ### Playback misuse contract
 
-The playback path (`Apply`, `Advance`, `View`, the typed lanes) carries no managed diagnostics in shipped bits: valid inputs throw nothing, and the warm path allocates 0 B. Column length and overlap checks, and the disposed-state check, are compiled only into checked builds — every build where the `TL_CHECKED` define is present (Debug by default, or `dotnet build -p:TlChecked=true`); the C# `[Conditional]` mechanism removes the call and its argument evaluation from the shipped Release assembly, so the guards cost zero instructions there. In a checked build misuse fails fast with a located `ArgumentException` or `ObjectDisposedException`. In the shipped Release package the same misuse is undefined behaviour, not a guaranteed fault: the record paths still fail fast through span bounds checks and null dereferences, but the vector kernels store through pointers, where a wrong-width or short column writes into neighbouring memory and a disposed bank dereferences a freed directory — nothing faults. Authoring and bind time keep located diagnostics regardless of configuration (invalid definitions, wrong pair, unbound ids, foreign `MeasuredLanes`, over-capacity adds). Consume the checked configuration while developing; CI runs a checked lane beside the shipped one, and an IL scan proves the shipped assembly contains zero guard call sites.
+The playback path (`Apply`, `Advance`, `View`, the typed lanes) carries no managed diagnostics in shipped bits: valid inputs throw nothing, and the warm path allocates 0 B. Column length, position-domain (`position` beyond the asset's `Duration`), and overlap checks, and the disposed-state check, are compiled only into checked builds — every build where the `TL_CHECKED` define is present (Debug by default, or `dotnet build -p:TlChecked=true`); the C# `[Conditional]` mechanism removes the call and its argument evaluation from the shipped Release assembly, so the guards cost zero instructions there. In a checked build misuse fails fast with a located `ArgumentException` or `ObjectDisposedException`. In the shipped Release package the same misuse is undefined behaviour, not a guaranteed fault: the record paths still fail fast through span bounds checks and null dereferences, but the vector kernels store through pointers, where a wrong-width or short column writes into neighbouring memory and a disposed bank dereferences a freed directory — nothing faults. Authoring and bind time keep located diagnostics regardless of configuration (invalid definitions, wrong pair, unbound ids, foreign `MeasuredLanes`, over-capacity adds). Consume the checked configuration while developing; CI runs a checked lane beside the shipped one, and an IL scan proves the shipped assembly contains zero guard call sites.
 
 The proofs owed before a pointer leaves the runtime:
 
