@@ -37,6 +37,14 @@ internal static class Checked
 
     [Conditional("TL_CHECKED")]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Columns(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions)
+    {
+        if (positions.Length != indices.Length) Fail.ColumnLength(positions.Length, indices.Length);
+        if (MemoryMarshal.AsBytes(indices).Overlaps(MemoryMarshal.AsBytes(positions))) Fail.ColumnOverlap();
+    }
+
+    [Conditional("TL_CHECKED")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void Columns(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
     {
         Columns(positions, next, effects);

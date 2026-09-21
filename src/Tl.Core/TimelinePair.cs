@@ -87,6 +87,91 @@ public static unsafe class Timeline<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward)
+    {
+        Checked.Columns(indices, positions);
+        var key = PairRuntime<TTrack, TClip>.Key;
+        var reverse = !forward;
+        int* chains = stackalloc int[256];
+        var reference = default(TimelineRef);
+        var pairs = 0;
+        var lastIndex = -1;
+        for (var i = 0; i < positions.Length; i++)
+        {
+            var index = indices[i];
+            if (index != lastIndex)
+            {
+                reference = TimelineTable.Reference(index);
+                pairs = checked((int)reference.PairCount);
+                reference.Resolve(new Span<int>(chains, pairs), key);
+                lastIndex = index;
+            }
+            if (reference.Select(reverse, positions[i], out _, out var tick, out var flags))
+                reference.ExecuteDispatch(reverse, tick, flags, i, new Span<int>(chains, pairs));
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply(ushort index, ReadOnlySpan<ushort> positions, bool forward)
+    {
+        var reference = TimelineTable.Reference(index);
+        var key = PairRuntime<TTrack, TClip>.Key;
+        var reverse = !forward;
+        var pairs = checked((int)reference.PairCount);
+        int* chains = stackalloc int[pairs];
+        reference.Resolve(new Span<int>(chains, pairs), key);
+        for (var i = 0; i < positions.Length; i++)
+            if (reference.Select(reverse, positions[i], out _, out var tick, out var flags))
+                reference.ExecuteDispatch(reverse, tick, flags, i, new Span<int>(chains, pairs));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply(ushort index, ushort position, bool forward)
+    {
+        var reference = TimelineTable.Reference(index);
+        var key = PairRuntime<TTrack, TClip>.Key;
+        var reverse = !forward;
+        var pairs = checked((int)reference.PairCount);
+        int* chains = stackalloc int[pairs];
+        reference.Resolve(new Span<int>(chains, pairs), key);
+        if (reference.Select(reverse, position, out _, out var tick, out var flags))
+            reference.ExecuteDispatch(reverse, tick, flags, 0, new Span<int>(chains, pairs));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply(TimelineAsset asset, ReadOnlySpan<ushort> positions, bool forward)
+    {
+        ArgumentNullException.ThrowIfNull(asset);
+        Apply(asset.Index, positions, forward);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply<TIndex, TPosition>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward)
+        where TIndex : struct
+        where TPosition : struct
+    {
+        if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
+            ThrowColumnSizes();
+        Apply(
+            MemoryMarshal.Cast<TIndex, ushort>(indices),
+            MemoryMarshal.Cast<TPosition, ushort>(positions),
+            forward);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply<TIndex, TPosition>(in TIndex index, in TPosition position, bool forward)
+        where TIndex : struct
+        where TPosition : struct
+    {
+        if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
+            ThrowColumnSizes();
+        Apply(
+            Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
+            Unsafe.As<TPosition, ushort>(ref Unsafe.AsRef(in position)),
+            forward);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(TimelineAsset asset, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
     {
         ArgumentNullException.ThrowIfNull(asset);

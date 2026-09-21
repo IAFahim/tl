@@ -76,8 +76,9 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var pairs = checked((int)reference.PairCount);
         if (pairs > 256) throw new ArgumentException("Asset declares more than 256 timeline pairs; the typed lane cannot bind it.");
         int* chains = stackalloc int[pairs];
-        reference.Resolve(new Span<int>(chains, pairs));
-        if (pairKey != 0) IsolatePair(new Span<int>(chains, pairs), reference.Pairs, pairKey);
+        var chainSpan = new Span<int>(chains, pairs);
+        if (pairKey != 0) reference.Resolve(chainSpan, pairKey);
+        else reference.Resolve(chainSpan);
         ulong* keys = stackalloc ulong[1];
         keys[0] = TypeKey<float>.Value;
         byte* indices = stackalloc byte[256];
@@ -117,12 +118,6 @@ public sealed unsafe class MeasuredLanes : IDisposable
         }
         forward[duration] = 0f;
         backward[duration] = 0f;
-    }
-
-    static void IsolatePair(Span<int> chains, NativePair* pairs, ulong pairKey)
-    {
-        for (var i = 0; i < chains.Length; i++)
-            if (pairs[i].Key != pairKey) chains[i] = -1;
     }
 
     const int CacheStride = 64;
