@@ -1,12 +1,13 @@
 using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Diagnostics.CodeAnalysis;
 using unsafe ExecThunk = delegate*<byte*, byte*, ushort, Tl.FrameFlags, void**, int, void>;
 using unsafe RangeThunk = delegate*<byte*, byte*, ushort, Tl.FrameFlags, void**, int, int, void>;
 using unsafe BindThunk = delegate*<ulong*, int, byte*, void>;
 using unsafe BlendThunk = delegate*<byte*, bool>;
 using unsafe KeysThunk = delegate*<ulong*, byte*, int>;
+using unsafe DiagThunk = delegate*<ulong, long, void>;
 
 namespace Tl;
 
@@ -152,7 +153,7 @@ public readonly unsafe struct TimelineRef
 		=> ExecuteWindow(reverse, tick, flags, row, chains, columns, null, null, null);
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
-	internal void ExecuteDispatch(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains)
+	internal void ExecuteDispatch(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns)
 	{
 		var stage = Header->StageCount == 1 ? (NativeStage*)(_p + Header->StageOffset) : StageOf(tick);
 		if (stage == null) return;
@@ -163,7 +164,7 @@ public readonly unsafe struct TimelineRef
 		var stride = reverse ? -1 : 1;
 		while (count-- > 0)
 		{
-			PairTable.RunDispatch(chains[(int)step->Pair], reverse, _p + step->Slot, (byte*)(pairs + step->Pair), tick, flags, row);
+			PairTable.RunDispatch(chains[(int)step->Pair], reverse, _p + step->Slot, (byte*)(pairs + step->Pair), tick, flags, row, columns);
 			step += stride;
 		}
 	}
@@ -337,7 +338,7 @@ public readonly unsafe struct TickFrame
 
 	static unsafe class PairTable
 {
-	internal struct Consumer { public int Next, Pair, Offset; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public byte WindowConstant, DispatchOnly; }
+	internal struct Consumer { public int Next, Pair, Offset, OutLanes; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
@@ -353,7 +354,7 @@ public readonly unsafe struct TickFrame
 	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
 	internal static int ConsumerCount => Volatile.Read(ref _consumers);
 
-	internal static void Install(ulong key, ExecThunk e, RangeThunk r, BindThunk b, BlendThunk blendConstant, bool windowConstant, bool dispatchOnly = false, KeysThunk resultKeys = null)
+	internal static void Install(ulong key, ExecThunk e, RangeThunk r, BindThunk b, BlendThunk blendConstant, bool windowConstant, bool dispatchOnly = false, KeysThunk resultKeys = null, DiagThunk diag = null)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
@@ -369,7 +370,7 @@ public readonly unsafe struct TickFrame
 			}
 			if (_consumers == ConsumerCapacity || _consumers * 4 + 4 > MaxPointers) throw new InvalidOperationException("Consumer capacity exhausted.");
 			var consumers = ConsumerAt;
-			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * 4 };
+			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * 4 };
 			if (windowConstant) Volatile.Write(ref _windowConstant, 1);
 			Volatile.Write(ref slots[slot].Head, _consumers);
 			Volatile.Write(ref _consumers, _consumers + 1);
@@ -438,7 +439,7 @@ public readonly unsafe struct TickFrame
 		return written;
 	}
 
-	internal static void RunDispatch(int head, bool reverse, byte* slot, byte* pair, ushort tick, FrameFlags flags, int row)
+	internal static void RunDispatch(int head, bool reverse, byte* slot, byte* pair, ushort tick, FrameFlags flags, int row, void** columns)
 	{
 		var consumers = ConsumerAt;
 		if (reverse && head >= 0 && consumers[head].Next >= 0)
@@ -448,17 +449,32 @@ public readonly unsafe struct TickFrame
 			for (var e = head; e >= 0; e = consumers[e].Next)
 			{
 				if (consumers[e].DispatchOnly == 0) continue;
+				if (columns == null && consumers[e].Keys != null) ThrowUnfedLiveColumn(e);
 				if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
 				rev[n++] = e;
 			}
-			while (n-- > 0) consumers[rev[n]].Execute(slot, pair, tick, flags, null, row);
+			while (n-- > 0) consumers[rev[n]].Execute(slot, pair, tick, flags, columns + consumers[rev[n]].Offset, row);
 		}
-		else
-		{
-			for (var entry = head; entry >= 0; entry = consumers[entry].Next)
-				if (consumers[entry].DispatchOnly != 0)
-					consumers[entry].Execute(slot, pair, tick, flags, null, row);
-		}
+		else for (var entry = head; entry >= 0; entry = consumers[entry].Next)
+			if (consumers[entry].DispatchOnly != 0)
+			{
+				if (columns == null && consumers[entry].Keys != null) ThrowUnfedLiveColumn(entry);
+				consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
+			}
+	}
+
+	[DoesNotReturn]
+	internal static void ThrowUnfedLiveColumn(int entry)
+	{
+		var consumers = ConsumerAt;
+		ulong* keys = stackalloc ulong[4];
+		byte* meta = stackalloc byte[4];
+		var n = Math.Min(consumers[entry].Keys(keys, meta), 4);
+		var required = -1;
+		for (var j = 0; j < n && required < 0; j++) if ((meta[j] & 0x60) == 0) required = j;
+		for (var j = 0; j < n && required < 0; j++) if ((meta[j] & 0x20) != 0) required = j;
+		if (required >= 0 && consumers[entry].Diag != null) consumers[entry].Diag(0, required);
+		throw new ArgumentException("A live timeline consumer requires caller columns.");
 	}
 
 	static int Probe(ulong key)
@@ -519,6 +535,8 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 	public static void Consume(ExecThunk execute, BindThunk bind, TickPurity purity) => PairTable.Install(Key, execute, null, bind, purity == TickPurity.WindowConstant ? &BlendConstantInWindow : null, purity == TickPurity.WindowConstant);
 
 	public static void ConsumeDispatch(ExecThunk execute) => PairTable.Install(Key, execute, null, null, null, false, true);
+
+	public static void ConsumeDispatch(ExecThunk execute, KeysThunk keys, DiagThunk diag) => PairTable.Install(Key, execute, null, null, null, false, true, keys, diag);
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	static bool BlendConstantInWindow(byte* slot) => ((SlotRow*)slot)->FactorSpan <= 1;

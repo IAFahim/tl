@@ -53,6 +53,7 @@ type Tl.PairRuntime`2
   Method Void Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32, System.Int32), System.Int32(System.UInt64*, System.Byte*))
   Method Void Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*), Tl.TickPurity)
   Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32))
+  Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Int32(System.UInt64*, System.Byte*), System.Void(System.UInt64, System.Int64))
   Field UInt64 Key
 type Tl.SlotView
   Field UInt16 AbiVersion
@@ -139,8 +140,9 @@ type Tl.Timeline`2
   Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
   Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
   Method Void Apply[TIndex,TPosition,TEffect](TIndex ByRef, TPosition ByRef, Boolean, TEffect ByRef)
-  Method Void Apply[TIndex,TPosition,TEffect0,TEffect1](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect0], System.Span`1[TEffect1])
+  Method Void Apply[TIndex,TPosition,TEffect,TInput](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect], System.ReadOnlySpan`1[TInput])
   Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[System.Int32], System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
+  Method Void ApplyLanes[TIndex,TPosition,TEffect0,TEffect1](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect0], System.Span`1[TEffect1])
   Method Tl.SlotView View(UInt16)
   Method Tl.SlotView View(Tl.TimelineAsset)
 type Tl.TypeKey`1

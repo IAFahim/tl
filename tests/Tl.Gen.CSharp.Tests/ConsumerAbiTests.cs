@@ -47,7 +47,7 @@ public sealed class ConsumerAbiTests
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         internal static void Install()
         {
-        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&OnActive_QuadJob, &OnActiveRange_QuadJob, &Bind_QuadJob);
+        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.ConsumeDispatch(&OnActive_QuadJob, &LiveKeys_QuadJob, &Diag_QuadJob);
         }
         private static void OnActive_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
         {
@@ -58,30 +58,21 @@ public sealed class ConsumerAbiTests
         var @fourth = (global::Domain.Delta*)__tlColumns[3];
         global::Domain.QuadJob.OnActive(in __tlTyped, in @first[__tlRow], in @second[__tlRow], ref @third[__tlRow], ref @fourth[__tlRow]);
         }
-        private static void OnActiveRange_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
+        private static int LiveKeys_QuadJob(ulong* __tlKeys, byte* __tlMeta)
         {
-        global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
-        var @first = (global::Domain.Alpha*)__tlColumns[0];
-        var @second = (global::Domain.Beta*)__tlColumns[1];
-        var @third = (global::Domain.Gamma*)__tlColumns[2];
-        var @fourth = (global::Domain.Delta*)__tlColumns[3];
-        for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)
-        global::Domain.QuadJob.OnActive(in __tlTyped, in @first[__tlRow], in @second[__tlRow], ref @third[__tlRow], ref @fourth[__tlRow]);
+        if (__tlKeys != null) { __tlKeys[0] = global::Tl.TypeKey<global::Domain.Alpha>.Value; __tlMeta[0] = 4; }
+        if (__tlKeys != null) { __tlKeys[1] = global::Tl.TypeKey<global::Domain.Beta>.Value; __tlMeta[1] = 4; }
+        if (__tlKeys != null) { __tlKeys[2] = global::Tl.TypeKey<global::Domain.Gamma>.Value; __tlMeta[2] = 36; }
+        if (__tlKeys != null) { __tlKeys[3] = global::Tl.TypeKey<global::Domain.Delta>.Value; __tlMeta[3] = 36; }
+        return 4;
         }
-        private static void Bind_QuadJob(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)
+        private static void Diag_QuadJob(ulong __tlKey, long __tlSlot)
         {
-        var __tlIdx0 = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<global::Domain.Alpha>.Value);
-        if (__tlIdx0 < 0) throw new global::System.ArgumentException("global::Domain.QuadJob: required column missing for registered consumer: global::Domain.Alpha");
-        __tlIndices[0] = (byte)(__tlIdx0 + 1);
-        var __tlIdx1 = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<global::Domain.Beta>.Value);
-        if (__tlIdx1 < 0) throw new global::System.ArgumentException("global::Domain.QuadJob: required column missing for registered consumer: global::Domain.Beta");
-        __tlIndices[1] = (byte)(__tlIdx1 + 1);
-        var __tlIdx2 = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<global::Domain.Gamma>.Value);
-        if (__tlIdx2 < 0) throw new global::System.ArgumentException("global::Domain.QuadJob: required column missing for registered consumer: global::Domain.Gamma");
-        __tlIndices[2] = (byte)(__tlIdx2 + 1);
-        var __tlIdx3 = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<global::Domain.Delta>.Value);
-        if (__tlIdx3 < 0) throw new global::System.ArgumentException("global::Domain.QuadJob: required column missing for registered consumer: global::Domain.Delta");
-        __tlIndices[3] = (byte)(__tlIdx3 + 1);
+        if (__tlSlot == 0) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' OnActive requires a column of type Domain.Alpha (first); none was passed.");
+        if (__tlSlot == 1) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' OnActive requires a column of type Domain.Beta (second); none was passed.");
+        if (__tlSlot == 2) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' OnActive requires a column of type Domain.Gamma (third); none was passed.");
+        if (__tlSlot == 3) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' OnActive requires a column of type Domain.Delta (fourth); none was passed.");
+        throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' OnActive requires caller columns that were not passed.");
         }
         private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }
         }

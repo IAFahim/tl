@@ -92,11 +92,12 @@ public sealed class DeclarationAnalysisDiagnosticsTests
         Assert.Empty(result.Diagnostics);
         var consumer = Assert.Single(result.Consumers);
         Assert.Equal("global::Domain.Slotted", consumer.Job.TypeName);
+        Assert.Empty(consumer.Job.Slots);
         Assert.Equal(
         [
             new TimelineSlot("track", "global::Domain.DamageTrack", SlotMode.Input),
             new TimelineSlot("clip", "global::Domain.DamageClip", SlotMode.Reference),
-        ], consumer.Job.Slots);
+        ], consumer.Job.LiveColumns);
     }
 
     [Fact]
@@ -129,7 +130,7 @@ public sealed class DeclarationAnalysisDiagnosticsTests
     [InlineData("out int amount")]
     [InlineData("int amount = 3")]
     [InlineData("string label")]
-    public void DisallowedGameplayParameterReportsTlgen67(string parameter)
+    public void DisallowedGameplayParameterReportsTlgen78(string parameter)
     {
         var result = Read($$"""
             {{Domain}}
@@ -139,7 +140,7 @@ public sealed class DeclarationAnalysisDiagnosticsTests
             }
             """);
 
-        AssertConsumerRejected(result, "TLGEN67");
+        AssertConsumerRejected(result, "TLGEN78");
     }
 
     [Fact]
