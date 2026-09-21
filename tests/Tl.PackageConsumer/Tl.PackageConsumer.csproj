@@ -8,7 +8,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Tl.CSharp" Version="1.0.0" />
+    <PackageReference Include="Tl.CSharp" Version="1.1.0" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Shared/DomainBaker.cs" Link="Shared/DomainBaker.cs" />
