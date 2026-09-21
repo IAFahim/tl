@@ -30,6 +30,7 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_readme_numbers.py
       - run: python3 benchmarks/source_budget.py
       - run: python3 -m unittest discover -s benchmarks -p test_collect.py
+      - run: dotnet workload install wasm-tools
       - run: dotnet build tl.slnx -c Release -m:1
       - run: dotnet test tl.slnx -c Release --no-build
       - run: dotnet run --project tests/Tl.Alpha -c Release --no-build
