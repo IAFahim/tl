@@ -368,11 +368,11 @@ public sealed class ConsumerBindingTests
 
         var changed = unrelated.ReplaceSyntaxTree(
             unrelated.SyntaxTrees.Single(static tree => tree.FilePath == "Domain.cs"),
-            Tree(StandaloneSource.Replace("ref Armor armor) { }", "ref Armor armor, ref int extra) { }", StringComparison.Ordinal), "Domain.cs"));
+            Tree(StandaloneSource.Replace("ref Armor armor) { }", "ref Armor armor, ref Armor extra) { }", StringComparison.Ordinal), "Domain.cs"));
         driver = driver.RunGenerators(changed);
         Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver));
         Assert.NotEqual(original, Sources(driver));
-        Assert.Contains("var @extra = (int*)__tlColumns[1];", Assert.Single(Sources(driver)).Value);
+        Assert.Contains("var @extra = (global::Domain.Armor*)__tlColumns[1];", Assert.Single(Sources(driver)).Value);
     }
 
     [Fact]

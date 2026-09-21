@@ -75,19 +75,19 @@ public static class JobReader
             if (memo is not null)
             {
                 if (!Framed(memo, frame))
-                    return Err(Site(memo, site), "TLGEN75", $"'{name}.OnMemo' must begin with in {frameName}.");
+                    return Err(Symbols.Site(memo, site), "TLGEN75", $"'{name}.OnMemo' must begin with in {frameName}.");
                 foreach (var p in memo.Parameters.Skip(1))
                 {
                     if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.Ref or RefKind.Out))
-                        return Err(Site(p, site), "TLGEN76", $"'{name}.OnMemo' runs at fold; only unmanaged 'out'/'ref' results exist — 'in' has no caller.");
+                        return Err(Symbols.Site(p, site), "TLGEN76", $"'{name}.OnMemo' runs at fold; only unmanaged 'out'/'ref' results exist — 'in' has no caller.");
                     var typeName = Symbols.Name(p.Type);
                     var size = ResultSize(p.Type);
                     if (size == 0 || slots.Count >= 4)
-                        return Err(Site(p, site), "TLGEN79", $"'{name}.OnMemo' >4-byte/5+ results — pending.");
+                        return Err(Symbols.Site(p, site), "TLGEN79", $"'{name}.OnMemo' >4-byte/5+ results — pending.");
                     slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference, size));
                 }
                 if (slots.Count == 0)
-                    return Err(Site(memo, site), "TLGEN76", $"'{name}.OnMemo' produces no result; dispatch-only is OnActive.");
+                    return Err(Symbols.Site(memo, site), "TLGEN76", $"'{name}.OnMemo' produces no result; dispatch-only is OnActive.");
             }
 
             var dispatch = false;
@@ -116,8 +116,7 @@ public static class JobReader
                     dispatch = true;
                     liveFrame = framed;
                     live = [];
-                    var outs = 0;
-                    for (var i = 0; i < slots.Count; i++) if (slots[i].Mode == SlotMode.Output) outs++;
+                    var outs = slots.Count(static slot => slot.Mode == SlotMode.Output);
                     var feed = 0;
                     var index = start;
                     if (memo is not null)
@@ -133,23 +132,25 @@ public static class JobReader
                     {
                         var p = active.Parameters[index];
                         if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.In or RefKind.Ref))
-                            return Err(Site(p, site), "TLGEN78", $"'{name}.OnActive' columns must be required unmanaged 'in'/'ref'; '{Symbols.Name(p.Type)} {p.Name}' is not.");
+                            return Err(Symbols.Site(p, site), "TLGEN78", $"'{name}.OnActive' columns must be required unmanaged 'in'/'ref'; '{Symbols.Name(p.Type)} {p.Name}' is not.");
                         live.Add(new(p.Name, Symbols.Name(p.Type), p.RefKind == RefKind.Ref ? SlotMode.Reference : SlotMode.Input));
                     }
                     if (live.Count > 4)
-                        return Err(Site(active.Parameters[start + 4], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
+                        return Err(Symbols.Site(active.Parameters[start + 4], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
+                    for (var i = 0; i < live.Count; i++)
+                        for (var k = 0; k < i; k++)
+                            if (live[i].Mode == live[k].Mode && live[i].Mode != SlotMode.MemoFeed && live[i].TypeName != live[k].TypeName)
+                            {
+                                var kind = live[i].Mode == SlotMode.Input ? "in" : "ref";
+                                return Err(Symbols.Site(active, site), "TLGEN81", $"'{name}.OnActive' declares multiple distinct live '{kind}' column types ({live[k].TypeName}, {live[i].TypeName}); the shipped Apply feeds one typed caller column — declare at most one '{kind}' type (wider surface pending).");
+                            }
                 }
             }
 
             return new(name, slots, dispatch, liveFrame, memo is not null, live);
 
             string ResultName(int ordinal)
-            {
-                var seen = -1;
-                for (var i = 0; i < slots.Count; i++)
-                    if (slots[i].Mode == SlotMode.Output && ++seen == ordinal) return slots[i].TypeName;
-                return "";
-            }
+                => slots.Where(static slot => slot.Mode == SlotMode.Output).Select(static slot => slot.TypeName).ElementAtOrDefault(ordinal) ?? "";
         }
 
         private JobDefinition? Err(SyntaxNode site, string code, string message)
@@ -186,5 +187,4 @@ public static class JobReader
         return types.Any(static type => type is null) ? null : (types[0]!, types[1]!, types[2]!);
     }
 
-    private static SyntaxNode Site(ISymbol symbol, SyntaxNode fallback) => symbol.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).FirstOrDefault() ?? fallback;
 }

@@ -242,8 +242,7 @@ public static unsafe class Timeline<TTrack, TClip>
 		where TIndex : struct
 		where TPosition : struct
 	{
-		if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
-			ThrowColumnSizes();
+		CheckSizes<TIndex, TPosition>();
 		Apply(
 			MemoryMarshal.Cast<TIndex, ushort>(indices),
 			MemoryMarshal.Cast<TPosition, ushort>(positions),
@@ -255,8 +254,7 @@ public static unsafe class Timeline<TTrack, TClip>
 		where TIndex : struct
 		where TPosition : struct
 	{
-		if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
-			ThrowColumnSizes();
+		CheckSizes<TIndex, TPosition>();
 		Apply(
 			Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
 			Unsafe.As<TPosition, ushort>(ref Unsafe.AsRef(in position)),
@@ -324,8 +322,7 @@ public static unsafe class Timeline<TTrack, TClip>
 		where TIndex : struct
 		where TPosition : struct
 	{
-		if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
-			ThrowColumnSizes();
+		CheckSizes<TIndex, TPosition>();
 		Timeline.Advance(MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
 	}
 
@@ -350,7 +347,8 @@ public static unsafe class Timeline<TTrack, TClip>
 		where TEffect0 : unmanaged
 		where TEffect1 : unmanaged
 	{
-		if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2 || Unsafe.SizeOf<TEffect0>() > 4 || Unsafe.SizeOf<TEffect1>() > 4
+		CheckSizes<TIndex, TPosition>();
+		if (Unsafe.SizeOf<TEffect0>() > 4 || Unsafe.SizeOf<TEffect1>() > 4
 			|| positions.Length != effects0.Length || positions.Length != effects1.Length)
 			ThrowColumnSizes();
 		var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
@@ -381,16 +379,19 @@ public static unsafe class Timeline<TTrack, TClip>
 		}
 	}
 
+	static string Head => $"Timeline<{typeof(TTrack).Name}, {typeof(TClip).Name}>";
+
 	[DoesNotReturn]
 	static void ThrowMissingLane<TLane>(int column)
-		=> throw new ArgumentException($"Timeline<{typeof(TTrack).Name}, {typeof(TClip).Name}> has no frozen OnMemo lane of type {typeof(TLane).Name} for column {column}.");
+		=> throw new ArgumentException($"{Head} has no frozen OnMemo lane of type {typeof(TLane).Name} for column {column}.");
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static unsafe void Apply<TIndex, TPosition, TEffect, TInput>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects, ReadOnlySpan<TInput> input)
 		where TIndex : struct where TPosition : struct where TEffect : unmanaged where TInput : unmanaged
 	{
-		if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2 || positions.Length != indices.Length || positions.Length != effects.Length || positions.Length != input.Length)
+		if (positions.Length != indices.Length || positions.Length != effects.Length || positions.Length != input.Length)
 			throw new ArgumentException("Timeline live columns must be single-field and equal length.");
+		CheckSizes<TIndex, TPosition>();
 		var ids = MemoryMarshal.Cast<TIndex, ushort>(indices);
 		var clocks = MemoryMarshal.Cast<TPosition, ushort>(positions);
 		Checked.Domain(ids, clocks);
@@ -454,7 +455,9 @@ public static unsafe class Timeline<TTrack, TClip>
 						if ((meta & 0x40) != 0)
 						{
 							if (feed >= outs || outKey[feed] != slotKeys[j])
-								throw new ArgumentException($"Timeline<{typeof(TTrack).Name}, {typeof(TClip).Name}> OnActive memo-fed 'in' does not match an OnMemo 'out' result.");
+								throw new ArgumentException($"{Head} OnActive memo-fed 'in' does not match an OnMemo 'out' result.");
+							if (memo == 32)
+								throw new ArgumentException($"{Head} memo-fed columns exceed the 32-slot live buffer; split the consumers.");
 							cells[memo] = cellBlock + 4 * memo;
 							laneRecords[memo] = (forward ? slot->ForwardRecords : slot->BackwardRecords) + (nuint)outLane[feed] * slot->TableTicks;
 							columns[column] = cells[memo++];
@@ -468,11 +471,11 @@ public static unsafe class Timeline<TTrack, TClip>
 					}
 					for (var j = 0; j < n; j++)
 						if (columns[consumers[e].Offset + j] == null)
-							PairTable.ThrowUnfedLiveColumn(e);
+							PairTable.ThrowUnfedLiveColumn(e, j);
 					live++;
 				}
 				if (live == 0)
-					throw new ArgumentException($"Timeline<{typeof(TTrack).Name}, {typeof(TClip).Name}> registers no live OnActive column consumer.");
+					throw new ArgumentException($"{Head} registers no live OnActive column consumer.");
 			}
 			for (var r = i; r < end; r++)
 			{
@@ -503,8 +506,7 @@ public static unsafe class Timeline<TTrack, TClip>
 		where TIndex : struct
 		where TPosition : struct
 	{
-		if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
-			ThrowColumnSizes();
+		CheckSizes<TIndex, TPosition>();
 		var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
 		var positions16 = MemoryMarshal.Cast<TPosition, ushort>(positions);
 		Checked.Domain(indices16, positions16);
@@ -516,8 +518,7 @@ public static unsafe class Timeline<TTrack, TClip>
 		where TIndex : struct
 		where TPosition : struct
 	{
-		if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
-			ThrowColumnSizes();
+		CheckSizes<TIndex, TPosition>();
 		Timeline.Advance(
 			Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
 			MemoryMarshal.CreateSpan(ref Unsafe.As<TPosition, ushort>(ref position), 1),
@@ -530,7 +531,17 @@ public static unsafe class Timeline<TTrack, TClip>
 		where TPosition : struct
 		where TEffect : struct
 	{
-		if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2 || Unsafe.SizeOf<TEffect>() != 4)
+		CheckSizes<TIndex, TPosition>();
+		if (Unsafe.SizeOf<TEffect>() != 4)
+			ThrowColumnSizes();
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	static void CheckSizes<TIndex, TPosition>()
+		where TIndex : struct
+		where TPosition : struct
+	{
+		if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2)
 			ThrowColumnSizes();
 	}
 

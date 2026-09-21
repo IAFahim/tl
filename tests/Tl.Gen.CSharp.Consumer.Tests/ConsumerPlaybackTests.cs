@@ -166,6 +166,29 @@ public sealed class ConsumerPlaybackTests
         Assert.EndsWith("|100", result);
     }
 
+    [Fact]
+    public void PartiallyFedConsumerThrowsNamingTheUnfedRefColumnNotThePassedInput()
+    {
+        var result = Driver("UnfedRefColumn");
+
+        Assert.StartsWith("THROWN|", result);
+        Assert.Contains("Timeline<Domain.GaugeTrack, Domain.GaugeClip> consumer 'Domain.GaugeApply'", result);
+        Assert.Contains("GaugeApply", result);
+        Assert.Contains("column of type Domain.Gauge (gauge)", result);
+        Assert.DoesNotContain("multiplier", result);
+    }
+
+    [Fact]
+    public void PairExceedingThirtyTwoMemoFedSlotsFailsLoudlyAtFirstApply()
+    {
+        var result = Driver("MemoCapacity");
+
+        Assert.StartsWith("THROWN|", result);
+        Assert.Contains("Timeline<CapTrack, CapClip>", result);
+        Assert.Contains("exceed the 32-slot live buffer", result);
+        Assert.Contains("split the consumers", result);
+    }
+
     private static string Driver(string method)
     {
         var value = Fixture.Value.GetType("Domain.Playback")!.GetMethod(method)!.Invoke(null, null);
@@ -387,6 +410,91 @@ public sealed class ConsumerPlaybackTests
                 => world.Marks.Add("probe:" + consumer.Observed.ToString(CultureInfo.InvariantCulture));
         }
 
+        public readonly record struct GaugeClip(int Height);
+
+        public readonly record struct GaugeTrack(float Scale) : IBlend<GaugeClip>
+        {
+            public void Blend(in GaugeClip first, in GaugeClip second, float factor, out GaugeClip result) => result = first;
+        }
+
+        public struct Gauge { public double Value; }
+
+        public readonly struct GaugeApply : ITrack<GaugeTrack, GaugeClip>
+        {
+            public static void OnActive(in Frame<GaugeTrack, GaugeClip> frame, ref Gauge gauge, in int multiplier)
+                => gauge.Value += frame.Direction * frame.Clip.Height * frame.Track.Scale * multiplier;
+        }
+
+        public readonly record struct CapClip(int Height);
+
+        public readonly record struct CapTrack(float Scale) : IBlend<CapClip>
+        {
+            public void Blend(in CapClip first, in CapClip second, float factor, out CapClip result) => result = first;
+        }
+
+        public readonly struct CapJob1 : ITrack<CapTrack, CapClip>
+        {
+            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+                => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+            public static void OnActive(in float a, in float b, in float c, in float d) { }
+        }
+
+        public readonly struct CapJob2 : ITrack<CapTrack, CapClip>
+        {
+            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+                => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+            public static void OnActive(in float a, in float b, in float c, in float d) { }
+        }
+
+        public readonly struct CapJob3 : ITrack<CapTrack, CapClip>
+        {
+            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+                => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+            public static void OnActive(in float a, in float b, in float c, in float d) { }
+        }
+
+        public readonly struct CapJob4 : ITrack<CapTrack, CapClip>
+        {
+            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+                => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+            public static void OnActive(in float a, in float b, in float c, in float d) { }
+        }
+
+        public readonly struct CapJob5 : ITrack<CapTrack, CapClip>
+        {
+            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+                => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+            public static void OnActive(in float a, in float b, in float c, in float d) { }
+        }
+
+        public readonly struct CapJob6 : ITrack<CapTrack, CapClip>
+        {
+            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+                => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+            public static void OnActive(in float a, in float b, in float c, in float d) { }
+        }
+
+        public readonly struct CapJob7 : ITrack<CapTrack, CapClip>
+        {
+            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+                => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+            public static void OnActive(in float a, in float b, in float c, in float d) { }
+        }
+
+        public readonly struct CapJob8 : ITrack<CapTrack, CapClip>
+        {
+            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+                => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+            public static void OnActive(in float a, in float b, in float c, in float d) { }
+        }
+
+        public readonly struct CapJob9 : ITrack<CapTrack, CapClip>
+        {
+            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+                => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+            public static void OnActive(in float a, in float b, in float c, in float d) { }
+        }
+
         }
 
         namespace TlJumpShape
@@ -605,6 +713,48 @@ public sealed class ConsumerPlaybackTests
                 catch (ArgumentException exception)
                 {
                     return "THROWN|" + exception.Message + "|" + F(y[0]);
+                }
+            }
+
+            public static string UnfedRefColumn()
+            {
+                using var gauge = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<GaugeTrack, GaugeClip>(new GaugeTrack(2f))
+                    .Clip(0, 0u, 2u, new GaugeClip(5))
+                    .Bake()));
+                var ids = new ushort[] { gauge.Index };
+                var positions = new ushort[] { 0 };
+                var effects = new float[] { 100f };
+                var inputs = new int[] { 3 };
+                try
+                {
+                    Timeline<GaugeTrack, GaugeClip>.Apply(ids, positions, true, effects, inputs);
+                    return "NOTHROWN|" + F(effects[0]);
+                }
+                catch (ArgumentException exception)
+                {
+                    return "THROWN|" + exception.Message;
+                }
+            }
+
+            public static string MemoCapacity()
+            {
+                using var cap = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<CapTrack, CapClip>(new CapTrack(2f))
+                    .Clip(0, 0u, 2u, new CapClip(5))
+                    .Bake()));
+                var ids = new ushort[] { cap.Index };
+                var positions = new ushort[] { 0 };
+                var effects = new float[] { 1f };
+                var inputs = new float[] { 1f };
+                try
+                {
+                    Timeline<CapTrack, CapClip>.Apply(ids, positions, true, effects, inputs);
+                    return "NOTHROWN|" + F(effects[0]);
+                }
+                catch (ArgumentException exception)
+                {
+                    return "THROWN|" + exception.Message;
                 }
             }
 

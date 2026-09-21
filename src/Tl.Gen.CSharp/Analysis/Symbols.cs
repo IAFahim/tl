@@ -23,6 +23,8 @@ internal static class Symbols
 
     internal static string Name(ITypeSymbol type) => type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
+    internal static SyntaxNode Site(ISymbol symbol, SyntaxNode fallback) => symbol.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).FirstOrDefault() ?? fallback;
+
     internal static void Error(ICollection<DeclarationDiagnostic> errors, SyntaxNode node, string code, string message)
     {
         var span = node.GetLocation().GetLineSpan();
