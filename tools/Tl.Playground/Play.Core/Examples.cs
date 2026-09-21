@@ -84,7 +84,7 @@ public static class Examples
     public static readonly Example Mixed = new(
         "mixed",
         "mixed sample · three tracks, crossfade, rewind",
-        "the samples/Mixed attack timeline, three tracks on two ticks: AnimationTrack 1 steps X+Y = 3 on tick 1, then its clips (2,1) and (6,3) overlap on tick 2 and crossfade at factor 0.5 to +6, AnimationTrack 3 shuffles +1 per tick, DamageTrack 2 hits 10 per tick — two forward ticks land at vitality -9, position 2 and two rewind ticks restore exactly 0",
+        "the samples/Mixed attack timeline, three tracks on two ticks: AnimationTrack 1 steps X+Y = 3 on tick 1, then its clips (2,1) and (6,3) overlap on tick 2 and crossfade at factor 0.5 to +6, AnimationTrack 3 shuffles +1 per tick, DamageTrack 2 hits 10 per tick — each system plays its own pair into the shared vitality column, two forward ticks land at vitality -9, position 2 and two rewind ticks restore exactly 0",
         MixedSource,
         MixedTimelineJson);
 
@@ -297,11 +297,11 @@ public static class Play
         ushort attack = TimelineAsset.Load(attackTlb);
         var positions = new ushort[] { 0 };
         var vitality = new[] { 0f };
-        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, true, vitality); Timeline.Advance(attack, positions, true);
-        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, true, vitality); Timeline.Advance(attack, positions, true);
+        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, true, vitality); Timeline<DamageTrack, DamageClip>.Apply(attack, positions, true, vitality); Timeline.Advance(attack, positions, true);
+        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, true, vitality); Timeline<DamageTrack, DamageClip>.Apply(attack, positions, true, vitality); Timeline.Advance(attack, positions, true);
         Console.WriteLine($"after two forward ticks: vitality={vitality[0]} position={positions[0]}");
-        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, false, vitality); Timeline.Advance(attack, positions, false);
-        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, false, vitality); Timeline.Advance(attack, positions, false);
+        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, false, vitality); Timeline<DamageTrack, DamageClip>.Apply(attack, positions, false, vitality); Timeline.Advance(attack, positions, false);
+        Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, false, vitality); Timeline<DamageTrack, DamageClip>.Apply(attack, positions, false, vitality); Timeline.Advance(attack, positions, false);
         Console.WriteLine($"after two rewind ticks: vitality={vitality[0]} position={positions[0]}");
     }
 }
