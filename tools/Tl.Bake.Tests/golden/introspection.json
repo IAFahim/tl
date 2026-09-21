@@ -1218,6 +1218,55 @@
     {
       "track": {
         "namespace": "Tlb",
+        "name": "FoldTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "FoldClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Height",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.FoldClip"
+      ],
+      "consumers": [
+        {
+          "name": "Tlb.FoldJob",
+          "assembly": "Tl.Bake.Tests",
+          "outputs": [
+            "float",
+            "int"
+          ]
+        },
+        {
+          "name": "Tlb.FoldLiveJob",
+          "assembly": "Tl.Bake.Tests",
+          "outputs": [
+            "float",
+            "double"
+          ]
+        }
+      ]
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
         "name": "JobTrack",
         "assembly": "Tl.Bake.Tests",
         "size": 4,

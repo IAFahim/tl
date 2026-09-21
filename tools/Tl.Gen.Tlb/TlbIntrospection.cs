@@ -157,24 +157,26 @@ internal static class TlbIntrospection
 
     private static string[] OutputTypes(Type jobType, Type trackType, Type clipType)
     {
-        var onActive = jobType.GetMethod("OnActive", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-        if (onActive is null)
-            return [];
         var frame = typeof(Frame<,>).MakeGenericType(trackType, clipType);
         var outputs = new List<string>();
-        foreach (var parameter in onActive.GetParameters())
+        CollectColumns(jobType.GetMethod("OnActive", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static), frame, outputs);
+        CollectColumns(jobType.GetMethod("OnMemo", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static), frame, outputs);
+        return outputs.ToArray();
+    }
+
+    private static void CollectColumns(MethodInfo? method, Type frame, List<string> outputs)
+    {
+        if (method is null)
+            return;
+        foreach (var parameter in method.GetParameters())
         {
-            if (!parameter.ParameterType.IsByRef)
-                continue;
-            if (IsReadOnlyParameter(parameter))
+            if (!parameter.ParameterType.IsByRef || IsReadOnlyParameter(parameter))
                 continue;
             var element = parameter.ParameterType.GetElementType()!;
             if (element == frame)
                 continue;
             outputs.Add(PrimitiveNames.TryGetValue(element, out var primitive) ? primitive : element.Name);
         }
-
-        return outputs.ToArray();
     }
 
     private static bool IsReadOnlyParameter(ParameterInfo parameter) =>

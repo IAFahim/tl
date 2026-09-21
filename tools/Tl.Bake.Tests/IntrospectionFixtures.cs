@@ -54,3 +54,33 @@ public readonly struct PropertyTrack(float scale) : IBlend<PropertyClip>
     public void Blend(in PropertyClip first, in PropertyClip second, float factor, out PropertyClip result)
         => result = new PropertyClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
+
+public readonly struct FoldClip(float height)
+{
+    public readonly float Height = height;
+}
+
+public readonly struct FoldTrack(float scale) : IBlend<FoldClip>
+{
+    public readonly float Scale = scale;
+
+    public void Blend(in FoldClip first, in FoldClip second, float factor, out FoldClip result)
+        => result = new FoldClip(first.Height + (second.Height - first.Height) * factor);
+}
+
+public readonly struct FoldJob : ITrack<FoldTrack, FoldClip>
+{
+    public static void OnMemo(in Frame<FoldTrack, FoldClip> frame, out float arc, out int ticks)
+    {
+        arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+        ticks = (int)frame.Clip.Height;
+    }
+}
+
+public readonly struct FoldLiveJob : ITrack<FoldTrack, FoldClip>
+{
+    public static void OnMemo(in Frame<FoldTrack, FoldClip> frame, out double charge) => charge = 0d;
+
+    public static void OnActive(in Frame<FoldTrack, FoldClip> frame, ref float health)
+        => health += frame.Direction;
+}

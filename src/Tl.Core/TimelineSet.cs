@@ -1572,7 +1572,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     internal static void ThrowUnboundId(ushort id, int row)
-        => throw new ArgumentException($"Timeline id {id} at row {row} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time, and the pair-typed bank resolves timeline indices on the first typed advance.");
+        => throw new ArgumentException($"Timeline id {id} at row {row} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time.");
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     static int RunEndTwo(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int limit)
