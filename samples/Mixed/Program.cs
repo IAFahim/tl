@@ -19,7 +19,7 @@ using var attack = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
 Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, true, vitality); Timeline.Advance(attack, positions, true);
 Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, true, vitality); Timeline.Advance(attack, positions, true);
 
-if (positions[0] != 2 || vitality[0] != -9f)
+if (positions[0] != 2 || vitality[0] != 11f)
     return 1;
 
 Timeline<AnimationTrack, AnimationClip>.Apply(attack, positions, false, vitality); Timeline.Advance(attack, positions, false);

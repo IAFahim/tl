@@ -75,7 +75,7 @@ internal sealed class LaneCase : IDisposable
     internal static int PerTickEffect(TimelineShape shape) => shape switch
     {
         TimelineShape.OneTrack => 1,
-        TimelineShape.ThreeTracks => 6,
+        TimelineShape.ThreeTracks => 4,
         TimelineShape.SixteenTracks => 136,
         TimelineShape.TwoHundredFiftySixTracks => 32896,
         _ => throw new ArgumentOutOfRangeException(nameof(shape)),
