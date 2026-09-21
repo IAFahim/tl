@@ -48,7 +48,7 @@ public static class BakeReader
                 {
                     if (!compilation.IsSymbolAccessibleWithin(parameter.Type, compilation.Assembly))
                     {
-                        Symbols.Error(errors, Site(parameter, entry.Syntax), "TLGEN73", $"Bake '{Symbols.Name(entry.Type)}' parameter type '{Symbols.Name(parameter.Type)}' must be accessible from this compilation; the generated binding references it from generated source.");
+                        Symbols.Error(errors, Symbols.Site(parameter, entry.Syntax), "TLGEN73", $"Bake '{Symbols.Name(entry.Type)}' parameter type '{Symbols.Name(parameter.Type)}' must be accessible from this compilation; the generated binding references it from generated source.");
                         accessible = false;
                         continue;
                     }
@@ -108,9 +108,6 @@ public static class BakeReader
         method = null!;
         return false;
     }
-
-    private static SyntaxNode Site(ISymbol symbol, SyntaxNode fallback)
-        => symbol.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()).FirstOrDefault() ?? fallback;
 
     private static string Signature(IMethodSymbol method)
         => $"{Symbols.Name(method.ContainingType)}.Bake({string.Join(", ", method.Parameters.Select(Format))})";
