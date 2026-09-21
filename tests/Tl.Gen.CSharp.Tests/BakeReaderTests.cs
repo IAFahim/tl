@@ -317,7 +317,7 @@ public sealed class BakeReaderTests
         var install = binding[..binding.IndexOf("}", StringComparison.Ordinal)];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&OnActive_ApplyDamage, &OnActiveRange_ApplyDamage, &Bind_ApplyDamage);",
+            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.ConsumeDispatch(&OnActive_ApplyDamage);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_AlphaBake, global::Tl.TypeKey<global::Domain.World>.Value);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_NarrowBake, global::Tl.TypeKey<global::Domain.World>.Value);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ZetaBake, global::Tl.TypeKey<global::Domain.World>.Value);",

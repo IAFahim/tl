@@ -135,9 +135,33 @@ public readonly unsafe struct TimelineRef
 		for (var i = 0; i < PairCount; i++) chains[i] = PairTable.HeadOf(pairs[i].Key);
 	}
 
+	internal void Resolve(Span<int> chains, ulong pairKey)
+	{
+		var pairs = Pairs;
+		for (var i = 0; i < PairCount; i++)
+			chains[i] = pairs[i].Key == pairKey ? PairTable.HeadOf(pairs[i].Key) : -1;
+	}
+
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 	internal void Execute(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns)
 		=> ExecuteWindow(reverse, tick, flags, row, chains, columns, null, null, null);
+
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+	internal void ExecuteDispatch(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains)
+	{
+		var stage = Header->StageCount == 1 ? (NativeStage*)(_p + Header->StageOffset) : StageOf(tick);
+		if (stage == null) return;
+		var steps = (NativeStep*)(_p + stage->ProgramOffset);
+		var pairs = Pairs;
+		var count = (int)stage->ProgramCount;
+		var step = reverse ? steps + count - 1 : steps;
+		var stride = reverse ? -1 : 1;
+		while (count-- > 0)
+		{
+			PairTable.RunDispatch(chains[(int)step->Pair], reverse, _p + step->Slot, (byte*)(pairs + step->Pair), tick, flags, row);
+			step += stride;
+		}
+	}
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
 	internal void ExecuteWindow(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns, byte* stepCached, int* stepCacheBase, float* cacheValues)
@@ -308,7 +332,7 @@ public readonly unsafe struct TickFrame
 
 	static unsafe class PairTable
 {
-	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> Execute; public delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> Range; public delegate*<ulong*, int, byte*, void> Bind; public delegate*<byte*, bool> BlendConstant; public byte WindowConstant; }
+	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> Execute; public delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> Range; public delegate*<ulong*, int, byte*, void> Bind; public delegate*<byte*, bool> BlendConstant; public byte WindowConstant, DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
@@ -324,7 +348,7 @@ public readonly unsafe struct TickFrame
 	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
 	internal static int ConsumerCount => Volatile.Read(ref _consumers);
 
-	internal static void Install(ulong key, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> e, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> r, delegate*<ulong*, int, byte*, void> b, delegate*<byte*, bool> blendConstant, bool windowConstant)
+	internal static void Install(ulong key, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> e, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> r, delegate*<ulong*, int, byte*, void> b, delegate*<byte*, bool> blendConstant, bool windowConstant, bool dispatchOnly = false)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
@@ -340,7 +364,7 @@ public readonly unsafe struct TickFrame
 			}
 			if (_consumers == ConsumerCapacity || _consumers * 4 + 4 > MaxPointers) throw new InvalidOperationException("Consumer capacity exhausted.");
 			var consumers = ConsumerAt;
-			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, WindowConstant = windowConstant ? (byte)1 : (byte)0, Offset = _consumers * 4 };
+			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * 4 };
 			if (windowConstant) Volatile.Write(ref _windowConstant, 1);
 			Volatile.Write(ref slots[slot].Head, _consumers);
 			Volatile.Write(ref _consumers, _consumers + 1);
@@ -384,6 +408,7 @@ public readonly unsafe struct TickFrame
 			var n = 0;
 			for (var e = head; e >= 0; e = consumers[e].Next)
 			{
+				if (consumers[e].DispatchOnly != 0) continue;
 				if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
 				rev[n++] = e;
 			}
@@ -399,12 +424,36 @@ public readonly unsafe struct TickFrame
 		{
 			for (var entry = head; entry >= 0; entry = consumers[entry].Next)
 			{
+				if (consumers[entry].DispatchOnly != 0) continue;
 				if (sink != null) *scratch = 0f;
 				consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
 				if (sink != null) sink[written++] = *scratch;
 			}
 		}
 		return written;
+	}
+
+	internal static void RunDispatch(int head, bool reverse, byte* slot, byte* pair, ushort tick, FrameFlags flags, int row)
+	{
+		var consumers = ConsumerAt;
+		if (reverse && head >= 0 && consumers[head].Next >= 0)
+		{
+			int* rev = stackalloc int[64];
+			var n = 0;
+			for (var e = head; e >= 0; e = consumers[e].Next)
+			{
+				if (consumers[e].DispatchOnly == 0) continue;
+				if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
+				rev[n++] = e;
+			}
+			while (n-- > 0) consumers[rev[n]].Execute(slot, pair, tick, flags, null, row);
+		}
+		else
+		{
+			for (var entry = head; entry >= 0; entry = consumers[entry].Next)
+				if (consumers[entry].DispatchOnly != 0)
+					consumers[entry].Execute(slot, pair, tick, flags, null, row);
+		}
 	}
 
 	static int Probe(ulong key)
@@ -432,7 +481,7 @@ public readonly unsafe struct TickFrame
 		var consumers = ConsumerAt;
 		var total = ConsumerCount;
 		for (var entry = 0; entry < total; entry++)
-			if (asset.Uses(slots[consumers[entry].Pair].Key) && (boundMask & (1ul << entry)) == 0)
+			if (consumers[entry].DispatchOnly == 0 && asset.Uses(slots[consumers[entry].Pair].Key) && (boundMask & (1ul << entry)) == 0)
 			{
 				boundMask |= 1ul << entry;
 				var offset = consumers[entry].Offset;
@@ -461,6 +510,8 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 	public static void Consume(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> range, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, range, bind, null, false);
 
 	public static void Consume(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind, TickPurity purity) => PairTable.Install(Key, execute, null, bind, purity == TickPurity.WindowConstant ? &BlendConstantInWindow : null, purity == TickPurity.WindowConstant);
+
+	public static void ConsumeDispatch(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute) => PairTable.Install(Key, execute, null, null, null, false, true);
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	static bool BlendConstantInWindow(byte* slot) => ((SlotRow*)slot)->FactorSpan <= 1;
