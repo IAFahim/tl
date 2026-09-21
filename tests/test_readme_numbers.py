@@ -7,7 +7,7 @@ sys.path.insert(0, str(ROOT / "eng"))
 import render_numbers
 
 SCENARIO_IDS = ["sync", "shared-clock", "groups", "own-clock", "finite", "handwritten", "handwritten-simd", "squads", "worst"]
-STEADY_SHAPE_IDS = ["per-entity-apply-step", "per-entity-fused", "per-entity-lane", "shared-clock-crowd", "per-entity-record-floor"]
+STEADY_SHAPE_IDS = ["per-entity-apply-step", "per-entity-fused", "per-entity-lane", "shared-clock-crowd", "per-entity-record-floor", "sparse-separate-apply-step", "sparse-batch-apply-step", "sparse-batch-dense-list", "sparse-list-crowd-apply-step"]
 STEADY_ARM_IDS = ["avx2-off", "hwintrinsic-off"]
 
 

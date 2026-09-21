@@ -40,4 +40,4 @@ tlb --report boss.tlb
   never cached.
 - Install the matching `Tl.CSharp` package for the runtime and the build-time
   consumer binding. Unity consumes the `com.iafahim.tl` UPM package from the
-  [tl.unity](https://github.com/IAFahim/tl.unity) repository.
+  tl.unity repository.
