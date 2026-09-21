@@ -969,27 +969,9 @@ internal ref struct TimelineSetLane<TTrack, TClip>
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public void Apply(Span<float> effects) => Apply(effects, default);
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    internal unsafe void ApplySlot(ushort index, Span<float> effects)
-    {
-        var set = _set;
-        Checked.Live(set._disposed);
-        var positions = _positions;
-        Checked.Columns(positions, effects);
-        var count = positions.Length;
-        if (count == 0) return;
-        var slot = set._views[index];
-        var gather = Avx2.IsSupported || Vector128.IsHardwareAccelerated;
-        var forward = _forward;
-        var records = (forward ? set._arenaForward : set._arenaBackward) + set._arenaBases[index];
-        var i = 0;
-        while (i < count)
-        {
-            var chunkEnd = i + Chunk;
-            if (chunkEnd > count) chunkEnd = count;
-            i = ApplyUniformSegment(slot, positions, default, effects, i, chunkEnd, forward, gather, records);
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    internal void ApplySlot(ushort index, Span<float> effects)
+        => ApplySlot(index, effects, default);
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal unsafe void ApplySlot(ushort index, Span<float> effects, Span<ushort> next)
