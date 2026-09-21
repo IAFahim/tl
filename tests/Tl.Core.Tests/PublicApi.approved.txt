@@ -126,6 +126,8 @@ type Tl.Timeline`2
   Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], Boolean)
   Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], Boolean)
   Method Void Apply(UInt16, UInt16, Boolean)
+  Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], Boolean)
+  Method Void Apply(UInt16, UInt16, UInt16, Boolean)
   Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], Boolean)
   Method Void Apply[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean)
   Method Void Apply[TIndex,TPosition](TIndex ByRef, TPosition ByRef, Boolean)
