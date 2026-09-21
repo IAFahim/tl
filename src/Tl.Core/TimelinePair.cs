@@ -139,6 +139,86 @@ public static unsafe class Timeline<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> from, ReadOnlySpan<ushort> to, bool forward)
+    {
+        Checked.Range(indices, from, to);
+        var key = PairRuntime<TTrack, TClip>.Key;
+        if (PairTable.HeadOf(key) < 0) return;
+        var reverse = !forward;
+        var bank = Bank();
+        int* chains = stackalloc int[256];
+        var reference = default(TimelineRef);
+        var slot = default(SlotView*);
+        var pairs = 0;
+        var usable = false;
+        var lastIndex = -1;
+        for (var i = 0; i < from.Length; i++)
+        {
+            var index = indices[i];
+            if (index != lastIndex)
+            {
+                reference = TimelineTable.Reference(index);
+                pairs = checked((int)reference.PairCount);
+                reference.Resolve(new Span<int>(chains, pairs), key);
+                usable = reference.Uses(key);
+                if (usable)
+                {
+                    Resolve(index);
+                    slot = bank.FoldedView(index);
+                }
+                lastIndex = index;
+            }
+            if (usable)
+                DispatchRange(reference, slot, new Span<int>(chains, pairs), reverse, from[i], to[i], i);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static void Apply(ushort index, ushort from, ushort to, bool forward)
+    {
+        var reference = TimelineTable.Reference(index);
+        var key = PairRuntime<TTrack, TClip>.Key;
+        if (!reference.Uses(key) || PairTable.HeadOf(key) < 0) return;
+        var pairs = checked((int)reference.PairCount);
+        int* chains = stackalloc int[pairs];
+        reference.Resolve(new Span<int>(chains, pairs), key);
+        Resolve(index);
+        var slot = Bank().FoldedView(index);
+        if (slot is null) return;
+        DispatchRange(reference, slot, new Span<int>(chains, pairs), !forward, from, to, 0);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static void DispatchRange(TimelineRef reference, SlotView* slot, Span<int> chains, bool reverse, ushort from, ushort to, int row)
+    {
+        var budget = (int)slot->Duration;
+        var position = from;
+        if (reverse)
+        {
+            while (position != to && budget-- > 0)
+            {
+                if (position > slot->Duration) return;
+                ref var record = ref slot->BackwardRecords[position];
+                var next = record.Next;
+                if (next == LaneMovementRecord.Skipped) return;
+                if (!reference.Select(true, position, out _, out var tick, out var flags)) return;
+                reference.ExecuteDispatch(true, tick, flags, row, chains);
+                position = next;
+            }
+            return;
+        }
+        while (position != to && budget-- > 0)
+        {
+            if ((uint)position >= (uint)slot->Duration) return;
+            if (!reference.Select(false, position, out _, out var tick, out var flags)) return;
+            reference.ExecuteDispatch(false, tick, flags, row, chains);
+            var next = slot->ForwardRecords[position].Next;
+            if (next == LaneMovementRecord.Skipped) return;
+            position = next;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply(TimelineAsset asset, ReadOnlySpan<ushort> positions, bool forward)
     {
         ArgumentNullException.ThrowIfNull(asset);
