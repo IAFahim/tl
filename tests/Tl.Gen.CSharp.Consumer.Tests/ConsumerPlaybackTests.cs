@@ -50,6 +50,14 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
+    public void OnMemoSpellingFoldsIdenticallyToTheRefFloatMeasuredShape()
+    {
+        var result = Driver("Memo");
+
+        Assert.Equal("25#40#25", result);
+    }
+
+    [Fact]
     public void DiscoveredBakesInstallDispatchEntriesIntoTheRuntimeTable()
     {
         var result = Driver("Bakes");
@@ -236,6 +244,23 @@ public sealed class ConsumerPlaybackTests
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 armor += frame.IsBackward ? -amount : amount;
+            }
+        }
+
+        public readonly record struct MemoClip(float Amount);
+
+        public readonly record struct MemoTrack(float Multiplier) : IBlend<MemoClip>
+        {
+            public void Blend(in MemoClip first, in MemoClip second, float factor, out MemoClip result)
+                => result = new MemoClip(first.Amount + (second.Amount - first.Amount) * factor);
+        }
+
+        public readonly struct MemoBuff : ITrack<MemoTrack, MemoClip>
+        {
+            public static void OnMemo(in Frame<MemoTrack, MemoClip> frame, out float armor)
+            {
+                var amount = frame.Clip.Amount * frame.Track.Multiplier;
+                armor = frame.IsBackward ? -amount : amount;
             }
         }
 
@@ -467,6 +492,23 @@ public sealed class ConsumerPlaybackTests
                 Timeline<BuffTrack, BuffClip>.Apply(buff, positions, true, armor); Timeline.Advance(buff, positions, true);
                 var second = F(armor[0]);
                 Timeline<BuffTrack, BuffClip>.Apply(buff, positions, false, armor); Timeline.Advance(buff, positions, false);
+                var third = F(armor[0]);
+                return first + "#" + second + "#" + third;
+            }
+
+            public static string Memo()
+            {
+                using var buff = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<MemoTrack, MemoClip>(new MemoTrack(3f))
+                    .Clip(0, 0u, 10u, new MemoClip(5f))
+                    .Bake()));
+                var positions = new ushort[] { 0 };
+                var armor = new float[] { 10f };
+                Timeline<MemoTrack, MemoClip>.Apply(buff, positions, true, armor); Timeline.Advance(buff, positions, true);
+                var first = F(armor[0]);
+                Timeline<MemoTrack, MemoClip>.Apply(buff, positions, true, armor); Timeline.Advance(buff, positions, true);
+                var second = F(armor[0]);
+                Timeline<MemoTrack, MemoClip>.Apply(buff, positions, false, armor); Timeline.Advance(buff, positions, false);
                 var third = F(armor[0]);
                 return first + "#" + second + "#" + third;
             }

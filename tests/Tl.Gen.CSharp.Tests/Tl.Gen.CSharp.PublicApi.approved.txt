@@ -55,10 +55,13 @@ type Tl.Gen.CSharp.Model.JobConsumer
   Property System.String TrackTypeName
 type Tl.Gen.CSharp.Model.JobDefinition
   Method Tl.Gen.CSharp.Model.JobDefinition <Clone>$()
-  Method Void Deconstruct(System.String ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ByRef)
+  Method Void Deconstruct(System.String ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] ByRef, Boolean ByRef, Boolean ByRef, Boolean ByRef)
+  Property Boolean Dispatch
   Method Boolean Equals(System.Object)
   Method Boolean Equals(Tl.Gen.CSharp.Model.JobDefinition)
   Method Int32 GetHashCode()
+  Property Boolean LiveFrame
+  Property Boolean MemoMethod
   Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Model.TimelineSlot] Slots
   Method System.String ToString()
   Property System.String TypeName
@@ -74,6 +77,7 @@ type Tl.Gen.CSharp.Model.JobReadResult
   Method System.String ToString()
 type Tl.Gen.CSharp.Model.SlotMode
   Field Tl.Gen.CSharp.Model.SlotMode Input
+  Field Tl.Gen.CSharp.Model.SlotMode Output
   Field Tl.Gen.CSharp.Model.SlotMode Reference
   Field Byte value__
 type Tl.Gen.CSharp.Model.TimelineSlot
