@@ -40,13 +40,15 @@ internal static class JobEmitter
         foreach (var (name, consumer) in items)
         {
             var runtime = $"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>";
-            if (consumer.Job.Slots.Count > 0)
-            {
-                var memo = consumer.Job.MemoMethod ? "OnMemo" : "OnActive";
-                W($"{runtime}.Consume(&{memo}_{name}, &{memo}Range_{name}, {(consumer.Job.MemoMethod ? $"&Keys_{name}" : $"&Bind_{name}")});");
-            }
-            if (consumer.Job.Dispatch)
+            var liveColumns = consumer.Job.LiveColumns;
+            if (consumer.Job.MemoMethod)
+                W($"{runtime}.Consume(&OnMemo_{name}, &OnMemoRange_{name}, &Keys_{name});");
+            if (liveColumns.Count > 0)
+                W($"{runtime}.ConsumeDispatch(&OnActive_{name}, &LiveKeys_{name}, &Diag_{name});");
+            else if (consumer.Job.Dispatch)
                 W($"{runtime}.ConsumeDispatch(&OnActive_{name});");
+            else if (!consumer.Job.MemoMethod && consumer.Job.Slots.Count > 0)
+                W($"{runtime}.Consume(&OnActive_{name}, &OnActiveRange_{name}, &Bind_{name});");
         }
         foreach (var (name, bake) in bakeItems)
             foreach (var pair in bake.Pairs)
@@ -55,6 +57,7 @@ internal static class JobEmitter
         foreach (var (name, consumer) in items)
         {
             var job = consumer.Job;
+            var liveColumns = job.LiveColumns;
             void Thunk(string method, IReadOnlyList<TimelineSlot> slots, bool frameArg, bool ranged)
             {
                 W($"private static void {method}{(ranged ? "Range" : "")}_{name}(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow{(ranged ? "Start, int __tlRowCount" : "")})");
@@ -62,7 +65,11 @@ internal static class JobEmitter
                 if (frameArg)
                     W($"{consumer.ClipTypeName} __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<{consumer.TrackTypeName}, {consumer.ClipTypeName}>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);");
                 for (var i = 0; i < slots.Count; i++)
-                    W($"var @{slots[i].Name} = ({slots[i].TypeName}*)__tlColumns[{i}];");
+                {
+                    var slot = slots[i];
+                    if (slot.Mode == SlotMode.MemoFeed) W($"var @{slot.Name} = *({slot.TypeName}*)__tlColumns[{i}];");
+                    else W($"var @{slot.Name} = ({slot.TypeName}*)__tlColumns[{i}];");
+                }
                 var rest = Arguments(slots, "[__tlRow]");
                 var call = frameArg ? "in __tlTyped" + rest : rest.Length == 0 ? "" : rest.Substring(2);
                 if (ranged) W("for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)");
@@ -102,7 +109,31 @@ internal static class JobEmitter
                     W("}");
                 }
             }
-            if (job.Dispatch) Thunk("OnActive", [], job.LiveFrame, false);
+            if (liveColumns.Count > 0)
+            {
+                Thunk("OnActive", liveColumns, job.LiveFrame, false);
+                var prefix = $"Timeline<{Plain(consumer.TrackTypeName)}, {Plain(consumer.ClipTypeName)}> consumer '{Plain(job.TypeName)}' OnActive requires ";
+                W($"private static int LiveKeys_{name}(ulong* __tlKeys, byte* __tlMeta)");
+                W("{");
+                for (var i = 0; i < liveColumns.Count; i++)
+                {
+                    var slot = liveColumns[i];
+                    var bits = slot.Mode == SlotMode.MemoFeed ? 64 : slot.Mode == SlotMode.Reference ? 32 : 0;
+                    W($"if (__tlKeys != null) {{ __tlKeys[{i}] = global::Tl.TypeKey<{slot.TypeName}>.Value; __tlMeta[{i}] = {slot.Size | bits}; }}");
+                }
+                W($"return {liveColumns.Count};");
+                W("}");
+                W($"private static void Diag_{name}(ulong __tlKey, long __tlSlot)");
+                W("{");
+                for (var i = 0; i < liveColumns.Count; i++)
+                {
+                    var slot = liveColumns[i];
+                    W($"if (__tlSlot == {i}) throw new global::System.ArgumentException(\"{prefix}a column of type {Plain(slot.TypeName)} ({slot.Name}); none was passed.\");");
+                }
+                W($"throw new global::System.ArgumentException(\"{prefix}caller columns that were not passed.\");");
+                W("}");
+            }
+            else if (job.Dispatch) Thunk("OnActive", [], job.LiveFrame, false);
         }
         foreach (var (name, bake) in bakeItems)
         {
@@ -147,7 +178,11 @@ internal static class JobEmitter
         => modifier == BakeModifier.In ? "in " : modifier == BakeModifier.Ref ? "ref " : "";
 
     private static string Arguments(IEnumerable<TimelineSlot> slots, string suffix = "")
-        => string.Concat(slots.Select(slot => $", {Mode(slot)} @{slot.Name}{suffix}"));
+        => string.Concat(slots.Select(slot => slot.Mode == SlotMode.MemoFeed
+            ? $", in @{slot.Name}"
+            : $", {Mode(slot)} @{slot.Name}{suffix}"));
+
+    private static string Plain(string typeName) => typeName.Replace("global::", string.Empty);
 
     private static string Mode(TimelineSlot slot) => slot.Mode == SlotMode.Input ? "in" : slot.Mode == SlotMode.Output ? "out" : "ref";
     private static void Line(StringBuilder writer, string text) => writer.Append(text).Append('\n');

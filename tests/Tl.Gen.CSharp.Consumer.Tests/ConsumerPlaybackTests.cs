@@ -30,14 +30,14 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
-    public void MissingColumnBindThrowsAtFacadeTickBeforeAnyEffects()
+    public void MissingLiveColumnThrowsNamingConsumerTypeAndParameterAtFirstApply()
     {
         var result = Driver("Missing");
 
         Assert.StartsWith("THROWN|", result);
         Assert.Contains("ApplyGuarded", result);
-        Assert.Contains("Resistance", result);
-        Assert.Contains("required column missing for registered consumer", result);
+        Assert.Contains("GuardTrack", result);
+        Assert.Contains("requires a column of type Domain.Resistance (resistance)", result);
         Assert.EndsWith("|400|0", result);
     }
 
@@ -135,6 +135,35 @@ public sealed class ConsumerPlaybackTests
         var result = Driver("ConsumerParameter");
 
         Assert.Equal("probe:0", result);
+    }
+
+    [Fact]
+    public void OwnerComposeCaseFeedsMemoArcAndLiveMultiplierForwardAndBackward()
+    {
+        var result = Driver("Compose");
+
+        Assert.Equal("120,110#170,140#170,110", result);
+    }
+
+    [Fact]
+    public void PureLiveFramedCaseFeedsFrameAndMultiplierWithoutMemo()
+    {
+        var result = Driver("Live");
+
+        Assert.Equal("120,110#170,140#170,110", result);
+    }
+
+    [Fact]
+    public void MissingLiveInputThrowsNamingTrackConsumerMethodAndType()
+    {
+        var result = Driver("MissingLive");
+
+        Assert.StartsWith("THROWN|", result);
+        Assert.Contains("ArcTrack", result);
+        Assert.Contains("JumpCompose", result);
+        Assert.Contains("OnActive", result);
+        Assert.Contains("column of type int (multiplier)", result);
+        Assert.EndsWith("|100", result);
     }
 
     private static string Driver(string method)
@@ -420,6 +449,38 @@ public sealed class ConsumerPlaybackTests
         }
         }
 
+        namespace TlComposeShape
+        {
+        public readonly record struct ArcClip(int Height);
+
+        public readonly record struct ArcTrack(float Scale) : IBlend<ArcClip>
+        {
+            public void Blend(in ArcClip first, in ArcClip second, float factor, out ArcClip result) => result = first;
+        }
+
+        public readonly struct JumpCompose : ITrack<ArcTrack, ArcClip>
+        {
+            public static void OnMemo(in Frame<ArcTrack, ArcClip> frame, out float arc)
+                => arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+
+            public static void OnActive(in float arc, ref float y, in int multiplier)
+                => y += arc * multiplier;
+        }
+
+        public readonly record struct FreeClip(int Height);
+
+        public readonly record struct FreeTrack(float Scale) : IBlend<FreeClip>
+        {
+            public void Blend(in FreeClip first, in FreeClip second, float factor, out FreeClip result) => result = first;
+        }
+
+        public readonly struct JumpFree : ITrack<FreeTrack, FreeClip>
+        {
+            public static void OnActive(in Frame<FreeTrack, FreeClip> frame, ref float y, in int multiplier)
+                => y += frame.Direction * frame.Clip.Height * frame.Track.Scale * multiplier;
+        }
+        }
+
         namespace Domain
         {
 
@@ -486,6 +547,67 @@ public sealed class ConsumerPlaybackTests
                 return first + "#" + second + "#" + third;
             }
 
+            public static string Compose()
+            {
+                using var arc = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>(new TlComposeShape.ArcTrack(2f))
+                    .Clip(0, 0u, 3u, new TlComposeShape.ArcClip(5))
+                    .Bake()));
+                var ids = new ushort[] { arc.Index, arc.Index };
+                var positions = new ushort[] { 0, 1 };
+                var y = new float[] { 100f, 100f };
+                var multipliers = new int[] { 2, 1 };
+                Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, true, y, multipliers);
+                var first = F(y[0]) + "," + F(y[1]);
+                multipliers[0] = 5;
+                multipliers[1] = 3;
+                Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, true, y, multipliers);
+                var second = F(y[0]) + "," + F(y[1]);
+                Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, false, y, multipliers);
+                var third = F(y[0]) + "," + F(y[1]);
+                return first + "#" + second + "#" + third;
+            }
+
+            public static string Live()
+            {
+                using var free = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>(new TlComposeShape.FreeTrack(2f))
+                    .Clip(0, 0u, 3u, new TlComposeShape.FreeClip(5))
+                    .Bake()));
+                var ids = new ushort[] { free.Index, free.Index };
+                var positions = new ushort[] { 0, 1 };
+                var y = new float[] { 100f, 100f };
+                var multipliers = new int[] { 2, 1 };
+                Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(ids, positions, true, y, multipliers);
+                var first = F(y[0]) + "," + F(y[1]);
+                multipliers[0] = 5;
+                multipliers[1] = 3;
+                Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(ids, positions, true, y, multipliers);
+                var second = F(y[0]) + "," + F(y[1]);
+                Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(ids, positions, false, y, multipliers);
+                var third = F(y[0]) + "," + F(y[1]);
+                return first + "#" + second + "#" + third;
+            }
+
+            public static string MissingLive()
+            {
+                using var arc = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>(new TlComposeShape.ArcTrack(2f))
+                    .Clip(0, 0u, 3u, new TlComposeShape.ArcClip(5))
+                    .Bake()));
+                var positions = new ushort[] { 0 };
+                var y = new float[] { 100f };
+                try
+                {
+                    Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(arc, positions, true);
+                    return "NOTHROWN|" + F(y[0]);
+                }
+                catch (ArgumentException exception)
+                {
+                    return "THROWN|" + exception.Message + "|" + F(y[0]);
+                }
+            }
+
             public static string Missing()
             {
                 using var guard = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
@@ -496,7 +618,7 @@ public sealed class ConsumerPlaybackTests
                 var health = new float[] { 400f };
                 try
                 {
-                    Timeline<GuardTrack, GuardClip>.Apply(guard, positions, true, health); Timeline.Advance(guard, positions, true);
+                    Timeline<GuardTrack, GuardClip>.Apply(guard, positions, true);
                 }
                 catch (ArgumentException exception)
                 {
@@ -549,11 +671,11 @@ public sealed class ConsumerPlaybackTests
                 var positions = new ushort[] { 0, 1, 2 };
                 var armor = new float[3];
                 var ticks = new int[3];
-                Timeline<DualTrack, DualClip>.Apply(indices, positions, true, armor, ticks);
+                Timeline<DualTrack, DualClip>.ApplyLanes(indices, positions, true, armor, ticks);
                 var backPositions = new ushort[] { 1, 2 };
                 var backArmor = new float[2];
                 var backTicks = new int[2];
-                Timeline<DualTrack, DualClip>.Apply(new ushort[] { dual.Index, dual.Index }, backPositions, false, backArmor, backTicks);
+                Timeline<DualTrack, DualClip>.ApplyLanes(new ushort[] { dual.Index, dual.Index }, backPositions, false, backArmor, backTicks);
                 return string.Join(",", armor.Select(F)) + "#" + string.Join(",", ticks.Select(x => x.ToString(CultureInfo.InvariantCulture)))
                     + "#" + string.Join(",", backArmor.Select(F)) + "#" + string.Join(",", backTicks.Select(x => x.ToString(CultureInfo.InvariantCulture)));
             }

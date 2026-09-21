@@ -225,7 +225,7 @@ public sealed class TwoMethodShapeTests
     }
 
     [Fact]
-    public void MemoFedOnActiveInputReportsTlgen79()
+    public void MemoFedFramedOnActiveRegistersComposeColumns()
     {
         var result = Read($$"""
             {{Domain}}
@@ -236,11 +236,14 @@ public sealed class TwoMethodShapeTests
             }
             """);
 
-        AssertConsumerRejected(result, "TLGEN79");
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.True(consumer.Job.Dispatch);
+        Assert.Equal([new TimelineSlot("arc", "float", SlotMode.MemoFeed)], consumer.Job.LiveColumns);
     }
 
     [Fact]
-    public void OnActiveLiveColumnReportsTlgen79()
+    public void MemoAndRefOnActiveRegistersLiveColumns()
     {
         var result = Read($$"""
             {{Domain}}
@@ -251,7 +254,128 @@ public sealed class TwoMethodShapeTests
             }
             """);
 
-        AssertConsumerRejected(result, "TLGEN79");
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.True(consumer.Job.Dispatch);
+        Assert.Equal([new TimelineSlot("y", "float", SlotMode.Reference)], consumer.Job.LiveColumns);
+    }
+
+    [Fact]
+    public void ComposeOnActiveBindsMemoFedPrefixAndLiveColumns()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Jump : ITrack<DamageTrack, DamageClip>
+            {
+                public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out float arc) => arc = frame.Clip.Amount;
+                public static void OnActive(in float arc, ref float y, in int multiplier) => y += arc * multiplier;
+            }
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.True(consumer.Job.MemoMethod);
+        Assert.True(consumer.Job.Dispatch);
+        Assert.False(consumer.Job.LiveFrame);
+        Assert.Equal([new TimelineSlot("arc", "float", SlotMode.MemoFeed), new TimelineSlot("y", "float", SlotMode.Reference), new TimelineSlot("multiplier", "int", SlotMode.Input)], consumer.Job.LiveColumns);
+        var binding = JobEmitter.Consumers(result.Consumers);
+        Assert.Contains("Consume(&OnMemo_Jump, &OnMemoRange_Jump, &Keys_Jump);", binding);
+        Assert.Contains("ConsumeDispatch(&OnActive_Jump, &LiveKeys_Jump, &Diag_Jump);", binding);
+        Assert.Contains("var @arc = *(float*)__tlColumns[0];", binding);
+        Assert.Contains("var @y = (float*)__tlColumns[1];", binding);
+        Assert.Contains("var @multiplier = (int*)__tlColumns[2];", binding);
+        Assert.Contains("global::Domain.Jump.OnActive(in @arc, ref @y[__tlRow], in @multiplier[__tlRow]);", binding);
+        Assert.Contains("__tlKeys[1] = global::Tl.TypeKey<float>.Value; __tlMeta[1] = 36;", binding);
+        Assert.Contains("__tlKeys[2] = global::Tl.TypeKey<int>.Value; __tlMeta[2] = 4;", binding);
+        Assert.DoesNotContain("Bind_Jump", binding);
+    }
+
+    [Fact]
+    public void FramedLiveColumnsRegisterWithoutMemo()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Push : ITrack<DamageTrack, DamageClip>
+            {
+                public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float y, in int multiplier) => y += frame.Clip.Amount * multiplier;
+            }
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.False(consumer.Job.MemoMethod);
+        Assert.True(consumer.Job.Dispatch);
+        Assert.True(consumer.Job.LiveFrame);
+        Assert.Empty(consumer.Job.Slots);
+        Assert.Equal([new TimelineSlot("y", "float", SlotMode.Reference), new TimelineSlot("multiplier", "int", SlotMode.Input)], consumer.Job.LiveColumns);
+        var binding = JobEmitter.Consumers(result.Consumers);
+        Assert.Contains("ConsumeDispatch(&OnActive_Push, &LiveKeys_Push, &Diag_Push);", binding);
+        Assert.Contains("global::Domain.Push.OnActive(in __tlTyped, ref @y[__tlRow], in @multiplier[__tlRow]);", binding);
+    }
+
+    [Fact]
+    public void FramelessLiveColumnsRegisterWithoutMemo()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Bare : ITrack<DamageTrack, DamageClip>
+            {
+                public static void OnActive(ref float y) { }
+            }
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.True(consumer.Job.Dispatch);
+        Assert.False(consumer.Job.LiveFrame);
+        Assert.Equal([new TimelineSlot("y", "float", SlotMode.Reference)], consumer.Job.LiveColumns);
+    }
+
+    [Fact]
+    public void ExcessLiveColumnsReportTlgen68()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Oversized : ITrack<DamageTrack, DamageClip>
+            {
+                public static void OnActive(in float a, in float b, ref float c, in float d, in float e) { }
+            }
+            """);
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("TLGEN68", diagnostic.Code);
+        Assert.Contains("declares 5 gameplay parameters", diagnostic.Message);
+        Assert.Contains("declare at most 4 gameplay parameters", diagnostic.Message);
+    }
+
+    [Theory]
+    [InlineData("out float y")]
+    [InlineData("string label")]
+    public void MalformedLiveColumnReportsTlgen78(string column)
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Broken : ITrack<DamageTrack, DamageClip>
+            {
+                public static void OnActive(ref float y, {{column}}) { y = 0f; }
+            }
+            """);
+
+        AssertConsumerRejected(result, "TLGEN78");
+    }
+
+    [Fact]
+    public void ManagedLiveColumnReportsTlgen78()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Broken : ITrack<DamageTrack, DamageClip>
+            {
+                public static void OnActive(in Frame<DamageTrack, DamageClip> frame, in object extra) { }
+            }
+            """);
+
+        AssertConsumerRejected(result, "TLGEN78");
     }
 
     [Fact]

@@ -92,36 +92,64 @@ public static class JobReader
 
             var dispatch = false;
             var liveFrame = false;
+            List<TimelineSlot>? live = null;
             if (active is not null)
             {
                 var framed = Framed(active, frame);
-                if (memo is null && framed)
+                var start = framed ? 1 : 0;
+                var gameplay = active.Parameters.Length - start;
+                var p1 = framed && active.Parameters.Length > 1 ? active.Parameters[1] : null;
+                var sugar = p1 is not null && memo is null && gameplay == 1 && p1.RefKind is RefKind.Ref
+                    && p1.Type.IsUnmanagedType && !p1.IsOptional && !p1.IsParams;
+                if (sugar)
                 {
-                    if (active.Parameters.Length > 5)
-                        return Err(Site(active.Parameters[5], site), "TLGEN68", $"'{name}.OnActive' declares {active.Parameters.Length - 1} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
-                    foreach (var p in active.Parameters.Skip(1))
-                    {
-                        if (p.RefKind is not (RefKind.In or RefKind.Ref) || p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType)
-                            return Err(Site(p, site), "TLGEN67", $"Every gameplay parameter of '{name}.OnActive' must be a required unmanaged in or ref parameter; out is unsupported.");
-                        slots.Add(new(p.Name, Symbols.Name(p.Type), p.RefKind == RefKind.In ? SlotMode.Input : SlotMode.Reference));
-                    }
-                    dispatch = liveFrame = active.Parameters.Length == 1;
+                    var only = active.Parameters[1];
+                    slots.Add(new(only.Name, Symbols.Name(only.Type), SlotMode.Reference));
+                }
+                else if (gameplay == 0)
+                {
+                    dispatch = true;
+                    liveFrame = framed;
                 }
                 else
                 {
                     dispatch = true;
                     liveFrame = framed;
-                    if (active.Parameters.Length > (framed ? 1 : 0))
+                    live = [];
+                    var outs = 0;
+                    for (var i = 0; i < slots.Count; i++) if (slots[i].Mode == SlotMode.Output) outs++;
+                    var feed = 0;
+                    var index = start;
+                    if (memo is not null)
+                        while (index < active.Parameters.Length && feed < outs && active.Parameters[index].RefKind is RefKind.In
+                            && active.Parameters[index].Type.IsUnmanagedType && !active.Parameters[index].IsOptional && !active.Parameters[index].IsParams
+                            && Symbols.Name(active.Parameters[index].Type) == ResultName(feed))
+                        {
+                            var fed = active.Parameters[index++];
+                            live.Add(new(fed.Name, Symbols.Name(fed.Type), SlotMode.MemoFeed));
+                            feed++;
+                        }
+                    for (; index < active.Parameters.Length; index++)
                     {
-                        var live = active.Parameters[framed ? 1 : 0];
-                        return Err(Site(live, site), live.RefKind is RefKind.In or RefKind.Ref && !live.IsOptional && !live.IsParams && live.Type.IsUnmanagedType
-                            ? "TLGEN79" : "TLGEN78",
-                            $"'{name}.OnActive' columns must be unmanaged 'in'/'ref' — pending.");
+                        var p = active.Parameters[index];
+                        if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.In or RefKind.Ref))
+                            return Err(Site(p, site), "TLGEN78", $"'{name}.OnActive' columns must be required unmanaged 'in'/'ref'; '{Symbols.Name(p.Type)} {p.Name}' is not.");
+                        live.Add(new(p.Name, Symbols.Name(p.Type), p.RefKind == RefKind.Ref ? SlotMode.Reference : SlotMode.Input));
                     }
+                    if (live.Count > 4)
+                        return Err(Site(active.Parameters[start + 4], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
                 }
             }
 
-            return new(name, slots, dispatch, liveFrame, memo is not null);
+            return new(name, slots, dispatch, liveFrame, memo is not null, live);
+
+            string ResultName(int ordinal)
+            {
+                var seen = -1;
+                for (var i = 0; i < slots.Count; i++)
+                    if (slots[i].Mode == SlotMode.Output && ++seen == ordinal) return slots[i].TypeName;
+                return "";
+            }
         }
 
         private JobDefinition? Err(SyntaxNode site, string code, string message)

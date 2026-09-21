@@ -339,28 +339,50 @@ public readonly struct ScreenShake : ITrack<JumpTrack, JumpClip>
 
 Consumers fold in consumer-name order (`MoveY` before `ScreenShake`) — ordinal, culture-independent, deterministic on every machine; rename a consumer to move it. Receipts: `TandemFirstJob` and `TandemSecondJob` in `tests/Tl.Alpha` both run from generated installs, and the fold order is pinned by `tests/Tl.Core.Tests`. Order across different pairs is the host's call order.
 
-### The two consumer shapes
+### The two consumer methods
 
-`OnActive`'s signature picks the lane. With a `ref float` output the consumer is **measured, not executed**: on the first typed `Apply`, `Advance`, or `View` of a `(loaded asset, pair)` the runtime runs it once per tick in both directions over a scratch column — `duration × 2` invocations — writes one `float` per tick and direction into the pair bank's native tables, and freezes the result for the process lifetime. Every row on that asset replays the same frozen table; the consumer body never runs again for that `(asset, pair)`. Consequences, all contract:
+A consumer declares one or both of two static methods, and the method name carries the lane contract:
 
-- The measured consumer is a **pure function of the frame** — `frame.Clip`, `frame.Track`, `frame.TimelineTick`, `frame.Flags` are the only stable inputs. A read of live gameplay state freezes whatever it held at first typed use.
-- The `ref float` is **write-only**: every probe starts from `0f`, so accumulate (`y += contribution`) and never read the incoming value.
-- Direction comes from `frame.Direction` (`+1` forward, `−1` backward) — the backward table is measured too, and a sign-blind formula makes rewind wrong rather than absent.
-- **Side effects misfire**: audio, logs, and mutations inside a `ref` consumer fire `duration × 2` times at fold time on a probe row and never during playback. Prints in the output of the first typed call are the cold fold running, not playback — the pass is deliberately unlabeled, so treat consumer output at that moment as measurement, not behavior.
-- **Changed data means a new `Load`** — new bytes intern to a new index and fold fresh; an already-folded `(asset, pair)` is never re-folded.
+`OnMemo(in Frame<TTrack, TClip> frame, out T0 r0, out T1 r1, ...)` runs once per tick, forward and backward, at the pair's first typed use — the fold, `duration × 2` invocations — and each `out` result freezes into its own per-tick, per-direction native table. The contract is the measured consumer's, by name now:
 
-The other shape — `OnActive(in Frame<TTrack, TClip> frame)` with no `ref` — never folds: the effects-less `Apply(ids, positions, forward)` executes it live, once per row per frame, in row order. Audio cues, logging, markers, and reads of live host state belong there; the frame carries clip, track, tick, and flags — never a row or entity column, so entity-correlated work stays host-side.
+- **Pure**: a function of the frame (`frame.Clip`, `frame.Track`, `frame.TimelineTick`, `frame.Flags`) — no side effects, no live state reads; live state read at fold freezes at fold time.
+- **Unmanaged results only**: `float`, `bool`, `int`, `byte`, enums, small structs. `string` and other managed types are illegal as memo outputs (TLGEN76/79) — rich labels resolve to codes in the memo and map to text host-side or in `OnActive`.
+- **Write-only results**: every probe starts from `0f` — accumulate, never read the incoming value. `out` results get private lanes in declaration order; `ref` results join the shared accumulate pool by type.
+- Direction comes from `frame.Direction` (`+1` forward, `−1` backward); the backward tables are measured too, so a sign-blind memo makes rewind wrong rather than absent.
+- Side effects fire `duration × 2` times at fold and never during playback; changed data means a new `Load` — a folded `(asset, pair)` never re-folds.
 
-Rule of thumb: **the `ref` shape carries the number — a pure per-tick contribution, frozen and shared by every row; the dispatch shape carries the effect on the world — live, per row.**
+OnMemo-only consumers play through the measured Apply family — `Apply(ids, clocks, forward, fx)` for one result, `ApplyLanes(ids, clocks, forward, fx0, fx1)` for several typed results — with zero per-frame consumer cost after the fold.
+
+`OnActive` runs per frame per row, live, in three shapes:
+
+- `OnActive(in Frame<TTrack, TClip> frame)` — pure dispatch: audio cues, markers, logging. The effects-less `Apply(ids, positions, forward)` executes it in row order.
+- `OnActive(in Frame<TTrack, TClip> frame, ref T fx, in T a, in T b, ...)` — **live columns**: the feeding call binds the columns by type — `Apply(ids, clocks, forward, fx, inputs)` — and the runtime executes the consumer once per row per frame at the row's current tick, `ref` read-write, `in` read-only.
+- `OnActive(in T0 r0, in T1 r1, ..., ref T fx, in T a, ...)` — **compose**: the leading `in` parameters are the OnMemo results, fed positionally (type-checked at generation) from their frozen tables at the row's current position — direction-correct — while the `ref`/`in` columns come from the same Apply call. Precompute the pure math once, compose with live inputs per row.
+
+Legacy `OnActive(in Frame<TTrack, TClip> frame, ref float y)` keeps working as sugar for a single-result `OnMemo` — same fold, same frozen table, same measured Apply — and `OnMemo` is the canonical spelling in new code. One `ref` column per live `OnActive`; the consumer ABI reserves 4 pointer slots per registered consumer, so memo-fed results plus the `ref` column plus live inputs total at most 4 (TLGEN68). A required column that is not passed is a loud located throw naming the pair, consumer, and parameter — `Timeline<JumpTrack, JumpClip> consumer 'MoveY' OnActive requires a column of type int (multiplier); none was passed.` — at first play, never a silent skip; unsupported shapes fail TLGEN at compilation.
+
+The owner's jump case, first-class — the pure arc folds once, the per-jumper power composes live every frame:
 
 ```cs
-public readonly struct JumpArc : ITrack<JumpTrack, JumpClip>
+public readonly struct JumpMove : ITrack<JumpTrack, JumpClip>
 {
-    // measured: the number — a pure function of baked frame data
-    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
-        => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
+    // fold: the pure arc, frozen per tick and direction
+    public static void OnMemo(in Frame<JumpTrack, JumpClip> frame, out float arc)
+        => arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+
+    // per frame per row: arc arrives from the frozen table, multiplier is live host state
+    public static void OnActive(in float arc, ref float y, in int multiplier)
+        => y += arc * multiplier;
 }
 
+var y = new float[crowd];
+var power = new int[crowd];   // per-jumper, changes whenever gameplay says so
+Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, y, power);
+```
+
+Rewind is exact: `forward: false` feeds the same `in` values from the backward tables, and changing `power` between frames changes the applied effect — the input column is read fresh every call. Rule of thumb: **OnMemo carries the number — a pure per-tick contribution, frozen and shared by every row; OnActive carries the effect on the world — live, per row, composed against the frozen number.**
+
+```cs
 public readonly struct JumpAudio : ITrack<JumpTrack, JumpClip>
 {
     // dispatch: live per row — the clip boundary cue fires when a row crosses it
@@ -371,7 +393,7 @@ public readonly struct JumpAudio : ITrack<JumpTrack, JumpClip>
 }
 ```
 
-Variation is authored, not measured: short and tall jumps are separate assets that each fold their own table, continuous scaling folds a unit asset and multiplies host-side after `Apply`, and live modifiers — wind, bounce, authority — layer on outside the consumer entirely.
+Variation is authored, measured, or composed: short and tall jumps are separate assets that each fold their own table, continuous scaling folds a unit asset and multiplies through a live column or host-side after `Apply`, and live modifiers — wind, bounce, authority — are one live `in` column away from a folded arc.
 
 Host wiring is declared, not registered — implement `IBake<TConsumer>` with the `Bake` signature you want and one type-agnostic call attaches your markers at load time:
 

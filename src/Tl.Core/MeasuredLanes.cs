@@ -106,12 +106,6 @@ public sealed unsafe class MeasuredLanes : IDisposable
             if (laneKeys != null) laneKeys[lanes] = key;
             return lanes++;
         }
-        void Lane(ulong key, bool shared)
-        {
-            var l = shared ? Pool(key) : lanes++;
-            if (laneKeys != null) laneKeys[l] = key;
-            if (resLane != null) resLane[results++] = (byte)l;
-        }
         for (var p = 0; p < pairs; p++)
             for (var e = chains[p]; e >= 0; e = consumers[e].Next)
             {
@@ -119,7 +113,17 @@ public sealed unsafe class MeasuredLanes : IDisposable
                 var keys = consumers[e].Keys;
                 if (keys == null) { Pool(TypeKey<float>.Value); continue; }
                 var n = Math.Min(keys(rKeys, rMeta), 4);
-                for (var j = 0; j < n; j++) Lane(rKeys[j], (rMeta[j] & 0x10) == 0);
+                var packed = 0;
+                var outs = 0;
+                for (var j = 0; j < n; j++)
+                {
+                    var shared = (rMeta[j] & 0x10) == 0;
+                    var lane = shared ? Pool(rKeys[j]) : lanes++;
+                    if (laneKeys != null) laneKeys[lane] = rKeys[j];
+                    if (resLane != null) resLane[results++] = (byte)lane;
+                    if (!shared) packed |= lane << (8 * outs++);
+                }
+                consumers[e].OutLanes = packed;
             }
         if (lanes == 0) Pool(TypeKey<float>.Value);
         poolCount = pools;

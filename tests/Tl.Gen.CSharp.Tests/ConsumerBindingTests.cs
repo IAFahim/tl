@@ -72,20 +72,19 @@ public sealed class ConsumerBindingTests
         var install = binding[..installEnd];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&OnActive_ApplyDamage, &OnActiveRange_ApplyDamage, &Bind_ApplyDamage);",
-            "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.Consume(&OnActive_ApplyHeal, &OnActiveRange_ApplyHeal, &Bind_ApplyHeal);",
+            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.ConsumeDispatch(&OnActive_ApplyDamage, &LiveKeys_ApplyDamage, &Diag_ApplyDamage);",
+            "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.ConsumeDispatch(&OnActive_ApplyHeal, &LiveKeys_ApplyHeal, &Diag_ApplyHeal);",
         ], install.Split('\n')[5..^1]);
         Assert.Contains("private static void OnActive_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
-        Assert.Contains("private static void OnActiveRange_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)", binding);
         Assert.Contains("global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);", binding);
         Assert.Contains("var @resistance = (global::Domain.Resistance*)__tlColumns[0];", binding);
         Assert.Contains("var @health = (global::Domain.Health*)__tlColumns[1];", binding);
         Assert.Contains("global::Domain.ApplyDamage.OnActive(in __tlTyped, in @resistance[__tlRow], ref @health[__tlRow]);", binding);
-        Assert.Contains("for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)", binding);
-        Assert.Contains("private static void Bind_ApplyDamage(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)", binding);
-        Assert.Contains("var __tlIdx0 = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<global::Domain.Resistance>.Value);", binding);
-        Assert.Contains("if (__tlIdx0 < 0) throw new global::System.ArgumentException(\"global::Domain.ApplyDamage: required column missing for registered consumer: global::Domain.Resistance\");", binding);
-        Assert.Contains("__tlIndices[0] = (byte)(__tlIdx0 + 1);", binding);
+        Assert.Contains("private static int LiveKeys_ApplyDamage(ulong* __tlKeys, byte* __tlMeta)", binding);
+        Assert.Contains("__tlKeys[0] = global::Tl.TypeKey<global::Domain.Resistance>.Value; __tlMeta[0] = 4;", binding);
+        Assert.Contains("__tlKeys[1] = global::Tl.TypeKey<global::Domain.Health>.Value; __tlMeta[1] = 36;", binding);
+        Assert.Contains("if (__tlSlot == 0) throw new global::System.ArgumentException(\"Timeline<Domain.DamageTrack, Domain.DamageClip> consumer 'Domain.ApplyDamage' OnActive requires a column of type Domain.Resistance (resistance); none was passed.\");", binding);
+        Assert.DoesNotContain("Bind_ApplyDamage", binding);
     }
 
     [Fact]
