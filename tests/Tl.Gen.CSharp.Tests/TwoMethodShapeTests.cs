@@ -139,6 +139,7 @@ public sealed class TwoMethodShapeTests
     [InlineData("out string label")]
     [InlineData("in string label")]
     [InlineData("int amount = 3")]
+    [InlineData("in int seed")]
     public void OnMemoManagedOrOptionalParameterReportsTlgen76(string parameter)
     {
         var result = Read($$"""
@@ -182,7 +183,6 @@ public sealed class TwoMethodShapeTests
     }
 
     [Theory]
-    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, in int seed, out float a) { a = 0f; }")]
     [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out long a) { a = 0; }")]
     [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out float a, out float b, out float c, out float d, out float e) { a = b = c = d = e = 0f; }")]
     public void PendingMemoShapesReportTlgen79(string memo)

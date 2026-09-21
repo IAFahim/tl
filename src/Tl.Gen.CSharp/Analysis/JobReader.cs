@@ -78,12 +78,12 @@ public static class JobReader
                     return Err(Site(memo, site), "TLGEN75", $"'{name}.OnMemo' must begin with in {frameName}.");
                 foreach (var p in memo.Parameters.Skip(1))
                 {
-                    if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.In or RefKind.Ref or RefKind.Out))
-                        return Err(Site(p, site), "TLGEN76", $"'{name}.OnMemo' parameters must be unmanaged 'in' defaults or 'out'/'ref' results.");
+                    if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.Ref or RefKind.Out))
+                        return Err(Site(p, site), "TLGEN76", $"'{name}.OnMemo' runs at fold; only unmanaged 'out'/'ref' results exist — 'in' has no caller.");
                     var typeName = Symbols.Name(p.Type);
                     var size = ResultSize(p.Type);
-                    if (p.RefKind == RefKind.In || size == 0 || slots.Count >= 4)
-                        return Err(Site(p, site), "TLGEN79", $"'{name}.OnMemo' 'in' defaults or >4-byte/5+ results — pending.");
+                    if (size == 0 || slots.Count >= 4)
+                        return Err(Site(p, site), "TLGEN79", $"'{name}.OnMemo' >4-byte/5+ results — pending.");
                     slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference, size));
                 }
                 if (slots.Count == 0)
