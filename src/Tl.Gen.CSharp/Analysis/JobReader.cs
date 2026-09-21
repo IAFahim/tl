@@ -81,9 +81,10 @@ public static class JobReader
                     if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.In or RefKind.Ref or RefKind.Out))
                         return Err(Site(p, site), "TLGEN76", $"'{name}.OnMemo' parameters must be unmanaged 'in' defaults or 'out'/'ref' results.");
                     var typeName = Symbols.Name(p.Type);
-                    if (p.RefKind == RefKind.In || slots.Count != 0 || typeName != "float")
-                        return Err(Site(p, site), "TLGEN79", $"'{name}.OnMemo' 'in' defaults or extra/non-float results — pending.");
-                    slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference));
+                    var size = ResultSize(p.Type);
+                    if (p.RefKind == RefKind.In || size == 0 || slots.Count >= 4)
+                        return Err(Site(p, site), "TLGEN79", $"'{name}.OnMemo' 'in' defaults or >4-byte/5+ results — pending.");
+                    slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference, size));
                 }
                 if (slots.Count == 0)
                     return Err(Site(memo, site), "TLGEN76", $"'{name}.OnMemo' produces no result; dispatch-only is OnActive.");
@@ -128,6 +129,16 @@ public static class JobReader
             Symbols.Error(errors, site, code, message);
             return null;
         }
+
+        private static byte ResultSize(ITypeSymbol t)
+            => t switch
+            {
+                INamedTypeSymbol { EnumUnderlyingType: { } u } => ResultSize(u),
+                { SpecialType: SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte } => 1,
+                { SpecialType: SpecialType.System_Char or SpecialType.System_Int16 or SpecialType.System_UInt16 } => 2,
+                { SpecialType: SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Single } => 4,
+                _ => 0,
+            };
 
         private static bool Framed(IMethodSymbol method, ITypeSymbol frame)
             => method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame);

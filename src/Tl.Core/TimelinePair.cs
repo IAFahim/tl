@@ -343,6 +343,43 @@ public static unsafe class Timeline<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    public static unsafe void Apply<TIndex, TPosition, TEffect0, TEffect1>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect0> effects0, Span<TEffect1> effects1)
+        where TIndex : struct
+        where TPosition : struct
+        where TEffect0 : unmanaged
+        where TEffect1 : unmanaged
+    {
+        if (Unsafe.SizeOf<TIndex>() != 2 || Unsafe.SizeOf<TPosition>() != 2 || Unsafe.SizeOf<TEffect0>() > 4 || Unsafe.SizeOf<TEffect1>() > 4
+            || positions.Length != effects0.Length || positions.Length != effects1.Length)
+            ThrowColumnSizes();
+        var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
+        var positions16 = MemoryMarshal.Cast<TPosition, ushort>(positions);
+        Checked.Domain(indices16, positions16);
+        var bank = Bank();
+        var key0 = TypeKey<TEffect0>.Value;
+        var key1 = TypeKey<TEffect1>.Value;
+        var ordinal1 = key1 == key0 ? 1 : 0;
+        var i = 0;
+        while (i < positions16.Length)
+        {
+            var id = indices16[i];
+            var end = i + 1;
+            while (end < positions16.Length && indices16[end] == id) end++;
+            if (!bank.IsFolded(id)) Resolve(id);
+            if (bank.HasView(id))
+            {
+                var lane0 = bank.LaneFor(id, key0, 0);
+                var lane1 = bank.LaneFor(id, key1, ordinal1);
+                if (lane0 < 0 || lane1 < 0) throw new ArgumentException("Required lane column missing for timeline result.");
+                var slice = positions16.Slice(i, end - i);
+                bank.ApplyLane(id, slice, forward, lane0, effects0.Slice(i, end - i));
+                bank.ApplyLane(id, slice, forward, lane1, effects1.Slice(i, end - i));
+            }
+            i = end;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static void Apply<TIndex, TPosition, TEffect>(ReadOnlySpan<int> rows, ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects)
         where TIndex : struct
         where TPosition : struct

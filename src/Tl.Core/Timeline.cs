@@ -76,33 +76,18 @@ public static class Timeline
     {
         var duration = (ushort)(motion & 0xFFFF);
         var looping = (motion & 0x80000000u) != 0;
-        if (forward) AdvanceRecordsForward(duration, looping, positions, next);
-        else AdvanceRecordsBackward(duration, looping, positions, next);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static void AdvanceRecordsForward(ushort duration, bool looping, ReadOnlySpan<ushort> positions, Span<ushort> next)
-    {
         for (var i = 0; i < positions.Length; i++)
         {
             var p = positions[i];
-            if (p < duration)
+            if (forward)
             {
-                p++;
-                if (looping && p == duration) p = 0;
+                if (p < duration) { p++; if (looping && p == duration) p = 0; }
+                next[i] = p;
             }
-            next[i] = p;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-    static void AdvanceRecordsBackward(ushort duration, bool looping, ReadOnlySpan<ushort> positions, Span<ushort> next)
-    {
-        for (var i = 0; i < positions.Length; i++)
-        {
-            var p = positions[i];
-            if (looping) next[i] = p < duration ? (p == 0 ? (ushort)(duration - 1) : (ushort)(p - 1)) : p;
-            else next[i] = p > 0 && p <= duration ? (ushort)(p - 1) : p;
+            else
+                next[i] = looping
+                    ? p < duration ? (p == 0 ? (ushort)(duration - 1) : (ushort)(p - 1)) : p
+                    : p > 0 && p <= duration ? (ushort)(p - 1) : p;
         }
     }
 

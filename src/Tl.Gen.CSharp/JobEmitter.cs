@@ -43,7 +43,7 @@ internal static class JobEmitter
             if (consumer.Job.Slots.Count > 0)
             {
                 var memo = consumer.Job.MemoMethod ? "OnMemo" : "OnActive";
-                W($"{runtime}.Consume(&{memo}_{name}, &{memo}Range_{name}, &Bind_{name});");
+                W($"{runtime}.Consume(&{memo}_{name}, &{memo}Range_{name}, {(consumer.Job.MemoMethod ? $"&Keys_{name}" : $"&Bind_{name}")});");
             }
             if (consumer.Job.Dispatch)
                 W($"{runtime}.ConsumeDispatch(&OnActive_{name});");
@@ -74,7 +74,21 @@ internal static class JobEmitter
                 var memo = job.MemoMethod ? "OnMemo" : "OnActive";
                 Thunk(memo, job.Slots, true, false);
                 Thunk(memo, job.Slots, true, true);
-                W($"private static void Bind_{name}(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)");
+                if (job.MemoMethod)
+                {
+                    W($"private static int Keys_{name}(ulong* __tlKeys, byte* __tlMeta)");
+                    W("{");
+                    for (var i = 0; i < job.Slots.Count; i++)
+                    {
+                        var slot = job.Slots[i];
+                        W($"if (__tlKeys != null) {{ __tlKeys[{i}] = global::Tl.TypeKey<{slot.TypeName}>.Value; __tlMeta[{i}] = {slot.Size | (slot.Mode == SlotMode.Output ? 16 : 0)}; }}");
+                    }
+                    W($"return {job.Slots.Count};");
+                    W("}");
+                }
+                else
+                {
+                    W($"private static void Bind_{name}(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)");
                 W("{");
                 if (job.Slots.Count > 4)
                     W($"throw new global::System.InvalidOperationException(\"{job.TypeName}: {job.Slots.Count} gameplay parameters exceed the 4-slot consumer ABI; regenerate the binding with a matching Tl generator.\");");
@@ -85,7 +99,8 @@ internal static class JobEmitter
                         + $"if (__tlIdx{i} < 0) throw new global::System.ArgumentException(\"{job.TypeName}: required column missing for registered consumer: {slot.TypeName}\");\n"
                         + $"__tlIndices[{i}] = (byte)(__tlIdx{i} + 1);");
                 }
-                W("}");
+                    W("}");
+                }
             }
             if (job.Dispatch) Thunk("OnActive", [], job.LiveFrame, false);
         }

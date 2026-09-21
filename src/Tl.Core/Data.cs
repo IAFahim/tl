@@ -2,6 +2,11 @@ using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Diagnostics.CodeAnalysis;
+using unsafe ExecThunk = delegate*<byte*, byte*, ushort, Tl.FrameFlags, void**, int, void>;
+using unsafe RangeThunk = delegate*<byte*, byte*, ushort, Tl.FrameFlags, void**, int, int, void>;
+using unsafe BindThunk = delegate*<ulong*, int, byte*, void>;
+using unsafe BlendThunk = delegate*<byte*, bool>;
+using unsafe KeysThunk = delegate*<ulong*, byte*, int>;
 
 namespace Tl;
 
@@ -332,7 +337,7 @@ public readonly unsafe struct TickFrame
 
 	static unsafe class PairTable
 {
-	internal struct Consumer { public int Next, Pair, Offset; public delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> Execute; public delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> Range; public delegate*<ulong*, int, byte*, void> Bind; public delegate*<byte*, bool> BlendConstant; public byte WindowConstant, DispatchOnly; }
+	internal struct Consumer { public int Next, Pair, Offset; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public byte WindowConstant, DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
 
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
@@ -348,7 +353,7 @@ public readonly unsafe struct TickFrame
 	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
 	internal static int ConsumerCount => Volatile.Read(ref _consumers);
 
-	internal static void Install(ulong key, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> e, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> r, delegate*<ulong*, int, byte*, void> b, delegate*<byte*, bool> blendConstant, bool windowConstant, bool dispatchOnly = false)
+	internal static void Install(ulong key, ExecThunk e, RangeThunk r, BindThunk b, BlendThunk blendConstant, bool windowConstant, bool dispatchOnly = false, KeysThunk resultKeys = null)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
@@ -364,7 +369,7 @@ public readonly unsafe struct TickFrame
 			}
 			if (_consumers == ConsumerCapacity || _consumers * 4 + 4 > MaxPointers) throw new InvalidOperationException("Consumer capacity exhausted.");
 			var consumers = ConsumerAt;
-			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * 4 };
+			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * 4 };
 			if (windowConstant) Volatile.Write(ref _windowConstant, 1);
 			Volatile.Write(ref slots[slot].Head, _consumers);
 			Volatile.Write(ref _consumers, _consumers + 1);
@@ -377,7 +382,7 @@ public readonly unsafe struct TickFrame
 
 	internal static bool AnyWindowConstant => Volatile.Read(ref _windowConstant) != 0;
 
-	internal static bool ChainWindowConstant(int head, out delegate*<byte*, bool> blendConstant)
+	internal static bool ChainWindowConstant(int head, out BlendThunk blendConstant)
 	{
 		var consumers = ConsumerAt;
 		blendConstant = null;
@@ -481,7 +486,7 @@ public readonly unsafe struct TickFrame
 		var consumers = ConsumerAt;
 		var total = ConsumerCount;
 		for (var entry = 0; entry < total; entry++)
-			if (consumers[entry].DispatchOnly == 0 && asset.Uses(slots[consumers[entry].Pair].Key) && (boundMask & (1ul << entry)) == 0)
+			if (consumers[entry].DispatchOnly == 0 && consumers[entry].Bind != null && asset.Uses(slots[consumers[entry].Pair].Key) && (boundMask & (1ul << entry)) == 0)
 			{
 				boundMask |= 1ul << entry;
 				var offset = consumers[entry].Offset;
@@ -505,13 +510,15 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 {
 	public static readonly ulong Key = Keying.Of(typeof(TTrack).AssemblyQualifiedName! + "\0" + typeof(TClip).AssemblyQualifiedName!);
 
-	public static void Consume(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, null, bind, null, false);
+	public static void Consume(ExecThunk execute, BindThunk bind) => PairTable.Install(Key, execute, null, bind, null, false);
 
-	public static void Consume(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<byte*, byte*, ushort, FrameFlags, void**, int, int, void> range, delegate*<ulong*, int, byte*, void> bind) => PairTable.Install(Key, execute, range, bind, null, false);
+	public static void Consume(ExecThunk execute, RangeThunk range, BindThunk bind) => PairTable.Install(Key, execute, range, bind, null, false);
 
-	public static void Consume(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute, delegate*<ulong*, int, byte*, void> bind, TickPurity purity) => PairTable.Install(Key, execute, null, bind, purity == TickPurity.WindowConstant ? &BlendConstantInWindow : null, purity == TickPurity.WindowConstant);
+	public static void Consume(ExecThunk execute, RangeThunk range, KeysThunk keys) => PairTable.Install(Key, execute, range, null, null, false, resultKeys: keys);
 
-	public static void ConsumeDispatch(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute) => PairTable.Install(Key, execute, null, null, null, false, true);
+	public static void Consume(ExecThunk execute, BindThunk bind, TickPurity purity) => PairTable.Install(Key, execute, null, bind, purity == TickPurity.WindowConstant ? &BlendConstantInWindow : null, purity == TickPurity.WindowConstant);
+
+	public static void ConsumeDispatch(ExecThunk execute) => PairTable.Install(Key, execute, null, null, null, false, true);
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	static bool BlendConstantInWindow(byte* slot) => ((SlotRow*)slot)->FactorSpan <= 1;

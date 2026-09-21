@@ -82,12 +82,13 @@ type Tl.Gen.CSharp.Model.SlotMode
   Field Byte value__
 type Tl.Gen.CSharp.Model.TimelineSlot
   Method Tl.Gen.CSharp.Model.TimelineSlot <Clone>$()
-  Method Void Deconstruct(System.String ByRef, System.String ByRef, Tl.Gen.CSharp.Model.SlotMode ByRef)
+  Method Void Deconstruct(System.String ByRef, System.String ByRef, Tl.Gen.CSharp.Model.SlotMode ByRef, Byte ByRef)
   Method Boolean Equals(System.Object)
   Method Boolean Equals(Tl.Gen.CSharp.Model.TimelineSlot)
   Method Int32 GetHashCode()
   Property Tl.Gen.CSharp.Model.SlotMode Mode
   Property System.String Name
+  Property Byte Size
   Method System.String ToString()
   Property System.String TypeName
 type Tl.Gen.CSharp.TimelineIncrementalGenerator

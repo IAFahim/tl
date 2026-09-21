@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Tl;
@@ -7,12 +8,26 @@ public sealed unsafe class MeasuredLanes : IDisposable
     internal float* Forward;
     internal float* Backward;
     internal nint Source;
+    internal int LaneCount;
+    internal float** LaneForward;
+    internal float** LaneBackward;
+    internal ulong* LaneKeys;
     bool _disposed;
 
-    MeasuredLanes(float* forward, float* backward, ushort duration, bool looping, nint source)
+    MeasuredLanes(byte* block, ushort duration, bool looping, nint source, int lanes)
     {
-        Forward = forward;
-        Backward = backward;
+        LaneCount = lanes;
+        var ticks = (nuint)(Math.Max(1u, duration) + 1u);
+        LaneForward = (float**)(block + 2 * (nuint)lanes * ticks * sizeof(float));
+        LaneBackward = LaneForward + lanes;
+        LaneKeys = (ulong*)(LaneBackward + lanes);
+        for (var l = 0; l < lanes; l++)
+        {
+            LaneForward[l] = (float*)block + (nuint)l * ticks;
+            LaneBackward[l] = (float*)block + ((nuint)lanes + (nuint)l) * ticks;
+        }
+        Forward = LaneForward[0];
+        Backward = LaneBackward[0];
         Duration = duration;
         Looping = looping;
         Source = source;
@@ -37,19 +52,23 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var duration = header->Duration;
         if (duration > ushort.MaxValue) throw new ArgumentException($"Asset duration {duration} exceeds the 65535-tick lane position column.");
         var looping = header->Loops != 0;
-        var forward = (float*)NativeMemory.AlignedAlloc(((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
-        var backward = (float*)NativeMemory.AlignedAlloc(((Math.Max(1u, duration) + 1u) * sizeof(float)), 64);
+        var pairs = checked((int)reference.PairCount);
+        if (pairs > 256) throw new ArgumentException("Asset declares more than 256 timeline pairs; the typed lane cannot bind it.");
+        int* chainProbe = stackalloc int[pairs];
+        var lanes = ResultLanes(reference, pairKey, chainProbe);
+        var ticks = (nuint)(Math.Max(1u, duration) + 1u);
+        var block = (byte*)NativeMemory.AlignedAlloc(2 * (nuint)lanes * ticks * sizeof(float) + (nuint)lanes * 2 * (nuint)sizeof(float*) + (nuint)lanes * sizeof(ulong), 64);
         try
         {
-            Fill(reference, pairKey, forward, backward, duration, looping);
+            var measured = new MeasuredLanes(block, (ushort)duration, looping, reference.Address, lanes);
+            Fill(reference, pairKey, measured, duration, looping);
+            return measured;
         }
         catch
         {
-            NativeMemory.AlignedFree(forward);
-            NativeMemory.AlignedFree(backward);
+            NativeMemory.AlignedFree(block);
             throw;
         }
-        return new MeasuredLanes(forward, backward, (ushort)duration, looping, reference.Address);
     }
 
     public void Dispose()
@@ -57,7 +76,6 @@ public sealed unsafe class MeasuredLanes : IDisposable
         if (_disposed) return;
         _disposed = true;
         NativeMemory.AlignedFree(Forward);
-        NativeMemory.AlignedFree(Backward);
         Forward = null;
         Backward = null;
     }
@@ -71,53 +89,111 @@ public sealed unsafe class MeasuredLanes : IDisposable
         if (Source != reference.Address) throw new ArgumentException("Measured lanes were measured from a different TimelineAsset instance.");
     }
 
-    static void Fill(TimelineRef reference, ulong pairKey, float* forward, float* backward, uint duration, bool looping)
+    static int GatherLanes(int* chains, int pairs, ulong* laneKeys, byte* resLane, ulong* poolKeys, int* poolLane, out int poolCount)
+    {
+        var consumers = PairTable.ConsumerAt;
+        var lanes = 0;
+        var results = 0;
+        var pools = 0;
+        var rKeys = stackalloc ulong[4];
+        var rMeta = stackalloc byte[4];
+        int Pool(ulong key)
+        {
+            for (var q = 0; q < pools; q++) if (poolKeys[q] == key) return poolLane[q];
+            poolKeys[pools] = key;
+            poolLane[pools] = lanes;
+            pools++;
+            if (laneKeys != null) laneKeys[lanes] = key;
+            return lanes++;
+        }
+        void Lane(ulong key, bool shared)
+        {
+            var l = shared ? Pool(key) : lanes++;
+            if (laneKeys != null) laneKeys[l] = key;
+            if (resLane != null) resLane[results++] = (byte)l;
+        }
+        for (var p = 0; p < pairs; p++)
+            for (var e = chains[p]; e >= 0; e = consumers[e].Next)
+            {
+                if (consumers[e].DispatchOnly != 0) continue;
+                var keys = consumers[e].Keys;
+                if (keys == null) { Pool(TypeKey<float>.Value); continue; }
+                var n = Math.Min(keys(rKeys, rMeta), 4);
+                for (var j = 0; j < n; j++) Lane(rKeys[j], (rMeta[j] & 0x10) == 0);
+            }
+        if (lanes == 0) Pool(TypeKey<float>.Value);
+        poolCount = pools;
+        return lanes;
+    }
+
+    static int ResultLanes(TimelineRef reference, ulong pairKey, int* chains)
     {
         var pairs = checked((int)reference.PairCount);
-        if (pairs > 256) throw new ArgumentException("Asset declares more than 256 timeline pairs; the typed lane cannot bind it.");
+        var span = new Span<int>(chains, pairs);
+        if (pairKey != 0) reference.Resolve(span, pairKey);
+        else reference.Resolve(span);
+        ulong* scratchKeys = stackalloc ulong[256];
+        int* scratchLanes = stackalloc int[256];
+        return GatherLanes(chains, pairs, null, null, scratchKeys, scratchLanes, out _);
+    }
+
+    static void Fill(TimelineRef reference, ulong pairKey, MeasuredLanes measured, uint duration, bool looping)
+    {
+        var pairs = checked((int)reference.PairCount);
         int* chains = stackalloc int[pairs];
-        var chainSpan = new Span<int>(chains, pairs);
-        if (pairKey != 0) reference.Resolve(chainSpan, pairKey);
-        else reference.Resolve(chainSpan);
-        ulong* keys = stackalloc ulong[1];
-        keys[0] = TypeKey<float>.Value;
+        ResultLanes(reference, pairKey, chains);
+        var consumers = PairTable.ConsumerAt;
+        var lanes = measured.LaneCount;
+        var laneKeys = measured.LaneKeys;
+        byte* resLane = stackalloc byte[256];
+        ulong* poolKeys = stackalloc ulong[256];
+        int* poolLane = stackalloc int[256];
+        var built = GatherLanes(chains, pairs, laneKeys, resLane, poolKeys, poolLane, out var pools);
+        if (built != lanes) throw new InvalidOperationException("Measured lane count changed between passes.");
+        byte* laneCell = stackalloc byte[lanes * 4];
+        void** columns = stackalloc void*[256];
+        Unsafe.InitBlock(columns, 0, 256 * (uint)sizeof(void*));
+        var res = 0;
+        for (var p = 0; p < pairs; p++)
+            for (var e = chains[p]; e >= 0; e = consumers[e].Next)
+            {
+                if (consumers[e].DispatchOnly != 0 || consumers[e].Keys == null) continue;
+                var n = consumers[e].Keys(null, null);
+                var offset = consumers[e].Offset;
+                for (var j = 0; j < n; j++) columns[offset + j] = laneCell + resLane[res++] * 4;
+            }
         byte* indices = stackalloc byte[256];
         byte* refreshSlots = stackalloc byte[256];
         byte* refreshColumns = stackalloc byte[256];
         var refreshCount = 0;
         ulong boundMask = 0;
-        PairTable.BindPair(reference, keys, 1, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);
-        float* column = stackalloc float[1];
-        void** bases = stackalloc void*[1];
-        bases[0] = column;
-        void** columns = stackalloc void*[256];
-        for (var i = 0; i < 256; i++) columns[i] = null;
-        for (var i = 0; i < refreshCount; i++) columns[refreshSlots[i]] = bases[refreshColumns[i]];
+        PairTable.BindPair(reference, poolKeys, pools, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);
+        for (var i = 0; i < refreshCount; i++) columns[refreshSlots[i]] = laneCell + poolLane[refreshColumns[i]] * 4;
+        var column = (float*)laneCell;
 
         if (!PairTable.AnyWindowConstant)
         {
-            float ProbeColumn(uint position, bool reverse)
+            void ProbeTick(uint position, bool reverse, float** table)
             {
-                *column = 0f;
+                Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
                 if (!reference.Select(reverse, (ushort)position, out _, out var tick, out var flags))
                     throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
                 reference.Execute(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns);
-                return *column;
+                CopyLanes(table, lanes, laneCell, tick);
             }
 
             for (var tick = 0u; tick < duration; tick++)
             {
                 var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-                forward[tick] = ProbeColumn(tick, false);
-                backward[tick] = ProbeColumn(backwardPosition, true);
+                ProbeTick(tick, false, measured.LaneForward);
+                ProbeTick(backwardPosition, true, measured.LaneBackward);
             }
         }
         else
         {
-            FillWindows(reference, forward, backward, duration, looping, chains, pairs, columns, column);
+            FillWindows(reference, measured.LaneForward, measured.LaneBackward, lanes, laneCell, duration, looping, chains, pairs, columns);
         }
-        forward[duration] = 0f;
-        backward[duration] = 0f;
+        for (var l = 0; l < lanes; l++) { measured.LaneForward[l][duration] = 0f; measured.LaneBackward[l][duration] = 0f; }
     }
 
     const int CacheStride = 64;
@@ -128,7 +204,13 @@ public sealed unsafe class MeasuredLanes : IDisposable
             throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
     }
 
-    static void FillWindows(TimelineRef reference, float* forward, float* backward, uint duration, bool looping, int* chains, int pairs, void** columns, float* column)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static void CopyLanes(float** table, int lanes, byte* laneCell, uint tick)
+    {
+        for (var l = 0; l < lanes; l++) table[l][tick] = *(float*)(laneCell + l * 4);
+    }
+
+    static void FillWindows(TimelineRef reference, float** forward, float** backward, int lanes, byte* laneCell, uint duration, bool looping, int* chains, int pairs, void** columns)
     {
         var stageCount = reference.StageCount;
         var stages = reference.Stages;
@@ -142,6 +224,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         int* stepCacheBase;
         float* forwardCache;
         float* backwardCache;
+        float* column = (float*)laneCell;
         if (scratchBytes <= 8192)
         {
             byte* cachedBytes = stackalloc byte[steps];
@@ -191,32 +274,27 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
                 if (cachedSteps == count)
                 {
-                    *column = 0f;
+                    Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
                     reference.ExecuteWindow(false, forwardTick, forwardFlags, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, forwardCache);
-                    var forwardValue = *column;
-                    *column = 0f;
+                    for (var tick = start; tick < end; tick++) CopyLanes(forward, lanes, laneCell, tick);
+                    Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
                     reference.ExecuteWindow(true, backwardTick, backwardFlags, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, backwardCache);
-                    var backwardValue = *column;
-                    for (var tick = start; tick < end; tick++)
-                    {
-                        forward[tick] = forwardValue;
-                        backward[tick] = backwardValue;
-                    }
+                    for (var tick = start; tick < end; tick++) CopyLanes(backward, lanes, laneCell, tick);
                     continue;
                 }
 
                 for (var tick = start; tick < end; tick++)
                 {
                     AdvanceOrFail(reference, false, tick, out var tickForward, out var forwardFlag);
-                    *column = 0f;
+                    Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
                     reference.ExecuteWindow(false, tickForward, forwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, forwardCache);
-                    forward[tick] = *column;
+                    CopyLanes(forward, lanes, laneCell, tick);
 
                     var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
                     AdvanceOrFail(reference, true, backwardPosition, out var tickBackward, out var backwardFlag);
-                    *column = 0f;
+                    Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
                     reference.ExecuteWindow(true, tickBackward, backwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, backwardCache);
-                    backward[tick] = *column;
+                    CopyLanes(backward, lanes, laneCell, tick);
                 }
             }
         }

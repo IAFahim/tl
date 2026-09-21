@@ -37,7 +37,8 @@ public sealed class TwoMethodShapeTests
         Assert.False(consumer.Job.Dispatch);
         Assert.Equal([new TimelineSlot("arc", "float", SlotMode.Output)], consumer.Job.Slots);
         var binding = JobEmitter.Consumers(result.Consumers);
-        Assert.Contains("Consume(&OnMemo_Arc, &OnMemoRange_Arc, &Bind_Arc);", binding);
+        Assert.Contains("Consume(&OnMemo_Arc, &OnMemoRange_Arc, &Keys_Arc);", binding);
+        Assert.DoesNotContain("Bind_Arc", binding);
         Assert.Contains("global::Domain.Arc.OnMemo(in __tlTyped, out @arc[__tlRow]);", binding);
     }
 
@@ -76,7 +77,7 @@ public sealed class TwoMethodShapeTests
         Assert.True(consumer.Job.MemoMethod);
         Assert.True(consumer.Job.Dispatch);
         var binding = JobEmitter.Consumers(result.Consumers);
-        Assert.Contains("Consume(&OnMemo_Both, &OnMemoRange_Both, &Bind_Both);", binding);
+        Assert.Contains("Consume(&OnMemo_Both, &OnMemoRange_Both, &Keys_Both);", binding);
         Assert.Contains("ConsumeDispatch(&OnActive_Both);", binding);
         Assert.Contains("global::Domain.Both.OnActive(in __tlTyped);", binding);
     }
@@ -181,9 +182,9 @@ public sealed class TwoMethodShapeTests
     }
 
     [Theory]
-    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out float a, out bool b) { a = 0f; b = false; }")]
     [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, in int seed, out float a) { a = 0f; }")]
-    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out int a) { a = 0; }")]
+    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out long a) { a = 0; }")]
+    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out float a, out float b, out float c, out float d, out float e) { a = b = c = d = e = 0f; }")]
     public void PendingMemoShapesReportTlgen79(string memo)
     {
         var result = Read($$"""
@@ -195,6 +196,32 @@ public sealed class TwoMethodShapeTests
             """);
 
         AssertConsumerRejected(result, "TLGEN79");
+    }
+
+    [Fact]
+    public void MultiOutputMemoEmitsKeysThunkAndKeysConsume()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct DualClip(float Amount);
+            public readonly record struct DualTrack(float Multiplier) : IBlend<DualClip>
+            {
+                public void Blend(in DualClip first, in DualClip second, float factor, out DualClip result) => result = first;
+            }
+            public readonly struct Dual : ITrack<DualTrack, DualClip>
+            {
+                public static void OnMemo(in Frame<DualTrack, DualClip> frame, out float a, out int b) { a = 0f; b = 0; }
+            }
+            """;
+        var (sources, diagnostics) = ConsumerBindingTests.GenerateWithDiagnostics(source);
+        Assert.Empty(diagnostics);
+        var binding = Assert.Single(sources).Value;
+        Assert.Contains("Consume(&OnMemo_Dual, &OnMemoRange_Dual, &Keys_Dual);", binding);
+        Assert.Contains("private static int Keys_Dual(ulong* __tlKeys, byte* __tlMeta)", binding);
+        Assert.Contains("__tlKeys[0] = global::Tl.TypeKey<float>.Value; __tlMeta[0] = 20;", binding);
+        Assert.Contains("__tlKeys[1] = global::Tl.TypeKey<int>.Value; __tlMeta[1] = 20;", binding);
+        Assert.Contains("global::Domain.Dual.OnMemo(in __tlTyped, out @a[__tlRow], out @b[__tlRow]);", binding);
     }
 
     [Fact]

@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace Tl;
 
-[StructLayout(LayoutKind.Sequential, Size = 64)]
+[StructLayout(LayoutKind.Sequential, Size = 72)]
 public unsafe struct SlotView
 {
     public const ushort AbiVersionV1 = 1;
@@ -16,6 +16,7 @@ public unsafe struct SlotView
     public ushort Absent;
     public uint TableTicks;
     public ushort RecordBytes;
+    public ushort ResultCount;
     public ushort AbiVersion;
     public ulong Generation;
 }
