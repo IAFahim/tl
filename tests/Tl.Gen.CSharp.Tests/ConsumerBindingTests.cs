@@ -89,6 +89,32 @@ public sealed class ConsumerBindingTests
     }
 
     [Fact]
+    public void ZeroSlotConsumerRegistersAsDispatchOnlyWithoutColumnBind()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct BellClip(float Tone);
+            public readonly record struct BellTrack(float Gain) : IBlend<BellClip>
+            {
+                public void Blend(in BellClip first, in BellClip second, float factor, out BellClip result) => result = first;
+            }
+            public readonly struct RingBell : ITrack<BellTrack, BellClip>
+            {
+                public static void OnActive(in Frame<BellTrack, BellClip> frame) { }
+            }
+            """;
+        var (sources, diagnostics) = GenerateWithDiagnostics(source);
+        Assert.Empty(diagnostics);
+        var binding = Assert.Single(sources).Value;
+        Assert.Contains("global::Tl.PairRuntime<global::Domain.BellTrack, global::Domain.BellClip>.ConsumeDispatch(&OnActive_RingBell);", binding);
+        Assert.Contains("private static void OnActive_RingBell(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
+        Assert.Contains("global::Domain.RingBell.OnActive(in __tlTyped);", binding);
+        Assert.DoesNotContain("OnActiveRange_RingBell", binding);
+        Assert.DoesNotContain("Bind_RingBell", binding);
+    }
+
+    [Fact]
     public void EmitsBindingForStandaloneJobWithoutAuthoredTimeline()
     {
         var (sources, diagnostics) = GenerateWithDiagnostics(StandaloneSource);
