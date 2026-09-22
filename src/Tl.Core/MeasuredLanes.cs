@@ -97,8 +97,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var lanes = 0;
         var results = 0;
         var pools = 0;
-        var rKeys = stackalloc ulong[4];
-        var rMeta = stackalloc byte[4];
+        var rKeys = stackalloc ulong[PairTable.SlotRow];
+        var rMeta = stackalloc byte[PairTable.SlotRow];
         int Pool(ulong key)
         {
             for (var q = 0; q < pools; q++) if (poolKeys[q] == key) return poolLane[q];
@@ -114,7 +114,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
                 if (consumers[e].DispatchOnly != 0) continue;
                 var keys = consumers[e].Keys;
                 if (keys == null) { Pool(TypeKey<float>.Value); continue; }
-                var n = Math.Min(keys(rKeys, rMeta), 4);
+                var n = Math.Min(keys(rKeys, rMeta), PairTable.SlotRow);
                 var packed = 0;
                 var outs = 0;
                 for (var j = 0; j < n; j++)
@@ -157,8 +157,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var built = GatherLanes(chains, pairs, laneKeys, resLane, poolKeys, poolLane, out var pools);
         if (built != lanes) throw new InvalidOperationException("Measured lane count changed between passes.");
         byte* laneCell = stackalloc byte[lanes * 4];
-        void** columns = stackalloc void*[256];
-        Unsafe.InitBlock(columns, 0, 256 * (uint)sizeof(void*));
+        void** columns = stackalloc void*[PairTable.MaxPointers];
+        Unsafe.InitBlock(columns, 0, PairTable.MaxPointers * (uint)sizeof(void*));
         var res = 0;
         for (var p = 0; p < pairs; p++)
             for (var e = chains[p]; e >= 0; e = consumers[e].Next)
@@ -168,9 +168,9 @@ public sealed unsafe class MeasuredLanes : IDisposable
                 var offset = consumers[e].Offset;
                 for (var j = 0; j < n; j++) columns[offset + j] = laneCell + resLane[res++] * 4;
             }
-        byte* indices = stackalloc byte[256];
-        byte* refreshSlots = stackalloc byte[256];
-        byte* refreshColumns = stackalloc byte[256];
+        byte* indices = stackalloc byte[PairTable.MaxPointers];
+        int* refreshSlots = stackalloc int[PairTable.MaxPointers];
+        int* refreshColumns = stackalloc int[PairTable.MaxPointers];
         var refreshCount = 0;
         ulong boundMask = 0;
         PairTable.BindPair(reference, poolKeys, pools, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);

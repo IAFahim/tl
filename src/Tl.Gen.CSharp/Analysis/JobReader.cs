@@ -6,6 +6,8 @@ namespace Tl.Gen.CSharp.Analysis;
 
 public static class JobReader
 {
+    internal const int SlotRow = 8;
+
     public static JobReadResult Read(CSharpCompilation compilation)
     {
         if (compilation is null)
@@ -135,8 +137,8 @@ public static class JobReader
                             return Err(Symbols.Site(p, site), "TLGEN78", $"'{name}.OnActive' columns must be required unmanaged 'in'/'ref'; '{Symbols.Name(p.Type)} {p.Name}' is not.");
                         live.Add(new(p.Name, Symbols.Name(p.Type), p.RefKind == RefKind.Ref ? SlotMode.Reference : SlotMode.Input));
                     }
-                    if (live.Count > 4)
-                        return Err(Symbols.Site(active.Parameters[start + 4], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
+                    if (live.Count > SlotRow)
+                        return Err(Symbols.Site(active.Parameters[start + SlotRow], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI reserves {SlotRow} pointer slots per registered consumer, so the excess parameters bind into the next consumer's slots; declare at most {SlotRow} gameplay parameters.");
                     for (var i = 0; i < live.Count; i++)
                         for (var k = 0; k < i; k++)
                             if (live[i].Mode == live[k].Mode && live[i].Mode != SlotMode.MemoFeed && live[i].TypeName != live[k].TypeName)

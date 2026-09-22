@@ -1,4 +1,5 @@
 using System.Text;
+using Tl.Gen.CSharp.Analysis;
 using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp;
@@ -98,8 +99,8 @@ internal static class JobEmitter
                 {
                     W($"private static void Bind_{name}(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)");
                 W("{");
-                if (job.Slots.Count > 4)
-                    W($"throw new global::System.InvalidOperationException(\"{job.TypeName}: {job.Slots.Count} gameplay parameters exceed the 4-slot consumer ABI; regenerate the binding with a matching Tl generator.\");");
+                if (job.Slots.Count > JobReader.SlotRow)
+                    W($"throw new global::System.InvalidOperationException(\"{job.TypeName}: {job.Slots.Count} gameplay parameters exceed the {JobReader.SlotRow}-slot consumer ABI; regenerate the binding with a matching Tl generator.\");");
                 for (var i = 0; i < job.Slots.Count; i++)
                 {
                     var slot = job.Slots[i];

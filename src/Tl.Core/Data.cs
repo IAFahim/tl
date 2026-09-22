@@ -333,7 +333,9 @@ public readonly unsafe struct TickFrame
 	internal struct Consumer { public int Next, Pair, Offset, OutLanes; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
 
-	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024, MaxPointers = 256;
+	internal const int SlotRow = 8;
+	internal const int MaxPointers = 512;
+	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + sizeof(Consumer) * ConsumerCapacity), 64);
 	static volatile int _gate;
@@ -360,9 +362,9 @@ public readonly unsafe struct TickFrame
 				Volatile.Write(ref slots[slot].Key, key);
 				_pairs++;
 			}
-			if (_consumers == ConsumerCapacity || _consumers * 4 + 4 > MaxPointers) throw new InvalidOperationException("Consumer capacity exhausted.");
+			if (_consumers == ConsumerCapacity || _consumers * SlotRow + SlotRow > MaxPointers) throw new InvalidOperationException("Consumer capacity exhausted.");
 			var consumers = ConsumerAt;
-			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * 4 };
+			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * SlotRow };
 			if (windowConstant) Volatile.Write(ref _windowConstant, 1);
 			Volatile.Write(ref slots[slot].Head, _consumers);
 			Volatile.Write(ref _consumers, _consumers + 1);
@@ -461,9 +463,9 @@ public readonly unsafe struct TickFrame
 		var consumers = ConsumerAt;
 		if (slot < 0)
 		{
-			ulong* keys = stackalloc ulong[4];
-			byte* meta = stackalloc byte[4];
-			var n = Math.Min(consumers[entry].Keys(keys, meta), 4);
+			ulong* keys = stackalloc ulong[SlotRow];
+			byte* meta = stackalloc byte[SlotRow];
+			var n = Math.Min(consumers[entry].Keys(keys, meta), SlotRow);
 			for (var j = 0; j < n && slot < 0; j++) if ((meta[j] & 0x60) == 0) slot = j;
 			for (var j = 0; j < n && slot < 0; j++) if ((meta[j] & 0x20) != 0) slot = j;
 		}
@@ -490,7 +492,7 @@ public readonly unsafe struct TickFrame
 		return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
 	}
 
-	internal static void BindPair(TimelineRef asset, ulong* keys, int keyCount, byte* indices, byte* rSlots, byte* rCols, ref int rCount, ref ulong boundMask)
+	internal static void BindPair(TimelineRef asset, ulong* keys, int keyCount, byte* indices, int* rSlots, int* rCols, ref int rCount, ref ulong boundMask)
 	{
 		var slots = SlotAt;
 		var consumers = ConsumerAt;
@@ -501,10 +503,10 @@ public readonly unsafe struct TickFrame
 				boundMask |= 1ul << entry;
 				var offset = consumers[entry].Offset;
 				consumers[entry].Bind(keys, keyCount, indices + offset);
-				for (var k = 0; k < 4; k++)
+				for (var k = 0; k < SlotRow; k++)
 				{
 					var col = indices[offset + k];
-					if (col != 0) { rSlots[rCount] = (byte)(offset + k); rCols[rCount++] = (byte)(col - 1); }
+					if (col != 0) { rSlots[rCount] = offset + k; rCols[rCount++] = col - 1; }
 				}
 			}
 	}

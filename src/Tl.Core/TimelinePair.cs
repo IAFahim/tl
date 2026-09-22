@@ -403,14 +403,14 @@ public static unsafe class Timeline<TTrack, TClip>
 		var reverse = !forward;
 		var consumers = PairTable.ConsumerAt;
 		int* chains = stackalloc int[256];
-		void** columns = stackalloc void*[256];
-		Unsafe.InitBlock(columns, 0, 256 * (uint)sizeof(void*));
+		void** columns = stackalloc void*[PairTable.MaxPointers];
+		Unsafe.InitBlock(columns, 0, PairTable.MaxPointers * (uint)sizeof(void*));
 		byte** cells = stackalloc byte*[32];
 		LaneMovementRecord** laneRecords = stackalloc LaneMovementRecord*[32];
 		byte* cellBlock = stackalloc byte[128];
 		int* outLane = stackalloc int[64];
-		ulong* outKey = stackalloc ulong[64], slotKeys = stackalloc ulong[4];
-		byte* slotMeta = stackalloc byte[4];
+		ulong* outKey = stackalloc ulong[64], slotKeys = stackalloc ulong[PairTable.SlotRow];
+		byte* slotMeta = stackalloc byte[PairTable.SlotRow];
 		int memo = 0, pairs = 0;
 		var reference = default(TimelineRef);
 		var last = -1;
@@ -433,7 +433,7 @@ public static unsafe class Timeline<TTrack, TClip>
 				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
 				{
 					if (consumers[e].DispatchOnly != 0 || consumers[e].Keys == null) continue;
-					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), 4);
+					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
 					var packed = consumers[e].OutLanes;
 					for (var j = 0; j < n; j++)
 						if ((slotMeta[j] & 0x10) != 0 && outs < 64)
@@ -446,7 +446,7 @@ public static unsafe class Timeline<TTrack, TClip>
 				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
 				{
 					if (consumers[e].DispatchOnly == 0 || consumers[e].Keys == null) continue;
-					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), 4);
+					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
 					var feed = 0;
 					var seen = 0;
 					for (var j = 0; j < n; j++)

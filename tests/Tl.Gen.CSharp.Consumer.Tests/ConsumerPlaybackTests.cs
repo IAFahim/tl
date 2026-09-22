@@ -179,6 +179,14 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
+    public void FourMemoResultsComposeWithLivePlayerColumnsOnOneConsumer()
+    {
+        var result = Driver("Collision");
+
+        Assert.Equal("123,283#123,276#146,319", result);
+    }
+
+    [Fact]
     public void PairExceedingThirtyTwoMemoFedSlotsFailsLoudlyAtFirstApply()
     {
         var result = Driver("MemoCapacity");
@@ -495,6 +503,31 @@ public sealed class ConsumerPlaybackTests
             public static void OnActive(in float a, in float b, in float c, in float d) { }
         }
 
+        public readonly record struct JumpWideClip(int Height);
+
+        public readonly record struct JumpWideTrack(float Scale) : IBlend<JumpWideClip>
+        {
+            public void Blend(in JumpWideClip first, in JumpWideClip second, float factor, out JumpWideClip result) => result = first;
+        }
+
+        public struct JumpY { public float Value; }
+
+        public struct JumpPower { public float Lift; }
+
+        public readonly struct JumpWideMove : ITrack<JumpWideTrack, JumpWideClip>
+        {
+            public static void OnMemo(in Frame<JumpWideTrack, JumpWideClip> frame, out float arc, out int kind, out short phase, out byte style)
+            {
+                arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+                kind = frame.Clip.Height;
+                phase = (short)(frame.Clip.Height / 2);
+                style = (byte)(frame.Clip.Height % 7 + 1);
+            }
+
+            public static void OnActive(in float arc, in int kind, in short phase, in byte style, ref JumpY y, in JumpPower power)
+                => y.Value += arc * power.Lift + kind + phase + style;
+        }
+
         }
 
         namespace TlJumpShape
@@ -735,6 +768,26 @@ public sealed class ConsumerPlaybackTests
                 {
                     return "THROWN|" + exception.Message;
                 }
+            }
+
+            public static string Collision()
+            {
+                using var jump = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<JumpWideTrack, JumpWideClip>(new JumpWideTrack(2f))
+                    .Clip(0, 0u, 2u, new JumpWideClip(5))
+                    .Bake()));
+                var ids = new ushort[] { jump.Index, jump.Index };
+                var positions = new ushort[] { 0, 1 };
+                var y = new JumpY[] { new() { Value = 100f }, new() { Value = 250f } };
+                var power = new JumpPower[] { new() { Lift = 1f }, new() { Lift = 2f } };
+                Timeline<JumpWideTrack, JumpWideClip>.Apply(ids, positions, true, y, power);
+                var forward = F(y[0].Value) + "," + F(y[1].Value);
+                Timeline<JumpWideTrack, JumpWideClip>.Apply(ids, positions, false, y, power);
+                var backward = F(y[0].Value) + "," + F(y[1].Value);
+                power[1].Lift = 3f;
+                Timeline<JumpWideTrack, JumpWideClip>.Apply(ids, positions, true, y, power);
+                var recharged = F(y[0].Value) + "," + F(y[1].Value);
+                return forward + "#" + backward + "#" + recharged;
             }
 
             public static string MemoCapacity()

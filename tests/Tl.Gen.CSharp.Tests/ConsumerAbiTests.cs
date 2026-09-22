@@ -8,7 +8,7 @@ namespace Tl.Gen.CSharp.Tests;
 
 public sealed class ConsumerAbiTests
 {
-    private const string FiveParameterSource = """
+    private const string NineParameterSource = """
         using Tl;
         namespace Domain;
         public readonly record struct Clip(float Amount);
@@ -19,7 +19,7 @@ public sealed class ConsumerAbiTests
         public struct Mass { public float Value; }
         public readonly struct OversizedJob : ITrack<Track, Clip>
         {
-            public static void OnActive(in Frame<Track, Clip> frame, in Mass first, in Mass second, ref Mass third, ref Mass fourth, in Mass fifth) { }
+            public static void OnActive(in Frame<Track, Clip> frame, in Mass first, in Mass second, in Mass third, in Mass fourth, in Mass fifth, ref Mass sixth, ref Mass seventh, ref Mass eighth, ref Mass ninth) { }
         }
         """;
 
@@ -102,22 +102,22 @@ public sealed class ConsumerAbiTests
         """";
 
     [Fact]
-    public void RejectsFiveParameterJobWithDuplicateTypesAndEmitsNothing()
+    public void RejectsNineParameterJobWithDuplicateTypesAndEmitsNothing()
     {
-        var (sources, diagnostics) = ConsumerBindingTests.GenerateWithDiagnostics(FiveParameterSource);
+        var (sources, diagnostics) = ConsumerBindingTests.GenerateWithDiagnostics(NineParameterSource);
         Assert.Empty(sources);
         var diagnostic = Assert.Single(diagnostics);
         Assert.Equal("TLGEN68", diagnostic.Id);
-        Assert.Contains("declares 5 gameplay parameters", diagnostic.GetMessage());
-        Assert.Contains("the consumer ABI reserves 4 pointer slots per registered consumer", diagnostic.GetMessage());
-        Assert.Contains("declare at most 4 gameplay parameters", diagnostic.GetMessage());
+        Assert.Contains("declares 9 gameplay parameters", diagnostic.GetMessage());
+        Assert.Contains("the consumer ABI reserves 8 pointer slots per registered consumer", diagnostic.GetMessage());
+        Assert.Contains("declare at most 8 gameplay parameters", diagnostic.GetMessage());
     }
 
     [Fact]
-    public void ExcessParameterDiagnosticUsesTheFifthParameterSpan()
+    public void ExcessParameterDiagnosticUsesTheNinthParameterSpan()
     {
         var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
-        var tree = CSharpSyntaxTree.ParseText(FiveParameterSource, options, "Domain.cs");
+        var tree = CSharpSyntaxTree.ParseText(NineParameterSource, options, "Domain.cs");
         var compilation = CSharpCompilation.Create("ConsumerAbiSpan" + Guid.NewGuid().ToString("N"),
             [tree], ConsumerBindingTests.ReferencePaths().Select(static path => MetadataReference.CreateFromFile(path)),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
@@ -126,7 +126,7 @@ public sealed class ConsumerAbiTests
         var result = driver.GetRunResult();
 
         var parameter = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>()
-            .Single(static parameter => parameter.Identifier.ValueText == "fifth");
+            .Single(static parameter => parameter.Identifier.ValueText == "ninth");
         var diagnostic = Assert.Single(result.Diagnostics, static candidate => candidate.Id == "TLGEN68");
         Assert.Equal(parameter.Span, diagnostic.Location.SourceSpan);
         Assert.Equal("Domain.cs", diagnostic.Location.GetLineSpan().Path);
@@ -151,10 +151,14 @@ public sealed class ConsumerAbiTests
             new("third", "int", SlotMode.Reference),
             new("fourth", "int", SlotMode.Reference),
             new("fifth", "int", SlotMode.Input),
+            new("sixth", "int", SlotMode.Input),
+            new("seventh", "int", SlotMode.Reference),
+            new("eighth", "int", SlotMode.Reference),
+            new("ninth", "int", SlotMode.Input),
         };
         var binding = JobEmitter.Consumers([new JobConsumer("Track", "Clip", new JobDefinition("Job", slots))]);
 
-        Assert.Contains("5 gameplay parameters exceed the 4-slot consumer ABI; regenerate the binding with a matching Tl generator.", binding);
+        Assert.Contains("9 gameplay parameters exceed the 8-slot consumer ABI; regenerate the binding with a matching Tl generator.", binding);
         var bindStart = binding.IndexOf("private static void Bind_Job(", StringComparison.Ordinal);
         var throwIndex = binding.IndexOf("throw new global::System.InvalidOperationException(", bindStart, StringComparison.Ordinal);
         var writeIndex = binding.IndexOf("__tlIndices[", bindStart, StringComparison.Ordinal);
