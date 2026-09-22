@@ -1411,6 +1411,14 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     static bool FastMixedChunk(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int end, int bound, int minDuration)
     {
         if (bound <= 0) return false;
+        if (Vector256.IsHardwareAccelerated && start + 17 <= end)
+        {
+            ref var idPeek = ref MemoryMarshal.GetReference(ids);
+            ref var positionPeek = ref MemoryMarshal.GetReference(positions);
+            var idPairs = Vector256.Equals(Vector256.LoadUnsafe(ref idPeek, (nuint)start), Vector256.LoadUnsafe(ref idPeek, (nuint)(start + 1)));
+            var positionPairs = Vector256.Equals(Vector256.LoadUnsafe(ref positionPeek, (nuint)start), Vector256.LoadUnsafe(ref positionPeek, (nuint)(start + 1)));
+            if (BitOperations.PopCount(Vector256.ExtractMostSignificantBits(idPairs & positionPairs)) >= 12) return false;
+        }
         var boundLimit = bound >= 65536 ? (ushort)65535 : (ushort)bound;
         var i = start;
         if (Vector.IsHardwareAccelerated)
