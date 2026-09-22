@@ -95,10 +95,9 @@ public static class BakeReader
 
     private static bool TryReadMethod(INamedTypeSymbol type, ITypeSymbol consumer, CSharpCompilation compilation, SyntaxNode site, List<DeclarationDiagnostic> errors, out IMethodSymbol method)
     {
-        var candidates = type.GetMembers("Bake").OfType<IMethodSymbol>().Where(candidate => !candidate.IsImplicitlyDeclared
-            && candidate.IsStatic && candidate.ReturnsVoid && candidate.Arity == 0 && candidate.MethodKind == MethodKind.Ordinary
+        var candidates = type.GetMembers("Bake").OfType<IMethodSymbol>().Where(candidate => candidate is { IsImplicitlyDeclared: false, IsStatic: true, ReturnsVoid: true, Arity: 0, MethodKind: MethodKind.Ordinary }
             && compilation.IsSymbolAccessibleWithin(candidate, compilation.Assembly)
-            && candidate.Parameters.All(static parameter => parameter.RefKind != RefKind.Out && !parameter.IsOptional && !parameter.IsParams)).ToArray();
+            && candidate.Parameters.All(static parameter => parameter.RefKind != RefKind.Out && parameter is { IsOptional: false, IsParams: false })).ToArray();
         if (candidates.Length == 1)
         {
             method = candidates[0];

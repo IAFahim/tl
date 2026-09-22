@@ -36,7 +36,7 @@ public static class Timeline<T>
         => TimelineLane<T>.Advance(positions, next, forward);
 }
 
-internal ref struct TimelineLane<T>
+internal readonly ref struct TimelineLane<T>
     where T : unmanaged, ITimelineLane<T>
 {
     const int Chunk = 4096;
@@ -409,7 +409,7 @@ internal static class LaneOps
                     next = Vector256.ConditionalSelect(skipMask, pos, next);
                     next.StoreUnsafe(ref n, (nuint)i);
                 }
-                (var wideLo, var wideHi) = Vector256.Widen(pos);
+                var (wideLo, wideHi) = Vector256.Widen(pos);
                 var gatherLo = Avx2.PermuteVar8x32(table, wideLo.AsInt32());
                 var gatherHi = Avx2.PermuteVar8x32(table, wideHi.AsInt32());
                 var skipLo = Vector256.GreaterThan(wideLo, lastWide).AsSingle();
@@ -443,7 +443,7 @@ internal static class LaneOps
                     next = Vector128.ConditionalSelect(skipMask, pos, next);
                     next.StoreUnsafe(ref n, (nuint)i);
                 }
-                (var wideLo, var wideHi) = Vector128.Widen(pos);
+                var (wideLo, wideHi) = Vector128.Widen(pos);
                 var effectLo = Vector128.LoadUnsafe(ref e, (nuint)i);
                 Vector128.ConditionalSelect(Vector128.GreaterThan(wideLo, lastWide).AsSingle(), effectLo, effectLo + Permute8(tableLow, tableHigh, wideLo, laneLow, laneHigh)).StoreUnsafe(ref e, (nuint)i);
                 var effectHi = Vector128.LoadUnsafe(ref e, (nuint)(i + 4));
@@ -492,10 +492,10 @@ internal static class LaneOps
                     var next = Vector256.ConditionalSelect(moveMask, index, pos);
                     next.StoreUnsafe(ref n, (nuint)i);
                 }
-                (var indexLo, var indexHi) = Vector256.Widen(index);
+                var (indexLo, indexHi) = Vector256.Widen(index);
                 var gatherLo = Avx2.PermuteVar8x32(table, indexLo.AsInt32());
                 var gatherHi = Avx2.PermuteVar8x32(table, indexHi.AsInt32());
-                (var posLo, var posHi) = Vector256.Widen(pos);
+                var (posLo, posHi) = Vector256.Widen(pos);
                 Vector256<float> skipLo, skipHi;
                 if (wrap)
                 {
@@ -539,8 +539,8 @@ internal static class LaneOps
                     var next = Vector128.ConditionalSelect(moveMask, index, pos);
                     next.StoreUnsafe(ref n, (nuint)i);
                 }
-                (var indexLo, var indexHi) = Vector128.Widen(index);
-                (var posLo, var posHi) = Vector128.Widen(pos);
+                var (indexLo, indexHi) = Vector128.Widen(index);
+                var (posLo, posHi) = Vector128.Widen(pos);
                 var effectLo = Vector128.LoadUnsafe(ref e, (nuint)i);
                 Vector128.ConditionalSelect(wrap ? Vector128.GreaterThan(posLo, lastWide).AsSingle() : (Vector128.Equals(posLo, zeroUint) | Vector128.GreaterThan(posLo, durationWide)).AsSingle(), effectLo, effectLo + Permute8(tableLow, tableHigh, indexLo, laneLow, laneHigh)).StoreUnsafe(ref e, (nuint)i);
                 var effectHi = Vector128.LoadUnsafe(ref e, (nuint)(i + 4));
@@ -575,7 +575,7 @@ internal static class LaneOps
                 next.StoreUnsafe(ref n, (nuint)i);
             }
             var clamped = Vector256.Min(pos, durationVector);
-            (var wideLo, var wideHi) = Vector256.Widen(clamped);
+            var (wideLo, wideHi) = Vector256.Widen(clamped);
             var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
             var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
             var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
@@ -622,7 +622,7 @@ internal static class LaneOps
                 next.StoreUnsafe(ref n, (nuint)i);
             }
             var clamped = Vector256.Min(pos, durationVector);
-            (var wideLo, var wideHi) = Vector256.Widen(clamped);
+            var (wideLo, wideHi) = Vector256.Widen(clamped);
             var gatherLo = Avx2.GatherVector256(byp, wideLo.AsInt32(), 4);
             var gatherHi = Avx2.GatherVector256(byp, wideHi.AsInt32(), 4);
             Vector256<float> skipLo, skipHi;
@@ -633,7 +633,7 @@ internal static class LaneOps
             }
             else
             {
-                (var posLo, var posHi) = Vector256.Widen(pos);
+                var (posLo, posHi) = Vector256.Widen(pos);
                 skipLo = (Vector256.Equals(posLo, zeroUint) | Vector256.GreaterThan(posLo, durationWide)).AsSingle();
                 skipHi = (Vector256.Equals(posHi, zeroUint) | Vector256.GreaterThan(posHi, durationWide)).AsSingle();
             }
@@ -764,11 +764,11 @@ internal static class LaneOps
         while (i + 16 <= limit && Avx2.IsSupported)
         {
             var idv = Vector256.LoadUnsafe(ref idRef, (nuint)i);
-            (var idLo, var idHi) = Vector256.Widen(idv);
+            var (idLo, idHi) = Vector256.Widen(idv);
             var mLo = Avx2.GatherVector256((int*)motion, idLo.AsInt32(), 4).AsUInt32();
             var mHi = Avx2.GatherVector256((int*)motion, idHi.AsInt32(), 4).AsUInt32();
             var pos = Vector256.LoadUnsafe(ref p, (nuint)i);
-            (var posLo, var posHi) = Vector256.Widen(pos);
+            var (posLo, posHi) = Vector256.Widen(pos);
             Vector256<uint> nextLo, nextHi;
             if (forward)
                 (nextLo, nextHi) = (AdvanceForwardWide(posLo, mLo & low, Vector256.LessThan(mLo.AsInt32(), Vector256<int>.Zero), one, zero), AdvanceForwardWide(posHi, mHi & low, Vector256.LessThan(mHi.AsInt32(), Vector256<int>.Zero), one, zero));
@@ -785,7 +785,7 @@ internal static class LaneOps
             while (i < end)
             {
                 var idv = Vector128.LoadUnsafe(ref idRef, (nuint)i);
-                (var idFirst, var idSecond) = Vector128.Widen(idv);
+                var (idFirst, idSecond) = Vector128.Widen(idv);
                 var mFirst = Vector128.Create(
                     motion[idFirst.ToScalar()],
                     motion[idFirst.GetElement(1)],
@@ -797,7 +797,7 @@ internal static class LaneOps
                     motion[idSecond.GetElement(2)],
                     motion[idSecond.GetElement(3)]);
                 var pos = Vector128.LoadUnsafe(ref p, (nuint)i);
-                (var posFirst, var posSecond) = Vector128.Widen(pos);
+                var (posFirst, posSecond) = Vector128.Widen(pos);
                 Vector128<uint> nextFirst, nextSecond;
                 if (forward)
                     (nextFirst, nextSecond) = (AdvanceForwardNarrow(posFirst, mFirst & Vector128.Create(0xFFFFu), Vector128.LessThan(mFirst.AsInt32(), Vector128<int>.Zero), oneNarrow, zeroNarrow), AdvanceForwardNarrow(posSecond, mSecond & Vector128.Create(0xFFFFu), Vector128.LessThan(mSecond.AsInt32(), Vector128<int>.Zero), oneNarrow, zeroNarrow));
@@ -865,8 +865,6 @@ internal static class LaneOps
 
 internal static unsafe class LaneMovement
 {
-    internal const ushort Skipped = LaneMovementRecord.Skipped;
-
     internal static void Bake(float* forward, float* backward, ushort duration, bool looping, LaneMovementRecord* forwardRecords, LaneMovementRecord* backwardRecords, float* backwardByPosition)
     {
         var skipped = LaneMovementRecord.Skipped;
@@ -913,7 +911,6 @@ internal static unsafe class LaneMovement
 internal static unsafe class LaneAccelerator<T>
     where T : unmanaged, ITimelineLane<T>
 {
-    public const ushort Skipped = LaneMovementRecord.Skipped;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static float* ForwardEffects;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
@@ -946,15 +943,9 @@ static unsafe class LaneTable<TTrack, TClip>
     where TClip : unmanaged
 {
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    public static float* Forward;
+    private static float* Forward;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    public static float* Backward;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    public static LaneMovementRecord* ForwardRecords;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    public static LaneMovementRecord* BackwardRecords;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    public static float* BackwardByPosition;
+    private static float* Backward;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static ushort Duration;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
@@ -991,9 +982,6 @@ static unsafe class LaneTable<TTrack, TClip>
         var previousBackward = Backward;
         Forward = forward;
         Backward = backward;
-        ForwardRecords = forwardRecords;
-        BackwardRecords = backwardRecords;
-        BackwardByPosition = backwardByPosition;
         _recordBlock = block;
         Duration = duration;
         Looping = looping;

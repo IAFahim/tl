@@ -18,16 +18,10 @@ public enum FrameFlags : byte
 }
 
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct TimelineState
+public readonly struct TimelineState(uint asset, ushort position = 0)
 {
-    public readonly uint Asset;
-    public readonly ushort Position;
-
-    public TimelineState(uint asset, ushort position = 0)
-    {
-        Asset = asset;
-        Position = position;
-    }
+    public readonly uint Asset = asset;
+    public readonly ushort Position = position;
 }
 
 public static class TimelineMovement

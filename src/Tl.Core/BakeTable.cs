@@ -30,7 +30,7 @@ static unsafe class BakeTable
 {
     internal struct Entry
     {
-        public int Next, Pair;
+        public int Next;
         public int ParamCount;
         public ulong* ParamKeys;
         public delegate*<byte**, void> Invoke;
@@ -66,7 +66,6 @@ static unsafe class BakeTable
             if (_bakes == Capacity) throw new InvalidOperationException("Bake capacity exhausted.");
             var entry = EntryAt + _bakes;
             entry->Next = -1;
-            entry->Pair = slot;
             entry->ParamCount = paramKeys.Length;
             if (paramKeys.Length > 0)
             {

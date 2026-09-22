@@ -24,7 +24,7 @@ static unsafe class TimelineTable
     }
 
     static byte* _block;
-    static uint* _motion;
+    static readonly uint* _motion;
     static int _capacity;
     static int _gate;
     static int _used;

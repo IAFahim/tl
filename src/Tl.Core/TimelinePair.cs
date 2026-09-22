@@ -114,7 +114,7 @@ public static unsafe class Timeline<TTrack, TClip>
 				reference.Resolve(new Span<int>(chains, pairs), key);
 				lastIndex = index;
 			}
-			if (reference.Select(reverse, positions[i], out _, out var tick, out var flags))
+			if (reference.Select(reverse, positions[i], out var tick, out var flags))
 				reference.ExecuteDispatch(reverse, tick, flags, i, new Span<int>(chains, pairs), null);
 		}
 	}
@@ -130,7 +130,7 @@ public static unsafe class Timeline<TTrack, TClip>
 		int* chains = stackalloc int[pairs];
 		reference.Resolve(new Span<int>(chains, pairs), key);
 		for (var i = 0; i < positions.Length; i++)
-			if (reference.Select(reverse, positions[i], out _, out var tick, out var flags))
+			if (reference.Select(reverse, positions[i], out var tick, out var flags))
 				reference.ExecuteDispatch(reverse, tick, flags, i, new Span<int>(chains, pairs), null);
 	}
 
@@ -144,7 +144,7 @@ public static unsafe class Timeline<TTrack, TClip>
 		var pairs = checked((int)reference.PairCount);
 		int* chains = stackalloc int[pairs];
 		reference.Resolve(new Span<int>(chains, pairs), key);
-		if (reference.Select(reverse, position, out _, out var tick, out var flags))
+		if (reference.Select(reverse, position, out var tick, out var flags))
 			reference.ExecuteDispatch(reverse, tick, flags, 0, new Span<int>(chains, pairs), null);
 	}
 
@@ -213,7 +213,7 @@ public static unsafe class Timeline<TTrack, TClip>
 				ref var record = ref slot->BackwardRecords[position];
 				var next = record.Next;
 				if (next == LaneMovementRecord.Skipped) return;
-				if (!reference.Select(true, position, out _, out var tick, out var flags)) return;
+				if (!reference.Select(true, position, out var tick, out var flags)) return;
 				reference.ExecuteDispatch(true, tick, flags, row, chains, null);
 				position = next;
 			}
@@ -221,8 +221,8 @@ public static unsafe class Timeline<TTrack, TClip>
 		}
 		while (position != to && budget-- > 0)
 		{
-			if ((uint)position >= (uint)slot->Duration) return;
-			if (!reference.Select(false, position, out _, out var tick, out var flags)) return;
+			if (position >= slot->Duration) return;
+			if (!reference.Select(false, position, out var tick, out var flags)) return;
 			reference.ExecuteDispatch(false, tick, flags, row, chains, null);
 			var next = slot->ForwardRecords[position].Next;
 			if (next == LaneMovementRecord.Skipped) return;
@@ -341,7 +341,7 @@ public static unsafe class Timeline<TTrack, TClip>
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-	public static unsafe void ApplyLanes<TIndex, TPosition, TEffect0, TEffect1>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect0> effects0, Span<TEffect1> effects1)
+	public static void ApplyLanes<TIndex, TPosition, TEffect0, TEffect1>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect0> effects0, Span<TEffect1> effects1)
 		where TIndex : struct
 		where TPosition : struct
 		where TEffect0 : unmanaged
@@ -386,7 +386,7 @@ public static unsafe class Timeline<TTrack, TClip>
 		=> throw new ArgumentException($"{Head} has no frozen OnMemo lane of type {typeof(TLane).Name} for column {column}.");
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-	public static unsafe void Apply<TIndex, TPosition, TEffect, TInput>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects, ReadOnlySpan<TInput> input)
+	public static void Apply<TIndex, TPosition, TEffect, TInput>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects, ReadOnlySpan<TInput> input)
 		where TIndex : struct where TPosition : struct where TEffect : unmanaged where TInput : unmanaged
 	{
 		if (positions.Length != indices.Length || positions.Length != effects.Length || positions.Length != input.Length)
@@ -411,7 +411,7 @@ public static unsafe class Timeline<TTrack, TClip>
 		int* outLane = stackalloc int[64];
 		ulong* outKey = stackalloc ulong[64], slotKeys = stackalloc ulong[4];
 		byte* slotMeta = stackalloc byte[4];
-		int memo = 0, live = 0, pairs = 0;
+		int memo = 0, pairs = 0;
 		var reference = default(TimelineRef);
 		var last = -1;
 		for (var i = 0; i < clocks.Length;)
@@ -419,10 +419,12 @@ public static unsafe class Timeline<TTrack, TClip>
 			var id = ids[i];
 			var end = i + 1;
 			while (end < clocks.Length && ids[end] == id) end++;
+			int live;
 			if (id != last)
 			{
 				last = id;
-				memo = live = 0;
+				memo = 0;
+				live = 0;
 				Resolve(id);
 				reference = TimelineTable.Reference(id);
 				pairs = checked((int)reference.PairCount);
@@ -480,7 +482,7 @@ public static unsafe class Timeline<TTrack, TClip>
 			for (var r = i; r < end; r++)
 			{
 				var position = clocks[r];
-				if (!reference.Select(reverse, position, out _, out var tick, out var flags)) continue;
+				if (!reference.Select(reverse, position, out var tick, out var flags)) continue;
 				for (var k = 0; k < memo; k++) *(float*)cells[k] = laneRecords[k][position].Effect;
 				reference.ExecuteDispatch(reverse, tick, flags, r, new Span<int>(chains, pairs), columns);
 			}
