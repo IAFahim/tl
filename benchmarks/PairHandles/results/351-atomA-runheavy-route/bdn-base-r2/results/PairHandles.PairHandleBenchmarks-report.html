@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>PairHandles.PairHandleBenchmarks-20260923-015531</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.401
+  [Host] : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Job </th><th>Toolchain       </th><th>IterationCount</th><th>IterationTime</th><th>WarmupCount</th><th>Shape         </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneUniform</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneUniform</td><td>32.69 &mu;s</td><td>0.117 &mu;s</td><td>0.098 &mu;s</td><td>32.67 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairOne</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairOne</td><td>29.57 &mu;s</td><td>0.301 &mu;s</td><td>0.267 &mu;s</td><td>29.58 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairRuns8</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairRuns8</td><td>37.47 &mu;s</td><td>0.069 &mu;s</td><td>0.065 &mu;s</td><td>37.48 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairAlternating8</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairAlternating8</td><td>66.70 &mu;s</td><td>0.216 &mu;s</td><td>0.192 &mu;s</td><td>66.71 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairRuns8Waves</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairRuns8Waves</td><td>33.22 &mu;s</td><td>0.070 &mu;s</td><td>0.066 &mu;s</td><td>33.23 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairBlocks8Waves</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairBlocks8Waves</td><td>47.80 &mu;s</td><td>0.057 &mu;s</td><td>0.054 &mu;s</td><td>47.79 &mu;s</td><td>-</td>
+</tr><tr><td>Advance</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>PairA(...)Waves [21]</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Advance</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>PairA(...)Waves [21]</td><td>62.23 &mu;s</td><td>0.071 &mu;s</td><td>0.066 &mu;s</td><td>62.24 &mu;s</td><td>-</td>
+</tr></tbody></table>
+</body>
+</html>

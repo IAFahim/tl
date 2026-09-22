@@ -1,0 +1,25 @@
+# started on Wed Sep 23 01:40:56 2026
+
+
+ Performance counter stats for 'benchmarks/PairHandles/bin/Release/net10.0/PairHandles --counters PairBlocks8Waves --counters-iters 20000':
+
+     <not counted>      cpu_atom/cycles/u                                                       (0.00%)
+     3,618,007,671      cpu_core/cycles/u                                                     
+     <not counted>      cpu_atom/instructions/u                                                 (0.00%)
+    18,926,692,411      cpu_core/instructions/u                                               
+     <not counted>      cpu_atom/branches/u                                                     (0.00%)
+     3,014,341,010      cpu_core/branches/u                                                   
+     <not counted>      cpu_atom/branch-misses/u                                                (0.00%)
+         2,049,229      cpu_core/branch-misses/u                                              
+     <not counted>      cpu_atom/cache-references/u                                             (0.00%)
+           397,324      cpu_core/cache-references/u                                           
+     <not counted>      cpu_atom/cache-misses/u                                                 (0.00%)
+           259,527      cpu_core/cache-misses/u                                               
+            684.54 msec task-clock:u                                                          
+
+       0.747475917 seconds time elapsed
+
+       0.737566000 seconds user
+       0.008958000 seconds sys
+
+

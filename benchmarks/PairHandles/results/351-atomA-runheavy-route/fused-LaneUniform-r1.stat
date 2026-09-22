@@ -1,0 +1,25 @@
+# started on Wed Sep 23 02:08:01 2026
+
+
+ Performance counter stats for '/home/i/GitHub/tl-w351/benchmarks/PairHandles/bin/Release/net10.0/PairHandles --counters fused-LaneUniform --counters-iters 20000':
+
+     <not counted>      cpu_atom/cycles/u                                                       (0.00%)
+     2,251,342,299      cpu_core/cycles/u                                                     
+     <not counted>      cpu_atom/instructions/u                                                 (0.00%)
+     7,020,485,878      cpu_core/instructions/u                                               
+     <not counted>      cpu_atom/branches/u                                                     (0.00%)
+       844,431,873      cpu_core/branches/u                                                   
+     <not counted>      cpu_atom/branch-misses/u                                                (0.00%)
+         1,218,813      cpu_core/branch-misses/u                                              
+     <not counted>      cpu_atom/cache-references/u                                             (0.00%)
+           332,887      cpu_core/cache-references/u                                           
+     <not counted>      cpu_atom/cache-misses/u                                                 (0.00%)
+           139,823      cpu_core/cache-misses/u                                               
+            411.90 msec task-clock:u                                                          
+
+       0.461282761 seconds time elapsed
+
+       0.454407000 seconds user
+       0.006974000 seconds sys
+
+
