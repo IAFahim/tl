@@ -6,6 +6,10 @@ namespace Tl.Gen.CSharp.Analysis;
 
 public static class JobReader
 {
+    internal const int SlotRow = 40;
+    internal const int ActiveParameters = 30;
+    internal const int MemoResults = 10;
+
     public static JobReadResult Read(CSharpCompilation compilation)
     {
         if (compilation is null)
@@ -82,8 +86,8 @@ public static class JobReader
                         return Err(Symbols.Site(p, site), "TLGEN76", $"'{name}.OnMemo' runs at fold; only unmanaged 'out'/'ref' results exist — 'in' has no caller.");
                     var typeName = Symbols.Name(p.Type);
                     var size = ResultSize(p.Type);
-                    if (size == 0 || slots.Count >= 4)
-                        return Err(Symbols.Site(p, site), "TLGEN79", $"'{name}.OnMemo' >4-byte/5+ results — pending.");
+                    if (size == 0 || slots.Count >= MemoResults)
+                        return Err(Symbols.Site(p, site), "TLGEN79", $"'{name}.OnMemo' folds at most {MemoResults} unmanaged results of at most 8 bytes each ('{Symbols.Name(p.Type)} {p.Name}' is not one).");
                     slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference, size));
                 }
                 if (slots.Count == 0)
@@ -125,7 +129,7 @@ public static class JobReader
                             && Symbols.Name(active.Parameters[index].Type) == ResultName(feed))
                         {
                             var fed = active.Parameters[index++];
-                            live.Add(new(fed.Name, Symbols.Name(fed.Type), SlotMode.MemoFeed));
+                            live.Add(new(fed.Name, Symbols.Name(fed.Type), SlotMode.MemoFeed, (byte)ResultSize(fed.Type)));
                             feed++;
                         }
                     for (; index < active.Parameters.Length; index++)
@@ -135,14 +139,14 @@ public static class JobReader
                             return Err(Symbols.Site(p, site), "TLGEN78", $"'{name}.OnActive' columns must be required unmanaged 'in'/'ref'; '{Symbols.Name(p.Type)} {p.Name}' is not.");
                         live.Add(new(p.Name, Symbols.Name(p.Type), p.RefKind == RefKind.Ref ? SlotMode.Reference : SlotMode.Input));
                     }
-                    if (live.Count > 4)
-                        return Err(Symbols.Site(active.Parameters[start + 4], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI reserves 4 pointer slots per registered consumer, so a fifth parameter binds into the next consumer's slots; declare at most 4 gameplay parameters.");
+                    if (live.Count > ActiveParameters)
+                        return Err(Symbols.Site(active.Parameters[start + ActiveParameters], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI holds {ActiveParameters} gameplay columns per registered consumer (memo feeds included); declare at most {ActiveParameters}.");
                     for (var i = 0; i < live.Count; i++)
                         for (var k = 0; k < i; k++)
-                            if (live[i].Mode == live[k].Mode && live[i].Mode != SlotMode.MemoFeed && live[i].TypeName != live[k].TypeName)
+                            if (live[i].Mode == live[k].Mode && live[i].Mode != SlotMode.MemoFeed && live[i].TypeName == live[k].TypeName)
                             {
                                 var kind = live[i].Mode == SlotMode.Input ? "in" : "ref";
-                                return Err(Symbols.Site(active, site), "TLGEN81", $"'{name}.OnActive' declares multiple distinct live '{kind}' column types ({live[k].TypeName}, {live[i].TypeName}); the shipped Apply feeds one typed caller column — declare at most one '{kind}' type (wider surface pending).");
+                                return Err(Symbols.Site(active.Parameters[start + i], site), "TLGEN81", $"'{name}.OnActive' declares two live '{kind} {live[i].TypeName}' columns ('{live[k].Name}', '{live[i].Name}'); TypeKey binding cannot distinguish same-type columns — give them distinct types.");
                             }
                 }
             }
@@ -166,6 +170,7 @@ public static class JobReader
                 { SpecialType: SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte } => 1,
                 { SpecialType: SpecialType.System_Char or SpecialType.System_Int16 or SpecialType.System_UInt16 } => 2,
                 { SpecialType: SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Single } => 4,
+                { SpecialType: SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Double } => 8,
                 _ => 0,
             };
 

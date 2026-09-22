@@ -55,6 +55,7 @@ public sealed class ConsumerBindingTests
                 => result = new BuffClip(first.Amount + (second.Amount - first.Amount) * factor);
         }
         public struct Armor { public float Value; }
+        public struct Mana { public float Value; }
         public readonly struct ApplyBuff : ITrack<BuffTrack, BuffClip>
         {
             public static void OnActive(in Frame<BuffTrack, BuffClip> frame, ref Armor armor) { }
@@ -368,11 +369,11 @@ public sealed class ConsumerBindingTests
 
         var changed = unrelated.ReplaceSyntaxTree(
             unrelated.SyntaxTrees.Single(static tree => tree.FilePath == "Domain.cs"),
-            Tree(StandaloneSource.Replace("ref Armor armor) { }", "ref Armor armor, ref Armor extra) { }", StringComparison.Ordinal), "Domain.cs"));
+            Tree(StandaloneSource.Replace("ref Armor armor) { }", "ref Armor armor, ref Mana extra) { }", StringComparison.Ordinal), "Domain.cs"));
         driver = driver.RunGenerators(changed);
         Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver));
         Assert.NotEqual(original, Sources(driver));
-        Assert.Contains("var @extra = (global::Domain.Armor*)__tlColumns[1];", Assert.Single(Sources(driver)).Value);
+        Assert.Contains("var @extra = (global::Domain.Mana*)__tlColumns[1];", Assert.Single(Sources(driver)).Value);
     }
 
     [Fact]

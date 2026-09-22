@@ -91,43 +91,46 @@ public sealed unsafe class MeasuredLanes : IDisposable
         if (Source != reference.Address) throw new ArgumentException("Measured lanes were measured from a different TimelineAsset instance.");
     }
 
-    static int GatherLanes(int* chains, int pairs, ulong* laneKeys, byte* resLane, ulong* poolKeys, int* poolLane, out int poolCount)
+    static int GatherLanes(int* chains, int pairs, ulong* laneKeys, int* resLane, ulong* poolKeys, int* poolLane, out int poolCount)
     {
         var consumers = PairTable.ConsumerAt;
         var lanes = 0;
         var results = 0;
         var pools = 0;
-        var rKeys = stackalloc ulong[4];
-        var rMeta = stackalloc byte[4];
-        int Pool(ulong key)
+        var rKeys = stackalloc ulong[PairTable.SlotRow];
+        var rMeta = stackalloc byte[PairTable.SlotRow];
+        int Pool(ulong key, byte width, bool shared)
         {
-            for (var q = 0; q < pools; q++) if (poolKeys[q] == key) return poolLane[q];
-            poolKeys[pools] = key;
-            poolLane[pools] = lanes;
-            pools++;
-            if (laneKeys != null) laneKeys[lanes] = key;
-            return lanes++;
+            if (shared)
+                for (var q = 0; q < pools; q++) if (poolKeys[q] == key) return poolLane[q];
+            var lane = lanes;
+            if (shared) { poolKeys[pools] = key; poolLane[pools++] = lane; }
+            if (laneKeys != null) laneKeys[lane] = key;
+            if (width == 8)
+            {
+                if (laneKeys != null) laneKeys[lane + 1] = key ^ 0x8000000000000000UL;
+                lanes += 2;
+            }
+            else lanes++;
+            return lane;
         }
         for (var p = 0; p < pairs; p++)
             for (var e = chains[p]; e >= 0; e = consumers[e].Next)
             {
                 if (consumers[e].DispatchOnly != 0) continue;
                 var keys = consumers[e].Keys;
-                if (keys == null) { Pool(TypeKey<float>.Value); continue; }
-                var n = Math.Min(keys(rKeys, rMeta), 4);
-                var packed = 0;
+                if (keys == null) { _ = Pool(TypeKey<float>.Value, 4, true); continue; }
+                var n = Math.Min(keys(rKeys, rMeta), PairTable.SlotRow);
                 var outs = 0;
                 for (var j = 0; j < n; j++)
                 {
                     var shared = (rMeta[j] & 0x10) == 0;
-                    var lane = shared ? Pool(rKeys[j]) : lanes++;
-                    if (laneKeys != null) laneKeys[lane] = rKeys[j];
-                    if (resLane != null) resLane[results++] = (byte)lane;
-                    if (!shared) packed |= lane << (8 * outs++);
+                    var lane = Pool(rKeys[j], (byte)(rMeta[j] & 0xF), shared);
+                    if (resLane != null) resLane[results++] = lane;
+                    if (!shared) consumers[e].OutLanes[outs++] = lane;
                 }
-                consumers[e].OutLanes = packed;
             }
-        if (lanes == 0) Pool(TypeKey<float>.Value);
+        if (lanes == 0) _ = Pool(TypeKey<float>.Value, 4, true);
         poolCount = pools;
         return lanes;
     }
@@ -138,8 +141,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var span = new Span<int>(chains, pairs);
         if (pairKey != 0) reference.Resolve(span, pairKey);
         else reference.Resolve(span);
-        ulong* scratchKeys = stackalloc ulong[256];
-        int* scratchLanes = stackalloc int[256];
+        ulong* scratchKeys = stackalloc ulong[LaneBound];
+        int* scratchLanes = stackalloc int[LaneBound];
         return GatherLanes(chains, pairs, null, null, scratchKeys, scratchLanes, out _);
     }
 
@@ -151,14 +154,14 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var consumers = PairTable.ConsumerAt;
         var lanes = measured.LaneCount;
         var laneKeys = measured.LaneKeys;
-        byte* resLane = stackalloc byte[256];
-        ulong* poolKeys = stackalloc ulong[256];
-        int* poolLane = stackalloc int[256];
+        int* resLane = stackalloc int[LaneBound];
+        ulong* poolKeys = stackalloc ulong[LaneBound];
+        int* poolLane = stackalloc int[LaneBound];
         var built = GatherLanes(chains, pairs, laneKeys, resLane, poolKeys, poolLane, out var pools);
         if (built != lanes) throw new InvalidOperationException("Measured lane count changed between passes.");
         byte* laneCell = stackalloc byte[lanes * 4];
-        void** columns = stackalloc void*[256];
-        Unsafe.InitBlock(columns, 0, 256 * (uint)sizeof(void*));
+        void** columns = stackalloc void*[PairTable.MaxPointers];
+        Unsafe.InitBlock(columns, 0, PairTable.MaxPointers * (uint)sizeof(void*));
         var res = 0;
         for (var p = 0; p < pairs; p++)
             for (var e = chains[p]; e >= 0; e = consumers[e].Next)
@@ -168,9 +171,9 @@ public sealed unsafe class MeasuredLanes : IDisposable
                 var offset = consumers[e].Offset;
                 for (var j = 0; j < n; j++) columns[offset + j] = laneCell + resLane[res++] * 4;
             }
-        byte* indices = stackalloc byte[256];
-        byte* refreshSlots = stackalloc byte[256];
-        byte* refreshColumns = stackalloc byte[256];
+        byte* indices = stackalloc byte[PairTable.MaxPointers];
+        int* refreshSlots = stackalloc int[PairTable.MaxPointers];
+        int* refreshColumns = stackalloc int[PairTable.MaxPointers];
         var refreshCount = 0;
         ulong boundMask = 0;
         PairTable.BindPair(reference, poolKeys, pools, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);
@@ -199,6 +202,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
         }
         for (var l = 0; l < lanes; l++) { measured.LaneForward[l][duration] = 0f; measured.LaneBackward[l][duration] = 0f; }
     }
+
+    internal const int LaneBound = PairTable.MaxPointers / PairTable.SlotRow * (PairTable.MemoResults * 2 + 1);
 
     const int CacheStride = 64;
 

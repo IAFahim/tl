@@ -182,12 +182,13 @@ public sealed class TwoMethodShapeTests
     }
 
     [Theory]
-    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out long a) { a = 0; }")]
-    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out float a, out float b, out float c, out float d, out float e) { a = b = c = d = e = 0f; }")]
-    public void PendingMemoShapesReportTlgen79(string memo)
+    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out Oversized a) { a = default; }")]
+    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out float a, out float b, out float c, out float d, out float e, out float f, out float g, out float h, out float i, out float j, out float k) { a = b = c = d = e = f = g = h = i = j = k = 0f; }")]
+    public void ExcessMemoShapesReportTlgen79(string memo)
     {
         var result = Read($$"""
             {{Domain}}
+            public readonly struct Oversized { public long Wide; public long Wider; }
             public readonly struct Pending : ITrack<DamageTrack, DamageClip>
             {
                 {{memo}}
@@ -195,6 +196,45 @@ public sealed class TwoMethodShapeTests
             """);
 
         AssertConsumerRejected(result, "TLGEN79");
+    }
+
+    [Fact]
+    public void EightByteMemoResultsAreLegal()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Wide : ITrack<DamageTrack, DamageClip>
+            {
+                public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out long serial, out double precise) { serial = 0; precise = 0f; }
+            }
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.Equal(
+        [
+            new TimelineSlot("serial", "long", SlotMode.Output, 8),
+            new TimelineSlot("precise", "double", SlotMode.Output, 8),
+        ], consumer.Job.Slots);
+        var binding = JobEmitter.Consumers(result.Consumers);
+        Assert.Contains("__tlKeys[0] = global::Tl.TypeKey<long>.Value; __tlMeta[0] = 24;", binding);
+        Assert.Contains("__tlKeys[1] = global::Tl.TypeKey<double>.Value; __tlMeta[1] = 24;", binding);
+    }
+
+    [Fact]
+    public void TenMemoResultsStayLegalAtTheNewBound()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Full : ITrack<DamageTrack, DamageClip>
+            {
+                public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out float a, out int b, out byte c, out short d, out long e, out double f, out char g, out bool h, out uint i, out ulong j) { a = 0; b = 0; c = 0; d = 0; e = 0; f = 0; g = '0'; h = false; i = 0; j = 0; }
+            }
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.Equal(10, consumer.Job.Slots.Count);
     }
 
     [Fact]
@@ -337,14 +377,14 @@ public sealed class TwoMethodShapeTests
             {{Domain}}
             public readonly struct Oversized : ITrack<DamageTrack, DamageClip>
             {
-                public static void OnActive(in float a, in float b, ref float c, in float d, in float e) { }
+                public static void OnActive(in float a, in float b, ref float c, in float d, in float e, in float f, in float g, in float h, in float i, in float j, in float k, in float l, in float m, in float n, in float o, in float p, in float q, in float r, in float s, in float t, in float u, in float v, in float w, in float x, in float y, in float z, in float aa, in float ab, in float ac, ref float ad, in float ae) { }
             }
             """);
 
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("TLGEN68", diagnostic.Code);
-        Assert.Contains("declares 5 gameplay parameters", diagnostic.Message);
-        Assert.Contains("declare at most 4 gameplay parameters", diagnostic.Message);
+        Assert.Contains("declares 31 gameplay parameters", diagnostic.Message);
+        Assert.Contains("declare at most 30.", diagnostic.Message);
     }
 
     [Theory]
@@ -404,7 +444,7 @@ public sealed class TwoMethodShapeTests
     }
 
     [Fact]
-    public void TwoDistinctLiveInColumnTypesReportTlgen81()
+    public void TwoDistinctLiveInColumnTypesAreLegal()
     {
         var result = Read($$"""
             {{Domain}}
@@ -420,16 +460,37 @@ public sealed class TwoMethodShapeTests
             }
             """);
 
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.Equal(2, consumer.Job.LiveColumns.Count);
+    }
+
+    [Fact]
+    public void SameTypeDuplicateInColumnsReportTlgen81()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly record struct RatioClip(float Amount);
+            public readonly record struct RatioTrack(float Scale) : IBlend<RatioClip>
+            {
+                public void Blend(in RatioClip first, in RatioClip second, float factor, out RatioClip result) => result = first;
+            }
+            public struct Mass { public float Value; }
+            public readonly struct Mixed : ITrack<RatioTrack, RatioClip>
+            {
+                public static void OnActive(in Frame<RatioTrack, RatioClip> frame, in Mass mass, in Mass alias) { }
+            }
+            """);
+
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("TLGEN81", diagnostic.Code);
-        Assert.Contains("multiple distinct live 'in' column types", diagnostic.Message);
-        Assert.Contains("(global::Domain.Mass, float)", diagnostic.Message);
-        Assert.Contains("(wider surface pending)", diagnostic.Message);
+        Assert.Contains("two live 'in global::Domain.Mass' columns ('mass', 'alias')", diagnostic.Message);
+        Assert.Contains("TypeKey binding cannot distinguish same-type columns", diagnostic.Message);
         Assert.Empty(result.Consumers);
     }
 
     [Fact]
-    public void TwoDistinctLiveRefColumnTypesReportTlgen81()
+    public void SameTypeDuplicateRefColumnsReportTlgen81()
     {
         var result = Read($$"""
             {{Domain}}
@@ -441,14 +502,13 @@ public sealed class TwoMethodShapeTests
             public struct Health { public float Value; }
             public readonly struct Mixed : ITrack<RatioTrack, RatioClip>
             {
-                public static void OnActive(in Frame<RatioTrack, RatioClip> frame, ref float y, ref Health health) { }
+                public static void OnActive(in Frame<RatioTrack, RatioClip> frame, ref Health main, ref Health mirror) { }
             }
             """);
 
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("TLGEN81", diagnostic.Code);
-        Assert.Contains("multiple distinct live 'ref' column types", diagnostic.Message);
-        Assert.Contains("one typed caller column", diagnostic.Message);
+        Assert.Contains("two live 'ref global::Domain.Health' columns ('main', 'mirror')", diagnostic.Message);
         Assert.Empty(result.Consumers);
     }
 
