@@ -14,9 +14,9 @@ internal static class Program
     {
         if (args.Length >= 1 && args[0] == "corpus")
             return CorpusCommand(args);
-        if (args is ["parity", ..])
+        if (args is ["parity", _, ..])
             return ParityCommand(args);
-        if (args is ["timing", ..])
+        if (args is ["timing", _, ..])
             return TimingCommand(args);
         if (args is ["batch", ..])
             return BatchCommand(args);
