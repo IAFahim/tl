@@ -1,0 +1,45 @@
+arm/avx2-off/index-fused-staggered: 0.05 ms, 0.48 ns/row
+arm/avx2-off/index-fused-uniform: 0.01 ms, 0.14 ns/row
+arm/avx2-off/step-index-uniform: 0.01 ms, 0.06 ns/row
+arm/hwintrinsic-off/index-fused-staggered: 0.05 ms, 0.47 ns/row
+steady/per-entity-apply-step: 0.19 ms, 1.95 ns/entity, 0 B
+steady/per-entity-fused: 0.12 ms, 1.24 ns/entity, 0 B
+steady/per-entity-lane: 0.12 ms, 1.23 ns/entity, 0 B
+steady/shared-clock-crowd: 0.01 ms, 0.05 ns/entity, 0 B
+steady/per-entity-record-floor: 0.07 ms, 0.68 ns/entity, 0 B
+steady/sparse-separate-apply-step: 0.23 ms, 2.30 ns/entity, 0 B
+steady/sparse-batch-apply-step: 0.21 ms, 2.06 ns/entity, 0 B
+steady/sparse-batch-dense-list: 0.13 ms, 1.33 ns/entity, 0 B
+steady/sparse-list-crowd-apply-step: 0.03 ms, 0.33 ns/entity, 0 B
+hot sync done
+hot shared-clock done
+hot groups done
+hot own-clock done
+hot finite done
+hot handwritten done
+hot handwritten-simd done
+hot squads done
+hot worst done
+cold round 0 done
+cold round 1 done
+cold round 2 done
+bake round 0 done
+bake round 1 done
+bake round 2 done
+
+fingerprint/cpu: Intel(R) Core(TM) i9-14900K
+fingerprint/cores: 32
+fingerprint/dotnet: 10.0.12
+scenario/sync: hot 0.01 ms (0.14 ns/char), cold 0.02 ms (0.18 ns/char), 0 B, warmup 500 ms / 35115 frames
+scenario/shared-clock: hot 0.01 ms (0.05 ns/char), cold 0.01 ms (0.08 ns/char), 0 B, warmup 500 ms / 92038 frames
+scenario/groups: hot 0.03 ms (0.28 ns/char), cold 0.03 ms (0.30 ns/char), 0 B, warmup 500 ms / 17552 frames
+scenario/own-clock: hot 0.02 ms (0.21 ns/char), cold 0.02 ms (0.22 ns/char), 0 B, warmup 500 ms / 23789 frames
+scenario/finite: hot 0.01 ms (0.08 ns/char), cold 0.01 ms (0.10 ns/char), 0 B, warmup 500 ms / 60772 frames
+scenario/handwritten: hot 0.02 ms (0.18 ns/char), cold 0.02 ms (0.20 ns/char), 0 B, warmup 500 ms / 28172 frames
+scenario/handwritten-simd: hot 0.00 ms (0.04 ns/char), cold 0.01 ms (0.08 ns/char), 0 B, warmup 500 ms / 114009 frames
+scenario/squads: hot 0.04 ms (0.38 ns/char), cold 0.04 ms (0.45 ns/char), 0 B, warmup 500 ms / 13220 frames
+scenario/worst: hot 0.05 ms (0.49 ns/char), cold 0.07 ms (0.67 ns/char), 0 B, warmup 500 ms / 9916 frames
+bake/corpus-mb: 19.34
+bake/total-ms: 54.39
+load/ms: 1.59
+sink/checksum: 63429206184715
