@@ -348,9 +348,9 @@ public static unsafe class Timeline<TTrack, TClip>
 		where TEffect1 : unmanaged
 	{
 		CheckSizes<TIndex, TPosition>();
-		if (Unsafe.SizeOf<TEffect0>() > 4 || Unsafe.SizeOf<TEffect1>() > 4
+		if (Unsafe.SizeOf<TEffect0>() is not (1 or 2 or 4 or 8) || Unsafe.SizeOf<TEffect1>() is not (1 or 2 or 4 or 8)
 			|| positions.Length != effects0.Length || positions.Length != effects1.Length)
-			ThrowColumnSizes();
+			ThrowLaneColumnSizes();
 		var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
 		var positions16 = MemoryMarshal.Cast<TPosition, ushort>(positions);
 		Checked.Domain(indices16, positions16);
@@ -385,6 +385,10 @@ public static unsafe class Timeline<TTrack, TClip>
 	static void ThrowMissingLane<TLane>(int column)
 		=> throw new ArgumentException($"{Head} has no frozen OnMemo lane of type {typeof(TLane).Name} for column {column}.");
 
+	[DoesNotReturn]
+	static void ThrowLaneColumnSizes()
+		=> throw new ArgumentException($"{Head} memo lane columns must be equal-length spans of unmanaged 1, 2, 4 or 8-byte results.");
+
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static void Apply<TIndex, TPosition, TEffect, TInput>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects, ReadOnlySpan<TInput> input)
 		where TIndex : struct where TPosition : struct where TEffect : unmanaged where TInput : unmanaged
@@ -407,11 +411,13 @@ public static unsafe class Timeline<TTrack, TClip>
 		Unsafe.InitBlock(columns, 0, PairTable.MaxPointers * (uint)sizeof(void*));
 		byte** cells = stackalloc byte*[32];
 		LaneMovementRecord** laneRecords = stackalloc LaneMovementRecord*[32];
-		byte* cellBlock = stackalloc byte[128];
+		byte* cellBlock = stackalloc byte[32 * 8];
+		byte* cellWide = stackalloc byte[32];
 		int* outLane = stackalloc int[64];
 		ulong* outKey = stackalloc ulong[64], slotKeys = stackalloc ulong[PairTable.SlotRow];
 		byte* slotMeta = stackalloc byte[PairTable.SlotRow];
 		int memo = 0, pairs = 0;
+		nuint tableTicks = 0;
 		var reference = default(TimelineRef);
 		var last = -1;
 		for (var i = 0; i < clocks.Length;)
@@ -429,18 +435,18 @@ public static unsafe class Timeline<TTrack, TClip>
 				pairs = checked((int)reference.PairCount);
 				reference.Resolve(new Span<int>(chains, pairs), key);
 				var slot = Bank().FoldedView(id);
+				tableTicks = slot->TableTicks;
 				var outs = 0;
 				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
 				{
 					if (consumers[e].DispatchOnly != 0 || consumers[e].Keys == null) continue;
 					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
-					var packed = consumers[e].OutLanes;
+					var own = 0;
 					for (var j = 0; j < n; j++)
 						if ((slotMeta[j] & 0x10) != 0 && outs < 64)
 						{
 							outKey[outs] = slotKeys[j];
-							outLane[outs] = (packed >> (8 * outs)) & 0xFF;
-							outs++;
+							outLane[outs++] = consumers[e].OutLanes[own++];
 						}
 				}
 				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
@@ -459,8 +465,9 @@ public static unsafe class Timeline<TTrack, TClip>
 								throw new ArgumentException($"{Head} OnActive memo-fed 'in' does not match an OnMemo 'out' result.");
 							if (memo == 32)
 								throw new ArgumentException($"{Head} memo-fed columns exceed the 32-slot live buffer; split the consumers.");
-							cells[memo] = cellBlock + 4 * memo;
+							cells[memo] = cellBlock + 8 * memo;
 							laneRecords[memo] = (forward ? slot->ForwardRecords : slot->BackwardRecords) + (nuint)outLane[feed] * slot->TableTicks;
+							cellWide[memo] = (meta & 0xF) == 8 ? (byte)1 : (byte)0;
 							columns[column] = cells[memo++];
 							feed++;
 						}
@@ -482,7 +489,16 @@ public static unsafe class Timeline<TTrack, TClip>
 			{
 				var position = clocks[r];
 				if (!reference.Select(reverse, position, out var tick, out var flags)) continue;
-				for (var k = 0; k < memo; k++) *(float*)cells[k] = laneRecords[k][position].Effect;
+				for (var k = 0; k < memo; k++)
+				{
+					ref var rec = ref laneRecords[k][position];
+					if (cellWide[k] != 0)
+					{
+						ref var hi = ref (laneRecords[k] + tableTicks)[position];
+						*(ulong*)cells[k] = Unsafe.As<float, uint>(ref rec.Effect) | (ulong)Unsafe.As<float, uint>(ref hi.Effect) << 32;
+					}
+					else *(float*)cells[k] = rec.Effect;
+				}
 				reference.ExecuteDispatch(reverse, tick, flags, r, new Span<int>(chains, pairs), columns);
 			}
 			i = end;

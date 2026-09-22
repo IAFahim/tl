@@ -195,6 +195,22 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
+    public void EightByteMemoResultsFoldIntoTypedLanesForwardAndBackward()
+    {
+        var result = Driver("WideMemo");
+
+        Assert.Equal("5000,5000,5000#10.5,10.5,10.5#-5000#-9.5#-5000#-9.5", result);
+    }
+
+    [Fact]
+    public void TenMemoResultsOfEveryWidthFeedOneConsumerRow()
+    {
+        var result = Driver("TenLane");
+
+        Assert.Equal("313.5,473.5#313.5,457", result);
+    }
+
+    [Fact]
     public void PairExceedingThirtyTwoMemoFedSlotsFailsLoudlyAtFirstApply()
     {
         var result = Driver("MemoCapacity");
@@ -555,6 +571,49 @@ public sealed class ConsumerPlaybackTests
                 => y.Value += charge * power.Lift + arc;
         }
 
+        public readonly record struct WideMemoClip(int Height);
+
+        public readonly record struct WideMemoTrack(float Scale) : IBlend<WideMemoClip>
+        {
+            public void Blend(in WideMemoClip first, in WideMemoClip second, float factor, out WideMemoClip result) => result = first;
+        }
+
+        public readonly struct WideMemoJob : ITrack<WideMemoTrack, WideMemoClip>
+        {
+            public static void OnMemo(in Frame<WideMemoTrack, WideMemoClip> frame, out long serial, out double precise)
+            {
+                serial = frame.Direction * frame.Clip.Height * 1000L;
+                precise = frame.Direction * frame.Clip.Height * frame.Track.Scale + frame.Clip.Height / 10.0;
+            }
+        }
+
+        public readonly record struct TenLaneClip(int Height);
+
+        public readonly record struct TenLaneTrack(float Scale) : IBlend<TenLaneClip>
+        {
+            public void Blend(in TenLaneClip first, in TenLaneClip second, float factor, out TenLaneClip result) => result = first;
+        }
+
+        public readonly struct TenLaneJob : ITrack<TenLaneTrack, TenLaneClip>
+        {
+            public static void OnMemo(in Frame<TenLaneTrack, TenLaneClip> frame, out float a, out int b, out byte c, out short d, out long e, out double f, out char g, out bool h, out uint i, out ulong j)
+            {
+                a = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+                b = frame.Clip.Height;
+                c = 3;
+                d = 2;
+                e = frame.Direction * 100L;
+                f = 0.5;
+                g = 'A';
+                h = true;
+                i = 7;
+                j = 20;
+            }
+
+            public static void OnActive(in float a, in int b, in byte c, in short d, in long e, in double f, in char g, in bool h, in uint i, in ulong j, ref JumpY y, in JumpPower power)
+                => y.Value += (float)(a * power.Lift + b + c + d + e + f + g + (h ? 1 : 0) + i + j);
+        }
+
         }
 
         namespace TlJumpShape
@@ -830,6 +889,44 @@ public sealed class ConsumerPlaybackTests
                 Timeline<JumpPairTrack, JumpPairClip>.Apply(ids, positions, true, y, power);
                 var forward = F(y[0].Value) + "," + F(y[1].Value);
                 Timeline<JumpPairTrack, JumpPairClip>.Apply(ids, positions, false, y, power);
+                var backward = F(y[0].Value) + "," + F(y[1].Value);
+                return forward + "#" + backward;
+            }
+
+            public static string WideMemo()
+            {
+                using var wide = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<WideMemoTrack, WideMemoClip>(new WideMemoTrack(2f))
+                    .Clip(0, 0u, 2u, new WideMemoClip(5))
+                    .Bake()));
+                var ids = new ushort[] { wide.Index, wide.Index, wide.Index };
+                var positions = new ushort[] { 0, 1, 1 };
+                var serials = new long[3];
+                var precises = new double[3];
+                Timeline<WideMemoTrack, WideMemoClip>.ApplyLanes(ids, positions, true, serials, precises);
+                var forward = string.Join(",", serials.Select(static value => value.ToString(CultureInfo.InvariantCulture)))
+                    + "#" + string.Join(",", precises.Select(static value => value.ToString("R", CultureInfo.InvariantCulture)));
+                serials = new long[3];
+                precises = new double[3];
+                Timeline<WideMemoTrack, WideMemoClip>.ApplyLanes(new ushort[] { wide.Index, wide.Index }, new ushort[] { 1, 2 }, false, serials.AsSpan(0, 2), precises.AsSpan(0, 2));
+                var backward = serials[0].ToString(CultureInfo.InvariantCulture) + "#" + precises[0].ToString("R", CultureInfo.InvariantCulture)
+                    + "#" + serials[1].ToString(CultureInfo.InvariantCulture) + "#" + precises[1].ToString("R", CultureInfo.InvariantCulture);
+                return forward + "#" + backward;
+            }
+
+            public static string TenLane()
+            {
+                using var ten = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TenLaneTrack, TenLaneClip>(new TenLaneTrack(2f))
+                    .Clip(0, 0u, 2u, new TenLaneClip(5))
+                    .Bake()));
+                var ids = new ushort[] { ten.Index, ten.Index };
+                var positions = new ushort[] { 0, 1 };
+                var y = new JumpY[] { new() { Value = 100f }, new() { Value = 250f } };
+                var power = new JumpPower[] { new() { Lift = 1f }, new() { Lift = 2f } };
+                Timeline<TenLaneTrack, TenLaneClip>.Apply(ids, positions, true, y, power);
+                var forward = F(y[0].Value) + "," + F(y[1].Value);
+                Timeline<TenLaneTrack, TenLaneClip>.Apply(ids, positions, false, y, power);
                 var backward = F(y[0].Value) + "," + F(y[1].Value);
                 return forward + "#" + backward;
             }

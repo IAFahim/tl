@@ -182,12 +182,13 @@ public sealed class TwoMethodShapeTests
     }
 
     [Theory]
-    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out long a) { a = 0; }")]
-    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out float a, out float b, out float c, out float d, out float e) { a = b = c = d = e = 0f; }")]
-    public void PendingMemoShapesReportTlgen79(string memo)
+    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out Oversized a) { a = default; }")]
+    [InlineData("public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out float a, out float b, out float c, out float d, out float e, out float f, out float g, out float h, out float i, out float j, out float k) { a = b = c = d = e = f = g = h = i = j = k = 0f; }")]
+    public void ExcessMemoShapesReportTlgen79(string memo)
     {
         var result = Read($$"""
             {{Domain}}
+            public readonly struct Oversized { public long Wide; public long Wider; }
             public readonly struct Pending : ITrack<DamageTrack, DamageClip>
             {
                 {{memo}}
@@ -195,6 +196,45 @@ public sealed class TwoMethodShapeTests
             """);
 
         AssertConsumerRejected(result, "TLGEN79");
+    }
+
+    [Fact]
+    public void EightByteMemoResultsAreLegal()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Wide : ITrack<DamageTrack, DamageClip>
+            {
+                public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out long serial, out double precise) { serial = 0; precise = 0f; }
+            }
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.Equal(
+        [
+            new TimelineSlot("serial", "long", SlotMode.Output, 8),
+            new TimelineSlot("precise", "double", SlotMode.Output, 8),
+        ], consumer.Job.Slots);
+        var binding = JobEmitter.Consumers(result.Consumers);
+        Assert.Contains("__tlKeys[0] = global::Tl.TypeKey<long>.Value; __tlMeta[0] = 24;", binding);
+        Assert.Contains("__tlKeys[1] = global::Tl.TypeKey<double>.Value; __tlMeta[1] = 24;", binding);
+    }
+
+    [Fact]
+    public void TenMemoResultsStayLegalAtTheNewBound()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Full : ITrack<DamageTrack, DamageClip>
+            {
+                public static void OnMemo(in Frame<DamageTrack, DamageClip> frame, out float a, out int b, out byte c, out short d, out long e, out double f, out char g, out bool h, out uint i, out ulong j) { a = 0; b = 0; c = 0; d = 0; e = 0; f = 0; g = '0'; h = false; i = 0; j = 0; }
+            }
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.Equal(10, consumer.Job.Slots.Count);
     }
 
     [Fact]

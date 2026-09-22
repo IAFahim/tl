@@ -8,6 +8,7 @@ public static class JobReader
 {
     internal const int SlotRow = 40;
     internal const int ActiveParameters = 30;
+    internal const int MemoResults = 10;
 
     public static JobReadResult Read(CSharpCompilation compilation)
     {
@@ -85,8 +86,8 @@ public static class JobReader
                         return Err(Symbols.Site(p, site), "TLGEN76", $"'{name}.OnMemo' runs at fold; only unmanaged 'out'/'ref' results exist — 'in' has no caller.");
                     var typeName = Symbols.Name(p.Type);
                     var size = ResultSize(p.Type);
-                    if (size == 0 || slots.Count >= 4)
-                        return Err(Symbols.Site(p, site), "TLGEN79", $"'{name}.OnMemo' >4-byte/5+ results — pending.");
+                    if (size == 0 || slots.Count >= MemoResults)
+                        return Err(Symbols.Site(p, site), "TLGEN79", $"'{name}.OnMemo' folds at most {MemoResults} unmanaged results of at most 8 bytes each ('{Symbols.Name(p.Type)} {p.Name}' is not one).");
                     slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference, size));
                 }
                 if (slots.Count == 0)
@@ -128,7 +129,7 @@ public static class JobReader
                             && Symbols.Name(active.Parameters[index].Type) == ResultName(feed))
                         {
                             var fed = active.Parameters[index++];
-                            live.Add(new(fed.Name, Symbols.Name(fed.Type), SlotMode.MemoFeed));
+                            live.Add(new(fed.Name, Symbols.Name(fed.Type), SlotMode.MemoFeed, (byte)ResultSize(fed.Type)));
                             feed++;
                         }
                     for (; index < active.Parameters.Length; index++)
@@ -169,6 +170,7 @@ public static class JobReader
                 { SpecialType: SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte } => 1,
                 { SpecialType: SpecialType.System_Char or SpecialType.System_Int16 or SpecialType.System_UInt16 } => 2,
                 { SpecialType: SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Single } => 4,
+                { SpecialType: SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Double } => 8,
                 _ => 0,
             };
 

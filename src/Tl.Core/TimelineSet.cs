@@ -621,6 +621,22 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var records = (forward ? view->ForwardRecords : view->BackwardRecords) + (nuint)lane * view->TableTicks;
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var c = ref MemoryMarshal.GetReference(column);
+        if (sizeof(T) == 8)
+        {
+            var hi = records + view->TableTicks;
+            for (var i = 0; i < positions.Length; i++)
+            {
+                var pos = Unsafe.Add(ref p, (nuint)i);
+                ref var r = ref records[pos];
+                if (forward ? pos < duration : pos <= duration && r.Next != Skipped)
+                {
+                    ref var h = ref hi[pos];
+                    var bits = Unsafe.As<float, uint>(ref r.Effect) | (ulong)Unsafe.As<float, uint>(ref h.Effect) << 32;
+                    Unsafe.Add(ref c, (nuint)i) = Combine(Unsafe.Add(ref c, (nuint)i), Unsafe.As<ulong, T>(ref bits));
+                }
+            }
+            return;
+        }
         for (var i = 0; i < positions.Length; i++)
         {
             var pos = Unsafe.Add(ref p, (nuint)i);
@@ -636,6 +652,12 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         if (typeof(T) == typeof(bool)) { var v = Unsafe.As<T, bool>(ref a) | Unsafe.As<T, bool>(ref b); return Unsafe.As<bool, T>(ref v); }
         if (typeof(T) == typeof(float)) { var v = Unsafe.As<T, float>(ref a) + Unsafe.As<T, float>(ref b); return Unsafe.As<float, T>(ref v); }
         if (sizeof(T) == 4) { var v = Unsafe.As<T, int>(ref a) + Unsafe.As<T, int>(ref b); return Unsafe.As<int, T>(ref v); }
+        if (sizeof(T) == 8)
+        {
+            if (typeof(T) == typeof(double)) { var v = Unsafe.As<T, double>(ref a) + Unsafe.As<T, double>(ref b); return Unsafe.As<double, T>(ref v); }
+            var w = Unsafe.As<T, long>(ref a) + Unsafe.As<T, long>(ref b);
+            return Unsafe.As<long, T>(ref w);
+        }
         if (sizeof(T) == 2) { var v = (ushort)(Unsafe.As<T, ushort>(ref a) + Unsafe.As<T, ushort>(ref b)); return Unsafe.As<ushort, T>(ref v); }
         var v1 = (byte)(Unsafe.As<T, byte>(ref a) + Unsafe.As<T, byte>(ref b));
         return Unsafe.As<byte, T>(ref v1);
