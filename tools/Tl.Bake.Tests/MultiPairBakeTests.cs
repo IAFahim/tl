@@ -20,9 +20,8 @@ public class MultiPairBakeTests
             hotKeys.Add(BitConverter.ToUInt64(bytes, (int)pairOffset + 48 * i));
         Assert.Equal(hotKeys, hotKeys.OrderBy(k => k).ToList());
 
-        for (var i = 0; i < view.PairTypes.Count; i++)
+        foreach (var (track, clip) in view.PairTypes)
         {
-            var (track, clip) = view.PairTypes[i];
             var trackIdentity = view.Types[track];
             var clipIdentity = view.Types[clip];
             Assert.Equal("Tlb", trackIdentity.Namespace);

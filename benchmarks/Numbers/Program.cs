@@ -513,8 +513,8 @@ internal static class SteadyArms
 
 internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, Func<int, ushort> Positions)? run, bool sharedClock = false, bool handVector = false)
 {
-    public string Id = id;
-    public string Label = label;
+    public readonly string Id = id;
+    public readonly string Label = label;
     public (Func<int, ushort> Ids, Func<int, ushort> Positions)? Run = run;
     private readonly bool _sharedClock = sharedClock;
     private readonly bool _handVector = handVector;
