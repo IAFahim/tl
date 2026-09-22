@@ -130,7 +130,6 @@ public class LaneLaws
         where TD : IDurationShape
         where TL : ILoopShape
     {
-        readonly ushort _shapeSeed = shapeSeed;
 
         internal readonly record struct Case(ushort[] Positions, bool Forward, float[] Initial);
 
@@ -157,7 +156,7 @@ public class LaneLaws
             foreach (var length in lengths)
                 foreach (var forward in shapes)
                 {
-                    var random = FuzzRandom.FromSeeds((uint)(length * 131 + _shapeSeed * 7919 + (forward ? 1 : 0)), 0x51);
+                    var random = FuzzRandom.FromSeeds((uint)(length * 131 + shapeSeed * 7919 + (forward ? 1 : 0)), 0x51);
                     var distribution = random.NextInt(4);
                     var constant = SamplePositions(random, 1)[0];
                     var positions = new ushort[length];
@@ -216,7 +215,7 @@ public class LaneLaws
 
         public void ApplyRowFormParity()
         {
-            var random = FuzzRandom.FromSeeds((uint)(_shapeSeed * 6151 + (TL.Looping ? 1 : 0)), 0xD4);
+            var random = FuzzRandom.FromSeeds((uint)(shapeSeed * 6151 + (TL.Looping ? 1 : 0)), 0xD4);
             for (var trial = 0; trial < 64; trial++)
             {
                 var position = SamplePositions(random, 1)[0];

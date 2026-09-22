@@ -10,5 +10,5 @@ public readonly record struct GaGlobalTrack(float Scale) : IBlend<GaGlobalClip>
 
 public struct GaGlobalClip(float amount)
 {
-    public float Amount = amount;
+    public readonly float Amount = amount;
 }

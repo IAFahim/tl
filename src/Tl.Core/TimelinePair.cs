@@ -421,10 +421,9 @@ public static unsafe class Timeline<TTrack, TClip>
 			while (end < clocks.Length && ids[end] == id) end++;
 			if (id != last)
 			{
-				int live;
+				int live = 0;
 				last = id;
 				memo = 0;
-				live = 0;
 				Resolve(id);
 				reference = TimelineTable.Reference(id);
 				pairs = checked((int)reference.PairCount);

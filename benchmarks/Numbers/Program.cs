@@ -516,8 +516,6 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
     public readonly string Id = id;
     public readonly string Label = label;
     public (Func<int, ushort> Ids, Func<int, ushort> Positions)? Run = run;
-    private readonly bool _sharedClock = sharedClock;
-    private readonly bool _handVector = handVector;
     private ushort _clock = 5;
     public ushort[] Ids = [];
     public ushort[] Positions = [];
@@ -528,11 +526,11 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
     public int WarmupFrames;
     public long Allocated;
 
-    public ulong Sink => _sharedClock ? _clock : Positions[0];
+    public ulong Sink => sharedClock ? _clock : Positions[0];
 
     public void Step()
     {
-        if (_sharedClock)
+        if (sharedClock)
         {
             Timeline<LaneTrack, LaneClip>.Apply(Host.Gold, _clock, true, Effects);
             Timeline<LaneTrack, LaneClip>.Advance(Host.Gold, ref _clock, true);
@@ -540,7 +538,7 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
         }
         if (Run is null)
         {
-            if (_handVector) Domain.AddVector(Effects, 1f);
+            if (handVector) Domain.AddVector(Effects, 1f);
             else Domain.AddScalar(Effects, 1f);
             return;
         }
@@ -549,7 +547,7 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
 
     public void StepBack()
     {
-        if (_sharedClock)
+        if (sharedClock)
         {
             Timeline<LaneTrack, LaneClip>.Apply(Host.Gold, _clock, false, Effects);
             Timeline<LaneTrack, LaneClip>.Advance(Host.Gold, ref _clock, false);
@@ -557,7 +555,7 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
         }
         if (Run is null)
         {
-            if (_handVector) Domain.AddVector(Effects, -1f);
+            if (handVector) Domain.AddVector(Effects, -1f);
             else Domain.AddScalar(Effects, -1f);
             return;
         }
