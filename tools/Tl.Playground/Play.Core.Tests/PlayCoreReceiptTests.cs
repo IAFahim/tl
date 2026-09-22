@@ -1,4 +1,5 @@
 
+using Xunit;
 namespace Play.Core.Tests;
 
 public class PlayCoreReceiptTests

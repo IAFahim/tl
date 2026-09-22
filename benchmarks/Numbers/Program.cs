@@ -274,8 +274,8 @@ static string Format(double value) => value.ToString("0.00", CultureInfo.Invaria
 
 internal static class Measure
 {
-    public const double SteadyWindowMs = 500;
-    public const int SteadyFlatFrames = 3;
+    private const double SteadyWindowMs = 500;
+    private const int SteadyFlatFrames = 3;
 
     public static (double Ms, int Frames) WarmUp(Action run)
     {
@@ -516,9 +516,9 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
     public string Id = id;
     public string Label = label;
     public (Func<int, ushort> Ids, Func<int, ushort> Positions)? Run = run;
-    public bool SharedClock = sharedClock;
-    public bool HandVector = handVector;
-    public ushort Clock = 5;
+    private bool SharedClock = sharedClock;
+    private bool HandVector = handVector;
+    private ushort Clock = 5;
     public ushort[] Ids = [];
     public ushort[] Positions = [];
     public float[] Effects = [];

@@ -18,7 +18,10 @@ for (var frame = 1; frame <= 30; frame++)
 Console.WriteLine();
 Console.WriteLine("rewind walks the arc back exactly:");
 for (var frame = 0; frame < 30; frame++)
-    { Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, false, y); Timeline.Advance(jumpTimeline, tick, false); }
+    {
+        Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, false, y);
+        Timeline.Advance(jumpTimeline, tick, false);
+    }
 Console.WriteLine($"  after 30 back ticks: y = {y[0]:0.0} m, tick = {tick[0]}");
 
 Console.WriteLine();
