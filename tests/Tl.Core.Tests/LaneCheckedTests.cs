@@ -68,7 +68,7 @@ public partial class LaneTests
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
         Assert.Throws<ArgumentException>(() =>
-            timelines.Gather([ 0 ]).Seek(new ushort[] { 0, 1 }, true).Apply(new float[2]));
+            timelines.Gather([ 0 ]).Seek([ 0, 1 ], true).Apply(new float[2]));
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public partial class LaneTests
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
         Assert.Throws<ArgumentException>(() =>
-            timelines.Gather([ 0, 0 ]).Seek(new ushort[] { 0, 1 }, true).Apply(new float[3]));
+            timelines.Gather([ 0, 0 ]).Seek([ 0, 1 ], true).Apply(new float[3]));
     }
 
     [Fact]

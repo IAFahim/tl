@@ -516,9 +516,9 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
     public string Id = id;
     public string Label = label;
     public (Func<int, ushort> Ids, Func<int, ushort> Positions)? Run = run;
-    private bool SharedClock = sharedClock;
-    private bool HandVector = handVector;
-    private ushort Clock = 5;
+    private readonly bool _sharedClock = sharedClock;
+    private readonly bool _handVector = handVector;
+    private ushort _clock = 5;
     public ushort[] Ids = [];
     public ushort[] Positions = [];
     public float[] Effects = [];
@@ -528,19 +528,19 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
     public int WarmupFrames;
     public long Allocated;
 
-    public ulong Sink => SharedClock ? Clock : Positions[0];
+    public ulong Sink => _sharedClock ? _clock : Positions[0];
 
     public void Step()
     {
-        if (SharedClock)
+        if (_sharedClock)
         {
-            Timeline<LaneTrack, LaneClip>.Apply(Host.Gold, Clock, true, Effects);
-            Timeline<LaneTrack, LaneClip>.Advance(Host.Gold, ref Clock, true);
+            Timeline<LaneTrack, LaneClip>.Apply(Host.Gold, _clock, true, Effects);
+            Timeline<LaneTrack, LaneClip>.Advance(Host.Gold, ref _clock, true);
             return;
         }
         if (Run is null)
         {
-            if (HandVector) Domain.AddVector(Effects, 1f);
+            if (_handVector) Domain.AddVector(Effects, 1f);
             else Domain.AddScalar(Effects, 1f);
             return;
         }
@@ -549,15 +549,15 @@ internal sealed class Scenario(string id, string label, (Func<int, ushort> Ids, 
 
     public void StepBack()
     {
-        if (SharedClock)
+        if (_sharedClock)
         {
-            Timeline<LaneTrack, LaneClip>.Apply(Host.Gold, Clock, false, Effects);
-            Timeline<LaneTrack, LaneClip>.Advance(Host.Gold, ref Clock, false);
+            Timeline<LaneTrack, LaneClip>.Apply(Host.Gold, _clock, false, Effects);
+            Timeline<LaneTrack, LaneClip>.Advance(Host.Gold, ref _clock, false);
             return;
         }
         if (Run is null)
         {
-            if (HandVector) Domain.AddVector(Effects, -1f);
+            if (_handVector) Domain.AddVector(Effects, -1f);
             else Domain.AddScalar(Effects, -1f);
             return;
         }

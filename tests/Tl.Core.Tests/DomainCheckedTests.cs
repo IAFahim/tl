@@ -9,7 +9,7 @@ public partial class LaneTests
     public void AdvanceRejectsPositionsBeyondTheLoadedAssetDuration()
     {
         using var asset = TimelineAsset.LoadAsset(LoopingBake());
-        var indices = [ asset.Index, asset.Index, asset.Index ];
+        var indices = new ushort[] { asset.Index, asset.Index, asset.Index };
         var positions = new ushort[] { 0, 10, 6 };
 
         var thrown = Assert.Throws<ArgumentException>(() => Timeline.Advance(indices, positions, true));
@@ -67,7 +67,7 @@ public partial class LaneTests
     public void InDomainAndClampPositionsPassEverySurface()
     {
         using var asset = TimelineAsset.LoadAsset(LoopingBake());
-        var indices = [ asset.Index, asset.Index, asset.Index ];
+        var indices = new ushort[] { asset.Index, asset.Index, asset.Index };
         var positions = new ushort[] { 0, 3, 6 };
         var effects = new float[3];
 

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -7,6 +8,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
 {
     internal float* Forward;
     internal float* Backward;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private readonly nint Source;
     internal readonly int LaneCount;
     internal readonly float** LaneForward;
@@ -202,7 +204,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
     static void AdvanceOrFail(TimelineRef reference, bool reverse, uint position, out ushort tick, out FrameFlags flags)
     {
-        if (!reference.Advance(reverse, (ushort)position, out _, out tick, out flags))
+        if (!reference.Advance(reverse, (ushort)position, out tick, out flags))
             throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
     }
 

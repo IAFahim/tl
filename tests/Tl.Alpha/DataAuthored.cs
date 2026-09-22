@@ -224,15 +224,15 @@ internal static class DataAuthoredReceipts
         var initialPositions = (ushort[])positions.Clone();
 
         for (var tick = 0; tick < 25; tick++)
-            {
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
-            }
+        {
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+        }
         for (var tick = 0; tick < 25; tick++)
-            {
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, false, values);
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, false);
-            }
+        {
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, false, values);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, false);
+        }
 
         Require(positions.SequenceEqual(initialPositions), "rewind restores positions");
         Require(values.All(static value => value == 0f), "rewind restores values exactly");
@@ -240,10 +240,10 @@ internal static class DataAuthoredReceipts
         Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
         var single = values[0];
         for (var i = 0; i < 2; i++)
-            {
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
-            }
+        {
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+        }
         Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, false, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, false);
         Require(values[0] == single * 2, "catch-up calls are linear and backward cancels one");
     }
@@ -360,7 +360,7 @@ internal static class DataAuthoredReceipts
         Require(values.SequenceEqual(oracleValues), "set folded effects match the law");
 
         RequireThrows<ArgumentException>(() =>
-            timelines.Gather([ loopingId, 2 ]).Seek(new ushort[] { 0, 0 }, true).Apply(new float[2]), "unbound timeline id rejected");
+            timelines.Gather([ loopingId, 2 ]).Seek([ 0, 0 ], true).Apply(new float[2]), "unbound timeline id rejected");
 
         timelines.Dispose();
 #if TL_CHECKED
@@ -384,16 +384,16 @@ internal static class DataAuthoredReceipts
         for (var attempt = 0; ; attempt++)
         {
             for (var pass = 0; pass < 1_000; pass++)
-                {
-                    Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
-                    Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
-                }
+            {
+                Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+                Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+            }
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var pass = 0; pass < 100_000; pass++)
-                {
-                    Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
-                    Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
-                }
+            {
+                Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+                Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+            }
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
         }
@@ -418,10 +418,10 @@ internal static class DataAuthoredReceipts
             positions[i] = (ushort)(i % 64);
 
         for (var tick = 0; tick < 64; tick++)
-            {
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
-            }
+        {
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+        }
 
         long checksum = 0;
         for (var i = 0; i < rows; i++)
@@ -449,10 +449,10 @@ internal static class DataAuthoredReceipts
         var positions = new ushort[16];
         var values = new float[16];
         for (var tick = 0; tick < 10; tick++)
-            {
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
-                Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
-            }
+        {
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+        }
         Require(values.All(value => value == expected * 10), "module capacity fold applied");
         Console.WriteLine($"module-capacity: {tracks} tracks fold to {expected} per tick, x10 applied");
     }

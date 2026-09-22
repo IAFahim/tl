@@ -78,7 +78,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal SlotView** _views;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal byte* _absent;
+    private byte* _absent;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal uint* _motion;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -132,7 +132,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     private long _directoryTotal;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal long _arenaTotal;
+    private long _arenaTotal;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private int _arenaUsed;

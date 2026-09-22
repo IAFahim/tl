@@ -285,10 +285,10 @@ public partial class LaneTests
             lanePositions[i] = oraclePositions[i] = (ushort)(i % 6);
 
         for (var call = 0; call < 3; call++)
-            {
-                Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects);
-                Timeline<BakedLane<LaneTrack, LaneClip>>.Advance(lanePositions, true);
-            }
+        {
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Advance(lanePositions, true);
+        }
         Simulate(oraclePositions, oracleEffects, LoopingEffects, true, 3, 6, true);
 
         Assert.Equal(oraclePositions, lanePositions);

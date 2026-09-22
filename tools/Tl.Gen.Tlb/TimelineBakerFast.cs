@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Runtime.Intrinsics;
@@ -65,9 +66,13 @@ internal unsafe delegate void FloatApplier(object box, int* ids, float* vals, in
 internal sealed class FieldTable
 {
     internal Dictionary<string, FieldEntry> ByName = new(StringComparer.Ordinal);
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private int BucketMask;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private int[] Buckets = [-1];
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private ulong[] EntryHashes = [];
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private byte[][] EntryNames = [];
     internal FieldEntry[] Entries = [];
     internal FloatApplier? FloatApply;
@@ -445,7 +450,7 @@ internal static class TimelineBakerFast
                 else
                 {
                     decodedName = r.GetString()!;
-                    entry = table.ByName.TryGetValue(decodedName, out var e) ? e : null;
+                    entry = table.ByName.GetValueOrDefault(decodedName);
                 }
                 r.Read();
                 if (entry == null)

@@ -166,7 +166,8 @@ public class WindowConstantTests
 {
     [Fact]
     public void DeclaredWindowConstantMatchesPerTickAcrossDurations()
-    {        foreach (var duration in new uint[] { 1, 2, 63, 64, 65 })
+    {
+        foreach (var duration in new uint[] { 1, 2, 63, 64, 65 })
         foreach (var looping in new[] { true, false })
         {
             var declared = TimelineAsset.LoadAsset(Bake<ConstTrack, ConstClip>(new ConstTrack(2f), duration, looping, (0, duration)));

@@ -419,9 +419,9 @@ public static unsafe class Timeline<TTrack, TClip>
 			var id = ids[i];
 			var end = i + 1;
 			while (end < clocks.Length && ids[end] == id) end++;
-			int live;
 			if (id != last)
 			{
+				int live;
 				last = id;
 				memo = 0;
 				live = 0;

@@ -943,8 +943,10 @@ static unsafe class LaneTable<TTrack, TClip>
     where TClip : unmanaged
 {
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private static float* Forward;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private static float* Backward;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static ushort Duration;

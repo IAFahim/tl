@@ -96,15 +96,15 @@ public readonly unsafe struct TimelineRef
 	internal uint PairCount => _p == null ? 0 : Header->PairCount;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal bool Advance(bool reverse, ushort pos, out ushort np, out ushort t, out FrameFlags f)
+	internal bool Advance(bool reverse, ushort pos, out ushort t, out FrameFlags f)
 	{
-		np = pos; t = 0; f = FrameFlags.None;
-		return _p != null && TimelineMovement.Advance((ushort)Header->Duration, Header->Loops != 0, reverse, pos, out np, out t, out f);
+		t = 0; f = FrameFlags.None;
+		return _p != null && TimelineMovement.Advance((ushort)Header->Duration, Header->Loops != 0, reverse, pos, out _, out t, out f);
 	}
 
 	internal bool Select(bool reverse, ushort position, out ushort tick, out FrameFlags flags)
 	{
-		return Advance(reverse, position, out _, out tick, out flags);
+		return Advance(reverse, position, out tick, out flags);
 	}
 	internal int StageCount => _p == null ? 0 : (int)Header->StageCount;
 	internal NativeStage* Stages => (NativeStage*)(_p + Header->StageOffset);

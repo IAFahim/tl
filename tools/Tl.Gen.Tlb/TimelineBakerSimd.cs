@@ -625,7 +625,6 @@ internal sealed unsafe class SimdWalker
         for (var p = 0; p < fragments.Length; p++)
         {
             var frag = fragments[p];
-            var trackBase = doc.Tracks.Count;
             var clipBase = doc.Clips.Count;
             foreach (var info in frag.Tracks)
             {
