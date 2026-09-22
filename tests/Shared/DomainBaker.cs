@@ -53,7 +53,7 @@ internal sealed class DomainBaker
         }
     }
 
-    internal sealed class ImageBytesComparer : IEqualityComparer<byte[]>
+    private sealed class ImageBytesComparer : IEqualityComparer<byte[]>
     {
         public bool Equals(byte[]? left, byte[]? right)
         {

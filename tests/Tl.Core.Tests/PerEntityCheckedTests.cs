@@ -48,15 +48,15 @@ public class PerEntityCheckedTests
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var set = new TimelineSet<LaneTrack, LaneClip>();
         set.Add(looping);
-        Assert.Throws<ArgumentException>(() => set.Advance(new ushort[] { 0 }, new ushort[] { 0, 1 }, new ushort[] { 0 }, true));
-        Assert.Throws<ArgumentException>(() => set.Advance(new ushort[] { 0, 0 }, new ushort[] { 0, 1 }, new ushort[] { 0, 1, 2 }, true));
+        Assert.Throws<ArgumentException>(() => set.Advance([ 0 ], new ushort[] { 0, 1 }, new ushort[] { 0 }, true));
+        Assert.Throws<ArgumentException>(() => set.Advance([ 0, 0 ], new ushort[] { 0, 1 }, new ushort[] { 0, 1, 2 }, true));
     }
 
     [Fact]
     public void TimelineAdvanceRejectsMismatchedColumns()
     {
-        Assert.Throws<ArgumentException>(() => Timeline.Advance(new ushort[] { 0 }, new ushort[] { 0, 1 }, new ushort[] { 0, 1 }, true));
-        Assert.Throws<ArgumentException>(() => Timeline.Advance(new ushort[] { 0, 0 }, new ushort[] { 0, 1 }, new ushort[] { 0 }, true));
+        Assert.Throws<ArgumentException>(() => Timeline.Advance([ 0 ], new ushort[] { 0, 1 }, new ushort[] { 0, 1 }, true));
+        Assert.Throws<ArgumentException>(() => Timeline.Advance([ 0, 0 ], new ushort[] { 0, 1 }, new ushort[] { 0 }, true));
     }
 }
 #endif

@@ -18,7 +18,7 @@ public class PublicApiTests
         Assert.Equal(expected.Replace("\r\n", "\n"), actual.Replace("\r\n", "\n"));
     }
 
-    public static string GetPublicApi(Assembly assembly)
+    private static string GetPublicApi(Assembly assembly)
     {
         var sb = new StringBuilder();
         var types = assembly.GetExportedTypes().OrderBy(t => t.FullName, StringComparer.Ordinal).ToList();
@@ -30,7 +30,7 @@ public class PublicApiTests
             foreach (var member in type.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
                 .OrderBy(m => m.Name, StringComparer.Ordinal))
             {
-                if (member is MethodBase mb && mb.IsSpecialName)
+                if (member is MethodBase { IsSpecialName: true })
                     continue; // Skip property getters/setters/event add/remove
                 sb.AppendLine($"  {member.MemberType} {member}");
             }

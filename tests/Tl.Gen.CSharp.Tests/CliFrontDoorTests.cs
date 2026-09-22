@@ -1,5 +1,3 @@
-using System.Text;
-using Tl.Gen.CSharp;
 using Xunit;
 
 namespace Tl.Gen.CSharp.Tests;
@@ -96,17 +94,17 @@ public sealed class CliFrontDoorTests
                 "=no-key-here",
             ]);
 
-            var arguments = (string[] path) => new[]
-            {
+            string[] Arguments(string[] path) =>
+            [
                 "--compile",
                 "--output", directory,
                 "--source-list", path[0],
                 "--reference-list", path[1],
                 "--option-list", path[2],
                 "--define", "TL_PROBE_A;TL_PROBE_B,TL_PROBE_C",
-            };
+            ];
 
-            var first = Run(arguments([sourceListPath, referencesPath, optionsPath]));
+            var first = Run(Arguments([sourceListPath, referencesPath, optionsPath]));
             Assert.Equal(0, first.Exit);
             var bindingPath = Path.Combine(directory, "TlConsumerBinding.g.cs");
             var bindingStamp = File.GetLastWriteTimeUtc(bindingPath);
@@ -115,7 +113,7 @@ public sealed class CliFrontDoorTests
             Assert.True(File.Exists(Path.Combine(directory, CompileGenerationCache.SourceListFileName)));
             Assert.True(File.Exists(Path.Combine(directory, CompileGenerationCache.ReportFileName)));
 
-            var second = Run(arguments([sourceListPath, referencesPath, optionsPath]));
+            var second = Run(Arguments([sourceListPath, referencesPath, optionsPath]));
             Assert.Equal(0, second.Exit);
             Assert.Equal(bindingStamp, File.GetLastWriteTimeUtc(bindingPath));
             Assert.Equal(bindingContent, File.ReadAllText(bindingPath));
@@ -295,7 +293,7 @@ public sealed class CliFrontDoorTests
 
     internal static string[] ReferencePaths()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Append(typeof(Tl.IBake<>).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
+            .Append(typeof(IBake<>).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
 
     private static string NewDirectory()
     {

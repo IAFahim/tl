@@ -100,14 +100,14 @@ public class BatchedRowsTests
         var rows = new[] { 0 };
 
         var loopingPosition = new ushort[] { 3 };
-        var loopingEffect = new float[] { 1.5f };
+        float[] loopingEffect = [ 1.5f ];
         Timeline<BatchRowsTrack, BatchRowsClip>.Apply(rows, [looping.Index], loopingPosition, true, loopingEffect);
         Timeline<BatchRowsTrack, BatchRowsClip>.Advance(rows, [looping.Index], loopingPosition, true);
-        Assert.Equal(0, (int)loopingPosition[0]);
+        Assert.Equal(0, loopingPosition[0]);
         Assert.Equal(4.5f, loopingEffect[0]);
 
         var finitePosition = new ushort[] { 3 };
-        var finiteEffect = new float[] { 1.5f };
+        float[] finiteEffect = [ 1.5f ];
         Timeline<BatchRowsTrack, BatchRowsClip>.Apply(rows, [finite.Index], finitePosition, true, finiteEffect);
         Timeline<BatchRowsTrack, BatchRowsClip>.Advance(rows, [finite.Index], finitePosition, true);
         Assert.Equal(Duration, (int)finitePosition[0]);
@@ -125,7 +125,7 @@ public class BatchedRowsTests
 #else
         var positions = new ushort[] { 0, 3, 4, 5, 1, 7 };
 #endif
-        var effects = new float[] { 0f, 0f, 0f, 0f, 0f, 0f };
+        float[] effects = [ 0f, 0f, 0f, 0f, 0f, 0f ];
 
         var expected = Sequential(ids, positions, effects, rows, forward: true);
         Timeline<BatchRowsTrack, BatchRowsClip>.Apply(rows, ids, positions, true, effects);
@@ -135,7 +135,7 @@ public class BatchedRowsTests
         Assert.Equal(expected.Effects, effects);
 #if TL_CHECKED
         Assert.Equal(new ushort[] { 1, 0, 4, 3, 2, 4 }, positions);
-        Assert.Equal(new float[] { 3f, 3f, 0f, 3f, 3f, 0f }, effects);
+        Assert.Equal([ 3f, 3f, 0f, 3f, 3f, 0f ], effects);
 #else
         Assert.Equal(new ushort[] { 1, 0, 4, 5, 2, 7 }, positions);
         Assert.Equal(new float[] { 3f, 3f, 0f, 0f, 3f, 0f }, effects);
@@ -150,10 +150,10 @@ public class BatchedRowsTests
         var rows = new[] { 3, 3, 0 };
 
         var positions = new ushort[] { 2, 0, 1, 3 };
-        var effects = new float[] { 0f, 10f, 20f, 1.5f };
+        float[] effects = [ 0f, 10f, 20f, 1.5f ];
         Timeline<BatchRowsTrack, BatchRowsClip>.Apply(rows, ids, positions, true, effects);
         Assert.Equal(new ushort[] { 2, 0, 1, 3 }, positions);
-        Assert.Equal(new float[] { 3f, 10f, 20f, 7.5f }, effects);
+        Assert.Equal([ 3f, 10f, 20f, 7.5f ], effects);
 
         Timeline<BatchRowsTrack, BatchRowsClip>.Advance(rows, ids, positions, true);
         Assert.Equal(new ushort[] { 3, 0, 1, 1 }, positions);
@@ -164,7 +164,7 @@ public class BatchedRowsTests
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var finite = TimelineAsset.LoadAsset(FiniteBake());
-        var ids = new ushort[] { looping.Index, looping.Index, finite.Index, looping.Index, finite.Index, looping.Index };
+        ushort[] ids = [ looping.Index, looping.Index, finite.Index, looping.Index, finite.Index, looping.Index ];
         var rows = new[] { 3, 3, 2, 3, 5, 5 };
 #if TL_CHECKED
         var positions = new ushort[] { 3, 1, 4, 2, 4, 0 };
@@ -194,13 +194,13 @@ public class BatchedRowsTests
         var ids = SingleIdColumn(2, looping.Index);
         var rows = Array.Empty<int>();
         var positions = new ushort[] { 2, 3 };
-        var effects = new float[] { 1f, 2f };
+        float[] effects = [ 1f, 2f ];
 
         Timeline<BatchRowsTrack, BatchRowsClip>.Apply(rows, ids, positions, true, effects);
         Timeline<BatchRowsTrack, BatchRowsClip>.Advance(rows, ids, positions, true);
 
         Assert.Equal(new ushort[] { 2, 3 }, positions);
-        Assert.Equal(new float[] { 1f, 2f }, effects);
+        Assert.Equal([ 1f, 2f ], effects);
     }
 
     [Fact]
@@ -260,13 +260,13 @@ public class BatchedRowsTests
         var ids = SingleIdColumn(3, looping.Index);
         var rows = new[] { 0, 1, 2 };
         var positions = new ushort[] { 1, 2, 3 };
-        var effects = new float[] { 0f, 0f, 0f };
+        float[] effects = [ 0f, 0f, 0f ];
 
         Timeline<BatchRowsTrack, BatchRowsClip>.Apply(rows, ids, positions, true, effects);
         Timeline<BatchRowsTrack, BatchRowsClip>.Advance(rows, ids, positions, true);
 
         Assert.Equal(new ushort[] { 2, 3, 0 }, positions);
-        Assert.Equal(new float[] { 3f, 3f, 3f }, effects);
+        Assert.Equal([ 3f, 3f, 3f ], effects);
     }
 
     [Fact]
@@ -282,7 +282,7 @@ public class BatchedRowsTests
         Timeline<BatchRowsTrack, BatchRowsClip>.Advance(rows, ids, positions, true);
 
         Assert.Equal(new ushort[] { 1, 0, 3 }, positions.Select(p => p.Value));
-        Assert.Equal(new float[] { 3.5f, 4f, 5f }, effects.Select(e => e.Value));
+        Assert.Equal([ 3.5f, 4f, 5f ], effects.Select(e => e.Value));
     }
 
     [Fact]
@@ -291,9 +291,9 @@ public class BatchedRowsTests
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         var ids = new int[] { looping.Index };
         Assert.Throws<ArgumentException>(() =>
-            Timeline<BatchRowsTrack, BatchRowsClip>.Apply(new[] { 0 }, ids, new ushort[1], true, new float[1]));
+            Timeline<BatchRowsTrack, BatchRowsClip>.Apply([ 0 ], ids, new ushort[1], true, new float[1]));
         Assert.Throws<ArgumentException>(() =>
-            Timeline<BatchRowsTrack, BatchRowsClip>.Advance(new[] { 0 }, ids, new int[1], true));
+            Timeline<BatchRowsTrack, BatchRowsClip>.Advance([ 0 ], ids, new int[1], true));
     }
 
     [Fact]
@@ -313,15 +313,15 @@ public class BatchedRowsTests
         using var set = new TimelineSet<BatchRowsTrack, BatchRowsClip>();
         var id = set.Add(looping);
         var rows = new[] { 2, 0, 1 };
-        var ids = new ushort[] { id, id, id };
+        ushort[] ids = [ id, id, id ];
         var positions = new ushort[] { 0, 3, 2 };
-        var effects = new float[] { 0f, 0f, 0f };
+        float[] effects = [ 0f, 0f, 0f ];
 
         set.ApplyRows(rows, ids, positions, true, effects);
         set.AdvanceRows(rows, ids, positions, true);
 
         Assert.Equal(new ushort[] { 1, 0, 3 }, positions);
-        Assert.Equal(new float[] { 3f, 3f, 3f }, effects);
+        Assert.Equal([ 3f, 3f, 3f ], effects);
     }
 
     static (ushort[] Positions, float[] Effects) Sequential(ushort[] ids, ushort[] positions, float[] effects, int[] rows, bool forward)

@@ -1,7 +1,7 @@
 using FsCheck.Fluent;
 using Xunit;
 
-namespace Tl.Fuzz.Laws;
+namespace Tl.Fuzz;
 
 using static FuzzLaws;
 
@@ -129,7 +129,7 @@ public class MovementLaws
             var duration = random.Pick(Durations);
             var position = SamplePositions(random, 1, duration)[0];
             var rewound = Movement.Backward(duration, looping, Movement.Forward(duration, looping, position));
-            return looping || position != duration ? rewound == position : true;
+            return (looping || position != duration) && rewound == position;
         }));
     }
 

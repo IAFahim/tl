@@ -152,7 +152,6 @@ public unsafe class RecordArenaTests
 
     public sealed class ArenaId
     {
-        public required ushort Index;
         public required ushort Duration;
     }
 
@@ -176,7 +175,7 @@ public unsafe class RecordArenaTests
             var duration = (ushort)(300 + v * 7);
             var index = TimelineAsset.Load(BakeArena(duration, looping: true, 1f + v * 0.25f));
             indices[v] = index;
-            assets[index] = new ArenaId { Index = index, Duration = duration };
+            assets[index] = new ArenaId { Duration = duration };
             minDuration = Math.Min(minDuration, duration);
         }
         var ids = new ushort[rows];
@@ -292,7 +291,7 @@ public unsafe class RecordArenaTests
         Assert.Equal(ushort.MaxValue, duration);
         ushort[] positions = [0, 1, (ushort)(duration - 2), (ushort)(duration - 1), duration, 1];
         var ids = Enumerable.Repeat(index, positions.Length).ToArray();
-        var assets = new Dictionary<ushort, ArenaId> { [index] = new ArenaId { Index = index, Duration = duration } };
+        var assets = new Dictionary<ushort, ArenaId> { [index] = new() { Duration = duration } };
 
         var oraclePositions = (ushort[])positions.Clone();
         var oracleFx = ArenaSeed(positions.Length);

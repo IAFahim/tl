@@ -152,8 +152,8 @@ public unsafe class RefArgumentBakeTests
     [Fact]
     public void MethodGroupsBindBakeToTheInputFamilyAndBakeRefToTheRefFamily()
     {
-        InputBake<RefBakeCounter> input = Timeline.Bake<RefBakeCounter>;
-        ReferenceBake<RefBakeCounter> reference = Timeline.BakeRef<RefBakeCounter>;
+        InputBake<RefBakeCounter> input = Timeline.Bake;
+        ReferenceBake<RefBakeCounter> reference = Timeline.BakeRef;
 
         Assert.Equal("Bake", input.Method.Name);
         Assert.Equal("BakeRef", reference.Method.Name);

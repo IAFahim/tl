@@ -44,9 +44,9 @@ public unsafe class KernelTailTests
         }
 
         if (forward)
-            LaneOps.EffectForward(slot.Forward, duration, looping, positions, hasNext ? next : default, effects, start, limit);
+            LaneOps.EffectForward(slot.Forward, duration, looping, positions, hasNext ? next : null, effects, start, limit);
         else
-            LaneOps.EffectBackward(slot.BackwardByPosition, duration, looping, positions, hasNext ? next : default, effects, start, limit);
+            LaneOps.EffectBackward(slot.BackwardByPosition, duration, looping, positions, hasNext ? next : null, effects, start, limit);
 
         var processedEnd = start + (((limit - start) >> 4) << 4);
         for (var i = 0; i < positions.Length; i++)
@@ -59,7 +59,7 @@ public unsafe class KernelTailTests
                 Assert.Equal(EffectSentinel, effects[i]);
                 continue;
             }
-            var expectedNext = NextSentinel;
+            ushort expectedNext;
             var expectedEffect = EffectSentinel;
             if (forward)
             {
@@ -85,15 +85,14 @@ public unsafe class KernelTailTests
                 }
                 else expectedNext = position;
             }
-            if (hasNext) Assert.Equal(expectedNext, next[i]);
-            else Assert.Equal(NextSentinel, next[i]);
+            Assert.Equal(hasNext ? expectedNext : NextSentinel, next[i]);
             Assert.Equal(expectedEffect, effects[i]);
         }
     }
 
     static byte[] Bake(ushort duration, bool looping)
     {
-        var baker = new Tl.TestSupport.DomainBaker()
+        var baker = new TestSupport.DomainBaker()
             .Track<RoutingTrack, RoutingClip>(new RoutingTrack(2f))
             .Clip(0, 0u, (uint)(duration * 6 / 10), new RoutingClip(1.25f))
             .Clip(0, (uint)(duration * 6 / 10), duration, new RoutingClip(-0.5f));

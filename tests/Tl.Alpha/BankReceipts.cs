@@ -334,10 +334,16 @@ internal static class BankReceipts
         var effects = new float[domain];
         for (var i = 0; i < domain; i++) positions[i] = (ushort)(i & 1);
         for (var frame = 0; frame < 4; frame++)
-            { timelines.Apply(ids, positions, true, effects); timelines.Advance(ids, positions, true); }
+            {
+                timelines.Apply(ids, positions, true, effects);
+                timelines.Advance(ids, positions, true);
+            }
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var frame = 0; frame < 8; frame++)
-            { timelines.Apply(ids, positions, true, effects); timelines.Advance(ids, positions, true); }
+            {
+                timelines.Apply(ids, positions, true, effects);
+                timelines.Advance(ids, positions, true);
+            }
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Require(allocated == 0, $"warm full-domain crowd allocated {allocated} B");
         Console.WriteLine("bank-capacity: shuffled 65,536-id crowd apply+step retained 0 B");
@@ -384,7 +390,7 @@ internal static class BankReceipts
             var reader = r;
             readers[r] = new Thread(() =>
             {
-                var readerIdCount = (ushort[])ids.Clone();
+                var readerIds = (ushort[])ids.Clone();
                 var readerPositions = (ushort[])positions.Clone();
                 var effects = new float[512];
                 for (var frame = 0; frame < 20; frame++)
@@ -496,7 +502,10 @@ internal static class BankReceipts
             }
         }
         for (var step = 0; step < steps; step++)
-            { Timeline<BankTrack, BankClip>.Apply(ids, oracleWalkPositions, true, oracleWalk); Timeline.Advance(ids, oracleWalkPositions, true); }
+            {
+                Timeline<BankTrack, BankClip>.Apply(ids, oracleWalkPositions, true, oracleWalk);
+                Timeline.Advance(ids, oracleWalkPositions, true);
+            }
         Require(effects.AsSpan().SequenceEqual(oracleWalk), "per-entity record walk matches the folded law");
         Require(walkPositions.AsSpan().SequenceEqual(oracleWalkPositions), "record walk clocks match the movement law");
 
@@ -559,7 +568,7 @@ internal static class BankReceipts
             var view = KindRoots[k](asset.Index);
             Require(view.Duration == 16 && view.TableTicks == 17 && view.RecordBytes == 8, $"kind {k} view layout");
         }
-        Console.WriteLine($"bank-workload: 64-pair asset, 32 live pair kinds folded, one bank per pair");
+        Console.WriteLine("bank-workload: 64-pair asset, 32 live pair kinds folded, one bank per pair");
 
         var clipBaker = new DomainBaker().Track<BankTrack, BankClip>(new BankTrack(1f));
         for (uint t = 0; t < 100; t++)
@@ -580,7 +589,10 @@ internal static class BankReceipts
         for (var i = 0; i < instances; i++) { ids[i] = clips.Index; positions[i] = (ushort)(i % 100); }
         var oraclePositions = (ushort[])positions.Clone();
         for (var frame = 0; frame < 16; frame++)
-            { Timeline<BankTrack, BankClip>.Apply(ids, oraclePositions, true, oracle); Timeline.Advance(ids, oraclePositions, true); }
+            {
+                Timeline<BankTrack, BankClip>.Apply(ids, oraclePositions, true, oracle);
+                Timeline.Advance(ids, oraclePositions, true);
+            }
         unsafe
         {
             for (var i = 0; i < instances; i++)
@@ -625,10 +637,16 @@ internal static class BankReceipts
         var effects = new float[idCount];
         for (var i = 0; i < idCount; i++) positions[i] = (ushort)(i % 8);
         for (var frame = 0; frame < 4; frame++)
-            { timelines.Apply(ids, positions, true, effects); timelines.Advance(ids, positions, true); }
+            {
+                timelines.Apply(ids, positions, true, effects);
+                timelines.Advance(ids, positions, true);
+            }
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var frame = 0; frame < 8; frame++)
-            { timelines.Apply(ids, positions, true, effects); timelines.Advance(ids, positions, true); }
+            {
+                timelines.Apply(ids, positions, true, effects);
+                timelines.Advance(ids, positions, true);
+            }
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Require(allocated == 0, $"warm retained crowd allocated {allocated} B");
         Console.WriteLine("bank-retained: shuffled 65,535-id crowd apply+step retained 0 B");
@@ -700,7 +718,10 @@ internal static class BankReceipts
         }
         var walkOracle = new float[rows];
         for (var step = 0; step < 8; step++)
-            { timelines.Apply(ids, oraclePositions, true, walkOracle); timelines.Advance(ids, oraclePositions, true); }
+            {
+                timelines.Apply(ids, oraclePositions, true, walkOracle);
+                timelines.Advance(ids, oraclePositions, true);
+            }
         Require(effects.AsSpan().SequenceEqual(walkOracle), "stale-snapshot record walk matches the folded law");
         
         {

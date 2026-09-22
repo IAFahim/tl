@@ -64,24 +64,24 @@ public class SharedClockCrowdTests
     public void SharedClockApplyMatchesPerRowPathBitExact()
     {
         foreach (var (bake, duration, looping) in Variants())
-            using (var asset = TimelineAsset.LoadAsset(bake))
             {
-                var index = asset.Index;
-                Bind(index);
-                foreach (var forward in new[] { true, false })
-                    foreach (var rows in RowCounts)
-                        foreach (var position in Positions(duration))
-                        {
-                            var uniform = new ushort[rows];
-                            Array.Fill(uniform, position);
-                            var perRow = Seed(rows, position);
-                            var shared = (float[])perRow.Clone();
-                            Timeline<HandleTrack, HandleClip>.Apply(index, uniform, forward, perRow);
-                            Timeline<HandleTrack, HandleClip>.Apply(index, position, forward, shared);
-                            Assert.True(
-                                MemoryMarshal.AsBytes(perRow.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(shared.AsSpan())),
-                                $"effects differ: duration {duration}, looping {looping}, forward {forward}, rows {rows}, position {position}");
-                        }
+                using var asset = TimelineAsset.LoadAsset(bake);
+            var index = asset.Index;
+            Bind(index);
+            foreach (var forward in new[] { true, false })
+                foreach (var rows in RowCounts)
+                    foreach (var position in Positions(duration))
+                    {
+                        var uniform = new ushort[rows];
+                        Array.Fill(uniform, position);
+                        var perRow = Seed(rows, position);
+                        var shared = (float[])perRow.Clone();
+                        Timeline<HandleTrack, HandleClip>.Apply(index, uniform, forward, perRow);
+                        Timeline<HandleTrack, HandleClip>.Apply(index, position, forward, shared);
+                        Assert.True(
+                            MemoryMarshal.AsBytes(perRow.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(shared.AsSpan())),
+                            $"effects differ: duration {duration}, looping {looping}, forward {forward}, rows {rows}, position {position}");
+                    }
             }
     }
 
@@ -89,31 +89,31 @@ public class SharedClockCrowdTests
     public void SharedClockStepMatchesPerRowStepFromEveryStart()
     {
         foreach (var (bake, duration, _) in Variants())
-            using (var asset = TimelineAsset.LoadAsset(bake))
             {
-                var index = asset.Index;
-                Bind(index);
-                var maxStart =
+                using var asset = TimelineAsset.LoadAsset(bake);
+            var index = asset.Index;
+            Bind(index);
+            var maxStart =
 #if TL_CHECKED
-                    duration;
+                duration;
 #else
-                    duration + 2;
+                duration + 2;
 #endif
-                for (var start = 0; start <= maxStart; start++)
-                    foreach (var forward in new[] { true, false })
-                    {
-                        var uniform = new ushort[37];
-                        Array.Fill(uniform, (ushort)start);
-                        Timeline.Advance(index, uniform, forward);
-                        var clock = (ushort)start;
-                        Timeline<HandleTrack, HandleClip>.Advance(index, ref clock, forward);
-                        var allMatch = true;
-                        for (var i = 0; i < uniform.Length; i++)
-                            allMatch &= uniform[i] == clock;
-                        Assert.True(
-                            allMatch,
-                            $"clock diverged: duration {duration}, start {start}, forward {forward}, per-row {uniform[0]}, shared {clock}");
-                    }
+            for (var start = 0; start <= maxStart; start++)
+                foreach (var forward in new[] { true, false })
+                {
+                    var uniform = new ushort[37];
+                    Array.Fill(uniform, (ushort)start);
+                    Timeline.Advance(index, uniform, forward);
+                    var clock = (ushort)start;
+                    Timeline<HandleTrack, HandleClip>.Advance(index, ref clock, forward);
+                    var allMatch = true;
+                    foreach (var uniformTick in uniform)
+                        allMatch &= uniformTick == clock;
+                    Assert.True(
+                        allMatch,
+                        $"clock diverged: duration {duration}, start {start}, forward {forward}, per-row {uniform[0]}, shared {clock}");
+                }
             }
     }
 
@@ -121,35 +121,35 @@ public class SharedClockCrowdTests
     public void SharedClockFrameLoopMatchesPerRowColumns()
     {
         foreach (var (bake, duration, looping) in Variants())
-            using (var asset = TimelineAsset.LoadAsset(bake))
             {
-                var index = asset.Index;
-                Bind(index);
-                foreach (var rows in new[] { 15, 16, 4096 })
+                using var asset = TimelineAsset.LoadAsset(bake);
+            var index = asset.Index;
+            Bind(index);
+            foreach (var rows in new[] { 15, 16, 4096 })
+            {
+                var uniform = new ushort[rows];
+                Array.Fill(uniform, (ushort)(duration / 2));
+                var perRowEffects = Seed(rows, 3);
+                var sharedEffects = (float[])perRowEffects.Clone();
+                var clock = (ushort)(duration / 2);
+                for (var step = 0; step < 80; step++)
                 {
-                    var uniform = new ushort[rows];
-                    Array.Fill(uniform, (ushort)(duration / 2));
-                    var perRowEffects = Seed(rows, 3);
-                    var sharedEffects = (float[])perRowEffects.Clone();
-                    var clock = (ushort)(duration / 2);
-                    for (var step = 0; step < 80; step++)
-                    {
-                        var forward = step % 4 != 3;
-                        Timeline<HandleTrack, HandleClip>.Apply(index, uniform, forward, perRowEffects);
-                        Timeline.Advance(index, uniform, forward);
-                        Timeline<HandleTrack, HandleClip>.Apply(index, clock, forward, sharedEffects);
-                        Timeline<HandleTrack, HandleClip>.Advance(index, ref clock, forward);
-                        var allMatch = true;
-                        for (var i = 0; i < uniform.Length; i++)
-                            allMatch &= uniform[i] == clock;
-                        Assert.True(
-                            allMatch,
-                            $"clock diverged at step {step}: duration {duration}, looping {looping}, rows {rows}");
-                        Assert.True(
-                            MemoryMarshal.AsBytes(perRowEffects.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(sharedEffects.AsSpan())),
-                            $"effects diverged at step {step}: duration {duration}, looping {looping}, forward {forward}, rows {rows}");
-                    }
+                    var forward = step % 4 != 3;
+                    Timeline<HandleTrack, HandleClip>.Apply(index, uniform, forward, perRowEffects);
+                    Timeline.Advance(index, uniform, forward);
+                    Timeline<HandleTrack, HandleClip>.Apply(index, clock, forward, sharedEffects);
+                    Timeline<HandleTrack, HandleClip>.Advance(index, ref clock, forward);
+                    var allMatch = true;
+                    foreach (var uniformTick in uniform)
+                        allMatch &= uniformTick == clock;
+                    Assert.True(
+                        allMatch,
+                        $"clock diverged at step {step}: duration {duration}, looping {looping}, rows {rows}");
+                    Assert.True(
+                        MemoryMarshal.AsBytes(perRowEffects.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(sharedEffects.AsSpan())),
+                        $"effects diverged at step {step}: duration {duration}, looping {looping}, forward {forward}, rows {rows}");
                 }
+            }
             }
     }
 
@@ -157,21 +157,21 @@ public class SharedClockCrowdTests
     public void SkippedSharedClockLeavesEffectsUntouched()
     {
         foreach (var (bake, duration, looping) in Variants())
-            using (var asset = TimelineAsset.LoadAsset(bake))
             {
-                var index = asset.Index;
-                Bind(index);
-                foreach (var forward in new[] { true, false })
-                    foreach (var position in Positions(duration))
-                    {
-                        if (!IsSkipped(index, position, forward)) continue;
-                        var effects = Seed(64, position);
-                        var pristine = (float[])effects.Clone();
-                        Timeline<HandleTrack, HandleClip>.Apply(index, position, forward, effects);
-                        Assert.True(
-                            MemoryMarshal.AsBytes(effects.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(pristine.AsSpan())),
-                            $"skipped position moved effects: duration {duration}, looping {looping}, forward {forward}, position {position}");
-                    }
+                using var asset = TimelineAsset.LoadAsset(bake);
+            var index = asset.Index;
+            Bind(index);
+            foreach (var forward in new[] { true, false })
+                foreach (var position in Positions(duration))
+                {
+                    if (!IsSkipped(index, position, forward)) continue;
+                    var effects = Seed(64, position);
+                    var pristine = (float[])effects.Clone();
+                    Timeline<HandleTrack, HandleClip>.Apply(index, position, forward, effects);
+                    Assert.True(
+                        MemoryMarshal.AsBytes(effects.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(pristine.AsSpan())),
+                        $"skipped position moved effects: duration {duration}, looping {looping}, forward {forward}, position {position}");
+                }
             }
     }
 
@@ -189,8 +189,8 @@ public class SharedClockCrowdTests
         using var asset = TimelineAsset.LoadAsset(LoopingBake());
         var effects = new float[64];
         Timeline<HandleTrack, HandleClip>.Apply(asset.Index, 0, true, effects);
-        for (var i = 0; i < effects.Length; i++)
-            Assert.Equal(8f, effects[i]);
+        foreach (var effect in effects)
+            Assert.Equal(8f, effect);
     }
 
     [Fact]

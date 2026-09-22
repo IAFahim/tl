@@ -34,12 +34,12 @@ public partial class LaneTests
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
-        var lane = timelines.Gather(new ushort[] { 0 });
+        var lane = timelines.Gather([ 0 ]);
         timelines.Dispose();
 
-        Assert.Throws<ObjectDisposedException>(() => timelines.Gather(new ushort[] { 0 }));
+        Assert.Throws<ObjectDisposedException>(() => timelines.Gather([ 0 ]));
         var threw = false;
-        try { lane.Seek(new ushort[] { 0 }, true).Apply(new float[1]); }
+        try { lane.Seek([ 0 ], true).Apply(new float[1]); }
         catch (ObjectDisposedException) { threw = true; }
         Assert.True(threw);
     }
@@ -68,7 +68,7 @@ public partial class LaneTests
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
         Assert.Throws<ArgumentException>(() =>
-            timelines.Gather(new ushort[] { 0 }).Seek(new ushort[] { 0, 1 }, true).Apply(new float[2]));
+            timelines.Gather([ 0 ]).Seek(new ushort[] { 0, 1 }, true).Apply(new float[2]));
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public partial class LaneTests
         using var timelines = new TimelineSet<LaneTrack, LaneClip>();
         timelines.Add(looping);
         Assert.Throws<ArgumentException>(() =>
-            timelines.Gather(new ushort[] { 0, 0 }).Seek(new ushort[] { 0, 1 }, true).Apply(new float[3]));
+            timelines.Gather([ 0, 0 ]).Seek(new ushort[] { 0, 1 }, true).Apply(new float[3]));
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public partial class LaneTests
         populated.Add(looping);
         populated.Dispose();
         populated.Dispose();
-        Assert.Throws<ObjectDisposedException>(() => populated.Gather(new ushort[] { 0 }));
+        Assert.Throws<ObjectDisposedException>(() => populated.Gather([ 0 ]));
     }
 }
 #endif

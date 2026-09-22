@@ -1,5 +1,5 @@
-using Tl;
 
+using FuzzDomain;
 namespace Tl.Fuzz;
 
 public readonly record struct FuzzClip(float Value);
@@ -19,7 +19,7 @@ public static unsafe class FuzzPairs
         if (_installed) return;
         _installed = true;
         PairRuntime<FuzzTrack, FuzzClip>.Consume(&Execute, &BindFloat);
-        PairRuntime<FuzzDomain.FuzzJsonTrack, FuzzDomain.FuzzJsonClip>.Consume(&ExecuteJson, &BindFloat);
+        PairRuntime<FuzzJsonTrack, FuzzJsonClip>.Consume(&ExecuteJson, &BindFloat);
     }
 
     static void BindFloat(ulong* keys, int keyCount, byte* table)
@@ -41,8 +41,8 @@ public static unsafe class FuzzPairs
 
     static void ExecuteJson(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
-        FuzzDomain.FuzzJsonClip scratch = default;
-        var frame = TickFrame.ToFrame<FuzzDomain.FuzzJsonTrack, FuzzDomain.FuzzJsonClip>(slot, pair, tick, flags, ref scratch);
+        FuzzJsonClip scratch = default;
+        var frame = TickFrame.ToFrame<FuzzJsonTrack, FuzzJsonClip>(slot, pair, tick, flags, ref scratch);
         ((float*)columns[0])[row] += frame.Clip.Value * frame.Track.Scale;
     }
 }
@@ -64,13 +64,13 @@ public static class FuzzFx
     public static float Inverse(ushort tick) => -(FuzzFx.Effect(tick) * 0.5f);
 }
 
-public readonly struct LaneOf<D, L> : ITimelineLane<LaneOf<D, L>>
-    where D : IDurationShape
-    where L : ILoopShape
+public readonly struct LaneOf<TD, TL> : ITimelineLane<LaneOf<TD, TL>>
+    where TD : IDurationShape
+    where TL : ILoopShape
 {
-    public static ushort Duration => D.Duration;
+    public static ushort Duration => TD.Duration;
 
-    public static bool Looping => L.Looping;
+    public static bool Looping => TL.Looping;
 
     public static float Effect(ushort position) => FuzzFx.Effect(position);
 

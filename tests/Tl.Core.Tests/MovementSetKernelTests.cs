@@ -35,18 +35,18 @@ public unsafe class MovementSetKernelTests
         using var asset = TimelineAsset.LoadAsset(WrapBake());
         using var second = TimelineAsset.LoadAsset(StepBake());
         using var set = new TimelineSet<MovementWrapTrack, MovementWrapClip>();
-        var id = set.Add(asset);
-        Assert.Equal(0, (int)set.Holes);
+        _ = set.Add(asset);
+        Assert.Equal(0, set.Holes);
 
         using var measured = MeasuredLanes.Measure(second);
         var bound = set.AddAt(2, measured);
-        Assert.Equal(2, (int)bound);
-        Assert.Equal(1, (int)set.Holes);
+        Assert.Equal(2, bound);
+        Assert.Equal(1, set.Holes);
         Assert.True(set.IsPending(1));
         Assert.False(set.IsAbsent(1));
 
         var generation = set.View(2).Generation;
-        Assert.Equal(2, (int)set.AddAt(2, measured));
+        Assert.Equal(2, set.AddAt(2, measured));
         Assert.Equal(generation, set.View(2).Generation);
     }
 
@@ -118,9 +118,9 @@ public unsafe class MovementSetKernelTests
         for (var i = 0; i < positions.Length; i++)
         {
             if (i == 9)
-                Assert.Equal(1, (int)next[i]);
+                Assert.Equal(1, next[i]);
             else
-                Assert.Equal((positions[i] + 1) % 4, (int)next[i]);
+                Assert.Equal((positions[i] + 1) % 4, next[i]);
         }
     }
 
@@ -142,7 +142,7 @@ public unsafe class MovementSetKernelTests
         set.Apply(ids, positions, next, true, effects);
 
         Assert.Equal(new ushort[] { 1, 4, 1, 4, 1, 4 }, next);
-        Assert.Equal(new float[] { 6f, 0f, 4f, 0f, 6f, 0f }, effects);
+        Assert.Equal([ 6f, 0f, 4f, 0f, 6f, 0f ], effects);
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public unsafe class MovementSetKernelTests
         set.Apply(ids, positions, next, false, effects);
 
         Assert.Equal(new ushort[] { 1, 4, 1, 4, 1, 4 }, next);
-        Assert.Equal(new float[] { -6f, 0f, -4f, 0f, -6f, 0f }, effects);
+        Assert.Equal([ -6f, 0f, -4f, 0f, -6f, 0f ], effects);
     }
 
     [Fact]
@@ -175,15 +175,15 @@ public unsafe class MovementSetKernelTests
         var loopingId = set.Add(looping);
         var finiteId = set.Add(finite);
 
-        var ids = new ushort[] { loopingId, finiteId, loopingId, finiteId };
+        ushort[] ids = [ loopingId, finiteId, loopingId, finiteId ];
         var positions = new ushort[] { 1, 0, 1, 0 };
         var next = new ushort[positions.Length];
-        var effects = new float[] { 0.5f, 1.5f, 2.5f, 3.5f };
+        float[] effects = [ 0.5f, 1.5f, 2.5f, 3.5f ];
 
         set.Apply(ids, positions, next, false, effects);
 
         Assert.Equal(new ushort[] { 0, 0, 0, 0 }, next);
-        Assert.Equal(new float[] { -5.5f, 1.5f, -3.5f, 3.5f }, effects);
+        Assert.Equal([ -5.5f, 1.5f, -3.5f, 3.5f ], effects);
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public unsafe class MovementSetKernelTests
         using var asset = TimelineAsset.LoadAsset(baker.Bake());
         using var measured = MeasuredLanes.Measure(asset);
 
-        Assert.Equal(4, (int)measured.Duration);
+        Assert.Equal(4, measured.Duration);
         for (var tick = 0; tick < 4; tick++)
         {
             Assert.Equal(192f, measured.Forward[tick]);
