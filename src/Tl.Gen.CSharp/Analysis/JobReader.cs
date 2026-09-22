@@ -143,10 +143,10 @@ public static class JobReader
                         return Err(Symbols.Site(active.Parameters[start + ActiveParameters], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI holds {ActiveParameters} gameplay columns per registered consumer (memo feeds included); declare at most {ActiveParameters}.");
                     for (var i = 0; i < live.Count; i++)
                         for (var k = 0; k < i; k++)
-                            if (live[i].Mode == live[k].Mode && live[i].Mode != SlotMode.MemoFeed && live[i].TypeName != live[k].TypeName)
+                            if (live[i].Mode == live[k].Mode && live[i].Mode != SlotMode.MemoFeed && live[i].TypeName == live[k].TypeName)
                             {
                                 var kind = live[i].Mode == SlotMode.Input ? "in" : "ref";
-                                return Err(Symbols.Site(active, site), "TLGEN81", $"'{name}.OnActive' declares multiple distinct live '{kind}' column types ({live[k].TypeName}, {live[i].TypeName}); the shipped Apply feeds one typed caller column — declare at most one '{kind}' type (wider surface pending).");
+                                return Err(Symbols.Site(active.Parameters[start + i], site), "TLGEN81", $"'{name}.OnActive' declares two live '{kind} {live[i].TypeName}' columns ('{live[k].Name}', '{live[i].Name}'); TypeKey binding cannot distinguish same-type columns — give them distinct types.");
                             }
                 }
             }

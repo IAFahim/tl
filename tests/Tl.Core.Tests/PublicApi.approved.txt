@@ -3,6 +3,8 @@ type Tl.BakeRuntime`2
   Property Int32 BakeCount
   Method Int32 BakeParameterCount(Int32)
   Method UInt64 BakeParameterKey(Int32, Int32)
+type Tl.ColumnSet
+  Method Void Add[T](System.ReadOnlySpan`1[T])
 type Tl.FrameFlags
   Field Tl.FrameFlags ClipEnd
   Field Tl.FrameFlags ClipStart
@@ -141,6 +143,7 @@ type Tl.Timeline`2
   Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
   Method Void Apply[TIndex,TPosition,TEffect](TIndex ByRef, TPosition ByRef, Boolean, TEffect ByRef)
   Method Void Apply[TIndex,TPosition,TEffect,TInput](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect], System.ReadOnlySpan`1[TInput])
+  Method Void Apply[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, Tl.ColumnSet ByRef)
   Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[System.Int32], System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
   Method Void ApplyLanes[TIndex,TPosition,TEffect0,TEffect1](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect0], System.Span`1[TEffect1])
   Method Tl.SlotView View(UInt16)

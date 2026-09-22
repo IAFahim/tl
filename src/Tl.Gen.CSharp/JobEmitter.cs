@@ -16,21 +16,19 @@ internal static class JobEmitter
     private static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes)
     {
         var names = new HashSet<string>();
+        var bakeNames = new HashSet<string>();
+        string Unique(string raw, HashSet<string> seen)
+        {
+            var name = raw.Split('<')[0].Split('.', ':').Last();
+            while (!seen.Add(name)) name += "_";
+            return name;
+        }
         var items = new List<(string Name, JobConsumer Consumer)>();
         foreach (var consumer in consumers)
-        {
-            var name = consumer.Job.TypeName.Split('<')[0].Split('.', ':').Last();
-            while (!names.Add(name)) name += "_";
-            items.Add((name, consumer));
-        }
-        var bakeNames = new HashSet<string>();
+            items.Add((Unique(consumer.Job.TypeName, names), consumer));
         var bakeItems = new List<(string Name, BakeDeclaration Bake)>();
         foreach (var bake in bakes)
-        {
-            var name = bake.TypeName.Split('<')[0].Split('.', ':').Last();
-            while (!bakeNames.Add(name)) name += "_";
-            bakeItems.Add((name, bake));
-        }
+            bakeItems.Add((Unique(bake.TypeName, bakeNames), bake));
         var writer = new StringBuilder();
         void W(string text) => Line(writer, text);
         W("internal static unsafe class TlConsumerBinding");

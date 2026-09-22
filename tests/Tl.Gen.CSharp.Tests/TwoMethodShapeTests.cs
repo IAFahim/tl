@@ -444,7 +444,7 @@ public sealed class TwoMethodShapeTests
     }
 
     [Fact]
-    public void TwoDistinctLiveInColumnTypesReportTlgen81()
+    public void TwoDistinctLiveInColumnTypesAreLegal()
     {
         var result = Read($$"""
             {{Domain}}
@@ -460,16 +460,37 @@ public sealed class TwoMethodShapeTests
             }
             """);
 
+        Assert.Empty(result.Diagnostics);
+        var consumer = Assert.Single(result.Consumers);
+        Assert.Equal(2, consumer.Job.LiveColumns.Count);
+    }
+
+    [Fact]
+    public void SameTypeDuplicateInColumnsReportTlgen81()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly record struct RatioClip(float Amount);
+            public readonly record struct RatioTrack(float Scale) : IBlend<RatioClip>
+            {
+                public void Blend(in RatioClip first, in RatioClip second, float factor, out RatioClip result) => result = first;
+            }
+            public struct Mass { public float Value; }
+            public readonly struct Mixed : ITrack<RatioTrack, RatioClip>
+            {
+                public static void OnActive(in Frame<RatioTrack, RatioClip> frame, in Mass mass, in Mass alias) { }
+            }
+            """);
+
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("TLGEN81", diagnostic.Code);
-        Assert.Contains("multiple distinct live 'in' column types", diagnostic.Message);
-        Assert.Contains("(global::Domain.Mass, float)", diagnostic.Message);
-        Assert.Contains("(wider surface pending)", diagnostic.Message);
+        Assert.Contains("two live 'in global::Domain.Mass' columns ('mass', 'alias')", diagnostic.Message);
+        Assert.Contains("TypeKey binding cannot distinguish same-type columns", diagnostic.Message);
         Assert.Empty(result.Consumers);
     }
 
     [Fact]
-    public void TwoDistinctLiveRefColumnTypesReportTlgen81()
+    public void SameTypeDuplicateRefColumnsReportTlgen81()
     {
         var result = Read($$"""
             {{Domain}}
@@ -481,14 +502,13 @@ public sealed class TwoMethodShapeTests
             public struct Health { public float Value; }
             public readonly struct Mixed : ITrack<RatioTrack, RatioClip>
             {
-                public static void OnActive(in Frame<RatioTrack, RatioClip> frame, ref float y, ref Health health) { }
+                public static void OnActive(in Frame<RatioTrack, RatioClip> frame, ref Health main, ref Health mirror) { }
             }
             """);
 
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("TLGEN81", diagnostic.Code);
-        Assert.Contains("multiple distinct live 'ref' column types", diagnostic.Message);
-        Assert.Contains("one typed caller column", diagnostic.Message);
+        Assert.Contains("two live 'ref global::Domain.Health' columns ('main', 'mirror')", diagnostic.Message);
         Assert.Empty(result.Consumers);
     }
 

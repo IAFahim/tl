@@ -1368,54 +1368,18 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         if (bound >= 65536) return false;
         var grew = false;
         var i = start;
-        if (Vector512.IsHardwareAccelerated)
+        if (Vector.IsHardwareAccelerated)
         {
             ref var origin = ref MemoryMarshal.GetReference(ids);
-            var boundVector = Vector512.Create((ushort)bound);
-            var edge = end - 32;
-            var over = Vector512<ushort>.Zero;
+            var boundVector = new Vector<ushort>((ushort)bound);
+            var edge = end - Vector<ushort>.Count;
+            var over = Vector<ushort>.Zero;
             while (i <= edge)
             {
-                over |= Vector512.GreaterThanOrEqual(Vector512.LoadUnsafe(ref origin, (nuint)i), boundVector);
-                i += 32;
+                over |= Vector.GreaterThanOrEqual(Vector.LoadUnsafe(ref origin, (nuint)i), boundVector);
+                i += Vector<ushort>.Count;
             }
-            if (over != Vector512<ushort>.Zero)
-                for (var k = start; k < end; k++)
-                {
-                    var id = ids[k];
-                    if (id >= bound) grew |= ResolveOrThrow(set, id, k);
-                }
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            ref var origin = ref MemoryMarshal.GetReference(ids);
-            var boundVector = Vector256.Create((ushort)bound);
-            var edge = end - 16;
-            var over = Vector256<ushort>.Zero;
-            while (i <= edge)
-            {
-                over |= Vector256.GreaterThanOrEqual(Vector256.LoadUnsafe(ref origin, (nuint)i), boundVector);
-                i += 16;
-            }
-            if (over != Vector256<ushort>.Zero)
-                for (var k = start; k < end; k++)
-                {
-                    var id = ids[k];
-                    if (id >= bound) grew |= ResolveOrThrow(set, id, k);
-                }
-        }
-        else if (Vector128.IsHardwareAccelerated)
-        {
-            ref var origin = ref MemoryMarshal.GetReference(ids);
-            var boundVector = Vector128.Create((ushort)bound);
-            var edge = end - 8;
-            var over = Vector128<ushort>.Zero;
-            while (i <= edge)
-            {
-                over |= Vector128.GreaterThanOrEqual(Vector128.LoadUnsafe(ref origin, (nuint)i), boundVector);
-                i += 8;
-            }
-            if (over != Vector128<ushort>.Zero)
+            if (over != Vector<ushort>.Zero)
                 for (var k = start; k < end; k++)
                 {
                     var id = ids[k];
@@ -1449,52 +1413,20 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         if (bound <= 0) return false;
         var boundLimit = bound >= 65536 ? (ushort)65535 : (ushort)bound;
         var i = start;
-        if (Vector512.IsHardwareAccelerated)
+        if (Vector.IsHardwareAccelerated)
         {
             ref var idOrigin = ref MemoryMarshal.GetReference(ids);
             ref var positionOrigin = ref MemoryMarshal.GetReference(positions);
-            var boundVector = Vector512.Create(boundLimit);
-            var limit = Vector512.Create((ushort)minDuration);
-            var highest = Vector512<ushort>.Zero;
-            while (i + 32 < end)
+            var boundVector = new Vector<ushort>(boundLimit);
+            var limit = new Vector<ushort>((ushort)minDuration);
+            var highest = Vector<ushort>.Zero;
+            var width = Vector<ushort>.Count;
+            while (i + width < end)
             {
-                var id = Vector512.LoadUnsafe(ref idOrigin, (nuint)i);
-                if (Vector512.GreaterThanOrEqual(id, boundVector) != Vector512<ushort>.Zero) return false;
-                highest = Vector512.Max(highest, Vector512.LoadUnsafe(ref positionOrigin, (nuint)i));
-                if (Vector512.ExtractMostSignificantBits(Vector512.GreaterThanOrEqual(highest, limit)) != 0) return false;
-                i += 32;
-            }
-        }
-        else if (Vector256.IsHardwareAccelerated)
-        {
-            ref var idOrigin = ref MemoryMarshal.GetReference(ids);
-            ref var positionOrigin = ref MemoryMarshal.GetReference(positions);
-            var boundVector = Vector256.Create(boundLimit);
-            var limit = Vector256.Create((ushort)minDuration);
-            var highest = Vector256<ushort>.Zero;
-            while (i + 16 < end)
-            {
-                var id = Vector256.LoadUnsafe(ref idOrigin, (nuint)i);
-                if (Vector256.GreaterThanOrEqual(id, boundVector) != Vector256<ushort>.Zero) return false;
-                highest = Vector256.Max(highest, Vector256.LoadUnsafe(ref positionOrigin, (nuint)i));
-                if (Vector256.ExtractMostSignificantBits(Vector256.GreaterThanOrEqual(highest, limit)) != 0) return false;
-                i += 16;
-            }
-        }
-        else if (Vector128.IsHardwareAccelerated)
-        {
-            ref var idOrigin = ref MemoryMarshal.GetReference(ids);
-            ref var positionOrigin = ref MemoryMarshal.GetReference(positions);
-            var boundVector = Vector128.Create(boundLimit);
-            var limit = Vector128.Create((ushort)minDuration);
-            var highest = Vector128<ushort>.Zero;
-            while (i + 8 < end)
-            {
-                var id = Vector128.LoadUnsafe(ref idOrigin, (nuint)i);
-                if (Vector128.GreaterThanOrEqual(id, boundVector) != Vector128<ushort>.Zero) return false;
-                highest = Vector128.Max(highest, Vector128.LoadUnsafe(ref positionOrigin, (nuint)i));
-                if (Vector128.ExtractMostSignificantBits(Vector128.GreaterThanOrEqual(highest, limit)) != 0) return false;
-                i += 8;
+                if (Vector.GreaterThanOrEqual(Vector.LoadUnsafe(ref idOrigin, (nuint)i), boundVector) != Vector<ushort>.Zero) return false;
+                highest = Vector.Max(highest, Vector.LoadUnsafe(ref positionOrigin, (nuint)i));
+                if (!Vector.LessThanAll(highest, limit)) return false;
+                i += width;
             }
         }
         for (var k = i; k < end; k++)
