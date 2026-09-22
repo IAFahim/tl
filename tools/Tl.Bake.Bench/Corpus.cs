@@ -6,10 +6,10 @@ namespace Tl.Bake.Bench;
 
 internal static class Corpus
 {
-    internal const int TrackCount = 128;
-    internal const int ClipsPerTrack = 16;
-    internal const uint Duration = 65500;
-    internal static readonly int[] ClipFloatFields = [595, 640, 665, 690, 715, 740, 785];
+    private const int TrackCount = 128;
+    private const int ClipsPerTrack = 16;
+    private const uint Duration = 65500;
+    private static readonly int[] ClipFloatFields = [595, 640, 665, 690, 715, 740, 785];
 
     internal sealed record CorpusFile(string Path, string Description);
 

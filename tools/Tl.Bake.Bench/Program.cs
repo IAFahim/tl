@@ -14,13 +14,13 @@ internal static class Program
     {
         if (args.Length >= 1 && args[0] == "corpus")
             return CorpusCommand(args);
-        if (args.Length >= 2 && args[0] == "parity")
+        if (args is ["parity", ..])
             return ParityCommand(args);
-        if (args.Length >= 2 && args[0] == "timing")
+        if (args is ["timing", ..])
             return TimingCommand(args);
-        if (args.Length >= 1 && args[0] == "batch")
+        if (args is ["batch", ..])
             return BatchCommand(args);
-        if (args.Length >= 1 && args[0] == "batchcorpus")
+        if (args is ["batchcorpus", ..])
             return BatchCorpusCommand(args);
         return 1;
     }

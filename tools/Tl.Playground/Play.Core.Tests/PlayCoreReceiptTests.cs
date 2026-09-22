@@ -1,5 +1,3 @@
-using Play;
-using Xunit;
 
 namespace Play.Core.Tests;
 

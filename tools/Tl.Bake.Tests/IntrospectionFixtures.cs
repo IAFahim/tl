@@ -44,7 +44,7 @@ public readonly struct SensorJob : ITrack<JobTrack, JobClip>
 
 public readonly struct PropertyClip(float amount)
 {
-    public readonly float Amount { get; } = amount;
+    public float Amount { get; } = amount;
 }
 
 public readonly struct PropertyTrack(float scale) : IBlend<PropertyClip>
@@ -79,7 +79,7 @@ public readonly struct FoldJob : ITrack<FoldTrack, FoldClip>
 
 public readonly struct FoldLiveJob : ITrack<FoldTrack, FoldClip>
 {
-    public static void OnMemo(in Frame<FoldTrack, FoldClip> frame, out double charge) => charge = 0d;
+    public static void OnMemo(in Frame<FoldTrack, FoldClip> _, out double charge) => charge = 0d;
 
     public static void OnActive(in Frame<FoldTrack, FoldClip> frame, ref float health)
         => health += frame.Direction;

@@ -1,11 +1,7 @@
-using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
 using Xunit;
 
 namespace Tl.Bake.Tests;
@@ -268,7 +264,7 @@ public sealed class WatchModeCoverageTests
         public void Dispose() => thread.Join(TimeSpan.FromSeconds(5));
     }
 
-    internal sealed class LineSink : TextWriter
+    private sealed class LineSink : TextWriter
     {
         private readonly ConcurrentQueue<string> _lines = new();
 
@@ -288,7 +284,7 @@ public sealed class WatchModeCoverageTests
         {
         }
 
-        public IReadOnlyList<string> Lines => _lines.ToArray();
+        private IReadOnlyList<string> Lines => _lines.ToArray();
 
         public void Clear() => _lines.Clear();
 

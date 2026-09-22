@@ -33,7 +33,7 @@ public static class Recording
     }
     """;
 
-    public static List<(char Pair, uint Tick, float Value)> ForwardOracle() =>
+    private static List<(char Pair, uint Tick, float Value)> ForwardOracle() =>
     [
         ('A', 0u, 10f),
         ('E', 0u, 7f),

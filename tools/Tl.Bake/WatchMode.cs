@@ -40,7 +40,7 @@ internal sealed class WatchEngine
 
     private static DateTimeOffset DefaultClock() => DateTimeOffset.UtcNow;
 
-    public void Ready()
+    private void Ready()
     {
         Emit("ready", writer => writer.WriteNumber("inputs", _files.Count));
     }
@@ -194,7 +194,7 @@ internal sealed class WatchEngine
 
 internal static class WatchMode
 {
-    public const int DefaultDebounceMilliseconds = 100;
+    private const int DefaultDebounceMilliseconds = 100;
 
     public static IReadOnlyList<WatchedFile> ResolveFiles(string input, string? output)
     {
@@ -321,7 +321,7 @@ internal static class WatchMode
         var sleepAction = sleep ?? Thread.Sleep;
         while (!cancelledByKey && (cancelled is null || !cancelled()))
         {
-            engine.Pump(clock is null ? DateTimeOffset.UtcNow : clock());
+            engine.Pump(clock?.Invoke() ?? DateTimeOffset.UtcNow);
             sleepAction(pause);
         }
 

@@ -8,8 +8,7 @@ public readonly record struct GaGlobalTrack(float Scale) : IBlend<GaGlobalClip>
         => result = new GaGlobalClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
-public struct GaGlobalClip
+public struct GaGlobalClip(float amount)
 {
-    public GaGlobalClip(float amount) => Amount = amount;
-    public float Amount;
+    public float Amount = amount;
 }

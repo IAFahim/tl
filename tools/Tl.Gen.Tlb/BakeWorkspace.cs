@@ -9,7 +9,7 @@ internal sealed class BakeWorkspace
     private readonly object _gate = new();
     private (ulong[] Structural, ulong[] Quotes)? _masks;
     private readonly Dictionary<ulong, byte[]> _pairPools = [];
-    internal readonly ConcurrentDictionary<(string Ns, string Type, string? Asm), Type> TypeCache = new();
+    private readonly ConcurrentDictionary<(string Ns, string Type, string? Asm), Type> TypeCache = new();
 
     internal (ulong[] Structural, ulong[] Quotes)? RentMasks(int blocks)
     {
@@ -37,9 +37,8 @@ internal sealed class BakeWorkspace
     {
         lock (_gate)
         {
-            if (_pairPools.TryGetValue(key, out var pool))
+            if (_pairPools.Remove(key, out var pool))
             {
-                _pairPools.Remove(key);
                 return pool;
             }
             return null;
@@ -70,7 +69,7 @@ internal sealed class BakeWorkspace
         foreach (var pair in doc.Pairs)
             if (pair.Pool.Length > 0)
                 ReturnPool(pair.Key, pair.Pool);
-        if (doc.LoanStructural != null && doc.LoanQuotes != null)
+        if (doc is { LoanStructural: not null, LoanQuotes: not null })
             ReturnMasks(doc.LoanStructural, doc.LoanQuotes);
         foreach (var entry in doc.ResolveCache)
             TypeCache.TryAdd(entry.Key, entry.Value);
