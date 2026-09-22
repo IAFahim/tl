@@ -2,7 +2,6 @@ using System.Text;
 using SharpFuzz;
 using Tl.Gen.Tlb;
 
-using FuzzDomain;
 namespace Tl.Fuzz.Harness;
 
 public static class Program
@@ -82,7 +81,7 @@ public static class Program
         return buffer.ToArray();
     }
 
-    static BakerAssemblyResolver Resolver() => BakerAssemblyResolver.FromAssemblies([typeof(Tl.Fuzz.FuzzJsonTrack).Assembly]);
+    static BakerAssemblyResolver Resolver() => BakerAssemblyResolver.FromAssemblies([typeof(FuzzDomain.FuzzJsonTrack).Assembly]);
 
     static void WriteSeeds(string directory)
     {
