@@ -1,17 +1,15 @@
 namespace Tl.Fuzz;
 
-public struct FuzzRandom
+public struct FuzzRandom(ulong seed)
 {
-    public const ulong SeedA = 0x243F6A8885A308D3ul;
-    public const ulong SeedB = 0x13198A2E03707344ul;
+    private const ulong SeedA = 0x243F6A8885A308D3ul;
+    private const ulong SeedB = 0x13198A2E03707344ul;
 
-    ulong _state;
+    ulong _state = seed == 0 ? SeedA : seed;
 
-    public FuzzRandom(ulong seed) => _state = seed == 0 ? SeedA : seed;
+    public static FuzzRandom FromSeeds(ulong a, ulong b) => new(a * 0x9E3779B97F4A7C15ul ^ b << 32 ^ SeedB);
 
-    public static FuzzRandom FromSeeds(ulong a, ulong b) => new((ulong)a * 0x9E3779B97F4A7C15ul ^ (ulong)b << 32 ^ SeedB);
-
-    public ulong NextUlong()
+    private ulong NextUlong()
     {
         _state += 0x9E3779B97F4A7C15ul;
         var z = _state;
@@ -26,18 +24,7 @@ public struct FuzzRandom
 
     public bool NextBool() => (NextUInt() & 1) != 0;
 
-    public double NextDouble() => (NextUlong() >> 11) * (1.0 / 9007199254740992.0);
-
     public T Pick<T>(IReadOnlyList<T> items) => items[NextInt(items.Count)];
-
-    public void Shuffle<T>(Span<T> items)
-    {
-        for (var i = items.Length - 1; i > 0; i--)
-        {
-            var j = NextInt(i + 1);
-            (items[i], items[j]) = (items[j], items[i]);
-        }
-    }
 
     public void Fill(byte[] bytes)
     {

@@ -187,22 +187,20 @@ public unsafe class GatherMixedTests
     [InlineData(false)]
     public void MixedDurationCrowdStaysBitExactAcrossAdvanceFrames(bool forward)
     {
-        AssertCrowdBitExact(new (ushort, bool, float)[]
-        {
+        AssertCrowdBitExact([
             (16, true, 1.5f),
             (1024, true, 2f),
             (33, false, 1f),
-        }, 4099, forward, inPlace: true, hasNext: true, frames: 4);
+        ], 4099, forward, inPlace: true, hasNext: true, frames: 4);
     }
 
     [Fact]
     public void FiniteOriginBackwardRowsKeepSkippedSemanticsAcrossFrames()
     {
-        AssertCrowdBitExact(new (ushort, bool, float)[]
-        {
+        AssertCrowdBitExact([
             (64, false, 1.5f),
             (64, false, 2.5f),
-        }, 130, forward: false, inPlace: true, hasNext: true, frames: 4);
+        ], 130, forward: false, inPlace: true, hasNext: true, frames: 4);
     }
 
     [Fact]
@@ -299,7 +297,7 @@ public unsafe class GatherMixedTests
         Assert.Equal(fxBefore[63], fx[63]);
         Assert.Equal(positionsBefore[63], actualNext[63]);
         Assert.True(expectedPositions.AsSpan(0, 63).SequenceEqual(positions.AsSpan(0, 63)), "bound-row positions match the oracle");
-        Assert.True(((ReadOnlySpan<float>)expectedFx.AsSpan(0, 63)).SequenceEqual(fx.AsSpan(0, 63)), "bound-row effects match the oracle");
+        Assert.True((expectedFx.AsSpan(0, 63)).SequenceEqual(fx.AsSpan(0, 63)), "bound-row effects match the oracle");
         Assert.True(expectedNext.AsSpan(0, 63).SequenceEqual(actualNext.AsSpan(0, 63)), "bound-row next column matches the oracle");
     }
 }

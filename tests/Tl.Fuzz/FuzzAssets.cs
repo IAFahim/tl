@@ -2,7 +2,7 @@ namespace Tl.Fuzz;
 
 public static class FuzzAssetGen
 {
-    public static readonly ushort[] Durations = [1, 2, 3, 7, 8, 15, 16, 17, 31, 63, 255];
+    private static readonly ushort[] Durations = [1, 2, 3, 7, 8, 15, 16, 17, 31, 63, 255];
 
     public static FuzzModel Next(FuzzRandom random, out ushort duration, out bool looping, out float scale, out FuzzClipSpec[] clips)
     {
@@ -14,7 +14,7 @@ public static class FuzzAssetGen
         for (var i = 0; i < count; i++)
         {
             var start = random.NextInt(duration);
-            var end = Math.Min((int)duration, start + 1 + random.NextInt(Math.Min((int)duration, 12)));
+            var end = Math.Min(duration, start + 1 + random.NextInt(Math.Min((int)duration, 12)));
             if (end <= start) continue;
             candidates.Add(new FuzzClipSpec((uint)start, (uint)end, 1f + i * 0.5f));
         }

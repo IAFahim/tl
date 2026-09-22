@@ -57,8 +57,7 @@ public class DatalessClipTests
         var (doc, resolver) = ParseSimd(DatalessJson);
         var bytes = TimelineBakerFastCore.BakeFast(doc, resolver);
         using var asset = TimelineAsset.LoadAsset(bytes);
-        var row = new TimelineComponent(asset.Reference);
-        row.Position = 5;
+        var row = new TimelineComponent(asset.Reference) { Position = 5 };
         Tlb.AlphaTrack track = default;
         Tlb.AlphaClip clip = default;
         var frames = 0;
@@ -90,8 +89,7 @@ public class DatalessClipTests
         var (doc, resolver) = ParseSimd(MixedJson);
         var bytes = TimelineBakerFastCore.BakeFast(doc, resolver);
         using var asset = TimelineAsset.LoadAsset(bytes);
-        var row = new TimelineComponent(asset.Reference);
-        row.Position = 2;
+        var row = new TimelineComponent(asset.Reference) { Position = 2 };
         Tlb.AlphaClip defaultClip = default;
         var defaultFrames = 0;
         foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in row))

@@ -64,7 +64,7 @@ sealed class Baker
         }
     }
 
-    internal sealed class ImageBytesComparer : IEqualityComparer<byte[]>
+    private sealed class ImageBytesComparer : IEqualityComparer<byte[]>
     {
         public bool Equals(byte[]? left, byte[]? right)
         {
@@ -323,14 +323,14 @@ public static unsafe class Host
     public const int Duration = 1024;
     public const int Variants = 8;
 
-    public static readonly TimelineAsset LoopingAsset = TimelineAsset.Of(TimelineAsset.Load(new Baker()
+    private static readonly TimelineAsset LoopingAsset = TimelineAsset.Of(TimelineAsset.Load(new Baker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(2f))
         .Clip(0, 0, 600, new LaneClip(1.25f))
         .Clip(0, 600, 1024, new LaneClip(-0.5f))
         .Looping()
         .Bake()));
 
-    public static readonly TimelineAsset[] VariantAssets = BuildVariants();
+    private static readonly TimelineAsset[] VariantAssets = BuildVariants();
 
     static TimelineAsset[] BuildVariants()
     {

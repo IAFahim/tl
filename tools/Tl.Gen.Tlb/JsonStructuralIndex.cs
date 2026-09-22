@@ -5,7 +5,7 @@ namespace Tl.Gen.Tlb;
 
 internal sealed class JsonStructuralIndex
 {
-    internal const int BlockBytes = 64;
+    private const int BlockBytes = 64;
 
     internal readonly byte[] Utf8;
     internal readonly ulong[] Structural;

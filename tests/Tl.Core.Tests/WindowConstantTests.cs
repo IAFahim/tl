@@ -166,7 +166,8 @@ public class WindowConstantTests
 {
     [Fact]
     public void DeclaredWindowConstantMatchesPerTickAcrossDurations()
-    {        foreach (var duration in new uint[] { 1, 2, 63, 64, 65 })
+    {
+        foreach (var duration in new uint[] { 1, 2, 63, 64, 65 })
         foreach (var looping in new[] { true, false })
         {
             var declared = TimelineAsset.LoadAsset(Bake<ConstTrack, ConstClip>(new ConstTrack(2f), duration, looping, (0, duration)));
@@ -255,10 +256,10 @@ public class WindowConstantTests
         {
             var declared = BakeTwo<ConstTrack, ConstClip, MirrorTrack, MirrorClip>(
                 new ConstTrack(2f), new MirrorTrack(3f), 40, looping,
-                new[] { (0u, 10u), (10u, 40u) }, new[] { (5u, 20u), (20u, 40u) });
+                [ (0u, 10u), (10u, 40u) ], new[] { (5u, 20u), (20u, 40u) });
             var mirror = BakeTwo<MirrorTrack, MirrorClip, MirrorTrack, MirrorClip>(
                 new MirrorTrack(2f), new MirrorTrack(3f), 40, looping,
-                new[] { (0u, 10u), (10u, 40u) }, new[] { (5u, 20u), (20u, 40u) });
+                [ (0u, 10u), (10u, 40u) ], new[] { (5u, 20u), (20u, 40u) });
             var declaredAsset = TimelineAsset.LoadAsset(declared);
             var mirrorAsset = TimelineAsset.LoadAsset(mirror);
             try
@@ -282,10 +283,10 @@ public class WindowConstantTests
         {
             var declared = BakeTwo<ConstTrack, ConstClip, ConstTrack, ConstClip>(
                 new ConstTrack(2f), new ConstTrack(3f), 40, true,
-                new[] { (0u, 10u), (10u, 40u) }, new[] { (5u, 20u), (20u, 40u) });
+                [ (0u, 10u), (10u, 40u) ], new[] { (5u, 20u), (20u, 40u) });
             var mirror = BakeTwo<MirrorTrack, MirrorClip, MirrorTrack, MirrorClip>(
                 new MirrorTrack(2f), new MirrorTrack(3f), 40, true,
-                new[] { (0u, 10u), (10u, 40u) }, new[] { (5u, 20u), (20u, 40u) });
+                [ (0u, 10u), (10u, 40u) ], new[] { (5u, 20u), (20u, 40u) });
             var declaredAsset = TimelineAsset.LoadAsset(declared);
             var mirrorAsset = TimelineAsset.LoadAsset(mirror);
             try

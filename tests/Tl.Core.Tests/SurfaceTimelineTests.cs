@@ -44,9 +44,9 @@ public unsafe class SurfaceTimelineTests
     {
         using var asset = TimelineAsset.LoadAsset(SingleBake());
         var next = new ushort[3];
-        Timeline.Advance(asset, new ushort[] { 0, 1, 5 }, next, true);
+        Timeline.Advance(asset, [ 0, 1, 5 ], next, true);
         Assert.Equal(new ushort[] { 1, 2, 6 }, next);
-        Timeline.Advance(asset, new ushort[] { 0, 1, 6 }, next, false);
+        Timeline.Advance(asset, [ 0, 1, 6 ], next, false);
         Assert.Equal(new ushort[] { 0, 0, 5 }, next);
     }
 
@@ -88,7 +88,7 @@ public unsafe class SurfaceTimelineTests
         using var view = TimelineAsset.LoadAsset(FiveStageBake());
         var component = new TimelineComponent(view.Reference) { Position = 5 };
         var seen = 0;
-        foreach (var frame in Timeline.Query<SurfaceTrack, SurfaceClip>(component))
+        foreach (var _ in Timeline.Query<SurfaceTrack, SurfaceClip>(component))
             seen++;
         Assert.Equal(0, seen);
     }

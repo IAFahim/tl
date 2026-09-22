@@ -74,7 +74,7 @@ public static class BakeOracle
     private static bool IsRemovedPropertyName(string name) =>
         name is "trackType" or "clipType" or "track" or "payload";
 
-    public static void CheckDuplicateKeys(string json)
+    private static void CheckDuplicateKeys(string json)
     {
         var bytes = Encoding.UTF8.GetBytes(json);
         var reader = new Utf8JsonReader(bytes);

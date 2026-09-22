@@ -625,7 +625,6 @@ internal sealed unsafe class SimdWalker
         for (var p = 0; p < fragments.Length; p++)
         {
             var frag = fragments[p];
-            var trackBase = doc.Tracks.Count;
             var clipBase = doc.Clips.Count;
             foreach (var info in frag.Tracks)
             {
@@ -635,7 +634,6 @@ internal sealed unsafe class SimdWalker
             }
             foreach (var clip in frag.Clips)
             {
-                clip.TrackEntry += trackBase;
                 if (clip.PairId >= 0)
                 {
                     var local = clip.PairId;
@@ -844,7 +842,6 @@ internal sealed unsafe class SimdWalker
     {
         var clip = new FastClip
         {
-            TrackEntry = doc.Tracks.Count,
             ClipIndex = clipIndex,
             AuthoredIndex = doc.Clips.Count,
         };
@@ -1404,6 +1401,4 @@ internal sealed unsafe class SimdWalker
     private delegate IntPtr FieldOffsetDelegate(object box);
 }
 
-internal sealed class SimdBailException : Exception
-{
-}
+internal sealed class SimdBailException : Exception;

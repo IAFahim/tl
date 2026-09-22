@@ -107,10 +107,10 @@ public class DomainBakerParityTests
         _ => 1f,
     };
 
-    internal static string Hash(byte[] bytes)
+    private static string Hash(byte[] bytes)
         => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
-    internal static byte[] BakeFixture(int fixture)
+    private static byte[] BakeFixture(int fixture)
     {
         var baker = new DomainBaker();
         switch (fixture)

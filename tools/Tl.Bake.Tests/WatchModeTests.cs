@@ -285,7 +285,7 @@ public class WatchModeTests
             var thread = new Thread(() => WatchMode.Run(
                 ["--watch", InputPath, OutputPath, "--assembly", AssemblyPath, "--debounce", "10"],
                 _sink,
-                cancelled: () => stopRequested()))
+                cancelled: stopRequested))
             {
                 IsBackground = true,
             };

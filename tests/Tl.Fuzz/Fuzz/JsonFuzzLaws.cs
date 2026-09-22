@@ -2,13 +2,12 @@ using System.Text;
 using Xunit;
 using Xunit.Sdk;
 
-namespace Tl.Fuzz.Fuzzing;
+namespace Tl.Fuzz.Fuzz;
 
-using Tl.Fuzz.Laws;
 
 public class JsonFuzzLaws
 {
-    public const int Iterations = 24_000;
+    private const int Iterations = 24_000;
 
     static readonly string[] Vocabulary =
     [

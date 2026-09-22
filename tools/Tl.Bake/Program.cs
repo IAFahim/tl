@@ -8,16 +8,16 @@ public static class Program
     {
         try
         {
-            if (args.Length >= 1 && args[0] == "--json")
+            if (args is ["--json", ..])
                 return Json(args);
 
-            if (args.Length >= 1 && args[0] == "--watch")
+            if (args is ["--watch", ..])
                 return WatchMode.Run(args, Console.Out);
 
-            if (args.Length >= 1 && args[0] == "--strip")
+            if (args is ["--strip", ..])
                 return Strip(args);
 
-            if (args.Length >= 1 && args[0] == "--report")
+            if (args is ["--report", ..])
                 return Report(args);
 
             return Bake(args);

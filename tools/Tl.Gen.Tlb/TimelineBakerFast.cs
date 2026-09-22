@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Runtime.Intrinsics;
@@ -65,10 +66,14 @@ internal unsafe delegate void FloatApplier(object box, int* ids, float* vals, in
 internal sealed class FieldTable
 {
     internal Dictionary<string, FieldEntry> ByName = new(StringComparer.Ordinal);
-    internal int BucketMask;
-    internal int[] Buckets = [-1];
-    internal ulong[] EntryHashes = [];
-    internal byte[][] EntryNames = [];
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    private int BucketMask;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    private int[] Buckets = [-1];
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    private ulong[] EntryHashes = [];
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    private byte[][] EntryNames = [];
     internal FieldEntry[] Entries = [];
     internal FloatApplier? FloatApply;
 
@@ -134,7 +139,7 @@ internal sealed class FieldTable
         var method = new DynamicMethod(
             "apply_floats_" + declaring.Name,
             typeof(void),
-            new[] { typeof(object), typeof(int*), typeof(float*), typeof(int) },
+            [typeof(object), typeof(int*), typeof(float*), typeof(int)],
             declaring.Module,
             skipVisibility: true);
         var il = method.GetILGenerator();
@@ -157,7 +162,7 @@ internal sealed class FieldTable
         il.Emit(OpCodes.Mul);
         il.Emit(OpCodes.Add);
         il.Emit(OpCodes.Ldobj, typeof(int));
-        il.Emit(OpCodes.Switch, cases.Append(def).ToArray());
+        il.Emit(OpCodes.Switch, [.. cases, def]);
         for (var k = 0; k < floatEntries.Count; k++)
         {
             il.MarkLabel(cases[k]);
@@ -235,7 +240,6 @@ internal sealed class FastTrackInfo
 internal sealed class FastClip
 {
     internal uint Start, End;
-    internal int TrackEntry;
     internal int ClipIndex;
     internal int AuthoredIndex;
     internal string? Name;
@@ -258,11 +262,11 @@ internal sealed class FastClip
 
 internal sealed class FastDoc
 {
+    internal BakerAssemblyResolver Resolver = null!;
     internal string? RootName;
     internal uint Duration;
     internal bool Loops;
     internal byte[] Utf8 = null!;
-    internal BakerAssemblyResolver Resolver = null!;
     internal BakeWorkspace? Workspace;
     internal ulong[]? LoanStructural;
     internal ulong[]? LoanQuotes;
@@ -349,7 +353,7 @@ internal static class TimelineBakerFast
         return pairId;
     }
 
-    internal static FieldTable BuildFieldTable(Type structType)
+    private static FieldTable BuildFieldTable(Type structType)
     {
         var table = new FieldTable();
         var allFields = structType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
@@ -386,7 +390,7 @@ internal static class TimelineBakerFast
         var method = new DynamicMethod(
             "set_" + f.Name,
             typeof(void),
-            new[] { typeof(object), f.FieldType },
+            [typeof(object), f.FieldType],
             f.DeclaringType!.Module,
             skipVisibility: true);
         var il = method.GetILGenerator();
@@ -446,7 +450,7 @@ internal static class TimelineBakerFast
                 else
                 {
                     decodedName = r.GetString()!;
-                    entry = table.ByName.TryGetValue(decodedName, out var e) ? e : null;
+                    entry = table.ByName.GetValueOrDefault(decodedName);
                 }
                 r.Read();
                 if (entry == null)
@@ -455,7 +459,7 @@ internal static class TimelineBakerFast
                     SkipValue(ref r, scopes, utf8, baseOffset);
                     continue;
                 }
-                if (error == null && entry.Kind == FieldKind.Float && entry.FloatOrdinal >= 0)
+                if (error is null && entry is { Kind: FieldKind.Float, FloatOrdinal: >= 0 })
                 {
                     if (r.TokenType == JsonTokenType.Number && r.TryGetSingle(out var v))
                     {
@@ -510,7 +514,7 @@ internal static class TimelineBakerFast
         return Encoding.UTF8.GetString(utf8, start, end - start);
     }
 
-    internal static void SkipValue(ref Utf8JsonReader r, List<DupScope>? scopes, byte[] utf8, int baseOffset)
+    private static void SkipValue(ref Utf8JsonReader r, List<DupScope>? scopes, byte[] utf8, int baseOffset)
     {
         if (scopes != null)
             SkipValueWithDupScanning(ref r, scopes, utf8, baseOffset);
@@ -554,7 +558,7 @@ internal static class TimelineBakerFast
         }
     }
 
-    internal static string? SetField(ref Utf8JsonReader r, FieldEntry entry, object box, string contextName, byte[] utf8, int baseOffset, List<DupScope>? scopes)
+    private static string? SetField(ref Utf8JsonReader r, FieldEntry entry, object box, string contextName, byte[] utf8, int baseOffset, List<DupScope>? scopes)
     {
         var field = entry.Name;
         var kindToken = r.TokenType;
@@ -609,7 +613,7 @@ internal static class TimelineBakerFast
     }
 }
 
-internal sealed class DupScopePool
+internal static class DupScopePool
 {
     [ThreadStatic]
     private static List<DupScope>? _pool;
@@ -632,7 +636,7 @@ internal static class NameBytes
         public static bool HasEscape(ReadOnlySpan<byte> span) => span.IndexOf((byte)'\\') >= 0;
     }
 
-internal sealed class DupCheck
+internal static class DupCheck
 {
     internal static void Do(ref Utf8JsonReader r, List<DupScope> scopes, byte[] utf8, int baseOffset)
     {
@@ -643,7 +647,7 @@ internal sealed class DupCheck
             var span = r.ValueSpan;
             if (scope.Find(span, utf8))
                 throw new BakeDiagnosticException($"duplicate field: '{Encoding.UTF8.GetString(span)}'", LineOf(utf8, tok), ColOf(utf8, tok));
-            scope.Add(span, utf8, tok + 1);
+            scope.Add(span, tok + 1);
             if (scope.Decoded is { Count: > 0 })
             {
                 var s = r.GetString()!;
@@ -665,7 +669,7 @@ internal sealed class DupCheck
         }
     }
 
-    internal static int LineOf(byte[] utf8, int index)
+    private static int LineOf(byte[] utf8, int index)
     {
         var line = 1;
         var count = Math.Min(index, utf8.Length);
@@ -675,7 +679,7 @@ internal sealed class DupCheck
         return line;
     }
 
-    internal static int ColOf(byte[] utf8, int index)
+    private static int ColOf(byte[] utf8, int index)
     {
         var col = 1;
         var count = Math.Min(index, utf8.Length);
@@ -731,7 +735,7 @@ internal sealed class DupScope
         return false;
     }
 
-    internal void Add(ReadOnlySpan<byte> name, byte[] buffer, int start)
+    internal void Add(ReadOnlySpan<byte> name, int start)
     {
         if ((_count + 1) * 4 >= (_mask + 1) * 3)
             Grow();
@@ -983,7 +987,7 @@ internal ref struct Walker
                         break;
                     }
                     hasClips = true;
-                    if (info.HaveType && info.TrackType == null && !info.TrackTypeFailed)
+                    if (info is { HaveType: true, TrackType: null, TrackTypeFailed: false })
                         TryResolveTrackType(info, $"track {trackIndex}");
                     ParseClips(trackIndex, trackId, info);
                     if (info.ResolveNeedsRefresh)
@@ -1005,7 +1009,7 @@ internal ref struct Walker
             PendingTrackPost(trackIndex, $"missing required property: track {trackIndex} needs 'type'.");
         if (!hasClips)
             PendingTrackPost(trackIndex, $"Track at index {trackIndex} missing required 'clips' array.");
-        if (info.HaveType && info.TrackType == null && !info.TrackTypeFailed)
+        if (info is { HaveType: true, TrackType: null, TrackTypeFailed: false })
             TryResolveTrackType(info, $"track {trackIndex}");
         if (info.ResolveNeedsRefresh)
             RefreshTrackResolve(trackId, info);
@@ -1024,7 +1028,7 @@ internal ref struct Walker
                 continue;
             var ctx = $"clip {clip.ClipIndex} on track {trackIndex}";
             TryResolveClipPair(clip, info.TrackType, ctx);
-            if (clip.DataCaptured && clip.PairId >= 0 && !clip.PopulateDone)
+            if (clip is { DataCaptured: true, PairId: >= 0, PopulateDone: false })
                 PopulateDeferred(clip, ctx);
         }
     }
@@ -1053,7 +1057,7 @@ internal ref struct Walker
 
     private void TryResolveTrackType(FastTrackInfo info, string context)
     {
-        if (_auto && !info.HaveNs && info.TypeName.Length > 0 && !info.TrackTypeFailed && info.TrackType == null)
+        if (_auto && info is { HaveNs: false, TypeName.Length: > 0, TrackTypeFailed: false, TrackType: null })
         {
             try
             {
@@ -1107,8 +1111,7 @@ internal ref struct Walker
     {
         var clip = new FastClip
         {
-            TrackEntry = trackId,
-            ClipIndex = clipIndex,
+                        ClipIndex = clipIndex,
             AuthoredIndex = _doc.Clips.Count,
         };
         var ctx = $"clip {clipIndex} on track {trackIndex}";
@@ -1197,11 +1200,11 @@ internal ref struct Walker
             PendingClip(trackIndex, $"missing required property: {ctx} needs 'type' (type identity is never inherited from the track).");
         if (!haveStart || !haveEnd)
             PendingClip(trackIndex, $"Clip {clipIndex} on track {trackIndex} missing 'start' or 'end'.");
-        if (clip.TypeSet && clip.TypeName.Length > 0 && clip.PairId < 0 && clip.ClipType == null && !clip.ClipTypeFailed && info.TrackType != null)
+        if (clip is { TypeSet: true, TypeName.Length: > 0, PairId: < 0, ClipType: null, ClipTypeFailed: false } && info.TrackType != null)
             TryResolveClipPair(clip, info.TrackType, ctx);
         if (clip.ResolveNeedsRefresh)
             RefreshClipResolve(clip, info.TrackType, ctx);
-        if (clip.DataCaptured && clip.PairId >= 0)
+        if (clip is { DataCaptured: true, PairId: >= 0 })
             PopulateDeferred(clip, ctx);
         info.ClipIds.Add(_doc.Clips.Count);
         _doc.Clips.Add(clip);
@@ -1293,15 +1296,9 @@ internal ref struct Walker
         clip.PayloadOffset = pair.PoolLength;
         pair.PoolLength += pair.ClipSize;
         var box = Activator.CreateInstance(pair.ClipType)!;
-        string? err;
-        if (deferred)
-        {
-            err = TimelineBakerFast.PopulateSliceUtf8(_utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName);
-        }
-        else
-        {
-            err = TimelineBakerFast.PopulateObject(ref _r, pair.Fields, box, pair.ClipType, contextName, _utf8, 0, checkDup: true, _scopes);
-        }
+        var err = deferred
+            ? TimelineBakerFast.PopulateSliceUtf8(_utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName)
+            : TimelineBakerFast.PopulateObject(ref _r, pair.Fields, box, pair.ClipType, contextName, _utf8, 0, checkDup: true, _scopes);
         if (err == null)
         {
             fixed (byte* dst = pair.Pool)
@@ -1384,7 +1381,7 @@ internal static class TimelineBakerFastCore
 {
     internal static byte[] BakeFast(FastDoc doc, BakerAssemblyResolver resolver) => new Replayer(doc, resolver).Run();
 
-    internal sealed class Lane
+    private sealed class Lane
     {
         public FastPairInfo Pair = null!;
         public int TrackEntry;
@@ -1393,33 +1390,27 @@ internal static class TimelineBakerFastCore
         public List<int> ClipIds = new();
     }
 
-    private sealed class Replayer
+    private sealed class Replayer(FastDoc doc, BakerAssemblyResolver resolver)
     {
-        private readonly FastDoc _doc;
-        private readonly BakerAssemblyResolver _resolver;
         private readonly Dictionary<(Type, Type), bool> _unmanagedChecks = new();
         private readonly Dictionary<(Type, Type), bool> _blendChecks = new();
 
-        public Replayer(FastDoc doc, BakerAssemblyResolver resolver)
-        {
-            _doc = doc;
-            _resolver = resolver;
-        }
+
 
         public byte[] Run()
         {
-            if (_doc.Tracks.Count > 256)
-                throw new BakeDiagnosticException($"asset exceeds 256 authored tracks: {_doc.Tracks.Count} track entries is above the TLB1 TrackIndex capacity.");
+            if (doc.Tracks.Count > 256)
+                throw new BakeDiagnosticException($"asset exceeds 256 authored tracks: {doc.Tracks.Count} track entries is above the TLB1 TrackIndex capacity.");
 
             var lanes = new List<Lane>();
             var labels = new List<(int Track, int Clip, string Name)>();
-            if (_doc.RootName != null)
-                labels.Add((-1, -1, _doc.RootName));
+            if (doc.RootName != null)
+                labels.Add((-1, -1, doc.RootName));
 
-            for (var ti = 0; ti < _doc.Tracks.Count; ti++)
+            for (var ti = 0; ti < doc.Tracks.Count; ti++)
             {
-                var info = _doc.Tracks[ti];
-                if (info.ClipIds.Count == 0 && _doc.Duration > 0)
+                var info = doc.Tracks[ti];
+                if (info.ClipIds.Count == 0 && doc.Duration > 0)
                     throw new BakeDiagnosticException($"empty tracks with duration > 0 (stages must cover duration): track {ti} has 0 clips.");
 
                 var trackType = ResolveTrack(info, ti);
@@ -1430,11 +1421,11 @@ internal static class TimelineBakerFastCore
 
                 foreach (var clipId in info.ClipIds)
                 {
-                    var clip = _doc.Clips[clipId];
+                    var clip = doc.Clips[clipId];
                     if (clip.Start >= clip.End)
                         throw new BakeDiagnosticException($"start >= end: clip [{clip.Start}, {clip.End}) on track {ti} is empty or reversed.");
-                    if (clip.End > _doc.Duration)
-                        throw new BakeDiagnosticException($"clips outside [0, duration]: clip [{clip.Start}, {clip.End}) on track {ti} exceeds timeline duration {_doc.Duration}.");
+                    if (clip.End > doc.Duration)
+                        throw new BakeDiagnosticException($"clips outside [0, duration]: clip [{clip.Start}, {clip.End}) on track {ti} exceeds timeline duration {doc.Duration}.");
 
                     var clipType = ResolveClip(clip, ti);
                     CheckUnmanaged(trackType, clipType);
@@ -1444,7 +1435,7 @@ internal static class TimelineBakerFastCore
                     if (!clip.PopulateDone)
                     {
                         if (clip.PairId < 0)
-                            clip.PairId = TimelineBakerFast.EnsurePair(_doc, trackType, clipType);
+                            clip.PairId = TimelineBakerFast.EnsurePair(doc, trackType, clipType);
                         if (clip.PairId >= 0)
                             PopulateClip(clip, ti, clip.DataCaptured);
                         else
@@ -1458,7 +1449,7 @@ internal static class TimelineBakerFastCore
                 var groupOrder = new List<Type>();
                 foreach (var clipId in info.ClipIds)
                 {
-                    var clipType = _doc.Clips[clipId].ClipType!;
+                    var clipType = doc.Clips[clipId].ClipType!;
                     if (!groupOrder.Contains(clipType))
                         groupOrder.Add(clipType);
                 }
@@ -1468,15 +1459,15 @@ internal static class TimelineBakerFastCore
 
                 foreach (var clipType in groupOrder)
                 {
-                    var pair = _doc.Pairs[_doc.PairIds[(trackType, clipType)]];
+                    var pair = doc.Pairs[doc.PairIds[(trackType, clipType)]];
                     var lane = new Lane { Pair = pair, TrackEntry = ti, TrackBytes = info.TrackBytes! };
                     foreach (var clipId in info.ClipIds)
-                        if (_doc.Clips[clipId].ClipType == clipType)
+                        if (doc.Clips[clipId].ClipType == clipType)
                             lane.ClipIds.Add(clipId);
 
                     var sortedClips = new List<FastClip>(lane.ClipIds.Count);
                     foreach (var clipId in lane.ClipIds)
-                        sortedClips.Add(_doc.Clips[clipId]);
+                        sortedClips.Add(doc.Clips[clipId]);
                     sortedClips.Sort((a, b) =>
                     {
                         var byStart = a.Start.CompareTo(b.Start);
@@ -1524,7 +1515,7 @@ internal static class TimelineBakerFastCore
                 throw new BakeDiagnosticException(info.InferError);
             if (!info.TrackTypeFailed)
                 return info.TrackType!;
-            _resolver.ResolveType(info.Ns, info.TypeName, info.Asm, $"track {ti}");
+            resolver.ResolveType(info.Ns, info.TypeName, info.Asm, $"track {ti}");
             throw new InvalidOperationException("unreachable: failed resolve must throw");
         }
 
@@ -1551,7 +1542,7 @@ internal static class TimelineBakerFastCore
                 var helper = TimelineBakerFast.HelperFor(trackType);
                 info.TrackBytes = new byte[helper.Size];
                 var box = Activator.CreateInstance(trackType)!;
-                var err = TimelineBakerFast.PopulateSliceUtf8(_doc.Utf8, info.DataStart, info.DataEnd, TimelineBakerFast.TableFor(trackType), box, trackType, contextName);
+                var err = TimelineBakerFast.PopulateSliceUtf8(doc.Utf8, info.DataStart, info.DataEnd, TimelineBakerFast.TableFor(trackType), box, trackType, contextName);
                 if (err != null)
                     throw new BakeDiagnosticException(err);
                 unsafe
@@ -1564,7 +1555,7 @@ internal static class TimelineBakerFastCore
             {
                 try
                 {
-                    using var slice = JsonDocument.Parse(_doc.Utf8.AsMemory(info.DataStart, info.DataEnd - info.DataStart), new JsonDocumentOptions { AllowTrailingCommas = true });
+                    using var slice = JsonDocument.Parse(doc.Utf8.AsMemory(info.DataStart, info.DataEnd - info.DataStart), new JsonDocumentOptions { AllowTrailingCommas = true });
                     BakerAssemblyResolver.PopulateStruct(trackType, slice.RootElement, contextName);
                 }
                 catch (BakeDiagnosticException ex)
@@ -1581,16 +1572,16 @@ internal static class TimelineBakerFastCore
                 throw new BakeDiagnosticException(clip.InferError);
             if (clip.ClipTypeFailed)
             {
-                _resolver.ResolveType(clip.Ns, clip.TypeName, clip.Asm, $"clip {clip.ClipIndex} on track {ti}");
+                resolver.ResolveType(clip.Ns, clip.TypeName, clip.Asm, $"clip {clip.ClipIndex} on track {ti}");
                 throw new InvalidOperationException("unreachable: failed resolve must throw");
             }
             if (clip.ClipType == null)
             {
                 var key = (clip.Ns, clip.TypeName, clip.Asm);
-                if (!_doc.ResolveCache.TryGetValue(key, out var resolved))
+                if (!doc.ResolveCache.TryGetValue(key, out var resolved))
                 {
-                    resolved = _resolver.ResolveType(clip.Ns, clip.TypeName, clip.Asm, $"clip {clip.ClipIndex} on track {ti}");
-                    _doc.ResolveCache[key] = resolved;
+                    resolved = resolver.ResolveType(clip.Ns, clip.TypeName, clip.Asm, $"clip {clip.ClipIndex} on track {ti}");
+                    doc.ResolveCache[key] = resolved;
                 }
                 clip.ClipType = resolved;
             }
@@ -1635,7 +1626,7 @@ internal static class TimelineBakerFastCore
 
         private unsafe void PopulateClip(FastClip clip, int ti, bool authored)
         {
-            var pair = _doc.Pairs[clip.PairId];
+            var pair = doc.Pairs[clip.PairId];
             if (!TimelineBakerFast.IsUnmanagedCached(pair.ClipType))
             {
                 clip.PopulateDone = true;
@@ -1648,7 +1639,7 @@ internal static class TimelineBakerFastCore
             {
                 var contextName = $"clip {clip.ClipIndex} on track {ti} ({pair.ClipType.Name})";
                 var box = Activator.CreateInstance(pair.ClipType)!;
-                clip.PopulateError = TimelineBakerFast.PopulateSliceUtf8(_doc.Utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName);
+                clip.PopulateError = TimelineBakerFast.PopulateSliceUtf8(doc.Utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName);
                 if (clip.PopulateError != null)
                     throw new BakeDiagnosticException(clip.PopulateError);
                 fixed (byte* dst = pair.Pool)
@@ -1661,7 +1652,7 @@ internal static class TimelineBakerFastCore
 
         private byte[] Core(List<Lane> lanes, List<(int Track, int Clip, string Name)> labels)
         {
-            var duration = _doc.Duration;
+            var duration = doc.Duration;
             var cuts = new List<uint>();
             if (duration != 0)
             {
@@ -1670,7 +1661,7 @@ internal static class TimelineBakerFastCore
                 foreach (var lane in lanes)
                     foreach (var clipId in lane.ClipIds)
                     {
-                        var clip = _doc.Clips[clipId];
+                        var clip = doc.Clips[clipId];
                         cuts.Add(clip.Start);
                         cuts.Add(clip.End);
                     }
@@ -1725,12 +1716,12 @@ internal static class TimelineBakerFastCore
                 var clipOccurrence = 0;
                 foreach (var member in members)
                     foreach (var clipId in member.ClipIds)
-                        clipOffsets[clipOccurrence++] = _doc.Clips[clipId].PayloadOffset;
+                        clipOffsets[clipOccurrence++] = doc.Clips[clipId].PayloadOffset;
                 clipOffsetsByPair[index] = clipOffsets;
                 var clipName = pair.ClipType.FullName;
                 clipSlotsByPair[index] = DedupPool(clipOffsets.Length, o => pair.Pool.AsSpan(clipOffsets[o], pair.ClipSize), out clipSortedByPair[index], out clipUniques[index], $"clip type '{clipName}'");
             }
-            var clipValueIndex = new ushort[_doc.Clips.Count];
+            var clipValueIndex = new ushort[doc.Clips.Count];
             foreach (var lane in lanes)
             {
                 var index = pairIndex[lane.Pair.Key];
@@ -1741,7 +1732,7 @@ internal static class TimelineBakerFastCore
                 var clipOccurrence = 0;
                 foreach (var clipId in lane.ClipIds)
                 {
-                    while (clipOffsets[clipOccurrence] != _doc.Clips[clipId].PayloadOffset)
+                    while (clipOffsets[clipOccurrence] != doc.Clips[clipId].PayloadOffset)
                         clipOccurrence++;
                     clipValueIndex[clipId] = (ushort)clipSlots[clipOccurrence];
                     clipOccurrence++;
@@ -1751,8 +1742,8 @@ internal static class TimelineBakerFastCore
             foreach (var lane in lanes)
                 lane.ClipIds.Sort((a, b) =>
                 {
-                    var byStart = _doc.Clips[a].Start.CompareTo(_doc.Clips[b].Start);
-                    return byStart != 0 ? byStart : _doc.Clips[a].AuthoredIndex.CompareTo(_doc.Clips[b].AuthoredIndex);
+                    var byStart = doc.Clips[a].Start.CompareTo(doc.Clips[b].Start);
+                    return byStart != 0 ? byStart : doc.Clips[a].AuthoredIndex.CompareTo(doc.Clips[b].AuthoredIndex);
                 });
 
             var stageCount = Math.Max(boundaries.Count - 1, 0);
@@ -1804,15 +1795,15 @@ internal static class TimelineBakerFastCore
                     else
                     {
                         var clips = lanes[laneIdx].ClipIds;
-                        for (var i = 0; i < clips.Count; i++)
+                        foreach (var clipIndex in clips)
                         {
-                            var clip = _doc.Clips[clips[i]];
+                            var clip = doc.Clips[clipIndex];
                             if (clip.Start <= edge && edge < clip.End)
                             {
                                 if (first < 0)
-                                    first = clips[i];
+                                    first = clipIndex;
                                 else
-                                    second = clips[i];
+                                    second = clipIndex;
                                 if (clip.AuthoredIndex < minAuthored)
                                     minAuthored = clip.AuthoredIndex;
                             }
@@ -1896,9 +1887,9 @@ internal static class TimelineBakerFastCore
 
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), TlbLayout.Magic);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), TlbLayout.Version);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), _doc.Loops ? 1u : 0u);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), doc.Loops ? 1u : 0u);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), duration);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), (uint)_doc.Tracks.Count);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), (uint)doc.Tracks.Count);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(20), (uint)stageCount);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(24), (uint)pairCount);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(28), pairOffset);
@@ -1968,8 +1959,8 @@ internal static class TimelineBakerFastCore
                         var laneIdx = stageActives[stage][i];
                         var lane = lanes[laneIdx];
                         var covering = stageCoverings[stage][i];
-                        var first = _doc.Clips[covering.First];
-                        var second = covering.Second >= 0 ? _doc.Clips[covering.Second] : null;
+                        var first = doc.Clips[covering.First];
+                        var second = covering.Second >= 0 ? doc.Clips[covering.Second] : null;
                         var windowStart = first.Start;
                         var windowEnd = second != null ? Math.Max(first.End, second.End) : first.End;
                         var factorStart = 0u;
@@ -2027,7 +2018,7 @@ internal static class TimelineBakerFastCore
                 var ids = new int[padded];
                 for (var i = 0; i < clips.Count; i++)
                 {
-                    var clip = _doc.Clips[clips[i]];
+                    var clip = doc.Clips[clips[i]];
                     starts[i] = clip.Start ^ 0x8000_0000u;
                     ends[i] = clip.End ^ 0x8000_0000u;
                     authored[i] = clip.AuthoredIndex;

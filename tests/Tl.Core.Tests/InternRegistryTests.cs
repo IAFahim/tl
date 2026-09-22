@@ -1,4 +1,3 @@
-using System.Threading;
 using Xunit;
 
 using Tl.TestSupport;
@@ -57,7 +56,7 @@ public unsafe class InternRegistryTests
         Assert.True(TimelineTable.PeakLiveBytes >= liveBytes);
         Assert.True(TimelineTable.PeakLiveBytes >= peakBefore);
 
-        using (var view = TimelineAsset.Of(index))
+        using (TimelineAsset.Of(index))
         {
             Assert.True(TimelineTable.IsLive(index));
         }
@@ -115,7 +114,7 @@ public unsafe class InternRegistryTests
     }
 
     [Fact]
-    public unsafe void GateWaitersYieldWhenAPublishHoldsTheTable()
+    public void GateWaitersYieldWhenAPublishHoldsTheTable()
     {
         var bytes = FatBake();
         var failures = 0;

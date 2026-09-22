@@ -285,7 +285,10 @@ public partial class LaneTests
             lanePositions[i] = oraclePositions[i] = (ushort)(i % 6);
 
         for (var call = 0; call < 3; call++)
-            { Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects); Timeline<BakedLane<LaneTrack, LaneClip>>.Advance(lanePositions, true); }
+        {
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Apply(lanePositions, true, laneEffects);
+            Timeline<BakedLane<LaneTrack, LaneClip>>.Advance(lanePositions, true);
+        }
         Simulate(oraclePositions, oracleEffects, LoopingEffects, true, 3, 6, true);
 
         Assert.Equal(oraclePositions, lanePositions);
@@ -335,7 +338,7 @@ public partial class LaneTests
         Assert.Equal(6, BakedLane<LaneTrack, LaneClip>.Duration);
         for (var tick = 0; tick < 6; tick++)
         {
-            var orphan = tick >= 2 && tick < 5 ? 5 * 3f : 0f;
+            var orphan = tick is >= 2 and < 5 ? 5 * 3f : 0f;
             Assert.Equal(LoopingEffects[tick] + orphan, BakedLane<LaneTrack, LaneClip>.Effect((ushort)tick));
         }
     }
@@ -655,7 +658,7 @@ public partial class LaneTests
             positions[i] = (ushort)(i * 5 % 6);
         positions[16] = 7;
         positions[17] = 6;
-        effects[16] = MemoryMarshal.Read<float>(stackalloc byte[4] { 0x01, 0x00, 0x80, 0x7F });
+        effects[16] = MemoryMarshal.Read<float>([ 0x01, 0x00, 0x80, 0x7F ]);
         effects[17] = BitConverter.Int32BitsToSingle(unchecked((int)0x80000000));
 
         timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Advance(ids, positions, true);
@@ -690,7 +693,7 @@ public partial class LaneTests
             positions[i] = (ushort)(i * 5 % 6);
         positions[16] = 7;
         positions[17] = 6;
-        effects[16] = MemoryMarshal.Read<float>(stackalloc byte[4] { 0x01, 0x00, 0x80, 0x7F });
+        effects[16] = MemoryMarshal.Read<float>([ 0x01, 0x00, 0x80, 0x7F ]);
         effects[17] = BitConverter.Int32BitsToSingle(unchecked((int)0x80000000));
 
         timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Advance(ids, positions, true);
@@ -723,7 +726,7 @@ public partial class LaneTests
             positions[i] = (ushort)(i * 5 % 9);
         positions[16] = 9;
         positions[17] = 9;
-        effects[16] = MemoryMarshal.Read<float>(stackalloc byte[4] { 0x01, 0x00, 0x80, 0x7F });
+        effects[16] = MemoryMarshal.Read<float>([ 0x01, 0x00, 0x80, 0x7F ]);
         effects[17] = BitConverter.Int32BitsToSingle(unchecked((int)0x80000000));
 
         timelines.Gather(ids).Seek(positions, true).Apply(effects); timelines.Advance(ids, positions, true);
@@ -751,7 +754,7 @@ public partial class LaneTests
         timelines.Add(looping);
 
         var error = Assert.Throws<ArgumentException>(() =>
-            timelines.Gather(new ushort[] { 0, 1 }).Seek(new ushort[2], true).Apply(new float[2]));
+            timelines.Gather([ 0, 1 ]).Seek(new ushort[2], true).Apply(new float[2]));
         Assert.Contains("not bound", error.Message);
     }
 

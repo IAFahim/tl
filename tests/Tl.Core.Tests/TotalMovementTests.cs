@@ -10,7 +10,7 @@ public class TotalMovementTests
 {
     public readonly record struct JobClip(int Value);
 
-    public readonly struct JobTrack : IBlend<JobClip>
+    private readonly struct JobTrack : IBlend<JobClip>
     {
         public void Blend(in JobClip first, in JobClip second, float factor, out JobClip result)
             => result = factor < 0.5f ? first : second;
@@ -293,8 +293,7 @@ public class TotalMovementTests
         Assert.True(parameters[0].IsIn);
         Assert.Equal(typeof(TimelineState).MakeByRefType(), parameters[0].ParameterType);
         Assert.Equal(
-            new[]
-            {
+            [
                 typeof(TimelineState).MakeByRefType(),
                 typeof(ushort),
                 typeof(bool),
@@ -302,7 +301,7 @@ public class TotalMovementTests
                 typeof(TimelineState).MakeByRefType(),
                 typeof(ushort).MakeByRefType(),
                 typeof(FrameFlags).MakeByRefType(),
-            },
+            ],
             parameters.Select(static parameter => parameter.ParameterType));
         Assert.All(parameters[4..], static parameter => Assert.True(parameter.IsOut));
     }

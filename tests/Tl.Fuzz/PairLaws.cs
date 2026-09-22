@@ -1,7 +1,7 @@
 using Xunit;
 using Xunit.Sdk;
 
-namespace Tl.Fuzz.Laws;
+namespace Tl.Fuzz;
 
 public unsafe class PairLaws
 {
@@ -12,7 +12,7 @@ public unsafe class PairLaws
         var random = FuzzRandom.FromSeeds(0x101, 0x303);
         for (var trial = 0; trial < 96; trial++)
         {
-            var model = FuzzAssetGen.Next(random, out var duration, out var looping, out var scale, out var clips);
+            var model = FuzzAssetGen.Next(random, out _, out _, out _, out _);
             FoldMatchesModel(model, $"trial {trial}");
         }
         FoldMatchesModel(FuzzAssetGen.OverlapPair(8, true, 0.5f), "overlap looping");
@@ -27,7 +27,7 @@ public unsafe class PairLaws
         var random = FuzzRandom.FromSeeds(0x102, 0x303);
         for (var trial = 0; trial < 48; trial++)
         {
-            var model = FuzzAssetGen.Next(random, out var duration, out var looping, out var scale, out var clips);
+            var model = FuzzAssetGen.Next(random, out _, out _, out _, out _);
             using var asset = Load(model);
             foreach (var forward in new[] { true, false })
             {
@@ -36,13 +36,11 @@ public unsafe class PairLaws
                     var initial = Initial(random);
 
                     float perEntity = initial;
-                    if (forward) Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, position, true, ref perEntity);
-                    else Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, position, false, ref perEntity);
+                    Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, position, forward, ref perEntity);
 
                     var spanEffects = new[] { initial };
                     var spanNext = new ushort[1];
-                    if (forward) Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, new[] { position }, spanNext, true, spanEffects);
-                    else Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, new[] { position }, spanNext, false, spanEffects);
+                    Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, new[] { position }, spanNext, forward, spanEffects);
 
                     var expected = initial + FoldDelta(model, forward, position);
                     if (perEntity != expected)
@@ -63,7 +61,7 @@ public unsafe class PairLaws
         var random = FuzzRandom.FromSeeds(0x103, 0x303);
         for (var trial = 0; trial < 48; trial++)
         {
-            var model = FuzzAssetGen.Next(random, out var duration, out var looping, out var scale, out var clips);
+            var model = FuzzAssetGen.Next(random, out _, out _, out _, out _);
             using var asset = Load(model);
             foreach (var forward in new[] { true, false })
             {
@@ -74,14 +72,12 @@ public unsafe class PairLaws
                 for (var i = 0; i < rows; i++) initial[i] = Initial(random);
 
                 var broadcast = (float[])initial.Clone();
-                if (forward) Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, position, true, broadcast);
-                else Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, position, false, broadcast);
+                Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, position, forward, broadcast);
 
                 var perRowPositions = new ushort[rows];
                 Array.Fill(perRowPositions, position);
                 var perRow = (float[])initial.Clone();
-                if (forward) Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, perRowPositions, true, perRow);
-                else Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, perRowPositions, false, perRow);
+                Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, perRowPositions, forward, perRow);
 
                 var delta = FoldDelta(model, forward, position);
                 for (var i = 0; i < rows; i++)
@@ -100,15 +96,14 @@ public unsafe class PairLaws
         var random = FuzzRandom.FromSeeds(0x104, 0x303);
         for (var trial = 0; trial < 32; trial++)
         {
-            var model = FuzzAssetGen.Next(random, out var duration, out var looping, out var scale, out var clips);
+            var model = FuzzAssetGen.Next(random, out _, out _, out _, out _);
             using var asset = Load(model);
             foreach (var forward in new[] { true, false })
             {
                 var positions = SamplePositions(random, model.Duration, 40);
                 var clock = (ushort[])positions.Clone();
                 var effects = new float[positions.Length];
-                if (forward) Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, positions, true, effects);
-                else Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, positions, false, effects);
+                Timeline<FuzzTrack, FuzzClip>.Apply(asset.Index, positions, forward, effects);
                 for (var i = 0; i < positions.Length; i++)
                     if (clock[i] != positions[i])
                         throw new XunitException($"Apply moved the clock d={model.Duration} row={i}");
@@ -122,7 +117,7 @@ public unsafe class PairLaws
         var random = FuzzRandom.FromSeeds(0x105, 0x303);
         for (var trial = 0; trial < 48; trial++)
         {
-            var model = FuzzAssetGen.Next(random, out var duration, out var looping, out var scale, out var clips);
+            var model = FuzzAssetGen.Next(random, out _, out _, out _, out _);
             using var asset = Load(model);
             foreach (var position in SamplePositions(random, model.Duration, 24))
             {

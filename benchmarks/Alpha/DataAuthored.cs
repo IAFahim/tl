@@ -36,16 +36,18 @@ internal sealed class LaneCase : IDisposable
         _positions[0] = 0;
         _values[0] = 0;
         for (var index = 0; index < _deltas.Length; index++)
-            { { Timeline<AlphaTrack, AlphaClip>.Apply(_handles, _positions, _deltas[index] >= 0, _values); Timeline.Advance(_handles, _positions, _deltas[index] >= 0); } }
+        {
+            { Timeline<AlphaTrack, AlphaClip>.Apply(_handles, _positions, _deltas[index] >= 0, _values); Timeline.Advance(_handles, _positions, _deltas[index] >= 0); }
+        }
         return Checksum(_positions[0], _values[0]);
     }
 
     public void Dispose() => _asset.Dispose();
 
-    internal static long Checksum(ushort position, float value)
+    static long Checksum(ushort position, float value)
         => unchecked((long)position * 31 + (long)value);
 
-    internal static byte[] Bake(TimelineShape shape)
+    static byte[] Bake(TimelineShape shape)
     {
         var baker = new DomainBaker();
         switch (shape)
@@ -72,7 +74,7 @@ internal sealed class LaneCase : IDisposable
         return baker.Looping().Bake();
     }
 
-    internal static int PerTickEffect(TimelineShape shape) => shape switch
+    static int PerTickEffect(TimelineShape shape) => shape switch
     {
         TimelineShape.OneTrack => 1,
         TimelineShape.ThreeTracks => 4,

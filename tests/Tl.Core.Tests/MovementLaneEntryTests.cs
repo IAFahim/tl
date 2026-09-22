@@ -76,7 +76,7 @@ public class MovementLaneEntryTests
         Timeline<MovementWrapLane>.Apply(positions, next, true, effects);
 
         Assert.Equal(new ushort[] { 1, 2, 3, 0, 4, 5, 0, 1 }, next);
-        Assert.Equal(new float[] { 0f, 1f, 2f, 3f, 0f, 0f, 3f, 0f }, effects);
+        Assert.Equal([ 0f, 1f, 2f, 3f, 0f, 0f, 3f, 0f ], effects);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class MovementLaneEntryTests
         Timeline<MovementWrapLane>.Apply(positions, next, false, effects);
 
         Assert.Equal(new ushort[] { 3, 0, 1, 2, 4, 5, 3, 2 }, next);
-        Assert.Equal(new float[] { -3f, 0f, -1f, -2f, 0f, 0f, -3f, -2f }, effects);
+        Assert.Equal([ -3f, 0f, -1f, -2f, 0f, 0f, -3f, -2f ], effects);
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class MovementLaneEntryTests
         Timeline<MovementClampLane>.Apply(positions, next, false, effects);
 
         Assert.Equal(new ushort[] { 0, 0, 2, 3, 5 }, next);
-        Assert.Equal(new float[] { 0f, -0.5f, -2.5f, -3.5f, 0f }, effects);
+        Assert.Equal([ 0f, -0.5f, -2.5f, -3.5f, 0f ], effects);
 
         var forwardPositions = new ushort[] { 0, 2, 3, 4 };
         var forwardNext = new ushort[forwardPositions.Length];
@@ -111,7 +111,7 @@ public class MovementLaneEntryTests
         Timeline<MovementClampLane>.Apply(forwardPositions, forwardNext, true, forwardEffects);
 
         Assert.Equal(new ushort[] { 1, 3, 4, 4 }, forwardNext);
-        Assert.Equal(new float[] { 0.5f, 2.5f, 3.5f, 0f }, forwardEffects);
+        Assert.Equal([ 0.5f, 2.5f, 3.5f, 0f ], forwardEffects);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class MovementLaneEntryTests
 
         Timeline<MovementZeroLane>.Apply(positions, next, true, effects);
         Assert.Equal(new ushort[] { 3, 9 }, next);
-        Assert.Equal(new float[] { 0f, 0f }, effects);
+        Assert.Equal([ 0f, 0f ], effects);
 
         Timeline<MovementZeroLane>.Advance(positions, next, true);
         Assert.Equal(new ushort[] { 3, 9 }, next);

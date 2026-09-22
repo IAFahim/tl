@@ -32,9 +32,9 @@ public static class TimelineBaker
     {
         resolver ??= new BakerAssemblyResolver();
         var outcomes = BakeBatch(utf8Jsons, resolver, autoNamespace);
-        for (var i = 0; i < outcomes.Length; i++)
-            if (outcomes[i].Error != null)
-                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(outcomes[i].Error!).Throw();
+        foreach (var outcome in outcomes)
+            if (outcome.Error != null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(outcome.Error!).Throw();
         var outputs = new byte[outcomes.Length][];
         for (var i = 0; i < outcomes.Length; i++)
             outputs[i] = outcomes[i].Bytes!;

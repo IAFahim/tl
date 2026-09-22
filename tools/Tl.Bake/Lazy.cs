@@ -77,7 +77,7 @@ internal static class Lazy
         return null;
     }
 
-    internal static List<(string? Namespace, string Type)> ReferencedPairs(string jsonPath)
+    private static List<(string? Namespace, string Type)> ReferencedPairs(string jsonPath)
     {
         var pairs = new List<(string?, string)>();
         using var document = JsonDocument.Parse(File.ReadAllText(jsonPath));

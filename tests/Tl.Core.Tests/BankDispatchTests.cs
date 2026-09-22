@@ -183,514 +183,258 @@ public unsafe class BankDispatchTests
     }
 }
 
-readonly struct BankTag0
-{
-}
-
-readonly struct BankTag1
-{
-}
-
-readonly struct BankTag2
-{
-}
-
-readonly struct BankTag3
-{
-}
-
-readonly struct BankTag4
-{
-}
-
-readonly struct BankTag5
-{
-}
-
-readonly struct BankTag6
-{
-}
-
-readonly struct BankTag7
-{
-}
-
-readonly struct BankTag8
-{
-}
-
-readonly struct BankTag9
-{
-}
-
-readonly struct BankTag10
-{
-}
-
-readonly struct BankTag11
-{
-}
-
-readonly struct BankTag12
-{
-}
-
-readonly struct BankTag13
-{
-}
-
-readonly struct BankTag14
-{
-}
-
-readonly struct BankTag15
-{
-}
-
-readonly struct BankTag16
-{
-}
-
-readonly struct BankTag17
-{
-}
-
-readonly struct BankTag18
-{
-}
-
-readonly struct BankTag19
-{
-}
-
-readonly struct BankTag20
-{
-}
-
-readonly struct BankTag21
-{
-}
-
-readonly struct BankTag22
-{
-}
-
-readonly struct BankTag23
-{
-}
-
-readonly struct BankTag24
-{
-}
-
-readonly struct BankTag25
-{
-}
-
-readonly struct BankTag26
-{
-}
-
-readonly struct BankTag27
-{
-}
-
-readonly struct BankTag28
-{
-}
-
-readonly struct BankTag29
-{
-}
-
-readonly struct BankTag30
-{
-}
-
-readonly struct BankTag31
-{
-}
-
-readonly struct BankTag32
-{
-}
-
-readonly struct BankTag33
-{
-}
-
-readonly struct BankTag34
-{
-}
-
-readonly struct BankTag35
-{
-}
-
-readonly struct BankTag36
-{
-}
-
-readonly struct BankTag37
-{
-}
-
-readonly struct BankTag38
-{
-}
-
-readonly struct BankTag39
-{
-}
-
-readonly struct BankTag40
-{
-}
-
-readonly struct BankTag41
-{
-}
-
-readonly struct BankTag42
-{
-}
-
-readonly struct BankTag43
-{
-}
-
-readonly struct BankTag44
-{
-}
-
-readonly struct BankTag45
-{
-}
-
-readonly struct BankTag46
-{
-}
-
-readonly struct BankTag47
-{
-}
-
-readonly struct BankTag48
-{
-}
-
-readonly struct BankTag49
-{
-}
-
-readonly struct BankTag50
-{
-}
-
-readonly struct BankTag51
-{
-}
-
-readonly struct BankTag52
-{
-}
-
-readonly struct BankTag53
-{
-}
-
-readonly struct BankTag54
-{
-}
-
-readonly struct BankTag55
-{
-}
-
-readonly struct BankTag56
-{
-}
-
-readonly struct BankTag57
-{
-}
-
-readonly struct BankTag58
-{
-}
-
-readonly struct BankTag59
-{
-}
-
-readonly struct BankTag60
-{
-}
-
-readonly struct BankTag61
-{
-}
-
-readonly struct BankTag62
-{
-}
-
-readonly struct BankTag63
-{
-}
-
-readonly struct BankTag64
-{
-}
-
-readonly struct BankTag65
-{
-}
-
-readonly struct BankTag66
-{
-}
-
-readonly struct BankTag67
-{
-}
-
-readonly struct BankTag68
-{
-}
-
-readonly struct BankTag69
-{
-}
-
-readonly struct BankTag70
-{
-}
-
-readonly struct BankTag71
-{
-}
-
-readonly struct BankTag72
-{
-}
-
-readonly struct BankTag73
-{
-}
-
-readonly struct BankTag74
-{
-}
-
-readonly struct BankTag75
-{
-}
-
-readonly struct BankTag76
-{
-}
-
-readonly struct BankTag77
-{
-}
-
-readonly struct BankTag78
-{
-}
-
-readonly struct BankTag79
-{
-}
-
-readonly struct BankTag80
-{
-}
-
-readonly struct BankTag81
-{
-}
-
-readonly struct BankTag82
-{
-}
-
-readonly struct BankTag83
-{
-}
-
-readonly struct BankTag84
-{
-}
-
-readonly struct BankTag85
-{
-}
-
-readonly struct BankTag86
-{
-}
-
-readonly struct BankTag87
-{
-}
-
-readonly struct BankTag88
-{
-}
-
-readonly struct BankTag89
-{
-}
-
-readonly struct BankTag90
-{
-}
-
-readonly struct BankTag91
-{
-}
-
-readonly struct BankTag92
-{
-}
-
-readonly struct BankTag93
-{
-}
-
-readonly struct BankTag94
-{
-}
-
-readonly struct BankTag95
-{
-}
-
-readonly struct BankTag96
-{
-}
-
-readonly struct BankTag97
-{
-}
-
-readonly struct BankTag98
-{
-}
-
-readonly struct BankTag99
-{
-}
-
-readonly struct BankTag100
-{
-}
-
-readonly struct BankTag101
-{
-}
-
-readonly struct BankTag102
-{
-}
-
-readonly struct BankTag103
-{
-}
-
-readonly struct BankTag104
-{
-}
-
-readonly struct BankTag105
-{
-}
-
-readonly struct BankTag106
-{
-}
-
-readonly struct BankTag107
-{
-}
-
-readonly struct BankTag108
-{
-}
-
-readonly struct BankTag109
-{
-}
-
-readonly struct BankTag110
-{
-}
-
-readonly struct BankTag111
-{
-}
-
-readonly struct BankTag112
-{
-}
-
-readonly struct BankTag113
-{
-}
-
-readonly struct BankTag114
-{
-}
-
-readonly struct BankTag115
-{
-}
-
-readonly struct BankTag116
-{
-}
-
-readonly struct BankTag117
-{
-}
-
-readonly struct BankTag118
-{
-}
-
-readonly struct BankTag119
-{
-}
-
-readonly struct BankTag120
-{
-}
-
-readonly struct BankTag121
-{
-}
-
-readonly struct BankTag122
-{
-}
-
-readonly struct BankTag123
-{
-}
-
-readonly struct BankTag124
-{
-}
-
-readonly struct BankTag125
-{
-}
-
-readonly struct BankTag126
-{
-}
-
-readonly struct BankTag127
-{
-}
+readonly struct BankTag0;
+
+readonly struct BankTag1;
+
+readonly struct BankTag2;
+
+readonly struct BankTag3;
+
+readonly struct BankTag4;
+
+readonly struct BankTag5;
+
+readonly struct BankTag6;
+
+readonly struct BankTag7;
+
+readonly struct BankTag8;
+
+readonly struct BankTag9;
+
+readonly struct BankTag10;
+
+readonly struct BankTag11;
+
+readonly struct BankTag12;
+
+readonly struct BankTag13;
+
+readonly struct BankTag14;
+
+readonly struct BankTag15;
+
+readonly struct BankTag16;
+
+readonly struct BankTag17;
+
+readonly struct BankTag18;
+
+readonly struct BankTag19;
+
+readonly struct BankTag20;
+
+readonly struct BankTag21;
+
+readonly struct BankTag22;
+
+readonly struct BankTag23;
+
+readonly struct BankTag24;
+
+readonly struct BankTag25;
+
+readonly struct BankTag26;
+
+readonly struct BankTag27;
+
+readonly struct BankTag28;
+
+readonly struct BankTag29;
+
+readonly struct BankTag30;
+
+readonly struct BankTag31;
+
+readonly struct BankTag32;
+
+readonly struct BankTag33;
+
+readonly struct BankTag34;
+
+readonly struct BankTag35;
+
+readonly struct BankTag36;
+
+readonly struct BankTag37;
+
+readonly struct BankTag38;
+
+readonly struct BankTag39;
+
+readonly struct BankTag40;
+
+readonly struct BankTag41;
+
+readonly struct BankTag42;
+
+readonly struct BankTag43;
+
+readonly struct BankTag44;
+
+readonly struct BankTag45;
+
+readonly struct BankTag46;
+
+readonly struct BankTag47;
+
+readonly struct BankTag48;
+
+readonly struct BankTag49;
+
+readonly struct BankTag50;
+
+readonly struct BankTag51;
+
+readonly struct BankTag52;
+
+readonly struct BankTag53;
+
+readonly struct BankTag54;
+
+readonly struct BankTag55;
+
+readonly struct BankTag56;
+
+readonly struct BankTag57;
+
+readonly struct BankTag58;
+
+readonly struct BankTag59;
+
+readonly struct BankTag60;
+
+readonly struct BankTag61;
+
+readonly struct BankTag62;
+
+readonly struct BankTag63;
+
+readonly struct BankTag64;
+
+readonly struct BankTag65;
+
+readonly struct BankTag66;
+
+readonly struct BankTag67;
+
+readonly struct BankTag68;
+
+readonly struct BankTag69;
+
+readonly struct BankTag70;
+
+readonly struct BankTag71;
+
+readonly struct BankTag72;
+
+readonly struct BankTag73;
+
+readonly struct BankTag74;
+
+readonly struct BankTag75;
+
+readonly struct BankTag76;
+
+readonly struct BankTag77;
+
+readonly struct BankTag78;
+
+readonly struct BankTag79;
+
+readonly struct BankTag80;
+
+readonly struct BankTag81;
+
+readonly struct BankTag82;
+
+readonly struct BankTag83;
+
+readonly struct BankTag84;
+
+readonly struct BankTag85;
+
+readonly struct BankTag86;
+
+readonly struct BankTag87;
+
+readonly struct BankTag88;
+
+readonly struct BankTag89;
+
+readonly struct BankTag90;
+
+readonly struct BankTag91;
+
+readonly struct BankTag92;
+
+readonly struct BankTag93;
+
+readonly struct BankTag94;
+
+readonly struct BankTag95;
+
+readonly struct BankTag96;
+
+readonly struct BankTag97;
+
+readonly struct BankTag98;
+
+readonly struct BankTag99;
+
+readonly struct BankTag100;
+
+readonly struct BankTag101;
+
+readonly struct BankTag102;
+
+readonly struct BankTag103;
+
+readonly struct BankTag104;
+
+readonly struct BankTag105;
+
+readonly struct BankTag106;
+
+readonly struct BankTag107;
+
+readonly struct BankTag108;
+
+readonly struct BankTag109;
+
+readonly struct BankTag110;
+
+readonly struct BankTag111;
+
+readonly struct BankTag112;
+
+readonly struct BankTag113;
+
+readonly struct BankTag114;
+
+readonly struct BankTag115;
+
+readonly struct BankTag116;
+
+readonly struct BankTag117;
+
+readonly struct BankTag118;
+
+readonly struct BankTag119;
+
+readonly struct BankTag120;
+
+readonly struct BankTag121;
+
+readonly struct BankTag122;
+
+readonly struct BankTag123;
+
+readonly struct BankTag124;
+
+readonly struct BankTag125;
+
+readonly struct BankTag126;
+
+readonly struct BankTag127;

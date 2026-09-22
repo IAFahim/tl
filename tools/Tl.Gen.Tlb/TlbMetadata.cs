@@ -62,7 +62,7 @@ public readonly struct TlbLabel
 
 public sealed class TlbMetadataView
 {
-    internal const int HeaderLength = 48;
+    private const int HeaderLength = 48;
 
     private TlbMetadataView(
         IReadOnlyList<string> strings,

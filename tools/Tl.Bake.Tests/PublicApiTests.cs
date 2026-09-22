@@ -18,7 +18,7 @@ public class PublicApiTests
         Assert.Equal(expected.Replace("\r\n", "\n"), actual.Replace("\r\n", "\n"));
     }
 
-    public static string GetPublicApi(Assembly assembly)
+    private static string GetPublicApi(Assembly assembly)
     {
         var sb = new StringBuilder();
         var types = assembly.GetExportedTypes().OrderBy(t => t.FullName, StringComparer.Ordinal).ToList();

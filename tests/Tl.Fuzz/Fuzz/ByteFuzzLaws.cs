@@ -2,13 +2,12 @@ using System.Text;
 using Xunit;
 using Xunit.Sdk;
 
-namespace Tl.Fuzz.Fuzzing;
+namespace Tl.Fuzz.Fuzz;
 
-using Tl.Fuzz.Laws;
 
 public class TlbFuzzLaws
 {
-    public const int Iterations = 24_000;
+    private const int Iterations = 24_000;
 
     const int MaxSuccesses = 30_000;
 
@@ -16,7 +15,7 @@ public class TlbFuzzLaws
     public void MutationsOfValidAssetsNeverBreakTheLoadContract()
     {
         var random = FuzzRandom.FromSeeds(0x303, 0xA1);
-        var bases = BaseAssets(random);
+        var bases = BaseAssets();
         var successes = 0;
         for (var iteration = 0; iteration < Iterations; iteration++)
         {
@@ -66,7 +65,7 @@ public class TlbFuzzLaws
     [Fact]
     public void EveryHeaderFieldRejectsMalformationWithALocatedDiagnostic()
     {
-        var bases = BaseAssets(new FuzzRandom(0x303));
+        var bases = BaseAssets();
         var valid = bases[0];
         var interesting = new uint[] { 0, 1, 2, 3, 7, 8, 63, 64, 65, 0x31424C53, 0x31424C54, 0x31424C55, 0x7FFFFFFF, 0x80000000, 0xFFFFFFFE, 0xFFFFFFFF };
         foreach (var field in new[] { 0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48 })
@@ -93,7 +92,6 @@ public class TlbFuzzLaws
         }
         catch (Exception e) when (FuzzContract.IsLocatedTlbDiagnostic(e) || FuzzContract.IsDocumentedCapacity(e))
         {
-            return;
         }
         catch (Exception e)
         {
@@ -101,7 +99,7 @@ public class TlbFuzzLaws
         }
     }
 
-    static List<byte[]> BaseAssets(FuzzRandom random)
+    static List<byte[]> BaseAssets()
     {
         var bases = new List<byte[]>
         {

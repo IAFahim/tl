@@ -99,8 +99,8 @@ public static class JobReader
                 var start = framed ? 1 : 0;
                 var gameplay = active.Parameters.Length - start;
                 var p1 = framed && active.Parameters.Length > 1 ? active.Parameters[1] : null;
-                var sugar = p1 is not null && memo is null && gameplay == 1 && p1.RefKind is RefKind.Ref
-                    && p1.Type.IsUnmanagedType && !p1.IsOptional && !p1.IsParams;
+                var sugar = p1 is { RefKind: RefKind.Ref, Type.IsUnmanagedType: true, IsOptional: false, IsParams: false }
+                    && memo is null && gameplay == 1;
                 if (sugar)
                 {
                     var only = active.Parameters[1];
@@ -173,8 +173,7 @@ public static class JobReader
             => method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame);
 
         private IMethodSymbol[] Candidates(INamedTypeSymbol type, string name, ITypeSymbol frame, ISymbol owner)
-            => type.GetMembers(name).OfType<IMethodSymbol>().Where(m => !m.IsImplicitlyDeclared
-                && m.IsStatic && m.ReturnsVoid && m.Arity == 0
+            => type.GetMembers(name).OfType<IMethodSymbol>().Where(m => m is { IsImplicitlyDeclared: false, IsStatic: true, ReturnsVoid: true, Arity: 0 }
                 && compilation.IsSymbolAccessibleWithin(m, owner)
                 && (m.Parameters.Length == 0
                     || !Symbols.Same(m.Parameters[0].Type.OriginalDefinition, frame.OriginalDefinition)
@@ -183,7 +182,7 @@ public static class JobReader
 
     private static (INamedTypeSymbol Job, INamedTypeSymbol Frame, INamedTypeSymbol Blend)? Contract(Compilation compilation)
     {
-        var types = new INamedTypeSymbol?[] { compilation.GetTypeByMetadataName("Tl.ITrack`2"), compilation.GetTypeByMetadataName("Tl.Frame`2"), compilation.GetTypeByMetadataName("Tl.IBlend`1") };
+        INamedTypeSymbol?[] types = [compilation.GetTypeByMetadataName("Tl.ITrack`2"), compilation.GetTypeByMetadataName("Tl.Frame`2"), compilation.GetTypeByMetadataName("Tl.IBlend`1")];
         return types.Any(static type => type is null) ? null : (types[0]!, types[1]!, types[2]!);
     }
 

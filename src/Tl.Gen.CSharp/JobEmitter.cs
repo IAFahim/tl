@@ -12,7 +12,7 @@ internal static class JobEmitter
 
     internal static string Consumers(IReadOnlyList<JobConsumer> consumers) => Consumers(consumers, []);
 
-    internal static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes)
+    private static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes)
     {
         var names = new HashSet<string>();
         var items = new List<(string Name, JobConsumer Consumer)>();
@@ -47,7 +47,7 @@ internal static class JobEmitter
                 W($"{runtime}.ConsumeDispatch(&OnActive_{name}, &LiveKeys_{name}, &Diag_{name});");
             else if (consumer.Job.Dispatch)
                 W($"{runtime}.ConsumeDispatch(&OnActive_{name});");
-            else if (!consumer.Job.MemoMethod && consumer.Job.Slots.Count > 0)
+            else if (consumer.Job is { MemoMethod: false, Slots.Count: > 0 })
                 W($"{runtime}.Consume(&OnActive_{name}, &OnActiveRange_{name}, &Bind_{name});");
         }
         foreach (var (name, bake) in bakeItems)
@@ -67,8 +67,9 @@ internal static class JobEmitter
                 for (var i = 0; i < slots.Count; i++)
                 {
                     var slot = slots[i];
-                    if (slot.Mode == SlotMode.MemoFeed) W($"var @{slot.Name} = *({slot.TypeName}*)__tlColumns[{i}];");
-                    else W($"var @{slot.Name} = ({slot.TypeName}*)__tlColumns[{i}];");
+                    W(slot.Mode == SlotMode.MemoFeed
+                        ? $"var @{slot.Name} = *({slot.TypeName}*)__tlColumns[{i}];"
+                        : $"var @{slot.Name} = ({slot.TypeName}*)__tlColumns[{i}];");
                 }
                 var rest = Arguments(slots, "[__tlRow]");
                 var call = frameArg ? "in __tlTyped" + rest : rest.Length == 0 ? "" : rest.Substring(2);
@@ -166,10 +167,9 @@ internal static class JobEmitter
         var slots = 0;
         foreach (var parameter in bake.Parameters)
         {
-            if (parameter.IsConsumer)
-                forward.Add($"{Modifier(parameter.Modifier)}__tlConsumer");
-            else
-                forward.Add($"{Modifier(parameter.Modifier)}__tlArg{slots++}");
+            forward.Add(parameter.IsConsumer
+                ? $"{Modifier(parameter.Modifier)}__tlConsumer"
+                : $"{Modifier(parameter.Modifier)}__tlArg{slots++}");
         }
         return string.Join(", ", forward);
     }

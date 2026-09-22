@@ -96,17 +96,15 @@ public readonly unsafe struct TimelineRef
 	internal uint PairCount => _p == null ? 0 : Header->PairCount;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal bool Advance(bool reverse, ushort pos, out ushort np, out ushort t, out FrameFlags f)
+	internal bool Advance(bool reverse, ushort pos, out ushort t, out FrameFlags f)
 	{
-		np = pos; t = 0; f = FrameFlags.None;
-		return _p != null && TimelineMovement.Advance((ushort)Header->Duration, Header->Loops != 0, reverse, pos, out np, out t, out f);
+		t = 0; f = FrameFlags.None;
+		return _p != null && TimelineMovement.Advance((ushort)Header->Duration, Header->Loops != 0, reverse, pos, out _, out t, out f);
 	}
 
-	internal bool Select(bool reverse, ushort position, out TimelineState next, out ushort tick, out FrameFlags flags)
+	internal bool Select(bool reverse, ushort position, out ushort tick, out FrameFlags flags)
 	{
-		var ok = Advance(reverse, position, out var np, out tick, out flags);
-		next = new TimelineState(1, np);
-		return ok;
+		return Advance(reverse, position, out tick, out flags);
 	}
 	internal int StageCount => _p == null ? 0 : (int)Header->StageCount;
 	internal NativeStage* Stages => (NativeStage*)(_p + Header->StageOffset);
@@ -234,14 +232,12 @@ public readonly unsafe struct TimelineRef
 		var stages = MemoryMarshal.Cast<byte, NativeStage>(baked.Slice((int)h.StageOffset, 16 * (int)h.StageCount));
 		var programs = h.StageOffset + 16ul * h.StageCount;
 		uint edge = 0;
-		for (var i = 0; i < stages.Length; i++)
+		foreach (var stage in stages)
 		{
-			var stage = stages[i];
 			if (stage.Start != edge || stage.ProgramOffset < programs || stage.ProgramOffset % 8 != 0 || stage.ProgramOffset + 8ul * stage.ProgramCount > h.PoolOffset) Fail("TLB stages must be monotonic.");
 			var steps = MemoryMarshal.Cast<byte, NativeStep>(baked.Slice((int)stage.ProgramOffset, 8 * (int)stage.ProgramCount));
-			for (var j = 0; j < steps.Length; j++)
+			foreach (var step in steps)
 			{
-				var step = steps[j];
 				if (step.Pair >= h.PairCount) Fail("TLB step pair out of bounds.");
 				var pair = pairs[(int)step.Pair];
 				if (step.Slot < h.FrameOffset || step.Slot % 8 != 0 || (ulong)step.Slot + pair.SlotStride > h.HotLength) Fail("TLB slots must be 8-aligned in bounds.");

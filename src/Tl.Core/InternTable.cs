@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace Tl;
@@ -24,7 +25,8 @@ static unsafe class TimelineTable
     }
 
     static byte* _block;
-    static uint* _motion;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    static readonly uint* _motion;
     static int _capacity;
     static int _gate;
     static int _used;

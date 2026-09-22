@@ -1,4 +1,3 @@
-using System;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
@@ -104,7 +103,7 @@ public class BakePrimitivesCoverageTests
     [Fact]
     public void WalkerRun_EmptyInput_ThrowsReaderErrorAtTheWalker()
     {
-        var walker = new Walker([], Resolver, null, autoNamespace: false);
+        var walker = new Walker([], Resolver, autoNamespace: false);
         JsonException? failure = null;
         try
         {

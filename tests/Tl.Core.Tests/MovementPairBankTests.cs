@@ -111,7 +111,7 @@ public unsafe class MovementPairBankTests
         var asset = Load(WrapBake(3.5f));
 
         var forward = new float[1];
-        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, (ushort)2, true, forward);
+        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, 2, true, forward);
         Assert.Equal(7f, forward[0]);
 
         var skipped = new float[1];
@@ -119,11 +119,11 @@ public unsafe class MovementPairBankTests
         Assert.Equal(0f, skipped[0]);
 
         var backward = new float[1];
-        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, (ushort)2, false, backward);
+        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, 2, false, backward);
         Assert.Equal(-7f, backward[0]);
 
         var backwardEnd = new float[1];
-        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, (ushort)4, false, backwardEnd);
+        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, 4, false, backwardEnd);
         Assert.Equal(0f, backwardEnd[0]);
     }
 
@@ -134,10 +134,10 @@ public unsafe class MovementPairBankTests
         ushort position = 0;
 
         Timeline<MovementWrapTrack, MovementWrapClip>.Advance(asset.Index, ref position, true);
-        Assert.Equal(1, (int)position);
+        Assert.Equal(1, position);
         position = 3;
         Timeline<MovementWrapTrack, MovementWrapClip>.Advance(asset.Index, ref position, true);
-        Assert.Equal(0, (int)position);
+        Assert.Equal(0, position);
 #if !TL_CHECKED
         position = 9;
         Timeline<MovementWrapTrack, MovementWrapClip>.Advance(asset.Index, ref position, true);
@@ -145,13 +145,13 @@ public unsafe class MovementPairBankTests
 #endif
         position = 4;
         Timeline<MovementWrapTrack, MovementWrapClip>.Advance(asset.Index, ref position, false);
-        Assert.Equal(4, (int)position);
+        Assert.Equal(4, position);
         position = 2;
         Timeline<MovementWrapTrack, MovementWrapClip>.Advance(asset.Index, ref position, false);
-        Assert.Equal(1, (int)position);
+        Assert.Equal(1, position);
         position = 0;
         Timeline<MovementWrapTrack, MovementWrapClip>.Advance(asset.Index, ref position, false);
-        Assert.Equal(3, (int)position);
+        Assert.Equal(3, position);
     }
 
     [Fact]
@@ -169,12 +169,12 @@ public unsafe class MovementPairBankTests
             if (positions[i] < 4)
             {
                 Assert.Equal(11f, effects[i]);
-                Assert.Equal(positions[i] == 3 ? 0 : positions[i] + 1, (int)next[i]);
+                Assert.Equal(positions[i] == 3 ? 0 : positions[i] + 1, next[i]);
             }
             else
             {
                 Assert.Equal(0f, effects[i]);
-                Assert.Equal((int)positions[i], (int)next[i]);
+                Assert.Equal(positions[i], next[i]);
             }
         }
     }
@@ -190,7 +190,7 @@ public unsafe class MovementPairBankTests
         Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, positions, next, false, effects);
 
         Assert.Equal(new ushort[] { 0, 4, 2 }, next);
-        Assert.Equal(new float[] { -13f, 0f, -13f }, effects);
+        Assert.Equal([ -13f, 0f, -13f ], effects);
     }
 
     [Fact]
@@ -204,7 +204,7 @@ public unsafe class MovementPairBankTests
         Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset, positions, next, true, effects);
 
         Assert.Equal(new ushort[] { 1, 3, 0, InDomain(6) }, next);
-        Assert.Equal(new float[] { 15f, 15f, 15f, 0f }, effects);
+        Assert.Equal([ 15f, 15f, 15f, 0f ], effects);
 
         Assert.Throws<ArgumentNullException>(() =>
             Timeline<MovementWrapTrack, MovementWrapClip>.Apply((TimelineAsset)null!, positions, next, true, effects));
@@ -216,13 +216,13 @@ public unsafe class MovementPairBankTests
         var indices = new int[3];
         var positions = new ushort[3];
         var error = Assert.Throws<ArgumentException>(() =>
-            Timeline<MovementWrapTrack, MovementWrapClip>.Advance<int, ushort>(indices, positions, true));
+            Timeline<MovementWrapTrack, MovementWrapClip>.Advance(indices, positions, true));
         Assert.Contains("single-field", error.Message);
 
         int index = 0;
         byte position = 0;
         var byRefError = Assert.Throws<ArgumentException>(() =>
-            Timeline<MovementWrapTrack, MovementWrapClip>.Advance<int, byte>(index, ref position, true));
+            Timeline<MovementWrapTrack, MovementWrapClip>.Advance(index, ref position, true));
         Assert.Contains("single-field", byRefError.Message);
     }
 
@@ -233,20 +233,20 @@ public unsafe class MovementPairBankTests
         var asset = Load(HolePairBake());
         var effects = new float[1];
 
-        Timeline<MovementHoleTrack, MovementHoleClip>.Apply(asset.Index, new ushort[] { 1 }, true, effects);
+        Timeline<MovementHoleTrack, MovementHoleClip>.Apply(asset.Index, [ 1 ], true, effects);
         Assert.Equal(35f, effects[0]);
 
         var folded = Timeline<MovementHoleTrack, MovementHoleClip>.View(asset.Index);
-        Assert.Equal(0, (int)folded.Absent);
-        Assert.Equal(4, (int)folded.Duration);
-        Assert.Equal(0, (int)folded.Looping);
+        Assert.Equal(0, folded.Absent);
+        Assert.Equal(4, folded.Duration);
+        Assert.Equal(0, folded.Looping);
         Assert.Equal(5u, folded.TableTicks);
         Assert.Equal((ushort)sizeof(LaneMovementRecord), folded.RecordBytes);
         Assert.Equal(SlotView.AbiVersionV1, folded.AbiVersion);
         Assert.True(folded.Generation >= 1ul);
 
         var absent = Timeline<MovementHoleTrack, MovementHoleClip>.View(foreign.Index);
-        Assert.Equal(1, (int)absent.Absent);
+        Assert.Equal(1, absent.Absent);
         Assert.Equal((ushort)sizeof(LaneMovementRecord), absent.RecordBytes);
         Assert.Equal(SlotView.AbiVersionV1, absent.AbiVersion);
     }
@@ -255,10 +255,10 @@ public unsafe class MovementPairBankTests
     public void ViewAssetOverloadForwardsAndRejectsNull()
     {
         var asset = Load(WrapBake(8.5f));
-        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, new ushort[] { 0 }, true, new float[1]);
+        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, [ 0 ], true, new float[1]);
 
         var view = Timeline<MovementWrapTrack, MovementWrapClip>.View(asset);
-        Assert.Equal(4, (int)view.Duration);
+        Assert.Equal(4, view.Duration);
 
         Assert.Throws<ArgumentNullException>(() => Timeline<MovementWrapTrack, MovementWrapClip>.View(null!));
     }

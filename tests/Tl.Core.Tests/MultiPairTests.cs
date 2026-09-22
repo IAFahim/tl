@@ -36,7 +36,7 @@ public unsafe class MultiPairTests
         PairRuntime<EchoTrack, EchoClip>.Consume(&EchoExecute, &NoBind);
     }
 
-    internal static byte[] DualFixture() => new DomainBaker()
+    private static byte[] DualFixture() => new DomainBaker()
         .Track<DualTrack, DualAlphaClip>(new DualTrack(1))
         .Track<EchoTrack, EchoClip>(new EchoTrack(5))
         .Track<DualTrack, DualBetaClip>(new DualTrack(2))

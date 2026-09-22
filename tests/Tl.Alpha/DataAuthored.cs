@@ -58,7 +58,7 @@ internal readonly struct TandemSecondJob : ITrack<TandemTrack, TandemClip>
 
 internal readonly struct ImpureJob : ITrack<ImpureTrack, ImpureClip>
 {
-    public static void OnActive(in Frame<ImpureTrack, ImpureClip> frame, ref float vitality)
+    public static void OnActive(in Frame<ImpureTrack, ImpureClip> _, ref float vitality)
         => vitality *= 2f;
 }
 
@@ -88,7 +88,7 @@ internal static class DataAuthoredReceipts
     }
 
     [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
-    internal static void MovementLaw()
+    private static void MovementLaw()
     {
         foreach (var looping in new[] { true, false })
         {
@@ -126,7 +126,7 @@ internal static class DataAuthoredReceipts
         }
     }
 
-    internal static void WrapCounts()
+    private static void WrapCounts()
     {
         using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
@@ -184,7 +184,7 @@ internal static class DataAuthoredReceipts
     }
 
     [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
-    internal static void FoldAndBlend()
+    private static void FoldAndBlend()
     {
         using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
@@ -209,7 +209,7 @@ internal static class DataAuthoredReceipts
     }
 
     [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
-    internal static void RewindAndCatchUp()
+    private static void RewindAndCatchUp()
     {
         using var asset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<TandemTrack, TandemClip>(new TandemTrack(2f))
@@ -224,9 +224,15 @@ internal static class DataAuthoredReceipts
         var initialPositions = (ushort[])positions.Clone();
 
         for (var tick = 0; tick < 25; tick++)
-            { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true); }
+        {
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+        }
         for (var tick = 0; tick < 25; tick++)
-            { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, false, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, false); }
+        {
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, false, values);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, false);
+        }
 
         Require(positions.SequenceEqual(initialPositions), "rewind restores positions");
         Require(values.All(static value => value == 0f), "rewind restores values exactly");
@@ -234,13 +240,16 @@ internal static class DataAuthoredReceipts
         Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
         var single = values[0];
         for (var i = 0; i < 2; i++)
-            { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true); }
+        {
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+        }
         Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, false, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, false);
         Require(values[0] == single * 2, "catch-up calls are linear and backward cancels one");
     }
 
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
-    internal static void Faults()
+    private static void Faults()
     {
         using var impure = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<ImpureTrack, ImpureClip>(new ImpureTrack(1f))
@@ -260,7 +269,7 @@ internal static class DataAuthoredReceipts
 
 #if TL_CHECKED
     [SuppressMessage("ReSharper", "AccessToModifiedClosure", Justification = "live capture consumed inside the invoked body")]
-    internal static void Validation()
+    private static void Validation()
     {
         var positions = new ushort[4];
         var values = new float[3];
@@ -284,7 +293,7 @@ internal static class DataAuthoredReceipts
 
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     [SuppressMessage("ReSharper", "DisposeOnUsingVariable", Justification = "explicit dispose exercises dispose semantics; using is the backstop")]
-    internal static void TimelineSets()
+    private static void TimelineSets()
     {
         using var loopingAsset = TimelineAsset.LoadAsset(new DomainBaker()
             .Track<DamageTrack, DamageClip>(new DamageTrack(2f))
@@ -351,7 +360,7 @@ internal static class DataAuthoredReceipts
         Require(values.SequenceEqual(oracleValues), "set folded effects match the law");
 
         RequireThrows<ArgumentException>(() =>
-            timelines.Gather(new ushort[] { loopingId, 2 }).Seek(new ushort[] { 0, 0 }, true).Apply(new float[2]), "unbound timeline id rejected");
+            timelines.Gather([ loopingId, 2 ]).Seek([ 0, 0 ], true).Apply(new float[2]), "unbound timeline id rejected");
 
         timelines.Dispose();
 #if TL_CHECKED
@@ -375,16 +384,22 @@ internal static class DataAuthoredReceipts
         for (var attempt = 0; ; attempt++)
         {
             for (var pass = 0; pass < 1_000; pass++)
-                { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true); }
+            {
+                Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+                Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+            }
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var pass = 0; pass < 100_000; pass++)
-                { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true); }
+            {
+                Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+                Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+            }
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
         }
         Require(allocated == 0, $"warm lane allocated {allocated} B after settle attempts");
         Console.WriteLine($"allocation: 100k x 256-row lane applies retained {allocated} B; table+record bytes per tick {BakedLane<TandemTrack, TandemClip>.Duration * 28}");
-        Console.WriteLine($"frame bytes: TimelineState 8, TimelineComponent 16, movement record 8");
+        Console.WriteLine("frame bytes: TimelineState 8, TimelineComponent 16, movement record 8");
     }
 
     [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
@@ -403,7 +418,10 @@ internal static class DataAuthoredReceipts
             positions[i] = (ushort)(i % 64);
 
         for (var tick = 0; tick < 64; tick++)
-            { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true); }
+        {
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+        }
 
         long checksum = 0;
         for (var i = 0; i < rows; i++)
@@ -431,7 +449,10 @@ internal static class DataAuthoredReceipts
         var positions = new ushort[16];
         var values = new float[16];
         for (var tick = 0; tick < 10; tick++)
-            { Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values); Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true); }
+        {
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Apply(positions, true, values);
+            Timeline<BakedLane<TandemTrack, TandemClip>>.Advance(positions, true);
+        }
         Require(values.All(value => value == expected * 10), "module capacity fold applied");
         Console.WriteLine($"module-capacity: {tracks} tracks fold to {expected} per tick, x10 applied");
     }

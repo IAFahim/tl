@@ -78,11 +78,11 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal SlotView** _views;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal byte* _absent;
+    private byte* _absent;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal uint* _motion;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal SlotView** _shared;
+    private SlotView** _shared;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal LaneMovementRecord* _arenaForward;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -90,52 +90,52 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal uint* _arenaBases;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal void* _retired;
+    private void* _retired;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal nuint _viewCapacity;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal nuint _absentCapacity;
+    private nuint _viewCapacity;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal nuint _motionCapacity;
+    private nuint _absentCapacity;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal nuint _sharedCapacity;
+    private nuint _motionCapacity;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    private nuint _sharedCapacity;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal nuint _arenaCapacity;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal nuint _arenaBaseCapacity;
+    private nuint _arenaBaseCapacity;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal int _sharedUsed;
+    private int _sharedUsed;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal int _blockCount;
+    private int _blockCount;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal int _sharedHits;
+    private int _sharedHits;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal long _headerTotal;
+    private long _headerTotal;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal long _tableTotal;
+    private long _tableTotal;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal long _directoryTotal;
+    private long _directoryTotal;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal long _arenaTotal;
+    private long _arenaTotal;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal int _arenaUsed;
+    private int _arenaUsed;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _count;
@@ -147,19 +147,16 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal bool _lazyResolve;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal bool _anyLooping;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _disposed;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal ushort _minDuration;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal int _pendingCursor;
+    private int _pendingCursor;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal ulong _generation;
+    private ulong _generation;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _gate;
@@ -283,7 +280,6 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             }
             if (_count - _holes == 1 || duration < _minDuration)
                 _minDuration = duration;
-            _anyLooping |= looping;
             _generation = generation;
             return index;
         }
@@ -615,7 +611,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    internal unsafe void ApplyLane<T>(ushort index, ReadOnlySpan<ushort> positions, bool forward, int lane, Span<T> column) where T : unmanaged
+    internal void ApplyLane<T>(ushort index, ReadOnlySpan<ushort> positions, bool forward, int lane, Span<T> column) where T : unmanaged
     {
         Checked.Live(_disposed);
         if (positions.Length != column.Length) throw new ArgumentException("positions and column must have equal length.");
@@ -672,7 +668,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    unsafe void ApplyRowsCore<TDir>(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects) where TDir : struct, IRowWalk
+    void ApplyRowsCore<TDir>(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects) where TDir : struct, IRowWalk
     {
         var views = _views;
         var bound = _count;
@@ -713,7 +709,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    unsafe void AdvanceRowsCore<TDir>(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, Span<ushort> positions) where TDir : struct, IRowWalk
+    void AdvanceRowsCore<TDir>(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, Span<ushort> positions) where TDir : struct, IRowWalk
     {
         var views = _views;
         var bound = _count;
@@ -830,7 +826,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     }
 }
 
-internal ref struct TimelineSetLane<TTrack, TClip>
+internal readonly ref struct TimelineSetLane<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
@@ -1227,7 +1223,7 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     baseHi = Avx2.GatherVector256((int*)bases, Avx2.ConvertToVector256Int32(Vector128.LoadUnsafe(ref idRef, (nuint)(block + 8))).AsInt32(), 4).AsUInt32();
                 }
                 var posv = Vector256.LoadUnsafe(ref p, (nuint)i);
-                (var posLo, var posHi) = Vector256.Widen(posv);
+                var (posLo, posHi) = Vector256.Widen(posv);
                 var idxLo = currLo + posLo;
                 var idxHi = currHi + posHi;
                 var rec0 = Avx2.GatherVector256((ulong*)arena, idxLo.GetLower().AsInt32(), 8);
@@ -1261,14 +1257,14 @@ internal ref struct TimelineSetLane<TTrack, TClip>
                     var nx1 = Avx2.PermuteVar8x32(rec1.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
                     var nx2 = Avx2.PermuteVar8x32(rec2.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
                     var nx3 = Avx2.PermuteVar8x32(rec3.AsInt32(), nextLanes).GetLower().AsUInt32() & lowWord;
-                    var skipLo = Avx.InsertVector128(Avx2.CompareEqual(nx0, skipWord).ToVector256(), Avx2.CompareEqual(nx1, skipWord), 1).AsSingle();
-                    var skipHi = Avx.InsertVector128(Avx2.CompareEqual(nx2, skipWord).ToVector256(), Avx2.CompareEqual(nx3, skipWord), 1).AsSingle();
-                    Avx2.BlendVariable(fxLo + effLo, fxLo, skipLo).StoreUnsafe(ref e, (nuint)i);
-                    Avx2.BlendVariable(fxHi + effHi, fxHi, skipHi).StoreUnsafe(ref e, (nuint)(i + 8));
+                    var skipLo = Avx.InsertVector128(Avx.CompareEqual(nx0, skipWord).ToVector256(), Avx.CompareEqual(nx1, skipWord), 1).AsSingle();
+                    var skipHi = Avx.InsertVector128(Avx.CompareEqual(nx2, skipWord).ToVector256(), Avx.CompareEqual(nx3, skipWord), 1).AsSingle();
+                    Avx.BlendVariable(fxLo + effLo, fxLo, skipLo).StoreUnsafe(ref e, (nuint)i);
+                    Avx.BlendVariable(fxHi + effHi, fxHi, skipHi).StoreUnsafe(ref e, (nuint)(i + 8));
                     if (hasNext)
                     {
-                        var outLo = Avx2.BlendVariable(Avx.InsertVector128(nx0.ToVector256(), nx1, 1).AsSingle(), posLo.AsSingle(), skipLo).AsUInt32();
-                        var outHi = Avx2.BlendVariable(Avx.InsertVector128(nx2.ToVector256(), nx3, 1).AsSingle(), posHi.AsSingle(), skipHi).AsUInt32();
+                        var outLo = Avx.BlendVariable(Avx.InsertVector128(nx0.ToVector256(), nx1, 1).AsSingle(), posLo.AsSingle(), skipLo).AsUInt32();
+                        var outHi = Avx.BlendVariable(Avx.InsertVector128(nx2.ToVector256(), nx3, 1).AsSingle(), posHi.AsSingle(), skipHi).AsUInt32();
                         Vector256.Narrow(outLo, outHi).StoreUnsafe(ref n, (nuint)i);
                     }
                 }

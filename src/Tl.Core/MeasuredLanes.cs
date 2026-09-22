@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -7,11 +8,12 @@ public sealed unsafe class MeasuredLanes : IDisposable
 {
     internal float* Forward;
     internal float* Backward;
-    internal nint Source;
-    internal int LaneCount;
-    internal float** LaneForward;
-    internal float** LaneBackward;
-    internal ulong* LaneKeys;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    private readonly nint Source;
+    internal readonly int LaneCount;
+    internal readonly float** LaneForward;
+    internal readonly float** LaneBackward;
+    internal readonly ulong* LaneKeys;
     bool _disposed;
 
     MeasuredLanes(byte* block, ushort duration, bool looping, nint source, int lanes)
@@ -43,7 +45,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         return Measure(asset.Reference);
     }
 
-    internal static MeasuredLanes Measure(TimelineRef reference) => Measure(reference, 0);
+    static MeasuredLanes Measure(TimelineRef reference) => Measure(reference, 0);
 
     internal static MeasuredLanes Measure(TimelineRef reference, ulong pairKey)
     {
@@ -173,14 +175,12 @@ public sealed unsafe class MeasuredLanes : IDisposable
         ulong boundMask = 0;
         PairTable.BindPair(reference, poolKeys, pools, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);
         for (var i = 0; i < refreshCount; i++) columns[refreshSlots[i]] = laneCell + poolLane[refreshColumns[i]] * 4;
-        var column = (float*)laneCell;
-
         if (!PairTable.AnyWindowConstant)
         {
             void ProbeTick(uint position, bool reverse, float** table)
             {
                 Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                if (!reference.Select(reverse, (ushort)position, out _, out var tick, out var flags))
+                if (!reference.Select(reverse, (ushort)position, out var tick, out var flags))
                     throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
                 reference.ExecuteWindow(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns, null, null, null);
                 CopyLanes(table, lanes, laneCell, tick);
@@ -204,7 +204,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
     static void AdvanceOrFail(TimelineRef reference, bool reverse, uint position, out ushort tick, out FrameFlags flags)
     {
-        if (!reference.Advance(reverse, (ushort)position, out _, out tick, out flags))
+        if (!reference.Advance(reverse, (ushort)position, out tick, out flags))
             throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
     }
 

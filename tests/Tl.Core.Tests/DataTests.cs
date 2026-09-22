@@ -46,16 +46,6 @@ public struct Health
     public float Value;
 }
 
-public struct Resistance
-{
-    public float Scale;
-}
-
-public struct RowAlias
-{
-    public long A, B, C;
-}
-
 public class DataTests
 {
 
@@ -130,8 +120,7 @@ public class DataTests
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(5))
             .Clip(0, 1, 3, new AlphaClip(7))
             .Bake());
-        var component = new TimelineComponent(asset.Reference);
-        component.Position = 3;
+        var component = new TimelineComponent(asset.Reference) { Position = 3 };
         Assert.False(Timeline.Query<AlphaTrack, AlphaClip>(in component).MoveNext());
 
         foreach (var position in new ushort[] { 1, 2 })
@@ -157,9 +146,7 @@ public class DataTests
             .Clip(0, 0, 4, new BlendClip(0f))
             .Clip(0, 2, 6, new BlendClip(10f))
             .Bake());
-        var component = new TimelineComponent(asset.Reference);
-
-        component.Position = 2;
+        var component = new TimelineComponent(asset.Reference) { Position = 2 };
         var frame = SingleFrame(in component);
         Assert.Equal((ushort)6, frame.ClipLength);
         Assert.Equal((ushort)2, frame.WithinClip);
@@ -194,9 +181,7 @@ public class DataTests
             .Clip(0, 0, 4, new BlendClip(0f))
             .Clip(0, 2, 6, new BlendClip(10f))
             .Bake());
-        var component = new TimelineComponent(asset.Reference);
-
-        component.Position = 2;
+        var component = new TimelineComponent(asset.Reference) { Position = 2 };
         Assert.Equal(0f + (10f - 0f) * ((2u - 2u) / (float)(2u - 1u)), SingleBlendAmount(in component));
 
         component.Position = 3;

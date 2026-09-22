@@ -20,9 +20,8 @@ public class MultiPairBakeTests
             hotKeys.Add(BitConverter.ToUInt64(bytes, (int)pairOffset + 48 * i));
         Assert.Equal(hotKeys, hotKeys.OrderBy(k => k).ToList());
 
-        for (var i = 0; i < view.PairTypes.Count; i++)
+        foreach (var (track, clip) in view.PairTypes)
         {
-            var (track, clip) = view.PairTypes[i];
             var trackIdentity = view.Types[track];
             var clipIdentity = view.Types[clip];
             Assert.Equal("Tlb", trackIdentity.Namespace);
@@ -55,12 +54,12 @@ public class MultiPairBakeTests
         var root = Assert.Single(view.Labels, l => l.TrackEntry == -1);
         Assert.Equal("oracle_asset", root.Name);
 
-        Assert.Contains(view.Labels, l => l.TrackEntry == 0 && l.ClipIndex == -1 && l.Name == "combat");
-        Assert.Contains(view.Labels, l => l.TrackEntry == 0 && l.ClipIndex == 0 && l.Name == "a1");
-        Assert.Contains(view.Labels, l => l.TrackEntry == 0 && l.ClipIndex == 1 && l.Name == "b1");
-        Assert.Contains(view.Labels, l => l.TrackEntry == 0 && l.ClipIndex == 2 && l.Name == "a2");
-        Assert.Contains(view.Labels, l => l.TrackEntry == 1 && l.ClipIndex == -1 && l.Name == "echo_lane");
-        Assert.Contains(view.Labels, l => l.TrackEntry == 1 && l.ClipIndex == 0 && l.Name == "e1");
+        Assert.Contains(view.Labels, l => l is { TrackEntry: 0, ClipIndex: -1, Name: "combat" });
+        Assert.Contains(view.Labels, l => l is { TrackEntry: 0, ClipIndex: 0, Name: "a1" });
+        Assert.Contains(view.Labels, l => l is { TrackEntry: 0, ClipIndex: 1, Name: "b1" });
+        Assert.Contains(view.Labels, l => l is { TrackEntry: 0, ClipIndex: 2, Name: "a2" });
+        Assert.Contains(view.Labels, l => l is { TrackEntry: 1, ClipIndex: -1, Name: "echo_lane" });
+        Assert.Contains(view.Labels, l => l is { TrackEntry: 1, ClipIndex: 0, Name: "e1" });
     }
 
     [Fact]

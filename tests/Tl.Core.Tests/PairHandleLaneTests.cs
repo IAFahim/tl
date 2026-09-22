@@ -176,10 +176,16 @@ public class PairHandleLaneTests
         for (var attempt = 0; ; attempt++)
         {
             for (var pass = 0; pass < 1_000; pass++)
-                { Timeline<HandleTrack, HandleClip>.Apply(asset, positions, true, effects); Timeline.Advance(asset, positions, true); }
+            {
+                Timeline<HandleTrack, HandleClip>.Apply(asset, positions, true, effects);
+                Timeline.Advance(asset, positions, true);
+            }
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var pass = 0; pass < 100_000; pass++)
-                { Timeline<HandleTrack, HandleClip>.Apply(asset, positions, true, effects); Timeline.Advance(asset, positions, true); }
+            {
+                Timeline<HandleTrack, HandleClip>.Apply(asset, positions, true, effects);
+                Timeline.Advance(asset, positions, true);
+            }
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
         }
@@ -274,8 +280,8 @@ public class PairHandleLaneTests
             {
                 var handle = _handles[variant];
                 var rows = 0;
-                for (var i = 0; i < _rowHandles.Length; i++)
-                    if (_rowHandles[i] == handle)
+                foreach (var rowHandle in _rowHandles)
+                    if (rowHandle == handle)
                         rows++;
                 var ids = new ushort[rows];
                 var positions = new ushort[rows];
@@ -433,7 +439,10 @@ public class PairHandleLaneTests
         }
         const int steps = 43;
         for (var step = 0; step < steps; step++)
-            { Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positions, true, effects); Timeline.Advance(rowHandles, positions, true); }
+        {
+            Timeline<HandleTrack, HandleClip>.Apply(rowHandles, positions, true, effects);
+            Timeline.Advance(rowHandles, positions, true);
+        }
         for (var i = 0; i < Rows; i++)
             Assert.Equal((ushort)((starts[i] + steps) % durations[rowHandles[i]]), positions[i]);
     }
@@ -514,16 +523,16 @@ public class PairHandleLaneTests
     {
         var distinct = new ushort[Assets];
         var distinctCount = 0;
-        for (var i = 0; i < rowHandles.Length; i++)
+        foreach (var rowHandle in rowHandles)
         {
             var known = false;
             for (var k = 0; k < distinctCount; k++)
-                if (distinct[k] == rowHandles[i])
+                if (distinct[k] == rowHandle)
                 {
                     known = true;
                     break;
                 }
-            if (!known) distinct[distinctCount++] = rowHandles[i];
+            if (!known) distinct[distinctCount++] = rowHandle;
         }
         var groupPositions = new ushort[Rows];
         var groupEffects = new float[Rows];
@@ -568,11 +577,21 @@ public class PairHandleLaneTests
         {
             for (var pass = 0; pass < 1_000; pass++)
                 for (var variant = 0; variant < Assets; variant++)
-                    { { var column = Column(variant); Timeline<HandleTrack, HandleClip>.Apply(bound[variant], column, true, effects); Timeline.Advance(bound[variant], column, true); } }
+                {
+                    { var column = Column(variant);
+                    Timeline<HandleTrack, HandleClip>.Apply(bound[variant], column, true, effects);
+                    Timeline.Advance(bound[variant], column, true);
+                    }
+                }
             var before = GC.GetAllocatedBytesForCurrentThread();
             for (var pass = 0; pass < 30_000; pass++)
                 for (var variant = 0; variant < Assets; variant++)
-                    { { var column = Column(variant); Timeline<HandleTrack, HandleClip>.Apply(bound[variant], column, true, effects); Timeline.Advance(bound[variant], column, true); } }
+                {
+                    { var column = Column(variant);
+                    Timeline<HandleTrack, HandleClip>.Apply(bound[variant], column, true, effects);
+                    Timeline.Advance(bound[variant], column, true);
+                    }
+                }
             allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             if (allocated == 0 || attempt >= 8) break;
         }

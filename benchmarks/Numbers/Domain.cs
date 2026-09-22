@@ -115,10 +115,10 @@ internal struct SplitMix64(ulong seed)
 
 internal static class Corpus
 {
-    internal const int TrackCount = 128;
-    internal const int ClipsPerTrack = 16;
-    internal const uint Duration = 65500;
-    internal static readonly int[] FieldCounts = [595, 640, 665, 690, 715, 740, 785];
+    private const int TrackCount = 128;
+    private const int ClipsPerTrack = 16;
+    private const uint Duration = 65500;
+    private static readonly int[] FieldCounts = [595, 640, 665, 690, 715, 740, 785];
 
     internal static string Generate(string directory)
     {

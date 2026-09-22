@@ -10,7 +10,7 @@ namespace Tl.Gen.CSharp.Tests;
 
 public sealed class ConsumerBindingTests
 {
-    internal const string Source = """
+    private const string Source = """
         using Tl;
         namespace Domain;
         public readonly record struct DamageClip(float Amount);
@@ -413,7 +413,7 @@ public sealed class ConsumerBindingTests
         }
     }
 
-    internal static Dictionary<string, string> Generate()
+    private static Dictionary<string, string> Generate()
     {
         var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
         var compilation = CSharpCompilation.Create("ConsumerBindingEmission",

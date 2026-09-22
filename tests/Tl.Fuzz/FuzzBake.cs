@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
-using Tl;
 
 namespace Tl.Fuzz;
 
@@ -128,23 +127,15 @@ public static class FuzzBake
         return bytes;
     }
 
-    public const ushort SlotRowNoClip = 0xFFFF;
+    private const ushort SlotRowNoClip = 0xFFFF;
 }
 
-public sealed class FuzzModel
+public sealed class FuzzModel(ushort duration, bool looping, float scale, IReadOnlyList<FuzzClipSpec> clips)
 {
-    public ushort Duration { get; }
-    public bool Looping { get; }
-    public float Scale { get; }
-    public IReadOnlyList<FuzzClipSpec> Clips { get; }
-
-    public FuzzModel(ushort duration, bool looping, float scale, IReadOnlyList<FuzzClipSpec> clips)
-    {
-        Duration = duration;
-        Looping = looping;
-        Scale = scale;
-        Clips = clips;
-    }
+    public ushort Duration { get; } = duration;
+    public bool Looping { get; } = looping;
+    public float Scale { get; } = scale;
+    public IReadOnlyList<FuzzClipSpec> Clips { get; } = clips;
 
     public float ClipSum(ushort tick)
     {

@@ -1,4 +1,3 @@
-using Tl.Gen.CSharp;
 using Xunit;
 
 namespace Tl.Gen.CSharp.Tests;
@@ -302,13 +301,13 @@ public sealed class CompileGenerationCacheTests
     public void GetKeyDependsOnSymbolsSemanticInputsAndSources()
     {
         var sources = new[] { new CompileSource("Domain.cs", "content") };
-        var baseline = CompileGenerationCache.GetKey([], [], null);
+        var baseline = CompileGenerationCache.GetKey([], []);
 
-        Assert.NotEqual(baseline, CompileGenerationCache.GetKey([], ["SYMBOL_A"], null));
-        Assert.NotEqual(CompileGenerationCache.GetKey([], ["SYMBOL_A"], null), CompileGenerationCache.GetKey([], ["SYMBOL_B"], null));
-        Assert.NotEqual(CompileGenerationCache.GetKey([], ["SYMBOL_A"], null), CompileGenerationCache.GetKey([], ["SYMBOL_A"], ["backend=unity-entities"]));
-        Assert.NotEqual(CompileGenerationCache.GetKey([], [], null), CompileGenerationCache.GetKey(sources, [], null));
-        Assert.Equal(CompileGenerationCache.GetKey(sources, ["A", "B"], null), CompileGenerationCache.GetKey(sources, ["A", "B"], null));
+        Assert.NotEqual(baseline, CompileGenerationCache.GetKey([], ["SYMBOL_A"]));
+        Assert.NotEqual(CompileGenerationCache.GetKey([], ["SYMBOL_A"]), CompileGenerationCache.GetKey([], ["SYMBOL_B"], null));
+        Assert.NotEqual(CompileGenerationCache.GetKey([], ["SYMBOL_A"]), CompileGenerationCache.GetKey([], ["SYMBOL_A"], ["backend=unity-entities"]));
+        Assert.NotEqual(CompileGenerationCache.GetKey([], []), CompileGenerationCache.GetKey(sources, []));
+        Assert.Equal(CompileGenerationCache.GetKey(sources, ["A", "B"]), CompileGenerationCache.GetKey(sources, ["A", "B"]));
     }
 
     private static CompileArtifact CompileArtifact(string relativePath, string content) => new(relativePath, content);

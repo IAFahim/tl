@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Text;
 using Tl.Gen.Tlb;
 using Xunit;
 
@@ -120,14 +117,14 @@ public sealed class TlbCliCoverageTests : IDisposable
         var trackless = Path.Combine(_root, "trackless.json");
         File.WriteAllText(trackless, """{"duration":10,"tracks":[]}""");
 
-        Assert.Null(Tl.Bake.Lazy.FindAssembly(trackless));
+        Assert.Null(Lazy.FindAssembly(trackless));
     }
 
     [Fact]
     public void CacheLoad_WithCorruptDatabase_StartsEmpty()
     {
         File.WriteAllText(Path.Combine(_root, "tlb.db"), "{not json");
-        var cache = Tl.Bake.Lazy.Cache.Load(_root);
+        var cache = Lazy.Cache.Load(_root);
         Assert.False(cache.TryGet(Path.Combine(_root, "x.json"), "fingerprint", out var assembly));
         Assert.Equal(string.Empty, assembly);
     }
@@ -135,7 +132,7 @@ public sealed class TlbCliCoverageTests : IDisposable
     [Fact]
     public void CacheLoad_WithoutDatabase_StartsEmpty()
     {
-        Assert.False(Tl.Bake.Lazy.Cache.Load(_root).TryGet("x", "y", out _));
+        Assert.False(Lazy.Cache.Load(_root).TryGet("x", "y", out _));
     }
 
     [Fact]
@@ -143,15 +140,15 @@ public sealed class TlbCliCoverageTests : IDisposable
     {
         var fake = Path.Combine(_root, "fake.dll");
         File.WriteAllText(fake, "this is not an assembly");
-        Assert.False(Tl.Bake.Lazy.DefinesAll(
-            fake, [new System.ValueTuple<string?, string>("Tlb", "AlphaTrack")]));
+        Assert.False(Lazy.DefinesAll(
+            fake, [new ValueTuple<string?, string>("Tlb", "AlphaTrack")]));
     }
 
     [Fact]
     public void DefinesAll_MissingFile_ReturnsFalse()
     {
-        Assert.False(Tl.Bake.Lazy.DefinesAll(
-            Path.Combine(_root, "gone.dll"), [new System.ValueTuple<string?, string>("Tlb", "AlphaTrack")]));
+        Assert.False(Lazy.DefinesAll(
+            Path.Combine(_root, "gone.dll"), [new ValueTuple<string?, string>("Tlb", "AlphaTrack")]));
     }
 
     [Fact]
@@ -161,8 +158,8 @@ public sealed class TlbCliCoverageTests : IDisposable
         Directory.CreateDirectory(isolated);
         File.Copy(FixtureAssembly, Path.Combine(isolated, "Tl.Bake.Tests.dll"));
 
-        Assert.False(Tl.Bake.Lazy.DefinesAll(
+        Assert.False(Lazy.DefinesAll(
             Path.Combine(isolated, "Tl.Bake.Tests.dll"),
-            [new System.ValueTuple<string?, string>("No.Such.Namespace", "GhostType")]));
+            [new ValueTuple<string?, string>("No.Such.Namespace", "GhostType")]));
     }
 }

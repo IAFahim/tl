@@ -1,27 +1,27 @@
 using Xunit;
 
 
-namespace Tl.Fuzz.Laws;
+namespace Tl.Fuzz;
 
 public class LaneLaws
 {
     const int ExhaustiveBound = 20;
 
-    internal readonly struct D0 : IDurationShape { public static ushort Duration => 0; }
-    internal readonly struct D1 : IDurationShape { public static ushort Duration => 1; }
-    internal readonly struct D2 : IDurationShape { public static ushort Duration => 2; }
-    internal readonly struct D3 : IDurationShape { public static ushort Duration => 3; }
-    internal readonly struct D8 : IDurationShape { public static ushort Duration => 8; }
-    internal readonly struct D15 : IDurationShape { public static ushort Duration => 15; }
-    internal readonly struct D16 : IDurationShape { public static ushort Duration => 16; }
-    internal readonly struct D17 : IDurationShape { public static ushort Duration => 17; }
-    internal readonly struct D31 : IDurationShape { public static ushort Duration => 31; }
-    internal readonly struct D63 : IDurationShape { public static ushort Duration => 63; }
-    internal readonly struct D255 : IDurationShape { public static ushort Duration => 255; }
-    internal readonly struct D1024 : IDurationShape { public static ushort Duration => 1024; }
+    private readonly struct D0 : IDurationShape { public static ushort Duration => 0; }
+    private readonly struct D1 : IDurationShape { public static ushort Duration => 1; }
+    private readonly struct D2 : IDurationShape { public static ushort Duration => 2; }
+    private readonly struct D3 : IDurationShape { public static ushort Duration => 3; }
+    private readonly struct D8 : IDurationShape { public static ushort Duration => 8; }
+    private readonly struct D15 : IDurationShape { public static ushort Duration => 15; }
+    private readonly struct D16 : IDurationShape { public static ushort Duration => 16; }
+    private readonly struct D17 : IDurationShape { public static ushort Duration => 17; }
+    private readonly struct D31 : IDurationShape { public static ushort Duration => 31; }
+    private readonly struct D63 : IDurationShape { public static ushort Duration => 63; }
+    private readonly struct D255 : IDurationShape { public static ushort Duration => 255; }
+    private readonly struct D1024 : IDurationShape { public static ushort Duration => 1024; }
 
-    internal readonly struct LoopY : ILoopShape { public static bool Looping => true; }
-    internal readonly struct LoopN : ILoopShape { public static bool Looping => false; }
+    private readonly struct LoopY : ILoopShape { public static bool Looping => true; }
+    private readonly struct LoopN : ILoopShape { public static bool Looping => false; }
 
     [Fact]
     public void AdvanceMatchesTheOracleForEveryLaneShape()
@@ -55,19 +55,19 @@ public class LaneLaws
     [Fact]
     public void ApplyNeverWritesTheClock()
     {
-        ForEveryShape((caseId, runner) => runner.ApplyClockPurity());
+        ForEveryShape((_, runner) => runner.ApplyClockPurity());
     }
 
     [Fact]
     public void ApplySpanFormMatchesTheClockOnlyForm()
     {
-        ForEveryShape((caseId, runner) => runner.ApplySpanParity());
+        ForEveryShape((_, runner) => runner.ApplySpanParity());
     }
 
     [Fact]
     public void ApplySingleRowFormMatchesTheSpanForm()
     {
-        ForEveryShape((caseId, runner) => runner.ApplyRowFormParity());
+        ForEveryShape((_, runner) => runner.ApplyRowFormParity());
     }
 
     static void ForEveryShape(Action<int, ILaneShapeRunner> laws)
@@ -98,26 +98,26 @@ public class LaneLaws
         laws(11, new LaneCase<D1024, LoopN>(11));
     }
 
-    static void AdvanceParity<D, L>(LaneCase<D, L> lane)
-        where D : IDurationShape
-        where L : ILoopShape
+    static void AdvanceParity<TD, TL>(LaneCase<TD, TL> lane)
+        where TD : IDurationShape
+        where TL : ILoopShape
     {
         foreach (var (positions, forward, _) in lane.Cases())
         {
             var next = new ushort[positions.Length];
-            Timeline<LaneOf<D, L>>.Advance(positions, next, forward);
+            Timeline<LaneOf<TD, TL>>.Advance(positions, next, forward);
             var inPlace = (ushort[])positions.Clone();
-            Timeline<LaneOf<D, L>>.Advance(inPlace, forward);
+            Timeline<LaneOf<TD, TL>>.Advance(inPlace, forward);
             for (var i = 0; i < positions.Length; i++)
             {
-                var expected = forward ? Movement.Forward(D.Duration, L.Looping, positions[i]) : Movement.Backward(D.Duration, L.Looping, positions[i]);
+                var expected = forward ? Movement.Forward(TD.Duration, TL.Looping, positions[i]) : Movement.Backward(TD.Duration, TL.Looping, positions[i]);
                 if (next[i] != expected || inPlace[i] != expected)
-                    throw new Xunit.Sdk.XunitException($"advance d={D.Duration} loop={L.Looping} forward={forward} pos={positions[i]}: next={next[i]} inPlace={inPlace[i]} expected={expected}");
+                    throw new Xunit.Sdk.XunitException($"advance d={TD.Duration} loop={TL.Looping} forward={forward} pos={positions[i]}: next={next[i]} inPlace={inPlace[i]} expected={expected}");
             }
         }
     }
 
-    internal interface ILaneShapeRunner
+    private interface ILaneShapeRunner
     {
         void ApplyClockPurity();
 
@@ -126,21 +126,16 @@ public class LaneLaws
         void ApplyRowFormParity();
     }
 
-    internal sealed class LaneCase<D, L> : ILaneShapeRunner
-        where D : IDurationShape
-        where L : ILoopShape
+    internal sealed class LaneCase<TD, TL>(ushort shapeSeed) : ILaneShapeRunner
+        where TD : IDurationShape
+        where TL : ILoopShape
     {
-        readonly ushort _shapeSeed;
 
-        public LaneCase(ushort shapeSeed) => _shapeSeed = shapeSeed;
-
-        internal readonly record struct Case(ushort[] Positions, bool Forward, float[] Initial)
-        {
-        }
+        internal readonly record struct Case(ushort[] Positions, bool Forward, float[] Initial);
 
         static ushort[] SamplePositions(FuzzRandom random, int count)
         {
-            var duration = D.Duration;
+            var duration = TD.Duration;
             var positions = new ushort[count];
             for (var i = 0; i < count; i++)
                 positions[i] = duration <= ExhaustiveBound && random.NextBool()
@@ -161,7 +156,7 @@ public class LaneLaws
             foreach (var length in lengths)
                 foreach (var forward in shapes)
                 {
-                    var random = FuzzRandom.FromSeeds((uint)(length * 131 + _shapeSeed * 7919 + (forward ? 1 : 0)), 0x51);
+                    var random = FuzzRandom.FromSeeds((uint)(length * 131 + shapeSeed * 7919 + (forward ? 1 : 0)), 0x51);
                     var distribution = random.NextInt(4);
                     var constant = SamplePositions(random, 1)[0];
                     var positions = new ushort[length];
@@ -169,8 +164,8 @@ public class LaneLaws
                         positions[i] = distribution switch
                         {
                             0 => SamplePositions(random, 1)[0],
-                            1 => (ushort)(D.Duration == 0 ? random.NextInt(4) : i % Math.Max(1, Math.Min(D.Duration + 2, 7))),
-                            2 => (ushort)random.NextInt(Math.Min(65536, D.Duration + 4)),
+                            1 => (ushort)(TD.Duration == 0 ? random.NextInt(4) : i % Math.Max(1, Math.Min(TD.Duration + 2, 7))),
+                            2 => (ushort)random.NextInt(Math.Min(65536, TD.Duration + 4)),
                             _ => constant,
                         };
                     var initial = new float[length];
@@ -185,14 +180,14 @@ public class LaneLaws
             {
                 var clock = (ushort[])positions.Clone();
                 var effects = (float[])initial.Clone();
-                Timeline<LaneOf<D, L>>.Apply(positions, forward, effects);
+                Timeline<LaneOf<TD, TL>>.Apply(positions, forward, effects);
                 for (var i = 0; i < positions.Length; i++)
                 {
                     if (clock[i] != positions[i])
-                        throw new Xunit.Sdk.XunitException($"Apply moved the clock d={D.Duration} loop={L.Looping} row={i}");
-                    var delta = EffectDelta(D.Duration, L.Looping, forward, positions[i]);
+                        throw new Xunit.Sdk.XunitException($"Apply moved the clock d={TD.Duration} loop={TL.Looping} row={i}");
+                    var delta = EffectDelta(TD.Duration, TL.Looping, forward, positions[i]);
                     if (effects[i] != initial[i] + delta)
-                        throw new Xunit.Sdk.XunitException($"Apply effect d={D.Duration} loop={L.Looping} forward={forward} pos={positions[i]}: {effects[i]} != {initial[i]} + {delta}");
+                        throw new Xunit.Sdk.XunitException($"Apply effect d={TD.Duration} loop={TL.Looping} forward={forward} pos={positions[i]}: {effects[i]} != {initial[i]} + {delta}");
                 }
             }
         }
@@ -203,24 +198,24 @@ public class LaneLaws
             {
                 var next = new ushort[positions.Length];
                 var effects = (float[])initial.Clone();
-                Timeline<LaneOf<D, L>>.Apply(positions, next, forward, effects);
+                Timeline<LaneOf<TD, TL>>.Apply(positions, next, forward, effects);
                 var clockOnly = (ushort[])positions.Clone();
                 var effectsOnly = (float[])initial.Clone();
-                Timeline<LaneOf<D, L>>.Apply(clockOnly, forward, effectsOnly);
+                Timeline<LaneOf<TD, TL>>.Apply(clockOnly, forward, effectsOnly);
                 for (var i = 0; i < positions.Length; i++)
                 {
-                    var expected = forward ? Movement.Forward(D.Duration, L.Looping, positions[i]) : Movement.Backward(D.Duration, L.Looping, positions[i]);
+                    var expected = forward ? Movement.Forward(TD.Duration, TL.Looping, positions[i]) : Movement.Backward(TD.Duration, TL.Looping, positions[i]);
                     if (next[i] != expected)
-                        throw new Xunit.Sdk.XunitException($"Apply next d={D.Duration} loop={L.Looping} forward={forward} pos={positions[i]}: {next[i]} != {expected}");
+                        throw new Xunit.Sdk.XunitException($"Apply next d={TD.Duration} loop={TL.Looping} forward={forward} pos={positions[i]}: {next[i]} != {expected}");
                     if (effects[i] != effectsOnly[i])
-                        throw new Xunit.Sdk.XunitException($"Apply effect diverged from the clock-only form d={D.Duration} row={i}");
+                        throw new Xunit.Sdk.XunitException($"Apply effect diverged from the clock-only form d={TD.Duration} row={i}");
                 }
             }
         }
 
         public void ApplyRowFormParity()
         {
-            var random = FuzzRandom.FromSeeds((uint)(_shapeSeed * 6151 + (L.Looping ? 1 : 0)), 0xD4);
+            var random = FuzzRandom.FromSeeds((uint)(shapeSeed * 6151 + (TL.Looping ? 1 : 0)), 0xD4);
             for (var trial = 0; trial < 64; trial++)
             {
                 var position = SamplePositions(random, 1)[0];
@@ -229,14 +224,14 @@ public class LaneLaws
 
                 var spanNext = new ushort[1];
                 var spanEffects = new[] { initial };
-                Timeline<LaneOf<D, L>>.Apply([position], spanNext, forward, spanEffects);
+                Timeline<LaneOf<TD, TL>>.Apply([position], spanNext, forward, spanEffects);
 
                 var clockEffects = new[] { initial };
-                Timeline<LaneOf<D, L>>.Apply([position], forward, clockEffects);
+                Timeline<LaneOf<TD, TL>>.Apply([position], forward, clockEffects);
 
-                var expectedNext = forward ? Movement.Forward(D.Duration, L.Looping, position) : Movement.Backward(D.Duration, L.Looping, position);
+                var expectedNext = forward ? Movement.Forward(TD.Duration, TL.Looping, position) : Movement.Backward(TD.Duration, TL.Looping, position);
                 if (spanNext[0] != expectedNext || spanEffects[0] != clockEffects[0])
-                    throw new Xunit.Sdk.XunitException($"row form diverged d={D.Duration} loop={L.Looping} pos={position}");
+                    throw new Xunit.Sdk.XunitException($"row form diverged d={TD.Duration} loop={TL.Looping} pos={position}");
             }
         }
     }
@@ -247,7 +242,7 @@ public class LaneLaws
             ? position < duration
             : looping ? position < duration : position > 0 && position <= duration;
         if (!active) return 0f;
-        var tick = forward ? position : position == 0 ? (ushort)Math.Max(0, (int)duration - 1) : (ushort)(position - 1);
+        var tick = forward ? position : position == 0 ? (ushort)Math.Max(0, duration - 1) : (ushort)(position - 1);
         return forward ? FuzzFx.Effect(position) : FuzzFx.Inverse(tick);
     }
 

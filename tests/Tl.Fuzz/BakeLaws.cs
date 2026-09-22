@@ -3,7 +3,8 @@ using Tl.Gen.Tlb;
 using Xunit;
 using Xunit.Sdk;
 
-namespace Tl.Fuzz.Laws;
+using FuzzDomain;
+namespace Tl.Fuzz;
 
 public unsafe class BakeLaws
 {
@@ -48,7 +49,7 @@ public unsafe class BakeLaws
             new FuzzClipSpec(4, 9, 3f),
         ]);
         using var asset = TimelineAsset.Of(TimelineAsset.Load(bytes));
-        var view = Timeline<FuzzDomain.FuzzJsonTrack, FuzzDomain.FuzzJsonClip>.View(asset.Index);
+        var view = Timeline<FuzzJsonTrack, FuzzJsonClip>.View(asset.Index);
         for (ushort tick = 0; tick <= 9; tick++)
         {
             if (view.Forward[tick] != model.Forward(tick))
