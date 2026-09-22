@@ -49,31 +49,32 @@ public class PairHandleBenchmarks
 
     [GlobalSetup]
     public void Setup()
+        => (_positions, _handles, _effects) = Build(Shape, Rows);
+
+    internal static (ushort[] Positions, ushort[] Handles, float[] Effects) Build(ShapeKind shape, int rows)
     {
         var gold = Host.SlotGoldLane();
         var bank = Host.BindBank();
-        var positions = new ushort[Rows];
-        for (var i = 0; i < Rows; i++)
-            positions[i] = HasWaves()
+        var positions = new ushort[rows];
+        for (var i = 0; i < rows; i++)
+            positions[i] = HasWaves(shape)
                 ? (ushort)(i / 100 % Host.Duration)
                 : (ushort)(i % Host.Duration);
-        var handles = new ushort[Rows];
-        for (var i = 0; i < Rows; i++)
-            handles[i] = Shape switch
+        var handles = new ushort[rows];
+        for (var i = 0; i < rows; i++)
+            handles[i] = shape switch
             {
                 ShapeKind.LaneUniform => gold,
                 ShapeKind.PairOne => bank[0],
-                ShapeKind.PairRuns8 or ShapeKind.PairRuns8Waves => bank[i * Host.Variants / Rows],
+                ShapeKind.PairRuns8 or ShapeKind.PairRuns8Waves => bank[i * Host.Variants / rows],
                 ShapeKind.PairBlocks8Waves => bank[i / 100 % Host.Variants],
                 _ => bank[i % Host.Variants],
             };
-        _positions = positions;
-        _handles = handles;
-        _effects = Seeds.Effects(Rows);
+        return (positions, handles, Seeds.Effects(rows));
     }
 
-    bool HasWaves()
-        => Shape is ShapeKind.PairRuns8Waves or ShapeKind.PairBlocks8Waves or ShapeKind.PairAlternating8Waves;
+    internal static bool HasWaves(ShapeKind shape)
+        => shape is ShapeKind.PairRuns8Waves or ShapeKind.PairBlocks8Waves or ShapeKind.PairAlternating8Waves;
 
     [Benchmark]
     public void Advance()

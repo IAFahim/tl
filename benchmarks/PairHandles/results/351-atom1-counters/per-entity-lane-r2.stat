@@ -1,0 +1,25 @@
+# started on Wed Sep 23 01:04:00 2026
+
+
+ Performance counter stats for '/home/i/GitHub/tl-w351/benchmarks/PairHandles/bin/Release/net10.0/PairHandles --counters per-entity-lane --counters-iters 20000':
+
+     <not counted>      cpu_atom/cycles/u                                                       (0.00%)
+    17,712,189,979      cpu_core/cycles/u                                                     
+     <not counted>      cpu_atom/instructions/u                                                 (0.00%)
+   112,006,888,601      cpu_core/instructions/u                                               
+     <not counted>      cpu_atom/branches/u                                                     (0.00%)
+    26,115,550,078      cpu_core/branches/u                                                   
+     <not counted>      cpu_atom/branch-misses/u                                                (0.00%)
+           544,454      cpu_core/branch-misses/u                                              
+     <not counted>      cpu_atom/cache-references/u                                             (0.00%)
+           973,967      cpu_core/cache-references/u                                           
+     <not counted>      cpu_atom/cache-misses/u                                                 (0.00%)
+           311,750      cpu_core/cache-misses/u                                               
+          3,113.55 msec task-clock:u                                                          
+
+       3.223973589 seconds time elapsed
+
+       3.211693000 seconds user
+       0.007964000 seconds sys
+
+
