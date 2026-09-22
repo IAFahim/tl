@@ -19,7 +19,7 @@ public sealed class ConsumerAbiTests
         public struct Mass { public float Value; }
         public readonly struct OversizedJob : ITrack<Track, Clip>
         {
-            public static void OnActive(in Frame<Track, Clip> frame, in Mass first, in Mass second, in Mass third, in Mass fourth, in Mass fifth, ref Mass sixth, ref Mass seventh, ref Mass eighth, ref Mass ninth) { }
+            public static void OnActive(in Frame<Track, Clip> frame, in Mass a1, in Mass a2, in Mass a3, in Mass a4, in Mass a5, in Mass a6, in Mass a7, in Mass a8, in Mass a9, in Mass a10, in Mass a11, in Mass a12, in Mass a13, in Mass a14, in Mass a15, in Mass a16, ref Mass r1, ref Mass r2, ref Mass r3, ref Mass r4, ref Mass r5, ref Mass r6, ref Mass r7, ref Mass r8, ref Mass r9, ref Mass r10, ref Mass r11, ref Mass r12, ref Mass r13, ref Mass r14, ref Mass last) { }
         }
         """;
 
@@ -102,19 +102,19 @@ public sealed class ConsumerAbiTests
         """";
 
     [Fact]
-    public void RejectsNineParameterJobWithDuplicateTypesAndEmitsNothing()
+    public void RejectsThirtyOneParameterJobWithDuplicateTypesAndEmitsNothing()
     {
         var (sources, diagnostics) = ConsumerBindingTests.GenerateWithDiagnostics(NineParameterSource);
         Assert.Empty(sources);
         var diagnostic = Assert.Single(diagnostics);
         Assert.Equal("TLGEN68", diagnostic.Id);
-        Assert.Contains("declares 9 gameplay parameters", diagnostic.GetMessage());
-        Assert.Contains("the consumer ABI reserves 8 pointer slots per registered consumer", diagnostic.GetMessage());
-        Assert.Contains("declare at most 8 gameplay parameters", diagnostic.GetMessage());
+        Assert.Contains("declares 31 gameplay parameters", diagnostic.GetMessage());
+        Assert.Contains("the consumer ABI holds 30 gameplay columns per registered consumer (memo feeds included)", diagnostic.GetMessage());
+        Assert.Contains("declare at most 30.", diagnostic.GetMessage());
     }
 
     [Fact]
-    public void ExcessParameterDiagnosticUsesTheNinthParameterSpan()
+    public void ExcessParameterDiagnosticUsesTheLastParameterSpan()
     {
         var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
         var tree = CSharpSyntaxTree.ParseText(NineParameterSource, options, "Domain.cs");
@@ -126,7 +126,7 @@ public sealed class ConsumerAbiTests
         var result = driver.GetRunResult();
 
         var parameter = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>()
-            .Single(static parameter => parameter.Identifier.ValueText == "ninth");
+            .Single(static parameter => parameter.Identifier.ValueText == "last");
         var diagnostic = Assert.Single(result.Diagnostics, static candidate => candidate.Id == "TLGEN68");
         Assert.Equal(parameter.Span, diagnostic.Location.SourceSpan);
         Assert.Equal("Domain.cs", diagnostic.Location.GetLineSpan().Path);
@@ -144,21 +144,11 @@ public sealed class ConsumerAbiTests
     [Fact]
     public void EmittedBindThrowsBeforeAnyWriteWhenSlotCountExceedsTheAbi()
     {
-        var slots = new TimelineSlot[]
-        {
-            new("first", "int", SlotMode.Input),
-            new("second", "int", SlotMode.Input),
-            new("third", "int", SlotMode.Reference),
-            new("fourth", "int", SlotMode.Reference),
-            new("fifth", "int", SlotMode.Input),
-            new("sixth", "int", SlotMode.Input),
-            new("seventh", "int", SlotMode.Reference),
-            new("eighth", "int", SlotMode.Reference),
-            new("ninth", "int", SlotMode.Input),
-        };
+        var slots = new TimelineSlot[41];
+        for (var i = 0; i < slots.Length; i++) slots[i] = new($"slot{i}", "int", SlotMode.Input);
         var binding = JobEmitter.Consumers([new JobConsumer("Track", "Clip", new JobDefinition("Job", slots))]);
 
-        Assert.Contains("9 gameplay parameters exceed the 8-slot consumer ABI; regenerate the binding with a matching Tl generator.", binding);
+        Assert.Contains("41 gameplay parameters exceed the 40-slot consumer ABI; regenerate the binding with a matching Tl generator.", binding);
         var bindStart = binding.IndexOf("private static void Bind_Job(", StringComparison.Ordinal);
         var throwIndex = binding.IndexOf("throw new global::System.InvalidOperationException(", bindStart, StringComparison.Ordinal);
         var writeIndex = binding.IndexOf("__tlIndices[", bindStart, StringComparison.Ordinal);

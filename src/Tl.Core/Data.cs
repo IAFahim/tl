@@ -333,8 +333,8 @@ public readonly unsafe struct TickFrame
 	internal struct Consumer { public int Next, Pair, Offset, OutLanes; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
 
-	internal const int SlotRow = 8;
-	internal const int MaxPointers = 512;
+	internal const int SlotRow = 40;
+	internal const int MaxPointers = 2560;
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + sizeof(Consumer) * ConsumerCapacity), 64);

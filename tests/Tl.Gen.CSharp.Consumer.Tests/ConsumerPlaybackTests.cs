@@ -187,6 +187,14 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
+    public void TwoMemoResultsComposeWithPlayerRefAndInputColumnsOnOneConsumer()
+    {
+        var result = Driver("PairCollision");
+
+        Assert.Equal("115,275#115,250", result);
+    }
+
+    [Fact]
     public void PairExceedingThirtyTwoMemoFedSlotsFailsLoudlyAtFirstApply()
     {
         var result = Driver("MemoCapacity");
@@ -528,6 +536,25 @@ public sealed class ConsumerPlaybackTests
                 => y.Value += arc * power.Lift + kind + phase + style;
         }
 
+        public readonly record struct JumpPairClip(int Height);
+
+        public readonly record struct JumpPairTrack(float Scale) : IBlend<JumpPairClip>
+        {
+            public void Blend(in JumpPairClip first, in JumpPairClip second, float factor, out JumpPairClip result) => result = first;
+        }
+
+        public readonly struct JumpPairMove : ITrack<JumpPairTrack, JumpPairClip>
+        {
+            public static void OnMemo(in Frame<JumpPairTrack, JumpPairClip> frame, out float charge, out float arc)
+            {
+                charge = frame.Direction * frame.Clip.Height * frame.Track.Scale;
+                arc = frame.Direction * frame.Clip.Height;
+            }
+
+            public static void OnActive(in float charge, in float arc, ref JumpY y, in JumpPower power)
+                => y.Value += charge * power.Lift + arc;
+        }
+
         }
 
         namespace TlJumpShape
@@ -788,6 +815,23 @@ public sealed class ConsumerPlaybackTests
                 Timeline<JumpWideTrack, JumpWideClip>.Apply(ids, positions, true, y, power);
                 var recharged = F(y[0].Value) + "," + F(y[1].Value);
                 return forward + "#" + backward + "#" + recharged;
+            }
+
+            public static string PairCollision()
+            {
+                using var jump = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<JumpPairTrack, JumpPairClip>(new JumpPairTrack(2f))
+                    .Clip(0, 0u, 2u, new JumpPairClip(5))
+                    .Bake()));
+                var ids = new ushort[] { jump.Index, jump.Index };
+                var positions = new ushort[] { 0, 1 };
+                var y = new JumpY[] { new() { Value = 100f }, new() { Value = 250f } };
+                var power = new JumpPower[] { new() { Lift = 1f }, new() { Lift = 2f } };
+                Timeline<JumpPairTrack, JumpPairClip>.Apply(ids, positions, true, y, power);
+                var forward = F(y[0].Value) + "," + F(y[1].Value);
+                Timeline<JumpPairTrack, JumpPairClip>.Apply(ids, positions, false, y, power);
+                var backward = F(y[0].Value) + "," + F(y[1].Value);
+                return forward + "#" + backward;
             }
 
             public static string MemoCapacity()

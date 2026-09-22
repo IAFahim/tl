@@ -337,14 +337,14 @@ public sealed class TwoMethodShapeTests
             {{Domain}}
             public readonly struct Oversized : ITrack<DamageTrack, DamageClip>
             {
-                public static void OnActive(in float a, in float b, ref float c, in float d, in float e, in float f, in float g, in float h, in float i) { }
+                public static void OnActive(in float a, in float b, ref float c, in float d, in float e, in float f, in float g, in float h, in float i, in float j, in float k, in float l, in float m, in float n, in float o, in float p, in float q, in float r, in float s, in float t, in float u, in float v, in float w, in float x, in float y, in float z, in float aa, in float ab, in float ac, ref float ad, in float ae) { }
             }
             """);
 
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal("TLGEN68", diagnostic.Code);
-        Assert.Contains("declares 9 gameplay parameters", diagnostic.Message);
-        Assert.Contains("declare at most 8 gameplay parameters", diagnostic.Message);
+        Assert.Contains("declares 31 gameplay parameters", diagnostic.Message);
+        Assert.Contains("declare at most 30.", diagnostic.Message);
     }
 
     [Theory]

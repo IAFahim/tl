@@ -6,7 +6,8 @@ namespace Tl.Gen.CSharp.Analysis;
 
 public static class JobReader
 {
-    internal const int SlotRow = 8;
+    internal const int SlotRow = 40;
+    internal const int ActiveParameters = 30;
 
     public static JobReadResult Read(CSharpCompilation compilation)
     {
@@ -137,8 +138,8 @@ public static class JobReader
                             return Err(Symbols.Site(p, site), "TLGEN78", $"'{name}.OnActive' columns must be required unmanaged 'in'/'ref'; '{Symbols.Name(p.Type)} {p.Name}' is not.");
                         live.Add(new(p.Name, Symbols.Name(p.Type), p.RefKind == RefKind.Ref ? SlotMode.Reference : SlotMode.Input));
                     }
-                    if (live.Count > SlotRow)
-                        return Err(Symbols.Site(active.Parameters[start + SlotRow], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI reserves {SlotRow} pointer slots per registered consumer, so the excess parameters bind into the next consumer's slots; declare at most {SlotRow} gameplay parameters.");
+                    if (live.Count > ActiveParameters)
+                        return Err(Symbols.Site(active.Parameters[start + ActiveParameters], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI holds {ActiveParameters} gameplay columns per registered consumer (memo feeds included); declare at most {ActiveParameters}.");
                     for (var i = 0; i < live.Count; i++)
                         for (var k = 0; k < i; k++)
                             if (live[i].Mode == live[k].Mode && live[i].Mode != SlotMode.MemoFeed && live[i].TypeName != live[k].TypeName)

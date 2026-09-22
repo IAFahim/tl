@@ -17,8 +17,8 @@ class ConsumerAbiRowTest(unittest.TestCase):
         self.assertIsNotNone(generator, f"{GENERATOR} must declare internal const int SlotRow")
         self.assertEqual(runtime.group(1), generator.group(1),
                          "the consumer slot-row width is one contract: the Tl.Core and Tl.Gen.CSharp constants must stay equal")
-        self.assertEqual(runtime.group(1), "8",
-                         "issue #356 widened the consumer slot row to 8 pointer slots; changing it again is a deliberate ABI decision recorded on the issue")
+        self.assertEqual(runtime.group(1), "40",
+                         "issue #356 sized the consumer slot row to the amended maxima (10 memo results + 30 gameplay columns = 40 pointer slots); changing it again is a deliberate ABI decision recorded on the issue")
 
 
 if __name__ == "__main__":
