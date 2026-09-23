@@ -29,6 +29,7 @@
     <IssueType Id="NotAccessedField.Global" Category="Potential Code Quality Issues" CategoryId="CodeSmell" SubCategory="Non-accessed field" Description="Non-accessed field: Non-private accessibility" Severity="SUGGESTION" Global="True" WikiUrl="https://www.jetbrains.com/help/resharper/NotAccessedField.Global.html" />
     <IssueType Id="NotAccessedPositionalProperty.Global" Category="Potential Code Quality Issues" CategoryId="CodeSmell" SubCategory="Non-accessed positional property" Description="Non-accessed positional property: Non-private accessibility" Severity="WARNING" Global="True" WikiUrl="https://www.jetbrains.com/help/resharper/NotAccessedPositionalProperty.Global.html" />
     <IssueType Id="NotAccessedPositionalProperty.Local" Category="Potential Code Quality Issues" CategoryId="CodeSmell" SubCategory="Non-accessed positional property" Description="Non-accessed positional property: Private accessibility" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/NotAccessedPositionalProperty.Local.html" />
+    <IssueType Id="PossiblyImpureMethodCallOnReadonlyVariable" Category="Potential Code Quality Issues" CategoryId="CodeSmell" Description="Possibly impure struct method is called on readonly variable: struct value always copied before invocation" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/PossiblyImpureMethodCallOnReadonlyVariable.html" />
     <IssueType Id="RedundantArgumentDefaultValue" Category="Redundancies in Code" CategoryId="CodeRedundancy" Description="Redundant argument with default value" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/RedundantArgumentDefaultValue.html" />
     <IssueType Id="RedundantAssignment" Category="Redundancies in Code" CategoryId="CodeRedundancy" Description="Assignment is not used" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/RedundantAssignment.html" />
     <IssueType Id="RedundantCast" Category="Redundancies in Code" CategoryId="CodeRedundancy" Description="Redundant cast" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/RedundantCast.html" />
@@ -132,6 +133,7 @@
     <Project Name="PairHandles">
       <Issue TypeId="NotAccessedField.Global" File="benchmarks\PairHandles\Benchmarks.cs" Offset="1021-1025" Line="45" Message="Field 'Sink' is assigned but its value is never used" />
       <Issue TypeId="UnassignedField.Global" File="benchmarks\PairHandles\Benchmarks.cs" Offset="1240-1245" Line="48" Message="Field 'Shape' is never assigned" />
+      <Issue TypeId="MemberCanBePrivate.Global" File="benchmarks\PairHandles\Benchmarks.cs" Offset="2301-2309" Line="76" Message="Method 'HasWaves' can be made private" />
       <Issue TypeId="UnusedMember.Global" File="benchmarks\PairHandles\Domain.cs" Offset="16150-16157" Line="393" Message="Enum member 'Clamped' is never used" />
       <Issue TypeId="UnusedMember.Global" File="benchmarks\PairHandles\Domain.cs" Offset="16217-16226" Line="398" Message="Method 'Positions' is never used" />
       <Issue TypeId="UnusedMember.Global" File="benchmarks\PairHandles\Domain.cs" Offset="16688-16691" Line="412" Message="Method 'Ids' is never used" />
@@ -223,35 +225,37 @@
       <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Core\Data.cs" Offset="12395-12401" Line="312" Message="Field 'Pair' can be made private" />
       <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Core\Data.cs" Offset="12427-12433" Line="313" Message="Field 'TimelineTick' can be made private" />
       <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Core\Data.cs" Offset="12468-12474" Line="314" Message="Field 'Flags' can be made private" />
-      <Issue TypeId="NotAccessedField.Global" File="src\Tl.Core\Data.cs" Offset="13448-13453" Line="333" Message="Field 'Range' is assigned but its value is never used" />
-      <Issue TypeId="CSharpWarnings::CS8601" Severity="ERROR" File="src\Tl.Core\Data.cs" Offset="14459-14463" Line="349" Message="Possible null reference assignment" />
-      <Issue TypeId="CSharpWarnings::CS8601" Severity="ERROR" File="src\Tl.Core\Data.cs" Offset="14482-14486" Line="349" Message="Possible null reference assignment" />
-      <Issue TypeId="ConvertIfStatementToNullCoalescingAssignment" File="src\Tl.Core\Data.cs" Offset="15895-15897" Line="385" Message="Convert into '??='" />
-      <Issue TypeId="UnusedMember.Global" File="src\Tl.Core\Data.cs" Offset="20797-20804" Line="527" Message="Method 'Consume' is never used" />
-      <Issue TypeId="UnusedMember.Global" File="src\Tl.Core\Data.cs" Offset="21319-21334" Line="533" Message="Method 'ConsumeDispatch' is never used" />
+      <Issue TypeId="NotAccessedField.Global" File="src\Tl.Core\Data.cs" Offset="13663-13668" Line="337" Message="Field 'Range' is assigned but its value is never used" />
+      <Issue TypeId="CSharpWarnings::CS8601" Severity="ERROR" File="src\Tl.Core\Data.cs" Offset="14654-14658" Line="352" Message="Possible null reference assignment" />
+      <Issue TypeId="CSharpWarnings::CS8601" Severity="ERROR" File="src\Tl.Core\Data.cs" Offset="14677-14681" Line="352" Message="Possible null reference assignment" />
+      <Issue TypeId="ConvertIfStatementToNullCoalescingAssignment" File="src\Tl.Core\Data.cs" Offset="16108-16110" Line="388" Message="Convert into '??='" />
+      <Issue TypeId="UnusedMember.Global" File="src\Tl.Core\Data.cs" Offset="21016-21023" Line="530" Message="Method 'Consume' is never used" />
+      <Issue TypeId="UnusedMember.Global" File="src\Tl.Core\Data.cs" Offset="21538-21553" Line="536" Message="Method 'ConsumeDispatch' is never used" />
       <Issue TypeId="ConvertIfStatementToNullCoalescingAssignment" File="src\Tl.Core\InternTable.cs" Offset="10343-10345" Line="308" Message="Convert into '??='" />
       <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\Lane.cs" Offset="10835-10861" Line="277" Message="Invoke as extension method" />
       <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\Lane.cs" Offset="11378-11404" Line="289" Message="Invoke as extension method" />
       <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\Lane.cs" Offset="11915-11941" Line="301" Message="Invoke as extension method" />
+      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Core\MeasuredLanes.cs" Offset="9067-9075" Line="206" Message="Constant 'LaneBound' can be made private" />
       <Issue TypeId="UnusedMember.Global" File="src\Tl.Core\Timeline.cs" Offset="7159-7166" Line="156" Message="Method 'BakeRef' is never used" />
       <Issue TypeId="UnusedMember.Global" File="src\Tl.Core\TimelinePair.cs" Offset="12452-12462" Line="344" Message="Method 'ApplyLanes' is never used" />
-      <Issue TypeId="CSharpWarnings::CS8602" Severity="ERROR" File="src\Tl.Core\TimelineSet.cs" Offset="31187-31194" Line="704" Message="Dereference of a possibly null reference" />
-      <Issue TypeId="CSharpWarnings::CS8602" Severity="ERROR" File="src\Tl.Core\TimelineSet.cs" Offset="32747-32754" Line="744" Message="Dereference of a possibly null reference" />
-      <Issue TypeId="AccessToStaticMemberViaDerivedType" File="src\Tl.Core\TimelineSet.cs" Offset="56640-56643" Line="1260" Message="Access to a static member of a type via a derived type" />
-      <Issue TypeId="AccessToStaticMemberViaDerivedType" File="src\Tl.Core\TimelineSet.cs" Offset="56687-56690" Line="1260" Message="Access to a static member of a type via a derived type" />
-      <Issue TypeId="AccessToStaticMemberViaDerivedType" File="src\Tl.Core\TimelineSet.cs" Offset="56788-56791" Line="1261" Message="Access to a static member of a type via a derived type" />
-      <Issue TypeId="AccessToStaticMemberViaDerivedType" File="src\Tl.Core\TimelineSet.cs" Offset="56835-56838" Line="1261" Message="Access to a static member of a type via a derived type" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="58733-58759" Line="1302" Message="Invoke as extension method" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="59138-59164" Line="1311" Message="Invoke as extension method" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="64289-64315" Line="1442" Message="Invoke as extension method" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="65169-65195" Line="1458" Message="Invoke as extension method" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="66048-66074" Line="1474" Message="Invoke as extension method" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="67393-67419" Line="1505" Message="Invoke as extension method" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="67543-67569" Line="1506" Message="Invoke as extension method" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="68276-68302" Line="1521" Message="Invoke as extension method" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="68420-68446" Line="1522" Message="Invoke as extension method" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="69147-69173" Line="1537" Message="Invoke as extension method" />
-      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="69298-69324" Line="1538" Message="Invoke as extension method" />
+      <Issue TypeId="PossiblyImpureMethodCallOnReadonlyVariable" File="src\Tl.Core\TimelinePair.cs" Offset="16344-16352" Line="422" Message="Possibly impure struct method called on readonly variable: struct value always copied before invocation" />
+      <Issue TypeId="PossiblyImpureMethodCallOnReadonlyVariable" File="src\Tl.Core\TimelinePair.cs" Offset="16411-16419" Line="423" Message="Possibly impure struct method called on readonly variable: struct value always copied before invocation" />
+      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Core\TimelinePair.cs" Offset="25999-26007" Line="692" Message="Constant 'Capacity' can be made private" />
+      <Issue TypeId="CSharpWarnings::CS8602" Severity="ERROR" File="src\Tl.Core\TimelineSet.cs" Offset="32215-32222" Line="726" Message="Dereference of a possibly null reference" />
+      <Issue TypeId="CSharpWarnings::CS8602" Severity="ERROR" File="src\Tl.Core\TimelineSet.cs" Offset="33775-33782" Line="766" Message="Dereference of a possibly null reference" />
+      <Issue TypeId="AccessToStaticMemberViaDerivedType" File="src\Tl.Core\TimelineSet.cs" Offset="57668-57671" Line="1282" Message="Access to a static member of a type via a derived type" />
+      <Issue TypeId="AccessToStaticMemberViaDerivedType" File="src\Tl.Core\TimelineSet.cs" Offset="57715-57718" Line="1282" Message="Access to a static member of a type via a derived type" />
+      <Issue TypeId="AccessToStaticMemberViaDerivedType" File="src\Tl.Core\TimelineSet.cs" Offset="57816-57819" Line="1283" Message="Access to a static member of a type via a derived type" />
+      <Issue TypeId="AccessToStaticMemberViaDerivedType" File="src\Tl.Core\TimelineSet.cs" Offset="57863-57866" Line="1283" Message="Access to a static member of a type via a derived type" />
+      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="59761-59787" Line="1324" Message="Invoke as extension method" />
+      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="60166-60192" Line="1333" Message="Invoke as extension method" />
+      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="63658-63684" Line="1420" Message="Invoke as extension method" />
+      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="65871-65897" Line="1467" Message="Invoke as extension method" />
+      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="66021-66047" Line="1468" Message="Invoke as extension method" />
+      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="66754-66780" Line="1483" Message="Invoke as extension method" />
+      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="66898-66924" Line="1484" Message="Invoke as extension method" />
+      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="67625-67651" Line="1499" Message="Invoke as extension method" />
+      <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\TimelineSet.cs" Offset="67776-67802" Line="1500" Message="Invoke as extension method" />
     </Project>
     <Project Name="Tl.Core.Tests">
       <Issue TypeId="NotAccessedPositionalProperty.Global" File="tests\Tl.Core.Tests\BankDispatchTests.cs" Offset="90-95" Line="5" Message="Positional property 'Tl.Core.Tests.BankProbeClip.Value' is never accessed (except in implicit Equals/ToString implementations)" />
@@ -318,6 +322,12 @@
       <Issue TypeId="CompareOfFloatsByEqualityOperator" File="tests\Tl.Fuzz\PairLaws.cs" Offset="8964-9015" Line="178" Message="Equality comparison of floating point numbers. Possible loss of precision while rounding values" />
     </Project>
     <Project Name="Tl.Gen.CSharp">
+      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="netstandard2.0" Offset="203-211" Line="10" Message="Constant 'ActiveParameters' can be made private" />
+      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="net10.0" Offset="203-211" Line="10" Message="Constant 'ActiveParameters' can be made private" />
+      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="netstandard2.0" Offset="249-257" Line="11" Message="Constant 'MemoResults' can be made private" />
+      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="net10.0" Offset="249-257" Line="11" Message="Constant 'MemoResults' can be made private" />
+      <Issue TypeId="RedundantCast" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="netstandard2.0" Offset="7991-7997" Line="132" Message="Type cast is redundant" />
+      <Issue TypeId="RedundantCast" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="net10.0" Offset="7991-7997" Line="132" Message="Type cast is redundant" />
       <Issue TypeId="UnusedType.Global" File="src\Tl.Gen.CSharp\Polyfills.cs" TargetFramework="netstandard2.0" Offset="85-99" Line="4" Message="Class 'IsExternalInit' is never used" />
     </Project>
     <Project Name="Tl.Gen.CSharp.Tests">

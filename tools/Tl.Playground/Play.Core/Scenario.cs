@@ -14,7 +14,7 @@ public sealed class Scenario
     public const int MaxCrowd = 2048;
     public const int MinDuration = 4;
     public const int MaxDuration = 1024;
-    public const int MinWindowStart = 0;
+    const int MinWindowStart = 0;
 
     public int Crowd = 128;
     public ScenarioPattern Pattern = ScenarioPattern.Staggered;
@@ -34,9 +34,7 @@ public sealed class Scenario
 
     public Scenario Clone() => (Scenario)MemberwiseClone();
 
-    public static Scenario FromQuery(Dictionary<string, string> query) => new Scenario().ApplyQuery(query);
-
-    public Scenario ApplyQuery(Dictionary<string, string> query)
+    public void ApplyQuery(Dictionary<string, string> query)
     {
         if (query.TryGetValue("crowd", out var crowd) && int.TryParse(crowd, NumberStyles.Integer, CultureInfo.InvariantCulture, out var c))
             Crowd = Math.Clamp(c, MinCrowd, MaxCrowd);
@@ -60,7 +58,6 @@ public sealed class Scenario
             (WindowBStart, WindowBEnd) = (wsB, weB);
         if (query.TryGetValue("duration", out var duration) && int.TryParse(duration, NumberStyles.Integer, CultureInfo.InvariantCulture, out var d))
             Duration = Math.Clamp(d, MinDuration, MaxDuration);
-        return this;
     }
 
     public Dictionary<string, string> ToQuery()
@@ -121,9 +118,9 @@ public sealed class Scenario
         if (root.ValueKind != JsonValueKind.Object) return;
         foreach (var property in root.EnumerateObject())
         {
-            if (property.Name == "duration" && property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetInt32(out var duration))
+            if (property is { Name: "duration", Value.ValueKind: JsonValueKind.Number } && property.Value.TryGetInt32(out var duration))
                 Duration = Math.Clamp(duration, MinDuration, MaxDuration);
-            else if (property.Name == "loop" && property.Value.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            else if (property is { Name: "loop", Value.ValueKind: JsonValueKind.True or JsonValueKind.False })
                 Loop = property.Value.GetBoolean();
         }
     }
@@ -135,7 +132,7 @@ public sealed class Scenario
         (WindowBStart, WindowBEnd) = ClampWindow(WindowBStart, WindowBEnd);
     }
 
-    public (int, int) ClampWindow(int start, int end)
+    (int, int) ClampWindow(int start, int end)
     {
         start = Math.Clamp(start, MinWindowStart, Duration);
         end = Math.Clamp(end, MinWindowStart + 1, Duration);

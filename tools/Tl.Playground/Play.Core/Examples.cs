@@ -7,12 +7,12 @@ public sealed record Example(string Id, string Label, string Description, string
 
 public static class Examples
 {
-    public const int CrowdRows = 1_000_000;
-    public const int CrowdGroupSize = 10_000;
-    public const int CrowdDuration = 1024;
-    public const int CrowdFrames = 60;
+    const int CrowdRows = 1_000_000;
+    const int CrowdGroupSize = 10_000;
+    const int CrowdDuration = 1024;
+    const int CrowdFrames = 60;
 
-    public static string CrowdTimelineJson(float scale, int split) => string.Create(
+    static string CrowdTimelineJson(float scale, int split) => string.Create(
         CultureInfo.InvariantCulture,
         $$"""
         {
@@ -29,7 +29,7 @@ public static class Examples
         }
         """);
 
-    public static readonly string GroupsTimelineJson = BuildGroupsTimelineJson();
+    static readonly string GroupsTimelineJson = BuildGroupsTimelineJson();
 
     static string BuildGroupsTimelineJson()
     {
@@ -53,49 +53,49 @@ public static class Examples
         LiveAuthoring.DefaultSource,
         LiveAuthoring.DefaultTimelineJson);
 
-    public static readonly Example Boss = new(
+    static readonly Example Boss = new(
         "boss",
         "nuget quick start · boss",
         "the NuGet quick-start boss: two ticks of a 4-tick timeline push 5 damage per tick through a ×2 DamageTrack — health 100 → 80, position 2",
         BossSource,
         BossTimelineJson);
 
-    public static readonly Example SharedClock = new(
+    static readonly Example SharedClock = new(
         "shared-clock",
         "numbers · one clock for a million goblins",
         "1,000,000 goblins on one 1024-tick looping timeline (rise at tick 0, fall at tick 600), one shared ushort clock: Apply folds the whole crowd, Advance moves the single clock. README receipt on the reference host: 0.08 ms per frame hot, 0.17 cold — 0.08 ns per goblin",
         SharedClockSource,
         CrowdTimelineJson(scale: 2f, split: 600));
 
-    public static readonly Example SyncCrowd = new(
+    static readonly Example SyncCrowd = new(
         "sync",
         "numbers · raid in sync, ids+clocks columns",
         "1,000,000 goblins, one 1024-tick looping timeline, every row carries its own id and clock column with all clocks parked on tick 5 — a raid jumping in sync. README receipt: 0.17 ms per frame hot, 0.37 cold — 0.17 ns per goblin",
         SyncCrowdSource,
         CrowdTimelineJson(scale: 2f, split: 600));
 
-    public static readonly Example Groups = new(
+    static readonly Example Groups = new(
         "groups",
         "numbers · 100 timelines, 100 ability groups",
         "1,000,000 goblins in 100 groups of 10,000: group i runs its own 1024-tick timeline (rise/fall split at tick 300 + 7i, scale 1 + 0.25i), ids[i] = i / 10,000, clocks[i] = i % 1024. README receipt: 0.35 ms per frame hot, 0.50 cold — 0.35 ns per goblin",
         GroupsSource,
         GroupsTimelineJson);
 
-    public static readonly Example Mixed = new(
+    static readonly Example Mixed = new(
         "mixed",
         "mixed sample · three tracks, crossfade, rewind",
         "the samples/Mixed attack timeline, three tracks on two ticks: AnimationTrack 1 steps X+Y = 3 on tick 1, then its clips (2,1) and (6,3) overlap on tick 2 and crossfade at factor 0.5 to +6, AnimationTrack 3 shuffles +1 per tick, DamageTrack 2 hits 10 per tick — each system plays its own pair into the shared vitality column, two forward ticks land at vitality -9, position 2 and two rewind ticks restore exactly 0",
         MixedSource,
         MixedTimelineJson);
 
-    public static readonly Example Showcase = new(
+    static readonly Example Showcase = new(
         "showcase",
         "showcase sample · jump arc + Timeline.Bake",
         "the samples/Showcase program: four characters jump the 30-tick arc (velocity 2 m/tick, apex y = 30 m at tick 15), 30 rewind ticks land at exactly 0.0 m, then Timeline.Bake walks the AttachJumping marker and marks entities 42 and 43 jumping",
         ShowcaseSource,
         LiveAuthoring.DefaultTimelineJson);
 
-    public static readonly Example Raw = new(
+    static readonly Example Raw = new(
         "raw",
         "raw binding (advanced)",
         "function-pointer consumer with no ITrack and no generator binding — the exact shape benchmarks/Numbers measures",

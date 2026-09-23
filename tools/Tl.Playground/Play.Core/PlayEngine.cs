@@ -99,7 +99,7 @@ public sealed class PlayEngine : IDisposable
             }
         }
         var total = 0f;
-        for (var i = 0; i < _effects.Length; i++) total += _effects[i];
+        foreach (var effect in _effects) total += effect;
         Last = new FrameStats(moved, skipped, wrapped, total);
         Checksum = unchecked(Checksum * 31 + FrameFingerprint());
         return Last;
@@ -164,7 +164,7 @@ public static class Oracle
             }
         }
         var total = 0f;
-        for (var i = 0; i < effects.Length; i++) total += effects[i];
+        foreach (var effect in effects) total += effect;
         return new FrameStats(moved, skipped, wrapped, total);
     }
 }

@@ -1,5 +1,4 @@
-@using Microsoft.AspNetCore.Components.Web
-@inject IJSRuntime JS
+@inject IJSRuntime Js
 
 <div id="@RootId" class="@ClassName"></div>
 <input type="hidden" id="@HiddenId" value="@Value" @oninput="OnHiddenInput" />
@@ -24,9 +23,9 @@
         {
             _wired = true;
             if (ReadOnly)
-                await JS.InvokeVoidAsync("tlLiveEditor.initReadonly", RootId, Language, Value);
+                await Js.InvokeVoidAsync("tlLiveEditor.initReadonly", RootId, Language, Value);
             else
-                await JS.InvokeVoidAsync("tlLiveEditor.init", RootId, Language, Value, HiddenId);
+                await Js.InvokeVoidAsync("tlLiveEditor.init", RootId, Language, Value, HiddenId);
         }
     }
 
@@ -39,6 +38,6 @@
     public async Task SetReadonlyValueAsync(string value)
     {
         Value = value;
-        await JS.InvokeVoidAsync("tlLiveEditor.setReadonlyValue", RootId, value);
+        await Js.InvokeVoidAsync("tlLiveEditor.setReadonlyValue", RootId, value);
     }
 }
