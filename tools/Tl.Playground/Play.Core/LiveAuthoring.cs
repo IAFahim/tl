@@ -88,7 +88,7 @@ public static class Play
 }
 """;
 
-    public const string ReproducerTimelineJson = """
+    const string ReproducerTimelineJson = """
 { "name": "jump", "duration": 30, "loop": true,
   "tracks": [ { "name": "arc", "namespace": "Live", "type": "JumpTrack", "data": { "Scale": 1.0 },
     "clips": [
@@ -187,7 +187,7 @@ public static unsafe class Play
             var compilationName = "Live" + _compiles;
             _compiles++;
             var compilation = CSharpCompilation.Create(compilationName, [CSharpSyntaxTree.ParseText(source, parse), CSharpSyntaxTree.ParseText("global using System;", parse)], references, options);
-            var driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator()]);
+            var driver = CSharpGeneratorDriver.Create(new TimelineIncrementalGenerator());
             driver.RunGeneratorsAndUpdateCompilation(compilation, out var generated, out var generatorDiagnostics);
             var errors = new StringBuilder();
             foreach (var diagnostic in generatorDiagnostics.Where(d => d.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning).Take(20))
@@ -231,7 +231,7 @@ public static unsafe class Play
 
     public static string TypeJson(Assembly assembly) => TlbIntrospection.Introspect([assembly]);
 
-    public static (byte[] Bytes, string Error) Bake(Assembly assembly, string timelineJson)
+    static (byte[] Bytes, string Error) Bake(Assembly assembly, string timelineJson)
     {
         try
         {
@@ -283,7 +283,7 @@ public static unsafe class Play
         }
     }
 
-    public static string BakeStats(byte[] tlb)
+    static string BakeStats(byte[] tlb)
     {
         var view = TlbMetadata.Read(tlb);
         return $"bytes={tlb.Length} types={view.Types.Count} pairs={view.PairTypes.Count} labels={view.Labels.Count}";
@@ -299,7 +299,7 @@ public static unsafe class Play
         return $"packages={packages.Length} bytes={total}";
     }
 
-    public static LiveRun Run(Assembly assembly, byte[] tlb) => Run(assembly, [tlb]);
+    static LiveRun Run(Assembly assembly, byte[] tlb) => Run(assembly, [tlb]);
 
     public static LiveRun Run(Assembly assembly, byte[][] packages)
     {
@@ -307,7 +307,7 @@ public static unsafe class Play
         var console = new StringBuilder();
         var priorOut = Console.Out;
         var priorCulture = CultureInfo.CurrentCulture;
-        var priorUICulture = CultureInfo.CurrentUICulture;
+        var priorUiCulture = CultureInfo.CurrentUICulture;
         Console.SetOut(new StringWriter(console, CultureInfo.InvariantCulture));
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
@@ -319,7 +319,7 @@ public static unsafe class Play
         {
             Console.SetOut(priorOut);
             CultureInfo.CurrentCulture = priorCulture;
-            CultureInfo.CurrentUICulture = priorUICulture;
+            CultureInfo.CurrentUICulture = priorUiCulture;
         }
         run.Console = console.ToString().Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
         var hash = 14695981039346656037ul;

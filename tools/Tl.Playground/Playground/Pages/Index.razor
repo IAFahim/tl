@@ -1,8 +1,7 @@
 @page "/"
-@using System.Globalization
 @using Play
 @using Tl.Gen.Tlb
-@inject IJSRuntime JS
+@inject IJSRuntime Js
 @inject NavigationManager Nav
 @implements IDisposable
 
@@ -168,9 +167,9 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
-            await JS.InvokeVoidAsync("play.syncQuery", Scenario.QueryString(_scenario.ToQuery()));
-        await JS.InvokeVoidAsync("play.wireSplitters");
-        await JS.InvokeVoidAsync("play.measureHeight");
+            await Js.InvokeVoidAsync("play.syncQuery", Scenario.QueryString(_scenario.ToQuery()));
+        await Js.InvokeVoidAsync("play.wireSplitters");
+        await Js.InvokeVoidAsync("play.measureHeight");
     }
 
     static IEnumerable<KeyValuePair<string, string>> QueryHelpers(string query)
@@ -229,14 +228,14 @@
     async Task AfterChange()
     {
         StateHasChanged();
-        await JS.InvokeVoidAsync("play.syncQuery", Scenario.QueryString(_scenario.ToQuery()));
+        await Js.InvokeVoidAsync("play.syncQuery", Scenario.QueryString(_scenario.ToQuery()));
     }
 
     void StartPlay()
     {
         StopPlay();
         _playing = true;
-        _playTimer = new Timer(_ => _ = InvokeAsync(async () =>
+        _playTimer = new Timer(state => _ = InvokeAsync(async () =>
         {
             StepFrame();
             await AfterChange();
@@ -358,7 +357,7 @@
     {
         _pendingJson = args.Value?.ToString();
         _bakeTimer?.Dispose();
-        _bakeTimer = new Timer(_ => _ = InvokeAsync(async () =>
+        _bakeTimer = new Timer(state => _ = InvokeAsync(async () =>
         {
             if (_pendingJson is null) return;
             _authoringJson = _pendingJson;

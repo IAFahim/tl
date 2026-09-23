@@ -1,9 +1,7 @@
 @page "/live"
-@using System.Globalization
 @using Play
-@using Tl
 @implements IDisposable
-@inject IJSRuntime JS
+@inject IJSRuntime Js
 
 <div class="page">
     <div class="live-bar">
@@ -120,7 +118,7 @@
 
     public void Dispose()
     {
-        _ = JS.InvokeVoidAsync("play.disposeRunKey");
+        _ = Js.InvokeVoidAsync("play.disposeRunKey");
         _self?.Dispose();
     }
 
@@ -129,9 +127,9 @@
         if (firstRender)
         {
             _self = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("play.wireRunKey", _self);
+            await Js.InvokeVoidAsync("play.wireRunKey", _self);
         }
-        await JS.InvokeVoidAsync("play.wireSplitters");
+        await Js.InvokeVoidAsync("play.wireSplitters");
     }
 
     void OnSourceChanged(string value) => _source = value;

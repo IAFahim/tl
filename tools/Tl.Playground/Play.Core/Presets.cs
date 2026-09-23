@@ -1,11 +1,10 @@
-using System.Reflection;
 using System.Text.Json;
 
 namespace Play;
 
 public static class Presets
 {
-    public static byte[] Read(string name)
+    static byte[] Read(string name)
     {
         var assembly = typeof(Presets).Assembly;
         var resource = name.EndsWith(".json", StringComparison.Ordinal) ? name : name + ".json";
@@ -16,7 +15,7 @@ public static class Presets
         return memory.ToArray();
     }
 
-    public static string ReadText(string name) => System.Text.Encoding.UTF8.GetString(Read(name));
+    static string ReadText(string name) => System.Text.Encoding.UTF8.GetString(Read(name));
 
     public static Scenario Load(string name)
     {
@@ -24,7 +23,7 @@ public static class Presets
         return Load(document.RootElement);
     }
 
-    public static Scenario Load(JsonElement root)
+    static Scenario Load(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object)
             throw new InvalidDataException("Scenario preset root must be a JSON object.");
