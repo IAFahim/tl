@@ -122,7 +122,7 @@ internal static class CoverageArms
             }
 
             ushort[] next = [0];
-            Timeline<AlphaTrack, AlphaClip>.Apply(asset, positions, next, true, effects);
+            Timeline<AlphaTrack, AlphaClip>.Apply(asset.Index, positions, next, true, effects);
             if (next[0] != 2 || effects[0] != 10f)
                 Fail($"fused asset apply produced next={next[0]} arrival effect={effects[0]}.");
 

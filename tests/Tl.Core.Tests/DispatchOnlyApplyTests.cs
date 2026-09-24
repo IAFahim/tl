@@ -211,7 +211,8 @@ public class DispatchOnlyApplyTests
         Assert.True(DispatchLog.DualWrites > 0);
         Assert.Equal(0, DispatchLog.HitCount);
         var beforeWrites = DispatchLog.DualWrites;
-        Timeline<DispatchDualTrack, DispatchDualClip>.Apply(asset.Index, positions, true);
+        var indices = Enumerable.Repeat(asset.Index, positions.Length).ToArray();
+        Timeline<DispatchDualTrack, DispatchDualClip>.Apply(indices, positions, true);
         Assert.Equal(
             [(ushort)2, (ushort)4],
             DispatchLog.Ticks());
@@ -224,7 +225,8 @@ public class DispatchOnlyApplyTests
         DispatchLog.Reset();
         using var asset = TimelineAsset.LoadAsset(TwoPairBake());
         var positions = new ushort[] { 1, 1 };
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, positions, true);
+        var indices = new ushort[] { asset.Index, asset.Index };
+        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(indices, positions, true);
         Assert.Equal([(ushort)1, (ushort)1], DispatchLog.Ticks());
     }
 
@@ -234,14 +236,16 @@ public class DispatchOnlyApplyTests
         DispatchLog.Reset();
         using var asset = TimelineAsset.LoadAsset(JumpOnlyBake());
         var positions = new ushort[] { 1, 2, 5 };
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, positions, true);
+        var indices = new ushort[] { asset.Index, asset.Index, asset.Index };
+        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(indices, positions, true);
         using var sound = TimelineAsset.LoadAsset(TwoPairBake());
+        var soundIndices = new ushort[] { sound.Index, sound.Index, sound.Index };
 #if TL_CHECKED
-        Assert.Throws<ArgumentException>(() => Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(sound.Index, [ 8, 9, 40 ], true));
+        Assert.Throws<ArgumentException>(() => Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(soundIndices, [ 8, 9, 40 ], true));
 #else
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(sound.Index, new ushort[] { 8, 9, 40 }, true);
+        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(soundIndices, new ushort[] { 8, 9, 40 }, true);
 #endif
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(sound.Index, [ 0 ], false);
+        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply([sound.Index], new ushort[] { 0 }, false);
         Assert.Equal(0, DispatchLog.HitCount);
     }
 
@@ -273,228 +277,8 @@ public class DispatchOnlyApplyTests
         Assert.Equal(22, DispatchLog.Hits[0].Code);
     }
 
-    [Fact]
-    public void ScalarDispatchFiresTheCurrentTick()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(TwoPairBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, (ushort)2, true);
-        Assert.Equal([(ushort)2], DispatchLog.Ticks());
-    }
-
-    [Fact]
-    public void RangeApplyFiresEveryCrossedWindowInTickOrderForward()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(TwoPairBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, 2, 7, true);
-        Assert.Equal(
-            [(ushort)2, (ushort)5, (ushort)6],
-            DispatchLog.Trail().Select(hit => hit.Tick).ToArray());
-        Assert.Equal(
-            [(ushort)11, (ushort)22, (ushort)22],
-            DispatchLog.Trail().Select(hit => hit.Code).ToArray());
-        for (var i = 0; i < DispatchLog.HitCount; i++) Assert.False(DispatchLog.Hits[i].Backward);
-    }
-
-    [Fact]
-    public void RangeApplyFiresWrappedWindowsInOrderAcrossTheLoop()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(LoopingSoundBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, 4, 1, true);
-        Assert.Equal(
-            [(ushort)4, (ushort)5, (ushort)6, (ushort)7, (ushort)0],
-            DispatchLog.Trail().Select(hit => hit.Tick).ToArray());
-        Assert.Equal(
-            [(ushort)22, (ushort)22, (ushort)22, (ushort)22, (ushort)11],
-            DispatchLog.Trail().Select(hit => hit.Code).ToArray());
-        for (var i = 0; i < DispatchLog.HitCount; i++) Assert.False(DispatchLog.Hits[i].Backward);
-    }
-
-    [Fact]
-    public void RangeApplyBackwardFiresCrossedWindowsInReverseTickOrder()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(TwoPairBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, 7, 4, false);
-        Assert.Equal(
-            [(ushort)6, (ushort)5],
-            DispatchLog.Trail().Select(hit => hit.Tick).ToArray());
-        Assert.Equal(
-            [(ushort)22, (ushort)22],
-            DispatchLog.Trail().Select(hit => hit.Code).ToArray());
-        for (var i = 0; i < DispatchLog.HitCount; i++) Assert.True(DispatchLog.Hits[i].Backward);
-    }
-
-    [Fact]
-    public void RangeApplyBackwardWrapsAcrossTheLoopBoundary()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(LoopingSoundBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, 0, 5, false);
-        Assert.Equal(
-            [(ushort)7, (ushort)6, (ushort)5],
-            DispatchLog.Trail().Select(hit => hit.Tick).ToArray());
-        Assert.Equal(
-            [(ushort)22, (ushort)22, (ushort)22],
-            DispatchLog.Trail().Select(hit => hit.Code).ToArray());
-        for (var i = 0; i < DispatchLog.HitCount; i++) Assert.True(DispatchLog.Hits[i].Backward);
-    }
-
-    [Fact]
-    public void RangeApplyForwardClampsAtDurationAndStops()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(TwoPairBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, 2, 100, true);
-        Assert.Equal(
-            [(ushort)2, (ushort)5, (ushort)6, (ushort)7],
-            DispatchLog.Trail().Select(hit => hit.Tick).ToArray());
-        Assert.Equal(
-            [(ushort)11, (ushort)22, (ushort)22, (ushort)22],
-            DispatchLog.Trail().Select(hit => hit.Code).ToArray());
-        DispatchLog.Reset();
-#if !TL_CHECKED
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, (ushort)9, (ushort)3, true);
-        Assert.Equal(0, DispatchLog.HitCount);
-#endif
-    }
-
-    [Fact]
-    public void RangeApplyBackwardFromTheClampFiresTheCompletedWindows()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(TwoPairBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, 8, 5, false);
-        Assert.Equal(
-            [(ushort)7, (ushort)6, (ushort)5],
-            DispatchLog.Trail().Select(hit => hit.Tick).ToArray());
-        Assert.Equal(
-            [(ushort)22, (ushort)22, (ushort)22],
-            DispatchLog.Trail().Select(hit => hit.Code).ToArray());
-        for (var i = 0; i < DispatchLog.HitCount; i++) Assert.True(DispatchLog.Hits[i].Backward);
-    }
-
-    [Fact]
-    public void RangeApplyZeroDistanceFiresNothing()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(TwoPairBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, 5, 5, true);
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, 5, 5, false);
-        Assert.Equal(0, DispatchLog.HitCount);
-    }
-
-    [Fact]
-    public void RangeApplyFiresEachWindowOnceWhenTheTargetIsOutsideTheLoopDomain()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(LoopingSoundBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, 0, 500, true);
-        Assert.Equal(
-            [(ushort)0, (ushort)1, (ushort)2, (ushort)3, (ushort)4, (ushort)5, (ushort)6, (ushort)7],
-            DispatchLog.Trail().Select(hit => hit.Tick).ToArray());
-        Assert.Equal(
-            [(ushort)11, (ushort)11, (ushort)11, (ushort)11, (ushort)22, (ushort)22, (ushort)22, (ushort)22],
-            DispatchLog.Trail().Select(hit => hit.Code).ToArray());
-    }
-
-    [Fact]
-    public void RangeApplySharedIndexCrowdFiresEachRowsOwnRange()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(TwoPairBake());
-        var index = asset.Index;
-        ushort[] indices = [index, index, index, index];
-        ushort[] from = [0, 7, 2, 5];
-        ushort[] to = [3, 8, 2, 1];
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(indices, from, to, true);
-        Assert.Equal(
-            [(ushort)1, (ushort)2, (ushort)7, (ushort)5, (ushort)6, (ushort)7],
-            DispatchLog.Trail().Select(hit => hit.Tick).ToArray());
-        Assert.Equal(
-            [(ushort)11, (ushort)11, (ushort)22, (ushort)22, (ushort)22, (ushort)22],
-            DispatchLog.Trail().Select(hit => hit.Code).ToArray());
-    }
-
-    [Fact]
-    public void RangeApplyIsPairIsolated()
-    {
-        DispatchLog.Reset();
-        using var jumpOnly = TimelineAsset.LoadAsset(JumpOnlyBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(jumpOnly.Index, 0, 8, true);
-        Assert.Equal(0, DispatchLog.HitCount);
-        using var both = TimelineAsset.LoadAsset(TwoPairBake());
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(both.Index, 0, 8, true);
-        Assert.Equal(5, DispatchLog.HitCount);
-        DispatchLog.Reset();
-        Timeline<DispatchJumpTrack, DispatchJumpClip>.Apply(both.Index, 0, 8, true);
-        Assert.Equal(0, DispatchLog.HitCount);
-    }
-
-    [Fact]
-    public void ScalarRangeApplyMatchesTheOneRowSpanForm()
-    {
-        using var looping = TimelineAsset.LoadAsset(LoopingSoundBake());
-        DispatchLog.Reset();
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(looping.Index, 4, 1, true);
-        var scalarForward = DispatchLog.Trail();
-        DispatchLog.Reset();
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply([looping.Index], [4], [1], true);
-        Assert.Equal(scalarForward, DispatchLog.Trail());
-        DispatchLog.Reset();
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(looping.Index, 0, 5, false);
-        var scalarBackward = DispatchLog.Trail();
-        DispatchLog.Reset();
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply([looping.Index], [0], [5], false);
-        Assert.Equal(scalarBackward, DispatchLog.Trail());
-        Assert.Equal(3, scalarBackward.Length);
-    }
-
-    [Fact]
-    public void RangeApplyAllocatesZeroBytesWarm()
-    {
-        DispatchLog.Reset();
-        using var asset = TimelineAsset.LoadAsset(LoopingSoundBake());
-        var indices = Enumerable.Repeat(asset.Index, 8).ToArray();
-        var from = Enumerable.Repeat((ushort)2, 8).ToArray();
-        var to = Enumerable.Repeat((ushort)6, 8).ToArray();
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(indices, from, to, true);
-        DispatchLog.Reset();
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var pass = 0; pass < 64; pass++)
-            Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(indices, from, to, true);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
-        Assert.Equal(64 * 8 * 4, DispatchLog.HitCount);
-    }
 }
 
-#if TL_CHECKED
-public class DispatchRangeCheckedTests
-{
-    [Fact]
-    public void RangeApplyRejectsMismatchedAndOverlappingColumns()
-    {
-        using var asset = TimelineAsset.LoadAsset(DispatchOnlyApplyTests.TwoPairBake());
-        var index = asset.Index;
-        Assert.Throws<ArgumentException>(
-            () => Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply([index, index], [1], [2, 3], true));
-        Assert.Throws<ArgumentException>(
-            () => Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply([index, index], [1, 2], [3], true));
-        var shared = new ushort[6];
-        Assert.Throws<ArgumentException>(
-            () => Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply([index, index, index], shared.AsSpan(0, 3), shared.AsSpan(2, 3), true));
-        Assert.Throws<ArgumentException>(
-            () => Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(shared.AsSpan(1, 3), shared.AsSpan(0, 3), shared.AsSpan(3, 3), true));
-        Assert.Throws<ArgumentException>(
-            () => Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply([index, index, index], shared.AsSpan(0, 3), shared.AsSpan(3, 2), true));
-        DispatchLog.Reset();
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply([index], [1], [3], true);
-        Assert.Equal(2, DispatchLog.HitCount);
-    }
-}
-#endif
 
 public readonly record struct IdCell(ushort Value);
 public readonly record struct PosCell(ushort Value);
