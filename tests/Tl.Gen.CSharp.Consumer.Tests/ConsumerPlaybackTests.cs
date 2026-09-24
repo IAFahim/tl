@@ -890,7 +890,7 @@ public sealed class ConsumerPlaybackTests
                 var y = new float[] { 100f };
                 try
                 {
-                    Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(arc, positions, true);
+                    Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply([arc.Index], positions, true);
                     return "NOTHROWN|" + F(y[0]);
                 }
                 catch (ArgumentException exception)
@@ -1055,7 +1055,7 @@ public sealed class ConsumerPlaybackTests
                 var health = new float[] { 400f };
                 try
                 {
-                    Timeline<GuardTrack, GuardClip>.Apply(guard, positions, true);
+                    Timeline<GuardTrack, GuardClip>.Apply([guard.Index], positions, true);
                 }
                 catch (ArgumentException exception)
                 {

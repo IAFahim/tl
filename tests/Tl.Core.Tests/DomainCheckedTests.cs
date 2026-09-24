@@ -25,7 +25,7 @@ public partial class LaneTests
     {
         using var asset = TimelineAsset.LoadAsset(LoopingBake());
 
-        var thrown = Assert.Throws<ArgumentException>(() => Timeline<LaneTrack, LaneClip>.Apply(asset.Index, (ushort)10, true));
+        var thrown = Assert.Throws<ArgumentException>(() => Timeline<LaneTrack, LaneClip>.Apply(asset.Index, (ushort)10, true, new float[1]));
 
         Assert.Contains("position 10", thrown.Message);
         Assert.Contains("duration 6", thrown.Message);
@@ -55,15 +55,6 @@ public partial class LaneTests
     }
 
     [Fact]
-    public void RangeApplyRejectsAnOutOfDomainStartButNotAnOutOfDomainTarget()
-    {
-        using var asset = TimelineAsset.LoadAsset(LoopingBake());
-
-        Assert.Throws<ArgumentException>(() => Timeline<LaneTrack, LaneClip>.Apply(asset.Index, 10, 0, false));
-        Timeline<LaneTrack, LaneClip>.Apply(asset.Index, 0, 10, true);
-    }
-
-    [Fact]
     public void InDomainAndClampPositionsPassEverySurface()
     {
         using var asset = TimelineAsset.LoadAsset(LoopingBake());
@@ -75,10 +66,9 @@ public partial class LaneTests
         Timeline.Advance(asset.Index, positions, true);
         Timeline<LaneTrack, LaneClip>.Apply(indices, positions, true);
         Timeline<LaneTrack, LaneClip>.Apply(asset.Index, positions, true, effects);
-        Timeline<LaneTrack, LaneClip>.Apply(asset.Index, (ushort)6, true);
+        Timeline<LaneTrack, LaneClip>.Apply(asset.Index, (ushort)6, true, new float[1]);
         var atEnd = (ushort)6;
         Timeline<LaneTrack, LaneClip>.Advance(asset.Index, ref atEnd, true);
-        Timeline<LaneTrack, LaneClip>.Apply(asset.Index, 0, 6, true);
 
         Assert.Equal((ushort)6, atEnd);
         Assert.Equal(0f, effects[2]);

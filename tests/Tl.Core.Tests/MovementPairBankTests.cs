@@ -201,13 +201,13 @@ public unsafe class MovementPairBankTests
         var next = new ushort[positions.Length];
         var effects = new float[positions.Length];
 
-        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset, positions, next, true, effects);
+        Timeline<MovementWrapTrack, MovementWrapClip>.Apply(asset.Index, positions, next, true, effects);
 
         Assert.Equal(new ushort[] { 1, 3, 0, InDomain(6) }, next);
         Assert.Equal([ 15f, 15f, 15f, 0f ], effects);
 
         Assert.Throws<ArgumentNullException>(() =>
-            Timeline<MovementWrapTrack, MovementWrapClip>.Apply((TimelineAsset)null!, positions, next, true, effects));
+            Timeline<MovementWrapTrack, MovementWrapClip>.Apply((TimelineAsset)null!, positions, true, effects));
     }
 
     [Fact]
