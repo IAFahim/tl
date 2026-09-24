@@ -333,7 +333,6 @@ public readonly unsafe struct TickFrame
 	internal const int SlotRow = 40;
 	internal const int MaxPointers = 2560;
 	internal const int MemoResults = 10;
-	internal const int MemoLiveBound = MaxPointers / SlotRow * MemoResults;
 	internal struct Consumer { public int Next, Pair, Offset; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024;

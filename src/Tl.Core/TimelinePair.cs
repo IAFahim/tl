@@ -246,8 +246,12 @@ public static unsafe class Timeline<TTrack, TClip>
 		=> throw new ArgumentException($"{Head} memo lane columns must be equal-length spans of unmanaged 1, 2, 4 or 8-byte results.");
 
 	[DoesNotReturn]
-	static void ThrowMemoRow()
-		=> throw new ArgumentException($"{Head} memo-fed columns exceed the {PairTable.MemoLiveBound}-slot live buffer; split the consumers.");
+	static void ThrowMemoRow(int bound)
+		=> throw new ArgumentException($"{Head} memo-fed columns exceed the {bound}-slot live buffer; split the consumers.");
+
+	[DoesNotReturn]
+	static void ThrowLiveFrame(int bound)
+		=> throw new ArgumentException($"{Head} live columns exceed the {bound}-column composed frame; split the consumers.");
 
 	[DoesNotReturn]
 	static void ThrowColumnRowMismatch(int column, int length, int rows)
@@ -288,16 +292,30 @@ public static unsafe class Timeline<TTrack, TClip>
 		var reverse = !forward;
 		var consumers = PairTable.ConsumerAt;
 		int* chains = stackalloc int[256];
-		void** columns = stackalloc void*[PairTable.MaxPointers];
-		Unsafe.InitBlock(columns, 0, PairTable.MaxPointers * (uint)sizeof(void*));
-		var memoBound = PairTable.MemoLiveBound;
+		ulong* slotKeys = stackalloc ulong[PairTable.SlotRow];
+		byte* slotMeta = stackalloc byte[PairTable.SlotRow];
+		var columnBound = 0;
+		var memoBound = 0;
+		for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
+		{
+			if (consumers[e].Keys == null) continue;
+			var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
+			if (consumers[e].DispatchOnly != 0)
+			{
+				if (consumers[e].Offset + n > columnBound) columnBound = consumers[e].Offset + n;
+				continue;
+			}
+			for (var j = 0; j < n; j++)
+				if ((slotMeta[j] & 0x10) != 0) memoBound++;
+		}
+		void** columns = stackalloc void*[columnBound];
+		Unsafe.InitBlock(columns, 0, (uint)(columnBound * sizeof(void*)));
 		byte** cells = stackalloc byte*[memoBound];
 		LaneMovementRecord** laneRecords = stackalloc LaneMovementRecord*[memoBound];
 		byte* cellBlock = stackalloc byte[memoBound * 8];
 		byte* cellWide = stackalloc byte[memoBound];
 		int* outLane = stackalloc int[memoBound];
-		ulong* outKey = stackalloc ulong[memoBound], slotKeys = stackalloc ulong[PairTable.SlotRow];
-		byte* slotMeta = stackalloc byte[PairTable.SlotRow];
+		ulong* outKey = stackalloc ulong[memoBound];
 		int memo = 0, pairs = 0;
 		nuint tableTicks = 0;
 		var reference = default(TimelineRef);
@@ -327,7 +345,7 @@ public static unsafe class Timeline<TTrack, TClip>
 					for (var j = 0; j < n; j++)
 						if ((slotMeta[j] & 0x10) != 0)
 						{
-							if (outs >= memoBound) ThrowMemoRow();
+							if (outs >= memoBound) ThrowMemoRow(memoBound);
 							outKey[outs] = slotKeys[j];
 							outLane[outs++] = consumers[e].OutLanes[own++];
 						}
@@ -336,6 +354,7 @@ public static unsafe class Timeline<TTrack, TClip>
 				{
 					if (consumers[e].DispatchOnly == 0 || consumers[e].Keys == null) continue;
 					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
+					if (consumers[e].Offset + n > columnBound) ThrowLiveFrame(columnBound);
 					var feed = 0;
 					var seen = 0;
 					for (var j = 0; j < n; j++)
@@ -346,7 +365,7 @@ public static unsafe class Timeline<TTrack, TClip>
 						{
 							if (feed >= outs || outKey[feed] != slotKeys[j])
 								throw new ArgumentException($"{Head} OnActive memo-fed 'in' does not match an OnMemo 'out' result.");
-							if (memo >= memoBound) ThrowMemoRow();
+							if (memo >= memoBound) ThrowMemoRow(memoBound);
 							cells[memo] = cellBlock + 8 * memo;
 							laneRecords[memo] = (forward ? slot->ForwardRecords : slot->BackwardRecords) + (nuint)outLane[feed] * slot->TableTicks;
 							cellWide[memo] = (meta & 0xF) == 8 ? (byte)1 : (byte)0;
