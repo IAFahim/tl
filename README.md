@@ -9,7 +9,7 @@ Live playground: [iafahim.github.io/tl](https://iafahim.github.io/tl/)
 ## Install
 
 ```sh
-dotnet add package Tl.CSharp --version 1.1.0
+dotnet add package Tl.CSharp --version 1.2.0
 dotnet tool install --global Tl.Bake     # the tlb bake command
 ```
 
@@ -499,17 +499,17 @@ One million characters, one frame per call (i9-14900K, .NET 10, Release; best of
 
 | scenario | hot ms/frame | hot ns/character | cold ms/frame | cold ns/character |
 | --- | ---: | ---: | ---: | ---: |
-| whole crowd on one timeline (a raid jumping in sync) | 0.17 | 0.17 | 0.43 | 0.43 |
-| crowd on one clock: shared-clock Apply + scalar Advance | 0.08 | 0.08 | 0.19 | 0.19 |
-| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.32 | 0.32 | 0.52 | 0.52 |
-| one looping timeline, every character on its own clock | 0.21 | 0.21 | 0.39 | 0.39 |
-| one-shot finite timeline, staggered clocks | 0.09 | 0.09 | 0.22 | 0.22 |
-| hand-written scalar loop (`effects[i] += 1f`) | 0.18 | 0.18 | 0.29 | 0.29 |
-| hand-written SIMD loop (`Vector<float>` add, scalar tail) | 0.08 | 0.08 | 0.22 | 0.22 |
-| small squads: 16 timelines × 16 characters | 0.40 | 0.40 | 0.57 | 0.57 |
-| worst case: unsorted rows, a different timeline each | 0.52 | 0.52 | 0.66 | 0.66 |
+| whole crowd on one timeline (a raid jumping in sync) | 0.17 | 0.17 | 0.36 | 0.36 |
+| crowd on one clock: shared-clock Apply + scalar Advance | 0.08 | 0.08 | 0.17 | 0.17 |
+| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.31 | 0.31 | 0.45 | 0.45 |
+| one looping timeline, every character on its own clock | 0.21 | 0.21 | 0.33 | 0.33 |
+| one-shot finite timeline, staggered clocks | 0.10 | 0.10 | 0.19 | 0.19 |
+| hand-written scalar loop (`effects[i] += 1f`) | 0.18 | 0.18 | 0.27 | 0.27 |
+| hand-written SIMD loop (`Vector<float>` add, scalar tail) | 0.08 | 0.08 | 0.17 | 0.17 |
+| small squads: 16 timelines × 16 characters | 0.37 | 0.37 | 0.48 | 0.48 |
+| worst case: unsorted rows, a different timeline each | 0.50 | 0.50 | 0.59 | 0.59 |
 
-A single-timeline crowd floors at 0.08 ns per character hot and 0.19 cold — the hot column is the steady state with the crowd cache-resident, the cold column is the same frame with the 9 crowds interleaved so the working set streams from DRAM. The hand-written SIMD row is the traffic floor of this machine (0.08 hot, 0.22 cold); the shared-clock crowd sits on it and the per-row-clock crowds carry 4 more bytes per character. Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 55 ms and loads in 1.6 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 64` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
+A single-timeline crowd floors at 0.08 ns per character hot and 0.17 cold — the hot column is the steady state with the crowd cache-resident, the cold column is the same frame with the 9 crowds interleaved so the working set streams from DRAM. The hand-written SIMD row is the traffic floor of this machine (0.08 hot, 0.17 cold); the shared-clock crowd sits on it and the per-row-clock crowds carry 4 more bytes per character. Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 55 ms and loads in 1.6 ms. Memory: 8 B per character of host columns, `28 * (duration + 1) + 64` bytes of tables per timeline, 0 B allocated per frame at any crowd size.
 <!-- /tl-numbers -->
 
 ### The code that gets each row
