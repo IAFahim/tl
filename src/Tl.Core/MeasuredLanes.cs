@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -8,8 +7,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
 {
     internal float* Forward;
     internal float* Backward;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private readonly nint Source;
+    private readonly nint _source;
     internal readonly int LaneCount;
     internal readonly float** LaneForward;
     internal readonly float** LaneBackward;
@@ -32,7 +30,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         Backward = LaneBackward[0];
         Duration = duration;
         Looping = looping;
-        Source = source;
+        _source = source;
     }
 
     public ushort Duration { get; }
@@ -88,7 +86,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         var reference = asset.Reference;
         if (reference.Address == 0) throw new ArgumentException("Timeline asset is not loaded.");
-        if (Source != reference.Address) throw new ArgumentException("Measured lanes were measured from a different TimelineAsset instance.");
+        if (_source != reference.Address) throw new ArgumentException("Measured lanes were measured from a different TimelineAsset instance.");
     }
 
     static int GatherLanes(int* chains, int pairs, ulong* laneKeys, int* resLane, ulong* poolKeys, int* poolLane, out int poolCount)

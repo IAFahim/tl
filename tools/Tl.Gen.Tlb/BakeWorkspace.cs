@@ -9,7 +9,7 @@ internal sealed class BakeWorkspace
     private readonly Lock _gate = new();
     private (ulong[] Structural, ulong[] Quotes)? _masks;
     private readonly Dictionary<ulong, byte[]> _pairPools = [];
-    private readonly ConcurrentDictionary<(string Ns, string Type, string? Asm), Type> TypeCache = new();
+    private readonly ConcurrentDictionary<(string Ns, string Type, string? Asm), Type> _typeCache = new();
 
     internal (ulong[] Structural, ulong[] Quotes)? RentMasks(int blocks)
     {
@@ -62,7 +62,7 @@ internal sealed class BakeWorkspace
     }
 
     internal void Warm(FastDoc doc) =>
-        doc.ResolveCache = new Dictionary<(string, string, string?), Type>(TypeCache);
+        doc.ResolveCache = new Dictionary<(string, string, string?), Type>(_typeCache);
 
     internal void Reclaim(FastDoc doc)
     {
@@ -72,7 +72,7 @@ internal sealed class BakeWorkspace
         if (doc is { LoanStructural: not null, LoanQuotes: not null })
             ReturnMasks(doc.LoanStructural, doc.LoanQuotes);
         foreach (var entry in doc.ResolveCache)
-            TypeCache.TryAdd(entry.Key, entry.Value);
+            _typeCache.TryAdd(entry.Key, entry.Value);
         doc.LoanStructural = null;
         doc.LoanQuotes = null;
     }

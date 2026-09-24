@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Runtime.Intrinsics;
@@ -66,29 +65,25 @@ internal unsafe delegate void FloatApplier(object box, int* ids, float* vals, in
 internal sealed class FieldTable
 {
     internal Dictionary<string, FieldEntry> ByName = new(StringComparer.Ordinal);
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private int BucketMask;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private int[] Buckets = [-1];
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private ulong[] EntryHashes = [];
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private byte[][] EntryNames = [];
+    private int _bucketMask;
+    private int[] _buckets = [-1];
+    private ulong[] _entryHashes = [];
+    private byte[][] _entryNames = [];
     internal FieldEntry[] Entries = [];
     internal FloatApplier? FloatApply;
 
     internal FieldEntry? Lookup(ReadOnlySpan<byte> name)
     {
         var h = HashOf(name);
-        var i = (int)(h & (uint)BucketMask);
+        var i = (int)(h & (uint)_bucketMask);
         while (true)
         {
-            var b = Buckets[i];
+            var b = _buckets[i];
             if (b < 0)
                 return null;
-            if (EntryHashes[b] == h && EntryNames[b].AsSpan().SequenceEqual(name))
+            if (_entryHashes[b] == h && _entryNames[b].AsSpan().SequenceEqual(name))
                 return Entries[b];
-            i = (i + 1) & BucketMask;
+            i = (i + 1) & _bucketMask;
         }
     }
 
@@ -106,23 +101,23 @@ internal sealed class FieldTable
         Entries = list.ToArray();
         for (var i = 0; i < Entries.Length; i++)
             Entries[i].Ordinal = i;
-        EntryHashes = new ulong[Entries.Length];
-        EntryNames = new byte[Entries.Length][];
+        _entryHashes = new ulong[Entries.Length];
+        _entryNames = new byte[Entries.Length][];
         var cap = 16;
         while (cap < Entries.Length * 2)
             cap <<= 1;
-        BucketMask = cap - 1;
-        Buckets = new int[cap];
-        Array.Fill(Buckets, -1);
+        _bucketMask = cap - 1;
+        _buckets = new int[cap];
+        Array.Fill(_buckets, -1);
         for (var e = 0; e < Entries.Length; e++)
         {
             var nameBytes = Encoding.UTF8.GetBytes(Entries[e].Name);
-            EntryNames[e] = nameBytes;
-            EntryHashes[e] = HashOf(nameBytes);
-            var i = (int)(EntryHashes[e] & (uint)BucketMask);
-            while (Buckets[i] >= 0)
-                i = (i + 1) & BucketMask;
-            Buckets[i] = e;
+            _entryNames[e] = nameBytes;
+            _entryHashes[e] = HashOf(nameBytes);
+            var i = (int)(_entryHashes[e] & (uint)_bucketMask);
+            while (_buckets[i] >= 0)
+                i = (i + 1) & _bucketMask;
+            _buckets[i] = e;
         }
         var floatCount = 0;
         foreach (var e in Entries)
