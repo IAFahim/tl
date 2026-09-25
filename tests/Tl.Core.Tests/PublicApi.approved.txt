@@ -57,6 +57,7 @@ type Tl.PairRuntime`2
   Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32))
   Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Int32(System.UInt64*, System.Byte*), System.Void(System.UInt64, System.Int64))
   Field UInt64 Key
+  Method Void VerifyLayout(UInt64)
 type Tl.SlotView
   Field UInt16 AbiVersion
   Field UInt16 AbiVersionV1

@@ -226,7 +226,7 @@ sealed class Baker
 
         var bytes = new byte[cursor];
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), 0x31424C54u);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 3u);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 4u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), _loops ? 1u : 0u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), duration);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), (uint)_tracks.Count);

@@ -6,6 +6,8 @@ namespace Tl.TestSupport;
 
 internal sealed class DomainBaker
 {
+    public static Func<Type, Type, ulong>? FingerprintOf { get; set; }
+
     internal sealed class BakedClip
     {
         public required uint Start { get; init; }
@@ -17,6 +19,7 @@ internal sealed class DomainBaker
     internal abstract class BakedTrack
     {
         public ulong Key;
+        public ulong Layout;
         public byte Index;
         public ushort TrackValueIndex;
         public readonly List<BakedClip> Clips = [];
@@ -80,6 +83,7 @@ internal sealed class DomainBaker
         {
             TrackValue = value,
             Key = PairRuntime<TTrack, TClip>.Key,
+            Layout = FingerprintOf?.Invoke(typeof(TTrack), typeof(TClip)) ?? 0UL,
             Index = (byte)_tracks.Count,
         });
         return this;
@@ -209,7 +213,7 @@ internal sealed class DomainBaker
 
         var bytes = new byte[cursor];
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), 0x31424C54u);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 3u);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 4u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), _loops ? 1u : 0u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), duration);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), (uint)_tracks.Count);
@@ -233,6 +237,7 @@ internal sealed class DomainBaker
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 24), clipPoolOffsets[index]);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 28), (uint)clipPools[index].Count);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 32), (uint)clipValueBytes[index]);
+            BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(at + 40), _tracks.First(track => track.Key == pairKeys[index]).Layout);
         }
 
         var programOffset = programBase;

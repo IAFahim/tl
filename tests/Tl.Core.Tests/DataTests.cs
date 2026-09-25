@@ -65,7 +65,7 @@ public class DataTests
         Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(magic));
 
         var version = FiniteBake();
-        version[4] = 4;
+        version[4] = 3;
         Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(version));
 
         var size = FiniteBake();

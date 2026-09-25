@@ -52,7 +52,7 @@ public static class FuzzBake
 
         var bytes = new byte[bytesLength];
         BinaryPrimitives.WriteUInt32LittleEndian(bytes, 0x31424C54u);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 3u);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 4u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), looping ? 1u : 0u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), duration);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), 1u);
