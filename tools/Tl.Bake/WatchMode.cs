@@ -62,6 +62,8 @@ internal sealed class WatchEngine
     public void OnDeleted(string path)
     {
         var full = Path.GetFullPath(path);
+        if (File.Exists(full))
+            return;
         _pending.Remove(full);
         _hashes.Remove(full);
     }

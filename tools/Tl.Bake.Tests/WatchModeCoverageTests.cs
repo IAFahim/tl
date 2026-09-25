@@ -73,7 +73,9 @@ public sealed class WatchModeCoverageTests
             var baked = File.ReadAllBytes(output);
             sink.Clear();
 
+            File.Delete(input);
             engine.OnDeleted(input);
+            File.WriteAllText(input, AlphaJson);
             engine.OnEvent(input);
             engine.Pump(DateTimeOffset.UtcNow.AddSeconds(1));
 
