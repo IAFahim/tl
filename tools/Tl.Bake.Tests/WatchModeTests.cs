@@ -112,10 +112,41 @@ public class WatchModeTests
         scope.WriteInput(ValidJson);
         scope.Engine.InitialBake();
         scope.ClearLines();
-
         scope.WriteInput(ValidJson.Replace("\"Multiplier\": 2", "\"Multiplier\": 4"));
         scope.Engine.OnEvent(scope.InputPath);
         scope.Engine.OnEvent(scope.InputPath);
+        scope.Engine.OnEvent(scope.InputPath);
+        scope.Engine.Pump(scope.Now(WatchScope.DebounceMilliseconds + 1));
+
+        Assert.Equal(new[] { "rebuild" }, scope.EventKinds());
+    }
+
+    [Fact]
+    public void DeleteReportForAFileThatStillExists_KeepsTheContentHash()
+    {
+        using var scope = WatchScope.Create();
+        scope.WriteInput(ValidJson);
+        scope.Engine.InitialBake();
+        scope.ClearLines();
+
+        scope.Engine.OnDeleted(scope.InputPath);
+        scope.Engine.OnEvent(scope.InputPath);
+        scope.Engine.Pump(scope.Now(WatchScope.DebounceMilliseconds + 1));
+
+        Assert.Equal(new[] { "skip" }, scope.EventKinds());
+    }
+
+    [Fact]
+    public void DeleteReportForARemovedFile_ClearsTheContentHash()
+    {
+        using var scope = WatchScope.Create();
+        scope.WriteInput(ValidJson);
+        scope.Engine.InitialBake();
+        scope.ClearLines();
+
+        File.Delete(scope.InputPath);
+        scope.Engine.OnDeleted(scope.InputPath);
+        scope.WriteInput(ValidJson.Replace("\"Multiplier\": 2", "\"Multiplier\": 4"));
         scope.Engine.OnEvent(scope.InputPath);
         scope.Engine.Pump(scope.Now(WatchScope.DebounceMilliseconds + 1));
 
