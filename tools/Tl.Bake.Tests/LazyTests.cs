@@ -34,6 +34,35 @@ public class LazyTests : IDisposable
     }
     """;
 
+    const string NestedAutoJson = """
+    {
+      "duration": 10,
+      "loop": false,
+      "tracks": [
+        {
+          "type": "HostedTrack",
+          "data": { "Code": 1 },
+          "clips": [ { "type": "HostedClip", "start": 0, "end": 10, "data": { "Value": 5 } } ]
+        }
+      ]
+    }
+    """;
+
+    const string EmptyNamespaceJson = """
+    {
+      "duration": 10,
+      "loop": false,
+      "tracks": [
+        {
+          "namespace": "",
+          "type": "GaGlobalTrack",
+          "data": { "Scale": 1.5 },
+          "clips": [ { "namespace": "", "type": "GaGlobalClip", "start": 0, "end": 10, "data": { "Amount": 2 } } ]
+        }
+      ]
+    }
+    """;
+
     (string Stdout, string Stderr, int Exit) Run(params string[] args)
     {
         var stdout = new StringWriter();
@@ -42,6 +71,24 @@ public class LazyTests : IDisposable
         Console.SetError(stderr);
         var exit = Program.Main(args);
         return (stdout.ToString(), stderr.ToString(), exit);
+    }
+
+    static void WriteMetadatalessPe(string path)
+    {
+        const int peOffset = 0x80;
+        const int pe32PlusMagic = 0x20b;
+        const int amd64 = 0x8664;
+        const int optionalHeaderSize = 0xf0;
+        var image = new byte[0x400];
+        image[0] = (byte)'M';
+        image[1] = (byte)'Z';
+        BitConverter.TryWriteBytes(image.AsSpan(0x3c), peOffset);
+        image[peOffset] = (byte)'P';
+        image[peOffset + 1] = (byte)'E';
+        BitConverter.TryWriteBytes(image.AsSpan(peOffset + 4), (ushort)amd64);
+        BitConverter.TryWriteBytes(image.AsSpan(peOffset + 20), (ushort)optionalHeaderSize);
+        BitConverter.TryWriteBytes(image.AsSpan(peOffset + 24), (ushort)pe32PlusMagic);
+        File.WriteAllBytes(path, image);
     }
 
     void CopyFixtureDll(string directory)
@@ -148,6 +195,44 @@ public class LazyTests : IDisposable
         Assert.Equal(0, result.Exit);
         Assert.DoesNotContain("assembly:", result.Stdout);
         Assert.False(File.Exists(Path.Combine(_root, "tlb.db")));
+        Assert.True(File.Exists(Path.Combine(_root, "game.tlb")));
+    }
+
+    [Fact]
+    public void NestedTrackType_AutoDiscovers_AndBakes()
+    {
+        File.WriteAllText(Path.Combine(_root, "nested.json"), NestedAutoJson);
+        CopyFixtureDll(Path.Combine(_root, "bin", "Release", "net10.0"));
+        Directory.SetCurrentDirectory(_root);
+        var result = Run("nested.json", "nested.tlb", "--auto");
+        Assert.Equal(0, result.Exit);
+        Assert.Contains("assembly:", result.Stdout);
+        Assert.True(File.Exists(Path.Combine(_root, "nested.tlb")));
+    }
+
+    [Fact]
+    public void EmptyExplicitNamespace_NeverMatchesGlobalTypes_InDiscovery()
+    {
+        File.WriteAllText(Path.Combine(_root, "empty.json"), EmptyNamespaceJson);
+        CopyFixtureDll(Path.Combine(_root, "bin", "Release", "net10.0"));
+        Directory.SetCurrentDirectory(_root);
+        var result = Run("empty.json", "empty.tlb");
+        Assert.NotEqual(0, result.Exit);
+        Assert.Contains("No dll under", result.Stderr);
+        Assert.False(File.Exists(Path.Combine(_root, "empty.tlb")));
+    }
+
+    [Fact]
+    public void MetadatalessAndGarbageDlls_AreSkipped_NotFatal()
+    {
+        File.WriteAllText(Path.Combine(_root, "game.json"), GameJson);
+        CopyFixtureDll(Path.Combine(_root, "bin", "Release", "net10.0"));
+        WriteMetadatalessPe(Path.Combine(_root, "bin", "Release", "net10.0", "native.dll"));
+        File.WriteAllBytes(Path.Combine(_root, "bin", "Release", "net10.0", "garbage.dll"), new byte[8192]);
+        Directory.SetCurrentDirectory(_root);
+        var result = Run("game.json");
+        Assert.Equal(0, result.Exit);
+        Assert.Contains("assembly:", result.Stdout);
         Assert.True(File.Exists(Path.Combine(_root, "game.tlb")));
     }
 }
