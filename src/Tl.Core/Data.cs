@@ -41,7 +41,7 @@ struct NativePair
     public uint ClipPoolOffset;
     public uint ClipPoolCount;
     public uint ClipValueBytes;
-    public ulong Reserved;
+    public ulong Layout;
 }
 
 struct NativeStage { public uint Start, End, ProgramOffset, ProgramCount; }
@@ -133,6 +133,13 @@ public readonly unsafe struct TimelineRef
 		return false;
 	}
 
+	internal ulong LayoutOf(ulong key)
+	{
+		var pairs = Pairs;
+		for (var i = 0; i < PairCount; i++) if (pairs[i].Key == key) return pairs[i].Layout;
+		return 0;
+	}
+
 	internal void Resolve(Span<int> chains)
 	{
 		var pairs = Pairs;
@@ -213,7 +220,7 @@ public readonly unsafe struct TimelineRef
 		void Fail(string message) => throw new ArgumentException(message);
 		if (baked.Length < 64) Fail("TLB truncated.");
 		var h = MemoryMarshal.Read<NativeHeader>(baked);
-		if (h.Magic != 0x31424C54 || h.Version != 3) Fail("TLB magic or version invalid.");
+		if (h.Magic != 0x31424C54 || h.Version != 4) Fail("TLB magic or version invalid; rebake the asset with the current toolchain.");
 		if (h.Duration > ushort.MaxValue) Fail("TLB duration exceeds the 65,535-tick position domain.");
 		if (h.Bytes != (uint)baked.Length) Fail("TLB size mismatch.");
 		if (h.HotLength == 0 || h.HotLength > h.Bytes) Fail("TLB hot length invalid.");
@@ -338,15 +345,49 @@ public readonly unsafe struct TickFrame
 	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + sizeof(Consumer) * ConsumerCapacity), 64);
+	[SuppressMessage("ReSharper", "InconsistentNaming")]
+	static readonly ulong* _layouts = (ulong*)NativeMemory.AlignedAlloc(sizeof(ulong) * SlotCount, 64);
 	static volatile int _gate;
 	static int _windowConstant;
 	static int _pairs, _consumers;
 
-	static PairTable() => Unsafe.InitBlock(_block, 0, 16 * SlotCount);
+	static PairTable()
+	{
+		Unsafe.InitBlock(_block, 0, 16 * SlotCount);
+		Unsafe.InitBlock(_layouts, 0, sizeof(ulong) * SlotCount);
+	}
 
 	static Slot* SlotAt => (Slot*)_block;
 	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
 	internal static int ConsumerCount => Volatile.Read(ref _consumers);
+
+	internal static void VerifyLayout(ulong key, ulong layout)
+	{
+		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
+		try
+		{
+			var slot = Probe(key);
+			var slots = SlotAt;
+			if (slots[slot].Key == 0)
+			{
+				if (_pairs == PairCapacity) throw new InvalidOperationException("Pair capacity exhausted.");
+				slots[slot].Head = -1;
+				Volatile.Write(ref slots[slot].Key, key);
+				_pairs++;
+			}
+			Volatile.Write(ref _layouts[slot], layout);
+		}
+		finally
+		{
+			_gate = 0;
+		}
+	}
+
+	internal static ulong LayoutOf(ulong key)
+	{
+		var slot = Probe(key);
+		return SlotAt[slot].Key == key ? Volatile.Read(ref _layouts[slot]) : 0;
+	}
 
 	internal static void Install(ulong key, ExecThunk e, RangeThunk r, BindThunk b, BlendThunk blendConstant, bool windowConstant, bool dispatchOnly = false, KeysThunk resultKeys = null, DiagThunk diag = null)
 	{
@@ -536,6 +577,8 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	static bool BlendConstantInWindow(byte* slot) => ((SlotRow*)slot)->FactorSpan <= 1;
+
+	public static void VerifyLayout(ulong layout) => PairTable.VerifyLayout(Key, layout);
 
 }
 

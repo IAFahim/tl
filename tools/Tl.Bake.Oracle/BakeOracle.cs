@@ -598,6 +598,7 @@ public static class BakeOracle
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 24), clipRel);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 28), clipCount);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 32), (uint)clipValueBytes[index]);
+            BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(at + 40), TlbLayouting.Of(pairTypes[index].Track, pairTypes[index].Clip));
         }
 
         var programOffset = programBase;

@@ -1905,6 +1905,7 @@ internal static class TimelineBakerFastCore
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 24), poolSpans[index].ClipRel);
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 28), poolSpans[index].ClipCount);
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 32), (uint)clipValueBytes[index]);
+                BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(at + 40), TlbLayouting.Of(pairTypes[index].Item1, pairTypes[index].Item2));
             }
 
             var programOffset = programBase;

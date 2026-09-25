@@ -485,6 +485,10 @@ public static unsafe class Timeline<TTrack, TClip>
 		var key = PairRuntime<TTrack, TClip>.Key;
 		if (!reference.Uses(key))
 			throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
+		var bakedLayout = reference.LayoutOf(key);
+		var verifiedLayout = PairTable.LayoutOf(key);
+		if (bakedLayout != 0 && verifiedLayout != 0 && bakedLayout != verifiedLayout)
+			throw new ArgumentException($"Asset was baked against a different field layout for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}); rebake the .tlb with the current assembly.");
 		if (PairTable.HeadOf(key) < 0)
 			throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
 		using var measured = MeasuredLanes.Measure(reference, key);

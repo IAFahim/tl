@@ -76,7 +76,7 @@ public class BakePrimitivesCoverageTests
     {
         var header = new byte[64];
         BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(0), 0x31424C54u);
-        BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(4), 3u);
+        BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(4), 4u);
         BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(48), (uint)header.Length);
         Assert.Throws<ArgumentException>(() => TlbMetadata.HotLength(header));
 

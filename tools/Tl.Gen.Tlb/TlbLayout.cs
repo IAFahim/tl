@@ -5,7 +5,7 @@ namespace Tl.Gen.Tlb;
 internal static class TlbLayout
 {
     internal const uint Magic = 0x31424C54u;
-    internal const uint Version = 3u;
+    internal const uint Version = 4u;
     internal const uint HeaderBytes = 64u;
     internal const uint PairEntryBytes = 48u;
     internal const uint StageEntryBytes = 16u;
