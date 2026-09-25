@@ -30,7 +30,6 @@ PACKAGE_FILES = {
         "icon.png",
         "README.md",
         "tools/net10.0/any/DotnetToolSettings.xml",
-        "tools/net10.0/any/System.Reflection.MetadataLoadContext.dll",
         "tools/net10.0/any/Tl.Bake.deps.json",
         "tools/net10.0/any/Tl.Bake.dll",
         "tools/net10.0/any/Tl.Bake.pdb",
