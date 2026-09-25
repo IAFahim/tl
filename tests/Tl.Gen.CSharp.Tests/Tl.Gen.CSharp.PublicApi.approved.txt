@@ -46,11 +46,12 @@ type Tl.Gen.CSharp.Model.BakeParameter
 type Tl.Gen.CSharp.Model.JobConsumer
   Method Tl.Gen.CSharp.Model.JobConsumer <Clone>$()
   Property System.String ClipTypeName
-  Method Void Deconstruct(System.String ByRef, System.String ByRef, Tl.Gen.CSharp.Model.JobDefinition ByRef)
+  Method Void Deconstruct(System.String ByRef, System.String ByRef, Tl.Gen.CSharp.Model.JobDefinition ByRef, UInt64 ByRef)
   Method Boolean Equals(System.Object)
   Method Boolean Equals(Tl.Gen.CSharp.Model.JobConsumer)
   Method Int32 GetHashCode()
   Property Tl.Gen.CSharp.Model.JobDefinition Job
+  Property UInt64 Layout
   Method System.String ToString()
   Property System.String TrackTypeName
 type Tl.Gen.CSharp.Model.JobDefinition

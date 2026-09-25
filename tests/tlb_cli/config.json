@@ -8,7 +8,7 @@
       "options": { "assemblies": ["$testAssembly"] },
       "expected": {
         "exitCode": 0,
-        "output": { "path": "$out/alpha.tlb", "sha256": "8ef9f374c41fe6521526449f0bd1f3c66164b7e5ca7a03f631f7ddff16db90dc" }
+        "output": { "path": "$out/alpha.tlb", "sha256": "719b5e83a0634bd902763e4e9ab7230b7ddbcb98c9261f67175b24a05ed540ef" }
       }
     },
     {
@@ -33,7 +33,7 @@
           { "stdoutContains": ["cache: miss"] },
           { "stdoutContains": ["cache: hit"] }
         ],
-        "output": { "path": "$out/alpha.tlb", "sha256": "8ef9f374c41fe6521526449f0bd1f3c66164b7e5ca7a03f631f7ddff16db90dc" }
+        "output": { "path": "$out/alpha.tlb", "sha256": "719b5e83a0634bd902763e4e9ab7230b7ddbcb98c9261f67175b24a05ed540ef" }
       }
     },
     {
@@ -60,7 +60,7 @@
       "inputs": { "tlb": "$out/alpha.tlb" },
       "expected": {
         "exitCode": 0,
-        "output": { "path": "$out/alpha.stripped.tlb", "sha256": "7edc98ebbb96690bca6ce5204c02af9c2f67f24f0adda4bdcd32c6db76aa2e0c" }
+        "output": { "path": "$out/alpha.stripped.tlb", "sha256": "e688fe1cfdcfd219864fa449aff0e3fada733d4f0084fd30795dca91d82fb15c" }
       }
     },
     {

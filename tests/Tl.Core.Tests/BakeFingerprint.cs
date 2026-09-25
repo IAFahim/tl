@@ -1,16 +1,10 @@
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text;
-
-using Tl.TestSupport;
 
 namespace Tl.Core.Tests;
 
 internal static class BakeFingerprint
 {
-    [ModuleInitializer]
-    internal static void Wire() => DomainBaker.FingerprintOf = Of;
-
     internal static ulong Of(Type track, Type clip) => Hash(Fold(track) + "\0" + Fold(clip));
 
     internal static ulong Hash(string text)

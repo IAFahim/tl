@@ -6,7 +6,7 @@ namespace Tl.TestSupport;
 
 internal sealed class DomainBaker
 {
-    public static Func<Type, Type, ulong>? FingerprintOf { get; set; }
+    public Func<Type, Type, ulong>? FingerprintOf { get; init; }
 
     internal sealed class BakedClip
     {

@@ -68,14 +68,24 @@ public sealed class ConsumerBindingTests
         var generated = Generate();
         var binding = Assert.Single(generated).Value;
         Assert.DoesNotContain("\r", binding);
-        Assert.StartsWith("internal static unsafe class TlConsumerBinding\n{\n[global::System.Runtime.CompilerServices.ModuleInitializer]\ninternal static void Install()\n{\n", binding);
-        var installEnd = binding.IndexOf("}", StringComparison.Ordinal);
-        var install = binding[..installEnd];
+        Assert.StartsWith(
+            "[assembly: global::TlConsumerLayoutAttribute(typeof(global::Domain.DamageTrack), typeof(global::Domain.DamageClip), 1653526390476323667UL)]\n"
+            + "[assembly: global::TlConsumerLayoutAttribute(typeof(global::Domain.HealTrack), typeof(global::Domain.HealClip), 5952046634645506417UL)]\n"
+            + "[global::System.AttributeUsage(global::System.AttributeTargets.Assembly, AllowMultiple = true)]\n"
+            + "internal sealed class TlConsumerLayoutAttribute : global::System.Attribute\n"
+            + "{\n"
+            + "internal TlConsumerLayoutAttribute(global::System.Type track, global::System.Type clip, ulong layout) { }\n"
+            + "}\n"
+            + "internal static unsafe class TlConsumerBinding\n{\n[global::System.Runtime.CompilerServices.ModuleInitializer]\ninternal static void Install()\n{\n", binding);
+        var at = binding.IndexOf("internal static void Install()", StringComparison.Ordinal);
+        var install = binding[at..binding.IndexOf("}", at, StringComparison.Ordinal)];
         Assert.Equal(
         [
             "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.ConsumeDispatch(&OnActive_ApplyDamage, &LiveKeys_ApplyDamage, &Diag_ApplyDamage);",
             "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.ConsumeDispatch(&OnActive_ApplyHeal, &LiveKeys_ApplyHeal, &Diag_ApplyHeal);",
-        ], install.Split('\n')[5..^1]);
+            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.VerifyLayout(1653526390476323667UL);",
+            "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.VerifyLayout(5952046634645506417UL);",
+        ], install.Split('\n')[2..^1]);
         Assert.Contains("private static void OnActive_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
         Assert.Contains("global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);", binding);
         Assert.Contains("var @resistance = (global::Domain.Resistance*)__tlColumns[0];", binding);
@@ -236,13 +246,15 @@ public sealed class ConsumerBindingTests
         var (sources, diagnostics) = GenerateWithDiagnostics(source);
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
-        var installEnd = binding.IndexOf("}", StringComparison.Ordinal);
-        var install = binding[..installEnd];
+        var at = binding.IndexOf("internal static void Install()", StringComparison.Ordinal);
+        var install = binding[at..binding.IndexOf("}", at, StringComparison.Ordinal)];
         Assert.Equal(
         [
             "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&OnActive_DualJob, &OnActiveRange_DualJob, &Bind_DualJob);",
             "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&OnActive_DualJob_, &OnActiveRange_DualJob_, &Bind_DualJob_);",
-        ], install.Split('\n')[5..^1]);
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.VerifyLayout(13605547736430830029UL);",
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.VerifyLayout(14545621562080599017UL);",
+        ], install.Split('\n')[2..^1]);
         Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.AlphaClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);", binding);
         Assert.Contains("global::Tl.TickFrame.ToFrame<global::Domain.DualTrack, global::Domain.BetaClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);", binding);
         Assert.Contains("global::Domain.DualJob.OnActive(in __tlTyped, ref @health[__tlRow]);", binding);

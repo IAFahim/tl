@@ -43,6 +43,12 @@ public sealed class ConsumerAbiTests
         """;
 
     private const string FourParameterBinding = """"
+        [assembly: global::TlConsumerLayoutAttribute(typeof(global::Domain.QuadTrack), typeof(global::Domain.QuadClip), 8678375773521417805UL)]
+        [global::System.AttributeUsage(global::System.AttributeTargets.Assembly, AllowMultiple = true)]
+        internal sealed class TlConsumerLayoutAttribute : global::System.Attribute
+        {
+        internal TlConsumerLayoutAttribute(global::System.Type track, global::System.Type clip, ulong layout) { }
+        }
         internal static unsafe class TlConsumerBinding
         {
         [global::System.Runtime.CompilerServices.ModuleInitializer]
@@ -50,6 +56,7 @@ public sealed class ConsumerAbiTests
         {
         global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&OnMemo_QuadJob, &OnMemoRange_QuadJob, &Keys_QuadJob);
         global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.ConsumeDispatch(&OnActive_QuadJob, &LiveKeys_QuadJob, &Diag_QuadJob);
+        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.VerifyLayout(8678375773521417805UL);
         }
         private static void OnMemo_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
         {

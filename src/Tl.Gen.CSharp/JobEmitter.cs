@@ -29,8 +29,23 @@ internal static class JobEmitter
         var bakeItems = new List<(string Name, BakeDeclaration Bake)>();
         foreach (var bake in bakes)
             bakeItems.Add((Unique(bake.TypeName, bakeNames), bake));
+        var layouts = new List<(string Track, string Clip, ulong Layout)>();
+        var layoutPairs = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (_, consumer) in items)
+            if (consumer.Layout != 0 && layoutPairs.Add(consumer.TrackTypeName + "\0" + consumer.ClipTypeName))
+                layouts.Add((consumer.TrackTypeName, consumer.ClipTypeName, consumer.Layout));
         var writer = new StringBuilder();
         void W(string text) => Line(writer, text);
+        foreach (var (track, clip, layout) in layouts)
+            W($"[assembly: global::TlConsumerLayoutAttribute(typeof({track}), typeof({clip}), {layout}UL)]");
+        if (layouts.Count > 0)
+        {
+            W("[global::System.AttributeUsage(global::System.AttributeTargets.Assembly, AllowMultiple = true)]");
+            W("internal sealed class TlConsumerLayoutAttribute : global::System.Attribute");
+            W("{");
+            W("internal TlConsumerLayoutAttribute(global::System.Type track, global::System.Type clip, ulong layout) { }");
+            W("}");
+        }
         W("internal static unsafe class TlConsumerBinding");
         W("{");
         W("[global::System.Runtime.CompilerServices.ModuleInitializer]");
@@ -52,6 +67,8 @@ internal static class JobEmitter
         foreach (var (name, bake) in bakeItems)
             foreach (var pair in bake.Pairs)
                 W($"global::Tl.BakeRuntime<{pair.TrackTypeName}, {pair.ClipTypeName}>.Bake(&Bake_{name}{StateKeys(bake)});");
+        foreach (var (track, clip, layout) in layouts)
+            W($"global::Tl.PairRuntime<{track}, {clip}>.VerifyLayout({layout}UL);");
         W("}");
         foreach (var (name, consumer) in items)
         {

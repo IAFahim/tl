@@ -437,7 +437,7 @@ public static class BakeOracle
             authoredIndex += resolvedClips.Count;
         }
 
-        return BakeCore(lanes, specs.Count, duration, loops, labels);
+        return BakeCore(lanes, specs.Count, duration, loops, labels, resolver);
     }
 
     private static void ValidateBlendPairing(Type trackType, Type clipType, int entryIndex)
@@ -461,7 +461,7 @@ public static class BakeOracle
 
     [SuppressMessage("ReSharper", "ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract", Justification = "jb nullable-contract false positive on method-group lambda")]
 
-    private static byte[] BakeCore(List<ITrackBaker> lanes, int trackEntryCount, uint duration, bool loops, List<(int Track, int Clip, string Name)> labels)
+    private static byte[] BakeCore(List<ITrackBaker> lanes, int trackEntryCount, uint duration, bool loops, List<(int Track, int Clip, string Name)> labels, BakerAssemblyResolver resolver)
     {
         var cuts = new SortedSet<uint>();
         if (duration != 0)
@@ -598,7 +598,7 @@ public static class BakeOracle
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 24), clipRel);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 28), clipCount);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 32), (uint)clipValueBytes[index]);
-            BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(at + 40), TlbLayouting.Of(pairTypes[index].Track, pairTypes[index].Clip));
+            BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(at + 40), TlbLayouting.Of(resolver, pairTypes[index].Track, pairTypes[index].Clip));
         }
 
         var programOffset = programBase;
