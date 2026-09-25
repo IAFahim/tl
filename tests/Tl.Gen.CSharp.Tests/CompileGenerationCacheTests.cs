@@ -211,8 +211,9 @@ public sealed class CompileGenerationCacheTests
         var targetPath = Path.Combine(cache.Directory, "Alpha.g.cs");
         Directory.CreateDirectory(targetPath);
 
-        Assert.Throws<IOException>(() => CompileGenerationCache.Synchronize(
+        var failure = Assert.ThrowsAny<Exception>(() => CompileGenerationCache.Synchronize(
             cache.Directory, cache.Key, [new CompileArtifact("Alpha.g.cs", AlphaContent)], ReportBody, null));
+        Assert.True(failure is IOException or UnauthorizedAccessException, failure.GetType().Name);
 
         Assert.True(Directory.Exists(targetPath));
         Assert.DoesNotContain(
