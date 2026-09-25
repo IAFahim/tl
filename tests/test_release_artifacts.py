@@ -76,7 +76,7 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertIn("environment: nuget-production", workflow)
         self.assertNotIn("if:", publish)
         self.assertIn("id-token: write", publish)
-        self.assertIn("actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0", publish)
+        self.assertIn("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c", publish)
         self.assertIn("Tl.Runtime.$version.nupkg", publish)
         self.assertNotIn("*.nupkg\" --api-key", publish)
         self.assertNotIn("gh release download", workflow)
