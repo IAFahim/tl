@@ -308,7 +308,7 @@ public static unsafe class Play
         var priorOut = Console.Out;
         var priorCulture = CultureInfo.CurrentCulture;
         var priorUiCulture = CultureInfo.CurrentUICulture;
-        Console.SetOut(new StringWriter(console, CultureInfo.InvariantCulture));
+        Console.SetOut(new StringWriter(console, CultureInfo.InvariantCulture) { NewLine = "\n" });
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
         try
