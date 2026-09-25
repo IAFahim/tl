@@ -145,6 +145,7 @@ jobs:
           name: fuzz-findings
           path: artifacts/fuzz/out-*/
           if-no-files-found: ignore
+          overwrite: true
 
   parity-arm64:
     runs-on: ubuntu-24.04-arm

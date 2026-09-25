@@ -37,3 +37,9 @@ jobs:
           path: artifacts/release/*
           if-no-files-found: error
           compression-level: 0
+      - name: Upload raw release manifest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          path: artifacts/release/RELEASE-MANIFEST.json
+          if-no-files-found: error
+          archive: false

@@ -43,3 +43,4 @@ jobs:
           name: fuzz-findings
           path: artifacts/fuzz/out-*/
           if-no-files-found: ignore
+          overwrite: true
