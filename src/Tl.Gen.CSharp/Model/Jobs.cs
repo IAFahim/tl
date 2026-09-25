@@ -11,7 +11,7 @@ public sealed record JobDefinition(string TypeName, IReadOnlyList<TimelineSlot> 
     public IReadOnlyList<TimelineSlot> LiveColumns => LiveSlots ?? [];
 }
 
-public sealed record JobConsumer(string TrackTypeName, string ClipTypeName, JobDefinition Job);
+public sealed record JobConsumer(string TrackTypeName, string ClipTypeName, JobDefinition Job, ulong Layout = 0);
 
 public enum BakeModifier : byte
 {

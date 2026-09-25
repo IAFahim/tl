@@ -314,14 +314,16 @@ public sealed class BakeReaderTests
 
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
-        var install = binding[..binding.IndexOf("}", StringComparison.Ordinal)];
+        var at = binding.IndexOf("internal static void Install()", StringComparison.Ordinal);
+        var install = binding[at..binding.IndexOf("}", at, StringComparison.Ordinal)];
         Assert.Equal(
         [
             "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.ConsumeDispatch(&OnActive_ApplyDamage);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_AlphaBake, global::Tl.TypeKey<global::Domain.World>.Value);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_NarrowBake, global::Tl.TypeKey<global::Domain.World>.Value);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ZetaBake, global::Tl.TypeKey<global::Domain.World>.Value);",
-        ], install.Split('\n')[5..^1]);
+            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.VerifyLayout(1653526390476323667UL);",
+        ], install.Split('\n')[2..^1]);
     }
 
     [Fact]
@@ -604,6 +606,12 @@ public sealed class BakeReaderTests
     }
 
     private const string BakeBinding = """"
+        [assembly: global::TlConsumerLayoutAttribute(typeof(global::Domain.DamageTrack), typeof(global::Domain.DamageClip), 1653526390476323667UL)]
+        [global::System.AttributeUsage(global::System.AttributeTargets.Assembly, AllowMultiple = true)]
+        internal sealed class TlConsumerLayoutAttribute : global::System.Attribute
+        {
+        internal TlConsumerLayoutAttribute(global::System.Type track, global::System.Type clip, ulong layout) { }
+        }
         internal static unsafe class TlConsumerBinding
         {
         [global::System.Runtime.CompilerServices.ModuleInitializer]
@@ -611,6 +619,7 @@ public sealed class BakeReaderTests
         {
         global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&OnActive_ApplyDamage, &OnActiveRange_ApplyDamage, &Bind_ApplyDamage);
         global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ApplyDamageBake, global::Tl.TypeKey<global::Domain.World>.Value);
+        global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.VerifyLayout(1653526390476323667UL);
         }
         private static void OnActive_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
         {

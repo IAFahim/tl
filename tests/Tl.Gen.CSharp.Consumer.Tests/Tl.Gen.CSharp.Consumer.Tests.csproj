@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
     <None Include="../Shared/DomainBaker.cs" Link="Shared/DomainBaker.cs" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\..\src\Tl.Gen.CSharp\Tl.Gen.CSharp.csproj" />
+    <ProjectReference Include="..\..\tools\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
   </ItemGroup>
 
 </Project>

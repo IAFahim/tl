@@ -52,7 +52,7 @@ public unsafe class BindLayoutAgreementTests
 
     static readonly List<TimelineAsset> KeepAlive = [];
 
-    static byte[] Bake() => new DomainBaker()
+    static byte[] Bake() => new DomainBaker { FingerprintOf = BakeFingerprint.Of }
         .Track<SkewTrack, SkewClip>(new SkewTrack(2))
         .Clip(0, 0, 4, new SkewClip(5))
         .Bake();
