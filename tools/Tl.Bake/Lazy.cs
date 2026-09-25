@@ -1,4 +1,5 @@
-using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -136,30 +137,23 @@ internal static class Lazy
         if (!File.Exists(assemblyPath)) return false;
         try
         {
-            var coreDir = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
-            using var context = new MetadataLoadContext(new PathAssemblyResolver(
-                Directory.EnumerateFiles(Path.GetDirectoryName(Path.GetFullPath(assemblyPath))!, "*.dll")
-                .Concat(Directory.EnumerateFiles(coreDir, "*.dll"))
-                .Select(static path => Path.GetFullPath(path))));
-            var assembly = context.LoadFromAssemblyPath(Path.GetFullPath(assemblyPath));
-            Type[] types;
-            try
-            {
-                types = assembly.GetTypes();
-            }
-            catch (ReflectionTypeLoadException ex)
-            {
-                types = [.. ex.Types.Where(static type => type != null)!];
-            }
+            using var stream = File.OpenRead(assemblyPath);
+            using var pe = new PEReader(stream);
+            if (!pe.HasMetadata) return false;
+            var reader = pe.GetMetadataReader();
             foreach (var group in pairs)
             {
                 var found = false;
-                foreach (var type in types)
-                    if (Defines(type, group, autoNamespace))
+                foreach (var handle in reader.TypeDefinitions)
+                {
+                    var definition = reader.GetTypeDefinition(handle);
+                    var typeNamespace = definition.Namespace.IsNil ? null : reader.GetString(definition.Namespace);
+                    if (Defines(reader.GetString(definition.Name), typeNamespace, group, autoNamespace))
                     {
                         found = true;
                         break;
                     }
+                }
                 if (!found) return false;
             }
             return true;
@@ -170,9 +164,9 @@ internal static class Lazy
         }
     }
 
-    static bool Defines(Type type, (string? Namespace, string Type) pair, bool autoNamespace) =>
-        type.Name == pair.Type && (pair.Namespace != null
-            ? type.Namespace == pair.Namespace
+    static bool Defines(string name, string? typeNamespace, (string? Namespace, string Type) pair, bool autoNamespace) =>
+        name == pair.Type && (pair.Namespace != null
+            ? typeNamespace == pair.Namespace
             : autoNamespace);
 
     static string Fingerprint(List<(string? Namespace, string Type)> pairs)

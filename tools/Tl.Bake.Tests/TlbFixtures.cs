@@ -104,3 +104,19 @@ public struct NoBlendTrack(int code)
 {
     public int Code = code;
 }
+
+public static class FixtureHost
+{
+    public readonly struct HostedClip(float value)
+    {
+        public readonly float Value = value;
+    }
+
+    public readonly struct HostedTrack(int code) : IBlend<HostedClip>
+    {
+        public readonly int Code = code;
+
+        public void Blend(in HostedClip first, in HostedClip second, float factor, out HostedClip result)
+            => result = new HostedClip(first.Value + (second.Value - first.Value) * factor);
+    }
+}

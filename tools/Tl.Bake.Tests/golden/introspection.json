@@ -1267,6 +1267,38 @@
     {
       "track": {
         "namespace": "Tlb",
+        "name": "HostedTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "HostedClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Value",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.FixtureHost\u002BHostedClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
         "name": "JobTrack",
         "assembly": "Tl.Bake.Tests",
         "size": 4,
