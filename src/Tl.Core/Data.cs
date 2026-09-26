@@ -239,6 +239,7 @@ public readonly unsafe struct TimelineRef
 		var stages = MemoryMarshal.Cast<byte, NativeStage>(baked.Slice((int)h.StageOffset, 16 * (int)h.StageCount));
 		var programs = h.StageOffset + 16ul * h.StageCount;
 		uint edge = 0;
+		Action<string> fail = Fail;
 		foreach (var stage in stages)
 		{
 			if (stage.Start != edge || stage.ProgramOffset < programs || stage.ProgramOffset % 8 != 0 || stage.ProgramOffset + 8ul * stage.ProgramCount > h.PoolOffset) Fail("TLB stages must be monotonic.");
@@ -248,7 +249,7 @@ public readonly unsafe struct TimelineRef
 				if (step.Pair >= h.PairCount) Fail("TLB step pair out of bounds.");
 				var pair = pairs[(int)step.Pair];
 				if (step.Slot < h.FrameOffset || step.Slot % 8 != 0 || (ulong)step.Slot + pair.SlotStride > h.HotLength) Fail("TLB slots must be 8-aligned in bounds.");
-				ValidateRow(baked, (int)step.Slot, pair, Fail);
+				ValidateRow(baked, (int)step.Slot, pair, fail);
 			}
 			edge = stage.End;
 		}
