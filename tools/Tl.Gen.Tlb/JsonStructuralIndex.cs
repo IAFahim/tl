@@ -1,24 +1,70 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using Cysharp.Collections;
 
 namespace Tl.Gen.Tlb;
 
-internal sealed class JsonStructuralIndex
+internal sealed class MaskLease : IDisposable
+{
+    internal int Blocks;
+    internal unsafe ulong* Structural;
+    internal unsafe ulong* Quotes;
+    private NativeMemoryArray<ulong>? _structural;
+    private NativeMemoryArray<ulong>? _quotes;
+
+    internal static MaskLease Allocate(int blocks)
+    {
+        var structural = new NativeMemoryArray<ulong>(blocks);
+        var quotes = new NativeMemoryArray<ulong>(blocks);
+        unsafe
+        {
+            var lease = new MaskLease
+            {
+                Blocks = blocks,
+                _structural = structural,
+                _quotes = quotes,
+                Structural = (ulong*)Unsafe.AsPointer(ref structural.GetPinnableReference()),
+                Quotes = (ulong*)Unsafe.AsPointer(ref quotes.GetPinnableReference()),
+            };
+            return lease;
+        }
+    }
+
+    public void Dispose()
+    {
+        _structural?.Dispose();
+        _quotes?.Dispose();
+        _structural = null;
+        _quotes = null;
+        unsafe
+        {
+            Structural = null;
+            Quotes = null;
+        }
+    }
+}
+
+internal sealed unsafe class JsonStructuralIndex : IDisposable
 {
     private const int BlockBytes = 64;
 
     internal readonly byte[] Utf8;
-    internal readonly ulong[] Structural;
-    internal readonly ulong[] Quotes;
+    internal readonly ulong* Structural;
+    internal readonly ulong* Quotes;
     internal readonly int Blocks;
+    private readonly MaskLease _lease;
 
-    private JsonStructuralIndex(byte[] utf8, ulong[] structural, ulong[] quotes, int blocks)
+    private JsonStructuralIndex(byte[] utf8, MaskLease lease, int blocks)
     {
         Utf8 = utf8;
-        Structural = structural;
-        Quotes = quotes;
+        _lease = lease;
+        Structural = lease.Structural;
+        Quotes = lease.Quotes;
         Blocks = blocks;
     }
+
+    internal MaskLease Lease => _lease;
 
     internal static bool TryScan(byte[] utf8, BakeWorkspace? workspace, out JsonStructuralIndex index)
     {
@@ -26,34 +72,23 @@ internal sealed class JsonStructuralIndex
         if (!Avx2.IsSupported || utf8.Length == 0)
             return false;
         var blocks = (utf8.Length + BlockBytes - 1) / BlockBytes;
-        ulong[] structural;
-        ulong[] quotes;
-        if (workspace?.RentMasks(blocks) is { } rented)
+        var lease = workspace?.RentMasks(blocks) ?? MaskLease.Allocate(blocks);
+        fixed (byte* source = utf8)
         {
-            structural = rented.Structural;
-            quotes = rented.Quotes;
-        }
-        else
-        {
-            structural = new ulong[blocks];
-            quotes = new ulong[blocks];
-        }
-        unsafe
-        {
-            fixed (byte* source = utf8)
-            fixed (ulong* structuralTarget = structural)
-            fixed (ulong* quotesTarget = quotes)
+            if (!ScanAvx2(source, utf8.Length, blocks, lease.Structural, lease.Quotes))
             {
-                if (!ScanAvx2(source, utf8.Length, blocks, structuralTarget, quotesTarget))
-                {
-                    workspace?.ReturnMasks(structural, quotes);
-                    return false;
-                }
+                if (workspace is { } owner)
+                    owner.ReturnMasks(lease);
+                else
+                    lease.Dispose();
+                return false;
             }
         }
-        index = new JsonStructuralIndex(utf8, structural, quotes, blocks);
+        index = new JsonStructuralIndex(utf8, lease, blocks);
         return true;
     }
+
+    public void Dispose() => _lease.Dispose();
 
     private static readonly Vector256<byte> StructuralHigh = Replicate(0x00, 0x00, 0x20, 0x80, 0x00, 0x50, 0x00, 0x50);
     private static readonly Vector256<byte> StructuralLow = Replicate(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x40, 0x20, 0x10);

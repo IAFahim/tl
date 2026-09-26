@@ -20,28 +20,45 @@ internal static class TimelineBakerSimd
         var walker = new SimdWalker(index, resolver, workspace);
         try
         {
-            return walker.TryParse(out doc);
+            var parsed = walker.TryParse(out doc);
+            if (workspace is null)
+                index.Dispose();
+            return parsed;
         }
         catch (SimdBailException)
         {
+            ReleaseLease(index, workspace);
             return false;
+        }
+        catch
+        {
+            ReleaseLease(index, workspace);
+            throw;
         }
     }
 
+    private static void ReleaseLease(JsonStructuralIndex index, BakeWorkspace? workspace)
+    {
+        if (workspace is { } owner)
+            owner.ReturnMasks(index.Lease);
+        else
+            index.Dispose();
+    }
+
     internal static JsonStructuralIndex? Scan(byte[] utf8) =>
-        JsonStructuralIndex.TryScan(utf8, null, out var index) ? index : null;
+        JsonStructuralIndex.TryScan(utf8, null, out var scanned) ? scanned : null;
 }
 
-internal sealed class SimdCursor
+internal sealed unsafe class SimdCursor
 {
-    private readonly ulong[] _structural;
+    private readonly ulong* _structural;
     private readonly int _blocks;
     private readonly int _end;
     private int _block;
     private ulong _rest;
     private int _pending = -2;
 
-    private SimdCursor(ulong[] structural, int blocks, int end, int block, ulong rest)
+    private SimdCursor(ulong* structural, int blocks, int end, int block, ulong rest)
     {
         _structural = structural;
         _blocks = blocks;
@@ -50,17 +67,17 @@ internal sealed class SimdCursor
         _rest = rest;
     }
 
-    internal static SimdCursor FromBeginning(ulong[] structural, int blocks) =>
+    internal static SimdCursor FromBeginning(ulong* structural, int blocks) =>
         new(structural, blocks, int.MaxValue, 0, blocks > 0 ? structural[0] : 0);
 
-    internal static SimdCursor After(ulong[] structural, int blocks, int start, int end)
+    internal static SimdCursor After(ulong* structural, int blocks, int start, int end)
     {
         var bit = start & 63;
         var rest = bit == 63 ? 0 : structural[start >> 6] & ~((2UL << bit) - 1);
         return new(structural, blocks, end, start >> 6, rest);
     }
 
-    internal static SimdCursor From(ulong[] structural, int blocks, int start, int end)
+    internal static SimdCursor From(ulong* structural, int blocks, int start, int end)
     {
         var bit = start & 63;
         var rest = structural[start >> 6] & ~((1UL << bit) - 1);
@@ -112,9 +129,10 @@ internal sealed unsafe class SimdWalker
     private const byte Quote = (byte)'"';
 
     private readonly byte[] _utf8;
-    private readonly ulong[] _structural;
-    private readonly ulong[] _quotes;
+    private readonly ulong* _structural;
+    private readonly ulong* _quotes;
     private readonly int _blocks;
+    private readonly JsonStructuralIndex _index;
     private readonly BakeWorkspace? _workspace;
     private readonly BakerAssemblyResolver _resolver;
     private SimdCursor _cursor;
@@ -124,6 +142,7 @@ internal sealed unsafe class SimdWalker
     internal SimdWalker(JsonStructuralIndex index, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null)
     {
         _utf8 = index.Utf8;
+        _index = index;
         _structural = index.Structural;
         _quotes = index.Quotes;
         _blocks = index.Blocks;
@@ -138,8 +157,7 @@ internal sealed unsafe class SimdWalker
         if (_workspace != null)
         {
             _workspace.Warm(doc);
-            doc.LoanStructural = _structural;
-            doc.LoanQuotes = _quotes;
+            doc.LoanMasks = _index.Lease;
         }
         ParseRoot(doc);
         return true;
@@ -520,9 +538,10 @@ internal sealed unsafe class SimdWalker
         fragments[k] = frag;
     }
 
-    private SimdWalker(ulong[] structural, ulong[] quotes, int blocks, byte[] utf8, BakerAssemblyResolver resolver)
+    private SimdWalker(ulong* structural, ulong* quotes, int blocks, byte[] utf8, BakerAssemblyResolver resolver)
     {
         _utf8 = utf8;
+        _index = null!;
         _structural = structural;
         _quotes = quotes;
         _blocks = blocks;

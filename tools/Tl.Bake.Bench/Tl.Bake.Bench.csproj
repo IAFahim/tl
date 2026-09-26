@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="NativeMemoryArray" Version="1.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
     <ProjectReference Include="..\Tl.Bake.Oracle\Tl.Bake.Oracle.csproj" />
   </ItemGroup>

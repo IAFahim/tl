@@ -263,8 +263,7 @@ internal sealed class FastDoc
     internal bool Loops;
     internal byte[] Utf8 = null!;
     internal BakeWorkspace? Workspace;
-    internal ulong[]? LoanStructural;
-    internal ulong[]? LoanQuotes;
+    internal MaskLease? LoanMasks;
     internal List<FastTrackInfo> Tracks = new();
     internal List<FastClip> Clips = new();
     internal List<FastPairInfo> Pairs = new();

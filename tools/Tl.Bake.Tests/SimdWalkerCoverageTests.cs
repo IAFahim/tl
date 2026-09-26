@@ -268,7 +268,7 @@ public class SimdWalkerCoverageTests
     [Fact]
     public void Scan_ReturnsStructuralIndexOrNull()
     {
-        var valid = TimelineBakerSimd.Scan(Encoding.UTF8.GetBytes("""{"duration":1,"tracks":[]}"""));
+        using var valid = TimelineBakerSimd.Scan(Encoding.UTF8.GetBytes("""{"duration":1,"tracks":[]}"""));
         Assert.NotNull(valid);
         Assert.True(valid.Blocks > 0);
 

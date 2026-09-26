@@ -16,6 +16,8 @@ internal static class Program
             return CorpusCommand(args);
         if (args is ["parity", _, ..])
             return ParityCommand(args);
+        if (args is ["loadbench", ..])
+            return LoadBench.Run(args);
         if (args is ["timing", _, ..])
             return TimingCommand(args);
         if (args is ["batch", ..])
@@ -133,7 +135,7 @@ internal static class Program
                 byteTotal.Take(() => TimelineBaker.BakeJson(File.ReadAllBytes(gamePath), new BakerAssemblyResolver()));
                 legacyTotal.Take(() => BakeOracle.BakeJsonLegacy(File.ReadAllText(gamePath, Encoding.UTF8), new BakerAssemblyResolver()));
 
-                simdScan.Take(() => TimelineBakerSimd.Scan(bytes));
+                simdScan.Take(() => TimelineBakerSimd.Scan(bytes)?.Dispose());
                 simdParse.Take(() =>
                 {
                     if (!TimelineBakerSimd.TryParseFast(bytes, new BakerAssemblyResolver(), null, out var simdDoc))
@@ -339,7 +341,7 @@ internal static class Program
             TimelineBakerFast.BakeJsonUtf8(bytes, new BakerAssemblyResolver());
             TimelineBaker.BakeJson(text, new BakerAssemblyResolver());
             TimelineBakerFast.ParseFast(bytes, new BakerAssemblyResolver());
-            TimelineBakerSimd.Scan(bytes);
+            TimelineBakerSimd.Scan(bytes)?.Dispose();
         }
     }
 

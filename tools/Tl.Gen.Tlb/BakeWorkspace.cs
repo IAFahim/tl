@@ -7,15 +7,15 @@ internal sealed class BakeWorkspace
     internal static readonly BakeWorkspace Shared = new();
 
     private readonly Lock _gate = new();
-    private (ulong[] Structural, ulong[] Quotes)? _masks;
+    private MaskLease? _masks;
     private readonly Dictionary<ulong, byte[]> _pairPools = [];
     private readonly ConcurrentDictionary<(string Ns, string Type, string? Asm), Type> _typeCache = new();
 
-    internal (ulong[] Structural, ulong[] Quotes)? RentMasks(int blocks)
+    internal MaskLease? RentMasks(int blocks)
     {
         lock (_gate)
         {
-            if (_masks is { } masks && masks.Structural.Length >= blocks)
+            if (_masks is { } masks && masks.Blocks >= blocks)
             {
                 _masks = null;
                 return masks;
@@ -24,12 +24,19 @@ internal sealed class BakeWorkspace
         }
     }
 
-    internal void ReturnMasks(ulong[] structural, ulong[] quotes)
+    internal void ReturnMasks(MaskLease lease)
     {
         lock (_gate)
         {
-            if (_masks is not { } current || current.Structural.Length < structural.Length)
-                _masks = (structural, quotes);
+            if (_masks is not { } current)
+                _masks = lease;
+            else if (current.Blocks < lease.Blocks)
+            {
+                current.Dispose();
+                _masks = lease;
+            }
+            else
+                lease.Dispose();
         }
     }
 
@@ -69,11 +76,10 @@ internal sealed class BakeWorkspace
         foreach (var pair in doc.Pairs)
             if (pair.Pool.Length > 0)
                 ReturnPool(pair.Key, pair.Pool);
-        if (doc is { LoanStructural: not null, LoanQuotes: not null })
-            ReturnMasks(doc.LoanStructural, doc.LoanQuotes);
+        if (doc.LoanMasks is { } lease)
+            ReturnMasks(lease);
         foreach (var entry in doc.ResolveCache)
             _typeCache.TryAdd(entry.Key, entry.Value);
-        doc.LoanStructural = null;
-        doc.LoanQuotes = null;
+        doc.LoanMasks = null;
     }
 }
