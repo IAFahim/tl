@@ -60,6 +60,19 @@ public class InternTableTests
     }
 
     [Fact]
+    public void ReviveOfValidatedContentAvoidsPerStepDelegateGarbage()
+    {
+        var baker = new DomainBaker().Track<HandleTrack, HandleClip>(new HandleTrack(2f));
+        for (var i = 0; i < 1_200; i++)
+            baker.Clip(0, (uint)i, (uint)i + 1, new HandleClip(1f));
+        var bytes = baker.Bake();
+        TimelineAsset.Of(TimelineAsset.Load(bytes)).Dispose();
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        using var revived = TimelineAsset.Of(TimelineAsset.Load(bytes));
+        Assert.InRange(GC.GetAllocatedBytesForCurrentThread() - before, 0, 32 * 1024);
+    }
+
+    [Fact]
     public void ReloadAfterFullReleaseRevivesTheSameIndex()
     {
         var bytes = Bytes(6f, 7);
