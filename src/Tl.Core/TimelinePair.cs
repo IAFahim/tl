@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace Tl;
 
-public static unsafe class Timeline<TTrack, TClip>
+public static unsafe partial class Timeline<TTrack, TClip>
 	where TTrack : unmanaged, IBlend<TClip>
 	where TClip : unmanaged
 {
