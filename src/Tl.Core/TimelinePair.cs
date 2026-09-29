@@ -197,7 +197,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-	public static void ApplyLanes<TIndex, TPosition, TEffect0, TEffect1>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect0> effects0, Span<TEffect1> effects1)
+	public static void ApplyChunk<TIndex, TPosition, TEffect0, TEffect1>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect0> effects0, Span<TEffect1> effects1)
 		where TIndex : struct
 		where TPosition : struct
 		where TEffect0 : unmanaged
@@ -239,7 +239,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 
 	[DoesNotReturn]
 	static void ThrowMissingLane<TLane>(int column)
-		=> throw new ArgumentException($"{Head} has no frozen OnMemo lane of type {typeof(TLane).Name} for column {column}.");
+		=> throw new ArgumentException($"{Head} has no frozen Fold lane of type {typeof(TLane).Name} for column {column}.");
 
 	[DoesNotReturn]
 	static void ThrowLaneColumnSizes()
@@ -256,19 +256,6 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	[DoesNotReturn]
 	static void ThrowColumnRowMismatch(int column, int length, int rows)
 		=> throw new ArgumentException($"{Head} ColumnSet column {column} holds {length} rows; the Apply drives {rows}.");
-
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-	public static void Apply<TIndex, TPosition, TEffect, TInput>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects, ReadOnlySpan<TInput> input)
-		where TIndex : struct where TPosition : struct where TEffect : unmanaged where TInput : unmanaged
-	{
-		if (positions.Length != indices.Length || positions.Length != effects.Length || positions.Length != input.Length)
-			throw new ArgumentException("Timeline live columns must be single-field and equal length.");
-		CheckSizes<TIndex, TPosition>();
-		var ids = MemoryMarshal.Cast<TIndex, ushort>(indices);
-		var clocks = MemoryMarshal.Cast<TPosition, ushort>(positions);
-		Checked.Domain(ids, clocks);
-		ApplyLive(ids, clocks, forward, TypeKey<TEffect>.Value, Unsafe.AsPointer(ref MemoryMarshal.GetReference(effects)), TypeKey<TInput>.Value, Unsafe.AsPointer(ref MemoryMarshal.GetReference(input)), null, null, 0);
-	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static void Apply<TIndex, TPosition>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, in ColumnSet caller)
@@ -364,7 +351,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 						if ((meta & 0x40) != 0)
 						{
 							if (feed >= outs || outKey[feed] != slotKeys[j])
-								throw new ArgumentException($"{Head} OnActive memo-fed 'in' does not match an OnMemo 'out' result.");
+								throw new ArgumentException($"{Head} ExecuteActive memo-fed 'in' does not match an Fold 'out' result.");
 							if (memo >= memoBound) ThrowMemoRow(memoBound);
 							cells[memo] = cellBlock + 8 * memo;
 							laneRecords[memo] = (forward ? slot->ForwardRecords : slot->BackwardRecords) + (nuint)outLane[feed] * slot->TableTicks;
@@ -389,7 +376,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 					live++;
 				}
 				if (live == 0)
-					throw new ArgumentException($"{Head} registers no live OnActive column consumer.");
+					throw new ArgumentException($"{Head} registers no live ExecuteActive column consumer.");
 			}
 			for (var r = i; r < end; r++)
 			{

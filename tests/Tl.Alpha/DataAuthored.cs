@@ -34,31 +34,31 @@ internal readonly record struct ImpureTrack(float Multiplier) : IBlend<ImpureCli
 
 internal readonly struct DamageJob : ITrack<DamageTrack, DamageClip>
 {
-    public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float vitality)
+    public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref float vitality)
         => vitality -= frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
 internal readonly struct HealJob : ITrack<HealTrack, HealClip>
 {
-    public static void OnActive(in Frame<HealTrack, HealClip> frame, ref float vitality)
+    public static void ExecuteActive(in Frame<HealTrack, HealClip> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
 internal readonly struct TandemFirstJob : ITrack<TandemTrack, TandemClip>
 {
-    public static void OnActive(in Frame<TandemTrack, TandemClip> frame, ref float vitality)
+    public static void ExecuteActive(in Frame<TandemTrack, TandemClip> frame, ref float vitality)
         => vitality += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
 internal readonly struct TandemSecondJob : ITrack<TandemTrack, TandemClip>
 {
-    public static void OnActive(in Frame<TandemTrack, TandemClip> frame, ref float vitality)
+    public static void ExecuteActive(in Frame<TandemTrack, TandemClip> frame, ref float vitality)
         => vitality += frame.Direction * 7f;
 }
 
 internal readonly struct ImpureJob : ITrack<ImpureTrack, ImpureClip>
 {
-    public static void OnActive(in Frame<ImpureTrack, ImpureClip> _, ref float vitality)
+    public static void ExecuteActive(in Frame<ImpureTrack, ImpureClip> _, ref float vitality)
         => vitality *= 2f;
 }
 

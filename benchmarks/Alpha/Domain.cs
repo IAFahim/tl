@@ -34,12 +34,12 @@ public readonly record struct BetaTrack(int Code) : IBlend<BetaClip>
 
 public readonly struct AlphaJob : ITrack<AlphaTrack, AlphaClip>
 {
-    public static void OnActive(in Frame<AlphaTrack, AlphaClip> frame, ref float value)
+    public static void ExecuteActive(in Frame<AlphaTrack, AlphaClip> frame, ref float value)
         => value += frame.Direction * frame.Clip.Amount;
 }
 
 public readonly struct BetaJob : ITrack<BetaTrack, BetaClip>
 {
-    public static void OnActive(in Frame<BetaTrack, BetaClip> frame, ref float value)
+    public static void ExecuteActive(in Frame<BetaTrack, BetaClip> frame, ref float value)
         => value += frame.Direction * frame.Clip.Amount;
 }

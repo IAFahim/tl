@@ -98,7 +98,7 @@ public sealed class GeneratorLayoutGuardTests
 
         public readonly struct JabApply : ITrack<JabTrack, JabClip>
         {
-            public static void OnActive(in Frame<JabTrack, JabClip> frame, ref float total)
+            public static void ExecuteActive(in Frame<JabTrack, JabClip> frame, ref float total)
                 => total += frame.Direction * frame.Clip.Force * frame.Track.Scale;
         }
 

@@ -56,13 +56,13 @@ internal static class JobEmitter
             var runtime = $"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>";
             var liveColumns = consumer.Job.LiveColumns;
             if (consumer.Job.MemoMethod)
-                W($"{runtime}.Consume(&OnMemo_{name}, &OnMemoRange_{name}, &Keys_{name});");
+                W($"{runtime}.Consume(&Fold_{name}, &FoldRange_{name}, &Keys_{name});");
             if (liveColumns.Count > 0)
-                W($"{runtime}.ConsumeDispatch(&OnActive_{name}, &LiveKeys_{name}, &Diag_{name});");
+                W($"{runtime}.ConsumeDispatch(&ExecuteActive_{name}, &LiveKeys_{name}, &Diag_{name});");
             else if (consumer.Job.Dispatch)
-                W($"{runtime}.ConsumeDispatch(&OnActive_{name});");
+                W($"{runtime}.ConsumeDispatch(&ExecuteActive_{name});");
             else if (consumer.Job is { MemoMethod: false, Slots.Count: > 0 })
-                W($"{runtime}.Consume(&OnActive_{name}, &OnActiveRange_{name}, &Bind_{name});");
+                W($"{runtime}.Consume(&ExecuteActive_{name}, &ExecuteActiveRange_{name}, &Bind_{name});");
         }
         foreach (var (name, bake) in bakeItems)
             foreach (var pair in bake.Pairs)
@@ -95,7 +95,7 @@ internal static class JobEmitter
             }
             if (job.Slots.Count > 0)
             {
-                var memo = job.MemoMethod ? "OnMemo" : "OnActive";
+                var memo = job.MemoMethod ? "Fold" : "ExecuteActive";
                 Thunk(memo, job.Slots, true, false);
                 Thunk(memo, job.Slots, true, true);
                 if (job.MemoMethod)
@@ -128,8 +128,8 @@ internal static class JobEmitter
             }
             if (liveColumns.Count > 0)
             {
-                Thunk("OnActive", liveColumns, job.LiveFrame, false);
-                var prefix = $"Timeline<{Plain(consumer.TrackTypeName)}, {Plain(consumer.ClipTypeName)}> consumer '{Plain(job.TypeName)}' OnActive requires ";
+                Thunk("ExecuteActive", liveColumns, job.LiveFrame, false);
+                var prefix = $"Timeline<{Plain(consumer.TrackTypeName)}, {Plain(consumer.ClipTypeName)}> consumer '{Plain(job.TypeName)}' ExecuteActive requires ";
                 W($"private static int LiveKeys_{name}(ulong* __tlKeys, byte* __tlMeta)");
                 W("{");
                 for (var i = 0; i < liveColumns.Count; i++)
@@ -150,7 +150,7 @@ internal static class JobEmitter
                 W($"throw new global::System.ArgumentException(\"{prefix}caller columns that were not passed.\");");
                 W("}");
             }
-            else if (job.Dispatch) Thunk("OnActive", [], job.LiveFrame, false);
+            else if (job.Dispatch) Thunk("ExecuteActive", [], job.LiveFrame, false);
         }
         foreach (var (name, bake) in bakeItems)
         {

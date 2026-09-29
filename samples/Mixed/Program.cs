@@ -52,7 +52,7 @@ public readonly record struct DamageTrack(int Code) : IBlend<DamageClip>
 
 public readonly struct AnimationJob : ITrack<AnimationTrack, AnimationClip>
 {
-    public static void OnActive(
+    public static void ExecuteActive(
         in Frame<AnimationTrack, AnimationClip> frame,
         ref float vitality)
         => vitality += frame.Direction * (frame.Clip.X + frame.Clip.Y);
@@ -60,7 +60,7 @@ public readonly struct AnimationJob : ITrack<AnimationTrack, AnimationClip>
 
 public readonly struct DamageJob : ITrack<DamageTrack, DamageClip>
 {
-    public static void OnActive(
+    public static void ExecuteActive(
         in Frame<DamageTrack, DamageClip> frame,
         ref float vitality)
         => vitality -= frame.Direction * frame.Clip.Amount;

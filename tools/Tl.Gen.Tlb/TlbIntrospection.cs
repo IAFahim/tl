@@ -159,8 +159,8 @@ internal static class TlbIntrospection
     {
         var frame = typeof(Frame<,>).MakeGenericType(trackType, clipType);
         var outputs = new List<string>();
-        CollectColumns(jobType.GetMethod("OnActive", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static), frame, outputs);
-        CollectColumns(jobType.GetMethod("OnMemo", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static), frame, outputs);
+        CollectColumns(jobType.GetMethod("ExecuteActive", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static), frame, outputs);
+        CollectColumns(jobType.GetMethod("Fold", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static), frame, outputs);
         return outputs.ToArray();
     }
 

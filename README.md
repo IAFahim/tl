@@ -28,7 +28,7 @@ public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
 
 public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
 {
-    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
+    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
         => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
 }
 ```
@@ -110,7 +110,7 @@ public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
 
 public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
 {
-    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
+    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
     {
         y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
     }
@@ -160,7 +160,7 @@ rewind walks the arc back exactly:
 Timeline.Bake marked entities 42, 43 as jumping; unmarked entities never reach the advance
 ```
 
-Migration from earlier packages: add an `Advance` call after every `Apply` — `Apply` gathers effects and never moves the clock, and its `positions` parameter is now `ReadOnlySpan` (existing `Span` callers compile unchanged; the per-entity overload takes the position `in`, so call sites spelling `ref` drop it); the consumer method `Execute` is now `OnActive`; the advance method `Step` is now `Advance` (pre-1.0 renames ship without compatibility aliases).
+Migration from earlier packages: add an `Advance` call after every `Apply` — `Apply` gathers effects and never moves the clock, and its `positions` parameter is now `ReadOnlySpan` (existing `Span` callers compile unchanged; the per-entity overload takes the position `in`, so call sites spelling `ref` drop it); the consumer method `Execute` became `OnActive` in 1.0.0; 2.0.0 renames `OnMemo` to `Fold`, `OnActive` to `ExecuteActive`, `ApplyLanes` to `ApplyChunk`, and folds the `(fx, inputs)` Apply overload into the `ColumnSet` form — `Apply(ids, clocks, forward, fx)` for one effect column, `Apply(ids, clocks, forward, in set)` for any columns, `ApplyChunk(ids, clocks, forward, fx0, fx1)` for two typed fold lanes; the advance method `Step` is now `Advance` (pre-1.0 renames ship without compatibility aliases).
 
 ## Data
 
@@ -265,7 +265,7 @@ tlb --watch jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
 - `blendable` — the track implements `IBlend<this clip>`; only blendable pairs produce lanes
 - `unmanaged` — both structs are unmanaged; a `false` pair fails the bake
 - `trackPairings` — every clip type this track can blend (the full `IBlend<>` set)
-- `consumers` — discovered `ITrack<track, clip>` jobs and the effect columns they write: the live `OnActive` ref columns plus the `OnMemo` results that fold into typed lanes (`outputs`)
+- `consumers` — discovered `ITrack<track, clip>` jobs and the effect columns they write: the live `ExecuteActive` ref columns plus the `Fold` results that fold into typed lanes (`outputs`)
 
 Each `pairs` entry maps onto one track and its clips: the track entry names `(track.namespace, track.name)`, each clip entry names `(clip.namespace, clip.name)`, and `data` sets exactly the listed `fields`. With `--auto` the namespaces can be left out entirely; use this listing to check spellings, pick among same-named types, and see which consumers fold into a pair.
 
@@ -330,7 +330,7 @@ More systems on the same pair just declare the marker again — no registration,
 ```cs
 public readonly struct ScreenShake : ITrack<JumpTrack, JumpClip>
 {
-    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float shake)
+    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame, ref float shake)
     {
         if (frame.Has(FrameFlags.TimelineEnd))
             shake += 1f;
@@ -344,23 +344,23 @@ Consumers fold in consumer-name order (`MoveY` before `ScreenShake`) — ordinal
 
 A consumer declares one or both of two static methods, and the method name carries the lane contract:
 
-`OnMemo(in Frame<TTrack, TClip> frame, out T0 r0, out T1 r1, ...)` runs once per tick, forward and backward, at the pair's first typed use — the fold, `duration × 2` invocations — and each `out` result freezes into its own per-tick, per-direction native table. The contract is the measured consumer's, by name now:
+`Fold(in Frame<TTrack, TClip> frame, out T0 r0, out T1 r1, ...)` runs once per tick, forward and backward, at the pair's first typed use — the fold, `duration × 2` invocations — and each `out` result freezes into its own per-tick, per-direction native table. The contract is the measured consumer's, by name now:
 
 - **Pure**: a function of the frame (`frame.Clip`, `frame.Track`, `frame.TimelineTick`, `frame.Flags`) — no side effects, no live state reads; live state read at fold freezes at fold time.
-- **Unmanaged results only, at most 10 of at most 8 bytes each** (TLGEN79): `bool`, `byte`, `short`, `int`, `long`, `float`, `double`, `char`, and enums — one lane per result, with 8-byte results folding into an adjacent 4-byte lane pair. `string` and other managed types are illegal as memo outputs (TLGEN76/79) — rich labels resolve to codes in the memo and map to text host-side or in `OnActive`.
+- **Unmanaged results only, at most 10 of at most 8 bytes each** (TLGEN79): `bool`, `byte`, `short`, `int`, `long`, `float`, `double`, `char`, and enums — one lane per result, with 8-byte results folding into an adjacent 4-byte lane pair. `string` and other managed types are illegal as memo outputs (TLGEN76/79) — rich labels resolve to codes in the memo and map to text host-side or in `ExecuteActive`.
 - **Write-only results**: every probe starts from `0f` — accumulate, never read the incoming value. `out` results get private lanes in declaration order; `ref` results join the shared accumulate pool by type.
 - Direction comes from `frame.Direction` (`+1` forward, `−1` backward); the backward tables are measured too, so a sign-blind memo makes rewind wrong rather than absent.
 - Side effects fire `duration × 2` times at fold and never during playback; changed data means a new `Load` — a folded `(asset, pair)` never re-folds.
 
-OnMemo-only consumers play through the measured Apply family — `Apply(ids, clocks, forward, fx)` for one result, `ApplyLanes(ids, clocks, forward, fx0, fx1)` for several typed results — with zero per-frame consumer cost after the fold.
+Fold-only consumers play through the measured Apply family — `Apply(ids, clocks, forward, fx)` for one result, `ApplyChunk(ids, clocks, forward, fx0, fx1)` for several typed results — with zero per-frame consumer cost after the fold.
 
-`OnActive` runs per frame per row, live, in three shapes:
+`ExecuteActive` runs per frame per row, live, in three shapes:
 
-- `OnActive(in Frame<TTrack, TClip> frame)` — pure dispatch: audio cues, markers, logging. The effects-less `Apply(ids, positions, forward)` executes it in row order.
-- `OnActive(in Frame<TTrack, TClip> frame, ref T fx, in T a, in T b, ...)` — **live columns**: the feeding call binds the columns by type — `Apply(ids, clocks, forward, fx, inputs)` — and the runtime executes the consumer once per row per frame at the row's current tick, `ref` read-write, `in` read-only.
-- `OnActive(in T0 r0, in T1 r1, ..., ref T fx, in T a, ...)` — **compose**: the leading `in` parameters are the OnMemo results, fed positionally (type-checked at generation) from their frozen tables at the row's current position — direction-correct — while the `ref`/`in` columns come from the same Apply call. Precompute the pure math once, compose with live inputs per row.
+- `ExecuteActive(in Frame<TTrack, TClip> frame)` — pure dispatch: audio cues, markers, logging. The effects-less `Apply(ids, positions, forward)` executes it in row order.
+- `ExecuteActive(in Frame<TTrack, TClip> frame, ref T fx, in T a, in T b, ...)` — **live columns**: the feeding call binds the columns by type through a caller-assembled `ColumnSet` — `Apply(ids, clocks, forward, in set)` with `set.Add<T>(span)` per column — and the runtime executes the consumer once per row per frame at the row's current tick, `ref` read-write, `in` read-only.
+- `ExecuteActive(in T0 r0, in T1 r1, ..., ref T fx, in T a, ...)` — **compose**: the leading `in` parameters are the Fold results, fed positionally (type-checked at generation) from their frozen tables at the row's current position — direction-correct — while the `ref`/`in` columns come from the same Apply call. Precompute the pure math once, compose with live inputs per row.
 
-Legacy `OnActive(in Frame<TTrack, TClip> frame, ref float y)` keeps working as sugar for a single-result `OnMemo` — same fold, same frozen table, same measured Apply — and `OnMemo` is the canonical spelling in new code. The consumer ABI reserves 40 pointer slots per registered consumer, and live `OnActive` columns — memo feeds, `ref` columns, `in` columns — total at most 30 per consumer (TLGEN68). A required column that is not passed is a loud located throw naming the pair, consumer, and parameter — `Timeline<JumpTrack, JumpClip> consumer 'MoveY' OnActive requires a column of type int (multiplier); none was passed.` — at first play of a column-carrying Apply. The plain float-column Apply family drives only the memo lanes and never dispatches live consumers, so a pair with a live `OnActive` must be driven by its column-carrying overload (hardening that case to fail loudly is tracked in issue #348). Live `OnActive` columns beyond the single typed Apply family bind through a caller-assembled `ColumnSet` — `Add<T>(span)` per column, cold assembly, resolved by `TypeKey` at first play while the warm read stays the direct pointer row — so distinct `in`/`ref` column types compose freely up to the 30-column bound. Same-type duplicates are TLGEN81 (TypeKey binding cannot distinguish two columns of one type), and a partially fed pair names the column actually left unfed.
+Legacy `ExecuteActive(in Frame<TTrack, TClip> frame, ref float y)` keeps working as sugar for a single-result `Fold` — same fold, same frozen table, same measured Apply — and `Fold` is the canonical spelling in new code. The consumer ABI reserves 40 pointer slots per registered consumer, and live `ExecuteActive` columns — memo feeds, `ref` columns, `in` columns — total at most 30 per consumer (TLGEN68). A required column that is not passed is a loud located throw naming the pair, consumer, and parameter — `Timeline<JumpTrack, JumpClip> consumer 'MoveY' ExecuteActive requires a column of type int (multiplier); none was passed.` — at first play of a column-carrying Apply. The plain float-column Apply family drives only the memo lanes and never dispatches live consumers, so a pair with a live `ExecuteActive` must be driven by its column-carrying overload (hardening that case to fail loudly is tracked in issue #348). Live `ExecuteActive` columns bind through a caller-assembled `ColumnSet` — `Add<T>(span)` per column, cold assembly, resolved by `TypeKey` at first play while the warm read stays the direct pointer row — so distinct `in`/`ref` column types compose freely up to the 30-column bound. Same-type duplicates are TLGEN81 (TypeKey binding cannot distinguish two columns of one type), and a partially fed pair names the column actually left unfed.
 
 The owner's jump case, first-class — the pure arc folds once, the per-jumper power composes live every frame:
 
@@ -368,28 +368,31 @@ The owner's jump case, first-class — the pure arc folds once, the per-jumper p
 public readonly struct JumpMove : ITrack<JumpTrack, JumpClip>
 {
     // fold: the pure arc, frozen per tick and direction
-    public static void OnMemo(in Frame<JumpTrack, JumpClip> frame, out float arc)
+    public static void Fold(in Frame<JumpTrack, JumpClip> frame, out float arc)
         => arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
 
     // per frame per row: arc arrives from the frozen table, multiplier is live host state
-    public static void OnActive(in float arc, ref float y, in int multiplier)
+    public static void ExecuteActive(in float arc, ref float y, in int multiplier)
         => y += arc * multiplier;
 }
 
 var y = new float[crowd];
 var power = new int[crowd];   // per-jumper, changes whenever gameplay says so
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, y, power);
+var player = new ColumnSet();
+player.Add(y);
+player.Add(power);
+Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, in player);
 ```
 
-Rewind is exact: `forward: false` feeds the same `in` values from the backward tables, and changing `power` between frames changes the applied effect — the input column is read fresh every call. Rule of thumb: **OnMemo carries the number — a pure per-tick contribution, frozen and shared by every row; OnActive carries the effect on the world — live, per row, composed against the frozen number.**
+Rewind is exact: `forward: false` feeds the same `in` values from the backward tables, and changing `power` between frames changes the applied effect — the input column is read fresh every call. Rule of thumb: **Fold carries the number — a pure per-tick contribution, frozen and shared by every row; ExecuteActive carries the effect on the world — live, per row, composed against the frozen number.**
 
-OnMemo takes up to 10 results of any legal width, and every one of them composes into OnActive beside the live player columns — four results of four widths here, `ref JumpY` and `in JumpPower` live on the same consumer:
+Fold takes up to 10 results of any legal width, and every one of them composes into ExecuteActive beside the live player columns — four results of four widths here, `ref JumpY` and `in JumpPower` live on the same consumer:
 
 ```cs
 public readonly struct JumpWideMove : ITrack<JumpTrack, JumpClip>
 {
     // fold: four frozen results, one direction-correct table each (byte/short/int/float)
-    public static void OnMemo(in Frame<JumpTrack, JumpClip> frame, out float arc, out int kind, out short phase, out byte style)
+    public static void Fold(in Frame<JumpTrack, JumpClip> frame, out float arc, out int kind, out short phase, out byte style)
     {
         arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
         kind = frame.Clip.Height;
@@ -399,16 +402,19 @@ public readonly struct JumpWideMove : ITrack<JumpTrack, JumpClip>
 
     // per frame per row: the four feeds arrive from their tables at the row's position,
     // direction-correct, beside the live player columns
-    public static void OnActive(in float arc, in int kind, in short phase, in byte style, ref JumpY y, in JumpPower power)
+    public static void ExecuteActive(in float arc, in int kind, in short phase, in byte style, ref JumpY y, in JumpPower power)
         => y.Value += arc * power.Lift + kind + phase + style;
 }
 
 var y = new JumpY[crowd];
 var power = new JumpPower[crowd];
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, y, power);
+var player = new ColumnSet();
+player.Add(y);
+player.Add(power);
+Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, in player);
 ```
 
-Results of 8 bytes (`long`, `ulong`, `double`, wide enums) fold the same way — the lane is an adjacent pair, the read reassembles the exact bits, and `double` stays IEEE-additive across rewind. Beyond the two typed spans of the Apply family, distinct gameplay column types compose through a `ColumnSet`, assembled once per system run and reused across calls:
+Results of 8 bytes (`long`, `ulong`, `double`, wide enums) fold the same way — the lane is an adjacent pair, the read reassembles the exact bits, and `double` stays IEEE-additive across rewind. Distinct gameplay column types compose through the same `ColumnSet`, assembled once per system run and reused across calls:
 
 ```cs
 var caller = new ColumnSet();
@@ -421,7 +427,7 @@ Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, caller);
 public readonly struct JumpAudio : ITrack<JumpTrack, JumpClip>
 {
     // dispatch: live per row — the clip boundary cue fires when a row crosses it
-    public static void OnActive(in Frame<JumpTrack, JumpClip> frame)
+    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame)
     {
         if (frame.Has(FrameFlags.ClipStart)) Audio.Cue(frame.Clip.Sound);
     }
@@ -454,7 +460,7 @@ The proofs owed before the bake dispatch turns caller storage into raw pointers:
 - **Alignment** — there is no packing and no pinning anywhere in the path: rehydrated addresses are the caller's own `T` lvalues (naturally aligned, including `Span<T>` at pointer width), so `Unsafe.AsRef<T>` never sees misaligned storage.
 - **Concurrency** — the unmanaged table is installed only from the generated module initializer under its gate. `Install` publishes each entry's key with release semantics before the entry is linked; entries and their `ParamKeys` are immutable once linked; `Dispatch` only reads. No reader-visible byte is written after publication, and the process-lifetime `ParamKeys` allocation lives exactly as long as the table itself.
 
-Package consumers: pack the local repos first (`dotnet pack src/Tl.Core src/Tl.Gen.CSharp src/Tl.CSharp -c Release -o artifacts/packages`) and restore against that folder with an isolated `NUGET_PACKAGES` — otherwise the stale nuget.org package wins the cache and the build fails with misleading TLGEN66 `OnActive` errors.
+Package consumers: pack the local repos first (`dotnet pack src/Tl.Core src/Tl.Gen.CSharp src/Tl.CSharp -c Release -o artifacts/packages`) and restore against that folder with an isolated `NUGET_PACKAGES` — otherwise the stale nuget.org package wins the cache and the build fails with misleading TLGEN66 `ExecuteActive` errors.
 
 ## Bank blocks and stable views
 
@@ -528,7 +534,7 @@ public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
 
 public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
 {
-    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
+    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
         => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
 }
 ```

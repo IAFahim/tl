@@ -68,7 +68,7 @@ public sealed class PackageHost { public int Marks; }
 
 public readonly struct PackageJob : ITrack<PackageTrack, PackageClip>, IBake<PackageJob>
 {
-    public static void OnActive(in Frame<PackageTrack, PackageClip> frame, ref float value)
+    public static void ExecuteActive(in Frame<PackageTrack, PackageClip> frame, ref float value)
         => value += frame.Direction * frame.Clip.Value;
 
     public static void Bake(PackageHost host) { host.Marks++; }
