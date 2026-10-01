@@ -111,6 +111,22 @@ public sealed class DeclarationAnalysisDiagnosticsTests
     }
 
     [Fact]
+    public void HostedConsumerWithAFrameFirstMethodIsSkippedSilently()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly partial struct Hosted : ITrack<DamageTrack, DamageClip>
+            {
+                public static void ExecuteSlotted(in Frame<DamageTrack, DamageClip> frame, ref float effect)
+                    => effect += frame.Clip.Amount * frame.Track.Multiplier;
+            }
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        Assert.Empty(result.Consumers);
+    }
+
+    [Fact]
     public void JobWithAmbiguousExecuteActiveReportsTlgen66()
     {
         var result = Read($$"""
