@@ -73,7 +73,16 @@ public static class JobReader
             var memo = memos.Length == 1 ? memos[0] : null;
             var active = actives.Length == 1 ? actives[0] : null;
             if (memo is null && active is null)
+            {
+                // A hosted consumer: the family declares some other static Frame-first
+                // method and a host generator (e.g. ecs-kernels) synthesizes the hook
+                // and binds it through TimelineGeneration.Run in its own pass. tl's own
+                // pass cannot see that synthesized hook, so it must not claim - nor
+                // reject - the family.
+                if (type.GetMembers().OfType<IMethodSymbol>().Any(method => method is { IsStatic: true, ReturnsVoid: true, Arity: 0 } && Framed(method, frame)))
+                    return null;
                 return Err(site, "TLGEN66", $"'{name}' needs one static void Fold(in {frameName}) or ExecuteActive.");
+            }
 
             var slots = new List<TimelineSlot>();
             if (memo is not null)
