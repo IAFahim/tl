@@ -26,11 +26,11 @@ public sealed class DeclarationAnalysisDiagnosticsTests
         }
         public readonly struct ChillDamage : ITrack<FrostTrack, FrostClip>
         {
-            public static void OnActive(in Frame<FrostTrack, FrostClip> frame) { }
+            public static void ExecuteActive(in Frame<FrostTrack, FrostClip> frame) { }
         }
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
-            public static void OnActive(in Frame<DamageTrack, DamageClip> frame) { }
+            public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame) { }
         }
         """;
 
@@ -84,7 +84,7 @@ public sealed class DeclarationAnalysisDiagnosticsTests
             {{Domain}}
             public readonly struct Slotted : ITrack<DamageTrack, DamageClip>
             {
-                public static void OnActive(in Frame<DamageTrack, DamageClip> frame, in DamageTrack track, ref DamageClip clip) { }
+                public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, in DamageTrack track, ref DamageClip clip) { }
             }
             """);
 
@@ -100,7 +100,7 @@ public sealed class DeclarationAnalysisDiagnosticsTests
     }
 
     [Fact]
-    public void JobWithoutOnActiveReportsTlgen66()
+    public void JobWithoutExecuteActiveReportsTlgen66()
     {
         var result = Read($$"""
             {{Domain}}
@@ -111,14 +111,14 @@ public sealed class DeclarationAnalysisDiagnosticsTests
     }
 
     [Fact]
-    public void JobWithAmbiguousOnActiveReportsTlgen66()
+    public void JobWithAmbiguousExecuteActiveReportsTlgen66()
     {
         var result = Read($$"""
             {{Domain}}
             public readonly struct Ambiguous : ITrack<DamageTrack, DamageClip>
             {
-                public static void OnActive(in Frame<DamageTrack, DamageClip> frame) { }
-                public static void OnActive(in Frame<DamageTrack, DamageClip> frame, int extra) { }
+                public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame) { }
+                public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, int extra) { }
             }
             """);
 
@@ -135,7 +135,7 @@ public sealed class DeclarationAnalysisDiagnosticsTests
             {{Domain}}
             public readonly struct Broken : ITrack<DamageTrack, DamageClip>
             {
-                public static void OnActive(in Frame<DamageTrack, DamageClip> frame, {{parameter}}) { amount = 0; }
+                public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, {{parameter}}) { amount = 0; }
             }
             """);
 

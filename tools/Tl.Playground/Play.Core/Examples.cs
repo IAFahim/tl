@@ -121,7 +121,7 @@ public readonly record struct DamageTrack(float Multiplier) : IBlend<DamageClip>
 
 public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
 {
-    public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float damage)
+    public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref float damage)
         => damage += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
@@ -167,7 +167,7 @@ public readonly record struct MoveTrack(float Scale) : IBlend<MoveClip>
 
 public readonly struct ApplyMove : ITrack<MoveTrack, MoveClip>
 {
-    public static void OnActive(in Frame<MoveTrack, MoveClip> frame, ref float effect)
+    public static void ExecuteActive(in Frame<MoveTrack, MoveClip> frame, ref float effect)
         => effect += frame.Direction * frame.Clip.Amount * frame.Track.Scale;
 }
 """;
@@ -280,13 +280,13 @@ public readonly record struct DamageTrack(int Code) : IBlend<DamageClip>
 
 public readonly struct AnimationJob : ITrack<AnimationTrack, AnimationClip>
 {
-    public static void OnActive(in Frame<AnimationTrack, AnimationClip> frame, ref float vitality)
+    public static void ExecuteActive(in Frame<AnimationTrack, AnimationClip> frame, ref float vitality)
         => vitality += frame.Direction * (frame.Clip.X + frame.Clip.Y);
 }
 
 public readonly struct DamageJob : ITrack<DamageTrack, DamageClip>
 {
-    public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float vitality)
+    public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref float vitality)
         => vitality -= frame.Direction * frame.Clip.Amount;
 }
 
@@ -340,7 +340,7 @@ public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
 
 public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
 {
-    public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
+    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
         => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
 }
 

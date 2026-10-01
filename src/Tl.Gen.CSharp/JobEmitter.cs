@@ -8,12 +8,12 @@ internal static class JobEmitter
 {
     internal static string Normalize(string content) => content.Replace("\r\n", "\n").Replace('\r', '\n');
 
-    internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model)
-        => model.Consumers.Count == 0 && model.Bakes.Count == 0 ? [] : [new CompileArtifact("TlConsumerBinding.g.cs", Consumers(model.Consumers, model.Bakes))];
+    internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model, string id = "")
+        => model.Consumers.Count == 0 && model.Bakes.Count == 0 ? [] : [new CompileArtifact($"TlConsumerBinding{id}.g.cs", Consumers(model.Consumers, model.Bakes, id))];
 
-    internal static string Consumers(IReadOnlyList<JobConsumer> consumers) => Consumers(consumers, []);
+    internal static string Consumers(IReadOnlyList<JobConsumer> consumers) => Consumers(consumers, [], "");
 
-    private static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes)
+    private static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes, string id)
     {
         var names = new HashSet<string>();
         var bakeNames = new HashSet<string>();
@@ -36,17 +36,18 @@ internal static class JobEmitter
                 layouts.Add((consumer.TrackTypeName, consumer.ClipTypeName, consumer.Layout));
         var writer = new StringBuilder();
         void W(string text) => Line(writer, text);
+        var attribute = $"TlConsumerLayout{id}Attribute";
         foreach (var (track, clip, layout) in layouts)
-            W($"[assembly: global::TlConsumerLayoutAttribute(typeof({track}), typeof({clip}), {layout}UL)]");
+            W($"[assembly: global::{attribute}(typeof({track}), typeof({clip}), {layout}UL)]");
         if (layouts.Count > 0)
         {
             W("[global::System.AttributeUsage(global::System.AttributeTargets.Assembly, AllowMultiple = true)]");
-            W("internal sealed class TlConsumerLayoutAttribute : global::System.Attribute");
+            W($"internal sealed class {attribute} : global::System.Attribute");
             W("{");
-            W("internal TlConsumerLayoutAttribute(global::System.Type track, global::System.Type clip, ulong layout) { }");
+            W($"internal {attribute}(global::System.Type track, global::System.Type clip, ulong layout) {{ }}");
             W("}");
         }
-        W("internal static unsafe class TlConsumerBinding");
+        W($"internal static unsafe class TlConsumerBinding{id}");
         W("{");
         W("[global::System.Runtime.CompilerServices.ModuleInitializer]");
         W("internal static void Install()");
@@ -56,13 +57,13 @@ internal static class JobEmitter
             var runtime = $"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>";
             var liveColumns = consumer.Job.LiveColumns;
             if (consumer.Job.MemoMethod)
-                W($"{runtime}.Consume(&OnMemo_{name}, &OnMemoRange_{name}, &Keys_{name});");
+                W($"{runtime}.Consume(&Fold_{name}, &FoldRange_{name}, &Keys_{name});");
             if (liveColumns.Count > 0)
-                W($"{runtime}.ConsumeDispatch(&OnActive_{name}, &LiveKeys_{name}, &Diag_{name});");
+                W($"{runtime}.ConsumeDispatch(&ExecuteActive_{name}, &LiveKeys_{name}, &Diag_{name});");
             else if (consumer.Job.Dispatch)
-                W($"{runtime}.ConsumeDispatch(&OnActive_{name});");
+                W($"{runtime}.ConsumeDispatch(&ExecuteActive_{name});");
             else if (consumer.Job is { MemoMethod: false, Slots.Count: > 0 })
-                W($"{runtime}.Consume(&OnActive_{name}, &OnActiveRange_{name}, &Bind_{name});");
+                W($"{runtime}.Consume(&ExecuteActive_{name}, &ExecuteActiveRange_{name}, &Bind_{name});");
         }
         foreach (var (name, bake) in bakeItems)
             foreach (var pair in bake.Pairs)
@@ -95,7 +96,7 @@ internal static class JobEmitter
             }
             if (job.Slots.Count > 0)
             {
-                var memo = job.MemoMethod ? "OnMemo" : "OnActive";
+                var memo = job.MemoMethod ? "Fold" : "ExecuteActive";
                 Thunk(memo, job.Slots, true, false);
                 Thunk(memo, job.Slots, true, true);
                 if (job.MemoMethod)
@@ -128,8 +129,8 @@ internal static class JobEmitter
             }
             if (liveColumns.Count > 0)
             {
-                Thunk("OnActive", liveColumns, job.LiveFrame, false);
-                var prefix = $"Timeline<{Plain(consumer.TrackTypeName)}, {Plain(consumer.ClipTypeName)}> consumer '{Plain(job.TypeName)}' OnActive requires ";
+                Thunk("ExecuteActive", liveColumns, job.LiveFrame, false);
+                var prefix = $"Timeline<{Plain(consumer.TrackTypeName)}, {Plain(consumer.ClipTypeName)}> consumer '{Plain(job.TypeName)}' ExecuteActive requires ";
                 W($"private static int LiveKeys_{name}(ulong* __tlKeys, byte* __tlMeta)");
                 W("{");
                 for (var i = 0; i < liveColumns.Count; i++)
@@ -150,7 +151,7 @@ internal static class JobEmitter
                 W($"throw new global::System.ArgumentException(\"{prefix}caller columns that were not passed.\");");
                 W("}");
             }
-            else if (job.Dispatch) Thunk("OnActive", [], job.LiveFrame, false);
+            else if (job.Dispatch) Thunk("ExecuteActive", [], job.LiveFrame, false);
         }
         foreach (var (name, bake) in bakeItems)
         {

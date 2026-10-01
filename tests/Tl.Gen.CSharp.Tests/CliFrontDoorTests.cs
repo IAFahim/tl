@@ -16,7 +16,7 @@ public sealed class CliFrontDoorTests
         }
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
-            public static void OnActive(in Frame<DamageTrack, DamageClip> frame) { }
+            public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame) { }
         }
         """;
 
