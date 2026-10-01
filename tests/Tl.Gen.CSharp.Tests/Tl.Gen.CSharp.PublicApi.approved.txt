@@ -95,5 +95,27 @@ type Tl.Gen.CSharp.Model.TimelineSlot
   Property Byte Size
   Method System.String ToString()
   Property System.String TypeName
+type Tl.Gen.CSharp.TimelineGeneration
+  NestedType Tl.Gen.CSharp.TimelineGeneration+Artifact
+  NestedType Tl.Gen.CSharp.TimelineGeneration+Result
+  Method Result Run(Microsoft.CodeAnalysis.CSharp.CSharpCompilation, System.Collections.Generic.ISet`1[System.String], System.String)
+type Tl.Gen.CSharp.TimelineGeneration+Artifact
+  Method Artifact <Clone>$()
+  Property System.String Content
+  Method Void Deconstruct(System.String ByRef, System.String ByRef)
+  Method Boolean Equals(Artifact)
+  Method Boolean Equals(System.Object)
+  Method Int32 GetHashCode()
+  Property System.String RelativePath
+  Method System.String ToString()
+type Tl.Gen.CSharp.TimelineGeneration+Result
+  Method Result <Clone>$()
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.TimelineGeneration+Artifact] Artifacts
+  Method Void Deconstruct(System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic] ByRef, System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.TimelineGeneration+Artifact] ByRef)
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.CSharp.Analysis.DeclarationDiagnostic] Diagnostics
+  Method Boolean Equals(Result)
+  Method Boolean Equals(System.Object)
+  Method Int32 GetHashCode()
+  Method System.String ToString()
 type Tl.Gen.CSharp.TimelineIncrementalGenerator
   Method Void Initialize(Microsoft.CodeAnalysis.IncrementalGeneratorInitializationContext)

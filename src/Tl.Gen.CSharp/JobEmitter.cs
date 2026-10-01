@@ -8,12 +8,12 @@ internal static class JobEmitter
 {
     internal static string Normalize(string content) => content.Replace("\r\n", "\n").Replace('\r', '\n');
 
-    internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model)
-        => model.Consumers.Count == 0 && model.Bakes.Count == 0 ? [] : [new CompileArtifact("TlConsumerBinding.g.cs", Consumers(model.Consumers, model.Bakes))];
+    internal static IReadOnlyList<CompileArtifact> Emit(JobReadResult model, string id = "")
+        => model.Consumers.Count == 0 && model.Bakes.Count == 0 ? [] : [new CompileArtifact($"TlConsumerBinding{id}.g.cs", Consumers(model.Consumers, model.Bakes, id))];
 
-    internal static string Consumers(IReadOnlyList<JobConsumer> consumers) => Consumers(consumers, []);
+    internal static string Consumers(IReadOnlyList<JobConsumer> consumers) => Consumers(consumers, [], "");
 
-    private static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes)
+    private static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes, string id)
     {
         var names = new HashSet<string>();
         var bakeNames = new HashSet<string>();
@@ -36,17 +36,18 @@ internal static class JobEmitter
                 layouts.Add((consumer.TrackTypeName, consumer.ClipTypeName, consumer.Layout));
         var writer = new StringBuilder();
         void W(string text) => Line(writer, text);
+        var attribute = $"TlConsumerLayout{id}Attribute";
         foreach (var (track, clip, layout) in layouts)
-            W($"[assembly: global::TlConsumerLayoutAttribute(typeof({track}), typeof({clip}), {layout}UL)]");
+            W($"[assembly: global::{attribute}(typeof({track}), typeof({clip}), {layout}UL)]");
         if (layouts.Count > 0)
         {
             W("[global::System.AttributeUsage(global::System.AttributeTargets.Assembly, AllowMultiple = true)]");
-            W("internal sealed class TlConsumerLayoutAttribute : global::System.Attribute");
+            W($"internal sealed class {attribute} : global::System.Attribute");
             W("{");
-            W("internal TlConsumerLayoutAttribute(global::System.Type track, global::System.Type clip, ulong layout) { }");
+            W($"internal {attribute}(global::System.Type track, global::System.Type clip, ulong layout) {{ }}");
             W("}");
         }
-        W("internal static unsafe class TlConsumerBinding");
+        W($"internal static unsafe class TlConsumerBinding{id}");
         W("{");
         W("[global::System.Runtime.CompilerServices.ModuleInitializer]");
         W("internal static void Install()");

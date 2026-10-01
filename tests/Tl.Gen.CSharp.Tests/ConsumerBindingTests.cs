@@ -10,7 +10,7 @@ namespace Tl.Gen.CSharp.Tests;
 
 public sealed class ConsumerBindingTests
 {
-    private const string Source = """
+    internal const string Source = """
         using Tl;
         namespace Domain;
         public readonly record struct DamageClip(float Amount);
@@ -477,7 +477,7 @@ public sealed class ConsumerBindingTests
         => driver.GetRunResult().Results.Single().GeneratedSources
             .ToDictionary(static source => source.HintName, static source => source.SourceText.ToString(), StringComparer.Ordinal);
 
-    private static IEnumerable<MetadataReference> References()
+    internal static IEnumerable<MetadataReference> References()
         => ReferencePaths().Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path));
 
     internal static string[] ReferencePaths()
