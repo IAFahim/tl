@@ -57,13 +57,6 @@ internal static unsafe class DispatchLog
         return ticks;
     }
 
-    internal static (ushort Tick, ushort Code, bool Backward)[] Trail()
-    {
-        var trail = new (ushort Tick, ushort Code, bool Backward)[HitCount];
-        Array.Copy(Hits, trail, HitCount);
-        return trail;
-    }
-
     private static void BindFloat(ulong* keys, int keyCount, byte* table)
     {
         for (var i = 0; i < keyCount; i++)
@@ -116,7 +109,7 @@ internal static unsafe class DispatchLog
 
 public class DispatchOnlyApplyTests
 {
-    internal static byte[] TwoPairBake() => new Baker()
+    private static byte[] TwoPairBake() => new Baker()
         .Track<DispatchJumpTrack, DispatchJumpClip>(new DispatchJumpTrack(2f))
         .Track<DispatchSoundTrack, DispatchSoundClip>(new DispatchSoundTrack(1f))
         .Clip(0, 0, 4, new DispatchJumpClip(3))
@@ -134,13 +127,6 @@ public class DispatchOnlyApplyTests
     static byte[] DualShapeBake() => new Baker()
         .Track<DispatchDualTrack, DispatchDualClip>(new DispatchDualTrack(2f))
         .Clip(0, 2, 6, new DispatchDualClip(1f))
-        .Bake();
-
-    static byte[] LoopingSoundBake() => new Baker()
-        .Track<DispatchSoundTrack, DispatchSoundClip>(new DispatchSoundTrack(1f))
-        .Clip(0, 0, 4, new DispatchSoundClip(11))
-        .Clip(0, 4, 8, new DispatchSoundClip(22))
-        .Looping()
         .Bake();
 
     [Fact]
@@ -225,7 +211,7 @@ public class DispatchOnlyApplyTests
         DispatchLog.Reset();
         using var asset = TimelineAsset.LoadAsset(TwoPairBake());
         var positions = new ushort[] { 1, 1 };
-        var indices = new ushort[] { asset.Index, asset.Index };
+        ushort[] indices = [asset.Index, asset.Index];
         Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(indices, positions, true);
         Assert.Equal([(ushort)1, (ushort)1], DispatchLog.Ticks());
     }
@@ -236,10 +222,10 @@ public class DispatchOnlyApplyTests
         DispatchLog.Reset();
         using var asset = TimelineAsset.LoadAsset(JumpOnlyBake());
         var positions = new ushort[] { 1, 2, 5 };
-        var indices = new ushort[] { asset.Index, asset.Index, asset.Index };
+        ushort[] indices = [asset.Index, asset.Index, asset.Index];
         Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(indices, positions, true);
         using var sound = TimelineAsset.LoadAsset(TwoPairBake());
-        var soundIndices = new ushort[] { sound.Index, sound.Index, sound.Index };
+        ushort[] soundIndices = [sound.Index, sound.Index, sound.Index];
 #if TL_CHECKED
         Assert.Throws<ArgumentException>(() => Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(soundIndices, [ 8, 9, 40 ], true));
 #else

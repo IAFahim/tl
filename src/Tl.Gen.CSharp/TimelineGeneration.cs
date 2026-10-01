@@ -9,7 +9,7 @@ namespace Tl.Gen.CSharp;
 /// timeline consumers itself. A generator's added sources are invisible to every other
 /// generator in the same pass, so the host runs this pipeline over a compilation it has
 /// already augmented with <c>AddSyntaxTrees</c> and emits the returned artifacts under its
-/// own <c>AddSource</c>. The artifact names carry <paramref name="id"/> so they cannot
+/// own <c>AddSource</c>. The artifact names carry <c>id</c> so they cannot
 /// collide with the ones this package's own generator emits for authored consumers.
 /// </summary>
 public static class TimelineGeneration

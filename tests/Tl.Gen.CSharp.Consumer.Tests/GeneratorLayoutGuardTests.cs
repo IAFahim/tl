@@ -67,8 +67,8 @@ public sealed class GeneratorLayoutGuardTests
         var compilation = CSharpCompilation.Create("GeneratorLayoutGuardFixture",
             [CSharpSyntaxTree.ParseText(Guard, options, "Guard.cs")], References(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
-        GeneratorDriver driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator().AsSourceGenerator()], parseOptions: options);
-        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+        var driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator().AsSourceGenerator()], parseOptions: options);
+        driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
         Assert.Empty(diagnostics);
         using var stream = new MemoryStream();
         var result = output.Emit(stream);

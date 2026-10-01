@@ -82,7 +82,7 @@ public sealed class PairLayoutEmissionTests
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
     }
 
-    internal static string[] ReferencePaths()
+    private static string[] ReferencePaths()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
             .Append(typeof(ITrack<,>).Assembly.Location).Distinct(StringComparer.Ordinal).ToArray();
 
