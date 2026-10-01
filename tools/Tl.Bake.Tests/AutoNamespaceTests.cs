@@ -381,7 +381,7 @@ public class AutoCliTests
 
             Assert.True(exitCode == 0, $"exit {exitCode}: {string.Join(" | ", sink.Lines)}");
             Assert.True(
-                sink.Kinds().SequenceEqual(new[] { "ready", "rebuild" }),
+                sink.Kinds().SequenceEqual(["ready", "rebuild"]),
                 $"events: {string.Join(" | ", sink.Lines)}");
             Assert.True(File.Exists(outputPath));
         }

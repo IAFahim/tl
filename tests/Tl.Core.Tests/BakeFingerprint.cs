@@ -7,7 +7,7 @@ internal static class BakeFingerprint
 {
     internal static ulong Of(Type track, Type clip) => Hash(Fold(track) + "\0" + Fold(clip));
 
-    internal static ulong Hash(string text)
+    private static ulong Hash(string text)
     {
         const ulong seed = 14695981039346656037, prime = 1099511628211;
         var hash = seed;

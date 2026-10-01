@@ -1,7 +1,5 @@
-using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Tl.Gen.CSharp;
 using Xunit;
 using static Tl.Gen.CSharp.Tests.ConsumerBindingTests;
 

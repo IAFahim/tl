@@ -30,7 +30,7 @@ public class PublicApiTests
             foreach (var member in type.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
                 .OrderBy(m => m.Name, StringComparer.Ordinal))
             {
-                if (member is MethodBase mb && mb.IsSpecialName)
+                if (member is MethodBase { IsSpecialName: true })
                     continue;
                 sb.AppendLine($"  {member.MemberType} {member}");
             }

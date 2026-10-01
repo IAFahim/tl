@@ -7,8 +7,8 @@ namespace Tl.Gen.CSharp.Analysis;
 public static class JobReader
 {
     internal const int SlotRow = 40;
-    internal const int ActiveParameters = 30;
-    internal const int MemoResults = 10;
+    private const int ActiveParameters = 30;
+    private const int MemoResults = 10;
 
     public static JobReadResult Read(CSharpCompilation compilation)
     {

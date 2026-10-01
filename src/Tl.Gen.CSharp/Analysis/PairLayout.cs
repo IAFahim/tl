@@ -7,7 +7,7 @@ internal static class PairLayout
 {
     internal static ulong Of(ITypeSymbol track, ITypeSymbol clip) => Hash(Fold(track) + "\0" + Fold(clip));
 
-    internal static ulong Hash(string text)
+    private static ulong Hash(string text)
     {
         var hash = 14695981039346656037ul;
         foreach (var c in text) hash = (hash ^ c) * 1099511628211ul;

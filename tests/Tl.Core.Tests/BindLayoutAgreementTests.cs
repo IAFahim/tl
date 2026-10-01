@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
 
 using Tl.TestSupport;
 
@@ -13,13 +14,16 @@ public readonly record struct SkewTrack(int Code) : IBlend<SkewClip>
     public void Blend(in SkewClip first, in SkewClip second, float factor, out SkewClip result) => result = first;
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct SkewClipRetyped(float Value);
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct LayoutOrderTrack(int Code, float Scale) : IBlend<SkewClip>
 {
     public void Blend(in SkewClip first, in SkewClip second, float factor, out SkewClip result) => result = first;
 }
 
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
 public readonly record struct LayoutSwappedTrack(float Scale, int Code) : IBlend<SkewClip>
 {
     public void Blend(in SkewClip first, in SkewClip second, float factor, out SkewClip result) => result = first;
@@ -50,6 +54,7 @@ public unsafe class BindLayoutAgreementTests
         ((float*)columns[0])[row] += frame.Track.Code * frame.Clip.Value;
     }
 
+    [SuppressMessage("ReSharper", "CollectionNeverQueried.Local", Justification = "pins loaded assets so intern indices stay live for the test run; content intentionally unread")]
     static readonly List<TimelineAsset> KeepAlive = [];
 
     static byte[] Bake() => new DomainBaker { FingerprintOf = BakeFingerprint.Of }

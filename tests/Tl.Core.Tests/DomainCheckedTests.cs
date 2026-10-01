@@ -25,7 +25,7 @@ public partial class LaneTests
     {
         using var asset = TimelineAsset.LoadAsset(LoopingBake());
 
-        var thrown = Assert.Throws<ArgumentException>(() => Timeline<LaneTrack, LaneClip>.Apply(asset.Index, (ushort)10, true, new float[1]));
+        var thrown = Assert.Throws<ArgumentException>(() => Timeline<LaneTrack, LaneClip>.Apply(asset.Index, 10, true, new float[1]));
 
         Assert.Contains("position 10", thrown.Message);
         Assert.Contains("duration 6", thrown.Message);
@@ -66,7 +66,7 @@ public partial class LaneTests
         Timeline.Advance(asset.Index, positions, true);
         Timeline<LaneTrack, LaneClip>.Apply(indices, positions, true);
         Timeline<LaneTrack, LaneClip>.Apply(asset.Index, positions, true, effects);
-        Timeline<LaneTrack, LaneClip>.Apply(asset.Index, (ushort)6, true, new float[1]);
+        Timeline<LaneTrack, LaneClip>.Apply(asset.Index, 6, true, new float[1]);
         var atEnd = (ushort)6;
         Timeline<LaneTrack, LaneClip>.Advance(asset.Index, ref atEnd, true);
 

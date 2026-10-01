@@ -8,7 +8,7 @@ namespace Tl.Core.Tests;
 
 public class TotalMovementTests
 {
-    public readonly record struct JobClip(int Value);
+    private readonly record struct JobClip(int Value);
 
     private readonly struct JobTrack : IBlend<JobClip>
     {

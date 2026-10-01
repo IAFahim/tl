@@ -1,22 +1,21 @@
-using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Xunit;
 using Tl.TestSupport;
 
 namespace Tl.Core.Tests;
 
-public partial struct RampState
+public struct RampState
 {
+    [SuppressMessage("ReSharper", "UnusedMember.Global", Justification = "fixture domain model mirrors authored timeline data")]
     public float Rate;
 }
 
 public readonly record struct RampClip(float Rate);
 
-public readonly partial struct RampTrack : IBlend<RampClip>, ITrack<RampTrack, RampClip>
+public readonly struct RampTrack(float scale) : IBlend<RampClip>, ITrack<RampTrack, RampClip>
 {
-    public readonly float Scale;
-
-    public RampTrack(float scale) => Scale = scale;
+    public readonly float Scale = scale;
 
     public void Blend(in RampClip first, in RampClip second, float factor, out RampClip result)
         => result = new RampClip(first.Rate + (second.Rate - first.Rate) * factor);
@@ -82,10 +81,10 @@ public sealed unsafe class SampleTests
             _called = false;
             clocks[0] = tick;
             var columns = new ColumnSet();
-            columns.Add<RampState>(state);
-            Timeline<RampTrack, RampClip>.Apply<ushort, ushort>(ids, clocks, true, in columns);
+            columns.Add(state);
+            Timeline<RampTrack, RampClip>.Apply(ids, clocks, true, in columns);
 
-            var sampled = Timeline<RampTrack, RampClip>.TrySample(index, tick, ref scratch, out var frame, true);
+            var sampled = Timeline<RampTrack, RampClip>.TrySample(index, tick, ref scratch, out var frame);
             Assert.Equal(_called, sampled);
             if (!sampled)
                 continue;
@@ -105,11 +104,11 @@ public sealed unsafe class SampleTests
         using var asset = TimelineAsset.LoadAsset(RampBake());
         var index = asset.Index;
 
-        Assert.Equal(1f, Timeline<RampTrack, RampClip>.SampleClip(index, 0, true).Rate);
-        Assert.Equal(3f, Timeline<RampTrack, RampClip>.SampleClip(index, 7, true).Rate);
+        Assert.Equal(1f, Timeline<RampTrack, RampClip>.SampleClip(index, 0).Rate);
+        Assert.Equal(3f, Timeline<RampTrack, RampClip>.SampleClip(index, 7).Rate);
         var scratch = default(RampClip);
-        Assert.False(Timeline<RampTrack, RampClip>.TrySample(index, 4, ref scratch, out _, true));
-        Assert.Throws<ArgumentException>(() => Timeline<RampTrack, RampClip>.SampleClip(index, 5, true));
+        Assert.False(Timeline<RampTrack, RampClip>.TrySample(index, 4, ref scratch, out _));
+        Assert.Throws<ArgumentException>(() => Timeline<RampTrack, RampClip>.SampleClip(index, 5));
     }
 
     [Fact]
@@ -118,17 +117,17 @@ public sealed unsafe class SampleTests
         using var asset = TimelineAsset.LoadAsset(RampBake());
         var index = asset.Index;
         var clock = (ushort)0;
-        var sampled = new System.Collections.Generic.HashSet<int>();
+        var sampled = new HashSet<int>();
         var scratch = default(RampClip);
 
         for (var step = 0; step < 24; step++)
         {
-            if (Timeline<RampTrack, RampClip>.TrySample(index, clock, ref scratch, out _, true))
+            if (Timeline<RampTrack, RampClip>.TrySample(index, clock, ref scratch, out _))
                 sampled.Add(clock);
             Timeline<RampTrack, RampClip>.Advance(index, ref clock, true);
         }
 
-        Assert.Equal(new[] { 0, 1, 2, 3, 6, 7, 8, 9 }, sampled.Order());
+        Assert.Equal([0, 1, 2, 3, 6, 7, 8, 9], sampled.Order());
     }
 
     [Fact]
@@ -137,11 +136,11 @@ public sealed unsafe class SampleTests
         using var asset = TimelineAsset.LoadAsset(RampBake());
         var index = asset.Index;
 
-        _ = Timeline<RampTrack, RampClip>.SampleClip(index, 2, true);
+        _ = Timeline<RampTrack, RampClip>.SampleClip(index, 2);
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var frame = 0; frame < 2_000; frame++)
         {
-            _ = Timeline<RampTrack, RampClip>.SampleClip(index, 2, true);
+            _ = Timeline<RampTrack, RampClip>.SampleClip(index, 2);
         }
 
         Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
