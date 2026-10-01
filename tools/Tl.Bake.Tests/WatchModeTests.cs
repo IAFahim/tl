@@ -36,7 +36,7 @@ public class WatchModeTests
         scope.WriteInput(ValidJson);
         scope.Engine.InitialBake();
         Assert.True(scope.OutputExists);
-        Assert.Equal(new[] { "ready", "rebuild" }, scope.EventKinds());
+        Assert.Equal(["ready", "rebuild"], scope.EventKinds());
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class WatchModeTests
         scope.Engine.OnEvent(scope.InputPath);
         scope.Engine.Pump(scope.Now(WatchScope.DebounceMilliseconds + 1));
 
-        Assert.Equal(new[] { "rebuild" }, scope.EventKinds());
+        Assert.Equal(["rebuild"], scope.EventKinds());
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class WatchModeTests
         scope.Engine.OnEvent(scope.InputPath);
         scope.Engine.Pump(scope.Now(WatchScope.DebounceMilliseconds + 1));
 
-        Assert.Equal(new[] { "skip" }, scope.EventKinds());
+        Assert.Equal(["skip"], scope.EventKinds());
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class WatchModeTests
         Assert.Empty(scope.EventKinds());
 
         scope.Engine.Pump(scope.Now(WatchScope.DebounceMilliseconds + 1));
-        Assert.Equal(new[] { "rebuild" }, scope.EventKinds());
+        Assert.Equal(["rebuild"], scope.EventKinds());
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class WatchModeTests
         scope.Engine.OnEvent(scope.InputPath);
         scope.Engine.Pump(scope.Now(WatchScope.DebounceMilliseconds + 1));
 
-        Assert.Equal(new[] { "diagnostic" }, scope.EventKinds());
+        Assert.Equal(["diagnostic"], scope.EventKinds());
         var message = scope.JsonLines().Single().RootElement.GetProperty("message").GetString()!;
         Assert.Matches(@"^\[\d+:\d+\] .+", message);
         Assert.Equal(outputBefore, File.ReadAllBytes(scope.OutputPath));
@@ -118,7 +118,7 @@ public class WatchModeTests
         scope.Engine.OnEvent(scope.InputPath);
         scope.Engine.Pump(scope.Now(WatchScope.DebounceMilliseconds + 1));
 
-        Assert.Equal(new[] { "rebuild" }, scope.EventKinds());
+        Assert.Equal(["rebuild"], scope.EventKinds());
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public class WatchModeTests
         scope.Engine.OnEvent(scope.InputPath);
         scope.Engine.Pump(scope.Now(WatchScope.DebounceMilliseconds + 1));
 
-        Assert.Equal(new[] { "skip" }, scope.EventKinds());
+        Assert.Equal(["skip"], scope.EventKinds());
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public class WatchModeTests
         scope.Engine.OnEvent(scope.InputPath);
         scope.Engine.Pump(scope.Now(WatchScope.DebounceMilliseconds + 1));
 
-        Assert.Equal(new[] { "rebuild" }, scope.EventKinds());
+        Assert.Equal(["rebuild"], scope.EventKinds());
     }
 
     [Fact]
@@ -261,7 +261,7 @@ public class WatchModeTests
 
         private readonly string _directory;
         private readonly LineSink _sink;
-        private DateTimeOffset _clock = DateTimeOffset.UtcNow;
+        private readonly DateTimeOffset _clock = DateTimeOffset.UtcNow;
 
         private WatchScope()
         {

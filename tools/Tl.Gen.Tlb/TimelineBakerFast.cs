@@ -64,7 +64,7 @@ internal unsafe delegate void FloatApplier(object box, int* ids, float* vals, in
 
 internal sealed class FieldTable
 {
-    internal Dictionary<string, FieldEntry> ByName = new(StringComparer.Ordinal);
+    internal readonly Dictionary<string, FieldEntry> ByName = new(StringComparer.Ordinal);
     private int _bucketMask;
     private int[] _buckets = [-1];
     private ulong[] _entryHashes = [];
@@ -130,63 +130,61 @@ internal sealed class FieldTable
 
     private static FloatApplier BuildFloatApplier(List<FieldEntry> floatEntries, Type declaring)
     {
+    var method = new DynamicMethod(
+        "apply_floats_" + declaring.Name,
+        typeof(void),
+        [typeof(object), typeof(int*), typeof(float*), typeof(int)],
+        declaring.Module,
+        skipVisibility: true);
+    var il = method.GetILGenerator();
+    var i = il.DeclareLocal(typeof(int));
+    var loop = il.DefineLabel();
+    var cond = il.DefineLabel();
+    var next = il.DefineLabel();
+    var cases = new Label[floatEntries.Count];
+    for (var k = 0; k < cases.Length; k++)
+        cases[k] = il.DefineLabel();
+    var def = il.DefineLabel();
+    il.Emit(OpCodes.Ldc_I4_0);
+    il.Emit(OpCodes.Stloc, i);
+    il.Emit(OpCodes.Br, cond);
+    il.MarkLabel(loop);
+    il.Emit(OpCodes.Ldarg_1);
+    il.Emit(OpCodes.Ldloc, i);
+    il.Emit(OpCodes.Conv_I);
+    il.Emit(OpCodes.Ldc_I4_4);
+    il.Emit(OpCodes.Mul);
+    il.Emit(OpCodes.Add);
+    il.Emit(OpCodes.Ldobj, typeof(int));
+    il.Emit(OpCodes.Switch, [.. cases, def]);
+    for (var k = 0; k < floatEntries.Count; k++)
     {
-        var method = new DynamicMethod(
-            "apply_floats_" + declaring.Name,
-            typeof(void),
-            [typeof(object), typeof(int*), typeof(float*), typeof(int)],
-            declaring.Module,
-            skipVisibility: true);
-        var il = method.GetILGenerator();
-        var i = il.DeclareLocal(typeof(int));
-        var loop = il.DefineLabel();
-        var cond = il.DefineLabel();
-        var next = il.DefineLabel();
-        var cases = new Label[floatEntries.Count];
-        for (var k = 0; k < cases.Length; k++)
-            cases[k] = il.DefineLabel();
-        var def = il.DefineLabel();
-        il.Emit(OpCodes.Ldc_I4_0);
-        il.Emit(OpCodes.Stloc, i);
-        il.Emit(OpCodes.Br, cond);
-        il.MarkLabel(loop);
-        il.Emit(OpCodes.Ldarg_1);
+        il.MarkLabel(cases[k]);
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Unbox, declaring);
+        il.Emit(OpCodes.Ldarg_2);
         il.Emit(OpCodes.Ldloc, i);
         il.Emit(OpCodes.Conv_I);
         il.Emit(OpCodes.Ldc_I4_4);
         il.Emit(OpCodes.Mul);
         il.Emit(OpCodes.Add);
-        il.Emit(OpCodes.Ldobj, typeof(int));
-        il.Emit(OpCodes.Switch, [.. cases, def]);
-        for (var k = 0; k < floatEntries.Count; k++)
-        {
-            il.MarkLabel(cases[k]);
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Unbox, declaring);
-            il.Emit(OpCodes.Ldarg_2);
-            il.Emit(OpCodes.Ldloc, i);
-            il.Emit(OpCodes.Conv_I);
-            il.Emit(OpCodes.Ldc_I4_4);
-            il.Emit(OpCodes.Mul);
-            il.Emit(OpCodes.Add);
-            il.Emit(OpCodes.Ldobj, typeof(float));
-            il.Emit(OpCodes.Stfld, floatEntries[k].Field);
-            il.Emit(OpCodes.Br, next);
-        }
-        il.MarkLabel(def);
-        il.MarkLabel(next);
-        il.Emit(OpCodes.Ldloc, i);
-        il.Emit(OpCodes.Ldc_I4_1);
-        il.Emit(OpCodes.Add);
-        il.Emit(OpCodes.Stloc, i);
-        il.MarkLabel(cond);
-        il.Emit(OpCodes.Ldloc, i);
-        il.Emit(OpCodes.Ldarg_3);
-        il.Emit(OpCodes.Blt, loop);
-        il.Emit(OpCodes.Ret);
-        return method.CreateDelegate<FloatApplier>();
+        il.Emit(OpCodes.Ldobj, typeof(float));
+        il.Emit(OpCodes.Stfld, floatEntries[k].Field);
+        il.Emit(OpCodes.Br, next);
     }
-}
+    il.MarkLabel(def);
+    il.MarkLabel(next);
+    il.Emit(OpCodes.Ldloc, i);
+    il.Emit(OpCodes.Ldc_I4_1);
+    il.Emit(OpCodes.Add);
+    il.Emit(OpCodes.Stloc, i);
+    il.MarkLabel(cond);
+    il.Emit(OpCodes.Ldloc, i);
+    il.Emit(OpCodes.Ldarg_3);
+    il.Emit(OpCodes.Blt, loop);
+    il.Emit(OpCodes.Ret);
+    return method.CreateDelegate<FloatApplier>();
+    }
 
 }
 
@@ -228,7 +226,7 @@ internal sealed class FastTrackInfo
     internal bool PopulateDone;
     internal int DataStart = -1, DataEnd = -1;
     internal bool DataCaptured;
-    internal List<int> ClipIds = new();
+    internal readonly List<int> ClipIds = new();
     internal string? ClipArrayError;
 }
 
@@ -265,11 +263,11 @@ internal sealed class FastDoc
     internal BakeWorkspace? Workspace;
     internal ulong[]? LoanStructural;
     internal ulong[]? LoanQuotes;
-    internal List<FastTrackInfo> Tracks = new();
-    internal List<FastClip> Clips = new();
-    internal List<FastPairInfo> Pairs = new();
+    internal readonly List<FastTrackInfo> Tracks = new();
+    internal readonly List<FastClip> Clips = new();
+    internal readonly List<FastPairInfo> Pairs = new();
     internal Dictionary<(string, string, string?), Type> ResolveCache = new();
-    internal Dictionary<(Type, Type), int> PairIds = new();
+    internal readonly Dictionary<(Type, Type), int> PairIds = new();
 }
 
 internal static class TimelineBakerFast
@@ -1382,7 +1380,7 @@ internal static class TimelineBakerFastCore
         public int TrackEntry;
         public byte[] TrackBytes = null!;
         public ushort TrackValueIndex;
-        public List<int> ClipIds = new();
+        public readonly List<int> ClipIds = new();
     }
 
     private sealed class Replayer(FastDoc doc, BakerAssemblyResolver resolver)

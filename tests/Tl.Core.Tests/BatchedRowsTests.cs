@@ -60,7 +60,7 @@ public class BatchedRowsTests
         .Looping()
         .Bake();
 
-    public static TheoryData<int> Counts => new() { 1, 2, 8, 64, 1000 };
+    public static TheoryData<int> Counts => [1, 2, 8, 64, 1000];
 
     [Theory]
     [MemberData(nameof(Counts))]
@@ -291,9 +291,9 @@ public class BatchedRowsTests
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         int[] ids = [ looping.Index ];
         Assert.Throws<ArgumentException>(() =>
-            Timeline<BatchRowsTrack, BatchRowsClip>.Apply(new[] { 0 }, ids, new ushort[1], true, new float[1]));
+            Timeline<BatchRowsTrack, BatchRowsClip>.Apply([0], ids, new ushort[1], true, new float[1]));
         Assert.Throws<ArgumentException>(() =>
-            Timeline<BatchRowsTrack, BatchRowsClip>.Advance(new[] { 0 }, ids, new int[1], true));
+            Timeline<BatchRowsTrack, BatchRowsClip>.Advance([0], ids, new int[1], true));
     }
 
     [Fact]

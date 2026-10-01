@@ -11,7 +11,6 @@
     <IssueType Id="AccessToDisposedClosure" Category="Potential Code Quality Issues" CategoryId="CodeSmell" Description="Access to disposed captured variable" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/AccessToDisposedClosure.html" />
     <IssueType Id="AccessToModifiedClosure" Category="Potential Code Quality Issues" CategoryId="CodeSmell" Description="Access to modified captured variable" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/AccessToModifiedClosure.html" />
     <IssueType Id="AccessToStaticMemberViaDerivedType" Category="Common Practices and Code Improvements" CategoryId="BestPractice" Description="Access to a static member of a type via a derived type" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/AccessToStaticMemberViaDerivedType.html" />
-    <IssueType Id="BadControlBracesIndent" Category="Formatting" CategoryId="FormattingIssues" SubCategory="Incorrect indent" Description="Incorrect indent: Around statement braces" Severity="SUGGESTION" WikiUrl="https://www.jetbrains.com/help/resharper/BadControlBracesIndent.html" />
     <IssueType Id="CSharpErrors" Category="C# Compiler Errors" CategoryId="CSharpErrors" Description="" Severity="ERROR" />
     <IssueType Id="CSharpWarnings::CS8601" Category="Compiler Warnings" CategoryId="CompilerWarnings" Description="Possible null reference assignment." Severity="WARNING" WikiUrl="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/compiler-messages/nullable-warnings#possible-null-assigned-to-a-nonnullable-reference" />
     <IssueType Id="CSharpWarnings::CS8602" Category="Compiler Warnings" CategoryId="CompilerWarnings" Description="Dereference of a possibly null reference." Severity="WARNING" WikiUrl="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/compiler-messages/nullable-warnings#possible-dereference-of-null" />
@@ -20,8 +19,6 @@
     <IssueType Id="CompareOfFloatsByEqualityOperator" Category="Potential Code Quality Issues" CategoryId="CodeSmell" Description="Equality comparison of floating point numbers" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/CompareOfFloatsByEqualityOperator.html" />
     <IssueType Id="ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract" Category="Redundancies in Code" CategoryId="CodeRedundancy" Description="Expression is always 'true' or 'false' according to nullable reference types' annotations" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract.html" />
     <IssueType Id="ConvertIfStatementToNullCoalescingAssignment" Category="Language Usage Opportunities" CategoryId="LanguageUsage" Description="'if' statement can be rewritten as '??=' assignment" Severity="SUGGESTION" />
-    <IssueType Id="FieldCanBeMadeReadOnly.Global" Category="Common Practices and Code Improvements" CategoryId="BestPractice" SubCategory="Field can be made readonly" Description="Field can be made readonly: Non-private accessibility" Severity="SUGGESTION" Global="True" WikiUrl="https://www.jetbrains.com/help/resharper/FieldCanBeMadeReadOnly.Global.html" />
-    <IssueType Id="FieldCanBeMadeReadOnly.Local" Category="Common Practices and Code Improvements" CategoryId="BestPractice" SubCategory="Field can be made readonly" Description="Field can be made readonly: Private accessibility" Severity="SUGGESTION" WikiUrl="https://www.jetbrains.com/help/resharper/FieldCanBeMadeReadOnly.Local.html" />
     <IssueType Id="ForCanBeConvertedToForeach" Category="Language Usage Opportunities" CategoryId="LanguageUsage" Description="For-loop can be converted into foreach-loop" Severity="SUGGESTION" WikiUrl="https://www.jetbrains.com/help/resharper/ForCanBeConvertedToForeach.html" />
     <IssueType Id="InconsistentNaming" Category="Constraints Violations" CategoryId="ConstraintViolation" Description="Inconsistent Naming" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/InconsistentNaming.html" />
     <IssueType Id="InvokeAsExtensionMember" Category="Language Usage Opportunities" CategoryId="LanguageUsage" SubCategory="Convert static method invocation into extension member call" Description="Convert static method invocation into extension member call: Convert qualified static method invocation into extension member call" Severity="SUGGESTION" WikiUrl="https://www.jetbrains.com/help/resharper/InvokeAsExtensionMember.html" />
@@ -36,7 +33,6 @@
     <IssueType Id="RedundantAssignment" Category="Redundancies in Code" CategoryId="CodeRedundancy" Description="Assignment is not used" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/RedundantAssignment.html" />
     <IssueType Id="RedundantCast" Category="Redundancies in Code" CategoryId="CodeRedundancy" Description="Redundant cast" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/RedundantCast.html" />
     <IssueType Id="RedundantExplicitArrayCreation" Category="Redundancies in Code" CategoryId="CodeRedundancy" Description="Redundant explicit type in array creation" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/RedundantExplicitArrayCreation.html" />
-    <IssueType Id="RedundantStringInterpolation" Category="Redundancies in Code" CategoryId="CodeRedundancy" Description="Redundant string interpolation" Severity="SUGGESTION" WikiUrl="https://www.jetbrains.com/help/resharper/RedundantStringInterpolation.html" />
     <IssueType Id="RedundantUsingDirective" Category="Redundancies in Code" CategoryId="CodeRedundancy" Description="Redundant using directive" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/RedundantUsingDirective.html" />
     <IssueType Id="UnassignedField.Global" Category="Potential Code Quality Issues" CategoryId="CodeSmell" SubCategory="Unassigned field" Description="Unassigned field: Non-private accessibility" Severity="SUGGESTION" Global="True" WikiUrl="https://www.jetbrains.com/help/resharper/UnassignedField.Global.html" />
     <IssueType Id="UnusedAutoPropertyAccessor.Global" Category="Potential Code Quality Issues" CategoryId="CodeSmell" SubCategory="Auto-property accessor is never used" Description="Auto-property accessor is never used: Non-private accessibility" Severity="WARNING" Global="True" WikiUrl="https://www.jetbrains.com/help/resharper/UnusedAutoPropertyAccessor.Global.html" />
@@ -45,7 +41,6 @@
     <IssueType Id="UnusedParameter.Local" Category="Redundancies in Symbol Declarations" CategoryId="DeclarationRedundancy" SubCategory="Unused parameter" Description="Unused parameter: Private accessibility" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/UnusedParameter.Local.html" />
     <IssueType Id="UnusedType.Global" Category="Redundancies in Symbol Declarations" CategoryId="DeclarationRedundancy" SubCategory="Type is never used" Description="Type is never used: Non-private accessibility" Severity="SUGGESTION" Global="True" WikiUrl="https://www.jetbrains.com/help/resharper/UnusedType.Global.html" />
     <IssueType Id="UnusedTypeParameter" Category="Redundancies in Symbol Declarations" CategoryId="DeclarationRedundancy" Description="Unused type parameter" Severity="WARNING" WikiUrl="https://www.jetbrains.com/help/resharper/UnusedTypeParameter.html" />
-    <IssueType Id="UseCollectionExpression" Category="Language Usage Opportunities" CategoryId="LanguageUsage" Description="Use collection expression syntax" Severity="SUGGESTION" WikiUrl="https://www.jetbrains.com/help/resharper/UseCollectionExpression.html" />
     <IssueType Id="UseUtf8StringLiteral" Category="Language Usage Opportunities" CategoryId="LanguageUsage" Description="Use UTF-8 string literal" Severity="SUGGESTION" WikiUrl="https://www.jetbrains.com/help/resharper/UseUtf8StringLiteral.html" />
   </IssueTypes>
   <Issues>
@@ -138,7 +133,6 @@
     <Project Name="PairHandles">
       <Issue TypeId="NotAccessedField.Global" File="benchmarks\PairHandles\Benchmarks.cs" Offset="1021-1025" Line="45" Message="Field 'Sink' is assigned but its value is never used" />
       <Issue TypeId="UnassignedField.Global" File="benchmarks\PairHandles\Benchmarks.cs" Offset="1240-1245" Line="48" Message="Field 'Shape' is never assigned" />
-      <Issue TypeId="MemberCanBePrivate.Global" File="benchmarks\PairHandles\Benchmarks.cs" Offset="2301-2309" Line="76" Message="Method 'HasWaves' can be made private" />
       <Issue TypeId="UnusedMember.Global" File="benchmarks\PairHandles\Domain.cs" Offset="16150-16157" Line="393" Message="Enum member 'Clamped' is never used" />
       <Issue TypeId="UnusedMember.Global" File="benchmarks\PairHandles\Domain.cs" Offset="16217-16226" Line="398" Message="Method 'Positions' is never used" />
       <Issue TypeId="UnusedMember.Global" File="benchmarks\PairHandles\Domain.cs" Offset="16688-16691" Line="412" Message="Method 'Ids' is never used" />
@@ -180,12 +174,8 @@
       <Issue TypeId="UnusedType.Global" File="tools\Tl.Bake.Bench\Fixtures.cs" Offset="40186-40196" Line="652" Message="Struct 'Tiny0Track' is never used" />
       <Issue TypeId="UnusedType.Global" File="tools\Tl.Bake.Bench\Fixtures.cs" Offset="40612-40622" Line="670" Message="Struct 'Tiny1Track' is never used" />
       <Issue TypeId="UnusedType.Global" File="tools\Tl.Bake.Bench\Fixtures.cs" Offset="41115-41125" Line="691" Message="Struct 'Tiny2Track' is never used" />
-      <Issue TypeId="MergeIntoPattern" File="tools\Tl.Bake.Bench\Program.cs" Offset="326-328" Line="15" Message="Merge into pattern" />
-      <Issue TypeId="ForCanBeConvertedToForeach" File="tools\Tl.Bake.Bench\Program.cs" Offset="15455-15458" Line="318" Message="'for' loop can be converted into 'foreach' loop" />
     </Project>
     <Project Name="Tl.Bake.Tests">
-      <Issue TypeId="UseCollectionExpression" File="tools\Tl.Bake.Tests\AutoNamespaceTests.cs" Offset="13072-13077" Line="384" Message="Use collection expression" />
-      <Issue TypeId="RedundantStringInterpolation" File="tools\Tl.Bake.Tests\DiagnosticTests.cs" Offset="5368-5370" Line="182" Message="Redundant string interpolation" />
       <Issue TypeId="UnusedType.Global" File="tools\Tl.Bake.Tests\FusedFixtures.cs" Offset="245-253" Line="8" Message="Record struct 'GaTrack0' is never used" />
       <Issue TypeId="UnusedType.Global" File="tools\Tl.Bake.Tests\FusedFixtures.cs" Offset="6341-6349" Line="150" Message="Record struct 'GaTrack1' is never used" />
       <Issue TypeId="UnusedMember.Global" File="tools\Tl.Bake.Tests\FusedFixtures.cs" Offset="6551-6553" Line="157" Message="Field 'f0' is never used" />
@@ -207,7 +197,6 @@
       <Issue TypeId="UnusedType.Global" File="tools\Tl.Bake.Tests\IntrospectionFixtures.cs" Offset="2399-2410" Line="80" Message="Struct 'FoldLiveJob' is never used" />
       <Issue TypeId="UnusedMember.Global" File="tools\Tl.Bake.Tests\IntrospectionFixtures.cs" Offset="2466-2470" Line="82" Message="Method 'Fold' is never used" />
       <Issue TypeId="UnusedMember.Global" File="tools\Tl.Bake.Tests\IntrospectionFixtures.cs" Offset="2563-2576" Line="84" Message="Method 'ExecuteActive' is never used" />
-      <Issue TypeId="MergeIntoPattern" File="tools\Tl.Bake.Tests\PublicApiTests.cs" Offset="1226-1228" Line="33" Message="Merge into pattern" />
       <Issue TypeId="UseUtf8StringLiteral" File="tools\Tl.Bake.Tests\SimdWalkerCoverageTests.cs" Offset="16752-16774" Line="271" Message="'Encoding.GetBytes' invocation can be replaced with a UTF-8 string literal" />
       <Issue TypeId="UseUtf8StringLiteral" File="tools\Tl.Bake.Tests\SimdWalkerCoverageTests.cs" Offset="16925-16947" Line="275" Message="'Encoding.GetBytes' invocation can be replaced with a UTF-8 string literal" />
       <Issue TypeId="UnusedMember.Global" File="tools\Tl.Bake.Tests\TlbFixtures.cs" Offset="184-189" Line="12" Message="Field 'Value' is never used" />
@@ -236,15 +225,6 @@
       <Issue TypeId="UnusedType.Global" File="tools\Tl.Bake.Tests\TwinFixtures.cs" Offset="522-531" Line="25" Message="Struct 'TwinTrack' is never used" />
       <Issue TypeId="UnusedMember.Global" File="tools\Tl.Bake.Tests\TwinFixtures.cs" Offset="595-599" Line="27" Message="Field 'Code' is never used" />
       <Issue TypeId="AccessToModifiedClosure" File="tools\Tl.Bake.Tests\WatchModeCoverageTests.cs" Offset="7579-7583" Line="217" Message="Captured variable is modified in the outer scope" />
-      <Issue TypeId="UseCollectionExpression" File="tools\Tl.Bake.Tests\WatchModeTests.cs" Offset="1039-1044" Line="39" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tools\Tl.Bake.Tests\WatchModeTests.cs" Offset="1536-1541" Line="54" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tools\Tl.Bake.Tests\WatchModeTests.cs" Offset="1987-1992" Line="69" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tools\Tl.Bake.Tests\WatchModeTests.cs" Offset="2602-2607" Line="86" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tools\Tl.Bake.Tests\WatchModeTests.cs" Offset="3213-3218" Line="102" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tools\Tl.Bake.Tests\WatchModeTests.cs" Offset="4047-4052" Line="121" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tools\Tl.Bake.Tests\WatchModeTests.cs" Offset="4529-4534" Line="136" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tools\Tl.Bake.Tests\WatchModeTests.cs" Offset="5126-5131" Line="153" Message="Use collection expression" />
-      <Issue TypeId="FieldCanBeMadeReadOnly.Local" File="tools\Tl.Bake.Tests\WatchModeTests.cs" Offset="9725-9731" Line="264" Message="Field can be made readonly" />
     </Project>
     <Project Name="Tl.Core">
       <Issue TypeId="UnusedMember.Global" File="src\Tl.Core\BakeTable.cs" Offset="553-571" Line="16" Message="Method 'BakeParameterCount' is never used" />
@@ -261,13 +241,11 @@
       <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\Lane.cs" Offset="10835-10861" Line="277" Message="Invoke as extension method" />
       <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\Lane.cs" Offset="11378-11404" Line="289" Message="Invoke as extension method" />
       <Issue TypeId="InvokeAsExtensionMember" File="src\Tl.Core\Lane.cs" Offset="11915-11941" Line="301" Message="Invoke as extension method" />
-      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Core\MeasuredLanes.cs" Offset="8974-8982" Line="204" Message="Constant 'LaneBound' can be made private" />
       <Issue TypeId="UnusedMember.Global" File="src\Tl.Core\Timeline.cs" Offset="7159-7166" Line="156" Message="Method 'BakeRef' is never used" />
       <Issue TypeId="PartialTypeWithSinglePart" File="src\Tl.Core\TimelinePair.cs" Offset="153-160" Line="7" Message="Partial class with single part" />
       <Issue TypeId="UnusedMember.Global" File="src\Tl.Core\TimelinePair.cs" Offset="8348-8358" Line="235" Message="Method 'ApplyChunk' is never used" />
       <Issue TypeId="PossiblyImpureMethodCallOnReadonlyVariable" File="src\Tl.Core\TimelinePair.cs" Offset="11400-11408" Line="304" Message="Possibly impure struct method called on readonly variable: struct value always copied before invocation" />
       <Issue TypeId="PossiblyImpureMethodCallOnReadonlyVariable" File="src\Tl.Core\TimelinePair.cs" Offset="11467-11475" Line="305" Message="Possibly impure struct method called on readonly variable: struct value always copied before invocation" />
-      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Core\TimelinePair.cs" Offset="21948-21956" Line="593" Message="Constant 'Capacity' can be made private" />
       <Issue TypeId="CSharpWarnings::CS8602" Severity="ERROR" File="src\Tl.Core\TimelineSet.cs" Offset="32215-32222" Line="726" Message="Dereference of a possibly null reference" />
       <Issue TypeId="CSharpWarnings::CS8602" Severity="ERROR" File="src\Tl.Core\TimelineSet.cs" Offset="33775-33782" Line="766" Message="Dereference of a possibly null reference" />
       <Issue TypeId="AccessToStaticMemberViaDerivedType" File="src\Tl.Core\TimelineSet.cs" Offset="57668-57671" Line="1282" Message="Access to a static member of a type via a derived type" />
@@ -289,9 +267,6 @@
       <Issue TypeId="NotAccessedPositionalProperty.Global" File="tests\Tl.Core.Tests\BankDispatchTests.cs" Offset="148-153" Line="7" Message="Positional property 'Tl.Core.Tests.BankMarkClip.Value' is never accessed (except in implicit Equals/ToString implementations)" />
       <Issue TypeId="NotAccessedPositionalProperty.Global" File="tests\Tl.Core.Tests\BankDispatchTests.cs" Offset="207-212" Line="9" Message="Positional property 'Tl.Core.Tests.BankMarkTrack.Scale' is never accessed (except in implicit Equals/ToString implementations)" />
       <Issue TypeId="UnusedTypeParameter" File="tests\Tl.Core.Tests\BankDispatchTests.cs" Offset="415-416" Line="15" Message="Type parameter 'T' is never used" />
-      <Issue TypeId="UseCollectionExpression" File="tests\Tl.Core.Tests\BatchedRowsTests.cs" Offset="2101-2104" Line="63" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tests\Tl.Core.Tests\BatchedRowsTests.cs" Offset="11566-11571" Line="294" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tests\Tl.Core.Tests\BatchedRowsTests.cs" Offset="11728-11733" Line="296" Message="Use collection expression" />
       <Issue TypeId="NotAccessedField.Global" File="tests\Tl.Core.Tests\DataTests.cs" Offset="1974-1979" Line="46" Message="Field 'Value' is assigned but its value is never used" />
       <Issue TypeId="NotAccessedPositionalProperty.Global" File="tests\Tl.Core.Tests\DispatchOnlyApplyTests.cs" Offset="568-572" Line="13" Message="Positional property 'Tl.Core.Tests.DispatchSoundTrack.Gain' is never accessed (except in implicit Equals/ToString implementations)" />
       <Issue TypeId="NotAccessedPositionalProperty.Global" File="tests\Tl.Core.Tests\DispatchOnlyApplyTests.cs" Offset="11741-11746" Line="269" Message="Positional property 'Tl.Core.Tests.IdCell.Value' is never accessed (except in implicit Equals/ToString implementations)" />
@@ -309,16 +284,7 @@
       <Issue TypeId="AccessToDisposedClosure" File="tests\Tl.Core.Tests\MovementSetKernelTests.cs" Offset="2471-2474" Line="72" Message="Captured variable is disposed in the outer scope" />
       <Issue TypeId="NotAccessedPositionalProperty.Global" File="tests\Tl.Core.Tests\RefArgumentBakeTests.cs" Offset="241-246" Line="11" Message="Positional property 'Tl.Core.Tests.RefProbeClip.Value' is never accessed (except in implicit Equals/ToString implementations)" />
       <Issue TypeId="NotAccessedPositionalProperty.Global" File="tests\Tl.Core.Tests\RefArgumentBakeTests.cs" Offset="298-302" Line="13" Message="Positional property 'Tl.Core.Tests.RefProbeTrack.Code' is never accessed (except in implicit Equals/ToString implementations)" />
-      <Issue TypeId="BadControlBracesIndent" File="tests\Tl.Core.Tests\SharedClockCrowdTests.cs" Offset="1806-1818" Line="67" Message="Unexpected line indent change around statement braces" />
-      <Issue TypeId="BadControlBracesIndent" File="tests\Tl.Core.Tests\SharedClockCrowdTests.cs" Offset="3052-3064" Line="92" Message="Unexpected line indent change around statement braces" />
-      <Issue TypeId="BadControlBracesIndent" File="tests\Tl.Core.Tests\SharedClockCrowdTests.cs" Offset="4288-4300" Line="124" Message="Unexpected line indent change around statement braces" />
-      <Issue TypeId="BadControlBracesIndent" File="tests\Tl.Core.Tests\SharedClockCrowdTests.cs" Offset="6078-6090" Line="160" Message="Unexpected line indent change around statement braces" />
       <Issue TypeId="NotAccessedPositionalProperty.Global" File="tests\Tl.Core.Tests\SurfaceTimelineTests.cs" Offset="169-174" Line="9" Message="Positional property 'Tl.Core.Tests.SurfaceTrack.Scale' is never accessed (except in implicit Equals/ToString implementations)" />
-      <Issue TypeId="MemberCanBePrivate.Global" File="tests\Tl.Core.Tests\TotalMovementTests.cs" Offset="178-184" Line="11" Message="Record struct 'JobClip' can be made private" />
-      <Issue TypeId="UseCollectionExpression" File="tests\Tl.Core.Tests\WindowConstantTests.cs" Offset="11594-11599" Line="259" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tests\Tl.Core.Tests\WindowConstantTests.cs" Offset="11826-11831" Line="262" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tests\Tl.Core.Tests\WindowConstantTests.cs" Offset="12752-12757" Line="286" Message="Use collection expression" />
-      <Issue TypeId="UseCollectionExpression" File="tests\Tl.Core.Tests\WindowConstantTests.cs" Offset="12981-12986" Line="289" Message="Use collection expression" />
     </Project>
     <Project Name="Tl.Fuzz">
       <Issue TypeId="CompareOfFloatsByEqualityOperator" File="tests\Tl.Fuzz\BakeLaws.cs" Offset="2163-2204" Line="55" Message="Equality comparison of floating point numbers. Possible loss of precision while rounding values" />
@@ -349,33 +315,19 @@
       <Issue TypeId="CompareOfFloatsByEqualityOperator" File="tests\Tl.Fuzz\PairLaws.cs" Offset="8964-9015" Line="178" Message="Equality comparison of floating point numbers. Possible loss of precision while rounding values" />
     </Project>
     <Project Name="Tl.Gen.CSharp">
-      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="netstandard2.0" Offset="203-211" Line="10" Message="Constant 'ActiveParameters' can be made private" />
-      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="net10.0" Offset="203-211" Line="10" Message="Constant 'ActiveParameters' can be made private" />
-      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="netstandard2.0" Offset="249-257" Line="11" Message="Constant 'MemoResults' can be made private" />
-      <Issue TypeId="MemberCanBePrivate.Global" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="net10.0" Offset="249-257" Line="11" Message="Constant 'MemoResults' can be made private" />
-      <Issue TypeId="RedundantCast" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="netstandard2.0" Offset="8636-8642" Line="141" Message="Type cast is redundant" />
-      <Issue TypeId="RedundantCast" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="net10.0" Offset="8636-8642" Line="141" Message="Type cast is redundant" />
+      <Issue TypeId="RedundantCast" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="netstandard2.0" Offset="8634-8640" Line="141" Message="Type cast is redundant" />
+      <Issue TypeId="RedundantCast" File="src\Tl.Gen.CSharp\Analysis\JobReader.cs" TargetFramework="net10.0" Offset="8634-8640" Line="141" Message="Type cast is redundant" />
       <Issue TypeId="UnusedType.Global" File="src\Tl.Gen.CSharp\Polyfills.cs" TargetFramework="netstandard2.0" Offset="85-99" Line="4" Message="Class 'IsExternalInit' is never used" />
     </Project>
     <Project Name="Tl.Gen.CSharp.Tests">
       <Issue TypeId="RedundantArgumentDefaultValue" File="tests\Tl.Gen.CSharp.Tests\CompileGenerationCacheTests.cs" Offset="13804-13808" Line="308" Message="The parameter 'semanticInputs' has the same default value" />
     </Project>
     <Project Name="Tl.Gen.Tlb">
-      <Issue TypeId="FieldCanBeMadeReadOnly.Global" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="1803-1809" Line="67" Message="Field can be made readonly" />
-      <Issue TypeId="BadControlBracesIndent" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="4055-4059" Line="133" Message="Line is not indented relative to the previous line around statement braces, expected indent 4 spaces" />
-      <Issue TypeId="BadControlBracesIndent" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="6087-6088" Line="189" Message="Unexpected line indent change around statement braces" />
-      <Issue TypeId="FieldCanBeMadeReadOnly.Global" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="7198-7205" Line="231" Message="Field can be made readonly" />
-      <Issue TypeId="NotAccessedField.Global" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="7966-7974" Line="260" Message="Field 'Resolver' is assigned but its value is never used" />
-      <Issue TypeId="FieldCanBeMadeReadOnly.Global" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="8246-8252" Line="268" Message="Field can be made readonly" />
-      <Issue TypeId="FieldCanBeMadeReadOnly.Global" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="8290-8295" Line="269" Message="Field can be made readonly" />
-      <Issue TypeId="FieldCanBeMadeReadOnly.Global" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="8337-8342" Line="270" Message="Field can be made readonly" />
-      <Issue TypeId="FieldCanBeMadeReadOnly.Global" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="8474-8481" Line="272" Message="Field can be made readonly" />
-      <Issue TypeId="UnusedParameter.Local" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="42412-42419" Line="1105" Message="Parameter 'trackId' is never used" />
-      <Issue TypeId="MergeIntoPattern" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="48203-48205" Line="1236" Message="Merge into pattern" />
-      <Issue TypeId="MergeIntoPattern" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="48255-48257" Line="1236" Message="Merge into pattern" />
-      <Issue TypeId="FieldCanBeMadeReadOnly.Local" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="53900-53907" Line="1385" Message="Field can be made readonly" />
-      <Issue TypeId="ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="67981-68009" Line="1699" Message="Expression is always true according to nullable reference types' annotations" />
-      <Issue TypeId="UseCollectionExpression" File="tools\Tl.Gen.Tlb\TimelineBakerSimd.cs" Offset="45634-45639" Line="1382" Message="Use collection expression" />
+      <Issue TypeId="NotAccessedField.Global" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="7760-7768" Line="258" Message="Field 'Resolver' is assigned but its value is never used" />
+      <Issue TypeId="UnusedParameter.Local" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="42242-42249" Line="1103" Message="Parameter 'trackId' is never used" />
+      <Issue TypeId="MergeIntoPattern" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="48033-48035" Line="1234" Message="Merge into pattern" />
+      <Issue TypeId="MergeIntoPattern" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="48085-48087" Line="1234" Message="Merge into pattern" />
+      <Issue TypeId="ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract" File="tools\Tl.Gen.Tlb\TimelineBakerFast.cs" Offset="67820-67848" Line="1697" Message="Expression is always true according to nullable reference types' annotations" />
       <Issue TypeId="UnusedMember.Global" File="tools\Tl.Gen.Tlb\TlbIntrospection.cs" Offset="9324-9329" Line="224" Message="Field 'Value' is never used" />
     </Project>
   </Issues>

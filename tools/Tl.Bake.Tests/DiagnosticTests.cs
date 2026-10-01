@@ -179,7 +179,7 @@ public class DiagnosticTests
     [Fact]
     public void WrongAssembly_ThrowsDiagnosticWithCandidates()
     {
-        var json = $$"""
+        var json = """
         {
           "duration": 10,
           "tracks": [

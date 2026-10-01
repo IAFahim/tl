@@ -201,7 +201,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         for (var l = 0; l < lanes; l++) { measured.LaneForward[l][duration] = 0f; measured.LaneBackward[l][duration] = 0f; }
     }
 
-    internal const int LaneBound = PairTable.MaxPointers / PairTable.SlotRow * (PairTable.MemoResults * 2 + 1);
+    private const int LaneBound = PairTable.MaxPointers / PairTable.SlotRow * (PairTable.MemoResults * 2 + 1);
 
     const int CacheStride = 64;
 

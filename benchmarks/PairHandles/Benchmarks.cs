@@ -73,7 +73,7 @@ public class PairHandleBenchmarks
         return (positions, handles, Seeds.Effects(rows));
     }
 
-    internal static bool HasWaves(ShapeKind shape)
+    private static bool HasWaves(ShapeKind shape)
         => shape is ShapeKind.PairRuns8Waves or ShapeKind.PairBlocks8Waves or ShapeKind.PairAlternating8Waves;
 
     [Benchmark]

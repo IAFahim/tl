@@ -12,7 +12,7 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
-        if (args.Length >= 1 && args[0] == "corpus")
+        if (args is ["corpus", ..])
             return CorpusCommand(args);
         if (args is ["parity", _, ..])
             return ParityCommand(args);
@@ -315,8 +315,8 @@ internal static class Program
         done.Wait();
         var ms = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
         ulong sum = 0;
-        for (var i = 0; i < outputs.Length; i++)
-            sum ^= (ulong)outputs[i].Length + BinaryPrimitives.ReadUInt64LittleEndian(outputs[i]);
+        foreach (var output in outputs)
+            sum ^= (ulong)output.Length + BinaryPrimitives.ReadUInt64LittleEndian(output);
         var gcCounts = $"{GC.CollectionCount(0) - gc0}/{GC.CollectionCount(1) - gc1}/{GC.CollectionCount(2) - gc2}";
         return new BatchPass(
             "parallel",

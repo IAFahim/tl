@@ -1379,7 +1379,7 @@ internal sealed unsafe class SimdWalker
         var method = new DynamicMethod(
             "simd_fld_" + field.Name,
             typeof(IntPtr),
-            new[] { typeof(object) },
+            [typeof(object)],
             declaring.Module,
             skipVisibility: true);
         var il = method.GetILGenerator();

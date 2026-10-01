@@ -64,8 +64,8 @@ public class SharedClockCrowdTests
     public void SharedClockApplyMatchesPerRowPathBitExact()
     {
         foreach (var (bake, duration, looping) in Variants())
-            {
-                using var asset = TimelineAsset.LoadAsset(bake);
+        {
+            using var asset = TimelineAsset.LoadAsset(bake);
             var index = asset.Index;
             Bind(index);
             foreach (var forward in new[] { true, false })
@@ -82,15 +82,15 @@ public class SharedClockCrowdTests
                             MemoryMarshal.AsBytes(perRow.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(shared.AsSpan())),
                             $"effects differ: duration {duration}, looping {looping}, forward {forward}, rows {rows}, position {position}");
                     }
-            }
+        }
     }
 
     [Fact]
     public void SharedClockStepMatchesPerRowStepFromEveryStart()
     {
         foreach (var (bake, duration, _) in Variants())
-            {
-                using var asset = TimelineAsset.LoadAsset(bake);
+        {
+            using var asset = TimelineAsset.LoadAsset(bake);
             var index = asset.Index;
             Bind(index);
             var maxStart =
@@ -114,15 +114,15 @@ public class SharedClockCrowdTests
                         allMatch,
                         $"clock diverged: duration {duration}, start {start}, forward {forward}, per-row {uniform[0]}, shared {clock}");
                 }
-            }
+        }
     }
 
     [Fact]
     public void SharedClockFrameLoopMatchesPerRowColumns()
     {
         foreach (var (bake, duration, looping) in Variants())
-            {
-                using var asset = TimelineAsset.LoadAsset(bake);
+        {
+            using var asset = TimelineAsset.LoadAsset(bake);
             var index = asset.Index;
             Bind(index);
             foreach (var rows in new[] { 15, 16, 4096 })
@@ -150,15 +150,15 @@ public class SharedClockCrowdTests
                         $"effects diverged at step {step}: duration {duration}, looping {looping}, forward {forward}, rows {rows}");
                 }
             }
-            }
+        }
     }
 
     [Fact]
     public void SkippedSharedClockLeavesEffectsUntouched()
     {
         foreach (var (bake, duration, looping) in Variants())
-            {
-                using var asset = TimelineAsset.LoadAsset(bake);
+        {
+            using var asset = TimelineAsset.LoadAsset(bake);
             var index = asset.Index;
             Bind(index);
             foreach (var forward in new[] { true, false })
@@ -172,7 +172,7 @@ public class SharedClockCrowdTests
                         MemoryMarshal.AsBytes(effects.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(pristine.AsSpan())),
                         $"skipped position moved effects: duration {duration}, looping {looping}, forward {forward}, position {position}");
                 }
-            }
+        }
     }
 
     static unsafe bool IsSkipped(ushort index, ushort position, bool forward)
