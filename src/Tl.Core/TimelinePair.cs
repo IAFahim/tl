@@ -74,6 +74,41 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		if (next != LaneMovementRecord.Skipped) position = next;
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+	public static bool TrySample(ushort index, ushort position, ref TClip scratch, out Frame<TTrack, TClip> frame, bool forward = true)
+	{
+		frame = default;
+		Checked.Domain(index, position);
+		Resolve(index);
+		var reference = TimelineTable.Reference(index);
+		if (!reference.Select(!forward, position, out var tick, out var flags))
+			return false;
+		var key = PairRuntime<TTrack, TClip>.Key;
+		var stage = reference.StageOf(tick);
+		if (stage == null)
+			return false;
+		var pairs = reference.Pairs;
+		var block = (byte*)reference.Address;
+		var steps = (NativeStep*)(block + stage->ProgramOffset);
+		var count = (int)stage->ProgramCount;
+		for (var i = 0; i < count; i++)
+		{
+			if (pairs[steps[i].Pair].Key != key)
+				continue;
+			frame = SlotRow.ToFrame<TTrack, TClip>((SlotRow*)(block + steps[i].Slot), (byte*)(pairs + steps[i].Pair), tick, flags, (TClip*)Unsafe.AsPointer(ref scratch));
+			return true;
+		}
+		return false;
+	}
+
+	public static TClip SampleClip(ushort index, ushort position, bool forward = true)
+	{
+		var scratch = default(TClip);
+		return TrySample(index, position, ref scratch, out _, forward)
+			? scratch
+			: throw new ArgumentException($"Timeline slot {index} has no ({typeof(TTrack).Name}, {typeof(TClip).Name}) window at position {position}.");
+	}
+
 	[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
 	static void ApplySharedClock(SlotView* slot, ushort position, bool forward, Span<float> effects)
 	{

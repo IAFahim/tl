@@ -138,6 +138,8 @@ type Tl.Timeline`2
   Method Void Apply[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, Tl.ColumnSet ByRef)
   Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[System.Int32], System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
   Method Void ApplyChunk[TIndex,TPosition,TEffect0,TEffect1](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect0], System.Span`1[TEffect1])
+  Method TClip SampleClip(UInt16, UInt16, Boolean)
+  Method Boolean TrySample(UInt16, UInt16, TClip ByRef, Tl.Frame`2[TTrack,TClip] ByRef, Boolean)
   Method Tl.SlotView View(UInt16)
   Method Tl.SlotView View(Tl.TimelineAsset)
 type Tl.TypeKey`1
