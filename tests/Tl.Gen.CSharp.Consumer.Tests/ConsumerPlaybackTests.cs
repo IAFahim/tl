@@ -50,7 +50,7 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
-    public void OnMemoSpellingFoldsIdenticallyToTheRefFloatMeasuredShape()
+    public void FoldSpellingFoldsIdenticallyToTheRefFloatMeasuredShape()
     {
         var result = Driver("Memo");
 
@@ -161,7 +161,7 @@ public sealed class ConsumerPlaybackTests
         Assert.StartsWith("THROWN|", result);
         Assert.Contains("ArcTrack", result);
         Assert.Contains("JumpCompose", result);
-        Assert.Contains("OnActive", result);
+        Assert.Contains("ExecuteActive", result);
         Assert.Contains("column of type int (multiplier)", result);
         Assert.EndsWith("|100", result);
     }
@@ -299,7 +299,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
-            public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float health)
+            public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref float health)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 health += frame.IsBackward ? amount : -amount;
@@ -318,7 +318,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct ApplyHeal : ITrack<HealTrack, HealClip>, IBake<ApplyHeal>
         {
-            public static void OnActive(in Frame<HealTrack, HealClip> frame, ref float health)
+            public static void ExecuteActive(in Frame<HealTrack, HealClip> frame, ref float health)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 health += frame.IsBackward ? -amount : amount;
@@ -337,7 +337,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct ApplyBuff : ITrack<BuffTrack, BuffClip>
         {
-            public static void OnActive(in Frame<BuffTrack, BuffClip> frame, ref float armor)
+            public static void ExecuteActive(in Frame<BuffTrack, BuffClip> frame, ref float armor)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 armor += frame.IsBackward ? -amount : amount;
@@ -354,7 +354,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct MemoBuff : ITrack<MemoTrack, MemoClip>
         {
-            public static void OnMemo(in Frame<MemoTrack, MemoClip> frame, out float armor)
+            public static void Fold(in Frame<MemoTrack, MemoClip> frame, out float armor)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 armor = frame.IsBackward ? -amount : amount;
@@ -371,7 +371,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct DualMemo : ITrack<DualTrack, DualClip>
         {
-            public static void OnMemo(in Frame<DualTrack, DualClip> frame, out float armor, out int ticks)
+            public static void Fold(in Frame<DualTrack, DualClip> frame, out float armor, out int ticks)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier;
                 armor = frame.IsBackward ? -amount : amount;
@@ -389,7 +389,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct ApplyGuarded : ITrack<GuardTrack, GuardClip>
         {
-            public static void OnActive(in Frame<GuardTrack, GuardClip> frame, in Resistance resistance, ref float health)
+            public static void ExecuteActive(in Frame<GuardTrack, GuardClip> frame, in Resistance resistance, ref float health)
             {
                 var amount = frame.Clip.Amount * frame.Track.Multiplier * resistance.Scale;
                 health += frame.IsBackward ? amount : -amount;
@@ -410,7 +410,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct SpawnJob : ITrack<SpawnTrack, SpawnClip>
         {
-            public static void OnActive(in Frame<SpawnTrack, SpawnClip> frame) { }
+            public static void ExecuteActive(in Frame<SpawnTrack, SpawnClip> frame) { }
         }
 
         public readonly struct SpawnWaveBake : IBake<SpawnJob>
@@ -438,7 +438,7 @@ public sealed class ConsumerPlaybackTests
         {
             public readonly int Observed;
 
-            public static void OnActive(in Frame<ProbeTrack, ProbeClip> frame) { }
+            public static void ExecuteActive(in Frame<ProbeTrack, ProbeClip> frame) { }
         }
 
         public readonly struct ProbeStateBake : IBake<ProbeJob>
@@ -458,7 +458,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct GaugeApply : ITrack<GaugeTrack, GaugeClip>
         {
-            public static void OnActive(in Frame<GaugeTrack, GaugeClip> frame, ref Gauge gauge, in int multiplier)
+            public static void ExecuteActive(in Frame<GaugeTrack, GaugeClip> frame, ref Gauge gauge, in int multiplier)
                 => gauge.Value += frame.Direction * frame.Clip.Height * frame.Track.Scale * multiplier;
         }
 
@@ -473,65 +473,65 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct CapJob1 : ITrack<CapTrack, CapClip>
         {
-            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+            public static void Fold(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
                 => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-            public static void OnActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
+            public static void ExecuteActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
         }
 
         public readonly struct CapJob2 : ITrack<CapTrack, CapClip>
         {
-            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+            public static void Fold(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
                 => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-            public static void OnActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
+            public static void ExecuteActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
         }
 
         public readonly struct CapJob3 : ITrack<CapTrack, CapClip>
         {
-            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+            public static void Fold(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
                 => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-            public static void OnActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
+            public static void ExecuteActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
         }
 
         public readonly struct CapJob4 : ITrack<CapTrack, CapClip>
         {
-            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+            public static void Fold(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
                 => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-            public static void OnActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
+            public static void ExecuteActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
         }
 
         public readonly struct CapJob5 : ITrack<CapTrack, CapClip>
         {
-            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+            public static void Fold(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
                 => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-            public static void OnActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
+            public static void ExecuteActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
         }
 
         public readonly struct CapJob6 : ITrack<CapTrack, CapClip>
         {
-            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+            public static void Fold(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
                 => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-            public static void OnActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
+            public static void ExecuteActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
         }
 
         public readonly struct CapJob7 : ITrack<CapTrack, CapClip>
         {
-            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+            public static void Fold(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
                 => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-            public static void OnActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
+            public static void ExecuteActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
         }
 
         public readonly struct CapJob8 : ITrack<CapTrack, CapClip>
         {
-            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+            public static void Fold(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
                 => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-            public static void OnActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
+            public static void ExecuteActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
         }
 
         public readonly struct CapJob9 : ITrack<CapTrack, CapClip>
         {
-            public static void OnMemo(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
+            public static void Fold(in Frame<CapTrack, CapClip> frame, out float a, out float b, out float c, out float d)
                 => a = b = c = d = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-            public static void OnActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
+            public static void ExecuteActive(in float a, in float b, in float c, in float d, ref CapAcc acc) => acc.Value += a + b + c + d;
         }
 
         public readonly record struct SurfaceClip(int Height);
@@ -564,7 +564,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct SurfaceJob : ITrack<SurfaceTrack, SurfaceClip>
         {
-            public static void OnMemo(in Frame<SurfaceTrack, SurfaceClip> frame, out byte a, out short b, out int c, out long d, out float e, out double f, out char g, out bool h, out ushort i, out ulong j)
+            public static void Fold(in Frame<SurfaceTrack, SurfaceClip> frame, out byte a, out short b, out int c, out long d, out float e, out double f, out char g, out bool h, out ushort i, out ulong j)
             {
                 a = (byte)frame.Clip.Height;
                 b = (short)(frame.Clip.Height * 2);
@@ -578,7 +578,7 @@ public sealed class ConsumerPlaybackTests
                 j = frame.Direction > 0 ? 20ul : 0ul;
             }
 
-            public static void OnActive(in byte a, in short b, in int c, in long d, in float e, in double f, in char g, in bool h, in ushort i, in ulong j,
+            public static void ExecuteActive(in byte a, in short b, in int c, in long d, in float e, in double f, in char g, in bool h, in ushort i, in ulong j,
                 in sbyte k, in uint l,
                 in C1 m1, in C2 m2, in C3 m3, in C4 m4, in C5 m5, in C6 m6, in C7 m7, in C8 m8,
                 in C9 m9, in C10 m10, in C11 m11, in C12 m12, in C13 m13, in C14 m14, in C15 m15, in C16 m16,
@@ -604,7 +604,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct JumpWideMove : ITrack<JumpWideTrack, JumpWideClip>
         {
-            public static void OnMemo(in Frame<JumpWideTrack, JumpWideClip> frame, out float arc, out int kind, out short phase, out byte style)
+            public static void Fold(in Frame<JumpWideTrack, JumpWideClip> frame, out float arc, out int kind, out short phase, out byte style)
             {
                 arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
                 kind = frame.Clip.Height;
@@ -612,7 +612,7 @@ public sealed class ConsumerPlaybackTests
                 style = (byte)(frame.Clip.Height % 7 + 1);
             }
 
-            public static void OnActive(in float arc, in int kind, in short phase, in byte style, ref JumpY y, in JumpPower power)
+            public static void ExecuteActive(in float arc, in int kind, in short phase, in byte style, ref JumpY y, in JumpPower power)
                 => y.Value += arc * power.Lift + kind + phase + style;
         }
 
@@ -625,13 +625,13 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct JumpPairMove : ITrack<JumpPairTrack, JumpPairClip>
         {
-            public static void OnMemo(in Frame<JumpPairTrack, JumpPairClip> frame, out float charge, out float arc)
+            public static void Fold(in Frame<JumpPairTrack, JumpPairClip> frame, out float charge, out float arc)
             {
                 charge = frame.Direction * frame.Clip.Height * frame.Track.Scale;
                 arc = frame.Direction * frame.Clip.Height;
             }
 
-            public static void OnActive(in float charge, in float arc, ref JumpY y, in JumpPower power)
+            public static void ExecuteActive(in float charge, in float arc, ref JumpY y, in JumpPower power)
                 => y.Value += charge * power.Lift + arc;
         }
 
@@ -644,7 +644,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct WideMemoJob : ITrack<WideMemoTrack, WideMemoClip>
         {
-            public static void OnMemo(in Frame<WideMemoTrack, WideMemoClip> frame, out long serial, out double precise)
+            public static void Fold(in Frame<WideMemoTrack, WideMemoClip> frame, out long serial, out double precise)
             {
                 serial = frame.Direction * frame.Clip.Height * 1000L;
                 precise = frame.Direction * frame.Clip.Height * frame.Track.Scale + frame.Clip.Height / 10.0;
@@ -660,7 +660,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct TenLaneJob : ITrack<TenLaneTrack, TenLaneClip>
         {
-            public static void OnMemo(in Frame<TenLaneTrack, TenLaneClip> frame, out float a, out int b, out byte c, out short d, out long e, out double f, out char g, out bool h, out uint i, out ulong j)
+            public static void Fold(in Frame<TenLaneTrack, TenLaneClip> frame, out float a, out int b, out byte c, out short d, out long e, out double f, out char g, out bool h, out uint i, out ulong j)
             {
                 a = frame.Direction * frame.Clip.Height * frame.Track.Scale;
                 b = frame.Clip.Height;
@@ -674,7 +674,7 @@ public sealed class ConsumerPlaybackTests
                 j = 20;
             }
 
-            public static void OnActive(in float a, in int b, in byte c, in short d, in long e, in double f, in char g, in bool h, in uint i, in ulong j, ref JumpY y, in JumpPower power)
+            public static void ExecuteActive(in float a, in int b, in byte c, in short d, in long e, in double f, in char g, in bool h, in uint i, in ulong j, ref JumpY y, in JumpPower power)
                 => y.Value += (float)(a * power.Lift + b + c + d + e + f + g + (h ? 1 : 0) + i + j);
         }
 
@@ -717,13 +717,13 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
         {
-        public static void OnActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
+        public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
             => y += frame.Direction * frame.Clip.Height * frame.Track.Scale;
         }
 
         public readonly struct PlaySound : ITrack<SoundTrack, SoundClip>
         {
-        public static void OnActive(in Frame<SoundTrack, SoundClip> frame, ref float channel)
+        public static void ExecuteActive(in Frame<SoundTrack, SoundClip> frame, ref float channel)
             => channel += frame.Direction * frame.Clip.Code * frame.Track.Gain;
         }
 
@@ -751,10 +751,10 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct JumpCompose : ITrack<ArcTrack, ArcClip>
         {
-            public static void OnMemo(in Frame<ArcTrack, ArcClip> frame, out float arc)
+            public static void Fold(in Frame<ArcTrack, ArcClip> frame, out float arc)
                 => arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
 
-            public static void OnActive(in float arc, ref float y, in int multiplier)
+            public static void ExecuteActive(in float arc, ref float y, in int multiplier)
                 => y += arc * multiplier;
         }
 
@@ -767,7 +767,7 @@ public sealed class ConsumerPlaybackTests
 
         public readonly struct JumpFree : ITrack<FreeTrack, FreeClip>
         {
-            public static void OnActive(in Frame<FreeTrack, FreeClip> frame, ref float y, in int multiplier)
+            public static void ExecuteActive(in Frame<FreeTrack, FreeClip> frame, ref float y, in int multiplier)
                 => y += frame.Direction * frame.Clip.Height * frame.Track.Scale * multiplier;
         }
         }
@@ -848,13 +848,16 @@ public sealed class ConsumerPlaybackTests
                 var positions = new ushort[] { 0, 1 };
                 var y = new float[] { 100f, 100f };
                 var multipliers = new int[] { 2, 1 };
-                Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, true, y, multipliers);
+                ColumnSet columns = new();
+                columns.Add(y);
+                columns.Add(multipliers);
+                Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, true, in columns);
                 var first = F(y[0]) + "," + F(y[1]);
                 multipliers[0] = 5;
                 multipliers[1] = 3;
-                Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, true, y, multipliers);
+                Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, true, in columns);
                 var second = F(y[0]) + "," + F(y[1]);
-                Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, false, y, multipliers);
+                Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, false, in columns);
                 var third = F(y[0]) + "," + F(y[1]);
                 return first + "#" + second + "#" + third;
             }
@@ -869,13 +872,16 @@ public sealed class ConsumerPlaybackTests
                 var positions = new ushort[] { 0, 1 };
                 var y = new float[] { 100f, 100f };
                 var multipliers = new int[] { 2, 1 };
-                Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(ids, positions, true, y, multipliers);
+                ColumnSet columns = new();
+                columns.Add(y);
+                columns.Add(multipliers);
+                Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(ids, positions, true, in columns);
                 var first = F(y[0]) + "," + F(y[1]);
                 multipliers[0] = 5;
                 multipliers[1] = 3;
-                Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(ids, positions, true, y, multipliers);
+                Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(ids, positions, true, in columns);
                 var second = F(y[0]) + "," + F(y[1]);
-                Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(ids, positions, false, y, multipliers);
+                Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(ids, positions, false, in columns);
                 var third = F(y[0]) + "," + F(y[1]);
                 return first + "#" + second + "#" + third;
             }
@@ -909,9 +915,12 @@ public sealed class ConsumerPlaybackTests
                 var positions = new ushort[] { 0 };
                 var effects = new float[] { 100f };
                 var inputs = new int[] { 3 };
+                ColumnSet columns = new();
+                columns.Add(effects);
+                columns.Add(inputs);
                 try
                 {
-                    Timeline<GaugeTrack, GaugeClip>.Apply(ids, positions, true, effects, inputs);
+                    Timeline<GaugeTrack, GaugeClip>.Apply(ids, positions, true, in columns);
                     return "NOTHROWN|" + F(effects[0]);
                 }
                 catch (ArgumentException exception)
@@ -930,12 +939,15 @@ public sealed class ConsumerPlaybackTests
                 var positions = new ushort[] { 0, 1 };
                 var y = new JumpY[] { new() { Value = 100f }, new() { Value = 250f } };
                 var power = new JumpPower[] { new() { Lift = 1f }, new() { Lift = 2f } };
-                Timeline<JumpWideTrack, JumpWideClip>.Apply(ids, positions, true, y, power);
+                ColumnSet columns = new();
+                columns.Add(y);
+                columns.Add(power);
+                Timeline<JumpWideTrack, JumpWideClip>.Apply(ids, positions, true, in columns);
                 var forward = F(y[0].Value) + "," + F(y[1].Value);
-                Timeline<JumpWideTrack, JumpWideClip>.Apply(ids, positions, false, y, power);
+                Timeline<JumpWideTrack, JumpWideClip>.Apply(ids, positions, false, in columns);
                 var backward = F(y[0].Value) + "," + F(y[1].Value);
                 power[1].Lift = 3f;
-                Timeline<JumpWideTrack, JumpWideClip>.Apply(ids, positions, true, y, power);
+                Timeline<JumpWideTrack, JumpWideClip>.Apply(ids, positions, true, in columns);
                 var recharged = F(y[0].Value) + "," + F(y[1].Value);
                 return forward + "#" + backward + "#" + recharged;
             }
@@ -950,9 +962,12 @@ public sealed class ConsumerPlaybackTests
                 var positions = new ushort[] { 0, 1 };
                 var y = new JumpY[] { new() { Value = 100f }, new() { Value = 250f } };
                 var power = new JumpPower[] { new() { Lift = 1f }, new() { Lift = 2f } };
-                Timeline<JumpPairTrack, JumpPairClip>.Apply(ids, positions, true, y, power);
+                ColumnSet columns = new();
+                columns.Add(y);
+                columns.Add(power);
+                Timeline<JumpPairTrack, JumpPairClip>.Apply(ids, positions, true, in columns);
                 var forward = F(y[0].Value) + "," + F(y[1].Value);
-                Timeline<JumpPairTrack, JumpPairClip>.Apply(ids, positions, false, y, power);
+                Timeline<JumpPairTrack, JumpPairClip>.Apply(ids, positions, false, in columns);
                 var backward = F(y[0].Value) + "," + F(y[1].Value);
                 return forward + "#" + backward;
             }
@@ -967,12 +982,12 @@ public sealed class ConsumerPlaybackTests
                 var positions = new ushort[] { 0, 1, 1 };
                 var serials = new long[3];
                 var precises = new double[3];
-                Timeline<WideMemoTrack, WideMemoClip>.ApplyLanes(ids, positions, true, serials, precises);
+                Timeline<WideMemoTrack, WideMemoClip>.ApplyChunk(ids, positions, true, serials, precises);
                 var forward = string.Join(",", serials.Select(static value => value.ToString(CultureInfo.InvariantCulture)))
                     + "#" + string.Join(",", precises.Select(static value => value.ToString("R", CultureInfo.InvariantCulture)));
                 serials = new long[3];
                 precises = new double[3];
-                Timeline<WideMemoTrack, WideMemoClip>.ApplyLanes(new ushort[] { wide.Index, wide.Index }, new ushort[] { 1, 2 }, false, serials.AsSpan(0, 2), precises.AsSpan(0, 2));
+                Timeline<WideMemoTrack, WideMemoClip>.ApplyChunk(new ushort[] { wide.Index, wide.Index }, new ushort[] { 1, 2 }, false, serials.AsSpan(0, 2), precises.AsSpan(0, 2));
                 var backward = serials[0].ToString(CultureInfo.InvariantCulture) + "#" + precises[0].ToString("R", CultureInfo.InvariantCulture)
                     + "#" + serials[1].ToString(CultureInfo.InvariantCulture) + "#" + precises[1].ToString("R", CultureInfo.InvariantCulture);
                 return forward + "#" + backward;
@@ -988,9 +1003,12 @@ public sealed class ConsumerPlaybackTests
                 var positions = new ushort[] { 0, 1 };
                 var y = new JumpY[] { new() { Value = 100f }, new() { Value = 250f } };
                 var power = new JumpPower[] { new() { Lift = 1f }, new() { Lift = 2f } };
-                Timeline<TenLaneTrack, TenLaneClip>.Apply(ids, positions, true, y, power);
+                ColumnSet columns = new();
+                columns.Add(y);
+                columns.Add(power);
+                Timeline<TenLaneTrack, TenLaneClip>.Apply(ids, positions, true, in columns);
                 var forward = F(y[0].Value) + "," + F(y[1].Value);
-                Timeline<TenLaneTrack, TenLaneClip>.Apply(ids, positions, false, y, power);
+                Timeline<TenLaneTrack, TenLaneClip>.Apply(ids, positions, false, in columns);
                 var backward = F(y[0].Value) + "," + F(y[1].Value);
                 return forward + "#" + backward;
             }
@@ -1004,7 +1022,9 @@ public sealed class ConsumerPlaybackTests
                 var ids = new ushort[] { cap.Index };
                 var positions = new ushort[] { 0 };
                 var accs = new CapAcc[] { new() { Value = 1f } };
-                Timeline<CapTrack, CapClip>.Apply(ids, positions, true, accs, accs);
+                ColumnSet columns = new();
+                columns.Add(accs);
+                Timeline<CapTrack, CapClip>.Apply(ids, positions, true, in columns);
                 return F(accs[0].Value);
             }
 
@@ -1108,11 +1128,11 @@ public sealed class ConsumerPlaybackTests
                 var positions = new ushort[] { 0, 1, 2 };
                 var armor = new float[3];
                 var ticks = new int[3];
-                Timeline<DualTrack, DualClip>.ApplyLanes(indices, positions, true, armor, ticks);
+                Timeline<DualTrack, DualClip>.ApplyChunk(indices, positions, true, armor, ticks);
                 var backPositions = new ushort[] { 1, 2 };
                 var backArmor = new float[2];
                 var backTicks = new int[2];
-                Timeline<DualTrack, DualClip>.ApplyLanes(new ushort[] { dual.Index, dual.Index }, backPositions, false, backArmor, backTicks);
+                Timeline<DualTrack, DualClip>.ApplyChunk(new ushort[] { dual.Index, dual.Index }, backPositions, false, backArmor, backTicks);
                 return string.Join(",", armor.Select(F)) + "#" + string.Join(",", ticks.Select(x => x.ToString(CultureInfo.InvariantCulture)))
                     + "#" + string.Join(",", backArmor.Select(F)) + "#" + string.Join(",", backTicks.Select(x => x.ToString(CultureInfo.InvariantCulture)));
             }

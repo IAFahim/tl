@@ -66,32 +66,32 @@ public static class JobReader
         {
             var name = Symbols.Name(type);
             var frameName = Symbols.Name(frame);
-            var memos = Candidates(type, "OnMemo", frame, owner);
-            var actives = Candidates(type, "OnActive", frame, owner);
+            var memos = Candidates(type, "Fold", frame, owner);
+            var actives = Candidates(type, "ExecuteActive", frame, owner);
             if (memos.Length > 1 || actives.Length > 1)
-                return Err(site, "TLGEN66", $"'{name}' declares multiple OnMemo or OnActive.");
+                return Err(site, "TLGEN66", $"'{name}' declares multiple Fold or ExecuteActive.");
             var memo = memos.Length == 1 ? memos[0] : null;
             var active = actives.Length == 1 ? actives[0] : null;
             if (memo is null && active is null)
-                return Err(site, "TLGEN66", $"'{name}' needs one static void OnMemo(in {frameName}) or OnActive.");
+                return Err(site, "TLGEN66", $"'{name}' needs one static void Fold(in {frameName}) or ExecuteActive.");
 
             var slots = new List<TimelineSlot>();
             if (memo is not null)
             {
                 if (!Framed(memo, frame))
-                    return Err(Symbols.Site(memo, site), "TLGEN75", $"'{name}.OnMemo' must begin with in {frameName}.");
+                    return Err(Symbols.Site(memo, site), "TLGEN75", $"'{name}.Fold' must begin with in {frameName}.");
                 foreach (var p in memo.Parameters.Skip(1))
                 {
                     if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.Ref or RefKind.Out))
-                        return Err(Symbols.Site(p, site), "TLGEN76", $"'{name}.OnMemo' runs at fold; only unmanaged 'out'/'ref' results exist — 'in' has no caller.");
+                        return Err(Symbols.Site(p, site), "TLGEN76", $"'{name}.Fold' runs at fold; only unmanaged 'out'/'ref' results exist — 'in' has no caller.");
                     var typeName = Symbols.Name(p.Type);
                     var size = ResultSize(p.Type);
                     if (size == 0 || slots.Count >= MemoResults)
-                        return Err(Symbols.Site(p, site), "TLGEN79", $"'{name}.OnMemo' folds at most {MemoResults} unmanaged results of at most 8 bytes each ('{Symbols.Name(p.Type)} {p.Name}' is not one).");
+                        return Err(Symbols.Site(p, site), "TLGEN79", $"'{name}.Fold' folds at most {MemoResults} unmanaged results of at most 8 bytes each ('{Symbols.Name(p.Type)} {p.Name}' is not one).");
                     slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference, size));
                 }
                 if (slots.Count == 0)
-                    return Err(Symbols.Site(memo, site), "TLGEN76", $"'{name}.OnMemo' produces no result; dispatch-only is OnActive.");
+                    return Err(Symbols.Site(memo, site), "TLGEN76", $"'{name}.Fold' produces no result; dispatch-only is ExecuteActive.");
             }
 
             var dispatch = false;
@@ -136,17 +136,17 @@ public static class JobReader
                     {
                         var p = active.Parameters[index];
                         if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.In or RefKind.Ref))
-                            return Err(Symbols.Site(p, site), "TLGEN78", $"'{name}.OnActive' columns must be required unmanaged 'in'/'ref'; '{Symbols.Name(p.Type)} {p.Name}' is not.");
+                            return Err(Symbols.Site(p, site), "TLGEN78", $"'{name}.ExecuteActive' columns must be required unmanaged 'in'/'ref'; '{Symbols.Name(p.Type)} {p.Name}' is not.");
                         live.Add(new(p.Name, Symbols.Name(p.Type), p.RefKind == RefKind.Ref ? SlotMode.Reference : SlotMode.Input));
                     }
                     if (live.Count > ActiveParameters)
-                        return Err(Symbols.Site(active.Parameters[start + ActiveParameters], site), "TLGEN68", $"'{name}.OnActive' declares {gameplay} gameplay parameters; the consumer ABI holds {ActiveParameters} gameplay columns per registered consumer (memo feeds included); declare at most {ActiveParameters}.");
+                        return Err(Symbols.Site(active.Parameters[start + ActiveParameters], site), "TLGEN68", $"'{name}.ExecuteActive' declares {gameplay} gameplay parameters; the consumer ABI holds {ActiveParameters} gameplay columns per registered consumer (memo feeds included); declare at most {ActiveParameters}.");
                     for (var i = 0; i < live.Count; i++)
                         for (var k = 0; k < i; k++)
                             if (live[i].Mode == live[k].Mode && live[i].Mode != SlotMode.MemoFeed && live[i].TypeName == live[k].TypeName)
                             {
                                 var kind = live[i].Mode == SlotMode.Input ? "in" : "ref";
-                                return Err(Symbols.Site(active.Parameters[start + i], site), "TLGEN81", $"'{name}.OnActive' declares two live '{kind} {live[i].TypeName}' columns ('{live[k].Name}', '{live[i].Name}'); TypeKey binding cannot distinguish same-type columns — give them distinct types.");
+                                return Err(Symbols.Site(active.Parameters[start + i], site), "TLGEN81", $"'{name}.ExecuteActive' declares two live '{kind} {live[i].TypeName}' columns ('{live[k].Name}', '{live[i].Name}'); TypeKey binding cannot distinguish same-type columns — give them distinct types.");
                             }
                 }
             }

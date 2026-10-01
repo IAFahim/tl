@@ -19,7 +19,7 @@ public sealed class ConsumerAbiTests
         public struct Mass { public float Value; }
         public readonly struct OversizedJob : ITrack<Track, Clip>
         {
-            public static void OnActive(in Frame<Track, Clip> frame, in Mass a1, in Mass a2, in Mass a3, in Mass a4, in Mass a5, in Mass a6, in Mass a7, in Mass a8, in Mass a9, in Mass a10, in Mass a11, in Mass a12, in Mass a13, in Mass a14, in Mass a15, in Mass a16, ref Mass r1, ref Mass r2, ref Mass r3, ref Mass r4, ref Mass r5, ref Mass r6, ref Mass r7, ref Mass r8, ref Mass r9, ref Mass r10, ref Mass r11, ref Mass r12, ref Mass r13, ref Mass r14, ref Mass last) { }
+            public static void ExecuteActive(in Frame<Track, Clip> frame, in Mass a1, in Mass a2, in Mass a3, in Mass a4, in Mass a5, in Mass a6, in Mass a7, in Mass a8, in Mass a9, in Mass a10, in Mass a11, in Mass a12, in Mass a13, in Mass a14, in Mass a15, in Mass a16, ref Mass r1, ref Mass r2, ref Mass r3, ref Mass r4, ref Mass r5, ref Mass r6, ref Mass r7, ref Mass r8, ref Mass r9, ref Mass r10, ref Mass r11, ref Mass r12, ref Mass r13, ref Mass r14, ref Mass last) { }
         }
         """;
 
@@ -33,12 +33,12 @@ public sealed class ConsumerAbiTests
         }
         public readonly struct QuadJob : ITrack<QuadTrack, QuadClip>
         {
-            public static void OnMemo(in Frame<QuadTrack, QuadClip> frame, out float arc, out int ticks)
+            public static void Fold(in Frame<QuadTrack, QuadClip> frame, out float arc, out int ticks)
             {
                 arc = frame.Clip.Amount * frame.Track.Multiplier;
                 ticks = frame.Clip.Ticks;
             }
-            public static void OnActive(in float arc, in int ticks, ref float y, in int multiplier) => y += arc * ticks * multiplier;
+            public static void ExecuteActive(in float arc, in int ticks, ref float y, in int multiplier) => y += arc * ticks * multiplier;
         }
         """;
 
@@ -54,24 +54,24 @@ public sealed class ConsumerAbiTests
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         internal static void Install()
         {
-        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&OnMemo_QuadJob, &OnMemoRange_QuadJob, &Keys_QuadJob);
-        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.ConsumeDispatch(&OnActive_QuadJob, &LiveKeys_QuadJob, &Diag_QuadJob);
+        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&Fold_QuadJob, &FoldRange_QuadJob, &Keys_QuadJob);
+        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.ConsumeDispatch(&ExecuteActive_QuadJob, &LiveKeys_QuadJob, &Diag_QuadJob);
         global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.VerifyLayout(8678375773521417805UL);
         }
-        private static void OnMemo_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
+        private static void Fold_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
         {
         global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
         var @arc = (float*)__tlColumns[0];
         var @ticks = (int*)__tlColumns[1];
-        global::Domain.QuadJob.OnMemo(in __tlTyped, out @arc[__tlRow], out @ticks[__tlRow]);
+        global::Domain.QuadJob.Fold(in __tlTyped, out @arc[__tlRow], out @ticks[__tlRow]);
         }
-        private static void OnMemoRange_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
+        private static void FoldRange_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
         {
         global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
         var @arc = (float*)__tlColumns[0];
         var @ticks = (int*)__tlColumns[1];
         for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)
-        global::Domain.QuadJob.OnMemo(in __tlTyped, out @arc[__tlRow], out @ticks[__tlRow]);
+        global::Domain.QuadJob.Fold(in __tlTyped, out @arc[__tlRow], out @ticks[__tlRow]);
         }
         private static int Keys_QuadJob(ulong* __tlKeys, byte* __tlMeta)
         {
@@ -79,13 +79,13 @@ public sealed class ConsumerAbiTests
         if (__tlKeys != null) { __tlKeys[1] = global::Tl.TypeKey<int>.Value; __tlMeta[1] = 20; }
         return 2;
         }
-        private static void OnActive_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
+        private static void ExecuteActive_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
         {
         var @arc = *(float*)__tlColumns[0];
         var @ticks = *(int*)__tlColumns[1];
         var @y = (float*)__tlColumns[2];
         var @multiplier = (int*)__tlColumns[3];
-        global::Domain.QuadJob.OnActive(in @arc, in @ticks, ref @y[__tlRow], in @multiplier[__tlRow]);
+        global::Domain.QuadJob.ExecuteActive(in @arc, in @ticks, ref @y[__tlRow], in @multiplier[__tlRow]);
         }
         private static int LiveKeys_QuadJob(ulong* __tlKeys, byte* __tlMeta)
         {
@@ -97,11 +97,11 @@ public sealed class ConsumerAbiTests
         }
         private static void Diag_QuadJob(ulong __tlKey, long __tlSlot)
         {
-        if (__tlSlot == 0) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' OnActive requires a column of type float (arc); none was passed.");
-        if (__tlSlot == 1) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' OnActive requires a column of type int (ticks); none was passed.");
-        if (__tlSlot == 2) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' OnActive requires a column of type float (y); none was passed.");
-        if (__tlSlot == 3) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' OnActive requires a column of type int (multiplier); none was passed.");
-        throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' OnActive requires caller columns that were not passed.");
+        if (__tlSlot == 0) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' ExecuteActive requires a column of type float (arc); none was passed.");
+        if (__tlSlot == 1) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' ExecuteActive requires a column of type int (ticks); none was passed.");
+        if (__tlSlot == 2) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' ExecuteActive requires a column of type float (y); none was passed.");
+        if (__tlSlot == 3) throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' ExecuteActive requires a column of type int (multiplier); none was passed.");
+        throw new global::System.ArgumentException("Timeline<Domain.QuadTrack, Domain.QuadClip> consumer 'Domain.QuadJob' ExecuteActive requires caller columns that were not passed.");
         }
         private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }
         }

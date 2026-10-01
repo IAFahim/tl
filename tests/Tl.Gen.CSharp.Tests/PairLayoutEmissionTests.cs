@@ -18,11 +18,11 @@ public sealed class PairLayoutEmissionTests
         }
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
-            public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float total) { }
+            public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref float total) { }
         }
         public readonly struct ApplyDamageAgain : ITrack<DamageTrack, DamageClip>
         {
-            public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float total) { }
+            public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref float total) { }
         }
         """;
 
@@ -37,7 +37,7 @@ public sealed class PairLayoutEmissionTests
         }
         public readonly struct ApplyHeal : ITrack<HealTrack, HealClip>
         {
-            public static void OnActive(in Frame<HealTrack, HealClip> frame, ref float total) { }
+            public static void ExecuteActive(in Frame<HealTrack, HealClip> frame, ref float total) { }
         }
         """;
 
@@ -52,7 +52,7 @@ public sealed class PairLayoutEmissionTests
         }
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
-            public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float total) { }
+            public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref float total) { }
         }
         """;
 
@@ -67,7 +67,7 @@ public sealed class PairLayoutEmissionTests
         }
         public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
         {
-            public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float total) { }
+            public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref float total) { }
         }
         """;
 
@@ -139,7 +139,7 @@ public sealed class PairLayoutEmissionTests
                 namespace Domain;
                 public readonly struct ApplyHeal : ITrack<DamageTrack, DamageClip>
                 {
-                    public static void OnActive(in Frame<DamageTrack, DamageClip> frame, ref float total) { }
+                    public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref float total) { }
                 }
                 """, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "Heal.cs")],
             ReferencePaths().Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))

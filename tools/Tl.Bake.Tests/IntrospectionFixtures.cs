@@ -19,7 +19,7 @@ public readonly struct JobTrack(float multiplier) : IBlend<JobClip>
 
 public readonly struct DamageJob : ITrack<JobTrack, JobClip>
 {
-    public static void OnActive(in Frame<JobTrack, JobClip> frame, ref float health)
+    public static void ExecuteActive(in Frame<JobTrack, JobClip> frame, ref float health)
         => health += frame.Direction * frame.Clip.Amount * frame.Track.Multiplier;
 }
 
@@ -31,7 +31,7 @@ public readonly struct Temperature
 
 public readonly struct SensorJob : ITrack<JobTrack, JobClip>
 {
-    public static void OnActive(
+    public static void ExecuteActive(
         in Frame<JobTrack, JobClip> frame,
         in Temperature ambient,
         ref double reading,
@@ -70,7 +70,7 @@ public readonly struct FoldTrack(float scale) : IBlend<FoldClip>
 
 public readonly struct FoldJob : ITrack<FoldTrack, FoldClip>
 {
-    public static void OnMemo(in Frame<FoldTrack, FoldClip> frame, out float arc, out int ticks)
+    public static void Fold(in Frame<FoldTrack, FoldClip> frame, out float arc, out int ticks)
     {
         arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
         ticks = (int)frame.Clip.Height;
@@ -79,8 +79,8 @@ public readonly struct FoldJob : ITrack<FoldTrack, FoldClip>
 
 public readonly struct FoldLiveJob : ITrack<FoldTrack, FoldClip>
 {
-    public static void OnMemo(in Frame<FoldTrack, FoldClip> _, out double charge) => charge = 0d;
+    public static void Fold(in Frame<FoldTrack, FoldClip> _, out double charge) => charge = 0d;
 
-    public static void OnActive(in Frame<FoldTrack, FoldClip> frame, ref float health)
+    public static void ExecuteActive(in Frame<FoldTrack, FoldClip> frame, ref float health)
         => health += frame.Direction;
 }
