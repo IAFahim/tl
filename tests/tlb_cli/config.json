@@ -1,83 +1,193 @@
 {
-  "schemaVersion": 1,
-  "scenarios": [
-    {
-      "name": "bake_valid",
-      "mode": "bake",
-      "inputs": { "json": "$configDir/fixtures/alpha.json" },
-      "options": { "assemblies": ["$testAssembly"] },
-      "expected": {
-        "exitCode": 0,
-        "output": { "path": "$out/alpha.tlb", "sha256": "719b5e83a0634bd902763e4e9ab7230b7ddbcb98c9261f67175b24a05ed540ef" }
-      }
-    },
-    {
-      "name": "bake_diagnostic",
-      "mode": "bake",
-      "inputs": { "json": "$configDir/fixtures/broken.json" },
-      "options": { "assemblies": ["$testAssembly"] },
-      "expected": {
-        "exitCode": 1,
-        "stderrContains": ["[3:3] duplicate field: 'duration'"],
-        "absentOutputs": ["$out/broken.tlb"]
-      }
-    },
-    {
-      "name": "cache_reuse",
-      "mode": "bake",
-      "inputs": { "json": "$configDir/fixtures/alpha.json" },
-      "options": { "assemblies": ["$testAssembly"], "cache": "$out/cache" },
-      "expected": {
-        "exitCode": 0,
-        "runs": [
-          { "stdoutContains": ["cache: miss"] },
-          { "stdoutContains": ["cache: hit"] }
-        ],
-        "output": { "path": "$out/alpha.tlb", "sha256": "719b5e83a0634bd902763e4e9ab7230b7ddbcb98c9261f67175b24a05ed540ef" }
-      }
-    },
-    {
-      "name": "json_introspection",
-      "mode": "json",
-      "options": { "assemblies": ["$testAssembly"] },
-      "expected": {
-        "exitCode": 0,
-        "stdoutGolden": "$root/tools/Tl.Bake.Tests/golden/introspection.json"
-      }
-    },
-    {
-      "name": "report",
-      "mode": "report",
-      "inputs": { "tlb": "$out/alpha.tlb" },
-      "expected": {
-        "exitCode": 0,
-        "stdoutContains": ["tlb/total-bytes: 456", "pair/count: 1", "pool/0/track-unique-count: 1", "pool/0/clip-unique-count: 2", "pool/unique-count: 3", "label/clip-count: 2"]
-      }
-    },
-    {
-      "name": "strip",
-      "mode": "strip",
-      "inputs": { "tlb": "$out/alpha.tlb" },
-      "expected": {
-        "exitCode": 0,
-        "output": { "path": "$out/alpha.stripped.tlb", "sha256": "e688fe1cfdcfd219864fa449aff0e3fada733d4f0084fd30795dca91d82fb15c" }
-      }
-    },
-    {
-      "name": "watch_rebuild_skip_diagnostic",
-      "mode": "watch",
-      "inputs": {
-        "initial": "$configDir/fixtures/alpha.json",
-        "edits": [
-          "$configDir/fixtures/alpha_edited.json",
-          "$configDir/fixtures/alpha_edited.json",
-          "$configDir/fixtures/broken.json"
-        ]
-      },
-      "options": { "assemblies": ["$testAssembly"], "debounceMs": 50, "timeoutSeconds": 60 },
-      "expected": {
-        "events": ["ready", "rebuild", "rebuild", "skip", "diagnostic"]
-      }
+ "schemaVersion": 1,
+ "scenarios": [
+  {
+   "name": "bake_valid",
+   "mode": "bake",
+   "inputs": {
+    "json": "$configDir/fixtures/alpha.json"
+   },
+   "options": {
+    "assemblies": [
+     "$testAssembly"
+    ]
+   },
+   "expected": {
+    "exitCode": 0,
+    "output": {
+     "path": "$out/alpha.tlb",
+     "sha256": "719b5e83a0634bd902763e4e9ab7230b7ddbcb98c9261f67175b24a05ed540ef"
     }
-  ]
+   }
+  },
+  {
+   "name": "bake_diagnostic",
+   "mode": "bake",
+   "inputs": {
+    "json": "$configDir/fixtures/broken.json"
+   },
+   "options": {
+    "assemblies": [
+     "$testAssembly"
+    ]
+   },
+   "expected": {
+    "exitCode": 1,
+    "stderrContains": [
+     "[3:3] duplicate field: 'duration'"
+    ],
+    "absentOutputs": [
+     "$out/broken.tlb"
+    ]
+   }
+  },
+  {
+   "name": "cache_reuse",
+   "mode": "bake",
+   "inputs": {
+    "json": "$configDir/fixtures/alpha.json"
+   },
+   "options": {
+    "assemblies": [
+     "$testAssembly"
+    ],
+    "cache": "$out/cache"
+   },
+   "expected": {
+    "exitCode": 0,
+    "runs": [
+     {
+      "stdoutContains": [
+       "cache: miss"
+      ]
+     },
+     {
+      "stdoutContains": [
+       "cache: hit"
+      ]
+     }
+    ],
+    "output": {
+     "path": "$out/alpha.tlb",
+     "sha256": "719b5e83a0634bd902763e4e9ab7230b7ddbcb98c9261f67175b24a05ed540ef"
+    }
+   }
+  },
+  {
+   "name": "json_introspection",
+   "mode": "json",
+   "options": {
+    "assemblies": [
+     "$testAssembly"
+    ]
+   },
+   "expected": {
+    "exitCode": 0,
+    "stdoutGolden": "$root/tools/Tl.Bake.Tests/golden/introspection.json"
+   }
+  },
+  {
+   "name": "report",
+   "mode": "report",
+   "inputs": {
+    "tlb": "$out/alpha.tlb"
+   },
+   "expected": {
+    "exitCode": 0,
+    "stdoutContains": [
+     "tlb/total-bytes: 456",
+     "pair/count: 1",
+     "pool/0/track-unique-count: 1",
+     "pool/0/clip-unique-count: 2",
+     "pool/unique-count: 3",
+     "label/clip-count: 2"
+    ]
+   }
+  },
+  {
+   "name": "strip",
+   "mode": "strip",
+   "inputs": {
+    "tlb": "$out/alpha.tlb"
+   },
+   "expected": {
+    "exitCode": 0,
+    "output": {
+     "path": "$out/alpha.stripped.tlb",
+     "sha256": "e688fe1cfdcfd219864fa449aff0e3fada733d4f0084fd30795dca91d82fb15c"
+    }
+   }
+  },
+  {
+   "name": "inspect",
+   "mode": "inspect",
+   "inputs": {
+    "tlb": "$out/alpha.tlb"
+   },
+   "expected": {
+    "exitCode": 0,
+    "stdoutContains": [
+     "\"schemaVersion\": 1",
+     "\"looping\": true",
+     "\"duration\": 12",
+     "\"slotStride\": 24",
+     "\"windowEnd\": 12"
+    ]
+   }
+  },
+  {
+   "name": "inspect_invalid_asset",
+   "mode": "inspect",
+   "inputs": {
+    "tlb": "$configDir/fixtures/alpha.json"
+   },
+   "expected": {
+    "exitCode": 3,
+    "stderrContains": [
+     "Asset error: TLB asset header is invalid."
+    ]
+   }
+  },
+  {
+   "name": "inspect_missing_file",
+   "mode": "inspect",
+   "inputs": {
+    "tlb": "$out/missing.tlb"
+   },
+   "expected": {
+    "exitCode": 2,
+    "stderrContains": [
+     "does not exist"
+    ]
+   }
+  },
+  {
+   "name": "watch_rebuild_skip_diagnostic",
+   "mode": "watch",
+   "inputs": {
+    "initial": "$configDir/fixtures/alpha.json",
+    "edits": [
+     "$configDir/fixtures/alpha_edited.json",
+     "$configDir/fixtures/alpha_edited.json",
+     "$configDir/fixtures/broken.json"
+    ]
+   },
+   "options": {
+    "assemblies": [
+     "$testAssembly"
+    ],
+    "debounceMs": 50,
+    "timeoutSeconds": 60
+   },
+   "expected": {
+    "events": [
+     "ready",
+     "rebuild",
+     "rebuild",
+     "skip",
+     "diagnostic"
+    ]
+   }
+  }
+ ]
 }

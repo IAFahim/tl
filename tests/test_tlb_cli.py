@@ -62,6 +62,8 @@ def _run_bake_like_scenario(scenario: dict, out_dir: Path) -> None:
             return ["--json", *_assemble_options(options, out_dir)]
         if mode == "report":
             return ["--report", _resolve_path(scenario["inputs"]["tlb"], out_dir)]
+        if mode == "inspect":
+            return ["--inspect", _resolve_path(scenario["inputs"]["tlb"], out_dir)]
         if mode == "strip":
             return [
                 "--strip",

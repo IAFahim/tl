@@ -200,7 +200,7 @@ The designer loop:
 tlb --watch jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
 ```
 
-`--watch` bakes at startup, re-bakes on save (debounced, hash-skipped), and prints one JSON event per action (`ready`, `rebuild`, `skip`, `diagnostic`) — a broken file stays in the loop as a `diagnostic` until fixed. More: `tlb --report` audits asset sizes, `tlb --strip` drops authoring metadata for distribution. The Blender NLA bridge (`tools/Tl.Blender`) exports this same JSON and bakes through the same CLI.
+`--watch` bakes at startup, re-bakes on save (debounced, hash-skipped), and prints one JSON event per action (`ready`, `rebuild`, `skip`, `diagnostic`) — a broken file stays in the loop as a `diagnostic` until fixed. More: `tlb --report` audits asset sizes, `tlb --inspect <input.tlb>` emits the baked asset as deterministic, schema-versioned structural JSON — header, pairs with pool widths, stages, and every program step's window and blend factors — the contract for visual tooling; `tlb --strip` drops authoring metadata for distribution. The Blender NLA bridge (`tools/Tl.Blender`) exports this same JSON and bakes through the same CLI.
 
 ### Type discovery
 
