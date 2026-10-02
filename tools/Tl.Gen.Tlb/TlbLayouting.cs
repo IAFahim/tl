@@ -10,7 +10,8 @@ internal static class TlbLayouting
         foreach (var assembly in Candidates(resolver, track, clip))
             foreach (var data in assembly.GetCustomAttributesData())
             {
-                if (data.AttributeType.Name != "TlConsumerLayoutAttribute") continue;
+                var name = data.AttributeType.Name;
+                if (!(name.StartsWith("TlConsumerLayout", StringComparison.Ordinal) && name.EndsWith("Attribute", StringComparison.Ordinal))) continue;
                 var args = data.ConstructorArguments;
                 if (args.Count != 3 || args[0].Value is not Type a || a != track || args[1].Value is not Type b || b != clip || args[2].Value is not ulong layout) continue;
                 if (found != 0 && found != layout)
