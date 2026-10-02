@@ -3,81 +3,141 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>tl viewer</title>
+<title>tl viewer — TLB1 plane inspector</title>
 <style>
 :root {
-  --bg: #0b0e14; --panel: #11151d; --panel2: #161b25; --line: #232a36;
-  --text: #e6edf3; --dim: #8b96a5; --accent: #58a6ff; --good: #3fb950;
-  --warn: #d29922; --bad: #f85149; --blend: #a371f7; --absent: #30363d;
+  color-scheme: dark;
+  --bg: #141210; --panel: #1b1916; --panel2: #22201b; --panel3: #2a2620;
+  --line: #312d26; --line-soft: #282420;
+  --text: #ece7dd; --dim: #a89d8c; --faint: #7d7466;
+  --accent: #e2a13c; --accent-ink: #191613;
+  --good: #85b86c; --bad: #e06c60; --warn: #cf9257;
+  --blend: #b18cf0; --steel: #6f97bf; --absent: #34302a;
+  --serif: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif;
+  --mono: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
+::selection { background: rgba(226,161,60,.30); }
 body { margin: 0; background: var(--bg); color: var(--text);
-  font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-header { padding: 14px 20px 0; }
-h1 { font-size: 16px; margin: 0 0 10px; letter-spacing: .04em; }
-h1 span { color: var(--dim); font-weight: normal; }
-nav { display: flex; gap: 4px; }
-nav button { background: var(--panel); color: var(--dim); border: 1px solid var(--line);
-  border-bottom: none; padding: 7px 16px; cursor: pointer; border-radius: 6px 6px 0 0; font: inherit; }
-nav button.active { color: var(--text); background: var(--panel2); }
-main { padding: 0 20px 40px; }
-section.pane { display: none; border: 1px solid var(--line); background: var(--panel);
-  border-radius: 0 6px 6px 6px; padding: 16px; }
+  font: 13.5px/1.5 var(--mono); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+header { max-width: 1240px; margin: 0 auto; padding: 30px 24px 0; }
+.hero { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px; }
+.wordmark { font-family: var(--serif); font-size: 33px; line-height: 1; letter-spacing: .01em; }
+.wordmark b { font-weight: 700; }
+.wordmark span { font-style: italic; font-weight: 400; color: var(--dim); margin-left: 7px; }
+.tagline { margin: 0; color: var(--faint); font-size: 12px; }
+.tagline code { color: var(--dim); }
+nav { display: flex; gap: 26px; margin-top: 22px; border-bottom: 1px solid var(--line); }
+nav button { background: none; border: none; color: var(--dim); cursor: pointer; padding: 9px 2px 11px;
+  font: 600 11.5px var(--mono); text-transform: uppercase; letter-spacing: .12em;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; }
+nav button:hover { color: var(--text); }
+nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+#banners { display: grid; gap: 8px; margin-top: 14px; }
+.banner { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--dim); }
+.banner.bad { border-color: rgba(224,108,96,.55); color: var(--bad); }
+.banner.warn { border-color: rgba(207,146,87,.55); color: var(--warn); }
+.banner.good { border-color: rgba(133,184,108,.55); color: var(--good); }
+
+main { max-width: 1240px; margin: 0 auto; padding: 22px 24px 64px; }
+section.pane { display: none; }
 section.pane.active { display: block; }
-#banners { margin-top: 10px; display: grid; gap: 6px; }
-.banner { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel2); }
-.banner.bad { border-color: var(--bad); color: var(--bad); }
-.banner.warn { border-color: var(--warn); color: var(--warn); }
-.banner.good { border-color: var(--good); color: var(--good); }
-.drop { border: 1px dashed var(--line); border-radius: 6px; padding: 14px;
-  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; color: var(--dim); }
-.drop.loaded { border-style: solid; color: var(--text); }
-.drop input[type=file] { color: var(--dim); }
+
+.drop { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: var(--panel);
+  display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; color: var(--dim); font-size: 12.5px; }
+.drop.loaded { border-left: 3px solid var(--accent); }
+.drop input[type=file] { color: var(--dim); font: inherit; }
 .drop .actions { margin-left: auto; display: flex; gap: 8px; }
-button.load-example { background: var(--panel2); color: var(--accent); border: 1px solid var(--line);
-  padding: 6px 12px; border-radius: 6px; cursor: pointer; font: inherit; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px;
-  padding: 3px 12px; font-size: 12.5px; color: var(--dim); }
-.chip b { color: var(--text); font-weight: normal; }
-table { border-collapse: collapse; width: 100%; margin: 10px 0 18px; font-size: 13px; }
-th, td { text-align: left; padding: 5px 10px; border-bottom: 1px solid var(--line); }
-th { color: var(--dim); font-weight: normal; }
+button.load-example { background: var(--panel3); color: var(--text); border: 1px solid var(--line);
+  padding: 6px 14px; border-radius: 7px; cursor: pointer; font: inherit; }
+button.load-example:hover { border-color: var(--accent); color: var(--accent); }
+
+.view-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  margin: 16px 0 12px; background: var(--panel); }
+.view-toggle button { background: transparent; border: none; color: var(--dim); padding: 6px 20px; cursor: pointer;
+  font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .1em; }
+.view-toggle button:hover { color: var(--text); }
+.view-toggle button.active { background: var(--accent); color: var(--accent-ink); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
+.chip { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 999px;
+  padding: 4px 14px; font-size: 12px; color: var(--text); }
+.chip i { font-style: normal; color: var(--faint); text-transform: uppercase; font-size: 10px; letter-spacing: .09em; margin-right: 6px; }
+
+table { border-collapse: collapse; width: 100%; margin: 10px 0 20px; font-size: 12.5px;
+  font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--line-soft); }
+th { color: var(--faint); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: .1em; }
+tbody tr:hover { background: var(--panel); }
 td.num, th.num { text-align: right; }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
-.card { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
-.card h3 { margin: 0 0 8px; font-size: 13px; color: var(--accent); font-weight: normal; }
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; font-size: 13px; }
-.kv dt { color: var(--dim); } .kv dd { margin: 0; text-align: right; }
-.bar { height: 10px; border-radius: 5px; background: var(--absent); overflow: hidden; display: flex; margin: 6px 0 2px; }
-.bar > i { display: block; height: 100%; }
-.bar-label { font-size: 11.5px; color: var(--dim); }
-.stack { display: flex; height: 14px; border-radius: 4px; overflow: hidden; margin: 6px 0 2px; }
-.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--dim); margin: 8px 0; }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-.fold-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-.fold-cell { width: 34px; height: 22px; border-radius: 4px; display: flex; align-items: center;
-  justify-content: center; font-size: 10.5px; color: #0b0e14; background: var(--absent); color: var(--dim); }
-.fold-folded { background: var(--good); color: #0b0e14; }
-.fold-folded-now { background: var(--accent); color: #0b0e14; }
-.fold-pending { background: var(--warn); color: #0b0e14; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+.card { background: var(--panel2); border: 1px solid var(--line-soft); border-radius: 10px; padding: 14px 16px; }
+.card h3 { margin: 0 0 10px; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 16px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.kv dt { color: var(--faint); } .kv dd { margin: 0; text-align: right; }
+.bar { height: 8px; border-radius: 4px; background: var(--absent); overflow: hidden; display: flex; margin: 8px 0 3px; }
+.bar > i { display: block; height: 100%; background: var(--accent); }
+.bar-label { font-size: 11px; color: var(--faint); }
+.stack { display: flex; height: 12px; border-radius: 4px; overflow: hidden; margin: 8px 0 3px; background: var(--absent); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11.5px; color: var(--dim); margin: 14px 0 10px; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.fold-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.fold-cell { width: 34px; height: 22px; border-radius: 5px; display: flex; align-items: center;
+  justify-content: center; font-size: 10.5px; background: var(--absent); color: var(--faint); }
+.fold-folded { background: var(--good); color: var(--accent-ink); }
+.fold-folded-now { background: var(--accent); color: var(--accent-ink); }
+.fold-pending { background: #3a3f47; color: #b8c0ca; }
+
 svg.timeline { width: 100%; height: auto; display: block; background: var(--panel2);
-  border: 1px solid var(--line); border-radius: 6px; margin-top: 8px; }
-.diff-out { font-size: 13px; }
-.diff-out div { padding: 1px 10px; border-radius: 4px; white-space: pre-wrap; }
-.diff-out .add { color: var(--good); background: rgba(63,185,80,.08); }
-.diff-out .del { color: var(--bad); background: rgba(248,81,73,.08); }
-.diff-out .ctx { color: var(--dim); }
+  border: 1px solid var(--line-soft); border-radius: 10px; margin-top: 10px; }
+
+.diff-out { font-size: 12.5px; background: var(--panel); border: 1px solid var(--line-soft);
+  border-radius: 10px; padding: 10px 0; }
+.diff-out div { padding: 2px 16px; white-space: pre-wrap; }
+.diff-out .add { color: var(--good); background: rgba(133,184,108,.07); }
+.diff-out .del { color: var(--bad); background: rgba(224,108,96,.07); }
+.diff-out .ctx { color: var(--faint); }
 .diff-out .chg { color: var(--warn); }
-.empty { color: var(--dim); padding: 22px; text-align: center; }
-.mono-dim { color: var(--dim); }
-footer { color: var(--dim); font-size: 12px; padding: 0 20px 24px; }
-a { color: var(--accent); }
+
+.json-tree { font-size: 12.5px; line-height: 1.75; background: var(--panel); border: 1px solid var(--line-soft);
+  border-radius: 10px; padding: 14px 18px; overflow-x: auto; }
+.json-tree details > div { margin-left: 13px; border-left: 1px solid var(--line); padding-left: 12px; }
+.json-tree div { white-space: nowrap; }
+.json-tree summary { cursor: pointer; list-style: none; display: inline-block; border-radius: 5px; padding: 0 8px 0 2px; }
+.json-tree summary:hover { background: var(--panel3); }
+.json-tree summary::-webkit-details-marker { display: none; }
+.json-tree summary::before { content: "▸ "; color: var(--faint); }
+.json-tree details[open] > summary::before { content: "▾ "; }
+.json-tree .jk { color: var(--accent); }
+.json-tree .js { color: #9dc989; }
+.json-tree .jn { color: var(--steel); }
+.json-tree .jb { color: var(--blend); }
+.json-tree .jl { color: var(--faint); }
+.json-tree .jc { color: var(--faint); font-size: 10.5px; letter-spacing: .03em; }
+.json-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 980px) { .json-grid { grid-template-columns: 1fr; } }
+.json-col-head { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 6px; }
+
+.empty { color: var(--faint); padding: 34px; text-align: center; border: 1px dashed var(--line);
+  border-radius: 10px; margin-top: 16px; font-size: 12.5px; }
+.mono-dim { color: var(--faint); }
+.section-label { color: var(--faint); font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .12em; margin: 22px 0 6px; }
+
+footer { max-width: 1240px; margin: 0 auto; padding: 0 24px 40px; color: var(--faint); font-size: 11.5px;
+  border-top: 1px solid var(--line-soft); padding-top: 16px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>tl viewer <span>— static plane (tlb --inspect) / live plane (tlb --live) / structural diff</span></h1>
+  <div class="hero">
+    <div class="wordmark"><b>tl</b><span>viewer</span></div>
+    <p class="tagline">static <code>tlb --inspect</code> · live <code>tlb --live</code> · structural diff — parsed in the browser, nothing uploaded</p>
+  </div>
   <nav>
     <button id="tab-static" class="active">Static</button>
     <button id="tab-live">Live</button>
@@ -113,7 +173,7 @@ a { color: var(--accent); }
       <span>variant A (static):</span>
       <input type="file" id="file-diff-a" accept=".json,application/json">
     </div>
-    <div class="drop" id="drop-diff-b" style="margin-top:8px">
+    <div class="drop" id="drop-diff-b" style="margin-top:10px">
       <span>variant B (static):</span>
       <input type="file" id="file-diff-b" accept=".json,application/json">
     </div>
@@ -179,6 +239,44 @@ function readInput(file, cb) {
   r.readAsText(file);
 }
 
+const views = { static: "visual", live: "visual", diff: "visual" };
+function viewToggle(pane) {
+  return '<div class="view-toggle">' + ["visual", "json"].map((m) =>
+    '<button data-pane="' + pane + '" data-mode="' + m + '" class="' + (views[pane] === m ? "active" : "") + '">' +
+    (m === "visual" ? "visual" : "JSON") + "</button>").join("") + "</div>";
+}
+function bindViewToggles(root) {
+  for (const b of root.querySelectorAll(".view-toggle button"))
+    b.onclick = () => { views[b.dataset.pane] = b.dataset.mode; rerender(b.dataset.pane); };
+}
+
+function jsonTree(value, key, depth) {
+  const label = key !== null ? '<span class="jk">' + esc(key) + '</span>: ' : "";
+  if (value === null) return '<div>' + label + '<span class="jl">null</span></div>';
+  const t = typeof value;
+  if (t === "string") return '<div>' + label + '<span class="js">"' + esc(value) + '"</span></div>';
+  if (t === "number") return '<div>' + label + '<span class="jn">' + value + '</span></div>';
+  if (t === "boolean") return '<div>' + label + '<span class="jb">' + value + '</span></div>';
+  const isArr = Array.isArray(value);
+  const entries = isArr ? value.map((v) => [null, v]) : Object.entries(value);
+  if (!entries.length) return '<div>' + label + (isArr ? "[ ]" : "{ }") + "</div>";
+  const head = '<summary>' + label + (isArr ? "[…]" : "{…}") + ' <span class="jc">' + entries.length +
+    (isArr ? " items" : " keys") + "</span></summary>";
+  let inner = "";
+  for (const [k, v] of entries) inner += jsonTree(v, k, depth + 1);
+  return '<details' + (depth < 2 ? " open" : "") + '>' + head + "<div>" + inner + "</div></details>";
+}
+function jsonTreeBlock(obj) {
+  return '<div class="json-tree">' + jsonTree(obj, null, 0) + "</div>";
+}
+
+let staticDoc = null, liveDoc = null;
+function rerender(pane) {
+  if (pane === "static") renderStaticDoc();
+  else if (pane === "live") renderLiveDoc();
+  else renderDiff();
+}
+
 function tab(name) {
   for (const t of ["static", "live", "diff"]) {
     $("tab-" + t).classList.toggle("active", t === name);
@@ -191,20 +289,26 @@ $("tab-diff").onclick = () => tab("diff");
 
 function chipRow(chips) {
   return '<div class="chips">' + chips.map(([k, v]) =>
-    '<span class="chip">' + esc(k) + ': <b>' + esc(v) + '</b></span>').join("") + "</div>";
+    '<span class="chip"><i>' + esc(k) + '</i>' + esc(v) + "</span>").join("") + "</div>";
 }
 
 function renderStatic(text, sourceName) {
   const g = guard(text, false);
+  staticDoc = g ? { obj: g.obj, name: sourceName } : null;
+  renderStaticDoc();
+}
+function renderStaticDoc() {
   const body = $("static-body");
-  if (!g) { body.innerHTML = '<div class="empty">refused — see banner</div>'; return; }
-  const o = g.obj;
+  if (!staticDoc) { body.innerHTML = '<div class="empty">refused — see banner</div>'; return; }
+  const o = staticDoc.obj;
+  let html = viewToggle("static");
+  if (views.static === "json") { body.innerHTML = html + jsonTreeBlock(o); bindViewToggles(body); return; }
   const steps = o.stages.flatMap((s) => s.steps.map((st) => Object.assign({ stageStart: s.start, stageEnd: s.end }, st)));
   const chips = [
-    ["source", sourceName], ["formatVersion", o.header.formatVersion], ["duration", o.header.duration],
+    ["source", staticDoc.name], ["formatVersion", o.header.formatVersion], ["duration", o.header.duration],
     ["looping", String(o.header.looping)], ["pairs", o.pairs.length], ["stages", o.stages.length], ["steps", steps.length],
   ];
-  let html = chipRow(chips);
+  html += chipRow(chips);
   html += '<table><tr><th>pair</th><th class="num">key</th><th class="num">layout</th><th class="num">slotStride</th>' +
     '<th class="num">track value bytes</th><th class="num">clip value bytes</th></tr>';
   o.pairs.forEach((p, i) => {
@@ -215,6 +319,7 @@ function renderStatic(text, sourceName) {
   html += "</table>";
   html += timelineSvg(o, steps);
   body.innerHTML = html;
+  bindViewToggles(body);
 }
 
 function lanes(steps) {
@@ -244,14 +349,14 @@ function timelineSvg(o, steps) {
   o.stages.forEach((s, i) => {
     if (i % 2 === 1) return;
     svg += '<rect x="' + x(s.start) + '" y="' + (headH - 14) + '" width="' + Math.max(0, x(s.end) - x(s.start)) +
-      '" height="' + (H - headH + 14) + '" fill="#1c2330"/>';
-    svg += '<text x="' + (x(s.start) + 4) + '" y="16" fill="#8b96a5" font-size="11">' + s.start + "–" + s.end + "</text>";
+      '" height="' + (H - headH + 14) + '" fill="#262218"/>';
+    svg += '<text x="' + (x(s.start) + 5) + '" y="16" fill="#7d7466" font-size="11" font-family="inherit">stage ' + s.start + "–" + s.end + "</text>";
   });
-  svg += '<line x1="' + x(duration) + '" y1="' + (headH - 14) + '" x2="' + x(duration) + '" y2="' + (H - 6) + '" stroke="#232a36"/>';
+  svg += '<line x1="' + x(duration) + '" y1="' + (headH - 14) + '" x2="' + x(duration) + '" y2="' + (H - 6) + '" stroke="#4a4234" stroke-dasharray="3 3"/>';
   ls.forEach((lane, i) => {
     const y = headH + i * rowH;
-    svg += '<text x="8" y="' + (y + 19) + '" fill="#8b96a5" font-size="12">pair ' + lane.pair + " · track " + lane.track + "</text>";
-    svg += '<line x1="' + padL + '" y1="' + (y + rowH - 6) + '" x2="' + (W - padR) + '" y2="' + (y + rowH - 6) + '" stroke="#232a36"/>';
+    svg += '<text x="8" y="' + (y + 19) + '" fill="#a89d8c" font-size="12" font-family="inherit">pair ' + lane.pair + " · track " + lane.track + "</text>";
+    svg += '<line x1="' + padL + '" y1="' + (y + rowH - 6) + '" x2="' + (W - padR) + '" y2="' + (y + rowH - 6) + '" stroke="#282420"/>';
   });
   const clipShape = (c) => {
     const laneIdx = ls.findIndex((l) => l.pair === c.pair && l.track === c.track);
@@ -271,20 +376,20 @@ function timelineSvg(o, steps) {
   };
   for (const c of clips.filter((s) => s.second === 65535 || s.second === undefined)) {
     const g = clipShape(c);
-    svg += '<rect x="' + g.cx + '" y="' + g.y + '" width="' + g.cw + '" height="' + g.h + '" rx="3" fill="#1f6feb" opacity="0.92"><title>' + esc(g.tip) + "</title></rect>";
-    svg += '<text x="' + (g.cx + 4) + '" y="' + (g.y + 12) + '" font-size="10" fill="#e6edf3">#' + c.first + "</text>";
+    svg += '<rect x="' + g.cx + '" y="' + g.y + '" width="' + g.cw + '" height="' + g.h + '" rx="3" fill="#d99a35" opacity="0.95"><title>' + esc(g.tip) + "</title></rect>";
+    svg += '<text x="' + (g.cx + 5) + '" y="' + (g.y + 12) + '" font-size="10" fill="#191613" font-family="inherit">#' + c.first + "</text>";
   }
   for (const c of clips.filter((s) => s.second !== 65535 && s.second !== undefined)) {
     const g = clipShape(c);
-    svg += '<rect x="' + g.cx + '" y="' + g.y + '" width="' + g.cw + '" height="' + g.h + '" rx="3" fill="#2d4a7a" opacity="0.92"><title>' + esc(g.tip) + "</title></rect>";
+    svg += '<rect x="' + g.cx + '" y="' + g.y + '" width="' + g.cw + '" height="' + g.h + '" rx="3" fill="#46688c" opacity="0.95"><title>' + esc(g.tip) + "</title></rect>";
     const lx = c.factorSpan ? g.fx : g.cx;
-    svg += '<text x="' + (lx + 4) + '" y="' + (g.y + 12) + '" font-size="10" fill="#e6edf3">#' + c.first + "→" + c.second + "</text>";
+    svg += '<text x="' + (lx + 5) + '" y="' + (g.y + 12) + '" font-size="10" fill="#ece7dd" font-family="inherit">#' + c.first + "→" + c.second + "</text>";
   }
   for (const c of clips.filter((s) => s.factorSpan)) {
     const g = clipShape(c);
-    svg += '<rect x="' + g.fx + '" y="' + g.y + '" width="' + g.fw + '" height="' + g.h + '" rx="3" fill="#a371f7" opacity="0.85"><title>' +
+    svg += '<rect x="' + g.fx + '" y="' + g.y + '" width="' + g.fw + '" height="' + g.h + '" rx="3" fill="#b18cf0" opacity="0.8"><title>' +
       esc("blend factor window · " + g.tip) + "</title></rect>";
-    svg += '<text x="' + (g.fx + 3) + '" y="' + (g.y + g.h - 4) + '" font-size="9" fill="#e6edf3">f×' + c.factorSpan + "</text>";
+    svg += '<text x="' + (g.fx + 3) + '" y="' + (g.y + g.h - 4) + '" font-size="9" fill="#191613" font-family="inherit">f×' + c.factorSpan + "</text>";
   }
   svg += "</svg>";
   return svg;
@@ -292,14 +397,21 @@ function timelineSvg(o, steps) {
 
 function renderLive(text, sourceName) {
   const g = guard(text, false);
-  const body = $("live-body");
-  if (!g || g.cls.plane !== "live") {
-    if (g && g.cls.plane !== "live") banner("this is not a live plane (tlb --live) render", "bad");
-    body.innerHTML = '<div class="empty">refused — see banner</div>';
-    return;
+  if (g && g.cls.plane !== "live") {
+    banner("this is not a live plane (tlb --live) render", "bad");
+    liveDoc = null;
+  } else {
+    liveDoc = g ? { obj: g.obj, name: sourceName } : null;
   }
-  const o = g.obj;
-  let html = chipRow([["source", sourceName], ["engine", o.host.engine + " " + o.host.engineVersion],
+  renderLiveDoc();
+}
+function renderLiveDoc() {
+  const body = $("live-body");
+  if (!liveDoc) { body.innerHTML = '<div class="empty">refused — see banner</div>'; return; }
+  const o = liveDoc.obj;
+  let html = viewToggle("live");
+  if (views.live === "json") { body.innerHTML = html + jsonTreeBlock(o); bindViewToggles(body); return; }
+  html += chipRow([["source", liveDoc.name], ["engine", o.host.engine + " " + o.host.engineVersion],
     ["assembly", o.assembly.name + " " + o.assembly.version], ["assets", o.assets.length]]);
   html += '<table><tr><th>asset</th><th class="num">bytes</th><th class="num">index</th><th class="num">sha256</th></tr>';
   for (const a of o.assets) html += "<tr><td>" + esc(a.file) + '</td><td class="num">' + a.bytes +
@@ -319,33 +431,34 @@ function renderLive(text, sourceName) {
   html += barCard("bake table", [["slots", t.bake.slots], ["entries", t.bake.entries]], t.bake.entries / t.bake.slots, "entries / slots");
   html += "</div>";
   if (o.deep && o.deep.available === false) {
-    html += '<div class="banner warn" style="margin-top:10px">deep plane unavailable: ' + esc(o.deep.reason || "") + "</div>";
+    html += '<div class="banner warn" style="margin-top:14px">deep plane unavailable: ' + esc(o.deep.reason || "") + "</div>";
   }
-  html += '<h3 style="color:var(--accent);font-weight:normal;font-size:13px;margin:18px 0 4px">banks</h3>';
+  html += '<div class="section-label">banks</div>';
   html += '<div class="legend">' +
     '<span><i style="background:var(--good)"></i>folded</span>' +
     '<span><i style="background:var(--accent)"></i>folded-now</span>' +
-    '<span><i style="background:var(--warn)"></i>pending</span>' +
+    '<span><i style="background:#3a3f47"></i>pending</span>' +
     '<span><i style="background:var(--absent)"></i>absent</span>' +
-    '<span><i style="background:#1f6feb"></i>header</span><span><i style="background:#2d4a7a"></i>table</span>' +
-    '<span><i style="background:#a371f7"></i>directory</span><span><i style="background:#8b96a5"></i>arena</span></div>';
+    '<span><i style="background:#e2a13c"></i>header</span><span><i style="background:#46688c"></i>table</span>' +
+    '<span><i style="background:#b18cf0"></i>directory</span><span><i style="background:#a89d8c"></i>arena</span></div>';
   html += '<div class="cards">';
   for (const b of o.banks) html += bankCard(b);
   html += "</div>";
   body.innerHTML = html;
+  bindViewToggles(body);
 }
 
 function barCard(title, rows, ratio, ratioLabel) {
   const pct = Math.max(0, Math.min(100, (ratio || 0) * 100));
   return '<div class="card"><h3>' + esc(title) + '</h3><dl class="kv">' +
     rows.map(([k, v]) => "<dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd>").join("") + "</dl>" +
-    '<div class="bar"><i style="width:' + pct.toFixed(2) + '%;background:var(--accent)"></i></div>' +
+    '<div class="bar"><i style="width:' + pct.toFixed(2) + '%"></i></div>' +
     '<div class="bar-label">' + esc(ratioLabel) + " · " + pct.toFixed(1) + "%</div></div>";
 }
 
 function bankCard(b) {
-  const parts = [["header", b.bytes.header, "#1f6feb"], ["table", b.bytes.table, "#2d4a7a"],
-    ["directory", b.bytes.directory, "#a371f7"], ["arena", b.bytes.arena, "#8b96a5"]];
+  const parts = [["header", b.bytes.header, "#e2a13c"], ["table", b.bytes.table, "#46688c"],
+    ["directory", b.bytes.directory, "#b18cf0"], ["arena", b.bytes.arena, "#a89d8c"]];
   const total = Math.max(1, b.bytes.retained);
   const stack = '<div class="stack">' + parts.map(([n, v, c]) =>
     '<i style="width:' + (v / total * 100).toFixed(2) + "%;background:" + c + '" title="' + n + ": " + fmtBytes(v) + '"></i>').join("") + "</div>";
@@ -371,7 +484,8 @@ function renderDiff() {
   const body = $("diff-body");
   if (diffA === null || diffB === null) {
     body.innerHTML = '<div class="empty">' + (diffA === null ? "waiting for variant A" : "A loaded") +
-      (diffB === null ? " · waiting for variant B" : " · B loaded") + "</div>";
+      (diffB === null ? " · waiting for variant B" : " · B loaded") +
+      "<br>load two static-plane JSON renders of the same timeline to see the structural delta</div>";
     return;
   }
   clearBanners();
@@ -383,6 +497,15 @@ function renderDiff() {
     return;
   }
   const a = ga.obj, b = gb.obj;
+  let html = viewToggle("diff");
+  if (views.diff === "json") {
+    html += '<div class="json-grid">' +
+      '<div><div class="json-col-head">variant A — ' + esc(diffA.name) + "</div>" + jsonTreeBlock(a) + "</div>" +
+      '<div><div class="json-col-head">variant B — ' + esc(diffB.name) + "</div>" + jsonTreeBlock(b) + "</div></div>";
+    body.innerHTML = html;
+    bindViewToggles(body);
+    return;
+  }
   const lines = [];
   const cmp = (label, x, y) => { if (x !== y) lines.push(["chg", label + ": " + JSON.stringify(x) + " -> " + JSON.stringify(y)]); };
   cmp("formatVersion", a.header.formatVersion, b.header.formatVersion);
@@ -421,12 +544,13 @@ function renderDiff() {
   }
   if (!lines.length) lines.push(["ctx", "structurally identical"]);
   const stepsA = a.stages.flatMap((s) => s.steps), stepsB = b.stages.flatMap((s) => s.steps);
-  let html = chipRow([["A", diffA.name], ["B", diffB.name],
+  html += chipRow([["A", diffA.name], ["B", diffB.name],
     ["stages", a.stages.length + " -> " + b.stages.length], ["steps", stepsA.length + " -> " + stepsB.length]]);
   html += '<div class="diff-out">' + lines.map(([cls, txt]) => '<div class="' + cls + '">' + esc(txt) + "</div>").join("") + "</div>";
-  html += '<div style="margin-top:14px" class="mono-dim">variant A</div>' + timelineSvg(a, stepsA);
-  html += '<div style="margin-top:14px" class="mono-dim">variant B</div>' + timelineSvg(b, stepsB);
+  html += '<div class="section-label">variant A</div>' + timelineSvg(a, stepsA);
+  html += '<div class="section-label">variant B</div>' + timelineSvg(b, stepsB);
   body.innerHTML = html;
+  bindViewToggles(body);
 }
 
 $("file-static").onchange = (e) => e.target.files[0] && readInput(e.target.files[0], (t) => {

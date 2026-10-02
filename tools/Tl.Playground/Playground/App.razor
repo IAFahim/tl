@@ -5,12 +5,15 @@
 
 <div class="app">
     <header class="app-bar">
-        <span class="brand"><b>tl</b> playground</span>
+        <span class="brand"><b>tl</b> <i>playground</i></span>
         <nav class="view-tabs">
             <button class="@(_view == "live" ? "view-tab active" : "view-tab")" @onclick='() => _view = "live"'>live authoring</button>
             <button class="@(_view == "playground" ? "view-tab active" : "view-tab")" @onclick='() => _view = "playground"'>playground</button>
         </nav>
-        <a class="app-link" href="cookbook/index.html">cookbook</a>
+        <div class="app-links">
+            <a class="app-link" href="viewer/">viewer</a>
+            <a class="app-link" href="cookbook/index.html">cookbook</a>
+        </div>
     </header>
     <main class="app-main">
         @if (_view == "playground")
