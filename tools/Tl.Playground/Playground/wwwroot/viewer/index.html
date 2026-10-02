@@ -140,6 +140,35 @@ td.fold-pending { color: #b8c0ca; background: transparent; }
 td.fold-absent { color: var(--faint); background: transparent; }
 .lane-shape { display: inline-block; background: var(--panel3); border: 1px solid var(--line-soft);
   border-radius: 999px; padding: 1px 8px; font-size: 10.5px; margin: 1px 3px 1px 0; white-space: nowrap; }
+.scrub { display: flex; align-items: center; gap: 12px; margin: 14px 0 6px; flex-wrap: wrap; }
+.scrub input[type=range] { flex: 1 1 260px; accent-color: var(--accent); }
+.scrub .tick-label { min-width: 96px; color: var(--text); font-variant-numeric: tabular-nums; }
+.scrub button { background: var(--panel3); border: 1px solid var(--line); color: var(--text); border-radius: 7px;
+  padding: 5px 14px; cursor: pointer; font: inherit; }
+.scrub button:hover { border-color: var(--accent); color: var(--accent); }
+.now-state { margin-top: 8px; }
+.mem-map { display: flex; height: 36px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line-soft); margin: 8px 0 4px; }
+.mem-map i { display: block; height: 100%; }
+.mem-map-note { font-size: 11px; color: var(--faint); margin: 6px 0 14px; }
+.slot-strip { display: flex; gap: 2px; margin-top: 8px; }
+.slot-cell { min-width: 30px; height: 20px; border-radius: 4px; background: var(--absent); color: var(--faint);
+  display: flex; align-items: center; justify-content: center; font-size: 10px; padding: 0 4px; }
+.slot-live { background: var(--accent); color: var(--accent-ink); }
+.slot-hole { background: #3a3f47; color: #b8c0ca; }
+.stage-card { background: var(--panel2); border: 1px solid var(--line-soft); border-radius: 10px; padding: 14px 16px;
+  display: grid; grid-template-columns: 14px 1fr; gap: 2px 12px; }
+.stage-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--absent); margin-top: 5px; }
+.stage-dot.on { background: var(--good); }
+.stage-card h3 { margin: 0; font-size: 13px; }
+.stage-card .nums { color: var(--dim); font-size: 12px; margin-top: 4px; }
+.cmd { display: flex; align-items: center; gap: 8px; margin-top: 10px; background: #100e0c;
+  border: 1px solid var(--line-soft); border-radius: 7px; padding: 7px 12px; font-size: 12px; }
+.cmd code { color: var(--good); flex: 1; overflow-x: auto; white-space: nowrap; }
+.cmd button { background: var(--panel3); border: 1px solid var(--line); color: var(--dim); border-radius: 6px;
+  padding: 2px 10px; cursor: pointer; font: inherit; font-size: 11px; }
+.cmd button:hover { color: var(--accent); border-color: var(--accent); }
+.pipe-arrow { color: var(--faint); text-align: center; margin: 8px 0; font-size: 14px; }
+.pipe-intro { color: var(--dim); font-size: 12.5px; margin: 4px 0 16px; }
 
 footer { max-width: 1240px; margin: 0 auto; padding: 0 24px 40px; color: var(--faint); font-size: 11.5px;
   border-top: 1px solid var(--line-soft); padding-top: 16px; }
@@ -155,6 +184,7 @@ footer { max-width: 1240px; margin: 0 auto; padding: 0 24px 40px; color: var(--f
     <button id="tab-static" class="active">Static</button>
     <button id="tab-live">Live</button>
     <button id="tab-diff">Diff</button>
+    <button id="tab-pipeline">Pipeline</button>
   </nav>
   <div id="banners"></div>
 </header>
@@ -191,6 +221,9 @@ footer { max-width: 1240px; margin: 0 auto; padding: 0 24px 40px; color: var(--f
       <input type="file" id="file-diff-b" accept=".json,application/json">
     </div>
     <div id="diff-body"><div class="empty">load two static-plane JSON renders of the same timeline to see the structural delta</div></div>
+  </section>
+  <section id="pane-pipeline" class="pane">
+    <div id="pipeline-body"><div class="empty">the pipeline mirror fills in as planes are loaded in the Static and Live tabs</div></div>
   </section>
 </main>
 <footer>
@@ -291,7 +324,7 @@ function rerender(pane) {
 }
 
 function tab(name) {
-  for (const t of ["static", "live", "diff"]) {
+  for (const t of ["static", "live", "diff", "pipeline"]) {
     $("tab-" + t).classList.toggle("active", t === name);
     $("pane-" + t).classList.toggle("active", t === name);
   }
@@ -299,10 +332,184 @@ function tab(name) {
 $("tab-static").onclick = () => tab("static");
 $("tab-live").onclick = () => tab("live");
 $("tab-diff").onclick = () => tab("diff");
+$("tab-pipeline").onclick = () => tab("pipeline");
+
+const align16 = (n) => (n + 15) & ~15;
+function tlb1Layout(o) {
+  const stepTotal = o.stages.reduce((a, s) => a + s.steps.length, 0);
+  const pairOff = 64;
+  const stageOff = pairOff + 48 * o.pairs.length;
+  const stepsStart = stageOff + 16 * o.stages.length;
+  const stepsEnd = stepsStart + 8 * stepTotal;
+  const poolOff = align16(stepsEnd);
+  let cursor = poolOff;
+  const pools = [];
+  o.pairs.forEach((p, i) => {
+    const trackStart = cursor;
+    const clipStart = align16(trackStart + p.pools.trackValueBytes);
+    const clipEnd = clipStart + p.pools.clipValueBytes;
+    pools.push({ pair: i, trackStart, clipStart, clipEnd });
+    cursor = align16(clipEnd);
+  });
+  const frameOff = align16(cursor);
+  return { stepTotal, pairOff, stageOff, stepsStart, stepsEnd, poolOff, pools, frameOff,
+    hotLength: frameOff + 24 * stepTotal };
+}
+
+function memMapHtml(o) {
+  const L = tlb1Layout(o);
+  const segs = [
+    { name: "header (64 B)", start: 0, end: 64, color: "#6f97bf" },
+    { name: "pair table · " + o.pairs.length + " × 48 B", start: L.pairOff, end: L.stageOff, color: "#e2a13c" },
+    { name: "stage table · " + o.stages.length + " × 16 B", start: L.stageOff, end: L.stepsStart, color: "#85b86c" },
+    { name: "program steps · " + L.stepTotal + " × 8 B", start: L.stepsStart, end: L.stepsEnd, color: "#b18cf0" },
+  ];
+  if (L.poolOff > L.stepsEnd) segs.push({ name: "alignment", start: L.stepsEnd, end: L.poolOff, color: "#34302a" });
+  for (const p of L.pools) {
+    segs.push({ name: "pool " + p.pair + " track values", start: p.trackStart, end: p.clipStart, color: "#cf9257" });
+    segs.push({ name: "pool " + p.pair + " clip values", start: p.clipStart, end: p.clipEnd, color: "#9c6b3f" });
+  }
+  const poolEnd = L.pools.length ? L.pools[L.pools.length - 1].clipEnd : L.poolOff;
+  if (L.frameOff > poolEnd) segs.push({ name: "alignment", start: poolEnd, end: L.frameOff, color: "#34302a" });
+  segs.push({ name: "slot rows · " + L.stepTotal + " × 24 B", start: L.frameOff, end: L.hotLength, color: "#a89d8c" });
+  const total = L.hotLength;
+  let html = '<div class="mem-map">';
+  for (const s of segs)
+    html += '<i style="width:' + ((s.end - s.start) / total * 100).toFixed(2) + "%;background:" + s.color +
+      '" title="' + esc(s.name) + " · [" + s.start + ", " + s.end + ") · " + (s.end - s.start) + ' B"></i>';
+  html += "</div>";
+  html += '<table class="mini"><tr><th>section</th><th class="num">start</th><th class="num">end</th><th class="num">bytes</th></tr>';
+  for (const s of segs)
+    html += "<tr><td>" + esc(s.name) + '</td><td class="num">' + s.start + '</td><td class="num">' + s.end +
+      '</td><td class="num">' + (s.end - s.start) + "</td></tr>";
+  html += '</table><div class="mem-map-note">hot section [0, ' + L.hotLength + ") — computed from the pinned TLB1 v4 byte spec (docs/tlb1-layout.md); placement is deterministic from these fields and is cross-checked against the committed golden fixture bytes in this repository\'s tests. The cold metadata tail after " + L.hotLength + " (strings, type identities, labels) is variable-size and not emitted by --inspect — read HotLength and Bytes from the file header.</div>";
+  return html;
+}
+
+function stageOf(o, t) { for (const s of o.stages) if (t < s.end) return s; return null; }
+function factorOf(s, t) {
+  if (!s.factorSpan) return null;
+  return s.factorSpan <= 1 ? 0.5 : (t - s.factorStart) / (s.factorSpan - 1);
+}
+const scrub = { t: 0, playing: false, timer: 0 };
+function stopScrub() { scrub.playing = false; if (scrub.timer) { clearInterval(scrub.timer); scrub.timer = 0; } }
+function scrubTick() {
+  if (!staticDoc) { stopScrub(); return; }
+  const o = staticDoc.obj;
+  const dur = Math.max(1, o.header.duration);
+  if (scrub.t + 1 < dur) scrub.t++;
+  else if (o.header.looping) scrub.t = 0;
+  else stopScrub();
+  updateNow();
+}
+function nowStateInner(o, t) {
+  const st = stageOf(o, t);
+  const dur = Math.max(1, o.header.duration);
+  let html = '<div class="chips"><span class="chip"><i>tick</i>' + t + "/" + (dur - 1) + "</span>";
+  if (!st) return html + '<span class="chip"><i>stage</i>none — past duration</span></div>';
+  const act = st.steps.filter((s) => s.windowStart <= t && t < s.windowEnd);
+  html += '<span class="chip"><i>stage</i>[' + st.start + ", " + st.end + ')</span>' +
+    '<span class="chip"><i>active</i>' + act.length + "/" + st.steps.length + " steps</span>" +
+    '<span class="chip"><i>motion</i>' + (o.header.looping ? "looping — wraps" : "finite — clamps") + "</span></div>";
+  html += '<table class="mini"><tr><th>lane</th><th class="num">trackValue</th><th class="num">value</th>' +
+    '<th class="num">factor</th><th class="num">window pos</th><th>flags</th></tr>';
+  for (const s of act) {
+    const f = factorOf(s, t);
+    const flags = [];
+    if (t === s.windowStart) flags.push("ClipStart");
+    if (t === s.windowEnd - 1) flags.push("ClipEnd");
+    const blend = s.second !== 65535 && s.second !== undefined;
+    html += '<tr><td>pair ' + s.pair + " · track " + s.track + '</td><td class="num">' + s.trackValue +
+      '</td><td class="num">#' + s.first + (blend ? "→#" + s.second : "") + '</td><td class="num">' +
+      (f === null ? "—" : f.toFixed(3)) + '</td><td class="num">' + (t - s.windowStart) + "/" + (s.windowEnd - s.windowStart) +
+      "</td><td>" + (flags.join(" ") || "—") + "</td></tr>";
+  }
+  if (!act.length) html += '<tr><td colspan="6">no active window — nothing executes this tick</td></tr>';
+  html += "</table>";
+  return html;
+}
+function updateNow() {
+  if (!staticDoc || views.static !== "visual") return;
+  const o = staticDoc.obj;
+  const dur = Math.max(1, o.header.duration);
+  scrub.t = Math.min(scrub.t, dur - 1);
+  const steps = o.stages.flatMap((s, si) => s.steps.map((st) => Object.assign({ stage: si }, st)));
+  if ($("svg-wrap")) $("svg-wrap").innerHTML = timelineSvg(o, steps, scrub.t);
+  if ($("now-state")) $("now-state").innerHTML = nowStateInner(o, scrub.t);
+  if ($("scrub-range")) $("scrub-range").value = scrub.t;
+  if ($("scrub-label")) $("scrub-label").textContent = "tick " + scrub.t + "/" + (dur - 1);
+  if ($("scrub-play")) $("scrub-play").textContent = scrub.playing ? "❚❚ pause" : "▶ play";
+}
+function bindScrub() {
+  const range = $("scrub-range");
+  if (!range) return;
+  range.oninput = () => { scrub.t = +range.value; updateNow(); };
+  $("scrub-play").onclick = () => {
+    if (scrub.playing) { stopScrub(); } else { scrub.playing = true; scrub.timer = setInterval(scrubTick, 160); }
+    updateNow();
+  };
+}
 
 function chipRow(chips) {
   return '<div class="chips">' + chips.map(([k, v]) =>
     '<span class="chip"><i>' + esc(k) + '</i>' + esc(v) + "</span>").join("") + "</div>";
+}
+
+function renderPipeline() {
+  const body = $("pipeline-body");
+  if (!body) return;
+  const st = staticDoc, lv = liveDoc;
+  const L = st ? tlb1Layout(st.obj) : null;
+  const stageCard = (on, title, nums, cmd) =>
+    '<div class="stage-card"><span class="stage-dot ' + (on ? "on" : "") + '"></span><div><h3>' + title + "</h3>" +
+    '<div class="nums">' + nums + "</div>" + (cmd ? '<div class="cmd"><code>' + esc(cmd) +
+      '</code><button class="copy-cmd" data-cmd="' + esc(cmd) + '">copy</button></div>' : "") + "</div></div>";
+  const arrow = '<div class="pipe-arrow">↓</div>';
+  let html = '<div class="pipe-intro">A mirror of the whole tl pipeline — every number below is computed from the planes loaded in the Static and Live tabs; the commands are how you produce them.</div>';
+  html += stageCard(true, "1 · author",
+    "authored timeline JSON — the data-authored surface: tracks + clips, no handwritten timeline class, no per-asset binding");
+  html += arrow;
+  html += stageCard(!!st, "2 · bake", st
+    ? "TLB1 v" + st.obj.header.formatVersion + " container · hot section " + L.hotLength + " B (computed) · " +
+      st.obj.pairs.length + " pairs · " + st.obj.stages.length + " stages · " + L.stepTotal + " steps · duration " +
+      st.obj.header.duration + (st.obj.header.looping ? " looping" : " finite")
+    : "load the static plane to compute the container layout",
+    "tlb bake input.json -o asset.tlb");
+  html += arrow;
+  html += stageCard(!!st, "3 · inspect", st
+    ? "deterministic structural JSON — header, pool widths, stages, every step window and blend factor; renders this viewer's Static tab, including the computed byte map and tick scrubber"
+    : "not loaded",
+    "tlb --inspect asset.tlb");
+  html += arrow;
+  html += stageCard(!!lv, "4 · load + intern", lv
+    ? "TimelineAsset.Load interns the baked bytes into the process-lifetime table — capacity " + lv.obj.tables.intern.capacity +
+      " · live " + lv.obj.tables.intern.live + " · distinct contents " + lv.obj.tables.intern.distinct +
+      " · graveyard " + lv.obj.tables.intern.graveyardBlocks + " blocks / " + lv.obj.tables.intern.graveyardBytes + " B" +
+      " · alloc " + lv.obj.tables.intern.allocBytes + " B · peak " + lv.obj.tables.intern.peakLiveBytes + " B"
+    : "load the live plane to see the intern table",
+    "tlb --live --assembly game.dll --asset asset.tlb");
+  html += arrow;
+  html += stageCard(!!lv, "5 · typed fold", lv
+    ? "Timeline&lt;TTrack, TClip&gt; folds each (index, pair) on first typed use — pair table " + lv.obj.tables.pair.pairs +
+      "/" + lv.obj.tables.pair.slots + " slots · load factor " + lv.obj.tables.pair.loadFactorPermille + "‰ · " +
+      lv.obj.tables.pair.consumers + "/" + lv.obj.tables.pair.consumerCapacity + " consumers · slot row " +
+      lv.obj.tables.pair.slotRowBytes + " B · bake table " + lv.obj.tables.bake.entries + "/" + lv.obj.tables.bake.slots +
+      " · " + lv.obj.banks.length + " banks retaining " + lv.obj.banks.reduce((a, b) => a + b.bytes.retained, 0) + " B"
+    : "bank state not loaded", null);
+  html += arrow;
+  html += stageCard(!!st || !!lv, "6 · playback",
+    "Timeline.Apply + Timeline.Advance per tick — every available crossed frame executes, total signed Tick; finite timelines clamp, looping ones wrap. Scrub the Static tab for the computed frame state: active windows, blend factor, ClipStart/ClipEnd flags", null);
+  html += arrow;
+  html += stageCard(!!lv, "7 · live snapshot", lv
+    ? "process tables + every folded bank as deterministic JSON — this viewer's Live tab"
+    : "not loaded",
+    "tlb --live --assembly game.dll --resolve > live.json");
+  body.innerHTML = html;
+  for (const b of body.querySelectorAll(".copy-cmd"))
+    b.onclick = () => {
+      const done = () => { b.textContent = "copied"; setTimeout(() => (b.textContent = "copy"), 1200); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(b.dataset.cmd).then(done, () => {});
+    };
 }
 
 function renderStatic(text, sourceName) {
@@ -312,10 +519,10 @@ function renderStatic(text, sourceName) {
 }
 function renderStaticDoc() {
   const body = $("static-body");
-  if (!staticDoc) { body.innerHTML = '<div class="empty">refused — see banner</div>'; return; }
+  if (!staticDoc) { stopScrub(); body.innerHTML = '<div class="empty">refused — see banner</div>'; renderPipeline(); return; }
   const o = staticDoc.obj;
   let html = viewToggle("static");
-  if (views.static === "json") { body.innerHTML = html + jsonTreeBlock(o); bindViewToggles(body); return; }
+  if (views.static === "json") { stopScrub(); body.innerHTML = html + jsonTreeBlock(o); bindViewToggles(body); renderPipeline(); return; }
   const steps = o.stages.flatMap((s, si) => s.steps.map((st) => Object.assign({ stage: si }, st)));
   const chips = [
     ["schemaVersion", o.schemaVersion], ["source", staticDoc.name], ["formatVersion", o.header.formatVersion],
@@ -338,7 +545,15 @@ function renderStaticDoc() {
       '</td><td class="num">' + (s.end - s.start) + '</td><td class="num">' + s.steps.length + "</td></tr>";
   });
   html += "</table>";
-  html += timelineSvg(o, steps);
+  html += '<div id="svg-wrap">' + timelineSvg(o, steps, Math.min(scrub.t, Math.max(1, o.header.duration) - 1)) + "</div>";
+  html += '<div class="scrub"><button id="scrub-play">' + (scrub.playing ? "❚❚ pause" : "▶ play") + "</button>" +
+    '<input type="range" id="scrub-range" min="0" max="' + (Math.max(1, o.header.duration) - 1) +
+    '" step="1" value="' + Math.min(scrub.t, Math.max(1, o.header.duration) - 1) + '">' +
+    '<span class="tick-label" id="scrub-label">tick ' + Math.min(scrub.t, Math.max(1, o.header.duration) - 1) + "/" + (Math.max(1, o.header.duration) - 1) + "</span>" +
+    '<span class="mono-dim">engine frame state — computed with the runtime formulas</span></div>';
+  html += '<div class="now-state" id="now-state">' + nowStateInner(o, Math.min(scrub.t, Math.max(1, o.header.duration) - 1)) + "</div>";
+  html += '<div class="section-label">TLB1 container — computed byte layout</div>';
+  html += memMapHtml(o);
   html += '<details class="step-table"><summary>all ' + steps.length + " steps — every field</summary>" +
     '<table><tr><th>stage</th><th class="num">pair</th><th class="num">track</th><th class="num">trackValue</th>' +
     '<th class="num">first</th><th class="num">second</th><th class="num">window</th><th class="num">factor</th></tr>';
@@ -351,6 +566,8 @@ function renderStaticDoc() {
   html += '</table><div class="bar-label">raw step fields — second 65535 = no blend · factor — = factorSpan 0</div></details>';
   body.innerHTML = html;
   bindViewToggles(body);
+  bindScrub();
+  renderPipeline();
 }
 
 function lanes(steps) {
@@ -369,7 +586,7 @@ function clipsOf(steps) {
   }
   return [...seen.values()];
 }
-function timelineSvg(o, steps) {
+function timelineSvg(o, steps, nowT) {
   const ls = lanes(steps);
   const clips = clipsOf(steps);
   const duration = Math.max(1, o.header.duration);
@@ -423,6 +640,11 @@ function timelineSvg(o, steps) {
       esc("blend factor window · " + g.tip) + "</title></rect>";
     svg += '<text x="' + (g.fx + 3) + '" y="' + (g.y + g.h - 4) + '" font-size="9" fill="#191613" font-family="inherit">f×' + c.factorSpan + "</text>";
   }
+  if (nowT !== undefined) {
+    svg += '<line x1="' + x(nowT) + '" y1="' + (headH - 14) + '" x2="' + x(nowT) + '" y2="' + (H - 6) +
+      '" stroke="#e2a13c" stroke-width="2"/>';
+    svg += '<text x="' + x(nowT) + '" y="' + (H - 10) + '" fill="#e2a13c" font-size="10" text-anchor="middle" font-family="inherit">t' + nowT + "</text>";
+  }
   svg += "</svg>";
   return svg;
 }
@@ -439,10 +661,10 @@ function renderLive(text, sourceName) {
 }
 function renderLiveDoc() {
   const body = $("live-body");
-  if (!liveDoc) { body.innerHTML = '<div class="empty">refused — see banner</div>'; return; }
+  if (!liveDoc) { body.innerHTML = '<div class="empty">refused — see banner</div>'; renderPipeline(); return; }
   const o = liveDoc.obj;
   let html = viewToggle("live");
-  if (views.live === "json") { body.innerHTML = html + jsonTreeBlock(o); bindViewToggles(body); return; }
+  if (views.live === "json") { body.innerHTML = html + jsonTreeBlock(o); bindViewToggles(body); renderPipeline(); return; }
   html += chipRow([["schemaVersion", o.schemaVersion], ["plane", o.plane],
     ["source", liveDoc.name], ["engine", o.host.engine + " " + o.host.engineVersion],
     ["assembly", o.assembly.name + " " + o.assembly.version], ["assets", o.assets.length],
@@ -483,8 +705,22 @@ function renderLiveDoc() {
   html += '<div class="cards">';
   for (const b of o.banks) html += bankCard(b);
   html += "</div>";
+  html += '<div class="section-label">runtime storage</div>';
+  html += '<div class="cards">';
+  for (const b of o.banks) {
+    html += '<div class="card"><h3>' + esc(b.track) + "&lt;" + esc(b.clip) + "&gt; bank</h3>" +
+      '<dl class="kv"><dt>view slots (extent)</dt><dd>' + b.count + "</dd>" +
+      "<dt>live / holes</dt><dd>" + (b.count - b.holes) + " / " + b.holes + "</dd></dl>" +
+      '<div class="slot-strip">' +
+      '<div class="slot-cell slot-live">' + (b.count - b.holes) + " live</div>" +
+      (b.holes ? '<div class="slot-cell slot-hole">' + b.holes + " holes</div>" : "") +
+      "</div>" +
+      '<div class="bar-label">view slots below the table extent — hole positions are not emitted by --live</div></div>';
+  }
+  html += "</div>";
   body.innerHTML = html;
   bindViewToggles(body);
+  renderPipeline();
 }
 
 function barCard(title, rows, ratio, ratioLabel) {
