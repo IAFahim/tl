@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "header": {
+    "formatVersion": 4,
+    "duration": 20,
+    "looping": false
+  },
+  "pairs": [
+    {
+      "key": "0x914960193112d59c",
+      "layout": "0x0000000000000000",
+      "slotStride": 24,
+      "pools": {
+        "trackValueBytes": 4,
+        "clipValueBytes": 4
+      }
+    }
+  ],
+  "stages": [
+    {
+      "start": 0,
+      "end": 8,
+      "steps": [
+        {
+          "pair": 0,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 0,
+          "windowEnd": 12,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    },
+    {
+      "start": 8,
+      "end": 12,
+      "steps": [
+        {
+          "pair": 0,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 1,
+          "windowStart": 0,
+          "windowEnd": 20,
+          "factorStart": 8,
+          "factorSpan": 4
+        }
+      ]
+    },
+    {
+      "start": 12,
+      "end": 20,
+      "steps": [
+        {
+          "pair": 0,
+          "track": 0,
+          "trackValue": 0,
+          "first": 1,
+          "second": 65535,
+          "windowStart": 8,
+          "windowEnd": 20,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    }
+  ]
+}
