@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Tl.FusedAdvanceProbe.AdvanceBenchmarks-20261002-082331</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+  Job-TZECNT : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Job </th><th>Toolchain       </th><th>IterationCount</th><th>IterationTime</th><th>WarmupCount</th><th>Shape        </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Ratio</th><th>RatioSD</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>TwoCall</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneUniform</td><td>28.00 &mu;s</td><td>0.414 &mu;s</td><td>0.407 &mu;s</td><td>27.89 &mu;s</td><td>1.00</td><td>0.02</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneUniform</td><td>27.86 &mu;s</td><td>0.163 &mu;s</td><td>0.152 &mu;s</td><td>27.86 &mu;s</td><td>1.00</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneUniform</td><td>27.74 &mu;s</td><td>0.171 &mu;s</td><td>0.152 &mu;s</td><td>27.69 &mu;s</td><td>1.00</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneUniform</td><td>27.64 &mu;s</td><td>0.123 &mu;s</td><td>0.109 &mu;s</td><td>27.64 &mu;s</td><td>1.00</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneWaves</td><td>29.59 &mu;s</td><td>0.445 &mu;s</td><td>0.395 &mu;s</td><td>29.66 &mu;s</td><td>1.00</td><td>0.02</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneWaves</td><td>30.28 &mu;s</td><td>0.393 &mu;s</td><td>0.386 &mu;s</td><td>30.34 &mu;s</td><td>1.02</td><td>0.02</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneWaves</td><td>29.34 &mu;s</td><td>0.485 &mu;s</td><td>0.454 &mu;s</td><td>29.19 &mu;s</td><td>1.00</td><td>0.02</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneWaves</td><td>29.61 &mu;s</td><td>0.424 &mu;s</td><td>0.397 &mu;s</td><td>29.40 &mu;s</td><td>1.01</td><td>0.02</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneStaggered</td><td>33.14 &mu;s</td><td>0.178 &mu;s</td><td>0.158 &mu;s</td><td>33.16 &mu;s</td><td>1.00</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneStaggered</td><td>32.83 &mu;s</td><td>0.221 &mu;s</td><td>0.185 &mu;s</td><td>32.88 &mu;s</td><td>0.99</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneStaggered</td><td>32.27 &mu;s</td><td>0.106 &mu;s</td><td>0.089 &mu;s</td><td>32.27 &mu;s</td><td>1.00</td><td>0.00</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneStaggered</td><td>31.63 &mu;s</td><td>0.597 &mu;s</td><td>0.586 &mu;s</td><td>31.42 &mu;s</td><td>0.98</td><td>0.02</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneUniformBackward</td><td>29.40 &mu;s</td><td>0.198 &mu;s</td><td>0.194 &mu;s</td><td>29.37 &mu;s</td><td>1.00</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>LaneUniformBackward</td><td>29.26 &mu;s</td><td>0.188 &mu;s</td><td>0.176 &mu;s</td><td>29.25 &mu;s</td><td>1.00</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneUniformBackward</td><td>29.74 &mu;s</td><td>0.117 &mu;s</td><td>0.110 &mu;s</td><td>29.70 &mu;s</td><td>1.00</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>LaneUniformBackward</td><td>28.61 &mu;s</td><td>0.087 &mu;s</td><td>0.082 &mu;s</td><td>28.62 &mu;s</td><td>0.96</td><td>0.00</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>SetWavesOne</td><td>27.36 &mu;s</td><td>0.127 &mu;s</td><td>0.119 &mu;s</td><td>27.32 &mu;s</td><td>1.00</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>SetWavesOne</td><td>27.27 &mu;s</td><td>0.053 &mu;s</td><td>0.047 &mu;s</td><td>27.27 &mu;s</td><td>1.00</td><td>0.00</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>SetWavesOne</td><td>27.73 &mu;s</td><td>0.098 &mu;s</td><td>0.087 &mu;s</td><td>27.73 &mu;s</td><td>1.00</td><td>0.00</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>SetWavesOne</td><td>27.02 &mu;s</td><td>0.159 &mu;s</td><td>0.149 &mu;s</td><td>26.98 &mu;s</td><td>0.97</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>SetStaggeredMixed</td><td>147.74 &mu;s</td><td>3.098 &mu;s</td><td>3.043 &mu;s</td><td>147.22 &mu;s</td><td>1.00</td><td>0.03</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>SetStaggeredMixed</td><td>151.33 &mu;s</td><td>2.469 &mu;s</td><td>2.309 &mu;s</td><td>152.10 &mu;s</td><td>1.02</td><td>0.03</td><td>-</td><td>NA</td>
+</tr><tr><td>TwoCall</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>SetStaggeredMixed</td><td>153.73 &mu;s</td><td>1.408 &mu;s</td><td>1.099 &mu;s</td><td>153.83 &mu;s</td><td>1.00</td><td>0.01</td><td>-</td><td>NA</td>
+</tr><tr><td>Fused</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>SetStaggeredMixed</td><td>157.31 &mu;s</td><td>1.045 &mu;s</td><td>0.978 &mu;s</td><td>157.23 &mu;s</td><td>1.02</td><td>0.01</td><td>1 B</td><td>NA</td>
+</tr></tbody></table>
+</body>
+</html>
