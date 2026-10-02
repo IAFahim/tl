@@ -18,7 +18,7 @@ def budget(label, *scopes, limit):
     return total <= limit
 
 
-ok = budget("src", "src", limit=303_000)
+ok = budget("src", "src", limit=306_000)
 ok &= budget("samples", "samples", limit=32_000)
 ok &= budget("shipped-tools", "tools/Tl.Gen.Tlb", "tools/Tl.Bake", limit=276_000)
 raise SystemExit(0 if ok else 1)

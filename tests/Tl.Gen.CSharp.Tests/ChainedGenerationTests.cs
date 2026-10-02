@@ -22,22 +22,39 @@ public sealed class ChainedGenerationTests
             public static void ExecuteActive(in Frame<BurnTrack, BurnClip> frame, in Armor armor, ref float heat)
                 => heat += frame.Clip.Amount * frame.Track.Multiplier * armor.Scale;
         }
+        public readonly struct BurnBake : IBake<ApplyBurn>
+        {
+            public static void Bake(ref float seed) { }
+        }
         """;
 
-    private static CSharpCompilation Augmented()
+    private const string AuthoredBake = """
+        using Tl;
+        namespace Domain;
+        public readonly struct AuthoredDamageBake : IBake<ApplyDamage>
+        {
+            public static void Bake(ref float seed) { }
+        }
+        """;
+
+    private static CSharpParseOptions Options => CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+
+    private static CSharpCompilationOptions CompilationOptions => new(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable);
+
+    private static CSharpCompilation Augmented(out SyntaxTree synthesized, bool withAuthoredBake = false)
     {
-        var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
-        return CSharpCompilation.Create("ChainedGeneration" + Guid.NewGuid().ToString("N"),
-            [CSharpSyntaxTree.ParseText(Source, options, "Domain.cs")],
-            References(),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable))
-            .AddSyntaxTrees(CSharpSyntaxTree.ParseText(Synthesized, options, "Synthesized.g.cs"));
+        var original = new List<SyntaxTree> { CSharpSyntaxTree.ParseText(Source, Options, "Domain.cs") };
+        if (withAuthoredBake)
+            original.Add(CSharpSyntaxTree.ParseText(AuthoredBake, Options, "AuthoredBake.cs"));
+        synthesized = CSharpSyntaxTree.ParseText(Synthesized, Options, "Synthesized.g.cs");
+        return CSharpCompilation.Create("ChainedGeneration" + Guid.NewGuid().ToString("N"), original, References(), CompilationOptions)
+            .AddSyntaxTrees(synthesized);
     }
 
     [Fact]
     public void ChainedRunEmitsTheSynthesizedConsumerUnderHostedNames()
     {
-        var result = TimelineGeneration.Run(Augmented(), new HashSet<string> { "global::Hosted.ApplyBurn" });
+        var result = TimelineGeneration.Run(Augmented(out var synthesized), new HashSet<SyntaxTree> { synthesized }, new HashSet<string> { "global::Hosted.ApplyBurn" });
 
         Assert.Empty(result.Diagnostics);
         var artifact = Assert.Single(result.Artifacts);
@@ -50,33 +67,83 @@ public sealed class ChainedGenerationTests
     [Fact]
     public void ConsumerFilterKeepsAuthoredConsumersOutOfTheChainedArtifact()
     {
-        var result = TimelineGeneration.Run(Augmented(), new HashSet<string> { "global::Hosted.ApplyBurn" });
+        var result = TimelineGeneration.Run(Augmented(out var synthesized), new HashSet<SyntaxTree> { synthesized }, new HashSet<string> { "global::Hosted.ApplyBurn" });
 
         Assert.DoesNotContain("Domain.ApplyDamage", Assert.Single(result.Artifacts).Content);
         Assert.DoesNotContain("Domain.ApplyHeal", Assert.Single(result.Artifacts).Content);
     }
 
     [Fact]
-    public void UnfilteredChainedRunEmitsEveryConsumerItCanSee()
+    public void UnfilteredChainedRunEmitsOnlySynthesizedConsumers()
     {
-        var result = TimelineGeneration.Run(Augmented());
+        var result = TimelineGeneration.Run(Augmented(out var synthesized), new HashSet<SyntaxTree> { synthesized });
 
+        Assert.Empty(result.Diagnostics);
         var content = Assert.Single(result.Artifacts).Content;
-        Assert.Contains("Domain.ApplyDamage", content);
         Assert.Contains("Hosted.ApplyBurn", content);
+        Assert.DoesNotContain("Domain.ApplyDamage", content);
+        Assert.DoesNotContain("Domain.ApplyHeal", content);
+    }
+
+    [Fact]
+    public void BakesForSynthesizedConsumersRideAlongAndAuthoredBakesStayBehind()
+    {
+        var result = TimelineGeneration.Run(Augmented(out var synthesized, withAuthoredBake: true), new HashSet<SyntaxTree> { synthesized });
+
+        Assert.Empty(result.Diagnostics);
+        var content = Assert.Single(result.Artifacts).Content;
+        Assert.Contains("BakeRuntime<global::Hosted.BurnTrack, global::Hosted.BurnClip>", content);
+        Assert.Contains("BurnBake.Bake", content);
+        Assert.DoesNotContain("AuthoredDamageBake", content);
+    }
+
+    [Fact]
+    public void UnmatchedFilterEntryIsReportedInsteadOfSilentlyMatchingNothing()
+    {
+        var result = TimelineGeneration.Run(Augmented(out var synthesized), new HashSet<SyntaxTree> { synthesized }, new HashSet<string> { "Hosted.ApplyBurn" });
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("TLGEN83", diagnostic.Code);
+        Assert.Contains("Hosted.ApplyBurn", diagnostic.Message);
+        Assert.Empty(result.Artifacts);
+    }
+
+    [Fact]
+    public void FilterNamingAnAuthoredConsumerIsReported()
+    {
+        var result = TimelineGeneration.Run(Augmented(out var synthesized), new HashSet<SyntaxTree> { synthesized }, new HashSet<string> { "global::Domain.ApplyDamage" });
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("TLGEN84", diagnostic.Code);
+        Assert.Contains("global::Domain.ApplyDamage", diagnostic.Message);
+        Assert.Empty(result.Artifacts);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("my-host")]
+    [InlineData("3host")]
+    public void InvalidIdIsRejectedBeforeAnyGeneration(string id)
+    {
+        var result = TimelineGeneration.Run(Augmented(out var synthesized), new HashSet<SyntaxTree> { synthesized }, id: id);
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("TLGEN82", diagnostic.Code);
+        Assert.Empty(result.Artifacts);
     }
 
     [Fact]
     public void InvalidSynthesizedConsumerSurfacesDiagnosticsAndEmitsNothing()
     {
-        var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
-        var broken = Synthesized.Replace("ref float heat", "ref float heat, ref float heatAgain");
+        var options = Options;
+        var broken = CSharpSyntaxTree.ParseText(Synthesized.Replace("ref float heat", "ref float heat, ref float heatAgain"), options, "Synthesized.g.cs");
         var compilation = CSharpCompilation.Create("ChainedGenerationBroken" + Guid.NewGuid().ToString("N"),
-            [CSharpSyntaxTree.ParseText(broken, options, "Synthesized.g.cs")],
+            [CSharpSyntaxTree.ParseText(Source, options, "Domain.cs")],
             References(),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
+            CompilationOptions)
+            .AddSyntaxTrees(broken);
 
-        var result = TimelineGeneration.Run(compilation);
+        var result = TimelineGeneration.Run(compilation, new HashSet<SyntaxTree> { broken });
 
         Assert.NotEmpty(result.Diagnostics);
         Assert.Empty(result.Artifacts);

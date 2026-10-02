@@ -10,7 +10,9 @@ public static class JobReader
     private const int ActiveParameters = 30;
     private const int MemoResults = 10;
 
-    public static JobReadResult Read(CSharpCompilation compilation)
+    public static JobReadResult Read(CSharpCompilation compilation) => Read(compilation, null);
+
+    internal static JobReadResult Read(CSharpCompilation compilation, Dictionary<string, SyntaxTree>? consumerTrees)
     {
         if (compilation is null)
             throw new ArgumentNullException(nameof(compilation));
@@ -54,7 +56,10 @@ public static class JobReader
             if (!valid) continue;
             foreach (var consumer in discovered.OrderBy(static item => item.TrackTypeName + "\0" + item.ClipTypeName, StringComparer.Ordinal))
                 if (pairs.Add(consumer.Job.TypeName + "\0" + consumer.TrackTypeName + "\0" + consumer.ClipTypeName))
+                {
                     consumers.Add(consumer);
+                    consumerTrees?.Add(consumer.Job.TypeName, entry.Syntax.SyntaxTree);
+                }
         }
         var bakes = BakeReader.Read(compilation, consumers, errors);
         return new(consumers, errors, bakes);
