@@ -127,6 +127,19 @@ svg.timeline { width: 100%; height: auto; display: block; background: var(--pane
 .mono-dim { color: var(--faint); }
 .section-label { color: var(--faint); font-size: 10.5px; font-weight: 600; text-transform: uppercase;
   letter-spacing: .12em; margin: 22px 0 6px; }
+details.step-table { margin: 2px 0 18px; }
+details.step-table > summary { cursor: pointer; color: var(--faint); font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .12em; padding: 6px 0; }
+details.step-table > summary:hover { color: var(--dim); }
+details.step-table table { margin-top: 6px; }
+table.mini { font-size: 11.5px; }
+table.mini th, table.mini td { padding: 4px 8px; }
+td.fold-folded { color: var(--good); background: transparent; }
+td.fold-folded-now { color: var(--accent); background: transparent; }
+td.fold-pending { color: #b8c0ca; background: transparent; }
+td.fold-absent { color: var(--faint); background: transparent; }
+.lane-shape { display: inline-block; background: var(--panel3); border: 1px solid var(--line-soft);
+  border-radius: 999px; padding: 1px 8px; font-size: 10.5px; margin: 1px 3px 1px 0; white-space: nowrap; }
 
 footer { max-width: 1240px; margin: 0 auto; padding: 0 24px 40px; color: var(--faint); font-size: 11.5px;
   border-top: 1px solid var(--line-soft); padding-top: 16px; }
@@ -303,10 +316,11 @@ function renderStaticDoc() {
   const o = staticDoc.obj;
   let html = viewToggle("static");
   if (views.static === "json") { body.innerHTML = html + jsonTreeBlock(o); bindViewToggles(body); return; }
-  const steps = o.stages.flatMap((s) => s.steps.map((st) => Object.assign({ stageStart: s.start, stageEnd: s.end }, st)));
+  const steps = o.stages.flatMap((s, si) => s.steps.map((st) => Object.assign({ stage: si }, st)));
   const chips = [
-    ["source", staticDoc.name], ["formatVersion", o.header.formatVersion], ["duration", o.header.duration],
-    ["looping", String(o.header.looping)], ["pairs", o.pairs.length], ["stages", o.stages.length], ["steps", steps.length],
+    ["schemaVersion", o.schemaVersion], ["source", staticDoc.name], ["formatVersion", o.header.formatVersion],
+    ["duration", o.header.duration], ["looping", String(o.header.looping)],
+    ["pairs", o.pairs.length], ["stages", o.stages.length], ["steps", steps.length],
   ];
   html += chipRow(chips);
   html += '<table><tr><th>pair</th><th class="num">key</th><th class="num">layout</th><th class="num">slotStride</th>' +
@@ -317,7 +331,24 @@ function renderStaticDoc() {
       '</td><td class="num">' + p.pools.clipValueBytes + "</td></tr>";
   });
   html += "</table>";
+  html += '<div class="section-label">stages</div>';
+  html += '<table><tr><th>stage</th><th class="num">start</th><th class="num">end</th><th class="num">span</th><th class="num">steps</th></tr>';
+  o.stages.forEach((s, i) => {
+    html += '<tr><td>' + i + '</td><td class="num">' + s.start + '</td><td class="num">' + s.end +
+      '</td><td class="num">' + (s.end - s.start) + '</td><td class="num">' + s.steps.length + "</td></tr>";
+  });
+  html += "</table>";
   html += timelineSvg(o, steps);
+  html += '<details class="step-table"><summary>all ' + steps.length + " steps — every field</summary>" +
+    '<table><tr><th>stage</th><th class="num">pair</th><th class="num">track</th><th class="num">trackValue</th>' +
+    '<th class="num">first</th><th class="num">second</th><th class="num">window</th><th class="num">factor</th></tr>';
+  for (const s of steps) {
+    html += '<tr><td>' + s.stage + '</td><td class="num">' + s.pair + '</td><td class="num">' + s.track +
+      '</td><td class="num">' + s.trackValue + '</td><td class="num">' + s.first +
+      '</td><td class="num">' + s.second + '</td><td class="num">[' + s.windowStart + ", " + s.windowEnd +
+      ')</td><td class="num">' + (s.factorSpan ? "[" + s.factorStart + ", " + (s.factorStart + s.factorSpan) + ") ×" + s.factorSpan : "—") + "</td></tr>";
+  }
+  html += '</table><div class="bar-label">raw step fields — second 65535 = no blend · factor — = factorSpan 0</div></details>';
   body.innerHTML = html;
   bindViewToggles(body);
 }
@@ -350,9 +381,10 @@ function timelineSvg(o, steps) {
     if (i % 2 === 1) return;
     svg += '<rect x="' + x(s.start) + '" y="' + (headH - 14) + '" width="' + Math.max(0, x(s.end) - x(s.start)) +
       '" height="' + (H - headH + 14) + '" fill="#262218"/>';
-    svg += '<text x="' + (x(s.start) + 5) + '" y="16" fill="#7d7466" font-size="11" font-family="inherit">stage ' + s.start + "–" + s.end + "</text>";
+    svg += '<text x="' + (x(s.start) + 5) + '" y="16" fill="#7d7466" font-size="11" font-family="inherit">stage ' + s.start + "–" + s.end + " ·" + s.steps.length + "</text>";
   });
   svg += '<line x1="' + x(duration) + '" y1="' + (headH - 14) + '" x2="' + x(duration) + '" y2="' + (H - 6) + '" stroke="#4a4234" stroke-dasharray="3 3"/>';
+  svg += '<text x="' + Math.max(0, x(duration) - 64) + '" y="16" fill="#a89d8c" font-size="11" text-anchor="end" font-family="inherit">dur ' + duration + (o.header.looping ? " ↻" : "") + "</text>";
   ls.forEach((lane, i) => {
     const y = headH + i * rowH;
     svg += '<text x="8" y="' + (y + 19) + '" fill="#a89d8c" font-size="12" font-family="inherit">pair ' + lane.pair + " · track " + lane.track + "</text>";
@@ -411,21 +443,28 @@ function renderLiveDoc() {
   const o = liveDoc.obj;
   let html = viewToggle("live");
   if (views.live === "json") { body.innerHTML = html + jsonTreeBlock(o); bindViewToggles(body); return; }
-  html += chipRow([["source", liveDoc.name], ["engine", o.host.engine + " " + o.host.engineVersion],
-    ["assembly", o.assembly.name + " " + o.assembly.version], ["assets", o.assets.length]]);
+  html += chipRow([["schemaVersion", o.schemaVersion], ["plane", o.plane],
+    ["source", liveDoc.name], ["engine", o.host.engine + " " + o.host.engineVersion],
+    ["assembly", o.assembly.name + " " + o.assembly.version], ["assets", o.assets.length],
+    ["deep", o.deep && o.deep.available ? "available" : "unavailable"]]);
   html += '<table><tr><th>asset</th><th class="num">bytes</th><th class="num">index</th><th class="num">sha256</th></tr>';
   for (const a of o.assets) html += "<tr><td>" + esc(a.file) + '</td><td class="num">' + a.bytes +
-    '</td><td class="num">' + a.index + '</td><td class="num" style="font-size:11px">' + esc(a.sha256.slice(0, 16)) + "…</td></tr>";
+    '</td><td class="num">' + a.index + '</td><td class="num" style="font-size:11px" title="' + esc(a.sha256) + '">' +
+    esc(a.sha256.slice(0, 16)) + "…</td></tr>";
   html += "</table>";
   const t = o.tables;
   html += '<div class="cards">';
+  html += '<div class="card"><h3>' + esc(o.assembly.name) + " " + esc(o.assembly.version) + '</h3><dl class="kv">' +
+    '<dt>sha256</dt><dd title="' + esc(o.assembly.sha256) + '">' + esc(o.assembly.sha256.slice(0, 16)) + "…</dd>" +
+    o.assembly.engineReferences.map((r) => "<dt>" + esc(r.name) + "</dt><dd>" + esc(r.version) + "</dd>").join("") +
+    "</dl></div>";
   html += barCard("intern table", [
     ["capacity", t.intern.capacity], ["live", t.intern.live], ["distinct contents", t.intern.distinct],
     ["graveyard blocks", t.intern.graveyardBlocks], ["graveyard bytes", fmtBytes(t.intern.graveyardBytes)],
     ["alloc bytes", fmtBytes(t.intern.allocBytes)], ["peak live bytes", fmtBytes(t.intern.peakLiveBytes)],
   ], t.intern.live / t.intern.capacity, "live / capacity");
   html += barCard("pair table", [
-    ["slots", t.pair.slots], ["pairs", t.pair.pairs], ["load factor", (t.pair.loadFactorPermille / 10).toFixed(1) + "%"],
+    ["slots", t.pair.slots], ["pairs", t.pair.pairs], ["load factor", t.pair.loadFactorPermille + "‰"],
     ["consumers", t.pair.consumers], ["consumer capacity", t.pair.consumerCapacity], ["slot row bytes", t.pair.slotRowBytes],
   ], t.pair.pairs / t.pair.slots, "pairs / slots");
   html += barCard("bake table", [["slots", t.bake.slots], ["entries", t.bake.entries]], t.bake.entries / t.bake.slots, "entries / slots");
@@ -469,14 +508,33 @@ function bankCard(b) {
         ? " · lanes[" + v.laneShapes.map((s) => s.key + " distinct " + s.distinct + " run " + s.longestRun).join(", ") + "]" : "");
     return '<div class="fold-cell fold-' + v.foldState + '" title="view ' + v.index + " · " + v.foldState + esc(detail) + '">' + v.index + "</div>";
   }).join("");
+  const viewRows = b.views.map((v) => {
+    const folded = v.foldState !== "absent" && v.foldState !== "pending";
+    const shapes = (v.laneShapes || []).map((s) =>
+      '<span class="lane-shape" title="key ' + esc(s.key) + " · distinct " + s.distinct + " · longest run " + s.longestRun + '">' +
+      esc(s.key.length > 8 ? "…" + s.key.slice(-6) : s.key) + " " + s.distinct + "/" + s.longestRun + "</span>").join("");
+    return "<tr><td>" + v.index + '</td><td class="fold-' + v.foldState + '">' + esc(v.foldState) + "</td>" +
+      '<td class="num">' + (folded ? v.duration : "—") + "</td><td>" + (folded ? v.looping : "—") + "</td>" +
+      '<td class="num">' + (folded ? v.ticks : "—") + "</td>" +
+      '<td class="num">' + (folded ? v.lanes : "—") + "</td>" +
+      '<td class="num">' + (folded ? v.abiVersion : "—") + "</td>" +
+      '<td class="num">' + (folded ? v.generation : "—") + "</td>" +
+      "<td>" + (shapes || "—") + "</td></tr>";
+  }).join("");
+  const viewsTable = b.views.length
+    ? '<table class="mini"><tr><th>view</th><th>state</th><th class="num">dur</th><th>loop</th><th class="num">ticks</th>' +
+      '<th class="num">lanes</th><th class="num">abi</th><th class="num">gen</th><th>lane shapes · distinct/run</th></tr>' +
+      viewRows + "</table>"
+    : "";
   return '<div class="card"><h3>' + esc(b.track) + "&lt;" + esc(b.clip) + '&gt;</h3><dl class="kv">' +
     "<dt>pair key</dt><dd>" + esc(b.pairKey) + "</dd>" +
     "<dt>count / holes</dt><dd>" + b.count + " / " + b.holes + "</dd>" +
     "<dt>blocks · generation</dt><dd>" + b.blocks + " · " + b.generation + "</dd>" +
     "<dt>dedupe hits</dt><dd>" + b.dedupeHits + "</dd>" +
-    "<dt>retained bytes</dt><dd>" + fmtBytes(b.bytes.retained) + "</dd></dl>" +
-    stack + '<div class="bar-label">' + parts.map(([n, v]) => n + " " + fmtBytes(v)).join(" · ") + "</div>" +
-    '<div class="fold-row">' + cells + "</div></div>";
+    "<dt>retained bytes</dt><dd title=\"" + b.bytes.retained + '">' + fmtBytes(b.bytes.retained) + "</dd></dl>" +
+    stack + '<div class="bar-label">' + parts.map(([n, v]) => n + " " + v + " B").join(" · ") +
+    " · retained " + b.bytes.retained + " B</div>" +
+    '<div class="fold-row">' + cells + "</div>" + viewsTable + "</div>";
 }
 
 let diffA = null, diffB = null;
