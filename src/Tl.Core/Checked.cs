@@ -61,6 +61,10 @@ internal static class Checked
     {
         if (ids.Length != positions.Length) Fail.ColumnLength(positions.Length, ids.Length);
         if (positions.Length != next.Length) Fail.ColumnLength(positions.Length, next.Length);
+        if (next.IsEmpty) return;
+        if (Unsafe.AreSame(ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next))) return;
+        if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(next))
+            || MemoryMarshal.AsBytes(ids).Overlaps(MemoryMarshal.AsBytes(next))) Fail.ColumnOverlap();
     }
 
     [Conditional("TL_CHECKED")]

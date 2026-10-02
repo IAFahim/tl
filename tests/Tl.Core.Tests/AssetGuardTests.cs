@@ -1,4 +1,8 @@
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
+
+using Tl.TestSupport;
+
 using Xunit;
 
 namespace Tl.Core.Tests;
@@ -18,6 +22,26 @@ public class AssetGuardTests
     [Fact]
     public void DisposedFailureNamesTheSet()
         => Assert.Equal("TimelineSet", Assert.Throws<ObjectDisposedException>(Fail.Disposed).ObjectName);
+
+    [Fact]
+    public void ChunkApplyRejectsIdLengthMismatch()
+        => Assert.Equal(
+            "Column length 3 must equal position count 4.",
+            Assert.Throws<ArgumentException>(() => Timeline<SkewTrack, SkewClip>.ApplyChunk(new ushort[3], new ushort[4], true, new float[4], new float[4])).Message);
+
+    [Fact]
+    public void LoaderRejectsAssetsDeclaringMoreThan256Pairs()
+    {
+        var baked = new DomainBaker { FingerprintOf = BakeFingerprint.Of }
+            .Track<SkewTrack, SkewClip>(new SkewTrack(2))
+            .Clip(0, 0, 4, new SkewClip(5))
+            .Bake();
+        BinaryPrimitives.WriteUInt32LittleEndian(baked.AsSpan(24), 257u);
+
+        var failure = Assert.Throws<ArgumentException>(() => TimelineAsset.LoadAsset(baked));
+
+        Assert.Contains("more than 256 pairs", failure.Message, StringComparison.Ordinal);
+    }
 
 #if TL_CHECKED
     [Fact]
@@ -163,5 +187,36 @@ public class AssetGuardTests
     [Fact]
     public void LengthGuardAcceptsMatchingColumns()
         => Checked.Length(new ushort[4], new ushort[4]);
+
+    [Fact]
+    public void WidthColumnGuardAcceptsExactInPlaceAdvance()
+    {
+        var buffer = new ushort[4];
+        Checked.Columns(new ushort[4], buffer, buffer);
+    }
+
+    [Fact]
+    public void WidthColumnGuardRejectsPartiallyOverlappingAdvance()
+    {
+        var buffer = new ushort[8];
+        var positions = buffer.AsSpan(0, 4);
+        var next = buffer.AsSpan(2, 4);
+        var threw = false;
+        try { Checked.Columns(new ushort[4], positions, next); }
+        catch (ArgumentException ex) { threw = ex.Message == "Lane columns must not overlap."; }
+        Assert.True(threw);
+    }
+
+    [Fact]
+    public void WidthColumnGuardRejectsIdsOverlappingNext()
+    {
+        var buffer = new ushort[8];
+        var ids = buffer.AsSpan(0, 4);
+        var next = buffer.AsSpan(2, 4);
+        var threw = false;
+        try { Checked.Columns(ids, new ushort[4], next); }
+        catch (ArgumentException ex) { threw = ex.Message == "Lane columns must not overlap."; }
+        Assert.True(threw);
+    }
 #endif
 }
