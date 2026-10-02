@@ -1351,6 +1351,70 @@
     {
       "track": {
         "namespace": "Tlb",
+        "name": "LayoutConflictTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "LayoutConflictClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Value",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.LayoutConflictClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
+        "name": "LayoutFamilyTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Code",
+            "type": "int"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "LayoutFamilyClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Value",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.LayoutFamilyClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
         "name": "ManagedTrack",
         "assembly": "Tl.Bake.Tests",
         "fields": []
