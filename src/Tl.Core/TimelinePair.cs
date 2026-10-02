@@ -239,6 +239,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		where TEffect1 : unmanaged
 	{
 		CheckSizes<TIndex, TPosition>();
+		if (indices.Length != positions.Length) Fail.ColumnLength(positions.Length, indices.Length);
 		if (Unsafe.SizeOf<TEffect0>() is not (1 or 2 or 4 or 8) || Unsafe.SizeOf<TEffect1>() is not (1 or 2 or 4 or 8)
 			|| positions.Length != effects0.Length || positions.Length != effects1.Length)
 			ThrowLaneColumnSizes();
@@ -278,11 +279,11 @@ public static unsafe partial class Timeline<TTrack, TClip>
 
 	[DoesNotReturn]
 	static void ThrowLaneColumnSizes()
-		=> throw new ArgumentException($"{Head} memo lane columns must be equal-length spans of unmanaged 1, 2, 4 or 8-byte results.");
+		=> throw new ArgumentException($"{Head} fold lane columns must be equal-length spans of unmanaged 1, 2, 4 or 8-byte results.");
 
 	[DoesNotReturn]
 	static void ThrowMemoRow(int bound)
-		=> throw new ArgumentException($"{Head} memo-fed columns exceed the {bound}-slot live buffer; split the consumers.");
+		=> throw new ArgumentException($"{Head} fold-fed columns exceed the {bound}-slot live buffer; split the consumers.");
 
 	[DoesNotReturn]
 	static void ThrowLiveFrame(int bound)
@@ -386,7 +387,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 						if ((meta & 0x40) != 0)
 						{
 							if (feed >= outs || outKey[feed] != slotKeys[j])
-								throw new ArgumentException($"{Head} ExecuteActive memo-fed 'in' does not match an Fold 'out' result.");
+								throw new ArgumentException($"{Head} ExecuteActive fold-fed 'in' does not match a Fold 'out' result.");
 							if (memo >= memoBound) ThrowMemoRow(memoBound);
 							cells[memo] = cellBlock + 8 * memo;
 							laneRecords[memo] = (forward ? slot->ForwardRecords : slot->BackwardRecords) + (nuint)outLane[feed] * slot->TableTicks;

@@ -222,6 +222,7 @@ public readonly unsafe struct TimelineRef
 		var h = MemoryMarshal.Read<NativeHeader>(baked);
 		if (h.Magic != 0x31424C54 || h.Version != 4) Fail("TLB magic or version invalid; rebake the asset with the current toolchain.");
 		if (h.Duration > ushort.MaxValue) Fail("TLB duration exceeds the 65,535-tick position domain.");
+		if (h.PairCount > 256) Fail("TLB declares more than 256 pairs; the runtime resolves at most 256 pair chains per asset.");
 		if (h.Bytes != (uint)baked.Length) Fail("TLB size mismatch.");
 		if (h.HotLength == 0 || h.HotLength > h.Bytes) Fail("TLB hot length invalid.");
 		if (h.PairOffset < 64 || (h.PairOffset | h.StageOffset | h.PoolOffset | h.FrameOffset) % 8 != 0) Fail("TLB offsets must be 8-aligned.");
