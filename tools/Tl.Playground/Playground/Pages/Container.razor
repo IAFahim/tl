@@ -86,7 +86,10 @@
                         }
                         </div>
                     </div>
-                    <input class="hexscroll" type="range" min="0" max="@Math.Max(0, _rows - RowWindow)" value="@_firstRow" @oninput="OnRowScroll" title="scroll to offset 0x@((_firstRow * 16).ToString("x6"))" />
+                    @if (_rows > RowWindow)
+                    {
+                        <input class="hexv" type="range" min="0" max="@(_rows - RowWindow)" value="@_firstRow" @oninput="OnRowScroll" title="row @_firstRow · offset 0x@((_firstRow * 16).ToString("x6"))" />
+                    }
                 </div>
                 <aside class="hexside">
                     @if (_selOff >= 0 && _selOff < _bytes!.Length)
