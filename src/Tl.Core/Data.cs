@@ -559,14 +559,13 @@ internal const int MemoResults = 10;
 		}
 	}
 
-	internal static void BindPair(TimelineRef asset, ulong* keys, int keyCount, byte* indices, int* rSlots, int* rCols, ref int rCount, ref ulong boundMask)
+	internal static void BindPair(TimelineRef asset, ulong* keys, int keyCount, byte* indices, int* rSlots, int* rCols, ref int rCount)
 	{
 		var consumers = ConsumerAt;
 		var total = ConsumerCount;
 		for (var entry = 0; entry < total; entry++)
-			if (consumers[entry].DispatchOnly == 0 && consumers[entry].Bind != null && asset.Uses(consumers[entry].PairKey) && (boundMask & (1ul << entry)) == 0)
+			if (consumers[entry].DispatchOnly == 0 && consumers[entry].Bind != null && asset.Uses(consumers[entry].PairKey))
 			{
-				boundMask |= 1ul << entry;
 				var offset = consumers[entry].Offset;
 				consumers[entry].Bind(keys, keyCount, indices + offset);
 				for (var k = 0; k < SlotRow; k++)
