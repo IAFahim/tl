@@ -98,7 +98,7 @@ type Tl.Gen.CSharp.Model.TimelineSlot
 type Tl.Gen.CSharp.TimelineGeneration
   NestedType Tl.Gen.CSharp.TimelineGeneration+Artifact
   NestedType Tl.Gen.CSharp.TimelineGeneration+Result
-  Method Result Run(Microsoft.CodeAnalysis.CSharp.CSharpCompilation, System.Collections.Generic.ISet`1[System.String], System.String)
+  Method Result Run(Microsoft.CodeAnalysis.CSharp.CSharpCompilation, System.Collections.Generic.ISet`1[Microsoft.CodeAnalysis.SyntaxTree], System.Collections.Generic.ISet`1[System.String], System.String)
 type Tl.Gen.CSharp.TimelineGeneration+Artifact
   Method Artifact <Clone>$()
   Property System.String Content
