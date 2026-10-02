@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Threading;
 using Xunit;
 
 namespace Tl.Core.Tests;
@@ -21,7 +19,7 @@ public unsafe class PairTableStressTests
             {
                 for (var i = 0; i < perWriter; i++)
                 {
-                    var key = seed + (ulong)(uint)(writer * perWriter + i);
+                    var key = seed + (ulong)(writer * perWriter + i);
                     PairTable.Install(key, null, null, null, null, false);
                     PairTable.VerifyLayout(key, (ulong)(writer + 1));
                     if (writer == 0 && (i & 127) == 0) GC.Collect();
@@ -37,7 +35,7 @@ public unsafe class PairTableStressTests
                 {
                     for (var w = 0; w < writers; w++)
                     {
-                        var key = seed + (ulong)(uint)(w * perWriter);
+                        var key = seed + (ulong)(w * perWriter);
                         var head = PairTable.HeadOf(key);
                         if (head < 0) continue;
                         var consumers = PairTable.ConsumerAt;
@@ -54,7 +52,7 @@ public unsafe class PairTableStressTests
                     }
                     for (var w = 0; w < writers; w++)
                     {
-                        var layout = PairTable.LayoutOf(seed + (ulong)(uint)(w * perWriter));
+                        var layout = PairTable.LayoutOf(seed + (ulong)(w * perWriter));
                         if (layout != 0 && layout != (ulong)(w + 1))
                             failures.Add($"layout torn: {layout:X16} where 0 or {w + 1} was published");
                     }
@@ -70,7 +68,7 @@ public unsafe class PairTableStressTests
         for (var w = 0; w < writers; w++)
             for (var i = 0; i < perWriter; i++)
             {
-                var key = seed + (ulong)(uint)(w * perWriter + i);
+                var key = seed + (ulong)(w * perWriter + i);
                 Assert.True(PairTable.HeadOf(key) >= 0);
                 Assert.Equal((ulong)(w + 1), PairTable.LayoutOf(key));
             }

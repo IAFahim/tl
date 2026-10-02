@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Tl.TestSupport;
 using Xunit;
@@ -16,7 +15,7 @@ public unsafe class PairTableGrowthTests
     {
         var columns = (void**)NativeMemory.AlignedAlloc((nuint)(sizeof(void*) * PairTable.PointerBound), 8);
         var consumers = PairTable.ConsumerAt;
-        for (var i = first; i < first + count; i++) columns[consumers[i].Offset] = (void*)(long)(1000 + i - first);
+        for (var i = first; i < first + count; i++) columns[consumers[i].Offset] = (void*)(1000 + i - first);
         return columns;
     }
 
@@ -25,7 +24,7 @@ public unsafe class PairTableGrowthTests
     {
         var before = PairTable.ConsumerCount;
         for (var i = 0; i < 70; i++)
-            PairTable.Install(0x9000_0000_0000_0000UL + (ulong)(uint)(i + 1), null, null, null, null, false);
+            PairTable.Install(0x9000_0000_0000_0000UL + (ulong)(i + 1), null, null, null, null, false);
         Assert.True(PairTable.ConsumerCount >= before + 70);
     }
 
@@ -34,9 +33,9 @@ public unsafe class PairTableGrowthTests
     {
         const ulong seed = 0xC000_0000_0000_0000UL;
         var before = PairTable.ConsumerCount;
-        for (var i = 0; i < 600; i++) PairTable.Install(seed + (ulong)(uint)i, null, null, null, null, false);
+        for (var i = 0; i < 600; i++) PairTable.Install(seed + (ulong)i, null, null, null, null, false);
         Assert.Equal(before + 600, PairTable.ConsumerCount);
-        for (var i = 0; i < 600; i++) Assert.True(PairTable.HeadOf(seed + (ulong)(uint)i) >= 0);
+        for (var i = 0; i < 600; i++) Assert.True(PairTable.HeadOf(seed + (ulong)i) >= 0);
         Assert.Equal(-1, PairTable.HeadOf(0xDDDD_0000_0000_0001UL));
         Assert.Equal(0UL, PairTable.LayoutOf(seed + 42));
         PairTable.VerifyLayout(seed + 42, 0x1234_5678_9ABC_DEF0UL);
@@ -75,9 +74,9 @@ public unsafe class PairTableGrowthTests
         NativeMemory.AlignedFree(columns);
     }
 
-    readonly record struct WindowCrowdClip(int Value);
+    readonly record struct WindowCrowdClip;
 
-    readonly record struct WindowCrowdTrack(int Code) : IBlend<WindowCrowdClip>
+    readonly record struct WindowCrowdTrack : IBlend<WindowCrowdClip>
     {
         public void Blend(in WindowCrowdClip first, in WindowCrowdClip second, float factor, out WindowCrowdClip result)
             => result = first;
@@ -87,8 +86,8 @@ public unsafe class PairTableGrowthTests
     public void ExecuteWindowReverseFeedsEveryConsumerOfAChainsLongerThanSixtyFour()
     {
         using var asset = TimelineAsset.LoadAsset(new DomainBaker()
-            .Track<WindowCrowdTrack, WindowCrowdClip>(new WindowCrowdTrack(1))
-            .Clip(0, 0, 1, new WindowCrowdClip(3))
+            .Track<WindowCrowdTrack, WindowCrowdClip>(default)
+            .Clip(0, 0, 1, default(WindowCrowdClip))
             .Bake());
         var key = PairRuntime<WindowCrowdTrack, WindowCrowdClip>.Key;
         var before = PairTable.ConsumerCount;
