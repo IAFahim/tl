@@ -181,7 +181,7 @@ public readonly unsafe struct TimelineRef
 		var count = (int)stage->ProgramCount;
 		var step = reverse ? steps + count - 1 : steps;
 		var stride = reverse ? -1 : 1;
-		int* rev = stackalloc int[64];
+		int* rev = stackalloc int[PairTable.ConsumerCount];
 		while (count-- > 0)
 		{
 			var index = (int)(step - steps);
@@ -348,7 +348,7 @@ internal const int MemoResults = 10;
 	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount), 64);
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	static readonly ulong* _layouts = (ulong*)NativeMemory.AlignedAlloc(sizeof(ulong) * SlotCount, 64);
-	static Consumer* _consumerBlock = (Consumer*)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * 64), 64);
+	static ulong _consumersBase = (ulong)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * 64), 64);
 	static int _consumerCapacity = 64;
 	static volatile int _gate;
 	static int _windowConstant;
@@ -361,24 +361,29 @@ internal const int MemoResults = 10;
 	}
 
 	static Slot* SlotAt => (Slot*)_block;
-	internal static Consumer* ConsumerAt => _consumerBlock;
+	internal static Consumer* ConsumerAt => (Consumer*)Volatile.Read(ref _consumersBase);
 	internal static int PointerBound => _consumerCapacity * SlotRow;
 	internal static int ConsumerCount => Volatile.Read(ref _consumers);
+
+	static void Claim(ulong key, out Slot* slots, out int slot)
+	{
+		slot = Probe(key);
+		slots = SlotAt;
+		if (slots[slot].Key == 0)
+		{
+			if (_pairs == PairCapacity) throw new InvalidOperationException("Pair capacity exhausted.");
+			slots[slot].Head = -1;
+			Volatile.Write(ref slots[slot].Key, key);
+			_pairs++;
+		}
+	}
 
 	internal static void VerifyLayout(ulong key, ulong layout)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
 		{
-			var slot = Probe(key);
-			var slots = SlotAt;
-			if (slots[slot].Key == 0)
-			{
-				if (_pairs == PairCapacity) throw new InvalidOperationException("Pair capacity exhausted.");
-				slots[slot].Head = -1;
-				Volatile.Write(ref slots[slot].Key, key);
-				_pairs++;
-			}
+			Claim(key, out var slots, out var slot);
 			Volatile.Write(ref _layouts[slot], layout);
 		}
 		finally
@@ -398,22 +403,14 @@ internal const int MemoResults = 10;
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
 		{
-			var slot = Probe(key);
-			var slots = SlotAt;
-			if (slots[slot].Key == 0)
-			{
-				if (_pairs == PairCapacity) throw new InvalidOperationException("Pair capacity exhausted.");
-				slots[slot].Head = -1;
-				Volatile.Write(ref slots[slot].Key, key);
-				_pairs++;
-			}
+			Claim(key, out var slots, out var slot);
 			if (_consumers == _consumerCapacity)
 			{
 				var grown = (Consumer*)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * _consumerCapacity * 2), 64);
 				var copy = sizeof(Consumer) * _consumers;
-				Buffer.MemoryCopy(_consumerBlock, grown, copy, copy);
-				_consumerBlock = grown;
+				Buffer.MemoryCopy((Consumer*)_consumersBase, grown, copy, copy);
 				_consumerCapacity *= 2;
+				Volatile.Write(ref _consumersBase, (ulong)grown);
 			}
 			var consumers = ConsumerAt;
 			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * SlotRow };
@@ -456,12 +453,11 @@ internal const int MemoResults = 10;
 		var written = 0;
 		if (reverse && head >= 0 && consumers[head].Next >= 0)
 		{
-			int* rev = stackalloc int[64];
+			int* rev = stackalloc int[ConsumerCount];
 			var n = 0;
 			for (var e = head; e >= 0; e = consumers[e].Next)
 			{
 				if (consumers[e].DispatchOnly != 0) continue;
-				if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
 				rev[n++] = e;
 			}
 			while (n-- > 0)
@@ -490,13 +486,12 @@ internal const int MemoResults = 10;
 		var consumers = ConsumerAt;
 		if (reverse && head >= 0 && consumers[head].Next >= 0)
 		{
-			int* rev = stackalloc int[64];
+			int* rev = stackalloc int[ConsumerCount];
 			var n = 0;
 			for (var e = head; e >= 0; e = consumers[e].Next)
 			{
 				if (consumers[e].DispatchOnly == 0) continue;
 				if (columns == null && consumers[e].Keys != null) ThrowUnfedLiveColumn(e, -1);
-				if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
 				rev[n++] = e;
 			}
 			while (n-- > 0) consumers[rev[n]].Execute(slot, pair, tick, flags, columns + consumers[rev[n]].Offset, row);

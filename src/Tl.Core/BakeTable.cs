@@ -57,6 +57,7 @@ static unsafe class BakeTable
         {
             var slot = Probe(pairKey);
             var slots = SlotAt;
+            if (slot < 0) throw new InvalidOperationException("Bake pair capacity exhausted.");
             if (slots[slot].Key == 0)
             {
                 slots[slot].Head = -1;
@@ -87,8 +88,9 @@ static unsafe class BakeTable
 
     internal static int HeadOf(ulong pairKey)
     {
-        var slots = SlotAt;
         var slot = Probe(pairKey);
+        if (slot < 0) return -1;
+        var slots = SlotAt;
         return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
     }
 
@@ -118,11 +120,12 @@ static unsafe class BakeTable
     {
         var slots = SlotAt;
         var slot = (int)key & (SlotCount - 1);
-        while (true)
+        for (var walk = 0; walk < SlotCount; walk++)
         {
             var candidate = Volatile.Read(ref slots[slot].Key);
             if (candidate == 0 || candidate == key) return slot;
             slot = (slot + 1) & (SlotCount - 1);
         }
+        return -1;
     }
 }
