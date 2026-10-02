@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Play.Core\Play.Core.csproj" />
+    <ProjectReference Include="..\..\Tl.Tlb\Tl.Tlb.csproj" />
   </ItemGroup>
 
   <ItemGroup>

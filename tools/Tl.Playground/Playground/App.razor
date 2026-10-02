@@ -9,6 +9,7 @@
         <nav class="view-tabs">
             <button class="@(_view == "live" ? "view-tab active" : "view-tab")" @onclick='() => _view = "live"'>live authoring</button>
             <button class="@(_view == "playground" ? "view-tab active" : "view-tab")" @onclick='() => _view = "playground"'>playground</button>
+            <button class="@(_view == "container" ? "view-tab active" : "view-tab")" @onclick='() => _view = "container"'>container</button>
         </nav>
         <div class="app-links">
             <a class="app-link" href="viewer/">viewer</a>
@@ -19,6 +20,10 @@
         @if (_view == "playground")
         {
             <Index />
+        }
+        else if (_view == "container")
+        {
+            <Container />
         }
         else
         {

@@ -178,6 +178,7 @@
                 return;
             }
             _bakeStats = LiveAuthoring.BakeStats(packages);
+            BakedCache.Store(packages, _preset);
             try
             {
                 _run = LiveAuthoring.Run(_compile.Assembly!, packages);

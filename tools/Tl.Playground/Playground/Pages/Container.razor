@@ -1,0 +1,262 @@
+@page "/container"
+@using Microsoft.AspNetCore.Components.Forms
+@using Play
+@using Tl.Tlb
+
+<div class="page">
+    <div class="live-bar">
+        <button class="primary run-action" @onclick="LoadFromLive" disabled="@(BakedCache.Packages is null)">
+            read the last live-tab bake
+        </button>
+        <label class="bar-field">
+            open a .tlb
+            <InputFile OnChange="@OnFile" accept=".tlb,application/octet-stream" />
+        </label>
+        <span class="bar-note">@_note</span>
+    </div>
+
+    @if (_error is not null)
+    {
+        <pre class="diagnostic">@_error</pre>
+    }
+
+    @if (_c is null && _error is null)
+    {
+        <div class="run-empty muted">
+            <p>bake something on the live authoring tab, or open a .tlb file — every byte below is read by the same parser the toolchain tests pin (Tl.Tlb).</p>
+        </div>
+    }
+
+    @if (_c is not null)
+    {
+        <div class="pane-body container-body">
+            <div class="container-head">
+                <span>@FormatBytes(_bytes!.Length) · hot section @_c.HotLength B @(_c.Tail is null ? "· no cold tail (hot-only container)" : $"· cold tail {_c.Bytes - _c.HotLength} B")</span>
+                <span>TLB1 v@(TlbContainer.HotVersion) · duration @_c.Duration · @(_c.Loops != 0 ? "looping" : "finite") · @_c.TrackCount tracks · @StagesLabel</span>
+            </div>
+
+            <div class="group">file layout — real offsets read from the header</div>
+            <div class="membar">
+                @foreach (var s in Sections())
+                {
+                    <i class="memseg mem-@s.Class" style="width:@s.WidthPercent%"
+                       title="@s.Name · [@s.Start, @s.End) · @(s.End - s.Start) B"></i>
+                }
+            </div>
+            <table class="rows memtable">
+                <tr><th>section</th><th>start</th><th>end</th><th>bytes</th></tr>
+                @foreach (var s in Sections())
+                {
+                    <tr><td class="cellname"><i class="memdot mem-@s.Class"></i>@s.Name</td><td>@s.Start</td><td>@s.End</td><td>@(s.End - s.Start)</td></tr>
+                }
+            </table>
+
+            <div class="group">value pools — the authored struct bytes</div>
+            @for (var p = 0; p < _c.Pairs.Length; p++)
+            {
+                var pair = _c.Pairs[p];
+                var entry = _c.PairOffset + TlbContainer.PairEntryBytes * (uint)p;
+                <div class="poolcard">
+                    <h2>pair @p · @PairTypeText(p)</h2>
+                    <dl class="kv">
+                        <dt>key</dt><dd>@pair.Key.ToString("x16")</dd>
+                        <dt>slot stride</dt><dd>@pair.SlotStride B</dd>
+                        <dt>layout</dt><dd>@pair.Layout.ToString("x16")</dd>
+                        <dt>track pool</dt><dd>@(entry + pair.TrackPoolOffset) · @pair.TrackPoolCount × @pair.TrackValueBytes B</dd>
+                        <dt>clip pool</dt><dd>@(entry + pair.ClipPoolOffset) · @pair.ClipPoolCount × @pair.ClipValueBytes B</dd>
+                    </dl>
+                    <div class="poolcols">
+                        <table class="rows">
+                            <tr><th colspan="2">track values</th></tr>
+                            @for (var i = 0; i < pair.TrackPool.Values.Length; i++)
+                            {
+                                <tr><td>@i</td><td class="hex">@HexPreview(pair.TrackPool.Values[i])</td></tr>
+                            }
+                        </table>
+                        <table class="rows">
+                            <tr><th colspan="2">clip values</th></tr>
+                            @for (var i = 0; i < pair.ClipPool.Values.Length; i++)
+                            {
+                                <tr><td>@i</td><td class="hex">@HexPreview(pair.ClipPool.Values[i])</td></tr>
+                            }
+                        </table>
+                    </div>
+                </div>
+            }
+
+            <div class="group">stages · steps · slot rows — the playback program</div>
+            <table class="rows">
+                <tr><th>stage</th><th>range</th><th>program</th><th>step</th><th>slot</th><th>pair</th>
+                    <th>trackVal</th><th>first</th><th>second</th><th>track</th><th>window</th><th>factor</th></tr>
+                @{
+                    var row = 0;
+                    for (var si = 0; si < _c.Stages.Length; si++)
+                    {
+                        var stage = _c.Stages[si];
+                        for (var sti = 0; sti < stage.Steps.Length; sti++)
+                        {
+                            var step = stage.Steps[sti];
+                            var r = _c.Rows[row++];
+                            <tr>
+                                <td>@si</td>
+                                <td>[@stage.Start, @stage.End)</td>
+                                <td>@stage.ProgramOffset</td>
+                                <td>@sti</td>
+                                <td>@step.Slot</td>
+                                <td>@step.Pair</td>
+                                <td>@r.TrackValueIndex</td>
+                                <td>@r.FirstValueIndex</td>
+                                <td>@(r.SecondValueIndex == TlbRow.NoClipValue ? "—" : r.SecondValueIndex)</td>
+                                <td>@r.TrackIndex</td>
+                                <td>[@r.WindowStart, @r.WindowEnd)</td>
+                                <td>@(r.FactorSpan == 0 ? "—" : $"[{r.FactorStart}, {r.FactorStart + r.FactorSpan}) ×{r.FactorSpan}")</td>
+                            </tr>
+                        }
+                    }
+                }
+            </table>
+
+            @if (_c.Tail is { } tail)
+            {
+                <div class="group">cold metadata tail — strings, type identities, pair types, labels</div>
+                <div class="poolcard">
+                    <h2>type identities</h2>
+                    <table class="rows">
+                        <tr><th>pair</th><th>track type</th><th>clip type</th></tr>
+                        @for (var i = 0; i < tail.PairTypes.Length; i++)
+                        {
+                            <tr><td>@i</td><td class="typename">@tail.TypeName(tail.PairTypes[i].TrackType)</td><td class="typename">@tail.TypeName(tail.PairTypes[i].ClipType)</td></tr>
+                        }
+                    </table>
+                    <h2>string pool (@tail.Strings.Length)</h2>
+                    <div class="strings">@string.Join(" · ", tail.Strings)</div>
+                    @if (tail.Labels.Length > 0)
+                    {
+                        <h2>labels</h2>
+                        <table class="rows">
+                            <tr><th>track entry</th><th>clip</th><th>name</th></tr>
+                            @foreach (var (trackEntry, clipIndex, name) in tail.Labels)
+                            {
+                                <tr><td>@trackEntry</td><td>@clipIndex</td><td>@tail.String(name)</td></tr>
+                            }
+                        </table>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private TlbContainer? _c;
+    private byte[]? _bytes;
+    private string? _error;
+    private string _note = "the browser has no file system — bake on the live tab, or open a .tlb";
+
+    private string StagesLabel => _c!.Stages.Length switch { 1 => "1 stage", var n => $"{n} stages" };
+
+    private void LoadFromLive()
+    {
+        if (BakedCache.Packages is not { Length: > 0 }) return;
+        var packages = BakedCache.Packages;
+        _note = $"live-tab bake · recipe {BakedCache.Recipe} · revision {BakedCache.Revision} · package 1 of {packages.Length}";
+        Parse(packages[0]);
+    }
+
+    private async Task OnFile(InputFileChangeEventArgs e)
+    {
+        await using var stream = e.File.OpenReadStream(maxAllowedSize: 16 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        _note = $"file {e.File.Name} · {FormatBytes((int)e.File.Size)}";
+        Parse(ms.ToArray());
+    }
+
+    private void Parse(byte[] blob)
+    {
+        _bytes = blob;
+        _error = null;
+        _c = null;
+        try
+        {
+            _c = TlbContainer.Parse(blob);
+        }
+        catch (TlbFormatException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private string PairTypeText(int index)
+    {
+        if (_c?.Tail is not { } tail) return "types unnamed (hot-only container)";
+        var (track, clip) = tail.PairTypes[index];
+        return ShortName(tail.TypeName(track)) + " × " + ShortName(tail.TypeName(clip));
+    }
+
+    private static string ShortName(string typeName)
+    {
+        var comma = typeName.IndexOf(',');
+        return comma < 0 ? typeName : typeName[..comma];
+    }
+
+    private static string FormatBytes(int length) => length >= 1024 ? $"{length / 1024.0:F1} KiB" : $"{length} B";
+
+    private static string HexPreview(byte[] value)
+    {
+        var hex = BitConverter.ToString(value).Replace('-', ' ').ToLowerInvariant();
+        if (value.Length == 4)
+            return $"{hex}  · f32 {System.Buffers.Binary.BinaryPrimitives.ReadSingleLittleEndian(value):0.###}";
+        if (value.Length == 8)
+            return $"{hex}  · f64 {System.Buffers.Binary.BinaryPrimitives.ReadDoubleLittleEndian(value):0.###}";
+        return hex;
+    }
+
+    private sealed record Section(string Name, uint Start, uint End, string Class, double WidthPercent);
+
+    private List<Section> Sections()
+    {
+        var c = _c!;
+        var segments = new List<(string Name, uint Start, uint End, string Class)>
+        {
+            ("header", 0, TlbContainer.HeaderBytes, "header"),
+            ("pair table", c.PairOffset, c.PairOffset + TlbContainer.PairEntryBytes * (uint)c.Pairs.Length, "pairs"),
+            ("stage table", c.StageOffset, c.StageOffset + TlbContainer.StageEntryBytes * (uint)c.Stages.Length, "stages"),
+        };
+        foreach (var stage in c.Stages)
+        {
+            var end = stage.ProgramOffset + TlbContainer.StepBytes * (uint)stage.Steps.Length;
+            var existing = segments.FirstOrDefault(s => s.Name == "program steps");
+            if (existing.Name is null)
+                segments.Add(("program steps", stage.ProgramOffset, end, "steps"));
+            else if (end > existing.End)
+                segments[segments.IndexOf(existing)] = ("program steps", existing.Start, end, "steps");
+        }
+        for (var i = 0; i < c.Pairs.Length; i++)
+        {
+            var entry = c.PairOffset + TlbContainer.PairEntryBytes * (uint)i;
+            var p = c.Pairs[i];
+            if (p.TrackPool.Count > 0)
+                segments.Add(($"pair {i} track pool", entry + p.TrackPoolOffset, entry + p.TrackPoolOffset + p.TrackPoolCount * p.TrackValueBytes, "pooltrack"));
+            if (p.ClipPool.Count > 0)
+                segments.Add(($"pair {i} clip pool", entry + p.ClipPoolOffset, entry + p.ClipPoolOffset + p.ClipPoolCount * p.ClipValueBytes, "poolclip"));
+        }
+        segments.Add(("slot rows", c.FrameOffset, c.HotLength, "rows"));
+        if (c.Tail is not null)
+            segments.Add(("cold tail", c.HotLength, c.Bytes, "tail"));
+        segments.Sort((a, b) => a.Start.CompareTo(b.Start));
+        var filled = new List<(string Name, uint Start, uint End, string Class)>();
+        var cursor = 0u;
+        foreach (var s in segments)
+        {
+            if (s.Start > cursor)
+                filled.Add(("gap", cursor, s.Start, "gap"));
+            filled.Add(s);
+            cursor = Math.Max(cursor, s.End);
+        }
+        if (cursor < c.Bytes)
+            filled.Add(("gap", cursor, c.Bytes, "gap"));
+        var total = (double)c.Bytes;
+        return filled.Select(s => new Section(s.Name, s.Start, s.End, s.Class, (s.End - s.Start) / total * 100.0)).ToList();
+    }
+}

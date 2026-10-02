@@ -306,6 +306,25 @@ textarea#authoring:focus-visible { outline: none; }
 .wrap header a { color: var(--accent); text-decoration: none; }
 .wrap header .muted { color: var(--dim); font-size: 12px; }
 
+.container-body { padding: 0 14px 24px; }
+.container-head { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 10px 0 2px; color: var(--dim); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.membar { display: flex; height: 34px; border-radius: 8px; overflow: hidden; border: 1px solid var(--edge); margin: 8px 0 10px; }
+.membar i { display: block; height: 100%; min-width: 2px; }
+.mem-header { background: #6f97bf; } .mem-pairs { background: #e2a13c; } .mem-stages { background: #85b86c; }
+.mem-steps { background: #b18cf0; } .mem-pooltrack { background: #cf9257; } .mem-poolclip { background: #9c6b3f; }
+.mem-rows { background: #a89d8c; } .mem-tail { background: #5c554a; } .mem-gap { background: var(--deep); }
+.memtable { width: auto; min-width: 420px; }
+.memtable .cellname { text-align: left; }
+.memdot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 8px; vertical-align: 0; }
+.poolcard { background: var(--deep); border: 1px solid var(--edge); border-radius: 8px; padding: 10px 14px; margin: 8px 0; }
+.poolcard h2 { font-size: 12px; color: var(--dim); margin: 8px 0 6px; font-weight: 600; }
+.poolcard .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 16px; font-size: 12.5px; font-variant-numeric: tabular-nums; margin-bottom: 6px; }
+.poolcard .kv dt { color: var(--faint); } .poolcard .kv dd { margin: 0; }
+.poolcols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+.poolcols table.rows { margin: 0; }
+.poolcols .hex, .typename { text-align: left; font-family: var(--mono); }
+.strings { font-family: var(--mono); font-size: 12px; color: var(--dim); padding: 4px 0; }
+
 .panel { background: var(--panel); border: 1px solid var(--edge); border-radius: 6px; padding: 8px 12px; margin-top: 8px; }
 .panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); margin: 4px 0 6px; }
 .panel p { margin: 4px 0; }
