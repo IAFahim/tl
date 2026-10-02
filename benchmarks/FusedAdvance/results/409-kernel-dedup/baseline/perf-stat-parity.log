@@ -1,0 +1,140 @@
+lane      100,000 rows uniform   forward  PASS pos=0xe53a714aad52efa5 eff=0xbb8d3681bfd45dfd
+set-mixed 100,000 rows uniform   forward  PASS pos=0xe53a714aad52efa5 eff=0x16246c9c1c0f5979
+lane      100,000 rows uniform   backward PASS pos=0xe80116508df20b25 eff=0xd380024b3031796b
+set-mixed 100,000 rows uniform   backward PASS pos=0xe80116508df20b25 eff=0xf439c51505ea846f
+lane      100,000 rows waves     forward  PASS pos=0xdf884ec6cf24c7c5 eff=0xc30ba91fa5c9b0df
+set-mixed 100,000 rows waves     forward  PASS pos=0xdf884ec6cf24c7c5 eff=0xe3e3332e8ee7312b
+lane      100,000 rows waves     backward PASS pos=0x9bdd970574352aa5 eff=0x950f78c24bb8495d
+set-mixed 100,000 rows waves     backward PASS pos=0x9bdd970574352aa5 eff=0x0ec97304bb6cd301
+lane      100,000 rows staggered forward  PASS pos=0x27684817689cf945 eff=0x65165d02d05ee269
+set-mixed 100,000 rows staggered forward  PASS pos=0x27684817689cf945 eff=0x0d6af8879c37fc33
+lane      100,000 rows staggered backward PASS pos=0x3875f7dd17792305 eff=0x8f03c748b83da8eb
+set-mixed 100,000 rows staggered backward PASS pos=0x3875f7dd17792305 eff=0xe471467f71037e83
+lane      1,000,000 rows uniform   forward  PASS pos=0x0da17efc34046025 eff=0x490d875626e74671
+set-mixed 1,000,000 rows uniform   forward  PASS pos=0x0da17efc34046025 eff=0x20056957cb56e317
+lane      1,000,000 rows uniform   backward PASS pos=0x26deea32ec753325 eff=0x2ad5f266db044555
+set-mixed 1,000,000 rows uniform   backward PASS pos=0x26deea32ec753325 eff=0xa57bf829da5b745b
+lane      1,000,000 rows waves     forward  PASS pos=0xef2940f738ba0585 eff=0x4cad1264526819e5
+set-mixed 1,000,000 rows waves     forward  PASS pos=0xef2940f738ba0585 eff=0x6ff7548535d79989
+lane      1,000,000 rows waves     backward PASS pos=0x1afe5170cd51ee45 eff=0x914ad49c25c89c99
+set-mixed 1,000,000 rows waves     backward PASS pos=0x1afe5170cd51ee45 eff=0x9ead8d5630225ae3
+lane      1,000,000 rows staggered forward  PASS pos=0x1a22473529af7b65 eff=0x9f2ab346dd060715
+set-mixed 1,000,000 rows staggered forward  PASS pos=0x1a22473529af7b65 eff=0x49408c755815865d
+lane      1,000,000 rows staggered backward PASS pos=0x8d1a051580741a65 eff=0xd3eff0708b77d3bd
+set-mixed 1,000,000 rows staggered backward PASS pos=0x8d1a051580741a65 eff=0xb5aedc110f36f6e3
+set-one   100,000 rows uniform   forward  PASS pos=0xe53a714aad52efa5 eff=0xbb8d3681bfd45dfd
+edge      100,000 rows clamped   forward  PASS pos=0xac74ab800226a975 eff=0x9ccb0ca8802a0839
+edge      100,000 rows clamped   backward PASS pos=0x71b141ff5a7dafd9 eff=0xe89f4c514ffbb7bf
+parity: all cases PASS
+
+ Performance counter stats for 'taskset -c 2 dotnet ./FusedAdvance.dll --parity':
+
+     <not counted>      cpu_atom/cycles/u                                                       (0.00%)
+     1,358,604,700      cpu_core/cycles/u                                                     
+     <not counted>      cpu_atom/instructions/u                                                 (0.00%)
+     5,062,507,710      cpu_core/instructions/u                                               
+     <not counted>      cpu_atom/branches/u                                                     (0.00%)
+     1,089,768,681      cpu_core/branches/u                                                   
+     <not counted>      cpu_atom/branch-misses/u                                                (0.00%)
+         3,491,576      cpu_core/branch-misses/u                                              
+
+       0.277875151 seconds time elapsed
+
+       0.254533000 seconds user
+       0.019965000 seconds sys
+
+
+=== run 2 ===
+lane      100,000 rows uniform   forward  PASS pos=0xe53a714aad52efa5 eff=0xbb8d3681bfd45dfd
+set-mixed 100,000 rows uniform   forward  PASS pos=0xe53a714aad52efa5 eff=0x16246c9c1c0f5979
+lane      100,000 rows uniform   backward PASS pos=0xe80116508df20b25 eff=0xd380024b3031796b
+set-mixed 100,000 rows uniform   backward PASS pos=0xe80116508df20b25 eff=0xf439c51505ea846f
+lane      100,000 rows waves     forward  PASS pos=0xdf884ec6cf24c7c5 eff=0xc30ba91fa5c9b0df
+set-mixed 100,000 rows waves     forward  PASS pos=0xdf884ec6cf24c7c5 eff=0xe3e3332e8ee7312b
+lane      100,000 rows waves     backward PASS pos=0x9bdd970574352aa5 eff=0x950f78c24bb8495d
+set-mixed 100,000 rows waves     backward PASS pos=0x9bdd970574352aa5 eff=0x0ec97304bb6cd301
+lane      100,000 rows staggered forward  PASS pos=0x27684817689cf945 eff=0x65165d02d05ee269
+set-mixed 100,000 rows staggered forward  PASS pos=0x27684817689cf945 eff=0x0d6af8879c37fc33
+lane      100,000 rows staggered backward PASS pos=0x3875f7dd17792305 eff=0x8f03c748b83da8eb
+set-mixed 100,000 rows staggered backward PASS pos=0x3875f7dd17792305 eff=0xe471467f71037e83
+lane      1,000,000 rows uniform   forward  PASS pos=0x0da17efc34046025 eff=0x490d875626e74671
+set-mixed 1,000,000 rows uniform   forward  PASS pos=0x0da17efc34046025 eff=0x20056957cb56e317
+lane      1,000,000 rows uniform   backward PASS pos=0x26deea32ec753325 eff=0x2ad5f266db044555
+set-mixed 1,000,000 rows uniform   backward PASS pos=0x26deea32ec753325 eff=0xa57bf829da5b745b
+lane      1,000,000 rows waves     forward  PASS pos=0xef2940f738ba0585 eff=0x4cad1264526819e5
+set-mixed 1,000,000 rows waves     forward  PASS pos=0xef2940f738ba0585 eff=0x6ff7548535d79989
+lane      1,000,000 rows waves     backward PASS pos=0x1afe5170cd51ee45 eff=0x914ad49c25c89c99
+set-mixed 1,000,000 rows waves     backward PASS pos=0x1afe5170cd51ee45 eff=0x9ead8d5630225ae3
+lane      1,000,000 rows staggered forward  PASS pos=0x1a22473529af7b65 eff=0x9f2ab346dd060715
+set-mixed 1,000,000 rows staggered forward  PASS pos=0x1a22473529af7b65 eff=0x49408c755815865d
+lane      1,000,000 rows staggered backward PASS pos=0x8d1a051580741a65 eff=0xd3eff0708b77d3bd
+set-mixed 1,000,000 rows staggered backward PASS pos=0x8d1a051580741a65 eff=0xb5aedc110f36f6e3
+set-one   100,000 rows uniform   forward  PASS pos=0xe53a714aad52efa5 eff=0xbb8d3681bfd45dfd
+edge      100,000 rows clamped   forward  PASS pos=0xac74ab800226a975 eff=0x9ccb0ca8802a0839
+edge      100,000 rows clamped   backward PASS pos=0x71b141ff5a7dafd9 eff=0xe89f4c514ffbb7bf
+parity: all cases PASS
+
+ Performance counter stats for 'taskset -c 2 dotnet ./FusedAdvance.dll --parity':
+
+     <not counted>      cpu_atom/cycles/u                                                       (0.00%)
+     1,372,368,440      cpu_core/cycles/u                                                     
+     <not counted>      cpu_atom/instructions/u                                                 (0.00%)
+     5,062,493,934      cpu_core/instructions/u                                               
+     <not counted>      cpu_atom/branches/u                                                     (0.00%)
+     1,089,764,413      cpu_core/branches/u                                                   
+     <not counted>      cpu_atom/branch-misses/u                                                (0.00%)
+         3,514,825      cpu_core/branch-misses/u                                              
+
+       0.279005680 seconds time elapsed
+
+       0.252584000 seconds user
+       0.022876000 seconds sys
+
+
+=== run 3 ===
+lane      100,000 rows uniform   forward  PASS pos=0xe53a714aad52efa5 eff=0xbb8d3681bfd45dfd
+set-mixed 100,000 rows uniform   forward  PASS pos=0xe53a714aad52efa5 eff=0x16246c9c1c0f5979
+lane      100,000 rows uniform   backward PASS pos=0xe80116508df20b25 eff=0xd380024b3031796b
+set-mixed 100,000 rows uniform   backward PASS pos=0xe80116508df20b25 eff=0xf439c51505ea846f
+lane      100,000 rows waves     forward  PASS pos=0xdf884ec6cf24c7c5 eff=0xc30ba91fa5c9b0df
+set-mixed 100,000 rows waves     forward  PASS pos=0xdf884ec6cf24c7c5 eff=0xe3e3332e8ee7312b
+lane      100,000 rows waves     backward PASS pos=0x9bdd970574352aa5 eff=0x950f78c24bb8495d
+set-mixed 100,000 rows waves     backward PASS pos=0x9bdd970574352aa5 eff=0x0ec97304bb6cd301
+lane      100,000 rows staggered forward  PASS pos=0x27684817689cf945 eff=0x65165d02d05ee269
+set-mixed 100,000 rows staggered forward  PASS pos=0x27684817689cf945 eff=0x0d6af8879c37fc33
+lane      100,000 rows staggered backward PASS pos=0x3875f7dd17792305 eff=0x8f03c748b83da8eb
+set-mixed 100,000 rows staggered backward PASS pos=0x3875f7dd17792305 eff=0xe471467f71037e83
+lane      1,000,000 rows uniform   forward  PASS pos=0x0da17efc34046025 eff=0x490d875626e74671
+set-mixed 1,000,000 rows uniform   forward  PASS pos=0x0da17efc34046025 eff=0x20056957cb56e317
+lane      1,000,000 rows uniform   backward PASS pos=0x26deea32ec753325 eff=0x2ad5f266db044555
+set-mixed 1,000,000 rows uniform   backward PASS pos=0x26deea32ec753325 eff=0xa57bf829da5b745b
+lane      1,000,000 rows waves     forward  PASS pos=0xef2940f738ba0585 eff=0x4cad1264526819e5
+set-mixed 1,000,000 rows waves     forward  PASS pos=0xef2940f738ba0585 eff=0x6ff7548535d79989
+lane      1,000,000 rows waves     backward PASS pos=0x1afe5170cd51ee45 eff=0x914ad49c25c89c99
+set-mixed 1,000,000 rows waves     backward PASS pos=0x1afe5170cd51ee45 eff=0x9ead8d5630225ae3
+lane      1,000,000 rows staggered forward  PASS pos=0x1a22473529af7b65 eff=0x9f2ab346dd060715
+set-mixed 1,000,000 rows staggered forward  PASS pos=0x1a22473529af7b65 eff=0x49408c755815865d
+lane      1,000,000 rows staggered backward PASS pos=0x8d1a051580741a65 eff=0xd3eff0708b77d3bd
+set-mixed 1,000,000 rows staggered backward PASS pos=0x8d1a051580741a65 eff=0xb5aedc110f36f6e3
+set-one   100,000 rows uniform   forward  PASS pos=0xe53a714aad52efa5 eff=0xbb8d3681bfd45dfd
+edge      100,000 rows clamped   forward  PASS pos=0xac74ab800226a975 eff=0x9ccb0ca8802a0839
+edge      100,000 rows clamped   backward PASS pos=0x71b141ff5a7dafd9 eff=0xe89f4c514ffbb7bf
+parity: all cases PASS
+
+ Performance counter stats for 'taskset -c 2 dotnet ./FusedAdvance.dll --parity':
+
+     <not counted>      cpu_atom/cycles/u                                                       (0.00%)
+     1,355,965,096      cpu_core/cycles/u                                                     
+     <not counted>      cpu_atom/instructions/u                                                 (0.00%)
+     5,062,532,736      cpu_core/instructions/u                                               
+     <not counted>      cpu_atom/branches/u                                                     (0.00%)
+     1,089,774,192      cpu_core/branches/u                                                   
+     <not counted>      cpu_atom/branch-misses/u                                                (0.00%)
+         3,525,589      cpu_core/branch-misses/u                                              
+
+       0.269619335 seconds time elapsed
+
+       0.248976000 seconds user
+       0.018853000 seconds sys
+
+

@@ -414,10 +414,7 @@ internal static class LaneOps
                 var gatherHi = Avx2.PermuteVar8x32(table, wideHi.AsInt32());
                 var skipLo = Vector256.GreaterThan(wideLo, lastWide).AsSingle();
                 var skipHi = Vector256.GreaterThan(wideHi, lastWide).AsSingle();
-                var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-                Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
-                var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-                Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+                ApplyGather(ref e, (nuint)i, skipLo, skipHi, gatherLo, gatherHi);
                 i += 16;
             }
         }
@@ -460,6 +457,15 @@ internal static class LaneOps
         var fromLow = Vector128.Shuffle(tableLow, lanes.AsInt32());
         var fromHigh = Vector128.Shuffle(tableHigh, lanes.AsInt32());
         return Vector128.ConditionalSelect(Vector128.Equals(index & laneHigh, laneHigh).AsSingle(), fromHigh, fromLow);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    static void ApplyGather(ref float e, nuint i, Vector256<float> skipLo, Vector256<float> skipHi, Vector256<float> gatherLo, Vector256<float> gatherHi)
+    {
+        var effectLo = Vector256.LoadUnsafe(ref e, i);
+        Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, i);
+        var effectHi = Vector256.LoadUnsafe(ref e, i + 8);
+        Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, i + 8);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
@@ -507,10 +513,7 @@ internal static class LaneOps
                     skipLo = (Vector256.Equals(posLo, zeroUint) | Vector256.GreaterThan(posLo, durationWide)).AsSingle();
                     skipHi = (Vector256.Equals(posHi, zeroUint) | Vector256.GreaterThan(posHi, durationWide)).AsSingle();
                 }
-                var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-                Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
-                var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-                Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+                ApplyGather(ref e, (nuint)i, skipLo, skipHi, gatherLo, gatherHi);
                 i += 16;
             }
         }
@@ -580,10 +583,7 @@ internal static class LaneOps
             var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
             var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
             var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
-            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
-            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+            ApplyGather(ref e, (nuint)i, skipLo, skipHi, gatherLo, gatherHi);
             i += 16;
         }
     }
@@ -637,10 +637,7 @@ internal static class LaneOps
                 skipLo = (Vector256.Equals(posLo, zeroUint) | Vector256.GreaterThan(posLo, durationWide)).AsSingle();
                 skipHi = (Vector256.Equals(posHi, zeroUint) | Vector256.GreaterThan(posHi, durationWide)).AsSingle();
             }
-            var effectLo = Vector256.LoadUnsafe(ref e, (nuint)i);
-            Vector256.ConditionalSelect(skipLo, effectLo, effectLo + gatherLo).StoreUnsafe(ref e, (nuint)i);
-            var effectHi = Vector256.LoadUnsafe(ref e, (nuint)(i + 8));
-            Vector256.ConditionalSelect(skipHi, effectHi, effectHi + gatherHi).StoreUnsafe(ref e, (nuint)(i + 8));
+            ApplyGather(ref e, (nuint)i, skipLo, skipHi, gatherLo, gatherHi);
             i += 16;
         }
     }
