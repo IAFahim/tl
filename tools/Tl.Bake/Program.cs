@@ -26,6 +26,9 @@ public static class Program
             if (args is ["--live", ..])
                 return TlbLive.Run(args);
 
+            if (args is ["--exec", ..])
+                return TlbLive.Exec(args);
+
             return Bake(args);
         }
         catch (BakeDiagnosticException ex)
@@ -133,6 +136,7 @@ public static class Program
             Console.Error.WriteLine("       tlb --report <input.tlb>");
             Console.Error.WriteLine("       tlb --inspect <input.tlb>");
             Console.Error.WriteLine("       tlb --live --assembly <path.dll> [--asset <file.tlb>]... [--resolve] [--json | --summary] [--addresses]");
+            Console.Error.WriteLine("       tlb --exec --assembly <path.dll> --method Namespace.Type.Method [--asset <file.tlb>] [--arg key=value ...]");
             Console.Error.WriteLine("       tlb --json --assembly <path>...");
             Console.Error.WriteLine("       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>] [--auto]");
             Console.Error.WriteLine("With only an input, output defaults beside it and the assembly is discovered from the JSON's types.");

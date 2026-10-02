@@ -29,6 +29,17 @@ public readonly struct ForeignTrack(float scale) : IBlend<ForeignClip>
         => result = new ForeignClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
+public static class Dumps
+{
+    public static int Seven() => 7;
+
+    public static int AssetIndex(TimelineAsset asset) => asset.Index;
+
+    public static int Boom() => throw new InvalidOperationException("boom");
+
+    public static int WrongSignature(string value) => value.Length;
+}
+
 internal static unsafe class LiveHostInstall
 {
     [ModuleInitializer]

@@ -168,6 +168,7 @@ public class CliTests
                     "       tlb --report <input.tlb>",
                     "       tlb --inspect <input.tlb>",
                     "       tlb --live --assembly <path.dll> [--asset <file.tlb>]... [--resolve] [--json | --summary] [--addresses]",
+                    "       tlb --exec --assembly <path.dll> --method Namespace.Type.Method [--asset <file.tlb>] [--arg key=value ...]",
                     "       tlb --json --assembly <path>...",
                     "       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>] [--auto]",
                     "With only an input, output defaults beside it and the assembly is discovered from the JSON's types.",

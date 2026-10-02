@@ -58,18 +58,9 @@ public static unsafe class TlbLive
         }
 
         Assembly assembly;
-        try
+        if (!TryHost(fullAssembly, out assembly, out var failure))
         {
-            if (!HostedAssemblies.TryGetValue(fullAssembly, out var loaded))
-            {
-                loaded = new TlbHostContext(fullAssembly).LoadFromAssemblyPath(fullAssembly);
-                HostedAssemblies[fullAssembly] = loaded;
-            }
-            assembly = loaded;
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Host error: {ex.Message}");
+            Console.Error.WriteLine($"Host error: {failure}");
             return 4;
         }
 
@@ -272,6 +263,133 @@ public static unsafe class TlbLive
         }
         Console.Write(Encoding.UTF8.GetString(stream.ToArray()));
         return 0;
+    }
+
+    public static int Exec(string[] args)
+    {
+        string? assemblyPath = null;
+        string? methodSpec = null;
+        var assets = new List<string>();
+        for (var i = 1; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--assembly":
+                    if (++i == args.Length) return ExecUsage("--assembly requires a path");
+                    assemblyPath = args[i];
+                    break;
+                case "--method":
+                    if (++i == args.Length) return ExecUsage("--method requires Namespace.Type.Method");
+                    methodSpec = args[i];
+                    break;
+                case "--asset":
+                    if (++i == args.Length) return ExecUsage("--asset requires a path");
+                    assets.Add(args[i]);
+                    break;
+                case "--arg":
+                    if (++i == args.Length || !args[i].Contains('=')) return ExecUsage("--arg requires key=value");
+                    break;
+                default:
+                    return ExecUsage($"Unknown option '{args[i]}'");
+            }
+        }
+        if (assemblyPath is null) return ExecUsage("--exec requires --assembly <path>");
+        if (methodSpec is null) return ExecUsage("--exec requires --method Namespace.Type.Method");
+        if (assets.Count > 1) return ExecUsage("--exec accepts at most one --asset");
+        foreach (var assetPath in assets)
+            if (!File.Exists(assetPath))
+            {
+                Console.Error.WriteLine($"Error: asset file '{assetPath}' does not exist.");
+                return 2;
+            }
+        var fullAssembly = Path.GetFullPath(assemblyPath);
+        if (!File.Exists(fullAssembly))
+        {
+            Console.Error.WriteLine($"Host error: assembly file '{assemblyPath}' does not exist.");
+            return 4;
+        }
+        if (!TryHost(fullAssembly, out var assembly, out var failure))
+        {
+            Console.Error.WriteLine($"Host error: {failure}");
+            return 4;
+        }
+        var separator = methodSpec.LastIndexOf('.');
+        if (separator <= 0 || separator == methodSpec.Length - 1)
+        {
+            Console.Error.WriteLine($"Host error: --method expects Namespace.Type.Method, got '{methodSpec}'.");
+            return 4;
+        }
+        var typeName = methodSpec[..separator];
+        var methodName = methodSpec[(separator + 1)..];
+        var type = assembly.GetType(typeName, throwOnError: false);
+        MethodInfo? bare = null;
+        MethodInfo? withAsset = null;
+        if (type != null)
+            foreach (var candidate in type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly))
+            {
+                if (candidate.Name != methodName || candidate.ReturnType != typeof(int)) continue;
+                var parameters = candidate.GetParameters();
+                if (parameters.Length == 0) bare = candidate;
+                else if (parameters.Length == 1 && typeof(TimelineAsset).IsAssignableFrom(parameters[0].ParameterType)) withAsset = candidate;
+            }
+        var method = assets.Count > 0 ? withAsset ?? bare : bare ?? withAsset;
+        if (method is null)
+        {
+            Console.Error.WriteLine($"Host error: no public static int {methodName}() or {methodName}(TimelineAsset) on '{typeName}'.");
+            return 4;
+        }
+        object?[] arguments = [];
+        if (method.GetParameters().Length == 1)
+        {
+            if (assets.Count != 1)
+            {
+                Console.Error.WriteLine($"Host error: {methodSpec} takes a TimelineAsset; pass one --asset <file.tlb>.");
+                return 4;
+            }
+            try
+            {
+                arguments = [TimelineAsset.Of(TimelineAsset.Load(File.ReadAllBytes(assets[0])))];
+            }
+            catch (ArgumentException ex)
+            {
+                Console.Error.WriteLine($"Asset error: {ex.Message}");
+                return 3;
+            }
+        }
+        try
+        {
+            return (int)method.Invoke(null, arguments)!;
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException is not null)
+        {
+            Console.Error.WriteLine($"Host error: {methodSpec} threw {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+            Console.Error.WriteLine(ex.InnerException.StackTrace);
+            return 4;
+        }
+    }
+
+    static int ExecUsage(string message)
+    {
+        Console.Error.WriteLine($"Error: {message}\nUsage: tlb --exec --assembly <path.dll> --method Namespace.Type.Method [--asset <file.tlb>] [--arg key=value ...]");
+        return 2;
+    }
+
+    internal static bool TryHost(string assemblyPath, out Assembly assembly, out string failure)
+    {
+        failure = "";
+        if (HostedAssemblies.TryGetValue(assemblyPath, out assembly!)) return true;
+        try
+        {
+            assembly = new TlbHostContext(assemblyPath).LoadFromAssemblyPath(assemblyPath);
+        }
+        catch (Exception ex)
+        {
+            assembly = null!;
+            failure = ex.Message;
+            return false;
+        }
+        HostedAssemblies[assemblyPath] = assembly;
+        return true;
     }
 
     static int Usage(string message)

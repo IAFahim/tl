@@ -64,6 +64,13 @@ def _run_bake_like_scenario(scenario: dict, out_dir: Path) -> None:
             return ["--report", _resolve_path(scenario["inputs"]["tlb"], out_dir)]
         if mode == "inspect":
             return ["--inspect", _resolve_path(scenario["inputs"]["tlb"], out_dir)]
+        if mode == "exec":
+            argv = ["--exec", "--assembly", _resolve_path(scenario["inputs"]["assembly"], out_dir)]
+            for method in [scenario["inputs"]["method"]]:
+                argv += ["--method", method]
+            for arg in scenario["inputs"].get("args", []):
+                argv += ["--arg", arg]
+            return argv
         if mode == "live":
             argv = ["--live", "--assembly", _resolve_path(scenario["inputs"]["assembly"], out_dir)]
             for asset in scenario["inputs"].get("assets", []):
