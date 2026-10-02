@@ -198,6 +198,31 @@
    }
   },
   {
+   "name": "exec_exit_code",
+   "mode": "exec",
+   "inputs": {
+    "assembly": "$root/tools/Tl.Bake.LiveHost/bin/Release/net10.0/Tl.Bake.LiveHost.dll",
+    "method": "LiveHost.Dumps.Seven"
+   },
+   "expected": {
+    "exitCode": 7
+   }
+  },
+  {
+   "name": "exec_unknown_method",
+   "mode": "exec",
+   "inputs": {
+    "assembly": "$root/tools/Tl.Bake.LiveHost/bin/Release/net10.0/Tl.Bake.LiveHost.dll",
+    "method": "LiveHost.Dumps.Missing"
+   },
+   "expected": {
+    "exitCode": 4,
+    "stderrContains": [
+     "no public static int Missing"
+    ]
+   }
+  },
+  {
    "name": "live_missing_assembly",
    "mode": "live",
    "inputs": {
