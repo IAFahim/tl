@@ -30,6 +30,20 @@ public unsafe class PairTableGrowthTests
     }
 
     [Fact]
+    public void DistinctPairsGrowPastFiveHundredTwelve()
+    {
+        const ulong seed = 0xC000_0000_0000_0000UL;
+        var before = PairTable.ConsumerCount;
+        for (var i = 0; i < 600; i++) PairTable.Install(seed + (ulong)(uint)i, null, null, null, null, false);
+        Assert.Equal(before + 600, PairTable.ConsumerCount);
+        for (var i = 0; i < 600; i++) Assert.True(PairTable.HeadOf(seed + (ulong)(uint)i) >= 0);
+        Assert.Equal(-1, PairTable.HeadOf(0xDDDD_0000_0000_0001UL));
+        Assert.Equal(0UL, PairTable.LayoutOf(seed + 42));
+        PairTable.VerifyLayout(seed + 42, 0x1234_5678_9ABC_DEF0UL);
+        Assert.Equal(0x1234_5678_9ABC_DEF0UL, PairTable.LayoutOf(seed + 42));
+    }
+
+    [Fact]
     public void RunChainReversesChainsLongerThanSixtyFourEntries()
     {
         const ulong key = 0xA100_0000_0000_0001UL;
