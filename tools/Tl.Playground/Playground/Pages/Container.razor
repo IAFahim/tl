@@ -49,6 +49,22 @@
                 <span>TLB1 v@(TlbContainer.HotVersion) · duration @_c.Duration · @(_c.Loops != 0 ? "looping" : "finite") · @_c.TrackCount tracks · @StagesLabel</span>
             </div>
 
+            <details class="orient">
+                <summary>what am I looking at? — a 30-second read</summary>
+                <div class="orient-body">
+                    <p class="orient-line">this file is a tiny playback program. top to bottom:</p>
+                    <ol>
+                        <li><b>header</b> — 64 bytes of facts: how long, looping or not, where every section sits.</li>
+                        <li><b>pair entries</b> — one per track-type × clip-type pair: where your values live and how wide they are.</li>
+                        <li><b>value pools</b> — the authored struct bytes, deduplicated. hover a byte to read it as f32/f64.</li>
+                        <li><b>stages + steps</b> — time sliced into blocks; the steps say what runs each block, in what order.</li>
+                        <li><b>slot rows</b> — 24 bytes each: which values play, in which window, blended or not.</li>
+                        <li><b>cold tail</b> — names and labels for tools; playback never reads it.</li>
+                    </ol>
+                    <p class="orient-line">the hex grid below is those exact bytes — the same ones the live tab just baked and executed. <b>color = what a byte is</b> (legend under the grid), <b>amber outline = what the runtime reads right now</b>: pick <b>load</b> to see the one-time digest+validate+copy, or <b>tick</b> and scrub to watch a single frame read its stage, row, and values. hover any byte for its field · click to pin it in the inspector.</p>
+                </div>
+            </details>
+
             <div class="group">hex — every byte, colored by field, outlined where the runtime reads it</div>
             <div class="hexbar">
                 <button class="chip @(_phase == "load" ? "on" : "")" @onclick="SetLoad">load</button>
@@ -60,8 +76,9 @@
                     <button class="chip" @onclick="ToggleReverse" title="playback direction">⇄</button>
                     <button class="chip" @onclick="TogglePlay">@(_playing ? "⏸" : "▶")</button>
                 }
-                <span class="hexnote">@(_bytes!.Length.ToString("N0")) bytes · hover a byte for its field · click to pin</span>
+                <span class="hexnote">@(_bytes!.Length.ToString("N0")) bytes</span>
             </div>
+            <div class="hxcap">@PhaseCaption</div>
             <div class="hexwrap">
                 <div class="hexmain">
                     <div class="hexplane" id="hexplane" style="height:@(VisibleRows * RowH)px">
@@ -69,6 +86,8 @@
                             @for (var r = _firstRow; r < Math.Min(_rows, _firstRow + WindowRows); r++)
                         {
                             var rowOff = r * 16;
+                            var section = SectionAt((uint)rowOff);
+                            var showLabel = r == 0 || SectionAt((uint)(rowOff - 16)).Name != section.Name;
                             <div class="hxrow" style="top:@(r * RowH)px; position: absolute; left: 0; right: 0; display: flex; gap: 14px; align-items: center; padding: 0 12px; font-family: var(--mono); font-size: 12px; line-height: 20px; white-space: nowrap">
                                 <span class="hxoff">@(rowOff.ToString("x8"))</span>
                                 <span class="hxbytes">
@@ -82,6 +101,12 @@
                                     }
                                 </span>
                                 <span class="hxasc">@Ascii(rowOff)</span>
+                                <span class="hxsec" title="@(section.Name) · [@(section.Start), @(section.End))">
+                                    @if (showLabel)
+                                    {
+                                        <i class="memdot mem-@section.Class"></i>@section.Name
+                                    }
+                                </span>
                             </div>
                         }
                         </div>
@@ -170,14 +195,20 @@
                             <tr><th colspan="2">track values</th></tr>
                             @for (var i = 0; i < pair.TrackPool.Values.Length; i++)
                             {
-                                <tr><td>@i</td><td class="hex">@HexPreview(pair.TrackPool.Values[i])</td></tr>
+                                var at = entry + pair.TrackPoolOffset + (uint)i * pair.TrackValueBytes;
+                                <tr class="jumpable" title="show these bytes in the hex view" @onclick="() => JumpTo(at)">
+                                    <td>@i</td><td class="hex">@HexPreview(pair.TrackPool.Values[i])</td>
+                                </tr>
                             }
                         </table>
                         <table class="rows">
                             <tr><th colspan="2">clip values</th></tr>
                             @for (var i = 0; i < pair.ClipPool.Values.Length; i++)
                             {
-                                <tr><td>@i</td><td class="hex">@HexPreview(pair.ClipPool.Values[i])</td></tr>
+                                var at = entry + pair.ClipPoolOffset + (uint)i * pair.ClipValueBytes;
+                                <tr class="jumpable" title="show these bytes in the hex view" @onclick="() => JumpTo(at)">
+                                    <td>@i</td><td class="hex">@HexPreview(pair.ClipPool.Values[i])</td>
+                                </tr>
                             }
                         </table>
                     </div>
@@ -197,7 +228,7 @@
                         {
                             var step = stage.Steps[sti];
                             var r = _c.Rows[row++];
-                            <tr>
+                            <tr class="jumpable" title="show this slot row's bytes in the hex view" @onclick="() => JumpTo(step.Slot)">
                                 <td>@si</td>
                                 <td>[@stage.Start, @stage.End)</td>
                                 <td>@stage.ProgramOffset</td>
@@ -278,6 +309,39 @@
     private string StagesLabel => _c!.Stages.Length switch { 1 => "1 stage", var n => $"{n} stages" };
     private int TickMax => _c is null ? 0 : (int)Math.Max(_c.Duration, 1) - 1;
 
+    private string PhaseCaption
+    {
+        get
+        {
+            if (_c is null) return "";
+            if (_phase == "load")
+                return $"load — one-time: the runtime digests all {_bytes!.Length:N0} bytes into the timeline's content identity, validates the structure, and copies the block. playback after this reads only what the tick view shows.";
+            var values = _accesses.Where(a => a.What.Contains("value") && !a.What.EndsWith("Offset")).Select(a => a.What).ToArray();
+            var row = _accesses.FirstOrDefault(a => a.What == "row.trackValueIndex");
+            var stage = _accesses.FirstOrDefault(a => a.Why.Contains("hit"));
+            if (row is null)
+                return $"tick {_tick} — past the end: only the movement fields and stage probes are read; nothing executes.";
+            var parts = new List<string>();
+            if (stage is { } hit) parts.Add(hit.What);
+            parts.Add($"row @0x{row.Start:X}");
+            if (values.Length > 0) parts.Add(string.Join(" + ", values));
+            var blend = _accesses.Any(a => a.What == "row.secondValueIndex");
+            return $"tick {_tick}{(_reverse ? " reverse" : "")} — the runtime reads {_accesses.Length} fields: {string.Join(" · ", parts)}{(blend ? " — two clips, blended by factor" : "")}.";
+        }
+    }
+
+    private Section SectionAt(uint offset)
+    {
+        var sections = Sections();
+        var current = sections[0];
+        foreach (var s in sections)
+        {
+            if (s.Start <= offset) current = s;
+            else break;
+        }
+        return current;
+    }
+
     private void LoadFromLive()
     {
         if (BakedCache.Packages is not { Length: > 0 }) return;
@@ -317,6 +381,7 @@
                     _fieldOf[b] = i;
             _rows = (blob.Length + 15) / 16;
             _tick = Math.Min(_tick, Math.Max(_c.Duration, 1) - 1);
+            _sectionCache = null;
             RecomputeTrace();
         }
         catch (TlbFormatException ex)
@@ -492,7 +557,11 @@
 
     private sealed record Section(string Name, uint Start, uint End, string Class, double WidthPercent);
 
-    private List<Section> Sections()
+    private List<Section>? _sectionCache;
+
+    private List<Section> Sections() => _sectionCache ??= BuildSections();
+
+    private List<Section> BuildSections()
     {
         var c = _c!;
         var segments = new List<(string Name, uint Start, uint End, string Class)>

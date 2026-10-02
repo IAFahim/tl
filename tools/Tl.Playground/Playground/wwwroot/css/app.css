@@ -398,3 +398,18 @@ input[type="range"].hexv { writing-mode: vertical-lr; direction: rtl; -webkit-ap
 .sw.f-g { background: transparent; box-shadow: inset 0 0 0 1px #211e1a; }
 .sw.rd { background: rgba(226, 161, 60, 0.2); box-shadow: inset 0 0 0 1px var(--accent); }
 @media (max-width: 900px) { .hexwrap { grid-template-columns: 1fr; } .hexside { border-left: 0; border-top: 1px solid var(--edge); } }
+
+.orient { border: 1px solid var(--edge); background: var(--panel); border-radius: 6px; margin-bottom: 10px; }
+.orient summary { cursor: pointer; padding: 9px 12px; font: 600 12px var(--mono); color: var(--accent); letter-spacing: 0.03em; }
+.orient-body { padding: 0 16px 12px; }
+.orient-body ol { margin: 6px 0 10px; padding-left: 20px; }
+.orient-body li { margin: 3px 0; font-size: 12.5px; color: var(--text); }
+.orient-body li b { color: var(--accent); font-family: var(--mono); font-weight: 600; font-size: 12px; }
+.orient-line { font-size: 12.5px; color: var(--dim); margin: 0; }
+.orient-line b { color: var(--text); }
+.hxcap { padding: 7px 12px; background: var(--panel); border: 1px solid var(--edge); border-top: 0; font: 11.5px/1.5 var(--mono); color: var(--dim); }
+.hxcap b { color: var(--accent); font-weight: 600; }
+.hxsec { color: var(--faint); font-size: 10px; display: inline-flex; gap: 5px; align-items: center; min-width: 150px; }
+.hxsec .memdot { flex: none; }
+tr.jumpable { cursor: pointer; }
+tr.jumpable:hover td { background: rgba(226, 161, 60, 0.08); }
