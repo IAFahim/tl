@@ -10,6 +10,7 @@
             <button class="@(_view == "live" ? "view-tab active" : "view-tab")" @onclick='() => _view = "live"'>live authoring</button>
             <button class="@(_view == "playground" ? "view-tab active" : "view-tab")" @onclick='() => _view = "playground"'>playground</button>
             <button class="@(_view == "container" ? "view-tab active" : "view-tab")" @onclick='() => _view = "container"'>container</button>
+            <button class="@(_view == "frame" ? "view-tab active" : "view-tab")" @onclick='() => _view = "frame"'>frame</button>
         </nav>
         <div class="app-links">
             <a class="app-link" href="viewer/">viewer</a>
@@ -24,6 +25,10 @@
         else if (_view == "container")
         {
             <Container />
+        }
+        else if (_view == "frame")
+        {
+            <Frame />
         }
         else
         {
