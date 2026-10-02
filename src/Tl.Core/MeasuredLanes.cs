@@ -158,8 +158,9 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var built = GatherLanes(chains, pairs, laneKeys, resLane, poolKeys, poolLane, out var pools);
         if (built != lanes) throw new InvalidOperationException("Measured lane count changed between passes.");
         byte* laneCell = stackalloc byte[lanes * 4];
-        void** columns = stackalloc void*[PairTable.MaxPointers];
-        Unsafe.InitBlock(columns, 0, PairTable.MaxPointers * (uint)sizeof(void*));
+        var pointerBound = PairTable.PointerBound;
+        void** columns = stackalloc void*[pointerBound];
+        Unsafe.InitBlock(columns, 0, (uint)(pointerBound * sizeof(void*)));
         var res = 0;
         for (var p = 0; p < pairs; p++)
             for (var e = chains[p]; e >= 0; e = consumers[e].Next)
@@ -169,9 +170,9 @@ public sealed unsafe class MeasuredLanes : IDisposable
                 var offset = consumers[e].Offset;
                 for (var j = 0; j < n; j++) columns[offset + j] = laneCell + resLane[res++] * 4;
             }
-        byte* indices = stackalloc byte[PairTable.MaxPointers];
-        int* refreshSlots = stackalloc int[PairTable.MaxPointers];
-        int* refreshColumns = stackalloc int[PairTable.MaxPointers];
+        byte* indices = stackalloc byte[pointerBound];
+        int* refreshSlots = stackalloc int[pointerBound];
+        int* refreshColumns = stackalloc int[pointerBound];
         var refreshCount = 0;
         ulong boundMask = 0;
         PairTable.BindPair(reference, poolKeys, pools, indices, refreshSlots, refreshColumns, ref refreshCount, ref boundMask);
@@ -201,7 +202,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         for (var l = 0; l < lanes; l++) { measured.LaneForward[l][duration] = 0f; measured.LaneBackward[l][duration] = 0f; }
     }
 
-    private const int LaneBound = PairTable.MaxPointers / PairTable.SlotRow * (PairTable.MemoResults * 2 + 1);
+    private static int LaneBound => PairTable.PointerBound / PairTable.SlotRow * (PairTable.MemoResults * 2 + 1);
 
     const int CacheStride = 64;
 

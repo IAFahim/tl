@@ -339,16 +339,17 @@ public readonly unsafe struct TickFrame
 
 	static unsafe class PairTable
 {
-	internal const int SlotRow = 40;
-	internal const int MaxPointers = 2560;
-	internal const int MemoResults = 10;
+internal const int SlotRow = 40;
+internal const int MemoResults = 10;
 	internal struct Consumer { public int Next, Pair, Offset; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
-	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024;
+	const int SlotCount = 1024, PairCapacity = 512;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
-	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + sizeof(Consumer) * ConsumerCapacity), 64);
+	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount), 64);
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	static readonly ulong* _layouts = (ulong*)NativeMemory.AlignedAlloc(sizeof(ulong) * SlotCount, 64);
+	static Consumer* _consumerBlock = (Consumer*)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * 64), 64);
+	static int _consumerCapacity = 64;
 	static volatile int _gate;
 	static int _windowConstant;
 	static int _pairs, _consumers;
@@ -360,7 +361,8 @@ public readonly unsafe struct TickFrame
 	}
 
 	static Slot* SlotAt => (Slot*)_block;
-	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
+	internal static Consumer* ConsumerAt => _consumerBlock;
+	internal static int PointerBound => _consumerCapacity * SlotRow;
 	internal static int ConsumerCount => Volatile.Read(ref _consumers);
 
 	internal static void VerifyLayout(ulong key, ulong layout)
@@ -405,7 +407,14 @@ public readonly unsafe struct TickFrame
 				Volatile.Write(ref slots[slot].Key, key);
 				_pairs++;
 			}
-			if (_consumers == ConsumerCapacity || _consumers * SlotRow + SlotRow > MaxPointers) throw new InvalidOperationException("Consumer capacity exhausted.");
+			if (_consumers == _consumerCapacity)
+			{
+				var grown = (Consumer*)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * _consumerCapacity * 2), 64);
+				var copy = sizeof(Consumer) * _consumers;
+				Buffer.MemoryCopy(_consumerBlock, grown, copy, copy);
+				_consumerBlock = grown;
+				_consumerCapacity *= 2;
+			}
 			var consumers = ConsumerAt;
 			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * SlotRow };
 			if (windowConstant) Volatile.Write(ref _windowConstant, 1);
