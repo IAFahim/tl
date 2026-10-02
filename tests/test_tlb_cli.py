@@ -64,6 +64,11 @@ def _run_bake_like_scenario(scenario: dict, out_dir: Path) -> None:
             return ["--report", _resolve_path(scenario["inputs"]["tlb"], out_dir)]
         if mode == "inspect":
             return ["--inspect", _resolve_path(scenario["inputs"]["tlb"], out_dir)]
+        if mode == "live":
+            argv = ["--live", "--assembly", _resolve_path(scenario["inputs"]["assembly"], out_dir)]
+            for asset in scenario["inputs"].get("assets", []):
+                argv += ["--asset", _resolve_path(asset, out_dir)]
+            return argv
         if mode == "strip":
             return [
                 "--strip",
