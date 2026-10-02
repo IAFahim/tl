@@ -162,6 +162,55 @@
    }
   },
   {
+   "name": "live",
+   "mode": "live",
+   "inputs": {
+    "assembly": "$root/tools/Tl.Bake.LiveHost/bin/Release/net10.0/Tl.Bake.LiveHost.dll",
+    "assets": ["$out/alpha.tlb"]
+   },
+   "expected": {
+    "exitCode": 0,
+    "stdoutContains": [
+     "\"plane\": \"live\"",
+     "\"intern\": {",
+     "\"live\": 1",
+     "\"distinct\": 1",
+     "\"pairs\": 1",
+     "\"consumers\": 1",
+     "\"index\": 0",
+     "\"banks\": []",
+     "\"available\": true"
+    ]
+   }
+  },
+  {
+   "name": "live_bad_asset",
+   "mode": "live",
+   "inputs": {
+    "assembly": "$root/tools/Tl.Bake.LiveHost/bin/Release/net10.0/Tl.Bake.LiveHost.dll",
+    "assets": ["$configDir/fixtures/alpha.json"]
+   },
+   "expected": {
+    "exitCode": 3,
+    "stderrContains": [
+     "Asset error: TLB magic or version invalid"
+    ]
+   }
+  },
+  {
+   "name": "live_missing_assembly",
+   "mode": "live",
+   "inputs": {
+    "assembly": "$out/missing.dll"
+   },
+   "expected": {
+    "exitCode": 4,
+    "stderrContains": [
+     "Host error:"
+    ]
+   }
+  },
+  {
    "name": "watch_rebuild_skip_diagnostic",
    "mode": "watch",
    "inputs": {

@@ -21,6 +21,8 @@ type Tl.Gen.Tlb.TlbLabel
   Property Int32 ClipIndex
   Property System.String Name
   Property Int32 TrackEntry
+type Tl.Gen.Tlb.TlbLive
+  Method Int32 Run(System.String[])
 type Tl.Gen.Tlb.TlbMetadata
   Method Boolean HasMetadata(System.ReadOnlySpan`1[System.Byte])
   Method Tl.Gen.Tlb.TlbMetadataView Read(System.ReadOnlySpan`1[System.Byte])
