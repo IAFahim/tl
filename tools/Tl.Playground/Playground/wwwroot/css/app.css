@@ -354,8 +354,8 @@ input[type="range"].hxrange { width: 260px; padding: 0; accent-color: var(--acce
 .hexnote { font: 11px var(--mono); color: var(--faint); margin-left: auto; }
 .hexwrap { display: grid; grid-template-columns: minmax(0, 1fr) 340px; border: 1px solid var(--edge); background: var(--panel); }
 .hexmain { display: flex; flex-direction: row; min-width: 0; align-items: stretch; }
-.hexplane { flex: 1; min-width: 0; height: 52vh; overflow: hidden; background: var(--deep); }
-input[type="range"].hexv { writing-mode: vertical-lr; direction: rtl; -webkit-appearance: slider-vertical; width: 22px; height: 52vh; padding: 0; accent-color: var(--accent); margin: 0; cursor: ns-resize; }
+.hexplane { flex: 1; min-width: 0; overflow: hidden; background: var(--deep); }
+input[type="range"].hexv { writing-mode: vertical-lr; direction: rtl; -webkit-appearance: slider-vertical; width: 22px; padding: 0; accent-color: var(--accent); margin: 0; cursor: ns-resize; align-self: flex-start; }
 .hexspacer { position: relative; }
 .hexrow { position: absolute; left: 0; right: 0; display: flex; gap: 14px; align-items: center; padding: 0 12px; font: 12px/20px var(--mono); white-space: nowrap; }
 .hxoff { color: var(--faint); }

@@ -64,9 +64,9 @@
             </div>
             <div class="hexwrap">
                 <div class="hexmain">
-                    <div class="hexplane" id="hexplane">
+                    <div class="hexplane" id="hexplane" style="height:@(VisibleRows * RowH)px">
                         <div class="hexspacer" style="height:@(_rows * RowH)px">
-                            @for (var r = _firstRow; r < Math.Min(_rows, _firstRow + RowWindow); r++)
+                            @for (var r = _firstRow; r < Math.Min(_rows, _firstRow + WindowRows); r++)
                         {
                             var rowOff = r * 16;
                             <div class="hxrow" style="top:@(r * RowH)px; position: absolute; left: 0; right: 0; display: flex; gap: 14px; align-items: center; padding: 0 12px; font-family: var(--mono); font-size: 12px; line-height: 20px; white-space: nowrap">
@@ -86,9 +86,9 @@
                         }
                         </div>
                     </div>
-                    @if (_rows > RowWindow)
+                    @if (MaxRow > 0)
                     {
-                        <input class="hexv" type="range" min="0" max="@(_rows - RowWindow)" value="@_firstRow" @oninput="OnRowScroll" title="row @_firstRow · offset 0x@((_firstRow * 16).ToString("x6"))" />
+                        <input class="hexv" style="height:@(VisibleRows * RowH)px" type="range" min="0" max="@MaxRow" value="@_firstRow" @oninput="OnRowScroll" title="scroll the dump — row @_firstRow · offset 0x@((_firstRow * 16).ToString("x6"))" />
                     }
                 </div>
                 <aside class="hexside">
@@ -268,7 +268,12 @@
     private bool _hexBound;
     private DotNetObjectReference<Container>? _dotRef;
     private const double RowH = 20;
-    private const int RowWindow = 26;
+    private const int ShowAllRows = 34;
+    private const int PlaneRows = 22;
+    private int MaxRow => _rows <= ShowAllRows ? 0 : _rows - PlaneRows;
+    private int VisibleRows => Math.Min(_rows, _rows <= ShowAllRows ? _rows : PlaneRows);
+    private int WindowRows => Math.Min(_rows, _rows <= ShowAllRows ? _rows : PlaneRows + 2);
+    private int ClampRow(int row) => Math.Clamp(row, 0, Math.Max(0, MaxRow));
 
     private string StagesLabel => _c!.Stages.Length switch { 1 => "1 stage", var n => $"{n} stages" };
     private int TickMax => _c is null ? 0 : (int)Math.Max(_c.Duration, 1) - 1;
@@ -374,20 +379,19 @@
     private void JumpTo(uint offset)
     {
         _selOff = (int)offset;
-        var targetRow = (int)(offset / 16);
-        _firstRow = Math.Clamp(targetRow - 4, 0, Math.Max(0, _rows - RowWindow));
+        _firstRow = ClampRow((int)(offset / 16) - 4);
     }
 
     private void OnRowScroll(ChangeEventArgs e)
     {
         if (!int.TryParse(e.Value?.ToString(), out var first)) return;
-        _firstRow = Math.Clamp(first, 0, Math.Max(0, _rows - RowWindow));
+        _firstRow = ClampRow(first);
     }
 
     [JSInvokable]
     public async Task OnHexWheelJs(int direction)
     {
-        _firstRow = Math.Clamp(_firstRow + 3 * direction, 0, Math.Max(0, _rows - RowWindow));
+        _firstRow = ClampRow(_firstRow + 3 * direction);
         await InvokeAsync(StateHasChanged);
     }
 
