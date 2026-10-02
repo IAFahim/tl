@@ -15,6 +15,8 @@ type Tl.Gen.Tlb.TimelineBaker
   Method Byte[] BakeJson(System.String, Tl.Gen.Tlb.BakerAssemblyResolver, Boolean)
   Method Byte[] BakeJson(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver, Boolean)
   Method Byte[][] BakeJsonBatch(System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Tl.Gen.Tlb.BakerAssemblyResolver, Boolean)
+type Tl.Gen.Tlb.TlbInspection
+  Method System.String Inspect(System.ReadOnlySpan`1[System.Byte])
 type Tl.Gen.Tlb.TlbLabel
   Property Int32 ClipIndex
   Property System.String Name

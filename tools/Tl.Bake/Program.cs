@@ -20,6 +20,9 @@ public static class Program
             if (args is ["--report", ..])
                 return Report(args);
 
+            if (args is ["--inspect", ..])
+                return Inspect(args);
+
             return Bake(args);
         }
         catch (BakeDiagnosticException ex)
@@ -125,6 +128,7 @@ public static class Program
             Console.Error.WriteLine("Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]");
             Console.Error.WriteLine("       tlb --strip <input.tlb> <output.tlb>");
             Console.Error.WriteLine("       tlb --report <input.tlb>");
+            Console.Error.WriteLine("       tlb --inspect <input.tlb>");
             Console.Error.WriteLine("       tlb --json --assembly <path>...");
             Console.Error.WriteLine("       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>] [--auto]");
             Console.Error.WriteLine("With only an input, output defaults beside it and the assembly is discovered from the JSON's types.");
@@ -220,6 +224,32 @@ public static class Program
 
         Console.Write(TlbReport.Report(File.ReadAllBytes(args[1])));
         return 0;
+    }
+
+    private static int Inspect(string[] args)
+    {
+        if (args.Length != 2)
+        {
+            Console.Error.WriteLine("Usage: tlb --inspect <input.tlb>");
+            return 2;
+        }
+
+        if (!File.Exists(args[1]))
+        {
+            Console.Error.WriteLine($"Error: Input file '{args[1]}' does not exist.");
+            return 2;
+        }
+
+        try
+        {
+            Console.Write(TlbInspection.Inspect(File.ReadAllBytes(args[1])));
+            return 0;
+        }
+        catch (ArgumentException ex)
+        {
+            Console.Error.WriteLine($"Asset error: {ex.Message}");
+            return 3;
+        }
     }
 
     private static void CopyFresh(string cachedPath, string targetPath)
