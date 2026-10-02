@@ -181,7 +181,7 @@ public readonly unsafe struct TimelineRef
 		var count = (int)stage->ProgramCount;
 		var step = reverse ? steps + count - 1 : steps;
 		var stride = reverse ? -1 : 1;
-		int* rev = stackalloc int[64];
+		int* rev = stackalloc int[PairTable.ConsumerCount];
 		while (count-- > 0)
 		{
 			var index = (int)(step - steps);
@@ -339,45 +339,71 @@ public readonly unsafe struct TickFrame
 
 	static unsafe class PairTable
 {
-	internal const int SlotRow = 40;
-	internal const int MaxPointers = 2560;
-	internal const int MemoResults = 10;
-	internal struct Consumer { public int Next, Pair, Offset; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
+internal const int SlotRow = 40;
+internal const int MemoResults = 10;
+	internal struct Consumer { public int Next, Offset; public ulong PairKey; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
-	const int SlotCount = 1024, PairCapacity = 512, ConsumerCapacity = 1024;
+	const int SlotCount = 1024;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
-	static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(16 * SlotCount + sizeof(Consumer) * ConsumerCapacity), 64);
-	[SuppressMessage("ReSharper", "InconsistentNaming")]
-	static readonly ulong* _layouts = (ulong*)NativeMemory.AlignedAlloc(sizeof(ulong) * SlotCount, 64);
+	static ulong _slotsBase = (ulong)NativeMemory.AlignedAlloc((nuint)(8 + 24 * SlotCount), 64);
+	static ulong _consumersBase = (ulong)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * 64), 64);
+	static int _consumerCapacity = 64;
 	static volatile int _gate;
 	static int _windowConstant;
 	static int _pairs, _consumers;
 
 	static PairTable()
 	{
-		Unsafe.InitBlock(_block, 0, 16 * SlotCount);
-		Unsafe.InitBlock(_layouts, 0, sizeof(ulong) * SlotCount);
+		Unsafe.InitBlock((void*)_slotsBase, 0, (uint)(8 + 24 * SlotCount));
+		*(int*)_slotsBase = SlotCount;
 	}
 
-	static Slot* SlotAt => (Slot*)_block;
-	internal static Consumer* ConsumerAt => (Consumer*)(_block + 16 * SlotCount);
+	internal static Consumer* ConsumerAt => (Consumer*)Volatile.Read(ref _consumersBase);
+	internal static int PointerBound => _consumerCapacity * SlotRow;
 	internal static int ConsumerCount => Volatile.Read(ref _consumers);
+
+	static void Claim(ulong key, out Slot* slots, out int slot)
+	{
+		while (true)
+		{
+			slot = Probe(key, _slotsBase, out slots);
+			if (slots[slot].Key != 0) return;
+			if (_pairs * 2 < *(int*)_slotsBase) break;
+			GrowSlots();
+		}
+		slots[slot].Head = -1;
+		Volatile.Write(ref slots[slot].Key, key);
+		_pairs++;
+	}
+
+	static void GrowSlots()
+	{
+		var old = _slotsBase;
+		var oldCap = *(int*)old;
+		var cap = oldCap * 2;
+		var grown = (ulong)NativeMemory.AlignedAlloc((nuint)(8 + 24 * cap), 64);
+		Unsafe.InitBlock((void*)grown, 0, (uint)(8 + 24 * cap));
+		*(int*)grown = cap;
+		var from = (Slot*)(old + 8ul);
+		var to = (Slot*)(grown + 8ul);
+		for (var i = 0; i < oldCap; i++)
+		{
+			if (from[i].Key == 0) continue;
+			var s = (int)(from[i].Key & (ulong)(cap - 1));
+			while (to[s].Key != 0) s = (s + 1) & (cap - 1);
+			to[s] = from[i];
+			((ulong*)(to + cap))[s] = ((ulong*)(from + oldCap))[i];
+		}
+		Volatile.Write(ref _slotsBase, grown);
+	}
 
 	internal static void VerifyLayout(ulong key, ulong layout)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
 		{
-			var slot = Probe(key);
-			var slots = SlotAt;
-			if (slots[slot].Key == 0)
-			{
-				if (_pairs == PairCapacity) throw new InvalidOperationException("Pair capacity exhausted.");
-				slots[slot].Head = -1;
-				Volatile.Write(ref slots[slot].Key, key);
-				_pairs++;
-			}
-			Volatile.Write(ref _layouts[slot], layout);
+			Claim(key, out var slots, out var slot);
+			Volatile.Write(ref ((ulong*)(slots + *(int*)_slotsBase))[slot], layout);
 		}
 		finally
 		{
@@ -387,8 +413,9 @@ public readonly unsafe struct TickFrame
 
 	internal static ulong LayoutOf(ulong key)
 	{
-		var slot = Probe(key);
-		return SlotAt[slot].Key == key ? Volatile.Read(ref _layouts[slot]) : 0;
+		var block = Volatile.Read(ref _slotsBase);
+		var slot = Probe(key, block, out var slots);
+		return slots[slot].Key == key ? Volatile.Read(ref ((ulong*)(slots + *(int*)block))[slot]) : 0;
 	}
 
 	internal static void Install(ulong key, ExecThunk e, RangeThunk r, BindThunk b, BlendThunk blendConstant, bool windowConstant, bool dispatchOnly = false, KeysThunk resultKeys = null, DiagThunk diag = null)
@@ -396,18 +423,17 @@ public readonly unsafe struct TickFrame
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
 		{
-			var slot = Probe(key);
-			var slots = SlotAt;
-			if (slots[slot].Key == 0)
+			Claim(key, out var slots, out var slot);
+			if (_consumers == _consumerCapacity)
 			{
-				if (_pairs == PairCapacity) throw new InvalidOperationException("Pair capacity exhausted.");
-				slots[slot].Head = -1;
-				Volatile.Write(ref slots[slot].Key, key);
-				_pairs++;
+				var grown = (Consumer*)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * _consumerCapacity * 2), 64);
+				var copy = sizeof(Consumer) * _consumers;
+				Buffer.MemoryCopy((Consumer*)_consumersBase, grown, copy, copy);
+				_consumerCapacity *= 2;
+				Volatile.Write(ref _consumersBase, (ulong)grown);
 			}
-			if (_consumers == ConsumerCapacity || _consumers * SlotRow + SlotRow > MaxPointers) throw new InvalidOperationException("Consumer capacity exhausted.");
 			var consumers = ConsumerAt;
-			consumers[_consumers] = new Consumer { Next = slots[slot].Head, Pair = slot, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * SlotRow };
+			consumers[_consumers] = new Consumer { Next = slots[slot].Head, PairKey = key, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * SlotRow };
 			if (windowConstant) Volatile.Write(ref _windowConstant, 1);
 			Volatile.Write(ref slots[slot].Head, _consumers);
 			Volatile.Write(ref _consumers, _consumers + 1);
@@ -447,12 +473,11 @@ public readonly unsafe struct TickFrame
 		var written = 0;
 		if (reverse && head >= 0 && consumers[head].Next >= 0)
 		{
-			int* rev = stackalloc int[64];
+			int* rev = stackalloc int[ConsumerCount];
 			var n = 0;
 			for (var e = head; e >= 0; e = consumers[e].Next)
 			{
 				if (consumers[e].DispatchOnly != 0) continue;
-				if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
 				rev[n++] = e;
 			}
 			while (n-- > 0)
@@ -481,13 +506,12 @@ public readonly unsafe struct TickFrame
 		var consumers = ConsumerAt;
 		if (reverse && head >= 0 && consumers[head].Next >= 0)
 		{
-			int* rev = stackalloc int[64];
+			int* rev = stackalloc int[ConsumerCount];
 			var n = 0;
 			for (var e = head; e >= 0; e = consumers[e].Next)
 			{
 				if (consumers[e].DispatchOnly == 0) continue;
 				if (columns == null && consumers[e].Keys != null) ThrowUnfedLiveColumn(e, -1);
-				if (n == 64) throw new InvalidOperationException("Consumer capacity exhausted.");
 				rev[n++] = e;
 			}
 			while (n-- > 0) consumers[rev[n]].Execute(slot, pair, tick, flags, columns + consumers[rev[n]].Offset, row);
@@ -516,34 +540,32 @@ public readonly unsafe struct TickFrame
 		throw new ArgumentException("A live timeline consumer requires caller columns.");
 	}
 
-	static int Probe(ulong key)
+	internal static int HeadOf(ulong key)
 	{
-		var slots = SlotAt;
-		var slot = (int)key & (SlotCount - 1);
+		var slot = Probe(key, Volatile.Read(ref _slotsBase), out var slots);
+		return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
+	}
+
+	static int Probe(ulong key, ulong block, out Slot* slots)
+	{
+		slots = (Slot*)(block + 8ul);
+		var cap = *(int*)block;
+		var slot = (int)key & (cap - 1);
 		while (true)
 		{
 			var candidate = Volatile.Read(ref slots[slot].Key);
 			if (candidate == 0 || candidate == key) return slot;
-			slot = (slot + 1) & (SlotCount - 1);
+			slot = (slot + 1) & (cap - 1);
 		}
 	}
 
-	internal static int HeadOf(ulong key)
+	internal static void BindPair(TimelineRef asset, ulong* keys, int keyCount, byte* indices, int* rSlots, int* rCols, ref int rCount)
 	{
-		var slots = SlotAt;
-		var slot = Probe(key);
-		return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
-	}
-
-	internal static void BindPair(TimelineRef asset, ulong* keys, int keyCount, byte* indices, int* rSlots, int* rCols, ref int rCount, ref ulong boundMask)
-	{
-		var slots = SlotAt;
 		var consumers = ConsumerAt;
 		var total = ConsumerCount;
 		for (var entry = 0; entry < total; entry++)
-			if (consumers[entry].DispatchOnly == 0 && consumers[entry].Bind != null && asset.Uses(slots[consumers[entry].Pair].Key) && (boundMask & (1ul << entry)) == 0)
+			if (consumers[entry].DispatchOnly == 0 && consumers[entry].Bind != null && asset.Uses(consumers[entry].PairKey))
 			{
-				boundMask |= 1ul << entry;
 				var offset = consumers[entry].Offset;
 				consumers[entry].Bind(keys, keyCount, indices + offset);
 				for (var k = 0; k < SlotRow; k++)

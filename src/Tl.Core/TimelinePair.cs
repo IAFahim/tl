@@ -591,7 +591,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 
 public unsafe ref struct ColumnSet
 {
-	private const int Capacity = PairTable.MaxPointers / PairTable.SlotRow;
+	private const int Capacity = 64;
 	internal int Count;
 	private Storage _storage;
 	private struct Storage
