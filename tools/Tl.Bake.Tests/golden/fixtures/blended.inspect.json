@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "header": {
+    "formatVersion": 4,
+    "duration": 16,
+    "looping": true
+  },
+  "pairs": [
+    {
+      "key": "0xbd03a0b93cd98154",
+      "layout": "0x0000000000000000",
+      "slotStride": 24,
+      "pools": {
+        "trackValueBytes": 4,
+        "clipValueBytes": 4
+      }
+    },
+    {
+      "key": "0xc3a84cc918eaca83",
+      "layout": "0x0000000000000000",
+      "slotStride": 24,
+      "pools": {
+        "trackValueBytes": 4,
+        "clipValueBytes": 8
+      }
+    }
+  ],
+  "stages": [
+    {
+      "start": 0,
+      "end": 2,
+      "steps": [
+        {
+          "pair": 1,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 0,
+          "windowEnd": 6,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    },
+    {
+      "start": 2,
+      "end": 4,
+      "steps": [
+        {
+          "pair": 1,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 0,
+          "windowEnd": 6,
+          "factorStart": 0,
+          "factorSpan": 0
+        },
+        {
+          "pair": 0,
+          "track": 1,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 2,
+          "windowEnd": 14,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    },
+    {
+      "start": 4,
+      "end": 6,
+      "steps": [
+        {
+          "pair": 1,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 1,
+          "windowStart": 0,
+          "windowEnd": 10,
+          "factorStart": 4,
+          "factorSpan": 2
+        },
+        {
+          "pair": 0,
+          "track": 1,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 2,
+          "windowEnd": 14,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    },
+    {
+      "start": 6,
+      "end": 10,
+      "steps": [
+        {
+          "pair": 1,
+          "track": 0,
+          "trackValue": 0,
+          "first": 1,
+          "second": 65535,
+          "windowStart": 4,
+          "windowEnd": 10,
+          "factorStart": 0,
+          "factorSpan": 0
+        },
+        {
+          "pair": 0,
+          "track": 1,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 2,
+          "windowEnd": 14,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    },
+    {
+      "start": 10,
+      "end": 14,
+      "steps": [
+        {
+          "pair": 1,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 10,
+          "windowEnd": 16,
+          "factorStart": 0,
+          "factorSpan": 0
+        },
+        {
+          "pair": 0,
+          "track": 1,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 2,
+          "windowEnd": 14,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    },
+    {
+      "start": 14,
+      "end": 16,
+      "steps": [
+        {
+          "pair": 1,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 10,
+          "windowEnd": 16,
+          "factorStart": 0,
+          "factorSpan": 0
+        },
+        {
+          "pair": 0,
+          "track": 1,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 14,
+          "windowEnd": 16,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    }
+  ]
+}
