@@ -247,6 +247,127 @@ public sealed class ContainerRejection
         .Bake();
 }
 
+public sealed class FieldMapAndTrace
+{
+    static byte[] BakedBlended() => new DomainBaker()
+        .Track<WaveTrack, WaveClip>(new WaveTrack(2f))
+        .Clip(0, 0u, 12u, new WaveClip(3f, 4))
+        .Clip(0, 8u, 20u, new WaveClip(7f, 4))
+        .Bake();
+
+    static byte[] BakedSameStage() => new DomainBaker()
+        .Track<WaveTrack, WaveClip>(new WaveTrack(2f))
+        .Track<PulseTrack, PulseClip>(new PulseTrack(5f))
+        .Clip(0, 0u, 8u, new WaveClip(3f, 4))
+        .Clip(1, 0u, 8u, new PulseClip(9f))
+        .Bake();
+
+    static IEnumerable<(byte[] Blob, TlbContainer Container)> Corpus()
+    {
+        yield return (BakedBlended(), TlbContainer.Parse(BakedBlended()));
+        yield return (BakedSameStage(), TlbContainer.Parse(BakedSameStage()));
+        foreach (var name in new[] { "minimal", "blended" })
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, name + ".tlb");
+            if (!File.Exists(path)) continue;
+            var blob = File.ReadAllBytes(path);
+            yield return (blob, TlbContainer.Parse(blob));
+        }
+    }
+
+    [Fact]
+    public void FieldsTileEveryByteExactlyOnce()
+    {
+        foreach (var (blob, c) in Corpus())
+        {
+            var fields = TlbMap.Fields(c, blob);
+            Assert.NotEmpty(fields);
+            Assert.Equal(0u, fields[0].Start);
+            for (var i = 1; i < fields.Length; i++)
+            {
+                Assert.True(fields[i].Length > 0, $"{fields[i].Path} is empty");
+                Assert.Equal(fields[i - 1].End, fields[i].Start);
+            }
+            Assert.Equal(c.Bytes, fields[^1].End);
+        }
+    }
+
+    [Fact]
+    public void FieldsDecodeTheAuthoredValues()
+    {
+        var blob = BakedBlended();
+        var c = TlbContainer.Parse(blob);
+        var fields = TlbMap.Fields(c, blob).ToDictionary(f => f.Path, f => f.Value);
+        Assert.Equal("\"TLB1\"", fields["header.magic"]);
+        Assert.Equal("4", fields["header.version"]);
+        Assert.Equal("20", fields["header.duration"]);
+        Assert.Equal("0", fields["header.loops"]);
+        Assert.Equal("00000040 · f32 2", fields["pair 0 track value 0"]);
+        Assert.Equal("65535 (none)", fields["row @0xE0.secondValueIndex"]);
+        Assert.Equal("1", fields["row @0xF8.secondValueIndex"]);
+        Assert.Equal("8", fields["row @0xF8.factorStart"]);
+    }
+
+    [Fact]
+    public void LoadTraceCoversEveryByte()
+    {
+        foreach (var (blob, c) in Corpus())
+        {
+            var covered = new bool[blob.Length];
+            foreach (var access in TlbTrace.Load(c))
+                for (var i = (int)access.Start; i < (int)access.End; i++)
+                    covered[i] = true;
+            Assert.All(covered, Assert.True);
+        }
+    }
+
+    [Fact]
+    public void TickTraceReadsExactlyTheExecutingStructure()
+    {
+        var c = TlbContainer.Parse(BakedBlended());
+        Assert.Equal(224u, c.FrameOffset);
+
+        var early = TlbTrace.Tick(c, 5, false);
+        DoesNotContain(early, 0xF8 + 4, 0xF8 + 6);
+        DoesNotContain(early, 0xE0 + 16, 0xE0 + 20);
+        Contains(early, 192, 196);
+        Contains(early, 208, 216);
+        DoesNotContain(early, 216, 224);
+        Assert.Contains(early, a => a.What == "stage 0 entry" && a.Why.Contains("hit"));
+        Assert.DoesNotContain(early, a => a.What == "stage 1 entry");
+
+        var blend = TlbTrace.Tick(c, 10, false);
+        Contains(blend, 0xF8 + 4, 0xF8 + 6);
+        Contains(blend, 0xF8 + 16, 0xF8 + 20);
+        Contains(blend, 208, 216);
+        Contains(blend, 216, 224);
+        Assert.Contains(blend, a => a.What == "stage 0 entry" && a.Why.Contains("scan"));
+        Assert.Contains(blend, a => a.What == "stage 1 entry" && a.Why.Contains("hit"));
+
+        var late = TlbTrace.Tick(c, 19, false);
+        DoesNotContain(late, 0x110 + 4, 0x110 + 6);
+        Contains(late, 216, 224);
+        DoesNotContain(late, 208, 216);
+
+        var past = TlbTrace.Tick(c, 20, false);
+        Assert.DoesNotContain(past, a => a.What.Contains("step"));
+        Assert.DoesNotContain(past, a => a.What.Contains("value"));
+        Assert.Equal(3, past.Count(a => a.Why.Contains("scan")));
+
+        var reverse = TlbTrace.Tick(TlbContainer.Parse(BakedSameStage()), 3, true);
+        var order = string.Join("|", reverse.Select(a => a.What));
+        var firstStep = order.IndexOf("step 1", StringComparison.Ordinal);
+        var secondStep = order.IndexOf("step 0", StringComparison.Ordinal);
+        Assert.True(firstStep >= 0 && secondStep >= 0 && firstStep < secondStep);
+    }
+
+    static void Contains(TlbAccess[] accesses, uint start, uint end) =>
+        Assert.Contains(accesses, a => a.Start == start && a.End == end);
+
+    static void DoesNotContain(TlbAccess[] accesses, uint start, uint end) =>
+        Assert.DoesNotContain(accesses, a => a.Start == start && a.End == end);
+}
+
 public sealed class GoldenFixtureCorpus
 {
     [Fact]

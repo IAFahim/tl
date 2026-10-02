@@ -344,3 +344,57 @@ pre { background: var(--deep); border: 1px solid var(--edge); border-radius: 6px
     textarea#authoring { flex: none; min-height: 320px; }
     .editor-fill { min-height: 320px; }
 }
+
+.hexbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; background: var(--panel); border: 1px solid var(--edge); border-bottom: 0; }
+.chip { font: 600 11px var(--mono); color: var(--dim); background: var(--deep); border: 1px solid var(--edge-strong); border-radius: 3px; padding: 4px 10px; cursor: pointer; letter-spacing: 0.04em; }
+.chip:hover { color: var(--text); border-color: var(--accent); }
+.chip.on { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+.hxrange { width: 220px; accent-color: var(--accent); }
+.hxtick { font: 600 12px var(--mono); color: var(--accent); min-width: 8ch; }
+.hexnote { font: 11px var(--mono); color: var(--faint); margin-left: auto; }
+.hexwrap { display: grid; grid-template-columns: minmax(0, 1fr) 340px; border: 1px solid var(--edge); background: var(--panel); }
+.hexmain { display: flex; flex-direction: column; min-width: 0; }
+.hexplane { height: 52vh; overflow: hidden; background: var(--deep); }
+.hexscroll { width: 100%; accent-color: var(--accent); margin: 6px 12px 2px; }
+.hexspacer { position: relative; }
+.hexrow { position: absolute; left: 0; right: 0; display: flex; gap: 14px; align-items: center; padding: 0 12px; font: 12px/20px var(--mono); white-space: nowrap; }
+.hxoff { color: var(--faint); }
+.hxbytes { display: flex; gap: 4px; }
+.hxb { display: inline-block; min-width: 20px; text-align: center; border-radius: 2px; cursor: pointer; color: var(--text); }
+.hxb:hover { outline: 1px solid var(--edge-strong); }
+.hxb.sel { outline: 1px solid var(--text); }
+.hxb.rd { box-shadow: inset 0 0 0 1px var(--accent); }
+.f-h { background: #4a3a22; }
+.f-p { background: #2c3644; }
+.f-s { background: #3a4030; }
+.f-t { background: #33302c; }
+.f-k { background: #24402c; }
+.f-c { background: #233b3f; }
+.f-r { background: #3b2f44; }
+.f-l { background: #26303f; }
+.f-g { background: transparent; color: var(--faint); box-shadow: inset 0 0 0 1px #211e1a; }
+.hxb.rd.f-g { background: rgba(226, 161, 60, 0.12); }
+.hxasc { color: var(--dim); letter-spacing: 0.08em; }
+.hexside { border-left: 1px solid var(--edge); display: flex; flex-direction: column; min-height: 0; }
+.group2 { padding: 8px 12px 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); border-top: 1px solid var(--edge); margin-top: 0; }
+.insp { padding: 8px 12px; }
+.insp-head { font: 700 12px var(--mono); color: var(--accent); margin-bottom: 6px; word-break: break-all; }
+.accesses { overflow-y: auto; max-height: 34vh; }
+.access { display: block; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--edge); padding: 6px 12px; cursor: pointer; color: var(--text); }
+.access:hover { background: rgba(226, 161, 60, 0.07); }
+.access .arange { display: block; font: 10px var(--mono); color: var(--accent); }
+.access .awhat { display: block; font: 600 12px var(--mono); }
+.access .awhy { display: block; font: 10px var(--mono); color: var(--faint); }
+.hxlegend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; padding: 8px 12px; background: var(--panel); border: 1px solid var(--edge); border-top: 0; font: 10px var(--mono); color: var(--dim); }
+.hxlegend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.sw.f-h { background: #4a3a22; }
+.sw.f-p { background: #2c3644; }
+.sw.f-s { background: #3a4030; }
+.sw.f-t { background: #33302c; }
+.sw.f-k { background: #24402c; }
+.sw.f-c { background: #233b3f; }
+.sw.f-r { background: #3b2f44; }
+.sw.f-l { background: #26303f; }
+.sw.f-g { background: transparent; box-shadow: inset 0 0 0 1px #211e1a; }
+.sw.rd { background: rgba(226, 161, 60, 0.2); box-shadow: inset 0 0 0 1px var(--accent); }
+@media (max-width: 900px) { .hexwrap { grid-template-columns: 1fr; } .hexside { border-left: 0; border-top: 1px solid var(--edge); } }
