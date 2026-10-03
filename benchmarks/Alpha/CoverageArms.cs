@@ -102,15 +102,15 @@ internal static class CoverageArms
                 Fail($"first-touch apply produced {effects[0]} instead of the clip amount 5.");
 
             var view = Timeline<AlphaTrack, AlphaClip>.View(asset);
-            if (view.AbiVersion != SlotView.AbiVersionV2 || view.Duration != 64 || view.Looping != 1)
+            if (view.AbiVersion != SlotView.AbiVersionV3 || view.Duration != 64 || view.Looping != 1)
                 Fail($"slot view header: abi={view.AbiVersion} duration={view.Duration} looping={view.Looping}.");
             if (view.Generation == 0 || view.TableTicks == 0)
                 Fail($"slot view table is empty: generation={view.Generation} ticks={view.TableTicks}.");
             unsafe
             {
-                if (view.Forward is null || view.BackwardByPosition is null || view.LaneKeys is null)
-                    Fail("materialized slot view must expose the flat tables and lane keys.");
-                if (view.Forward[0] != 5f)
+                if (view.LaneKeys is null || view.Forward is null && (view.Directory is null || view.Segments is null))
+                    Fail("materialized slot view must expose its tables (flat or segmented) and lane keys.");
+                if (view.Forward is not null && view.Forward[0] != 5f)
                     Fail($"forward table entry 0 is {view.Forward[0]} instead of 5.");
                 if ((view.Looping != 0 && 0 + 1 == view.Duration ? 0 : 1) != 1)
                     Fail("derived forward movement disagrees with the record rules at 0.");

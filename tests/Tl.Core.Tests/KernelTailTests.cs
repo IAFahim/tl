@@ -44,9 +44,19 @@ public unsafe class KernelTailTests
         }
 
         if (forward)
-            LaneOps.EffectForward(slot.Forward, duration, looping, positions, hasNext ? next : null, effects, start, limit);
+        {
+            if (slot.Forward != null)
+                LaneOps.EffectForward<FlatSource>(slot.Forward, duration, looping, positions, hasNext ? next : null, effects, start, limit);
+            else
+                LaneOps.EffectForward<SegmentedForwardSource>(&slot, duration, looping, positions, hasNext ? next : null, effects, start, limit);
+        }
         else
-            LaneOps.EffectBackward(slot.BackwardByPosition, duration, looping, positions, hasNext ? next : null, effects, start, limit);
+        {
+            if (slot.Backward != null)
+                LaneOps.EffectBackward<FlatSource>(slot.Backward, duration, looping, positions, hasNext ? next : null, effects, start, limit);
+            else
+                LaneOps.EffectBackward<SegmentedBackwardSource>(&slot, duration, looping, positions, hasNext ? next : null, effects, start, limit);
+        }
 
         var processedEnd = start + (((limit - start) >> 4) << 4);
         for (var i = 0; i < positions.Length; i++)
@@ -65,7 +75,7 @@ public unsafe class KernelTailTests
             {
                 if (position < duration)
                 {
-                    expectedEffect += slot.Forward[position];
+                    expectedEffect += LaneEncoding.Value(&slot, 0, true, position);
                     expectedNext = LaneMovement.ForwardNext(position, duration, slot.Looping != 0);
                 }
                 else expectedNext = position;
@@ -76,7 +86,7 @@ public unsafe class KernelTailTests
                 {
                     if (LaneMovement.BackwardPlayable(position, duration, slot.Looping != 0))
                     {
-                        expectedEffect += slot.BackwardByPosition[position];
+                        expectedEffect += LaneEncoding.Value(&slot, 0, false, LaneEncoding.BackwardTick(position, duration));
                         expectedNext = LaneMovement.BackwardNext(position, duration);
                     }
                     else expectedNext = position;

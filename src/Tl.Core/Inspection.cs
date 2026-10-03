@@ -154,14 +154,13 @@ public static unsafe class Inspection
         var keys = slot->LaneKeys;
         for (var lane = 0; lane < lanes; lane++)
         {
-            var values = slot->Forward + (long)lane * ticks;
             var seen = new HashSet<uint>(ticks);
             var longest = 0;
             var run = 0;
             uint prior = 0;
             for (var tick = 0; tick < ticks; tick++)
             {
-                var bits = *(uint*)(values + tick);
+                var bits = LaneEncoding.Bits(LaneEncoding.Value(slot, (nuint)lane, true, tick));
                 seen.Add(bits);
                 run = tick > 0 && bits == prior ? run + 1 : 1;
                 if (run > longest)

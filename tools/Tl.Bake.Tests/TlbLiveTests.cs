@@ -93,7 +93,7 @@ public class TlbLiveTests
             Assert.Equal(12, view.GetProperty("duration").GetInt32());
             Assert.False(view.GetProperty("looping").GetBoolean());
             Assert.Equal(13, view.GetProperty("ticks").GetInt32());
-            Assert.Equal(2, view.GetProperty("abiVersion").GetInt32());
+            Assert.Equal(3, view.GetProperty("abiVersion").GetInt32());
             var bytes = bank.GetProperty("bytes");
             Assert.Equal(
                 bytes.GetProperty("retained").GetInt64(),

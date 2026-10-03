@@ -232,21 +232,34 @@ public unsafe class PairIsolatedFoldTests
     static bool SameTables(SlotView* left, SlotView* right)
     {
         if (left->Duration != right->Duration || left->Looping != right->Looping || left->TableTicks != right->TableTicks
-            || left->Absent != right->Absent || left->AbiVersion != right->AbiVersion)
+            || left->Absent != right->Absent || left->AbiVersion != right->AbiVersion
+            || (left->Forward != null) != (right->Forward != null) || (left->Backward != null) != (right->Backward != null))
             return false;
-        var floatBytes = checked((int)(left->TableTicks * sizeof(float)));
-        return new ReadOnlySpan<byte>(left->Forward, floatBytes).SequenceEqual(new ReadOnlySpan<byte>(right->Forward, floatBytes))
-            && new ReadOnlySpan<byte>(left->Backward, floatBytes).SequenceEqual(new ReadOnlySpan<byte>(right->Backward, floatBytes))
-            && new ReadOnlySpan<byte>(left->BackwardByPosition, floatBytes).SequenceEqual(new ReadOnlySpan<byte>(right->BackwardByPosition, floatBytes))
-            && new ReadOnlySpan<ulong>(left->LaneKeys, left->ResultCount).SequenceEqual(new ReadOnlySpan<ulong>(right->LaneKeys, right->ResultCount));
+        var ticks = (int)left->TableTicks;
+        for (var lane = 0; lane < left->ResultCount; lane++)
+            for (var t = 0; t < ticks; t++)
+            {
+                if (LaneEncoding.Bits(LaneEncoding.Value(left, (nuint)lane, true, t)) != LaneEncoding.Bits(LaneEncoding.Value(right, (nuint)lane, true, t)))
+                    return false;
+                if (LaneEncoding.Bits(LaneEncoding.Value(left, (nuint)lane, false, t)) != LaneEncoding.Bits(LaneEncoding.Value(right, (nuint)lane, false, t)))
+                    return false;
+            }
+        return new ReadOnlySpan<ulong>(left->LaneKeys, left->ResultCount).SequenceEqual(new ReadOnlySpan<ulong>(right->LaneKeys, right->ResultCount));
     }
 
     static bool SameTables(SlotView* view, MeasuredLanes measured)
     {
         if (view->Duration != measured.Duration || view->Looping != (ushort)(measured.Looping ? 1 : 0))
             return false;
-        var floatBytes = checked((int)(view->TableTicks * sizeof(float)));
-        return new ReadOnlySpan<byte>(view->Forward, floatBytes).SequenceEqual(new ReadOnlySpan<byte>(measured.Forward, floatBytes))
-            && new ReadOnlySpan<byte>(view->Backward, floatBytes).SequenceEqual(new ReadOnlySpan<byte>(measured.Backward, floatBytes));
+        var ticks = (int)view->TableTicks;
+        for (var lane = 0; lane < measured.LaneCount; lane++)
+            for (var t = 0; t < ticks; t++)
+            {
+                if (LaneEncoding.Bits(LaneEncoding.Value(view, (nuint)lane, true, t)) != LaneEncoding.Bits(measured.LaneForward[lane][t]))
+                    return false;
+                if (LaneEncoding.Bits(LaneEncoding.Value(view, (nuint)lane, false, t)) != LaneEncoding.Bits(measured.LaneBackward[lane][t]))
+                    return false;
+            }
+        return true;
     }
 }

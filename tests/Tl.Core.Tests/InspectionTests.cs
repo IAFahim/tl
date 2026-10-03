@@ -191,13 +191,13 @@ public class InspectionTests
         blocks 2
         dedupeHits 0
         generation 2
-        bytes 112 192 25680 16416 42400
+        bytes 144 128 33888 16416 50576
         view 0 Folded
-          duration 8 looping False ticks 9 lanes 1 abi 2 generation 1
+          duration 8 looping False ticks 9 lanes 1 abi 3 generation 1
           lane ad2e313ccaf1aa75 1 9
         view 1 Absent
         view 2 Folded
-          duration 6 looping False ticks 7 lanes 1 abi 2 generation 2
+          duration 6 looping False ticks 7 lanes 1 abi 3 generation 2
           lane ad2e313ccaf1aa75 1 7
         """;}
 

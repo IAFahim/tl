@@ -321,7 +321,7 @@ internal static class BankReceipts
             var shared = timelines.View(65535);
             var origin = timelines.View(0);
             Require(shared.Forward == origin.Forward && shared.Duration == 1 && shared.TableTicks == 2, "domain edge shares the content-identical block");
-            Require(shared.AbiVersion == SlotView.AbiVersionV2 && shared.Generation > 0, "domain edge header");
+            Require(shared.AbiVersion == SlotView.AbiVersionV3 && shared.Generation > 0, "domain edge header");
         }
         RequireThrows<InvalidOperationException>(() => timelines.Add(duplicate), "the 65,537th add is full");
         Require(timelines.BlockCount == distinct && timelines.SharedHits == domain - distinct, "the full-domain bank dedupes every content-identical id");
@@ -517,7 +517,10 @@ internal static class BankReceipts
         unsafe
         {
             for (var i = 0; i < rows; i++)
-                effects[i] += views[ids[i]].BackwardByPosition[scatter[i]];
+            {
+                var view = views[ids[i]];
+                effects[i] += LaneEncoding.Value(&view, 0, false, LaneEncoding.BackwardTick(scatter[i], view.Duration));
+            }
         }
         Require(effects.AsSpan().SequenceEqual(oracleBackward), "gather-equivalent backward reads match the crowd fold");
 
@@ -579,7 +582,7 @@ internal static class BankReceipts
         {
             Require(clipView.Forward[0] == 1f && clipView.Forward[37] == 38f && clipView.Forward[99] == 100f && clipView.Forward[100] == 0f, "100-clip fold");
         }
-        Console.WriteLine($"bank-workload: a 100-clip timeline block is {56 + 12 * 101} B (56-B header + 12 B per tick)");
+        Console.WriteLine($"bank-workload: a 100-clip timeline block is {72 + 8 * 101 + 8} B (72-B header + 8 B per tick flat-escaped; segmented run encodings below that)");
 
         const int instances = 512;
         var ids = new ushort[instances];
