@@ -72,7 +72,7 @@
           "looping": true,
           "ticks": 7,
           "lanes": 1,
-          "abiVersion": 1,
+          "abiVersion": 2,
           "generation": 1,
           "laneShapes": [
             {
@@ -108,7 +108,7 @@
           "looping": true,
           "ticks": 7,
           "lanes": 1,
-          "abiVersion": 1,
+          "abiVersion": 2,
           "generation": 1,
           "laneShapes": [
             {
