@@ -1,0 +1,381 @@
+@page "/frame"
+@using Play
+@using Tl.Tlb
+
+<div class="page">
+    <div class="live-bar">
+        <button class="primary run-action" @onclick="LoadFromLive" disabled="@(BakedCache.Entries.Count == 0)">
+            read the live-tab library
+        </button>
+        @if (BakedCache.Entries is { Count: > 1 })
+        {
+            <label class="bar-field">
+                timeline
+                <select value="@_key" @onchange="OnPackage">
+                    @foreach (var entry in BakedCache.Entries)
+                    {
+                        <option value="@entry.Key">@entry.Key</option>
+                    }
+                </select>
+            </label>
+        }
+        <span class="bar-note">@_note</span>
+    </div>
+
+    @if (_c is null)
+    {
+        <div class="run-empty muted">
+            <p>bake something on the live authoring tab — this view animates one playback frame of those exact bytes.</p>
+        </div>
+    }
+    else
+    {
+        <div class="pane-body frame-body">
+            <div class="hexbar">
+                <input class="hxrange" type="range" min="0" max="@TickMax" value="@_tick" @oninput="OnTickInput" />
+                <span class="hxtick">tick @_tick / @_c.Duration@(_reverse ? " · reverse" : "")</span>
+                <button class="chip" @onclick="ToggleReverse" title="playback direction">⇄</button>
+                <button class="chip" @onclick="TogglePlay">@(_playing ? "⏸" : "▶")</button>
+                <span class="hexnote">every box below is live — scrub me</span>
+            </div>
+
+            <div class="group">one frame — what gets processed, left to right</div>
+            @((MarkupString)Svg())
+
+            <div class="group">where it's all stored</div>
+            <div class="storewrap">
+                <div class="storecard">
+                    <h2>baked block — immutable</h2>
+                    <p class="store-line">all @_c.Bytes bytes, one native block, process lifetime — every read above is a pointer into it</p>
+                    <div class="storebar">
+                        @foreach (var s in StorageSections())
+                        {
+                            <i class="memseg mem-@s.Class" style="width:@s.WidthPercent%" title="@s.Name · @(s.End - s.Start) B"></i>
+                        }
+                    </div>
+                    <div class="storebar reads">
+                        @foreach (var r in ReadSpans())
+                        {
+                            <i class="readspan" style="left:@(r.LeftPercent)%; width:@(r.WidthPercent)%" title="@r.What · [@r.Start, @r.End)"></i>
+                        }
+                    </div>
+                    <p class="store-tiny">top: the whole block · bottom: touched this frame</p>
+                    <p class="store-line">TimelineAsset.Load → <b>ushort 0</b> ↦ this block · interned by content · refcounted · never moved</p>
+                </div>
+                <div class="storecard">
+                    <h2>process tables — cold</h2>
+                    <div class="coldrow"><span class="coldkey">intern</span><span>ushort index → block pointer · 0 ↦ @FormatBytes((int)_c.Bytes)</span></div>
+                    <div class="coldrow"><span class="coldkey">bank</span><span>Timeline&lt;TTrack, TClip&gt; folds (index, pair) on first typed use — once</span></div>
+                    <div class="coldrow"><span class="coldkey">consumers</span><span>pair 0x@(_c.Pairs[0].Key.ToString("X12")) → your ExecuteActive pointer</span></div>
+                    <p class="store-tiny">filled at load or first use · untouched during playback</p>
+                </div>
+                <div class="storecard">
+                    <h2>caller arrays — live</h2>
+                    <div class="strip"><span class="striph">ids</span><i>0</i><i>0</i><i>0</i><i>0</i></div>
+                    <div class="strip"><span class="striph">pos</span><i>@_tick</i><i>@_tick</i><i>@_tick</i><i>@_tick</i></div>
+                    <div class="strip"><span class="striph">col</span><i class="on">▲</i><i class="on">▲</i><i class="on">▲</i><i class="on">▲</i></div>
+                    <p class="store-tiny">yours before and after the call — the runtime stores nothing per frame; it only borrows them</p>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private TlbContainer? _c;
+    private byte[]? _bytes;
+    private string _note = "bake on the live tab, then read it here";
+    private string? _key = BakedCache.ViewKey;
+    private uint _tick;
+    private bool _reverse;
+    private bool _playing;
+    private readonly List<(uint Stage, TlbStep Step, TlbRow Row)> _plan = [];
+    private const int MaxLanes = 4;
+    private const double StripW = 516;
+
+    private int TickMax => _c is null || _c.Duration == 0 ? 0 : (int)_c.Duration - 1;
+
+    protected override void OnInitialized()
+    {
+        if (BakedCache.Entries.Count > 0)
+            LoadFromLive();
+    }
+
+    private void LoadFromLive()
+    {
+        if (BakedCache.Entries.Count == 0) return;
+        _key = BakedCache.Entries.Any(e => e.Key == _key) ? _key : BakedCache.Entries[0].Key;
+        BakedCache.ViewKey = _key;
+        var entry = BakedCache.Entries.First(e => e.Key == _key);
+        _note = $"live-tab library · recipe {BakedCache.Recipe} · revision {BakedCache.Revision} · {BakedCache.LastChange} · timeline '{_key}' is {entry.Package.Length} B";
+        Parse(entry.Package);
+    }
+
+    private void OnPackage(ChangeEventArgs e)
+    {
+        _key = e.Value?.ToString();
+        LoadFromLive();
+    }
+
+    private void Parse(byte[] blob)
+    {
+        _bytes = blob;
+        _c = null;
+        try
+        {
+            _c = TlbContainer.Parse(blob);
+            _tick = Math.Min(_tick, Math.Max(_c.Duration, 1) - 1);
+            _plan.Clear();
+            var rowIndex = 0;
+            for (uint si = 0; si < _c.Stages.Length; si++)
+                foreach (var step in _c.Stages[si].Steps)
+                    _plan.Add((si, step, _c.Rows[rowIndex++]));
+        }
+        catch (TlbFormatException)
+        {
+            _c = null;
+        }
+    }
+
+    private void OnTickInput(ChangeEventArgs e)
+    {
+        if (!uint.TryParse(e.Value?.ToString(), out var tick)) return;
+        _tick = tick;
+    }
+
+    private void ToggleReverse() => _reverse = !_reverse;
+
+    private async Task TogglePlay()
+    {
+        _playing = !_playing;
+        if (!_playing || _c is null) return;
+        while (_playing && _c is not null)
+        {
+            _tick = _tick + 1 >= _c.Duration ? 0 : _tick + 1;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(160);
+        }
+    }
+
+    private string Svg()
+    {
+        var c = _c!;
+        var s = new System.Text.StringBuilder();
+        void Text(double x, double y, string content, string fill, double size, string anchor = "start") =>
+            s.Append("<text x=\"").Append(F(x)).Append("\" y=\"").Append(F(y)).Append("\" fill=\"").Append(fill)
+                .Append("\" font-size=\"").Append(F(size)).Append("\"").Append(anchor == "middle" ? " text-anchor=\"middle\"" : "")
+                .Append(">").Append(content).Append("</text>");
+        void Box(double x, double y, double w, double h, string cls, double r = 6) =>
+            s.Append("<rect x=\"").Append(F(x)).Append("\" y=\"").Append(F(y)).Append("\" width=\"").Append(F(w))
+                .Append("\" height=\"").Append(F(h)).Append("\" rx=\"").Append(F(r)).Append("\" class=\"").Append(cls).Append("\"/>");
+        void Arrow(double x1, double y1, double x2, double y2) =>
+            s.Append("<line x1=\"").Append(F(x1)).Append("\" y1=\"").Append(F(y1)).Append("\" x2=\"").Append(F(x2))
+                .Append("\" y2=\"").Append(F(y2)).Append("\" stroke=\"#a89d8c\" stroke-width=\"1.4\" marker-end=\"url(#arr)\"/>");
+
+        var tick = Math.Min(_tick, Math.Max(c.Duration, 1) - 1);
+        var laneItems = c.Duration == 0 ? [] : StepsOfStage(stageIndexOf(tick));
+        var lanes = Math.Min(laneItems.Count, MaxLanes);
+        var height = c.Duration == 0 ? 80 : 150 + lanes * 104 + 22;
+        s.Append("<svg class=\"framesvg\" viewBox=\"0 0 960 ").Append(height).Append("\">");
+        s.Append("<defs><marker id=\"arr\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\">")
+         .Append("<path d=\"M0 0 L10 5 L0 10 z\" fill=\"#a89d8c\"/></marker></defs>");
+        if (c.Duration == 0)
+        {
+            Text(480, 45, "duration 0 — this timeline never produces a frame", "#a89d8c", 13, "middle");
+            s.Append("</svg>");
+            return s.ToString();
+        }
+
+        var looping = c.Loops != 0;
+        var stageIndex = stageIndexOf(tick);
+        var stage = c.Stages[stageIndex];
+        var wrapped = looping && tick == c.Duration - 1;
+        var next = looping ? (wrapped ? 0u : tick + 1) : Math.Min(tick + 1, c.Duration - 1);
+        var flags = new List<string>();
+        if (looping) flags.Add("Looping");
+        if (_reverse) flags.Add("Reverse");
+        if (tick == 0) flags.Add("TimelineStart");
+        if (tick == c.Duration - 1) flags.Add("TimelineEnd");
+
+        Text(12, 18, "caller state in", "#7d7466", 10);
+        Box(12, 26, 168, 66, "sv-in");
+        Text(24, 46, "ids[i] = 0", "#ece7dd", 11);
+        Text(24, 64, $"pos[i] → tick {tick}", "#ece7dd", 11);
+        Text(24, 82, (looping ? "looping" : "finite") + (_reverse ? " · reverse" : ""), "#7d7466", 10);
+        Arrow(182, 59, 218, 59);
+
+        Text(224, 18, "movement — TimelineMovement.Advance", "#7d7466", 10);
+        Box(224, 26, 168, 66, "sv-move");
+        Text(236, 46, $"tick {tick} confirmed", "#ece7dd", 11);
+        Text(236, 64, $"next pos {next}" + (wrapped ? " ↻ wrap" : ""), "#e2a13c", 10);
+        Text(236, 82, flags.Count == 0 ? "flags: none" : "flags: " + string.Join(" · ", flags), "#7d7466", 9.5);
+        Arrow(394, 59, 428, 59);
+
+        Text(432, 18, "stage select — first stage with tick &lt; end", "#7d7466", 10);
+        for (var i = 0; i < c.Stages.Length; i++)
+        {
+            var st = c.Stages[i];
+            var x = 432 + (double)st.Start / c.Duration * StripW;
+            var w = Math.Max((double)(st.End - st.Start) / c.Duration * StripW - 2, 6);
+            Box(x, 26, w, 26, i == stageIndex ? "sv-stagehit" : "sv-stage", 3);
+            Text(x + w / 2, 43, $"[{st.Start}, {st.End})", i == stageIndex ? "#141210" : "#a89d8c", 9, "middle");
+        }
+        Text(432, 70, $"stage {stageIndex} · {stage.Steps.Length} step{(stage.Steps.Length == 1 ? "" : "s")}", "#ece7dd", 11);
+        Text(432, 86, $"program bytes {stage.ProgramOffset}–{stage.ProgramOffset + 8 * (uint)stage.Steps.Length} — the only steps that run this frame", "#7d7466", 9.5);
+
+        for (var li = 0; li < lanes; li++)
+        {
+            var (step, row) = laneItems[li];
+            var y = 136 + li * 104;
+            var pair = c.Pairs[(int)step.Pair];
+            var blends = row.Blends;
+            var factor = row.FactorSpan <= 1 ? 0.5 : (tick - row.FactorStart) / (double)(row.FactorSpan - 1);
+            var clipFlags = new List<string>();
+            if (tick == row.WindowStart) clipFlags.Add("ClipStart");
+            if (tick == row.WindowEnd - 1) clipFlags.Add("ClipEnd");
+
+            Text(12, y - 5, $"step {li + 1} of {stage.Steps.Length}", "#7d7466", 10);
+            Box(12, y, 360, 90, "sv-box");
+            var cells = new (string Label, string Value)[]
+            {
+                ("track", row.TrackValueIndex.ToString()),
+                ("first", row.FirstValueIndex.ToString()),
+                ("2nd", blends ? row.SecondValueIndex.ToString() : "—"),
+                ("trk", row.TrackIndex.ToString()),
+                ("winS", row.WindowStart.ToString()),
+                ("winE", row.WindowEnd.ToString()),
+                ("facS", row.FactorStart.ToString()),
+                ("facN", row.FactorSpan == 0 ? "—" : row.FactorSpan.ToString()),
+            };
+            for (var ci = 0; ci < cells.Length; ci++)
+            {
+                var cx = 22 + ci * 43;
+                Box(cx, y + 8, 40, 36, "sv-cell", 3);
+                Text(cx + 20, y + 22, cells[ci].Label, "#7d7466", 8.5, "middle");
+                Text(cx + 20, y + 37, cells[ci].Value, "#ece7dd", 10.5, "middle");
+            }
+            Text(22, y + 62, $"slot row 0x{step.Slot:X} · 24 B read as one struct — these indexes pick the values", "#7d7466", 9);
+            Text(22, y + 80, $"pair {step.Pair} · 0x{pair.Key:X12}", "#7d7466", 9);
+
+            Arrow(372, y + 45, 412, y + 45);
+            Text(416, y + 12, "value pools — your authored bytes", "#7d7466", 10);
+            Box(416, y + 16, 152, 26, "sv-val sv-track", 4);
+            Text(424, y + 33, $"track {row.TrackValueIndex}: {Preview(pair.TrackPool.Values[(int)row.TrackValueIndex])}", "#ece7dd", 10);
+            Box(416, y + 48, 152, 26, "sv-val", 4);
+            Text(424, y + 65, $"clip {row.FirstValueIndex}: {Preview(pair.ClipPool.Values[(int)row.FirstValueIndex])}", "#ece7dd", 10);
+            if (blends)
+            {
+                Box(416, y + 66, 152, 26, "sv-val", 4);
+                Text(424, y + 83, $"clip {row.SecondValueIndex}: {Preview(pair.ClipPool.Values[(int)row.SecondValueIndex])}", "#ece7dd", 10);
+                Arrow(568, y + 61, 588, y + 61);
+                Box(590, y + 48, 70, 26, "sv-blend", 4);
+                Text(625, y + 65, $"f = {factor:0.00}", "#141210", 10, "middle");
+            }
+            Arrow(568, y + 29, 588, y + 29);
+            Box(590, y + 6, 140, 76, "sv-frame");
+            Text(602, y + 24, "frame", "#e2a13c", 10);
+            Text(602, y + 40, $"local t = {tick - row.WindowStart} of {row.WindowEnd - row.WindowStart}", "#ece7dd", 10);
+            Text(602, y + 56, blends ? "clip = your Blend(f)" : "clip = pool value", "#ece7dd", 10);
+            Text(602, y + 72, clipFlags.Count == 0 ? "steady — middle of the clip" : string.Join(" · ", clipFlags), "#7d7466", 9);
+            Arrow(730, y + 44, 766, y + 44);
+            Box(770, y + 18, 112, 52, "sv-user");
+            Text(826, y + 40, "your code", "#ece7dd", 10.5, "middle");
+            Text(826, y + 56, "ExecuteActive(in frame, ref col)", "#a89d8c", 9.5, "middle");
+            Arrow(882, y + 44, 908, y + 44);
+            Box(912, y + 18, 40, 52, "sv-col", 4);
+            Text(932, y + 40, "col", "#141210", 10, "middle");
+            Text(932, y + 56, li.ToString(), "#141210", 9, "middle");
+        }
+        if (laneItems.Count > MaxLanes)
+            Text(480, 146 + lanes * 104, $"+ {laneItems.Count - MaxLanes} more step(s) this frame — same path, next slot row", "#7d7466", 10, "middle");
+        s.Append("</svg>");
+        return s.ToString();
+    }
+
+    private int stageIndexOf(uint tick)
+    {
+        var i = 0;
+        while (i + 1 < _c!.Stages.Length && tick >= _c.Stages[i].End) i++;
+        return i;
+    }
+
+    private List<(TlbStep Step, TlbRow Row)> StepsOfStage(int stageIndex) =>
+        [.. _plan.Where(p => p.Stage == (uint)stageIndex).Select(p => (p.Step, p.Row))];
+
+    private static string F(double value) => value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Preview(byte[] value)
+    {
+        if (value.Length == 4)
+            return "f32 " + System.Buffers.Binary.BinaryPrimitives.ReadSingleLittleEndian(value).ToString("0.##");
+        if (value.Length == 8)
+            return "f64 " + System.Buffers.Binary.BinaryPrimitives.ReadDoubleLittleEndian(value).ToString("0.##");
+        return Convert.ToHexString(value).ToLowerInvariant();
+    }
+
+    private static string FormatBytes(int length) => length >= 1024 ? $"{length / 1024.0:F1} KiB" : $"{length} B";
+
+    private List<(string Name, uint Start, uint End, string Class, double WidthPercent)> StorageSections()
+    {
+        var c = _c!;
+        var sections = new List<(string, uint, uint, string)>
+        {
+            ("header", 0, TlbContainer.HeaderBytes, "header"),
+            ("pairs", c.PairOffset, c.PairOffset + TlbContainer.PairEntryBytes * (uint)c.Pairs.Length, "pairs"),
+            ("stages", c.StageOffset, c.StageOffset + TlbContainer.StageEntryBytes * (uint)c.Stages.Length, "stages"),
+        };
+        var programEnd = c.Stages.Length == 0 ? c.StageOffset : c.Stages.Max(s => s.ProgramOffset + TlbContainer.StepBytes * (uint)s.Steps.Length);
+        sections.Add(("steps", c.StageOffset + TlbContainer.StageEntryBytes * (uint)c.Stages.Length, programEnd, "steps"));
+        for (var i = 0; i < c.Pairs.Length; i++)
+        {
+            var entry = c.PairOffset + TlbContainer.PairEntryBytes * (uint)i;
+            var p = c.Pairs[i];
+            if (p.TrackPoolCount > 0) sections.Add(($"p{i} track", entry + p.TrackPoolOffset, entry + p.TrackPoolOffset + p.TrackPoolCount * p.TrackValueBytes, "pooltrack"));
+            if (p.ClipPoolCount > 0) sections.Add(($"p{i} clip", entry + p.ClipPoolOffset, entry + p.ClipPoolOffset + p.ClipPoolCount * p.ClipValueBytes, "poolclip"));
+        }
+        sections.Add(("rows", c.FrameOffset, c.HotLength, "rows"));
+        if (c.Tail is not null) sections.Add(("tail", c.HotLength, c.Bytes, "tail"));
+        sections.Sort((a, b) => a.Item2.CompareTo(b.Item2));
+        var filled = new List<(string, uint, uint, string)>();
+        var cursor = 0u;
+        foreach (var sec in sections)
+        {
+            if (sec.Item2 > cursor) filled.Add(("gap", cursor, sec.Item2, "gap"));
+            filled.Add(sec);
+            cursor = Math.Max(cursor, sec.Item3);
+        }
+        if (cursor < c.Bytes) filled.Add(("gap", cursor, c.Bytes, "gap"));
+        return filled.Select(sec => (sec.Item1, sec.Item2, sec.Item3, sec.Item4, (sec.Item3 - sec.Item2) / (double)c.Bytes * 100.0)).ToList();
+    }
+
+    private List<(uint Start, uint End, string What, double LeftPercent, double WidthPercent)> ReadSpans()
+    {
+        var spans = new List<(uint, uint, string)>();
+        var c = _c!;
+        var tick = c.Duration == 0 ? 0 : Math.Min(_tick, c.Duration - 1);
+        if (c.Stages.Length > 0)
+        {
+            var stageIndex = stageIndexOf(tick);
+            var stage = c.Stages[stageIndex];
+            spans.Add((0, 16, "movement fields"));
+            spans.Add((stage.ProgramOffset, stage.ProgramOffset + TlbContainer.StepBytes * (uint)stage.Steps.Length, "program"));
+            foreach (var (step, row) in StepsOfStage(stageIndex).Take(MaxLanes))
+            {
+                spans.Add((step.Slot, step.Slot + TlbContainer.RowBytes, $"row @0x{step.Slot:X}"));
+                var pair = c.Pairs[(int)step.Pair];
+                var entry = c.PairOffset + TlbContainer.PairEntryBytes * step.Pair;
+                var trackAt = pair.TrackPoolAddress(entry) + row.TrackValueIndex * pair.TrackValueBytes;
+                spans.Add((trackAt, trackAt + pair.TrackValueBytes, "track value"));
+                var clipAt = pair.ClipPoolAddress(entry) + row.FirstValueIndex * pair.ClipValueBytes;
+                spans.Add((clipAt, clipAt + pair.ClipValueBytes, "clip value"));
+                if (row.Blends)
+                {
+                    var secondAt = pair.ClipPoolAddress(entry) + row.SecondValueIndex * pair.ClipValueBytes;
+                    spans.Add((secondAt, secondAt + pair.ClipValueBytes, "second clip"));
+                }
+            }
+        }
+        var total = (double)c.Bytes;
+        return spans.Select(sp => (sp.Item1, sp.Item2, sp.Item3, sp.Item1 / total * 100.0, (sp.Item2 - sp.Item1) / total * 100.0)).ToList();
+    }
+}

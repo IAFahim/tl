@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "header": {
+    "formatVersion": 4,
+    "duration": 6,
+    "looping": true
+  },
+  "pairs": [
+    {
+      "key": "0x9ddee5dce9f76c00",
+      "layout": "0x2b854b86e02aad8a",
+      "slotStride": 24,
+      "pools": {
+        "trackValueBytes": 4,
+        "clipValueBytes": 8
+      }
+    },
+    {
+      "key": "0xafc3db63f5aaecb9",
+      "layout": "0xb17117c9a9ff6f3c",
+      "slotStride": 24,
+      "pools": {
+        "trackValueBytes": 4,
+        "clipValueBytes": 4
+      }
+    }
+  ],
+  "stages": [
+    {
+      "start": 0,
+      "end": 2,
+      "steps": [
+        {
+          "pair": 0,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 0,
+          "windowEnd": 4,
+          "factorStart": 0,
+          "factorSpan": 0
+        },
+        {
+          "pair": 1,
+          "track": 1,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 0,
+          "windowEnd": 2,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    },
+    {
+      "start": 2,
+      "end": 3,
+      "steps": [
+        {
+          "pair": 0,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 0,
+          "windowEnd": 4,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    },
+    {
+      "start": 3,
+      "end": 4,
+      "steps": [
+        {
+          "pair": 0,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 1,
+          "windowStart": 0,
+          "windowEnd": 6,
+          "factorStart": 3,
+          "factorSpan": 1
+        }
+      ]
+    },
+    {
+      "start": 4,
+      "end": 6,
+      "steps": [
+        {
+          "pair": 0,
+          "track": 0,
+          "trackValue": 0,
+          "first": 1,
+          "second": 65535,
+          "windowStart": 3,
+          "windowEnd": 6,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    }
+  ]
+}

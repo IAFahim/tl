@@ -1,0 +1,26 @@
+{
+  "name": "viewer_mixed",
+  "duration": 6,
+  "loop": true,
+  "tracks": [
+    {
+      "name": "anim",
+      
+      "type": "AnimationTrack",
+      "data": { "Code": 1 },
+      "clips": [
+        {  "type": "AnimationClip", "start": 0, "end": 4, "data": { "X": 2, "Y": 1 } },
+        {  "type": "AnimationClip", "start": 2, "end": 6, "data": { "X": 6, "Y": 3 } }
+      ]
+    },
+    {
+      "name": "damage",
+      
+      "type": "DamageTrack",
+      "data": { "Code": 2 },
+      "clips": [
+        {  "type": "DamageClip", "start": 0, "end": 2, "data": { "Amount": 10 } }
+      ]
+    }
+  ]
+}

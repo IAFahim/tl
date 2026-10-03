@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Tl.Gen.CSharp;
@@ -75,7 +76,7 @@ public static class Play
 
     public const string DefaultTimelineJson = """
 {
-  "name": "jump", "duration": 30, "loop": true,
+  "id": "jump", "name": "jump", "duration": 30, "loop": true,
   "tracks": [
     {
       "name": "arc", "namespace": "Live", "type": "JumpTrack", "data": { "Scale": 1.0 },
@@ -231,12 +232,28 @@ public static unsafe class Play
 
     public static string TypeJson(Assembly assembly) => TlbIntrospection.Introspect([assembly]);
 
+    static string PeelId(string timelineJson, out string? key)
+    {
+        key = null;
+        try
+        {
+            if (JsonNode.Parse(timelineJson) is not JsonObject root) return timelineJson;
+            key = (root["id"] ?? root["name"])?.GetValue<string>();
+            return root.Remove("id") ? root.ToJsonString() : timelineJson;
+        }
+        catch
+        {
+            key = null;
+            return timelineJson;
+        }
+    }
+
     static (byte[] Bytes, string Error) Bake(Assembly assembly, string timelineJson)
     {
         try
         {
             var resolver = BakerAssemblyResolver.FromAssemblies([assembly]);
-            return (TimelineBaker.BakeJson(timelineJson, resolver), "");
+            return (TimelineBaker.BakeJson(PeelId(timelineJson, out _), resolver), "");
         }
         catch (Exception ex)
         {
@@ -244,7 +261,7 @@ public static unsafe class Play
         }
     }
 
-    public static (byte[][] Packages, string Error) BakeAll(Assembly assembly, string timelineJson)
+    public static (byte[][] Packages, string[] Keys, string Error) BakeAll(Assembly assembly, string timelineJson)
     {
         try
         {
@@ -253,33 +270,41 @@ public static unsafe class Play
             {
                 var (bytes, error) = Bake(assembly, timelineJson);
                 if (bytes.Length == 0)
-                    return ([], error);
-                return ([bytes], "");
+                    return ([], [], error);
+                PeelId(timelineJson, out var key);
+                return ([bytes], [key ?? "tlb 1"], "");
             }
             var resolver = BakerAssemblyResolver.FromAssemblies([assembly]);
             var packages = new List<byte[]>();
+            var keys = new List<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
             foreach (var element in document.RootElement.EnumerateArray())
             {
+                var peeled = PeelId(element.GetRawText(), out var key);
+                var finalKey = key ?? $"tlb {keys.Count + 1}";
+                if (!seen.Add(finalKey))
+                    return ([], [], $"two timelines share the key '{finalKey}'; give each timeline a unique \"id\"");
                 byte[] baked;
                 try
                 {
-                    baked = TimelineBaker.BakeJson(element.GetRawText(), resolver);
+                    baked = TimelineBaker.BakeJson(peeled, resolver);
                 }
                 catch (Exception ex)
                 {
-                    return ([], ex.Message);
+                    return ([], [], ex.Message);
                 }
                 if (baked.Length == 0)
-                    return ([], "a timeline entry baked to zero bytes");
+                    return ([], [], "a timeline entry baked to zero bytes");
                 packages.Add(baked);
+                keys.Add(finalKey);
             }
             if (packages.Count == 0)
-                return ([], "the data pane holds no timelines; write one timeline document per array element");
-            return ([.. packages], "");
+                return ([], [], "the data pane holds no timelines; write one timeline document per array element");
+            return ([.. packages], [.. keys], "");
         }
         catch (JsonException ex)
         {
-            return ([], ex.Message);
+            return ([], [], ex.Message);
         }
     }
 
