@@ -4,17 +4,17 @@
 
 <div class="page">
     <div class="live-bar">
-        <button class="primary run-action" @onclick="LoadFromLive" disabled="@(BakedCache.Packages is null)">
-            read the last live-tab bake
+        <button class="primary run-action" @onclick="LoadFromLive" disabled="@(BakedCache.Entries.Count == 0)">
+            read the live-tab library
         </button>
-        @if (BakedCache.Packages is { Length: > 1 })
+        @if (BakedCache.Entries is { Count: > 1 })
         {
             <label class="bar-field">
-                package
-                <select value="@_pkgIndex" @onchange="OnPackage">
-                    @for (var i = 1; i <= BakedCache.Packages.Length; i++)
+                timeline
+                <select value="@_key" @onchange="OnPackage">
+                    @foreach (var entry in BakedCache.Entries)
                     {
-                        <option value="@i">@i / @BakedCache.Packages.Length</option>
+                        <option value="@entry.Key">@entry.Key</option>
                     }
                 </select>
             </label>
@@ -85,7 +85,7 @@
     private TlbContainer? _c;
     private byte[]? _bytes;
     private string _note = "bake on the live tab, then read it here";
-    private int _pkgIndex = 1;
+    private string? _key = BakedCache.ViewKey;
     private uint _tick;
     private bool _reverse;
     private bool _playing;
@@ -95,18 +95,25 @@
 
     private int TickMax => _c is null || _c.Duration == 0 ? 0 : (int)_c.Duration - 1;
 
+    protected override void OnInitialized()
+    {
+        if (BakedCache.Entries.Count > 0)
+            LoadFromLive();
+    }
+
     private void LoadFromLive()
     {
-        if (BakedCache.Packages is not { Length: > 0 }) return;
-        var packages = BakedCache.Packages;
-        _note = $"live-tab bake · recipe {BakedCache.Recipe} · package {_pkgIndex} of {packages.Length}";
-        Parse(packages[_pkgIndex - 1]);
+        if (BakedCache.Entries.Count == 0) return;
+        _key = BakedCache.Entries.Any(e => e.Key == _key) ? _key : BakedCache.Entries[0].Key;
+        BakedCache.ViewKey = _key;
+        var entry = BakedCache.Entries.First(e => e.Key == _key);
+        _note = $"live-tab library · recipe {BakedCache.Recipe} · revision {BakedCache.Revision} · {BakedCache.LastChange} · timeline '{_key}' is {entry.Package.Length} B";
+        Parse(entry.Package);
     }
 
     private void OnPackage(ChangeEventArgs e)
     {
-        if (!int.TryParse(e.Value?.ToString(), out var index)) return;
-        _pkgIndex = Math.Clamp(index, 1, BakedCache.Packages?.Length ?? 1);
+        _key = e.Value?.ToString();
         LoadFromLive();
     }
 

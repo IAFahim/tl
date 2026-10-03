@@ -427,7 +427,7 @@ public static class Play
         var compile = LiveAuthoring.Compile(example.Source);
         if (!compile.Ok)
             throw new InvalidOperationException($"example '{example.Id}' failed to compile: {compile.Error}");
-        var (packages, error) = LiveAuthoring.BakeAll(compile.Assembly!, example.TimelineJson);
+        var (packages, _, error) = LiveAuthoring.BakeAll(compile.Assembly!, example.TimelineJson);
         if (packages.Length == 0)
             throw new InvalidOperationException($"example '{example.Id}' failed to bake: {error}");
         return LiveAuthoring.Run(compile.Assembly!, packages);

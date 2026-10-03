@@ -24,7 +24,7 @@
                 }
             </select>
         </label>
-        <span class="bar-note">@Description · ctrl+enter runs · baked bytes arrive as the Run parameter — the browser has no file system</span>
+        <span class="bar-note">@Description · ctrl+enter runs · baked bytes arrive as the Run parameter — the browser has no file system · an "id" keys each timeline: same id replaces it, other ids survive</span>
     </div>
     <div class="split-grid split-live" data-persist="tl-split-live">
         <section class="pane pane-code">
@@ -98,6 +98,10 @@
 
 @code
 {
+    static string? _draftPreset;
+    static string? _draftSource;
+    static string? _draftTimeline;
+
     string _preset = Examples.Readme.Id;
     string _source = LiveAuthoring.DefaultSource;
     string _timelineJson = LiveAuthoring.DefaultTimelineJson;
@@ -109,6 +113,14 @@
     bool _running;
     LiveEditor? _typeEditor;
     DotNetObjectReference<Live>? _self;
+
+    protected override void OnInitialized()
+    {
+        if (_draftPreset is null) return;
+        _preset = _draftPreset;
+        _source = _draftSource!;
+        _timelineJson = _draftTimeline!;
+    }
 
     Example Current => Examples.Of(_preset);
 
@@ -132,9 +144,19 @@
         await Js.InvokeVoidAsync("play.wireSplitters");
     }
 
-    void OnSourceChanged(string value) => _source = value;
+    void OnSourceChanged(string value)
+    {
+        _source = value;
+        _draftPreset = _preset;
+        _draftSource = value;
+    }
 
-    void OnTimelineChanged(string value) => _timelineJson = value;
+    void OnTimelineChanged(string value)
+    {
+        _timelineJson = value;
+        _draftPreset = _preset;
+        _draftTimeline = value;
+    }
 
     void OnPresetChange(ChangeEventArgs e)
     {
@@ -143,6 +165,9 @@
         _preset = example.Id;
         _source = example.Source;
         _timelineJson = example.TimelineJson;
+        _draftPreset = example.Id;
+        _draftSource = example.Source;
+        _draftTimeline = example.TimelineJson;
         _compiledSource = "";
         _compile = null;
         _run = null;
@@ -171,14 +196,14 @@
             }
             if (_compile is not { Ok: true }) return;
             typeJson = LiveAuthoring.TypeJson(_compile.Assembly!);
-            var (packages, error) = LiveAuthoring.BakeAll(_compile.Assembly!, _timelineJson);
+            var (packages, keys, error) = LiveAuthoring.BakeAll(_compile.Assembly!, _timelineJson);
             if (packages.Length == 0)
             {
                 _runError = error;
                 return;
             }
-            _bakeStats = LiveAuthoring.BakeStats(packages);
-            BakedCache.Store(packages, _preset);
+            _bakeStats = LiveAuthoring.BakeStats(packages) + " · ids " + string.Join(", ", keys);
+            BakedCache.Store(packages, keys, _preset);
             try
             {
                 _run = LiveAuthoring.Run(_compile.Assembly!, packages);
