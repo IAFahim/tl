@@ -145,7 +145,7 @@ public unsafe class PairLaws
             using var asset = TimelineAsset.Of(TimelineAsset.Load(first));
             var view = Timeline<FuzzTrack, FuzzClip>.View(asset.Index);
             for (ushort tick = 0; tick <= duration; tick++)
-                if (view.Forward[tick] != model.Forward(tick))
+                if (LaneEncoding.Value(&view, 0, true, tick) != model.Forward(tick))
                     throw new XunitException($"rebaked fold diverged at tick {tick} d={duration}");
         }
     }
@@ -157,15 +157,15 @@ public unsafe class PairLaws
         var duration = model.Duration;
         if (view.Duration != duration || (view.Looping != 0) != model.Looping)
             throw new XunitException($"view metadata diverged {context}: d={view.Duration} loop={view.Looping}");
-        if (view.AbiVersion != SlotView.AbiVersionV2 || view.Absent != 0)
+        if (view.AbiVersion != SlotView.AbiVersionV3 || view.Absent != 0)
             throw new XunitException($"view ABI diverged {context}");
         for (ushort position = 0; position <= duration; position++)
         {
             if (position < duration && LaneMovement.ForwardNext(position, duration, model.Looping) != Movement.Forward(duration, model.Looping, position))
                 throw new XunitException($"derived forward movement {context} pos={position}: {LaneMovement.ForwardNext(position, duration, model.Looping)}");
             var expectedEffect = position < duration ? model.Forward(position) : 0f;
-            if (view.Forward[position] != expectedEffect)
-                throw new XunitException($"forward fold {context} pos={position}: {view.Forward[position]} != {expectedEffect}");
+            if (LaneEncoding.Value(&view, 0, true, position) != expectedEffect)
+                throw new XunitException($"forward fold {context} pos={position}: {LaneEncoding.Value(&view, 0, true, position)} != {expectedEffect}");
 
             var backwardExpected = BackwardRecord(model, position);
             var derivedBackward = LaneMovement.BackwardPlayable(position, duration, model.Looping)
@@ -173,10 +173,12 @@ public unsafe class PairLaws
                 : LaneMovementRecord.Skipped;
             if (derivedBackward != backwardExpected.Next)
                 throw new XunitException($"derived backward movement {context} pos={position}: {derivedBackward}");
-            if (view.BackwardByPosition[position] != backwardExpected.Effect)
-                throw new XunitException($"backward by-position fold {context} pos={position}: {view.BackwardByPosition[position]} != {backwardExpected.Effect}");
-            if (view.Backward[position] != model.Backward(position))
-                throw new XunitException($"backward fold {context} pos={position}: {view.Backward[position]} != {model.Backward(position)}");
+            var backwardTick = (ushort)(position == 0 ? duration - 1 : position - 1);
+            var derivedByPosition = LaneEncoding.Value(&view, 0, false, backwardTick);
+            if (derivedByPosition != model.Backward(backwardTick))
+                throw new XunitException($"backward by-position fold {context} pos={position}: {derivedByPosition} != {model.Backward(backwardTick)}");
+            if (LaneEncoding.Value(&view, 0, false, position) != model.Backward(position))
+                throw new XunitException($"backward fold {context} pos={position}: {LaneEncoding.Value(&view, 0, false, position)} != {model.Backward(position)}");
         }
     }
 

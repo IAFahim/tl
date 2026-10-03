@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -6,6 +7,7 @@ using System.Runtime.Intrinsics.X86;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Tl;
+
 
 public interface ITimelineLane<T>
     where T : unmanaged, ITimelineLane<T>
@@ -83,14 +85,14 @@ internal readonly ref struct TimelineLane<T>
                 if (duration <= 8)
                     LaneOps.EffPermuteForward(LaneAccelerator<T>.ForwardEffects, duration, looping, positions, next, effects, 0, end);
                 else
-                    LaneOps.EffectForward(LaneAccelerator<T>.ForwardEffects, duration, looping, positions, next, effects, 0, end);
+                    LaneOps.EffectForward<FlatSource>(LaneAccelerator<T>.ForwardEffects, duration, looping, positions, next, effects, 0, end);
             }
             else
             {
                 if (duration <= 8)
                     LaneOps.EffPermuteBackward(LaneAccelerator<T>.BackwardEffects, duration, looping, positions, next, effects, 0, end);
                 else
-                    LaneOps.EffectBackward(LaneAccelerator<T>.BackwardByPosition, duration, looping, positions, next, effects, 0, end);
+                    LaneOps.EffectBackward<FlatSource>(LaneAccelerator<T>.BackwardEffects, duration, looping, positions, next, effects, 0, end);
             }
             i = end;
         }
@@ -201,14 +203,14 @@ internal readonly ref struct TimelineLane<T>
                     if (duration <= 8)
                         LaneOps.EffPermuteForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
                     else
-                        LaneOps.EffectForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
+                        LaneOps.EffectForward<FlatSource>(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
                 }
                 else
                 {
                     if (duration <= 8)
                         LaneOps.EffPermuteBackward(LaneAccelerator<T>.BackwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
                     else
-                        LaneOps.EffectBackward(LaneAccelerator<T>.BackwardByPosition, T.Duration, looping, positions, default, effects, i, blockEnd);
+                        LaneOps.EffectBackward<FlatSource>(LaneAccelerator<T>.BackwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
                 }
                 i = blockEnd;
                 continue;
@@ -555,7 +557,7 @@ internal static class LaneOps
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
-    internal static unsafe void EffectForward(float* eff, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit)
+    internal static unsafe void EffectForward<TSrc>(void* source, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit) where TSrc : struct, IEffectSource
     {
         var durationVector = Vector256.Create(duration);
         var durationWide = Vector256.Create((uint)duration);
@@ -579,8 +581,8 @@ internal static class LaneOps
             }
             var clamped = Vector256.Min(pos, durationVector);
             var (wideLo, wideHi) = Vector256.Widen(clamped);
-            var gatherLo = Avx2.GatherVector256(eff, wideLo.AsInt32(), 4);
-            var gatherHi = Avx2.GatherVector256(eff, wideHi.AsInt32(), 4);
+            var gatherLo = TSrc.Gather(source, wideLo);
+            var gatherHi = TSrc.Gather(source, wideHi);
             var skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
             var skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
             ApplyGather(ref e, (nuint)i, skipLo, skipHi, gatherLo, gatherHi);
@@ -590,13 +592,14 @@ internal static class LaneOps
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
-    internal static unsafe void EffectBackward(float* byp, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit)
+    internal static unsafe void EffectBackward<TSrc>(void* source, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit) where TSrc : struct, IEffectSource
     {
         var durationVector = Vector256.Create(duration);
         var durationWide = Vector256.Create((uint)duration);
-        var lastVector = Vector256.Create((ushort)(duration - 1));
+        var lastWide = Vector256.Create((uint)(duration - 1));
         var zeroUint = Vector256<uint>.Zero;
         var zero = Vector256<ushort>.Zero;
+        var oneUint = Vector256.Create(1u);
         var step = Vector256.Create((ushort)0xFFFF);
         var hasNext = !nextColumn.IsEmpty;
         ref var p = ref MemoryMarshal.GetReference(positions);
@@ -611,8 +614,8 @@ internal static class LaneOps
                 Vector256<ushort> moveMask;
                 if (wrap)
                 {
-                    moveMask = Vector256.LessThanOrEqual(pos, lastVector);
-                    next = Vector256.ConditionalSelect(Vector256.Equals(pos, zero), lastVector, next);
+                    moveMask = Vector256.LessThanOrEqual(pos, Vector256.Create((ushort)(duration - 1)));
+                    next = Vector256.ConditionalSelect(Vector256.Equals(pos, zero), Vector256.Create((ushort)(duration - 1)), next);
                 }
                 else
                 {
@@ -622,14 +625,18 @@ internal static class LaneOps
                 next.StoreUnsafe(ref n, (nuint)i);
             }
             var clamped = Vector256.Min(pos, durationVector);
-            var (wideLo, wideHi) = Vector256.Widen(clamped);
-            var gatherLo = Avx2.GatherVector256(byp, wideLo.AsInt32(), 4);
-            var gatherHi = Avx2.GatherVector256(byp, wideHi.AsInt32(), 4);
+            var (clampedLo, clampedHi) = Vector256.Widen(clamped);
+            var indexLo = Vector256.Subtract(clampedLo, oneUint);
+            indexLo = Vector256.ConditionalSelect(Vector256.Equals(clampedLo, zeroUint), lastWide, indexLo);
+            var indexHi = Vector256.Subtract(clampedHi, oneUint);
+            indexHi = Vector256.ConditionalSelect(Vector256.Equals(clampedHi, zeroUint), lastWide, indexHi);
+            var gatherLo = TSrc.Gather(source, indexLo);
+            var gatherHi = TSrc.Gather(source, indexHi);
             Vector256<float> skipLo, skipHi;
             if (wrap)
             {
-                skipLo = Vector256.Equals(wideLo, durationWide).AsSingle();
-                skipHi = Vector256.Equals(wideHi, durationWide).AsSingle();
+                skipLo = Vector256.Equals(clampedLo, durationWide).AsSingle();
+                skipHi = Vector256.Equals(clampedHi, durationWide).AsSingle();
             }
             else
             {
@@ -640,6 +647,43 @@ internal static class LaneOps
             ApplyGather(ref e, (nuint)i, skipLo, skipHi, gatherLo, gatherHi);
             i += 16;
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    internal static unsafe Vector256<float> SegGather(uint* directory, LaneSegment* segments, float* dense, Vector256<uint> ticks)
+    {
+        var entry = Avx2.GatherVector256((int*)directory, Vector256.ShiftRightLogical(ticks, LaneEncoding.BucketShift).AsInt32(), 4).AsUInt32();
+        var escape = Vector256.Create(LaneEncoding.EscapeBit);
+        var bad = Vector256.Equals(entry & escape, escape);
+        var index = entry & Vector256.Create(~LaneEncoding.EscapeBit);
+        var value = Avx2.GatherVector256((float*)segments, (index * Vector256.Create(4u) + Vector256.Create(2u)).AsInt32(), 4);
+        if (bad != Vector256<uint>.Zero)
+        {
+            Span<float> patch = stackalloc float[8];
+            value.StoreUnsafe(ref MemoryMarshal.GetReference(patch), 0);
+            var bits = bad.ExtractMostSignificantBits();
+            while (bits != 0)
+            {
+                var lane = BitOperations.TrailingZeroCount(bits);
+                patch[lane] = SegValue(directory, segments, dense, ticks.GetElement(lane));
+                bits &= bits - 1;
+            }
+            value = Vector256.LoadUnsafe(ref MemoryMarshal.GetReference(patch), 0);
+        }
+        return value;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    static unsafe float SegValue(uint* directory, LaneSegment* segments, float* dense, uint tick)
+    {
+        var entry = directory[tick >> LaneEncoding.BucketShift];
+        var segment = segments + (entry & ~LaneEncoding.EscapeBit);
+        if ((entry & LaneEncoding.EscapeBit) != 0)
+            while (tick < segment->Start || tick > segment->End)
+                segment++;
+        return segment->Kind == LaneSegment.Constant ? segment->V0
+            : segment->Kind == LaneSegment.Ramp ? LaneEncoding.Ramp(segment->V0, segment->V1, segment->Start, segment->End, (int)tick)
+            : dense[(nuint)LaneEncoding.DenseOffset(*segment) + (tick - (uint)segment->Start)];
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
@@ -860,6 +904,35 @@ internal static class LaneOps
     }
 }
 
+internal interface IEffectSource
+{
+    static abstract unsafe Vector256<float> Gather(void* source, Vector256<uint> ticks);
+}
+
+internal readonly unsafe struct FlatSource : IEffectSource
+{
+    public static Vector256<float> Gather(void* source, Vector256<uint> ticks)
+        => Avx2.GatherVector256((float*)source, ticks.AsInt32(), 4);
+}
+
+internal readonly unsafe struct SegmentedForwardSource : IEffectSource
+{
+    public static Vector256<float> Gather(void* source, Vector256<uint> ticks)
+    {
+        var slot = (SlotView*)source;
+        return LaneOps.SegGather(slot->Directory, slot->Segments, slot->Dense, ticks);
+    }
+}
+
+internal readonly unsafe struct SegmentedBackwardSource : IEffectSource
+{
+    public static Vector256<float> Gather(void* source, Vector256<uint> ticks)
+    {
+        var slot = (SlotView*)source;
+        return LaneOps.SegGather(slot->Directory + (nuint)LaneEncoding.Buckets(slot->TableTicks), slot->Segments, slot->Dense, ticks);
+    }
+}
+
 internal static unsafe class LaneMovement
 {
     internal static ushort ForwardNext(int position, int duration, bool looping)
@@ -885,19 +958,19 @@ internal static unsafe class LaneMovement
                 {
                     if (backwardRecords != null)
                         backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
-                    backwardByPosition[p] = backward[duration - 1];
+                    if (backwardByPosition != null) backwardByPosition[p] = backward[duration - 1];
                 }
                 else if (p == 0)
                 {
                     if (backwardRecords != null)
                         backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                    backwardByPosition[p] = 0f;
+                    if (backwardByPosition != null) backwardByPosition[p] = 0f;
                 }
                 else
                 {
                     if (backwardRecords != null)
                         backwardRecords[p] = new LaneMovementRecord { Effect = backward[p - 1], Next = (ushort)(p - 1) };
-                    backwardByPosition[p] = backward[p - 1];
+                    if (backwardByPosition != null) backwardByPosition[p] = backward[p - 1];
                 }
             }
             else
@@ -908,20 +981,164 @@ internal static unsafe class LaneMovement
                 {
                     if (backwardRecords != null)
                         backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                    backwardByPosition[p] = 0f;
+                    if (backwardByPosition != null) backwardByPosition[p] =  0f;
                 }
                 else
                 {
                     if (backwardRecords != null)
                         backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
-                    backwardByPosition[p] = backward[duration - 1];
+                    if (backwardByPosition != null) backwardByPosition[p] = backward[duration - 1];
                 }
             }
         }
     }
 }
 
+internal static unsafe class LaneEncoding
+{
+    internal const int BucketShift = 6;
+    internal const int BucketTicks = 1 << BucketShift;
+    internal const int FlatMaxTicks = 9;
+    internal const int SegmentedMinTicks = 2049;
+    internal const int MinConstantRun = 5;
+    internal const int MinRampSpan = 4;
+    internal const int MaxRampSpan = 512;
+    internal const int MaxDirectionSegments = ushort.MaxValue;
+    internal const uint EscapeBit = 0x80000000u;
+
+    internal static int Buckets(uint ticks) => (int)((ticks + (BucketTicks - 1)) >> BucketShift);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static uint Bits(float value) => Unsafe.As<float, uint>(ref value);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int BackwardTick(int position, int duration) => position == 0 ? duration - 1 : position - 1;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static float Ramp(float v0, float v1, int start, int end, int p)
+        => p == start ? v0 : p == end ? v1 : v0 + (v1 - v0) * (p - start) / (end - start);
+
+    internal static int DenseOffset(LaneSegment segment)
+    {
+        var bits = segment.V0;
+        return Unsafe.As<float, int>(ref bits);
+    }
+
+    internal static float Value(SlotView* slot, nuint lane, bool forward, int tick)
+    {
+        var ticks = slot->TableTicks;
+        if (forward)
+        {
+            var flat = slot->Forward;
+            if (flat != null) return flat[lane * ticks + (nuint)tick];
+        }
+        else
+        {
+            var flat = slot->Backward;
+            if (flat != null) return flat[lane * ticks + (nuint)tick];
+        }
+        var buckets = (nuint)Buckets(ticks);
+        var dir = slot->Directory + lane * buckets * 2 + (forward ? 0u : (uint)buckets);
+        var entry = dir[(nuint)tick >> BucketShift];
+        var segment = slot->Segments + (entry & ~EscapeBit);
+        if ((entry & EscapeBit) != 0)
+            while (tick < segment->Start || tick > segment->End)
+                segment++;
+        return segment->Kind switch
+        {
+            LaneSegment.Constant => segment->V0,
+            LaneSegment.Ramp => Ramp(segment->V0, segment->V1, segment->Start, segment->End, tick),
+            _ => slot->Dense[(nuint)DenseOffset(*segment) + (nuint)(tick - segment->Start)]
+        };
+    }
+
+    internal static int Encode(float* values, int ticks, List<LaneSegment> segments, List<float> dense)
+    {
+        var first = segments.Count;
+        var t = 0;
+        while (t < ticks)
+        {
+            var head = values[t];
+            var run = t + 1;
+            while (run < ticks && SameBits(values[run], head) && run - t <= ushort.MaxValue + 1)
+                run++;
+            if (run - t >= MinConstantRun)
+            {
+                segments.Add(new LaneSegment { Start = (ushort)t, End = (ushort)(run - 1), Kind = LaneSegment.Constant, V0 = head });
+                t = run;
+                continue;
+            }
+            if (RampHead(values, ticks, t))
+            {
+                var end = t + MinRampSpan - 1;
+                while (end + 1 < Math.Min(ticks, t + MaxRampSpan) && RampFits(values, t, end + 1))
+                    end++;
+                segments.Add(new LaneSegment { Start = (ushort)t, End = (ushort)end, Kind = LaneSegment.Ramp, V0 = head, V1 = values[end] });
+                t = end + 1;
+                continue;
+            }
+            var denseStart = t;
+            while (++t < ticks)
+            {
+                head = values[t];
+                run = t + 1;
+                while (run < ticks && SameBits(values[run], head) && run - t <= ushort.MaxValue + 1)
+                    run++;
+                if (run - t >= MinConstantRun || RampHead(values, ticks, t))
+                    break;
+            }
+            var offset = dense.Count;
+            var offsetBits = offset;
+            for (var k = denseStart; k < t; k++)
+                dense.Add(values[k]);
+            segments.Add(new LaneSegment
+            {
+                Start = (ushort)denseStart,
+                End = (ushort)(t - 1),
+                Kind = LaneSegment.Dense,
+                V0 = Unsafe.As<int, float>(ref offsetBits)
+            });
+        }
+        return segments.Count - first;
+    }
+
+    internal static void BuildDirectory(LaneSegment* segments, int baseIndex, int count, int ticks, uint* directory)
+    {
+        var buckets = Buckets((uint)ticks);
+        var last = baseIndex + count;
+        for (var b = 0; b < buckets; b++)
+        {
+            var lo = b << BucketShift;
+            var hi = Math.Min(lo + BucketTicks - 1, ticks - 1);
+            var s = baseIndex;
+            while (s < last && segments[s].End < lo)
+                s++;
+            var segment = segments[s];
+            directory[b] = segment.Kind == LaneSegment.Constant && segment.Start <= lo && segment.End >= hi
+                ? (uint)s
+                : EscapeBit | (uint)s;
+        }
+    }
+
+    static bool SameBits(float a, float b)
+        => Unsafe.As<float, uint>(ref a) == Unsafe.As<float, uint>(ref b);
+
+    static bool RampHead(float* values, int ticks, int t)
+        => t + MinRampSpan <= ticks && RampFits(values, t, t + MinRampSpan - 1);
+
+    static bool RampFits(float* values, int t, int end)
+    {
+        var v0 = values[t];
+        var v1 = values[end];
+        for (var i = t + 1; i < end; i++)
+            if (!SameBits(values[i], Ramp(v0, v1, t, end, i)))
+                return false;
+        return true;
+    }
+}
+
 internal static unsafe class LaneAccelerator<T>
+
     where T : unmanaged, ITimelineLane<T>
 {
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]

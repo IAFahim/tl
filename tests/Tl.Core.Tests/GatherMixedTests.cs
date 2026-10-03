@@ -85,7 +85,7 @@ public unsafe class GatherMixedTests
             {
                 if (position < slot.Duration)
                 {
-                    effects[i] += slot.Forward[position];
+                    effects[i] += LaneEncoding.Value(&slot, 0, true, position);
                     if (hasNext) next[i] = LaneMovement.ForwardNext(position, slot.Duration, slot.Looping != 0);
                 }
             }
@@ -93,7 +93,7 @@ public unsafe class GatherMixedTests
             {
                 if (LaneMovement.BackwardPlayable(position, slot.Duration, slot.Looping != 0))
                 {
-                    effects[i] += slot.BackwardByPosition[position];
+                    effects[i] += LaneEncoding.Value(&slot, 0, false, LaneEncoding.BackwardTick(position, slot.Duration));
                     if (hasNext) next[i] = LaneMovement.BackwardNext(position, slot.Duration);
                 }
                 else if (hasNext) next[i] = position;

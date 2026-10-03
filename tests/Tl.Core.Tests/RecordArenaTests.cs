@@ -68,11 +68,19 @@ public unsafe class RecordArenaTests
     {
         var view = set.View(id);
         var ticks = (int)view.TableTicks;
-        var expected = new byte[2 * ticks * sizeof(LaneMovementRecord) + ticks * sizeof(float)];
+        var expected = new byte[2 * ticks * sizeof(LaneMovementRecord) + 2 * ticks * sizeof(float)];
         fixed (byte* pin = expected)
         {
-            LaneMovement.Bake(view.Forward, view.Backward, view.Duration, view.Looping != 0,
-                (LaneMovementRecord*)pin, (LaneMovementRecord*)(pin + ticks * sizeof(LaneMovementRecord)), (float*)(pin + 2 * ticks * sizeof(LaneMovementRecord)));
+            var slot = &view;
+            var forward = (float*)(pin + 2 * ticks * sizeof(LaneMovementRecord));
+            var backward = forward + ticks;
+            for (var t = 0; t < ticks; t++)
+            {
+                forward[t] = LaneEncoding.Value(slot, 0, true, t);
+                backward[t] = LaneEncoding.Value(slot, 0, false, t);
+            }
+            LaneMovement.Bake(forward, backward, view.Duration, view.Looping != 0,
+                (LaneMovementRecord*)pin, (LaneMovementRecord*)(pin + ticks * sizeof(LaneMovementRecord)), null);
             var records = view.Duration == 0 ? 1 : ticks;
             AssertEqualRecords((LaneMovementRecord*)(arenaForward + bases[id]), (LaneMovementRecord*)pin, records, id, "forward");
             AssertEqualRecords((LaneMovementRecord*)(arenaBackward + bases[id]), (LaneMovementRecord*)(pin + ticks * sizeof(LaneMovementRecord)), records, id, "backward");
@@ -214,7 +222,7 @@ public unsafe class RecordArenaTests
                 if (p < duration)
                 {
                     var view = Timeline<ArenaTrack, ArenaClip>.View(ids[i]);
-                    effects[i] += view.Forward[p];
+                    effects[i] += LaneEncoding.Value(&view, 0, true, p);
                     positions[i] = LaneMovement.ForwardNext(p, duration, view.Looping != 0);
                 }
             }
@@ -225,7 +233,7 @@ public unsafe class RecordArenaTests
                     var view = Timeline<ArenaTrack, ArenaClip>.View(ids[i]);
                     if (LaneMovement.BackwardPlayable(p, duration, view.Looping != 0))
                     {
-                        effects[i] += view.BackwardByPosition[p];
+                        effects[i] += LaneEncoding.Value(&view, 0, false, LaneEncoding.BackwardTick(p, duration));
                         positions[i] = LaneMovement.BackwardNext(p, duration);
                     }
                 }

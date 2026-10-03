@@ -153,6 +153,16 @@ type Tl.LaneMovementRecord
   Field Single Effect
   Field UInt16 Next
   Field UInt16 Skipped
+type Tl.LaneSegment
+  Field Byte Constant
+  Field Byte Dense
+  Field UInt16 End
+  Field Byte Kind
+  Field Byte Pad
+  Field Byte Ramp
+  Field UInt16 Start
+  Field Single V0
+  Field Single V1
 type Tl.MeasuredLanes
   Method Void Dispose()
   Property UInt16 Duration
@@ -171,15 +181,18 @@ type Tl.SlotView
   Field UInt16 AbiVersion
   Field UInt16 AbiVersionV1
   Field UInt16 AbiVersionV2
+  Field UInt16 AbiVersionV3
   Field UInt16 Absent
   Field Single* Backward
-  Field Single* BackwardByPosition
+  Field Single* Dense
+  Field UInt32* Directory
   Field UInt16 Duration
   Field Single* Forward
   Field UInt64 Generation
   Field UInt64* LaneKeys
   Field UInt16 Looping
   Field UInt16 ResultCount
+  Field Tl.LaneSegment* Segments
   Field UInt32 TableTicks
 type Tl.TickFrame
   Field Tl.FrameFlags Flags

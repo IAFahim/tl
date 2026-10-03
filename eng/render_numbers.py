@@ -48,7 +48,7 @@ def render(receipt: dict) -> str:
         "the shared-clock crowd sits on it and the per-row-clock crowds carry 4 more bytes per character. "
         "Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). "
         + (f"Authoring a full game's data — {bake['CorpusMb']:.1f} MB of JSON — bakes in {bake['BakeMs']:.0f} ms and loads in {bake['LoadMs']:.1f} ms. " if bake else "")
-        + "Memory: 8 B per character of host columns, `12 * (duration + 1) + 56` bytes of tables per timeline (movement records derived, not stored), 0 B allocated per frame at any crowd size.",
+        + "Memory: 8 B per character of host columns, `8 * (duration + 1)` bytes of flat tables per timeline or a segmented run encoding below that (72-byte header; movement records and backward-by-position derived, never stored), 0 B allocated per frame at any crowd size.",
     ]
     return "\n".join(lines)
 

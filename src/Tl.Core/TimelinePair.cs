@@ -4,6 +4,13 @@ using System.Runtime.InteropServices;
 
 namespace Tl;
 
+internal unsafe struct MemoLane
+{
+	public SlotView* Slot;
+	public ushort Lane;
+	public ushort Duration;
+}
+
 public static unsafe partial class Timeline<TTrack, TClip>
 	where TTrack : unmanaged, IBlend<TClip>
 	where TClip : unmanaged
@@ -113,17 +120,18 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
 	static void ApplySharedClock(SlotView* slot, ushort position, bool forward, Span<float> effects)
 	{
+		var duration = slot->Duration;
 		float delta;
 		if (forward)
 		{
-			if (position >= slot->Duration) return;
-			delta = slot->Forward[position];
+			if (position >= duration) return;
+			delta = LaneEncoding.Value(slot, 0, true, position);
 		}
 		else
 		{
-			if (position > slot->Duration) return;
-			if (!LaneMovement.BackwardPlayable(position, slot->Duration, slot->Looping != 0)) return;
-			delta = slot->BackwardByPosition[position];
+			if (position > duration) return;
+			if (!LaneMovement.BackwardPlayable(position, duration, slot->Looping != 0)) return;
+			delta = LaneEncoding.Value(slot, 0, false, LaneEncoding.BackwardTick(position, duration));
 		}
 		LaneOps.Add(effects, 0, effects.Length, delta);
 	}
@@ -334,13 +342,12 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		void** columns = stackalloc void*[columnBound];
 		Unsafe.InitBlock(columns, 0, (uint)(columnBound * sizeof(void*)));
 		byte** cells = stackalloc byte*[memoBound];
-		float** laneFloats = stackalloc float*[memoBound];
+		MemoLane* laneCells = stackalloc MemoLane[memoBound];
 		byte* cellBlock = stackalloc byte[memoBound * 8];
 		byte* cellWide = stackalloc byte[memoBound];
 		int* outLane = stackalloc int[memoBound];
 		ulong* outKey = stackalloc ulong[memoBound];
 		int memo = 0, pairs = 0;
-		nuint tableTicks = 0;
 		var reference = default(TimelineRef);
 		var last = -1;
 		for (var i = 0; i < clocks.Length;)
@@ -358,7 +365,6 @@ public static unsafe partial class Timeline<TTrack, TClip>
 				pairs = checked((int)reference.PairCount);
 				reference.Resolve(new Span<int>(chains, pairs), key);
 				var slot = Bank().FoldedView(id);
-				tableTicks = slot->TableTicks;
 				var outs = 0;
 				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
 				{
@@ -388,10 +394,10 @@ public static unsafe partial class Timeline<TTrack, TClip>
 						{
 							if (feed >= outs || outKey[feed] != slotKeys[j])
 								throw new ArgumentException($"{Head} ExecuteActive fold-fed 'in' does not match a Fold 'out' result.");
-							if (memo >= memoBound) ThrowMemoRow(memoBound);
-							cells[memo] = cellBlock + 8 * memo;
-							laneFloats[memo] = (forward ? slot->Forward : slot->BackwardByPosition) + (nuint)outLane[feed] * slot->TableTicks;
-							cellWide[memo] = (meta & 0xF) == 8 ? (byte)1 : (byte)0;
+						if (memo >= memoBound) ThrowMemoRow(memoBound);
+						cells[memo] = cellBlock + 8 * memo;
+						laneCells[memo] = new MemoLane { Slot = slot, Lane = (ushort)outLane[feed], Duration = slot->Duration };
+						cellWide[memo] = (meta & 0xF) == 8 ? (byte)1 : (byte)0;
 							columns[column] = cells[memo++];
 							feed++;
 						}
@@ -414,22 +420,24 @@ public static unsafe partial class Timeline<TTrack, TClip>
 				if (live == 0)
 					throw new ArgumentException($"{Head} registers no live ExecuteActive column consumer.");
 			}
-			for (var r = i; r < end; r++)
-			{
-				var position = clocks[r];
-				if (!reference.Select(reverse, position, out var tick, out var flags)) continue;
-				for (var k = 0; k < memo; k++)
+				for (var r = i; r < end; r++)
 				{
-					if (cellWide[k] != 0)
+					var position = clocks[r];
+					if (!reference.Select(reverse, position, out var tick, out var flags)) continue;
+					for (var k = 0; k < memo; k++)
 					{
-						var lo = laneFloats[k];
-						var hi = lo + tableTicks;
-						*(ulong*)cells[k] = (ulong)Unsafe.As<float, uint>(ref lo[position]) | (ulong)Unsafe.As<float, uint>(ref hi[position]) << 32;
+						var lane = laneCells[k];
+						var laneTick = forward ? position : LaneEncoding.BackwardTick(position, lane.Duration);
+						if (cellWide[k] != 0)
+						{
+							var lo = LaneEncoding.Bits(LaneEncoding.Value(lane.Slot, lane.Lane, forward, laneTick));
+							var hi = LaneEncoding.Bits(LaneEncoding.Value(lane.Slot, (nuint)lane.Lane + 1, forward, laneTick));
+							*(ulong*)cells[k] = (ulong)lo | (ulong)hi << 32;
+						}
+						else *(float*)cells[k] = LaneEncoding.Value(lane.Slot, lane.Lane, forward, laneTick);
 					}
-					else *(float*)cells[k] = laneFloats[k][position];
+					reference.ExecuteDispatch(reverse, tick, flags, r, new Span<int>(chains, pairs), columns);
 				}
-				reference.ExecuteDispatch(reverse, tick, flags, r, new Span<int>(chains, pairs), columns);
-			}
 			i = end;
 		}
 	}
@@ -566,7 +574,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			return new SlotView
 			{
 				Absent = 1,
-				AbiVersion = SlotView.AbiVersionV2,
+				AbiVersion = SlotView.AbiVersionV3,
 			};
 		Resolve(index);
 		return bank.View(index);
