@@ -64,14 +64,15 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			slot = bank.FoldedView(index);
 		}
 		var p = position;
+		var duration = slot->Duration;
+		var looping = slot->Looping != 0;
 		if (forward)
 		{
-			if (p < slot->Duration) position = slot->ForwardRecords[p].Next;
+			if (p < duration) position = LaneMovement.ForwardNext(p, duration, looping);
 			return;
 		}
-		if (p > slot->Duration) return;
-		var next = slot->BackwardRecords[p].Next;
-		if (next != LaneMovementRecord.Skipped) position = next;
+		if (p > duration) return;
+		if (LaneMovement.BackwardPlayable(p, duration, looping)) position = LaneMovement.BackwardNext(p, duration);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -116,14 +117,13 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		if (forward)
 		{
 			if (position >= slot->Duration) return;
-			delta = slot->ForwardRecords[position].Effect;
+			delta = slot->Forward[position];
 		}
 		else
 		{
 			if (position > slot->Duration) return;
-			ref var record = ref slot->BackwardRecords[position];
-			if (record.Next == LaneMovementRecord.Skipped) return;
-			delta = record.Effect;
+			if (!LaneMovement.BackwardPlayable(position, slot->Duration, slot->Looping != 0)) return;
+			delta = slot->BackwardByPosition[position];
 		}
 		LaneOps.Add(effects, 0, effects.Length, delta);
 	}
@@ -334,7 +334,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		void** columns = stackalloc void*[columnBound];
 		Unsafe.InitBlock(columns, 0, (uint)(columnBound * sizeof(void*)));
 		byte** cells = stackalloc byte*[memoBound];
-		LaneMovementRecord** laneRecords = stackalloc LaneMovementRecord*[memoBound];
+		float** laneFloats = stackalloc float*[memoBound];
 		byte* cellBlock = stackalloc byte[memoBound * 8];
 		byte* cellWide = stackalloc byte[memoBound];
 		int* outLane = stackalloc int[memoBound];
@@ -390,7 +390,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 								throw new ArgumentException($"{Head} ExecuteActive fold-fed 'in' does not match a Fold 'out' result.");
 							if (memo >= memoBound) ThrowMemoRow(memoBound);
 							cells[memo] = cellBlock + 8 * memo;
-							laneRecords[memo] = (forward ? slot->ForwardRecords : slot->BackwardRecords) + (nuint)outLane[feed] * slot->TableTicks;
+							laneFloats[memo] = (forward ? slot->Forward : slot->BackwardByPosition) + (nuint)outLane[feed] * slot->TableTicks;
 							cellWide[memo] = (meta & 0xF) == 8 ? (byte)1 : (byte)0;
 							columns[column] = cells[memo++];
 							feed++;
@@ -420,13 +420,13 @@ public static unsafe partial class Timeline<TTrack, TClip>
 				if (!reference.Select(reverse, position, out var tick, out var flags)) continue;
 				for (var k = 0; k < memo; k++)
 				{
-					ref var rec = ref laneRecords[k][position];
 					if (cellWide[k] != 0)
 					{
-						ref var hi = ref (laneRecords[k] + tableTicks)[position];
-						*(ulong*)cells[k] = Unsafe.As<float, uint>(ref rec.Effect) | (ulong)Unsafe.As<float, uint>(ref hi.Effect) << 32;
+						var lo = laneFloats[k];
+						var hi = lo + tableTicks;
+						*(ulong*)cells[k] = (ulong)Unsafe.As<float, uint>(ref lo[position]) | (ulong)Unsafe.As<float, uint>(ref hi[position]) << 32;
 					}
-					else *(float*)cells[k] = rec.Effect;
+					else *(float*)cells[k] = laneFloats[k][position];
 				}
 				reference.ExecuteDispatch(reverse, tick, flags, r, new Span<int>(chains, pairs), columns);
 			}
@@ -566,8 +566,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			return new SlotView
 			{
 				Absent = 1,
-				RecordBytes = (ushort)sizeof(LaneMovementRecord),
-				AbiVersion = SlotView.AbiVersionV1,
+				AbiVersion = SlotView.AbiVersionV2,
 			};
 		Resolve(index);
 		return bank.View(index);

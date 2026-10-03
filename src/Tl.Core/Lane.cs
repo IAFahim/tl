@@ -862,6 +862,15 @@ internal static class LaneOps
 
 internal static unsafe class LaneMovement
 {
+    internal static ushort ForwardNext(int position, int duration, bool looping)
+        => (ushort)(looping && position + 1 == duration ? 0 : position + 1);
+
+    internal static bool BackwardPlayable(int position, int duration, bool looping)
+        => looping ? position < duration : position > 0 && position <= duration;
+
+    internal static ushort BackwardNext(int position, int duration)
+        => (ushort)(position == 0 ? duration - 1 : position - 1);
+
     internal static void Bake(float* forward, float* backward, ushort duration, bool looping, LaneMovementRecord* forwardRecords, LaneMovementRecord* backwardRecords, float* backwardByPosition)
     {
         var skipped = LaneMovementRecord.Skipped;
@@ -870,34 +879,41 @@ internal static unsafe class LaneMovement
             if (p < duration)
             {
                 var wraps = looping && p + 1 == duration;
-                forwardRecords[p] = new LaneMovementRecord { Effect = forward[p], Next = wraps ? (ushort)0 : (ushort)(p + 1) };
+                if (forwardRecords != null)
+                    forwardRecords[p] = new LaneMovementRecord { Effect = forward[p], Next = wraps ? (ushort)0 : (ushort)(p + 1) };
                 if (p == 0 && looping)
                 {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
+                    if (backwardRecords != null)
+                        backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
                     backwardByPosition[p] = backward[duration - 1];
                 }
                 else if (p == 0)
                 {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
+                    if (backwardRecords != null)
+                        backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
                     backwardByPosition[p] = 0f;
                 }
                 else
                 {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[p - 1], Next = (ushort)(p - 1) };
+                    if (backwardRecords != null)
+                        backwardRecords[p] = new LaneMovementRecord { Effect = backward[p - 1], Next = (ushort)(p - 1) };
                     backwardByPosition[p] = backward[p - 1];
                 }
             }
             else
             {
-                forwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
+                if (forwardRecords != null)
+                    forwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
                 if (looping || duration == 0)
                 {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
+                    if (backwardRecords != null)
+                        backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
                     backwardByPosition[p] = 0f;
                 }
                 else
                 {
-                    backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
+                    if (backwardRecords != null)
+                        backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
                     backwardByPosition[p] = backward[duration - 1];
                 }
             }

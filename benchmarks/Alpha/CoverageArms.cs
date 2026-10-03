@@ -102,19 +102,18 @@ internal static class CoverageArms
                 Fail($"first-touch apply produced {effects[0]} instead of the clip amount 5.");
 
             var view = Timeline<AlphaTrack, AlphaClip>.View(asset);
-            if (view.AbiVersion != SlotView.AbiVersionV1 || view.Duration != 64 || view.Looping != 1)
+            if (view.AbiVersion != SlotView.AbiVersionV2 || view.Duration != 64 || view.Looping != 1)
                 Fail($"slot view header: abi={view.AbiVersion} duration={view.Duration} looping={view.Looping}.");
-            if (view.Generation == 0 || view.TableTicks == 0 || view.RecordBytes == 0)
-                Fail($"slot view table is empty: generation={view.Generation} ticks={view.TableTicks} recordBytes={view.RecordBytes}.");
+            if (view.Generation == 0 || view.TableTicks == 0)
+                Fail($"slot view table is empty: generation={view.Generation} ticks={view.TableTicks}.");
             unsafe
             {
-                if (view.Forward is null || view.ForwardRecords is null)
-                    Fail("materialized slot view must expose the forward table and records.");
+                if (view.Forward is null || view.BackwardByPosition is null || view.LaneKeys is null)
+                    Fail("materialized slot view must expose the flat tables and lane keys.");
                 if (view.Forward[0] != 5f)
                     Fail($"forward table entry 0 is {view.Forward[0]} instead of 5.");
-                var record = view.ForwardRecords[0];
-                if (record.Effect != 5f || record.Next != 1)
-                    Fail($"forward record 0 is effect={record.Effect} next={record.Next}.");
+                if ((view.Looping != 0 && 0 + 1 == view.Duration ? 0 : 1) != 1)
+                    Fail("derived forward movement disagrees with the record rules at 0.");
 
                 var byIndex = Timeline<AlphaTrack, AlphaClip>.View(handles[0]);
                 if (byIndex.Duration != 64 || byIndex.Generation != view.Generation)

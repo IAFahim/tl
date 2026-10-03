@@ -179,8 +179,7 @@ public class SharedClockCrowdTests
     {
         var view = Timeline<HandleTrack, HandleClip>.View(index);
         if (forward) return position >= view.Duration;
-        if (position > view.Duration) return true;
-        return view.BackwardRecords[position].Next == LaneMovementRecord.Skipped;
+        return !LaneMovement.BackwardPlayable(position, view.Duration, view.Looping != 0);
     }
 
     [Fact]
