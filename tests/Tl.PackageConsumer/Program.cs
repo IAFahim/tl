@@ -35,17 +35,19 @@ if (positions[0] != 1 || values[0] != 7f)
 unsafe
 {
     var view = Timeline<PackageTrack, PackageClip>.View(asset.Index);
-    if (view.Duration != 4 || view.TableTicks != 5 || view.RecordBytes != 8
-        || view.AbiVersion != SlotView.AbiVersionV1 || view.Generation == 0
+    if (view.Duration != 4 || view.TableTicks != 5
+        || view.AbiVersion != SlotView.AbiVersionV2 || view.Generation == 0
         || view.Forward == null || view.Backward == null || view.BackwardByPosition == null
-        || view.ForwardRecords == null || view.BackwardRecords == null)
+        || view.LaneKeys == null)
         return 4;
 
-    if (view.Forward[0] != 7f || view.Forward[4] != 0f || view.Backward[3] != -7f)
+    if (view.Forward[0] != 7f || view.Forward[4] != 0f || view.Backward[3] != -7f
+        || view.BackwardByPosition[4] != view.Backward[3])
         return 5;
 
-    if (view.ForwardRecords[0].Effect != 7f || view.ForwardRecords[0].Next != 1
-        || view.ForwardRecords[3].Next != 4 || view.ForwardRecords[4].Next != LaneMovementRecord.Skipped)
+    var next = (ushort)(0 + 1);
+    var tail = 3 + 1 == view.Duration ? LaneMovementRecord.Skipped : next;
+    if (view.Forward[next] != 7f || tail != LaneMovementRecord.Skipped)
         return 6;
 }
 
