@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "plane": "live",
+  "host": {
+    "engine": "Tl.Core",
+    "engineVersion": "2.0.1.0"
+  },
+  "assembly": {
+    "name": "Mixed",
+    "version": "1.0.0.0",
+    "sha256": "91a3ba96248815d1190876cc64efb3569ce8c84a343c47e1f9bd16f5b69639e4",
+    "engineReferences": [
+      {
+        "name": "Tl.Core",
+        "version": "2.0.1.0"
+      }
+    ]
+  },
+  "assets": [
+    {
+      "file": "mixed.tlb",
+      "bytes": 659,
+      "index": 0,
+      "sha256": "d6be3c6ee77a28c1f18aaac185eadd47f24ac2ceb9e027d88b414ec49033d31d"
+    }
+  ],
+  "tables": {
+    "intern": {
+      "capacity": 1024,
+      "live": 1,
+      "distinct": 1,
+      "graveyardBlocks": 0,
+      "graveyardBytes": 0,
+      "allocBytes": 704,
+      "peakLiveBytes": 704
+    },
+    "pair": {
+      "slots": 1024,
+      "pairs": 2,
+      "loadFactorPermille": 1,
+      "consumers": 2,
+      "consumerCapacity": 64,
+      "slotRowBytes": 40
+    },
+    "bake": {
+      "slots": 1024,
+      "entries": 0
+    }
+  },
+  "banks": [
+    {
+      "track": "AnimationTrack",
+      "clip": "AnimationClip",
+      "pairKey": "0x006cf7e9dce5de9d",
+      "count": 1,
+      "holes": 0,
+      "blocks": 1,
+      "dedupeHits": 0,
+      "generation": 1,
+      "bytes": {
+        "header": 72,
+        "table": 196,
+        "directory": 25680,
+        "arena": 16416,
+        "retained": 42364
+      },
+      "views": [
+        {
+          "index": 0,
+          "foldState": "folded-now",
+          "duration": 6,
+          "looping": true,
+          "ticks": 7,
+          "lanes": 1,
+          "abiVersion": 1,
+          "generation": 1,
+          "laneShapes": [
+            {
+              "key": "0xad2e313ccaf1aa75",
+              "distinct": 3,
+              "longestRun": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "track": "DamageTrack",
+      "clip": "DamageClip",
+      "pairKey": "0xb9ecaaf563dbc3af",
+      "count": 1,
+      "holes": 0,
+      "blocks": 1,
+      "dedupeHits": 0,
+      "generation": 1,
+      "bytes": {
+        "header": 72,
+        "table": 196,
+        "directory": 25680,
+        "arena": 16416,
+        "retained": 42364
+      },
+      "views": [
+        {
+          "index": 0,
+          "foldState": "folded-now",
+          "duration": 6,
+          "looping": true,
+          "ticks": 7,
+          "lanes": 1,
+          "abiVersion": 1,
+          "generation": 1,
+          "laneShapes": [
+            {
+              "key": "0xad2e313ccaf1aa75",
+              "distinct": 2,
+              "longestRun": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "deep": {
+    "available": true
+  }
+}

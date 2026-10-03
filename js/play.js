@@ -1,3 +1,13 @@
+window.hexFollow = function (dotnet, id) {
+    var el = document.getElementById(id);
+    if (!el || el.dataset.hexBound) return;
+    el.dataset.hexBound = '1';
+    el.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        dotnet.invokeMethodAsync('OnHexWheelJs', e.deltaY > 0 ? 1 : -1);
+    }, { passive: false });
+};
+
 window.play = {
     syncQuery: function (query) {
         try { history.replaceState(null, '', location.pathname + '?' + query + location.hash); } catch (e) { }
