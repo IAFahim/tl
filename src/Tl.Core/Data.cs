@@ -345,12 +345,12 @@ internal const int MemoResults = 10;
 	struct Slot { public ulong Key; public int Head; }
 	const int SlotCount = 1024;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
-	static ulong _slotsBase = (ulong)NativeMemory.AlignedAlloc((nuint)(8 + 24 * SlotCount), 64);
+	internal static ulong _slotsBase = (ulong)NativeMemory.AlignedAlloc((nuint)(8 + 24 * SlotCount), 64);
 	static ulong _consumersBase = (ulong)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * 64), 64);
-	static int _consumerCapacity = 64;
+	internal static int _consumerCapacity = 64;
 	static volatile int _gate;
 	static int _windowConstant;
-	static int _pairs, _consumers;
+	internal static int _pairs, _consumers;
 
 	static PairTable()
 	{
