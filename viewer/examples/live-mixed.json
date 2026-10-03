@@ -8,7 +8,7 @@
   "assembly": {
     "name": "Mixed",
     "version": "1.0.0.0",
-    "sha256": "91a3ba96248815d1190876cc64efb3569ce8c84a343c47e1f9bd16f5b69639e4",
+    "sha256": "1bcc91a454606c530eb3e67f7f9b41f4e9715000ddec4ac1217495f42e3a595d",
     "engineReferences": [
       {
         "name": "Tl.Core",
@@ -59,10 +59,9 @@
       "generation": 1,
       "bytes": {
         "header": 72,
-        "table": 196,
-        "directory": 25680,
-        "arena": 16416,
-        "retained": 42364
+        "table": 56,
+        "directory": 29776,
+        "retained": 29904
       },
       "views": [
         {
@@ -95,10 +94,9 @@
       "generation": 1,
       "bytes": {
         "header": 72,
-        "table": 196,
-        "directory": 25680,
-        "arena": 16416,
-        "retained": 42364
+        "table": 56,
+        "directory": 29776,
+        "retained": 29904
       },
       "views": [
         {
