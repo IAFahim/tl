@@ -156,7 +156,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     private int _pendingCursor;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private ulong _generation;
+    internal ulong _generation;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _gate;

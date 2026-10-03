@@ -38,7 +38,7 @@ static unsafe class BakeTable
 
     struct Slot { public ulong Key; public int Head, Tail; }
 
-    const int SlotCount = 1024, Capacity = 1024;
+    internal const int SlotCount = 1024, Capacity = 1024;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(sizeof(Slot) * SlotCount + sizeof(Entry) * Capacity), 64);
     static volatile int _gate;

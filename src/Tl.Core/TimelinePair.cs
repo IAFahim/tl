@@ -8,7 +8,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	where TTrack : unmanaged, IBlend<TClip>
 	where TClip : unmanaged
 {
-	static TimelineSet<TTrack, TClip>? _bank;
+	internal static TimelineSet<TTrack, TClip>? _bank;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
