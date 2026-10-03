@@ -24,6 +24,12 @@ if (args is ["--bank-concurrency"])
     return 0;
 }
 
+if (args is ["--bank-segmented"])
+{
+    BankReceipts.SegmentedBoundary();
+    return 0;
+}
+
 if (args is ["--bank-views"])
 {
     BankReceipts.ViewShapes();
@@ -46,6 +52,7 @@ Require(args.Length == 0);
 DataAuthoredReceipts.All();
 DataAuthoredReceipts.Memory();
 BankReceipts.Retained();
+BankReceipts.SegmentedBoundary();
 return 0;
 
 static void Require(bool condition, [CallerArgumentExpression(nameof(condition))] string? expression = null)

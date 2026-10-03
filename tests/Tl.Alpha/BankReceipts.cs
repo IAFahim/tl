@@ -302,7 +302,7 @@ internal static class BankReceipts
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     internal static void Capacity()
     {
-        Require(Unsafe.SizeOf<SlotView>() == 64, "SlotView header is 64 bytes");
+        Require(Unsafe.SizeOf<SlotView>() == 72, "SlotView header is 72 bytes");
         const int domain = 65536;
         const int distinct = 49152;
         using var timelines = new TimelineSet<BankTrack, BankClip>();
@@ -349,17 +349,25 @@ internal static class BankReceipts
         Console.WriteLine("bank-capacity: shuffled 65,536-id crowd apply+step retained 0 B");
     }
 
-    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     internal static void Concurrency()
+    {
+        ConcurrencyAt(8);
+        ConcurrencyAt(2049);
+    }
+
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
+    static void ConcurrencyAt(ushort duration)
     {
         const int readerIdCount = 64;
         const int frames = 200;
         const int readerCount = 4;
         const int publisherCount = 4;
         const int publishesPer = 400;
+        var alive = new List<TimelineAsset>();
         for (ushort i = 0; i < readerIdCount; i++)
         {
-            using var asset = TimelineAsset.LoadAsset(BakeBank(i + 1f, 8));
+            var asset = TimelineAsset.LoadAsset(BakeBank(i + 1f, duration));
+            alive.Add(asset);
             ReadOnlySpan<ushort> onePosition = [0];
             Timeline<BankTrack, BankClip>.Apply(asset.Index, onePosition, true, new float[1]);
         }
@@ -374,7 +382,7 @@ internal static class BankReceipts
         var ids = new ushort[512];
         var positions = new ushort[512];
         var reference = new float[512];
-        for (var i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i % readerIdCount); positions[i] = (ushort)(i * 3 % 8); }
+        for (var i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i % readerIdCount); positions[i] = (ushort)(i * 3 % duration); }
         var referencePositions = (ushort[])positions.Clone();
         for (var frame = 0; frame < frames; frame++)
             Timeline<BankTrack, BankClip>.Apply(ids, referencePositions, frame % 7 != 6, reference);
@@ -393,12 +401,12 @@ internal static class BankReceipts
                 var readerPositions = (ushort[])positions.Clone();
                 var effects = new float[512];
                 for (var frame = 0; frame < 20; frame++)
-                    Timeline<BankTrack, BankClip>.Apply(readerIdCount, readerPositions, true, effects);
+                    Timeline<BankTrack, BankClip>.Apply(ids, readerPositions, true, effects);
                 Array.Clear(effects);
                 barrier.SignalAndWait();
                 var before = GC.GetAllocatedBytesForCurrentThread();
                 for (var frame = 0; frame < frames; frame++)
-                    Timeline<BankTrack, BankClip>.Apply(readerIdCount, readerPositions, frame % 7 != 6, effects);
+                    Timeline<BankTrack, BankClip>.Apply(ids, readerPositions, frame % 7 != 6, effects);
                 readerAllocated[reader] = GC.GetAllocatedBytesForCurrentThread() - before;
                 readerMatch[reader] = effects.AsSpan().SequenceEqual(reference);
             });
@@ -412,17 +420,15 @@ internal static class BankReceipts
             {
                 ReadOnlySpan<ushort> onePosition = [0];
                 var oneEffect = new float[1];
-                var loaded = new List<TimelineAsset>(publishesPer);
                 barrier.SignalAndWait();
                 for (var n = 0; n < publishesPer; n++)
                 {
-                    var asset = TimelineAsset.LoadAsset(BakeBank(readerIdCount + publisher * publishesPer + n + 1f, 8));
-                    loaded.Add(asset);
+                    var asset = TimelineAsset.LoadAsset(BakeBank(readerIdCount + publisher * publishesPer + n + 1f, duration));
+                    alive.Add(asset);
                     publishedIndexes[publisher, n] = asset.Index;
                     Timeline<BankTrack, BankClip>.Apply(asset.Index, onePosition, true, oneEffect);
                     stableHashes[publisher, n] = HashView(Timeline<BankTrack, BankClip>.View(asset.Index));
                 }
-                foreach (var asset in loaded) asset.Dispose();
             });
             publishers[p].Start();
         }
@@ -442,7 +448,8 @@ internal static class BankReceipts
             Require(readerMatch[r], $"reader {r} checksums equal the single-threaded reference");
             Require(readerAllocated[r] == 0, $"reader {r} allocated {readerAllocated[r]} B");
         }
-        Console.WriteLine($"bank-concurrency: {readerCount} readers x {frames} frames over {readerIdCount} held views against {publisherCount} publishers x {publishesPer} resolves; checksums, view stability, and 0 B reader allocation PASS");
+        foreach (var asset in alive) asset.Dispose();
+        Console.WriteLine($"bank-concurrency[{duration} ticks]: {readerCount} readers x {frames} frames over {readerIdCount} held views against {publisherCount} publishers x {publishesPer} resolves; checksums, view stability, and 0 B reader allocation PASS");
     }
 
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
@@ -519,7 +526,9 @@ internal static class BankReceipts
             for (var i = 0; i < rows; i++)
             {
                 var view = views[ids[i]];
-                effects[i] += LaneEncoding.Value(&view, 0, false, LaneEncoding.BackwardTick(scatter[i], view.Duration));
+                var position = scatter[i];
+                if (LaneMovement.BackwardPlayable(position, view.Duration, view.Looping != 0))
+                    effects[i] += LaneEncoding.Value(&view, 0, false, LaneEncoding.BackwardTick(position, view.Duration));
             }
         }
         Require(effects.AsSpan().SequenceEqual(oracleBackward), "gather-equivalent backward reads match the crowd fold");
@@ -658,6 +667,98 @@ internal static class BankReceipts
     }
 
     [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
+    internal static unsafe void SegmentedBoundary()
+    {
+        const int rows = 4096;
+        const int frames = 50;
+        ushort[] durations = [2049, 3000, 65000];
+        var alive = new List<TimelineAsset>();
+        for (var d = 0; d < durations.Length; d++)
+        {
+            var half = (uint)(durations[d] / 2);
+            var baker = new DomainBaker()
+                .Track<BankTrack, BankClip>(new BankTrack(1f + d))
+                .Clip(0, 0u, half, new BankClip(1.25f))
+                .Clip(0, half, half + 512, new BankClip(-0.5f))
+                .Clip(0, half + 512, durations[d], new BankClip(2.5f));
+            alive.Add(TimelineAsset.LoadAsset(baker.Bake()));
+        }
+        var ids = new ushort[durations.Length];
+        for (var d = 0; d < durations.Length; d++)
+            ids[d] = alive[d].Index;
+        var views = new SlotView[durations.Length];
+        for (var d = 0; d < durations.Length; d++)
+        {
+            ReadOnlySpan<ushort> onePosition = [0];
+            Timeline<BankTrack, BankClip>.Apply(ids[d], onePosition, true, new float[1]);
+            views[d] = Timeline<BankTrack, BankClip>.View(ids[d]);
+            Require(views[d].Directory != null && views[d].Forward == null, $"duration {durations[d]} encodes segmented");
+            Require(views[d].AbiVersion == SlotView.AbiVersionV3, $"duration {durations[d]} carries ABI v3");
+        }
+        var viewHashes = new ulong[durations.Length];
+        for (var d = 0; d < durations.Length; d++)
+            viewHashes[d] = HashView(views[d]);
+
+        var crowdIds = new ushort[rows];
+        var positions = new ushort[rows];
+        var effects = new float[rows];
+        for (var i = 0; i < rows; i++)
+        {
+            crowdIds[i] = i < rows - 192 ? ids[(i / 64) % durations.Length] : ids[i % durations.Length];
+            positions[i] = (ushort)((i * 2654435761u >> 8) % 1984);
+            effects[i] = (i % 23) * 0.25f - 3f;
+        }
+        var seedPositions = (ushort[])positions.Clone();
+        var seedEffects = (float[])effects.Clone();
+
+        var checksum = ColumnsChecksum(positions, effects);
+        for (var frame = 0; frame < frames; frame++)
+            Timeline<BankTrack, BankClip>.Apply(crowdIds, positions, positions, true, effects);
+        var forward = ColumnsChecksum(positions, effects);
+        for (var frame = 0; frame < frames; frame++)
+            Timeline<BankTrack, BankClip>.Apply(crowdIds, positions, positions, false, effects);
+        Require(positions.AsSpan().SequenceEqual(seedPositions), "rewind restores positions bit-exactly");
+        Require(effects.AsSpan().SequenceEqual(seedEffects), "rewind cancels effects bit-exactly");
+        Require(ColumnsChecksum(positions, effects) == checksum, "rewind returns the seed checksum");
+
+        GC.Collect(2, GCCollectionMode.Forced, true, true);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var frame = 0; frame < frames; frame++)
+        {
+            Timeline<BankTrack, BankClip>.Apply(crowdIds, positions, positions, true, effects);
+            if (frame % 10 == 9) GC.Collect(2, GCCollectionMode.Forced, true, true);
+        }
+        var compactForward = ColumnsChecksum(positions, effects);
+        for (var frame = 0; frame < frames; frame++)
+        {
+            Timeline<BankTrack, BankClip>.Apply(crowdIds, positions, positions, false, effects);
+            if (frame % 10 == 9) GC.Collect(2, GCCollectionMode.Forced, true, true);
+        }
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Require(allocated == 0, $"compacting pass allocated {allocated} B");
+        Require(compactForward == forward, "compacting GC leaves the forward parity checksum identical");
+        Require(positions.AsSpan().SequenceEqual(seedPositions) && effects.AsSpan().SequenceEqual(seedEffects), "compacting pass rewinds bit-exactly");
+        for (var d = 0; d < durations.Length; d++)
+            Require(HashView(Timeline<BankTrack, BankClip>.View(ids[d])) == viewHashes[d], $"segmented view {durations[d]} byte-stable through compacting GC");
+
+        foreach (var asset in alive) asset.Dispose();
+        Console.WriteLine($"bank-segmented: {rows} rows x {frames} frames at durations {string.Join('/', durations)} (segmented encoding, vector-run and batched-scalar tiers, fused position/next columns) rewind parity checksum {forward:x16}; compacting-GC pass identical; views byte-stable; 0 B warm");
+    }
+
+    static ulong ColumnsChecksum(ushort[] positions, float[] effects)
+    {
+        var h = 0x9E3779B97F4A7C15UL;
+        for (var i = 0; i < positions.Length; i++)
+        {
+            h ^= positions[i];
+            h *= 0x100000001B3UL;
+            h ^= LaneEncoding.Bits(effects[i]);
+            h *= 0x100000001B3UL;
+        }
+        return h;
+    }
+
+    [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
     internal static unsafe void StaleSnapshot()
     {
         using var timelines = new TimelineSet<BankTrack, BankClip>();
@@ -764,15 +865,17 @@ internal static class BankReceipts
     {
         var p = (byte*)&view;
         var h = 0x9E3779B97F4A7C15UL;
-        for (var i = 0; i < 64; i++)
+        for (var i = 0; i < sizeof(SlotView); i++)
         {
             h ^= p[i];
             h *= 0x100000001B3UL;
         }
-        var tables = (byte*)view.Forward;
-        for (var i = 0; i < 28L * view.TableTicks; i++)
+        int ticks = (int)view.TableTicks;
+        for (var tick = 0; tick < ticks; tick++)
         {
-            h ^= tables[i];
+            h ^= LaneEncoding.Bits(LaneEncoding.Value(&view, 0, true, tick));
+            h *= 0x100000001B3UL;
+            h ^= LaneEncoding.Bits(LaneEncoding.Value(&view, 0, false, tick));
             h *= 0x100000001B3UL;
         }
         return h;
