@@ -18,7 +18,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>timeline;ecs;burst;unity;dotnet;deterministic;baked-assets;analyzer</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>v2.0.1: first release. TLGEN85 (error) rejects a literal id that is not a non-empty ASCII identifier fragment; TLGEN86 (warning) rejects literal consumer filter entries missing the global:: qualification. Mirrors the TLGEN82-84 chained-generation diagnostics at edit time.</PackageReleaseNotes>
+    <PackageReleaseNotes>v3.0.0: version alignment with the SlotView v2 runtime release; analyzer surface unchanged from 2.0.1 (TLGEN85/86 edit-time chained-generation diagnostics). v2.0.1: first release. TLGEN85 (error) rejects a literal id that is not a non-empty ASCII identifier fragment; TLGEN86 (warning) rejects literal consumer filter entries missing the global:: qualification. Mirrors the TLGEN82-84 chained-generation diagnostics at edit time.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
