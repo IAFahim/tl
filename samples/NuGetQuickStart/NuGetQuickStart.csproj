@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Tl.CSharp" Version="2.0.1" />
+    <PackageReference Include="Tl.CSharp" Version="3.0.0" />
   </ItemGroup>
 
 </Project>
