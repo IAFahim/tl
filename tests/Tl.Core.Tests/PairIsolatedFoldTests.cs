@@ -232,15 +232,13 @@ public unsafe class PairIsolatedFoldTests
     static bool SameTables(SlotView* left, SlotView* right)
     {
         if (left->Duration != right->Duration || left->Looping != right->Looping || left->TableTicks != right->TableTicks
-            || left->Absent != right->Absent || left->RecordBytes != right->RecordBytes || left->AbiVersion != right->AbiVersion)
+            || left->Absent != right->Absent || left->AbiVersion != right->AbiVersion)
             return false;
         var floatBytes = checked((int)(left->TableTicks * sizeof(float)));
-        var recordBytes = checked((int)(left->TableTicks * sizeof(LaneMovementRecord)));
         return new ReadOnlySpan<byte>(left->Forward, floatBytes).SequenceEqual(new ReadOnlySpan<byte>(right->Forward, floatBytes))
             && new ReadOnlySpan<byte>(left->Backward, floatBytes).SequenceEqual(new ReadOnlySpan<byte>(right->Backward, floatBytes))
             && new ReadOnlySpan<byte>(left->BackwardByPosition, floatBytes).SequenceEqual(new ReadOnlySpan<byte>(right->BackwardByPosition, floatBytes))
-            && new ReadOnlySpan<byte>(left->ForwardRecords, recordBytes).SequenceEqual(new ReadOnlySpan<byte>(right->ForwardRecords, recordBytes))
-            && new ReadOnlySpan<byte>(left->BackwardRecords, recordBytes).SequenceEqual(new ReadOnlySpan<byte>(right->BackwardRecords, recordBytes));
+            && new ReadOnlySpan<ulong>(left->LaneKeys, left->ResultCount).SequenceEqual(new ReadOnlySpan<ulong>(right->LaneKeys, right->ResultCount));
     }
 
     static bool SameTables(SlotView* view, MeasuredLanes measured)

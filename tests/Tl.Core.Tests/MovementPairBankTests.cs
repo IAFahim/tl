@@ -241,14 +241,12 @@ public unsafe class MovementPairBankTests
         Assert.Equal(4, folded.Duration);
         Assert.Equal(0, folded.Looping);
         Assert.Equal(5u, folded.TableTicks);
-        Assert.Equal((ushort)sizeof(LaneMovementRecord), folded.RecordBytes);
-        Assert.Equal(SlotView.AbiVersionV1, folded.AbiVersion);
+        Assert.Equal(SlotView.AbiVersionV2, folded.AbiVersion);
         Assert.True(folded.Generation >= 1ul);
 
         var absent = Timeline<MovementHoleTrack, MovementHoleClip>.View(foreign.Index);
         Assert.Equal(1, absent.Absent);
-        Assert.Equal((ushort)sizeof(LaneMovementRecord), absent.RecordBytes);
-        Assert.Equal(SlotView.AbiVersionV1, absent.AbiVersion);
+        Assert.Equal(SlotView.AbiVersionV2, absent.AbiVersion);
     }
 
     [Fact]

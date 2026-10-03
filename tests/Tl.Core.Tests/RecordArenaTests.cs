@@ -62,14 +62,30 @@ public unsafe class RecordArenaTests
     }
 
     static void AssertSegmentBytes(TimelineSet<RoutingTrack, RoutingClip> set, ushort id)
+        => AssertArenaMatchesDerivedRecords(set, set._arenaForward, set._arenaBackward, set._arenaBases, id);
+
+    static unsafe void AssertArenaMatchesDerivedRecords(TimelineSet<RoutingTrack, RoutingClip> set, LaneMovementRecord* arenaForward, LaneMovementRecord* arenaBackward, uint* bases, ushort id)
     {
         var view = set.View(id);
-        var bytes = (int)(view.TableTicks * sizeof(LaneMovementRecord));
-        Assert.True(new ReadOnlySpan<byte>(set._arenaForward + set._arenaBases[id], bytes)
-            .SequenceEqual(new ReadOnlySpan<byte>(view.ForwardRecords, bytes)), $"forward arena segment of id {id} copies the slot records bit-exactly");
-        Assert.True(new ReadOnlySpan<byte>(set._arenaBackward + set._arenaBases[id], bytes)
-            .SequenceEqual(new ReadOnlySpan<byte>(view.BackwardRecords, bytes)), $"backward arena segment of id {id} copies the slot records bit-exactly");
+        var ticks = (int)view.TableTicks;
+        var expected = new byte[2 * ticks * sizeof(LaneMovementRecord) + ticks * sizeof(float)];
+        fixed (byte* pin = expected)
+        {
+            LaneMovement.Bake(view.Forward, view.Backward, view.Duration, view.Looping != 0,
+                (LaneMovementRecord*)pin, (LaneMovementRecord*)(pin + ticks * sizeof(LaneMovementRecord)), (float*)(pin + 2 * ticks * sizeof(LaneMovementRecord)));
+            var records = view.Duration == 0 ? 1 : ticks;
+            AssertEqualRecords((LaneMovementRecord*)(arenaForward + bases[id]), (LaneMovementRecord*)pin, records, id, "forward");
+            AssertEqualRecords((LaneMovementRecord*)(arenaBackward + bases[id]), (LaneMovementRecord*)(pin + ticks * sizeof(LaneMovementRecord)), records, id, "backward");
+        }
     }
+
+    static unsafe void AssertEqualRecords(LaneMovementRecord* arena, LaneMovementRecord* derived, int records, ushort id, string direction)
+    {
+        for (var r = 0; r < records; r++)
+            Assert.True(arena[r].Effect == derived[r].Effect && arena[r].Next == derived[r].Next,
+                $"{direction} arena segment of id {id} record {r}/{records} is ({arena[r].Effect}, {arena[r].Next}) instead of the derived ({derived[r].Effect}, {derived[r].Next})");
+    }
+
 
     [Fact]
     public void FoldAppendsBitExactSegmentsForEveryBoundId()
@@ -125,12 +141,7 @@ public unsafe class RecordArenaTests
 
         foreach (var id in staleIds)
         {
-            var view = set.View(id);
-            var bytes = (int)(view.TableTicks * sizeof(LaneMovementRecord));
-            Assert.True(new ReadOnlySpan<byte>(staleForward + staleBases[id], bytes)
-                .SequenceEqual(new ReadOnlySpan<byte>(view.ForwardRecords, bytes)), $"stale arena block keeps id {id} bytes at its published offset");
-            Assert.True(new ReadOnlySpan<byte>(staleBackward + staleBases[id], bytes)
-                .SequenceEqual(new ReadOnlySpan<byte>(view.BackwardRecords, bytes)), $"stale backward block keeps id {id} bytes at its published offset");
+            AssertArenaMatchesDerivedRecords(set, staleForward, staleBackward, staleBases, id);
             Assert.Equal(staleBases[id], set._arenaBases[id]);
         }
         foreach (var id in grownIds)
@@ -202,20 +213,20 @@ public unsafe class RecordArenaTests
             {
                 if (p < duration)
                 {
-                    ref var r = ref Timeline<ArenaTrack, ArenaClip>.View(ids[i]).ForwardRecords[p];
-                    effects[i] += r.Effect;
-                    positions[i] = r.Next;
+                    var view = Timeline<ArenaTrack, ArenaClip>.View(ids[i]);
+                    effects[i] += view.Forward[p];
+                    positions[i] = LaneMovement.ForwardNext(p, duration, view.Looping != 0);
                 }
             }
             else
             {
                 if (p <= duration)
                 {
-                    ref var r = ref Timeline<ArenaTrack, ArenaClip>.View(ids[i]).BackwardRecords[p];
-                    if (r.Next != LaneMovementRecord.Skipped)
+                    var view = Timeline<ArenaTrack, ArenaClip>.View(ids[i]);
+                    if (LaneMovement.BackwardPlayable(p, duration, view.Looping != 0))
                     {
-                        effects[i] += r.Effect;
-                        positions[i] = r.Next;
+                        effects[i] += view.BackwardByPosition[p];
+                        positions[i] = LaneMovement.BackwardNext(p, duration);
                     }
                 }
             }

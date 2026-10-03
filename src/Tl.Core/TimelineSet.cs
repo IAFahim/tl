@@ -9,23 +9,28 @@ namespace Tl;
 
 internal unsafe interface IRowWalk
 {
-    static abstract LaneMovementRecord* Table(SlotView* slot);
+    static abstract float* Table(SlotView* slot);
     static abstract bool InRange(ushort position, int duration);
-    static abstract bool Playable(LaneMovementRecord record);
+    static abstract bool Playable(ushort position, int duration, bool looping);
+    static abstract ushort Next(ushort position, int duration, bool looping);
 }
 
 internal readonly unsafe struct ForwardRows : IRowWalk
 {
-    public static LaneMovementRecord* Table(SlotView* slot) => slot->ForwardRecords;
+    public static float* Table(SlotView* slot) => slot->Forward;
     public static bool InRange(ushort position, int duration) => position < duration;
-    public static bool Playable(LaneMovementRecord record) => true;
+    public static bool Playable(ushort position, int duration, bool looping) => true;
+    public static ushort Next(ushort position, int duration, bool looping)
+        => (ushort)(looping && position + 1 == duration ? 0 : position + 1);
 }
 
 internal readonly unsafe struct BackwardRows : IRowWalk
 {
-    public static LaneMovementRecord* Table(SlotView* slot) => slot->BackwardRecords;
+    public static float* Table(SlotView* slot) => slot->BackwardByPosition;
     public static bool InRange(ushort position, int duration) => position <= duration;
-    public static bool Playable(LaneMovementRecord record) => record.Next != LaneMovementRecord.Skipped;
+    public static bool Playable(ushort position, int duration, bool looping) => looping ? position < duration : position > 0;
+    public static ushort Next(ushort position, int duration, bool looping)
+        => (ushort)(position == 0 ? duration - 1 : position - 1);
 }
 
 internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
@@ -34,8 +39,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
 {
     internal const ushort Skipped = LaneMovementRecord.Skipped;
     const int InitialCapacity = 1024;
-    const int BlockHeaderBytes = 72;
-    const int TableBytesPerTick = 28;
+    const int BlockHeaderBytes = 56;
+    const int TableBytesPerTick = 12;
     const int RetirePadBytes = 16;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
@@ -60,16 +65,19 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     static void ApplyRecords(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, bool forward)
     {
         var duration = slot->Duration;
-        var records = forward ? slot->ForwardRecords : slot->BackwardRecords;
+        var looping = slot->Looping != 0;
+        var eff = forward ? slot->Forward : slot->BackwardByPosition;
         var hasNext = !next.IsEmpty;
         for (var i = 0; i < positions.Length; i++)
         {
             var position = positions[i];
-            ref var r = ref records[position];
-            if (forward ? position < duration : position <= duration && r.Next != Skipped)
+            if (forward ? position < duration : LaneMovement.BackwardPlayable(position, duration, looping))
             {
-                effects[i] += r.Effect;
-                if (hasNext) next[i] = r.Next;
+                effects[i] += eff[position];
+                if (hasNext)
+                    next[i] = forward
+                        ? LaneMovement.ForwardNext(position, duration, looping)
+                        : LaneMovement.BackwardNext(position, duration);
             }
             else if (hasNext) next[i] = position;
         }
@@ -298,9 +306,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var used = (nuint)_arenaUsed;
         if (used + ticks > _arenaCapacity) GrowArena(used + ticks);
         var offset = checked((uint)used);
-        var recordBytes = checked((int)(ticks * sizeof(LaneMovementRecord)));
-        Buffer.MemoryCopy(view->ForwardRecords, _arenaForward + offset, recordBytes, recordBytes);
-        Buffer.MemoryCopy(view->BackwardRecords, _arenaBackward + offset, recordBytes, recordBytes);
+        LaneMovement.Bake(view->Forward, view->Backward, view->Duration, view->Looping != 0, _arenaForward + offset, _arenaBackward + offset, view->BackwardByPosition);
         _arenaBases[index] = offset;
         _arenaUsed = checked((int)(used + ticks));
     }
@@ -415,7 +421,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     static ulong HashOf(SlotView* view)
         => HashTables(view->Duration, view->Looping, view->Forward, view->Backward, view->ResultCount, view->TableTicks);
 
-    static ulong* LaneKeysOf(SlotView* view) => (ulong*)(view->BackwardRecords + view->TableTicks * (nuint)view->ResultCount);
+    static ulong* LaneKeysOf(SlotView* view) => view->LaneKeys;
 
     static ulong HashTables(ushort duration, ushort looping, float* forward, float* backward, int lanes, nuint ticks)
     {
@@ -443,15 +449,13 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var forward = (float*)(block + BlockHeaderBytes);
         var backward = forward + ticks * (nuint)lanes;
         var backwardByPosition = backward + ticks * (nuint)lanes;
-        var forwardRecords = (LaneMovementRecord*)(backwardByPosition + ticks * (nuint)lanes);
-        var backwardRecords = forwardRecords + ticks * (nuint)lanes;
-        var keys = (ulong*)(backwardRecords + ticks * (nuint)lanes);
+        var keys = (ulong*)(backwardByPosition + ticks * (nuint)lanes);
         var tableBytes = (long)(ticks * sizeof(float));
         for (var l = 0; l < lanes; l++)
         {
             Buffer.MemoryCopy(measured.LaneForward[l], forward + (nuint)l * ticks, tableBytes, tableBytes);
             Buffer.MemoryCopy(measured.LaneBackward[l], backward + (nuint)l * ticks, tableBytes, tableBytes);
-            LaneMovement.Bake(forward + (nuint)l * ticks, backward + (nuint)l * ticks, duration, looping, forwardRecords + (nuint)l * ticks, backwardRecords + (nuint)l * ticks, backwardByPosition + (nuint)l * ticks);
+            LaneMovement.Bake(forward + (nuint)l * ticks, backward + (nuint)l * ticks, duration, looping, null, null, backwardByPosition + (nuint)l * ticks);
             keys[l] = measured.LaneKeys[l];
         }
         *(SlotView*)block = new SlotView
@@ -459,15 +463,13 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             Forward = forward,
             Backward = backward,
             BackwardByPosition = backwardByPosition,
-            ForwardRecords = forwardRecords,
-            BackwardRecords = backwardRecords,
+            LaneKeys = keys,
             Duration = duration,
             Looping = looping ? (ushort)1 : (ushort)0,
             Absent = 0,
             TableTicks = (uint)ticks,
-            RecordBytes = (ushort)sizeof(LaneMovementRecord),
             ResultCount = (ushort)lanes,
-            AbiVersion = SlotView.AbiVersionV1,
+            AbiVersion = SlotView.AbiVersionV2,
             Generation = generation,
         };
         _blockCount++;
@@ -618,20 +620,19 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var view = _views[index];
         if (view == null) return;
         var duration = view->Duration;
-        var records = (forward ? view->ForwardRecords : view->BackwardRecords) + (nuint)lane * view->TableTicks;
+        var looping = view->Looping != 0;
+        var eff = (forward ? view->Forward : view->BackwardByPosition) + (nuint)lane * view->TableTicks;
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var c = ref MemoryMarshal.GetReference(column);
         if (sizeof(T) == 8)
         {
-            var hi = records + view->TableTicks;
+            var hi = eff + view->TableTicks;
             for (var i = 0; i < positions.Length; i++)
             {
                 var pos = Unsafe.Add(ref p, (nuint)i);
-                ref var r = ref records[pos];
-                if (forward ? pos < duration : pos <= duration && r.Next != Skipped)
+                if (forward ? pos < duration : LaneMovement.BackwardPlayable(pos, duration, looping))
                 {
-                    ref var h = ref hi[pos];
-                    var bits = Unsafe.As<float, uint>(ref r.Effect) | (ulong)Unsafe.As<float, uint>(ref h.Effect) << 32;
+                    var bits = (ulong)Unsafe.As<float, uint>(ref eff[pos]) | (ulong)Unsafe.As<float, uint>(ref hi[pos]) << 32;
                     Unsafe.Add(ref c, (nuint)i) = Combine(Unsafe.Add(ref c, (nuint)i), Unsafe.As<ulong, T>(ref bits));
                 }
             }
@@ -640,9 +641,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         for (var i = 0; i < positions.Length; i++)
         {
             var pos = Unsafe.Add(ref p, (nuint)i);
-            ref var r = ref records[pos];
-            if (forward ? pos < duration : pos <= duration && r.Next != Skipped)
-                Unsafe.Add(ref c, (nuint)i) = Combine(Unsafe.Add(ref c, (nuint)i), Unsafe.ReadUnaligned<T>(records + pos));
+            if (forward ? pos < duration : LaneMovement.BackwardPlayable(pos, duration, looping))
+                Unsafe.Add(ref c, (nuint)i) = Combine(Unsafe.Add(ref c, (nuint)i), Unsafe.ReadUnaligned<T>(eff + pos));
         }
     }
 
@@ -700,8 +700,9 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         ref var posOrigin = ref MemoryMarshal.GetReference(positions);
         ref var fxOrigin = ref MemoryMarshal.GetReference(effects);
         var lastId = -1;
-        LaneMovementRecord* records = null;
+        float* eff = null;
         var duration = 0;
+        var looping = false;
         for (var i = 0; i < rows.Length; i++)
         {
             var row = (nuint)Unsafe.Add(ref rowOrigin, i);
@@ -718,15 +719,12 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 }
                 lastId = id;
                 duration = slot->Duration;
-                records = TDir.Table(slot);
+                looping = slot->Looping != 0;
+                eff = TDir.Table(slot);
             }
             var position = Unsafe.Add(ref posOrigin, row);
-            if (TDir.InRange(position, duration))
-            {
-                ref var r = ref records[position];
-                if (TDir.Playable(r))
-                    Unsafe.Add(ref fxOrigin, row) += r.Effect;
-            }
+            if (TDir.InRange(position, duration) && TDir.Playable(position, duration, looping))
+                Unsafe.Add(ref fxOrigin, row) += eff[position];
         }
     }
 
@@ -740,8 +738,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         ref var idOrigin = ref MemoryMarshal.GetReference(indices);
         ref var posOrigin = ref MemoryMarshal.GetReference(positions);
         var lastId = -1;
-        LaneMovementRecord* records = null;
         var duration = 0;
+        var looping = false;
         for (var i = 0; i < rows.Length; i++)
         {
             var row = (nuint)Unsafe.Add(ref rowOrigin, i);
@@ -758,15 +756,11 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 }
                 lastId = id;
                 duration = slot->Duration;
-                records = TDir.Table(slot);
+                looping = slot->Looping != 0;
             }
             var position = Unsafe.Add(ref posOrigin, row);
-            if (TDir.InRange(position, duration))
-            {
-                ref var r = ref records[position];
-                if (TDir.Playable(r))
-                    Unsafe.Add(ref posOrigin, row) = r.Next;
-            }
+            if (TDir.InRange(position, duration) && TDir.Playable(position, duration, looping))
+                Unsafe.Add(ref posOrigin, row) = TDir.Next(position, duration, looping);
         }
     }
 
@@ -1040,8 +1034,8 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         }
         if (records != null && i < limit && (looping ? LaneOps.StaggeredEnds(positions, i, limit) : ShortRuns(positions, i, limit)))
             return forward
-                ? ArenaUniformWalk<ForwardRows>(records, positions, next, effects, i, limit, duration)
-                : ArenaUniformWalk<BackwardRows>(records, positions, next, effects, i, limit, duration);
+                ? ArenaUniformWalk<ForwardRows>(records, positions, next, effects, i, limit, duration, looping)
+                : ArenaUniformWalk<BackwardRows>(records, positions, next, effects, i, limit, duration, looping);
         return ApplyUniform(slot, positions, next, effects, i, limit, forward);
     }
 
@@ -1050,7 +1044,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         => !arenaOk ? null : (forward ? arenaForward : arenaBackward) + arenaBases[id];
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ArenaUniformWalk<TDir>(LaneMovementRecord* records, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, int i, int limit, ushort duration) where TDir : struct, IRowWalk
+    static unsafe int ArenaUniformWalk<TDir>(LaneMovementRecord* records, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, int i, int limit, ushort duration, bool looping) where TDir : struct, IRowWalk
     {
         var hasNext = !next.IsEmpty;
         ref var p = ref MemoryMarshal.GetReference(positions);
@@ -1059,15 +1053,11 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         for (; i < limit; i++)
         {
             var position = Unsafe.Add(ref p, (nuint)i);
-            if (TDir.InRange(position, duration))
+            if (TDir.InRange(position, duration) && TDir.Playable(position, duration, looping))
             {
-                ref var r = ref records[position];
-                if (TDir.Playable(r))
-                {
-                    Unsafe.Add(ref e, (nuint)i) += r.Effect;
-                    if (hasNext) Unsafe.Add(ref n, (nuint)i) = r.Next;
-                    continue;
-                }
+                Unsafe.Add(ref e, (nuint)i) += records[position].Effect;
+                if (hasNext) Unsafe.Add(ref n, (nuint)i) = TDir.Next(position, duration, looping);
+                continue;
             }
             if (hasNext) Unsafe.Add(ref n, (nuint)i) = position;
         }
@@ -1114,7 +1104,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
         var eff = forward ? slot->Forward : slot->Backward;
-        var records = forward ? slot->ForwardRecords : slot->BackwardRecords;
+        var rowEff = forward ? slot->Forward : slot->BackwardByPosition;
         var hasNext = !next.IsEmpty;
         while (i < limit)
         {
@@ -1138,11 +1128,13 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
             while (i < limit && (i + 1 >= limit || positions[i + 1] != positions[i]))
             {
                 var p = positions[i];
-                ref var r = ref records[p];
-                if (forward ? p < duration : p <= duration && r.Next != TimelineSet<TTrack, TClip>.Skipped)
+                if (forward ? p < duration : LaneMovement.BackwardPlayable(p, duration, looping))
                 {
-                    effects[i] += r.Effect;
-                    if (hasNext) next[i] = r.Next;
+                    effects[i] += rowEff[p];
+                    if (hasNext)
+                        next[i] = forward
+                            ? LaneMovement.ForwardNext(p, duration, looping)
+                            : LaneMovement.BackwardNext(p, duration);
                 }
                 else if (hasNext) next[i] = p;
                 i++;
@@ -1167,21 +1159,23 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 continue;
             }
             var duration = slot->Duration;
-            var records = forward ? slot->ForwardRecords : slot->BackwardRecords;
+            var looping = slot->Looping != 0;
+            var rowEff = forward ? slot->Forward : slot->BackwardByPosition;
             if (i + 1 >= limit || ids[i + 1] != id || positions[i + 1] != position)
             {
-                if (forward ? position < duration : position <= duration && records[position].Next != TimelineSet<TTrack, TClip>.Skipped)
+                if (forward ? position < duration : LaneMovement.BackwardPlayable(position, duration, looping))
                 {
-                    ref var r = ref records[position];
-                    effects[i] += r.Effect;
-                    if (hasNext) next[i] = r.Next;
+                    effects[i] += rowEff[position];
+                    if (hasNext)
+                        next[i] = forward
+                            ? LaneMovement.ForwardNext(position, duration, looping)
+                            : LaneMovement.BackwardNext(position, duration);
                 }
                 else if (hasNext) next[i] = position;
                 i++;
                 continue;
             }
             var end = RunEndTwo(ids, positions, i, limit);
-            var looping = slot->Looping != 0;
             if (forward ? position >= duration : position == 0 && !looping || position > duration || looping && position == duration) { if (hasNext) LaneOps.Fill(next, i, end, position); i = end; continue; }
             var tick = forward ? position : (ushort)(position == 0 ? duration - 1 : position - 1);
             LaneOps.Add(effects, i, end, (forward ? slot->Forward : slot->Backward)[tick]);
@@ -1196,21 +1190,31 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     {
         var hasNext = !next.IsEmpty;
         var lastId = ids[i];
-        LaneMovementRecord* lastRecords = forward ? views[lastId]->ForwardRecords : views[lastId]->BackwardRecords;
+        var lastSlot = views[lastId];
+        var lastDuration = lastSlot->Duration;
+        var lastLooping = lastSlot->Looping != 0;
+        var lastEff = forward ? lastSlot->Forward : lastSlot->BackwardByPosition;
         while (i < limit)
         {
             var id = ids[i];
             if (id != lastId)
             {
                 lastId = id;
-                lastRecords = forward ? views[id]->ForwardRecords : views[id]->BackwardRecords;
+                lastSlot = views[id];
+                lastDuration = lastSlot->Duration;
+                lastLooping = lastSlot->Looping != 0;
+                lastEff = forward ? lastSlot->Forward : lastSlot->BackwardByPosition;
             }
             var p = positions[i];
-            ref var r = ref lastRecords[p];
-            if (forward || r.Next != TimelineSet<TTrack, TClip>.Skipped)
+            if (forward)
             {
-                effects[i] += r.Effect;
-                if (hasNext) next[i] = r.Next;
+                effects[i] += lastEff[p];
+                if (hasNext) next[i] = p < lastDuration ? LaneMovement.ForwardNext(p, lastDuration, lastLooping) : LaneMovementRecord.Skipped;
+            }
+            else if (LaneMovement.BackwardPlayable(p, lastDuration, lastLooping))
+            {
+                effects[i] += lastEff[p];
+                if (hasNext) next[i] = LaneMovement.BackwardNext(p, lastDuration);
             }
             else if (hasNext) next[i] = p;
             i++;

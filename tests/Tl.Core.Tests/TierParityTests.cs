@@ -149,24 +149,19 @@ public unsafe class TierParityTests
             {
                 if (p < duration)
                 {
-                    ref var r = ref slot.ForwardRecords[p];
-                    fx[i] += r.Effect;
-                    next[i] = r.Next;
+                    fx[i] += slot.Forward[p];
+                    next[i] = LaneMovement.ForwardNext(p, duration, slot.Looping != 0);
                     continue;
                 }
                 next[i] = p;
             }
             else
             {
-                if (p <= duration)
+                if (p <= duration && LaneMovement.BackwardPlayable(p, duration, slot.Looping != 0))
                 {
-                    ref var r = ref slot.BackwardRecords[p];
-                    if (r.Next != LaneMovementRecord.Skipped)
-                    {
-                        fx[i] += r.Effect;
-                        next[i] = r.Next;
-                        continue;
-                    }
+                    fx[i] += slot.BackwardByPosition[p];
+                    next[i] = LaneMovement.BackwardNext(p, duration);
+                    continue;
                 }
                 next[i] = p;
             }

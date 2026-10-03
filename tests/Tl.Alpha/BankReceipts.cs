@@ -321,7 +321,7 @@ internal static class BankReceipts
             var shared = timelines.View(65535);
             var origin = timelines.View(0);
             Require(shared.Forward == origin.Forward && shared.Duration == 1 && shared.TableTicks == 2, "domain edge shares the content-identical block");
-            Require(shared.RecordBytes == 8 && shared.AbiVersion == SlotView.AbiVersionV1 && shared.Generation > 0, "domain edge header");
+            Require(shared.AbiVersion == SlotView.AbiVersionV2 && shared.Generation > 0, "domain edge header");
         }
         RequireThrows<InvalidOperationException>(() => timelines.Add(duplicate), "the 65,537th add is full");
         Require(timelines.BlockCount == distinct && timelines.SharedHits == domain - distinct, "the full-domain bank dedupes every content-identical id");
@@ -489,13 +489,13 @@ internal static class BankReceipts
         {
             for (var i = 0; i < rows; i++)
             {
-                var records = views[ids[i]].ForwardRecords;
+                var view = views[ids[i]];
+                var looping = view.Looping != 0;
                 var position = walkPositions[i];
-                for (var step = 0; step < steps && position < views[ids[i]].Duration; step++)
+                for (var step = 0; step < steps && position < view.Duration; step++)
                 {
-                    ref var record = ref records[position];
-                    effects[i] += record.Effect;
-                    position = record.Next;
+                    effects[i] += view.Forward[position];
+                    position = LaneMovement.ForwardNext(position, view.Duration, looping);
                 }
                 walkPositions[i] = position;
             }
@@ -565,7 +565,7 @@ internal static class BankReceipts
         for (var k = 0; k < 32; k++)
         {
             var view = KindRoots[k](asset.Index);
-            Require(view.Duration == 16 && view.TableTicks == 17 && view.RecordBytes == 8, $"kind {k} view layout");
+            Require(view.Duration == 16 && view.TableTicks == 17, $"kind {k} view layout");
         }
         Console.WriteLine("bank-workload: 64-pair asset, 32 live pair kinds folded, one bank per pair");
 
@@ -579,7 +579,7 @@ internal static class BankReceipts
         {
             Require(clipView.Forward[0] == 1f && clipView.Forward[37] == 38f && clipView.Forward[99] == 100f && clipView.Forward[100] == 0f, "100-clip fold");
         }
-        Console.WriteLine($"bank-workload: a 100-clip timeline block is {64 + 28 * 101} B (64-B header + 28 B per tick)");
+        Console.WriteLine($"bank-workload: a 100-clip timeline block is {56 + 12 * 101} B (56-B header + 12 B per tick)");
 
         const int instances = 512;
         var ids = new ushort[instances];
@@ -598,12 +598,10 @@ internal static class BankReceipts
             {
                 var total = 0f;
                 var position = positions[i];
-                var records = clipView.ForwardRecords;
                 for (var frame = 0; frame < 16 && position < clipView.Duration; frame++)
                 {
-                    ref var record = ref records[position];
-                    total += record.Effect;
-                    position = record.Next;
+                    total += clipView.Forward[position];
+                    position = (ushort)(position + 1);
                 }
                 Require(total == oracle[i], $"instance {i} view walk matches the crowd fold");
             }
@@ -705,13 +703,13 @@ internal static class BankReceipts
         {
             for (var i = 0; i < rows; i++)
             {
-                var records = stale[ids[i]]->ForwardRecords;
+                var view = stale[ids[i]];
+                var looping = view->Looping != 0;
                 var position = positions[i];
                 for (var step = 0; step < 8 && position < 8; step++)
                 {
-                    ref var record = ref records[position];
-                    effects[i] += record.Effect;
-                    position = record.Next;
+                    effects[i] += view->Forward[position];
+                    position = LaneMovement.ForwardNext(position, view->Duration, looping);
                 }
             }
         }

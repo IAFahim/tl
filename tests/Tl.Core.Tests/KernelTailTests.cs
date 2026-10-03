@@ -65,9 +65,8 @@ public unsafe class KernelTailTests
             {
                 if (position < duration)
                 {
-                    ref var record = ref slot.ForwardRecords[position];
-                    expectedEffect += record.Effect;
-                    expectedNext = record.Next;
+                    expectedEffect += slot.Forward[position];
+                    expectedNext = LaneMovement.ForwardNext(position, duration, slot.Looping != 0);
                 }
                 else expectedNext = position;
             }
@@ -75,11 +74,10 @@ public unsafe class KernelTailTests
             {
                 if (position <= duration)
                 {
-                    ref var record = ref slot.BackwardRecords[position];
-                    if (record.Next != LaneMovementRecord.Skipped)
+                    if (LaneMovement.BackwardPlayable(position, duration, slot.Looping != 0))
                     {
-                        expectedEffect += record.Effect;
-                        expectedNext = record.Next;
+                        expectedEffect += slot.BackwardByPosition[position];
+                        expectedNext = LaneMovement.BackwardNext(position, duration);
                     }
                     else expectedNext = position;
                 }

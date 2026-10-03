@@ -83,17 +83,18 @@ public unsafe class GatherMixedTests
             var position = positions[i];
             if (forward)
             {
-                ref var r = ref slot.ForwardRecords[position];
-                effects[i] += r.Effect;
-                if (hasNext) next[i] = r.Next;
+                if (position < slot.Duration)
+                {
+                    effects[i] += slot.Forward[position];
+                    if (hasNext) next[i] = LaneMovement.ForwardNext(position, slot.Duration, slot.Looping != 0);
+                }
             }
             else
             {
-                ref var r = ref slot.BackwardRecords[position];
-                if (r.Next != LaneMovementRecord.Skipped)
+                if (LaneMovement.BackwardPlayable(position, slot.Duration, slot.Looping != 0))
                 {
-                    effects[i] += r.Effect;
-                    if (hasNext) next[i] = r.Next;
+                    effects[i] += slot.BackwardByPosition[position];
+                    if (hasNext) next[i] = LaneMovement.BackwardNext(position, slot.Duration);
                 }
                 else if (hasNext) next[i] = position;
             }

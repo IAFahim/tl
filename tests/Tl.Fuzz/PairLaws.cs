@@ -157,24 +157,24 @@ public unsafe class PairLaws
         var duration = model.Duration;
         if (view.Duration != duration || (view.Looping != 0) != model.Looping)
             throw new XunitException($"view metadata diverged {context}: d={view.Duration} loop={view.Looping}");
-        if (view.AbiVersion != SlotView.AbiVersionV1 || view.Absent != 0 || view.RecordBytes != 8)
+        if (view.AbiVersion != SlotView.AbiVersionV2 || view.Absent != 0)
             throw new XunitException($"view ABI diverged {context}");
         for (ushort position = 0; position <= duration; position++)
         {
-            var forwardNext = Movement.Forward(duration, model.Looping, position);
-            var record = view.ForwardRecords[position];
-            if (position < duration ? record.Next != forwardNext : record.Next != LaneMovementRecord.Skipped)
-                throw new XunitException($"forward record next {context} pos={position}: {record.Next}");
+            if (position < duration && LaneMovement.ForwardNext(position, duration, model.Looping) != Movement.Forward(duration, model.Looping, position))
+                throw new XunitException($"derived forward movement {context} pos={position}: {LaneMovement.ForwardNext(position, duration, model.Looping)}");
             var expectedEffect = position < duration ? model.Forward(position) : 0f;
-            if (record.Effect != expectedEffect)
-                throw new XunitException($"forward record effect {context} pos={position}: {record.Effect} != {expectedEffect}");
             if (view.Forward[position] != expectedEffect)
                 throw new XunitException($"forward fold {context} pos={position}: {view.Forward[position]} != {expectedEffect}");
 
-            var backwardRecord = view.BackwardRecords[position];
             var backwardExpected = BackwardRecord(model, position);
-            if (backwardRecord.Effect != backwardExpected.Effect || backwardRecord.Next != backwardExpected.Next)
-                throw new XunitException($"backward record {context} pos={position}: ({backwardRecord.Effect}, {backwardRecord.Next}) != ({backwardExpected.Effect}, {backwardExpected.Next})");
+            var derivedBackward = LaneMovement.BackwardPlayable(position, duration, model.Looping)
+                ? LaneMovement.BackwardNext(position, duration)
+                : LaneMovementRecord.Skipped;
+            if (derivedBackward != backwardExpected.Next)
+                throw new XunitException($"derived backward movement {context} pos={position}: {derivedBackward}");
+            if (view.BackwardByPosition[position] != backwardExpected.Effect)
+                throw new XunitException($"backward by-position fold {context} pos={position}: {view.BackwardByPosition[position]} != {backwardExpected.Effect}");
             if (view.Backward[position] != model.Backward(position))
                 throw new XunitException($"backward fold {context} pos={position}: {view.Backward[position]} != {model.Backward(position)}");
         }

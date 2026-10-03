@@ -151,7 +151,7 @@ public static unsafe class Inspection
         var ticks = (int)slot->TableTicks;
         var lanes = (int)slot->ResultCount;
         var shapes = new List<LaneShape>(lanes);
-        var keys = (ulong*)((byte*)slot->BackwardRecords + (long)ticks * lanes * slot->RecordBytes);
+        var keys = slot->LaneKeys;
         for (var lane = 0; lane < lanes; lane++)
         {
             var values = slot->Forward + (long)lane * ticks;
