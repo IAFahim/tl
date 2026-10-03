@@ -33,6 +33,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="golden\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="golden\**\*.tlb" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

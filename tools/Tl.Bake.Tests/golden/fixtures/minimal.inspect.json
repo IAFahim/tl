@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "header": {
+    "formatVersion": 4,
+    "duration": 4,
+    "looping": false
+  },
+  "pairs": [
+    {
+      "key": "0xc3a84cc918eaca83",
+      "layout": "0x0000000000000000",
+      "slotStride": 24,
+      "pools": {
+        "trackValueBytes": 4,
+        "clipValueBytes": 8
+      }
+    }
+  ],
+  "stages": [
+    {
+      "start": 0,
+      "end": 4,
+      "steps": [
+        {
+          "pair": 0,
+          "track": 0,
+          "trackValue": 0,
+          "first": 0,
+          "second": 65535,
+          "windowStart": 0,
+          "windowEnd": 4,
+          "factorStart": 0,
+          "factorSpan": 0
+        }
+      ]
+    }
+  ]
+}

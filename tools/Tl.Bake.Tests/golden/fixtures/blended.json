@@ -1,0 +1,28 @@
+{
+  "name": "blended_fixture",
+  "duration": 16,
+  "loop": true,
+  "tracks": [
+    {
+      "name": "combat",
+      "namespace": "Tlb",
+      "type": "JobTrack",
+      "data": { "Multiplier": 2 },
+      "clips": [
+        { "name": "open", "namespace": "Tlb", "type": "JobClip", "start": 0, "end": 6, "data": { "Amount": 1, "Steps": 2 } },
+        { "name": "clash", "namespace": "Tlb", "type": "JobClip", "start": 4, "end": 10, "data": { "Amount": 5, "Steps": 1 } },
+        { "name": "rest", "namespace": "Tlb", "type": "JobClip", "start": 10, "end": 16, "data": { "Amount": 1, "Steps": 2 } }
+      ]
+    },
+    {
+      "name": "ambience",
+      "namespace": "Tlb",
+      "type": "FoldTrack",
+      "data": { "Scale": 3 },
+      "clips": [
+        { "name": "hum", "namespace": "Tlb", "type": "FoldClip", "start": 2, "end": 14, "data": { "Height": 7 } },
+        { "namespace": "Tlb", "type": "FoldClip", "start": 14, "end": 16, "data": { "Height": 7 } }
+      ]
+    }
+  ]
+}
