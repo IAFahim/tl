@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Tl.TestSupport;
 using Xunit;
 
@@ -130,5 +131,61 @@ public sealed class LaneCopyTests
         asset.Dispose();
         Assert.Equal(preserved, copy.Lanes[1].Forward);
         Assert.Equal(0xdeadbeefu, copy.Lanes[0].Forward[0]);
+    }
+
+    [Fact]
+    public void InRangePendingAndAbsentCopiesPreserveAllObservedState()
+    {
+        using var asset = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+            .Track<CopyTrack, CopyClip>(new CopyTrack(0)).Clip(0, 0, 8, new CopyClip(8.25f)).Bake()));
+        using var measured = MeasuredLanes.Measure(asset);
+        using var isolated = new TimelineSet<CopyTrack, CopyClip>();
+        isolated.AddAt(2, measured);
+        isolated.MarkAbsent(1);
+        var prior = Timeline<CopyTrack, CopyClip>._bank;
+        try
+        {
+            Timeline<CopyTrack, CopyClip>._bank = isolated;
+            var before = Inspection.Bank<CopyTrack, CopyClip>()!;
+            Assert.Equal(Inspection.FoldState.Pending, before.Views[0].State);
+            Assert.Equal(Inspection.FoldState.Absent, before.Views[1].State);
+            var tables = Inspection.Tables();
+            var calls = CopyConsumer.Calls;
+            Assert.Null(Inspection.CopyLanes<CopyTrack, CopyClip>(0));
+            Assert.Null(Inspection.CopyLanes<CopyTrack, CopyClip>(1));
+            Assert.Null(Inspection.CopyLanes<CopyTrack, CopyClip>(3));
+            Assert.Equal(JsonSerializer.Serialize(before), JsonSerializer.Serialize(Inspection.Bank<CopyTrack, CopyClip>()));
+            Assert.Equal(tables, Inspection.Tables());
+            Assert.Equal(calls, CopyConsumer.Calls);
+        }
+        finally { Timeline<CopyTrack, CopyClip>._bank = prior; }
+    }
+
+    [Fact]
+    public void CopiesRemainIndependentAfterNativeBankFreeAndAssetReclamation()
+    {
+        var asset = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+            .Track<CopyTrack, CopyClip>(new CopyTrack(2)).Clip(0, 0, 4096, new CopyClip(9.5f)).Bake()));
+        var isolated = new TimelineSet<CopyTrack, CopyClip>();
+        var prior = Timeline<CopyTrack, CopyClip>._bank;
+        try
+        {
+            var index = isolated.Add(asset);
+            Timeline<CopyTrack, CopyClip>._bank = isolated;
+            var copy = Inspection.CopyLanes<CopyTrack, CopyClip>(index)!;
+            var expected = JsonSerializer.Serialize(copy);
+            isolated.Dispose();
+            Assert.True(isolated._disposed);
+            Assert.Equal(0, isolated.RetainedBytes);
+            asset.Dispose();
+            TimelineTable.Drain();
+            Assert.Equal(0, TimelineTable.GraveyardBlocks);
+            Assert.Equal(0, TimelineTable.GraveyardBytes);
+            GC.Collect(2, GCCollectionMode.Forced, true, true);
+            Assert.Equal(expected, JsonSerializer.Serialize(copy));
+            copy.Lanes[0].Forward[0] = 0xdeadbeefu;
+            Assert.Equal(0xdeadbeefu, copy.Lanes[0].Forward[0]);
+        }
+        finally { Timeline<CopyTrack, CopyClip>._bank = prior; isolated.Dispose(); asset.Dispose(); }
     }
 }
