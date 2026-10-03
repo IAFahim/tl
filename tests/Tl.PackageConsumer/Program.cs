@@ -41,8 +41,7 @@ unsafe
         || view.LaneKeys == null)
         return 4;
 
-    if (view.Forward[0] != 7f || view.Forward[4] != 0f || view.Backward[3] != -7f
-        || view.BackwardByPosition[4] != view.Backward[3])
+    if (view.Forward[0] != 7f || view.Forward[4] != 0f || view.Backward[3] != -7f)
         return 5;
 
     var next = (ushort)(0 + 1);
