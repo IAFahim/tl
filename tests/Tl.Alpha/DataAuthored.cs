@@ -398,8 +398,8 @@ internal static class DataAuthoredReceipts
             if (allocated == 0 || attempt >= 8) break;
         }
         Require(allocated == 0, $"warm lane allocated {allocated} B after settle attempts");
-        Console.WriteLine($"allocation: 100k x 256-row lane applies retained {allocated} B; table+record bytes per tick {BakedLane<TandemTrack, TandemClip>.Duration * 28}");
-        Console.WriteLine("frame bytes: TimelineState 8, TimelineComponent 16, movement record 8");
+        Console.WriteLine($"allocation: 100k x 256-row lane applies retained {allocated} B; flat table bytes per tick {BakedLane<TandemTrack, TandemClip>.Duration * 8}");
+        Console.WriteLine("frame bytes: TimelineState 8, TimelineComponent 16");
     }
 
     [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]

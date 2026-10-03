@@ -505,8 +505,8 @@ internal static class BankReceipts
             Timeline<BankTrack, BankClip>.Apply(ids, oracleWalkPositions, true, oracleWalk);
             Timeline.Advance(ids, oracleWalkPositions, true);
         }
-        Require(effects.AsSpan().SequenceEqual(oracleWalk), "per-entity record walk matches the folded law");
-        Require(walkPositions.AsSpan().SequenceEqual(oracleWalkPositions), "record walk clocks match the movement law");
+        Require(effects.AsSpan().SequenceEqual(oracleWalk), "per-entity movement walk matches the folded law");
+        Require(walkPositions.AsSpan().SequenceEqual(oracleWalkPositions), "movement walk clocks match the movement law");
 
         Array.Clear(effects);
         var scatter = new ushort[rows];
@@ -551,9 +551,9 @@ internal static class BankReceipts
 
         foreach (var asset in keepAlive) asset.Dispose();
 #if TL_CHECKED
-        Console.WriteLine($"bank-views: shared-clock add, per-entity record walk, and gather-equivalent reads over {contents} held views are bit-exact; absent, pair-less, never-bound, and disposed acquisition semantics PASS");
+        Console.WriteLine($"bank-views: shared-clock add, per-entity movement walk, and gather-equivalent reads over {contents} held views are bit-exact; absent, pair-less, never-bound, and disposed acquisition semantics PASS");
 #else
-        Console.WriteLine($"bank-views: shared-clock add, per-entity record walk, and gather-equivalent reads over {contents} held views are bit-exact; absent, pair-less, and never-bound acquisition semantics PASS");
+        Console.WriteLine($"bank-views: shared-clock add, per-entity movement walk, and gather-equivalent reads over {contents} held views are bit-exact; absent, pair-less, and never-bound acquisition semantics PASS");
 #endif
     }
 
@@ -722,7 +722,7 @@ internal static class BankReceipts
             timelines.Apply(ids, oraclePositions, true, walkOracle);
             timelines.Advance(ids, oraclePositions, true);
         }
-        Require(effects.AsSpan().SequenceEqual(walkOracle), "stale-snapshot record walk matches the folded law");
+        Require(effects.AsSpan().SequenceEqual(walkOracle), "stale-snapshot movement walk matches the folded law");
         
         {
             for (var i = 0; i < 64; i++)

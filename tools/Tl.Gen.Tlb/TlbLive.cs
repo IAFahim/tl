@@ -130,9 +130,9 @@ public static unsafe class TlbLive
         var engineVersion = VersionOf(typeof(TimelineAsset).Assembly.GetName());
         var banks = Banks(engine, assembly, resolve, addresses, [.. assets.Select(asset => (asset.Index, asset.Pairs))]);
         foreach (var bank in banks)
-            if (bank.Snapshot.RetainedBytes != bank.Snapshot.HeaderBytes + bank.Snapshot.TableBytes + bank.Snapshot.DirectoryBytes + bank.Snapshot.ArenaBytes)
+            if (bank.Snapshot.RetainedBytes != bank.Snapshot.HeaderBytes + bank.Snapshot.TableBytes + bank.Snapshot.DirectoryBytes)
             {
-                Console.Error.WriteLine($"Snapshot inconsistency: bank {bank.Snapshot.Track},{bank.Snapshot.Clip} retained {bank.Snapshot.RetainedBytes} != {bank.Snapshot.HeaderBytes + bank.Snapshot.TableBytes + bank.Snapshot.DirectoryBytes + bank.Snapshot.ArenaBytes}.");
+                Console.Error.WriteLine($"Snapshot inconsistency: bank {bank.Snapshot.Track},{bank.Snapshot.Clip} retained {bank.Snapshot.RetainedBytes} != {bank.Snapshot.HeaderBytes + bank.Snapshot.TableBytes + bank.Snapshot.DirectoryBytes}.");
                 return 5;
             }
 
@@ -223,7 +223,6 @@ public static unsafe class TlbLive
                 N("header", bank.Snapshot.HeaderBytes);
                 N("table", bank.Snapshot.TableBytes);
                 N("directory", bank.Snapshot.DirectoryBytes);
-                N("arena", bank.Snapshot.ArenaBytes);
                 N("retained", bank.Snapshot.RetainedBytes);
                 E();
                 A("views");

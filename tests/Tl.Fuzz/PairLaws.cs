@@ -170,7 +170,7 @@ public unsafe class PairLaws
             var backwardExpected = BackwardRecord(model, position);
             var derivedBackward = LaneMovement.BackwardPlayable(position, duration, model.Looping)
                 ? LaneMovement.BackwardNext(position, duration)
-                : LaneMovementRecord.Skipped;
+                : SlotView.Skipped;
             if (derivedBackward != backwardExpected.Next)
                 throw new XunitException($"derived backward movement {context} pos={position}: {derivedBackward}");
             var backwardTick = (ushort)(position == 0 ? duration - 1 : position - 1);
@@ -188,10 +188,10 @@ public unsafe class PairLaws
         var effect = model.BackwardMoveFrom(position);
         if (position < duration)
         {
-            if (position == 0) return model.Looping ? (effect, (ushort)(duration - 1)) : (effect, LaneMovementRecord.Skipped);
+            if (position == 0) return model.Looping ? (effect, (ushort)(duration - 1)) : (effect, SlotView.Skipped);
             return (effect, (ushort)(position - 1));
         }
-        return model.Looping || duration == 0 ? (effect, LaneMovementRecord.Skipped) : (effect, (ushort)(duration - 1));
+        return model.Looping || duration == 0 ? (effect, SlotView.Skipped) : (effect, (ushort)(duration - 1));
     }
 
     static float FoldDelta(FuzzModel model, bool forward, ushort position)

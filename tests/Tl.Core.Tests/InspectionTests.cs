@@ -41,7 +41,7 @@ public class InspectionTests
         {
             Assert.Equal(indexC + 1, bank.Count);
             Assert.Equal(bank.Views.Count(view => view.State != Inspection.FoldState.Folded), bank.Holes);
-            Assert.Equal(bank.HeaderBytes + bank.TableBytes + bank.DirectoryBytes + bank.ArenaBytes, bank.RetainedBytes);
+            Assert.Equal(bank.HeaderBytes + bank.TableBytes + bank.DirectoryBytes, bank.RetainedBytes);
 
             var publicA = Timeline<SnapshotTrack, SnapshotClip>.View(assetA);
             var foldedA = bank.Views.First(view => view.Index == indexA);
@@ -162,7 +162,6 @@ public class InspectionTests
         lines.Append("bytes ").Append(bank.HeaderBytes.ToString(CultureInfo.InvariantCulture))
             .Append(' ').Append(bank.TableBytes.ToString(CultureInfo.InvariantCulture))
             .Append(' ').Append(bank.DirectoryBytes.ToString(CultureInfo.InvariantCulture))
-            .Append(' ').Append(bank.ArenaBytes.ToString(CultureInfo.InvariantCulture))
             .Append(' ').Append(bank.RetainedBytes.ToString(CultureInfo.InvariantCulture)).Append('\n');
         var rank = 0;
         foreach (var view in bank.Views.Where(view => owned.Contains((ushort)view.Index)).OrderBy(view => view.Index))
@@ -191,7 +190,7 @@ public class InspectionTests
         blocks 2
         dedupeHits 0
         generation 2
-        bytes 144 128 33888 16416 50576
+        bytes 144 128 29776 30048
         view 0 Folded
           duration 8 looping False ticks 9 lanes 1 abi 3 generation 1
           lane ad2e313ccaf1aa75 1 9
