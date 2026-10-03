@@ -45,8 +45,8 @@ unsafe
         return 5;
 
     var next = (ushort)(0 + 1);
-    var tail = 3 + 1 == view.Duration ? LaneMovementRecord.Skipped : next;
-    if (view.Forward[next] != 7f || tail != LaneMovementRecord.Skipped)
+    var tail = 3 + 1 == view.Duration ? SlotView.Skipped : next;
+    if (view.Forward[next] != 7f || tail != SlotView.Skipped)
         return 6;
 }
 

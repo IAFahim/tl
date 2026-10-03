@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Xunit;
 
@@ -38,7 +39,7 @@ internal static unsafe class ArenaPairs
     }
 }
 
-public unsafe class RecordArenaTests
+public unsafe class ArenaRetirementTests
 {
     static byte[] Bake(ushort duration, bool looping, float scale)
     {
@@ -61,42 +62,24 @@ public unsafe class RecordArenaTests
         return ids;
     }
 
-    static void AssertSegmentBytes(TimelineSet<RoutingTrack, RoutingClip> set, ushort id)
-        => AssertArenaMatchesDerivedRecords(set, set._arenaForward, set._arenaBackward, set._arenaBases, id);
-
-    static unsafe void AssertArenaMatchesDerivedRecords(TimelineSet<RoutingTrack, RoutingClip> set, LaneMovementRecord* arenaForward, LaneMovementRecord* arenaBackward, uint* bases, ushort id)
-    {
-        var view = set.View(id);
-        var ticks = (int)view.TableTicks;
-        var expected = new byte[2 * ticks * sizeof(LaneMovementRecord) + 2 * ticks * sizeof(float)];
-        fixed (byte* pin = expected)
-        {
-            var slot = &view;
-            var forward = (float*)(pin + 2 * ticks * sizeof(LaneMovementRecord));
-            var backward = forward + ticks;
-            for (var t = 0; t < ticks; t++)
-            {
-                forward[t] = LaneEncoding.Value(slot, 0, true, t);
-                backward[t] = LaneEncoding.Value(slot, 0, false, t);
-            }
-            LaneMovement.Bake(forward, backward, view.Duration, view.Looping != 0,
-                (LaneMovementRecord*)pin, (LaneMovementRecord*)(pin + ticks * sizeof(LaneMovementRecord)), null);
-            var records = view.Duration == 0 ? 1 : ticks;
-            AssertEqualRecords((LaneMovementRecord*)(arenaForward + bases[id]), (LaneMovementRecord*)pin, records, id, "forward");
-            AssertEqualRecords((LaneMovementRecord*)(arenaBackward + bases[id]), (LaneMovementRecord*)(pin + ticks * sizeof(LaneMovementRecord)), records, id, "backward");
-        }
-    }
-
-    static unsafe void AssertEqualRecords(LaneMovementRecord* arena, LaneMovementRecord* derived, int records, ushort id, string direction)
-    {
-        for (var r = 0; r < records; r++)
-            Assert.True(arena[r].Effect == derived[r].Effect && arena[r].Next == derived[r].Next,
-                $"{direction} arena segment of id {id} record {r}/{records} is ({arena[r].Effect}, {arena[r].Next}) instead of the derived ({derived[r].Effect}, {derived[r].Next})");
-    }
-
+    static FieldInfo? ArenaField(string name)
+        => typeof(TimelineSet<RoutingTrack, RoutingClip>).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
 
     [Fact]
-    public void FoldAppendsBitExactSegmentsForEveryBoundId()
+    public void TheArenaSurfacesAreGoneFromTheSetAndThePublicApi()
+    {
+        Assert.Null(ArenaField("_arenaForward"));
+        Assert.Null(ArenaField("_arenaBackward"));
+        Assert.Null(ArenaField("_arenaBases"));
+        Assert.Null(ArenaField("_arenaCapacity"));
+        Assert.Null(ArenaField("_arenaUsed"));
+        Assert.Null(typeof(TimelineSet<RoutingTrack, RoutingClip>).GetProperty("ArenaBytes", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public));
+        Assert.Null(Type.GetType("Tl.LaneMovementRecord, Tl.Core"));
+        Assert.Equal((ushort)0xFFFF, SlotView.Skipped);
+    }
+
+    [Fact]
+    public void RetainedBytesAreHeaderTablesAndDirectoriesOnly()
     {
         using var set = new TimelineSet<RoutingTrack, RoutingClip>();
         var ids = BakeSet(set,
@@ -107,13 +90,14 @@ public unsafe class RecordArenaTests
             (1024, false, 2f),
             (1, false, 1f),
             (0, true, 1f));
-        Assert.True(set.ArenaBytes > 0, "the fold appends arena bytes");
-        for (ushort i = 0; i < ids.Length; i++)
-            AssertSegmentBytes(set, i);
+        Assert.True(set.RetainedBytes > 0);
+        Assert.Equal(set.RetainedBytes, set.HeaderBytes + set.TableBytes + set.DirectoryBytes);
+        foreach (var id in ids)
+            Assert.True(set.IsFolded(id));
     }
 
     [Fact]
-    public void SharedContentBindsGetByteIdenticalSegments()
+    public void SharedContentBindsStayDedupeOnly()
     {
         using var set = new TimelineSet<RoutingTrack, RoutingClip>();
         using var original = TimelineAsset.LoadAsset(Bake(16, true, 1.5f));
@@ -122,51 +106,36 @@ public unsafe class RecordArenaTests
         var second = set.Add(duplicate);
         Assert.Equal(1, set.BlockCount);
         Assert.Equal(1, set.SharedHits);
-        AssertSegmentBytes(set, first);
-        AssertSegmentBytes(set, second);
-        Assert.Equal(0u, set._arenaBases[first]);
-        var ticks = set.View(first).TableTicks;
-        Assert.Equal(ticks, set._arenaBases[second]);
-        var bytes = (int)(ticks * sizeof(LaneMovementRecord));
-        Assert.True(new ReadOnlySpan<byte>(set._arenaForward + set._arenaBases[first], bytes)
-            .SequenceEqual(new ReadOnlySpan<byte>(set._arenaForward + set._arenaBases[second], bytes)), "shared binds duplicate byte-identical segments");
-        Assert.True(new ReadOnlySpan<byte>(set._arenaBackward + set._arenaBases[first], bytes)
-            .SequenceEqual(new ReadOnlySpan<byte>(set._arenaBackward + set._arenaBases[second], bytes)), "shared binds duplicate byte-identical backward segments");
+        var view = set.View(first);
+        var shared = set.View(second);
+        Assert.Equal(view.TableTicks, shared.TableTicks);
+        Assert.Equal(view.Generation, shared.Generation);
+        Assert.True((nuint)view.Directory == (nuint)shared.Directory && (nuint)view.Segments == (nuint)shared.Segments && (nuint)view.LaneKeys == (nuint)shared.LaneKeys, "both ids point at the shared block");
     }
 
     [Fact]
-    public void GrowthPreservesPublishedSegmentsAtStableOffsets()
+    public void GrowthKeepsEveryPublishedViewReadable()
     {
         using var set = new TimelineSet<RoutingTrack, RoutingClip>();
         var staleIds = BakeSet(set, Enumerable.Repeat((ushort)8, 100).Select((_, i) => ((ushort)8, i % 2 == 0, 1f + i)).ToArray());
-        var staleForward = set._arenaForward;
-        var staleBackward = set._arenaBackward;
-        var staleBases = set._arenaBases;
-        var staleCapacity = set._arenaCapacity;
-
         var grownIds = BakeSet(set, Enumerable.Repeat((ushort)8, 400).Select((_, i) => ((ushort)8, i % 2 == 0, 2f + i)).ToArray());
-        Assert.True(set._arenaCapacity > staleCapacity, "the appends doubled the arena");
-
-        foreach (var id in staleIds)
-        {
-            AssertArenaMatchesDerivedRecords(set, staleForward, staleBackward, staleBases, id);
-            Assert.Equal(staleBases[id], set._arenaBases[id]);
-        }
-        foreach (var id in grownIds)
-            AssertSegmentBytes(set, id);
+        Assert.Equal(staleIds.Length + grownIds.Length, set._count - set.Holes);
+        foreach (var id in staleIds.Concat(grownIds))
+            Assert.Equal((ushort)8, set.View(id).Duration);
     }
 
     [Fact]
-    public void DisposeFreesEveryArenaByte()
+    public void DisposeFreesEveryRetainedByte()
     {
         var set = new TimelineSet<RoutingTrack, RoutingClip>();
         BakeSet(set, (16, true, 1.5f), (1024, false, 2f));
-        var arena = set.ArenaBytes;
-        Assert.True(arena > 0, "the folded bank owns arena bytes");
-        Assert.Equal(set.RetainedBytes, set.HeaderBytes + set.TableBytes + set.DirectoryBytes + arena);
+        Assert.True(set.RetainedBytes > 0, "the folded bank owns retained bytes");
+        Assert.Equal(set.RetainedBytes, set.HeaderBytes + set.TableBytes + set.DirectoryBytes);
         set.Dispose();
         Assert.Equal(0, set.RetainedBytes);
-        Assert.Equal(0, set.ArenaBytes);
+        Assert.Equal(0, set.HeaderBytes);
+        Assert.Equal(0, set.TableBytes);
+        Assert.Equal(0, set.DirectoryBytes);
     }
 
     public sealed class ArenaId

@@ -63,7 +63,6 @@ public static unsafe class Inspection
         long HeaderBytes,
         long TableBytes,
         long DirectoryBytes,
-        long ArenaBytes,
         long RetainedBytes,
         IReadOnlyList<ViewSnapshot> Views);
 
@@ -129,7 +128,6 @@ public static unsafe class Inspection
             bank.HeaderBytes,
             bank.TableBytes,
             bank.DirectoryBytes,
-            bank.ArenaBytes,
             bank.RetainedBytes,
             views);
     }

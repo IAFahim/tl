@@ -38,7 +38,7 @@ internal static unsafe class GatherPairs
     }
 }
 
-public unsafe class GatherMixedTests
+public unsafe class MixedTierTests
 {
     static byte[] Bake(ushort duration, bool looping, float scale)
     {

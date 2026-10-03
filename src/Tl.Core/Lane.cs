@@ -75,7 +75,6 @@ internal readonly ref struct TimelineLane<T>
         if (duration == 0) { positions.CopyTo(next); return; }
         var looping = T.Looping;
         var active = LaneAccelerator<T>.Active;
-        var records = forward ? LaneAccelerator<T>.Forward : LaneAccelerator<T>.Backward;
         var i = 0;
         if (active && duration > 1 && (Avx2.IsSupported || duration <= 8 && Vector128.IsHardwareAccelerated))
         {
@@ -99,16 +98,6 @@ internal readonly ref struct TimelineLane<T>
         for (; i < count; i++)
         {
             var pos = positions[i];
-            if (active && pos <= duration)
-            {
-                ref var r = ref records[pos];
-                if (r.Next != LaneMovementRecord.Skipped)
-                {
-                    effects[i] += r.Effect;
-                    next[i] = r.Next;
-                    continue;
-                }
-            }
             if (forward)
             {
                 if (pos < duration)
@@ -250,14 +239,6 @@ internal readonly ref struct TimelineLane<T>
         return pairs >= sample / 2;
     }
 
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct LaneMovementRecord
-{
-    public const ushort Skipped = 0xFFFF;
-    public float Effect;
-    public ushort Next;
 }
 
 internal static class LaneOps
@@ -933,7 +914,7 @@ internal readonly unsafe struct SegmentedBackwardSource : IEffectSource
     }
 }
 
-internal static unsafe class LaneMovement
+internal static class LaneMovement
 {
     internal static ushort ForwardNext(int position, int duration, bool looping)
         => (ushort)(looping && position + 1 == duration ? 0 : position + 1);
@@ -943,55 +924,6 @@ internal static unsafe class LaneMovement
 
     internal static ushort BackwardNext(int position, int duration)
         => (ushort)(position == 0 ? duration - 1 : position - 1);
-
-    internal static void Bake(float* forward, float* backward, ushort duration, bool looping, LaneMovementRecord* forwardRecords, LaneMovementRecord* backwardRecords, float* backwardByPosition)
-    {
-        var skipped = LaneMovementRecord.Skipped;
-        for (var p = 0u; p <= duration; p++)
-        {
-            if (p < duration)
-            {
-                var wraps = looping && p + 1 == duration;
-                if (forwardRecords != null)
-                    forwardRecords[p] = new LaneMovementRecord { Effect = forward[p], Next = wraps ? (ushort)0 : (ushort)(p + 1) };
-                if (p == 0 && looping)
-                {
-                    if (backwardRecords != null)
-                        backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
-                    if (backwardByPosition != null) backwardByPosition[p] = backward[duration - 1];
-                }
-                else if (p == 0)
-                {
-                    if (backwardRecords != null)
-                        backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                    if (backwardByPosition != null) backwardByPosition[p] = 0f;
-                }
-                else
-                {
-                    if (backwardRecords != null)
-                        backwardRecords[p] = new LaneMovementRecord { Effect = backward[p - 1], Next = (ushort)(p - 1) };
-                    if (backwardByPosition != null) backwardByPosition[p] = backward[p - 1];
-                }
-            }
-            else
-            {
-                if (forwardRecords != null)
-                    forwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                if (looping || duration == 0)
-                {
-                    if (backwardRecords != null)
-                        backwardRecords[p] = new LaneMovementRecord { Effect = 0f, Next = skipped };
-                    if (backwardByPosition != null) backwardByPosition[p] =  0f;
-                }
-                else
-                {
-                    if (backwardRecords != null)
-                        backwardRecords[p] = new LaneMovementRecord { Effect = backward[duration - 1], Next = (ushort)(duration - 1) };
-                    if (backwardByPosition != null) backwardByPosition[p] = backward[duration - 1];
-                }
-            }
-        }
-    }
 }
 
 internal static unsafe class LaneEncoding
@@ -1146,13 +1078,6 @@ internal static unsafe class LaneAccelerator<T>
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static float* BackwardEffects;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    public static float* BackwardByPosition;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    public static LaneMovementRecord* Forward;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    public static LaneMovementRecord* Backward;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static bool Active;
 }
 
@@ -1182,8 +1107,6 @@ static unsafe class LaneTable<TTrack, TClip>
     public static ushort Duration;
     [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static bool Looping;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    static void* _recordBlock;
 
     public static float Effect(ushort position) => Forward[position];
 
@@ -1204,17 +1127,10 @@ static unsafe class LaneTable<TTrack, TClip>
         Buffer.MemoryCopy(measured.Backward, backward, (long)tableBytes, (long)(measuredFloats * sizeof(float)));
         new Span<float>(forward + measuredFloats, (int)(tableFloats - measuredFloats)).Clear();
         new Span<float>(backward + measuredFloats, (int)(tableFloats - measuredFloats)).Clear();
-        var block = NativeMemory.AlignedAlloc((nuint)((duration + 1) * (2 * sizeof(LaneMovementRecord) + sizeof(float))), 64);
-        var forwardRecords = (LaneMovementRecord*)block;
-        var backwardRecords = forwardRecords + duration + 1;
-        var backwardByPosition = (float*)(backwardRecords + duration + 1);
-        LaneMovement.Bake(forward, backward, duration, looping, forwardRecords, backwardRecords, backwardByPosition);
-        var previousBlock = _recordBlock;
         var previousForward = Forward;
         var previousBackward = Backward;
         Forward = forward;
         Backward = backward;
-        _recordBlock = block;
         Duration = duration;
         Looping = looping;
         if (previousForward != null)
@@ -1222,12 +1138,8 @@ static unsafe class LaneTable<TTrack, TClip>
             NativeMemory.AlignedFree(previousForward);
             NativeMemory.AlignedFree(previousBackward!);
         }
-        if (previousBlock != null) NativeMemory.AlignedFree(previousBlock);
         LaneAccelerator<BakedLane<TTrack, TClip>>.ForwardEffects = forward;
         LaneAccelerator<BakedLane<TTrack, TClip>>.BackwardEffects = backward;
-        LaneAccelerator<BakedLane<TTrack, TClip>>.BackwardByPosition = backwardByPosition;
-        LaneAccelerator<BakedLane<TTrack, TClip>>.Forward = forwardRecords;
-        LaneAccelerator<BakedLane<TTrack, TClip>>.Backward = backwardRecords;
         LaneAccelerator<BakedLane<TTrack, TClip>>.Active = true;
     }
 }

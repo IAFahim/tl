@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 VIEWER = ROOT / "tools" / "Tl.Playground" / "Playground" / "wwwroot" / "viewer"
 GOLDEN_INSPECT = ROOT / "tools" / "Tl.Bake.Tests" / "golden" / "inspect.json"
 GOLDEN_FIXTURES = ROOT / "tools" / "Tl.Bake.Tests" / "golden" / "fixtures"
-LIVE_MIXED_SHA256 = "6e79ce894cbee7062c0a4a00dde2d2686da7fe9ed1e865fecc484f4c98931814"
+LIVE_MIXED_SHA256 = "1d8254e5fefac9b56690aeadfb6fb47f9d3cac19b1b96b870b3e709d26cdadcf"
 
 
 class ViewerTests(unittest.TestCase):

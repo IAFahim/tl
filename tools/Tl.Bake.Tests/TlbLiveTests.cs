@@ -97,7 +97,7 @@ public class TlbLiveTests
             var bytes = bank.GetProperty("bytes");
             Assert.Equal(
                 bytes.GetProperty("retained").GetInt64(),
-                bytes.GetProperty("header").GetInt64() + bytes.GetProperty("table").GetInt64() + bytes.GetProperty("directory").GetInt64() + bytes.GetProperty("arena").GetInt64());
+                bytes.GetProperty("header").GetInt64() + bytes.GetProperty("table").GetInt64() + bytes.GetProperty("directory").GetInt64());
 
             var second = Run("--live", "--assembly", AssemblyPath, "--asset", asset, "--resolve", "--json");
             Assert.Equal(0, second.Exit);

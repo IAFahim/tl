@@ -33,6 +33,7 @@ public unsafe struct SlotView
     public const ushort AbiVersionV1 = 1;
     public const ushort AbiVersionV2 = 2;
     public const ushort AbiVersionV3 = 3;
+    public const ushort Skipped = 0xFFFF;
     public uint* Directory;
     public LaneSegment* Segments;
     public float* Dense;
