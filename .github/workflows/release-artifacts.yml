@@ -27,6 +27,7 @@ jobs:
         with:
           dotnet-version: 10.0.401
       - run: python3 -m unittest discover -s tests -p test_release_artifacts.py
+      - run: dotnet workload install wasm-tools
       - name: Build exact tagged artifacts
         env:
           RELEASE_TAG: ${{ inputs.tag }}
