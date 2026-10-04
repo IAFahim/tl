@@ -40,6 +40,12 @@ public static unsafe class Inspection
 
     public sealed record LaneShape(ulong Key, int Distinct, int LongestRun);
 
+    public sealed record LaneWords(ulong Key, uint[] Forward, uint[] Backward);
+
+    public sealed record LaneCopy(
+        ushort Index, ushort Duration, bool Looping, int AbiVersion, long Generation,
+        IReadOnlyList<LaneWords> Lanes);
+
     public sealed record ViewSnapshot(
         int Index,
         FoldState State,
@@ -130,6 +136,33 @@ public static unsafe class Inspection
             bank.DirectoryBytes,
             bank.RetainedBytes,
             views);
+    }
+
+    public static LaneCopy? CopyLanes<TTrack, TClip>(ushort index)
+        where TTrack : unmanaged, IBlend<TClip>
+        where TClip : unmanaged
+    {
+        var bank = Timeline<TTrack, TClip>._bank;
+        if (bank is null || index >= bank._count)
+            return null;
+        var slot = bank.FoldedView(index);
+        if (slot is null)
+            return null;
+        var ticks = checked((int)slot->TableTicks);
+        var lanes = new LaneWords[slot->ResultCount];
+        for (var lane = 0; lane < lanes.Length; lane++)
+        {
+            var forward = new uint[ticks];
+            var backward = new uint[ticks];
+            for (var tick = 0; tick < ticks; tick++)
+            {
+                forward[tick] = LaneEncoding.Bits(LaneEncoding.Value(slot, (nuint)lane, true, tick));
+                backward[tick] = LaneEncoding.Bits(LaneEncoding.Value(slot, (nuint)lane, false, tick));
+            }
+            lanes[lane] = new(slot->LaneKeys[lane], forward, backward);
+        }
+        return new(index, slot->Duration, slot->Looping != 0, slot->AbiVersion,
+            unchecked((long)slot->Generation), lanes);
     }
 
     static PairSnapshot Pair()

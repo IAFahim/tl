@@ -50,6 +50,12 @@ unsafe
         return 6;
 }
 
+var copy = Inspection.CopyLanes<PackageTrack, PackageClip>(asset.Index);
+if (copy is null || copy.Duration != 4 || copy.Lanes.Count != 1
+    || copy.Lanes[0].Forward[0] != BitConverter.SingleToUInt32Bits(7f)
+    || copy.Lanes[0].Backward[3] != BitConverter.SingleToUInt32Bits(-7f))
+    return 8;
+
 if (BakeRuntime<PackageTrack, PackageClip>.BakeCount != 1
     || BakeRuntime<PackageTrack, PackageClip>.BakeParameterCount(0) != 1
     || BakeRuntime<PackageTrack, PackageClip>.BakeParameterKey(0, 0) != TypeKey<PackageHost>.Value)
