@@ -341,7 +341,7 @@ public readonly unsafe struct TickFrame
 {
 internal const int SlotRow = 40;
 internal const int MemoResults = 10;
-	internal struct Consumer { public int Next, Offset; public ulong PairKey; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
+	internal struct Consumer { public int Next, Offset, Feed; public ulong PairKey; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
 	const int SlotCount = 1024;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -351,6 +351,8 @@ internal const int MemoResults = 10;
 	static volatile int _gate;
 	static int _windowConstant;
 	internal static int _pairs, _consumers;
+	[ThreadStatic] static int _lastFoldEntry;
+	[ThreadStatic] static ulong _lastFoldPair;
 
 	static PairTable()
 	{
@@ -433,10 +435,13 @@ internal const int MemoResults = 10;
 				Volatile.Write(ref _consumersBase, (ulong)grown);
 			}
 			var consumers = ConsumerAt;
-			consumers[_consumers] = new Consumer { Next = slots[slot].Head, PairKey = key, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = _consumers * SlotRow };
+			var entry = _consumers;
+			var feed = dispatchOnly && resultKeys != null && _lastFoldPair == key && _lastFoldEntry != 0 ? _lastFoldEntry - 1 : -1;
+			consumers[entry] = new Consumer { Next = slots[slot].Head, PairKey = key, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = entry * SlotRow, Feed = feed };
+			if (!dispatchOnly && resultKeys != null) { _lastFoldEntry = entry + 1; _lastFoldPair = key; }
 			if (windowConstant) Volatile.Write(ref _windowConstant, 1);
-			Volatile.Write(ref slots[slot].Head, _consumers);
-			Volatile.Write(ref _consumers, _consumers + 1);
+			Volatile.Write(ref slots[slot].Head, entry);
+			Volatile.Write(ref _consumers, entry + 1);
 		}
 		finally
 		{

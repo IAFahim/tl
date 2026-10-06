@@ -219,6 +219,22 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
+    public void TwoConsumersOfOnePairEachFeedTheirOwnFoldResults()
+    {
+        var result = Driver("TwinFold");
+
+        Assert.Equal("5,500#10,1000", result);
+    }
+
+    [Fact]
+    public void TwoConsumersFoldingDifferentResultTypesPlayBackInsteadOfThrowing()
+    {
+        var result = Driver("TwinMix");
+
+        Assert.Equal("7,2.5", result);
+    }
+
+    [Fact]
     public void ThirtyDistinctColumnsBindAndPlaybackThroughTheColumnSet()
     {
         var result = Driver("Surface");
@@ -678,6 +694,50 @@ public sealed class ConsumerPlaybackTests
                 => y.Value += (float)(a * power.Lift + b + c + d + e + f + g + (h ? 1 : 0) + i + j);
         }
 
+        public readonly record struct TwinClip(float Amount);
+
+        public readonly record struct TwinTrack(float Multiplier) : IBlend<TwinClip>
+        {
+            public void Blend(in TwinClip first, in TwinClip second, float factor, out TwinClip result)
+                => result = new TwinClip(first.Amount + (second.Amount - first.Amount) * factor);
+        }
+
+        public readonly struct TwinSmall : ITrack<TwinTrack, TwinClip>
+        {
+            public static void Fold(in Frame<TwinTrack, TwinClip> frame, out float value) => value = 5f;
+
+            public static void ExecuteActive(in float value, ref float small) => small += value;
+        }
+
+        public readonly struct TwinLarge : ITrack<TwinTrack, TwinClip>
+        {
+            public static void Fold(in Frame<TwinTrack, TwinClip> frame, out float value) => value = 500f;
+
+            public static void ExecuteActive(in float value, ref Gauge large) => large.Value += value;
+        }
+
+        public readonly record struct TwinMixClip(int Height);
+
+        public readonly record struct TwinMixTrack(float Scale) : IBlend<TwinMixClip>
+        {
+            public void Blend(in TwinMixClip first, in TwinMixClip second, float factor, out TwinMixClip result)
+                => result = first;
+        }
+
+        public readonly struct TwinCode : ITrack<TwinMixTrack, TwinMixClip>
+        {
+            public static void Fold(in Frame<TwinMixTrack, TwinMixClip> frame, out int code) => code = 7;
+
+            public static void ExecuteActive(in int code, ref int codes) => codes += code;
+        }
+
+        public readonly struct TwinScale : ITrack<TwinMixTrack, TwinMixClip>
+        {
+            public static void Fold(in Frame<TwinMixTrack, TwinMixClip> frame, out float scale) => scale = 2.5f;
+
+            public static void ExecuteActive(in float scale, ref float total) => total += scale;
+        }
+
         }
 
         namespace TlJumpShape
@@ -1011,6 +1071,42 @@ public sealed class ConsumerPlaybackTests
                 Timeline<TenLaneTrack, TenLaneClip>.Apply(ids, positions, false, in columns);
                 var backward = F(y[0].Value) + "," + F(y[1].Value);
                 return forward + "#" + backward;
+            }
+
+            public static string TwinFold()
+            {
+                using var twin = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TwinTrack, TwinClip>(new TwinTrack(2f))
+                    .Clip(0, 0u, 2u, new TwinClip(5))
+                    .Bake()));
+                var ids = new ushort[] { twin.Index };
+                var positions = new ushort[] { 0 };
+                var small = new float[] { 0f };
+                var large = new Gauge[] { new() { Value = 0d } };
+                ColumnSet columns = new();
+                columns.Add(small);
+                columns.Add(large);
+                Timeline<TwinTrack, TwinClip>.Apply(ids, positions, true, in columns);
+                var forward = F(small[0]) + "," + large[0].Value.ToString("R", CultureInfo.InvariantCulture);
+                Timeline<TwinTrack, TwinClip>.Apply(ids, new ushort[] { 1 }, false, in columns);
+                return forward + "#" + F(small[0]) + "," + large[0].Value.ToString("R", CultureInfo.InvariantCulture);
+            }
+
+            public static string TwinMix()
+            {
+                using var mix = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TwinMixTrack, TwinMixClip>(new TwinMixTrack(2f))
+                    .Clip(0, 0u, 2u, new TwinMixClip(5))
+                    .Bake()));
+                var ids = new ushort[] { mix.Index };
+                var positions = new ushort[] { 0 };
+                var codes = new int[] { 0 };
+                var total = new float[] { 0f };
+                ColumnSet columns = new();
+                columns.Add(codes);
+                columns.Add(total);
+                Timeline<TwinMixTrack, TwinMixClip>.Apply(ids, positions, true, in columns);
+                return codes[0].ToString(CultureInfo.InvariantCulture) + "," + F(total[0]);
             }
 
             public static string MemoCapacity()
