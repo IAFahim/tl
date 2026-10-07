@@ -373,7 +373,8 @@ public static unsafe partial class Timeline<TTrack, TClip>
 				var outs = 0;
 				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
 				{
-					if (consumers[e].DispatchOnly != 0 || consumers[e].Keys == null) continue;
+					// entries installed after the entryBound snapshot cannot own feed scratch
+					if (e >= entryBound || consumers[e].DispatchOnly != 0 || consumers[e].Keys == null) continue;
 					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
 					var own = 0;
 					feedStart[e] = outs;
