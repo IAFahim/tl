@@ -101,7 +101,7 @@ public unsafe class MixedTierTests
         }
     }
 
-    static void AssertCrowdBitExact((ushort Duration, bool Looping, float Scale)[] assets, int rows, bool forward, bool inPlace, bool hasNext, int frames)
+    static void AssertCrowdBitExact((ushort Duration, bool Looping, float Scale)[] assets, int rows, bool forward, bool inPlace, bool hasNext, int frames, Func<int, int>? pattern = null)
     {
         using var set = new TimelineSet<GatherTrack, GatherClip>();
         var bound = BakeSet(set, assets);
@@ -110,7 +110,7 @@ public unsafe class MixedTierTests
         var positions = new ushort[rows];
         for (var i = 0; i < rows; i++)
         {
-            idColumn[i] = bound[i % bound.Length];
+            idColumn[i] = bound[pattern is null ? i % bound.Length : pattern(i) % bound.Length];
             positions[i] = (ushort)((i * 7 + 3) % minDuration);
         }
         for (var frame = 0; frame < frames; frame++)
@@ -181,6 +181,38 @@ public unsafe class MixedTierTests
         for (var i = 0; i < assets.Length; i++)
             assets[i] = (33, false, 1f + i);
         AssertCrowdBitExact(assets, rows, forward, inPlace, hasNext, frames: 1);
+    }
+
+    public static TheoryData<bool, bool> DirectionCases => new() { { true, true }, { true, false }, { false, true }, { false, false } };
+
+    [Theory]
+    [MemberData(nameof(DirectionCases))]
+    public void ShortAndLongRunsOverFlatAndSegmentedTablesMatchPerRowRecordWalk(bool forward, bool hasNext)
+    {
+        int[] runs = [1, 1, 2, 3, 15, 16, 17, 40, 1, 14];
+        var starts = new List<int>();
+        var total = 0;
+        for (var k = 0; total < 9000; k++)
+        {
+            starts.Add(total);
+            total += runs[k % runs.Length];
+        }
+        var bounds = starts.ToArray();
+        int Pattern(int row)
+        {
+            var run = Array.BinarySearch(bounds, row);
+            if (run < 0) run = ~run - 1;
+            var length = runs[run % runs.Length];
+            var broken = length == 16 && row - bounds[run] == 15 && run % 3 == 0;
+            return run * 5 + (broken ? 1 : 0);
+        }
+        AssertCrowdBitExact([
+            (100, true, 1.25f),
+            (3000, false, 2f),
+            (100, false, 0.5f),
+            (2500, true, 1.75f),
+            (64, false, 3f),
+        ], 9000, forward, inPlace: hasNext, hasNext, frames: hasNext ? 3 : 1, Pattern);
     }
 
     [Theory]
