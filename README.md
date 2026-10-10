@@ -523,7 +523,7 @@ A single-timeline crowd floors at 0.08 ns per character hot and 0.18 cold — th
 
 ### The code that gets each row
 
-Every number in the table is one frame of playback over the same million rows. The call shapes below are written against the quick-start raid for readability; the receipt harness ([benchmarks/Numbers/Domain.cs](benchmarks/Numbers/Domain.cs)) runs exactly these shapes on longer data — a looping 1024-tick `gold` lane (Amount 1.25 until tick 600, then −0.5, Scale 2), a finite copy of it for row 5, and 100 variants (Scale 1 + 0.25k, split at tick 300 + 7k) for the multi-timeline rows — with clocks seeded `i % 1024` where the rows below write `i % 30` (`i % 512` for the finite row), and each timed frame is the fused `Apply(ids, clocks, clocks, forward, fx)`, one pass equal to `Apply` + `Advance`. The readable setup, baked once:
+Every number in the table is one frame of playback over the same million rows. The call shapes below are written against the quick-start raid for readability; the receipt harness ([benchmarks/Numbers/Domain.cs](benchmarks/Numbers/Domain.cs)) runs exactly these shapes on longer data — a looping 1024-tick `gold` lane (Amount 1.25 until tick 600, then −0.5, Scale 2), a finite copy of it for row 5, and 100 variants (Scale 1 + 0.25k, split at tick 300 + 7k) for the multi-timeline rows — with clocks seeded `i % 1024` where the rows below write `i % 30` (`i % 512` for the finite row), and each per-row-clock frame is the fused `Apply(ids, clocks, clocks, forward, fx)`, one pass equal to `Apply` + `Advance` (row 2 times its shared-clock `Apply` + scalar `Advance`, rows 6–7 their hand-written loops). The readable setup, baked once:
 
 ```cs
 public readonly record struct JumpClip(float Velocity);
