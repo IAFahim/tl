@@ -1221,6 +1221,16 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                             : ShortUniform<BackwardRows>(flat, run->Duration, run->Looping != 0, ref positionRow, ref effectRow, i, end);
                         continue;
                     }
+                    var block = i + ((end - i) >> 4 << 4);
+                    if (!next.IsEmpty && end - i < ShortRunRows && flat != null && run->Duration > 8 && Avx2.IsSupported)
+                    {
+                        if (forward)
+                            LaneOps.EffectForward<FlatSource>(flat, run->Duration, run->Looping != 0, positions, next, effects, i, block);
+                        else
+                            LaneOps.EffectBackward<FlatSource>(flat, run->Duration, run->Looping != 0, positions, next, effects, i, block);
+                        i = ApplyUniform(run, positions, next, effects, block, end, forward);
+                        continue;
+                    }
                     i = ApplyUniformSegment(run, positions, next, effects, i, end, forward, true);
                     continue;
                 }
