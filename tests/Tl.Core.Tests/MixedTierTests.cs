@@ -204,7 +204,7 @@ public unsafe class MixedTierTests
             if (run < 0) run = ~run - 1;
             var length = runs[run % runs.Length];
             var broken = length == 16 && row - bounds[run] == 15 && run % 3 == 0;
-            return run * 5 + (broken ? 1 : 0);
+            return run * 2 + (broken ? 1 : 0);
         }
         AssertCrowdBitExact([
             (100, true, 1.25f),
