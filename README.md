@@ -508,17 +508,17 @@ One million characters, one frame per call (i9-14900K, .NET 10, Release; best of
 
 | scenario | hot ms/frame | hot ns/character | cold ms/frame | cold ns/character |
 | --- | ---: | ---: | ---: | ---: |
-| whole crowd on one timeline (a raid jumping in sync) | 0.17 | 0.17 | 0.36 | 0.36 |
-| crowd on one clock: shared-clock Apply + scalar Advance | 0.08 | 0.08 | 0.16 | 0.16 |
+| whole crowd on one timeline (a raid jumping in sync) | 0.18 | 0.18 | 0.36 | 0.36 |
+| crowd on one clock: shared-clock Apply + scalar Advance | 0.08 | 0.08 | 0.17 | 0.17 |
 | 100 timelines, crowds of 10,000 each (per-ability groups) | 0.25 | 0.25 | 0.42 | 0.42 |
-| one looping timeline, every character on its own clock | 0.21 | 0.21 | 0.34 | 0.34 |
-| one-shot finite timeline, staggered clocks | 0.09 | 0.09 | 0.18 | 0.18 |
-| hand-written scalar loop (`effects[i] += 1f`) | 0.18 | 0.18 | 0.26 | 0.26 |
+| one looping timeline, every character on its own clock | 0.21 | 0.21 | 0.33 | 0.33 |
+| one-shot finite timeline, staggered clocks | 0.10 | 0.10 | 0.20 | 0.20 |
+| hand-written scalar loop (`effects[i] += 1f`) | 0.18 | 0.18 | 0.27 | 0.27 |
 | hand-written SIMD loop (`Vector<float>` add, scalar tail) | 0.08 | 0.08 | 0.17 | 0.17 |
-| small squads: 16 timelines × 16 characters | 0.53 | 0.53 | 0.69 | 0.69 |
-| worst case: unsorted rows, a different timeline each | 1.35 | 1.35 | 1.62 | 1.62 |
+| small squads: 16 timelines × 16 characters | 0.54 | 0.54 | 0.60 | 0.60 |
+| worst case: unsorted rows, a different timeline each | 0.70 | 0.70 | 0.77 | 0.77 |
 
-A single-timeline crowd floors at 0.08 ns per character hot and 0.16 cold — the hot column is the steady state with the crowd cache-resident, the cold column is the same frame with the 9 crowds interleaved so the working set streams from DRAM. The hand-written SIMD row is the traffic floor of this machine (0.08 hot, 0.17 cold); the shared-clock crowd sits on it and the per-row-clock crowds carry 4 more bytes per character. Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 55 ms and loads in 1.8 ms. Memory: 8 B per character of host columns, `8 * (duration + 1)` bytes of flat tables per timeline or a segmented run encoding below that (72-byte header; movement records and backward-by-position derived, never stored), 0 B allocated per frame at any crowd size.
+A single-timeline crowd floors at 0.08 ns per character hot and 0.17 cold — the hot column is the steady state with the crowd cache-resident, the cold column is the same frame with the 9 crowds interleaved so the working set streams from DRAM. The hand-written SIMD row is the traffic floor of this machine (0.08 hot, 0.17 cold); the shared-clock crowd sits on it and the per-row-clock crowds carry 4 more bytes per character. Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 57 ms and loads in 1.6 ms. Memory: 8 B per character of host columns, `8 * (duration + 1)` bytes of flat tables per timeline or a segmented run encoding below that (72-byte header; movement records and backward-by-position derived, never stored), 0 B allocated per frame at any crowd size.
 <!-- /tl-numbers -->
 
 ### The code that gets each row
@@ -563,16 +563,16 @@ var clocks = new ushort[1_000_000];
 var y = new float[1_000_000];                                    // one jump height per character
 ```
 
-**Row 1 — whole crowd on one timeline (a raid jumping in sync): 0.17 ns/character hot, 0.36 cold.** A million goblins, every row on the arc and every clock cell on tick 5 — one timeline, one clock value, a clock column that still exists per row:
+**Row 1 — whole crowd on one timeline (a raid jumping in sync): 0.18 ns/character hot, 0.36 cold.** A million goblins, every row on the arc and every clock cell on tick 5 — one timeline, one clock value, a clock column that still exists per row:
 
 ```cs
 for (int i = 0; i < ids.Length; i++) { ids[i] = arc; clocks[i] = 5; }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame, both calls: 0.17 ms hot · 0.36 cold (9 crowds interleaved)
+Timeline.Advance(ids, clocks, true);   // one frame, both calls: 0.18 ms hot · 0.36 cold (9 crowds interleaved)
 ```
 
-**Row 2 — crowd on one clock: shared-clock Apply + scalar Advance: 0.08 hot, 0.16 cold.** The same raid, but the clock column disappears — the crowd shares one scalar clock and folds in one broadcast pass:
+**Row 2 — crowd on one clock: shared-clock Apply + scalar Advance: 0.08 hot, 0.17 cold.** The same raid, but the clock column disappears — the crowd shares one scalar clock and folds in one broadcast pass:
 
 ```cs
 ushort clock = 5;                                // every goblin on tick 5 together, mid-rise
@@ -590,30 +590,30 @@ Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
 Timeline.Advance(ids, clocks, true);   // one frame: 0.25 ms hot · 0.42 cold
 ```
 
-**Row 4 — one looping timeline, every character on its own clock: 0.21 hot, 0.34 cold.** A million guards on the arc, each seeded at its own spawn tick — thirty different table slots gathered every frame:
+**Row 4 — one looping timeline, every character on its own clock: 0.21 hot, 0.33 cold.** A million guards on the arc, each seeded at its own spawn tick — thirty different table slots gathered every frame:
 
 ```cs
 for (int i = 0; i < ids.Length; i++) { ids[i] = arc; clocks[i] = (ushort)(i % 30); }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.21 ms hot · 0.34 cold
+Timeline.Advance(ids, clocks, true);   // one frame: 0.21 ms hot · 0.33 cold
 ```
 
-**Row 5 — one-shot finite timeline, staggered clocks: 0.09 hot, 0.18 cold.** The same arc baked with `"loop": false` — a door-open. Doors staggered over the rise; a row past the end clamps at tick 30 and folds nothing:
+**Row 5 — one-shot finite timeline, staggered clocks: 0.10 hot, 0.20 cold.** The same arc baked with `"loop": false` — a door-open. Doors staggered over the rise; a row past the end clamps at tick 30 and folds nothing:
 
 ```cs
 ushort once = TimelineAsset.Load(File.ReadAllBytes("raid-once.tlb"));   // raid.json with "loop": false
 for (int i = 0; i < ids.Length; i++) { ids[i] = once; clocks[i] = (ushort)(i % 15); }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.09 ms hot · 0.18 cold
+Timeline.Advance(ids, clocks, true);   // one frame: 0.10 ms hot · 0.20 cold
 ```
 
-**Row 6 — hand-written scalar loop (`effects[i] += 1f`): 0.18 hot, 0.26 cold.** The baseline the tl rows race — the whole frame is one plain C# add per character:
+**Row 6 — hand-written scalar loop (`effects[i] += 1f`): 0.18 hot, 0.27 cold.** The baseline the tl rows race — the whole frame is one plain C# add per character:
 
 ```cs
 for (var i = 0; i < y.Length; i++)
-    y[i] += 1f;                           // one frame: 0.18 ms hot · 0.26 cold
+    y[i] += 1f;                           // one frame: 0.18 ms hot · 0.27 cold
 ```
 
 **Row 7 — hand-written SIMD loop (`Vector<float>` add, scalar tail): 0.08 hot, 0.17 cold.** The same add by hand, `Vector<float>` wide, and the traffic floor of this machine:
@@ -627,22 +627,22 @@ for (; i < y.Length; i++)
     y[i] += 1f;                           // one frame: 0.08 ms hot · 0.17 cold
 ```
 
-**Row 8 — small squads: 16 timelines × 16 characters: 0.53 hot, 0.69 cold.** Sixteen squads of sixteen, tiled to a million rows; the warm kernel re-dispatches every 16 rows, so short crowds pay the fixed cost per segment (short runs gather straight from the flat table without the segment probes, issue #441):
+**Row 8 — small squads: 16 timelines × 16 characters: 0.54 hot, 0.60 cold.** Sixteen squads of sixteen, tiled to a million rows; the warm kernel re-dispatches every 16 rows, so short crowds pay the fixed cost per segment (short runs gather straight from the flat table without the segment probes, issue #441):
 
 ```cs
 for (int i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i / 16 % 16); clocks[i] = (ushort)(i % 30); }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.53 ms hot · 0.69 cold
+Timeline.Advance(ids, clocks, true);   // one frame: 0.54 ms hot · 0.60 cold
 ```
 
-**Row 9 — worst case: unsorted rows, a different timeline each: 1.35 hot, 1.62 cold.** `ids[i] = i % 100` — no two neighbouring rows share a timeline, so nothing clusters and every row gathers from its own tables (the call-free mixed tier of issue #441 recovered most of the #405 cost: 7.15 → 1.35 hot):
+**Row 9 — worst case: unsorted rows, a different timeline each: 0.70 hot, 0.77 cold.** `ids[i] = i % 100` — no two neighbouring rows share a timeline, so nothing clusters and every row gathers from its own tables (issue #441's AVX2 mixed tier, gathering through a per-id table row, recovered most of the #405 cost: 7.15 → 0.70 hot):
 
 ```cs
 for (int i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i % 100); clocks[i] = (ushort)(i % 30); }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 1.35 ms hot · 1.62 cold
+Timeline.Advance(ids, clocks, true);   // one frame: 0.70 ms hot · 0.77 cold
 ```
 
 Receipts: [benchmarks/Numbers](https://github.com/IAFahim/tl/tree/main/benchmarks/Numbers) (generates this section; `eng/refresh-numbers` re-measures and re-renders it from a fingerprinted receipt, and CI fails if the two disagree), [benchmarks/PairHandles](https://github.com/IAFahim/tl/tree/main/benchmarks/PairHandles), [benchmarks/Alpha](https://github.com/IAFahim/tl/tree/main/benchmarks/Alpha), [tests/Tl.Alpha](https://github.com/IAFahim/tl/tree/main/tests/Tl.Alpha) — parity, allocation, and throughput evidence, run in CI on every push.
