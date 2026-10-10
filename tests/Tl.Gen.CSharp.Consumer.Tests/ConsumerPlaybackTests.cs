@@ -235,6 +235,22 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
+    public void ColumnSetColumnsSurviveACompactingCollectionBeforeApply()
+    {
+        var result = Driver("Compacted");
+
+        Assert.Equal("120,110", result);
+    }
+
+    [Fact]
+    public void ColumnSetColumnsStayPinnedWhenAConsumerCompactsMidApply()
+    {
+        var result = Driver("CompactedMidApply");
+
+        Assert.Equal("5,10,15,20", result);
+    }
+
+    [Fact]
     public void ThirtyDistinctColumnsBindAndPlaybackThroughTheColumnSet()
     {
         var result = Driver("Surface");
@@ -830,6 +846,22 @@ public sealed class ConsumerPlaybackTests
             public static void ExecuteActive(in Frame<FreeTrack, FreeClip> frame, ref float y, in int multiplier)
                 => y += frame.Direction * frame.Clip.Height * frame.Track.Scale * multiplier;
         }
+
+        public readonly record struct SweepClip(int Height);
+
+        public readonly record struct SweepTrack(float Scale) : IBlend<SweepClip>
+        {
+            public void Blend(in SweepClip first, in SweepClip second, float factor, out SweepClip result) => result = first;
+        }
+
+        public readonly struct SweepMidApply : ITrack<SweepTrack, SweepClip>
+        {
+            public static void ExecuteActive(in Frame<SweepTrack, SweepClip> frame, ref float y, in int multiplier)
+            {
+                global::System.GC.Collect(2, global::System.GCCollectionMode.Forced, true, true);
+                y += frame.Clip.Height * multiplier;
+            }
+        }
         }
 
         namespace Domain
@@ -920,6 +952,52 @@ public sealed class ConsumerPlaybackTests
                 Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, false, in columns);
                 var third = F(y[0]) + "," + F(y[1]);
                 return first + "#" + second + "#" + third;
+            }
+
+            public static string Compacted()
+            {
+                using var arc = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>(new TlComposeShape.ArcTrack(2f))
+                    .Clip(0, 0u, 3u, new TlComposeShape.ArcClip(5))
+                    .Bake()));
+                var results = new List<string>();
+                for (var trial = 0; trial < 8; trial++)
+                {
+                    var garbage = new List<byte[]>();
+                    for (var k = 0; k < 512; k++) garbage.Add(new byte[256]);
+                    var ids = new ushort[] { arc.Index, arc.Index };
+                    var positions = new ushort[] { 0, 1 };
+                    var y = new float[] { 100f, 100f };
+                    var multipliers = new int[] { 2, 1 };
+                    ColumnSet columns = new();
+                    columns.Add(y);
+                    columns.Add(multipliers);
+                    garbage = null;
+                    GC.Collect(2, GCCollectionMode.Forced, true, true);
+                    Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, true, in columns);
+                    results.Add(F(y[0]) + "," + F(y[1]));
+                }
+                return string.Join("#", results.Distinct());
+            }
+
+            public static string CompactedMidApply()
+            {
+                using var sweep = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TlComposeShape.SweepTrack, TlComposeShape.SweepClip>(new TlComposeShape.SweepTrack(1f))
+                    .Clip(0, 0u, 3u, new TlComposeShape.SweepClip(5))
+                    .Bake()));
+                var garbage = new List<byte[]>();
+                for (var k = 0; k < 512; k++) garbage.Add(new byte[256]);
+                var ids = new ushort[] { sweep.Index, sweep.Index, sweep.Index, sweep.Index };
+                var positions = new ushort[] { 0, 1, 2, 0 };
+                var y = new float[4];
+                var multipliers = new int[] { 1, 2, 3, 4 };
+                ColumnSet columns = new();
+                columns.Add(y);
+                columns.Add(multipliers);
+                garbage = null;
+                Timeline<TlComposeShape.SweepTrack, TlComposeShape.SweepClip>.Apply(ids, positions, true, in columns);
+                return string.Join(",", y.Select(F));
             }
 
             public static string Live()
