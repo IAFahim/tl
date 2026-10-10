@@ -43,4 +43,16 @@ public class ResolverTests
         var ex = Assert.Throws<BakeDiagnosticException>(() => resolver.ResolveType("Tlb", "NoSuchTrack", "Tl.Bake.Tests", "track 0"));
         Assert.Contains("unknown/unresolvable type: no loaded type named (Tlb, NoSuchTrack) for track 0", ex.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void NewerTlCoreReferenceIsReportedAsToolSkew()
+    {
+        var tool = new Version(1, 3, 0, 0);
+        var built = BakerAssemblyResolver.CoreSkew([new System.Reflection.AssemblyName("System.Runtime, Version=10.0.0.0"), new System.Reflection.AssemblyName("Tl.Core, Version=3.0.0.0")], tool);
+
+        Assert.Equal(new Version(3, 0, 0, 0), built);
+        Assert.Null(BakerAssemblyResolver.CoreSkew([new System.Reflection.AssemblyName("Tl.Core, Version=1.3.0.0")], tool));
+        Assert.Null(BakerAssemblyResolver.CoreSkew([new System.Reflection.AssemblyName("Tl.Core, Version=1.0.0.0")], tool));
+        Assert.Null(BakerAssemblyResolver.CoreSkew([new System.Reflection.AssemblyName("Other, Version=9.0.0.0")], tool));
+    }
 }

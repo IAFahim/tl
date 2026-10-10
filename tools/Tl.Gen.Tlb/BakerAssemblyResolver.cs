@@ -80,6 +80,7 @@ public sealed class BakerAssemblyResolver
                 var assemblies = candidates.Select(t => t.Assembly.GetName().Name).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.Ordinal);
                 throw new BakeDiagnosticException($"type resolution failed: assembly '{assemblyName}' does not contain ({FormatNamespace(@namespace)}, {typeName}) for {context}; matching types exist in assembly(es): {string.Join(", ", assemblies)}.");
             }
+            ThrowIfCoreSkew(context);
             throw new BakeDiagnosticException($"unknown/unresolvable type: no loaded type named ({FormatNamespace(@namespace)}, {typeName}) for {context}; reference the defining assembly and check the bare namespace/type spelling.");
         }
 
@@ -106,6 +107,7 @@ public sealed class BakerAssemblyResolver
 
         if (candidates.Count == 0)
         {
+            ThrowIfCoreSkew(context);
             var scope = assemblyName == null ? string.Empty : $" in assembly '{assemblyName}'";
             throw new BakeDiagnosticException($"unknown bare name: no loaded type named '{typeName}'{scope} for {context}; --auto fills a missing 'namespace' only when exactly one loaded type carries that bare name; write the 'namespace' explicitly.");
         }
@@ -113,6 +115,37 @@ public sealed class BakerAssemblyResolver
             .Select(t => $"({FormatNamespace(t.Namespace ?? "")}, {t.Name}) in {t.Assembly.GetName().Name}")
             .OrderBy(n => n, StringComparer.Ordinal));
         throw new BakeDiagnosticException($"ambiguous bare name: '{typeName}' matches {candidates.Count} loaded types for {context}: {found}; --auto fills a missing 'namespace' only when exactly one candidate exists; write the 'namespace' explicitly.");
+    }
+
+    private void ThrowIfCoreSkew(string context)
+    {
+        var tool = typeof(IBlend<>).Assembly.GetName().Version ?? new Version(0, 0);
+        foreach (var asm in _referenced)
+        {
+            var built = CoreSkew(asm.GetReferencedAssemblies(), tool);
+            if (built != null)
+                throw new BakeDiagnosticException($"tool skew: '{asm.GetName().Name}' was built against Tl.Core {built}, but this tlb loads Tl.Core {tool}, so its timeline types cannot load for {context}; update the tool (dotnet tool update --global Tl.Bake, or the local tool manifest) or bake with the tlb that matches the game's Tl.Core.");
+        }
+        foreach (var asm in _referenced)
+        {
+            try
+            {
+                asm.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                var first = ex.LoaderExceptions.FirstOrDefault(static e => e != null)?.Message ?? "unknown loader failure";
+                throw new BakeDiagnosticException($"type load failure: {ex.Types.Count(static t => t == null)} types of '{asm.GetName().Name}' cannot load in this tlb for {context}, so their names are invisible to resolution; first loader error: {first} Rebuild the game against the Tl.Core this tlb ships ({tool}) or bake with the matching tlb.");
+            }
+        }
+    }
+
+    internal static Version? CoreSkew(IEnumerable<AssemblyName> references, Version tool)
+    {
+        foreach (var reference in references)
+            if (string.Equals(reference.Name, "Tl.Core", StringComparison.OrdinalIgnoreCase) && reference.Version is { } built && built > tool)
+                return built;
+        return null;
     }
 
     private static string FormatNamespace(string @namespace) => @namespace.Length == 0 ? "<global>" : @namespace;
