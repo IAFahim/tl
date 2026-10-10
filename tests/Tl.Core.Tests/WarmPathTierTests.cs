@@ -43,6 +43,8 @@ public class WarmPathTierTests
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ApplyMixed", 8, null, WarmMode.Optimize),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "FastMixed", 8, null, WarmMode.Optimize),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "MixedVector", 8, null, WarmMode.Optimize),
+        new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "FastMixedRows", 7, null, WarmMode.Optimize),
+        new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "LongRunAt", 3, null, WarmMode.Inline),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ShortRuns", 3, null, WarmMode.Inline),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "UniformChunk", 4, null, WarmMode.Optimize),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ValidateChunk", 5, null, WarmMode.Optimize),
