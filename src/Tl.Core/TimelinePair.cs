@@ -324,7 +324,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			ApplyLive(ids, clocks, forward, 0, null, 0, null, setKeys, setCells, caller.Count);
 			return;
 		}
-		fixed (byte* cell = caller.Column(pinned))
+		fixed (byte* cell = &caller.ColumnRef(pinned))
 		{
 			setCells[pinned] = (ulong)cell;
 			ApplyPinned(ids, clocks, forward, in caller, setKeys, setCells, pinned + 1);
@@ -631,7 +631,6 @@ public unsafe ref struct ColumnSet
 	{
 		internal fixed ulong Keys[Capacity];
 		internal fixed int Lengths[Capacity];
-		internal fixed int Bytes[Capacity];
 	}
 
 	private ref struct Octet
@@ -671,7 +670,7 @@ public unsafe ref struct ColumnSet
 	}
 
 	[UnscopedRef]
-	private ref Octet OctetOf(int slot)
+	private readonly ref readonly Octet OctetOf(int slot)
 	{
 		switch (slot >> 3)
 		{
@@ -693,17 +692,17 @@ public unsafe ref struct ColumnSet
 			if (_storage.Keys[i] == key) ThrowDuplicate<T>();
 		if (Count >= Capacity) ThrowFull();
 		_storage.Keys[Count] = key;
-		var bytes = MemoryMarshal.CreateSpan(ref Unsafe.As<T, byte>(ref MemoryMarshal.GetReference(column)), column.Length * sizeof(T));
-		OctetOf(Count).Set(Count & 7, bytes);
+		OctetAt(Count).Set(Count & 7, MemoryMarshal.CreateSpan(ref Unsafe.As<T, byte>(ref MemoryMarshal.GetReference(column)), 1));
 		_storage.Lengths[Count] = column.Length;
-		_storage.Bytes[Count] = bytes.Length;
 		Count++;
 	}
 
-	internal int LengthAt(int slot) => _storage.Lengths[slot];
-
 	[UnscopedRef]
-	internal Span<byte> Column(int slot) => MemoryMarshal.CreateSpan(ref OctetOf(slot).Get(slot & 7), _storage.Bytes[slot]);
+	private ref Octet OctetAt(int slot) => ref Unsafe.AsRef(in OctetOf(slot));
+
+	internal readonly int LengthAt(int slot) => _storage.Lengths[slot];
+
+	internal readonly ref byte ColumnRef(int slot) => ref OctetOf(slot).Get(slot & 7);
 
 	internal static ulong* Keys(in ColumnSet set)
 	{
