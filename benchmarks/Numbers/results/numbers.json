@@ -13,135 +13,135 @@
       "Id": "sync",
       "Label": "whole crowd on one timeline (a raid jumping in sync)",
       "Hot": {
-        "Ms": 0.174,
-        "Ns": 0.174
+        "Ms": 0.1745,
+        "Ns": 0.1745
       },
       "Cold": {
-        "Ms": 0.3839,
-        "Ns": 0.3839
+        "Ms": 0.4035,
+        "Ns": 0.4035
       },
-      "WarmupMs": 500.0091,
-      "WarmupFrames": 2818,
+      "WarmupMs": 500.1641,
+      "WarmupFrames": 2841,
       "Allocated": 0
     },
     {
       "Id": "shared-clock",
       "Label": "crowd on one clock: shared-clock Apply \u002B scalar Advance",
       "Hot": {
-        "Ms": 0.0821,
-        "Ns": 0.0821
+        "Ms": 0.0824,
+        "Ns": 0.0824
       },
       "Cold": {
-        "Ms": 0.1781,
-        "Ns": 0.1781
+        "Ms": 0.185,
+        "Ns": 0.185
       },
-      "WarmupMs": 500.0407,
-      "WarmupFrames": 6101,
+      "WarmupMs": 500.056,
+      "WarmupFrames": 6086,
       "Allocated": 0
     },
     {
       "Id": "groups",
       "Label": "100 timelines, crowds of 10,000 each (per-ability groups)",
       "Hot": {
-        "Ms": 0.2486,
-        "Ns": 0.2486
+        "Ms": 0.2498,
+        "Ns": 0.2498
       },
       "Cold": {
-        "Ms": 0.448,
-        "Ns": 0.448
+        "Ms": 0.4626,
+        "Ns": 0.4626
       },
-      "WarmupMs": 500.149,
-      "WarmupFrames": 1987,
+      "WarmupMs": 500.12,
+      "WarmupFrames": 1978,
       "Allocated": 0
     },
     {
       "Id": "own-clock",
       "Label": "one looping timeline, every character on its own clock",
       "Hot": {
-        "Ms": 0.2133,
-        "Ns": 0.2133
+        "Ms": 0.2106,
+        "Ns": 0.2106
       },
       "Cold": {
-        "Ms": 0.3727,
-        "Ns": 0.3727
+        "Ms": 0.3738,
+        "Ns": 0.3738
       },
-      "WarmupMs": 500.0251,
-      "WarmupFrames": 2324,
+      "WarmupMs": 500.182,
+      "WarmupFrames": 2336,
       "Allocated": 0
     },
     {
       "Id": "finite",
       "Label": "one-shot finite timeline, staggered clocks",
       "Hot": {
-        "Ms": 0.0988,
-        "Ns": 0.0988
+        "Ms": 0.1322,
+        "Ns": 0.1322
       },
       "Cold": {
-        "Ms": 0.2156,
-        "Ns": 0.2156
+        "Ms": 0.2094,
+        "Ns": 0.2094
       },
-      "WarmupMs": 500.0147,
-      "WarmupFrames": 3871,
+      "WarmupMs": 500.1504,
+      "WarmupFrames": 3946,
       "Allocated": 0
     },
     {
       "Id": "handwritten",
       "Label": "hand-written scalar loop (\u0060effects[i] \u002B= 1f\u0060)",
       "Hot": {
-        "Ms": 0.1888,
-        "Ns": 0.1888
+        "Ms": 0.182,
+        "Ns": 0.182
       },
       "Cold": {
-        "Ms": 0.2811,
-        "Ns": 0.2811
+        "Ms": 0.2831,
+        "Ns": 0.2831
       },
-      "WarmupMs": 500.047,
-      "WarmupFrames": 2634,
+      "WarmupMs": 500.0747,
+      "WarmupFrames": 2689,
       "Allocated": 0
     },
     {
       "Id": "handwritten-simd",
       "Label": "hand-written SIMD loop (\u0060Vector\u003Cfloat\u003E\u0060 add, scalar tail)",
       "Hot": {
-        "Ms": 0.0804,
-        "Ns": 0.0804
+        "Ms": 0.0822,
+        "Ns": 0.0822
       },
       "Cold": {
-        "Ms": 0.2146,
-        "Ns": 0.2146
+        "Ms": 0.1945,
+        "Ns": 0.1945
       },
-      "WarmupMs": 500.0702,
-      "WarmupFrames": 6100,
+      "WarmupMs": 500.036,
+      "WarmupFrames": 6121,
       "Allocated": 0
     },
     {
       "Id": "squads",
       "Label": "small squads: 16 timelines \u00D7 16 characters",
       "Hot": {
-        "Ms": 0.95,
-        "Ns": 0.95
+        "Ms": 0.9488,
+        "Ns": 0.9488
       },
       "Cold": {
-        "Ms": 1.0929,
-        "Ns": 1.0929
+        "Ms": 1.0926,
+        "Ns": 1.0926
       },
-      "WarmupMs": 500.8518,
-      "WarmupFrames": 517,
+      "WarmupMs": 500.327,
+      "WarmupFrames": 533,
       "Allocated": 0
     },
     {
       "Id": "worst",
       "Label": "worst case: unsorted rows, a different timeline each",
       "Hot": {
-        "Ms": 7.1528,
-        "Ns": 7.1528
+        "Ms": 1.3614,
+        "Ns": 1.3614
       },
       "Cold": {
-        "Ms": 7.354,
-        "Ns": 7.354
+        "Ms": 1.6543,
+        "Ns": 1.6543
       },
-      "WarmupMs": 507.2269,
-      "WarmupFrames": 69,
+      "WarmupMs": 500.8349,
+      "WarmupFrames": 357,
       "Allocated": 0
     }
   ],
@@ -151,28 +151,28 @@
       {
         "Id": "per-entity-apply-step",
         "Label": "one entity at a time: 1-row Apply \u002B 1-row Advance",
-        "Ms": 0.3251,
-        "Ns": 3.251,
-        "WarmupMs": 500.1605,
-        "WarmupFrames": 1195,
+        "Ms": 0.3107,
+        "Ns": 3.107,
+        "WarmupMs": 500.1672,
+        "WarmupFrames": 1180,
         "Allocated": 0
       },
       {
         "Id": "per-entity-fused",
         "Label": "one entity at a time: fused 1-row Apply",
-        "Ms": 0.2718,
-        "Ns": 2.718,
-        "WarmupMs": 500.2151,
-        "WarmupFrames": 1603,
+        "Ms": 0.2733,
+        "Ns": 2.733,
+        "WarmupMs": 500.1671,
+        "WarmupFrames": 1660,
         "Allocated": 0
       },
       {
         "Id": "per-entity-lane",
         "Label": "one entity at a time: Timeline\u003CT,C\u003E.Apply",
-        "Ms": 0.2969,
-        "Ns": 2.969,
-        "WarmupMs": 500.1952,
-        "WarmupFrames": 1640,
+        "Ms": 0.2556,
+        "Ns": 2.556,
+        "WarmupMs": 500.0575,
+        "WarmupFrames": 1634,
         "Allocated": 0
       },
       {
@@ -180,53 +180,53 @@
         "Label": "crowd on one clock: shared-clock Apply \u002B scalar Advance",
         "Ms": 0.0053,
         "Ns": 0.053,
-        "WarmupMs": 500.0044,
-        "WarmupFrames": 91698,
+        "WarmupMs": 500.0022,
+        "WarmupFrames": 91593,
         "Allocated": 0
       },
       {
         "Id": "per-entity-record-floor",
         "Label": "hand record table (floor)",
-        "Ms": 0.0699,
-        "Ns": 0.699,
-        "WarmupMs": 500.0395,
-        "WarmupFrames": 6775,
+        "Ms": 0.0719,
+        "Ns": 0.719,
+        "WarmupMs": 500.0247,
+        "WarmupFrames": 6766,
         "Allocated": 0
       },
       {
         "Id": "sparse-separate-apply-step",
         "Label": "scattered entities: separate 1-row Apply \u002B Advance through row handles",
-        "Ms": 0.3254,
-        "Ns": 3.254,
-        "WarmupMs": 500.7861,
-        "WarmupFrames": 1384,
+        "Ms": 0.3277,
+        "Ns": 3.277,
+        "WarmupMs": 500.2528,
+        "WarmupFrames": 1429,
         "Allocated": 0
       },
       {
         "Id": "sparse-batch-apply-step",
         "Label": "scattered entities: rows-gather batched Apply \u002B Advance",
-        "Ms": 0.309,
-        "Ns": 3.09,
-        "WarmupMs": 500.2618,
-        "WarmupFrames": 1550,
+        "Ms": 0.3038,
+        "Ns": 3.038,
+        "WarmupMs": 500.2671,
+        "WarmupFrames": 1585,
         "Allocated": 0
       },
       {
         "Id": "sparse-batch-dense-list",
         "Label": "compacted sparse list (dense rows): batched Apply \u002B Advance",
-        "Ms": 0.2292,
-        "Ns": 2.292,
-        "WarmupMs": 500.1954,
-        "WarmupFrames": 2041,
+        "Ms": 0.2306,
+        "Ns": 2.306,
+        "WarmupMs": 500.2191,
+        "WarmupFrames": 2043,
         "Allocated": 0
       },
       {
         "Id": "sparse-list-crowd-apply-step",
         "Label": "compacted sparse list: crowd Apply \u002B raw Advance (existing surface)",
-        "Ms": 0.0342,
-        "Ns": 0.342,
-        "WarmupMs": 500.0242,
-        "WarmupFrames": 14273,
+        "Ms": 0.0341,
+        "Ns": 0.341,
+        "WarmupMs": 500.0246,
+        "WarmupFrames": 14729,
         "Allocated": 0
       }
     ],
@@ -238,28 +238,28 @@
           {
             "Id": "index-fused-staggered",
             "Label": "single timeline, staggered clocks",
-            "Ms": 3.3911,
-            "Ns": 3.3911,
-            "WarmupMs": 500.3875,
-            "WarmupFrames": 125,
+            "Ms": 3.2437,
+            "Ns": 3.2437,
+            "WarmupMs": 501.7099,
+            "WarmupFrames": 132,
             "Allocated": 0
           },
           {
             "Id": "index-fused-uniform",
             "Label": "single timeline, uniform clocks",
-            "Ms": 0.17,
-            "Ns": 0.17,
-            "WarmupMs": 500.1598,
-            "WarmupFrames": 2925,
+            "Ms": 0.1671,
+            "Ns": 0.1671,
+            "WarmupMs": 500.1567,
+            "WarmupFrames": 3058,
             "Allocated": 0
           },
           {
             "Id": "step-index-uniform",
             "Label": "single timeline, uniform clocks, clock advance only",
-            "Ms": 0.0637,
-            "Ns": 0.0637,
-            "WarmupMs": 500.0164,
-            "WarmupFrames": 7646,
+            "Ms": 0.0626,
+            "Ns": 0.0626,
+            "WarmupMs": 500.0353,
+            "WarmupFrames": 7813,
             "Allocated": 0
           }
         ]
@@ -271,10 +271,10 @@
           {
             "Id": "index-fused-staggered",
             "Label": "single timeline, staggered clocks",
-            "Ms": 2.9726,
-            "Ns": 2.9726,
-            "WarmupMs": 502.0898,
-            "WarmupFrames": 136,
+            "Ms": 3.3445,
+            "Ns": 3.3445,
+            "WarmupMs": 501.4191,
+            "WarmupFrames": 115,
             "Allocated": 0
           }
         ]
@@ -284,8 +284,8 @@
   "Bake": {
     "CorpusMb": 19.339241981506348,
     "CorpusFile": "numbers-game.json",
-    "BakeMs": 56.5294,
-    "LoadMs": 1.6197
+    "BakeMs": 55.1402,
+    "LoadMs": 1.602
   },
   "Checksum": 63429206184715,
   "Tiering": {
@@ -294,6 +294,6 @@
     "EnableAVX2": null,
     "EnableHWIntrinsic": null
   },
-  "GeneratedUtc": "2026-10-03T18:20:20Z",
+  "GeneratedUtc": "2026-10-10T03:32:23Z",
   "Dotnet": "10.0.12"
 }
