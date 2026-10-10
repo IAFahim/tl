@@ -636,7 +636,7 @@ Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
 Timeline.Advance(ids, clocks, true);   // one frame: 0.53 ms hot · 0.69 cold
 ```
 
-**Row 9 — worst case: unsorted rows, a different timeline each: 1.35 hot, 1.62 cold.** `ids[i] = i % 100` — no two neighbouring rows share a timeline, so nothing clusters and every row gathers from its own tables (the call-free mixed tier of issue #441 recovered most of the #405 cost: 7.15 → 1.36 hot):
+**Row 9 — worst case: unsorted rows, a different timeline each: 1.35 hot, 1.62 cold.** `ids[i] = i % 100` — no two neighbouring rows share a timeline, so nothing clusters and every row gathers from its own tables (the call-free mixed tier of issue #441 recovered most of the #405 cost: 7.15 → 1.35 hot):
 
 ```cs
 for (int i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i % 100); clocks[i] = (ushort)(i % 30); }
