@@ -102,7 +102,7 @@ public static class JobReader
                     var size = ResultSize(p.Type);
                     if (size == 0 || slots.Count >= MemoResults)
                         return Err(Symbols.Site(p, site), "TLGEN79", $"'{name}.Fold' folds at most {MemoResults} unmanaged results of at most 8 bytes each ('{Symbols.Name(p.Type)} {p.Name}' is not one).");
-                    slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference, size));
+                    slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference, size, Integral(p.Type)));
                 }
                 if (slots.Count == 0)
                     return Err(Symbols.Site(memo, site), "TLGEN76", $"'{name}.Fold' produces no result; dispatch-only is ExecuteActive.");
@@ -187,6 +187,9 @@ public static class JobReader
                 { SpecialType: SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Double } => 8,
                 _ => 0,
             };
+
+        private static bool Integral(ITypeSymbol t)
+            => t.SpecialType is not (SpecialType.System_Single or SpecialType.System_Double);
 
         private static bool Framed(IMethodSymbol method, ITypeSymbol frame)
             => method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame);

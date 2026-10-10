@@ -21,14 +21,14 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
 	{
 		Checked.Domain(indices, positions);
-		Bank().Apply(indices, positions, forward, effects);
+		FloatBank().Apply(indices, positions, forward, effects);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static void Apply(ushort index, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
 	{
 		Checked.Domain(index, positions);
-		var bank = Bank();
+		var bank = FloatBank();
 		if (positions.Length > LaneOps.SmallSpan)
 		{
 			if (!bank.IsFolded(index))
@@ -49,7 +49,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	public static void Apply(ushort index, ushort position, bool forward, Span<float> effects)
 	{
 		Checked.Domain(index, position);
-		var bank = Bank();
+		var bank = FloatBank();
 		var slot = bank.FoldedView(index);
 		if (slot is null)
 		{
@@ -178,14 +178,14 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
 	{
 		Checked.Domain(indices, positions);
-		Bank().Apply(indices, positions, next, forward, effects);
+		FloatBank().Apply(indices, positions, next, forward, effects);
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static void Apply(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
 	{
 		Checked.Domain(index, positions);
-		var bank = Bank();
+		var bank = FloatBank();
 		if (positions.Length > LaneOps.SmallSpan)
 		{
 			if (!bank.IsFolded(index))
@@ -209,6 +209,11 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		where TEffect : struct
 	{
 		CheckSizes<TIndex, TPosition, TEffect>();
+		if (IntegerEffect<TEffect>())
+		{
+			ApplyInteger<TEffect>(MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward, MemoryMarshal.Cast<TEffect, int>(effects));
+			return;
+		}
 		Apply(
 			MemoryMarshal.Cast<TIndex, ushort>(indices),
 			MemoryMarshal.Cast<TPosition, ushort>(positions),
@@ -232,6 +237,15 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		where TEffect : struct
 	{
 		CheckSizes<TIndex, TPosition, TEffect>();
+		if (IntegerEffect<TEffect>())
+		{
+			ApplyInteger<TEffect>(
+				MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)), 1),
+				MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TPosition, ushort>(ref Unsafe.AsRef(in position)), 1),
+				forward,
+				MemoryMarshal.CreateSpan(ref Unsafe.As<TEffect, int>(ref effect), 1));
+			return;
+		}
 		Apply(
 			Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
 			MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TPosition, ushort>(ref Unsafe.AsRef(in position)), 1),
@@ -280,6 +294,67 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	}
 
 	static string Head => $"Timeline<{typeof(TTrack).Name}, {typeof(TClip).Name}>";
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	static TimelineSet<TTrack, TClip> FloatBank()
+	{
+		var bank = Bank();
+		if (!bank._floatLaneProven) ProveFloatLane(bank);
+		return bank;
+	}
+
+	[MethodImpl(MethodImplOptions.NoInlining)]
+	static void ProveFloatLane(TimelineSet<TTrack, TClip> bank)
+	{
+		var key = PairRuntime<TTrack, TClip>.Key;
+		var consumers = PairTable.ConsumerAt;
+		if (PairTable.HeadOf(key) < 0) return;
+		ulong* keys = stackalloc ulong[PairTable.SlotRow];
+		byte* meta = stackalloc byte[PairTable.SlotRow];
+		for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
+		{
+			if (consumers[e].DispatchOnly != 0) continue;
+			if (consumers[e].Keys != null)
+			{
+				if (consumers[e].Keys(keys, meta) == 0) continue;
+				if ((meta[0] & 0x8F) != 4 || NonFloatLane(keys[0]))
+					throw new ArgumentException($"{Head} fold lane 0 holds an integer, double, or non-4-byte Fold result; play it through ApplyChunk or Apply<TIndex, TPosition, TEffect> with that result type.");
+			}
+			bank._floatLaneProven = true;
+			return;
+		}
+		throw new ArgumentException($"{Head} registers no Fold lane; drive its live ExecuteActive consumers through Apply(ids, clocks, forward, in ColumnSet).");
+	}
+
+	static bool NonFloatLane(ulong key)
+		=> key == TypeKey<int>.Value || key == TypeKey<uint>.Value;
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	static bool IntegerEffect<TEffect>() => typeof(TEffect) == typeof(int) || typeof(TEffect) == typeof(uint) || typeof(TEffect).IsEnum;
+
+	static void ApplyInteger<TEffect>(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> clocks, bool forward, Span<int> effects)
+	{
+		if (ids.Length != clocks.Length) Fail.ColumnLength(clocks.Length, ids.Length);
+		if (clocks.Length != effects.Length) ThrowLaneColumnSizes();
+		Checked.Domain(ids, clocks);
+		var bank = Bank();
+		var key = TypeKey<TEffect>.Value;
+		var i = 0;
+		while (i < clocks.Length)
+		{
+			var id = ids[i];
+			var end = i + 1;
+			while (end < clocks.Length && ids[end] == id) end++;
+			if (!bank.IsFolded(id)) Resolve(id);
+			if (bank.HasView(id))
+			{
+				var lane = bank.LaneFor(id, key, 0);
+				if (lane < 0) ThrowMissingLane<TEffect>(0);
+				bank.ApplyLane(id, clocks.Slice(i, end - i), forward, lane, effects.Slice(i, end - i));
+			}
+			i = end;
+		}
+	}
 
 	[DoesNotReturn]
 	static void ThrowMissingLane<TLane>(int column)
@@ -483,7 +558,14 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
 		var positions16 = MemoryMarshal.Cast<TPosition, ushort>(positions);
 		Checked.Domain(indices16, positions16);
-		Bank().ApplyRows(rows, indices16, positions16, forward, MemoryMarshal.Cast<TEffect, float>(effects));
+		if (IntegerEffect<TEffect>())
+		{
+			var cells = MemoryMarshal.Cast<TEffect, int>(effects);
+			foreach (var row in rows)
+				ApplyInteger<TEffect>(indices16.Slice(row, 1), positions16.Slice(row, 1), forward, cells.Slice(row, 1));
+			return;
+		}
+		FloatBank().ApplyRows(rows, indices16, positions16, forward, MemoryMarshal.Cast<TEffect, float>(effects));
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]

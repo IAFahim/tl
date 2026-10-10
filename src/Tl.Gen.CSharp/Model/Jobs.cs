@@ -4,7 +4,7 @@ namespace Tl.Gen.CSharp.Model;
 
 public enum SlotMode : byte { Input, Reference, Output, MemoFeed }
 
-public sealed record TimelineSlot(string Name, string TypeName, SlotMode Mode, byte Size = 4);
+public sealed record TimelineSlot(string Name, string TypeName, SlotMode Mode, byte Size = 4, bool Integral = false);
 
 public sealed record JobDefinition(string TypeName, IReadOnlyList<TimelineSlot> Slots, bool Dispatch = false, bool LiveFrame = false, bool MemoMethod = false, IReadOnlyList<TimelineSlot>? LiveSlots = null)
 {

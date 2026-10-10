@@ -135,6 +135,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _lazyResolve;
+    internal bool _floatLaneProven;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _disposed;

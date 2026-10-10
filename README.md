@@ -290,7 +290,7 @@ Timeline.Bake(jumpTimeline, world, 43);
 
 `ref` parameters write through to the caller's variable, `in` parameters avoid copies, and a `Span<Entity>` parameter bakes a whole spawned wave in one call. Bakes are host-timed — attach and transition effects, never per-frame work — so managed state is legal at bake time. The dispatch is a cold pass over the asset's pairs; the warm path never sees a bake.
 
-Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Advance` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Advance` moves it exactly once, and a per-system `Advance` multiplies the frame. A single system that owns its clock column outright may fuse the pair into `Apply(ids, clocks, next, forward, fx)` — `next` may be the same array for in-place — one pass, same result as `Apply` + `Advance`. Rewind is `forward: false` and returns columns bit-exactly. There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
+Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Advance` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Advance` moves it exactly once, and a per-system `Advance` multiplies the frame. A single system that owns its clock column outright may fuse the pair into `Apply(ids, clocks, next, forward, fx)` — `next` may be the same array for in-place — one pass, same result as `Apply` + `Advance`. Rewind is `forward: false` and applies each tick's backward contribution in reverse order: integer and enum lanes return bit-exactly, and float lanes return bit-exactly whenever every partial sum is representable (the ±2.0 arc above). Arbitrary float contributions accumulate IEEE rounding in both directions — a lane of 0.1 and −0.333 steps measured 40 ticks out and back from 0 lands on −3.1e−07 — so hosts that need exact replay from arbitrary float data keep the effect in an integer or fixed-point lane, or snapshot the column (issue #439). There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
 
 ```cs
 // shared clock column — safe to fan out to every pair system, advance once:
@@ -327,7 +327,7 @@ for (var frame = 0; frame < 30; frame++)
 }
 ```
 
-More systems on the same pair just declare the marker again — no registration, no chaining. Every consumer of `(JumpTrack, JumpClip)` runs inside the same one `Apply` call, folding its contribution into the effect column after the consumers before it:
+More systems on the same pair just declare the marker again — no registration, no chaining. Every consumer of `(JumpTrack, JumpClip)` of the same kind runs inside the same one `Apply` call — the single-result Apply family plays Fold lane 0 and `ApplyChunk` plays typed lanes by result type, the `ColumnSet` Apply runs every live `ExecuteActive` — folding its contribution into the effect column after the consumers before it:
 
 ```cs
 public readonly struct ScreenShake : ITrack<JumpTrack, JumpClip>
@@ -362,7 +362,7 @@ Fold-only consumers play through the measured Apply family — `Apply(ids, clock
 - `ExecuteActive(in Frame<TTrack, TClip> frame, ref T fx, in T a, in T b, ...)` — **live columns**: the feeding call binds the columns by type through a caller-assembled `ColumnSet` — `Apply(ids, clocks, forward, in set)` with `set.Add<T>(span)` per column — and the runtime executes the consumer once per row per frame at the row's current tick, `ref` read-write, `in` read-only.
 - `ExecuteActive(in T0 r0, in T1 r1, ..., ref T fx, in T a, ...)` — **compose**: the leading `in` parameters are the Fold results, fed positionally (type-checked at generation) from their frozen tables at the row's current position — direction-correct — while the `ref`/`in` columns come from the same Apply call. Precompute the pure math once, compose with live inputs per row.
 
-Legacy `ExecuteActive(in Frame<TTrack, TClip> frame, ref float y)` keeps working as sugar for a single-result `Fold` — same fold, same frozen table, same measured Apply — and `Fold` is the canonical spelling in new code. The consumer ABI reserves 40 pointer slots per registered consumer, and live `ExecuteActive` columns — memo feeds, `ref` columns, `in` columns — total at most 30 per consumer (TLGEN68). A required column that is not passed is a loud located throw naming the pair, consumer, and parameter — `Timeline<JumpTrack, JumpClip> consumer 'MoveY' ExecuteActive requires a column of type int (multiplier); none was passed.` — at first play of a column-carrying Apply. The plain float-column Apply family drives only the memo lanes and never dispatches live consumers, so a pair with a live `ExecuteActive` must be driven by its column-carrying overload (hardening that case to fail loudly is tracked in issue #348). Live `ExecuteActive` columns bind through a caller-assembled `ColumnSet` — `Add<T>(span)` per column, cold assembly, resolved by `TypeKey` at first play while the warm read stays the direct pointer row — so distinct `in`/`ref` column types compose freely up to the 30-column bound. Same-type duplicates are TLGEN81 (TypeKey binding cannot distinguish two columns of one type), and a partially fed pair names the column actually left unfed.
+Legacy `ExecuteActive(in Frame<TTrack, TClip> frame, ref float y)` keeps working as sugar for a single-result `Fold` — same fold, same frozen table, same measured Apply — and `Fold` is the canonical spelling in new code. The consumer ABI reserves 40 pointer slots per registered consumer, and live `ExecuteActive` columns — memo feeds, `ref` columns, `in` columns — total at most 30 per consumer (TLGEN68). A required column that is not passed is a loud located throw naming the pair, consumer, and parameter — `Timeline<JumpTrack, JumpClip> consumer 'MoveY' ExecuteActive requires a column of type int (multiplier); none was passed.` — at first play of a column-carrying Apply. The plain float-column Apply family drives only the Fold lanes and never dispatches live consumers, so a pair with a live `ExecuteActive` must also be driven by its column-carrying overload; a pair with no Fold lane at all, or whose first lane holds an integer, enum, `double`, or other non-float result (the generator marks integer-arithmetic Fold results in the consumer's key metadata), throws a located `ArgumentException` at first float play instead of silently adding nothing or misreading bits, and the generic `Apply<TIndex, TPosition, TEffect>` with an `int`, `uint`, or enum effect reads the matching typed lane with integer arithmetic exactly like `ApplyChunk` (issue #439). Live `ExecuteActive` columns bind through a caller-assembled `ColumnSet` — `Add<T>(span)` per column, cold assembly, resolved by `TypeKey` at first play while the warm read stays the direct pointer row — so distinct `in`/`ref` column types compose freely up to the 30-column bound. Same-type duplicates are TLGEN81 (TypeKey binding cannot distinguish two columns of one type), and a partially fed pair names the column actually left unfed.
 
 The owner's jump case, first-class — the pure arc folds once, the per-jumper power composes live every frame:
 
@@ -386,7 +386,7 @@ player.Add(power);
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, in player);
 ```
 
-Rewind is exact: `forward: false` feeds the same `in` values from the backward tables, and changing `power` between frames changes the applied effect — the input column is read fresh every call. Rule of thumb: **Fold carries the number — a pure per-tick contribution, frozen and shared by every row; ExecuteActive carries the effect on the world — live, per row, composed against the frozen number.**
+Rewind replays the backward tables: `forward: false` feeds the same `in` values from the backward tables (bit-exact under the representability rule in [System](#system)), and changing `power` between frames changes the applied effect — the input column is read fresh every call. Rule of thumb: **Fold carries the number — a pure per-tick contribution, frozen and shared by every row; ExecuteActive carries the effect on the world — live, per row, composed against the frozen number.**
 
 Fold takes up to 10 results of any legal width, and every one of them composes into ExecuteActive beside the live player columns — four results of four widths here, `ref JumpY` and `in JumpPower` live on the same consumer:
 
@@ -416,7 +416,7 @@ player.Add(power);
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, in player);
 ```
 
-Results of 8 bytes (`long`, `ulong`, `double`, wide enums) fold the same way — the lane is an adjacent pair, the read reassembles the exact bits, and `double` stays IEEE-additive across rewind. Distinct gameplay column types compose through the same `ColumnSet`, assembled once per system run and reused across calls. The set holds GC-tracked references to its columns and pins them only for the duration of each `Apply`, so a compacting collection between assembly and play — or one triggered inside a consumer — never strands a write (issue #437); a `stackalloc` column therefore needs a `scoped ColumnSet`, which the compiler enforces:
+Results of 8 bytes (`long`, `ulong`, `double`, wide enums) fold the same way — the lane is an adjacent pair, the read reassembles the exact bits, and `double` is added with IEEE semantics in both directions. Distinct gameplay column types compose through the same `ColumnSet`, assembled once per system run and reused across calls. The set holds GC-tracked references to its columns and pins them only for the duration of each `Apply`, so a compacting collection between assembly and play — or one triggered inside a consumer — never strands a write (issue #437); a `stackalloc` column therefore needs a `scoped ColumnSet`, which the compiler enforces:
 
 ```cs
 var caller = new ColumnSet();
@@ -563,16 +563,16 @@ var clocks = new ushort[1_000_000];
 var y = new float[1_000_000];                                    // one jump height per character
 ```
 
-**Row 1 — whole crowd on one timeline (a raid jumping in sync): 0.17 ns/character hot, 0.43 cold.** A million goblins, every row on the arc and every clock cell on tick 5 — one timeline, one clock value, a clock column that still exists per row:
+**Row 1 — whole crowd on one timeline (a raid jumping in sync): 0.17 ns/character hot, 0.38 cold.** A million goblins, every row on the arc and every clock cell on tick 5 — one timeline, one clock value, a clock column that still exists per row:
 
 ```cs
 for (int i = 0; i < ids.Length; i++) { ids[i] = arc; clocks[i] = 5; }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame, both calls: 0.17 ms hot · 0.43 cold (9 crowds interleaved)
+Timeline.Advance(ids, clocks, true);   // one frame, both calls: 0.17 ms hot · 0.38 cold (9 crowds interleaved)
 ```
 
-**Row 2 — crowd on one clock: shared-clock Apply + scalar Advance: 0.08 hot, 0.19 cold.** The same raid, but the clock column disappears — the crowd shares one scalar clock and folds in one broadcast pass:
+**Row 2 — crowd on one clock: shared-clock Apply + scalar Advance: 0.08 hot, 0.18 cold.** The same raid, but the clock column disappears — the crowd shares one scalar clock and folds in one broadcast pass:
 
 ```cs
 ushort clock = 5;                                // every goblin on tick 5 together, mid-rise
@@ -581,42 +581,42 @@ Timeline<JumpTrack, JumpClip>.Apply(arc, clock, true, y);        // 0.08 ms per 
 Timeline<JumpTrack, JumpClip>.Advance(arc, ref clock, true);     // one tick, O(1)
 ```
 
-**Row 3 — 100 timelines, crowds of 10,000 each (per-ability groups): 0.32 hot, 0.52 cold.** One hundred abilities, each with its own baked copy of the arc; ability k owns rows 10,000k–10,000k+9,999, so identical timelines cluster into long runs:
+**Row 3 — 100 timelines, crowds of 10,000 each (per-ability groups): 0.25 hot, 0.45 cold.** One hundred abilities, each with its own baked copy of the arc; ability k owns rows 10,000k–10,000k+9,999, so identical timelines cluster into long runs:
 
 ```cs
 for (int i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i / 10_000); clocks[i] = (ushort)(i % 30); }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.32 ms hot · 0.52 cold
+Timeline.Advance(ids, clocks, true);   // one frame: 0.25 ms hot · 0.45 cold
 ```
 
-**Row 4 — one looping timeline, every character on its own clock: 0.21 hot, 0.39 cold.** A million guards on the arc, each seeded at its own spawn tick — thirty different table slots gathered every frame:
+**Row 4 — one looping timeline, every character on its own clock: 0.21 hot, 0.37 cold.** A million guards on the arc, each seeded at its own spawn tick — thirty different table slots gathered every frame:
 
 ```cs
 for (int i = 0; i < ids.Length; i++) { ids[i] = arc; clocks[i] = (ushort)(i % 30); }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.21 ms hot · 0.39 cold
+Timeline.Advance(ids, clocks, true);   // one frame: 0.21 ms hot · 0.37 cold
 ```
 
-**Row 5 — one-shot finite timeline, staggered clocks: 0.09 hot, 0.22 cold.** The same arc baked with `"loop": false` — a door-open. Doors staggered over the rise; a row past the end clamps at tick 30 and folds nothing:
+**Row 5 — one-shot finite timeline, staggered clocks: 0.10 hot, 0.22 cold.** The same arc baked with `"loop": false` — a door-open. Doors staggered over the rise; a row past the end clamps at tick 30 and folds nothing:
 
 ```cs
 ushort once = TimelineAsset.Load(File.ReadAllBytes("raid-once.tlb"));   // raid.json with "loop": false
 for (int i = 0; i < ids.Length; i++) { ids[i] = once; clocks[i] = (ushort)(i % 15); }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.09 ms hot · 0.22 cold
+Timeline.Advance(ids, clocks, true);   // one frame: 0.10 ms hot · 0.22 cold
 ```
 
-**Row 6 — hand-written scalar loop (`effects[i] += 1f`): 0.18 hot, 0.29 cold.** The baseline the tl rows race — the whole frame is one plain C# add per character:
+**Row 6 — hand-written scalar loop (`effects[i] += 1f`): 0.19 hot, 0.28 cold.** The baseline the tl rows race — the whole frame is one plain C# add per character:
 
 ```cs
 for (var i = 0; i < y.Length; i++)
-    y[i] += 1f;                           // one frame: 0.18 ms hot · 0.29 cold
+    y[i] += 1f;                           // one frame: 0.19 ms hot · 0.28 cold
 ```
 
-**Row 7 — hand-written SIMD loop (`Vector<float>` add, scalar tail): 0.08 hot, 0.22 cold.** The same add by hand, `Vector<float>` wide, and the traffic floor of this machine:
+**Row 7 — hand-written SIMD loop (`Vector<float>` add, scalar tail): 0.08 hot, 0.21 cold.** The same add by hand, `Vector<float>` wide, and the traffic floor of this machine:
 
 ```cs
 var ones = new Vector<float>(1f);
@@ -624,25 +624,25 @@ int i = 0;
 for (; i <= y.Length - Vector<float>.Count; i += Vector<float>.Count)
     (Vector.LoadUnsafe(ref y[i]) + ones).StoreUnsafe(ref y[i]);
 for (; i < y.Length; i++)
-    y[i] += 1f;                           // one frame: 0.08 ms hot · 0.22 cold
+    y[i] += 1f;                           // one frame: 0.08 ms hot · 0.21 cold
 ```
 
-**Row 8 — small squads: 16 timelines × 16 characters: 0.40 hot, 0.57 cold.** Sixteen squads of sixteen, tiled to a million rows; the warm kernel re-dispatches every 16 rows, so short crowds pay the fixed cost per segment:
+**Row 8 — small squads: 16 timelines × 16 characters: 0.95 hot, 1.09 cold.** Sixteen squads of sixteen, tiled to a million rows; the warm kernel re-dispatches every 16 rows, so short crowds pay the fixed cost per segment (2.4× the 1.3.0 receipt since the segmented encoding retired the per-row record gather, issue #405):
 
 ```cs
 for (int i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i / 16 % 16); clocks[i] = (ushort)(i % 30); }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.40 ms hot · 0.57 cold
+Timeline.Advance(ids, clocks, true);   // one frame: 0.95 ms hot · 1.09 cold
 ```
 
-**Row 9 — worst case: unsorted rows, a different timeline each: 0.52 hot, 0.66 cold.** `ids[i] = i % 100` — no two neighbouring rows share a timeline, so nothing clusters and every row gathers from its own tables:
+**Row 9 — worst case: unsorted rows, a different timeline each: 7.15 hot, 7.35 cold.** `ids[i] = i % 100` — no two neighbouring rows share a timeline, so nothing clusters and every row gathers from its own tables (≈14× the 1.3.0 receipt since #405 retired the per-row record gather; recovery is tracked in issue #441):
 
 ```cs
 for (int i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i % 100); clocks[i] = (ushort)(i % 30); }
 
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.52 ms hot · 0.66 cold
+Timeline.Advance(ids, clocks, true);   // one frame: 7.15 ms hot · 7.35 cold
 ```
 
 Receipts: [benchmarks/Numbers](https://github.com/IAFahim/tl/tree/main/benchmarks/Numbers) (generates this section; `eng/refresh-numbers` re-measures and re-renders it from a fingerprinted receipt, and CI fails if the two disagree), [benchmarks/PairHandles](https://github.com/IAFahim/tl/tree/main/benchmarks/PairHandles), [benchmarks/Alpha](https://github.com/IAFahim/tl/tree/main/benchmarks/Alpha), [tests/Tl.Alpha](https://github.com/IAFahim/tl/tree/main/tests/Tl.Alpha) — parity, allocation, and throughput evidence, run in CI on every push.

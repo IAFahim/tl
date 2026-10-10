@@ -213,11 +213,11 @@ public sealed class TwoMethodShapeTests
         var consumer = Assert.Single(result.Consumers);
         Assert.Equal(
         [
-            new TimelineSlot("serial", "long", SlotMode.Output, 8),
+            new TimelineSlot("serial", "long", SlotMode.Output, 8, Integral: true),
             new TimelineSlot("precise", "double", SlotMode.Output, 8),
         ], consumer.Job.Slots);
         var binding = JobEmitter.Consumers(result.Consumers);
-        Assert.Contains("__tlKeys[0] = global::Tl.TypeKey<long>.Value; __tlMeta[0] = 24;", binding);
+        Assert.Contains("__tlKeys[0] = global::Tl.TypeKey<long>.Value; __tlMeta[0] = 152;", binding);
         Assert.Contains("__tlKeys[1] = global::Tl.TypeKey<double>.Value; __tlMeta[1] = 24;", binding);
     }
 
@@ -259,7 +259,7 @@ public sealed class TwoMethodShapeTests
         Assert.Contains("Consume(&Fold_Dual, &FoldRange_Dual, &Keys_Dual);", binding);
         Assert.Contains("private static int Keys_Dual(ulong* __tlKeys, byte* __tlMeta)", binding);
         Assert.Contains("__tlKeys[0] = global::Tl.TypeKey<float>.Value; __tlMeta[0] = 20;", binding);
-        Assert.Contains("__tlKeys[1] = global::Tl.TypeKey<int>.Value; __tlMeta[1] = 20;", binding);
+        Assert.Contains("__tlKeys[1] = global::Tl.TypeKey<int>.Value; __tlMeta[1] = 148;", binding);
         Assert.Contains("global::Domain.Dual.Fold(in __tlTyped, out @a[__tlRow], out @b[__tlRow]);", binding);
     }
 

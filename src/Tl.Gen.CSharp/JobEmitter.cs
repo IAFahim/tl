@@ -106,7 +106,7 @@ internal static class JobEmitter
                     for (var i = 0; i < job.Slots.Count; i++)
                     {
                         var slot = job.Slots[i];
-                        W($"if (__tlKeys != null) {{ __tlKeys[{i}] = global::Tl.TypeKey<{slot.TypeName}>.Value; __tlMeta[{i}] = {slot.Size | (slot.Mode == SlotMode.Output ? 16 : 0)}; }}");
+                        W($"if (__tlKeys != null) {{ __tlKeys[{i}] = global::Tl.TypeKey<{slot.TypeName}>.Value; __tlMeta[{i}] = {slot.Size | (slot.Mode == SlotMode.Output ? 16 : 0) | (slot.Integral ? 128 : 0)}; }}");
                     }
                     W($"return {job.Slots.Count};");
                     W("}");

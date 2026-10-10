@@ -235,6 +235,14 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
+    public void SingleResultApplyReadsIntegerLanesTypedAndRejectsMissingOrIntegerFloatLanes()
+    {
+        var result = Driver("FoldLaneGuard");
+
+        Assert.Equal("7,70000010|70000010|-2,1,70000001|Low,High#7,70000013#integer-lane#no-lane#10", result);
+    }
+
+    [Fact]
     public void ColumnSetColumnsSurviveACompactingCollectionBeforeApply()
     {
         var result = Driver("Compacted");
@@ -847,6 +855,25 @@ public sealed class ConsumerPlaybackTests
                 => y += frame.Direction * frame.Clip.Height * frame.Track.Scale * multiplier;
         }
 
+        public readonly record struct KindClip(int Kind);
+
+        public readonly record struct KindTrack(float Scale) : IBlend<KindClip>
+        {
+            public void Blend(in KindClip first, in KindClip second, float factor, out KindClip result) => result = first;
+        }
+
+        public readonly struct KindFold : ITrack<KindTrack, KindClip>
+        {
+            public static void Fold(in Frame<KindTrack, KindClip> frame, out int kind) => kind = frame.Direction * frame.Clip.Kind;
+        }
+
+        public enum KindTag { None, Low, High }
+
+        public readonly struct KindTagFold : ITrack<KindTrack, KindClip>
+        {
+            public static void Fold(in Frame<KindTrack, KindClip> frame, out KindTag tag) => tag = frame.Clip.Kind < 0 ? KindTag.Low : KindTag.High;
+        }
+
         public readonly record struct SweepClip(int Height);
 
         public readonly record struct SweepTrack(float Scale) : IBlend<SweepClip>
@@ -952,6 +979,49 @@ public sealed class ConsumerPlaybackTests
                 Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(ids, positions, false, in columns);
                 var third = F(y[0]) + "," + F(y[1]);
                 return first + "#" + second + "#" + third;
+            }
+
+            public static string FoldLaneGuard()
+            {
+                using var kind = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TlComposeShape.KindTrack, TlComposeShape.KindClip>(new TlComposeShape.KindTrack(1f))
+                    .Clip(0, 0u, 2u, new TlComposeShape.KindClip(-3))
+                    .Clip(0, 2u, 4u, new TlComposeShape.KindClip(70_000_000))
+                    .Bake()));
+                using var free = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>(new TlComposeShape.FreeTrack(2f))
+                    .Clip(0, 0u, 3u, new TlComposeShape.FreeClip(5))
+                    .Bake()));
+                using var arc = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>(new TlComposeShape.ArcTrack(2f))
+                    .Clip(0, 0u, 3u, new TlComposeShape.ArcClip(5))
+                    .Bake()));
+                var ids = new ushort[] { kind.Index, kind.Index };
+                var clocks = new ushort[] { 0, 2 };
+                var counts = new int[] { 10, 10 };
+                Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply<ushort, ushort, int>(ids, clocks, true, counts);
+                var typed = counts[0] + "," + counts[1];
+                Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply<ushort, ushort, int>(ids, clocks, false, counts);
+                var rewound = counts[0] + "," + counts[1];
+                var single = 10;
+                Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply(in ids[1], in clocks[1], true, ref single);
+                var rowCells = new int[] { 1, 1, 1 };
+                var rowIds = new ushort[] { kind.Index, kind.Index, kind.Index };
+                var rowClocks = new ushort[] { 0, 3, 2 };
+                Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply(new[] { 2, 0 }, rowIds, rowClocks, true, rowCells);
+                var tags = new[] { TlComposeShape.KindTag.None, TlComposeShape.KindTag.None };
+                Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply<ushort, ushort, TlComposeShape.KindTag>(ids, clocks, true, tags);
+                typed += "|" + single + "|" + string.Join(",", rowCells) + "|" + string.Join(",", tags);
+                string Throws(Action play)
+                {
+                    try { play(); return "silent"; }
+                    catch (ArgumentException exception) { return exception.Message.Contains("no Fold lane") ? "no-lane" : exception.Message.Contains("integer, double") ? "integer-lane" : exception.Message; }
+                }
+                var floatOverInteger = Throws(() => Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply(new[] { kind.Index }, new ushort[1], true, new float[1]));
+                var liveOnly = Throws(() => Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(new[] { free.Index }, new ushort[1], true, new float[1]));
+                var mixed = new float[1];
+                Timeline<TlComposeShape.ArcTrack, TlComposeShape.ArcClip>.Apply(new[] { arc.Index }, new ushort[1], true, mixed);
+                return typed + "#" + rewound + "#" + floatOverInteger + "#" + liveOnly + "#" + F(mixed[0]);
             }
 
             public static string Compacted()

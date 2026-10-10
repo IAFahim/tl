@@ -165,7 +165,11 @@ public class DispatchOnlyApplyTests
         using var asset = TimelineAsset.LoadAsset(TwoPairBake());
         var effects = new float[4];
         var positions = new ushort[] { 1, 2, 5, 7 };
-        Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, positions, true, effects);
+        var view = Timeline<DispatchSoundTrack, DispatchSoundClip>.View(asset.Index);
+        Assert.Equal(0, view.Absent);
+        Assert.Equal(0, DispatchLog.HitCount);
+        var error = Assert.Throws<ArgumentException>(() => Timeline<DispatchSoundTrack, DispatchSoundClip>.Apply(asset.Index, positions, true, effects));
+        Assert.Contains("registers no Fold lane", error.Message);
         Assert.Equal([0f, 0f, 0f, 0f], effects);
         Assert.Equal(0, DispatchLog.HitCount);
     }
