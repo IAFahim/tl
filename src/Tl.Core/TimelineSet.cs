@@ -1212,17 +1212,8 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 {
                     var run = views[ids[i]];
                     var flat = forward ? run->Forward : run->Backward;
-                    if (next.IsEmpty && end - i < ShortRunRows && flat != null)
-                    {
-                        ref var positionRow = ref MemoryMarshal.GetReference(positions);
-                        ref var effectRow = ref MemoryMarshal.GetReference(effects);
-                        i = forward
-                            ? ShortUniform<ForwardRows>(flat, run->Duration, run->Looping != 0, ref positionRow, ref effectRow, i, end)
-                            : ShortUniform<BackwardRows>(flat, run->Duration, run->Looping != 0, ref positionRow, ref effectRow, i, end);
-                        continue;
-                    }
                     var block = i + ((end - i) >> 4 << 4);
-                    if (!next.IsEmpty && end - i < ShortRunRows && flat != null && run->Duration > 8 && Avx2.IsSupported)
+                    if (end - i < ShortRunRows && flat != null && run->Duration > 8 && Avx2.IsSupported)
                     {
                         if (forward)
                             LaneOps.EffectForward<FlatSource>(flat, run->Duration, run->Looping != 0, positions, next, effects, i, block);
@@ -1241,18 +1232,63 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int ShortUniform<TWalk>(float* table, ushort duration, bool looping, ref ushort positionRow, ref float effectRow, int i, int end)
+    static unsafe int GatherRows<TWalk, TNext>(ushort* ids, ushort* positions, ushort* next, float* effects, SlotView** views, int i, int limit)
         where TWalk : struct, IRowWalk
+        where TNext : struct, IRowNext
     {
-        for (; i < end; i++)
+        var first = i;
+        var table = (long*)(TWalk.Forward ? 24 : 32);
+        var motion = (int*)48;
+        for (; i + VectorRows + 8 <= limit; i += 8)
         {
-            var p = Unsafe.Add(ref positionRow, (nuint)i);
-            if (TWalk.Forward)
-                Unsafe.Add(ref effectRow, (nuint)i) += table[p];
-            else if (LaneMovement.BackwardPlayable(p, duration, looping))
-                Unsafe.Add(ref effectRow, (nuint)i) += table[LaneEncoding.BackwardTick(p, duration)];
+            var id = Vector128.Load(ids + i);
+            var prior = i == 0 ? Vector128.Shuffle(id, Vector128.Create((ushort)0, 0, 1, 2, 3, 4, 5, 6)) : Vector128.Load(ids + i - 1);
+            var starts = Vector128.Equals(id, Vector128.Load(ids + i + 1)) & Vector128.Equals(id, Vector128.Load(ids + i + VectorRows - 1)) & ~Vector128.Equals(id, prior);
+            if (i == first) starts &= Vector128.Create((ushort)0, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF);
+            if (starts != Vector128<ushort>.Zero) return i;
+            var row = Avx2.ConvertToVector256Int32(id);
+            var view0 = Avx2.GatherVector256((long*)views, row.GetLower(), 8);
+            var view1 = Avx2.GatherVector256((long*)views, row.GetUpper(), 8);
+            var base0 = Avx2.GatherVector256(table, view0, 1);
+            var base1 = Avx2.GatherVector256(table, view1, 1);
+            if ((Vector256.Equals(base0, Vector256<long>.Zero) | Vector256.Equals(base1, Vector256<long>.Zero)) != Vector256<long>.Zero) return i;
+            var position = Avx2.ConvertToVector256Int32(Vector128.Load(positions + i));
+            var tick = position;
+            var playable = Vector256<int>.AllBitsSet;
+            var looping = Vector256<int>.Zero;
+            var duration = Vector256<int>.Zero;
+            if (!TWalk.Forward || TNext.Fused)
+            {
+                var word = Vector256.Create(Avx2.GatherVector128(motion, view0, 1), Avx2.GatherVector128(motion, view1, 1));
+                duration = word & Vector256.Create(0xFFFF);
+                looping = ~Vector256.Equals(word >>> 16, Vector256<int>.Zero);
+            }
+            if (!TWalk.Forward)
+            {
+                var origin = Vector256.Equals(position, Vector256<int>.Zero);
+                tick = Vector256.ConditionalSelect(origin, duration - Vector256<int>.One, position - Vector256<int>.One);
+                playable = Vector256.ConditionalSelect(looping, Vector256.LessThan(position, duration), ~origin & ~Vector256.GreaterThan(position, duration));
+            }
+            var address0 = base0 + (Avx2.ConvertToVector256Int64(tick.GetLower()) << 2);
+            var address1 = base1 + (Avx2.ConvertToVector256Int64(tick.GetUpper()) << 2);
+            var value = Vector256.Create(Avx2.GatherVector128((float*)null, address0, 1), Avx2.GatherVector128((float*)null, address1, 1));
+            var effect = Vector256.Load(effects + i);
+            var sum = effect + value;
+            if (!TWalk.Forward) sum = Vector256.ConditionalSelect(playable.AsSingle(), sum, effect);
+            sum.Store(effects + i);
+            if (TNext.Fused)
+            {
+                Vector256<int> step;
+                if (TWalk.Forward)
+                {
+                    var advanced = position + Vector256<int>.One;
+                    step = Vector256.AndNot(advanced, Vector256.Equals(advanced, duration) & looping);
+                }
+                else step = Vector256.ConditionalSelect(playable, tick, position);
+                Vector128.Narrow(step.GetLower().AsUInt32(), step.GetUpper().AsUInt32()).Store(next + i);
+            }
         }
-        return end;
+        return i;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1300,52 +1336,36 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
     static unsafe int FastMixed(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
     {
-        ref var idRow = ref MemoryMarshal.GetReference(ids);
-        ref var positionRow = ref MemoryMarshal.GetReference(positions);
-        ref var effectRow = ref MemoryMarshal.GetReference(effects);
         var first = i;
-        var lastId = -1;
-        SlotView* slot = null;
-        float* table = null;
-        ref var nextRow = ref MemoryMarshal.GetReference(next);
-        i = (forward, next.IsEmpty) switch
+        while (i < limit)
         {
-            (true, true) => FastMixedRows<ForwardRows, PlainRows>(ref idRow, ref positionRow, ref nextRow, ref effectRow, views, i, limit),
-            (true, false) => FastMixedRows<ForwardRows, FusedRows>(ref idRow, ref positionRow, ref nextRow, ref effectRow, views, i, limit),
-            (false, true) => FastMixedRows<BackwardRows, PlainRows>(ref idRow, ref positionRow, ref nextRow, ref effectRow, views, i, limit),
-            _ => FastMixedRows<BackwardRows, FusedRows>(ref idRow, ref positionRow, ref nextRow, ref effectRow, views, i, limit),
-        };
-        if (i == limit || (i != first && LongRunAt(ids, i, limit))) return i;
-        var hasNext = !next.IsEmpty;
-        ushort duration = 0;
-        var looping = false;
-        for (; i < limit; i++)
-        {
-            var id = Unsafe.Add(ref idRow, (nuint)i);
-            if (id != lastId)
+            if (i != first && LongRunAt(ids, i, limit)) return i;
+            i = (forward, next.IsEmpty) switch
             {
-                if (i != first && LongRunAt(ids, i, limit)) return i;
-                lastId = id;
-                slot = views[id];
-                duration = slot->Duration;
-                looping = slot->Looping != 0;
-                table = forward ? slot->Forward : slot->Backward;
-            }
-            var p = Unsafe.Add(ref positionRow, (nuint)i);
-            if (forward)
-            {
-                Unsafe.Add(ref effectRow, (nuint)i) += table != null ? table[p] : LaneEncoding.Value(slot, 0, true, p);
-                if (hasNext) next[i] = p < duration ? LaneMovement.ForwardNext(p, duration, looping) : SlotView.Skipped;
-            }
-            else if (LaneMovement.BackwardPlayable(p, duration, looping))
-            {
-                var tick = LaneEncoding.BackwardTick(p, duration);
-                Unsafe.Add(ref effectRow, (nuint)i) += table != null ? table[tick] : LaneEncoding.Value(slot, 0, false, tick);
-                if (hasNext) next[i] = LaneMovement.BackwardNext(p, duration);
-            }
-            else if (hasNext) next[i] = p;
+                (true, true) => MixedRows<ForwardRows, PlainRows>(ids, positions, next, effects, views, i, limit),
+                (true, false) => MixedRows<ForwardRows, FusedRows>(ids, positions, next, effects, views, i, limit),
+                (false, true) => MixedRows<BackwardRows, PlainRows>(ids, positions, next, effects, views, i, limit),
+                _ => MixedRows<BackwardRows, FusedRows>(ids, positions, next, effects, views, i, limit),
+            };
+            if (i == limit || (i != first && LongRunAt(ids, i, limit))) return i;
+            i = ApplyMixed(forward, ids, positions, next, effects, views, i, LaneOps.RunEnd(ids, i, limit));
         }
         return limit;
+    }
+
+    static unsafe int MixedRows<TWalk, TNext>(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
+        where TWalk : struct, IRowWalk
+        where TNext : struct, IRowNext
+    {
+        if (Avx2.IsSupported)
+        {
+            var start = i;
+            fixed (ushort* idPin = ids, positionPin = positions, nextPin = next)
+            fixed (float* effectPin = effects)
+                i = GatherRows<TWalk, TNext>(idPin, positionPin, nextPin, effectPin, views, i, limit);
+            if (i != start && LongRunAt(ids, i, limit)) return i;
+        }
+        return FastMixedRows<TWalk, TNext>(ref MemoryMarshal.GetReference(ids), ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next), ref MemoryMarshal.GetReference(effects), views, i, limit);
     }
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     static bool ShortRuns(ReadOnlySpan<ushort> positions, int start, int end)
