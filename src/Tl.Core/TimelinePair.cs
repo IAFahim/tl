@@ -317,8 +317,8 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			if (consumers[e].Keys != null)
 			{
 				if (consumers[e].Keys(keys, meta) == 0) continue;
-				if (NonFloatLane(keys[0]))
-					throw new ArgumentException($"{Head} fold lane 0 holds an integer or double Fold result; play it through ApplyChunk or Apply<TIndex, TPosition, TEffect> with that result type.");
+				if ((meta[0] & 0x8F) != 4 || NonFloatLane(keys[0]))
+					throw new ArgumentException($"{Head} fold lane 0 holds an integer, double, or non-4-byte Fold result; play it through ApplyChunk or Apply<TIndex, TPosition, TEffect> with that result type.");
 			}
 			bank._floatLaneProven = true;
 			return;
@@ -327,9 +327,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	}
 
 	static bool NonFloatLane(ulong key)
-		=> key == TypeKey<int>.Value || key == TypeKey<uint>.Value || key == TypeKey<short>.Value || key == TypeKey<ushort>.Value
-			|| key == TypeKey<byte>.Value || key == TypeKey<sbyte>.Value || key == TypeKey<long>.Value || key == TypeKey<ulong>.Value
-			|| key == TypeKey<bool>.Value || key == TypeKey<char>.Value || key == TypeKey<double>.Value;
+		=> key == TypeKey<int>.Value || key == TypeKey<uint>.Value;
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	static bool IntegerEffect<TEffect>() => typeof(TEffect) == typeof(int) || typeof(TEffect) == typeof(uint) || typeof(TEffect).IsEnum;

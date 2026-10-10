@@ -239,7 +239,7 @@ public sealed class ConsumerPlaybackTests
     {
         var result = Driver("FoldLaneGuard");
 
-        Assert.Equal("7,70000010#7,70000013#integer-lane#no-lane#10", result);
+        Assert.Equal("7,70000010|70000010|-2,1,70000001|Low,High#7,70000013#integer-lane#no-lane#10", result);
     }
 
     [Fact]
@@ -867,6 +867,13 @@ public sealed class ConsumerPlaybackTests
             public static void Fold(in Frame<KindTrack, KindClip> frame, out int kind) => kind = frame.Direction * frame.Clip.Kind;
         }
 
+        public enum KindTag { None, Low, High }
+
+        public readonly struct KindTagFold : ITrack<KindTrack, KindClip>
+        {
+            public static void Fold(in Frame<KindTrack, KindClip> frame, out KindTag tag) => tag = frame.Clip.Kind < 0 ? KindTag.Low : KindTag.High;
+        }
+
         public readonly record struct SweepClip(int Height);
 
         public readonly record struct SweepTrack(float Scale) : IBlend<SweepClip>
@@ -996,10 +1003,19 @@ public sealed class ConsumerPlaybackTests
                 var typed = counts[0] + "," + counts[1];
                 Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply<ushort, ushort, int>(ids, clocks, false, counts);
                 var rewound = counts[0] + "," + counts[1];
+                var single = 10;
+                Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply(in ids[1], in clocks[1], true, ref single);
+                var rowCells = new int[] { 1, 1, 1 };
+                var rowIds = new ushort[] { kind.Index, kind.Index, kind.Index };
+                var rowClocks = new ushort[] { 0, 3, 2 };
+                Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply(new[] { 2, 0 }, rowIds, rowClocks, true, rowCells);
+                var tags = new[] { TlComposeShape.KindTag.None, TlComposeShape.KindTag.None };
+                Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply<ushort, ushort, TlComposeShape.KindTag>(ids, clocks, true, tags);
+                typed += "|" + single + "|" + string.Join(",", rowCells) + "|" + string.Join(",", tags);
                 string Throws(Action play)
                 {
                     try { play(); return "silent"; }
-                    catch (ArgumentException exception) { return exception.Message.Contains("no Fold lane") ? "no-lane" : exception.Message.Contains("integer or double") ? "integer-lane" : exception.Message; }
+                    catch (ArgumentException exception) { return exception.Message.Contains("no Fold lane") ? "no-lane" : exception.Message.Contains("integer, double") ? "integer-lane" : exception.Message; }
                 }
                 var floatOverInteger = Throws(() => Timeline<TlComposeShape.KindTrack, TlComposeShape.KindClip>.Apply(new[] { kind.Index }, new ushort[1], true, new float[1]));
                 var liveOnly = Throws(() => Timeline<TlComposeShape.FreeTrack, TlComposeShape.FreeClip>.Apply(new[] { free.Index }, new ushort[1], true, new float[1]));

@@ -76,7 +76,7 @@ public sealed class ConsumerAbiTests
         private static int Keys_QuadJob(ulong* __tlKeys, byte* __tlMeta)
         {
         if (__tlKeys != null) { __tlKeys[0] = global::Tl.TypeKey<float>.Value; __tlMeta[0] = 20; }
-        if (__tlKeys != null) { __tlKeys[1] = global::Tl.TypeKey<int>.Value; __tlMeta[1] = 20; }
+        if (__tlKeys != null) { __tlKeys[1] = global::Tl.TypeKey<int>.Value; __tlMeta[1] = 148; }
         return 2;
         }
         private static void ExecuteActive_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
