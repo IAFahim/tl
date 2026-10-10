@@ -114,54 +114,63 @@ public static class Timeline
     }
 
     public static void Bake(ushort timeline)
-        => Dispatch(timeline, [], []);
+        => Dispatch(timeline, [], ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void Bake<T0>(ushort timeline, in T0 argument0)
         where T0 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value], [Addr(argument0)]);
+        => Dispatch(timeline, [TypeKey<T0>.Value], ref Ref(in argument0), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void Bake<T0, T1>(ushort timeline, in T0 argument0, in T1 argument1)
         where T0 : allows ref struct
         where T1 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value], [Addr(argument0), Addr(argument1)]);
+        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void Bake<T0, T1, T2>(ushort timeline, in T0 argument0, in T1 argument1, in T2 argument2)
         where T0 : allows ref struct
         where T1 : allows ref struct
         where T2 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value], [Addr(argument0), Addr(argument1), Addr(argument2)]);
+        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Unsafe.NullRef<byte>());
 
     public static void Bake<T0, T1, T2, T3>(ushort timeline, in T0 argument0, in T1 argument1, in T2 argument2, in T3 argument3)
         where T0 : allows ref struct
         where T1 : allows ref struct
         where T2 : allows ref struct
         where T3 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value, TypeKey<T3>.Value], [Addr(argument0), Addr(argument1), Addr(argument2), Addr(argument3)]);
+        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value, TypeKey<T3>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Ref(in argument3));
 
     public static void BakeRef<T0>(ushort timeline, ref T0 argument0)
         where T0 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value], [Addr(argument0)]);
+        => Dispatch(timeline, [TypeKey<T0>.Value], ref Ref(in argument0), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void BakeRef<T0, T1>(ushort timeline, in T0 argument0, ref T1 argument1)
         where T0 : allows ref struct
         where T1 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value], [Addr(argument0), Addr(argument1)]);
+        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void BakeRef<T0, T1, T2>(ushort timeline, in T0 argument0, in T1 argument1, ref T2 argument2)
         where T0 : allows ref struct
         where T1 : allows ref struct
         where T2 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value], [Addr(argument0), Addr(argument1), Addr(argument2)]);
+        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Unsafe.NullRef<byte>());
 
     public static void BakeRef<T0, T1, T2, T3>(ushort timeline, in T0 argument0, in T1 argument1, in T2 argument2, ref T3 argument3)
         where T0 : allows ref struct
         where T1 : allows ref struct
         where T2 : allows ref struct
         where T3 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value, TypeKey<T3>.Value], [Addr(argument0), Addr(argument1), Addr(argument2), Addr(argument3)]);
+        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value, TypeKey<T3>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Ref(in argument3));
 
-    static unsafe nint Addr<T>(scoped in T argument) where T : allows ref struct
-        => (nint)Unsafe.AsPointer(ref Unsafe.AsRef(in argument));
+    static ref byte Ref<T>(in T argument) where T : allows ref struct
+        => ref Unsafe.As<T, byte>(ref Unsafe.AsRef(in argument));
+
+    static unsafe void Dispatch(ushort timeline, ReadOnlySpan<ulong> present, ref byte argument0, ref byte argument1, ref byte argument2, ref byte argument3)
+    {
+        fixed (byte* pinned0 = &argument0, pinned1 = &argument1, pinned2 = &argument2, pinned3 = &argument3)
+        {
+            Span<IntPtr> arguments = [(IntPtr)pinned0, (IntPtr)pinned1, (IntPtr)pinned2, (IntPtr)pinned3];
+            Dispatch(timeline, present, arguments[..present.Length]);
+        }
+    }
 
     static unsafe void Dispatch(ushort timeline, ReadOnlySpan<ulong> present, ReadOnlySpan<IntPtr> arguments)
     {

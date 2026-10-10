@@ -243,6 +243,14 @@ public sealed class ConsumerPlaybackTests
     }
 
     [Fact]
+    public void BakeRefArgumentsStayPinnedWhenAnEarlierBakeCompacts()
+    {
+        var result = Driver("CompactedMidBake");
+
+        Assert.Equal("11,11,11,11", result);
+    }
+
+    [Fact]
     public void ColumnSetColumnsSurviveACompactingCollectionBeforeApply()
     {
         var result = Driver("Compacted");
@@ -881,6 +889,24 @@ public sealed class ConsumerPlaybackTests
             public void Blend(in SweepClip first, in SweepClip second, float factor, out SweepClip result) => result = first;
         }
 
+        public readonly struct SweepBakeOnce : IBake<SweepMidApply>
+        {
+            public static void Bake(ref int hits)
+            {
+                global::System.GC.Collect(2, global::System.GCCollectionMode.Forced, true, true);
+                hits += 1;
+            }
+        }
+
+        public readonly struct SweepBakeTen : IBake<SweepMidApply>
+        {
+            public static void Bake(ref int hits)
+            {
+                global::System.GC.Collect(2, global::System.GCCollectionMode.Forced, true, true);
+                hits += 10;
+            }
+        }
+
         public readonly struct SweepMidApply : ITrack<SweepTrack, SweepClip>
         {
             public static void ExecuteActive(in Frame<SweepTrack, SweepClip> frame, ref float y, in int multiplier)
@@ -1048,6 +1074,25 @@ public sealed class ConsumerPlaybackTests
                     results.Add(F(y[0]) + "," + F(y[1]));
                 }
                 return string.Join("#", results.Distinct());
+            }
+
+            public static string CompactedMidBake()
+            {
+                using var sweep = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<TlComposeShape.SweepTrack, TlComposeShape.SweepClip>(new TlComposeShape.SweepTrack(1f))
+                    .Clip(0, 0u, 3u, new TlComposeShape.SweepClip(5))
+                    .Bake()));
+                var results = new List<int>();
+                for (var trial = 0; trial < 4; trial++)
+                {
+                    var garbage = new List<byte[]>();
+                    for (var k = 0; k < 512; k++) garbage.Add(new byte[256]);
+                    var hits = new int[4];
+                    garbage = null;
+                    Timeline.BakeRef(sweep.Index, ref hits[2]);
+                    results.Add(hits[2]);
+                }
+                return string.Join(",", results);
             }
 
             public static string CompactedMidApply()
