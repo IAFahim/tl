@@ -416,7 +416,7 @@ player.Add(power);
 Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, in player);
 ```
 
-Results of 8 bytes (`long`, `ulong`, `double`, wide enums) fold the same way — the lane is an adjacent pair, the read reassembles the exact bits, and `double` stays IEEE-additive across rewind. Distinct gameplay column types compose through the same `ColumnSet`, assembled once per system run and reused across calls:
+Results of 8 bytes (`long`, `ulong`, `double`, wide enums) fold the same way — the lane is an adjacent pair, the read reassembles the exact bits, and `double` stays IEEE-additive across rewind. Distinct gameplay column types compose through the same `ColumnSet`, assembled once per system run and reused across calls. The set holds GC-tracked references to its columns and pins them only for the duration of each `Apply`, so a compacting collection between assembly and play — or one triggered inside a consumer — never strands a write (issue #437); a `stackalloc` column therefore needs a `scoped ColumnSet`, which the compiler enforces:
 
 ```cs
 var caller = new ColumnSet();

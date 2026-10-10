@@ -103,7 +103,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		{
 			if (pairs[steps[i].Pair].Key != key)
 				continue;
-			frame = SlotRow.ToFrame<TTrack, TClip>((SlotRow*)(block + steps[i].Slot), (byte*)(pairs + steps[i].Pair), tick, flags, (TClip*)Unsafe.AsPointer(ref scratch));
+			frame = SlotRow.ToFrame<TTrack, TClip>((SlotRow*)(block + steps[i].Slot), (byte*)(pairs + steps[i].Pair), tick, flags, ref scratch);
 			return true;
 		}
 		return false;
@@ -312,8 +312,23 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		for (var s = 0; s < caller.Count; s++)
 			if (caller.LengthAt(s) != clocks.Length)
 				ThrowColumnRowMismatch(s, caller.LengthAt(s), clocks.Length);
-		ColumnSet.Pointers(in caller, out var setKeys, out var setCells);
-		ApplyLive(ids, clocks, forward, 0, null, 0, null, setKeys, setCells, caller.Count);
+		var setKeys = ColumnSet.Keys(in caller);
+		var setCells = stackalloc ulong[caller.Count];
+		ApplyPinned(ids, clocks, forward, in caller, setKeys, setCells, 0);
+	}
+
+	static void ApplyPinned(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> clocks, bool forward, scoped in ColumnSet caller, ulong* setKeys, ulong* setCells, int pinned)
+	{
+		if (pinned == caller.Count)
+		{
+			ApplyLive(ids, clocks, forward, 0, null, 0, null, setKeys, setCells, caller.Count);
+			return;
+		}
+		fixed (byte* cell = caller.Column(pinned))
+		{
+			setCells[pinned] = (ulong)cell;
+			ApplyPinned(ids, clocks, forward, in caller, setKeys, setCells, pinned + 1);
+		}
 	}
 
 	[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
@@ -611,11 +626,64 @@ public unsafe ref struct ColumnSet
 	private const int Capacity = 64;
 	internal int Count;
 	private Storage _storage;
+	private Octet _o0, _o1, _o2, _o3, _o4, _o5, _o6, _o7;
 	private struct Storage
 	{
 		internal fixed ulong Keys[Capacity];
-		internal fixed ulong Cells[Capacity];
 		internal fixed int Lengths[Capacity];
+		internal fixed int Bytes[Capacity];
+	}
+
+	private ref struct Octet
+	{
+		private ref byte _c0, _c1, _c2, _c3, _c4, _c5, _c6, _c7;
+
+		internal void Set(int slot, Span<byte> span)
+		{
+			ref var column = ref MemoryMarshal.GetReference(span);
+			switch (slot)
+			{
+				case 0: _c0 = ref column; break;
+				case 1: _c1 = ref column; break;
+				case 2: _c2 = ref column; break;
+				case 3: _c3 = ref column; break;
+				case 4: _c4 = ref column; break;
+				case 5: _c5 = ref column; break;
+				case 6: _c6 = ref column; break;
+				default: _c7 = ref column; break;
+			}
+		}
+
+		internal readonly ref byte Get(int slot)
+		{
+			switch (slot)
+			{
+				case 0: return ref _c0;
+				case 1: return ref _c1;
+				case 2: return ref _c2;
+				case 3: return ref _c3;
+				case 4: return ref _c4;
+				case 5: return ref _c5;
+				case 6: return ref _c6;
+				default: return ref _c7;
+			}
+		}
+	}
+
+	[UnscopedRef]
+	private ref Octet OctetOf(int slot)
+	{
+		switch (slot >> 3)
+		{
+			case 0: return ref _o0;
+			case 1: return ref _o1;
+			case 2: return ref _o2;
+			case 3: return ref _o3;
+			case 4: return ref _o4;
+			case 5: return ref _o5;
+			case 6: return ref _o6;
+			default: return ref _o7;
+		}
 	}
 
 	public void Add<T>(ReadOnlySpan<T> column) where T : unmanaged
@@ -625,20 +693,22 @@ public unsafe ref struct ColumnSet
 			if (_storage.Keys[i] == key) ThrowDuplicate<T>();
 		if (Count >= Capacity) ThrowFull();
 		_storage.Keys[Count] = key;
-		_storage.Cells[Count] = (ulong)Unsafe.AsPointer(ref MemoryMarshal.GetReference(column));
+		var bytes = MemoryMarshal.CreateSpan(ref Unsafe.As<T, byte>(ref MemoryMarshal.GetReference(column)), column.Length * sizeof(T));
+		OctetOf(Count).Set(Count & 7, bytes);
 		_storage.Lengths[Count] = column.Length;
+		_storage.Bytes[Count] = bytes.Length;
 		Count++;
 	}
 
 	internal int LengthAt(int slot) => _storage.Lengths[slot];
 
-	internal static void Pointers(in ColumnSet set, out ulong* keys, out ulong* cells)
+	[UnscopedRef]
+	internal Span<byte> Column(int slot) => MemoryMarshal.CreateSpan(ref OctetOf(slot).Get(slot & 7), _storage.Bytes[slot]);
+
+	internal static ulong* Keys(in ColumnSet set)
 	{
-		fixed (ulong* k = set._storage.Keys, c = set._storage.Cells)
-		{
-			keys = k;
-			cells = c;
-		}
+		fixed (ulong* keys = set._storage.Keys)
+			return keys;
 	}
 
 	[DoesNotReturn]

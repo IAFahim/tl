@@ -63,25 +63,25 @@ struct NativeStep { public uint Slot, Pair; }
 	public uint FactorSpan;
 
 	[SuppressMessage("ReSharper", "RedundantUnsafeContext")]
-	internal static unsafe Frame<TTrack, TClip> ToFrame<TTrack, TClip>(SlotRow* row, byte* pair, ushort tick, FrameFlags flags, TClip* scratch)
+	internal static unsafe Frame<TTrack, TClip> ToFrame<TTrack, TClip>(SlotRow* row, byte* pair, ushort tick, FrameFlags flags, ref TClip scratch)
 		where TTrack : unmanaged, IBlend<TClip>
 		where TClip : unmanaged
 	{
 		var pools = (NativePair*)pair;
 		ref var track = ref *(TTrack*)(pair + pools->TrackPoolOffset + row->TrackValueIndex * (nuint)sizeof(TTrack));
 		var clipPool = pair + pools->ClipPoolOffset;
-		if (row->FactorSpan == 0) *scratch = *(TClip*)(clipPool + row->FirstValueIndex * (nuint)sizeof(TClip));
+		if (row->FactorSpan == 0) scratch = *(TClip*)(clipPool + row->FirstValueIndex * (nuint)sizeof(TClip));
 		else
 		{
 			var factor = row->FactorSpan <= 1 ? 0.5f : (tick - row->FactorStart) / (float)(row->FactorSpan - 1);
 			var first = *(TClip*)(clipPool + row->FirstValueIndex * (nuint)sizeof(TClip));
 			var second = *(TClip*)(clipPool + row->SecondValueIndex * (nuint)sizeof(TClip));
 			track.Blend(in first, in second, factor, out var blended);
-			*scratch = blended;
+			scratch = blended;
 		}
 		if (tick == row->WindowStart) flags |= FrameFlags.ClipStart;
 		if (tick == row->WindowEnd - 1) flags |= FrameFlags.ClipEnd;
-		return new Frame<TTrack, TClip>(in track, in *scratch, tick, (ushort)(row->WindowEnd - row->WindowStart), (ushort)(tick - row->WindowStart), row->TrackIndex, flags);
+		return new Frame<TTrack, TClip>(in track, in scratch, tick, (ushort)(row->WindowEnd - row->WindowStart), (ushort)(tick - row->WindowStart), row->TrackIndex, flags);
 	}
 }
 public readonly unsafe struct TimelineRef
@@ -331,10 +331,10 @@ public readonly unsafe struct TickFrame
     }
 
     public Frame<TTrack, TClip> ToFrame<TTrack, TClip>(ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
-        => SlotRow.ToFrame<TTrack, TClip>((SlotRow*)Slot, (byte*)Pair, TimelineTick, Flags, (TClip*)Unsafe.AsPointer(ref scratch));
+        => SlotRow.ToFrame<TTrack, TClip>((SlotRow*)Slot, (byte*)Pair, TimelineTick, Flags, ref scratch);
 
     public static Frame<TTrack, TClip> ToFrame<TTrack, TClip>(void* slot, void* pair, ushort tick, FrameFlags flags, ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
-        => SlotRow.ToFrame<TTrack, TClip>((SlotRow*)slot, (byte*)pair, tick, flags, (TClip*)Unsafe.AsPointer(ref scratch));
+        => SlotRow.ToFrame<TTrack, TClip>((SlotRow*)slot, (byte*)pair, tick, flags, ref scratch);
 }
 
 	static unsafe class PairTable
@@ -646,7 +646,7 @@ public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBl
 			if (pairs[step.Pair].Key == PairRuntime<TTrack, TClip>.Key)
 			{
 				var pair = (byte*)(pairs + step.Pair);
-				_current = SlotRow.ToFrame<TTrack, TClip>((SlotRow*)(block + step.Slot), pair, _tick, FrameFlags.None, (TClip*)Unsafe.AsPointer(ref _scratch));
+				_current = SlotRow.ToFrame<TTrack, TClip>((SlotRow*)(block + step.Slot), pair, _tick, FrameFlags.None, ref *(TClip*)Unsafe.AsPointer(ref _scratch));
 				return true;
 			}
 		} while (_count > 0);
