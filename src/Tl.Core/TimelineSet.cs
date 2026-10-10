@@ -944,6 +944,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     const int Chunk = 4096;
     const int MinSegment = 128;
     const int VectorRows = 16;
+    const int ShortRunRows = 64;
 
     readonly TimelineSet<TTrack, TClip> _set;
     readonly ReadOnlySpan<ushort> _ids;
@@ -1209,13 +1210,39 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 var end = LaneOps.RunEnd(ids, i, limit);
                 if (end - i >= VectorRows)
                 {
-                    i = ApplyUniformSegment(views[ids[i]], positions, next, effects, i, end, forward, true);
+                    var run = views[ids[i]];
+                    var flat = forward ? run->Forward : run->Backward;
+                    if (next.IsEmpty && end - i < ShortRunRows && flat != null)
+                    {
+                        ref var positionRow = ref MemoryMarshal.GetReference(positions);
+                        ref var effectRow = ref MemoryMarshal.GetReference(effects);
+                        i = forward
+                            ? ShortUniform<ForwardRows>(flat, run->Duration, run->Looping != 0, ref positionRow, ref effectRow, i, end)
+                            : ShortUniform<BackwardRows>(flat, run->Duration, run->Looping != 0, ref positionRow, ref effectRow, i, end);
+                        continue;
+                    }
+                    i = ApplyUniformSegment(run, positions, next, effects, i, end, forward, true);
                     continue;
                 }
             }
             i = FastMixed(forward, ids, positions, next, effects, views, i, limit);
         }
         return limit;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    static unsafe int ShortUniform<TWalk>(float* table, ushort duration, bool looping, ref ushort positionRow, ref float effectRow, int i, int end)
+        where TWalk : struct, IRowWalk
+    {
+        for (; i < end; i++)
+        {
+            var p = Unsafe.Add(ref positionRow, (nuint)i);
+            if (TWalk.Forward)
+                Unsafe.Add(ref effectRow, (nuint)i) += table[p];
+            else if (LaneMovement.BackwardPlayable(p, duration, looping))
+                Unsafe.Add(ref effectRow, (nuint)i) += table[LaneEncoding.BackwardTick(p, duration)];
+        }
+        return end;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
