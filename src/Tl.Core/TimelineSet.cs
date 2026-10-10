@@ -101,7 +101,9 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private byte* _absent;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private uint* _motion;
+    internal uint* _motion;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    internal float** _tables;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private SlotView** _shared;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -119,6 +121,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private nuint _motionCapacity;
+    private nuint _tablesCapacity;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -250,12 +253,15 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             void* views = _views;
             void* absent = _absent;
             void* motion = _motion;
+            void* tables = _tables;
+            Ensure(ref tables, ref _tablesCapacity, 2 * (nuint)sizeof(float*), (nuint)index + 1);
             Ensure(ref views, ref _viewCapacity, (nuint)sizeof(SlotView*), (nuint)index + 1);
             Ensure(ref absent, ref _absentCapacity, 1, (nuint)index + 1);
             Ensure(ref motion, ref _motionCapacity, sizeof(uint), (nuint)index + 1);
             _views = (SlotView**)views;
             _absent = (byte*)absent;
             _motion = (uint*)motion;
+            _tables = (float**)tables;
             var plan = LaneBlockPlan.Plan(measured, ticks);
             var hash = HashPlan(plan, duration, looping, ticks, measured);
             EnsureShared((nuint)(_sharedUsed + 1));
@@ -273,6 +279,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             }
             _absent[index] = 0;
             _motion[index] = duration | (looping ? 0x80000000u : 0u);
+            _tables[2 * (nuint)index] = view->Forward;
+            _tables[2 * (nuint)index + 1] = view->Backward;
             Volatile.Write(ref *(long*)(_views + index), (long)view);
             if (index >= _count)
             {
@@ -846,6 +854,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             if (_views != null) NativeMemory.AlignedFree(_views);
             if (_absent != null) NativeMemory.AlignedFree(_absent);
             if (_motion != null) NativeMemory.AlignedFree(_motion);
+            if (_tables != null) NativeMemory.AlignedFree(_tables);
             if (shared != null) NativeMemory.AlignedFree(shared);
             if (_sharedHashes != null) NativeMemory.AlignedFree(_sharedHashes);
             var node = _retired;
@@ -1022,7 +1031,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                     }
                 if (FastMixedChunk(ids, positions, i, chunkEnd, bound, minDuration))
                 {
-                    i = MixedVector(forward, ids, positions, next, effects, views, i, chunkEnd);
+                    i = MixedVector(forward, ids, positions, next, effects, views, set._tables, set._motion, i, chunkEnd);
                     continue;
                 }
                 if (ValidateChunk(ids, i, chunkEnd, set, bound))
@@ -1201,7 +1210,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int MixedVector(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
+    static unsafe int MixedVector(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, float** tables, uint* motion, int i, int limit)
     {
         while (i < limit)
         {
@@ -1226,19 +1235,18 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                     continue;
                 }
             }
-            i = FastMixed(forward, ids, positions, next, effects, views, i, limit);
+            i = FastMixed(forward, ids, positions, next, effects, views, tables, motion, i, limit);
         }
         return limit;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int GatherRows<TWalk, TNext>(ushort* ids, ushort* positions, ushort* next, float* effects, SlotView** views, int i, int limit)
+    static unsafe int GatherRows<TWalk, TNext>(ushort* ids, ushort* positions, ushort* next, float* effects, float** tables, uint* motion, int i, int limit)
         where TWalk : struct, IRowWalk
         where TNext : struct, IRowNext
     {
         var first = i;
-        var table = (long*)(TWalk.Forward ? 24 : 32);
-        var motion = (int*)48;
+        var table = (long*)tables + (TWalk.Forward ? 0 : 1);
         for (; i + VectorRows + 8 <= limit; i += 8)
         {
             var id = Vector128.Load(ids + i);
@@ -1247,10 +1255,9 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
             if (i == first) starts &= Vector128.Create((ushort)0, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF);
             if (starts != Vector128<ushort>.Zero) return i;
             var row = Avx2.ConvertToVector256Int32(id);
-            var view0 = Avx2.GatherVector256((long*)views, row.GetLower(), 8);
-            var view1 = Avx2.GatherVector256((long*)views, row.GetUpper(), 8);
-            var base0 = Avx2.GatherVector256(table, view0, 1);
-            var base1 = Avx2.GatherVector256(table, view1, 1);
+            var pair = row << 1;
+            var base0 = Avx2.GatherVector256(table, pair.GetLower(), 8);
+            var base1 = Avx2.GatherVector256(table, pair.GetUpper(), 8);
             if ((Vector256.Equals(base0, Vector256<long>.Zero) | Vector256.Equals(base1, Vector256<long>.Zero)) != Vector256<long>.Zero) return i;
             var position = Avx2.ConvertToVector256Int32(Vector128.Load(positions + i));
             var tick = position;
@@ -1259,19 +1266,23 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
             var duration = Vector256<int>.Zero;
             if (!TWalk.Forward || TNext.Fused)
             {
-                var word = Vector256.Create(Avx2.GatherVector128(motion, view0, 1), Avx2.GatherVector128(motion, view1, 1));
+                var word = Avx2.GatherVector256((int*)motion, row, 4);
                 duration = word & Vector256.Create(0xFFFF);
-                looping = ~Vector256.Equals(word >>> 16, Vector256<int>.Zero);
+                looping = Vector256.LessThan(word, Vector256<int>.Zero);
             }
+            var origin = Vector256<int>.Zero;
             if (!TWalk.Forward)
             {
-                var origin = Vector256.Equals(position, Vector256<int>.Zero);
-                tick = Vector256.ConditionalSelect(origin, duration - Vector256<int>.One, position - Vector256<int>.One);
+                origin = Vector256.Equals(position, Vector256<int>.Zero);
+                tick = position - Vector256<int>.One;
                 playable = Vector256.ConditionalSelect(looping, Vector256.LessThan(position, duration), ~origin & ~Vector256.GreaterThan(position, duration));
             }
-            var address0 = base0 + (Avx2.ConvertToVector256Int64(tick.GetLower()) << 2);
-            var address1 = base1 + (Avx2.ConvertToVector256Int64(tick.GetUpper()) << 2);
-            var value = Vector256.Create(Avx2.GatherVector128((float*)null, address0, 1), Avx2.GatherVector128((float*)null, address1, 1));
+            var value = Gather(base0, base1, tick);
+            if (!TWalk.Forward && origin != Vector256<int>.Zero)
+            {
+                tick = Vector256.ConditionalSelect(origin, duration - Vector256<int>.One, tick);
+                value = Vector256.ConditionalSelect(origin.AsSingle(), Gather(base0, base1, tick), value);
+            }
             var effect = Vector256.Load(effects + i);
             var sum = effect + value;
             if (!TWalk.Forward) sum = Vector256.ConditionalSelect(playable.AsSingle(), sum, effect);
@@ -1290,6 +1301,12 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         }
         return i;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static unsafe Vector256<float> Gather(Vector256<long> base0, Vector256<long> base1, Vector256<int> tick)
+        => Vector256.Create(
+            Avx2.GatherVector128((float*)null, base0 + (Avx2.ConvertToVector256Int64(tick.GetLower()) << 2), 1),
+            Avx2.GatherVector128((float*)null, base1 + (Avx2.ConvertToVector256Int64(tick.GetUpper()) << 2), 1));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static bool LongRunAt(ReadOnlySpan<ushort> ids, int at, int limit)
@@ -1334,7 +1351,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     }
 
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
-    static unsafe int FastMixed(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
+    static unsafe int FastMixed(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, float** tables, uint* motion, int i, int limit)
     {
         var first = i;
         while (i < limit)
@@ -1342,10 +1359,10 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
             if (i != first && LongRunAt(ids, i, limit)) return i;
             i = (forward, next.IsEmpty) switch
             {
-                (true, true) => MixedRows<ForwardRows, PlainRows>(ids, positions, next, effects, views, i, limit),
-                (true, false) => MixedRows<ForwardRows, FusedRows>(ids, positions, next, effects, views, i, limit),
-                (false, true) => MixedRows<BackwardRows, PlainRows>(ids, positions, next, effects, views, i, limit),
-                _ => MixedRows<BackwardRows, FusedRows>(ids, positions, next, effects, views, i, limit),
+                (true, true) => MixedRows<ForwardRows, PlainRows>(ids, positions, next, effects, views, tables, motion, i, limit),
+                (true, false) => MixedRows<ForwardRows, FusedRows>(ids, positions, next, effects, views, tables, motion, i, limit),
+                (false, true) => MixedRows<BackwardRows, PlainRows>(ids, positions, next, effects, views, tables, motion, i, limit),
+                _ => MixedRows<BackwardRows, FusedRows>(ids, positions, next, effects, views, tables, motion, i, limit),
             };
             if (i == limit || (i != first && LongRunAt(ids, i, limit))) return i;
             i = ApplyMixed(forward, ids, positions, next, effects, views, i, LaneOps.RunEnd(ids, i, limit));
@@ -1353,7 +1370,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return limit;
     }
 
-    static unsafe int MixedRows<TWalk, TNext>(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
+    static unsafe int MixedRows<TWalk, TNext>(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, float** tables, uint* motion, int i, int limit)
         where TWalk : struct, IRowWalk
         where TNext : struct, IRowNext
     {
@@ -1362,7 +1379,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
             var start = i;
             fixed (ushort* idPin = ids, positionPin = positions, nextPin = next)
             fixed (float* effectPin = effects)
-                i = GatherRows<TWalk, TNext>(idPin, positionPin, nextPin, effectPin, views, i, limit);
+                i = GatherRows<TWalk, TNext>(idPin, positionPin, nextPin, effectPin, tables, motion, i, limit);
             if (i != start && LongRunAt(ids, i, limit)) return i;
         }
         return FastMixedRows<TWalk, TNext>(ref MemoryMarshal.GetReference(ids), ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next), ref MemoryMarshal.GetReference(effects), views, i, limit);
