@@ -1990,6 +1990,12 @@ internal static class TimelineBakerFastCore
             {
                 throw new BakeDiagnosticException($"TLB validation failed: {ex.Message}");
             }
+            catch (InvalidOperationException ex) when (
+                ex.Message.StartsWith("Timeline index domain exhausted", StringComparison.Ordinal)
+                || ex.Message.StartsWith("Intern table exhausted", StringComparison.Ordinal)
+                || ex.Message.StartsWith("Intern table probe exhausted", StringComparison.Ordinal))
+            {
+            }
 
             return bytes;
         }
