@@ -55,16 +55,22 @@ internal sealed class SimdCursor
 
     internal static SimdCursor After(ulong[] structural, int blocks, int start, int end)
     {
+        var block = start >> 6;
+        if (block >= blocks)
+            return new(structural, blocks, end, blocks, 0);
         var bit = start & 63;
-        var rest = bit == 63 ? 0 : structural[start >> 6] & ~((2UL << bit) - 1);
-        return new(structural, blocks, end, start >> 6, rest);
+        var rest = bit == 63 ? 0 : structural[block] & ~((2UL << bit) - 1);
+        return new(structural, blocks, end, block, rest);
     }
 
     internal static SimdCursor From(ulong[] structural, int blocks, int start, int end)
     {
+        var block = start >> 6;
+        if (block >= blocks)
+            return new(structural, blocks, end, blocks, 0);
         var bit = start & 63;
-        var rest = structural[start >> 6] & ~((1UL << bit) - 1);
-        return new(structural, blocks, end, start >> 6, rest);
+        var rest = structural[block] & ~((1UL << bit) - 1);
+        return new(structural, blocks, end, block, rest);
     }
 
     internal int Peek()

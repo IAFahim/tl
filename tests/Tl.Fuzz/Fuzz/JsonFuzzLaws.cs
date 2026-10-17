@@ -91,6 +91,40 @@ public class JsonFuzzLaws
     }
 
     [Fact]
+    public void PartitionedTracksEndingOnTheFinalBlockStaysInContract()
+    {
+        const string track = """{"name":"t#","namespace":"FuzzDomain","type":"FuzzJsonTrack","data":{"Scale":1},"clips":[{"name":"c","namespace":"FuzzDomain","type":"FuzzJsonClip","start":0,"end":9,"data":{"Value":1}}]}""";
+        var document = new StringBuilder("""{"name":"tail","duration":9,"tracks":[""");
+        var openBracket = document.Length - 1;
+        for (var i = 0; i < 8; i++)
+        {
+            document.Append(track.Replace("#", i.ToString()));
+            document.Append(i < 7 ? ',' : ' ');
+        }
+        while (document.Length - openBracket < (1 << 20) + 64)
+            document.Append(' ');
+        while ((document.Length + 1) % 64 != 0)
+            document.Append(' ');
+        document.Append(']');
+        var previous = Environment.GetEnvironmentVariable("TL_BAKE_PARTITIONS");
+        Environment.SetEnvironmentVariable("TL_BAKE_PARTITIONS", "2");
+        try
+        {
+            try
+            {
+                BakeLaws.Bake(Encoding.UTF8.GetBytes(document.ToString()));
+            }
+            catch (Exception e) when (FuzzContract.IsBakeDiagnostic(e))
+            {
+            }
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("TL_BAKE_PARTITIONS", previous);
+        }
+    }
+
+    [Fact]
     public void InvalidUtf8IsRejectedWithALocatedOffset()
     {
         var valid = BakeLaws.Utf8(BakeLaws.Fixtures()[0]);
