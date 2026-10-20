@@ -37,14 +37,6 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
     public bool Looping { get; }
 
-    internal static MeasuredLanes Measure(TimelineAsset asset)
-    {
-        ArgumentNullException.ThrowIfNull(asset);
-        return Measure(asset.Reference);
-    }
-
-    static MeasuredLanes Measure(TimelineRef reference) => Measure(reference, 0);
-
     internal static MeasuredLanes Measure(TimelineRef reference, ulong pairKey)
     {
         if (reference.Address == 0) throw new ArgumentException("Timeline asset is not loaded.");
@@ -143,9 +135,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
     static int ResultLanes(TimelineRef reference, ulong pairKey, int* chains, byte* scratch, int laneBound)
     {
         var pairs = checked((int)reference.PairCount);
-        var span = new Span<int>(chains, pairs);
-        if (pairKey != 0) reference.Resolve(span, pairKey);
-        else reference.Resolve(span);
+        reference.Resolve(new Span<int>(chains, pairs), pairKey);
         return GatherLanes(chains, pairs, null, null, (ulong*)scratch, (int*)(scratch + 8 * laneBound), out _);
     }
 
@@ -178,7 +168,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         int* refreshSlots = (int*)(scratch + 9 * pointerBound);
         int* refreshColumns = refreshSlots + pointerBound;
         var refreshCount = 0;
-        PairTable.BindPair(reference, poolKeys, pools, indices, refreshSlots, refreshColumns, ref refreshCount);
+        PairTable.BindPair(reference, pairKey, poolKeys, pools, indices, refreshSlots, refreshColumns, ref refreshCount);
         for (var i = 0; i < refreshCount; i++) columns[refreshSlots[i]] = laneCell + poolLane[refreshColumns[i]] * 4;
         if (!PairTable.AnyWindowConstant)
         {

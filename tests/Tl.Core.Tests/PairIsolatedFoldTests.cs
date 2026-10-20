@@ -206,7 +206,7 @@ public unsafe class PairIsolatedFoldTests
             {
                 using var asset = TimelineAsset.LoadAsset(JumpOnlyBake(6f));
                 var view = Timeline<FoldJumpTrack, FoldJumpClip>.View(asset.Index);
-                using var measured = MeasuredLanes.Measure(asset);
+                using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<FoldJumpTrack, FoldJumpClip>.Key);
                 Assert.True(SameTables(&view, measured));
                 break;
             }
@@ -214,7 +214,7 @@ public unsafe class PairIsolatedFoldTests
             {
                 using var asset = TimelineAsset.LoadAsset(LoopingJumpOnlyBake(7f));
                 var view = Timeline<FoldJumpTrack, FoldJumpClip>.View(asset.Index);
-                using var measured = MeasuredLanes.Measure(asset);
+                using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<FoldJumpTrack, FoldJumpClip>.Key);
                 Assert.True(SameTables(&view, measured));
                 break;
             }
@@ -222,7 +222,7 @@ public unsafe class PairIsolatedFoldTests
             {
                 using var asset = TimelineAsset.LoadAsset(ChimeOnlyBake(1f));
                 var view = Timeline<FoldChimeTrack, FoldChimeClip>.View(asset.Index);
-                using var measured = MeasuredLanes.Measure(asset);
+                using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<FoldChimeTrack, FoldChimeClip>.Key);
                 Assert.True(SameTables(&view, measured));
                 break;
             }

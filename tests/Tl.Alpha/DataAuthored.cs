@@ -197,14 +197,16 @@ internal static class DataAuthoredReceipts
             .Looping()
             .Bake());
         BakedLane<DamageTrack, DamageClip>.Bind(asset);
+        BakedLane<HealTrack, HealClip>.Bind(asset);
 
         for (var tick = 0; tick < 8; tick++)
         {
             var amount = tick < 4 ? 8f : Blend(8f, 4f, (uint)tick, 4u, 4u);
             var damage = 2f * amount + (tick >= 2 ? 1f * 2f : 0f);
             var heal = 3f;
-            Require(BakedLane<DamageTrack, DamageClip>.Effect((ushort)tick) == heal - damage, $"folded effect at {tick}");
-            Require(BakedLane<DamageTrack, DamageClip>.InverseEffect((ushort)tick) == damage - heal, $"folded inverse at {tick}");
+            Require(BakedLane<DamageTrack, DamageClip>.Effect((ushort)tick) == -damage, $"folded effect at {tick}");
+            Require(BakedLane<DamageTrack, DamageClip>.InverseEffect((ushort)tick) == damage, $"folded inverse at {tick}");
+            Require(BakedLane<HealTrack, HealClip>.Effect((ushort)tick) == heal, $"folded heal at {tick}");
         }
     }
 

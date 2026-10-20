@@ -13,7 +13,7 @@ public static class PlayBake
     {
         var bytes = TimelineBaker.BakeJson(authoringJson);
         using var probe = TimelineAsset.LoadAsset(bytes);
-        using var measured = MeasuredLanes.Measure(probe);
+        using var measured = MeasuredLanes.Measure(probe.Reference, PairRuntime<ScaleTrack, AmountClip>.Key);
         return new BakeResult(bytes, measured.Duration, measured.Looping);
     }
 }

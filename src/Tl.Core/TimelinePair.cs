@@ -422,11 +422,11 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		var key = PairRuntime<TTrack, TClip>.Key;
 		var reverse = !forward;
 		var consumers = PairTable.ConsumerAt;
-		var entryBound = PairTable.ConsumerCount;
-		int* feedStart = stackalloc int[entryBound];
-		int* feedEnd = stackalloc int[entryBound];
-		Unsafe.InitBlock(feedStart, 0xFF, (uint)(entryBound * sizeof(int)));
-		Unsafe.InitBlock(feedEnd, 0xFF, (uint)(entryBound * sizeof(int)));
+		var pairCount = PairTable.ChainLength(PairTable.HeadOf(key));
+		int* feedStart = stackalloc int[pairCount];
+		int* feedEnd = stackalloc int[pairCount];
+		Unsafe.InitBlock(feedStart, 0xFF, (uint)(pairCount * sizeof(int)));
+		Unsafe.InitBlock(feedEnd, 0xFF, (uint)(pairCount * sizeof(int)));
 		int* chains = stackalloc int[256];
 		ulong* slotKeys = stackalloc ulong[PairTable.SlotRow];
 		byte* slotMeta = stackalloc byte[PairTable.SlotRow];
@@ -473,10 +473,10 @@ public static unsafe partial class Timeline<TTrack, TClip>
 				var outs = 0;
 				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
 				{
-					if (e >= entryBound || consumers[e].DispatchOnly != 0 || consumers[e].Keys == null) continue;
+					if (consumers[e].Ordinal >= pairCount || consumers[e].DispatchOnly != 0 || consumers[e].Keys == null) continue;
 					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
 					var own = 0;
-					feedStart[e] = outs;
+					feedStart[consumers[e].Ordinal] = outs;
 					for (var j = 0; j < n; j++)
 						if ((slotMeta[j] & 0x10) != 0)
 						{
@@ -484,14 +484,14 @@ public static unsafe partial class Timeline<TTrack, TClip>
 							outKey[outs] = slotKeys[j];
 							outLane[outs++] = consumers[e].OutLanes[own++];
 						}
-					feedEnd[e] = outs;
+					feedEnd[consumers[e].Ordinal] = outs;
 				}
 				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
 				{
 					if (consumers[e].DispatchOnly == 0 || consumers[e].Keys == null) continue;
 					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
 					if (consumers[e].Offset + n > columnBound) ThrowLiveFrame(columnBound);
-					var linked = consumers[e].Feed >= 0 && consumers[e].Feed < entryBound && feedStart[consumers[e].Feed] >= 0;
+					var linked = consumers[e].Feed >= 0 && consumers[e].Feed < pairCount && feedStart[consumers[e].Feed] >= 0;
 					var feed = linked ? feedStart[consumers[e].Feed] : 0;
 					var fedBound = linked ? feedEnd[consumers[e].Feed] : outs;
 					var seen = 0;

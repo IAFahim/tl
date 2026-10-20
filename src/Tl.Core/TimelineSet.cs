@@ -213,7 +213,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     {
         CheckAdd();
         LaneGuards.ValidatePair<TTrack, TClip>(asset);
-        using var measured = MeasuredLanes.Measure(asset);
+        using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<TTrack, TClip>.Key);
         return Bind(checked((ushort)_count), measured);
     }
 

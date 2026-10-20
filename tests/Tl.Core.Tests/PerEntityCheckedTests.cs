@@ -37,7 +37,7 @@ public class PerEntityCheckedTests
     {
         using var looping = TimelineAsset.LoadAsset(LoopingBake());
         var set = new TimelineSet<LaneTrack, LaneClip>();
-        using var measured = MeasuredLanes.Measure(looping);
+        using var measured = MeasuredLanes.Measure(looping.Reference, PairRuntime<LaneTrack, LaneClip>.Key);
         set.Dispose();
         Assert.Throws<ObjectDisposedException>(() => set.AddAt(0, measured));
     }

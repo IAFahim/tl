@@ -138,7 +138,7 @@ public sealed class LaneCopyTests
     {
         using var asset = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
             .Track<CopyTrack, CopyClip>(new CopyTrack(0)).Clip(0, 0, 8, new CopyClip(8.25f)).Bake()));
-        using var measured = MeasuredLanes.Measure(asset);
+        using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<CopyTrack, CopyClip>.Key);
         using var isolated = new TimelineSet<CopyTrack, CopyClip>();
         isolated.AddAt(2, measured);
         isolated.MarkAbsent(1);

@@ -24,7 +24,7 @@ internal static class CoverageArms
             .Track<BetaTrack, BetaClip>(new BetaTrack(4))
             .Clip(1, 16, 48, new BetaClip(7));
         var asset = TimelineAsset.Of(TimelineAsset.Load(baker.Looping().Bake()));
-        var measured = MeasuredLanes.Measure(asset);
+        var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<AlphaTrack, AlphaClip>.Key);
         if (measured.Duration != 64 || !measured.Looping)
             Fail($"measured lanes report duration={measured.Duration} looping={measured.Looping}.");
         return (asset, measured);
@@ -40,7 +40,7 @@ internal static class CoverageArms
             .Track<AlphaTrack, AlphaClip>(new AlphaTrack(1))
             .Clip(0, 0, 64, new AlphaClip(2))
             .Bake()));
-        using var finiteMeasured = MeasuredLanes.Measure(finite);
+        using var finiteMeasured = MeasuredLanes.Measure(finite.Reference, PairRuntime<AlphaTrack, AlphaClip>.Key);
         if (finiteMeasured.Duration != 64 || finiteMeasured.Looping)
             Fail("finite measured lanes must report duration 64 without looping.");
     }

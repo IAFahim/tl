@@ -352,7 +352,7 @@ public readonly unsafe struct TickFrame
 {
 internal const int SlotRow = 40;
 internal const int MemoResults = 10;
-	internal struct Consumer { public int Next, Offset, Feed; public ulong PairKey; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
+	internal struct Consumer { public int Next, Offset, Feed, Ordinal; public ulong PairKey; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
 	const int SlotCount = 1024;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -449,9 +449,11 @@ internal const int MemoResults = 10;
 			}
 			var consumers = ConsumerAt;
 			var entry = _consumers;
+			var ordinal = 0;
+			for (var walk = slots[slot].Head; walk >= 0; walk = consumers[walk].Next) ordinal++;
 			var feed = dispatchOnly && resultKeys != null && _lastFoldPair == key && _lastFoldEntry != 0 ? _lastFoldEntry - 1 : -1;
-			consumers[entry] = new Consumer { Next = slots[slot].Head, PairKey = key, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = entry * SlotRow, Feed = feed };
-			if (!dispatchOnly && resultKeys != null) { _lastFoldEntry = entry + 1; _lastFoldPair = key; }
+			consumers[entry] = new Consumer { Next = slots[slot].Head, PairKey = key, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = ordinal * SlotRow, Feed = feed, Ordinal = ordinal };
+			if (!dispatchOnly && resultKeys != null) { _lastFoldEntry = ordinal + 1; _lastFoldPair = key; }
 			if (windowConstant) Volatile.Write(ref _windowConstant, 1);
 			Volatile.Write(ref slots[slot].Head, entry);
 			Volatile.Write(ref _consumers, entry + 1);
@@ -504,7 +506,7 @@ internal const int MemoResults = 10;
 		var written = 0;
 		if (reverse && head >= 0 && consumers[head].Next >= 0)
 		{
-			int* rev = stackalloc int[ConsumerCount];
+			int* rev = stackalloc int[ChainLength(head)];
 			var n = 0;
 			for (var e = head; e >= 0; e = consumers[e].Next)
 			{
@@ -537,7 +539,7 @@ internal const int MemoResults = 10;
 		var consumers = ConsumerAt;
 		if (reverse && head >= 0 && consumers[head].Next >= 0)
 		{
-			int* rev = stackalloc int[ConsumerCount];
+			int* rev = stackalloc int[ChainLength(head)];
 			var n = 0;
 			for (var e = head; e >= 0; e = consumers[e].Next)
 			{
@@ -590,12 +592,12 @@ internal const int MemoResults = 10;
 		}
 	}
 
-	internal static void BindPair(TimelineRef asset, ulong* keys, int keyCount, byte* indices, int* rSlots, int* rCols, ref int rCount)
+	internal static void BindPair(TimelineRef asset, ulong pairKey, ulong* keys, int keyCount, byte* indices, int* rSlots, int* rCols, ref int rCount)
 	{
 		var consumers = ConsumerAt;
 		var total = ConsumerCount;
 		for (var entry = 0; entry < total; entry++)
-			if (consumers[entry].DispatchOnly == 0 && consumers[entry].Bind != null && asset.Uses(consumers[entry].PairKey))
+			if (consumers[entry].DispatchOnly == 0 && consumers[entry].Bind != null && consumers[entry].PairKey == pairKey && asset.Uses(pairKey))
 			{
 				var offset = consumers[entry].Offset;
 				consumers[entry].Bind(keys, keyCount, indices + offset);

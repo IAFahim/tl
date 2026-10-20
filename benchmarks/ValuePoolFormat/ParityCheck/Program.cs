@@ -141,10 +141,7 @@ internal static class Program
         => Convert.ToHexString(MemoryMarshal.AsBytes(new ReadOnlySpan<T>(in value)));
 
     private static ushort Duration(TimelineAsset asset)
-    {
-        using var measured = MeasuredLanes.Measure(asset);
-        return measured.Duration;
-    }
+        => (ushort)(TimelineTable.Motion[asset.Index] & 0xFFFF);
 
     private static void AppendLane(ref StringBuilder writer, TimelineAsset asset, int pair)
     {
