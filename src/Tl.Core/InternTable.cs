@@ -31,7 +31,7 @@ static unsafe class TimelineTable
     static int _gate;
     static int _used;
     static int _live;
-    static int _nextId;
+    static int _nextId = 1;
     static long _allocBytes;
     static long _freeBytes;
     static long _allocCount;
@@ -88,10 +88,7 @@ static unsafe class TimelineTable
             if (entry != null)
             {
                 if (Volatile.Read(ref entry->State) == StateLive)
-                {
-                    Interlocked.Increment(ref entry->Count);
                     return entry->Id;
-                }
                 return Revive(entry, baked);
             }
             TimelineRef.Validate(baked);
@@ -149,7 +146,7 @@ static unsafe class TimelineTable
             if (TryLive(index, out var _))
             {
                 var entry = Entries + Volatile.Read(ref ById[index]);
-                generation = Volatile.Read(ref entry->Count) >> 32;
+                generation = (long)((ulong)Interlocked.Increment(ref entry->Count) >> 32);
                 return;
             }
         }
@@ -251,7 +248,7 @@ static unsafe class TimelineTable
         entry->Bytes = baked.Length;
         Volatile.Write(ref _motion[entry->Id], MotionOf(entry->Block));
         var generation = (ulong)Volatile.Read(ref entry->Count) >> 32;
-        Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32 | 1));
+        Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32));
         Volatile.Write(ref entry->State, StateLive);
         Interlocked.Increment(ref _live);
         Interlocked.Increment(ref _revivals);
@@ -270,7 +267,7 @@ static unsafe class TimelineTable
         entry->KeyHigh = high;
         entry->Id = id;
         var generation = (ulong)Volatile.Read(ref entry->Count) >> 32;
-        Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32 | 1));
+        Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32));
         Volatile.Write(ref entry->State, StateLive);
         Volatile.Write(ref _motion[id], MotionOf(entry->Block));
         Volatile.Write(ref ById[id], (int)(entry - Entries));

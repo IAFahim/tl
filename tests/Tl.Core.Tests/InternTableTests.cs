@@ -35,18 +35,17 @@ public class InternTableTests
     }
 
     [Fact]
-    public void IndexStaysLiveUntilEveryLoadAcquisitionReleases()
+    public void IndexStaysLiveUntilEveryViewAcquisitionReleases()
     {
         var bytes = Bytes(4f, 6);
-        var first = TimelineAsset.Load(bytes);
-        var second = TimelineAsset.Load(bytes);
-        Assert.Equal(first, second);
-        TimelineAsset.Of(first).Dispose();
-        using var survivor = TimelineAsset.Of(second);
+        var index = TimelineAsset.Load(bytes);
+        Assert.Equal(index, TimelineAsset.Load(bytes));
+        using var survivor = TimelineAsset.Of(index);
         Assert.NotEqual(0, survivor.Reference.Address);
-        TimelineAsset.Of(second).Dispose();
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Of(first));
-        Assert.Throws<ArgumentException>(() => survivor.Reference);
+        TimelineAsset.Of(index).Dispose();
+        Assert.NotEqual(0, survivor.Reference.Address);
+        survivor.Dispose();
+        Assert.Throws<ArgumentException>(() => TimelineAsset.Of(index));
     }
 
     [Fact]
@@ -105,11 +104,17 @@ public class InternTableTests
     {
         var index = TimelineAsset.Load(Bytes(9f, 4));
         TimelineTable.Pin(index, out var generation);
-        TimelineAsset.Of(index).Dispose();
+        TimelineTable.Release(index, generation);
         var before = TimelineTable.OverReleases;
         TimelineTable.Release(index, generation);
         Assert.Equal(before + 1, TimelineTable.OverReleases);
         Assert.Throws<ArgumentException>(() => TimelineAsset.Of(index));
+    }
+
+    [Fact]
+    public void FirstPublishedIndexIsNeverZero()
+    {
+        Assert.NotEqual(0, TimelineAsset.Load(Bytes(10f, 4)));
     }
 
     [Fact]
