@@ -1131,6 +1131,9 @@ static unsafe class LaneTable<TTrack, TClip>
         var previousBackward = Backward;
         Forward = forward;
         Backward = backward;
+        LaneAccelerator<BakedLane<TTrack, TClip>>.ForwardEffects = forward;
+        LaneAccelerator<BakedLane<TTrack, TClip>>.BackwardEffects = backward;
+        LaneAccelerator<BakedLane<TTrack, TClip>>.Active = true;
         Duration = duration;
         Looping = looping;
         if (previousForward != null)
@@ -1138,8 +1141,5 @@ static unsafe class LaneTable<TTrack, TClip>
             NativeMemory.AlignedFree(previousForward);
             NativeMemory.AlignedFree(previousBackward!);
         }
-        LaneAccelerator<BakedLane<TTrack, TClip>>.ForwardEffects = forward;
-        LaneAccelerator<BakedLane<TTrack, TClip>>.BackwardEffects = backward;
-        LaneAccelerator<BakedLane<TTrack, TClip>>.Active = true;
     }
 }

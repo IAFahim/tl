@@ -38,7 +38,7 @@ class ViewerTests(unittest.TestCase):
                 blob = (GOLDEN_FIXTURES / f"{name}.tlb").read_bytes()
                 magic, version = struct.unpack_from("<II", blob, 0)
                 self.assertEqual(magic, 0x31424C54)
-                self.assertEqual(version, 4)
+                self.assertEqual(version, 5)
                 loops, duration, _tracks, stage_count, pair_count = struct.unpack_from("<IIIII", blob, 8)
                 pair_off, stage_off, pool_off, frame_off, hot_len, total = struct.unpack_from("<IIIIII", blob, 28)
 

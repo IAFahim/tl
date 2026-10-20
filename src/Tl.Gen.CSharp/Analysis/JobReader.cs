@@ -58,7 +58,7 @@ public static class JobReader
                 if (pairs.Add(consumer.Job.TypeName + "\0" + consumer.TrackTypeName + "\0" + consumer.ClipTypeName))
                 {
                     consumers.Add(consumer);
-                    consumerTrees?.Add(consumer.Job.TypeName, entry.Syntax.SyntaxTree);
+                    if (consumerTrees != null) consumerTrees[consumer.Job.TypeName] = entry.Syntax.SyntaxTree;
                 }
         }
         var bakes = BakeReader.Read(compilation, consumers, errors);

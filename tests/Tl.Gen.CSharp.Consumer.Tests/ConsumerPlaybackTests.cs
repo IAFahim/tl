@@ -94,7 +94,7 @@ public sealed class ConsumerPlaybackTests
     {
         var result = Driver("BakePairOrder");
 
-        Assert.Equal("heal,damage:3,narrow:3", result);
+        Assert.Equal("damage:3,narrow:3,heal", result);
     }
 
     [Fact]

@@ -623,9 +623,10 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		var key = PairRuntime<TTrack, TClip>.Key;
 		if (!reference.Uses(key))
 			throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
-		var bakedLayout = reference.LayoutOf(key);
+		var pair = reference.PairOf(key)!;
+		GuardSizes(pair);
 		var verifiedLayout = PairTable.LayoutOf(key);
-		if (bakedLayout != 0 && verifiedLayout != 0 && bakedLayout != verifiedLayout)
+		if (pair->Layout != 0 && verifiedLayout != 0 && pair->Layout != verifiedLayout)
 			throw new ArgumentException($"Asset was baked against a different field layout for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}); rebake the .tlb with the current assembly.");
 		if (PairTable.HeadOf(key) < 0)
 			throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
@@ -638,9 +639,15 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		bank.AdvancePendingCursor(index);
 	}
 
+	internal static void GuardSizes(NativePair* pair) { if (pair->TrackValueBytes != (uint)sizeof(TTrack) || pair->ClipValueBytes != (uint)sizeof(TClip)) Fail.PairSizes(); }
+
 	static void Determine(TimelineSet<TTrack, TClip> bank, ushort index)
 	{
-		if (!TimelineTable.IsLive(index)) return;
+		if (!TimelineTable.IsLive(index))
+		{
+			bank.MarkAbsent(index, 2);
+			return;
+		}
 		var reference = TimelineTable.Reference(index);
 		var key = PairRuntime<TTrack, TClip>.Key;
 		if (!reference.Uses(key))
@@ -649,6 +656,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			return;
 		}
 		if (PairTable.HeadOf(key) < 0) return;
+		GuardSizes(reference.PairOf(key)!);
 		using var measured = MeasuredLanes.Measure(reference, key);
 		bank.AddAt(index, measured);
 	}

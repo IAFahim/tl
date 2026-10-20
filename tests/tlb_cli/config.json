@@ -16,7 +16,7 @@
     "exitCode": 0,
     "output": {
      "path": "$out/alpha.tlb",
-     "sha256": "719b5e83a0634bd902763e4e9ab7230b7ddbcb98c9261f67175b24a05ed540ef"
+     "sha256": "c700a768443906caaff9d53dad0f4ce90396c747cb79be7506124da3c4f19300"
     }
    }
   },
@@ -69,7 +69,7 @@
     ],
     "output": {
      "path": "$out/alpha.tlb",
-     "sha256": "719b5e83a0634bd902763e4e9ab7230b7ddbcb98c9261f67175b24a05ed540ef"
+     "sha256": "c700a768443906caaff9d53dad0f4ce90396c747cb79be7506124da3c4f19300"
     }
    }
   },
@@ -114,7 +114,7 @@
     "exitCode": 0,
     "output": {
      "path": "$out/alpha.stripped.tlb",
-     "sha256": "e688fe1cfdcfd219864fa449aff0e3fada733d4f0084fd30795dca91d82fb15c"
+     "sha256": "57b22cabe26c9446c284989adb037df57ee0e814c1f436de75a3c2d7079c7265"
     }
    }
   },

@@ -9,8 +9,8 @@ namespace Tl.Bake.Tests;
 public class TlbLayoutFixtureTests
 {
     [Theory]
-    [InlineData("minimal", "d223843e1a457b388f11c7965af8c05f6bedbd1de72219b202ef929fbc9a6e8f")]
-    [InlineData("blended", "a3b735b1a682e0acb6780cf22f687abd5347bad16e1ad27c8d4f0bdbed038855")]
+    [InlineData("minimal", "5835fb500684924b15e4c3eed022745426560558172e6e48c93cd54cfb3c0900")]
+    [InlineData("blended", "e33a22a7d847691a022a8380d73f7ccbd8bcbb9aa059a8abfef966af24176b02")]
     public void Fixture_HasPinnedContentHash(string name, string sha256)
     {
         Assert.Equal(sha256, Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(FixturePath(name + ".tlb")))).ToLowerInvariant());

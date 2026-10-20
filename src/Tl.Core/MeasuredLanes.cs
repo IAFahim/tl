@@ -326,7 +326,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
     }
 }
 
-internal static class LaneGuards
+internal static unsafe class LaneGuards
 {
     internal static void ValidatePair<TTrack, TClip>(TimelineAsset asset)
         where TTrack : unmanaged, IBlend<TClip>
@@ -337,6 +337,7 @@ internal static class LaneGuards
         if (reference.Address == 0) throw new ArgumentException("Timeline asset is not loaded.");
         var key = PairRuntime<TTrack, TClip>.Key;
         if (!reference.Uses(key)) throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
+        Timeline<TTrack, TClip>.GuardSizes(reference.PairOf(key)!);
         if (PairTable.HeadOf(key) < 0) throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
     }
 }

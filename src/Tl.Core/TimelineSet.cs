@@ -146,7 +146,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     private long _directoryTotal;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    internal int _count;
+    internal volatile int _count;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _holes;
@@ -191,17 +191,17 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         => index < (uint)_count && _views[index] != null;
 
     internal bool IsAbsent(ushort index)
-        => index < (uint)_count && _views[index] == null && _absent[index] != 0;
+        => index < (uint)_count && _views[index] == null && _absent[index] == 1;
 
     internal bool IsPending(ushort index)
         => index < (uint)_count && _views[index] == null && _absent[index] == 0;
 
-    internal void MarkAbsent(ushort index)
+    internal void MarkAbsent(ushort index, byte state = 1)
     {
         AcquireGate();
         try
         {
-            if (index < (uint)_count) _absent[index] = 1;
+            if (index < (uint)_count) _absent[index] = state;
         }
         finally
         {
@@ -416,7 +416,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         h = Mix(h ^ ((plan.FlatForward ? 1UL : 0UL) | (plan.FlatBackward ? 2UL : 0UL)));
         foreach (var segment in plan.Segments)
             h = Mix(h ^ ((ulong)segment.Start | (ulong)segment.End << 16 | (ulong)segment.Kind << 32)
-                ^ (ulong)LaneEncoding.Bits(segment.V0) | (ulong)LaneEncoding.Bits(segment.V1) << 32);
+                ^ (ulong)LaneEncoding.Bits(segment.V0) ^ ((ulong)LaneEncoding.Bits(segment.V1) << 32));
         foreach (var value in plan.Dense)
             h = Mix(h ^ (ulong)LaneEncoding.Bits(value));
         var tableFloats = (int)ticks;
