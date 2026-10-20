@@ -86,6 +86,41 @@ public sealed class ChainedGenerationTests
     }
 
     [Fact]
+    public void ChainedRunAcceptsAJobWithTwoPairings()
+    {
+        var source = """
+            using Tl;
+            namespace Hosted;
+            public readonly record struct FuelClip(float Amount);
+            public readonly record struct FuelTrack(float Scale) : IBlend<FuelClip>
+            {
+                public void Blend(in FuelClip first, in FuelClip second, float factor, out FuelClip result) => result = first;
+            }
+            public readonly record struct ShieldClip(float Amount);
+            public readonly record struct ShieldTrack(float Scale) : IBlend<ShieldClip>
+            {
+                public void Blend(in ShieldClip first, in ShieldClip second, float factor, out ShieldClip result) => result = first;
+            }
+            public readonly struct DrainJob : ITrack<FuelTrack, FuelClip>, ITrack<ShieldTrack, ShieldClip>
+            {
+                public static void ExecuteActive(in Frame<FuelTrack, FuelClip> frame) { }
+                public static void ExecuteActive(in Frame<ShieldTrack, ShieldClip> frame) { }
+            }
+            """;
+        var synthesized = CSharpSyntaxTree.ParseText(source, Options, "Synthesized.g.cs");
+        var original = new List<SyntaxTree> { CSharpSyntaxTree.ParseText(Source, Options, "Domain.cs") };
+        var compilation = CSharpCompilation.Create("ChainedTwoPairing" + Guid.NewGuid().ToString("N"), original, References(), CompilationOptions)
+            .AddSyntaxTrees(synthesized);
+
+        var result = TimelineGeneration.Run(compilation, new HashSet<SyntaxTree> { synthesized });
+
+        Assert.Empty(result.Diagnostics);
+        var content = Assert.Single(result.Artifacts).Content;
+        Assert.Contains("global::Tl.PairRuntime<global::Hosted.FuelTrack, global::Hosted.FuelClip>", content);
+        Assert.Contains("global::Tl.PairRuntime<global::Hosted.ShieldTrack, global::Hosted.ShieldClip>", content);
+    }
+
+    [Fact]
     public void BakesForSynthesizedConsumersRideAlongAndAuthoredBakesStayBehind()
     {
         var result = TimelineGeneration.Run(Augmented(out var synthesized, withAuthoredBake: true), new HashSet<SyntaxTree> { synthesized });

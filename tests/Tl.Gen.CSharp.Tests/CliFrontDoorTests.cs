@@ -30,6 +30,25 @@ public sealed class CliFrontDoorTests
         }
         """;
 
+    private const string DomainWithBake = """
+        using Tl;
+        namespace Domain;
+        public readonly record struct DamageClip(float Amount);
+        public readonly record struct DamageTrack(float Multiplier) : IBlend<DamageClip>
+        {
+            public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result) => result = first;
+        }
+        public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
+        {
+            public static void Fold(in Frame<DamageTrack, DamageClip> frame, out float total)
+                => total = frame.Clip.Amount * frame.Track.Multiplier;
+        }
+        public readonly struct DamageBake : IBake<ApplyDamage>
+        {
+            public static void Bake(ref float seed) { }
+        }
+        """;
+
     private const string UnresolvedContracts = """
         namespace Broken;
         internal interface ITrack<TTrack, TClip> { }
@@ -248,6 +267,48 @@ public sealed class CliFrontDoorTests
             Assert.Equal(0, result);
             Assert.False(File.Exists(Path.Combine(directory, "TlConsumerBinding.g.cs")));
             Assert.Contains("consumers\t0", File.ReadAllText(Path.Combine(directory, CompileGenerationCache.ReportFileName)));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void MainUnityBackendEmitsBakeRegistrations()
+    {
+        var directory = NewDirectory();
+        try
+        {
+            var result = CompileWithBackend(directory, DomainWithBake, "unity-entities");
+
+            Assert.Equal(0, result);
+            var binding = File.ReadAllText(Path.Combine(directory, "TlConsumerBinding.g.cs"));
+            Assert.Contains("global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_DamageBake", binding);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void MainIgnoresBlankLinesInSourceList()
+    {
+        var directory = NewDirectory();
+        try
+        {
+            var sourcePath = Path.Combine(directory, "Domain.cs");
+            var sourceListPath = Path.Combine(directory, "sources.txt");
+            var referencesPath = Path.Combine(directory, "references.txt");
+            File.WriteAllText(sourcePath, Domain);
+            File.WriteAllLines(sourceListPath, ["", sourcePath, ""]);
+            File.WriteAllLines(referencesPath, ReferencePaths());
+
+            var result = Run(["--compile", "--output", directory, "--source-list", sourceListPath, "--reference-list", referencesPath]);
+
+            Assert.Equal(0, result.Exit);
+            Assert.True(File.Exists(Path.Combine(directory, "TlConsumerBinding.g.cs")));
         }
         finally
         {

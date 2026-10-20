@@ -47,7 +47,7 @@ public sealed record TlbTail(
 public sealed class TlbContainer
 {
     public const uint HotMagic = 0x31424C54;
-    public const uint HotVersion = 4;
+    public const uint HotVersion = 5;
     public const uint TailMagic = 0x4D42544C;
     public const uint TailVersion = 1;
     public const uint HeaderBytes = 64;

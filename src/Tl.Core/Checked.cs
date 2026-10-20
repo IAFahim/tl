@@ -161,4 +161,8 @@ internal static class Fail
     [DoesNotReturn]
     internal static void Disposed()
         => throw new ObjectDisposedException("TimelineSet");
+
+    [DoesNotReturn]
+    internal static void PairSizes()
+        => throw new ArgumentException("Pair value sizes do not match the baked pools; rebake the .tlb.");
 }

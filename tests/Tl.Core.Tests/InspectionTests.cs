@@ -186,18 +186,18 @@ public class InspectionTests
     const string Golden = """
         track Tl.Core.Tests.GoldenTrack
         clip Tl.Core.Tests.GoldenClip
-        pairKey c8f3f9e729faa569
+        pairKey b5ecffe8beb359e1
         blocks 2
         dedupeHits 0
         generation 2
         bytes 144 128 46176 46448
         view 0 Folded
           duration 8 looping False ticks 9 lanes 1 abi 3 generation 1
-          lane ad2e313ccaf1aa75 1 9
+          lane 214ebd18d4e85363 1 9
         view 1 Absent
         view 2 Folded
           duration 6 looping False ticks 7 lanes 1 abi 3 generation 2
-          lane ad2e313ccaf1aa75 1 7
+          lane 214ebd18d4e85363 1 7
         """;}
 
 public readonly record struct SnapshotClip(float X, float Y);

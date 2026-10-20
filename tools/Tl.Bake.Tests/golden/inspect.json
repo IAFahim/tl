@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "header": {
-    "formatVersion": 4,
+    "formatVersion": 5,
     "duration": 20,
     "looping": false
   },
   "pairs": [
     {
-      "key": "0x914960193112d59c",
+      "key": "0x59e49d0dc466ccb9",
       "layout": "0x0000000000000000",
       "slotStride": 24,
       "pools": {

@@ -33,7 +33,7 @@ public static class GeneratorCli
             else if (args[index] == "--source" && index + 1 < args.Length)
                 paths.Add(args[++index]);
             else if (args[index] == "--source-list" && index + 1 < args.Length)
-                paths.AddRange(File.ReadAllLines(args[++index]));
+                paths.AddRange(Array.FindAll(File.ReadAllLines(args[++index]), static line => line.Length > 0));
             else if (args[index] == "--reference-list" && index + 1 < args.Length)
                 ReadReferences(args[++index], references);
             else if (args[index] == "--option-list" && index + 1 < args.Length)

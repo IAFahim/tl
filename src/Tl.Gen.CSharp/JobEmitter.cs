@@ -13,7 +13,7 @@ internal static class JobEmitter
 
     internal static string Consumers(IReadOnlyList<JobConsumer> consumers) => Consumers(consumers, [], "");
 
-    private static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes, string id)
+    internal static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes, string id)
     {
         var names = new HashSet<string>();
         var bakeNames = new HashSet<string>();

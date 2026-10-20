@@ -16,11 +16,22 @@ static class Keying
 	const ulong Seed = 14695981039346656037, Prime = 1099511628211;
 
 	internal static ulong Of(string text) { var hash = Seed; foreach (var c in text) hash = (hash ^ c) * Prime; return hash | 1; }
+
+	internal static string StableName(Type type) => Name(type) + ", " + type.Assembly.GetName().Name;
+
+	static string Name(Type type)
+	{
+		var prefix = type.IsNested ? Name(type.DeclaringType!) + "+" : type.Namespace is { } space ? space + "." : "";
+		if (!type.IsConstructedGenericType) return prefix + type.Name;
+		var text = prefix + type.Name + "<";
+		foreach (var argument in type.GetGenericArguments()) text += StableName(argument) + ",";
+		return text;
+	}
 }
 
 public static class TypeKey<T> where T : allows ref struct
 {
-	public static readonly ulong Value = Keying.Of(typeof(T).AssemblyQualifiedName!);
+	public static readonly ulong Value = Keying.Of(Keying.StableName(typeof(T)));
 }
 
 #pragma warning disable CS0649
@@ -133,11 +144,11 @@ public readonly unsafe struct TimelineRef
 		return false;
 	}
 
-	internal ulong LayoutOf(ulong key)
+	internal NativePair* PairOf(ulong key)
 	{
 		var pairs = Pairs;
-		for (var i = 0; i < PairCount; i++) if (pairs[i].Key == key) return pairs[i].Layout;
-		return 0;
+		for (var i = 0; i < PairCount; i++) if (pairs[i].Key == key) return pairs + i;
+		return null;
 	}
 
 	internal void Resolve(Span<int> chains)
@@ -220,7 +231,7 @@ public readonly unsafe struct TimelineRef
 		void Fail(string message) => throw new ArgumentException(message);
 		if (baked.Length < 64) Fail("TLB truncated.");
 		var h = MemoryMarshal.Read<NativeHeader>(baked);
-		if (h.Magic != 0x31424C54 || h.Version != 4) Fail("TLB magic or version invalid; rebake the asset with the current toolchain.");
+		if (h.Magic != 0x31424C54 || h.Version != 5) Fail("TLB magic or version invalid; rebake the asset with the current toolchain.");
 		if (h.Duration > ushort.MaxValue) Fail("TLB duration exceeds the 65,535-tick position domain.");
 		if (h.PairCount > 256) Fail("TLB declares more than 256 pairs; the runtime resolves at most 256 pair chains per asset.");
 		if (h.Bytes != (uint)baked.Length) Fail("TLB size mismatch.");
@@ -590,7 +601,7 @@ public enum TickPurity
 
 public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
 {
-	public static readonly ulong Key = Keying.Of(typeof(TTrack).AssemblyQualifiedName! + "\0" + typeof(TClip).AssemblyQualifiedName!);
+	public static readonly ulong Key = Keying.Of(Keying.StableName(typeof(TTrack)) + "\0" + Keying.StableName(typeof(TClip)));
 
 	public static void Consume(ExecThunk execute, BindThunk bind) => PairTable.Install(Key, execute, null, bind, null, false);
 
@@ -645,6 +656,7 @@ public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBl
 			_count--;
 			if (pairs[step.Pair].Key == PairRuntime<TTrack, TClip>.Key)
 			{
+				Timeline<TTrack, TClip>.GuardSizes(pairs + step.Pair);
 				var pair = (byte*)(pairs + step.Pair);
 				_current = SlotRow.ToFrame<TTrack, TClip>((SlotRow*)(block + step.Slot), pair, _tick, FrameFlags.None, ref *(TClip*)Unsafe.AsPointer(ref _scratch));
 				return true;

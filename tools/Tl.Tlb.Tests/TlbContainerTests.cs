@@ -61,7 +61,7 @@ public sealed class ContainerRoundTrip
     public void HeaderStagesAndRowsMirrorTheAuthoredTimeline()
     {
         var c = TlbContainer.Parse(BakedBlended());
-        Assert.Equal(4u, TlbContainer.HotVersion);
+        Assert.Equal(5u, TlbContainer.HotVersion);
         Assert.Equal(0u, c.Loops);
         Assert.Equal(20u, c.Duration);
         Assert.Equal(1u, c.TrackCount);
@@ -174,7 +174,7 @@ public sealed class ContainerRejection
         BinaryPrimitives.WriteUInt32LittleEndian(blob.AsSpan(0), 0x32424C54);
         Assert.Throws<TlbFormatException>(() => TlbContainer.Parse(blob));
         blob = CopyOf(ContainerRoundTripBaked());
-        BinaryPrimitives.WriteUInt32LittleEndian(blob.AsSpan(4), 5);
+        BinaryPrimitives.WriteUInt32LittleEndian(blob.AsSpan(4), 6);
         var ex = Assert.Throws<TlbFormatException>(() => TlbContainer.Parse(blob));
         Assert.Equal("TLB magic or version invalid; rebake the asset with the current toolchain.", ex.Message);
     }
@@ -299,7 +299,7 @@ public sealed class FieldMapAndTrace
         var c = TlbContainer.Parse(blob);
         var fields = TlbMap.Fields(c, blob).ToDictionary(f => f.Path, f => f.Value);
         Assert.Equal("\"TLB1\"", fields["header.magic"]);
-        Assert.Equal("4", fields["header.version"]);
+        Assert.Equal("5", fields["header.version"]);
         Assert.Equal("20", fields["header.duration"]);
         Assert.Equal("0", fields["header.loops"]);
         Assert.Equal("00000040 · f32 2", fields["pair 0 track value 0"]);
