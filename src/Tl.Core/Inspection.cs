@@ -74,7 +74,7 @@ public static unsafe class Inspection
             TimelineTable.AllocBytes,
             TimelineTable.PeakLiveBytes),
         Pair(),
-        new BakeSnapshot(BakeTable.SlotCount, BakeTable.Count));
+        new BakeSnapshot(BakeTable.SlotCapacity, BakeTable.Count));
 
     public static BankSnapshot? Bank<TTrack, TClip>()
         where TTrack : unmanaged, IBlend<TClip>
