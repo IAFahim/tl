@@ -15,6 +15,8 @@ public static class Timeline
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static unsafe void Advance(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
+        Guard.Same(positions, next);
+        Guard.Same(indices, positions);
         Checked.Columns(indices, positions, next);
         Checked.Domain(indices, positions);
         var count = positions.Length;
@@ -94,6 +96,7 @@ public static class Timeline
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static unsafe void Advance(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
+        Guard.Same(positions, next);
         Checked.Domain(index, positions);
         var m = TimelineTable.Motion[index];
         var duration = (ushort)(m & 0xFFFF);

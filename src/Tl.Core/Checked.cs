@@ -140,6 +140,15 @@ internal static class Checked
     }
 }
 
+internal static class Guard
+{
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Same<T1, T2>(ReadOnlySpan<T1> left, ReadOnlySpan<T2> right)
+    {
+        if (left.Length != 0 && left.Length != right.Length) Fail.ColumnLength(left.Length, right.Length);
+    }
+}
+
 internal static class Fail
 {
     [DoesNotReturn]

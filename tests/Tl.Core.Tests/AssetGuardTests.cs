@@ -30,6 +30,24 @@ public class AssetGuardTests
             Assert.Throws<ArgumentException>(() => Timeline<SkewTrack, SkewClip>.ApplyChunk(new ushort[3], new ushort[4], true, new float[4], new float[4])).Message);
 
     [Fact]
+    public void FloatApplyRejectsMismatchedEffectLengthWithoutTlChecked()
+        => Assert.Equal(
+            "Column length 3 must equal position count 2.",
+            Assert.Throws<ArgumentException>(() => Timeline<SkewTrack, SkewClip>.Apply(new ushort[2], new ushort[2], true, new float[3])).Message);
+
+    [Fact]
+    public void FusedApplyRejectsMismatchedNextLengthWithoutTlChecked()
+        => Assert.Throws<ArgumentException>(() => Timeline<SkewTrack, SkewClip>.Apply(new ushort[2], new ushort[2], new ushort[3], true, new float[2]));
+
+    [Fact]
+    public void UntypedAdvanceRejectsMismatchedNextLengthWithoutTlChecked()
+        => Assert.Throws<ArgumentException>(() => Timeline.Advance(new ushort[2], new ushort[2], new ushort[3], true));
+
+    [Fact]
+    public void IntegerApplyRejectsMismatchedEffectLengthWithoutTlChecked()
+        => Assert.Throws<ArgumentException>(() => Timeline<SkewTrack, SkewClip>.Apply<ushort, ushort, int>(new ushort[2], new ushort[2], true, new int[3]));
+
+    [Fact]
     public void LoaderRejectsAssetsDeclaringMoreThan256Pairs()
     {
         var baked = new DomainBaker { FingerprintOf = BakeFingerprint.Of }

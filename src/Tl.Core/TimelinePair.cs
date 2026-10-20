@@ -20,6 +20,8 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
 	{
+		Guard.Same(positions, effects);
+		Guard.Same(indices, positions);
 		Checked.Domain(indices, positions);
 		FloatBank().Apply(indices, positions, forward, effects);
 	}
@@ -27,6 +29,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static void Apply(ushort index, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
 	{
+		Guard.Same(positions, effects);
 		Checked.Domain(index, positions);
 		var bank = FloatBank();
 		if (positions.Length > LaneOps.SmallSpan)
@@ -144,6 +147,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		CheckSizes<TIndex, TPosition>();
 		var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
 		var positions16 = MemoryMarshal.Cast<TPosition, ushort>(positions);
+		Guard.Same(indices16, positions16);
 		Checked.Columns(indices16, positions16);
 		Checked.Domain(indices16, positions16);
 		var key = PairRuntime<TTrack, TClip>.Key;
@@ -177,6 +181,9 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
 	{
+		Guard.Same(positions, effects);
+		Guard.Same(positions, next);
+		Guard.Same(indices, positions);
 		Checked.Domain(indices, positions);
 		FloatBank().Apply(indices, positions, next, forward, effects);
 	}
@@ -184,6 +191,8 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
 	public static void Apply(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
 	{
+		Guard.Same(positions, effects);
+		Guard.Same(positions, next);
 		Checked.Domain(index, positions);
 		var bank = FloatBank();
 		if (positions.Length > LaneOps.SmallSpan)
@@ -261,12 +270,13 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		where TEffect1 : unmanaged
 	{
 		CheckSizes<TIndex, TPosition>();
-		if (indices.Length != positions.Length) Fail.ColumnLength(positions.Length, indices.Length);
-		if (Unsafe.SizeOf<TEffect0>() is not (1 or 2 or 4 or 8) || Unsafe.SizeOf<TEffect1>() is not (1 or 2 or 4 or 8)
-			|| positions.Length != effects0.Length || positions.Length != effects1.Length)
+		Guard.Same(positions, indices);
+		if (Unsafe.SizeOf<TEffect0>() is not (1 or 2 or 4 or 8) || Unsafe.SizeOf<TEffect1>() is not (1 or 2 or 4 or 8))
 			ThrowLaneColumnSizes();
 		var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
 		var positions16 = MemoryMarshal.Cast<TPosition, ushort>(positions);
+		Guard.Same(positions16, effects0);
+		Guard.Same(positions16, effects1);
 		Checked.Domain(indices16, positions16);
 		var bank = Bank();
 		var key0 = TypeKey<TEffect0>.Value;
@@ -334,8 +344,8 @@ public static unsafe partial class Timeline<TTrack, TClip>
 
 	static void ApplyInteger<TEffect>(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> clocks, bool forward, Span<int> effects)
 	{
-		if (ids.Length != clocks.Length) Fail.ColumnLength(clocks.Length, ids.Length);
-		if (clocks.Length != effects.Length) ThrowLaneColumnSizes();
+		Guard.Same(clocks, ids);
+		Guard.Same(clocks, effects);
 		Checked.Domain(ids, clocks);
 		var bank = Bank();
 		var key = TypeKey<TEffect>.Value;
@@ -463,7 +473,6 @@ public static unsafe partial class Timeline<TTrack, TClip>
 				var outs = 0;
 				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
 				{
-					// entries installed after the entryBound snapshot cannot own feed scratch
 					if (e >= entryBound || consumers[e].DispatchOnly != 0 || consumers[e].Keys == null) continue;
 					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
 					var own = 0;
@@ -557,6 +566,8 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		CheckSizes<TIndex, TPosition, TEffect>();
 		var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
 		var positions16 = MemoryMarshal.Cast<TPosition, ushort>(positions);
+		Guard.Same(positions16, effects);
+		Guard.Same(indices16, positions16);
 		Checked.Domain(indices16, positions16);
 		if (IntegerEffect<TEffect>())
 		{
@@ -576,6 +587,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		CheckSizes<TIndex, TPosition>();
 		var indices16 = MemoryMarshal.Cast<TIndex, ushort>(indices);
 		var positions16 = MemoryMarshal.Cast<TPosition, ushort>(positions);
+		Guard.Same(indices16, positions16);
 		Checked.Domain(indices16, positions16);
 		Bank().AdvanceRows(rows, indices16, positions16, forward);
 	}
