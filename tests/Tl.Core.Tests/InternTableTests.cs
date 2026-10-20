@@ -85,18 +85,31 @@ public class InternTableTests
     }
 
     [Fact]
-    public void DeadBlocksDrainAndBalanceUnderTheNextLoad()
+    public void DeadBlocksSurviveTheLoadGraceWindowAndDrainExplicitly()
     {
-        var beforeAlloc = TimelineTable.AllocCount;
         var beforeFree = TimelineTable.FreeCount;
+        var backlog = TimelineTable.GraveyardBlocks;
         var first = TimelineAsset.Load(Bytes(7f, 5));
         TimelineAsset.Of(first).Dispose();
-        Assert.True(TimelineTable.GraveyardBlocks > 0);
+        var graveyard = TimelineTable.GraveyardBlocks;
+        Assert.True(graveyard > backlog);
         var second = TimelineAsset.Load(Bytes(8f, 5));
+        Assert.Equal(graveyard, TimelineTable.GraveyardBlocks);
         TimelineAsset.Of(second).Dispose();
         TimelineTable.Drain();
-        Assert.Equal(TimelineTable.AllocCount - beforeAlloc, TimelineTable.FreeCount - beforeFree);
-        Assert.Equal(2, TimelineTable.AllocCount - beforeAlloc);
+        Assert.Equal(0, TimelineTable.GraveyardBlocks);
+        Assert.Equal(graveyard + 1, TimelineTable.FreeCount - beforeFree);
+    }
+
+    [Fact]
+    public void GraveyardFreesOnlyAfterTheLoadGraceWindowPasses()
+    {
+        var first = TimelineAsset.Load(Bytes(11f, 4));
+        TimelineAsset.Of(first).Dispose();
+        Assert.True(TimelineTable.GraveyardBlocks > 0);
+        for (var i = 0; i < 4097; i++)
+            TimelineAsset.Load(Bytes(200f + i % 200, 3));
+        Assert.Equal(0, TimelineTable.GraveyardBlocks);
     }
 
     [Fact]

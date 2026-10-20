@@ -102,6 +102,7 @@ public class DataTests
         var allocated = TimelineTable.AllocCount - beforeAlloc;
         var beforeFree = TimelineTable.FreeCount;
         var beforeOverReleases = TimelineTable.OverReleases;
+        var backlog = TimelineTable.GraveyardBlocks;
         var index = asset.Index;
 
         asset.Dispose();
@@ -111,7 +112,7 @@ public class DataTests
         Assert.Equal(beforeOverReleases, TimelineTable.OverReleases);
         Assert.Throws<ArgumentException>(() => TimelineAsset.Of(index));
         TimelineTable.Drain();
-        Assert.Equal(allocated, TimelineTable.FreeCount - beforeFree);
+        Assert.Equal(backlog + allocated, TimelineTable.FreeCount - beforeFree);
     }
     [Fact]
     public void QueryYieldsSingleClipFramesWithWindowFlags()
