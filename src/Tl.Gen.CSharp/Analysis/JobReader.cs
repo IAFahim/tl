@@ -79,9 +79,10 @@ public static class JobReader
             var active = actives.Length == 1 ? actives[0] : null;
             if (memo is null && active is null)
             {
-                if (type.GetMembers().OfType<IMethodSymbol>().Any(method => method is { IsStatic: true, ReturnsVoid: true, Arity: 0 } && Framed(method, frame)))
+                var hosted = compilation.GetTypeByMetadataName("Tl.IHostedConsumer");
+                if (hosted is not null && type.AllInterfaces.Any(item => Symbols.Same(item, hosted)))
                     return null;
-                return Err(site, "TLGEN66", $"'{name}' needs one static void Fold(in {frameName}) or ExecuteActive.");
+                return Err(site, "TLGEN66", $"'{name}' needs one static void Fold(in {frameName}) or ExecuteActive; a family whose hook a host synthesizes must implement Tl.IHostedConsumer.");
             }
 
             var slots = new List<TimelineSlot>();

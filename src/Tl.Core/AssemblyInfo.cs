@@ -6,3 +6,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Tl.Fuzz")]
 [assembly: InternalsVisibleTo("Play.Core")]
 [assembly: InternalsVisibleTo("Tl.Bake.Tests")]
+[assembly: InternalsVisibleTo("Alpha")]

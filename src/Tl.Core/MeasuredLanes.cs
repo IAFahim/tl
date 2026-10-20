@@ -37,7 +37,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
     public bool Looping { get; }
 
-    public static MeasuredLanes Measure(TimelineAsset asset)
+    internal static MeasuredLanes Measure(TimelineAsset asset)
     {
         ArgumentNullException.ThrowIfNull(asset);
         return Measure(asset.Reference);
