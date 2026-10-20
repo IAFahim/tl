@@ -2,11 +2,6 @@ using System.Runtime.InteropServices;
 
 namespace Tl;
 
-/// <summary>
-/// One encoded run of a lane direction: [Start, End] inclusive, Kind 0 constant over V0,
-/// Kind 1 ramp V0→V1 (bit-exact under the shared reader formula), Kind 2 dense run
-/// whose per-tick floats live at Dense[V0 bits as offset].
-/// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct LaneSegment
 {
@@ -21,12 +16,6 @@ public struct LaneSegment
     public float V1;
 }
 
-/// <summary>
-/// v3 bank slot ABI: per-lane movement tables are segmented encodings (or flat-escaped
-/// directions); movement records and the backward-by-position table are derived, never
-/// stored. Hosts capture this struct by value and must check <see cref="AbiVersion"/>
-/// against the version they were built for; a mismatch is a loud failure, never silent drift.
-/// </summary>
 [StructLayout(LayoutKind.Sequential, Size = 72)]
 public unsafe struct SlotView
 {
