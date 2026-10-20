@@ -174,4 +174,8 @@ internal static class Fail
     [DoesNotReturn]
     internal static void PairSizes()
         => throw new ArgumentException("Pair value sizes do not match the baked pools; rebake the .tlb.");
+
+    [DoesNotReturn]
+    internal static void Sealed()
+        => throw new InvalidOperationException("Consumer registry is sealed; install consumers and bakes before Timeline.SealConsumers().");
 }

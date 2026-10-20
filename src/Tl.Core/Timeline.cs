@@ -6,6 +6,8 @@ namespace Tl;
 
 public static class Timeline
 {
+    public static void SealConsumers() => PairTable.Seal();
+
     public static FrameQuery<TTrack, TClip> Query<TTrack, TClip>(in TimelineComponent component) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged => new(component);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]

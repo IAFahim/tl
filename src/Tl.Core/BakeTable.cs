@@ -55,6 +55,7 @@ static unsafe class BakeTable
         while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
         try
         {
+            if (PairTable._sealed != 0) Fail.Sealed();
             var slot = Probe(pairKey);
             var slots = SlotAt;
             if (slot < 0) throw new InvalidOperationException("Bake pair capacity exhausted.");

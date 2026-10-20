@@ -361,6 +361,7 @@ internal const int MemoResults = 10;
 	internal static int _consumerCapacity = 64;
 	static volatile int _gate;
 	static int _windowConstant;
+	internal static volatile int _sealed;
 	internal static int _pairs, _consumers;
 	[ThreadStatic] static int _lastFoldEntry;
 	[ThreadStatic] static ulong _lastFoldPair;
@@ -436,6 +437,7 @@ internal const int MemoResults = 10;
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
 		{
+			if (_sealed != 0) Fail.Sealed();
 			Claim(key, out var slots, out var slot);
 			if (_consumers == _consumerCapacity)
 			{
@@ -453,6 +455,19 @@ internal const int MemoResults = 10;
 			if (windowConstant) Volatile.Write(ref _windowConstant, 1);
 			Volatile.Write(ref slots[slot].Head, entry);
 			Volatile.Write(ref _consumers, entry + 1);
+		}
+		finally
+		{
+			_gate = 0;
+		}
+	}
+
+	internal static void Seal()
+	{
+		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
+		try
+		{
+			_sealed = 1;
 		}
 		finally
 		{

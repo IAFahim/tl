@@ -244,6 +244,7 @@ type Tl.Timeline
   Method Void BakeRef[T0,T1,T2](UInt16, T0 ByRef, T1 ByRef, T2 ByRef)
   Method Void BakeRef[T0,T1,T2,T3](UInt16, T0 ByRef, T1 ByRef, T2 ByRef, T3 ByRef)
   Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
+  Method Void SealConsumers()
 type Tl.TimelineAsset
   Method Void Dispose()
   Property UInt16 Index
