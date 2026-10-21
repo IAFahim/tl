@@ -69,6 +69,14 @@ The position domain is finite — 2¹⁶ durations × 2¹⁶ positions × 2 × 2
 
 Severity: **S0** memory safety or silent wrong values · **S1** determinism and concurrency · **S2** contract and API traps · **S3** performance and hygiene. Paths are relative to the repository root.
 
+> **Status against `main` @ `322cc2d` (2026-10-21).** The ledger below was surveyed at `985ddf1`. Since then the #461 risk-review batches landed and closed or advanced these items — re-verify against `main` before planning an atom:
+>
+> - **Fixed on `main`** — S0-2 (value-width guards, #462), S0-4 (volatile count publication, #462), S0-6 (unconditional O(1) guards in a dedicated `Guard` class; the IL-scan gate now means "zero `Tl.Checked` call sites", #465), S1-8 (stable pair keys, TLB v5, #462), S1-10 (publish-before-free reorder, #462), S2-1 (`Of` owns, `Load` borrows, `OverReleases` counter, #465), S2-2 (index 0 reserved, #465), S2-4 (the `Dictionary.Add` crash, #462), S2-9 (pair-key filter in `BindPair`, #465), S2-10 (per-pair `MeasuredLanes.Measure(TimelineRef, pairKey)`; the public all-pairs `Measure(TimelineAsset)` is deleted, #465), S2-15 (`Tl.IHostedConsumer` marker, TLGEN66, #465), S2-16 (comments removed per the existing rule, #465), S3-9 (hash precedence, #462). The fixed 1,024-entry BakeTable cliff is also gone (doubling slots/entries with published capacity, #465), and `Timeline.SealConsumers()` exists as the additive load-order pin (#465).
+> - **Advanced, not closed** — S0-3: graveyard links live in a side list, frees wait out a 4,096-load grace, and `TimelineTable.Drain()` is the explicit drain (#465); the host-quiescent `Reclaim()` and epoch proof of §5.6 remain open. S1-7: dead holes no longer stall the pending cursor (#462); Prepare-scoped folding remains. S2-5-style feed/slot sizing: consumer ordinals, offsets, feed arrays, and reverse buffers are pair-local with `SkipLocalsInit` (#465); the contiguous per-pair program arrays of §5.5 remain. S1-5: the seal gives hosts the pin, pre-seal install stays legal by design.
+> - **Verified unchanged** — everything else, including S0-1, S0-5, S0-7, S0-8, S0-9, S1-1 through S1-4, S1-6, S1-9, S1-11, S1-12, and the rest of S2/S3.
+>
+> Cross-reference with details and receipts: [#463 comment](https://github.com/IAFahim/tl/issues/463#issuecomment-6308181769) and the [#461 final disposition](https://github.com/IAFahim/tl/issues/461#issuecomment-6308192651). Two test-infra facts discovered during #465 validation: in-process CLI/baker test projects need `DisableTestParallelization` against the process-global tables (now set for Tl.Core.Tests and Tl.Bake.Tests), and `InspectionTests.BankGoldenSnapshotIsByteIdenticalAcrossRuns` is class-order-dependent by construction — its golden assumes the intern watermark is under the 1,024-array floor when the class runs.
+
 ### S0 — memory safety, silent wrong values
 
 #### S0-1 · Multi-lane segmented banks decode another lane's runs
@@ -765,6 +773,8 @@ Order: 0 → 1 → {2, 3} → 4 → 5. Phase 6 atoms are independent once 2.1 la
 - **Counters.** Kernel changes carry `perf stat` cycles, instructions, branches, branch misses and gather counts alongside raw BDN JSON.
 
 ## 9 · Owner decisions
+
+> **Update 2026-10-21:** the owner delegated the remaining #461 decisions, so four of these are settled and shipped — **1** (unconditional O(1) guards, #465), **2** in its scoped form (`Of` owns / `Load` borrows, graveyard grace + `Drain()`; the host-quiescent `Reclaim()` of §5.6 stays a future decision, #465), **5** (stable pair keys under TLB v5, #462), and **8** (comments removed; the existing rule stands, #465). Rationale on the [#461 decision record](https://github.com/IAFahim/tl/issues/461#issuecomment-6303372021).
 
 1. Unconditional O(1) release guards (S0-6); changes the IL-scan gate.
 2. Leases for `Load`/`Of` and explicit reclamation (S2-1, S0-3b); changes the lifetime model behind #150 and #160.
