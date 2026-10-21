@@ -270,6 +270,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             if (view == null)
             {
                 view = BakeBlock(measured, plan, duration, looping, ticks, generation);
+                if (!SameTables(view, measured, duration, looping, ticks))
+                    throw new InvalidOperationException("Bank block does not decode to its measured lane values; refusing to publish.");
                 PlaceShared(hash, view);
                 _sharedUsed++;
             }
@@ -914,37 +916,27 @@ internal sealed unsafe class LaneBlockPlan
         var lanes = measured.LaneCount;
         var plan = new LaneBlockPlan(lanes);
         var tickCount = checked((int)ticks);
-        var flat = tickCount < LaneEncoding.SegmentedMinTicks;
         var flatBytes = (long)tickCount * sizeof(float) * lanes;
-        plan.FlatForward = flat || EncodeAll(plan, measured, tickCount, true) >= flatBytes;
-        plan.FlatBackward = flat || EncodeAll(plan, measured, tickCount, false) >= flatBytes;
-        if (plan.FlatForward || plan.FlatBackward)
+        var segmentable = tickCount >= LaneEncoding.SegmentedMinTicks;
+        plan.FlatForward = !segmentable || EncodedBytes(measured.LaneForward, lanes, tickCount) >= flatBytes;
+        plan.FlatBackward = !segmentable || EncodedBytes(measured.LaneBackward, lanes, tickCount) >= flatBytes;
+        for (var l = 0; l < lanes; l++)
         {
-            plan.Segments.Clear();
-            plan.Dense.Clear();
-            for (var l = 0; l < lanes; l++)
-            {
-                if (!plan.FlatForward)
-                    plan.ForwardSegments[l] = LaneEncoding.Encode(measured.LaneForward[l], tickCount, plan.Segments, plan.Dense);
-                if (!plan.FlatBackward)
-                    plan.BackwardSegments[l] = LaneEncoding.Encode(measured.LaneBackward[l], tickCount, plan.Segments, plan.Dense);
-            }
+            if (!plan.FlatForward)
+                plan.ForwardSegments[l] = LaneEncoding.Encode(measured.LaneForward[l], tickCount, plan.Segments, plan.Dense);
+            if (!plan.FlatBackward)
+                plan.BackwardSegments[l] = LaneEncoding.Encode(measured.LaneBackward[l], tickCount, plan.Segments, plan.Dense);
         }
         return plan;
     }
 
-    static long EncodeAll(LaneBlockPlan plan, MeasuredLanes measured, int ticks, bool forward)
+    static long EncodedBytes(float** lanes, int laneCount, int ticks)
     {
-        var bytes = 0L;
-        for (var l = 0; l < measured.LaneCount; l++)
-        {
-            var before = plan.Segments.Count * (long)sizeof(LaneSegment) + plan.Dense.Count * (long)sizeof(float);
-            var count = LaneEncoding.Encode(forward ? measured.LaneForward[l] : measured.LaneBackward[l], ticks, plan.Segments, plan.Dense);
-            bytes += plan.Segments.Count * (long)sizeof(LaneSegment) + plan.Dense.Count * (long)sizeof(float) - before;
-            if (forward) plan.ForwardSegments[l] = count;
-            else plan.BackwardSegments[l] = count;
-        }
-        return bytes;
+        var segments = new List<LaneSegment>();
+        var dense = new List<float>();
+        for (var l = 0; l < laneCount; l++)
+            LaneEncoding.Encode(lanes[l], ticks, segments, dense);
+        return segments.Count * (long)sizeof(LaneSegment) + dense.Count * (long)sizeof(float);
     }
 }
 

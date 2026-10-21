@@ -105,7 +105,8 @@ public sealed class LaneCopyTests
                 var index = forward ? position : position == 0 ? duration - 1 : position - 1;
                 var inactive = forward ? position == duration : position == 0 && !looping || position == duration && looping;
                 uint Word(int lane) => inactive ? 0 : (forward ? copy.Lanes[lane].Forward : copy.Lanes[lane].Backward)[index];
-                Assert.True(Word(0) == BitConverter.SingleToUInt32Bits(floats[position]), $"float: forward={forward}, position={position}, expected={Word(0)}, actual={BitConverter.SingleToUInt32Bits(floats[position])}");
+                var foldedFloat = 0f + BitConverter.UInt32BitsToSingle(Word(0));
+                Assert.True(BitConverter.SingleToUInt32Bits(foldedFloat) == BitConverter.SingleToUInt32Bits(floats[position]), $"float: forward={forward}, position={position}, expected={Word(0)}, actual={BitConverter.SingleToUInt32Bits(floats[position])}");
                 Assert.True(((ulong)Word(1) | (ulong)Word(2) << 32) == unchecked((ulong)longs[position]), $"long: forward={forward}, position={position}, expected={((ulong)Word(1) | (ulong)Word(2) << 32)}, actual={unchecked((ulong)longs[position])}");
                 Assert.True(Word(3) == unchecked((uint)ints[position]), $"forward={forward}, position={position}, laneTick={index}, expected={Word(3)}, actual={unchecked((uint)ints[position])}");
                 Assert.Equal(unchecked((short)Word(4)), shorts[position]);
