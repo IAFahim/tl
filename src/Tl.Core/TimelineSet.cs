@@ -213,7 +213,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     {
         CheckAdd();
         LaneGuards.ValidatePair<TTrack, TClip>(asset);
-        using var measured = MeasuredLanes.Measure(asset);
+        using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<TTrack, TClip>.Key);
         return Bind(checked((ushort)_count), measured);
     }
 
@@ -657,7 +657,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal void ApplyLane<T>(ushort index, ReadOnlySpan<ushort> positions, bool forward, int lane, Span<T> column) where T : unmanaged
     {
         Checked.Live(_disposed);
-        if (positions.Length != column.Length) throw new ArgumentException("positions and column must have equal length.");
+        Guard.Same(positions, column);
         var view = _views[index];
         if (view == null) return;
         var duration = view->Duration;

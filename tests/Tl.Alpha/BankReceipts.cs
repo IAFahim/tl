@@ -314,7 +314,7 @@ internal static class BankReceipts
         using var duplicate = TimelineAsset.LoadAsset(BakeBank(1f, 1));
         for (var i = distinct; i < domain - 1; i++)
             Require(timelines.Add(duplicate) == i, $"shared id {i}");
-        using var measuredDuplicate = MeasuredLanes.Measure(duplicate);
+        using var measuredDuplicate = MeasuredLanes.Measure(duplicate.Reference, PairRuntime<BankTrack, BankClip>.Key);
         Require(timelines.AddAt(65535, measuredDuplicate) == 65535, "AddAt binds the 65535 id the old cap refused");
         unsafe
         {

@@ -7,6 +7,7 @@ static unsafe class TimelineTable
 {
     const int InitialCapacity = 1024;
     const int MaxCapacity = 65536;
+    const long GraveyardGraceLoads = 4096;
     const int StateEmpty = 0;
     const int StateLive = 1;
     const int StateDead = 2;
@@ -24,6 +25,14 @@ static unsafe class TimelineTable
         public ushort Id;
     }
 
+    struct GraveNode
+    {
+        public nint Next;
+        public byte* Block;
+        public nint Bytes;
+        public long Stamp;
+    }
+
     static byte* _block;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     static readonly uint* _motion;
@@ -31,7 +40,8 @@ static unsafe class TimelineTable
     static int _gate;
     static int _used;
     static int _live;
-    static int _nextId;
+    static int _nextId = 1;
+    static long _loads;
     static long _allocBytes;
     static long _freeBytes;
     static long _allocCount;
@@ -63,7 +73,7 @@ static unsafe class TimelineTable
     static int Mask => _capacity - 1;
 
     internal static int LiveEntries => Volatile.Read(ref _live);
-    internal static int DistinctContents => Volatile.Read(ref _nextId);
+    internal static int DistinctContents => Volatile.Read(ref _nextId) - 1;
     internal static long AllocCount => Volatile.Read(ref _allocCount);
     internal static long FreeCount => Volatile.Read(ref _freeCount);
     internal static long AllocBytes => Volatile.Read(ref _allocBytes);
@@ -83,15 +93,13 @@ static unsafe class TimelineTable
         AcquireGate();
         try
         {
-            if (Volatile.Read(ref _graveyard) != 0) DrainGraveyard();
+            _loads++;
+            if (Volatile.Read(ref _graveyard) != 0) DrainGraveyard(GraveyardGraceLoads);
             var entry = Find(low, high, baked, out var empty);
             if (entry != null)
             {
                 if (Volatile.Read(ref entry->State) == StateLive)
-                {
-                    Interlocked.Increment(ref entry->Count);
                     return entry->Id;
-                }
                 return Revive(entry, baked);
             }
             TimelineRef.Validate(baked);
@@ -149,7 +157,7 @@ static unsafe class TimelineTable
             if (TryLive(index, out var _))
             {
                 var entry = Entries + Volatile.Read(ref ById[index]);
-                generation = Volatile.Read(ref entry->Count) >> 32;
+                generation = (long)((ulong)Interlocked.Increment(ref entry->Count) >> 32);
                 return;
             }
         }
@@ -236,7 +244,7 @@ static unsafe class TimelineTable
         AcquireGate();
         try
         {
-            DrainGraveyard();
+            DrainGraveyard(0);
         }
         finally
         {
@@ -251,7 +259,7 @@ static unsafe class TimelineTable
         entry->Bytes = baked.Length;
         Volatile.Write(ref _motion[entry->Id], MotionOf(entry->Block));
         var generation = (ulong)Volatile.Read(ref entry->Count) >> 32;
-        Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32 | 1));
+        Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32));
         Volatile.Write(ref entry->State, StateLive);
         Interlocked.Increment(ref _live);
         Interlocked.Increment(ref _revivals);
@@ -270,7 +278,7 @@ static unsafe class TimelineTable
         entry->KeyHigh = high;
         entry->Id = id;
         var generation = (ulong)Volatile.Read(ref entry->Count) >> 32;
-        Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32 | 1));
+        Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32));
         Volatile.Write(ref entry->State, StateLive);
         Volatile.Write(ref _motion[id], MotionOf(entry->Block));
         Volatile.Write(ref ById[id], (int)(entry - Entries));
@@ -346,28 +354,39 @@ static unsafe class TimelineTable
 
     static void PushGraveyard(byte* block, nint bytes)
     {
-        *(byte**)block = (byte*)Volatile.Read(ref _graveyard);
-        *(nint*)(block + 8) = bytes;
-        Volatile.Write(ref _graveyard, (nint)block);
+        var node = (GraveNode*)NativeMemory.Alloc((nuint)sizeof(GraveNode));
+        node->Next = Volatile.Read(ref _graveyard);
+        node->Block = block;
+        node->Bytes = bytes;
+        node->Stamp = Volatile.Read(ref _loads);
+        Volatile.Write(ref _graveyard, (nint)node);
         Interlocked.Add(ref _graveyardBytes, bytes);
         Interlocked.Increment(ref _graveyardCount);
     }
 
-    static void DrainGraveyard()
+    static void DrainGraveyard(long minAge)
     {
+        var loads = Volatile.Read(ref _loads);
+        nint kept = 0;
         var node = Volatile.Read(ref _graveyard);
         while (node != 0)
         {
-            var current = (byte*)node;
-            node = *(nint*)current;
-            var bytes = *(nint*)(current + 8);
-            Interlocked.Add(ref _freeBytes, bytes);
+            var current = (GraveNode*)node;
+            node = current->Next;
+            if (loads - current->Stamp < minAge)
+            {
+                current->Next = kept;
+                kept = (nint)current;
+                continue;
+            }
+            Interlocked.Add(ref _freeBytes, current->Bytes);
             Interlocked.Increment(ref _freeCount);
-            NativeMemory.AlignedFree(current);
+            Interlocked.Add(ref _graveyardBytes, -current->Bytes);
+            Interlocked.Decrement(ref _graveyardCount);
+            NativeMemory.AlignedFree(current->Block);
+            NativeMemory.Free(current);
         }
-        Volatile.Write(ref _graveyard, 0);
-        Volatile.Write(ref _graveyardBytes, 0);
-        Volatile.Write(ref _graveyardCount, 0);
+        Volatile.Write(ref _graveyard, kept);
     }
 
     static void AcquireGate()

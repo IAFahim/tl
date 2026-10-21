@@ -53,6 +53,14 @@ DataAuthoredReceipts.All();
 DataAuthoredReceipts.Memory();
 BankReceipts.Retained();
 BankReceipts.SegmentedBoundary();
+Tl.Timeline.SealConsumers();
+try
+{
+    unsafe { Tl.PairRuntime<TandemTrack, TandemClip>.ConsumeDispatch(null); }
+    Require(false, "sealed registry rejects late installs");
+}
+catch (InvalidOperationException) { }
+Require(Tl.TimelineTable.OverReleases == 0, "every receipt balanced its timeline acquisitions");
 return 0;
 
 static void Require(bool condition, [CallerArgumentExpression(nameof(condition))] string? expression = null)

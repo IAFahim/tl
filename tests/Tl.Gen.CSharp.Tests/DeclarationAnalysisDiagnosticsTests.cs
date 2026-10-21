@@ -111,11 +111,11 @@ public sealed class DeclarationAnalysisDiagnosticsTests
     }
 
     [Fact]
-    public void HostedConsumerWithAFrameFirstMethodIsSkippedSilently()
+    public void HostedMarkerSkipsTheFamilyWithoutADiagnostic()
     {
         var result = Read($$"""
             {{Domain}}
-            public readonly partial struct Hosted : ITrack<DamageTrack, DamageClip>
+            public readonly partial struct Hosted : ITrack<DamageTrack, DamageClip>, IHostedConsumer
             {
                 public static void ExecuteSlotted(in Frame<DamageTrack, DamageClip> frame, ref float effect)
                     => effect += frame.Clip.Amount * frame.Track.Multiplier;
@@ -124,6 +124,21 @@ public sealed class DeclarationAnalysisDiagnosticsTests
 
         Assert.Empty(result.Diagnostics);
         Assert.Empty(result.Consumers);
+    }
+
+    [Fact]
+    public void TypoedHookWithoutTheHostedMarkerReportsTlgen66()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Fodl : ITrack<DamageTrack, DamageClip>
+            {
+                public static void Fodl(in Frame<DamageTrack, DamageClip> frame, out float amount)
+                    => amount = frame.Clip.Amount * frame.Track.Multiplier;
+            }
+            """);
+
+        AssertConsumerRejected(result, "TLGEN66");
     }
 
     [Fact]

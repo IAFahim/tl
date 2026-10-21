@@ -502,7 +502,7 @@ public static unsafe class TlbLive
                 }
                 var determine = closed.GetMethod("Determine", BindingFlags.Static | BindingFlags.NonPublic)!;
                 var distinct = Inspection.Tables().Intern.Distinct;
-                for (var index = 0; index < distinct; index++)
+                for (var index = 1; index <= distinct; index++)
                     determine.Invoke(null, [bank, (object)(ushort)index]);
                 snapshot = ReadBank(track, clip);
             }

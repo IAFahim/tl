@@ -242,7 +242,7 @@ public unsafe class MixedTierTests
         using var set = new TimelineSet<GatherTrack, GatherClip>();
         var bound = BakeSet(set, (16, true, 1.5f), (16, true, 2f), (16, true, 3f));
         using var gap = TimelineAsset.LoadAsset(Bake(16, true, 9f));
-        var pending = set.AddAt(200, MeasuredLanes.Measure(gap));
+        var pending = set.AddAt(200, MeasuredLanes.Measure(gap.Reference, PairRuntime<GatherTrack, GatherClip>.Key));
         Assert.Equal((ushort)200, pending);
         Assert.True(set.Holes > 0, "the gap between id 3 and id 200 leaves holes");
         var rows = 4097;
@@ -272,7 +272,7 @@ public unsafe class MixedTierTests
         using var set = new TimelineSet<GatherTrack, GatherClip>();
         var bound = BakeSet(set, (16, true, 1.5f), (16, true, 2f), (16, true, 3f));
         using var gap = TimelineAsset.LoadAsset(Bake(16, true, 9f));
-        set.AddAt(200, MeasuredLanes.Measure(gap));
+        set.AddAt(200, MeasuredLanes.Measure(gap.Reference, PairRuntime<GatherTrack, GatherClip>.Key));
         Assert.True(set.Holes > 0, "ids 3..199 stay pending below the AddAt gap");
         Assert.True(set.IsPending(5), "id 5 is a pending id inside the bound");
         var rows = 64;
@@ -299,7 +299,7 @@ public unsafe class MixedTierTests
         using var set = new TimelineSet<GatherTrack, GatherClip>();
         var bound = BakeSet(set, (16, true, 1.5f), (16, true, 2f), (16, true, 3f));
         using var gap = TimelineAsset.LoadAsset(Bake(16, true, 9f));
-        set.AddAt(200, MeasuredLanes.Measure(gap));
+        set.AddAt(200, MeasuredLanes.Measure(gap.Reference, PairRuntime<GatherTrack, GatherClip>.Key));
         Assert.True(set.Holes > 0, "ids 3..199 stay pending below the AddAt gap");
         var rows = 64;
         var idColumn = new ushort[rows];

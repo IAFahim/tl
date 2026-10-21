@@ -35,18 +35,17 @@ public class InternTableTests
     }
 
     [Fact]
-    public void IndexStaysLiveUntilEveryLoadAcquisitionReleases()
+    public void IndexStaysLiveUntilEveryViewAcquisitionReleases()
     {
         var bytes = Bytes(4f, 6);
-        var first = TimelineAsset.Load(bytes);
-        var second = TimelineAsset.Load(bytes);
-        Assert.Equal(first, second);
-        TimelineAsset.Of(first).Dispose();
-        using var survivor = TimelineAsset.Of(second);
+        var index = TimelineAsset.Load(bytes);
+        Assert.Equal(index, TimelineAsset.Load(bytes));
+        using var survivor = TimelineAsset.Of(index);
         Assert.NotEqual(0, survivor.Reference.Address);
-        TimelineAsset.Of(second).Dispose();
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Of(first));
-        Assert.Throws<ArgumentException>(() => survivor.Reference);
+        TimelineAsset.Of(index).Dispose();
+        Assert.NotEqual(0, survivor.Reference.Address);
+        survivor.Dispose();
+        Assert.Throws<ArgumentException>(() => TimelineAsset.Of(index));
     }
 
     [Fact]
@@ -86,18 +85,31 @@ public class InternTableTests
     }
 
     [Fact]
-    public void DeadBlocksDrainAndBalanceUnderTheNextLoad()
+    public void DeadBlocksSurviveTheLoadGraceWindowAndDrainExplicitly()
     {
-        var beforeAlloc = TimelineTable.AllocCount;
         var beforeFree = TimelineTable.FreeCount;
+        var backlog = TimelineTable.GraveyardBlocks;
         var first = TimelineAsset.Load(Bytes(7f, 5));
         TimelineAsset.Of(first).Dispose();
-        Assert.True(TimelineTable.GraveyardBlocks > 0);
+        var graveyard = TimelineTable.GraveyardBlocks;
+        Assert.True(graveyard > backlog);
         var second = TimelineAsset.Load(Bytes(8f, 5));
+        Assert.Equal(graveyard, TimelineTable.GraveyardBlocks);
         TimelineAsset.Of(second).Dispose();
         TimelineTable.Drain();
-        Assert.Equal(TimelineTable.AllocCount - beforeAlloc, TimelineTable.FreeCount - beforeFree);
-        Assert.Equal(2, TimelineTable.AllocCount - beforeAlloc);
+        Assert.Equal(0, TimelineTable.GraveyardBlocks);
+        Assert.Equal(graveyard + 1, TimelineTable.FreeCount - beforeFree);
+    }
+
+    [Fact]
+    public void GraveyardFreesOnlyAfterTheLoadGraceWindowPasses()
+    {
+        var first = TimelineAsset.Load(Bytes(11f, 4));
+        TimelineAsset.Of(first).Dispose();
+        Assert.True(TimelineTable.GraveyardBlocks > 0);
+        for (var i = 0; i < 4097; i++)
+            TimelineAsset.Load(Bytes(200f + i % 200, 3));
+        Assert.Equal(0, TimelineTable.GraveyardBlocks);
     }
 
     [Fact]
@@ -105,11 +117,17 @@ public class InternTableTests
     {
         var index = TimelineAsset.Load(Bytes(9f, 4));
         TimelineTable.Pin(index, out var generation);
-        TimelineAsset.Of(index).Dispose();
+        TimelineTable.Release(index, generation);
         var before = TimelineTable.OverReleases;
         TimelineTable.Release(index, generation);
         Assert.Equal(before + 1, TimelineTable.OverReleases);
         Assert.Throws<ArgumentException>(() => TimelineAsset.Of(index));
+    }
+
+    [Fact]
+    public void FirstPublishedIndexIsNeverZero()
+    {
+        Assert.NotEqual(0, TimelineAsset.Load(Bytes(10f, 4)));
     }
 
     [Fact]

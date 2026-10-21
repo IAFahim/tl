@@ -1,15 +1,7 @@
 namespace Tl;
 
-/// <summary>
-/// Cold, read-only introspection over the process-wide timeline tables and the per-pair banks.
-/// The surface exists so a hosting tool can report runtime state without reflecting over engine
-/// internals: it allocates freely on the caller's thread, never runs during playback, and never
-/// folds, disposes, or reclaims. A bank slot's state is reported exactly as observed; driving a
-/// fold is the caller's own operation between two snapshots.
-/// </summary>
 public static unsafe class Inspection
 {
-    /// <summary>Observed fold state of one bank slot; snapshotting never resolves it.</summary>
     public enum FoldState
     {
         Absent,
@@ -72,7 +64,6 @@ public static unsafe class Inspection
         long RetainedBytes,
         IReadOnlyList<ViewSnapshot> Views);
 
-    /// <summary>Process-wide table occupancy at the moment of the call.</summary>
     public static TablesSnapshot Tables() => new(
         new InternSnapshot(
             TimelineTable._capacity,
@@ -83,14 +74,8 @@ public static unsafe class Inspection
             TimelineTable.AllocBytes,
             TimelineTable.PeakLiveBytes),
         Pair(),
-        new BakeSnapshot(BakeTable.SlotCount, BakeTable.Count));
+        new BakeSnapshot(BakeTable.SlotCapacity, BakeTable.Count));
 
-    /// <summary>
-    /// Snapshot of the <c>(TTrack, TClip)</c> bank, or null when the pair has never been touched.
-    /// Folded views carry duration, ticks, lanes, AbiVersion, generation, and per-lane value-shape
-    /// summaries (distinct bit patterns and longest equal run); pending and absent views carry
-    /// their state only. No pointer values are returned.
-    /// </summary>
     public static BankSnapshot? Bank<TTrack, TClip>()
         where TTrack : unmanaged, IBlend<TClip>
         where TClip : unmanaged

@@ -140,6 +140,15 @@ internal static class Checked
     }
 }
 
+internal static class Guard
+{
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Same<T1, T2>(ReadOnlySpan<T1> left, ReadOnlySpan<T2> right)
+    {
+        if (left.Length != 0 && left.Length != right.Length) Fail.ColumnLength(left.Length, right.Length);
+    }
+}
+
 internal static class Fail
 {
     [DoesNotReturn]
@@ -165,4 +174,8 @@ internal static class Fail
     [DoesNotReturn]
     internal static void PairSizes()
         => throw new ArgumentException("Pair value sizes do not match the baked pools; rebake the .tlb.");
+
+    [DoesNotReturn]
+    internal static void Sealed()
+        => throw new InvalidOperationException("Consumer registry is sealed; install consumers and bakes before Timeline.SealConsumers().");
 }

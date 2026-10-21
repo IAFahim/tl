@@ -1115,7 +1115,7 @@ static unsafe class LaneTable<TTrack, TClip>
     public static void Bind(TimelineAsset asset)
     {
         LaneGuards.ValidatePair<TTrack, TClip>(asset);
-        using var measured = MeasuredLanes.Measure(asset);
+        using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<TTrack, TClip>.Key);
         var duration = measured.Duration;
         var looping = measured.Looping;
         var measuredFloats = (nuint)duration + 1u;

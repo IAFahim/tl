@@ -330,17 +330,14 @@ public partial class LaneTests
     }
 
     [Fact]
-    public void BakedLaneFoldsEveryPairOfTheAsset()
+    public void BakedLaneFoldsItsOwnPairOfTheAsset()
     {
         using var asset = TimelineAsset.LoadAsset(DualPairBake());
         BakedLane<LaneTrack, LaneClip>.Bind(asset);
 
         Assert.Equal(6, BakedLane<LaneTrack, LaneClip>.Duration);
         for (var tick = 0; tick < 6; tick++)
-        {
-            var orphan = tick is >= 2 and < 5 ? 5 * 3f : 0f;
-            Assert.Equal(LoopingEffects[tick] + orphan, BakedLane<LaneTrack, LaneClip>.Effect((ushort)tick));
-        }
+            Assert.Equal(LoopingEffects[tick], BakedLane<LaneTrack, LaneClip>.Effect((ushort)tick));
     }
 
     [Fact]

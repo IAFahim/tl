@@ -38,7 +38,7 @@ public unsafe class MovementSetKernelTests
         _ = set.Add(asset);
         Assert.Equal(0, set.Holes);
 
-        using var measured = MeasuredLanes.Measure(second);
+        using var measured = MeasuredLanes.Measure(second.Reference, PairRuntime<MovementWrapTrack, MovementWrapClip>.Key);
         var bound = set.AddAt(2, measured);
         Assert.Equal(2, bound);
         Assert.Equal(1, set.Holes);
@@ -57,7 +57,7 @@ public unsafe class MovementSetKernelTests
         using var second = TimelineAsset.LoadAsset(StepBake());
         using var set = new TimelineSet<MovementWrapTrack, MovementWrapClip>();
         set.Add(asset);
-        using var measured = MeasuredLanes.Measure(second);
+        using var measured = MeasuredLanes.Measure(second.Reference, PairRuntime<MovementWrapTrack, MovementWrapClip>.Key);
         set.AddAt(2, measured);
         Assert.True(set.IsPending(1));
 
@@ -84,7 +84,7 @@ public unsafe class MovementSetKernelTests
         using var second = TimelineAsset.LoadAsset(StepBake());
         using var set = new TimelineSet<MovementWrapTrack, MovementWrapClip>();
         var id = set.Add(asset);
-        using var measured = MeasuredLanes.Measure(second);
+        using var measured = MeasuredLanes.Measure(second.Reference, PairRuntime<MovementWrapTrack, MovementWrapClip>.Key);
         set.AddAt(2, measured);
 
         var ids = new ushort[] { id, 1, 2, 7 };
@@ -131,7 +131,7 @@ public unsafe class MovementSetKernelTests
         using var second = TimelineAsset.LoadAsset(StepBake());
         using var set = new TimelineSet<MovementWrapTrack, MovementWrapClip>();
         var id = set.Add(asset);
-        using var measured = MeasuredLanes.Measure(second);
+        using var measured = MeasuredLanes.Measure(second.Reference, PairRuntime<MovementWrapTrack, MovementWrapClip>.Key);
         set.AddAt(2, measured);
 
         var ids = new ushort[] { id, 1, 2, 1, id, 1 };
@@ -152,7 +152,7 @@ public unsafe class MovementSetKernelTests
         using var second = TimelineAsset.LoadAsset(StepBake());
         using var set = new TimelineSet<MovementWrapTrack, MovementWrapClip>();
         var id = set.Add(asset);
-        using var measured = MeasuredLanes.Measure(second);
+        using var measured = MeasuredLanes.Measure(second.Reference, PairRuntime<MovementWrapTrack, MovementWrapClip>.Key);
         set.AddAt(2, measured);
 
         var ids = new ushort[] { id, 1, 2, 1, id, 1 };
@@ -196,7 +196,7 @@ public unsafe class MovementSetKernelTests
             baker.Clip(s, 0, 4, new ConstClip(1f));
 
         using var asset = TimelineAsset.LoadAsset(baker.Bake());
-        using var measured = MeasuredLanes.Measure(asset);
+        using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<ConstTrack, ConstClip>.Key);
 
         Assert.Equal(4, measured.Duration);
         for (var tick = 0; tick < 4; tick++)

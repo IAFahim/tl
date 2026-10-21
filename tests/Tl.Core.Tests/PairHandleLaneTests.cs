@@ -451,7 +451,7 @@ public class PairHandleLaneTests
     public void FirstTypedUseAgreesWithPriorMeasuredLanes()
     {
         using var asset = TimelineAsset.LoadAsset(VariantBake(0));
-        using var measured = MeasuredLanes.Measure(asset);
+        using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<HandleTrack, HandleClip>.Key);
         var index = asset.Index;
         Timeline<HandleTrack, HandleClip>.Apply(index, Span<ushort>.Empty, true, Span<float>.Empty); Timeline.Advance(index, Span<ushort>.Empty, true);
         Assert.Equal(4, measured.Duration);

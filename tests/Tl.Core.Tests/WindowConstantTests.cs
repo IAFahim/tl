@@ -174,8 +174,8 @@ public class WindowConstantTests
             var mirror = TimelineAsset.LoadAsset(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(2f), duration, looping, (0, duration)));
             try
             {
-                using var declaredLanes = MeasuredLanes.Measure(declared);
-                using var mirrorLanes = MeasuredLanes.Measure(mirror);
+                using var declaredLanes = MeasuredLanes.Measure(declared.Reference, PairRuntime<ConstTrack, ConstClip>.Key);
+                using var mirrorLanes = MeasuredLanes.Measure(mirror.Reference, PairRuntime<MirrorTrack, MirrorClip>.Key);
                 Assert.True(WindowConstantBitwise.TablesEqual(mirrorLanes, declaredLanes));
             }
             finally
@@ -195,8 +195,8 @@ public class WindowConstantTests
             var mirror = TimelineAsset.LoadAsset(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(1.5f), 100, looping, (0, 1), (1, 64), (64, 65), (65, 100)));
             try
             {
-                using var declaredLanes = MeasuredLanes.Measure(declared);
-                using var mirrorLanes = MeasuredLanes.Measure(mirror);
+                using var declaredLanes = MeasuredLanes.Measure(declared.Reference, PairRuntime<ConstTrack, ConstClip>.Key);
+                using var mirrorLanes = MeasuredLanes.Measure(mirror.Reference, PairRuntime<MirrorTrack, MirrorClip>.Key);
                 Assert.True(WindowConstantBitwise.TablesEqual(mirrorLanes, declaredLanes));
             }
             finally
@@ -214,8 +214,8 @@ public class WindowConstantTests
         var mirror = TimelineAsset.LoadAsset(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(1f), 65535, true, (0, 65535)));
         try
         {
-            using var declaredLanes = MeasuredLanes.Measure(declared);
-            using var mirrorLanes = MeasuredLanes.Measure(mirror);
+            using var declaredLanes = MeasuredLanes.Measure(declared.Reference, PairRuntime<ConstTrack, ConstClip>.Key);
+            using var mirrorLanes = MeasuredLanes.Measure(mirror.Reference, PairRuntime<MirrorTrack, MirrorClip>.Key);
             Assert.True(WindowConstantBitwise.TablesEqual(mirrorLanes, declaredLanes));
         }
         finally
@@ -234,8 +234,8 @@ public class WindowConstantTests
             var mirror = TimelineAsset.LoadAsset(Bake<MirrorTrack, MirrorClip>(new MirrorTrack(2f), 12, looping, (0, 8), (4, 12)));
             try
             {
-                using var declaredLanes = MeasuredLanes.Measure(declared);
-                using var mirrorLanes = MeasuredLanes.Measure(mirror);
+                using var declaredLanes = MeasuredLanes.Measure(declared.Reference, PairRuntime<ConstTrack, ConstClip>.Key);
+                using var mirrorLanes = MeasuredLanes.Measure(mirror.Reference, PairRuntime<MirrorTrack, MirrorClip>.Key);
                 Assert.True(WindowConstantBitwise.TablesEqual(mirrorLanes, declaredLanes));
                 Assert.NotEqual(
                     WindowConstantBitwise.TableValue(mirrorLanes, true, 6),
@@ -257,15 +257,14 @@ public class WindowConstantTests
             var declared = BakeTwo<ConstTrack, ConstClip, MirrorTrack, MirrorClip>(
                 new ConstTrack(2f), new MirrorTrack(3f), 40, looping,
                 [ (0u, 10u), (10u, 40u) ], [(5u, 20u), (20u, 40u)]);
-            var mirror = BakeTwo<MirrorTrack, MirrorClip, MirrorTrack, MirrorClip>(
-                new MirrorTrack(2f), new MirrorTrack(3f), 40, looping,
-                [ (0u, 10u), (10u, 40u) ], [(5u, 20u), (20u, 40u)]);
+            var mirror = Bake<MirrorTrack, MirrorClip>(
+                new MirrorTrack(2f), 40, looping, (0u, 10u), (10u, 40u));
             var declaredAsset = TimelineAsset.LoadAsset(declared);
             var mirrorAsset = TimelineAsset.LoadAsset(mirror);
             try
             {
-                using var declaredLanes = MeasuredLanes.Measure(declaredAsset);
-                using var mirrorLanes = MeasuredLanes.Measure(mirrorAsset);
+                using var declaredLanes = MeasuredLanes.Measure(declaredAsset.Reference, PairRuntime<ConstTrack, ConstClip>.Key);
+                using var mirrorLanes = MeasuredLanes.Measure(mirrorAsset.Reference, PairRuntime<MirrorTrack, MirrorClip>.Key);
                 Assert.True(WindowConstantBitwise.TablesEqual(mirrorLanes, declaredLanes));
             }
             finally
@@ -291,8 +290,8 @@ public class WindowConstantTests
             var mirrorAsset = TimelineAsset.LoadAsset(mirror);
             try
             {
-                using var declaredLanes = MeasuredLanes.Measure(declaredAsset);
-                using var mirrorLanes = MeasuredLanes.Measure(mirrorAsset);
+                using var declaredLanes = MeasuredLanes.Measure(declaredAsset.Reference, PairRuntime<ConstTrack, ConstClip>.Key);
+                using var mirrorLanes = MeasuredLanes.Measure(mirrorAsset.Reference, PairRuntime<MirrorTrack, MirrorClip>.Key);
                 Assert.True(WindowConstantBitwise.TablesEqual(mirrorLanes, declaredLanes));
             }
             finally
@@ -310,8 +309,8 @@ public class WindowConstantTests
         var honest = TimelineAsset.LoadAsset(Bake<TickTrack, TickClip>(new TickTrack(1f), 12, false, (2, 10)));
         try
         {
-            using var lyingLanes = MeasuredLanes.Measure(lying);
-            using var honestLanes = MeasuredLanes.Measure(honest);
+            using var lyingLanes = MeasuredLanes.Measure(lying.Reference, PairRuntime<LyingTrack, LyingClip>.Key);
+            using var honestLanes = MeasuredLanes.Measure(honest.Reference, PairRuntime<TickTrack, TickClip>.Key);
             for (var tick = 2u; tick < 10u; tick++)
             {
                 Assert.Equal(2f, WindowConstantBitwise.TableValue(lyingLanes, true, tick));
@@ -344,8 +343,8 @@ public class WindowConstantTests
         var mirror = TimelineAsset.LoadAsset(mirrorBake);
         try
         {
-            using var chainLanes = MeasuredLanes.Measure(chain);
-            using var mirrorLanes = MeasuredLanes.Measure(mirror);
+            using var chainLanes = MeasuredLanes.Measure(chain.Reference, PairRuntime<ChainTrack, ChainClip>.Key);
+            using var mirrorLanes = MeasuredLanes.Measure(mirror.Reference, PairRuntime<TChainTrack, TChainClip>.Key);
             Assert.True(WindowConstantBitwise.TablesEqual(mirrorLanes, chainLanes));
             Assert.NotEqual(
                 WindowConstantBitwise.TableValue(mirrorLanes, true, 4),
@@ -367,8 +366,8 @@ public class WindowConstantTests
         var mirrorAsset = TimelineAsset.LoadAsset(mirror);
         try
         {
-            using var declaredLanes = MeasuredLanes.Measure(declaredAsset);
-            using var mirrorLanes = MeasuredLanes.Measure(mirrorAsset);
+            using var declaredLanes = MeasuredLanes.Measure(declaredAsset.Reference, PairRuntime<ConstTrack, ConstClip>.Key);
+            using var mirrorLanes = MeasuredLanes.Measure(mirrorAsset.Reference, PairRuntime<MirrorTrack, MirrorClip>.Key);
             Assert.True(WindowConstantBitwise.TablesEqual(mirrorLanes, declaredLanes));
         }
         finally

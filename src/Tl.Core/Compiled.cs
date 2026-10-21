@@ -8,6 +8,8 @@ public interface ITrack<TTrack, TClip>
 
 public interface IBake<TConsumer>;
 
+public interface IHostedConsumer;
+
 public readonly ref struct Frame<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged

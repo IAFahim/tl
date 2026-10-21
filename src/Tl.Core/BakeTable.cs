@@ -38,16 +38,23 @@ static unsafe class BakeTable
 
     struct Slot { public ulong Key; public int Head, Tail; }
 
-    internal const int SlotCount = 1024, Capacity = 1024;
+    internal const int SlotCount = 1024;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    static readonly byte* _block = (byte*)NativeMemory.AlignedAlloc((nuint)(sizeof(Slot) * SlotCount + sizeof(Entry) * Capacity), 64);
+    static ulong _slotsBase = (ulong)NativeMemory.AlignedAlloc((nuint)(8 + sizeof(Slot) * SlotCount), 64);
+    static ulong _entriesBase = (ulong)NativeMemory.AlignedAlloc((nuint)(sizeof(Entry) * SlotCount), 64);
+    static int _entryCapacity = SlotCount;
     static volatile int _gate;
     static int _bakes;
 
-    static BakeTable() => Unsafe.InitBlock(_block, 0, (uint)(sizeof(Slot) * SlotCount));
+    static BakeTable()
+    {
+        Unsafe.InitBlock((void*)_slotsBase, 0, (uint)(8 + sizeof(Slot) * SlotCount));
+        *(int*)_slotsBase = SlotCount;
+    }
 
-    static Slot* SlotAt => (Slot*)_block;
-    internal static Entry* EntryAt => (Entry*)(_block + sizeof(Slot) * SlotCount);
+    static byte* Slots => (byte*)Volatile.Read(ref _slotsBase);
+    internal static int SlotCapacity => *(int*)Slots;
+    internal static Entry* EntryAt => (Entry*)Volatile.Read(ref _entriesBase);
     internal static int Count => Volatile.Read(ref _bakes);
 
     internal static void Install(ulong pairKey, delegate*<byte**, void> invoke, ReadOnlySpan<ulong> paramKeys)
@@ -55,16 +62,28 @@ static unsafe class BakeTable
         while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
         try
         {
+            if (PairTable._sealed != 0) Fail.Sealed();
             var slot = Probe(pairKey);
-            var slots = SlotAt;
-            if (slot < 0) throw new InvalidOperationException("Bake pair capacity exhausted.");
+            while (slot < 0)
+            {
+                GrowSlots();
+                slot = Probe(pairKey);
+            }
+            var slots = (Slot*)(Slots + 8ul);
             if (slots[slot].Key == 0)
             {
                 slots[slot].Head = -1;
                 slots[slot].Tail = -1;
                 Volatile.Write(ref slots[slot].Key, pairKey);
             }
-            if (_bakes == Capacity) throw new InvalidOperationException("Bake capacity exhausted.");
+            if (_bakes == _entryCapacity)
+            {
+                var grown = (Entry*)NativeMemory.AlignedAlloc((nuint)sizeof(Entry) * (nuint)_entryCapacity * 2, 64);
+                var copy = sizeof(Entry) * _bakes;
+                Buffer.MemoryCopy(EntryAt, grown, copy, copy);
+                _entryCapacity *= 2;
+                Volatile.Write(ref _entriesBase, (ulong)grown);
+            }
             var entry = EntryAt + _bakes;
             entry->Next = -1;
             entry->ParamCount = paramKeys.Length;
@@ -90,7 +109,7 @@ static unsafe class BakeTable
     {
         var slot = Probe(pairKey);
         if (slot < 0) return -1;
-        var slots = SlotAt;
+        var slots = (Slot*)(Slots + 8ul);
         return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
     }
 
@@ -116,15 +135,37 @@ static unsafe class BakeTable
     static ArgumentOutOfRangeException BakeIndex(int index)
         => new(nameof(index), "Bake index is outside the registered bake chain for this timeline pair.");
 
+    static void GrowSlots()
+    {
+        var old = Slots;
+        var oldCap = *(int*)old;
+        var cap = oldCap * 2;
+        var grown = (byte*)NativeMemory.AlignedAlloc((nuint)(8 + sizeof(Slot) * cap), 64);
+        Unsafe.InitBlock(grown, 0, (uint)(8 + sizeof(Slot) * cap));
+        *(int*)grown = cap;
+        var from = (Slot*)(old + 8ul);
+        var to = (Slot*)(grown + 8ul);
+        for (var i = 0; i < oldCap; i++)
+        {
+            if (from[i].Key == 0) continue;
+            var s = (int)(from[i].Key & (ulong)(cap - 1));
+            while (to[s].Key != 0) s = (s + 1) & (cap - 1);
+            to[s] = from[i];
+        }
+        Volatile.Write(ref _slotsBase, (ulong)grown);
+    }
+
     static int Probe(ulong key)
     {
-        var slots = SlotAt;
-        var slot = (int)key & (SlotCount - 1);
-        for (var walk = 0; walk < SlotCount; walk++)
+        var block = Slots;
+        var slots = (Slot*)(block + 8ul);
+        var cap = *(int*)block;
+        var slot = (int)key & (cap - 1);
+        for (var walk = 0; walk < cap; walk++)
         {
             var candidate = Volatile.Read(ref slots[slot].Key);
             if (candidate == 0 || candidate == key) return slot;
-            slot = (slot + 1) & (SlotCount - 1);
+            slot = (slot + 1) & (cap - 1);
         }
         return -1;
     }

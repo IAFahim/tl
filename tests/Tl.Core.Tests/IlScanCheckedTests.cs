@@ -17,14 +17,7 @@ public class IlScanCheckedTests
         using var pe = new PEReader(stream);
         var reader = pe.GetMetadataReader();
 
-        var checkedTokens = new HashSet<int>();
-        foreach (var handle in reader.TypeDefinitions)
-        {
-            var type = reader.GetTypeDefinition(handle);
-            if (reader.GetString(type.Namespace) != "Tl" || reader.GetString(type.Name) != "Checked") continue;
-            foreach (var method in type.GetMethods())
-                checkedTokens.Add(MetadataTokens.GetToken(method));
-        }
+        var checkedTokens = TokensOf(reader, "Tl", "Checked");
         Assert.NotEmpty(checkedTokens);
 
         var calls = 0;
@@ -47,7 +40,20 @@ public class IlScanCheckedTests
         }
         Assert.True(
             calls == 0,
-            $"Tl.Core.dll without TL_CHECKED contains {calls} call sites into Tl.Checked; the shipped playback path must lower guards to zero IL.");
+            $"Tl.Core.dll without TL_CHECKED contains {calls} call sites into Tl.Checked; the O(n) domain and overlap guards must lower to zero IL.");
+    }
+
+    static HashSet<int> TokensOf(MetadataReader reader, string namespaceName, string typeName)
+    {
+        var tokens = new HashSet<int>();
+        foreach (var handle in reader.TypeDefinitions)
+        {
+            var type = reader.GetTypeDefinition(handle);
+            if (reader.GetString(type.Namespace) != namespaceName || reader.GetString(type.Name) != typeName) continue;
+            foreach (var method in type.GetMethods())
+                tokens.Add(MetadataTokens.GetToken(method));
+        }
+        return tokens;
     }
 }
 #endif

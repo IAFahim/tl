@@ -5,31 +5,12 @@ using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp;
 
-/// <summary>
-/// Chained generation: the entry point a host source generator uses when it synthesizes
-/// timeline consumers itself. A generator's added sources are invisible to every other
-/// generator in the same pass, so the host runs this pipeline over a compilation it has
-/// already augmented with <c>AddSyntaxTrees</c> and emits the returned artifacts under its
-/// own <c>AddSource</c>. The artifact names carry <c>id</c> so they cannot
-/// collide with the ones this package's own generator emits for authored consumers.
-/// </summary>
 public static class TimelineGeneration
 {
     public sealed record Artifact(string RelativePath, string Content);
 
     public sealed record Result(IReadOnlyList<DeclarationDiagnostic> Diagnostics, IReadOnlyList<Artifact> Artifacts);
 
-    /// <summary>
-    /// Runs the pipeline over a compilation the host has augmented.
-    /// <paramref name="synthesized"/> must be exactly the syntax trees the host itself added:
-    /// consumers declared in any other tree are authored and belong to the package generator's
-    /// own pass, so the chained pass never registers them (naming one in
-    /// <paramref name="consumers"/> is TLGEN84). A filter entry that matches no timeline
-    /// consumer is TLGEN83; filters compare <c>global::</c>-qualified type names. Bakes whose
-    /// consumer is synthesized ride along in the chained artifacts; bakes for authored
-    /// consumers stay with the package pass. <paramref name="id"/> must be a non-empty ASCII
-    /// identifier fragment (TLGEN82); it is spliced into generated type and file names.
-    /// </summary>
     public static Result Run(CSharpCompilation compilation, ISet<SyntaxTree> synthesized, ISet<string>? consumers = null, string id = "Hosted")
     {
         if (compilation is null) throw new ArgumentNullException(nameof(compilation));

@@ -56,7 +56,7 @@ public class MeasuredLanesTests
             using var directLooping = new TimelineSet<LaneTrack, LaneClip>();
             using var sharedLooping = new TimelineSet<LaneTrack, LaneClip>();
             var directLoopingId = directLooping.Add(looping);
-            using var loopingLanes = MeasuredLanes.Measure(looping);
+            using var loopingLanes = MeasuredLanes.Measure(looping.Reference, PairRuntime<LaneTrack, LaneClip>.Key);
             Assert.Equal(6, loopingLanes.Duration);
             Assert.True(loopingLanes.Looping);
             var sharedLoopingId = sharedLooping.Add(looping, loopingLanes);
@@ -65,7 +65,7 @@ public class MeasuredLanesTests
             using var directFinite = new TimelineSet<LaneTrack, LaneClip>();
             using var sharedFinite = new TimelineSet<LaneTrack, LaneClip>();
             var directFiniteId = directFinite.Add(finite);
-            using var finiteLanes = MeasuredLanes.Measure(finite);
+            using var finiteLanes = MeasuredLanes.Measure(finite.Reference, PairRuntime<LaneTrack, LaneClip>.Key);
             Assert.Equal(6, finiteLanes.Duration);
             Assert.False(finiteLanes.Looping);
             var sharedFiniteId = sharedFinite.Add(finite, finiteLanes);
@@ -87,7 +87,7 @@ public class MeasuredLanesTests
             using var first = new TimelineSet<LaneTrack, LaneClip>();
             using var second = new TimelineSet<LaneTrack, LaneClip>();
             var firstId = first.Add(asset);
-            using var measured = MeasuredLanes.Measure(asset);
+            using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<LaneTrack, LaneClip>.Key);
             var secondId = second.Add(asset, measured);
             var thirdId = second.Add(asset, measured);
             Assert.Equal(0, secondId);
@@ -111,11 +111,12 @@ public class MeasuredLanesTests
             using var orphanDirectSet = new TimelineSet<OrphanTrack, OrphanClip>();
             var laneDirect = laneDirectSet.Add(asset);
             var orphanDirect = orphanDirectSet.Add(asset);
-            using var measured = MeasuredLanes.Measure(asset);
+            using var laneMeasured = MeasuredLanes.Measure(asset.Reference, PairRuntime<LaneTrack, LaneClip>.Key);
+            using var orphanMeasured = MeasuredLanes.Measure(asset.Reference, PairRuntime<OrphanTrack, OrphanClip>.Key);
             using var laneSharedSet = new TimelineSet<LaneTrack, LaneClip>();
             using var orphanSharedSet = new TimelineSet<OrphanTrack, OrphanClip>();
-            var laneShared = laneSharedSet.Add(asset, measured);
-            var orphanShared = orphanSharedSet.Add(asset, measured);
+            var laneShared = laneSharedSet.Add(asset, laneMeasured);
+            var orphanShared = orphanSharedSet.Add(asset, orphanMeasured);
             AssertSamePlayback(laneDirectSet, laneDirect, laneSharedSet, laneShared, 6, true);
             AssertSamePlayback(orphanDirectSet, orphanDirect, orphanSharedSet, orphanShared, 6, true);
         }
@@ -132,7 +133,7 @@ public class MeasuredLanesTests
         var beta = TimelineAsset.LoadAsset(FiniteVariantBake());
         try
         {
-            using var measured = MeasuredLanes.Measure(alpha);
+            using var measured = MeasuredLanes.Measure(alpha.Reference, PairRuntime<LaneTrack, LaneClip>.Key);
             using var set = new TimelineSet<LaneTrack, LaneClip>();
             Assert.Throws<ArgumentException>(() => set.Add(beta, measured));
         }
@@ -150,12 +151,12 @@ public class MeasuredLanesTests
         var gamma = TimelineAsset.LoadAsset(GammaBake());
         try
         {
-            using var measured = MeasuredLanes.Measure(gamma);
+            using var measured = MeasuredLanes.Measure(gamma.Reference, PairRuntime<GammaTrack, GammaClip>.Key);
             using var laneSet = new TimelineSet<LaneTrack, LaneClip>();
             Assert.Throws<ArgumentException>(() => laneSet.Add(gamma, measured));
             using var gammaSet = new TimelineSet<GammaTrack, GammaClip>();
             Assert.Throws<ArgumentException>(() => gammaSet.Add(gamma));
-            using var gammaLanes = MeasuredLanes.Measure(gamma);
+            using var gammaLanes = MeasuredLanes.Measure(gamma.Reference, PairRuntime<GammaTrack, GammaClip>.Key);
             Assert.Throws<ArgumentException>(() => gammaSet.Add(gamma, gammaLanes));
         }
         finally
@@ -171,7 +172,7 @@ public class MeasuredLanesTests
         var asset = TimelineAsset.LoadAsset(FiniteBake());
         try
         {
-            var measured = MeasuredLanes.Measure(asset);
+            var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<LaneTrack, LaneClip>.Key);
             measured.Dispose();
             using var set = new TimelineSet<LaneTrack, LaneClip>();
             Assert.Throws<ObjectDisposedException>(() => set.Add(asset, measured));
@@ -187,7 +188,7 @@ public class MeasuredLanesTests
     {
         var asset = TimelineAsset.LoadAsset(FiniteBake());
         asset.Dispose();
-        Assert.Throws<ArgumentException>(() => MeasuredLanes.Measure(asset));
+        Assert.Throws<ArgumentException>(() => MeasuredLanes.Measure(asset.Reference, PairRuntime<LaneTrack, LaneClip>.Key));
     }
 
     [Fact]
@@ -199,7 +200,7 @@ public class MeasuredLanesTests
             using var direct = new TimelineSet<LaneTrack, LaneClip>();
             using var shared = new TimelineSet<LaneTrack, LaneClip>();
             var directId = direct.Add(asset);
-            using var measured = MeasuredLanes.Measure(asset);
+            using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<LaneTrack, LaneClip>.Key);
             Assert.Equal(0, measured.Duration);
             var sharedId = shared.Add(asset, measured);
             AssertSamePlayback(direct, directId, shared, sharedId, 0, false);
