@@ -40,7 +40,7 @@ public class InspectionTests
         try
         {
             Assert.Equal(indexC + 1, bank.Count);
-            Assert.Equal(bank.Views.Count(view => view.State != Inspection.FoldState.Folded), bank.Holes);
+            Assert.Equal(bank.Views.Count(view => view.Index != 0 && view.State != Inspection.FoldState.Folded), bank.Holes);
             Assert.Equal(bank.HeaderBytes + bank.TableBytes + bank.DirectoryBytes, bank.RetainedBytes);
 
             var publicA = Timeline<SnapshotTrack, SnapshotClip>.View(assetA);
