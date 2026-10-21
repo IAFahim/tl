@@ -73,7 +73,7 @@ static unsafe class TimelineTable
     static int Mask => _capacity - 1;
 
     internal static int LiveEntries => Volatile.Read(ref _live);
-    internal static int DistinctContents => Volatile.Read(ref _nextId);
+    internal static int DistinctContents => Volatile.Read(ref _nextId) - 1;
     internal static long AllocCount => Volatile.Read(ref _allocCount);
     internal static long FreeCount => Volatile.Read(ref _freeCount);
     internal static long AllocBytes => Volatile.Read(ref _allocBytes);
