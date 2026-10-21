@@ -284,14 +284,16 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             Volatile.Write(ref *(long*)(_views + index), (long)view);
             if (index >= _count)
             {
-                _holes += index - _count;
+                var gap = index - _count;
+                if (_count == 0 && gap > 0) gap--;
+                _holes += gap;
                 _count = index + 1;
             }
             else
             {
                 _holes--;
             }
-            if (_count - _holes == 1 || duration < _minDuration)
+            if (_count - _holes == 2 || duration < _minDuration)
                 _minDuration = duration;
             _generation = generation;
             return index;
