@@ -4,7 +4,7 @@ using Tl.TestSupport;
 
 namespace Tl.Core.Tests;
 
-public class InternTableTests
+public unsafe class InternTableTests
 {
     static byte[] Bytes(float scale, uint end)
         => new DomainBaker()
@@ -82,6 +82,57 @@ public class InternTableTests
         Assert.Equal(first, second);
         using var revived = TimelineAsset.Of(second);
         Assert.NotEqual(0, revived.Reference.Address);
+    }
+
+    [Fact]
+    public void StoredDigestWordsMatchTheSpecifiedSha256()
+    {
+        var bytes = Bytes(8f, 6);
+        var index = TimelineAsset.Load(bytes);
+        var (k0, k1, k2, k3) = SpecDigest(bytes);
+        ulong s0, s1, s2, s3;
+        int slot, recheck;
+        do
+        {
+            slot = TimelineTable.ById[index];
+            var entry = TimelineTable.Entries + slot;
+            s0 = entry->Key0;
+            s1 = entry->Key1;
+            s2 = entry->Key2;
+            s3 = entry->Key3;
+            recheck = TimelineTable.ById[index];
+        } while (recheck != slot);
+        Assert.Equal(k0, s0);
+        Assert.Equal(k1, s1);
+        Assert.Equal(k2, s2);
+        Assert.Equal(k3, s3);
+    }
+
+    [Fact]
+    public void ForgedHalfDigestDoesNotReviveWhenHighWordsDiffer()
+    {
+        var bytes = Bytes(10f, 6);
+        var index = TimelineAsset.Load(bytes);
+        TimelineAsset.Of(index).Dispose();
+        int slot, recheck;
+        do
+        {
+            slot = TimelineTable.ById[index];
+            recheck = TimelineTable.ById[index];
+        } while (recheck != slot);
+        (TimelineTable.Entries + slot)->Key3 ^= 1;
+        var reloaded = TimelineAsset.Load(bytes);
+        Assert.NotEqual(index, reloaded);
+    }
+
+    static (ulong K0, ulong K1, ulong K2, ulong K3) SpecDigest(byte[] bytes)
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(bytes);
+        return (
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(hash),
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(hash.AsSpan(8)),
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(hash.AsSpan(16)),
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(hash.AsSpan(24)));
     }
 
     [Fact]
