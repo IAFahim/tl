@@ -125,7 +125,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
                     var shared = (rMeta[j] & 0x10) == 0;
                     var lane = Pool(rKeys[j], (byte)(rMeta[j] & 0xF), shared);
                     if (resLane != null) resLane[results++] = lane;
-                    if (!shared) consumers[e].OutLanes[outs++] = lane;
+                    if (!shared) { if (outs == PairTable.MemoResults) throw new InvalidOperationException($"consumer {consumers[e].Ordinal} declares more than 10 owned results."); consumers[e].OutLanes[outs++] = lane; }
                 }
             }
         if (lanes == 0) _ = Pool(TypeKey<float>.Value, 4, true);
@@ -177,7 +177,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
             void ProbeTick(uint position, bool reverse, float** table)
             {
                 Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                if (!reference.Select(reverse, (ushort)position, out var tick, out var flags)) throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
+                AdvanceOrFail(reference, reverse, position, out var tick, out var flags);
                 reference.ExecuteWindow(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns, null, null, null);
                 CopyLanes(table, lanes, laneCell, tick);
             }
@@ -245,6 +245,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         }
         try
         {
+            var chainSpan = new Span<int>(chains, pairs);
             for (var s = 0; s < stageCount; s++)
             {
                 var stage = stages + s;
@@ -275,10 +276,10 @@ public sealed unsafe class MeasuredLanes : IDisposable
                 if (cachedSteps == count)
                 {
                     Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                    reference.ExecuteWindow(false, forwardTick, forwardFlags, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, forwardCache);
+                    reference.ExecuteWindow(false, forwardTick, forwardFlags, 0, chainSpan, columns, stepCached, stepCacheBase, forwardCache);
                     for (var tick = start; tick < end; tick++) CopyLanes(forward, lanes, laneCell, tick);
                     Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                    reference.ExecuteWindow(true, backwardTick, backwardFlags, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, backwardCache);
+                    reference.ExecuteWindow(true, backwardTick, backwardFlags, 0, chainSpan, columns, stepCached, stepCacheBase, backwardCache);
                     for (var tick = start; tick < end; tick++) CopyLanes(backward, lanes, laneCell, tick);
                     continue;
                 }
@@ -287,13 +288,13 @@ public sealed unsafe class MeasuredLanes : IDisposable
                 {
                     AdvanceOrFail(reference, false, tick, out var tickForward, out var forwardFlag);
                     Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                    reference.ExecuteWindow(false, tickForward, forwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, forwardCache);
+                    reference.ExecuteWindow(false, tickForward, forwardFlag, 0, chainSpan, columns, stepCached, stepCacheBase, forwardCache);
                     CopyLanes(forward, lanes, laneCell, tick);
 
                     var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
                     AdvanceOrFail(reference, true, backwardPosition, out var tickBackward, out var backwardFlag);
                     Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                    reference.ExecuteWindow(true, tickBackward, backwardFlag, 0, new Span<int>(chains, pairs), columns, stepCached, stepCacheBase, backwardCache);
+                    reference.ExecuteWindow(true, tickBackward, backwardFlag, 0, chainSpan, columns, stepCached, stepCacheBase, backwardCache);
                     CopyLanes(backward, lanes, laneCell, tick);
                 }
             }
