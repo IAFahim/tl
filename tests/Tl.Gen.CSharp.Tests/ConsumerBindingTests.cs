@@ -58,7 +58,7 @@ public sealed class ConsumerBindingTests
         public struct Mana { public float Value; }
         public readonly struct ApplyBuff : ITrack<BuffTrack, BuffClip>
         {
-            public static void ExecuteActive(in Frame<BuffTrack, BuffClip> frame, ref Armor armor) { }
+            public static void ExecuteActive(in Frame<BuffTrack, BuffClip> frame, ref float armor) { }
         }
         """;
 
@@ -278,11 +278,10 @@ public sealed class ConsumerBindingTests
                 public void Blend(in AlphaClip first, in AlphaClip second, float factor, out AlphaClip result) => result = first;
                 public void Blend(in BetaClip first, in BetaClip second, float factor, out BetaClip result) => result = first;
             }
-            public struct Health { public float Value; }
             public readonly struct DualJob : ITrack<DualTrack, BetaClip>, ITrack<DualTrack, AlphaClip>
             {
-                public static void ExecuteActive(in Frame<DualTrack, AlphaClip> frame, ref Health health) { }
-                public static void ExecuteActive(in Frame<DualTrack, BetaClip> frame, ref Health health) { }
+                public static void ExecuteActive(in Frame<DualTrack, AlphaClip> frame, ref float health) { }
+                public static void ExecuteActive(in Frame<DualTrack, BetaClip> frame, ref float health) { }
             }
             """;
         var (sources, diagnostics) = GenerateWithDiagnostics(source);
@@ -423,7 +422,7 @@ public sealed class ConsumerBindingTests
 
         var changed = unrelated.ReplaceSyntaxTree(
             unrelated.SyntaxTrees.Single(static tree => tree.FilePath == "Domain.cs"),
-            Tree(StandaloneSource.Replace("ref Armor armor) { }", "ref Armor armor, ref Mana extra) { }", StringComparison.Ordinal), "Domain.cs"));
+            Tree(StandaloneSource.Replace("ref float armor) { }", "ref float armor, ref Mana extra) { }", StringComparison.Ordinal), "Domain.cs"));
         driver = driver.RunGenerators(changed);
         Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver));
         Assert.NotEqual(original, Sources(driver));

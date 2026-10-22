@@ -597,11 +597,10 @@ public sealed class BakeReaderTests
             {
                 public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result) => result = first;
             }
-            public struct Health { public float Value; }
             public sealed class World { public int Marks; }
             public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
             {
-                public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref Health health) { }
+                public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref float health) { }
             }
             public readonly struct ApplyDamageBake : IBake<ApplyDamage>
             {
@@ -633,20 +632,20 @@ public sealed class BakeReaderTests
         private static void ExecuteActive_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)
         {
         global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
-        var @health = (global::Domain.Health*)__tlColumns[0];
+        var @health = (float*)__tlColumns[0];
         global::Domain.ApplyDamage.ExecuteActive(in __tlTyped, ref @health[__tlRow]);
         }
         private static void ExecuteActiveRange_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
         {
         global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
-        var @health = (global::Domain.Health*)__tlColumns[0];
+        var @health = (float*)__tlColumns[0];
         for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)
         global::Domain.ApplyDamage.ExecuteActive(in __tlTyped, ref @health[__tlRow]);
         }
         private static void Bind_ApplyDamage(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)
         {
-        var __tlIdx0 = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<global::Domain.Health>.Value);
-        if (__tlIdx0 < 0) throw new global::System.ArgumentException("global::Domain.ApplyDamage: required column missing for registered consumer: global::Domain.Health");
+        var __tlIdx0 = FindKey(__tlKeys, __tlKeyCount, global::Tl.TypeKey<float>.Value);
+        if (__tlIdx0 < 0) throw new global::System.ArgumentException("global::Domain.ApplyDamage: required column missing for registered consumer: float");
         __tlIndices[0] = (byte)(__tlIdx0 + 1);
         }
         private static void Bake_ApplyDamageBake(byte** __tlArgs)

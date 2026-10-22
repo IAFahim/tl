@@ -119,6 +119,8 @@ public static class JobReader
                 if (sugar)
                 {
                     var only = active.Parameters[1];
+                    if (!Symbols.Same(only.Type, compilation.GetSpecialType(SpecialType.System_Single)))
+                        return Err(Symbols.Site(only, site), "TLGEN88", $"'{name}.ExecuteActive' sugar state must be 'ref float'; a keyless consumer binds one pooled float lane, so declare other state types as Fold results.");
                     slots.Add(new(only.Name, Symbols.Name(only.Type), SlotMode.Reference));
                 }
                 else if (gameplay == 0)

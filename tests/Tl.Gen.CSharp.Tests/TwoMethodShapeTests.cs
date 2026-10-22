@@ -547,6 +547,24 @@ public sealed class TwoMethodShapeTests
         Assert.Empty(result.Consumers);
     }
 
+    [Fact]
+    public void RejectsNonFloatSugarStateParameterWithDiagnostic()
+    {
+        var result = Read($$"""
+            {{Domain}}
+            public readonly struct Gauge { public int Marks; }
+            public readonly struct GaugeSugar : ITrack<DamageTrack, DamageClip>
+            {
+                public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame, ref Gauge gauge) { }
+            }
+            """);
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("TLGEN88", diagnostic.Code);
+        Assert.Contains("'global::Domain.GaugeSugar.ExecuteActive' sugar state must be 'ref float'", diagnostic.Message);
+        Assert.Empty(result.Consumers);
+    }
+
     private static JobReadResult Read(string source)
         => JobReader.Read(Compile(source, "TwoMethodShapeTests" + Guid.NewGuid().ToString("N")));
 
