@@ -49,6 +49,12 @@ internal static class JobEmitter
         }
         W($"internal static unsafe class TlConsumerBinding{id}");
         W("{");
+        foreach (var (track, clip, layout) in layouts)
+        {
+            var fields = "global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicFields";
+            W($"[global::System.Diagnostics.CodeAnalysis.DynamicDependency({fields}, typeof({track}))]");
+            W($"[global::System.Diagnostics.CodeAnalysis.DynamicDependency({fields}, typeof({clip}))]");
+        }
         W("[global::System.Runtime.CompilerServices.ModuleInitializer]");
         W("internal static void Install()");
         W("{");

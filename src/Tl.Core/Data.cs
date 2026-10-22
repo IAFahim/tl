@@ -6,6 +6,7 @@ using unsafe ExecThunk = delegate*<byte*, byte*, ushort, Tl.FrameFlags, void**, 
 using unsafe BindThunk = delegate*<ulong*, int, byte*, void>;
 using unsafe KeysThunk = delegate*<ulong*, byte*, int>;
 using unsafe DiagThunk = delegate*<ulong, long, void>;
+using static System.Runtime.CompilerServices.MethodImplOptions;
 
 namespace Tl;
 
@@ -104,7 +105,7 @@ public readonly unsafe struct TimelineRef
 	internal nint Address => (nint)_p;
 	internal uint PairCount => _p == null ? 0 : Header->PairCount;
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	[MethodImpl(AggressiveInlining)]
 	internal bool Advance(bool reverse, ushort pos, out ushort t, out FrameFlags f)
 	{
 		t = 0; f = FrameFlags.None;
@@ -162,7 +163,7 @@ public readonly unsafe struct TimelineRef
 			chains[i] = pairs[i].Key == pairKey ? PairTable.HeadOf(pairs[i].Key) : -1;
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveOptimization)]
 	internal void ExecuteDispatch(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns)
 	{
 		var stage = Header->StageCount == 1 ? (NativeStage*)(_p + Header->StageOffset) : StageOf(tick);
@@ -179,7 +180,7 @@ public readonly unsafe struct TimelineRef
 		}
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveOptimization)]
 	internal void ExecuteWindow(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns)
 	{
 		var stage = Header->StageCount == 1 ? (NativeStage*)(_p + Header->StageOffset) : StageOf(tick);
@@ -466,7 +467,7 @@ internal const int MemoResults = 10;
 		return length;
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	[MethodImpl(AggressiveInlining)]
 	internal static void RunChain(int head, bool reverse, byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
 	{
 		var consumers = ConsumerAt;

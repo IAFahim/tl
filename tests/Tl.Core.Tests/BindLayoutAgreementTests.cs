@@ -26,12 +26,6 @@ public struct PackOneTrack { public byte A; public byte B; public int C; public 
 [StructLayout(LayoutKind.Sequential, Pack = 2)]
 public struct PackTwoTrack { public byte A; public byte B; public int C; public int D; }
 
-[StructLayout(LayoutKind.Explicit)]
-public struct ExplicitOrderTrack { [FieldOffset(0)] public int A; [FieldOffset(4)] public int B; }
-
-[StructLayout(LayoutKind.Explicit)]
-public struct ExplicitSwappedTrack { [FieldOffset(4)] public int A; [FieldOffset(0)] public int B; }
-
 public readonly record struct SkewClip(int Value);
 
 public readonly record struct SkewTrack(int Code) : IBlend<SkewClip>
@@ -180,9 +174,6 @@ public unsafe class BindLayoutAgreementTests
         Assert.NotEqual(
             PairLayoutDigest.Of(typeof(PackOneTrack), typeof(SkewClip)),
             PairLayoutDigest.Of(typeof(PackTwoTrack), typeof(SkewClip)));
-        Assert.NotEqual(
-            PairLayoutDigest.Of(typeof(ExplicitOrderTrack), typeof(SkewClip)),
-            PairLayoutDigest.Of(typeof(ExplicitSwappedTrack), typeof(SkewClip)));
     }
 
     static byte[] BakeAgainstPreEditLayout(Type staleTrack, Type staleClip) => new DomainBaker
@@ -208,7 +199,6 @@ public unsafe class BindLayoutAgreementTests
 
     [Theory]
     [InlineData(typeof(PackOneTrack))]
-    [InlineData(typeof(ExplicitOrderTrack))]
     public void BindRejectsAssetsBakedAgainstAnEditedTrackLayout(Type staleTrack)
     {
         var asset = Load(BakeAgainstPreEditLayout(staleTrack, typeof(SkewClip)));

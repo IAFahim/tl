@@ -76,7 +76,9 @@ public sealed class ConsumerBindingTests
             + "{\n"
             + "internal TlConsumerLayoutAttribute(global::System.Type track, global::System.Type clip, ulong layout) { }\n"
             + "}\n"
-            + "internal static unsafe class TlConsumerBinding\n{\n[global::System.Runtime.CompilerServices.ModuleInitializer]\ninternal static void Install()\n{\n", binding);
+            + "internal static unsafe class TlConsumerBinding\n{\n"
+            + "[global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicFields, typeof(global::Domain.DamageTrack))]\n" + "[global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicFields, typeof(global::Domain.DamageClip))]\n" + "[global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicFields, typeof(global::Domain.HealTrack))]\n" + "[global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicFields, typeof(global::Domain.HealClip))]\n"
+            + "[global::System.Runtime.CompilerServices.ModuleInitializer]\ninternal static void Install()\n{\n", binding);
         var at = binding.IndexOf("internal static void Install()", StringComparison.Ordinal);
         var install = binding[at..binding.IndexOf("}", at, StringComparison.Ordinal)];
         Assert.Equal(

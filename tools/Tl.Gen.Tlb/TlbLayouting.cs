@@ -18,8 +18,7 @@ internal static class TlbLayouting
                     throw new BakeDiagnosticException($"consumer layout conflict: referenced consumer assemblies publish layout fingerprints {found} and {layout} for pair ({track.FullName}, {clip.FullName}); rebuild every consumer assembly from one struct definition and rebake.");
                 found = layout;
             }
-        if (found != 0) found ^= PairLayoutDigest.Of(track, clip);
-        return found;
+        return found != 0 ? found ^ PairLayoutDigest.Of(track, clip) : 0;
     }
 
     static IEnumerable<Assembly> Candidates(BakerAssemblyResolver resolver, Type track, Type clip)

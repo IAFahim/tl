@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using static System.Runtime.CompilerServices.MethodImplOptions;
 
 namespace Tl;
 
@@ -10,11 +11,11 @@ public static class Timeline
 
     public static FrameQuery<TTrack, TClip> Query<TTrack, TClip>(in TimelineComponent component) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged => new(component);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     public static void Advance(ReadOnlySpan<ushort> indices, Span<ushort> positions, bool forward)
         => Advance(indices, positions, positions, forward);
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     public static unsafe void Advance(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         Guard.Same(positions, next);
@@ -52,18 +53,18 @@ public static class Timeline
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     public static void Advance(TimelineAsset asset, Span<ushort> positions, bool forward)
         => Advance(asset.Index, positions, positions, forward);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     public static void Advance(TimelineAsset asset, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         ArgumentNullException.ThrowIfNull(asset);
         Advance(asset.Index, positions, next, forward);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     public static unsafe void Advance(ushort index, Span<ushort> positions, bool forward)
     {
         Checked.Domain(index, positions);
@@ -75,7 +76,7 @@ public static class Timeline
         Advance(index, positions, positions, forward);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     static void AdvanceRecords(uint motion, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         var duration = (ushort)(motion & 0xFFFF);
@@ -95,7 +96,7 @@ public static class Timeline
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     public static unsafe void Advance(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         Guard.Same(positions, next);

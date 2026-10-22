@@ -40,6 +40,12 @@ namespace Tlb
 
 namespace Tl.Bake.Tests
 {
+    internal static class LayoutFamilyInstaller
+    {
+        [global::System.Runtime.CompilerServices.ModuleInitializer]
+        internal static void Install() => global::Tl.PairRuntime<Tlb.LayoutFamilyTrack, Tlb.LayoutFamilyClip>.VerifyLayout(987654321UL);
+    }
+
     public class TlbLayoutFamilyTests
     {
         static BakerAssemblyResolver Resolver => BakerAssemblyResolver.FromAssemblies([typeof(Tlb.LayoutFamilyTrack).Assembly]);
@@ -49,6 +55,12 @@ namespace Tl.Bake.Tests
             => Assert.Equal(
                 987654321UL ^ PairLayoutDigest.Of(typeof(Tlb.LayoutFamilyTrack), typeof(Tlb.LayoutFamilyClip)),
                 TlbLayouting.Of(Resolver, typeof(Tlb.LayoutFamilyTrack), typeof(Tlb.LayoutFamilyClip)));
+
+        [Fact]
+        public void LayoutSelfPublicationMatchesTheBakedFingerprint()
+            => Assert.Equal(
+                TlbLayouting.Of(Resolver, typeof(Tlb.LayoutFamilyTrack), typeof(Tlb.LayoutFamilyClip)),
+                global::Tl.PairTable.LayoutOf(global::Tl.PairRuntime<Tlb.LayoutFamilyTrack, Tlb.LayoutFamilyClip>.Key));
 
         [Fact]
         public void LayoutScanReportsConflictsAcrossAttributeFamilyMembers()
