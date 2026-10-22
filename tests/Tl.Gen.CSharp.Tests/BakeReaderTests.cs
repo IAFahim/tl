@@ -625,7 +625,7 @@ public sealed class BakeReaderTests
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         internal static void Install()
         {
-        global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&ExecuteActive_ApplyDamage, &ExecuteActiveRange_ApplyDamage, &Bind_ApplyDamage);
+        global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&ExecuteActive_ApplyDamage, &Bind_ApplyDamage);
         global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ApplyDamageBake, global::Tl.TypeKey<global::Domain.World>.Value);
         global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.VerifyLayout(1653526390476323667UL);
         }
@@ -633,13 +633,6 @@ public sealed class BakeReaderTests
         {
         global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
         var @health = (float*)__tlColumns[0];
-        global::Domain.ApplyDamage.ExecuteActive(in __tlTyped, ref @health[__tlRow]);
-        }
-        private static void ExecuteActiveRange_ApplyDamage(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
-        {
-        global::Domain.DamageClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.DamageTrack, global::Domain.DamageClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
-        var @health = (float*)__tlColumns[0];
-        for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)
         global::Domain.ApplyDamage.ExecuteActive(in __tlTyped, ref @health[__tlRow]);
         }
         private static void Bind_ApplyDamage(ulong* __tlKeys, int __tlKeyCount, byte* __tlIndices)

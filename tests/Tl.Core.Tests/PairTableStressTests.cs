@@ -20,7 +20,7 @@ public unsafe class PairTableStressTests
                 for (var i = 0; i < perWriter; i++)
                 {
                     var key = seed + (ulong)(writer * perWriter + i);
-                    PairTable.Install(key, null, null, null, null, false);
+                    PairTable.Install(key, null, null);
                     PairTable.VerifyLayout(key, (ulong)(writer + 1));
                     if (writer == 0 && (i & 127) == 0) GC.Collect();
                 }

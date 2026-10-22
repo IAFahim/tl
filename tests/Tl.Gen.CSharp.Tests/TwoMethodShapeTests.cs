@@ -36,7 +36,7 @@ public sealed class TwoMethodShapeTests
         Assert.False(consumer.Job.Dispatch);
         Assert.Equal([new TimelineSlot("arc", "float", SlotMode.Output)], consumer.Job.Slots);
         var binding = JobEmitter.Consumers(result.Consumers);
-        Assert.Contains("Consume(&Fold_Arc, &FoldRange_Arc, &Keys_Arc);", binding);
+        Assert.Contains("Consume(&Fold_Arc, &Keys_Arc);", binding);
         Assert.DoesNotContain("Bind_Arc", binding);
         Assert.Contains("global::Domain.Arc.Fold(in __tlTyped, out @arc[__tlRow]);", binding);
     }
@@ -76,7 +76,7 @@ public sealed class TwoMethodShapeTests
         Assert.True(consumer.Job.MemoMethod);
         Assert.True(consumer.Job.Dispatch);
         var binding = JobEmitter.Consumers(result.Consumers);
-        Assert.Contains("Consume(&Fold_Both, &FoldRange_Both, &Keys_Both);", binding);
+        Assert.Contains("Consume(&Fold_Both, &Keys_Both);", binding);
         Assert.Contains("ConsumeDispatch(&ExecuteActive_Both);", binding);
         Assert.Contains("global::Domain.Both.ExecuteActive(in __tlTyped);", binding);
     }
@@ -116,7 +116,7 @@ public sealed class TwoMethodShapeTests
         Assert.False(consumer.Job.MemoMethod);
         Assert.False(consumer.Job.Dispatch);
         var binding = JobEmitter.Consumers(result.Consumers);
-        Assert.Contains("Consume(&ExecuteActive_Legacy, &ExecuteActiveRange_Legacy, &Bind_Legacy);", binding);
+        Assert.Contains("Consume(&ExecuteActive_Legacy, &Bind_Legacy);", binding);
         Assert.Contains("global::Domain.Legacy.ExecuteActive(in __tlTyped, ref @y[__tlRow]);", binding);
     }
 
@@ -256,7 +256,7 @@ public sealed class TwoMethodShapeTests
         var (sources, diagnostics) = ConsumerBindingTests.GenerateWithDiagnostics(source);
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
-        Assert.Contains("Consume(&Fold_Dual, &FoldRange_Dual, &Keys_Dual);", binding);
+        Assert.Contains("Consume(&Fold_Dual, &Keys_Dual);", binding);
         Assert.Contains("private static int Keys_Dual(ulong* __tlKeys, byte* __tlMeta)", binding);
         Assert.Contains("__tlKeys[0] = global::Tl.TypeKey<float>.Value; __tlMeta[0] = 20;", binding);
         Assert.Contains("__tlKeys[1] = global::Tl.TypeKey<int>.Value; __tlMeta[1] = 148;", binding);
@@ -318,7 +318,7 @@ public sealed class TwoMethodShapeTests
         Assert.False(consumer.Job.LiveFrame);
         Assert.Equal([new TimelineSlot("arc", "float", SlotMode.MemoFeed), new TimelineSlot("y", "float", SlotMode.Reference), new TimelineSlot("multiplier", "int", SlotMode.Input)], consumer.Job.LiveColumns);
         var binding = JobEmitter.Consumers(result.Consumers);
-        Assert.Contains("Consume(&Fold_Jump, &FoldRange_Jump, &Keys_Jump);", binding);
+        Assert.Contains("Consume(&Fold_Jump, &Keys_Jump);", binding);
         Assert.Contains("ConsumeDispatch(&ExecuteActive_Jump, &LiveKeys_Jump, &Diag_Jump);", binding);
         Assert.Contains("var @arc = *(float*)__tlColumns[0];", binding);
         Assert.Contains("var @y = (float*)__tlColumns[1];", binding);

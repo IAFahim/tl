@@ -26,8 +26,8 @@ internal static unsafe class GuardPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<GuardTrack, GuardClip>.Consume(&FoldSolo, &RangeSolo, &KeysSolo);
-        PairRuntime<GuardWideTrack, GuardWideClip>.Consume(&FoldWide, &RangeWide, &KeysWide);
+        PairRuntime<GuardTrack, GuardClip>.Consume(&FoldSolo, &KeysSolo);
+        PairRuntime<GuardWideTrack, GuardWideClip>.Consume(&FoldWide, &KeysWide);
     }
 
     static void Owned(ulong* keys, byte* meta, int count)
@@ -55,8 +55,6 @@ internal static unsafe class GuardPairs
     static void FoldSolo(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] = tick + 1;
 
-    static void RangeSolo(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int rowStart, int rowCount) { }
-
     static void FoldWide(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
         ((float*)columns[0])[row] = tick + 1;
@@ -64,7 +62,6 @@ internal static unsafe class GuardPairs
         ((float*)columns[2])[row] = tick + 3;
     }
 
-    static void RangeWide(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int rowStart, int rowCount) { }
 }
 
 public unsafe class BlockGuardTests

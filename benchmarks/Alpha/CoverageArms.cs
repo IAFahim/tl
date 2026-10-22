@@ -234,8 +234,5 @@ internal static class CoverageArms
             Fail("pair runtime key must be nonzero.");
 
         PairRuntime<AlphaTrack, AlphaClip>.Consume(&Execute, &Bind);
-        PairRuntime<AlphaTrack, AlphaClip>.Consume(&Execute, &ExecuteRange, &Bind);
-        PairRuntime<AlphaTrack, AlphaClip>.Consume(&Execute, &Bind, TickPurity.WindowConstant);
-        PairRuntime<AlphaTrack, AlphaClip>.Consume(&Execute, &Bind, TickPurity.PerTick);
     }
 }

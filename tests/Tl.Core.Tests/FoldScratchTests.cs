@@ -19,7 +19,7 @@ internal static unsafe class ScratchPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<ScratchZeroTrack, ScratchZeroClip>.Consume(&FoldZero, &RangeZero, &KeysZero);
+        PairRuntime<ScratchZeroTrack, ScratchZeroClip>.Consume(&FoldZero, &KeysZero);
     }
 
     static int KeysZero(ulong* keys, byte* meta)
@@ -36,7 +36,6 @@ internal static unsafe class ScratchPairs
     static void FoldZero(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
         => ((float*)columns[0])[row] = 1f;
 
-    static void RangeZero(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int rowStart, int rowCount) { }
 }
 
 public unsafe class FoldScratchTests

@@ -120,7 +120,7 @@ public sealed class ConsumerBindingTests
         Assert.Contains("global::Tl.PairRuntime<global::Domain.BellTrack, global::Domain.BellClip>.ConsumeDispatch(&ExecuteActive_RingBell);", binding);
         Assert.Contains("private static void ExecuteActive_RingBell(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
         Assert.Contains("global::Domain.RingBell.ExecuteActive(in __tlTyped);", binding);
-        Assert.DoesNotContain("ExecuteActiveRange_RingBell", binding);
+        Assert.DoesNotContain("Range_", binding);
         Assert.DoesNotContain("Bind_RingBell", binding);
     }
 
@@ -130,7 +130,7 @@ public sealed class ConsumerBindingTests
         var (sources, diagnostics) = GenerateWithDiagnostics(StandaloneSource);
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
-        Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&ExecuteActive_ApplyBuff, &ExecuteActiveRange_ApplyBuff, &Bind_ApplyBuff);", binding);
+        Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&ExecuteActive_ApplyBuff, &Bind_ApplyBuff);", binding);
     }
 
     [Fact]
@@ -291,8 +291,8 @@ public sealed class ConsumerBindingTests
         var install = binding[at..binding.IndexOf("}", at, StringComparison.Ordinal)];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&ExecuteActive_DualJob, &ExecuteActiveRange_DualJob, &Bind_DualJob);",
-            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&ExecuteActive_DualJob_, &ExecuteActiveRange_DualJob_, &Bind_DualJob_);",
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&ExecuteActive_DualJob, &Bind_DualJob);",
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&ExecuteActive_DualJob_, &Bind_DualJob_);",
             "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.VerifyLayout(13605547736430830029UL);",
             "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.VerifyLayout(14545621562080599017UL);",
         ], install.Split('\n')[2..^1]);

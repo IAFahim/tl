@@ -3,9 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using unsafe ExecThunk = delegate*<byte*, byte*, ushort, Tl.FrameFlags, void**, int, void>;
-using unsafe RangeThunk = delegate*<byte*, byte*, ushort, Tl.FrameFlags, void**, int, int, void>;
 using unsafe BindThunk = delegate*<ulong*, int, byte*, void>;
-using unsafe BlendThunk = delegate*<byte*, bool>;
 using unsafe KeysThunk = delegate*<ulong*, byte*, int>;
 using unsafe DiagThunk = delegate*<ulong, long, void>;
 
@@ -182,46 +180,21 @@ public readonly unsafe struct TimelineRef
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
-	internal void ExecuteWindow(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns, byte* stepCached, int* stepCacheBase, float* cacheValues)
+	internal void ExecuteWindow(bool reverse, ushort tick, FrameFlags flags, int row, Span<int> chains, void** columns)
 	{
 		var stage = Header->StageCount == 1 ? (NativeStage*)(_p + Header->StageOffset) : StageOf(tick);
 		if (stage == null) return;
 		var steps = (NativeStep*)(_p + stage->ProgramOffset);
-		var consumers = PairTable.ConsumerAt;
 		var pairs = Pairs;
 		var count = (int)stage->ProgramCount;
 		var step = reverse ? steps + count - 1 : steps;
 		var stride = reverse ? -1 : 1;
-		int* rev = stackalloc int[PairTable.ConsumerCount];
 		while (count-- > 0)
 		{
-			var index = (int)(step - steps);
 			var slot = _p + step->Slot;
 			var pair = (byte*)(pairs + step->Pair);
 			var head = chains[(int)step->Pair];
-			if (stepCached != null && stepCached[index] != 0)
-			{
-				var cache = stepCacheBase[index];
-				if (reverse && head >= 0 && consumers[head].Next >= 0)
-				{
-					var n = 0;
-					for (var e = head; e >= 0; e = consumers[e].Next) rev[n++] = e;
-					while (n-- > 0)
-					{
-						var target = *(float**)(columns + consumers[rev[n]].Offset);
-						if (target != null) *target += cacheValues[cache++];
-					}
-				}
-				else
-				{
-					for (var entry = head; entry >= 0; entry = consumers[entry].Next)
-					{
-						var target = *(float**)(columns + consumers[entry].Offset);
-						if (target != null) *target += cacheValues[cache++];
-					}
-				}
-			}
-			else PairTable.RunChain(head, reverse, slot, pair, tick, flags, columns, row, null, null);
+			PairTable.RunChain(head, reverse, slot, pair, tick, flags, columns, row);
 			step += stride;
 		}
 	}
@@ -362,7 +335,7 @@ public readonly unsafe struct TickFrame
 {
 internal const int SlotRow = 40;
 internal const int MemoResults = 10;
-	internal struct Consumer { public int Next, Offset, Feed, Ordinal; public ulong PairKey; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public RangeThunk Range; public BindThunk Bind; public BlendThunk BlendConstant; public KeysThunk Keys; public DiagThunk Diag; public byte WindowConstant, DispatchOnly; }
+	internal struct Consumer { public int Next, Offset, Feed, Ordinal; public ulong PairKey; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public BindThunk Bind; public KeysThunk Keys; public DiagThunk Diag; public byte DispatchOnly; }
 	struct Slot { public ulong Key; public int Head; }
 	const int SlotCount = 1024;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -370,7 +343,6 @@ internal const int MemoResults = 10;
 	static ulong _consumersBase = (ulong)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * 64), 64);
 	internal static int _consumerCapacity = 64;
 	static volatile int _gate;
-	static int _windowConstant;
 	internal static volatile int _sealed;
 	internal static int _pairs, _consumers;
 	[ThreadStatic] static int _lastFoldEntry;
@@ -442,7 +414,7 @@ internal const int MemoResults = 10;
 		return slots[slot].Key == key ? Volatile.Read(ref ((ulong*)(slots + *(int*)block))[slot]) : 0;
 	}
 
-	internal static void Install(ulong key, ExecThunk e, RangeThunk r, BindThunk b, BlendThunk blendConstant, bool windowConstant, bool dispatchOnly = false, KeysThunk resultKeys = null, DiagThunk diag = null)
+	internal static void Install(ulong key, ExecThunk e, BindThunk b, bool dispatchOnly = false, KeysThunk resultKeys = null, DiagThunk diag = null)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
@@ -462,9 +434,8 @@ internal const int MemoResults = 10;
 			var ordinal = 0;
 			for (var walk = slots[slot].Head; walk >= 0; walk = consumers[walk].Next) ordinal++;
 			var feed = dispatchOnly && resultKeys != null && _lastFoldPair == key && _lastFoldEntry != 0 ? _lastFoldEntry - 1 : -1;
-			consumers[entry] = new Consumer { Next = slots[slot].Head, PairKey = key, Execute = e, Range = r, Bind = b, BlendConstant = blendConstant, Keys = resultKeys, Diag = diag, WindowConstant = windowConstant ? (byte)1 : (byte)0, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = ordinal * SlotRow, Feed = feed, Ordinal = ordinal };
+			consumers[entry] = new Consumer { Next = slots[slot].Head, PairKey = key, Execute = e, Bind = b, Keys = resultKeys, Diag = diag, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = ordinal * SlotRow, Feed = feed, Ordinal = ordinal };
 			if (!dispatchOnly && resultKeys != null) { _lastFoldEntry = ordinal + 1; _lastFoldPair = key; }
-			if (windowConstant) Volatile.Write(ref _windowConstant, 1);
 			Volatile.Write(ref slots[slot].Head, entry);
 			Volatile.Write(ref _consumers, entry + 1);
 		}
@@ -487,20 +458,6 @@ internal const int MemoResults = 10;
 		}
 	}
 
-	internal static bool AnyWindowConstant => Volatile.Read(ref _windowConstant) != 0;
-
-	internal static bool ChainWindowConstant(int head, out BlendThunk blendConstant)
-	{
-		var consumers = ConsumerAt;
-		blendConstant = null;
-		for (var entry = head; entry >= 0; entry = consumers[entry].Next)
-		{
-			if (consumers[entry].WindowConstant == 0) return false;
-			if (blendConstant == null) blendConstant = consumers[entry].BlendConstant;
-		}
-		return blendConstant != null;
-	}
-
 	internal static int ChainLength(int head)
 	{
 		var length = 0;
@@ -510,10 +467,9 @@ internal const int MemoResults = 10;
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	internal static int RunChain(int head, bool reverse, byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row, float* scratch, float* sink)
+	internal static void RunChain(int head, bool reverse, byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
 	{
 		var consumers = ConsumerAt;
-		var written = 0;
 		if (reverse && head >= 0 && consumers[head].Next >= 0)
 		{
 			int* rev = stackalloc int[ChainLength(head)];
@@ -526,9 +482,7 @@ internal const int MemoResults = 10;
 			while (n-- > 0)
 			{
 				var e = rev[n];
-				if (sink != null) *scratch = 0f;
 				consumers[e].Execute(slot, pair, tick, flags, columns + consumers[e].Offset, row);
-				if (sink != null) sink[written++] = *scratch;
 			}
 		}
 		else
@@ -536,12 +490,9 @@ internal const int MemoResults = 10;
 			for (var entry = head; entry >= 0; entry = consumers[entry].Next)
 			{
 				if (consumers[entry].DispatchOnly != 0) continue;
-				if (sink != null) *scratch = 0f;
 				consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
-				if (sink != null) sink[written++] = *scratch;
 			}
 		}
-		return written;
 	}
 
 	internal static void RunDispatch(int head, bool reverse, byte* slot, byte* pair, ushort tick, FrameFlags flags, int row, void** columns)
@@ -620,30 +571,17 @@ internal const int MemoResults = 10;
 	}
 }
 
-public enum TickPurity
-{
-	PerTick,
-	WindowConstant,
-}
-
 public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
 {
 	public static readonly ulong Key = Keying.Of(Keying.StableName(typeof(TTrack)) + "\0" + Keying.StableName(typeof(TClip)));
 
-	public static void Consume(ExecThunk execute, BindThunk bind) => PairTable.Install(Key, execute, null, bind, null, false);
+	public static void Consume(ExecThunk execute, BindThunk bind) => PairTable.Install(Key, execute, bind);
 
-	public static void Consume(ExecThunk execute, RangeThunk range, BindThunk bind) => PairTable.Install(Key, execute, range, bind, null, false);
+	public static void Consume(ExecThunk execute, KeysThunk keys) => PairTable.Install(Key, execute, null, resultKeys: keys);
 
-	public static void Consume(ExecThunk execute, RangeThunk range, KeysThunk keys) => PairTable.Install(Key, execute, range, null, null, false, resultKeys: keys);
+	public static void ConsumeDispatch(ExecThunk execute) => PairTable.Install(Key, execute, null, true);
 
-	public static void Consume(ExecThunk execute, BindThunk bind, TickPurity purity) => PairTable.Install(Key, execute, null, bind, purity == TickPurity.WindowConstant ? &BlendConstantInWindow : null, purity == TickPurity.WindowConstant);
-
-	public static void ConsumeDispatch(ExecThunk execute) => PairTable.Install(Key, execute, null, null, null, false, true);
-
-	public static void ConsumeDispatch(ExecThunk execute, KeysThunk keys, DiagThunk diag) => PairTable.Install(Key, execute, null, null, null, false, true, keys, diag);
-
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	static bool BlendConstantInWindow(byte* slot) => ((SlotRow*)slot)->FactorSpan <= 1;
+	public static void ConsumeDispatch(ExecThunk execute, KeysThunk keys, DiagThunk diag) => PairTable.Install(Key, execute, null, true, keys, diag);
 
 	public static void VerifyLayout(ulong layout) => PairTable.VerifyLayout(Key, layout);
 
