@@ -1,5 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 namespace Tl;
 
@@ -14,10 +16,12 @@ static unsafe class TimelineTable
     const long LowMask = 0xFFFFFFFFL;
 
     [StructLayout(LayoutKind.Sequential, Size = 64)]
-    struct Entry
+    internal struct Entry
     {
-        public ulong KeyLow;
-        public ulong KeyHigh;
+        public ulong Key0;
+        public ulong Key1;
+        public ulong Key2;
+        public ulong Key3;
         public byte* Block;
         public nint Bytes;
         public long Count;
@@ -68,8 +72,8 @@ static unsafe class TimelineTable
     static uint MotionOf(byte* block)
         => ((NativeHeader*)block)->Duration | (((NativeHeader*)block)->Loops != 0 ? 0x80000000u : 0u);
 
-    static Entry* Entries => (Entry*)_block;
-    static int* ById => (int*)(_block + _capacity * sizeof(Entry));
+    internal static Entry* Entries => (Entry*)_block;
+    internal static int* ById => (int*)(_block + _capacity * sizeof(Entry));
     static int Mask => _capacity - 1;
 
     internal static int LiveEntries => Volatile.Read(ref _live);
@@ -89,13 +93,13 @@ static unsafe class TimelineTable
 
     internal static ushort Load(ReadOnlySpan<byte> baked)
     {
-        Digest(baked, out var low, out var high);
+        Digest(baked, out var k0, out var k1, out var k2, out var k3);
         AcquireGate();
         try
         {
             _loads++;
             if (Volatile.Read(ref _graveyard) != 0) DrainGraveyard(GraveyardGraceLoads);
-            var entry = Find(low, high, baked, out var empty);
+            var entry = Find(k0, k1, k2, k3, baked, out var empty);
             if (entry != null)
             {
                 if (Volatile.Read(ref entry->State) == StateLive)
@@ -110,9 +114,9 @@ static unsafe class TimelineTable
                 if (_capacity == MaxCapacity)
                     throw new InvalidOperationException($"Intern table exhausted: {_used} distinct timeline contents occupy the {_capacity}-slot table.");
                 Grow();
-                Find(low, high, baked, out empty);
+                Find(k0, k1, k2, k3, baked, out empty);
             }
-            return Publish(empty, low, high, baked);
+            return Publish(empty, k0, k1, k2, k3, baked);
         }
         finally
         {
@@ -267,15 +271,17 @@ static unsafe class TimelineTable
         return entry->Id;
     }
 
-    static ushort Publish(Entry* entry, ulong low, ulong high, ReadOnlySpan<byte> baked)
+    static ushort Publish(Entry* entry, ulong k0, ulong k1, ulong k2, ulong k3, ReadOnlySpan<byte> baked)
     {
         var id = (ushort)_nextId;
         _nextId++;
         _used++;
         entry->Block = AllocateBlock(baked);
         entry->Bytes = baked.Length;
-        entry->KeyLow = low;
-        entry->KeyHigh = high;
+        entry->Key0 = k0;
+        entry->Key1 = k1;
+        entry->Key2 = k2;
+        entry->Key3 = k3;
         entry->Id = id;
         var generation = (ulong)Volatile.Read(ref entry->Count) >> 32;
         Interlocked.Exchange(ref entry->Count, (long)((generation + 1) << 32));
@@ -303,10 +309,10 @@ static unsafe class TimelineTable
         return block;
     }
 
-    static Entry* Find(ulong low, ulong high, ReadOnlySpan<byte> baked, out Entry* empty)
+    static Entry* Find(ulong k0, ulong k1, ulong k2, ulong k3, ReadOnlySpan<byte> baked, out Entry* empty)
     {
         empty = null;
-        var index = (int)(Mix(low, high) & (ulong)Mask);
+        var index = (int)(Mix(k0, k1) & (ulong)Mask);
         for (var n = 0; n < _capacity; n++)
         {
             var entry = Entries + ((index + n) & Mask);
@@ -316,13 +322,14 @@ static unsafe class TimelineTable
                 if (empty == null) empty = entry;
                 return null;
             }
-            if (Volatile.Read(ref entry->KeyLow) != low || Volatile.Read(ref entry->KeyHigh) != high) continue;
+            if (Volatile.Read(ref entry->Key0) != k0 || Volatile.Read(ref entry->Key1) != k1) continue;
+            if (Volatile.Read(ref entry->Key2) != k2 || Volatile.Read(ref entry->Key3) != k3) continue;
             if (state == StateDead) return entry;
             if (entry->Bytes != baked.Length) continue;
             if (!new ReadOnlySpan<byte>(entry->Block, (int)entry->Bytes).SequenceEqual(baked)) continue;
             return entry;
         }
-        if (empty == null) throw new InvalidOperationException($"Intern table probe exhausted: no slot remains among {_capacity} entries for content ({low:X16}, {high:X16}).");
+        if (empty == null) throw new InvalidOperationException($"Intern table probe exhausted: no slot remains among {_capacity} entries for content ({k0:X16}, {k1:X16}).");
         return null;
     }
 
@@ -335,7 +342,7 @@ static unsafe class TimelineTable
         {
             var entry = ((Entry*)previous)[i];
             if (entry.State == StateEmpty) continue;
-            var index = (int)(Mix(entry.KeyLow, entry.KeyHigh) & (ulong)Mask);
+            var index = (int)(Mix(entry.Key0, entry.Key1) & (ulong)Mask);
             while (Entries[index].State != StateEmpty)
                 index = (index + 1) & Mask;
             Entries[index] = entry;
@@ -414,47 +421,16 @@ static unsafe class TimelineTable
         return h;
     }
 
-    static void Digest(ReadOnlySpan<byte> data, out ulong low, out ulong high)
+    static void Digest(ReadOnlySpan<byte> data, out ulong k0, out ulong k1, out ulong k2, out ulong k3)
     {
-        const ulong p5 = 2870177450012600261UL;
-        var length = (ulong)data.Length;
-        ulong a = length * p5 ^ 0x9E3779B97F4A7C15UL;
-        ulong b = length * p5 ^ 0xC2B2AE3D27D4EB4FUL;
-        ulong c = (length * p5 ^ 0x165667B19E3779F9UL) << 1;
-        ulong d = (length * p5 ^ 0x85EBCA77C2B2AE63UL) << 2;
-        fixed (byte* pinned = data)
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.TryHashData(data, hash, out _);
+        fixed (byte* p = hash)
         {
-            var p = pinned;
-            var end = p + (data.Length & ~31);
-            while (p < end)
-            {
-                a = DigestRound(a, *(ulong*)p);
-                b = DigestRound(b, *(ulong*)(p + 8));
-                c = DigestRound(c, *(ulong*)(p + 16));
-                d = DigestRound(d, *(ulong*)(p + 24));
-                p += 32;
-            }
-            var tail = data.Length & 31;
-            for (var i = 0; i < tail; i++)
-                a = DigestRound(a, p[i] | 0x800UL);
+            k0 = Unsafe.ReadUnaligned<ulong>(p);
+            k1 = Unsafe.ReadUnaligned<ulong>(p + 8);
+            k2 = Unsafe.ReadUnaligned<ulong>(p + 16);
+            k3 = Unsafe.ReadUnaligned<ulong>(p + 24);
         }
-        low = DigestAvalanche(a ^ DigestAvalanche(c));
-        high = DigestAvalanche(b ^ DigestAvalanche(d ^ length));
-    }
-
-    static ulong DigestRound(ulong state, ulong lane)
-    {
-        var mixed = state ^ (lane * 14029467366897019727UL);
-        return ((mixed << 31) | (mixed >> 33)) * 11400714785074694791UL;
-    }
-
-    static ulong DigestAvalanche(ulong value)
-    {
-        value ^= value >> 33;
-        value *= 14029467366897019727UL;
-        value ^= value >> 29;
-        value *= 11400714785074694791UL;
-        value ^= value >> 32;
-        return value;
     }
 }

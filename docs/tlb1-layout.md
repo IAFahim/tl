@@ -148,6 +148,19 @@ The runtime's loader validates the structure and fails with a located reason; a 
 - Stages not monotonic and contiguous from 0 to `Duration`; program offsets out of bounds; a step naming a pair or slot out of bounds.
 - Slot rows with value indices beyond the pool counts, a blend window without a second value index, or a second index set without one.
 
+## Content identity digest (runtime intern table)
+
+`TimelineAsset.Load` interns baked content: live entries are identified by full byte equality, and a dead entry whose bytes were released revives only when its stored digest equals the digest of the bytes being loaded. The digest is specified here so any host port can compute the same content identity.
+
+- Algorithm: SHA-256 (FIPS 180-4) over the entire baked byte range passed to `Load` — the same range the loader validates.
+- Word split: the 32 digest bytes are stored as four `u64` words `Key0..Key3`; `KeyN` is the little-endian `u64` read of digest bytes `[8N, 8N + 8)`.
+- Endianness scope: little-endian hosts only, matching every other integer in this spec.
+- Probe: the table bucket is `Mix(Key0, Key1) & (capacity - 1)` with linear probing; `Mix` is the murmur3-style finalizer already used for table indexing and is not part of content identity.
+- Revive rule: a dead entry revives only when all four `Key0..Key3` words match. Live entries always re-verify full byte equality, so identity is `(index <-> content bytes)` for the entry's lifetime regardless of digest collisions.
+- Alignment: digest computation uses one-shot `SHA256.TryHashData` and `Unsafe.ReadUnaligned<u64>` word loads — no aligned `u64*` dereference exists in the table, so the path is safe on strict-alignment targets such as armv7.
+
+Golden vector (FIPS 180-4 example): SHA-256 of the 3 bytes `61 62 63` (`"abc"`) is `ba7816bf 8f01cfea 414140de 5dae2223 b00361a3 96177a9c b410ff61 f20015ad`; as words: `Key0 = 0xeacf018fbf1678ba`, `Key1 = 0x2322ae5dde404141`, `Key2 = 0x9c7a1796a36103b0`, `Key3 = 0xad1500f261ff10b4`. The repository receipt is `InternTableTests.StoredDigestWordsMatchTheSpecifiedSha256`, which requires the stored words of a baked asset to equal an independently computed SHA-256 split per this section.
+
 ## Worked example: `minimal.tlb` decoded in full
 
 The minimal fixture (327 bytes, sha256 `d223843e1a457b388f11c7965af8c05f6bedbd1de72219b202ef929fbc9a6e8f`) is one track, one clip, four ticks, no loop. Every byte:
