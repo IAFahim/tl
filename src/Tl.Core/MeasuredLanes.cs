@@ -50,7 +50,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var pointerBound = PairTable.PointerBound;
         var laneBound = pointerBound / PairTable.SlotRow * (PairTable.MemoResults * 2 + 1);
         var scratch = (byte*)NativeMemory.AlignedAlloc((nuint)(17 * pointerBound + 16 * laneBound), 64);
-        var lanes = ResultLanes(reference, pairKey, chainProbe, scratch, laneBound);
+        int lanes;
+        try { lanes = ResultLanes(reference, pairKey, chainProbe, scratch, laneBound); } catch { NativeMemory.AlignedFree(scratch); throw; }
         var ticks = (nuint)(Math.Max(1u, duration) + 1u);
         var block = (byte*)NativeMemory.AlignedAlloc(2 * (nuint)lanes * ticks * sizeof(float) + (nuint)lanes * 2 * (nuint)sizeof(float*) + (nuint)lanes * sizeof(ulong), 64);
         try
@@ -165,6 +166,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
                 for (var j = 0; j < n; j++) columns[offset + j] = laneCell + resLane[res++] * 4;
             }
         byte* indices = scratch + 8 * pointerBound;
+        Unsafe.InitBlock(indices, 0, (uint)pointerBound);
         int* refreshSlots = (int*)(scratch + 9 * pointerBound);
         int* refreshColumns = refreshSlots + pointerBound;
         var refreshCount = 0;
@@ -175,8 +177,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
             void ProbeTick(uint position, bool reverse, float** table)
             {
                 Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                if (!reference.Select(reverse, (ushort)position, out var tick, out var flags))
-                    throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
+                if (!reference.Select(reverse, (ushort)position, out var tick, out var flags)) throw new InvalidOperationException($"Timeline measurement did not advance from position {position}.");
                 reference.ExecuteWindow(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns, null, null, null);
                 CopyLanes(table, lanes, laneCell, tick);
             }
@@ -192,7 +193,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         {
             FillWindows(reference, measured.LaneForward, measured.LaneBackward, lanes, laneCell, duration, looping, chains, pairs, columns);
         }
-        for (var l = 0; l < lanes; l++) { measured.LaneForward[l][duration] = 0f; measured.LaneBackward[l][duration] = 0f; }
+        for (var l = 0; l < lanes; l++) { measured.LaneForward[l][duration] = measured.LaneBackward[l][duration] = 0f; if (duration == 0) measured.LaneForward[l][1] = measured.LaneBackward[l][1] = 0f; }
     }
 
     const int CacheStride = 64;
