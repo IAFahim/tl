@@ -79,7 +79,7 @@ struct NativeStep { public uint Slot, Pair; }
 		where TClip : unmanaged
 	{
 		var pools = (NativePair*)pair;
-		ref var track = ref *(TTrack*)(pair + pools->TrackPoolOffset + row->TrackValueIndex * (nuint)sizeof(TTrack));
+		ref readonly var track = ref *(TTrack*)(pair + pools->TrackPoolOffset + row->TrackValueIndex * (nuint)sizeof(TTrack));
 		var clipPool = pair + pools->ClipPoolOffset;
 		if (row->FactorSpan == 0) scratch = *(TClip*)(clipPool + row->FirstValueIndex * (nuint)sizeof(TClip));
 		else
