@@ -254,6 +254,7 @@ public readonly unsafe struct TimelineRef
 		uint edge = 0;
 		foreach (var stage in stages)
 		{
+			if (stage.End <= stage.Start) Fail("TLB stages must partition [0, Duration) into non-empty ranges.");
 			if (stage.Start != edge || stage.ProgramOffset < programs || stage.ProgramOffset % 8 != 0 || stage.ProgramOffset + 8ul * stage.ProgramCount > h.PoolOffset) Fail("TLB stages must be monotonic.");
 			var steps = MemoryMarshal.Cast<byte, NativeStep>(baked.Slice((int)stage.ProgramOffset, 8 * (int)stage.ProgramCount));
 			foreach (var step in steps)
@@ -261,7 +262,7 @@ public readonly unsafe struct TimelineRef
 				if (step.Pair >= h.PairCount) Fail("TLB step pair out of bounds.");
 				var pair = pairs[(int)step.Pair];
 				if (step.Slot < h.FrameOffset || step.Slot % 8 != 0 || (ulong)step.Slot + pair.SlotStride > h.HotLength) Fail("TLB slots must be 8-aligned in bounds.");
-				ValidateRow(baked, (int)step.Slot, pair, fail);
+				ValidateRow(baked, (int)step.Slot, pair, h.TrackCount, stage.Start, stage.End, fail);
 			}
 			edge = stage.End;
 		}
@@ -270,18 +271,27 @@ public readonly unsafe struct TimelineRef
 
 	static void ValidatePool(NativeHeader h, ulong address, uint count, uint valueBytes, Action<string> fail)
 	{
+		if (address % 16 != 0) fail("TLB value pools must be 16-byte aligned.");
 		if (address < h.PoolOffset || count > 65535 || address + (ulong)count * valueBytes > h.FrameOffset) fail("TLB value pool out of bounds.");
 	}
 
-	static void ValidateRow(ReadOnlySpan<byte> baked, int at, NativePair pair, Action<string> fail)
+	static void ValidateRow(ReadOnlySpan<byte> baked, int at, NativePair pair, uint trackCount, uint stageStart, uint stageEnd, Action<string> fail)
 	{
 		var trackValue = BinaryPrimitives.ReadUInt16LittleEndian(baked.Slice(at));
 		var first = BinaryPrimitives.ReadUInt16LittleEndian(baked.Slice(at + 2));
 		var second = BinaryPrimitives.ReadUInt16LittleEndian(baked.Slice(at + 4));
+		var trackIndex = baked[at + 6];
+		var windowStart = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice(at + 8));
+		var windowEnd = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice(at + 12));
+		var factorStart = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice(at + 16));
 		var factorSpan = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice(at + 20));
 		if (trackValue >= pair.TrackPoolCount || first >= pair.ClipPoolCount) fail("TLB slot value index out of bounds.");
 		if (second != SlotRow.NoClipValue && second >= pair.ClipPoolCount) fail("TLB slot second value index out of bounds.");
 		if (factorSpan != 0 && second == SlotRow.NoClipValue) fail("TLB blend window requires a second value index.");
+		if (factorSpan == 0 && second != SlotRow.NoClipValue) fail("TLB second value index requires a blend window.");
+		if (trackIndex >= trackCount) fail("TLB slot track index out of bounds.");
+		if (stageStart < windowStart || stageEnd > windowEnd) fail("TLB slot window must contain the referencing stage.");
+		if (factorSpan != 0 && (stageStart < factorStart || stageEnd > factorStart + (ulong)factorSpan)) fail("TLB blend window must contain the referencing stage.");
 	}
 }
 
