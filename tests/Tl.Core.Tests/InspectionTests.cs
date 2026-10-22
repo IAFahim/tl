@@ -218,7 +218,7 @@ public class InspectionTests
         blocks 2
         dedupeHits 0
         generation 2
-        bytes 144 128
+        bytes 144 192
         view 0 Folded
           duration 8 looping False ticks 9 lanes 1 abi 3 generation 1
           lane 214ebd18d4e85363 1 9
