@@ -22,7 +22,7 @@ internal static unsafe class StainPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<StainTrack, StainClip>.Consume(&FoldStain, &RangeStain, &KeysStain);
+        PairRuntime<StainTrack, StainClip>.Consume(&FoldStain, &KeysStain);
     }
 
     static int KeysStain(ulong* keys, byte* meta)
@@ -42,7 +42,6 @@ internal static unsafe class StainPairs
         ((float*)columns[0])[row] = frame.Clip.Amount;
     }
 
-    static void RangeStain(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int rowStart, int rowCount) { }
 }
 
 public unsafe class BlendImmutabilityTests

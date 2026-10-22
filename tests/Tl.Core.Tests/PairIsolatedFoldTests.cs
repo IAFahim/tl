@@ -34,7 +34,7 @@ internal static unsafe class FoldIsolationPairs
     {
         PairRuntime<FoldJumpTrack, FoldJumpClip>.Consume(&ExecuteJump, &BindFloat);
         PairRuntime<FoldSoundTrack, FoldSoundClip>.Consume(&ExecuteSound, &BindFloat);
-        PairRuntime<FoldChimeTrack, FoldChimeClip>.Consume(&ExecuteChime, &BindFloat, TickPurity.WindowConstant);
+        PairRuntime<FoldChimeTrack, FoldChimeClip>.Consume(&ExecuteChime, &BindFloat);
     }
 
     internal static int JumpFolds;
@@ -176,7 +176,7 @@ public unsafe class PairIsolatedFoldTests
     }
 
     [Fact]
-    public void WindowConstantPairFoldsStayIsolatedInMixedPrograms()
+    public void ChimePairFoldsStayIsolatedInMixedPrograms()
     {
         FoldIsolationPairs.Reset();
         using var dual = TimelineAsset.LoadAsset(ThreePairBake(5f, 13f, 1.5f));

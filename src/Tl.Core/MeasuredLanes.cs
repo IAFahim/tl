@@ -172,31 +172,22 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var refreshCount = 0;
         PairTable.BindPair(reference, pairKey, poolKeys, pools, indices, refreshSlots, refreshColumns, ref refreshCount);
         for (var i = 0; i < refreshCount; i++) columns[refreshSlots[i]] = laneCell + poolLane[refreshColumns[i]] * 4;
-        if (!PairTable.AnyWindowConstant)
+        void ProbeTick(uint position, bool reverse, float** table)
         {
-            void ProbeTick(uint position, bool reverse, float** table)
-            {
-                Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                AdvanceOrFail(reference, reverse, position, out var tick, out var flags);
-                reference.ExecuteWindow(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns, null, null, null);
-                CopyLanes(table, lanes, laneCell, tick);
-            }
-
-            for (var tick = 0u; tick < duration; tick++)
-            {
-                var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-                ProbeTick(tick, false, measured.LaneForward);
-                ProbeTick(backwardPosition, true, measured.LaneBackward);
-            }
+            Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
+            AdvanceOrFail(reference, reverse, position, out var tick, out var flags);
+            reference.ExecuteWindow(reverse, tick, flags, 0, new Span<int>(chains, pairs), columns);
+            CopyLanes(table, lanes, laneCell, tick);
         }
-        else
+
+        for (var tick = 0u; tick < duration; tick++)
         {
-            FillWindows(reference, measured.LaneForward, measured.LaneBackward, lanes, laneCell, duration, looping, chains, pairs, columns);
+            var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
+            ProbeTick(tick, false, measured.LaneForward);
+            ProbeTick(backwardPosition, true, measured.LaneBackward);
         }
         for (var l = 0; l < lanes; l++) { measured.LaneForward[l][duration] = measured.LaneBackward[l][duration] = 0f; if (duration == 0) measured.LaneForward[l][1] = measured.LaneBackward[l][1] = 0f; }
     }
-
-    const int CacheStride = 64;
 
     static void AdvanceOrFail(TimelineRef reference, bool reverse, uint position, out ushort tick, out FrameFlags flags)
     {
@@ -210,112 +201,6 @@ public sealed unsafe class MeasuredLanes : IDisposable
         for (var l = 0; l < lanes; l++) table[l][tick] = *(float*)(laneCell + l * 4);
     }
 
-    static void FillWindows(TimelineRef reference, float** forward, float** backward, int lanes, byte* laneCell, uint duration, bool looping, int* chains, int pairs, void** columns)
-    {
-        var stageCount = reference.StageCount;
-        var stages = reference.Stages;
-        var maxProgram = 0;
-        for (var s = 0; s < stageCount; s++) maxProgram = Math.Max(maxProgram, (int)stages[s].ProgramCount);
-        var steps = Math.Max(maxProgram, 1);
-        var cacheCapacity = steps * CacheStride;
-        var scratchBytes = (long)steps * (sizeof(byte) + sizeof(int)) + (long)cacheCapacity * 2 * sizeof(float);
-        byte* scratch = null;
-        byte* stepCached;
-        int* stepCacheBase;
-        float* forwardCache;
-        float* backwardCache;
-        float* column = (float*)laneCell;
-        if (scratchBytes <= 8192)
-        {
-            byte* cachedBytes = stackalloc byte[steps];
-            int* cachedBases = stackalloc int[steps];
-            float* cachedFloats = stackalloc float[cacheCapacity * 2];
-            stepCached = cachedBytes;
-            stepCacheBase = cachedBases;
-            forwardCache = cachedFloats;
-            backwardCache = cachedFloats + cacheCapacity;
-        }
-        else
-        {
-            scratch = (byte*)NativeMemory.AlignedAlloc((nuint)scratchBytes, 64);
-            stepCached = scratch;
-            stepCacheBase = (int*)(scratch + steps);
-            forwardCache = (float*)(scratch + steps * (sizeof(byte) + sizeof(int)));
-            backwardCache = forwardCache + cacheCapacity;
-        }
-        try
-        {
-            var chainSpan = new Span<int>(chains, pairs);
-            for (var s = 0; s < stageCount; s++)
-            {
-                var stage = stages + s;
-                var start = stage->Start;
-                var end = stage->End;
-                var program = (NativeStep*)(reference._p + stage->ProgramOffset);
-                var count = (int)stage->ProgramCount;
-                var cacheTotal = 0;
-                var cachedSteps = 0;
-                for (var i = 0; i < count; i++)
-                {
-                    stepCacheBase[i] = 0;
-                    stepCached[i] = 0;
-                    var head = chains[(int)program[i].Pair];
-                    if (head < 0 || !PairTable.ChainWindowConstant(head, out var blendConstant) || !blendConstant(reference._p + program[i].Slot)) continue;
-                    stepCacheBase[i] = cacheTotal;
-                    cacheTotal += PairTable.ChainLength(head);
-                    stepCached[i] = 1;
-                    cachedSteps++;
-                }
-
-                AdvanceOrFail(reference, false, start, out var forwardTick, out var forwardFlags);
-                Capture(reference, program, count, stepCached, stepCacheBase, forwardCache, chains, columns, column, forwardTick, forwardFlags, false);
-                var representativePosition = start + 1u == duration ? looping ? 0u : duration : start + 1u;
-                AdvanceOrFail(reference, true, representativePosition, out var backwardTick, out var backwardFlags);
-                Capture(reference, program, count, stepCached, stepCacheBase, backwardCache, chains, columns, column, backwardTick, backwardFlags, true);
-
-                if (cachedSteps == count)
-                {
-                    Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                    reference.ExecuteWindow(false, forwardTick, forwardFlags, 0, chainSpan, columns, stepCached, stepCacheBase, forwardCache);
-                    for (var tick = start; tick < end; tick++) CopyLanes(forward, lanes, laneCell, tick);
-                    Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                    reference.ExecuteWindow(true, backwardTick, backwardFlags, 0, chainSpan, columns, stepCached, stepCacheBase, backwardCache);
-                    for (var tick = start; tick < end; tick++) CopyLanes(backward, lanes, laneCell, tick);
-                    continue;
-                }
-
-                for (var tick = start; tick < end; tick++)
-                {
-                    AdvanceOrFail(reference, false, tick, out var tickForward, out var forwardFlag);
-                    Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                    reference.ExecuteWindow(false, tickForward, forwardFlag, 0, chainSpan, columns, stepCached, stepCacheBase, forwardCache);
-                    CopyLanes(forward, lanes, laneCell, tick);
-
-                    var backwardPosition = tick + 1u == duration ? looping ? 0u : duration : tick + 1u;
-                    AdvanceOrFail(reference, true, backwardPosition, out var tickBackward, out var backwardFlag);
-                    Unsafe.InitBlock(laneCell, 0, (uint)(lanes * 4));
-                    reference.ExecuteWindow(true, tickBackward, backwardFlag, 0, chainSpan, columns, stepCached, stepCacheBase, backwardCache);
-                    CopyLanes(backward, lanes, laneCell, tick);
-                }
-            }
-        }
-        finally
-        {
-            if (scratch != null) NativeMemory.AlignedFree(scratch);
-        }
-    }
-
-    static void Capture(TimelineRef reference, NativeStep* program, int count, byte* stepCached, int* stepCacheBase, float* cacheValues, int* chains, void** columns, float* column, ushort tick, FrameFlags flags, bool reverse)
-    {
-        for (var i = 0; i < count; i++)
-        {
-            if (stepCached[i] == 0) continue;
-            var slot = reference._p + program[i].Slot;
-            var pair = (byte*)(reference.Pairs + program[i].Pair);
-            var head = chains[(int)program[i].Pair];
-            PairTable.RunChain(head, reverse, slot, pair, tick, flags, columns, 0, column, cacheValues + stepCacheBase[i]);
-        }
-    }
 }
 
 internal static unsafe class LaneGuards

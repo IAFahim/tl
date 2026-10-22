@@ -14,7 +14,6 @@ public unsafe class PairTableFeedLinkTests
 {
     static void FoldA(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row) { }
     static void FoldB(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row) { }
-    static void FoldRange(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int rowStart, int rowCount) { }
     static void ExecuteA(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row) { }
     static void ExecuteFresh(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row) { }
 
@@ -66,14 +65,14 @@ public unsafe class PairTableFeedLinkTests
         var releasedA = new ManualResetEventSlim(false);
         var thread = new Thread(() =>
         {
-            PairRuntime<FeedLinkTrack, FeedLinkClip>.Consume(&FoldA, &FoldRange, &FoldKeysA);
+            PairRuntime<FeedLinkTrack, FeedLinkClip>.Consume(&FoldA, &FoldKeysA);
             readyA.Set();
             releasedA.Wait();
             PairRuntime<FeedLinkTrack, FeedLinkClip>.ConsumeDispatch(&ExecuteA, &LiveKeys, &Diag);
         });
         thread.Start();
         readyA.Wait();
-        PairRuntime<FeedLinkTrack, FeedLinkClip>.Consume(&FoldB, &FoldRange, &FoldKeysB);
+        PairRuntime<FeedLinkTrack, FeedLinkClip>.Consume(&FoldB, &FoldKeysB);
         releasedA.Set();
         thread.Join();
 

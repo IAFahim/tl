@@ -54,7 +54,7 @@ public sealed class ConsumerAbiTests
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         internal static void Install()
         {
-        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&Fold_QuadJob, &FoldRange_QuadJob, &Keys_QuadJob);
+        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&Fold_QuadJob, &Keys_QuadJob);
         global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.ConsumeDispatch(&ExecuteActive_QuadJob, &LiveKeys_QuadJob, &Diag_QuadJob);
         global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.VerifyLayout(8678375773521417805UL);
         }
@@ -63,14 +63,6 @@ public sealed class ConsumerAbiTests
         global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
         var @arc = (float*)__tlColumns[0];
         var @ticks = (int*)__tlColumns[1];
-        global::Domain.QuadJob.Fold(in __tlTyped, out @arc[__tlRow], out @ticks[__tlRow]);
-        }
-        private static void FoldRange_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRowStart, int __tlRowCount)
-        {
-        global::Domain.QuadClip __tlClip = default; var __tlTyped = global::Tl.TickFrame.ToFrame<global::Domain.QuadTrack, global::Domain.QuadClip>(__tlSlot, __tlPair, __tlTick, __tlFlags, ref __tlClip);
-        var @arc = (float*)__tlColumns[0];
-        var @ticks = (int*)__tlColumns[1];
-        for (var __tlRow = __tlRowStart; __tlRow < __tlRowStart + __tlRowCount; __tlRow++)
         global::Domain.QuadJob.Fold(in __tlTyped, out @arc[__tlRow], out @ticks[__tlRow]);
         }
         private static int Keys_QuadJob(ulong* __tlKeys, byte* __tlMeta)

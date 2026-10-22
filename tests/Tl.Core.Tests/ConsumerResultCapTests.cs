@@ -18,7 +18,7 @@ internal static unsafe class CapPairs
 
     [ModuleInitializer]
     internal static void Install()
-        => PairRuntime<CapTrack, CapClip>.Consume(&FoldCap, &RangeCap, &KeysCap);
+        => PairRuntime<CapTrack, CapClip>.Consume(&FoldCap, &KeysCap);
 
     static int KeysCap(ulong* keys, byte* meta)
     {
@@ -36,7 +36,6 @@ internal static unsafe class CapPairs
         for (var j = 0; j < OwnedResults; j++) ((float*)columns[j])[row] = j;
     }
 
-    static void RangeCap(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int rowStart, int rowCount) { }
 }
 
 public unsafe class ConsumerResultCapTests
@@ -62,7 +61,7 @@ public unsafe class ConsumerResultCapTests
             CapPairs.OwnedResults = 10;
         }
         var after = PairTable.ConsumerAt[entry];
-        Assert.True(before.Next == after.Next && before.Offset == after.Offset && before.Feed == after.Feed && before.Ordinal == after.Ordinal && before.PairKey == after.PairKey && before.WindowConstant == after.WindowConstant && before.DispatchOnly == after.DispatchOnly);
+        Assert.True(before.Next == after.Next && before.Offset == after.Offset && before.Feed == after.Feed && before.Ordinal == after.Ordinal && before.PairKey == after.PairKey && before.DispatchOnly == after.DispatchOnly);
         Assert.True(SameTail(&before, PairTable.ConsumerAt + entry));
         Timeline<CapTrack, CapClip>.View(index);
     }

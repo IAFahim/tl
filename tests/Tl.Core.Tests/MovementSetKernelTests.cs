@@ -186,23 +186,4 @@ public unsafe class MovementSetKernelTests
         Assert.Equal([ -5.5f, 1.5f, -3.5f, 3.5f ], effects);
     }
 
-    [Fact]
-    public void MeasureWindowConstantCrowdUsesHeapScratch()
-    {
-        var baker = new DomainBaker();
-        for (var s = 1; s <= 16; s++)
-            baker.Track<ConstTrack, ConstClip>(new ConstTrack(s));
-        for (var s = 0; s < 16; s++)
-            baker.Clip(s, 0, 4, new ConstClip(1f));
-
-        using var asset = TimelineAsset.LoadAsset(baker.Bake());
-        using var measured = MeasuredLanes.Measure(asset.Reference, PairRuntime<ConstTrack, ConstClip>.Key);
-
-        Assert.Equal(4, measured.Duration);
-        for (var tick = 0; tick < 4; tick++)
-        {
-            Assert.Equal(192f, measured.Forward[tick]);
-            Assert.Equal(192f, measured.Backward[tick]);
-        }
-    }
 }

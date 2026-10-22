@@ -24,9 +24,9 @@ internal static unsafe class SegmentPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<SegmentTrack, SegmentClip>.Consume(&FoldTwo, &RangeTwo, &KeysTwo);
-        PairRuntime<SegmentWideTrack, SegmentWideClip>.Consume(&FoldWideA, &RangeWide, &KeysWideA);
-        PairRuntime<SegmentWideTrack, SegmentWideClip>.Consume(&FoldWideB, &RangeWide, &KeysWideB);
+        PairRuntime<SegmentTrack, SegmentClip>.Consume(&FoldTwo, &KeysTwo);
+        PairRuntime<SegmentWideTrack, SegmentWideClip>.Consume(&FoldWideA, &KeysWideA);
+        PairRuntime<SegmentWideTrack, SegmentWideClip>.Consume(&FoldWideB, &KeysWideB);
     }
 
     static void Owned(ulong* keys, byte* meta, int count)
@@ -63,7 +63,6 @@ internal static unsafe class SegmentPairs
         ((float*)columns[1])[row] = tick % 512 + 1;
     }
 
-    static void RangeTwo(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int rowStart, int rowCount) { }
 
     static void FoldWideA(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
     {
@@ -85,7 +84,6 @@ internal static unsafe class SegmentPairs
         ((float*)columns[5])[row] = (tick >> 8) + 600;
     }
 
-    static void RangeWide(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int rowStart, int rowCount) { }
 }
 
 public unsafe class SegmentedMultiLaneTests
