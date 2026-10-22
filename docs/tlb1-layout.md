@@ -145,8 +145,10 @@ The runtime's loader validates the structure and fails with a located reason; a 
 - `Duration` above 65,535; `PairCount` above 256; `Bytes` not the file size; `HotLength` outside `[1, Bytes]`.
 - Section offsets not 8-byte aligned; pair table, stage table, pools, or slots out of bounds or out of order.
 - Pair keys not strictly ascending; slot stride under 24 or not 8-byte aligned; pool counts above 65,535.
-- Stages not monotonic and contiguous from 0 to `Duration`; program offsets out of bounds; a step naming a pair or slot out of bounds.
+- Value pool base addresses not 16-byte aligned.
+- Stages not monotonic and contiguous from 0 to `Duration`, or a stage range empty or running backwards (`End <= Start`); program offsets out of bounds; a step naming a pair or slot out of bounds.
 - Slot rows with value indices beyond the pool counts, a blend window without a second value index, or a second index set without one.
+- Slot rows whose `TrackIndex` reaches `TrackCount`, whose window `[WindowStart, WindowEnd)` does not contain the referencing stage, or whose blend range `[FactorStart, FactorStart + FactorSpan)` does not contain the referencing stage.
 
 ## Content identity digest (runtime intern table)
 

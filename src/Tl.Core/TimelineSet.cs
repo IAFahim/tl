@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using System.Diagnostics.CodeAnalysis;
+using static System.Runtime.CompilerServices.MethodImplOptions;
 
 namespace Tl;
 
@@ -57,25 +58,25 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     const int BlockHeaderBytes = 72;
     const int RetirePadBytes = 16;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal SlotView* FoldedView(ushort index)
     {
         Checked.Live(_disposed);
         return index < (uint)_count ? (SlotView*)Volatile.Read(ref *(long*)(_views + index)) : null;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal void ApplyRecords(SlotView* slot, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
         => ApplyRecords(slot, positions, default, forward, effects);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal void ApplyRecords(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
     {
         Checked.Columns(positions, next, effects);
         ApplyRecords(slot, positions, next, effects, forward);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     static void ApplyRecords(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, bool forward)
     {
         var duration = slot->Duration;
@@ -186,7 +187,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             _pendingCursor++;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal bool IsFolded(ushort index)
         => index < (uint)_count && _views[index] != null;
 
@@ -537,26 +538,26 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal TimelineSetLane<TTrack, TClip> Gather(ReadOnlySpan<ushort> timelineIds)
     {
         Checked.Live(_disposed);
         return new(this, timelineIds, default, false);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal void Apply(ReadOnlySpan<ushort> timelineIds, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
         => Gather(timelineIds).Seek(positions, forward).Apply(effects);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal void Apply(ReadOnlySpan<ushort> timelineIds, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
         => Gather(timelineIds).Seek(positions, forward).Apply(effects, next);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal void Advance(ReadOnlySpan<ushort> ids, Span<ushort> positions, bool forward)
         => Advance(ids, positions, positions, forward);
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     internal void Advance(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
         Checked.Live(_disposed);
@@ -620,7 +621,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         for (; i < count; i++) AdvanceRow(ids, positions, next, motion, views, bound, reverse, i);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     static void AdvanceRow(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, uint* motion, SlotView** views, int bound, bool reverse, int i)
     {
         var id = ids[i];
@@ -642,10 +643,10 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 : pos > 0 && pos <= duration ? (ushort)(pos - 1) : pos;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal bool HasView(ushort index) => index < _count && Volatile.Read(ref *(long*)(_views + index)) != 0;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal int LaneFor(ushort index, ulong key, int ordinal)
     {
         var view = _views[index];
@@ -657,7 +658,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         return -1;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     internal void ApplyLane<T>(ushort index, ReadOnlySpan<ushort> positions, bool forward, int lane, Span<T> column) where T : unmanaged
     {
         Checked.Live(_disposed);
@@ -692,7 +693,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     static T ReadCell<T>(SlotView* view, nuint lane, bool forward, int tick) where T : unmanaged
     {
         var value = LaneEncoding.Value(view, lane, forward, tick);
@@ -708,7 +709,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         return Unsafe.As<byte, T>(ref bits);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     static T Combine<T>(T a, T b) where T : unmanaged
     {
         if (typeof(T) == typeof(bool)) { var v = Unsafe.As<T, bool>(ref a) | Unsafe.As<T, bool>(ref b); return Unsafe.As<bool, T>(ref v); }
@@ -725,15 +726,15 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         return Unsafe.As<byte, T>(ref v1);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal void ApplySlot(ushort index, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
         => new TimelineSetLane<TTrack, TClip>(this, ReadOnlySpan<ushort>.Empty, positions, forward).ApplySlot(index, effects);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal void ApplySlot(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
         => new TimelineSetLane<TTrack, TClip>(this, ReadOnlySpan<ushort>.Empty, positions, forward).ApplySlot(index, effects, next);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal void ApplyRows(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
     {
         Checked.Live(_disposed);
@@ -742,7 +743,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         else ApplyRowsCore<BackwardRows>(rows, indices, positions, effects);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal void AdvanceRows(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, Span<ushort> positions, bool forward)
     {
         Checked.Live(_disposed);
@@ -751,7 +752,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         else AdvanceRowsCore<BackwardRows>(rows, indices, positions);
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(NoInlining | AggressiveOptimization)]
     void ApplyRowsCore<TDir>(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects) where TDir : struct, IRowWalk
     {
         var views = _views;
@@ -789,7 +790,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(NoInlining | AggressiveOptimization)]
     void AdvanceRowsCore<TDir>(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, Span<ushort> positions) where TDir : struct, IRowWalk
     {
         var views = _views;
@@ -825,7 +826,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
+    [MethodImpl(NoInlining)]
     void ResolveRow(ushort id, int row, bool lazy)
     {
         if (lazy)
@@ -954,7 +955,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     readonly ReadOnlySpan<ushort> _positions;
     readonly bool _forward;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal TimelineSetLane(TimelineSet<TTrack, TClip> set, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, bool forward)
     {
         _set = set;
@@ -963,11 +964,11 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         _forward = forward;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal TimelineSetLane<TTrack, TClip> Seek(ReadOnlySpan<ushort> positions, bool forward)
         => new(_set, _ids, positions, forward);
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     public unsafe void Apply(Span<float> effects, Span<ushort> next)
     {
         var set = _set;
@@ -1053,14 +1054,14 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         }
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     public void Apply(Span<float> effects) => Apply(effects, default);
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal void ApplySlot(ushort index, Span<float> effects)
         => ApplySlot(index, effects, default);
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     internal unsafe void ApplySlot(ushort index, Span<float> effects, Span<ushort> next)
     {
         var set = _set;
@@ -1081,7 +1082,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         }
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(NoInlining | AggressiveOptimization)]
     static unsafe int ApplyUniformSegment(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, int i, int limit, bool forward, bool gather)
     {
         var duration = slot->Duration;
@@ -1119,7 +1120,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return ApplyUniform(slot, positions, next, effects, i, limit, forward);
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(NoInlining | AggressiveOptimization)]
     static unsafe int ApplyUniform(SlotView* slot, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, int i, int limit, bool forward)
     {
         var duration = slot->Duration;
@@ -1162,7 +1163,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return limit;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(NoInlining | AggressiveOptimization)]
     static unsafe int ApplyMixed(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, int i, int limit)
     {
         var hasNext = !next.IsEmpty;
@@ -1203,7 +1204,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return limit;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(NoInlining | AggressiveOptimization)]
     static unsafe int MixedVector(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, float** tables, uint* motion, int i, int limit)
     {
         while (i < limit)
@@ -1234,7 +1235,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return limit;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(NoInlining | AggressiveOptimization)]
     static unsafe int GatherRows<TWalk, TNext>(ushort* ids, ushort* positions, ushort* next, float* effects, float** tables, uint* motion, int i, int limit)
         where TWalk : struct, IRowWalk
         where TNext : struct, IRowNext
@@ -1296,17 +1297,17 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return i;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     static unsafe Vector256<float> Gather(Vector256<long> base0, Vector256<long> base1, Vector256<int> tick)
         => Vector256.Create(
             Avx2.GatherVector128((float*)null, base0 + (Avx2.ConvertToVector256Int64(tick.GetLower()) << 2), 1),
             Avx2.GatherVector128((float*)null, base1 + (Avx2.ConvertToVector256Int64(tick.GetUpper()) << 2), 1));
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     static bool LongRunAt(ReadOnlySpan<ushort> ids, int at, int limit)
         => at + VectorRows <= limit && ids[at + 1] == ids[at] && ids[at + VectorRows - 1] == ids[at];
 
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(NoInlining | AggressiveOptimization)]
     static unsafe int FastMixedRows<TWalk, TNext>(ref ushort idRow, ref ushort positionRow, ref ushort nextRow, ref float effectRow, SlotView** views, int i, int limit)
         where TWalk : struct, IRowWalk
         where TNext : struct, IRowNext
@@ -1344,7 +1345,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return limit;
     }
 
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(NoInlining | AggressiveOptimization)]
     static unsafe int FastMixed(bool forward, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects, SlotView** views, float** tables, uint* motion, int i, int limit)
     {
         var first = i;
@@ -1378,7 +1379,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         }
         return FastMixedRows<TWalk, TNext>(ref MemoryMarshal.GetReference(ids), ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next), ref MemoryMarshal.GetReference(effects), views, i, limit);
     }
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     static bool ShortRuns(ReadOnlySpan<ushort> positions, int start, int end)
     {
         var probe = start + 64;
@@ -1409,7 +1410,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return equalPairs <= 24;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     static bool UniformChunk(ReadOnlySpan<ushort> ids, int start, int end, ushort first)
     {
         var i = start;
@@ -1432,7 +1433,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return true;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     static bool ValidateChunk(ReadOnlySpan<ushort> ids, int start, int end, TimelineSet<TTrack, TClip> set, int bound)
     {
         if (bound >= 65536) return false;
@@ -1465,7 +1466,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return grew;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     static bool ResolveOrThrow(TimelineSet<TTrack, TClip> set, ushort id, int row)
     {
         if (set._lazyResolve)
@@ -1477,7 +1478,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return false;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     static bool FastMixedChunk(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int end, int bound, int minDuration)
     {
         if (bound <= 0) return false;
@@ -1515,11 +1516,11 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return true;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal static void ThrowUnboundId(ushort id, int row)
         => throw new ArgumentException($"Timeline id {id} at row {row} is not bound in this TimelineSet; ids come from TimelineSet.Add at load time.");
 
-    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    [MethodImpl(AggressiveOptimization)]
     static int RunEndTwo(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int limit)
     {
         var id = ids[start];
