@@ -57,6 +57,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     const int InitialCapacity = 1024;
     const int BlockHeaderBytes = 72;
     const int RetirePadBytes = 16;
+    internal const int GuardBytes = 32;
 
     [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal SlotView* FoldedView(ushort index)
@@ -462,7 +463,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var backwardBytes = plan.FlatBackward ? (nuint)lanes * ticks * sizeof(float) : 0;
         var keysBytes = (nuint)(lanes * 8);
         var padBytes = (BlockHeaderBytes + dirBytes + segBytes + denseBytes + forwardBytes + backwardBytes) % 8 == 0 ? 0u : 4u;
-        var block = (byte*)NativeMemory.AlignedAlloc((nuint)BlockHeaderBytes + dirBytes + segBytes + denseBytes + forwardBytes + backwardBytes + padBytes + keysBytes, 64);
+        var block = (byte*)NativeMemory.AlignedAlloc((nuint)BlockHeaderBytes + dirBytes + segBytes + denseBytes + forwardBytes + backwardBytes + padBytes + keysBytes + GuardBytes, 64);
         var directory = (uint*)(block + BlockHeaderBytes);
         var segments = (LaneSegment*)((byte*)directory + dirBytes);
         var dense = (float*)((byte*)segments + segBytes);
@@ -502,6 +503,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 Buffer.MemoryCopy(measured.LaneBackward[l], flatBackward + (nuint)l * ticks, tableBytes, tableBytes);
             keys[l] = measured.LaneKeys[l];
         }
+        Unsafe.InitBlock((byte*)keys + keysBytes, 0, (uint)GuardBytes);
         *(SlotView*)block = new SlotView
         {
             Directory = directories ? directory : null,
@@ -520,7 +522,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         };
         _blockCount++;
         _headerTotal += BlockHeaderBytes;
-        _tableTotal += (long)(dirBytes + segBytes + denseBytes + forwardBytes + backwardBytes + padBytes);
+        _tableTotal += (long)(dirBytes + segBytes + denseBytes + forwardBytes + backwardBytes + padBytes + GuardBytes);
         return (SlotView*)block;
     }
 
