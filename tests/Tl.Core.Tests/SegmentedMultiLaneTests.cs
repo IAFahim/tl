@@ -174,6 +174,9 @@ public unsafe class SegmentedMultiLaneTests
         var index = set.Add(asset);
         var view = set.View(index);
         Assert.Equal(2u, view.ResultCount);
+        Assert.True(view.Forward == null);
+        Assert.True(view.Backward == null);
+        Assert.True(view.Directory != null);
         var forward = new float[2][];
         var backward = new float[2][];
         for (var l = 0; l < 2; l++)
