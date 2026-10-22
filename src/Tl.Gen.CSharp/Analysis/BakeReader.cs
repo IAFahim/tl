@@ -60,6 +60,7 @@ public static class BakeReader
                     }, Symbols.Same(parameter.Type, consumer)));
                 }
                 if (!accessible) continue;
+                if (parameters.Count(static parameter => !parameter.IsConsumer) > 4) { Symbols.Error(errors, entry.Syntax, "TLGEN87", $"Bake '{Symbols.Name(entry.Type)}' declares more than four state parameters; Timeline.Bake dispatches at most four state arguments per call."); continue; }
                 discovered.Add((new BakeDeclaration(Symbols.Name(entry.Type), Symbols.Name(consumer), parameters, pairs), entry.Syntax, Signature(method)));
             }
         }
