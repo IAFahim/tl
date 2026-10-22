@@ -100,7 +100,7 @@ public sealed class BakeReaderTests
     }
 
     [Fact]
-    public void DiscoversBakesBeyondTheOldContextCapWithSpanParameters()
+    public void RejectsBakesBeyondTheFourStateParameterDispatchCap()
     {
         const string bake = """
             public readonly struct C0 { }
@@ -110,21 +110,10 @@ public sealed class BakeReaderTests
             public readonly struct C4 { }
             public readonly struct WideBake : IBake<ApplyDamage>
             {
-                public static void Bake(in C0 c0, ref C1 c1, C2 c2, global::System.Span<C3> c3, global::System.ReadOnlySpan<C4> c4) { }
+                public static void Bake(in C0 c0, in C1 c1, C2 c2, global::System.Span<C3> c3, global::System.ReadOnlySpan<C4> c4) { }
             }
             """;
-        var result = Read(Domain + bake);
-
-        Assert.Empty(result.Diagnostics);
-        var declaration = Assert.Single(result.Bakes);
-        Assert.Equal(
-        [
-            new BakeParameter("global::Domain.C0", BakeModifier.In, false),
-            new BakeParameter("global::Domain.C1", BakeModifier.Ref, false),
-            new BakeParameter("global::Domain.C2", BakeModifier.Value, false),
-            new BakeParameter("global::System.Span<global::Domain.C3>", BakeModifier.Value, false),
-            new BakeParameter("global::System.ReadOnlySpan<global::Domain.C4>", BakeModifier.Value, false),
-        ], declaration.Parameters);
+        Rejects(bake, "TLGEN87", "declares more than four state parameters");
     }
 
     [Fact]
