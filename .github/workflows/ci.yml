@@ -38,6 +38,7 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_links.py
       - run: python3 -m unittest discover -s tests -p test_samples_inventory.py
       - run: python3 -m unittest discover -s tests -p test_dead_code.py
+      - run: python3 -m unittest discover -s tests -p test_tlb1_spec_example.py
       - run: dotnet build tl.slnx -c Release -m:1 -p:NuGetAudit=false
       - run: dotnet test tl.slnx -c Release --no-build -p:NuGetAudit=false
       - run: python3 -m unittest discover -s tests -p test_tlb_cli.py

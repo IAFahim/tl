@@ -1,8 +1,8 @@
-# TLB1 container byte layout (version 4)
+# TLB1 container byte layout (version 5)
 
 `tlb` compiles authored timeline JSON into TLB1, a deterministic binary container. This page specifies the byte layout so an out-of-process parser — a browser viewer over `.tlb` files, C catalog tooling, Unity-side import — can read the structure without running this repository's code. The committed fixtures under `tools/Tl.Bake.Tests/golden/fixtures/` are the test corpus for that parser.
 
-The spec describes what the baker emits today (TLB1 version 4). It promises no stability across future versions: the header version field is the handshake, parsers reject what they do not know, and any format change bumps the version and regenerates the fixtures in the same change.
+The spec describes what the baker emits today (TLB1 version 5). It promises no stability across future versions: the header version field is the handshake, parsers reject what they do not know, and any format change bumps the version and regenerates the fixtures in the same change.
 
 ## Conventions
 
@@ -30,10 +30,10 @@ The writer places them with: `PairOffset = 64`, `StageOffset = PairOffset + 48*P
 
 ## Header (64 bytes)
 
-| Offset | Width | Field | Value in v4 |
+| Offset | Width | Field | Value in v5 |
 |---|---|---|---|
 | 0 | u32 | Magic | `0x31424C54`; bytes `54 4C 42 31`, ASCII `TLB1` |
-| 4 | u32 | Version | `4` |
+| 4 | u32 | Version | `5` |
 | 8 | u32 | Loops | `1` when the authored timeline loops, else `0` |
 | 12 | u32 | Duration | Timeline length in ticks; at most 65,535 |
 | 16 | u32 | TrackCount | Number of authored tracks |
@@ -56,7 +56,7 @@ One entry per distinct `(track type, clip type)` pair used by the timeline, sort
 | Offset | Width | Field | Meaning |
 |---|---|---|---|
 | 0 | u64 | Key | Pair identity; strictly ascending across entries |
-| 8 | u32 | SlotStride | `24` in v4; at least 24 and 8-byte aligned |
+| 8 | u32 | SlotStride | `24` in v5; at least 24 and 8-byte aligned |
 | 12 | u32 | TrackPoolOffset | Track value pool start, **relative to this pair entry's own file offset** |
 | 16 | u32 | TrackPoolCount | Unique track values in the pool; at most 65,535 |
 | 20 | u32 | TrackValueBytes | `sizeof` of the track struct |
@@ -165,18 +165,18 @@ Golden vector (FIPS 180-4 example): SHA-256 of the 3 bytes `61 62 63` (`"abc"`) 
 
 ## Worked example: `minimal.tlb` decoded in full
 
-The minimal fixture (327 bytes, sha256 `d223843e1a457b388f11c7965af8c05f6bedbd1de72219b202ef929fbc9a6e8f`) is one track, one clip, four ticks, no loop. Every byte:
+The minimal fixture (327 bytes, sha256 `5835fb500684924b15e4c3eed022745426560558172e6e48c93cd54cfb3c0900`) is one track, one clip, four ticks, no loop. Every byte:
 
 ```
-0000  54 4c 42 31 04 00 00 00  TLB1, version 4
+0000  54 4c 42 31 05 00 00 00  TLB1, version 5
 0008  00 00 00 00 04 00 00 00  Loops=0, Duration=4
 0010  01 00 00 00 01 00 00 00  TrackCount=1, StageCount=1
 0018  01 00 00 00 40 00 00 00  PairCount=1, PairOffset=64
 0020  70 00 00 00 90 00 00 00  StageOffset=112, PoolOffset=144
 0028  b0 00 00 00 c8 00 00 00  FrameOffset=176, HotLength=200
 0030  47 01 00 00              Bytes=327
-0034  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00   Reserved0..2 = 0
-0040  c3 a8 4c c9 18 ea ca 83  pair 0 Key=0xC3A84CC918EACA83
+0034  00 00 00 00 00 00 00 00 00 00 00 00  Reserved0..2 = 0
+0040  51 0e 53 cf 39 6d 56 51  pair 0 Key=0x51566D39CF530E51
 0048  18 00 00 00              SlotStride=24
 004c  50 00 00 00 01 00 00 00  TrackPoolOffset=80 (abs 64+80=144), TrackPoolCount=1
 0054  04 00 00 00              TrackValueBytes=4
@@ -187,10 +187,13 @@ The minimal fixture (327 bytes, sha256 `d223843e1a457b388f11c7965af8c05f6bedbd1d
 0070  00 00 00 00 04 00 00 00  stage 0: Start=0, End=4
 0078  80 00 00 00 01 00 00 00  ProgramOffset=128, ProgramCount=1
 0080  b0 00 00 00 00 00 00 00  step: Slot=176, Pair=0
+0088  00 00 00 00 00 00 00 00  pool-section padding to 16
 0090  00 00 80 3f              track pool: float 1.0 (Multiplier)
+0094  00 00 00 00 00 00 00 00 00 00 00 00  padding (clip pool at 160)
 00a0  00 00 00 40 01 00 00 00  clip pool: float 2.0 (Amount), int 1 (Steps)
+00a8  00 00 00 00 00 00 00 00  padding (slot rows at 176)
 00b0  00 00 00 00 ff ff 00 00  slot row: TrackValueIndex=0, FirstValueIndex=0,
-                                SecondValueIndex=0xFFFF, TrackIndex=0, padding
+                               SecondValueIndex=0xFFFF, TrackIndex=0, padding
 00b8  00 00 00 00 04 00 00 00  WindowStart=0, WindowEnd=4
 00c0  00 00 00 00 00 00 00 00  FactorStart=0, FactorSpan=0  -> hot section ends at 200
 00c8  4c 54 42 4d 01 00 00 00  LTBM, tail version 1
@@ -201,21 +204,22 @@ The minimal fixture (327 bytes, sha256 `d223843e1a457b388f11c7965af8c05f6bedbd1d
 00f0  00 00 00 00 7f 00 00 00  LabelCount=0, LabelTableOffset=127
 00f8  00 00 00 00 07 00 00 00  string offsets: 0, 7, 15, 28
 0100  0f 00 00 00 1c 00 00 00    -> "JobClip", "JobTrack", "Tl.Bake.Tests", "Tlb"
-0110  4a 6f 62 43 6c 69 70 ...  blob: "JobClipJobTrackTl.Bake.TestsTlb"
-0150  03 00 00 00 00 00 00 00  type 0: (3,0,2) = Tlb/JobClip/Tl.Bake.Tests
-015c  02 00 00 00              (offsets shown per row; row 1 follows)
-0160  03 00 00 00 01 00 00 00  type 1: (3,1,2) = Tlb/JobTrack/Tl.Bake.Tests
-016c  02 00 00 00
-0170  01 00 00 00 00 00 00 00  pair type 0: (track=1, clip=0)
-0178  (end of file at 327)
+0108  4a 6f 62 43 6c 69 70 4a 6f 62 54 72 61 63 6b 54  blob: "JobClipJobTrackTl.Bake.TestsTlb"
+0118  6c 2e 42 61 6b 65 2e 54 65 73 74 73 54 6c 62
+0127  03 00 00 00 00 00 00 00  type 0: (3,0,2) = Tlb/JobClip/Tl.Bake.Tests
+012f  02 00 00 00
+0133  03 00 00 00 01 00 00 00  type 1: (3,1,2) = Tlb/JobTrack/Tl.Bake.Tests
+013b  02 00 00 00
+013f  01 00 00 00 00 00 00 00  pair type 0: (track=1, clip=0)
+0147  (end of file at 327)
 ```
 
 ## Fixtures
 
 | File | Bytes | sha256 | Exercises |
 |---|---|---|---|
-| `minimal.tlb` | 327 | `d223843e1a457b388f11c7965af8c05f6bedbd1de72219b202ef929fbc9a6e8f` | Single pair, single stage, no blend, no labels, empty label table |
-| `blended.tlb` | 1021 | `a3b735b1a682e0acb6780cf22f687abd5347bad16e1ad27c8d4f0bdbed038855` | Two pairs with ascending keys, six stages, a blend window (`SecondValueIndex != 0xFFFF`, `FactorSpan = 2`), loop flag, named tracks and clips, duplicate clip payloads deduplicated in the pool |
+| `minimal.tlb` | 327 | `5835fb500684924b15e4c3eed022745426560558172e6e48c93cd54cfb3c0900` | Single pair, single stage, no blend, no labels, empty label table |
+| `blended.tlb` | 1021 | `e33a22a7d847691a022a8380d73f7ccbd8bcbb9aa059a8abfef966af24176b02` | Two pairs with ascending keys, six stages, a blend window (`SecondValueIndex != 0xFFFF`, `FactorSpan = 2`), loop flag, named tracks and clips, duplicate clip payloads deduplicated in the pool |
 
 Each fixture's `.json` beside it is its authored source and its `.inspect.json` is the canonical rendering `tlb --inspect` produces (`schemaVersion: 1` structural JSON). Regenerate all three files per fixture with:
 
