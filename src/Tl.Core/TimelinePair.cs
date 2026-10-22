@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using static System.Runtime.CompilerServices.MethodImplOptions;
 
 namespace Tl;
 
@@ -17,7 +18,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 {
 	internal static TimelineSet<TTrack, TClip>? _bank;
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
 	{
 		Guard.Same(positions, effects);
@@ -26,7 +27,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		FloatBank().Apply(indices, positions, forward, effects);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply(ushort index, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
 	{
 		Guard.Same(positions, effects);
@@ -48,7 +49,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		bank.ApplyRecords(slot, positions, forward, effects);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply(ushort index, ushort position, bool forward, Span<float> effects)
 	{
 		Checked.Domain(index, position);
@@ -62,7 +63,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		ApplySharedClock(slot, position, forward, effects);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Advance(ushort index, ref ushort position, bool forward)
 	{
 		Checked.Domain(index, position);
@@ -85,7 +86,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		if (LaneMovement.BackwardPlayable(p, duration, looping)) position = LaneMovement.BackwardNext(p, duration);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveOptimization)]
 	public static bool TrySample(ushort index, ushort position, ref TClip scratch, out Frame<TTrack, TClip> frame, bool forward = true)
 	{
 		frame = default;
@@ -120,7 +121,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			: throw new ArgumentException($"Timeline slot {index} has no ({typeof(TTrack).Name}, {typeof(TClip).Name}) window at position {position}.");
 	}
 
-	[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(NoInlining | AggressiveOptimization)]
 	static void ApplySharedClock(SlotView* slot, ushort position, bool forward, Span<float> effects)
 	{
 		var duration = slot->Duration;
@@ -139,7 +140,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		LaneOps.Add(effects, 0, effects.Length, delta);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply<TIndex, TPosition>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward)
 		where TIndex : struct
 		where TPosition : struct
@@ -171,14 +172,14 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		}
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply(TimelineAsset asset, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
 	{
 		ArgumentNullException.ThrowIfNull(asset);
 		Apply(asset.Index, positions, forward, effects);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
 	{
 		Guard.Same(positions, effects);
@@ -188,7 +189,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		FloatBank().Apply(indices, positions, next, forward, effects);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply(ushort index, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward, Span<float> effects)
 	{
 		Guard.Same(positions, effects);
@@ -211,7 +212,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		bank.ApplyRecords(slot, positions, next, forward, effects);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply<TIndex, TPosition, TEffect>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects)
 		where TIndex : struct
 		where TPosition : struct
@@ -230,7 +231,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			MemoryMarshal.Cast<TEffect, float>(effects));
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Advance<TIndex, TPosition>(ReadOnlySpan<TIndex> indices, Span<TPosition> positions, bool forward)
 		where TIndex : struct
 		where TPosition : struct
@@ -239,7 +240,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		Timeline.Advance(MemoryMarshal.Cast<TIndex, ushort>(indices), MemoryMarshal.Cast<TPosition, ushort>(positions), forward);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply<TIndex, TPosition, TEffect>(in TIndex index, in TPosition position, bool forward, ref TEffect effect)
 		where TIndex : struct
 		where TPosition : struct
@@ -262,7 +263,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			MemoryMarshal.CreateSpan(ref Unsafe.As<TEffect, float>(ref effect), 1));
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void ApplyChunk<TIndex, TPosition, TEffect0, TEffect1>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect0> effects0, Span<TEffect1> effects1)
 		where TIndex : struct
 		where TPosition : struct
@@ -305,7 +306,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 
 	static string Head => $"Timeline<{typeof(TTrack).Name}, {typeof(TClip).Name}>";
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	static TimelineSet<TTrack, TClip> FloatBank()
 	{
 		var bank = Bank();
@@ -313,7 +314,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		return bank;
 	}
 
-	[MethodImpl(MethodImplOptions.NoInlining)]
+	[MethodImpl(NoInlining)]
 	static void ProveFloatLane(TimelineSet<TTrack, TClip> bank)
 	{
 		var key = PairRuntime<TTrack, TClip>.Key;
@@ -339,7 +340,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	static bool NonFloatLane(ulong key)
 		=> key == TypeKey<int>.Value || key == TypeKey<uint>.Value;
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	[MethodImpl(AggressiveInlining)]
 	static bool IntegerEffect<TEffect>() => typeof(TEffect) == typeof(int) || typeof(TEffect) == typeof(uint) || typeof(TEffect).IsEnum;
 
 	static void ApplyInteger<TEffect>(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> clocks, bool forward, Span<int> effects)
@@ -386,7 +387,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	static void ThrowColumnRowMismatch(int column, int length, int rows)
 		=> throw new ArgumentException($"{Head} ColumnSet column {column} holds {length} rows; the Apply drives {rows}.");
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply<TIndex, TPosition>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, in ColumnSet caller)
 		where TIndex : struct where TPosition : struct
 	{
@@ -416,7 +417,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		}
 	}
 
-	[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(NoInlining | AggressiveOptimization)]
 	static void ApplyLive(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> clocks, bool forward, ulong keyFx, void* fx, ulong keyIn, void* source, ulong* setKeys, ulong* setCells, int setCount)
 	{
 		var key = PairRuntime<TTrack, TClip>.Key;
@@ -557,7 +558,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		return null;
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply<TIndex, TPosition, TEffect>(ReadOnlySpan<int> rows, ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect> effects)
 		where TIndex : struct
 		where TPosition : struct
@@ -579,7 +580,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		FloatBank().ApplyRows(rows, indices16, positions16, forward, MemoryMarshal.Cast<TEffect, float>(effects));
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Advance<TIndex, TPosition>(ReadOnlySpan<int> rows, ReadOnlySpan<TIndex> indices, Span<TPosition> positions, bool forward)
 		where TIndex : struct
 		where TPosition : struct
@@ -592,7 +593,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		Bank().AdvanceRows(rows, indices16, positions16, forward);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Advance<TIndex, TPosition>(in TIndex index, ref TPosition position, bool forward)
 		where TIndex : struct
 		where TPosition : struct
@@ -604,7 +605,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			forward);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	static void CheckSizes<TIndex, TPosition, TEffect>()
 		where TIndex : struct
 		where TPosition : struct
@@ -615,7 +616,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			ThrowColumnSizes();
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	[MethodImpl(AggressiveInlining)]
 	static void CheckSizes<TIndex, TPosition>()
 		where TIndex : struct
 		where TPosition : struct
@@ -673,7 +674,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		bank.AddAt(index, measured);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveOptimization)]
 	internal static bool ResolveChunk(TimelineSet<TTrack, TClip> set, ReadOnlySpan<ushort> indices, int start, int end)
 	{
 		var views = set._views;
@@ -713,7 +714,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		return View(asset.Index);
 	}
 
-	[MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	static TimelineSet<TTrack, TClip> Bank()
 	{
 		var bank = _bank;

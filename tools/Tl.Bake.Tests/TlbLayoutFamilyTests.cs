@@ -45,8 +45,10 @@ namespace Tl.Bake.Tests
         static BakerAssemblyResolver Resolver => BakerAssemblyResolver.FromAssemblies([typeof(Tlb.LayoutFamilyTrack).Assembly]);
 
         [Fact]
-        public void LayoutScanReadsChainedAttributeFamilyMembers()
-            => Assert.Equal(987654321UL, TlbLayouting.Of(Resolver, typeof(Tlb.LayoutFamilyTrack), typeof(Tlb.LayoutFamilyClip)));
+        public void LayoutScanReadsChainedAttributeFamilyMembersAndDigestsTheLiveLayout()
+            => Assert.Equal(
+                987654321UL ^ PairLayoutDigest.Of(typeof(Tlb.LayoutFamilyTrack), typeof(Tlb.LayoutFamilyClip)),
+                TlbLayouting.Of(Resolver, typeof(Tlb.LayoutFamilyTrack), typeof(Tlb.LayoutFamilyClip)));
 
         [Fact]
         public void LayoutScanReportsConflictsAcrossAttributeFamilyMembers()

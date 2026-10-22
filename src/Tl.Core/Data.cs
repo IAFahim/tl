@@ -583,7 +583,7 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 
 	public static void ConsumeDispatch(ExecThunk execute, KeysThunk keys, DiagThunk diag) => PairTable.Install(Key, execute, null, true, keys, diag);
 
-	public static void VerifyLayout(ulong layout) => PairTable.VerifyLayout(Key, layout);
+	public static void VerifyLayout(ulong layout) => PairTable.VerifyLayout(Key, layout ^ PairLayoutDigest.Of<TTrack, TClip>());
 
 }
 
