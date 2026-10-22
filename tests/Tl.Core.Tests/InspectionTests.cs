@@ -70,6 +70,36 @@ public class InspectionTests
     [Fact]
     public void BankGoldenSnapshotIsByteIdenticalAcrossRuns()
     {
+        var first = RenderGoldenFixture();
+        Assert.Equal(first, RenderGoldenFixture());
+        Assert.Equal(Golden + "\n", first);
+    }
+
+    [Fact]
+    public void BankGoldenSnapshotIgnoresProcessGlobalLoadOrder()
+    {
+        var noise = new List<TimelineAsset>(OrderNoiseAssets);
+        try
+        {
+            for (var i = 0; i < OrderNoiseAssets; i++)
+                noise.Add(TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<OrderNoiseTrack, OrderNoiseClip>(new OrderNoiseTrack(i))
+                    .Clip(0, 0u, 2u, new OrderNoiseClip(i, 0f))
+                    .Bake())));
+            Assert.True(noise[^1].Index >= OrderNoiseAssets - 1);
+            Assert.Equal(Golden + "\n", RenderGoldenFixture());
+        }
+        finally
+        {
+            foreach (var asset in noise)
+                asset.Dispose();
+        }
+    }
+
+    const int OrderNoiseAssets = 1100;
+
+    static string RenderGoldenFixture()
+    {
         var assetA = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
             .Track<GoldenTrack, GoldenClip>(new GoldenTrack(1))
             .Clip(0, 0u, 4u, new GoldenClip(1f, 0f))
@@ -89,8 +119,8 @@ public class InspectionTests
             Timeline<GoldenTrack, GoldenClip>.View(assetC);
             var bank = Inspection.Bank<GoldenTrack, GoldenClip>();
             Assert.NotNull(bank);
-            Assert.Equal(Render(bank, assetA.Index, assetB.Index, assetC.Index), Render(bank, assetA.Index, assetB.Index, assetC.Index));
-            Assert.Equal(Golden + "\n", Render(bank, assetA.Index, assetB.Index, assetC.Index));
+            Assert.Equal(bank!.HeaderBytes + bank.TableBytes + bank.DirectoryBytes, bank.RetainedBytes);
+            return Render(bank, assetA.Index, assetB.Index, assetC.Index);
         }
         finally
         {
@@ -160,9 +190,7 @@ public class InspectionTests
         lines.Append("dedupeHits ").Append(bank.DedupeHits.ToString(CultureInfo.InvariantCulture)).Append('\n');
         lines.Append("generation ").Append(bank.Generation.ToString(CultureInfo.InvariantCulture)).Append('\n');
         lines.Append("bytes ").Append(bank.HeaderBytes.ToString(CultureInfo.InvariantCulture))
-            .Append(' ').Append(bank.TableBytes.ToString(CultureInfo.InvariantCulture))
-            .Append(' ').Append(bank.DirectoryBytes.ToString(CultureInfo.InvariantCulture))
-            .Append(' ').Append(bank.RetainedBytes.ToString(CultureInfo.InvariantCulture)).Append('\n');
+            .Append(' ').Append(bank.TableBytes.ToString(CultureInfo.InvariantCulture)).Append('\n');
         var rank = 0;
         foreach (var view in bank.Views.Where(view => owned.Contains((ushort)view.Index)).OrderBy(view => view.Index))
         {
@@ -190,7 +218,7 @@ public class InspectionTests
         blocks 2
         dedupeHits 0
         generation 2
-        bytes 144 128 46176 46448
+        bytes 144 128
         view 0 Folded
           duration 8 looping False ticks 9 lanes 1 abi 3 generation 1
           lane 214ebd18d4e85363 1 9
@@ -229,4 +257,15 @@ public readonly record struct DormantTrack(int Code) : IBlend<DormantClip>
 {
     public void Blend(in DormantClip first, in DormantClip second, float factor, out DormantClip result)
         => result = new(first.Amount + (second.Amount - first.Amount) * factor);
+}
+
+public readonly record struct OrderNoiseClip(float X, float Y);
+
+[SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Global", Justification = "fixture domain model mirrors authored timeline data")]
+public readonly record struct OrderNoiseTrack(int Code) : IBlend<OrderNoiseClip>
+{
+    public void Blend(in OrderNoiseClip first, in OrderNoiseClip second, float factor, out OrderNoiseClip result)
+        => result = new(
+            first.X + (second.X - first.X) * factor,
+            first.Y + (second.Y - first.Y) * factor);
 }
