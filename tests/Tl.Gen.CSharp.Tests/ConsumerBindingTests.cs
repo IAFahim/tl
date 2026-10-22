@@ -224,7 +224,7 @@ public sealed class ConsumerBindingTests
     }
 
     [Fact]
-    public void RejectsJobWithNonReadOnlyTrackOrClipWithDiagnostic()
+    public void RejectsJobWithNonReadOnlyTrackWithDiagnostic()
     {
         const string source = """
             using Tl;
@@ -243,8 +243,12 @@ public sealed class ConsumerBindingTests
         var diagnostic = Assert.Single(diagnostics);
         Assert.Equal("TLGEN65", diagnostic.Id);
         Assert.Contains("track type 'global::Domain.Track' must be a readonly struct", diagnostic.GetMessage());
+    }
 
-        const string clipSource = """
+    [Fact]
+    public void BindsJobWithNonReadOnlyClipBecauseBlendReceivesClipCopies()
+    {
+        const string source = """
             using Tl;
             namespace Domain;
             public record struct Clip(float Amount);
@@ -257,10 +261,8 @@ public sealed class ConsumerBindingTests
                 public static void ExecuteActive(in Frame<Track, Clip> frame) { }
             }
             """;
-        var (_, clipDiagnostics) = GenerateWithDiagnostics(clipSource);
-        var clipDiagnostic = Assert.Single(clipDiagnostics);
-        Assert.Equal("TLGEN65", clipDiagnostic.Id);
-        Assert.Contains("clip type 'global::Domain.Clip' must be a readonly struct", clipDiagnostic.GetMessage());
+        var (_, diagnostics) = GenerateWithDiagnostics(source);
+        Assert.Empty(diagnostics);
     }
 
     [Fact]
