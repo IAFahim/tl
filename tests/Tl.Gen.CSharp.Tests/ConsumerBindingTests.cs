@@ -224,6 +224,48 @@ public sealed class ConsumerBindingTests
     }
 
     [Fact]
+    public void RejectsJobWithNonReadOnlyTrackWithDiagnostic()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct Clip(float Amount);
+            public record struct Track(float Multiplier) : IBlend<Clip>
+            {
+                public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
+            }
+            public readonly struct Job : ITrack<Track, Clip>
+            {
+                public static void ExecuteActive(in Frame<Track, Clip> frame) { }
+            }
+            """;
+        var (_, diagnostics) = GenerateWithDiagnostics(source);
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("TLGEN65", diagnostic.Id);
+        Assert.Contains("track type 'global::Domain.Track' must be a readonly struct", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void BindsJobWithNonReadOnlyClipBecauseBlendReceivesClipCopies()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public record struct Clip(float Amount);
+            public readonly record struct Track(float Multiplier) : IBlend<Clip>
+            {
+                public void Blend(in Clip first, in Clip second, float factor, out Clip result) => result = first;
+            }
+            public readonly struct Job : ITrack<Track, Clip>
+            {
+                public static void ExecuteActive(in Frame<Track, Clip> frame) { }
+            }
+            """;
+        var (_, diagnostics) = GenerateWithDiagnostics(source);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
     public void MultiPairingJobRegistersEveryPairingInLexicalOrder()
     {
         const string source = """

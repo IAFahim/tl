@@ -47,6 +47,7 @@ public static class JobReader
                 var ok = true;
                 if (!track.IsUnmanagedType) { Err($"track type '{Symbols.Name(track)}' must be an unmanaged type."); ok = false; }
                 if (!clip.IsUnmanagedType) { Err($"clip type '{Symbols.Name(clip)}' must be an unmanaged type."); ok = false; }
+                if (ok && track is INamedTypeSymbol { IsReadOnly: false }) { Err($"track type '{Symbols.Name(track)}' must be a readonly struct; a mutating Blend would write interned asset bytes."); ok = false; }
                 if (ok && !track.AllInterfaces.Any(item => Symbols.Same(item.OriginalDefinition, contracts.Blend) && item.TypeArguments.Length == 1 && Symbols.Same(item.TypeArguments[0], clip))) { Err($"track type '{Symbols.Name(track)}' must implement Tl.IBlend<{Symbols.Name(clip)}>."); ok = false; }
                 if (!ok) { valid = false; continue; }
                 var definition = reader.Execute(entry.Type, contracts.Frame.Construct(track, clip), compilation.Assembly, entry.Syntax);
