@@ -117,6 +117,26 @@ public sealed class BakeReaderTests
     }
 
     [Fact]
+    public void AcceptsBakeAtTheFourStateParameterCapWithConsumerParameter()
+    {
+        const string bake = """
+            public readonly struct C0 { }
+            public readonly struct C1 { }
+            public readonly struct C2 { }
+            public readonly struct C3 { }
+            public readonly struct BoundaryBake : IBake<ApplyDamage>
+            {
+                public static void Bake(ApplyDamage consumer, in C0 c0, in C1 c1, C2 c2, global::System.Span<C3> c3) { }
+            }
+            """;
+        var result = Read(Domain + bake);
+
+        Assert.Empty(result.Diagnostics);
+        var declaration = Assert.Single(result.Bakes);
+        Assert.Equal(5, declaration.Parameters.Count);
+    }
+
+    [Fact]
     public void MultipleBakesSortByConsumerThenSignatureThenBakeTypeName()
     {
         const string bakes = """
