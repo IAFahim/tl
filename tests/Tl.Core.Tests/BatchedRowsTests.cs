@@ -18,7 +18,7 @@ internal static unsafe class BatchRowsPairs
 {
     [ModuleInitializer]
     internal static void Install()
-        => PairRuntime<BatchRowsTrack, BatchRowsClip>.Consume(&ExecuteScale, &BindFloat);
+        => PairRuntime<BatchRowsTrack, BatchRowsClip>.Consume(&ExecuteScale, &BindFloat, "tl\0ExecuteScale");
 
     static void BindFloat(ulong* keys, int keyCount, byte* table)
     {

@@ -22,7 +22,7 @@ internal static unsafe class StainPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<StainTrack, StainClip>.Consume(&FoldStain, &KeysStain);
+        PairRuntime<StainTrack, StainClip>.Consume(&FoldStain, &KeysStain, "tl\0FoldStain");
     }
 
     static int KeysStain(ulong* keys, byte* meta)

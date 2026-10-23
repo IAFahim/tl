@@ -61,6 +61,7 @@ public static class BakeReader
                 }
                 if (!accessible) continue;
                 if (parameters.Count(static parameter => !parameter.IsConsumer) > 4) { Symbols.Error(errors, entry.Syntax, "TLGEN87", $"Bake '{Symbols.Name(entry.Type)}' declares more than four state parameters; Timeline.Bake dispatches at most four state arguments per call."); continue; }
+                if (parameters.Count(static parameter => parameter is { IsConsumer: false, Modifier: BakeModifier.Ref }) > 1) { Symbols.Error(errors, entry.Syntax, "TLGEN88", $"Bake '{Symbols.Name(entry.Type)}' declares more than one ref state parameter; Timeline.BakeRef exposes exactly one writable ref slot per call, so the remaining ref parameters could never bind. Pass the other parameters by value or in."); continue; }
                 discovered.Add((new BakeDeclaration(Symbols.Name(entry.Type), Symbols.Name(consumer), parameters, pairs), entry.Syntax, Signature(method)));
             }
         }

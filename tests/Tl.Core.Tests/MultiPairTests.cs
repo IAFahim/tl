@@ -31,9 +31,9 @@ public unsafe class MultiPairTests
 {
     static MultiPairTests()
     {
-        PairRuntime<DualTrack, DualAlphaClip>.Consume(&DualAlphaExecute, &NoBind);
-        PairRuntime<DualTrack, DualBetaClip>.Consume(&DualBetaExecute, &NoBind);
-        PairRuntime<EchoTrack, EchoClip>.Consume(&EchoExecute, &NoBind);
+        PairRuntime<DualTrack, DualAlphaClip>.Consume(&DualAlphaExecute, &NoBind, "tl\0DualAlphaExecute");
+        PairRuntime<DualTrack, DualBetaClip>.Consume(&DualBetaExecute, &NoBind, "tl\0DualBetaExecute");
+        PairRuntime<EchoTrack, EchoClip>.Consume(&EchoExecute, &NoBind, "tl\0EchoExecute");
     }
 
     private static byte[] DualFixture() => new DomainBaker()

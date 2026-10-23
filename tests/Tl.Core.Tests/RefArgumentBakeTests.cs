@@ -27,6 +27,8 @@ public readonly record struct RefBakePair(int Value);
 
 public readonly record struct RefBakeTrio(int Value);
 
+public readonly record struct RefBakeSlot(int Value);
+
 public unsafe class RefArgumentBakeTests
 {
     private static readonly List<string> Log = [];
@@ -44,10 +46,12 @@ public unsafe class RefArgumentBakeTests
     internal static void Install()
     {
         BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&Increment, TypeKey<RefBakeCounter>.Value);
-        BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&AddLevel, TypeKey<RefBakeToken>.Value, TypeKey<RefBakeCounter>.Value);
-        BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&AddTag, TypeKey<RefBakeTag>.Value, TypeKey<RefBakeCounter>.Value);
+        BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&Increment, TypeKey<RefBakeCounter>.Value ^ Timeline.RefSlotKey);
+        BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&AddLevel, TypeKey<RefBakeToken>.Value, TypeKey<RefBakeCounter>.Value ^ Timeline.RefSlotKey);
+        BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&AddTag, TypeKey<RefBakeTag>.Value, TypeKey<RefBakeCounter>.Value ^ Timeline.RefSlotKey);
         BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&AddPair, TypeKey<RefBakePair>.Value, TypeKey<RefBakePair>.Value);
         BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&AddTokenTrio, TypeKey<RefBakeToken>.Value, TypeKey<RefBakeTrio>.Value, TypeKey<RefBakeTrio>.Value);
+        BakeRuntime<RefProbeTrack, RefProbeClip>.Bake(&Bounce, TypeKey<RefBakeSlot>.Value ^ Timeline.RefSlotKey);
     }
 
     [Fact]
@@ -201,6 +205,49 @@ public unsafe class RefArgumentBakeTests
     }
 
     [Fact]
+    public void WritableSlotInstallsStaySilentThroughPlainInPresentations()
+    {
+        var slot = new RefBakeSlot(7);
+        using var timeline = TimelineAsset.LoadAsset(ProbeBake(1));
+        var before = Log.Count;
+
+        Timeline.Bake(timeline.Index, in slot);
+        Timeline.Bake(timeline.Index, new RefBakeToken(5), in slot);
+        Timeline.Bake(timeline.Index, new RefBakeSlot(9));
+
+        Assert.Equal(7, slot.Value);
+        Assert.Equal([], Log.GetRange(before, Log.Count - before));
+    }
+
+    [Fact]
+    public void PlainSlotInstallsStaySilentThroughWritableRefPresentations()
+    {
+        var first = new RefBakePair(7);
+        var second = new RefBakePair(20);
+        using var timeline = TimelineAsset.LoadAsset(ProbeBake(1));
+        var before = Log.Count;
+
+        Timeline.BakeRef(timeline.Index, in first, ref second);
+
+        Assert.Equal(7, first.Value);
+        Assert.Equal(20, second.Value);
+        Assert.Equal([], Log.GetRange(before, Log.Count - before));
+    }
+
+    [Fact]
+    public void WritableSlotBounceMutatesTheCallerVariableThroughBakeRef()
+    {
+        var slot = new RefBakeSlot(7);
+        using var timeline = TimelineAsset.LoadAsset(ProbeBake(1));
+        var before = Log.Count;
+
+        Timeline.BakeRef(timeline.Index, ref slot);
+
+        Assert.Equal(8, slot.Value);
+        Assert.Equal(["ref:bounce:8"], Log.GetRange(before, Log.Count - before));
+    }
+
+    [Fact]
     public void UnknownIndicesThrowTheInternTableDiagnosticThroughTheRefFamily()
     {
         var counter = new RefBakeCounter(7);
@@ -210,6 +257,13 @@ public unsafe class RefArgumentBakeTests
 
         Assert.Contains("Timeline index 4242 is not loaded", thrown.Message);
         Assert.Equal([], Log.GetRange(before, Log.Count - before));
+    }
+
+    private static void Bounce(byte** arguments)
+    {
+        ref var slot = ref Unsafe.AsRef<RefBakeSlot>(arguments[0]);
+        slot = new RefBakeSlot(slot.Value + 1);
+        Log.Add("ref:bounce:" + slot.Value.ToString(CultureInfo.InvariantCulture));
     }
 
     private static void Increment(byte** arguments)

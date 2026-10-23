@@ -17,7 +17,7 @@ internal static unsafe class RoutingPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<RoutingTrack, RoutingClip>.Consume(&ExecuteScale, &BindFloat);
+        PairRuntime<RoutingTrack, RoutingClip>.Consume(&ExecuteScale, &BindFloat, "tl\0ExecuteScale");
     }
 
     private static void BindFloat(ulong* keys, int keyCount, byte* table)

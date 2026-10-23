@@ -37,6 +37,7 @@ public static class JobReader
             void Err(string msg) => Symbols.Error(errors, entry.Syntax, "TLGEN65", $"Job '{Symbols.Name(entry.Type)}' {msg}");
             if (entry.Type.IsAbstract) { Err("cannot be abstract."); continue; }
             if (entry.Type.Arity > 0 || entry.Type.TypeParameters.Length > 0) { Err("cannot be generic; open type parameters cannot be registered as timeline jobs."); continue; }
+            var identity = compilation.AssemblyName + "\0" + Symbols.Name(entry.Type);
             var discovered = new List<JobConsumer>();
             var valid = true;
             foreach (var marker in markers)
@@ -52,7 +53,7 @@ public static class JobReader
                 if (!ok) { valid = false; continue; }
                 var definition = reader.Execute(entry.Type, contracts.Frame.Construct(track, clip), compilation.Assembly, entry.Syntax);
                 if (definition is null) { valid = false; continue; }
-                discovered.Add(new(Symbols.Name(track), Symbols.Name(clip), definition, PairLayout.Of(track, clip)));
+                discovered.Add(new(Symbols.Name(track), Symbols.Name(clip), definition, identity, PairLayout.Of(track, clip)));
             }
             if (!valid) continue;
             foreach (var consumer in discovered.OrderBy(static item => item.TrackTypeName + "\0" + item.ClipTypeName, StringComparer.Ordinal))

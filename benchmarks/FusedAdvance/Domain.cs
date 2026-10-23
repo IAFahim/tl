@@ -39,8 +39,8 @@ public static unsafe class Host
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteLane, &BindFloat);
-        PairRuntime<EdgeTrack, EdgeClip>.Consume(&ExecuteEdge, &BindFloat);
+        PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteLane, &BindFloat, "tl\0ExecuteLane");
+        PairRuntime<EdgeTrack, EdgeClip>.Consume(&ExecuteEdge, &BindFloat, "tl\0ExecuteEdge");
     }
 
     public static ushort SlotLane() => LoopingAsset.Index;

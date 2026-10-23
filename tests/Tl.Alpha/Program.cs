@@ -49,6 +49,7 @@ if (args is ["--bank-stale"])
 }
 
 Require(args.Length == 0);
+DataAuthoredReceipts.SealOrderInstalls();
 DataAuthoredReceipts.All();
 DataAuthoredReceipts.Memory();
 BankReceipts.Retained();
@@ -56,10 +57,11 @@ BankReceipts.SegmentedBoundary();
 Tl.Timeline.SealConsumers();
 try
 {
-    unsafe { Tl.PairRuntime<TandemTrack, TandemClip>.ConsumeDispatch(null); }
+    unsafe { Tl.PairRuntime<TandemTrack, TandemClip>.ConsumeDispatch(null, "tl\0Null"); }
     Require(false, "sealed registry rejects late installs");
 }
 catch (InvalidOperationException) { }
+DataAuthoredReceipts.SealOrderReceipt();
 Require(Tl.TimelineTable.OverReleases == 0, "every receipt balanced its timeline acquisitions");
 return 0;
 
