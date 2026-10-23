@@ -12,8 +12,8 @@ internal static unsafe class ConformanceConsumers
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<JobTrack, JobClip>.Consume(&FoldJob, &KeysJob);
-        PairRuntime<FoldTrack, FoldClip>.Consume(&FoldAmbience, &KeysAmbience);
+        PairRuntime<JobTrack, JobClip>.Consume(&FoldJob, &KeysJob, "Tl.Bake.Tests\0FoldJob");
+        PairRuntime<FoldTrack, FoldClip>.Consume(&FoldAmbience, &KeysAmbience, "Tl.Bake.Tests\0FoldAmbience");
     }
 
     static int KeysJob(ulong* keys, byte* meta)
