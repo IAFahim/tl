@@ -55,7 +55,7 @@ public class InspectionTests
             Assert.NotNull(foldedA.LaneShapes);
             Assert.Equal(foldedA.Lanes, foldedA.LaneShapes!.Count);
 
-            Assert.Equal(Inspection.FoldState.Absent, bank.Views.First(view => view.Index == indexB).State);
+            Assert.Equal(Inspection.FoldState.Pending, bank.Views.First(view => view.Index == indexB).State);
             Assert.Equal(Inspection.FoldState.Folded, bank.Views.First(view => view.Index == indexC).State);
             Assert.All(bank.Views.Where(view => view.State != Inspection.FoldState.Folded), view => Assert.Null(view.LaneShapes));
         }
@@ -222,7 +222,7 @@ public class InspectionTests
         view 0 Folded
           duration 8 looping False ticks 9 lanes 1 abi 3 generation 1
           lane 214ebd18d4e85363 1 9
-        view 1 Absent
+        view 1 Pending
         view 2 Folded
           duration 6 looping False ticks 7 lanes 1 abi 3 generation 2
           lane 214ebd18d4e85363 1 7

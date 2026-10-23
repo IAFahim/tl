@@ -164,9 +164,6 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal ushort _minDuration;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private int _pendingCursor;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal ulong _generation;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -179,14 +176,6 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal long DirectoryBytes => _directoryTotal;
     internal int BlockCount => _blockCount;
     internal int SharedHits => _sharedHits;
-
-    internal int PendingCursor => _pendingCursor;
-
-    internal void AdvancePendingCursor(int limit)
-    {
-        while (_pendingCursor < limit && !IsPending((ushort)_pendingCursor))
-            _pendingCursor++;
-    }
 
     [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     internal bool IsFolded(ushort index)
@@ -885,7 +874,6 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             _count = 0;
             _holes = 0;
             _minDuration = 0;
-            _pendingCursor = 0;
             _blockCount = 0;
             _sharedHits = 0;
             _headerTotal = 0;

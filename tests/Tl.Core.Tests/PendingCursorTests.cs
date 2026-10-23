@@ -53,44 +53,11 @@ public class PendingCursorTests
     }
 
     [Fact]
-    public void DeadHoleDoesNotStallThePendingCursor()
-    {
-        var a = TimelineAsset.LoadAsset(Bake(1));
-        var b = TimelineAsset.LoadAsset(Bake(2));
-        var c = TimelineAsset.LoadAsset(Bake(3));
-        try
-        {
-            Timeline<CursorTrack, CursorClip>.View(a);
-            var deadIndex = b.Index;
-            b.Dispose();
-            Timeline<CursorTrack, CursorClip>.View(c);
-            var d = TimelineAsset.LoadAsset(Bake(4));
-            try
-            {
-                Timeline<CursorTrack, CursorClip>.View(d);
-                var bank = Timeline<CursorTrack, CursorClip>._bank;
-                Assert.NotNull(bank);
-                Assert.True(bank.PendingCursor > deadIndex, $"cursor {bank.PendingCursor} never passed the dead hole at {deadIndex}");
-                Assert.Throws<ArgumentException>(() => Timeline<CursorTrack, CursorClip>.View(deadIndex));
-            }
-            finally
-            {
-                d.Dispose();
-            }
-        }
-        finally
-        {
-            a.Dispose();
-            c.Dispose();
-        }
-    }
-
-    [Fact]
     public void FirstUseFoldsExactlyTheRequestedIndex()
     {
-        var a = TimelineAsset.LoadAsset(Bake(1));
-        var b = TimelineAsset.LoadAsset(Bake(2));
-        var c = TimelineAsset.LoadAsset(Bake(3));
+        var a = TimelineAsset.LoadAsset(Bake(11));
+        var b = TimelineAsset.LoadAsset(Bake(12));
+        var c = TimelineAsset.LoadAsset(Bake(13));
         try
         {
             Timeline<CursorTrack, CursorClip>.View(a);
@@ -112,16 +79,16 @@ public class PendingCursorTests
     [Fact]
     public void DeadHoleBelowStaysPendingThroughLaterFirstUses()
     {
-        var a = TimelineAsset.LoadAsset(Bake(1));
-        var b = TimelineAsset.LoadAsset(Bake(2));
-        var c = TimelineAsset.LoadAsset(Bake(3));
+        var a = TimelineAsset.LoadAsset(Bake(21));
+        var b = TimelineAsset.LoadAsset(Bake(22));
+        var c = TimelineAsset.LoadAsset(Bake(23));
         try
         {
             Timeline<CursorTrack, CursorClip>.View(a);
             var deadIndex = b.Index;
             b.Dispose();
             Timeline<CursorTrack, CursorClip>.View(c);
-            var d = TimelineAsset.LoadAsset(Bake(4));
+            var d = TimelineAsset.LoadAsset(Bake(24));
             try
             {
                 Timeline<CursorTrack, CursorClip>.View(d);

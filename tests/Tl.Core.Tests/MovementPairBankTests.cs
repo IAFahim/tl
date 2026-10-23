@@ -244,9 +244,8 @@ public unsafe class MovementPairBankTests
         Assert.Equal(SlotView.AbiVersionV3, folded.AbiVersion);
         Assert.True(folded.Generation >= 1ul);
 
-        var absent = Timeline<MovementHoleTrack, MovementHoleClip>.View(foreign.Index);
-        Assert.Equal(1, absent.Absent);
-        Assert.Equal(SlotView.AbiVersionV3, absent.AbiVersion);
+        var foreignError = Assert.Throws<ArgumentException>(() => Timeline<MovementHoleTrack, MovementHoleClip>.View(foreign.Index));
+        Assert.Contains("does not contain the timeline pair", foreignError.Message);
     }
 
     [Fact]
