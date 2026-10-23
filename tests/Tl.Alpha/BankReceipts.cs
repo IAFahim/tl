@@ -302,7 +302,7 @@ internal static class BankReceipts
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
     internal static void Capacity()
     {
-        Require(Unsafe.SizeOf<SlotView>() == 72, "SlotView header is 72 bytes");
+        Require(Unsafe.SizeOf<SlotView>() == 80, "SlotView header is 80 bytes");
         const int domain = 65536;
         const int distinct = 49152;
         using var timelines = new TimelineSet<BankTrack, BankClip>();
@@ -321,7 +321,7 @@ internal static class BankReceipts
             var shared = timelines.View(65535);
             var origin = timelines.View(0);
             Require(shared.Forward == origin.Forward && shared.Duration == 1 && shared.TableTicks == 2, "domain edge shares the content-identical block");
-            Require(shared.AbiVersion == SlotView.AbiVersionV3 && shared.Generation > 0, "domain edge header");
+            Require(shared.AbiVersion == SlotView.AbiVersionV4 && shared.Generation > 0, "domain edge header");
         }
         RequireThrows<InvalidOperationException>(() => timelines.Add(duplicate), "the 65,537th add is full");
         Require(timelines.BlockCount == distinct && timelines.SharedHits == domain - distinct, "the full-domain bank dedupes every content-identical id");
@@ -591,7 +591,7 @@ internal static class BankReceipts
         {
             Require(clipView.Forward[0] == 1f && clipView.Forward[37] == 38f && clipView.Forward[99] == 100f && clipView.Forward[100] == 0f, "100-clip fold");
         }
-        Console.WriteLine($"bank-workload: a 100-clip timeline block is {72 + 8 * 101 + 8} B (72-B header + 8 B per tick flat-escaped; segmented run encodings below that)");
+        Console.WriteLine($"bank-workload: a 100-clip timeline block is {80 + 8 * 101 + 8} B (80-B header + 8 B per tick flat-escaped; segmented run encodings below that)");
 
         const int instances = 512;
         var ids = new ushort[instances];
@@ -693,7 +693,7 @@ internal static class BankReceipts
             Timeline<BankTrack, BankClip>.Apply(ids[d], onePosition, true, new float[1]);
             views[d] = Timeline<BankTrack, BankClip>.View(ids[d]);
             Require(views[d].Directory != null && views[d].Forward == null, $"duration {durations[d]} encodes segmented");
-            Require(views[d].AbiVersion == SlotView.AbiVersionV3, $"duration {durations[d]} carries ABI v3");
+            Require(views[d].AbiVersion == SlotView.AbiVersionV4, $"duration {durations[d]} carries ABI v4");
         }
         var viewHashes = new ulong[durations.Length];
         for (var d = 0; d < durations.Length; d++)

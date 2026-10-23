@@ -16,12 +16,13 @@ public struct LaneSegment
     public float V1;
 }
 
-[StructLayout(LayoutKind.Sequential, Size = 72)]
+[StructLayout(LayoutKind.Sequential, Size = 80)]
 public unsafe struct SlotView
 {
     public const ushort AbiVersionV1 = 1;
     public const ushort AbiVersionV2 = 2;
     public const ushort AbiVersionV3 = 3;
+    public const ushort AbiVersionV4 = 4;
     public const ushort Skipped = 0xFFFF;
     public uint* Directory;
     public LaneSegment* Segments;
@@ -36,4 +37,5 @@ public unsafe struct SlotView
     public ushort ResultCount;
     public ushort AbiVersion;
     public ulong Generation;
+    public ulong ConsumerDigest;
 }

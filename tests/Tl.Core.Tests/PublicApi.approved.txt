@@ -201,8 +201,10 @@ type Tl.SlotView
   Field UInt16 AbiVersionV1
   Field UInt16 AbiVersionV2
   Field UInt16 AbiVersionV3
+  Field UInt16 AbiVersionV4
   Field UInt16 Absent
   Field Single* Backward
+  Field UInt64 ConsumerDigest
   Field Single* Dense
   Field UInt32* Directory
   Field UInt16 Duration

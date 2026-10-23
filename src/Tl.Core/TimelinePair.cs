@@ -40,7 +40,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			bank.ApplySlot(index, positions, forward, effects);
 			return;
 		}
-		var slot = bank.FoldedView(index);
+		var slot = Pickup(bank, index);
 		if (slot is null)
 		{
 			Resolve(index);
@@ -54,7 +54,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	{
 		Checked.Domain(index, position);
 		var bank = FloatBank();
-		var slot = bank.FoldedView(index);
+		var slot = Pickup(bank, index);
 		if (slot is null)
 		{
 			Resolve(index);
@@ -68,7 +68,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	{
 		Checked.Domain(index, position);
 		var bank = Bank();
-		var slot = bank.FoldedView(index);
+		var slot = Pickup(bank, index);
 		if (slot is null)
 		{
 			Resolve(index);
@@ -631,9 +631,14 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	internal static void Resolve(ushort index)
 	{
 		var bank = Bank();
+		var key = PairRuntime<TTrack, TClip>.Key;
+		var digest = PairTable.DigestOf(key);
+		if (bank.StaleFold(digest))
+			bank.DropFolded();
+		else
+			bank._registryEpoch = Volatile.Read(ref PairTable._epoch);
 		if (bank.IsFolded(index)) return;
 		var reference = TimelineTable.Reference(index);
-		var key = PairRuntime<TTrack, TClip>.Key;
 		if (!reference.Uses(key))
 			throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
 		var pair = reference.PairOf(key)!;
@@ -644,10 +649,28 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		if (PairTable.HeadOf(key) < 0)
 			throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
 		using var measured = MeasuredLanes.Measure(reference, key);
-		bank.AddAt(index, measured);
+		bank.AddAt(index, measured, digest);
 	}
 
 	internal static void GuardSizes(NativePair* pair) { if (pair->TrackValueBytes != (uint)sizeof(TTrack) || pair->ClipValueBytes != (uint)sizeof(TClip)) Fail.PairSizes(); }
+
+	[MethodImpl(NoInlining)]
+	internal static void Reconcile()
+	{
+		var bank = Bank();
+		var digest = PairTable.DigestOf(PairRuntime<TTrack, TClip>.Key);
+		if (bank.StaleFold(digest)) bank.DropFolded();
+		bank._registryEpoch = Volatile.Read(ref PairTable._epoch);
+	}
+
+	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
+	static SlotView* Pickup(TimelineSet<TTrack, TClip> bank, ushort index)
+	{
+		var slot = bank.FoldedView(index);
+		if (slot == null || Volatile.Read(ref PairTable._epoch) == bank._registryEpoch) return slot;
+		Reconcile();
+		return bank.FoldedView(index);
+	}
 
 	static void Determine(TimelineSet<TTrack, TClip> bank, ushort index)
 	{
@@ -665,8 +688,13 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		}
 		if (PairTable.HeadOf(key) < 0) return;
 		GuardSizes(reference.PairOf(key)!);
+		var digest = PairTable.DigestOf(key);
+		if (bank.StaleFold(digest))
+			bank.DropFolded();
+		else
+			bank._registryEpoch = Volatile.Read(ref PairTable._epoch);
 		using var measured = MeasuredLanes.Measure(reference, key);
-		bank.AddAt(index, measured);
+		bank.AddAt(index, measured, digest);
 	}
 
 	[MethodImpl(AggressiveOptimization)]
@@ -692,12 +720,16 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	public static SlotView View(ushort index)
 	{
 		var bank = Bank();
-		if (bank.IsFolded(index)) return bank.View(index);
+		if (bank.IsFolded(index))
+		{
+			if (Volatile.Read(ref PairTable._epoch) != bank._registryEpoch) Reconcile();
+			if (bank.IsFolded(index)) return bank.View(index);
+		}
 		if (bank.IsAbsent(index))
 			return new SlotView
 			{
 				Absent = 1,
-				AbiVersion = SlotView.AbiVersionV3,
+				AbiVersion = SlotView.AbiVersionV4,
 			};
 		Resolve(index);
 		return bank.View(index);

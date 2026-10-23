@@ -241,7 +241,7 @@ public unsafe class MovementPairBankTests
         Assert.Equal(4, folded.Duration);
         Assert.Equal(0, folded.Looping);
         Assert.Equal(5u, folded.TableTicks);
-        Assert.Equal(SlotView.AbiVersionV3, folded.AbiVersion);
+        Assert.Equal(SlotView.AbiVersionV4, folded.AbiVersion);
         Assert.True(folded.Generation >= 1ul);
 
         var foreignError = Assert.Throws<ArgumentException>(() => Timeline<MovementHoleTrack, MovementHoleClip>.View(foreign.Index));

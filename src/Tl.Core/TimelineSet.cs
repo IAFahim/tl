@@ -55,7 +55,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     where TClip : unmanaged
 {
     const int InitialCapacity = 1024;
-    const int BlockHeaderBytes = 72;
+    const int BlockHeaderBytes = 80;
     const int RetirePadBytes = 16;
     internal const int GuardBytes = 32;
 
@@ -165,6 +165,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal ulong _generation;
+    internal ulong _foldDigest;
+    internal int _registryEpoch;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _gate;
@@ -200,6 +202,38 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         }
     }
 
+    internal bool StaleFold(ulong digest) => _foldDigest != 0 && _foldDigest != digest;
+
+    internal void DropFolded()
+    {
+        AcquireGate();
+        try
+        {
+            if (_foldDigest == 0) return;
+            _foldDigest = 0;
+            _sharedUsed = 0;
+            for (nuint i = 0; i < _sharedCapacity; i++)
+            {
+                var view = _shared[i];
+                if (view == null) continue;
+                _shared[i] = null;
+                Retire((byte*)view->LaneKeys + (nuint)view->ResultCount * 8, view);
+            }
+            for (var index = 0; index < _count; index++)
+            {
+                if (_views[index] == null || !TimelineTable.IsLive((ushort)index)) continue;
+                Volatile.Write(ref *(long*)(_views + index), 0);
+                _tables[2 * (nuint)index] = null;
+                _tables[2 * (nuint)index + 1] = null;
+                _holes++;
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _gate, 0);
+        }
+    }
+
     internal ushort Add(TimelineAsset asset)
     {
         CheckAdd();
@@ -216,12 +250,12 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         return Bind(checked((ushort)_count), measured);
     }
 
-    internal ushort AddAt(ushort index, MeasuredLanes measured)
+    internal ushort AddAt(ushort index, MeasuredLanes measured, ulong consumerDigest = 0)
     {
         Checked.Live(_disposed);
         if (index < _count && _views[index] != null)
             return index;
-        return Bind(index, measured);
+        return Bind(index, measured, consumerDigest);
     }
 
     void CheckAdd()
@@ -231,7 +265,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             throw new InvalidOperationException("TimelineSet is full; a set holds at most 65536 dense timeline ids.");
     }
 
-    ushort Bind(ushort index, MeasuredLanes measured)
+    ushort Bind(ushort index, MeasuredLanes measured, ulong consumerDigest = 0)
     {
         AcquireGate();
         try
@@ -260,7 +294,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             var view = FindShared(plan, measured, duration, looping, ticks, hash);
             if (view == null)
             {
-                view = BakeBlock(measured, plan, duration, looping, ticks, generation);
+                view = BakeBlock(measured, plan, duration, looping, ticks, generation, consumerDigest);
                 if (!SameTables(view, measured, duration, looping, ticks))
                     throw new InvalidOperationException("Bank block does not decode to its measured lane values; refusing to publish.");
                 PlaceShared(hash, view);
@@ -270,6 +304,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             {
                 _sharedHits++;
             }
+            view->ConsumerDigest = consumerDigest;
+            if (_foldDigest == 0) _foldDigest = consumerDigest;
             _absent[index] = 0;
             _motion[index] = duration | (looping ? 0x80000000u : 0u);
             _tables[2 * (nuint)index] = view->Forward;
@@ -440,7 +476,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         return h;
     }
 
-    SlotView* BakeBlock(MeasuredLanes measured, LaneBlockPlan plan, ushort duration, bool looping, nuint ticks, ulong generation)
+    SlotView* BakeBlock(MeasuredLanes measured, LaneBlockPlan plan, ushort duration, bool looping, nuint ticks, ulong generation, ulong consumerDigest)
     {
         var lanes = measured.LaneCount;
         var buckets = (nuint)LaneEncoding.Buckets((uint)ticks);
@@ -506,8 +542,9 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             Absent = 0,
             TableTicks = (uint)ticks,
             ResultCount = (ushort)lanes,
-            AbiVersion = SlotView.AbiVersionV3,
+            AbiVersion = SlotView.AbiVersionV4,
             Generation = generation,
+            ConsumerDigest = consumerDigest,
         };
         _blockCount++;
         _headerTotal += BlockHeaderBytes;

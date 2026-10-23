@@ -20,9 +20,10 @@ public class SlotViewLayoutTests
     [InlineData(nameof(SlotView.ResultCount), 60)]
     [InlineData(nameof(SlotView.AbiVersion), 62)]
     [InlineData(nameof(SlotView.Generation), 64)]
+    [InlineData(nameof(SlotView.ConsumerDigest), 72)]
     public void SlotViewFieldsSitAtTheDocumentedAbiOffsets(string field, int offset)
         => Assert.Equal(offset, Marshal.OffsetOf<SlotView>(field).ToInt32());
 
     [Fact]
-    public void SlotViewIsSeventyTwoBytes() => Assert.Equal(72, Unsafe.SizeOf<SlotView>());
+    public void SlotViewIsEightyBytes() => Assert.Equal(80, Unsafe.SizeOf<SlotView>());
 }
