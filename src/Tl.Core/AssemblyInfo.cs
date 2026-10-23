@@ -9,3 +9,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Play.Core")]
 [assembly: InternalsVisibleTo("Tl.Bake.Tests")]
 [assembly: InternalsVisibleTo("Alpha")]
+[assembly: InternalsVisibleTo("Tl.Gen.Tlb")]

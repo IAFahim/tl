@@ -71,6 +71,36 @@ public sealed class PairLayoutEmissionTests
         }
         """;
 
+    private const string NestedDomain = """
+        using Tl;
+        namespace Domain;
+        public struct Core { public double Total; }
+        public struct Payload { public Core Core; public float Mass; }
+        public struct NestedClip { public Payload Payload; public float Amount; }
+        public readonly record struct NestedTrack(float Multiplier) : IBlend<NestedClip>
+        {
+            public void Blend(in NestedClip first, in NestedClip second, float factor, out NestedClip result) => result = first;
+        }
+        public readonly struct ApplyNested : ITrack<NestedTrack, NestedClip>
+        {
+            public static void ExecuteActive(in Frame<NestedTrack, NestedClip> frame) { }
+        }
+        """;
+
+    private const string FixedBufferDomain = """
+        using Tl;
+        namespace Domain;
+        public unsafe struct BufferedClip { public fixed byte Buffer[8]; public float Tail; }
+        public readonly record struct BufferedTrack(float Head) : IBlend<BufferedClip>
+        {
+            public void Blend(in BufferedClip first, in BufferedClip second, float factor, out BufferedClip result) => result = first;
+        }
+        public readonly struct ApplyBuffered : ITrack<BufferedTrack, BufferedClip>
+        {
+            public static void ExecuteActive(in Frame<BufferedTrack, BufferedClip> frame) { }
+        }
+        """;
+
     private static CSharpCompilation Compilation(string source, MetadataReference? extra = null)
     {
         var references = ReferencePaths().Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path)).ToList();
@@ -144,6 +174,58 @@ public sealed class PairLayoutEmissionTests
                 """, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "Heal.cs")],
             ReferencePaths().Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
                 .Append(MetadataReference.CreateFromStream(image, filePath: "PairLayoutEmissionTests.dll")),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
+
+        var fromSource = JobReader.Read(library).Consumers[0].Layout;
+        var fromMetadata = JobReader.Read(consumer).Consumers[0].Layout;
+
+        Assert.Equal(fromSource, fromMetadata);
+        Assert.NotEqual(0UL, fromMetadata);
+    }
+
+    [Fact]
+    public void NestedStructFieldTypesAreRootedTransitivelyForTheLayoutDigest()
+    {
+        var consumers = JobReader.Read(Compilation(NestedDomain)).Consumers;
+
+        var layoutTypes = Assert.Single(consumers).LayoutTypes;
+        Assert.Equal(["global::Domain.Payload", "global::Domain.Core"], layoutTypes);
+        var binding = Binding(NestedDomain);
+        Assert.Equal(4, CountOf(binding, "DynamicallyAccessedMemberTypes.NonPublicFields, typeof("));
+        Assert.Contains("DynamicallyAccessedMemberTypes.NonPublicFields, typeof(global::Domain.Payload))]", binding);
+        Assert.Contains("DynamicallyAccessedMemberTypes.NonPublicFields, typeof(global::Domain.Core))]", binding);
+    }
+
+    [Fact]
+    public void FixedBufferFieldsFoldWithoutNestedTypeRooting()
+    {
+        var consumers = JobReader.Read(Compilation(FixedBufferDomain)).Consumers;
+
+        Assert.Empty(Assert.Single(consumers).LayoutTypes ?? []);
+        var binding = Binding(FixedBufferDomain);
+        Assert.DoesNotContain("e__FixedBuffer", binding);
+        Assert.Equal(2, CountOf(binding, "DynamicallyAccessedMemberTypes.NonPublicFields, typeof("));
+    }
+
+    [Fact]
+    public void FixedBufferPairsFoldIdenticallyThroughSourceAndReferencedAssemblyViews()
+    {
+        var library = Compilation(FixedBufferDomain);
+        using var image = new MemoryStream();
+        Assert.True(library.Emit(image).Success);
+        image.Position = 0;
+        var consumer = CSharpCompilation.Create(
+            "FixedBufferReferencingConsumer",
+            [CSharpSyntaxTree.ParseText("""
+                using Tl;
+                namespace Domain;
+                public readonly struct ApplyAgain : ITrack<BufferedTrack, BufferedClip>
+                {
+                    public static void ExecuteActive(in Frame<BufferedTrack, BufferedClip> frame) { }
+                }
+                """, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "Again.cs")],
+            ReferencePaths().Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path))
+                .Append(MetadataReference.CreateFromStream(image, filePath: "FixedBufferPairLayout.dll")),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
 
         var fromSource = JobReader.Read(library).Consumers[0].Layout;

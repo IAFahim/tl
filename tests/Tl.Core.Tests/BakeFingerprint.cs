@@ -5,7 +5,9 @@ namespace Tl.Core.Tests;
 
 internal static class BakeFingerprint
 {
-    internal static ulong Of(Type track, Type clip) => Hash(Fold(track) + "\0" + Fold(clip));
+    internal static ulong Of(Type track, Type clip) => FoldOnly(track, clip) ^ PairLayoutDigest.Of(track, clip);
+
+    internal static ulong FoldOnly(Type track, Type clip) => Hash(Fold(track) + "\0" + Fold(clip));
 
     private static ulong Hash(string text)
     {

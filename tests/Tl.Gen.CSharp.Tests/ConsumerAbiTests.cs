@@ -51,6 +51,8 @@ public sealed class ConsumerAbiTests
         }
         internal static unsafe class TlConsumerBinding
         {
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicFields, typeof(global::Domain.QuadTrack))]
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicFields, typeof(global::Domain.QuadClip))]
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         internal static void Install()
         {

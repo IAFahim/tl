@@ -2,20 +2,21 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using static System.Runtime.CompilerServices.MethodImplOptions;
 
 namespace Tl;
 
 internal static class Checked
 {
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static void Live(bool disposed)
     {
         if (disposed) Fail.Disposed();
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static void Columns(ReadOnlySpan<ushort> positions, Span<float> effects)
     {
         if (effects.Length != positions.Length) Fail.ColumnLength(positions.Length, effects.Length);
@@ -23,7 +24,7 @@ internal static class Checked
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static void Columns(ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
     {
         Columns(positions, effects);
@@ -36,7 +37,7 @@ internal static class Checked
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static void Columns(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions)
     {
         if (positions.Length != indices.Length) Fail.ColumnLength(positions.Length, indices.Length);
@@ -44,7 +45,7 @@ internal static class Checked
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static void Columns(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
     {
         Columns(positions, next, effects);
@@ -56,7 +57,7 @@ internal static class Checked
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static void Columns(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next)
     {
         if (ids.Length != positions.Length) Fail.ColumnLength(positions.Length, ids.Length);
@@ -68,14 +69,14 @@ internal static class Checked
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static void Length(ReadOnlySpan<ushort> positions, ReadOnlySpan<ushort> next)
     {
         if (next.Length != positions.Length) Fail.ColumnLength(positions.Length, next.Length);
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static void Rows(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects)
     {
         if (effects.Length != positions.Length) Fail.ColumnLength(positions.Length, effects.Length);
@@ -87,7 +88,7 @@ internal static class Checked
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static void Rows(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, Span<ushort> positions)
     {
         if (indices.Length != positions.Length) Fail.ColumnLength(positions.Length, indices.Length);
@@ -96,7 +97,7 @@ internal static class Checked
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static unsafe void Domain(ushort index, ushort position)
     {
         var duration = (ushort)(TimelineTable.Motion[index] & 0xFFFF);
@@ -104,7 +105,7 @@ internal static class Checked
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static unsafe void Domain(ushort index, ReadOnlySpan<ushort> positions)
     {
         var duration = (ushort)(TimelineTable.Motion[index] & 0xFFFF);
@@ -113,7 +114,7 @@ internal static class Checked
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static unsafe void Domain(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions)
     {
         if (indices.Length != positions.Length) return;
@@ -127,7 +128,7 @@ internal static class Checked
     }
 
     [Conditional("TL_CHECKED")]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     static void RowBounds(ReadOnlySpan<int> rows, ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, Span<float> effects)
     {
         if (MemoryMarshal.AsBytes(rows).Overlaps(MemoryMarshal.AsBytes(indices))
@@ -142,7 +143,7 @@ internal static class Checked
 
 internal static class Guard
 {
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(AggressiveInlining)]
     internal static void Same<T1, T2>(ReadOnlySpan<T1> left, ReadOnlySpan<T2> right)
     {
         if (left.Length != 0 && left.Length != right.Length) Fail.ColumnLength(left.Length, right.Length);

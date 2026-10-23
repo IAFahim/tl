@@ -651,6 +651,8 @@ public sealed class BakeReaderTests
         }
         internal static unsafe class TlConsumerBinding
         {
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicFields, typeof(global::Domain.DamageTrack))]
+        [global::System.Diagnostics.CodeAnalysis.DynamicDependency(global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicFields | global::System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.NonPublicFields, typeof(global::Domain.DamageClip))]
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         internal static void Install()
         {
