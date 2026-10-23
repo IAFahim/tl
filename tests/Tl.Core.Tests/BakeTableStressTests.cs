@@ -98,4 +98,73 @@ public unsafe class BakeTableStressTests
             }
         }
     }
+
+    [Fact]
+    public void HeadOfSurvivesSlotGrowthRehashUnderConcurrentReads()
+    {
+        const int writers = 4, keysPerWriter = 525, perKey = 2;
+        const int keys = writers * keysPerWriter;
+        const ulong seed = 0xE200_0000_0000_0000UL;
+        var failures = new List<string>();
+        var stop = 0;
+        var writerThreads = new Thread[writers];
+        for (var w = 0; w < writers; w++)
+        {
+            var writer = w;
+            writerThreads[w] = new Thread(() =>
+            {
+                for (var k = 0; k < keysPerWriter; k++)
+                    for (var i = 0; i < perKey; i++)
+                        BakeTable.Install(seed + (ulong)(writer * keysPerWriter + k), &Probe, [(ulong)((writer * keysPerWriter + k) * perKey + i)]);
+            });
+        }
+        var readerThreads = new Thread[3];
+        for (var r = 0; r < readerThreads.Length; r++)
+        {
+            readerThreads[r] = new Thread(() =>
+            {
+                while (Volatile.Read(ref stop) == 0)
+                {
+                    for (var k = 0; k < keys; k++)
+                    {
+                        var head = BakeTable.HeadOf(seed + (ulong)k);
+                        if (head < 0) continue;
+                        var entries = BakeTable.EntryAt;
+                        var steps = 0;
+                        var lastId = -1;
+                        for (var entry = head; entry >= 0; entry = entries[entry].Next)
+                        {
+                            steps++;
+                            if (steps > perKey)
+                            {
+                                failures.Add("bake chain cycles across rehash growth");
+                                break;
+                            }
+                            var id = (int)entries[entry].ParamKeys[0];
+                            if (id < k * perKey || id >= (k + 1) * perKey || id <= lastId)
+                            {
+                                failures.Add($"foreign bake after rehash: key {k} saw id {id}");
+                                break;
+                            }
+                            lastId = id;
+                        }
+                    }
+                }
+            });
+        }
+        foreach (var thread in readerThreads) thread.Start();
+        foreach (var thread in writerThreads) thread.Start();
+        foreach (var thread in writerThreads) thread.Join();
+        Volatile.Write(ref stop, 1);
+        foreach (var thread in readerThreads) thread.Join();
+        Assert.Empty(failures);
+        Assert.True(BakeTable.SlotCapacity > keys, "the corpus must force at least one slot table rehash");
+        for (var k = 0; k < keys; k++)
+        {
+            var key = seed + (ulong)k;
+            Assert.Equal(perKey, BakeTable.ChainLength(key));
+            for (var i = 0; i < perKey; i++)
+                Assert.Equal((ulong)(k * perKey + i), BakeTable.At(key, i)->ParamKeys[0]);
+        }
+    }
 }
