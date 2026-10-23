@@ -24,7 +24,6 @@ internal static class JobEmitter
         return builder.Append('"').ToString();
     }
 
-
     internal static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes, string id)
     {
         var names = new HashSet<string>();

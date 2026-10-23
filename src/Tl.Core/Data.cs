@@ -460,6 +460,7 @@ internal const int MemoResults = 10;
 		int length;
 		if (identity.Length < 128) length = Encoding.UTF8.GetBytes(identity.AsSpan(), small);
 		else { large = Encoding.UTF8.GetBytes(identity); length = large.Length; }
+		if (length > ushort.MaxValue) throw new InvalidOperationException("Consumer identity exceeds 65,535 UTF-8 bytes.");
 		if (_namesCapacity - _namesLength < length + 2)
 		{
 			var cap = _namesCapacity;
