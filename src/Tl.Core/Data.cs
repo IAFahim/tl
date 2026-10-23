@@ -425,7 +425,7 @@ internal const int MemoResults = 10;
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
 		{
-			if (_sealed != 0) Fail.Sealed();
+			if (_sealed != 0) throw new InvalidOperationException($"Consumer registry is sealed; '{identity}' cannot install after Timeline.SealConsumers().");
 			var name = InternName(identity);
 			Claim(key, out var slots, out var slot);
 			if (_consumers == _consumerCapacity)
@@ -505,38 +505,59 @@ internal const int MemoResults = 10;
 		try
 		{
 			_sealed = 1;
-			var consumers = ConsumerAt;
+			var source = ConsumerAt;
 			var slots = (Slot*)(_slotsBase + 8ul);
 			var cap = *(int*)_slotsBase;
+			var total = Math.Max(_consumers, 1);
+			var arena = (Consumer*)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * total), 64);
 			int* order = null;
+			int* dense = null;
 			var capacity = 0;
+			var next = 0;
 			for (var s = 0; s < cap; s++)
 			{
+				if (slots[s].Key == 0) continue;
 				var head = slots[s].Head;
 				if (head < 0) continue;
 				var count = ChainLength(head);
-				if (count < 2) continue;
 				if (count > capacity)
 				{
 					if (order != null) NativeMemory.Free(order);
+					if (dense != null) NativeMemory.Free(dense);
 					capacity = count;
 					order = (int*)NativeMemory.AlignedAlloc((nuint)(sizeof(int) * capacity), 16);
+					dense = (int*)NativeMemory.AlignedAlloc((nuint)(sizeof(int) * capacity), 16);
 				}
 				var filled = 0;
-				for (var e = head; e >= 0; e = consumers[e].Next) order[filled++] = e;
+				for (var e = head; e >= 0; e = source[e].Next) order[filled++] = e;
 				for (var a = 1; a < count; a++)
 				{
 					var value = order[a];
 					var b = a - 1;
-					while (b >= 0 && CompareNames(consumers[order[b]].NameOffset, consumers[value].NameOffset) > 0) { order[b + 1] = order[b]; b--; }
+					while (b >= 0 && CompareNames(source[order[b]].NameOffset, source[value].NameOffset) > 0) { order[b + 1] = order[b]; b--; }
 					order[b + 1] = value;
 				}
-				for (var k = 0; k + 1 < count; k++) Volatile.Write(ref consumers[order[k]].Next, order[k + 1]);
-				consumers[order[count - 1]].Next = -1;
-				Volatile.Write(ref slots[s].Head, order[0]);
-				slots[s].Tail = order[count - 1];
+				for (var i = 0; i < count; i++) dense[source[order[i]].Ordinal] = i;
+				for (var i = 0; i < count; i++)
+				{
+					arena[next + i] = source[order[i]];
+					arena[next + i].Ordinal = i;
+					arena[next + i].Offset = i * SlotRow;
+					arena[next + i].Next = next + i + 1;
+				}
+				arena[next + count - 1].Next = -1;
+				for (var i = 0; i < count; i++)
+					if (arena[next + i].Feed >= 0)
+						arena[next + i].Feed = dense[arena[next + i].Feed];
+				slots[s].Head = next;
+				slots[s].Tail = next + count - 1;
+				next += count;
 			}
 			if (order != null) NativeMemory.Free(order);
+			if (dense != null) NativeMemory.Free(dense);
+			_consumerCapacity = _consumers;
+			NativeMemory.Free(source);
+			Volatile.Write(ref _consumersBase, (ulong)arena);
 		}
 		finally
 		{
@@ -556,7 +577,17 @@ internal const int MemoResults = 10;
 	internal static void RunChain(int head, bool reverse, byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
 	{
 		var consumers = ConsumerAt;
-		if (reverse && head >= 0 && consumers[head].Next >= 0)
+		if (reverse && head >= 0 && _sealed != 0)
+		{
+			var end = head;
+			while (consumers[end].Next >= 0) end = consumers[end].Next;
+			for (var entry = end; entry >= head; entry--)
+			{
+				if (consumers[entry].DispatchOnly != 0) continue;
+				consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
+			}
+		}
+		else if (reverse && head >= 0 && consumers[head].Next >= 0)
 		{
 			int* rev = stackalloc int[ChainLength(head)];
 			var n = 0;
@@ -584,7 +615,22 @@ internal const int MemoResults = 10;
 	internal static void RunDispatch(int head, bool reverse, byte* slot, byte* pair, ushort tick, FrameFlags flags, int row, void** columns)
 	{
 		var consumers = ConsumerAt;
-		if (reverse && head >= 0 && consumers[head].Next >= 0)
+		if (reverse && head >= 0 && _sealed != 0)
+		{
+			var end = head;
+			while (consumers[end].Next >= 0) end = consumers[end].Next;
+			for (var entry = end; entry >= head; entry--)
+			{
+				if (consumers[entry].DispatchOnly == 0) continue;
+				if (columns == null && consumers[entry].Keys != null) ThrowUnfedLiveColumn(entry, -1);
+			}
+			for (var entry = end; entry >= head; entry--)
+			{
+				if (consumers[entry].DispatchOnly == 0) continue;
+				consumers[entry].Execute(slot, pair, tick, flags, columns + consumers[entry].Offset, row);
+			}
+		}
+		else if (reverse && head >= 0 && consumers[head].Next >= 0)
 		{
 			int* rev = stackalloc int[ChainLength(head)];
 			var n = 0;
@@ -624,6 +670,13 @@ internal const int MemoResults = 10;
 	{
 		var slot = Probe(key, Volatile.Read(ref _slotsBase), out var slots);
 		return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
+	}
+
+	internal static int PairBound(ulong key)
+	{
+		if (_sealed == 0) return PointerBound;
+		var head = HeadOf(key);
+		return head < 0 ? 0 : ChainLength(head) * SlotRow;
 	}
 
 	static int Probe(ulong key, ulong block, out Slot* slots)

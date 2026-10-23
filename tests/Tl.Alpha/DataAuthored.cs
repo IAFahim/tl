@@ -127,6 +127,13 @@ internal readonly record struct SealFlipTrack(float Multiplier) : IBlend<SealFli
         => result = factor < 0.5f ? first : second;
 }
 
+internal readonly record struct SealedRegistryClip(float Amount);
+internal readonly record struct SealedRegistryTrack(float Multiplier) : IBlend<SealedRegistryClip>
+{
+    public void Blend(in SealedRegistryClip first, in SealedRegistryClip second, float factor, out SealedRegistryClip result)
+        => result = factor < 0.5f ? first : second;
+}
+
 internal static class SealOrderLog
 {
     internal static readonly List<string> Order = [];
@@ -175,6 +182,64 @@ internal static class DataAuthoredReceipts
         Require(canonical == 1f, "sealed fold runs in consumer-name order");
         Require(flipped == canonical, "opposite install order folds identical bits after seal");
     }
+
+    const ulong RegistryFillerSeed = 0x4776_0001_0000_0000UL;
+    const int RegistryFillers = 2000;
+
+    internal static unsafe void SealedRegistryFixture()
+    {
+        var key = PairRuntime<SealedRegistryTrack, SealedRegistryClip>.Key;
+        PairTable.Install(key, &SealedZulu, null, "tl\0SealedZulu");
+        PairTable.Install(key, &SealedAlpha, null, "tl\0SealedAlpha");
+        PairTable.Install(key, &SealedMike, null, "tl\0SealedMike");
+        for (var i = 0; i < RegistryFillers; i++)
+            PairTable.Install(RegistryFillerSeed + (ulong)i, null, null, $"tl\0RegistryFiller{i:D4}");
+    }
+
+    internal static unsafe void SealedRegistry()
+    {
+        var failures = new List<string>();
+        var key = PairRuntime<SealedRegistryTrack, SealedRegistryClip>.Key;
+        var head = PairTable.HeadOf(key);
+        if (head < 0)
+            failures.Add("sealed pair lost its chain");
+        else
+        {
+            var consumers = PairTable.ConsumerAt;
+            if (consumers[head].Ordinal != 0 || consumers[head].Offset != 0 || (nint)consumers[head].Execute != ExecOf(&SealedAlpha))
+                failures.Add("sealed segment does not start at the canonical-first consumer with a dense zero column base");
+            if (consumers[head].Next != head + 1 || consumers[head + 1].Ordinal != 1 || consumers[head + 1].Offset != PairTable.SlotRow || (nint)consumers[head + 1].Execute != ExecOf(&SealedMike))
+                failures.Add("sealed segment is not contiguous with a dense column base at canonical position 1");
+            if (consumers[head + 1].Next != head + 2 || consumers[head + 2].Ordinal != 2 || consumers[head + 2].Offset != 2 * PairTable.SlotRow || consumers[head + 2].Next != -1 || (nint)consumers[head + 2].Execute != ExecOf(&SealedZulu))
+                failures.Add("sealed segment does not close contiguously with a dense column base at canonical position 2");
+        }
+        if (PairTable.ConsumerCount < 3 + RegistryFillers)
+            failures.Add("registry fixture does not hold the 2,000-consumer crowd");
+        if (PairTable.PairBound(key) != 3 * PairTable.SlotRow)
+            failures.Add("sealed pair bound is not 40 x the pair's own consumer count");
+        if (PairTable.PairBound(key) >= PairTable.PointerBound)
+            failures.Add("sealed pair bound still scales with the registry size");
+        try
+        {
+            PairTable.Install(key, null, null, "tl\0Late");
+            failures.Add("post-seal install was accepted");
+        }
+        catch (InvalidOperationException error)
+        {
+            if (!error.Message.Contains("tl\0Late", StringComparison.Ordinal))
+                failures.Add("post-seal rejection does not name the rejected identity");
+        }
+        Require(failures.Count == 0, string.Join("; ", failures));
+        Console.WriteLine($"sealed registry: 3-consumer pair holds a contiguous dense segment inside a {PairTable.ConsumerCount}-consumer registry");
+    }
+
+    static unsafe nint ExecOf(delegate*<byte*, byte*, ushort, FrameFlags, void**, int, void> execute) => (nint)execute;
+
+    static unsafe void SealedAlpha(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row) { }
+
+    static unsafe void SealedMike(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row) { }
+
+    static unsafe void SealedZulu(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row) { }
 
     private static unsafe void BindFloat(ulong* keys, int keyCount, byte* table)
     {

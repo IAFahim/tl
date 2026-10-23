@@ -5,6 +5,27 @@ namespace Tl.Core.Tests;
 public unsafe class PairTableStressTests
 {
     [Fact]
+    public void UnsealedChainsKeepInstallOrderOrdinalsAndRegistryWideBounds()
+    {
+        const ulong key = 0x4776_0002_0000_0000UL;
+        PairTable.Install(key, null, null, "tl\0UnsealedC");
+        PairTable.Install(key, null, null, "tl\0UnsealedA");
+        PairTable.Install(key, null, null, "tl\0UnsealedB");
+        var consumers = PairTable.ConsumerAt;
+        var head = PairTable.HeadOf(key);
+        Assert.True(head >= 0);
+        var ordinal = 0;
+        for (var entry = head; entry >= 0; entry = consumers[entry].Next)
+        {
+            Assert.Equal(ordinal, consumers[entry].Ordinal);
+            Assert.Equal(ordinal * PairTable.SlotRow, consumers[entry].Offset);
+            ordinal++;
+        }
+        Assert.Equal(3, ordinal);
+        Assert.Equal(PairTable.PointerBound, PairTable.PairBound(key));
+    }
+
+    [Fact]
     public void ConcurrentInstallsReadersAndCollectionStayConsistent()
     {
         const int writers = 4, perWriter = 1250;
