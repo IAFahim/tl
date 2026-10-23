@@ -110,7 +110,7 @@ static unsafe class BakeTable
         var slot = Probe(pairKey);
         if (slot < 0) return -1;
         var slots = (Slot*)(Slots + 8ul);
-        return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
+        return slots[slot].Key == pairKey ? Volatile.Read(ref slots[slot].Head) : -1;
     }
 
     internal static int ChainLength(ulong pairKey)
