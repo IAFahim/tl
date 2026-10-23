@@ -47,7 +47,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
         var pairs = checked((int)reference.PairCount);
         if (pairs > 256) throw new ArgumentException("Asset declares more than 256 timeline pairs; the typed lane cannot bind it.");
         int* chainProbe = stackalloc int[pairs];
-        var pointerBound = PairTable.PointerBound;
+        var pointerBound = PairTable.PairBound(pairKey);
         var laneBound = pointerBound / PairTable.SlotRow * (PairTable.MemoResults * 2 + 1);
         var scratch = (byte*)NativeMemory.AlignedAlloc((nuint)(17 * pointerBound + 16 * laneBound), 64);
         int lanes;

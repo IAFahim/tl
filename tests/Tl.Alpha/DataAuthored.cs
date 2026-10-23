@@ -213,6 +213,12 @@ internal static class DataAuthoredReceipts
             if (consumers[head + 1].Next != head + 2 || consumers[head + 2].Ordinal != 2 || consumers[head + 2].Offset != 2 * PairTable.SlotRow || consumers[head + 2].Next != -1 || (nint)consumers[head + 2].Execute != ExecOf(&SealedZulu))
                 failures.Add("sealed segment does not close contiguously with a dense column base at canonical position 2");
         }
+        if (PairTable.ConsumerCount < 3 + RegistryFillers)
+            failures.Add("registry fixture does not hold the 2,000-consumer crowd");
+        if (PairTable.PairBound(key) != 3 * PairTable.SlotRow)
+            failures.Add("sealed pair bound is not 40 x the pair's own consumer count");
+        if (PairTable.PairBound(key) >= PairTable.PointerBound)
+            failures.Add("sealed pair bound still scales with the registry size");
         try
         {
             PairTable.Install(key, null, null, "tl\0Late");
