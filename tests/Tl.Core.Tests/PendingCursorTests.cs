@@ -85,6 +85,63 @@ public class PendingCursorTests
         }
     }
 
+    [Fact]
+    public void FirstUseFoldsExactlyTheRequestedIndex()
+    {
+        var a = TimelineAsset.LoadAsset(Bake(1));
+        var b = TimelineAsset.LoadAsset(Bake(2));
+        var c = TimelineAsset.LoadAsset(Bake(3));
+        try
+        {
+            Timeline<CursorTrack, CursorClip>.View(a);
+            Assert.True(b.Index > a.Index && c.Index > b.Index, "fresh contents receive ascending indices");
+            Timeline<CursorTrack, CursorClip>.View(c);
+            var bank = Timeline<CursorTrack, CursorClip>._bank;
+            Assert.NotNull(bank);
+            Assert.True(bank.IsFolded(c.Index), "the first-used index folds");
+            Assert.False(bank.IsFolded(b.Index), "first use of one index folded the live index below it");
+        }
+        finally
+        {
+            a.Dispose();
+            b.Dispose();
+            c.Dispose();
+        }
+    }
+
+    [Fact]
+    public void DeadHoleBelowStaysPendingThroughLaterFirstUses()
+    {
+        var a = TimelineAsset.LoadAsset(Bake(1));
+        var b = TimelineAsset.LoadAsset(Bake(2));
+        var c = TimelineAsset.LoadAsset(Bake(3));
+        try
+        {
+            Timeline<CursorTrack, CursorClip>.View(a);
+            var deadIndex = b.Index;
+            b.Dispose();
+            Timeline<CursorTrack, CursorClip>.View(c);
+            var d = TimelineAsset.LoadAsset(Bake(4));
+            try
+            {
+                Timeline<CursorTrack, CursorClip>.View(d);
+                var bank = Timeline<CursorTrack, CursorClip>._bank;
+                Assert.NotNull(bank);
+                Assert.True(bank.IsPending(deadIndex), $"the dead hole at {deadIndex} was swept by a later first use instead of staying a pending hole");
+                Assert.Throws<ArgumentException>(() => Timeline<CursorTrack, CursorClip>.View(deadIndex));
+            }
+            finally
+            {
+                d.Dispose();
+            }
+        }
+        finally
+        {
+            a.Dispose();
+            c.Dispose();
+        }
+    }
+
     static byte[] Bake(int seed) => new DomainBaker()
         .Track<CursorTrack, CursorClip>(new CursorTrack(seed))
         .Clip(0, 0u, 4u, new CursorClip(seed))
