@@ -24,5 +24,5 @@ public class SlotViewLayoutTests
         => Assert.Equal(offset, Marshal.OffsetOf<SlotView>(field).ToInt32());
 
     [Fact]
-    public void SlotViewIsSeventyTwoBytes() => Assert.Equal(72, Unsafe.SizeOf<SlotView>());
+    public void SlotViewIsEightyBytes() => Assert.Equal(80, Unsafe.SizeOf<SlotView>());
 }
