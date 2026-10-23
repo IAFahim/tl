@@ -62,6 +62,26 @@ internal readonly struct ImpureJob : ITrack<ImpureTrack, ImpureClip>
         => vitality *= 2f;
 }
 
+
+internal readonly record struct SealOrderClip(float Amount);
+internal readonly record struct SealOrderTrack(float Multiplier) : IBlend<SealOrderClip>
+{
+    public void Blend(in SealOrderClip first, in SealOrderClip second, float factor, out SealOrderClip result)
+        => result = factor < 0.5f ? first : second;
+}
+
+internal readonly record struct SealFlipClip(float Amount);
+internal readonly record struct SealFlipTrack(float Multiplier) : IBlend<SealFlipClip>
+{
+    public void Blend(in SealFlipClip first, in SealFlipClip second, float factor, out SealFlipClip result)
+        => result = factor < 0.5f ? first : second;
+}
+
+internal static class SealOrderLog
+{
+    internal static readonly List<string> Order = [];
+}
+
 internal static class DataAuthoredReceipts
 {
     static float Blend(float first, float second, uint tick, uint start, uint span)
@@ -69,6 +89,87 @@ internal static class DataAuthoredReceipts
         if (span == 0) return first;
         var factor = span == 1 ? 0.5f : (tick - start) / (span - 1f);
         return first + (second - first) * factor;
+    }
+
+
+    internal static unsafe void SealOrderInstalls()
+    {
+        PairRuntime<SealOrderTrack, SealOrderClip>.Consume(&SealAlpha, &BindFloat, "ProcA\0Alpha");
+        PairRuntime<SealOrderTrack, SealOrderClip>.Consume(&SealBeta, &BindFloat, "ProcA\0Beta");
+        PairRuntime<SealOrderTrack, SealOrderClip>.Consume(&SealGamma, &BindFloat, "ProcA\0Gamma");
+        PairRuntime<SealFlipTrack, SealFlipClip>.Consume(&SealFlipGamma, &BindFloat, "ProcB\0Gamma");
+        PairRuntime<SealFlipTrack, SealFlipClip>.Consume(&SealFlipAlpha, &BindFloat, "ProcB\0Alpha");
+        PairRuntime<SealFlipTrack, SealFlipClip>.Consume(&SealFlipBeta, &BindFloat, "ProcB\0Beta");
+    }
+
+    internal static void SealOrderReceipt()
+    {
+        using var first = TimelineAsset.LoadAsset(new DomainBaker()
+            .Track<SealOrderTrack, SealOrderClip>(new SealOrderTrack(1f))
+            .Clip(0, 0, 4, new SealOrderClip(1f))
+            .Looping()
+            .Bake());
+        using var second = TimelineAsset.LoadAsset(new DomainBaker()
+            .Track<SealFlipTrack, SealFlipClip>(new SealFlipTrack(1f))
+            .Clip(0, 0, 4, new SealFlipClip(1f))
+            .Looping()
+            .Bake());
+        SealOrderLog.Order.Clear();
+        BakedLane<SealOrderTrack, SealOrderClip>.Bind(first);
+        Require(SealOrderLog.Order[..3].SequenceEqual(["Alpha", "Beta", "Gamma"]), "first process folds in consumer-name order");
+        SealOrderLog.Order.Clear();
+        BakedLane<SealFlipTrack, SealFlipClip>.Bind(second);
+        Require(SealOrderLog.Order[..3].SequenceEqual(["Alpha", "Beta", "Gamma"]), "second process folds in canonical order despite reversed installs");
+        var canonical = BakedLane<SealOrderTrack, SealOrderClip>.Effect(0);
+        var flipped = BakedLane<SealFlipTrack, SealFlipClip>.Effect(0);
+        Require(canonical == 1f, "sealed fold runs in consumer-name order");
+        Require(flipped == canonical, "opposite install order folds identical bits after seal");
+    }
+
+    private static unsafe void BindFloat(ulong* keys, int keyCount, byte* table)
+    {
+        for (var i = 0; i < keyCount; i++)
+            if (keys[i] == TypeKey<float>.Value)
+            {
+                table[0] = (byte)(i + 1);
+                return;
+            }
+    }
+
+    private static unsafe void SealAlpha(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
+    {
+        SealOrderLog.Order.Add("Alpha");
+        ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -1e8f : 1e8f;
+    }
+
+    private static unsafe void SealBeta(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
+    {
+        SealOrderLog.Order.Add("Beta");
+        ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? 1e8f : -1e8f;
+    }
+
+    private static unsafe void SealGamma(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
+    {
+        SealOrderLog.Order.Add("Gamma");
+        ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -1f : 1f;
+    }
+
+    private static unsafe void SealFlipAlpha(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
+    {
+        SealOrderLog.Order.Add("Alpha");
+        ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -1e8f : 1e8f;
+    }
+
+    private static unsafe void SealFlipBeta(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
+    {
+        SealOrderLog.Order.Add("Beta");
+        ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? 1e8f : -1e8f;
+    }
+
+    private static unsafe void SealFlipGamma(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)
+    {
+        SealOrderLog.Order.Add("Gamma");
+        ((float*)columns[0])[row] += (flags & FrameFlags.Reverse) != 0 ? -1f : 1f;
     }
 
     internal static void All()

@@ -61,21 +61,11 @@ public unsafe class ConsumerResultCapTests
             CapPairs.OwnedResults = 10;
         }
         var after = PairTable.ConsumerAt[entry];
-        Assert.True(before.Next == after.Next && before.Offset == after.Offset && before.Feed == after.Feed && before.Ordinal == after.Ordinal && before.PairKey == after.PairKey && before.DispatchOnly == after.DispatchOnly);
+        Assert.True(before.Next == after.Next && before.Offset == after.Offset && before.Feed == after.Feed && before.Ordinal == after.Ordinal && before.NameOffset == after.NameOffset && before.PairKey == after.PairKey && before.DispatchOnly == after.DispatchOnly);
         Assert.True(SameTail(&before, PairTable.ConsumerAt + entry));
         Timeline<CapTrack, CapClip>.View(index);
     }
 
-    const int TailOffset = sizeof(int) * 4 + sizeof(ulong) + sizeof(int) * PairTable.MemoResults;
-
     static bool SameTail(PairTable.Consumer* expected, PairTable.Consumer* actual)
-    {
-        var left = (byte*)expected + TailOffset;
-        var right = (byte*)actual + TailOffset;
-        var count = sizeof(PairTable.Consumer) - TailOffset;
-        for (var i = 0; i < count; i++)
-            if (left[i] != right[i])
-                return false;
-        return true;
-    }
+        => (void*)expected->Execute == (void*)actual->Execute && (void*)expected->Bind == (void*)actual->Bind && (void*)expected->Keys == (void*)actual->Keys && (void*)expected->Diag == (void*)actual->Diag && expected->DispatchOnly == actual->DispatchOnly;
 }

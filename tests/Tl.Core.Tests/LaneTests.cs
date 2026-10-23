@@ -376,8 +376,8 @@ public partial class LaneTests
             .Bake());
         BakedLane<OrderTrack, OrderClip>.Bind(asset);
 
-        Assert.Equal(16777218f, BakedLane<OrderTrack, OrderClip>.Effect(0));
-        Assert.Equal(-16777216f, BakedLane<OrderTrack, OrderClip>.InverseEffect(0));
+        Assert.Equal(16777216f, BakedLane<OrderTrack, OrderClip>.Effect(0));
+        Assert.Equal(-16777218f, BakedLane<OrderTrack, OrderClip>.InverseEffect(0));
     }
 
     [Fact]

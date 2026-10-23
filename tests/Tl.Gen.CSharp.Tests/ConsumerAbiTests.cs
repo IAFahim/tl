@@ -54,8 +54,8 @@ public sealed class ConsumerAbiTests
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         internal static void Install()
         {
-        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&Fold_QuadJob, &Keys_QuadJob);
-        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.ConsumeDispatch(&ExecuteActive_QuadJob, &LiveKeys_QuadJob, &Diag_QuadJob);
+        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.Consume(&Fold_QuadJob, &Keys_QuadJob, "ConsumerBindingEmission\u0000global::Domain.QuadJob");
+        global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.ConsumeDispatch(&ExecuteActive_QuadJob, &LiveKeys_QuadJob, &Diag_QuadJob, "ConsumerBindingEmission\u0000global::Domain.QuadJob");
         global::Tl.PairRuntime<global::Domain.QuadTrack, global::Domain.QuadClip>.VerifyLayout(8678375773521417805UL);
         }
         private static void Fold_QuadJob(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)

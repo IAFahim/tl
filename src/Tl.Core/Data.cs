@@ -460,10 +460,10 @@ internal const int MemoResults = 10;
 		int length;
 		if (identity.Length < 128) length = Encoding.UTF8.GetBytes(identity.AsSpan(), small);
 		else { large = Encoding.UTF8.GetBytes(identity); length = large.Length; }
-		if (_namesCapacity - _namesLength < length + 1)
+		if (_namesCapacity - _namesLength < length + 2)
 		{
 			var cap = _namesCapacity;
-			while (cap - _namesLength < length + 1) cap *= 2;
+			while (cap - _namesLength < length + 2) cap *= 2;
 			var grown = (ulong)NativeMemory.AlignedAlloc((nuint)cap, 64);
 			Buffer.MemoryCopy((void*)_namesBase, (void*)grown, cap, _namesLength);
 			NativeMemory.Free((void*)_namesBase);
@@ -472,10 +472,12 @@ internal const int MemoResults = 10;
 		}
 		var offset = _namesLength;
 		var ptr = (byte*)(_namesBase + (ulong)offset);
-		if (large == null) small[..length].CopyTo(new Span<byte>(ptr, length));
-		else large.AsSpan(0, length).CopyTo(new Span<byte>(ptr, length));
-		ptr[length] = 0;
-		_namesLength += length + 1;
+		ptr[0] = (byte)length;
+		ptr[1] = (byte)(length >> 8);
+		var destination = new Span<byte>(ptr + 2, length);
+		if (large == null) small[..length].CopyTo(destination);
+		else large.AsSpan(0, length).CopyTo(destination);
+		_namesLength += length + 2;
 		return offset;
 	}
 
@@ -484,8 +486,15 @@ internal const int MemoResults = 10;
 		var names = (byte*)_namesBase;
 		var a = names + left;
 		var b = names + right;
-		while (*a != 0 && *a == *b) { a++; b++; }
-		return *a - *b;
+		var leftLength = a[0] | (a[1] << 8);
+		var rightLength = b[0] | (b[1] << 8);
+		var count = Math.Min(leftLength, rightLength);
+		for (var i = 0; i < count; i++)
+		{
+			var delta = a[2 + i] - b[2 + i];
+			if (delta != 0) return delta;
+		}
+		return leftLength - rightLength;
 	}
 
 	internal static void Seal()

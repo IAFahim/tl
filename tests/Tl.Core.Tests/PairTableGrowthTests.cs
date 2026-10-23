@@ -52,11 +52,11 @@ public unsafe class PairTableGrowthTests
         Order.Clear();
         PairTable.RunChain(PairTable.HeadOf(key), true, null, null, 0, 0, columns, 0);
         Assert.Equal(70, Order.Count);
-        for (var k = 0; k < 70; k++) Assert.Equal(1000 + k, Order[k]);
+        for (var k = 0; k < 70; k++) Assert.Equal(1069 - k, Order[k]);
         Order.Clear();
         PairTable.RunChain(PairTable.HeadOf(key), false, null, null, 0, 0, columns, 0);
         Assert.Equal(70, Order.Count);
-        for (var k = 0; k < 70; k++) Assert.Equal(1069 - k, Order[k]);
+        for (var k = 0; k < 70; k++) Assert.Equal(1000 + k, Order[k]);
         NativeMemory.AlignedFree(columns);
     }
 
@@ -70,7 +70,7 @@ public unsafe class PairTableGrowthTests
         Order.Clear();
         PairTable.RunDispatch(PairTable.HeadOf(key), true, null, null, 0, 0, 0, columns);
         Assert.Equal(70, Order.Count);
-        for (var k = 0; k < 70; k++) Assert.Equal(1000 + k, Order[k]);
+        for (var k = 0; k < 70; k++) Assert.Equal(1069 - k, Order[k]);
         NativeMemory.AlignedFree(columns);
     }
 
