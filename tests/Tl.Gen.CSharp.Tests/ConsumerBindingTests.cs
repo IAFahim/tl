@@ -419,7 +419,7 @@ public sealed class ConsumerBindingTests
             initial.SyntaxTrees.Single(static tree => tree.FilePath == "Other.cs"),
             Tree("namespace Unrelated; internal sealed class Value { internal int Number; }", "Other.cs"));
         driver = driver.RunGenerators(unrelated);
-        Assert.Equal(IncrementalStepRunReason.Unchanged, Reason(driver));
+        Assert.Equal(IncrementalStepRunReason.Cached, Reason(driver));
         Assert.Equal(original, Sources(driver));
 
         var changed = unrelated.ReplaceSyntaxTree(
@@ -430,6 +430,81 @@ public sealed class ConsumerBindingTests
         Assert.NotEqual(original, Sources(driver));
         Assert.Contains("var @extra = (global::Domain.Mana*)__tlColumns[1];", Assert.Single(Sources(driver)).Value);
     }
+
+    private const string NeighborSource = """
+        using Tl;
+        namespace Frost;
+        public readonly record struct FrostClip(float Amount);
+        public readonly record struct FrostTrack(float Multiplier) : IBlend<FrostClip>
+        {
+            public void Blend(in FrostClip first, in FrostClip second, float factor, out FrostClip result)
+                => result = new FrostClip(first.Amount + (second.Amount - first.Amount) * factor);
+        }
+        public readonly struct ApplyFrost : ITrack<FrostTrack, FrostClip>
+        {
+            public static void ExecuteActive(in Frame<FrostTrack, FrostClip> frame, ref float total) { }
+        }
+        """;
+
+    [Fact]
+    public void EditTouchingOneTypeReRunsOnlyThatTypesPipeline()
+    {
+        var compilation = CSharpCompilation.Create(
+            "ConsumerBindingEmission",
+            [Tree(StandaloneSource, "Domain.cs"), Tree(NeighborSource, "Frost.cs")],
+            References(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(
+            [new TimelineIncrementalGenerator().AsSourceGenerator()],
+            parseOptions: CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview),
+            driverOptions: new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, true));
+        driver = driver.RunGenerators(compilation);
+
+        var edited = compilation.ReplaceSyntaxTree(
+            compilation.SyntaxTrees.Single(static tree => tree.FilePath == "Domain.cs"),
+            Tree(StandaloneSource.Replace("ref float armor) { }", "ref float armor, ref Mana extra) { }", StringComparison.Ordinal), "Domain.cs"));
+        driver = driver.RunGenerators(edited);
+
+        var reasons = TypeReasons(driver);
+        Assert.Equal(IncrementalStepRunReason.Modified, reasons["global::Domain.ApplyBuff"]);
+        Assert.Equal(IncrementalStepRunReason.Unchanged, reasons["global::Frost.ApplyFrost"]);
+        Assert.Equal(IncrementalStepRunReason.Modified, Reason(driver));
+        Assert.Contains("var @extra = (global::Domain.Mana*)__tlColumns[1];", Sources(driver).Values.Single());
+        var modified = driver.GetRunResult().Results.Single().TrackedSteps[TimelineIncrementalGenerator.TypeStep]
+            .SelectMany(static step => step.Outputs, static (step, output) => output.Reason)
+            .Count(static reason => reason == IncrementalStepRunReason.Modified);
+        Assert.Equal(1, modified);
+    }
+
+    [Fact]
+    public void AddingTheContractReferenceAfterABrokenRunEmitsBindings()
+    {
+        var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+        var tree = Tree(StandaloneSource, "Domain.cs");
+        var broken = CSharpCompilation.Create("ConsumerBindingEmission",
+            [tree],
+            ReferencePaths().Where(static path => !path.Contains("Tl.Core", StringComparison.Ordinal)).Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path)),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(
+            [new TimelineIncrementalGenerator().AsSourceGenerator()],
+            parseOptions: options,
+            driverOptions: new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, true));
+        driver = driver.RunGenerators(broken);
+        Assert.Empty(driver.GetRunResult().Results.Single().GeneratedSources);
+        Assert.Contains("TLGEN60", driver.GetRunResult().Results.Single().Diagnostics.Select(static diagnostic => diagnostic.Id));
+
+        driver = driver.RunGenerators(broken.AddReferences(MetadataReference.CreateFromFile(typeof(ITrack<,>).Assembly.Location)));
+        var sources = Sources(driver);
+        Assert.Single(sources);
+        Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&ExecuteActive_ApplyBuff, &Bind_ApplyBuff, \"ConsumerBindingEmission\\u0000global::Domain.ApplyBuff\");", sources.Values.Single());
+    }
+
+    internal static Dictionary<string, IncrementalStepRunReason> TypeReasons(GeneratorDriver driver)
+        => driver.GetRunResult().Results.Single().TrackedSteps[TimelineIncrementalGenerator.TypeStep]
+            .SelectMany(static step => step.Outputs, static (step, output) => (Model: output.Value as TypeAnalysis, output.Reason))
+            .Where(static entry => entry.Model is not null)
+            .GroupBy(static entry => entry.Model!.TypeName, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.Last().Reason, StringComparer.Ordinal);
 
     [Fact]
     public void OrderingAndTextAreCultureIndependent()

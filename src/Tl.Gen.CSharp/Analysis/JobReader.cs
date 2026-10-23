@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Tl.Gen.CSharp.Model;
 
 namespace Tl.Gen.CSharp.Analysis;
@@ -7,205 +8,121 @@ namespace Tl.Gen.CSharp.Analysis;
 public static class JobReader
 {
     internal const int SlotRow = 40;
-    private const int ActiveParameters = 30;
-    private const int MemoResults = 10;
 
     public static JobReadResult Read(CSharpCompilation compilation) => Read(compilation, null);
 
     internal static JobReadResult Read(CSharpCompilation compilation, Dictionary<string, SyntaxTree>? consumerTrees)
     {
-        if (compilation is null)
-            throw new ArgumentNullException(nameof(compilation));
-        var errors = new List<DeclarationDiagnostic>();
-        if (Contract(compilation) is not { } contracts)
+        if (compilation is null) throw new ArgumentNullException(nameof(compilation));
+        return Merge(Walk(compilation, consumerTrees));
+    }
+
+    internal static IReadOnlyList<BakeDeclaration> Bakes(CSharpCompilation compilation, IReadOnlyList<JobConsumer> consumers, List<DeclarationDiagnostic> errors)
+    {
+        if (compilation is null) throw new ArgumentNullException(nameof(compilation));
+        return Bakes(Order(Walk(compilation, null)), consumers, errors);
+    }
+
+    private static List<TypeAnalysis> Walk(CSharpCompilation compilation, Dictionary<string, SyntaxTree>? consumerTrees)
+    {
+        var analyses = new List<TypeAnalysis>();
+        foreach (var tree in compilation.SyntaxTrees)
         {
-            var site = compilation.SyntaxTrees.SelectMany(static tree => tree.GetRoot().DescendantNodes())
-                .FirstOrDefault(static node => node.ToString().Contains("ITrack<", StringComparison.Ordinal));
-            if (site is not null)
-                Symbols.Error(errors, site, "TLGEN60", "The exact Tl job declaration contracts could not be resolved.");
-            return new([], errors, []);
+            var model = compilation.GetSemanticModel(tree);
+            foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>())
+                if (TypeAnalyzer.IsCandidate(syntax) && TypeAnalyzer.Analyze(model, syntax, CancellationToken.None) is { } analysis)
+                {
+                    analyses.Add(analysis);
+                    if (consumerTrees is not null)
+                        foreach (var consumer in analysis.Consumers)
+                            if (!consumerTrees.ContainsKey(consumer.Job.TypeName))
+                                consumerTrees[consumer.Job.TypeName] = tree;
+                }
         }
-        var entries = Symbols.Entries(compilation).OrderBy(static entry => Symbols.Name(entry.Type), StringComparer.Ordinal).ToArray();
+        return analyses;
+    }
+
+    internal static JobReadResult Merge(IReadOnlyList<TypeAnalysis> analyses)
+    {
+        var ordered = Order(analyses);
+        var broken = ordered.Find(static analysis => analysis.ContractSite is not null);
+        if (broken is not null)
+            return new([], [broken.ContractSite! with { Code = "TLGEN60", Message = "The exact Tl job declaration contracts could not be resolved." }], []);
+        var errors = new List<DeclarationDiagnostic>();
         var consumers = new List<JobConsumer>();
         var pairs = new HashSet<string>(StringComparer.Ordinal);
-        var reader = new Reader(compilation, errors);
-        foreach (var entry in entries)
+        foreach (var analysis in ordered)
         {
-            if (entry.Type.TypeKind == TypeKind.Interface) continue;
-            var markers = entry.Type.AllInterfaces.Where(item => Symbols.Same(item.OriginalDefinition, contracts.Job)).ToArray();
-            if (markers.Length == 0) continue;
-            void Err(string msg) => Symbols.Error(errors, entry.Syntax, "TLGEN65", $"Job '{Symbols.Name(entry.Type)}' {msg}");
-            if (entry.Type.IsAbstract) { Err("cannot be abstract."); continue; }
-            if (entry.Type.Arity > 0 || entry.Type.TypeParameters.Length > 0) { Err("cannot be generic; open type parameters cannot be registered as timeline jobs."); continue; }
-            var identity = compilation.AssemblyName + "\0" + Symbols.Name(entry.Type);
-            var discovered = new List<JobConsumer>();
-            var valid = true;
-            foreach (var marker in markers)
-            {
-                var track = marker.TypeArguments[0];
-                var clip = marker.TypeArguments[1];
-                if (track.TypeKind == TypeKind.TypeParameter || clip.TypeKind == TypeKind.TypeParameter) { Err("cannot have open type parameters for its track or clip pairing."); valid = false; continue; }
-                var ok = true;
-                if (!track.IsUnmanagedType) { Err($"track type '{Symbols.Name(track)}' must be an unmanaged type."); ok = false; }
-                if (!clip.IsUnmanagedType) { Err($"clip type '{Symbols.Name(clip)}' must be an unmanaged type."); ok = false; }
-                if (ok && track is INamedTypeSymbol { IsReadOnly: false }) { Err($"track type '{Symbols.Name(track)}' must be a readonly struct; a mutating Blend would write interned asset bytes."); ok = false; }
-                if (ok && !track.AllInterfaces.Any(item => Symbols.Same(item.OriginalDefinition, contracts.Blend) && item.TypeArguments.Length == 1 && Symbols.Same(item.TypeArguments[0], clip))) { Err($"track type '{Symbols.Name(track)}' must implement Tl.IBlend<{Symbols.Name(clip)}>."); ok = false; }
-                if (!ok) { valid = false; continue; }
-                var definition = reader.Execute(entry.Type, contracts.Frame.Construct(track, clip), compilation.Assembly, entry.Syntax);
-                if (definition is null) { valid = false; continue; }
-                discovered.Add(new(Symbols.Name(track), Symbols.Name(clip), definition, identity, PairLayout.Of(track, clip), PairLayout.NestedTypes(track, clip)));
-            }
-            if (!valid) continue;
-            foreach (var consumer in discovered.OrderBy(static item => item.TrackTypeName + "\0" + item.ClipTypeName, StringComparer.Ordinal))
+            errors.AddRange(analysis.JobDiagnostics);
+            foreach (var consumer in analysis.Consumers)
                 if (pairs.Add(consumer.Job.TypeName + "\0" + consumer.TrackTypeName + "\0" + consumer.ClipTypeName))
-                {
                     consumers.Add(consumer);
-                    if (consumerTrees != null) consumerTrees[consumer.Job.TypeName] = entry.Syntax.SyntaxTree;
-                }
         }
-        var bakes = BakeReader.Read(compilation, consumers, errors);
-        return new(consumers, errors, bakes);
+        return new(consumers, errors, Bakes(ordered, consumers, errors));
     }
 
-    private sealed class Reader(CSharpCompilation compilation, List<DeclarationDiagnostic> errors)
+    private static List<TypeAnalysis> Order(IReadOnlyList<TypeAnalysis> analyses)
     {
-        public JobDefinition? Execute(INamedTypeSymbol type, ITypeSymbol frame, ISymbol owner, SyntaxNode site)
-        {
-            var name = Symbols.Name(type);
-            var frameName = Symbols.Name(frame);
-            var memos = Candidates(type, "Fold", frame, owner);
-            var actives = Candidates(type, "ExecuteActive", frame, owner);
-            if (memos.Length > 1 || actives.Length > 1)
-                return Err(site, "TLGEN66", $"'{name}' declares multiple Fold or ExecuteActive.");
-            var memo = memos.Length == 1 ? memos[0] : null;
-            var active = actives.Length == 1 ? actives[0] : null;
-            if (memo is null && active is null)
-            {
-                var hosted = compilation.GetTypeByMetadataName("Tl.IHostedConsumer");
-                if (hosted is not null && type.AllInterfaces.Any(item => Symbols.Same(item, hosted)))
-                    return null;
-                return Err(site, "TLGEN66", $"'{name}' needs one static void Fold(in {frameName}) or ExecuteActive; a family whose hook a host synthesizes must implement Tl.IHostedConsumer.");
-            }
-
-            var slots = new List<TimelineSlot>();
-            if (memo is not null)
-            {
-                if (!Framed(memo, frame))
-                    return Err(Symbols.Site(memo, site), "TLGEN75", $"'{name}.Fold' must begin with in {frameName}.");
-                foreach (var p in memo.Parameters.Skip(1))
-                {
-                    if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.Ref or RefKind.Out))
-                        return Err(Symbols.Site(p, site), "TLGEN76", $"'{name}.Fold' runs at fold; only unmanaged 'out'/'ref' results exist — 'in' has no caller.");
-                    var typeName = Symbols.Name(p.Type);
-                    var size = ResultSize(p.Type);
-                    if (size == 0 || slots.Count >= MemoResults)
-                        return Err(Symbols.Site(p, site), "TLGEN79", $"'{name}.Fold' folds at most {MemoResults} unmanaged results of at most 8 bytes each ('{Symbols.Name(p.Type)} {p.Name}' is not one).");
-                    slots.Add(new(p.Name, typeName, p.RefKind == RefKind.Out ? SlotMode.Output : SlotMode.Reference, size, Integral(p.Type)));
-                }
-                if (slots.Count == 0)
-                    return Err(Symbols.Site(memo, site), "TLGEN76", $"'{name}.Fold' produces no result; dispatch-only is ExecuteActive.");
-            }
-
-            var dispatch = false;
-            var liveFrame = false;
-            List<TimelineSlot>? live = null;
-            if (active is not null)
-            {
-                var framed = Framed(active, frame);
-                var start = framed ? 1 : 0;
-                var gameplay = active.Parameters.Length - start;
-                var p1 = framed && active.Parameters.Length > 1 ? active.Parameters[1] : null;
-                var sugar = p1 is { RefKind: RefKind.Ref, Type.IsUnmanagedType: true, IsOptional: false, IsParams: false }
-                    && memo is null && gameplay == 1;
-                if (sugar)
-                {
-                    var only = active.Parameters[1];
-                    if (!Symbols.Same(only.Type, compilation.GetSpecialType(SpecialType.System_Single)))
-                        return Err(Symbols.Site(only, site), "TLGEN88", $"'{name}.ExecuteActive' sugar state must be 'ref float'; a keyless consumer binds one pooled float lane, so declare other state types as Fold results.");
-                    slots.Add(new(only.Name, Symbols.Name(only.Type), SlotMode.Reference));
-                }
-                else if (gameplay == 0)
-                {
-                    dispatch = true;
-                    liveFrame = framed;
-                }
-                else
-                {
-                    dispatch = true;
-                    liveFrame = framed;
-                    live = [];
-                    var outs = slots.Count(static slot => slot.Mode == SlotMode.Output);
-                    var feed = 0;
-                    var index = start;
-                    if (memo is not null)
-                        while (index < active.Parameters.Length && feed < outs && active.Parameters[index].RefKind is RefKind.In
-                            && active.Parameters[index].Type.IsUnmanagedType && !active.Parameters[index].IsOptional && !active.Parameters[index].IsParams
-                            && Symbols.Name(active.Parameters[index].Type) == ResultName(feed))
-                        {
-                            var fed = active.Parameters[index++];
-                            live.Add(new(fed.Name, Symbols.Name(fed.Type), SlotMode.MemoFeed, (byte)ResultSize(fed.Type)));
-                            feed++;
-                        }
-                    for (; index < active.Parameters.Length; index++)
-                    {
-                        var p = active.Parameters[index];
-                        if (p.IsOptional || p.IsParams || !p.Type.IsUnmanagedType || p.RefKind is not (RefKind.In or RefKind.Ref))
-                            return Err(Symbols.Site(p, site), "TLGEN78", $"'{name}.ExecuteActive' columns must be required unmanaged 'in'/'ref'; '{Symbols.Name(p.Type)} {p.Name}' is not.");
-                        live.Add(new(p.Name, Symbols.Name(p.Type), p.RefKind == RefKind.Ref ? SlotMode.Reference : SlotMode.Input));
-                    }
-                    if (live.Count > ActiveParameters)
-                        return Err(Symbols.Site(active.Parameters[start + ActiveParameters], site), "TLGEN68", $"'{name}.ExecuteActive' declares {gameplay} gameplay parameters; the consumer ABI holds {ActiveParameters} gameplay columns per registered consumer (memo feeds included); declare at most {ActiveParameters}.");
-                    for (var i = 0; i < live.Count; i++)
-                        for (var k = 0; k < i; k++)
-                            if (live[i].Mode == live[k].Mode && live[i].Mode != SlotMode.MemoFeed && live[i].TypeName == live[k].TypeName)
-                            {
-                                var kind = live[i].Mode == SlotMode.Input ? "in" : "ref";
-                                return Err(Symbols.Site(active.Parameters[start + i], site), "TLGEN81", $"'{name}.ExecuteActive' declares two live '{kind} {live[i].TypeName}' columns ('{live[k].Name}', '{live[i].Name}'); TypeKey binding cannot distinguish same-type columns — give them distinct types.");
-                            }
-                }
-            }
-
-            return new(name, slots, dispatch, liveFrame, memo is not null, live);
-
-            string ResultName(int ordinal)
-                => slots.Where(static slot => slot.Mode == SlotMode.Output).Select(static slot => slot.TypeName).ElementAtOrDefault(ordinal) ?? "";
-        }
-
-        private JobDefinition? Err(SyntaxNode site, string code, string message)
-        {
-            Symbols.Error(errors, site, code, message);
-            return null;
-        }
-
-        private static byte ResultSize(ITypeSymbol t)
-            => t switch
-            {
-                INamedTypeSymbol { EnumUnderlyingType: { } u } => ResultSize(u),
-                { SpecialType: SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_SByte } => 1,
-                { SpecialType: SpecialType.System_Char or SpecialType.System_Int16 or SpecialType.System_UInt16 } => 2,
-                { SpecialType: SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Single } => 4,
-                { SpecialType: SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Double } => 8,
-                _ => 0,
-            };
-
-        private static bool Integral(ITypeSymbol t)
-            => t.SpecialType is not (SpecialType.System_Single or SpecialType.System_Double);
-
-        private static bool Framed(IMethodSymbol method, ITypeSymbol frame)
-            => method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame);
-
-        private IMethodSymbol[] Candidates(INamedTypeSymbol type, string name, ITypeSymbol frame, ISymbol owner)
-            => type.GetMembers(name).OfType<IMethodSymbol>().Where(m => m is { IsImplicitlyDeclared: false, IsStatic: true, ReturnsVoid: true, Arity: 0 }
-                && compilation.IsSymbolAccessibleWithin(m, owner)
-                && (m.Parameters.Length == 0
-                    || !Symbols.Same(m.Parameters[0].Type.OriginalDefinition, frame.OriginalDefinition)
-                    || Symbols.Same(m.Parameters[0].Type, frame))).ToArray();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var unique = new List<TypeAnalysis>();
+        foreach (var analysis in analyses)
+            if (seen.Add(analysis.TypeName))
+                unique.Add(analysis);
+        return unique.OrderBy(static analysis => analysis.TypeName, StringComparer.Ordinal).ToList();
     }
 
-    private static (INamedTypeSymbol Job, INamedTypeSymbol Frame, INamedTypeSymbol Blend)? Contract(Compilation compilation)
+    internal static IReadOnlyList<BakeDeclaration> Bakes(List<TypeAnalysis> ordered, IReadOnlyList<JobConsumer> consumers, List<DeclarationDiagnostic> errors)
     {
-        INamedTypeSymbol?[] types = [compilation.GetTypeByMetadataName("Tl.ITrack`2"), compilation.GetTypeByMetadataName("Tl.Frame`2"), compilation.GetTypeByMetadataName("Tl.IBlend`1")];
-        return types.Any(static type => type is null) ? null : (types[0]!, types[1]!, types[2]!);
+        var pairings = new Dictionary<string, List<JobConsumer>>(StringComparer.Ordinal);
+        foreach (var consumer in consumers)
+        {
+            if (!pairings.TryGetValue(consumer.Job.TypeName, out var list)) pairings[consumer.Job.TypeName] = list = [];
+            list.Add(consumer);
+        }
+        var discovered = new List<(BakeCandidate Candidate, List<JobConsumer> Pairs)>();
+        foreach (var analysis in ordered)
+        {
+            errors.AddRange(analysis.BakeDiagnostics);
+            foreach (var candidate in analysis.Bakes)
+            {
+                if (candidate.OpenConsumerTypeParameter) { errors.AddRange(candidate.Diagnostics); continue; }
+                if (!pairings.TryGetValue(candidate.Declaration.ConsumerTypeName, out var pairs))
+                {
+                    errors.Add(candidate.Site with { Code = "TLGEN72", Message = $"Bake '{candidate.Declaration.TypeName}' binds consumer '{candidate.Declaration.ConsumerTypeName}', which is not a registered Tl.ITrack consumer; declare the consumer with its ITrack pairing before binding a bake to it." });
+                    continue;
+                }
+                errors.AddRange(candidate.Diagnostics);
+                if (candidate.Diagnostics.Count > 0) continue;
+                discovered.Add((candidate, pairs));
+            }
+        }
+        var chains = new Dictionary<string, (string TypeName, string Signature, string SignatureKey)>(StringComparer.Ordinal);
+        var accepted = new List<(BakeCandidate Candidate, List<JobConsumer> Pairs)>();
+        foreach (var (candidate, pairs) in discovered)
+        {
+            var conflict = false;
+            foreach (var pair in pairs)
+            {
+                var key = pair.TrackTypeName + "\0" + pair.ClipTypeName;
+                if (chains.TryGetValue(key, out var first) && first.SignatureKey != candidate.Declaration.SignatureKey)
+                {
+                    errors.Add(candidate.Site with { Code = "TLGEN74", Message = $"Bakes '{first.TypeName}' and '{candidate.Declaration.TypeName}' bind pair ({pair.TrackTypeName}, {pair.ClipTypeName}) with different bake parameter lists: '{first.Signature}' and '{candidate.Signature}'; every bake registered to one pair must declare an identical parameter list." });
+                    conflict = true;
+                }
+            }
+            if (conflict) continue;
+            foreach (var pair in pairs)
+            {
+                var key = pair.TrackTypeName + "\0" + pair.ClipTypeName;
+                if (!chains.ContainsKey(key)) chains[key] = (candidate.Declaration.TypeName, candidate.Signature, candidate.Declaration.SignatureKey);
+            }
+            accepted.Add((candidate, pairs));
+        }
+        return accepted
+            .OrderBy(static item => item.Candidate.Declaration.ConsumerTypeName, StringComparer.Ordinal)
+            .ThenBy(static item => item.Candidate.Declaration.SignatureKey, StringComparer.Ordinal)
+            .ThenBy(static item => item.Candidate.Declaration.TypeName, StringComparer.Ordinal)
+            .Select(static item => item.Candidate.Declaration with { Pairs = item.Pairs })
+            .ToArray();
     }
-
 }

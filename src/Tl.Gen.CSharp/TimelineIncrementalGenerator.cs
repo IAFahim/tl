@@ -1,6 +1,8 @@
+using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using Tl.Gen.CSharp.Analysis;
 
@@ -11,20 +13,26 @@ namespace Tl.Gen.CSharp;
 #endif
 public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
 {
+    internal const string TypeStep = "Tl.Type";
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var analysis = context.CompilationProvider
-            .Select(static (compilation, cancellation) => Analyze((CSharpCompilation)compilation, cancellation))
+        var types = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                static (node, _) => node is TypeDeclarationSyntax syntax && TypeAnalyzer.IsCandidate(syntax),
+                static (syntax, cancellation) => TypeAnalyzer.Analyze(syntax.SemanticModel, (TypeDeclarationSyntax)syntax.Node, cancellation))
+            .WithTrackingName(TypeStep);
+        var analysis = types.Collect()
+            .Select(static (models, cancellation) => Analyze(models, cancellation))
             .WithComparer(AnalysisComparer.Instance)
             .WithTrackingName("Tl.Analysis");
         context.RegisterSourceOutput(analysis, static (production, result) => Produce(production, result));
     }
 
-    private static Analysis Analyze(CSharpCompilation compilation, CancellationToken cancellation)
+    private static Analysis Analyze(ImmutableArray<TypeAnalysis?> models, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        var model = JobReader.Read(compilation);
-        cancellation.ThrowIfCancellationRequested();
+        var model = JobReader.Merge(models.Where(static analysis => analysis is not null).Select(static analysis => analysis!).ToList());
         var artifacts = model.Diagnostics.Count == 0
             ? JobEmitter.Emit(model).OrderBy(static artifact => artifact.RelativePath, StringComparer.Ordinal).ToArray()
             : [];
