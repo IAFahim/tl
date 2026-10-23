@@ -62,6 +62,57 @@ internal readonly struct ImpureJob : ITrack<ImpureTrack, ImpureClip>
         => vitality *= 2f;
 }
 
+internal readonly struct MultiFieldTrack : IBlend<MultiFieldClip>
+{
+    public readonly float Scale;
+    public readonly float Bias;
+    public readonly int Step;
+
+    public MultiFieldTrack(float scale, float bias, int step)
+    {
+        Scale = scale;
+        Bias = bias;
+        Step = step;
+    }
+
+    public void Blend(in MultiFieldClip first, in MultiFieldClip second, float factor, out MultiFieldClip result) => result = first;
+}
+
+internal struct MultiFieldClip
+{
+    public float Amount;
+    public int Ticks;
+}
+
+internal readonly struct MultiFieldJob : ITrack<MultiFieldTrack, MultiFieldClip>
+{
+    public static void ExecuteActive(in Frame<MultiFieldTrack, MultiFieldClip> frame, ref float vitality)
+        => vitality += frame.Direction * (frame.Track.Scale * frame.Clip.Amount + frame.Track.Bias + frame.Track.Step * frame.Clip.Ticks);
+}
+
+internal readonly record struct FixedTrack(float Head) : IBlend<FixedBufferClip>
+{
+    public void Blend(in FixedBufferClip first, in FixedBufferClip second, float factor, out FixedBufferClip result) => result = first;
+}
+
+internal unsafe struct FixedBufferClip
+{
+    public fixed byte Buffer[8];
+    public float Tail;
+}
+
+internal readonly struct FixedJob : ITrack<FixedTrack, FixedBufferClip>
+{
+    public static unsafe void ExecuteActive(in Frame<FixedTrack, FixedBufferClip> frame, ref float vitality)
+    {
+        var clip = frame.Clip;
+        var sum = clip.Tail;
+        for (var i = 0; i < 8; i++)
+            sum += clip.Buffer[i];
+        vitality += frame.Direction * frame.Track.Head * sum;
+    }
+}
+
 internal static class DataAuthoredReceipts
 {
     static float Blend(float first, float second, uint tick, uint start, uint span)
@@ -79,11 +130,12 @@ internal static class DataAuthoredReceipts
         RewindAndCatchUp();
         TimelineSets();
         Faults();
+        LayoutDigests();
 #if TL_CHECKED
         Validation();
-        Console.WriteLine("receipts: movement, wrap-count, fold+blend, rewind, catch-up, timeline sets, faults, validation PASS");
+        Console.WriteLine("receipts: movement, wrap-count, fold+blend, rewind, catch-up, timeline sets, faults, layout digests, validation PASS");
 #else
-        Console.WriteLine("receipts: movement, wrap-count, fold+blend, rewind, catch-up, timeline sets, faults PASS");
+        Console.WriteLine("receipts: movement, wrap-count, fold+blend, rewind, catch-up, timeline sets, faults, layout digests PASS");
 #endif
     }
 
@@ -267,6 +319,80 @@ internal static class DataAuthoredReceipts
             .Looping()
             .Bake());
         RequireThrows<ArgumentException>(() => BakedLane<HealTrack, HealClip>.Bind(foreign), "asset without the pair rejected at bind");
+    }
+
+    [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator", Justification = "exact float parity is the receipt")]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
+    private static unsafe void LayoutDigests()
+    {
+        var positions = new ushort[1];
+        var next = new ushort[1];
+        var effects = new float[1];
+
+        using var plain = TimelineAsset.LoadAsset(new DomainBaker
+        {
+            FingerprintOf = (track, clip) => PublishedLayout(track, clip) ^ MultiFieldPairDigest,
+        }
+            .Track<MultiFieldTrack, MultiFieldClip>(new MultiFieldTrack(2f, 0.5f, 3))
+            .Clip(0, 0u, 6u, new MultiFieldClip { Amount = 4f, Ticks = 5 })
+            .Looping()
+            .Bake());
+        BakedLane<MultiFieldTrack, MultiFieldClip>.Bind(plain);
+        for (var tick = 0; tick < 6; tick++)
+        {
+            Require(BakedLane<MultiFieldTrack, MultiFieldClip>.Effect((ushort)tick) == 23.5f, $"multi-field digest fold at {tick}");
+            Require(BakedLane<MultiFieldTrack, MultiFieldClip>.InverseEffect((ushort)tick) == -23.5f, $"multi-field digest inverse at {tick}");
+        }
+        Timeline<MultiFieldTrack, MultiFieldClip>.Apply(plain.Index, positions, next, true, effects);
+        Require(effects[0] == 23.5f, "multi-field digest lane applies through the folded bank");
+
+        var fixedClip = new FixedBufferClip { Tail = 1f };
+        for (var i = 0; i < 8; i++)
+            fixedClip.Buffer[i] = (byte)(i + 1);
+        using var fixedAsset = TimelineAsset.LoadAsset(new DomainBaker
+        {
+            FingerprintOf = (track, clip) => PublishedLayout(track, clip) ^ FixedPairDigest,
+        }
+            .Track<FixedTrack, FixedBufferClip>(new FixedTrack(2f))
+            .Clip(0, 0u, 6u, fixedClip)
+            .Looping()
+            .Bake());
+        BakedLane<FixedTrack, FixedBufferClip>.Bind(fixedAsset);
+        for (var tick = 0; tick < 6; tick++)
+        {
+            Require(BakedLane<FixedTrack, FixedBufferClip>.Effect((ushort)tick) == 74f, $"fixed-buffer digest fold at {tick}");
+            Require(BakedLane<FixedTrack, FixedBufferClip>.InverseEffect((ushort)tick) == -74f, $"fixed-buffer digest inverse at {tick}");
+        }
+        effects[0] = 0f;
+        Timeline<FixedTrack, FixedBufferClip>.Apply(fixedAsset.Index, positions, next, true, effects);
+        Require(effects[0] == 74f, "fixed-buffer digest lane applies through the folded bank");
+
+        using var stale = TimelineAsset.LoadAsset(new DomainBaker
+        {
+            FingerprintOf = (track, clip) => PublishedLayout(track, clip) ^ MultiFieldPairDigest ^ 0x5555AAAA5555AAAAul,
+        }
+            .Track<MultiFieldTrack, MultiFieldClip>(new MultiFieldTrack(2f, 0.5f, 3))
+            .Clip(0, 0u, 6u, new MultiFieldClip { Amount = 4f, Ticks = 5 })
+            .Looping()
+            .Bake());
+        RequireThrows<ArgumentException>(() => Timeline<MultiFieldTrack, MultiFieldClip>.Apply(stale.Index, positions, next, true, effects), "asset baked against a stale digest rejected at resolve");
+    }
+
+    internal const ulong MultiFieldPairDigest = 4093416634968405307UL;
+
+    internal const ulong FixedPairDigest = 17128737283807995003UL;
+
+    static ulong PublishedLayout(Type track, Type clip)
+    {
+        foreach (var data in typeof(DataAuthoredReceipts).Assembly.GetCustomAttributesData())
+        {
+            var name = data.AttributeType.Name;
+            if (!(name.StartsWith("TlConsumerLayout", StringComparison.Ordinal) && name.EndsWith("Attribute", StringComparison.Ordinal))) continue;
+            var args = data.ConstructorArguments;
+            if (args.Count != 3 || args[0].Value is not Type a || a != track || args[1].Value is not Type b || b != clip || args[2].Value is not ulong layout) continue;
+            return layout;
+        }
+        return 0;
     }
 
 #if TL_CHECKED

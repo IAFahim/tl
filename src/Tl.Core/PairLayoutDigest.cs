@@ -18,14 +18,15 @@ internal static class PairLayoutDigest
         return hash | 1;
     }
 
-    [UnconditionalSuppressMessage("TrimAnalysis", "IL2070", Justification = "Generated installers root the pair types' fields with DynamicDependency before calling VerifyLayout.")]
+    [UnconditionalSuppressMessage("TrimAnalysis", "IL2070", Justification = "Generated installers root the pair and nested field types with DynamicDependency before calling VerifyLayout; fixed-size buffer structs fold through their layout header alone.")]
     static string Fold(Type type)
     {
         var layout = type.StructLayoutAttribute;
         var builder = new StringBuilder();
         builder.Append(layout is null ? "auto" : $"{layout.Value}:{layout.Pack}:{layout.Size}");
+        if (FixedSizeBuffer(type)) return builder.ToString();
         var fields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        Array.Sort(fields, static (left, right) => left.MetadataToken.CompareTo(right.MetadataToken));
+        Array.Sort(fields, static (left, right) => string.CompareOrdinal(left.Name, right.Name));
         foreach (var field in fields)
         {
             builder.Append('\n');
@@ -36,6 +37,8 @@ internal static class PairLayoutDigest
         }
         return builder.ToString();
     }
+
+    static bool FixedSizeBuffer(Type type) => type.Name.StartsWith('<') && type.Name.EndsWith("e__FixedBuffer", StringComparison.Ordinal);
 
     static int Width(Type type) => Type.GetTypeCode(type) switch
     {

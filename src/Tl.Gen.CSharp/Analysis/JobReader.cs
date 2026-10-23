@@ -52,7 +52,7 @@ public static class JobReader
                 if (!ok) { valid = false; continue; }
                 var definition = reader.Execute(entry.Type, contracts.Frame.Construct(track, clip), compilation.Assembly, entry.Syntax);
                 if (definition is null) { valid = false; continue; }
-                discovered.Add(new(Symbols.Name(track), Symbols.Name(clip), definition, PairLayout.Of(track, clip)));
+                discovered.Add(new(Symbols.Name(track), Symbols.Name(clip), definition, PairLayout.Of(track, clip), PairLayout.NestedTypes(track, clip)));
             }
             if (!valid) continue;
             foreach (var consumer in discovered.OrderBy(static item => item.TrackTypeName + "\0" + item.ClipTypeName, StringComparer.Ordinal))
