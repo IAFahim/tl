@@ -94,8 +94,8 @@ static unsafe class BakeTable
             }
             else entry->ParamKeys = null;
             entry->Invoke = invoke;
-            if (slots[slot].Tail < 0) slots[slot].Head = _bakes;
-            else EntryAt[slots[slot].Tail].Next = _bakes;
+            if (slots[slot].Tail < 0) Volatile.Write(ref slots[slot].Head, _bakes);
+            else Volatile.Write(ref EntryAt[slots[slot].Tail].Next, _bakes);
             slots[slot].Tail = _bakes;
             Volatile.Write(ref _bakes, _bakes + 1);
         }
@@ -110,7 +110,7 @@ static unsafe class BakeTable
         var slot = Probe(pairKey);
         if (slot < 0) return -1;
         var slots = (Slot*)(Slots + 8ul);
-        return slots[slot].Key == 0 ? -1 : Volatile.Read(ref slots[slot].Head);
+        return slots[slot].Key == pairKey ? Volatile.Read(ref slots[slot].Head) : -1;
     }
 
     internal static int ChainLength(ulong pairKey)

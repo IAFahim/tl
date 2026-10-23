@@ -44,18 +44,18 @@ internal static unsafe class Pairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<ManyEntities.MoveTrack, ManyEntities.MoveClip>.Consume(&ExecuteMove, &BindFloat);
-        PairRuntime<ManyEntities.PulseTrack, ManyEntities.PulseClip>.Consume(&ExecutePulse, &BindFloat);
-        PairRuntime<ManyEntities.WindowTrack, ManyEntities.WindowClip>.Consume(&ExecuteWindow, &BindFloat);
-        PairRuntime<Fresh.DamageTrack, Fresh.DamageClip>.Consume(&ExecuteDamage, &BindFloat);
-        PairRuntime<GaGlobalTrack, GaGlobalClip>.Consume(&ExecuteGaGlobal, &BindFloat);
-        PairRuntime<Tlb.JobTrack, Tlb.JobClip>.Consume(&ExecuteJob, &BindFloat);
-        PairRuntime<Tlb.AlphaTrack, Tlb.AlphaClip>.Consume(&ExecuteAlpha, &BindFloat);
-        PairRuntime<Tlb.BlendTrack, Tlb.BlendClip>.Consume(&ExecuteBlend, &BindFloat);
-        PairRuntime<Tlb.DualTrack, Tlb.DualAlphaClip>.Consume(&ExecuteDualAlpha, &BindFloat);
-        PairRuntime<Tlb.DualTrack, Tlb.DualBetaClip>.Consume(&ExecuteDualBeta, &BindFloat);
-        PairRuntime<Tlb.EchoTrack, Tlb.EchoClip>.Consume(&ExecuteEcho, &BindFloat);
-        PairRuntime<Play.ScaleTrack, Play.AmountClip>.Consume(&ExecuteScale, &BindFloat);
+        PairRuntime<ManyEntities.MoveTrack, ManyEntities.MoveClip>.Consume(&ExecuteMove, &BindFloat, "tl\0ExecuteMove");
+        PairRuntime<ManyEntities.PulseTrack, ManyEntities.PulseClip>.Consume(&ExecutePulse, &BindFloat, "tl\0ExecutePulse");
+        PairRuntime<ManyEntities.WindowTrack, ManyEntities.WindowClip>.Consume(&ExecuteWindow, &BindFloat, "tl\0ExecuteWindow");
+        PairRuntime<Fresh.DamageTrack, Fresh.DamageClip>.Consume(&ExecuteDamage, &BindFloat, "tl\0ExecuteDamage");
+        PairRuntime<GaGlobalTrack, GaGlobalClip>.Consume(&ExecuteGaGlobal, &BindFloat, "tl\0ExecuteGaGlobal");
+        PairRuntime<Tlb.JobTrack, Tlb.JobClip>.Consume(&ExecuteJob, &BindFloat, "tl\0ExecuteJob");
+        PairRuntime<Tlb.AlphaTrack, Tlb.AlphaClip>.Consume(&ExecuteAlpha, &BindFloat, "tl\0ExecuteAlpha");
+        PairRuntime<Tlb.BlendTrack, Tlb.BlendClip>.Consume(&ExecuteBlend, &BindFloat, "tl\0ExecuteBlend");
+        PairRuntime<Tlb.DualTrack, Tlb.DualAlphaClip>.Consume(&ExecuteDualAlpha, &BindFloat, "tl\0ExecuteDualAlpha");
+        PairRuntime<Tlb.DualTrack, Tlb.DualBetaClip>.Consume(&ExecuteDualBeta, &BindFloat, "tl\0ExecuteDualBeta");
+        PairRuntime<Tlb.EchoTrack, Tlb.EchoClip>.Consume(&ExecuteEcho, &BindFloat, "tl\0ExecuteEcho");
+        PairRuntime<Play.ScaleTrack, Play.AmountClip>.Consume(&ExecuteScale, &BindFloat, "tl\0ExecuteScale");
     }
 
     private static void BindFloat(ulong* keys, int keyCount, byte* table)

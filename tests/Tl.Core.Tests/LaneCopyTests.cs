@@ -16,7 +16,7 @@ internal static unsafe class CopyConsumer
     internal static int Calls;
 
     [ModuleInitializer]
-    internal static void Install() => PairRuntime<CopyTrack, CopyClip>.Consume(&Fold, &Keys);
+    internal static void Install() => PairRuntime<CopyTrack, CopyClip>.Consume(&Fold, &Keys, "tl\0Fold");
 
     private static int Keys(ulong* keys, byte* modes)
     {

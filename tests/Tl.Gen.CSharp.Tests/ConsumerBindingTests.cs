@@ -83,8 +83,8 @@ public sealed class ConsumerBindingTests
         var install = binding[at..binding.IndexOf("}", at, StringComparison.Ordinal)];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.ConsumeDispatch(&ExecuteActive_ApplyDamage, &LiveKeys_ApplyDamage, &Diag_ApplyDamage);",
-            "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.ConsumeDispatch(&ExecuteActive_ApplyHeal, &LiveKeys_ApplyHeal, &Diag_ApplyHeal);",
+            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.ConsumeDispatch(&ExecuteActive_ApplyDamage, &LiveKeys_ApplyDamage, &Diag_ApplyDamage, \"ConsumerBindingEmission\\u0000global::Domain.ApplyDamage\");",
+            "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.ConsumeDispatch(&ExecuteActive_ApplyHeal, &LiveKeys_ApplyHeal, &Diag_ApplyHeal, \"ConsumerBindingEmission\\u0000global::Domain.ApplyHeal\");",
             "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.VerifyLayout(1653526390476323667UL);",
             "global::Tl.PairRuntime<global::Domain.HealTrack, global::Domain.HealClip>.VerifyLayout(5952046634645506417UL);",
         ], install.Split('\n')[2..^1]);
@@ -119,7 +119,7 @@ public sealed class ConsumerBindingTests
         var (sources, diagnostics) = GenerateWithDiagnostics(source);
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
-        Assert.Contains("global::Tl.PairRuntime<global::Domain.BellTrack, global::Domain.BellClip>.ConsumeDispatch(&ExecuteActive_RingBell);", binding);
+        Assert.Contains("global::Tl.PairRuntime<global::Domain.BellTrack, global::Domain.BellClip>.ConsumeDispatch(&ExecuteActive_RingBell, \"ConsumerBindingEmission\\u0000global::Domain.RingBell\");", binding);
         Assert.Contains("private static void ExecuteActive_RingBell(byte* __tlSlot, byte* __tlPair, ushort __tlTick, global::Tl.FrameFlags __tlFlags, void** __tlColumns, int __tlRow)", binding);
         Assert.Contains("global::Domain.RingBell.ExecuteActive(in __tlTyped);", binding);
         Assert.DoesNotContain("Range_", binding);
@@ -132,7 +132,7 @@ public sealed class ConsumerBindingTests
         var (sources, diagnostics) = GenerateWithDiagnostics(StandaloneSource);
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
-        Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&ExecuteActive_ApplyBuff, &Bind_ApplyBuff);", binding);
+        Assert.Contains("global::Tl.PairRuntime<global::Domain.BuffTrack, global::Domain.BuffClip>.Consume(&ExecuteActive_ApplyBuff, &Bind_ApplyBuff, \"ConsumerBindingEmission\\u0000global::Domain.ApplyBuff\");", binding);
     }
 
     [Fact]
@@ -293,8 +293,8 @@ public sealed class ConsumerBindingTests
         var install = binding[at..binding.IndexOf("}", at, StringComparison.Ordinal)];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&ExecuteActive_DualJob, &Bind_DualJob);",
-            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&ExecuteActive_DualJob_, &Bind_DualJob_);",
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.Consume(&ExecuteActive_DualJob, &Bind_DualJob, \"ConsumerBindingEmission\\u0000global::Domain.DualJob\");",
+            "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.Consume(&ExecuteActive_DualJob_, &Bind_DualJob_, \"ConsumerBindingEmission\\u0000global::Domain.DualJob\");",
             "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.AlphaClip>.VerifyLayout(13605547736430830029UL);",
             "global::Tl.PairRuntime<global::Domain.DualTrack, global::Domain.BetaClip>.VerifyLayout(14545621562080599017UL);",
         ], install.Split('\n')[2..^1]);
@@ -371,7 +371,7 @@ public sealed class ConsumerBindingTests
     [Fact]
     public void GeneratedOutputBindsAndMatchesTheCliByteForByte()
     {
-        var compilation = Compilation(Source);
+        var compilation = Compilation(Source, "Tl.Generated.Authoring");
         var driver = Driver().RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
 
         Assert.Empty(diagnostics);
@@ -484,7 +484,7 @@ public sealed class ConsumerBindingTests
     internal static (Dictionary<string, string> Sources, ImmutableArray<Diagnostic> Diagnostics) GenerateWithDiagnostics(string source)
     {
         var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
-        var compilation = CSharpCompilation.Create("ConsumerBindingEmission" + Guid.NewGuid().ToString("N"),
+        var compilation = CSharpCompilation.Create("ConsumerBindingEmission",
             [CSharpSyntaxTree.ParseText(source, options, "Domain.cs")], References(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
         GeneratorDriver driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator().AsSourceGenerator()], parseOptions: options);
@@ -494,9 +494,9 @@ public sealed class ConsumerBindingTests
         return (sources, diagnostics);
     }
 
-    private static CSharpCompilation Compilation(string source)
+    private static CSharpCompilation Compilation(string source, string name = "ConsumerBindingTests")
         => CSharpCompilation.Create(
-            "ConsumerBindingTests",
+            name,
             [Tree(source, "Domain.cs")],
             References(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));

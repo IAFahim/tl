@@ -34,7 +34,7 @@ public sealed unsafe class SampleTests
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<RampTrack, RampClip>.ConsumeDispatch(&Row, &Keys, &Diag);
+        PairRuntime<RampTrack, RampClip>.ConsumeDispatch(&Row, &Keys, &Diag, "tl\0Row");
     }
 
     private static void Row(byte* slot, byte* pair, ushort tick, FrameFlags flags, void** columns, int row)

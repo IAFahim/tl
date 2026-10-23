@@ -43,7 +43,7 @@ public static class Dumps
 internal static unsafe class LiveHostInstall
 {
     [ModuleInitializer]
-    internal static void Install() => PairRuntime<LiveTrack, LiveClip>.Consume(&Execute, &Bind);
+    internal static void Install() => PairRuntime<LiveTrack, LiveClip>.Consume(&Execute, &Bind, "tl\0Execute");
 
     static void Bind(ulong* keys, int keyCount, byte* table)
     {

@@ -18,8 +18,8 @@ public static unsafe class FuzzPairs
     {
         if (_installed) return;
         _installed = true;
-        PairRuntime<FuzzTrack, FuzzClip>.Consume(&Execute, &BindFloat);
-        PairRuntime<FuzzJsonTrack, FuzzJsonClip>.Consume(&ExecuteJson, &BindFloat);
+        PairRuntime<FuzzTrack, FuzzClip>.Consume(&Execute, &BindFloat, "tl\0Execute");
+        PairRuntime<FuzzJsonTrack, FuzzJsonClip>.Consume(&ExecuteJson, &BindFloat, "tl\0ExecuteJson");
     }
 
     static void BindFloat(ulong* keys, int keyCount, byte* table)

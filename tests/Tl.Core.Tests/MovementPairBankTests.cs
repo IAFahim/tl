@@ -15,7 +15,7 @@ public unsafe class MovementPairBankTests
 {
     static MovementPairBankTests()
     {
-        PairRuntime<MovementHoleTrack, MovementHoleClip>.Consume(&ExecuteCode, &BindFloat);
+        PairRuntime<MovementHoleTrack, MovementHoleClip>.Consume(&ExecuteCode, &BindFloat, "tl\0ExecuteCode");
     }
 
     private static void BindFloat(ulong* keys, int keyCount, byte* table)

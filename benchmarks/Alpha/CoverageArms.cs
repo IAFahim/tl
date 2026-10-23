@@ -233,6 +233,6 @@ internal static class CoverageArms
         if (PairRuntime<AlphaTrack, AlphaClip>.Key == 0)
             Fail("pair runtime key must be nonzero.");
 
-        PairRuntime<AlphaTrack, AlphaClip>.Consume(&Execute, &Bind);
+        PairRuntime<AlphaTrack, AlphaClip>.Consume(&Execute, &Bind, "tl\0Execute");
     }
 }

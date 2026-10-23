@@ -118,7 +118,7 @@ public static unsafe class Play
     public static void Run(byte[] scaleTlb)
     {
         if (Interlocked.Exchange(ref _installed, 1) == 0)
-            PairRuntime<ScaleTrack, AmountClip>.Consume(&ExecuteAmount, &BindFloat);
+            PairRuntime<ScaleTrack, AmountClip>.Consume(&ExecuteAmount, &BindFloat, "tl\0ExecuteAmount");
         ushort timeline = TimelineAsset.Load(scaleTlb);
         var ids = new ushort[] { timeline, timeline, timeline, timeline };
         var tick = new ushort[4];

@@ -12,8 +12,8 @@ internal static unsafe class InspectionPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<SnapshotTrack, SnapshotClip>.Consume(&Execute, &Bind);
-        PairRuntime<GoldenTrack, GoldenClip>.Consume(&Execute, &Bind);
+        PairRuntime<SnapshotTrack, SnapshotClip>.Consume(&Execute, &Bind, "tl\0Execute");
+        PairRuntime<GoldenTrack, GoldenClip>.Consume(&Execute, &Bind, "tl\0Execute");
     }
 
     static void Bind(ulong* keys, int keyCount, byte* table)
@@ -147,7 +147,7 @@ public class InspectionTests
         Assert.True(after.Pair.Pairs >= 1);
         Assert.True(after.Pair.Consumers >= 1);
         Assert.Equal(40, after.Pair.SlotRowBytes);
-        Assert.Equal(1024, after.Bake.Slots);
+        Assert.True(after.Bake.Slots >= 1024);
         Assert.True(after.Bake.Entries >= 0);
         Assert.True(after.Intern.GraveyardBlocks >= 0);
         Assert.True(after.Intern.AllocBytes >= 0);

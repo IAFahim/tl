@@ -137,6 +137,35 @@ public sealed class BakeReaderTests
     }
 
     [Fact]
+    public void RejectsBakesBeyondTheSingleWritableRefSlotPerCall()
+    {
+        const string bake = """
+            public readonly struct DoubleRefBake : IBake<ApplyDamage>
+            {
+                public static void Bake(ref World world, ref Entity entity) { }
+            }
+            """;
+        Rejects(bake, "TLGEN88", "declares more than one ref state parameter");
+    }
+
+    [Fact]
+    public void MidPositionRefStateParameterIsAcceptedAndInstallsTheWritableSlotKey()
+    {
+        const string bake = """
+            public readonly struct MidRefBake : IBake<ApplyDamage>
+            {
+                public static void Bake(ref Entity entity, in World world) { }
+            }
+            """;
+        var (sources, diagnostics) = GenerateWithDiagnostics(Domain + bake);
+
+        Assert.Empty(diagnostics);
+        var binding = Assert.Single(sources).Value;
+        Assert.Contains("global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_MidRefBake, global::Tl.TypeKey<global::Domain.Entity>.Value ^ 0x8000000000000000UL, global::Tl.TypeKey<global::Domain.World>.Value);", binding);
+        Assert.Contains("global::Domain.MidRefBake.Bake(ref __tlArg0, in __tlArg1);", binding);
+    }
+
+    [Fact]
     public void MultipleBakesSortByConsumerThenSignatureThenBakeTypeName()
     {
         const string bakes = """
@@ -246,7 +275,7 @@ public sealed class BakeReaderTests
 
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
-        Assert.Contains("global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ApplyDamageBake, global::Tl.TypeKey<global::Domain.World>.Value, global::Tl.TypeKey<global::Domain.Entity>.Value);", binding);
+        Assert.Contains("global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ApplyDamageBake, global::Tl.TypeKey<global::Domain.World>.Value, global::Tl.TypeKey<global::Domain.Entity>.Value ^ 0x8000000000000000UL);", binding);
         Assert.Contains("global::Domain.ApplyDamage __tlConsumer = default;", binding);
         Assert.Contains("ref global::Domain.World __tlArg0 = ref global::System.Runtime.CompilerServices.Unsafe.AsRef<global::Domain.World>(__tlArgs[0]);", binding);
         Assert.Contains("ref global::Domain.Entity __tlArg1 = ref global::System.Runtime.CompilerServices.Unsafe.AsRef<global::Domain.Entity>(__tlArgs[1]);", binding);
@@ -327,7 +356,7 @@ public sealed class BakeReaderTests
         var install = binding[at..binding.IndexOf("}", at, StringComparison.Ordinal)];
         Assert.Equal(
         [
-            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.ConsumeDispatch(&ExecuteActive_ApplyDamage);",
+            "global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.ConsumeDispatch(&ExecuteActive_ApplyDamage, \"BakeReaderTests\\u0000global::Domain.ApplyDamage\");",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_AlphaBake, global::Tl.TypeKey<global::Domain.World>.Value);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_NarrowBake, global::Tl.TypeKey<global::Domain.World>.Value);",
             "global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ZetaBake, global::Tl.TypeKey<global::Domain.World>.Value);",
@@ -572,7 +601,7 @@ public sealed class BakeReaderTests
             """;
         var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
         var tree = CSharpSyntaxTree.ParseText(stray, options, "Domain.cs");
-        var compilation = CSharpCompilation.Create("BakeReaderSpan" + Guid.NewGuid().ToString("N"),
+        var compilation = CSharpCompilation.Create("BakeReaderSpan",
             [tree], ReferencePaths().Select(static path => MetadataReference.CreateFromFile(path)),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
         GeneratorDriver driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator().AsSourceGenerator()], parseOptions: options);
@@ -627,7 +656,7 @@ public sealed class BakeReaderTests
         [global::System.Runtime.CompilerServices.ModuleInitializer]
         internal static void Install()
         {
-        global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&ExecuteActive_ApplyDamage, &Bind_ApplyDamage);
+        global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Consume(&ExecuteActive_ApplyDamage, &Bind_ApplyDamage, "BakeReaderTests\u0000global::Domain.ApplyDamage");
         global::Tl.BakeRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.Bake(&Bake_ApplyDamageBake, global::Tl.TypeKey<global::Domain.World>.Value);
         global::Tl.PairRuntime<global::Domain.DamageTrack, global::Domain.DamageClip>.VerifyLayout(1653526390476323667UL);
         }
@@ -677,7 +706,7 @@ public sealed class BakeReaderTests
     }
 
     private static CSharpCompilation Compile(string source)
-        => CSharpCompilation.Create("BakeReaderTests" + Guid.NewGuid().ToString("N"),
+        => CSharpCompilation.Create("BakeReaderTests",
             [CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "Domain.cs")], References(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
 

@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using unsafe ExecThunk = delegate*<byte*, byte*, ushort, Tl.FrameFlags, void**, int, void>;
 using unsafe BindThunk = delegate*<ulong*, int, byte*, void>;
 using unsafe KeysThunk = delegate*<ulong*, byte*, int>;
@@ -336,13 +337,16 @@ public readonly unsafe struct TickFrame
 {
 internal const int SlotRow = 40;
 internal const int MemoResults = 10;
-	internal struct Consumer { public int Next, Offset, Feed, Ordinal; public ulong PairKey; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public BindThunk Bind; public KeysThunk Keys; public DiagThunk Diag; public byte DispatchOnly; }
-	struct Slot { public ulong Key; public int Head; }
+	internal struct Consumer { public int Next, Offset, Feed, Ordinal, NameOffset; public ulong PairKey; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public BindThunk Bind; public KeysThunk Keys; public DiagThunk Diag; public byte DispatchOnly; }
+	struct Slot { public ulong Key; public int Head, Tail; }
 	const int SlotCount = 1024;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	internal static ulong _slotsBase = (ulong)NativeMemory.AlignedAlloc((nuint)(8 + 24 * SlotCount), 64);
 	static ulong _consumersBase = (ulong)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * 64), 64);
 	internal static int _consumerCapacity = 64;
+	static ulong _namesBase = (ulong)NativeMemory.AlignedAlloc(4096, 64);
+	static int _namesLength;
+	static int _namesCapacity = 4096;
 	static volatile int _gate;
 	internal static volatile int _sealed;
 	internal static int _pairs, _consumers;
@@ -369,6 +373,7 @@ internal const int MemoResults = 10;
 			GrowSlots();
 		}
 		slots[slot].Head = -1;
+		slots[slot].Tail = -1;
 		Volatile.Write(ref slots[slot].Key, key);
 		_pairs++;
 	}
@@ -415,12 +420,13 @@ internal const int MemoResults = 10;
 		return slots[slot].Key == key ? Volatile.Read(ref ((ulong*)(slots + *(int*)block))[slot]) : 0;
 	}
 
-	internal static void Install(ulong key, ExecThunk e, BindThunk b, bool dispatchOnly = false, KeysThunk resultKeys = null, DiagThunk diag = null)
+	internal static void Install(ulong key, ExecThunk e, BindThunk b, string identity, bool dispatchOnly = false, KeysThunk resultKeys = null, DiagThunk diag = null)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
 		{
 			if (_sealed != 0) Fail.Sealed();
+			var name = InternName(identity);
 			Claim(key, out var slots, out var slot);
 			if (_consumers == _consumerCapacity)
 			{
@@ -435,9 +441,11 @@ internal const int MemoResults = 10;
 			var ordinal = 0;
 			for (var walk = slots[slot].Head; walk >= 0; walk = consumers[walk].Next) ordinal++;
 			var feed = dispatchOnly && resultKeys != null && _lastFoldPair == key && _lastFoldEntry != 0 ? _lastFoldEntry - 1 : -1;
-			consumers[entry] = new Consumer { Next = slots[slot].Head, PairKey = key, Execute = e, Bind = b, Keys = resultKeys, Diag = diag, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = ordinal * SlotRow, Feed = feed, Ordinal = ordinal };
+			consumers[entry] = new Consumer { Next = -1, PairKey = key, Execute = e, Bind = b, Keys = resultKeys, Diag = diag, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = ordinal * SlotRow, Feed = feed, Ordinal = ordinal, NameOffset = name };
 			if (!dispatchOnly && resultKeys != null) { _lastFoldEntry = ordinal + 1; _lastFoldPair = key; }
-			Volatile.Write(ref slots[slot].Head, entry);
+			if (slots[slot].Tail >= 0) Volatile.Write(ref consumers[slots[slot].Tail].Next, entry);
+			else Volatile.Write(ref slots[slot].Head, entry);
+			slots[slot].Tail = entry;
 			Volatile.Write(ref _consumers, entry + 1);
 		}
 		finally
@@ -446,12 +454,89 @@ internal const int MemoResults = 10;
 		}
 	}
 
+	static int InternName(string identity)
+	{
+		Span<byte> small = stackalloc byte[512];
+		byte[]? large = null;
+		int length;
+		if (identity.Length < 128) length = Encoding.UTF8.GetBytes(identity.AsSpan(), small);
+		else { large = Encoding.UTF8.GetBytes(identity); length = large.Length; }
+		if (length > ushort.MaxValue) throw new InvalidOperationException("Consumer identity exceeds 65,535 UTF-8 bytes.");
+		if (_namesCapacity - _namesLength < length + 2)
+		{
+			var cap = _namesCapacity;
+			while (cap - _namesLength < length + 2) cap *= 2;
+			var grown = (ulong)NativeMemory.AlignedAlloc((nuint)cap, 64);
+			Buffer.MemoryCopy((void*)_namesBase, (void*)grown, cap, _namesLength);
+			NativeMemory.Free((void*)_namesBase);
+			_namesBase = grown;
+			_namesCapacity = cap;
+		}
+		var offset = _namesLength;
+		var ptr = (byte*)(_namesBase + (ulong)offset);
+		ptr[0] = (byte)length;
+		ptr[1] = (byte)(length >> 8);
+		var destination = new Span<byte>(ptr + 2, length);
+		if (large == null) small[..length].CopyTo(destination);
+		else large.AsSpan(0, length).CopyTo(destination);
+		_namesLength += length + 2;
+		return offset;
+	}
+
+	static int CompareNames(int left, int right)
+	{
+		var names = (byte*)_namesBase;
+		var a = names + left;
+		var b = names + right;
+		var leftLength = a[0] | (a[1] << 8);
+		var rightLength = b[0] | (b[1] << 8);
+		var count = Math.Min(leftLength, rightLength);
+		for (var i = 0; i < count; i++)
+		{
+			var delta = a[2 + i] - b[2 + i];
+			if (delta != 0) return delta;
+		}
+		return leftLength - rightLength;
+	}
+
 	internal static void Seal()
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
 		{
 			_sealed = 1;
+			var consumers = ConsumerAt;
+			var slots = (Slot*)(_slotsBase + 8ul);
+			var cap = *(int*)_slotsBase;
+			int* order = null;
+			var capacity = 0;
+			for (var s = 0; s < cap; s++)
+			{
+				var head = slots[s].Head;
+				if (head < 0) continue;
+				var count = ChainLength(head);
+				if (count < 2) continue;
+				if (count > capacity)
+				{
+					if (order != null) NativeMemory.Free(order);
+					capacity = count;
+					order = (int*)NativeMemory.AlignedAlloc((nuint)(sizeof(int) * capacity), 16);
+				}
+				var filled = 0;
+				for (var e = head; e >= 0; e = consumers[e].Next) order[filled++] = e;
+				for (var a = 1; a < count; a++)
+				{
+					var value = order[a];
+					var b = a - 1;
+					while (b >= 0 && CompareNames(consumers[order[b]].NameOffset, consumers[value].NameOffset) > 0) { order[b + 1] = order[b]; b--; }
+					order[b + 1] = value;
+				}
+				for (var k = 0; k + 1 < count; k++) Volatile.Write(ref consumers[order[k]].Next, order[k + 1]);
+				consumers[order[count - 1]].Next = -1;
+				Volatile.Write(ref slots[s].Head, order[0]);
+				slots[s].Tail = order[count - 1];
+			}
+			if (order != null) NativeMemory.Free(order);
 		}
 		finally
 		{
@@ -576,13 +661,13 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 {
 	public static readonly ulong Key = Keying.Of(Keying.StableName(typeof(TTrack)) + "\0" + Keying.StableName(typeof(TClip)));
 
-	public static void Consume(ExecThunk execute, BindThunk bind) => PairTable.Install(Key, execute, bind);
+	public static void Consume(ExecThunk execute, BindThunk bind, string identity) => PairTable.Install(Key, execute, bind, identity);
 
-	public static void Consume(ExecThunk execute, KeysThunk keys) => PairTable.Install(Key, execute, null, resultKeys: keys);
+	public static void Consume(ExecThunk execute, KeysThunk keys, string identity) => PairTable.Install(Key, execute, null, identity, resultKeys: keys);
 
-	public static void ConsumeDispatch(ExecThunk execute) => PairTable.Install(Key, execute, null, true);
+	public static void ConsumeDispatch(ExecThunk execute, string identity) => PairTable.Install(Key, execute, null, identity, true);
 
-	public static void ConsumeDispatch(ExecThunk execute, KeysThunk keys, DiagThunk diag) => PairTable.Install(Key, execute, null, true, keys, diag);
+	public static void ConsumeDispatch(ExecThunk execute, KeysThunk keys, DiagThunk diag, string identity) => PairTable.Install(Key, execute, null, identity, true, keys, diag);
 
 	public static void VerifyLayout(ulong layout) => PairTable.VerifyLayout(Key, layout ^ PairLayoutDigest.Of<TTrack, TClip>());
 
