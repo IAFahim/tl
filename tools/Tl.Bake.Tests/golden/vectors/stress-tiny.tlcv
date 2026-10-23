@@ -1,0 +1,18 @@
+tlcv1
+stress stress-tiny
+tlbsha256 6eec37bbb3e25c80ea24c9a40fd398ac6d3f16bfd87075eb3842820019cf70e3
+duration 1
+looping 0
+pairs 1
+pair 0
+key 51566d39cf530e51
+fold job1
+lanes 1
+lane 0 key 214ebd18d4e85363 ticks 2
+f 41200000 00000000
+b c1200000 00000000
+clock f 0 a1 t0 n1 e41200000
+clock f 1 a0 t0 n1 e00000000
+clock b 0 a0 t0 n0 e00000000
+clock b 1 a1 t0 n0 ec1200000
+sha256 ee73cb20517b333925f76fdaf9c8a37c7b4b86baef3d1bdafdb4237897538b70

@@ -1,0 +1,24 @@
+tlcv1
+fixture minimal.tlb
+tlbsha256 5835fb500684924b15e4c3eed022745426560558172e6e48c93cd54cfb3c0900
+duration 4
+looping 0
+pairs 1
+pair 0
+key 51566d39cf530e51
+fold job1
+lanes 1
+lane 0 key 214ebd18d4e85363 ticks 5
+f 40000000 40400000 40800000 40a00000 00000000
+b c0000000 bf800000 00000000 3f800000 00000000
+clock f 0 a1 t0 n1 e40000000
+clock f 1 a1 t1 n2 e40400000
+clock f 2 a1 t2 n3 e40800000
+clock f 3 a1 t3 n4 e40a00000
+clock f 4 a0 t0 n4 e00000000
+clock b 0 a0 t0 n0 e00000000
+clock b 1 a1 t0 n0 ec0000000
+clock b 2 a1 t1 n1 ebf800000
+clock b 3 a1 t2 n2 e00000000
+clock b 4 a1 t3 n3 e3f800000
+sha256 11f625c5445ad0e1b3be190b7aa4faad17801b40d1daf3ac69728eccbe310145
