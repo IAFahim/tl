@@ -451,7 +451,6 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		MemoLane* laneCells = stackalloc MemoLane[memoBound];
 		byte* cellBlock = stackalloc byte[memoBound * 8];
 		byte* cellWide = stackalloc byte[memoBound];
-		int* outLane = stackalloc int[memoBound];
 		ulong* outKey = stackalloc ulong[memoBound];
 		int memo = 0, pairs = 0;
 		var reference = default(TimelineRef);
@@ -471,19 +470,19 @@ public static unsafe partial class Timeline<TTrack, TClip>
 				pairs = checked((int)reference.PairCount);
 				reference.Resolve(new Span<int>(chains, pairs), key);
 				var slot = Bank().FoldedView(id);
+				var map = (int*)((byte*)slot->LaneKeys + (nuint)slot->ResultCount * 8);
+				var viewLanes = map + 1;
 				var outs = 0;
 				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
 				{
 					if (consumers[e].Ordinal >= pairCount || consumers[e].DispatchOnly != 0 || consumers[e].Keys == null) continue;
 					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
-					var own = 0;
 					feedStart[consumers[e].Ordinal] = outs;
 					for (var j = 0; j < n; j++)
 						if ((slotMeta[j] & 0x10) != 0)
 						{
 							if (outs >= memoBound) ThrowMemoRow(memoBound);
-							outKey[outs] = slotKeys[j];
-							outLane[outs++] = consumers[e].OutLanes[own++];
+							outKey[outs++] = slotKeys[j];
 						}
 					feedEnd[consumers[e].Ordinal] = outs;
 				}
@@ -506,7 +505,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 								throw new ArgumentException($"{Head} ExecuteActive fold-fed 'in' does not match a Fold 'out' result.");
 						if (memo >= memoBound) ThrowMemoRow(memoBound);
 						cells[memo] = cellBlock + 8 * memo;
-						laneCells[memo] = new MemoLane { Slot = slot, Lane = (ushort)outLane[feed], Duration = slot->Duration };
+						laneCells[memo] = new MemoLane { Slot = slot, Lane = (ushort)viewLanes[feed], Duration = slot->Duration };
 						cellWide[memo] = (meta & 0xF) == 8 ? (byte)1 : (byte)0;
 							columns[column] = cells[memo++];
 							feed++;

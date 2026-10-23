@@ -217,7 +217,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 var view = _shared[i];
                 if (view == null) continue;
                 _shared[i] = null;
-                Retire((byte*)view->LaneKeys + (nuint)view->ResultCount * 8, view);
+                var map = (int*)((byte*)view->LaneKeys + (nuint)view->ResultCount * 8);
+                Retire((byte*)map + (nuint)(4 + map[0] * 4), view);
             }
             for (var index = 0; index < _count; index++)
             {
@@ -487,8 +488,9 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var forwardBytes = plan.FlatForward ? (nuint)lanes * ticks * sizeof(float) : 0;
         var backwardBytes = plan.FlatBackward ? (nuint)lanes * ticks * sizeof(float) : 0;
         var keysBytes = (nuint)(lanes * 8);
+        var mapBytes = (nuint)(4 + measured.OwnedCount * 4);
         var padBytes = (BlockHeaderBytes + dirBytes + segBytes + denseBytes + forwardBytes + backwardBytes) % 8 == 0 ? 0u : 4u;
-        var block = (byte*)NativeMemory.AlignedAlloc((nuint)BlockHeaderBytes + dirBytes + segBytes + denseBytes + forwardBytes + backwardBytes + padBytes + keysBytes + GuardBytes, 64);
+        var block = (byte*)NativeMemory.AlignedAlloc((nuint)BlockHeaderBytes + dirBytes + segBytes + denseBytes + forwardBytes + backwardBytes + padBytes + keysBytes + mapBytes + GuardBytes, 64);
         var directory = (uint*)(block + BlockHeaderBytes);
         var segments = (LaneSegment*)((byte*)directory + dirBytes);
         var dense = (float*)((byte*)segments + segBytes);
@@ -528,7 +530,10 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 Buffer.MemoryCopy(measured.LaneBackward[l], flatBackward + (nuint)l * ticks, tableBytes, tableBytes);
             keys[l] = measured.LaneKeys[l];
         }
-        Unsafe.InitBlock((byte*)keys + keysBytes, 0, (uint)GuardBytes);
+        var map = (int*)((byte*)keys + keysBytes);
+        map[0] = measured.OwnedCount;
+        for (var i = 0; i < measured.OwnedCount; i++) map[1 + i] = measured.OwnedMap[i];
+        Unsafe.InitBlock((byte*)map + mapBytes, 0, (uint)GuardBytes);
         *(SlotView*)block = new SlotView
         {
             Directory = directories ? directory : null,

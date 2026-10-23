@@ -12,6 +12,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
     internal readonly float** LaneForward;
     internal readonly float** LaneBackward;
     internal readonly ulong* LaneKeys;
+    internal int* OwnedMap;
+    internal int OwnedCount;
     bool _disposed;
 
     MeasuredLanes(byte* block, ushort duration, bool looping, nint source, int lanes)
@@ -21,6 +23,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
         LaneForward = (float**)(block + 2 * (nuint)lanes * ticks * sizeof(float));
         LaneBackward = LaneForward + lanes;
         LaneKeys = (ulong*)(LaneBackward + lanes);
+        OwnedMap = (int*)(LaneKeys + lanes);
+        OwnedCount = 0;
         for (var l = 0; l < lanes; l++)
         {
             LaneForward[l] = (float*)block + (nuint)l * ticks;
@@ -53,7 +57,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
         int lanes;
         try { lanes = ResultLanes(reference, pairKey, chainProbe, scratch, laneBound); } catch { NativeMemory.AlignedFree(scratch); throw; }
         var ticks = (nuint)(Math.Max(1u, duration) + 1u);
-        var block = (byte*)NativeMemory.AlignedAlloc(2 * (nuint)lanes * ticks * sizeof(float) + (nuint)lanes * 2 * (nuint)sizeof(float*) + (nuint)lanes * sizeof(ulong), 64);
+        var ownedBound = pointerBound / PairTable.SlotRow * PairTable.MemoResults;
+        var block = (byte*)NativeMemory.AlignedAlloc(2 * (nuint)lanes * ticks * sizeof(float) + (nuint)lanes * 2 * (nuint)sizeof(float*) + (nuint)lanes * sizeof(ulong) + (nuint)ownedBound * 4, 64);
         try
         {
             var measured = new MeasuredLanes(block, (ushort)duration, looping, reference.Address, lanes);
@@ -89,12 +94,13 @@ public sealed unsafe class MeasuredLanes : IDisposable
         if (_source != reference.Address) throw new ArgumentException("Measured lanes were measured from a different TimelineAsset instance.");
     }
 
-    static int GatherLanes(int* chains, int pairs, ulong* laneKeys, int* resLane, ulong* poolKeys, int* poolLane, out int poolCount)
+    static int GatherLanes(int* chains, int pairs, ulong* laneKeys, int* resLane, int* ownedMap, ulong* poolKeys, int* poolLane, out int poolCount, out int ownedCount)
     {
         var consumers = PairTable.ConsumerAt;
         var lanes = 0;
         var results = 0;
         var pools = 0;
+        var owned = 0;
         var rKeys = stackalloc ulong[PairTable.SlotRow];
         var rMeta = stackalloc byte[PairTable.SlotRow];
         int Pool(ulong key, byte width, bool shared)
@@ -125,11 +131,18 @@ public sealed unsafe class MeasuredLanes : IDisposable
                     var shared = (rMeta[j] & 0x10) == 0;
                     var lane = Pool(rKeys[j], (byte)(rMeta[j] & 0xF), shared);
                     if (resLane != null) resLane[results++] = lane;
-                    if (!shared) { if (outs == PairTable.MemoResults) throw new InvalidOperationException($"consumer {consumers[e].Ordinal} declares more than 10 owned results."); consumers[e].OutLanes[outs++] = lane; }
+                    if (!shared)
+                    {
+                        if (outs == PairTable.MemoResults) throw new InvalidOperationException($"consumer {consumers[e].Ordinal} declares more than 10 owned results.");
+                        if (ownedMap != null) ownedMap[owned] = lane;
+                        owned++;
+                        outs++;
+                    }
                 }
             }
         if (lanes == 0) _ = Pool(TypeKey<float>.Value, 4, true);
         poolCount = pools;
+        ownedCount = owned;
         return lanes;
     }
 
@@ -137,7 +150,7 @@ public sealed unsafe class MeasuredLanes : IDisposable
     {
         var pairs = checked((int)reference.PairCount);
         reference.Resolve(new Span<int>(chains, pairs), pairKey);
-        return GatherLanes(chains, pairs, null, null, (ulong*)scratch, (int*)(scratch + 8 * laneBound), out _);
+        return GatherLanes(chains, pairs, null, null, null, (ulong*)scratch, (int*)(scratch + 8 * laneBound), out _, out _);
     }
 
     static void Fill(TimelineRef reference, ulong pairKey, MeasuredLanes measured, uint duration, bool looping, byte* scratch, int pointerBound, int laneBound)
@@ -151,8 +164,9 @@ public sealed unsafe class MeasuredLanes : IDisposable
         int* resLane = (int*)(scratch + 17 * pointerBound);
         ulong* poolKeys = (ulong*)(resLane + laneBound);
         int* poolLane = (int*)(poolKeys + laneBound);
-        var built = GatherLanes(chains, pairs, laneKeys, resLane, poolKeys, poolLane, out var pools);
+        var built = GatherLanes(chains, pairs, laneKeys, resLane, measured.OwnedMap, poolKeys, poolLane, out var pools, out var ownedCount);
         if (built != lanes) throw new InvalidOperationException("Measured lane count changed between passes.");
+        measured.OwnedCount = ownedCount;
         byte* laneCell = stackalloc byte[lanes * 4];
         void** columns = (void**)scratch;
         Unsafe.InitBlock(scratch, 0, (uint)pointerBound * 8);

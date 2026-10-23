@@ -318,8 +318,9 @@ public sealed class TwoMethodShapeTests
         Assert.False(consumer.Job.LiveFrame);
         Assert.Equal([new TimelineSlot("arc", "float", SlotMode.MemoFeed), new TimelineSlot("y", "float", SlotMode.Reference), new TimelineSlot("multiplier", "int", SlotMode.Input)], consumer.Job.LiveColumns);
         var binding = JobEmitter.Consumers(result.Consumers);
+        Assert.Contains("var __tlFeed_Jump = global::Tl.PairRuntime<", binding);
         Assert.Contains("Consume(&Fold_Jump, &Keys_Jump, \"TwoMethodShapeTests\\u0000global::Domain.Jump\");", binding);
-        Assert.Contains("ConsumeDispatch(&ExecuteActive_Jump, &LiveKeys_Jump, &Diag_Jump, \"TwoMethodShapeTests\\u0000global::Domain.Jump\");", binding);
+        Assert.Contains("ConsumeDispatch(&ExecuteActive_Jump, &LiveKeys_Jump, &Diag_Jump, \"TwoMethodShapeTests\\u0000global::Domain.Jump\", __tlFeed_Jump);", binding);
         Assert.Contains("var @arc = *(float*)__tlColumns[0];", binding);
         Assert.Contains("var @y = (float*)__tlColumns[1];", binding);
         Assert.Contains("var @multiplier = (int*)__tlColumns[2];", binding);
