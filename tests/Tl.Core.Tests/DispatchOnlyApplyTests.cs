@@ -33,11 +33,11 @@ internal static unsafe class DispatchLog
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<DispatchSoundTrack, DispatchSoundClip>.ConsumeDispatch(&OnSound);
-        PairRuntime<DispatchDualTrack, DispatchDualClip>.ConsumeDispatch(&OnDual);
-        PairRuntime<DispatchDualTrack, DispatchDualClip>.Consume(&OnDualWrite, &BindFloat);
-        PairRuntime<DispatchJumpTrack, DispatchJumpClip>.Consume(&OnJump, &BindFloat);
-        PairRuntime<DispatchBellTrack, DispatchBellClip>.Consume(&OnBell, &BindFloat);
+        PairRuntime<DispatchSoundTrack, DispatchSoundClip>.ConsumeDispatch(&OnSound, "tl\0OnSound");
+        PairRuntime<DispatchDualTrack, DispatchDualClip>.ConsumeDispatch(&OnDual, "tl\0OnDual");
+        PairRuntime<DispatchDualTrack, DispatchDualClip>.Consume(&OnDualWrite, &BindFloat, "tl\0OnDualWrite");
+        PairRuntime<DispatchJumpTrack, DispatchJumpClip>.Consume(&OnJump, &BindFloat, "tl\0OnJump");
+        PairRuntime<DispatchBellTrack, DispatchBellClip>.Consume(&OnBell, &BindFloat, "tl\0OnBell");
     }
 
     internal static readonly (ushort Tick, ushort Code, bool Backward)[] Hits = new (ushort, ushort, bool)[4096];

@@ -61,13 +61,13 @@ internal static unsafe class LanePairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteScale, &BindFloat);
-        PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteConstant, &BindFloat);
-        PairRuntime<ImpureTrack, ImpureClip>.Consume(&ExecuteImpure, &BindFloat);
-        PairRuntime<OrphanTrack, OrphanClip>.Consume(&ExecuteOrphan, &BindFloat);
-        PairRuntime<OrderTrack, OrderClip>.Consume(&ExecuteOrderA, &BindFloat);
-        PairRuntime<OrderTrack, OrderClip>.Consume(&ExecuteOrderB, &BindFloat);
-        PairRuntime<OrderTrack, OrderClip>.Consume(&ExecuteOrderC, &BindFloat);
+        PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteScale, &BindFloat, "tl\0ExecuteScale");
+        PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteConstant, &BindFloat, "tl\0ExecuteConstant");
+        PairRuntime<ImpureTrack, ImpureClip>.Consume(&ExecuteImpure, &BindFloat, "tl\0ExecuteImpure");
+        PairRuntime<OrphanTrack, OrphanClip>.Consume(&ExecuteOrphan, &BindFloat, "tl\0ExecuteOrphan");
+        PairRuntime<OrderTrack, OrderClip>.Consume(&ExecuteOrderA, &BindFloat, "tl\0ExecuteOrderA");
+        PairRuntime<OrderTrack, OrderClip>.Consume(&ExecuteOrderB, &BindFloat, "tl\0ExecuteOrderB");
+        PairRuntime<OrderTrack, OrderClip>.Consume(&ExecuteOrderC, &BindFloat, "tl\0ExecuteOrderC");
     }
 
     private static void BindFloat(ulong* keys, int keyCount, byte* table)

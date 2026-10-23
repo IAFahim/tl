@@ -117,7 +117,7 @@ public sealed class ConsumerAbiTests
     {
         var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
         var tree = CSharpSyntaxTree.ParseText(NineParameterSource, options, "Domain.cs");
-        var compilation = CSharpCompilation.Create("ConsumerAbiSpan" + Guid.NewGuid().ToString("N"),
+        var compilation = CSharpCompilation.Create("ConsumerAbiSpan",
             [tree], ConsumerBindingTests.ReferencePaths().Select(static path => MetadataReference.CreateFromFile(path)),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
         GeneratorDriver driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator().AsSourceGenerator()], parseOptions: options);
@@ -145,7 +145,7 @@ public sealed class ConsumerAbiTests
     {
         var slots = new TimelineSlot[41];
         for (var i = 0; i < slots.Length; i++) slots[i] = new($"slot{i}", "int", SlotMode.Input);
-        var binding = JobEmitter.Consumers([new JobConsumer("Track", "Clip", new JobDefinition("Job", slots))]);
+        var binding = JobEmitter.Consumers([new JobConsumer("Track", "Clip", new JobDefinition("Job", slots), "TestAssembly\0Job")]);
 
         Assert.Contains("41 gameplay parameters exceed the 40-slot consumer ABI; regenerate the binding with a matching Tl generator.", binding);
         var bindStart = binding.IndexOf("private static void Bind_Job(", StringComparison.Ordinal);

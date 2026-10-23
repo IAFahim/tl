@@ -19,7 +19,7 @@ internal static unsafe class ScratchPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<ScratchZeroTrack, ScratchZeroClip>.Consume(&FoldZero, &KeysZero);
+        PairRuntime<ScratchZeroTrack, ScratchZeroClip>.Consume(&FoldZero, &KeysZero, "tl\0FoldZero");
     }
 
     static int KeysZero(ulong* keys, byte* meta)

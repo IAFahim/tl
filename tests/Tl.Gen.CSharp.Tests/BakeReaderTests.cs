@@ -572,7 +572,7 @@ public sealed class BakeReaderTests
             """;
         var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
         var tree = CSharpSyntaxTree.ParseText(stray, options, "Domain.cs");
-        var compilation = CSharpCompilation.Create("BakeReaderSpan" + Guid.NewGuid().ToString("N"),
+        var compilation = CSharpCompilation.Create("BakeReaderSpan",
             [tree], ReferencePaths().Select(static path => MetadataReference.CreateFromFile(path)),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
         GeneratorDriver driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator().AsSourceGenerator()], parseOptions: options);
@@ -675,7 +675,7 @@ public sealed class BakeReaderTests
     }
 
     private static CSharpCompilation Compile(string source)
-        => CSharpCompilation.Create("BakeReaderTests" + Guid.NewGuid().ToString("N"),
+        => CSharpCompilation.Create("BakeReaderTests",
             [CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "Domain.cs")], References(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
 

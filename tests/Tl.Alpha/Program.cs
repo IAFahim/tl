@@ -56,7 +56,7 @@ BankReceipts.SegmentedBoundary();
 Tl.Timeline.SealConsumers();
 try
 {
-    unsafe { Tl.PairRuntime<TandemTrack, TandemClip>.ConsumeDispatch(null); }
+    unsafe { Tl.PairRuntime<TandemTrack, TandemClip>.ConsumeDispatch(null, "tl\0Null"); }
     Require(false, "sealed registry rejects late installs");
 }
 catch (InvalidOperationException) { }

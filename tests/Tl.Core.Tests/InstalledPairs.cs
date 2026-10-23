@@ -7,8 +7,8 @@ internal static unsafe class InstalledPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<AlphaTrack, AlphaClip>.Consume(&AlphaExecute, &AlphaBind);
-        PairRuntime<BetaTrack, BetaClip>.Consume(&BetaExecute, &NoBind);
+        PairRuntime<AlphaTrack, AlphaClip>.Consume(&AlphaExecute, &AlphaBind, "tl\0AlphaExecute");
+        PairRuntime<BetaTrack, BetaClip>.Consume(&BetaExecute, &NoBind, "tl\0BetaExecute");
     }
 
     private static void NoBind(ulong* keys, int keyCount, byte* table)

@@ -24,7 +24,7 @@ public unsafe class PairTableGrowthTests
     {
         var before = PairTable.ConsumerCount;
         for (var i = 0; i < 70; i++)
-            PairTable.Install(0x9000_0000_0000_0000UL + (ulong)(i + 1), null, null);
+            PairTable.Install(0x9000_0000_0000_0000UL + (ulong)(i + 1), null, null, $"tl\0Growth{i}");
         Assert.True(PairTable.ConsumerCount >= before + 70);
     }
 
@@ -33,7 +33,7 @@ public unsafe class PairTableGrowthTests
     {
         const ulong seed = 0xC000_0000_0000_0000UL;
         var before = PairTable.ConsumerCount;
-        for (var i = 0; i < 600; i++) PairTable.Install(seed + (ulong)i, null, null);
+        for (var i = 0; i < 600; i++) PairTable.Install(seed + (ulong)i, null, null, $"tl\0Growth{i}");
         Assert.Equal(before + 600, PairTable.ConsumerCount);
         for (var i = 0; i < 600; i++) Assert.True(PairTable.HeadOf(seed + (ulong)i) >= 0);
         Assert.Equal(-1, PairTable.HeadOf(0xDDDD_0000_0000_0001UL));
@@ -47,7 +47,7 @@ public unsafe class PairTableGrowthTests
     {
         const ulong key = 0xA100_0000_0000_0001UL;
         var before = PairTable.ConsumerCount;
-        for (var i = 0; i < 70; i++) PairTable.Install(key, &Tag, null);
+        for (var i = 0; i < 70; i++) PairTable.Install(key, &Tag, null, $"tl\0Tag{i}");
         var columns = (void**)TaggedColumns(before, 70);
         Order.Clear();
         PairTable.RunChain(PairTable.HeadOf(key), true, null, null, 0, 0, columns, 0);
@@ -65,7 +65,7 @@ public unsafe class PairTableGrowthTests
     {
         const ulong key = 0xA200_0000_0000_0001UL;
         var before = PairTable.ConsumerCount;
-        for (var i = 0; i < 70; i++) PairTable.Install(key, &Tag, null, true);
+        for (var i = 0; i < 70; i++) PairTable.Install(key, &Tag, null, $"tl\0Tag{i}", true);
         var columns = (void**)TaggedColumns(before, 70);
         Order.Clear();
         PairTable.RunDispatch(PairTable.HeadOf(key), true, null, null, 0, 0, 0, columns);

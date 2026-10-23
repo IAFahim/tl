@@ -482,7 +482,7 @@ public sealed class ConsumerBindingTests
     internal static (Dictionary<string, string> Sources, ImmutableArray<Diagnostic> Diagnostics) GenerateWithDiagnostics(string source)
     {
         var options = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
-        var compilation = CSharpCompilation.Create("ConsumerBindingEmission" + Guid.NewGuid().ToString("N"),
+        var compilation = CSharpCompilation.Create("ConsumerBindingEmission",
             [CSharpSyntaxTree.ParseText(source, options, "Domain.cs")], References(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
         GeneratorDriver driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator().AsSourceGenerator()], parseOptions: options);

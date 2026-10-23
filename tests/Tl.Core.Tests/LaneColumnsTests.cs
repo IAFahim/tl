@@ -27,7 +27,7 @@ internal static unsafe class LaneColumnsPairs
 {
     [ModuleInitializer]
     internal static void Install()
-        => PairRuntime<LaneColumnsTrack, LaneColumnsClip>.Consume(&Execute, &BindFloat);
+        => PairRuntime<LaneColumnsTrack, LaneColumnsClip>.Consume(&Execute, &BindFloat, "tl\0Execute");
 
     static void BindFloat(ulong* keys, int keyCount, byte* table)
     {

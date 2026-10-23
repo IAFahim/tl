@@ -77,10 +77,10 @@ public static unsafe class Host
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<Tlb.DualTrack, Tlb.DualAlphaClip>.Consume(&ExecuteDualAlpha, &NoBind);
-        PairRuntime<Tlb.DualTrack, Tlb.DualBetaClip>.Consume(&ExecuteDualBeta, &NoBind);
-        PairRuntime<Tlb.BlendTrack, Tlb.BlendClip>.Consume(&ExecuteBlend, &NoBind);
-        PairRuntime<LaneBench.LaneTrack, LaneBench.LaneClip>.Consume(&ExecuteLane, &BindFloat);
+        PairRuntime<Tlb.DualTrack, Tlb.DualAlphaClip>.Consume(&ExecuteDualAlpha, &NoBind, "tl\0ExecuteDualAlpha");
+        PairRuntime<Tlb.DualTrack, Tlb.DualBetaClip>.Consume(&ExecuteDualBeta, &NoBind, "tl\0ExecuteDualBeta");
+        PairRuntime<Tlb.BlendTrack, Tlb.BlendClip>.Consume(&ExecuteBlend, &NoBind, "tl\0ExecuteBlend");
+        PairRuntime<LaneBench.LaneTrack, LaneBench.LaneClip>.Consume(&ExecuteLane, &BindFloat, "tl\0ExecuteLane");
     }
 
     private static void NoBind(ulong* keys, int keyCount, byte* table)

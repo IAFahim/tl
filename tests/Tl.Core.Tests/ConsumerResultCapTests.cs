@@ -18,7 +18,7 @@ internal static unsafe class CapPairs
 
     [ModuleInitializer]
     internal static void Install()
-        => PairRuntime<CapTrack, CapClip>.Consume(&FoldCap, &KeysCap);
+        => PairRuntime<CapTrack, CapClip>.Consume(&FoldCap, &KeysCap, "tl\0FoldCap");
 
     static int KeysCap(ulong* keys, byte* meta)
     {

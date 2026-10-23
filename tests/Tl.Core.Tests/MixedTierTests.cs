@@ -16,7 +16,7 @@ internal static unsafe class GatherPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<GatherTrack, GatherClip>.Consume(&ExecuteScale, &BindFloat);
+        PairRuntime<GatherTrack, GatherClip>.Consume(&ExecuteScale, &BindFloat, "tl\0ExecuteScale");
     }
 
     static void BindFloat(ulong* keys, int keyCount, byte* table)

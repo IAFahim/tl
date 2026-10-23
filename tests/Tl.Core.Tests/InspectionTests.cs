@@ -12,8 +12,8 @@ internal static unsafe class InspectionPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<SnapshotTrack, SnapshotClip>.Consume(&Execute, &Bind);
-        PairRuntime<GoldenTrack, GoldenClip>.Consume(&Execute, &Bind);
+        PairRuntime<SnapshotTrack, SnapshotClip>.Consume(&Execute, &Bind, "tl\0Execute");
+        PairRuntime<GoldenTrack, GoldenClip>.Consume(&Execute, &Bind, "tl\0Execute");
     }
 
     static void Bind(ulong* keys, int keyCount, byte* table)

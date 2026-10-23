@@ -27,7 +27,7 @@ internal static unsafe class HandlePairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<HandleTrack, HandleClip>.Consume(&ExecuteHandleScale, &BindFloat);
+        PairRuntime<HandleTrack, HandleClip>.Consume(&ExecuteHandleScale, &BindFloat, "tl\0ExecuteHandleScale");
     }
 
     private static void BindFloat(ulong* keys, int keyCount, byte* table)

@@ -12,6 +12,18 @@ internal static class JobEmitter
         => model.Consumers.Count == 0 && model.Bakes.Count == 0 ? [] : [new CompileArtifact($"TlConsumerBinding{id}.g.cs", Consumers(model.Consumers, model.Bakes, id))];
 
     internal static string Consumers(IReadOnlyList<JobConsumer> consumers) => Consumers(consumers, [], "");
+    static string Literal(string text)
+    {
+        var builder = new StringBuilder("\"");
+        foreach (var c in text)
+        {
+            if (c == '\\' || c == '"') builder.Append('\\').Append(c);
+            else if (c < 32 || c > 126) builder.Append("\\u").Append(((int)c).ToString("X4"));
+            else builder.Append(c);
+        }
+        return builder.Append('"').ToString();
+    }
+
 
     internal static string Consumers(IReadOnlyList<JobConsumer> consumers, IReadOnlyList<BakeDeclaration> bakes, string id)
     {
@@ -57,13 +69,13 @@ internal static class JobEmitter
             var runtime = $"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>";
             var liveColumns = consumer.Job.LiveColumns;
             if (consumer.Job.MemoMethod)
-                W($"{runtime}.Consume(&Fold_{name}, &Keys_{name});");
+                W($"{runtime}.Consume(&Fold_{name}, &Keys_{name}, {Literal(consumer.Identity)});");
             if (liveColumns.Count > 0)
-                W($"{runtime}.ConsumeDispatch(&ExecuteActive_{name}, &LiveKeys_{name}, &Diag_{name});");
+                W($"{runtime}.ConsumeDispatch(&ExecuteActive_{name}, &LiveKeys_{name}, &Diag_{name}, {Literal(consumer.Identity)});");
             else if (consumer.Job.Dispatch)
-                W($"{runtime}.ConsumeDispatch(&ExecuteActive_{name});");
+                W($"{runtime}.ConsumeDispatch(&ExecuteActive_{name}, {Literal(consumer.Identity)});");
             else if (consumer.Job is { MemoMethod: false, Slots.Count: > 0 })
-                W($"{runtime}.Consume(&ExecuteActive_{name}, &Bind_{name});");
+                W($"{runtime}.Consume(&ExecuteActive_{name}, &Bind_{name}, {Literal(consumer.Identity)});");
         }
         foreach (var (name, bake) in bakeItems)
             foreach (var pair in bake.Pairs)

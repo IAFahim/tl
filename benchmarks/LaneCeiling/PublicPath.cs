@@ -20,7 +20,7 @@ internal static unsafe class PublicPath
 
     internal static void Install()
     {
-        PairRuntime<ProbeTrack, ProbeClip>.Consume(&Execute, &BindFloat);
+        PairRuntime<ProbeTrack, ProbeClip>.Consume(&Execute, &BindFloat, "tl\0Execute");
         _loop6 = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
             .Track<ProbeTrack, ProbeClip>(new ProbeTrack(1.5f))
             .Clip(0, 0, 3, new ProbeClip(0.25f))

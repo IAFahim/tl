@@ -52,7 +52,7 @@ public static unsafe class Host
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteLane, &BindFloat);
+        PairRuntime<LaneTrack, LaneClip>.Consume(&ExecuteLane, &BindFloat, "tl\0ExecuteLane");
     }
 
     public static void LoadAssets()

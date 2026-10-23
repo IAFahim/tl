@@ -227,7 +227,8 @@ public sealed class DeclarationAnalysisDiagnosticsTests
         var consumer = new JobConsumer(
             "global::Domain.DamageTrack",
             "global::Domain.DamageClip",
-            new JobDefinition("global::Domain.ApplyDamage", [new TimelineSlot("world", "global::Domain.World", SlotMode.Reference)]));
+            new JobDefinition("global::Domain.ApplyDamage", [new TimelineSlot("world", "global::Domain.World", SlotMode.Reference)]),
+            "TestAssembly\0global::Domain.ApplyDamage");
 
         var artifact = Assert.Single(UnityJobEmitter.Emit(new JobReadResult([consumer], [], [])));
 

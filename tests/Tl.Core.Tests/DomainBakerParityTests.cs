@@ -12,8 +12,8 @@ internal static unsafe class BakerParityPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<BakerParityTrack, BakerParityClip>.Consume(&ExecuteParity, &BindFloat);
-        PairRuntime<BakerOtherTrack, BakerOtherClip>.Consume(&ExecuteOther, &BindFloat);
+        PairRuntime<BakerParityTrack, BakerParityClip>.Consume(&ExecuteParity, &BindFloat, "tl\0ExecuteParity");
+        PairRuntime<BakerOtherTrack, BakerOtherClip>.Consume(&ExecuteOther, &BindFloat, "tl\0ExecuteOther");
     }
 
     static void BindFloat(ulong* keys, int keyCount, byte* table)

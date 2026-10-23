@@ -15,7 +15,7 @@ internal static unsafe class CursorPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<CursorTrack, CursorClip>.Consume(&Execute, &Bind);
+        PairRuntime<CursorTrack, CursorClip>.Consume(&Execute, &Bind, "tl\0Execute");
     }
 
     static void Bind(ulong* keys, int keyCount, byte* table)
