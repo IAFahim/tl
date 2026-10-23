@@ -17,7 +17,7 @@ public static unsafe class PlayRuntime
     public static void Ensure()
     {
         if (Interlocked.Exchange(ref _installed, 1) == 1) return;
-        PairRuntime<ScaleTrack, AmountClip>.Consume(&ExecuteScale, &BindFloat);
+        PairRuntime<ScaleTrack, AmountClip>.Consume(&ExecuteScale, &BindFloat, "tl\0ExecuteScale");
     }
 
     static void BindFloat(ulong* keys, int keyCount, byte* table)

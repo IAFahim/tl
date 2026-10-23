@@ -24,9 +24,9 @@ internal static unsafe class SegmentPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<SegmentTrack, SegmentClip>.Consume(&FoldTwo, &KeysTwo);
-        PairRuntime<SegmentWideTrack, SegmentWideClip>.Consume(&FoldWideA, &KeysWideA);
-        PairRuntime<SegmentWideTrack, SegmentWideClip>.Consume(&FoldWideB, &KeysWideB);
+        PairRuntime<SegmentTrack, SegmentClip>.Consume(&FoldTwo, &KeysTwo, "tl\0FoldTwo");
+        PairRuntime<SegmentWideTrack, SegmentWideClip>.Consume(&FoldWideA, &KeysWideA, "tl\0FoldWideA");
+        PairRuntime<SegmentWideTrack, SegmentWideClip>.Consume(&FoldWideB, &KeysWideB, "tl\0FoldWideB");
     }
 
     static void Owned(ulong* keys, byte* meta, int count)

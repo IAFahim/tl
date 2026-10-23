@@ -65,14 +65,14 @@ public unsafe class PairTableFeedLinkTests
         var releasedA = new ManualResetEventSlim(false);
         var thread = new Thread(() =>
         {
-            PairRuntime<FeedLinkTrack, FeedLinkClip>.Consume(&FoldA, &FoldKeysA);
+            PairRuntime<FeedLinkTrack, FeedLinkClip>.Consume(&FoldA, &FoldKeysA, "tl\0FoldA");
             readyA.Set();
             releasedA.Wait();
-            PairRuntime<FeedLinkTrack, FeedLinkClip>.ConsumeDispatch(&ExecuteA, &LiveKeys, &Diag);
+            PairRuntime<FeedLinkTrack, FeedLinkClip>.ConsumeDispatch(&ExecuteA, &LiveKeys, &Diag, "tl\0ExecuteA");
         });
         thread.Start();
         readyA.Wait();
-        PairRuntime<FeedLinkTrack, FeedLinkClip>.Consume(&FoldB, &FoldKeysB);
+        PairRuntime<FeedLinkTrack, FeedLinkClip>.Consume(&FoldB, &FoldKeysB, "tl\0FoldB");
         releasedA.Set();
         thread.Join();
 
@@ -95,7 +95,7 @@ public unsafe class PairTableFeedLinkTests
         var done = new ManualResetEventSlim(false);
         var thread = new Thread(() =>
         {
-            PairRuntime<FeedLinkTrack, FeedLinkClip>.ConsumeDispatch(&ExecuteFresh, &LiveKeys, &Diag);
+            PairRuntime<FeedLinkTrack, FeedLinkClip>.ConsumeDispatch(&ExecuteFresh, &LiveKeys, &Diag, "tl\0ExecuteFresh");
             done.Set();
         });
         thread.Start();

@@ -26,8 +26,8 @@ internal static unsafe class GuardPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<GuardTrack, GuardClip>.Consume(&FoldSolo, &KeysSolo);
-        PairRuntime<GuardWideTrack, GuardWideClip>.Consume(&FoldWide, &KeysWide);
+        PairRuntime<GuardTrack, GuardClip>.Consume(&FoldSolo, &KeysSolo, "tl\0FoldSolo");
+        PairRuntime<GuardWideTrack, GuardWideClip>.Consume(&FoldWide, &KeysWide, "tl\0FoldWide");
     }
 
     static void Owned(ulong* keys, byte* meta, int count)

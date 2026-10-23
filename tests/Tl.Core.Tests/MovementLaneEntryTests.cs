@@ -42,7 +42,7 @@ internal static unsafe class MovementLanePairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<MovementWrapTrack, MovementWrapClip>.Consume(&ExecuteScale, &BindFloat);
+        PairRuntime<MovementWrapTrack, MovementWrapClip>.Consume(&ExecuteScale, &BindFloat, "tl\0ExecuteScale");
     }
 
     private static void BindFloat(ulong* keys, int keyCount, byte* table)

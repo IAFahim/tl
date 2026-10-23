@@ -32,9 +32,9 @@ internal static unsafe class FoldIsolationPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<FoldJumpTrack, FoldJumpClip>.Consume(&ExecuteJump, &BindFloat);
-        PairRuntime<FoldSoundTrack, FoldSoundClip>.Consume(&ExecuteSound, &BindFloat);
-        PairRuntime<FoldChimeTrack, FoldChimeClip>.Consume(&ExecuteChime, &BindFloat);
+        PairRuntime<FoldJumpTrack, FoldJumpClip>.Consume(&ExecuteJump, &BindFloat, "tl\0ExecuteJump");
+        PairRuntime<FoldSoundTrack, FoldSoundClip>.Consume(&ExecuteSound, &BindFloat, "tl\0ExecuteSound");
+        PairRuntime<FoldChimeTrack, FoldChimeClip>.Consume(&ExecuteChime, &BindFloat, "tl\0ExecuteChime");
     }
 
     internal static int JumpFolds;

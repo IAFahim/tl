@@ -17,7 +17,7 @@ internal static unsafe class ArenaPairs
     [ModuleInitializer]
     internal static void Install()
     {
-        PairRuntime<ArenaTrack, ArenaClip>.Consume(&ExecuteScale, &BindFloat);
+        PairRuntime<ArenaTrack, ArenaClip>.Consume(&ExecuteScale, &BindFloat, "tl\0ExecuteScale");
     }
 
     static void BindFloat(ulong* keys, int keyCount, byte* table)
