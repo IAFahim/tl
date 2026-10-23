@@ -337,7 +337,7 @@ public readonly unsafe struct TickFrame
 {
 internal const int SlotRow = 40;
 internal const int MemoResults = 10;
-	internal struct Consumer { public int Next, Offset, Feed, Ordinal, NameOffset; public ulong PairKey; public fixed int OutLanes[MemoResults]; public ExecThunk Execute; public BindThunk Bind; public KeysThunk Keys; public DiagThunk Diag; public byte DispatchOnly; }
+	internal struct Consumer { public int Next, Offset, Feed, Ordinal, NameOffset; public ulong PairKey; public ExecThunk Execute; public BindThunk Bind; public KeysThunk Keys; public DiagThunk Diag; public byte DispatchOnly; }
 	struct Slot { public ulong Key; public int Head, Tail; }
 	const int SlotCount = 1024;
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -351,8 +351,6 @@ internal const int MemoResults = 10;
 	internal static volatile int _sealed;
 	internal static int _epoch;
 	internal static int _pairs, _consumers;
-	[ThreadStatic] static int _lastFoldEntry;
-	[ThreadStatic] static ulong _lastFoldPair;
 
 	static PairTable()
 	{
@@ -421,7 +419,7 @@ internal const int MemoResults = 10;
 		return slots[slot].Key == key ? Volatile.Read(ref ((ulong*)(slots + *(int*)block))[slot]) : 0;
 	}
 
-	internal static void Install(ulong key, ExecThunk e, BindThunk b, string identity, bool dispatchOnly = false, KeysThunk resultKeys = null, DiagThunk diag = null)
+	internal static int Install(ulong key, ExecThunk e, BindThunk b, string identity, bool dispatchOnly = false, KeysThunk resultKeys = null, DiagThunk diag = null, int feed = -1)
 	{
 		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
 		try
@@ -441,14 +439,15 @@ internal const int MemoResults = 10;
 			var entry = _consumers;
 			var ordinal = 0;
 			for (var walk = slots[slot].Head; walk >= 0; walk = consumers[walk].Next) ordinal++;
-			var feed = dispatchOnly && resultKeys != null && _lastFoldPair == key && _lastFoldEntry != 0 ? _lastFoldEntry - 1 : -1;
-			consumers[entry] = new Consumer { Next = -1, PairKey = key, Execute = e, Bind = b, Keys = resultKeys, Diag = diag, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = ordinal * SlotRow, Feed = feed, Ordinal = ordinal, NameOffset = name };
-			if (!dispatchOnly && resultKeys != null) { _lastFoldEntry = ordinal + 1; _lastFoldPair = key; }
+			if (feed >= 0 && (feed >= entry || consumers[feed].PairKey != key || consumers[feed].DispatchOnly != 0 || consumers[feed].Keys == null))
+				throw new InvalidOperationException($"Consumer '{identity}' names feed handle {feed}, which is not a result-producing Fold consumer of the same pair installed before it.");
+			consumers[entry] = new Consumer { Next = -1, PairKey = key, Execute = e, Bind = b, Keys = resultKeys, Diag = diag, DispatchOnly = dispatchOnly ? (byte)1 : (byte)0, Offset = ordinal * SlotRow, Feed = feed >= 0 ? consumers[feed].Ordinal : -1, Ordinal = ordinal, NameOffset = name };
 			if (slots[slot].Tail >= 0) Volatile.Write(ref consumers[slots[slot].Tail].Next, entry);
 			else Volatile.Write(ref slots[slot].Head, entry);
 			slots[slot].Tail = entry;
 			Volatile.Write(ref _consumers, entry + 1);
 			_epoch++;
+			return entry;
 		}
 		finally
 		{
@@ -749,13 +748,15 @@ public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, 
 {
 	public static readonly ulong Key = Keying.Of(Keying.StableName(typeof(TTrack)) + "\0" + Keying.StableName(typeof(TClip)));
 
-	public static void Consume(ExecThunk execute, BindThunk bind, string identity) => PairTable.Install(Key, execute, bind, identity);
+	public static int Consume(ExecThunk execute, BindThunk bind, string identity) => PairTable.Install(Key, execute, bind, identity);
 
-	public static void Consume(ExecThunk execute, KeysThunk keys, string identity) => PairTable.Install(Key, execute, null, identity, resultKeys: keys);
+	public static int Consume(ExecThunk execute, KeysThunk keys, string identity) => PairTable.Install(Key, execute, null, identity, resultKeys: keys);
 
 	public static void ConsumeDispatch(ExecThunk execute, string identity) => PairTable.Install(Key, execute, null, identity, true);
 
 	public static void ConsumeDispatch(ExecThunk execute, KeysThunk keys, DiagThunk diag, string identity) => PairTable.Install(Key, execute, null, identity, true, keys, diag);
+
+	public static void ConsumeDispatch(ExecThunk execute, KeysThunk keys, DiagThunk diag, string identity, int feed) => PairTable.Install(Key, execute, null, identity, true, keys, diag, feed);
 
 	public static void VerifyLayout(ulong layout) => PairTable.VerifyLayout(Key, layout ^ PairLayoutDigest.Of<TTrack, TClip>());
 

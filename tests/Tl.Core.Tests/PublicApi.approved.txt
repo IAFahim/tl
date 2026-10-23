@@ -190,10 +190,11 @@ type Tl.MeasuredLanes
   Property UInt16 Duration
   Property Boolean Looping
 type Tl.PairRuntime`2
-  Method Void Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*), System.String)
-  Method Void Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Int32(System.UInt64*, System.Byte*), System.String)
+  Method Int32 Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*), System.String)
+  Method Int32 Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Int32(System.UInt64*, System.Byte*), System.String)
   Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.String)
   Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Int32(System.UInt64*, System.Byte*), System.Void(System.UInt64, System.Int64), System.String)
+  Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Int32(System.UInt64*, System.Byte*), System.Void(System.UInt64, System.Int64), System.String, Int32)
   Field UInt64 Key
   Method Void VerifyLayout(UInt64)
 type Tl.SlotView

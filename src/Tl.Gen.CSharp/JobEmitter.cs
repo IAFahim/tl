@@ -84,6 +84,12 @@ internal static class JobEmitter
         {
             var runtime = $"global::Tl.PairRuntime<{consumer.TrackTypeName}, {consumer.ClipTypeName}>";
             var liveColumns = consumer.Job.LiveColumns;
+            if (consumer.Job.MemoMethod && liveColumns.Count > 0)
+            {
+                W($"var __tlFeed_{name} = {runtime}.Consume(&Fold_{name}, &Keys_{name}, {Literal(consumer.Identity)});");
+                W($"{runtime}.ConsumeDispatch(&ExecuteActive_{name}, &LiveKeys_{name}, &Diag_{name}, {Literal(consumer.Identity)}, __tlFeed_{name});");
+                continue;
+            }
             if (consumer.Job.MemoMethod)
                 W($"{runtime}.Consume(&Fold_{name}, &Keys_{name}, {Literal(consumer.Identity)});");
             if (liveColumns.Count > 0)

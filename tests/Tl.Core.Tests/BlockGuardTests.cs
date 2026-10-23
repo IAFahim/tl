@@ -75,7 +75,7 @@ public unsafe class BlockGuardTests
     [InlineData(7)]
     [InlineData(8)]
     public void SoloPermuteLoadsStayInsideTheZeroedBlockGuard(ushort duration)
-        => CheckGuard<GuardTrack, GuardClip>(duration, new GuardTrack(1), new GuardClip(1f));
+        => CheckGuard<GuardTrack, GuardClip>(duration, new GuardTrack(1), new GuardClip(1f), 1);
 
     [Theory]
     [InlineData(0)]
@@ -83,7 +83,7 @@ public unsafe class BlockGuardTests
     [InlineData(7)]
     [InlineData(8)]
     public void WidePermuteLoadsStayInsideTheZeroedBlockGuard(ushort duration)
-        => CheckGuard<GuardWideTrack, GuardWideClip>(duration, new GuardWideTrack(1), new GuardWideClip(1f));
+        => CheckGuard<GuardWideTrack, GuardWideClip>(duration, new GuardWideTrack(1), new GuardWideClip(1f), 3);
 
     [Fact]
     public void TableBytesCountTheGuardPerBlock()
@@ -92,7 +92,7 @@ public unsafe class BlockGuardTests
         CheckAccounting<GuardWideTrack, GuardWideClip>(new GuardWideTrack(1), new GuardWideClip(1f), 3, [0, 3, 7]);
     }
 
-    static void CheckGuard<TTrack, TClip>(ushort duration, TTrack track, TClip clip)
+    static void CheckGuard<TTrack, TClip>(ushort duration, TTrack track, TClip clip, int owned)
         where TTrack : unmanaged, IBlend<TClip>
         where TClip : unmanaged
     {
@@ -109,7 +109,11 @@ public unsafe class BlockGuardTests
         var ticks = (int)slot->TableTicks;
         var lanes = (int)slot->ResultCount;
         Assert.Equal(Math.Max(1, (int)duration) + 1, ticks);
-        var guard = (byte*)slot->LaneKeys + lanes * 8;
+        var map = (int*)((byte*)slot->LaneKeys + lanes * 8);
+        Assert.Equal(owned, map[0]);
+        for (var i = 0; i < owned; i++)
+            Assert.True(map[1 + i] >= 0 && map[1 + i] < lanes, $"owned map entry {i}: {map[1 + i]} of {lanes}");
+        var guard = (byte*)map + (1 + map[0]) * 4;
         for (var l = 0; l < lanes; l++)
         {
             Assert.True((byte*)slot->Forward + ((nuint)l * (nuint)ticks + 8) * 4 <= guard + GuardBytes, $"forward lane {l}");
