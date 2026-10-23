@@ -6,6 +6,8 @@ namespace Tl;
 
 public static class Timeline
 {
+    internal const ulong RefSlotKey = 0x8000000000000000UL;
+
     public static void SealConsumers() => PairTable.Seal();
 
     public static FrameQuery<TTrack, TClip> Query<TTrack, TClip>(in TimelineComponent component) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged => new(component);
@@ -145,25 +147,25 @@ public static class Timeline
 
     public static void BakeRef<T0>(ushort timeline, ref T0 argument0)
         where T0 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value], ref Ref(in argument0), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
+        => Dispatch(timeline, [TypeKey<T0>.Value ^ RefSlotKey], ref Ref(in argument0), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void BakeRef<T0, T1>(ushort timeline, in T0 argument0, ref T1 argument1)
         where T0 : allows ref struct
         where T1 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
+        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value ^ RefSlotKey], ref Ref(in argument0), ref Ref(in argument1), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void BakeRef<T0, T1, T2>(ushort timeline, in T0 argument0, in T1 argument1, ref T2 argument2)
         where T0 : allows ref struct
         where T1 : allows ref struct
         where T2 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Unsafe.NullRef<byte>());
+        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value ^ RefSlotKey], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Unsafe.NullRef<byte>());
 
     public static void BakeRef<T0, T1, T2, T3>(ushort timeline, in T0 argument0, in T1 argument1, in T2 argument2, ref T3 argument3)
         where T0 : allows ref struct
         where T1 : allows ref struct
         where T2 : allows ref struct
         where T3 : allows ref struct
-        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value, TypeKey<T3>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Ref(in argument3));
+        => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value, TypeKey<T3>.Value ^ RefSlotKey], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Ref(in argument3));
 
     static ref byte Ref<T>(in T argument) where T : allows ref struct
         => ref Unsafe.As<T, byte>(ref Unsafe.AsRef(in argument));

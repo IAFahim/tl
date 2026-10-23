@@ -185,7 +185,9 @@ internal static class JobEmitter
 
     private static string StateKeys(BakeDeclaration bake)
         => string.Concat(bake.Parameters.Where(static parameter => !parameter.IsConsumer)
-            .Select(parameter => $", global::Tl.TypeKey<{parameter.TypeName}>.Value"));
+            .Select(parameter => parameter.Modifier == BakeModifier.Ref
+                ? $", global::Tl.TypeKey<{parameter.TypeName}>.Value ^ 0x8000000000000000UL"
+                : $", global::Tl.TypeKey<{parameter.TypeName}>.Value"));
 
     private static string ForwardArguments(BakeDeclaration bake)
     {

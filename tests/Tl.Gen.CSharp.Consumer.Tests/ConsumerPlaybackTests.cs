@@ -70,7 +70,7 @@ public sealed class ConsumerPlaybackTests
     {
         var result = Driver("Bakes");
 
-        Assert.Equal("2;2|World+Entity;2|World+Entity#1;1|World#1;1|Entity", result);
+        Assert.Equal("2;2|World+Entity*;2|World+Entity*#1;1|World#1;1|Entity*", result);
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public sealed class ConsumerPlaybackTests
     {
         var result = Driver("ManualBake");
 
-        Assert.Equal("3;3|World+Entity+GuardToken;1|World;1|Entity#ArgumentOutOfRangeException", result);
+        Assert.Equal("3;3|World+Entity*+GuardToken;1|World;1|Entity#ArgumentOutOfRangeException", result);
     }
 
     [Fact]
@@ -111,6 +111,14 @@ public sealed class ConsumerPlaybackTests
         var result = Driver("RefFlow");
 
         Assert.Equal("42", result);
+    }
+
+    [Fact]
+    public void PlainBakeStaysSilentForRefDeclaredBakesForLvalueRvalueAndReadonlyArguments()
+    {
+        var result = Driver("RefSilent");
+
+        Assert.Equal("9#3", result);
     }
 
     [Fact]
@@ -1439,7 +1447,7 @@ public sealed class ConsumerPlaybackTests
                     .Bake()));
                 var timeline = view.Index;
 
-                Timeline.Bake(timeline, world, entity);
+                Timeline.BakeRef(timeline, world, ref entity);
 
                 var marks = string.Join(",", world.Marks);
 
@@ -1468,7 +1476,7 @@ public sealed class ConsumerPlaybackTests
                     .Clip(1, 0u, 2u, new TlJumpShape.SoundClip(2))
                     .Bake()));
 
-                Timeline.Bake(view.Index, world, entity);
+                Timeline.BakeRef(view.Index, world, ref entity);
 
                 return string.Join(",", world.Attached.OrderBy(static item => item, StringComparer.Ordinal));
             }
@@ -1482,9 +1490,27 @@ public sealed class ConsumerPlaybackTests
                     .Clip(0, 0u, 4u, new BuffClip(5f))
                     .Bake()));
 
-                Timeline.Bake(view.Index, entity);
+                Timeline.BakeRef(view.Index, ref entity);
 
                 return entity.Id.ToString(CultureInfo.InvariantCulture);
+            }
+
+            public static readonly Entity PinnedEntity = new(new World(), 3);
+
+            public static string RefSilent()
+            {
+                var world = new World();
+                var entity = new Entity(world, 9);
+                using var view = TimelineAsset.Of(TimelineAsset.Load(new DomainBaker()
+                    .Track<BuffTrack, BuffClip>(new BuffTrack(3f))
+                    .Clip(0, 0u, 4u, new BuffClip(5f))
+                    .Bake()));
+
+                Timeline.Bake(view.Index, entity);
+                Timeline.Bake(view.Index, new Entity(world, 12));
+                Timeline.Bake(view.Index, PinnedEntity);
+
+                return entity.Id.ToString(CultureInfo.InvariantCulture) + "#" + PinnedEntity.Id.ToString(CultureInfo.InvariantCulture);
             }
 
             public static string MixedAsset()
@@ -1498,7 +1524,7 @@ public sealed class ConsumerPlaybackTests
                     .Clip(1, 0u, 1u, new GuardClip(1f))
                     .Bake()));
 
-                Timeline.Bake(view.Index, world, entity, new GuardToken(2));
+                Timeline.BakeRef(view.Index, world, new GuardToken(2), ref entity);
 
                 return string.Join(",", world.Marks.OrderBy(static item => item, StringComparer.Ordinal)) + "#"
                     + string.Join(",", world.Tags.Select(static tag => tag.Entity.ToString(CultureInfo.InvariantCulture)));
@@ -1541,7 +1567,7 @@ public sealed class ConsumerPlaybackTests
                     .Track<HealTrack, HealClip>(new HealTrack(1f))
                     .Clip(1, 0u, 1u, new HealClip(1f))
                     .Bake());
-                Timeline.Bake(timeline, world, entity);
+                Timeline.BakeRef(timeline, world, ref entity);
                 return string.Join(",", world.Marks);
             }
 
@@ -1584,10 +1610,15 @@ public sealed class ConsumerPlaybackTests
             }
 
             static string Key(ulong value)
-                => value == TypeKey<World>.Value ? "World"
-                : value == TypeKey<Entity>.Value ? "Entity"
-                : value == TypeKey<GuardToken>.Value ? "GuardToken"
-                : value.ToString("X16", CultureInfo.InvariantCulture);
+            {
+                var writable = (value & 0x8000000000000000UL) != 0;
+                var key = value & 0x7FFFFFFFFFFFFFFFUL;
+                var name = key == TypeKey<World>.Value ? "World"
+                    : key == TypeKey<Entity>.Value ? "Entity"
+                    : key == TypeKey<GuardToken>.Value ? "GuardToken"
+                    : key.ToString("X16", CultureInfo.InvariantCulture);
+                return writable ? name + "*" : name;
+            }
         }
         }
         """;
