@@ -53,24 +53,48 @@ public class PendingCursorTests
     }
 
     [Fact]
-    public void DeadHoleDoesNotStallThePendingCursor()
+    public void FirstUseFoldsExactlyTheRequestedIndex()
     {
-        var a = TimelineAsset.LoadAsset(Bake(1));
-        var b = TimelineAsset.LoadAsset(Bake(2));
-        var c = TimelineAsset.LoadAsset(Bake(3));
+        var a = TimelineAsset.LoadAsset(Bake(11));
+        var b = TimelineAsset.LoadAsset(Bake(12));
+        var c = TimelineAsset.LoadAsset(Bake(13));
+        try
+        {
+            Timeline<CursorTrack, CursorClip>.View(a);
+            Assert.True(b.Index > a.Index && c.Index > b.Index, "fresh contents receive ascending indices");
+            Timeline<CursorTrack, CursorClip>.View(c);
+            var bank = Timeline<CursorTrack, CursorClip>._bank;
+            Assert.NotNull(bank);
+            Assert.True(bank.IsFolded(c.Index), "the first-used index folds");
+            Assert.False(bank.IsFolded(b.Index), "first use of one index folded the live index below it");
+        }
+        finally
+        {
+            a.Dispose();
+            b.Dispose();
+            c.Dispose();
+        }
+    }
+
+    [Fact]
+    public void DeadHoleBelowStaysPendingThroughLaterFirstUses()
+    {
+        var a = TimelineAsset.LoadAsset(Bake(21));
+        var b = TimelineAsset.LoadAsset(Bake(22));
+        var c = TimelineAsset.LoadAsset(Bake(23));
         try
         {
             Timeline<CursorTrack, CursorClip>.View(a);
             var deadIndex = b.Index;
             b.Dispose();
             Timeline<CursorTrack, CursorClip>.View(c);
-            var d = TimelineAsset.LoadAsset(Bake(4));
+            var d = TimelineAsset.LoadAsset(Bake(24));
             try
             {
                 Timeline<CursorTrack, CursorClip>.View(d);
                 var bank = Timeline<CursorTrack, CursorClip>._bank;
                 Assert.NotNull(bank);
-                Assert.True(bank.PendingCursor > deadIndex, $"cursor {bank.PendingCursor} never passed the dead hole at {deadIndex}");
+                Assert.True(bank.IsPending(deadIndex), $"the dead hole at {deadIndex} was swept by a later first use instead of staying a pending hole");
                 Assert.Throws<ArgumentException>(() => Timeline<CursorTrack, CursorClip>.View(deadIndex));
             }
             finally

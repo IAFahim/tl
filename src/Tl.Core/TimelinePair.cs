@@ -645,11 +645,6 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
 		using var measured = MeasuredLanes.Measure(reference, key);
 		bank.AddAt(index, measured);
-		var cursor = bank.PendingCursor;
-		for (var below = cursor; below < index; below++)
-			if (bank.IsPending((ushort)below))
-				Determine(bank, (ushort)below);
-		bank.AdvancePendingCursor(index);
 	}
 
 	internal static void GuardSizes(NativePair* pair) { if (pair->TrackValueBytes != (uint)sizeof(TTrack) || pair->ClipValueBytes != (uint)sizeof(TClip)) Fail.PairSizes(); }
