@@ -671,6 +671,11 @@ internal static class LaneOps
     [MethodImpl(NoInlining | AggressiveOptimization)]
     internal static void AdvanceForward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
     {
+        if (duration == 0)
+        {
+            positions.Slice(i, limit - i).CopyTo(nextColumn.Slice(i, limit - i));
+            return;
+        }
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
         var last = (ushort)(duration - 1);
@@ -714,6 +719,11 @@ internal static class LaneOps
     [MethodImpl(NoInlining | AggressiveOptimization)]
     internal static void AdvanceBackward(ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, int i, int limit)
     {
+        if (duration == 0)
+        {
+            positions.Slice(i, limit - i).CopyTo(nextColumn.Slice(i, limit - i));
+            return;
+        }
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
         var last = (ushort)(duration - 1);
