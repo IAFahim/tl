@@ -157,7 +157,7 @@ public unsafe class PairLaws
         var duration = model.Duration;
         if (view.Duration != duration || (view.Looping != 0) != model.Looping)
             throw new XunitException($"view metadata diverged {context}: d={view.Duration} loop={view.Looping}");
-        if (view.AbiVersion != SlotView.AbiVersionV3 || view.Absent != 0)
+        if (view.AbiVersion != SlotView.AbiVersionV4 || view.Absent != 0)
             throw new XunitException($"view ABI diverged {context}");
         for (ushort position = 0; position <= duration; position++)
         {

@@ -13,7 +13,7 @@ namespace Tl;
 
 static class Keying
 {
-	const ulong Seed = 14695981039346656037, Prime = 1099511628211;
+	internal const ulong Seed = 14695981039346656037, Prime = 1099511628211;
 
 	internal static ulong Of(string text) { var hash = Seed; foreach (var c in text) hash = (hash ^ c) * Prime; return hash | 1; }
 
@@ -349,6 +349,7 @@ internal const int MemoResults = 10;
 	static int _namesCapacity = 4096;
 	static volatile int _gate;
 	internal static volatile int _sealed;
+	internal static int _epoch;
 	internal static int _pairs, _consumers;
 	[ThreadStatic] static int _lastFoldEntry;
 	[ThreadStatic] static ulong _lastFoldPair;
@@ -447,6 +448,7 @@ internal const int MemoResults = 10;
 			else Volatile.Write(ref slots[slot].Head, entry);
 			slots[slot].Tail = entry;
 			Volatile.Write(ref _consumers, entry + 1);
+			_epoch++;
 		}
 		finally
 		{
@@ -558,6 +560,7 @@ internal const int MemoResults = 10;
 			_consumerCapacity = _consumers;
 			NativeMemory.Free(source);
 			Volatile.Write(ref _consumersBase, (ulong)arena);
+			_epoch++;
 		}
 		finally
 		{
@@ -677,6 +680,38 @@ internal const int MemoResults = 10;
 		if (_sealed == 0) return PointerBound;
 		var head = HeadOf(key);
 		return head < 0 ? 0 : ChainLength(head) * SlotRow;
+	}
+
+	internal static ulong DigestOf(ulong key)
+	{
+		while (Interlocked.CompareExchange(ref _gate, 1, 0) != 0) Thread.Yield();
+		try
+		{
+			var consumers = ConsumerAt;
+			var names = (byte*)_namesBase;
+			var hash = Keying.Seed;
+			var length = 0;
+			for (var entry = HeadOf(key); entry >= 0; entry = consumers[entry].Next)
+			{
+				length++;
+				var name = names + consumers[entry].NameOffset;
+				var nameLength = name[0] | (name[1] << 8);
+				for (var i = 0; i < nameLength; i++) hash = (hash ^ name[2 + i]) * Keying.Prime;
+				hash = (hash ^ consumers[entry].DispatchOnly) * Keying.Prime;
+				var feed = consumers[entry].Feed;
+				hash = (hash ^ (byte)feed) * Keying.Prime;
+				hash = (hash ^ (byte)(feed >> 8)) * Keying.Prime;
+				hash = (hash ^ (byte)(feed >> 16)) * Keying.Prime;
+				hash = (hash ^ (byte)(feed >> 24)) * Keying.Prime;
+			}
+			hash = (hash ^ (byte)length) * Keying.Prime;
+			hash = (hash ^ (byte)(length >> 8)) * Keying.Prime;
+			return hash | 1;
+		}
+		finally
+		{
+			_gate = 0;
+		}
 	}
 
 	static int Probe(ulong key, ulong block, out Slot* slots)

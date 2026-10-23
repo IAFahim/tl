@@ -36,7 +36,7 @@ unsafe
 {
     var view = Timeline<PackageTrack, PackageClip>.View(asset.Index);
     if (view.Duration != 4 || view.TableTicks != 5
-        || view.AbiVersion != SlotView.AbiVersionV3 || view.Generation == 0
+        || view.AbiVersion != SlotView.AbiVersionV4 || view.Generation == 0
         || view.Forward == null || view.Backward == null
         || view.LaneKeys == null)
         return 4;

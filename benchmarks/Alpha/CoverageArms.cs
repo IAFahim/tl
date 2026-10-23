@@ -102,7 +102,7 @@ internal static class CoverageArms
                 Fail($"first-touch apply produced {effects[0]} instead of the clip amount 5.");
 
             var view = Timeline<AlphaTrack, AlphaClip>.View(asset);
-            if (view.AbiVersion != SlotView.AbiVersionV3 || view.Duration != 64 || view.Looping != 1)
+            if (view.AbiVersion != SlotView.AbiVersionV4 || view.Duration != 64 || view.Looping != 1)
                 Fail($"slot view header: abi={view.AbiVersion} duration={view.Duration} looping={view.Looping}.");
             if (view.Generation == 0 || view.TableTicks == 0)
                 Fail($"slot view table is empty: generation={view.Generation} ticks={view.TableTicks}.");
