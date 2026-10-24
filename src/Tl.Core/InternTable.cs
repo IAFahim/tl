@@ -75,6 +75,7 @@ static unsafe class TimelineTable
     static TimelineTable()
     {
         _arena = (byte*)NativeMemory.AlignedAlloc((nuint)MaxCapacity * (nuint)sizeof(Entry) + (nuint)MaxCapacity * sizeof(uint), 64);
+        new Span<Entry>(Entries, MaxCapacity).Clear();
         new Span<int>(ById, MaxCapacity).Fill(-1);
         _motion = (uint*)NativeMemory.AlignedAlloc((MaxCapacity * sizeof(uint)), 64);
         new Span<uint>(_motion, MaxCapacity).Clear();
