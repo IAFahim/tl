@@ -65,33 +65,13 @@ public static unsafe partial class Timeline<TTrack, TClip>
 
 	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Advance(ushort index, ref ushort position, bool forward)
-	{
-		Checked.Domain(index, position);
-		var bank = Bank();
-		var slot = Pickup(bank, index);
-		if (slot is null)
-		{
-			Resolve(index);
-			slot = bank.FoldedView(index);
-		}
-		var p = position;
-		var duration = slot->Duration;
-		var looping = slot->Looping != 0;
-		if (forward)
-		{
-			if (p < duration) position = LaneMovement.ForwardNext(p, duration, looping);
-			return;
-		}
-		if (p > duration) return;
-		if (LaneMovement.BackwardPlayable(p, duration, looping)) position = LaneMovement.BackwardNext(p, duration);
-	}
+		=> Timeline.Advance(index, MemoryMarshal.CreateSpan(ref position, 1), forward);
 
 	[MethodImpl(AggressiveOptimization)]
 	public static bool TrySample(ushort index, ushort position, ref TClip scratch, out Frame<TTrack, TClip> frame, bool forward = true)
 	{
 		frame = default;
 		Checked.Domain(index, position);
-		Resolve(index);
 		var reference = TimelineTable.Reference(index);
 		if (!reference.Select(!forward, position, out var tick, out var flags))
 			return false;
@@ -105,9 +85,11 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		var count = (int)stage->ProgramCount;
 		for (var i = 0; i < count; i++)
 		{
-			if (pairs[steps[i].Pair].Key != key)
+			var pair = pairs + steps[i].Pair;
+			if (pair->Key != key)
 				continue;
-			frame = SlotRow.ToFrame<TTrack, TClip>((SlotRow*)(block + steps[i].Slot), (byte*)(pairs + steps[i].Pair), tick, flags, ref scratch);
+			VerifyPair(pair);
+			frame = SlotRow.ToFrame<TTrack, TClip>((SlotRow*)(block + steps[i].Slot), (byte*)pair, tick, flags, ref scratch);
 			return true;
 		}
 		return false;
@@ -124,6 +106,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	[MethodImpl(NoInlining | AggressiveOptimization)]
 	static void ApplySharedClock(SlotView* slot, ushort position, bool forward, Span<float> effects)
 	{
+		if (slot == null) return;
 		var duration = slot->Duration;
 		float delta;
 		if (forward)
@@ -157,17 +140,22 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		var reference = default(TimelineRef);
 		var pairs = 0;
 		var lastIndex = -1;
+		var rest = false;
 		for (var i = 0; i < positions16.Length; i++)
 		{
 			var index = indices16[i];
 			if (index != lastIndex)
 			{
-				reference = TimelineTable.Reference(index);
-				pairs = checked((int)reference.PairCount);
-				reference.Resolve(new Span<int>(chains, pairs), key);
 				lastIndex = index;
+				rest = Rest(index);
+				if (!rest)
+				{
+					reference = TimelineTable.Reference(index);
+					pairs = checked((int)reference.PairCount);
+					reference.Resolve(new Span<int>(chains, pairs), key);
+				}
 			}
-			if (reference.Select(reverse, positions16[i], out var tick, out var flags))
+			if (!rest && reference.Select(reverse, positions16[i], out var tick, out var flags))
 				reference.ExecuteDispatch(reverse, tick, flags, i, new Span<int>(chains, pairs), null);
 		}
 	}
@@ -289,6 +277,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			var id = indices16[i];
 			var end = i + 1;
 			while (end < positions16.Length && indices16[end] == id) end++;
+			if (Rest(id) && id < (uint)bank._count) { i = end; continue; }
 			if (!bank.IsFolded(id)) Resolve(id);
 			if (bank.HasView(id))
 			{
@@ -356,6 +345,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			var id = ids[i];
 			var end = i + 1;
 			while (end < clocks.Length && ids[end] == id) end++;
+			if (Rest(id) && id < (uint)bank._count) { i = end; continue; }
 			if (!bank.IsFolded(id)) Resolve(id);
 			if (bank.HasView(id))
 			{
@@ -460,6 +450,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			var id = ids[i];
 			var end = i + 1;
 			while (end < clocks.Length && ids[end] == id) end++;
+			if (Rest(id)) { i = end; continue; }
 			if (id != last)
 			{
 				int live = 0;
@@ -630,6 +621,11 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	internal static void Resolve(ushort index)
 	{
 		var bank = Bank();
+		if (Rest(index))
+		{
+			if (index >= (uint)bank._count) throw TimelineTable.NotLoaded(index);
+			return;
+		}
 		var key = PairRuntime<TTrack, TClip>.Key;
 		var digest = PairTable.DigestOf(key);
 		if (bank.StaleFold(digest))
@@ -640,18 +636,40 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		var reference = TimelineTable.Reference(index);
 		if (!reference.Uses(key))
 			throw new ArgumentException($"Asset does not contain the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
-		var pair = reference.PairOf(key)!;
-		GuardSizes(pair);
-		var verifiedLayout = PairTable.LayoutOf(key);
-		if (pair->Layout != 0 && verifiedLayout != 0 && pair->Layout != verifiedLayout)
-			throw new ArgumentException($"Asset was baked against a different field layout for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}); rebake the .tlb with the current assembly.");
+		VerifyPair(reference.PairOf(key)!);
 		if (PairTable.HeadOf(key) < 0)
 			throw new ArgumentException($"No consumer is registered for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}).");
 		using var measured = MeasuredLanes.Measure(reference, key);
 		bank.AddAt(index, measured, digest);
 	}
 
+	static void Determine(TimelineSet<TTrack, TClip> bank, ushort index)
+	{
+		if (!TimelineTable.IsLive(index))
+		{
+			bank.MarkAbsent(index, 2);
+			return;
+		}
+		var reference = TimelineTable.Reference(index);
+		var key = PairRuntime<TTrack, TClip>.Key;
+		if (!reference.Uses(key))
+		{
+			bank.MarkAbsent(index);
+			return;
+		}
+		if (PairTable.HeadOf(key) < 0) return;
+		Resolve(index);
+	}
+
 	internal static void GuardSizes(NativePair* pair) { if (pair->TrackValueBytes != (uint)sizeof(TTrack) || pair->ClipValueBytes != (uint)sizeof(TClip)) Fail.PairSizes(); }
+
+	static void VerifyPair(NativePair* pair)
+	{
+		GuardSizes(pair);
+		var verifiedLayout = PairTable.LayoutOf(PairRuntime<TTrack, TClip>.Key);
+		if (pair->Layout != 0 && verifiedLayout != 0 && pair->Layout != verifiedLayout)
+			throw new ArgumentException($"Asset was baked against a different field layout for the timeline pair ({typeof(TTrack).Name}, {typeof(TClip).Name}); rebake the .tlb with the current assembly.");
+	}
 
 	[MethodImpl(NoInlining)]
 	internal static void Reconcile()
@@ -671,30 +689,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		return bank.FoldedView(index);
 	}
 
-	static void Determine(TimelineSet<TTrack, TClip> bank, ushort index)
-	{
-		if (!TimelineTable.IsLive(index))
-		{
-			bank.MarkAbsent(index, 2);
-			return;
-		}
-		var reference = TimelineTable.Reference(index);
-		var key = PairRuntime<TTrack, TClip>.Key;
-		if (!reference.Uses(key))
-		{
-			bank.MarkAbsent(index);
-			return;
-		}
-		if (PairTable.HeadOf(key) < 0) return;
-		GuardSizes(reference.PairOf(key)!);
-		var digest = PairTable.DigestOf(key);
-		if (bank.StaleFold(digest))
-			bank.DropFolded();
-		else
-			bank._registryEpoch = Volatile.Read(ref PairTable._epoch);
-		using var measured = MeasuredLanes.Measure(reference, key);
-		bank.AddAt(index, measured, digest);
-	}
+	static bool Rest(ushort index) => (TimelineTable.Motion[index] & TimelineTable.DeadMotion) != 0;
 
 	[MethodImpl(AggressiveOptimization)]
 	internal static bool ResolveChunk(TimelineSet<TTrack, TClip> set, ReadOnlySpan<ushort> indices, int start, int end)
@@ -718,6 +713,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 
 	public static SlotView View(ushort index)
 	{
+		if (!TimelineTable.IsLive(index)) throw TimelineTable.NotLoaded(index);
 		var bank = Bank();
 		if (bank.IsFolded(index))
 		{
@@ -744,7 +740,11 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	static TimelineSet<TTrack, TClip> Bank()
 	{
 		var bank = _bank;
-		if (bank is not null) return bank;
+		if (bank is not null)
+		{
+			if (TimelineTable.MotionEpoch != bank._restStamp) bank.SweepRest();
+			return bank;
+		}
 		bank = new TimelineSet<TTrack, TClip> { _lazyResolve = true };
 		return Interlocked.CompareExchange(ref _bank, bank, null) ?? bank;
 	}
