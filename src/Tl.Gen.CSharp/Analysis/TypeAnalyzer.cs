@@ -174,6 +174,12 @@ internal static class TypeAnalyzer
             var accessible = true;
             foreach (var parameter in method.Parameters)
             {
+                if (parameter.Type.TypeKind == TypeKind.Error)
+                {
+                    Symbols.Error(local, Symbols.Site(parameter, syntax), "TLGEN89", $"Bake '{name}' parameter type '{Symbols.Name(parameter.Type)}' does not resolve in this compilation; fix the type name or add the missing assembly reference; the generated binding references it from generated source.");
+                    accessible = false;
+                    continue;
+                }
                 if (!compilation.IsSymbolAccessibleWithin(parameter.Type, compilation.Assembly))
                 {
                     Symbols.Error(local, Symbols.Site(parameter, syntax), "TLGEN73", $"Bake '{name}' parameter type '{Symbols.Name(parameter.Type)}' must be accessible from this compilation; the generated binding references it from generated source.");

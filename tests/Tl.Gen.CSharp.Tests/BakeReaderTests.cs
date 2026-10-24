@@ -441,6 +441,64 @@ public sealed class BakeReaderTests
     }
 
     [Fact]
+    public void RejectsUnresolvableBakeParameterTypeWithDiagnostic()
+    {
+        const string bake = """
+            public readonly struct TypoBake : IBake<ApplyDamage>
+            {
+                public static void Bake(Wrold world) { }
+            }
+            """;
+        Rejects(bake, "TLGEN89", "parameter type 'Wrold' does not resolve in this compilation; fix the type name or add the missing assembly reference");
+    }
+
+    [Fact]
+    public void UnresolvableConsumerBoundAsBakeParameterIsDiagnosedNotThrown()
+    {
+        const string bake = """
+            public readonly struct StrayBake : IBake<ApplyDammage>
+            {
+                public static void Bake(in ApplyDammage consumer) { }
+            }
+            """;
+        Rejects(bake, "TLGEN72", "'ApplyDammage', which is not a registered Tl.ITrack consumer");
+    }
+
+    [Fact]
+    public void ForeignBakeParameterTypeOutsideTheReferenceGraphIsDiagnosedNotThrown()
+    {
+        const string source = """
+            using Tl;
+            namespace Domain;
+            public readonly record struct DamageClip(float Amount);
+            public readonly record struct DamageTrack(float Multiplier) : IBlend<DamageClip>
+            {
+                public void Blend(in DamageClip first, in DamageClip second, float factor, out DamageClip result) => result = first;
+            }
+            public readonly struct ApplyDamage : ITrack<DamageTrack, DamageClip>
+            {
+                public static void ExecuteActive(in Frame<DamageTrack, DamageClip> frame) { }
+            }
+            public readonly struct ForeignBake : IBake<ApplyDamage>
+            {
+                public static void Bake(ref float seed) { }
+            }
+            """;
+        var compilation = CSharpCompilation.Create("ForeignParameter" + Guid.NewGuid().ToString("N"),
+            [CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview), "Domain.cs")],
+            [MetadataReference.CreateFromFile(typeof(IBake<>).Assembly.Location)],
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
+
+        var result = JobReader.Read(compilation);
+
+        Assert.Empty(result.Bakes);
+        var diagnostic = Assert.Single(result.Diagnostics, static candidate => candidate.Code == "TLGEN89");
+        Assert.Contains("parameter type 'float' does not resolve in this compilation", diagnostic.Message);
+        Assert.Equal(14, diagnostic.Line);
+        Assert.Equal(29, diagnostic.Column);
+    }
+
+    [Fact]
     public void RejectsBakeWithoutAMatchingMethodShapeWithDiagnostic()
     {
         Rejects("""
