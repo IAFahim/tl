@@ -66,7 +66,7 @@ public static unsafe class Inspection
 
     public static TablesSnapshot Tables() => new(
         new InternSnapshot(
-            TimelineTable._capacity,
+            TimelineTable.Capacity,
             TimelineTable.LiveEntries,
             TimelineTable.DistinctContents,
             TimelineTable.GraveyardBlocks,

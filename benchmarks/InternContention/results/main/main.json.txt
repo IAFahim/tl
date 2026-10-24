@@ -1,0 +1,4 @@
+quiet p50=115 p99=11643 iters=45068004
+quiet-again p50=77 p99=11762 iters=63437524
+loaded p50=66 p99=64661 iters=6476202
+ratios p50=0.857 p99=5.554

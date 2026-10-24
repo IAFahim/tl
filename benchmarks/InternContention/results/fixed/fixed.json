@@ -1,0 +1,7 @@
+{
+  "dispatchThreads": 8, "seconds": 3, "loaderContents": 256,
+  "quiet": {"p50Ns": 350.0, "p99Ns": 872.0, "iterations": 72454072},
+  "quietAgain": {"p50Ns": 300.0, "p99Ns": 765.0, "iterations": 73554328},
+  "loaded": {"p50Ns": 292.0, "p99Ns": 777.0, "iterations": 69329240},
+  "ratios": {"p50": 0.973, "p99": 1.016, "throughput": 0.943}
+}

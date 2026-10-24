@@ -7,7 +7,6 @@ namespace Tl;
 
 static unsafe class TimelineTable
 {
-    const int InitialCapacity = 1024;
     const int MaxCapacity = 65536;
     const long GraveyardGraceLoads = 4096;
     const int StateEmpty = 0;
@@ -50,10 +49,10 @@ static unsafe class TimelineTable
         public long Stamp;
     }
 
-    static byte* _block;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    static readonly byte* _arena;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     static readonly uint* _motion;
-    internal static int _capacity;
     static int _gate;
     static int _used;
     static int _live;
@@ -75,7 +74,9 @@ static unsafe class TimelineTable
 
     static TimelineTable()
     {
-        Allocate(InitialCapacity);
+        _arena = (byte*)NativeMemory.AlignedAlloc((nuint)MaxCapacity * (nuint)sizeof(Entry) + (nuint)MaxCapacity * sizeof(uint), 64);
+        new Span<Entry>(Entries, MaxCapacity).Clear();
+        new Span<int>(ById, MaxCapacity).Fill(-1);
         _motion = (uint*)NativeMemory.AlignedAlloc((MaxCapacity * sizeof(uint)), 64);
         new Span<uint>(_motion, MaxCapacity).Clear();
     }
@@ -85,10 +86,11 @@ static unsafe class TimelineTable
     static uint MotionOf(byte* block)
         => ((NativeHeader*)block)->Duration | (((NativeHeader*)block)->Loops != 0 ? 0x80000000u : 0u);
 
-    internal static Entry* Entries => (Entry*)_block;
-    internal static int* ById => (int*)(_block + _capacity * sizeof(Entry));
-    static int Mask => _capacity - 1;
+    internal static Entry* Entries => (Entry*)_arena;
+    internal static int* ById => (int*)(_arena + (nuint)MaxCapacity * (nuint)sizeof(Entry));
+    static int Mask => MaxCapacity - 1;
 
+    internal static int Capacity => MaxCapacity;
     internal static int LiveEntries => Volatile.Read(ref _live);
     internal static int DistinctContents => Volatile.Read(ref _nextId) - 1;
     internal static long AllocCount => Volatile.Read(ref _allocCount);
@@ -107,6 +109,7 @@ static unsafe class TimelineTable
     internal static ushort Load(ReadOnlySpan<byte> baked)
     {
         Digest(baked, out var k0, out var k1, out var k2, out var k3);
+        TimelineRef.Validate(baked);
         AcquireGate();
         try
         {
@@ -119,16 +122,10 @@ static unsafe class TimelineTable
                     return entry->Id;
                 return Revive(entry, baked);
             }
-            TimelineRef.Validate(baked);
             if (_nextId >= MaxCapacity)
                 throw new InvalidOperationException($"Timeline index domain exhausted: {MaxCapacity} distinct timeline contents over the process lifetime; indices are content identities and never move to other content.");
-            if ((_used + 1) * 4 > _capacity * 3)
-            {
-                if (_capacity == MaxCapacity)
-                    throw new InvalidOperationException($"Intern table exhausted: {_used} distinct timeline contents occupy the {_capacity}-slot table.");
-                Grow();
-                Find(k0, k1, k2, k3, baked, out empty);
-            }
+            if ((_used + 1) * 4 > MaxCapacity * 3)
+                throw new InvalidOperationException($"Intern table exhausted: {_used} distinct timeline contents occupy the {MaxCapacity}-slot table.");
             return Publish(empty, k0, k1, k2, k3, baked);
         }
         finally
@@ -155,31 +152,13 @@ static unsafe class TimelineTable
 
     internal static TimelineRef Reference(ushort index)
     {
-        AcquireGate();
-        try
-        {
-            if (TryLive(index, out var block))
-                return new TimelineRef(block);
-        }
-        finally
-        {
-            Volatile.Write(ref _gate, 0);
-        }
+        if (TryLive(index, out var block))
+            return new TimelineRef(block);
         throw NotLoaded(index);
     }
 
     internal static bool IsLive(ushort index)
-    {
-        AcquireGate();
-        try
-        {
-            return TryLive(index, out _);
-        }
-        finally
-        {
-            Volatile.Write(ref _gate, 0);
-        }
-    }
+        => TryLive(index, out _);
 
     internal static void Pin(ushort index, out long generation)
     {
@@ -287,7 +266,6 @@ static unsafe class TimelineTable
 
     static ushort Revive(Entry* entry, ReadOnlySpan<byte> baked)
     {
-        TimelineRef.Validate(baked);
         entry->Block = AllocateBlock(baked);
         entry->Bytes = baked.Length;
         Volatile.Write(ref _motion[entry->Id], MotionOf(entry->Block));
@@ -342,7 +320,7 @@ static unsafe class TimelineTable
     {
         empty = null;
         var index = (int)(Mix(k0, k1) & (ulong)Mask);
-        for (var n = 0; n < _capacity; n++)
+        for (var n = 0; n < MaxCapacity; n++)
         {
             var entry = Entries + ((index + n) & Mask);
             var state = Volatile.Read(ref entry->State);
@@ -358,34 +336,8 @@ static unsafe class TimelineTable
             if (!new ReadOnlySpan<byte>(entry->Block, (int)entry->Bytes).SequenceEqual(baked)) continue;
             return entry;
         }
-        if (empty == null) throw new InvalidOperationException($"Intern table probe exhausted: no slot remains among {_capacity} entries for content ({k0:X16}, {k1:X16}).");
+        if (empty == null) throw new InvalidOperationException($"Intern table probe exhausted: no slot remains among {MaxCapacity} entries for content ({k0:X16}, {k1:X16}).");
         return null;
-    }
-
-    static void Grow()
-    {
-        var previous = _block;
-        var previousCapacity = _capacity;
-        Allocate(previousCapacity * 2);
-        for (var i = 0; i < previousCapacity; i++)
-        {
-            var entry = ((Entry*)previous)[i];
-            if (entry.State == StateEmpty) continue;
-            var index = (int)(Mix(entry.Key0, entry.Key1) & (ulong)Mask);
-            while (Entries[index].State != StateEmpty)
-                index = (index + 1) & Mask;
-            Entries[index] = entry;
-            Volatile.Write(ref ById[entry.Id], index);
-        }
-        NativeMemory.AlignedFree(previous);
-    }
-
-    static void Allocate(int capacity)
-    {
-        _capacity = capacity;
-        _block = (byte*)NativeMemory.AlignedAlloc((nuint)(capacity * sizeof(Entry) + capacity * sizeof(int)), 64);
-        new Span<Entry>(Entries, capacity).Clear();
-        new Span<int>(ById, capacity).Fill(-1);
     }
 
     static void PushGraveyard(byte* block, nint bytes)
