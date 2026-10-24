@@ -1988,7 +1988,9 @@ internal static class TimelineBakerFastCore
             }
             catch (ArgumentException ex)
             {
-                throw new BakeDiagnosticException($"TLB validation failed: {ex.Message}");
+                var intern = Tl.Inspection.Tables().Intern;
+                var digest = System.Security.Cryptography.SHA256.HashData(bytes);
+                throw new BakeDiagnosticException($"TLB validation failed: {ex.Message}; content {Convert.ToHexString(digest).ToLowerInvariant()[..16]}/{bytes.Length}B, intern live {intern.Live}/{intern.Distinct}, graveyard {intern.GraveyardBlocks}");
             }
             catch (InvalidOperationException ex) when (
                 ex.Message.StartsWith("Timeline index domain exhausted", StringComparison.Ordinal)
