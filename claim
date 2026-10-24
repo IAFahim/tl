@@ -1,0 +1,7 @@
+checkpoint: 799d5f8d (base, no commits yet)
+agent: zcode
+machine: arch-omarchy
+branch: feat/490-prepare-play
+worktree: /home/i/GitHub/tl-490-prepare-play
+owned-files: src/Tl.Core/TimelinePair.cs, src/Tl.Core (new Prepare/Play + BankState), tests/Tl.Core.Tests, tests/Tl.Alpha receipts, approval files, README sections
+state: 3.1 design phase. Design note + budget arithmetic posted on issue. Implementation gated on owner cap decision: src headroom 205 B vs est. +1.2-1.6 KB net. No code yet.
