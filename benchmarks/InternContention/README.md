@@ -19,10 +19,10 @@ counters for cycles, instructions, branches, branch-misses).
 ## Reproduction
 
 ```sh
-dotnet run --project benchmarks/InternContention -c Release -- run.json
-dotnet run --project benchmarks/InternContention -c Release -- --require verify.json
+dotnet run --project benchmarks/InternContention -c Release
+dotnet run --project benchmarks/InternContention -c Release -- --require
 ```
 
 `--require` fails (exit 1) when loaded p99 exceeds 1.5x quiet or loaded throughput
 falls below 0.8x quiet; it exits 0 on the fixed runtime. Each run prints its own
-line; the receipt JSON lands in `bin/Release/net10.0/results/`.
+line; the receipt JSON lands under the build output directory.
