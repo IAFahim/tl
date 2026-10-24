@@ -1984,7 +1984,7 @@ internal static class TimelineBakerFastCore
 
             try
             {
-                using var probe = TimelineAsset.Of(TimelineAsset.Load(bytes));
+                using var probe = TimelineAsset.LoadAsset(bytes);
             }
             catch (ArgumentException ex)
             {

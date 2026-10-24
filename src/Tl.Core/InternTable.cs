@@ -124,6 +124,22 @@ static unsafe class TimelineTable
         }
     }
 
+    internal static void LoadPinned(ReadOnlySpan<byte> baked, out ushort index, out long generation)
+    {
+        while (true)
+        {
+            index = Load(baked);
+            try
+            {
+                Pin(index, out generation);
+                return;
+            }
+            catch (ArgumentException)
+            {
+            }
+        }
+    }
+
     internal static TimelineRef Reference(ushort index)
     {
         AcquireGate();

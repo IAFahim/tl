@@ -289,7 +289,11 @@ public sealed class TimelineAsset : IDisposable
 		return new TimelineAsset(index, generation);
 	}
 
-	internal static TimelineAsset LoadAsset(ReadOnlySpan<byte> baked) => Of(Load(baked));
+	internal static TimelineAsset LoadAsset(ReadOnlySpan<byte> baked)
+	{
+		TimelineTable.LoadPinned(baked, out var index, out var generation);
+		return new TimelineAsset(index, generation);
+	}
 
 	public ushort Index => Volatile.Read(ref _index) < 0
 		? throw new InvalidOperationException("Timeline asset view is disposed; call TimelineAsset.Of on a live index.")
