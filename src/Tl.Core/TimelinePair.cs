@@ -14,7 +14,7 @@ internal unsafe struct MemoLane
 
 internal struct LivePlanHeader
 {
-	public int Epoch, SetCount, ColumnBound, MemoCount;
+	public int Epoch, SetCount, ColumnBound, MemoCount, Chain;
 }
 
 public static unsafe partial class Timeline<TTrack, TClip>
@@ -421,15 +421,13 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		var reverse = !forward;
 		var plan = FindLivePlan(setKeys, setCount);
 		int columnBound, memoCount;
-		if (plan == null) { columnBound = PairTable.PairBound(key); memoCount = columnBound / PairTable.SlotRow * PairTable.MemoResults; }
+		if (plan == null) { columnBound = PairTable.PairBound(key); memoCount = columnBound; }
 		else { var bound = (LivePlanHeader*)plan; columnBound = bound->ColumnBound; memoCount = bound->MemoCount; }
 		void** columns = stackalloc void*[columnBound];
 		MemoLane* laneCells = stackalloc MemoLane[memoCount];
 		byte* cellBlock = stackalloc byte[memoCount * 8];
 		int* chains = stackalloc int[256];
-		var memo = memoCount;
-		int* feeds = null;
-		var reference = default(TimelineRef);
+		var memo = memoCount; int* feeds = null; TimelineRef reference = default;
 		int pairs = 0, last = -1;
 		for (var i = 0; i < clocks.Length;)
 		{
@@ -446,21 +444,26 @@ public static unsafe partial class Timeline<TTrack, TClip>
 				reference.Resolve(new Span<int>(chains, pairs), key);
 				var slot = Bank().FoldedView(id);
 				var viewLanes = (int*)((byte*)slot->LaneKeys + (nuint)slot->ResultCount * 8) + 1;
+				var head = -1;
+				for (var p = 0; p < pairs && head < 0; p++) head = chains[p];
+				var consumers = PairTable.ConsumerAt;
+				var chain = 0;
+				for (var e = head; e >= 0; e = consumers[e].Next) chain++;
 				var live = (LivePlanHeader*)plan;
-				if (plan == null || Volatile.Read(ref PairTable._epoch) != live->Epoch)
+				if (plan == null || feeds == null || chain != live->Chain)
 				{
 					plan = BindLivePlan(setKeys, setCount);
 					live = (LivePlanHeader*)plan;
 					if (live->ColumnBound > columnBound) ThrowLiveFrame(columnBound);
 					if (live->MemoCount > memoCount) ThrowMemoRow(memoCount);
 					memo = live->MemoCount;
+					var bindings = (int*)(plan + sizeof(LivePlanHeader) + 8 * live->SetCount);
+					feeds = bindings + live->ColumnBound;
+					for (var c = 0; c < live->ColumnBound; c++)
+						columns[c] = bindings[c] >= 0 ? (void*)setCells[bindings[c]] : bindings[c] <= -4 ? cellBlock + 8 * (-4 - bindings[c]) : null;
 				}
-				var bindings = (int*)(plan + sizeof(LivePlanHeader) + 8 * live->SetCount);
-				feeds = bindings + live->ColumnBound;
 				for (var m = 0; m < memo; m++)
 					laneCells[m] = new MemoLane { Slot = slot, Lane = (ushort)viewLanes[feeds[m] & int.MaxValue], Duration = slot->Duration };
-				for (var c = 0; c < live->ColumnBound; c++)
-					columns[c] = bindings[c] >= 0 ? (void*)setCells[bindings[c]] : bindings[c] <= -4 ? cellBlock + 8 * (-4 - bindings[c]) : null;
 			}
 			for (var r = i; r < end; r++)
 			{
@@ -499,9 +502,8 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	[MethodImpl(NoInlining)]
 	static byte* BindLivePlan(ulong* setKeys, int setCount)
 	{
-		var existing = FindLivePlan(setKeys, setCount);
-		if (existing != null) return existing;
-		byte* plan;
+		var plan = FindLivePlan(setKeys, setCount);
+		if (plan != null) return plan;
 		while ((plan = CommitLivePlan(setKeys, setCount)) == null) ;
 		var slots = (ulong*)Volatile.Read(ref _planSlots);
 		if (slots == null)
@@ -527,45 +529,33 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		byte* slotMeta = stackalloc byte[PairTable.SlotRow];
 		var head = PairTable.HeadOf(key);
 		var epoch = Volatile.Read(ref PairTable._epoch);
-		var columnBound = 0;
-		var memoBound = 0;
-		for (var e = head; e >= 0; e = consumers[e].Next)
-		{
-			var con = consumers[e];
-			if (con.Keys == null) continue;
-			var n = Math.Min(con.Keys(slotKeys, slotMeta), PairTable.SlotRow);
-			if (con.DispatchOnly != 0) { columnBound = Math.Max(columnBound, con.Offset + n); continue; }
-			for (var j = 0; j < n; j++)
-				if ((slotMeta[j] & 0x10) != 0) memoBound++;
-		}
-		var bytes = sizeof(LivePlanHeader) + 8 * setCount + 4 * columnBound + 4 * memoBound;
-		var draft = stackalloc byte[bytes];
-		var header = (LivePlanHeader*)draft;
-		header->Epoch = epoch; header->SetCount = setCount; header->ColumnBound = columnBound;
-		Buffer.MemoryCopy(setKeys, draft + sizeof(LivePlanHeader), (nuint)(8 * setCount), (nuint)(8 * setCount));
-		var bindings = (int*)(draft + sizeof(LivePlanHeader) + 8 * setCount);
 		var pairCount = PairTable.ChainLength(head);
 		int* feedRange = stackalloc int[2 * pairCount];
 		Unsafe.InitBlock(feedRange, 0xFF, (uint)(8 * pairCount));
 		var feedStart = feedRange;
 		var feedEnd = feedRange + pairCount;
-		ulong* outKey = stackalloc ulong[memoBound];
-		for (var c = 0; c < columnBound; c++) bindings[c] = -3;
+		ulong* outKey = stackalloc ulong[PairTable.SlotRow * pairCount];
+		var columnBound = 0;
 		int outs = 0, memo = 0, live = 0;
 		for (var e = head; e >= 0; e = consumers[e].Next)
 		{
 			var con = consumers[e];
-			if (con.Ordinal >= pairCount || con.DispatchOnly != 0 || con.Keys == null) continue;
+			if (con.Ordinal >= pairCount || con.Keys == null) continue;
 			var n = Math.Min(con.Keys(slotKeys, slotMeta), PairTable.SlotRow);
+			if (con.DispatchOnly != 0) { columnBound = Math.Max(columnBound, con.Offset + n); continue; }
 			feedStart[con.Ordinal] = outs;
 			for (var j = 0; j < n; j++)
-				if ((slotMeta[j] & 0x10) != 0)
-				{
-					if (outs >= memoBound) ThrowMemoRow(memoBound);
-					outKey[outs++] = slotKeys[j];
-				}
+				if ((slotMeta[j] & 0x10) != 0) outKey[outs++] = slotKeys[j];
 			feedEnd[con.Ordinal] = outs;
 		}
+		var memoBound = outs;
+		var bytes = sizeof(LivePlanHeader) + 8 * setCount + 4 * columnBound + 4 * memoBound;
+		var draft = stackalloc byte[bytes];
+		var header = (LivePlanHeader*)draft;
+		header->Epoch = epoch; header->SetCount = setCount; header->ColumnBound = columnBound; header->Chain = pairCount;
+		Buffer.MemoryCopy(setKeys, draft + sizeof(LivePlanHeader), (nuint)(8 * setCount), (nuint)(8 * setCount));
+		var bindings = (int*)(draft + sizeof(LivePlanHeader) + 8 * setCount);
+		for (var c = 0; c < columnBound; c++) bindings[c] = -3;
 		for (var e = head; e >= 0; e = consumers[e].Next)
 		{
 			var con = consumers[e];
