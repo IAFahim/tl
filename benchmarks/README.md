@@ -19,6 +19,7 @@ Each owns a README that carries its verdict and cites its receipt directories un
 - `ValuePoolFormat` — TLB1 v3 pooled format on real assets (#155) plus the #168 row repack A/B and corpus parity.
 - `ConsumerFusion` — consumer fusion inlining verdict, JIT/NativeAOT proof, and measurements.
 - `InternContention` — #485 dispatch-vs-loader contention verdict (`InternContention/README.md`, raw runs under `InternContention/results/`): pre-fix main collapses dispatch to 0.10x under one loading thread; the fixed-arena, gate-free-reader runtime measures 0.87-0.96x across runs.
+- `LivePlan` — #486 live-plan cache verdict (`LivePlan/README.md`, raw runs under `LivePlan/results/`): alternating-id ColumnSet apply drops 25% (5,062 to 3,804 us at 100k rows) once id changes stop re-running key thunks and column scans; grouped and single-id arms hold parity.
 
 ## Decision receipts
 
