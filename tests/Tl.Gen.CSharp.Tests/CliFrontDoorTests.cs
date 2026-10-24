@@ -55,6 +55,29 @@ public sealed class CliFrontDoorTests
         """;
 
     [Fact]
+    public void MainReportsForeignBakeParameterTypeAndExitsTwo()
+    {
+        var directory = NewDirectory();
+        try
+        {
+            var sourcePath = Path.Combine(directory, "Domain.cs");
+            var referencesPath = Path.Combine(directory, "references.txt");
+            File.WriteAllText(sourcePath, DomainWithBake);
+            File.WriteAllLines(referencesPath, [typeof(IBake<>).Assembly.Location]);
+
+            var result = Run(["--compile", "--output", directory, "--source", sourcePath, "--reference-list", referencesPath]);
+
+            Assert.Equal(2, result.Exit);
+            Assert.Contains("error TLGEN89", result.StandardError);
+            Assert.Contains("parameter type 'float' does not resolve in this compilation", result.StandardError);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
     public void MainWithoutCompileArgumentExitsOne()
     {
         var result = Run([]);
