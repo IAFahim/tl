@@ -1,0 +1,22 @@
+quiet: 85831986 dispatches on 8 threads in 3.00s, 28595612/s, per-call p50 413 ns, p99 864 ns, dispatch rows 85831986 (ratio 1.00)
+loaded: 74329115 dispatches on 8 threads in 3.00s, 24764760/s, per-call p50 269 ns, p99 1143 ns, dispatch rows 74329115 (ratio 1.00)
+quiet-again: 73651728 dispatches on 8 threads in 3.00s, 24530002/s, per-call p50 247 ns, p99 950 ns, dispatch rows 73651728 (ratio 1.00)
+contention: loaded/quiet p50 1.09x, p99 1.32x, throughput 0.87x
+
+ Performance counter stats for 'dotnet run --project benchmarks/InternContention -c Release -- perfstat.json':
+
+   210,530,737,309      cpu_atom/cycles/u                                                       (43.98%)
+   401,191,862,062      cpu_core/cycles/u                                                       (73.08%)
+   108,015,901,523      cpu_atom/instructions/u                                                 (43.98%)
+   214,084,978,173      cpu_core/instructions/u                                                 (73.08%)
+    19,425,396,805      cpu_atom/branches/u                                                     (43.98%)
+    39,170,312,810      cpu_core/branches/u                                                     (73.08%)
+       107,350,802      cpu_atom/branch-misses/u                                                (43.98%)
+        73,600,673      cpu_core/branch-misses/u                                                (73.08%)
+
+       9.880501202 seconds time elapsed
+
+      74.461672000 seconds user
+       0.257944000 seconds sys
+
+
