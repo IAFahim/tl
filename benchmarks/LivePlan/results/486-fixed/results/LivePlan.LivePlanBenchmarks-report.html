@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>LivePlan.LivePlanBenchmarks-20261025-015927</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+  Job-TZECNT : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Job </th><th>Toolchain       </th><th>IterationCount</th><th>IterationTime</th><th>WarmupCount</th><th>Shape         </th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Apply</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>ColumnOne</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Apply</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>ColumnOne</td><td>968.4 &mu;s</td><td>9.93 &mu;s</td><td>9.29 &mu;s</td><td>970.6 &mu;s</td><td>-</td>
+</tr><tr><td>Apply</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>ColumnRuns8</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Apply</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>ColumnRuns8</td><td>955.6 &mu;s</td><td>13.03 &mu;s</td><td>12.19 &mu;s</td><td>953.2 &mu;s</td><td>-</td>
+</tr><tr><td>Apply</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>ColumnAlternating8</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Apply</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>ColumnAlternating8</td><td>3,804.2 &mu;s</td><td>20.55 &mu;s</td><td>17.16 &mu;s</td><td>3,810.5 &mu;s</td><td>-</td>
+</tr><tr><td>Apply</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>ColumnRuns8Waves</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Apply</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>ColumnRuns8Waves</td><td>926.4 &mu;s</td><td>3.93 &mu;s</td><td>3.68 &mu;s</td><td>927.6 &mu;s</td><td>4 B</td>
+</tr><tr><td>Apply</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>Colum(...)Waves [23]</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>Apply</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>Colum(...)Waves [23]</td><td>3,803.8 &mu;s</td><td>18.91 &mu;s</td><td>16.76 &mu;s</td><td>3,804.8 &mu;s</td><td>18 B</td>
+</tr></tbody></table>
+</body>
+</html>

@@ -7,9 +7,14 @@ namespace Tl;
 
 internal unsafe struct MemoLane
 {
-	public SlotView* Slot;
-	public ushort Lane;
-	public ushort Duration;
+    public SlotView* Slot;
+    public ushort Lane;
+    public ushort Duration;
+}
+
+internal struct LivePlanHeader
+{
+	public int Epoch, SetCount, ColumnBound, MemoCount, Chain;
 }
 
 public static unsafe partial class Timeline<TTrack, TClip>
@@ -17,6 +22,8 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	where TClip : unmanaged
 {
 	internal static TimelineSet<TTrack, TClip>? _bank;
+	const int PlanSlots = 4;
+	static int _liveVictim; static ulong _planSlots;
 
 	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
@@ -397,7 +404,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	{
 		if (pinned == caller.Count)
 		{
-			ApplyLive(ids, clocks, forward, 0, null, 0, null, setKeys, setCells, caller.Count);
+			ApplyLive(ids, clocks, forward, setKeys, setCells, caller.Count);
 			return;
 		}
 		fixed (byte* cell = &caller.ColumnRef(pinned))
@@ -408,43 +415,20 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	}
 
 	[MethodImpl(NoInlining | AggressiveOptimization)]
-	static void ApplyLive(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> clocks, bool forward, ulong keyFx, void* fx, ulong keyIn, void* source, ulong* setKeys, ulong* setCells, int setCount)
+	static void ApplyLive(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> clocks, bool forward, ulong* setKeys, ulong* setCells, int setCount)
 	{
 		var key = PairRuntime<TTrack, TClip>.Key;
 		var reverse = !forward;
-		var consumers = PairTable.ConsumerAt;
-		var pairCount = PairTable.ChainLength(PairTable.HeadOf(key));
-		int* feedStart = stackalloc int[pairCount];
-		int* feedEnd = stackalloc int[pairCount];
-		Unsafe.InitBlock(feedStart, 0xFF, (uint)(pairCount * sizeof(int)));
-		Unsafe.InitBlock(feedEnd, 0xFF, (uint)(pairCount * sizeof(int)));
-		int* chains = stackalloc int[256];
-		ulong* slotKeys = stackalloc ulong[PairTable.SlotRow];
-		byte* slotMeta = stackalloc byte[PairTable.SlotRow];
-		var columnBound = 0;
-		var memoBound = 0;
-		for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
-		{
-			if (consumers[e].Keys == null) continue;
-			var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
-			if (consumers[e].DispatchOnly != 0)
-			{
-				if (consumers[e].Offset + n > columnBound) columnBound = consumers[e].Offset + n;
-				continue;
-			}
-			for (var j = 0; j < n; j++)
-				if ((slotMeta[j] & 0x10) != 0) memoBound++;
-		}
+		var plan = FindLivePlan(setKeys, setCount);
+		int columnBound, memoCount;
+		if (plan == null) { columnBound = PairTable.PairBound(key); memoCount = columnBound; }
+		else { var bound = (LivePlanHeader*)plan; columnBound = bound->ColumnBound; memoCount = bound->MemoCount; }
 		void** columns = stackalloc void*[columnBound];
-		Unsafe.InitBlock(columns, 0, (uint)(columnBound * sizeof(void*)));
-		byte** cells = stackalloc byte*[memoBound];
-		MemoLane* laneCells = stackalloc MemoLane[memoBound];
-		byte* cellBlock = stackalloc byte[memoBound * 8];
-		byte* cellWide = stackalloc byte[memoBound];
-		ulong* outKey = stackalloc ulong[memoBound];
-		int memo = 0, pairs = 0;
-		var reference = default(TimelineRef);
-		var last = -1;
+		MemoLane* laneCells = stackalloc MemoLane[memoCount];
+		byte* cellBlock = stackalloc byte[memoCount * 8];
+		int* chains = stackalloc int[256];
+		var memo = memoCount; int* feeds = null; TimelineRef reference = default;
+		int pairs = 0, last = -1;
 		for (var i = 0; i < clocks.Length;)
 		{
 			var id = ids[i];
@@ -453,99 +437,162 @@ public static unsafe partial class Timeline<TTrack, TClip>
 			if (Rest(id)) { i = end; continue; }
 			if (id != last)
 			{
-				int live = 0;
 				last = id;
-				memo = 0;
 				Resolve(id);
 				reference = TimelineTable.Reference(id);
 				pairs = checked((int)reference.PairCount);
 				reference.Resolve(new Span<int>(chains, pairs), key);
 				var slot = Bank().FoldedView(id);
-				var map = (int*)((byte*)slot->LaneKeys + (nuint)slot->ResultCount * 8);
-				var viewLanes = map + 1;
-				var outs = 0;
-				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
+				var viewLanes = (int*)((byte*)slot->LaneKeys + (nuint)slot->ResultCount * 8) + 1;
+				var head = -1;
+				for (var p = 0; p < pairs && head < 0; p++) head = chains[p];
+				var consumers = PairTable.ConsumerAt;
+				var chain = 0;
+				for (var e = head; e >= 0; e = consumers[e].Next) chain++;
+				var live = (LivePlanHeader*)plan;
+				if (plan == null || feeds == null || chain != live->Chain)
 				{
-					if (consumers[e].Ordinal >= pairCount || consumers[e].DispatchOnly != 0 || consumers[e].Keys == null) continue;
-					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
-					feedStart[consumers[e].Ordinal] = outs;
-					for (var j = 0; j < n; j++)
-						if ((slotMeta[j] & 0x10) != 0)
-						{
-							if (outs >= memoBound) ThrowMemoRow(memoBound);
-							outKey[outs++] = slotKeys[j];
-						}
-					feedEnd[consumers[e].Ordinal] = outs;
+					plan = BindLivePlan(setKeys, setCount);
+					live = (LivePlanHeader*)plan;
+					if (live->ColumnBound > columnBound) ThrowLiveFrame(columnBound);
+					if (live->MemoCount > memoCount) ThrowMemoRow(memoCount);
+					memo = live->MemoCount;
+					var bindings = (int*)(plan + sizeof(LivePlanHeader) + 8 * live->SetCount);
+					feeds = bindings + live->ColumnBound;
+					for (var c = 0; c < live->ColumnBound; c++)
+						columns[c] = bindings[c] >= 0 ? (void*)setCells[bindings[c]] : bindings[c] <= -4 ? cellBlock + 8 * (-4 - bindings[c]) : null;
 				}
-				for (var e = PairTable.HeadOf(key); e >= 0; e = consumers[e].Next)
-				{
-					if (consumers[e].DispatchOnly == 0 || consumers[e].Keys == null) continue;
-					var n = Math.Min(consumers[e].Keys(slotKeys, slotMeta), PairTable.SlotRow);
-					if (consumers[e].Offset + n > columnBound) ThrowLiveFrame(columnBound);
-					var linked = consumers[e].Feed >= 0 && consumers[e].Feed < pairCount && feedStart[consumers[e].Feed] >= 0;
-					var feed = linked ? feedStart[consumers[e].Feed] : 0;
-					var fedBound = linked ? feedEnd[consumers[e].Feed] : outs;
-					var seen = 0;
-					for (var j = 0; j < n; j++)
-					{
-						var meta = slotMeta[j];
-						var column = consumers[e].Offset + j;
-						if ((meta & 0x40) != 0)
-						{
-							if (feed >= fedBound || outKey[feed] != slotKeys[j])
-								throw new ArgumentException($"{Head} ExecuteActive fold-fed 'in' does not match a Fold 'out' result.");
-						if (memo >= memoBound) ThrowMemoRow(memoBound);
-						cells[memo] = cellBlock + 8 * memo;
-						laneCells[memo] = new MemoLane { Slot = slot, Lane = (ushort)viewLanes[feed], Duration = slot->Duration };
-						cellWide[memo] = (meta & 0xF) == 8 ? (byte)1 : (byte)0;
-							columns[column] = cells[memo++];
-							feed++;
-						}
-						else
-						{
-							var cell = CellOf(setKeys, setCells, setCount, slotKeys[j]);
-							if (cell != null) columns[column] = cell;
-							else if ((meta & 0x20) != 0)
-							{
-								if (slotKeys[j] == keyFx) columns[column] = fx;
-							}
-							else if (slotKeys[j] == keyIn && seen++ == 0) columns[column] = source;
-						}
-					}
-					for (var j = 0; j < n; j++)
-						if (columns[consumers[e].Offset + j] == null)
-							PairTable.ThrowUnfedLiveColumn(e, j);
-					live++;
-				}
-				if (live == 0)
-					throw new ArgumentException($"{Head} registers no live ExecuteActive column consumer.");
+				for (var m = 0; m < memo; m++)
+					laneCells[m] = new MemoLane { Slot = slot, Lane = (ushort)viewLanes[feeds[m] & int.MaxValue], Duration = slot->Duration };
 			}
-				for (var r = i; r < end; r++)
+			for (var r = i; r < end; r++)
+			{
+				var position = clocks[r];
+				if (!reference.Select(reverse, position, out var tick, out var flags)) continue;
+				for (var k = 0; k < memo; k++)
 				{
-					var position = clocks[r];
-					if (!reference.Select(reverse, position, out var tick, out var flags)) continue;
-					for (var k = 0; k < memo; k++)
-					{
-						var lane = laneCells[k];
-						var laneTick = forward ? position : LaneEncoding.BackwardTick(position, lane.Duration);
-						if (cellWide[k] != 0)
-						{
-							var lo = LaneEncoding.Bits(LaneEncoding.Value(lane.Slot, lane.Lane, forward, laneTick));
-							var hi = LaneEncoding.Bits(LaneEncoding.Value(lane.Slot, (nuint)lane.Lane + 1, forward, laneTick));
-							*(ulong*)cells[k] = (ulong)lo | (ulong)hi << 32;
-						}
-						else *(float*)cells[k] = LaneEncoding.Value(lane.Slot, lane.Lane, forward, laneTick);
-					}
-					reference.ExecuteDispatch(reverse, tick, flags, r, new Span<int>(chains, pairs), columns);
+					var lane = laneCells[k];
+					var laneTick = forward ? position : LaneEncoding.BackwardTick(position, lane.Duration);
+					if ((feeds[k] & int.MinValue) == 0) *(float*)(cellBlock + 8 * k) = LaneEncoding.Value(lane.Slot, lane.Lane, forward, laneTick);
+					else *(ulong*)(cellBlock + 8 * k) = (ulong)LaneEncoding.Bits(LaneEncoding.Value(lane.Slot, lane.Lane, forward, laneTick)) | (ulong)LaneEncoding.Bits(LaneEncoding.Value(lane.Slot, (nuint)lane.Lane + 1, forward, laneTick)) << 32;
 				}
+				reference.ExecuteDispatch(reverse, tick, flags, r, new Span<int>(chains, pairs), columns);
+			}
 			i = end;
 		}
 	}
-
-	static void* CellOf(ulong* keys, ulong* cells, int n, ulong key)
+	static byte* FindLivePlan(ulong* setKeys, int setCount)
 	{
-		for (var i = 0; i < n; i++) if (keys[i] == key) return (void*)cells[i];
+		var slots = (ulong*)Volatile.Read(ref _planSlots);
+		if (slots == null) return null;
+		var epoch = Volatile.Read(ref PairTable._epoch);
+		for (var s = 0; s < PlanSlots; s++)
+		{
+			var plan = (byte*)Volatile.Read(ref slots[s]);
+			if (plan == null) continue;
+			var header = (LivePlanHeader*)plan;
+			if (header->Epoch != epoch || header->SetCount != setCount) continue;
+			var keys = (ulong*)(plan + sizeof(LivePlanHeader));
+			var i = 0;
+			while (i < setCount && keys[i] == setKeys[i]) i++;
+			if (i == setCount) return plan;
+		}
 		return null;
+	}
+	[MethodImpl(NoInlining)]
+	static byte* BindLivePlan(ulong* setKeys, int setCount)
+	{
+		var plan = FindLivePlan(setKeys, setCount);
+		if (plan != null) return plan;
+		while ((plan = CommitLivePlan(setKeys, setCount)) == null) ;
+		var slots = (ulong*)Volatile.Read(ref _planSlots);
+		if (slots == null)
+		{
+			var fresh = (ulong*)NativeMemory.AlignedAlloc(PlanSlots * 8, 64);
+			Unsafe.InitBlock(fresh, 0, PlanSlots * 8);
+			var raced = Interlocked.CompareExchange(ref _planSlots, (ulong)fresh, 0);
+			if (raced != 0) NativeMemory.AlignedFree(fresh);
+			slots = raced == 0 ? fresh : (ulong*)raced;
+		}
+		var slot = -1;
+		for (var s = 0; s < PlanSlots; s++)
+			if (slots[s] == 0) { slot = s; break; }
+		if (slot < 0) slot = Interlocked.Increment(ref _liveVictim) & (PlanSlots - 1);
+		Volatile.Write(ref slots[slot], (ulong)plan);
+		return plan;
+	}
+	static byte* CommitLivePlan(ulong* setKeys, int setCount)
+	{
+		var key = PairRuntime<TTrack, TClip>.Key;
+		var consumers = PairTable.ConsumerAt;
+		ulong* slotKeys = stackalloc ulong[PairTable.SlotRow];
+		byte* slotMeta = stackalloc byte[PairTable.SlotRow];
+		var head = PairTable.HeadOf(key);
+		var epoch = Volatile.Read(ref PairTable._epoch);
+		var pairCount = PairTable.ChainLength(head);
+		int* feedRange = stackalloc int[2 * pairCount];
+		Unsafe.InitBlock(feedRange, 0xFF, (uint)(8 * pairCount));
+		var feedStart = feedRange;
+		var feedEnd = feedRange + pairCount;
+		ulong* outKey = stackalloc ulong[PairTable.SlotRow * pairCount];
+		var columnBound = 0;
+		int outs = 0, memo = 0, live = 0;
+		for (var e = head; e >= 0; e = consumers[e].Next)
+		{
+			var con = consumers[e];
+			if (con.Ordinal >= pairCount || con.Keys == null) continue;
+			var n = Math.Min(con.Keys(slotKeys, slotMeta), PairTable.SlotRow);
+			if (con.DispatchOnly != 0) { columnBound = Math.Max(columnBound, con.Offset + n); continue; }
+			feedStart[con.Ordinal] = outs;
+			for (var j = 0; j < n; j++)
+				if ((slotMeta[j] & 0x10) != 0) outKey[outs++] = slotKeys[j];
+			feedEnd[con.Ordinal] = outs;
+		}
+		var memoBound = outs;
+		var bytes = sizeof(LivePlanHeader) + 8 * setCount + 4 * columnBound + 4 * memoBound;
+		var draft = stackalloc byte[bytes];
+		var header = (LivePlanHeader*)draft;
+		header->Epoch = epoch; header->SetCount = setCount; header->ColumnBound = columnBound; header->Chain = pairCount;
+		Buffer.MemoryCopy(setKeys, draft + sizeof(LivePlanHeader), (nuint)(8 * setCount), (nuint)(8 * setCount));
+		var bindings = (int*)(draft + sizeof(LivePlanHeader) + 8 * setCount);
+		for (var c = 0; c < columnBound; c++) bindings[c] = -3;
+		for (var e = head; e >= 0; e = consumers[e].Next)
+		{
+			var con = consumers[e];
+			if (con.DispatchOnly == 0 || con.Keys == null) continue;
+			var n = Math.Min(con.Keys(slotKeys, slotMeta), PairTable.SlotRow);
+			if (con.Offset + n > columnBound) ThrowLiveFrame(columnBound);
+			var linked = con.Feed >= 0 && con.Feed < pairCount && feedStart[con.Feed] >= 0;
+			var feed = linked ? feedStart[con.Feed] : 0;
+			var fedBound = linked ? feedEnd[con.Feed] : outs;
+			for (var j = 0; j < n; j++)
+			{
+				var meta = slotMeta[j];
+				var column = con.Offset + j;
+				if ((meta & 0x40) == 0)
+				{
+					for (var s = 0; s < setCount; s++)
+						if (setKeys[s] == slotKeys[j]) { bindings[column] = s; break; }
+					continue;
+				}
+				if (feed >= fedBound || outKey[feed] != slotKeys[j])
+					throw new ArgumentException($"{Head} ExecuteActive fold-fed 'in' does not match a Fold 'out' result.");
+				if (memo >= memoBound) ThrowMemoRow(memoBound);
+				bindings[columnBound + memo] = feed | ((meta & 0xF) == 8 ? int.MinValue : 0);
+				bindings[column] = -4 - memo;
+				memo++;
+				feed++;
+			}
+			for (var j = 0; j < n; j++)
+				if (bindings[con.Offset + j] == -3) PairTable.ThrowUnfedLiveColumn(e, j);
+			live++;
+		}
+		if (live == 0) throw new ArgumentException($"{Head} registers no live ExecuteActive column consumer.");
+		header->MemoCount = memo;
+		if (Volatile.Read(ref PairTable._epoch) != epoch) return null;
+		var plan = (byte*)NativeMemory.AlignedAlloc((nuint)bytes, 64);
+		Buffer.MemoryCopy(draft, plan, (nuint)bytes, (nuint)bytes);
+		return plan;
 	}
 
 	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
