@@ -167,6 +167,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     internal ulong _generation;
     internal ulong _foldDigest;
     internal int _registryEpoch;
+    internal long _restStamp;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _gate;
@@ -222,11 +223,38 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
             }
             for (var index = 0; index < _count; index++)
             {
-                if (_views[index] == null || !TimelineTable.IsLive((ushort)index)) continue;
+                if (_views[index] == null) continue;
                 Volatile.Write(ref *(long*)(_views + index), 0);
                 _tables[2 * (nuint)index] = null;
                 _tables[2 * (nuint)index + 1] = null;
                 _holes++;
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _gate, 0);
+        }
+    }
+
+    internal void SweepRest()
+    {
+        var stamp = TimelineTable.MotionEpoch;
+        AcquireGate();
+        try
+        {
+            if (stamp == _restStamp) return;
+            _restStamp = stamp;
+            var rest = TimelineTable.RestView;
+            for (ushort index = 0; index < _count; index++)
+            {
+                var current = _views[index];
+                var value = (TimelineTable.Motion[index] & TimelineTable.DeadMotion) != 0 ? rest : current == rest ? null : current;
+                if (value == current) continue;
+                if (current == null) _holes--;
+                if (value == null) _holes++;
+                Volatile.Write(ref *(long*)(_views + index), (long)value);
+                _tables[2 * index] = null;
+                _tables[2 * index + 1] = null;
             }
         }
         finally

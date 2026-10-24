@@ -100,7 +100,7 @@ internal static class Checked
     [MethodImpl(AggressiveInlining)]
     internal static unsafe void Domain(ushort index, ushort position)
     {
-        var duration = (ushort)(TimelineTable.Motion[index] & 0xFFFF);
+        var duration = TimelineTable.DomainOf(TimelineTable.Motion[index]);
         if (position > duration) Fail.PositionOutsideDomain(0, index, position, duration);
     }
 
@@ -108,7 +108,7 @@ internal static class Checked
     [MethodImpl(AggressiveInlining)]
     internal static unsafe void Domain(ushort index, ReadOnlySpan<ushort> positions)
     {
-        var duration = (ushort)(TimelineTable.Motion[index] & 0xFFFF);
+        var duration = TimelineTable.DomainOf(TimelineTable.Motion[index]);
         for (var i = 0; i < positions.Length; i++)
             if (positions[i] > duration) Fail.PositionOutsideDomain(i, index, positions[i], duration);
     }
@@ -122,7 +122,7 @@ internal static class Checked
         for (var i = 0; i < positions.Length; i++)
         {
             var index = indices[i];
-            var duration = (ushort)(motion[index] & 0xFFFF);
+            var duration = TimelineTable.DomainOf(motion[index]);
             if (positions[i] > duration) Fail.PositionOutsideDomain(i, index, positions[i], duration);
         }
     }

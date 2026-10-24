@@ -14,6 +14,19 @@ static unsafe class TimelineTable
     const int StateLive = 1;
     const int StateDead = 2;
     const long LowMask = 0xFFFFFFFFL;
+    internal const uint DeadMotion = 0x4000_0000u;
+    internal static readonly SlotView* RestView = NewRestView();
+
+    static SlotView* NewRestView()
+    {
+        var view = (SlotView*)NativeMemory.AllocZeroed((nuint)sizeof(SlotView));
+        view->AbiVersion = SlotView.AbiVersionV4;
+        return view;
+    }
+
+    internal static ushort DomainOf(uint motion) => (motion & DeadMotion) != 0 ? ushort.MaxValue : (ushort)(motion & 0xFFFF);
+
+    internal static long MotionEpoch => Volatile.Read(ref _deaths) + Volatile.Read(ref _revivals);
 
     [StructLayout(LayoutKind.Sequential, Size = 64)]
     internal struct Entry
@@ -200,7 +213,7 @@ static unsafe class TimelineTable
         return block != null;
     }
 
-    static ArgumentException NotLoaded(ushort index)
+    internal static ArgumentException NotLoaded(ushort index)
         => new($"Timeline index {index} is not loaded; indices come from TimelineAsset.Load and die when every acquisition is disposed.");
 
     internal static void Release(ushort index, long generation)
@@ -241,7 +254,7 @@ static unsafe class TimelineTable
                 Volatile.Write(ref entry->State, StateLive);
                 return;
             }
-            Volatile.Write(ref _motion[index], 0u);
+            Volatile.Write(ref _motion[index], DeadMotion);
             var block = entry->Block;
             var bytes = entry->Bytes;
             entry->Block = null;
