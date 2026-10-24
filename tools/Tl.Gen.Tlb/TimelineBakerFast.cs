@@ -1984,11 +1984,13 @@ internal static class TimelineBakerFastCore
 
             try
             {
-                using var probe = TimelineAsset.Of(TimelineAsset.Load(bytes));
+                using var probe = TimelineAsset.LoadAsset(bytes);
             }
             catch (ArgumentException ex)
             {
-                throw new BakeDiagnosticException($"TLB validation failed: {ex.Message}");
+                var intern = Tl.Inspection.Tables().Intern;
+                var digest = System.Security.Cryptography.SHA256.HashData(bytes);
+                throw new BakeDiagnosticException($"TLB validation failed: {ex.Message}; content {Convert.ToHexString(digest).ToLowerInvariant()[..16]}/{bytes.Length}B, intern live {intern.Live}/{intern.Distinct}, graveyard {intern.GraveyardBlocks}");
             }
             catch (InvalidOperationException ex) when (
                 ex.Message.StartsWith("Timeline index domain exhausted", StringComparison.Ordinal)

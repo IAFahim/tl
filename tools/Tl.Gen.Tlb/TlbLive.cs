@@ -342,7 +342,7 @@ public static unsafe class TlbLive
             }
             try
             {
-                arguments = [TimelineAsset.Of(TimelineAsset.Load(File.ReadAllBytes(assets[0])))];
+                arguments = [TimelineAsset.LoadAsset(File.ReadAllBytes(assets[0]))];
             }
             catch (ArgumentException ex)
             {
