@@ -3,6 +3,10 @@ type Tl.BakeRuntime`2
   Property Int32 BakeCount
   Method Int32 BakeParameterCount(Int32)
   Method UInt64 BakeParameterKey(Int32, Int32)
+type Tl.BankState
+  Field Byte* Block
+  Field Int64 Misses
+  Field Int32 Runs
 type Tl.ColumnSet
   Method Void Add[T](System.ReadOnlySpan`1[T])
 type Tl.FrameFlags
@@ -279,6 +283,9 @@ type Tl.Timeline`2
   Method Void Apply[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, Tl.ColumnSet ByRef)
   Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[System.Int32], System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
   Method Void ApplyChunk[TIndex,TPosition,TEffect0,TEffect1](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect0], System.Span`1[TEffect1])
+  Method Void Play(Tl.BankState ByRef, System.ReadOnlySpan`1[System.UInt16], Boolean)
+  Method Tl.BankState Prepare(System.ReadOnlySpan`1[System.UInt16], Tl.ColumnSet ByRef)
+  Method Void Release(Tl.BankState ByRef)
   Method TClip SampleClip(UInt16, UInt16, Boolean)
   Method Boolean TrySample(UInt16, UInt16, TClip ByRef, Tl.Frame`2[TTrack,TClip] ByRef, Boolean)
   Method Tl.SlotView View(UInt16)

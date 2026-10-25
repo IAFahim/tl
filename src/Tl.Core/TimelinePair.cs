@@ -17,6 +17,29 @@ internal struct LivePlanHeader
 	public int Epoch, SetCount, ColumnBound, MemoCount, Chain;
 }
 
+public unsafe struct BankState
+{
+	public byte* Block;
+	public int Runs;
+	public long Misses;
+}
+
+internal unsafe struct BankHeader
+{
+	public void** Columns;
+	public byte* Cells;
+	public int* Feeds;
+	public int* Frozen;
+	public MemoLane* Lanes;
+	public int Runs, ChainCount, MemoCount;
+}
+
+internal unsafe struct BankRun
+{
+	public byte* Source;
+	public int Start, Length, PairIndex;
+}
+
 public static unsafe partial class Timeline<TTrack, TClip>
 	where TTrack : unmanaged, IBlend<TClip>
 	where TClip : unmanaged
@@ -397,89 +420,175 @@ public static unsafe partial class Timeline<TTrack, TClip>
 				ThrowColumnRowMismatch(s, caller.LengthAt(s), clocks.Length);
 		var setKeys = ColumnSet.Keys(in caller);
 		var setCells = stackalloc ulong[caller.Count];
-		ApplyPinned(ids, clocks, forward, in caller, setKeys, setCells, 0);
+		PreparePinned(ids, clocks, forward, in caller, setKeys, setCells, 0);
 	}
 
-	static void ApplyPinned(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> clocks, bool forward, scoped in ColumnSet caller, ulong* setKeys, ulong* setCells, int pinned)
+	public static BankState Prepare(ReadOnlySpan<ushort> ids, scoped in ColumnSet columns)
+	{
+		var setKeys = ColumnSet.Keys(in columns);
+		var setCells = stackalloc ulong[columns.Count];
+		return PreparePinned(ids, default, false, in columns, setKeys, setCells, 0);
+	}
+
+	static BankState PreparePinned(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> clocks, bool forward, scoped in ColumnSet caller, ulong* setKeys, ulong* setCells, int pinned)
 	{
 		if (pinned == caller.Count)
 		{
-			ApplyLive(ids, clocks, forward, setKeys, setCells, caller.Count);
-			return;
+			var state = BindBankState(ids, setKeys, setCells, caller.Count);
+			if (clocks.IsEmpty) return state;
+			Play(in state, clocks, forward);
+			NativeMemory.AlignedFree(state.Block);
+			return default;
 		}
 		fixed (byte* cell = &caller.ColumnRef(pinned))
 		{
 			setCells[pinned] = (ulong)cell;
-			ApplyPinned(ids, clocks, forward, in caller, setKeys, setCells, pinned + 1);
+			return PreparePinned(ids, clocks, forward, in caller, setKeys, setCells, pinned + 1);
 		}
 	}
 
-	[MethodImpl(NoInlining | AggressiveOptimization)]
-	static void ApplyLive(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> clocks, bool forward, ulong* setKeys, ulong* setCells, int setCount)
+	[MethodImpl(NoInlining)]
+	static BankState BindBankState(ReadOnlySpan<ushort> ids, ulong* setKeys, ulong* setCells, int setCount)
 	{
 		var key = PairRuntime<TTrack, TClip>.Key;
-		var reverse = !forward;
-		var plan = FindLivePlan(setKeys, setCount);
-		int columnBound, memoCount;
-		if (plan == null) { columnBound = PairTable.PairBound(key); memoCount = columnBound; }
-		else { var bound = (LivePlanHeader*)plan; columnBound = bound->ColumnBound; memoCount = bound->MemoCount; }
-		void** columns = stackalloc void*[columnBound];
-		MemoLane* laneCells = stackalloc MemoLane[memoCount];
-		byte* cellBlock = stackalloc byte[memoCount * 8];
-		int* chains = stackalloc int[256];
-		var memo = memoCount; int* feeds = null; TimelineRef reference = default;
-		int pairs = 0, last = -1;
-		for (var i = 0; i < clocks.Length;)
+		var runs = 0;
+		long misses = 0;
+		for (var i = 0; i < ids.Length;)
 		{
-			var id = ids[i];
 			var end = i + 1;
-			while (end < clocks.Length && ids[end] == id) end++;
-			if (Rest(id)) { i = end; continue; }
-			if (id != last)
+			while (end < ids.Length && ids[end] == ids[i]) end++;
+			if (Missing(ids[i])) misses += end - i;
+			else runs++;
+			i = end;
+		}
+		byte* plan;
+		var consumers = PairTable.ConsumerAt;
+		int head, chain, dispatch;
+		while (true)
+		{
+			plan = BindLivePlan(setKeys, setCount);
+			consumers = PairTable.ConsumerAt;
+			head = PairTable.HeadOf(key);
+			chain = 0;
+			dispatch = 0;
+			for (var e = head; e >= 0; e = consumers[e].Next)
 			{
-				last = id;
+				chain++;
+				if (consumers[e].DispatchOnly != 0) dispatch++;
+			}
+			if (chain == ((LivePlanHeader*)plan)->Chain) break;
+		}
+		var live = (LivePlanHeader*)plan;
+		var memo = live->MemoCount;
+		var bindings = (int*)(plan + sizeof(LivePlanHeader) + 8 * live->SetCount);
+		var feeds = bindings + live->ColumnBound;
+		var aligned = sizeof(BankHeader) + sizeof(BankRun) * runs + 4 * dispatch + sizeof(MemoLane) * runs * memo + 7 & ~7;
+		var bytes = aligned + 8 * live->ColumnBound + 8 * memo;
+		var block = (byte*)NativeMemory.AlignedAlloc((nuint)bytes, 64);
+		var header = (BankHeader*)block;
+		header->Columns = (void**)(block + aligned);
+		header->Cells = (byte*)header->Columns + 8 * live->ColumnBound;
+		header->Feeds = feeds;
+		var run = (BankRun*)(block + sizeof(BankHeader));
+		header->Frozen = (int*)(run + runs);
+		header->Lanes = (MemoLane*)(header->Frozen + dispatch);
+		header->Runs = runs; header->ChainCount = dispatch; header->MemoCount = memo;
+		var f = 0;
+		for (var e = head; e >= 0; e = consumers[e].Next)
+			if (consumers[e].DispatchOnly != 0) header->Frozen[f++] = e;
+		for (var c = 0; c < live->ColumnBound; c++)
+			header->Columns[c] = bindings[c] >= 0 ? (void*)setCells[bindings[c]] : bindings[c] <= -4 ? header->Cells + 8 * (-4 - bindings[c]) : null;
+		try
+		{
+			int* chains = stackalloc int[256];
+			var entry = run;
+			var lane = header->Lanes;
+			for (var i = 0; i < ids.Length;)
+			{
+				var id = ids[i];
+				var end = i + 1;
+				while (end < ids.Length && ids[end] == id) end++;
+				if (Missing(id)) { i = end; continue; }
 				Resolve(id);
-				reference = TimelineTable.Reference(id);
-				pairs = checked((int)reference.PairCount);
+				var reference = TimelineTable.Reference(id);
+				var pairs = checked((int)reference.PairCount);
 				reference.Resolve(new Span<int>(chains, pairs), key);
+				var pairIndex = 0;
+				while (chains[pairIndex] < 0) pairIndex++;
 				var slot = Bank().FoldedView(id);
 				var viewLanes = (int*)((byte*)slot->LaneKeys + (nuint)slot->ResultCount * 8) + 1;
-				var head = -1;
-				for (var p = 0; p < pairs && head < 0; p++) head = chains[p];
-				var consumers = PairTable.ConsumerAt;
-				var chain = 0;
-				for (var e = head; e >= 0; e = consumers[e].Next) chain++;
-				var live = (LivePlanHeader*)plan;
-				if (plan == null || feeds == null || chain != live->Chain)
-				{
-					plan = BindLivePlan(setKeys, setCount);
-					live = (LivePlanHeader*)plan;
-					if (live->ColumnBound > columnBound) ThrowLiveFrame(columnBound);
-					if (live->MemoCount > memoCount) ThrowMemoRow(memoCount);
-					memo = live->MemoCount;
-					var bindings = (int*)(plan + sizeof(LivePlanHeader) + 8 * live->SetCount);
-					feeds = bindings + live->ColumnBound;
-					for (var c = 0; c < live->ColumnBound; c++)
-						columns[c] = bindings[c] >= 0 ? (void*)setCells[bindings[c]] : bindings[c] <= -4 ? cellBlock + 8 * (-4 - bindings[c]) : null;
-				}
 				for (var m = 0; m < memo; m++)
-					laneCells[m] = new MemoLane { Slot = slot, Lane = (ushort)viewLanes[feeds[m] & int.MaxValue], Duration = slot->Duration };
+					lane[m] = new MemoLane { Slot = slot, Lane = (ushort)viewLanes[feeds[m] & int.MaxValue], Duration = slot->Duration };
+				lane += memo;
+				*entry++ = new BankRun { Source = (byte*)reference._p, Start = i, Length = end - i, PairIndex = pairIndex };
+				i = end;
 			}
-			for (var r = i; r < end; r++)
+		}
+		catch { NativeMemory.AlignedFree(block); throw; }
+		return new BankState { Block = block, Runs = runs, Misses = misses };
+	}
+
+	[MethodImpl(AggressiveOptimization)]
+	public static void Play(in BankState state, ReadOnlySpan<ushort> clocks, bool forward)
+	{
+		var header = (BankHeader*)state.Block;
+		var reverse = !forward;
+		var consumers = PairTable.ConsumerAt;
+		var cells = header->Cells;
+		var feeds = header->Feeds;
+		var columns = header->Columns;
+		var frozen = header->Frozen;
+		var memoCount = header->MemoCount;
+		var chainCount = header->ChainCount;
+		var runs = (BankRun*)(state.Block + sizeof(BankHeader));
+		for (var n = 0; n < header->Runs; n++)
+		{
+			var entry = runs[n];
+			var reference = new TimelineRef(entry.Source);
+			var lanes = header->Lanes + (nint)n * memoCount;
+			var end = entry.Start + entry.Length;
+			for (var r = entry.Start; r < end; r++)
 			{
 				var position = clocks[r];
 				if (!reference.Select(reverse, position, out var tick, out var flags)) continue;
-				for (var k = 0; k < memo; k++)
+				for (var k = 0; k < memoCount; k++)
 				{
-					var lane = laneCells[k];
+					var lane = lanes[k];
 					var laneTick = forward ? position : LaneEncoding.BackwardTick(position, lane.Duration);
-					if ((feeds[k] & int.MinValue) == 0) *(float*)(cellBlock + 8 * k) = LaneEncoding.Value(lane.Slot, lane.Lane, forward, laneTick);
-					else *(ulong*)(cellBlock + 8 * k) = (ulong)LaneEncoding.Bits(LaneEncoding.Value(lane.Slot, lane.Lane, forward, laneTick)) | (ulong)LaneEncoding.Bits(LaneEncoding.Value(lane.Slot, (nuint)lane.Lane + 1, forward, laneTick)) << 32;
+					if ((feeds[k] & int.MinValue) == 0) *(float*)(cells + 8 * k) = LaneEncoding.Value(lane.Slot, lane.Lane, forward, laneTick);
+					else *(ulong*)(cells + 8 * k) = (ulong)LaneEncoding.Bits(LaneEncoding.Value(lane.Slot, lane.Lane, forward, laneTick)) | (ulong)LaneEncoding.Bits(LaneEncoding.Value(lane.Slot, (nuint)lane.Lane + 1, forward, laneTick)) << 32;
 				}
-				reference.ExecuteDispatch(reverse, tick, flags, r, new Span<int>(chains, pairs), columns);
+				var source = entry.Source;
+				var head = (NativeHeader*)source;
+				var stage = head->StageCount == 1 ? (NativeStage*)(source + head->StageOffset) : reference.StageOf(tick);
+				if (stage == null) continue;
+				var steps = (NativeStep*)(source + stage->ProgramOffset);
+				var count = (int)stage->ProgramCount;
+				var step = reverse ? steps + count - 1 : steps;
+				var stride = reverse ? -1 : 1;
+				while (count-- > 0)
+				{
+					if ((int)step->Pair == entry.PairIndex)
+					{
+						var slot = source + step->Slot;
+						var pair = (byte*)((NativePair*)(source + head->PairOffset) + step->Pair);
+						for (var c = 0; c < chainCount; c++)
+						{
+							var e = frozen[reverse ? chainCount - 1 - c : c];
+							consumers[e].Execute(slot, pair, tick, flags, columns + consumers[e].Offset, r);
+						}
+					}
+					step += stride;
+				}
 			}
-			i = end;
 		}
+	}
+
+	public static void Release(ref BankState state)
+	{
+		if (state.Block == null) return;
+		NativeMemory.AlignedFree(state.Block);
+		state = default;
 	}
 	static byte* FindLivePlan(ulong* setKeys, int setCount)
 	{
@@ -737,6 +846,8 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	}
 
 	static bool Rest(ushort index) => (TimelineTable.Motion[index] & TimelineTable.DeadMotion) != 0;
+	static bool Missing(ushort index)
+		=> Rest(index) || !TimelineTable.IsLive(index) || !TimelineTable.Reference(index).Uses(PairRuntime<TTrack, TClip>.Key);
 
 	[MethodImpl(AggressiveOptimization)]
 	internal static bool ResolveChunk(TimelineSet<TTrack, TClip> set, ReadOnlySpan<ushort> indices, int start, int end)
