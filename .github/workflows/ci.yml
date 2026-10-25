@@ -26,7 +26,7 @@ jobs:
       - run: python3 eng/test_agent_work.py
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.402
       - run: dotnet workload install wasm-tools
       - run: eng/test-isolated-output
       - run: python3 benchmarks/source_budget.py
@@ -121,7 +121,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.402
       - name: Build and test the checked configuration (TL_CHECKED)
         run: dotnet test tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -p:TlChecked=true -p:NuGetAudit=false
 
@@ -133,7 +133,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.402
       - name: Install AFL++
         run: |
           sudo apt-get update -qq
@@ -162,7 +162,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.402
       - run: dotnet build tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -m:1 -p:NuGetAudit=false
       - run: dotnet build tests/Tl.Alpha -c Release -m:1 -p:NuGetAudit=false
       - run: dotnet build benchmarks/Alpha -c Release -m:1 -p:NuGetAudit=false
@@ -181,7 +181,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 10.0.402
       - run: dotnet build tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -m:1 -p:NuGetAudit=false
       - name: Vector128 fallback tier (DOTNET_EnableAVX2=0)
         env:
