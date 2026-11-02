@@ -207,14 +207,23 @@ public unsafe class PairLaws
     {
         var positions = new ushort[count];
         for (var i = 0; i < count; i++)
-            positions[i] = duration <= 20 && random.NextBool()
-                ? (ushort)random.NextInt(Math.Min(65536, duration + 4))
-                : random.Pick(
-                [
-                    (ushort)0, (ushort)1, (ushort)Math.Max(0, duration - 1), duration,
-                    (ushort)Math.Min(65535, duration + 1), (ushort)random.NextInt(Math.Min(65536, duration + 4)),
-                ]);
+            positions[i] = SamplePosition(random, duration);
         return positions;
+    }
+
+    static ushort SamplePosition(FuzzRandom random, ushort duration)
+    {
+        var position = duration <= 20 && random.NextBool()
+            ? (ushort)random.NextInt(Math.Min(65536, duration + 4))
+            : random.Pick(
+            [
+                (ushort)0, (ushort)1, (ushort)Math.Max(0, duration - 1), duration,
+                (ushort)Math.Min(65535, duration + 1), (ushort)random.NextInt(Math.Min(65536, duration + 4)),
+            ]);
+#if TL_CHECKED
+        position = (ushort)Math.Min(position, duration);
+#endif
+        return position;
     }
 
     static float Initial(FuzzRandom random) => (random.NextInt(512) - 256) * 0.25f;

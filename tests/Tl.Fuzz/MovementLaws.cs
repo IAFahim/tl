@@ -59,13 +59,22 @@ public class MovementLaws
     {
         var positions = new ushort[count];
         for (var i = 0; i < count; i++)
-            positions[i] = random.Pick(
-            [
-                (ushort)0, (ushort)1, (ushort)Math.Max(0, duration - 1), duration,
-                (ushort)Math.Min(65535, duration + 1), (ushort)Math.Min(65535, duration + 2),
-                (ushort)65534, (ushort)65535, (ushort)random.NextInt(Math.Min(65536, duration + 3)),
-            ]);
+            positions[i] = SamplePosition(random, duration);
         return positions;
+    }
+
+    static ushort SamplePosition(FuzzRandom random, ushort duration)
+    {
+        var position = random.Pick(
+        [
+            (ushort)0, (ushort)1, (ushort)Math.Max(0, duration - 1), duration,
+            (ushort)Math.Min(65535, duration + 1), (ushort)Math.Min(65535, duration + 2),
+            (ushort)65534, (ushort)65535, (ushort)random.NextInt(Math.Min(65536, duration + 3)),
+        ]);
+#if TL_CHECKED
+        position = (ushort)Math.Min(position, duration);
+#endif
+        return position;
     }
 
     [Fact]
@@ -109,6 +118,11 @@ public class MovementLaws
 
             var recordPositions = new ushort[Math.Min(count, 9)];
             Array.Copy(positions, recordPositions, recordPositions.Length);
+#if TL_CHECKED
+            var recordDuration = table.DurationById[ids[0]];
+            for (var i = 0; i < recordPositions.Length; i++)
+                recordPositions[i] = (ushort)Math.Min(recordPositions[i], recordDuration);
+#endif
             var recordNext = new ushort[recordPositions.Length];
             Timeline.Advance(ids[0], recordPositions, recordNext, forward);
             for (var i = 0; i < recordPositions.Length; i++)
