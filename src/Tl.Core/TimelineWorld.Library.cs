@@ -73,7 +73,15 @@ namespace Tl
             if (count > 65535) throw new ArgumentException("game.tlib declares more than 65535 timelines.");
             var digestAt = (int)(total - 32u);
             Span<byte> calc = stackalloc byte[32];
+#if NET
             if (!SHA256.TryHashData(library.Slice(0, digestAt), calc, out _)) throw new ArgumentException("game.tlib digest failure.");
+#else
+            using (var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
+            {
+                sha.AppendData(library.Slice(0, digestAt));
+                if (!sha.TryGetHashAndReset(calc, out _)) throw new ArgumentException("game.tlib digest failure.");
+            }
+#endif
             if (!library.Slice(digestAt).SequenceEqual(calc)) throw new ArgumentException("game.tlib digest mismatch; file is corrupt or truncated.");
             _base = (byte*)NativeMemory.AlignedAlloc((nuint)library.Length, 64);
             _byteCount = library.Length;
@@ -107,11 +115,11 @@ namespace Tl
                 var blob = new ReadOnlySpan<byte>(_base + tlbOff, (int)tlbLen);
                 try { TimelineRef.Validate(blob); }
                 catch (ArgumentException ex) { Free(); throw new ArgumentException($"game.tlib timeline '{name}': {ex.Message}"); }
-                BuildTimeline(timelines + i, (ushort)id, blob, tlbOff, name, i);
+                BuildTimeline(timelines + i, (ushort)id, blob, tlbOff, name, i, channel);
             }
         }
 
-        unsafe void BuildTimeline(LibraryTimeline* tl, ushort id, ReadOnlySpan<byte> blob, uint tlbOff, string name, uint index)
+        unsafe void BuildTimeline(LibraryTimeline* tl, ushort id, ReadOnlySpan<byte> blob, uint tlbOff, string name, uint index, uint manifestChannel)
         {
             var version = BinaryPrimitives.ReadUInt32LittleEndian(blob.Slice(4));
             var loops = BinaryPrimitives.ReadUInt32LittleEndian(blob.Slice(8));
@@ -131,9 +139,11 @@ namespace Tl
                 markerOff = BinaryPrimitives.ReadUInt32LittleEndian(blob.Slice(64));
                 markerCount = BinaryPrimitives.ReadUInt32LittleEndian(blob.Slice(68));
             }
+            if (manifestChannel != channel) { Free(); throw new ArgumentException($"game.tlib manifest entry '{name}' channel {manifestChannel} does not match timeline channel {channel}."); }
             tl->Id = id;
             tl->Channel = (ushort)channel;
             tl->Next = (ushort)next;
+            if (next > (uint)_view.TimelineCount) throw new ArgumentException("game.tlib timeline has unknown next id; file is corrupt or truncated.");
             tl->Loop = (byte)(loops != 0 ? 1 : 0);
             tl->Hold = (byte)((flags & 1u) != 0 ? 1 : 0);
             tl->Duration = duration;

@@ -121,7 +121,6 @@ public static class TlbMap
             for (uint i = 0; i < c.Markers.Length; i++)
             {
                 var m = c.Markers[i];
-                if (i == 0) moff = MarkerBase(f, c);
                 Add(moff, moff + 4, TlbFieldKind.Row, $"marker {i}.tick", m.Tick.ToString());
                 Add(moff + 4, moff + 8, TlbFieldKind.Row, $"marker {i}.size", m.Size.ToString());
                 Add(moff + 8, moff + 16, TlbFieldKind.Row, $"marker {i}.key", m.Key.ToString("x16"));

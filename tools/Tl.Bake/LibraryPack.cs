@@ -169,11 +169,10 @@ internal static class LibraryPack
         var lengths = new uint[names.Count];
         var uniq = new List<byte[]>();
         var uniqOff = new List<uint>();
-        var total = 0u;
         for (var i = 0; i < names.Count; i++)
         {
             var idx = uniq.FindIndex(u => u.AsSpan().SequenceEqual(tlbs[i]));
-            if (idx < 0) { idx = uniq.Count; uniq.Add(tlbs[i]); uniqOff.Add(0); total += (uint)((tlbs[i].Length + 7) & ~7); }
+            if (idx < 0) { idx = uniq.Count; uniq.Add(tlbs[i]); uniqOff.Add(0); }
             offsets[i] = (uint)idx;
             lengths[i] = (uint)tlbs[i].Length;
         }

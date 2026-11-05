@@ -189,6 +189,57 @@ type Tl.LaneSegment
   Field UInt16 Start
   Field Single V0
   Field Single V1
+type Tl.LibraryEvent
+  Field Byte Kind
+  Field UInt32 Marker
+  Field Int32 StepIndex
+  Field UInt32 Tick
+  Field Byte _pad0
+  Field UInt16 _pad1
+type Tl.LibraryStage
+  Field UInt32 End
+  Field UInt32 Start
+  Field Int32 StepCount
+  Field Tl.LibraryStep* Steps
+type Tl.LibraryStep
+  Field UInt32 FactorSpan
+  Field UInt32 FactorStart
+  Field UInt16 FirstValueIndex
+  Field Void* FoldLane
+  Field Void* FrameRow
+  Field UInt32 Pair
+  Field UInt64 PairKey
+  Field UInt16 SecondValueIndex
+  Field Int32 TrackIndex
+  Field UInt16 TrackValueIndex
+  Field UInt32 WindowEnd
+  Field UInt32 WindowStart
+type Tl.LibraryTimeline
+  Field UInt16 Channel
+  Field UInt32 Duration
+  Field Int32 EventCount
+  Field UInt64* EventTickBits
+  Field Tl.LibraryEvent* Events
+  Field Byte Hold
+  Field UInt16 Id
+  Field Byte Loop
+  Field UInt16 Next
+  Field Int32 StageCount
+  Field Tl.LibraryStage* Stages
+type Tl.LibraryView
+  Field UInt32 AbiVersion
+  Field UInt32 ByteCount
+  Field Int32 TimelineCount
+  Field Tl.LibraryTimeline* Timelines
+  Field UInt32 Version
+type Tl.LibraryViewReader
+  Method System.Span`1[Tl.LibraryEvent] Events(Tl.LibraryTimeline*)
+  Method Void* FoldLane(Tl.LibraryStep*, Int32)
+  Method Tl.LibraryStep* FrameAt(Tl.LibraryTimeline*, UInt16, Int32)
+  Method Tl.LibraryTimeline* GetTimeline(Tl.LibraryView ByRef, Tl.TimelineId)
+  Method Boolean HasEvent(Tl.LibraryTimeline*, UInt32)
+  Method Tl.LibraryStage* StageAt(Tl.LibraryTimeline*, UInt16)
+  Method System.Span`1[Tl.LibraryStep] StepsFor(Tl.LibraryTimeline*, Tl.LibraryStage*)
 type Tl.MeasuredLanes
   Method Void Dispose()
   Property UInt16 Duration
@@ -255,6 +306,10 @@ type Tl.TimelineAsset
 type Tl.TimelineComponent
   Field UInt16 Position
   Field Tl.TimelineRef Reference
+type Tl.TimelineId
+  Property Boolean IsNone
+  Property Tl.TimelineId None
+  Field UInt16 Value
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt16, Boolean, Boolean, Tl.TimelineState ByRef, UInt16 ByRef, Tl.FrameFlags ByRef)
 type Tl.TimelineRef
@@ -263,9 +318,12 @@ type Tl.TimelineState
   Field UInt16 Position
 type Tl.TimelineWorld
   Property Tl.TimelineWorld Default
+  Method Void Dispose()
   Method Boolean IsLive(UInt16)
   Method UInt16 Load(System.ReadOnlySpan`1[System.Byte])
   Method Tl.TimelineRef Reference(UInt16)
+  Method Void Reload(System.ReadOnlySpan`1[System.Byte])
+  Property Tl.LibraryView View
 type Tl.Timeline`1
   Method Void Advance(System.Span`1[System.UInt16], Boolean)
   Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)

@@ -61,7 +61,7 @@ public sealed class ContainerRoundTrip
     public void HeaderStagesAndRowsMirrorTheAuthoredTimeline()
     {
         var c = TlbContainer.Parse(BakedBlended());
-        Assert.Equal(5u, TlbContainer.HotVersion);
+        Assert.Equal(6u, TlbContainer.HotVersion);
         Assert.Equal(0u, c.Loops);
         Assert.Equal(20u, c.Duration);
         Assert.Equal(1u, c.TrackCount);
@@ -112,8 +112,8 @@ public sealed class ContainerRoundTrip
     public void LayoutOffsetsSatisfyThePinnedPlacement()
     {
         var c = TlbContainer.Parse(BakedBlended());
-        Assert.Equal(64u, c.PairOffset);
-        Assert.Equal(64u + 48u * 1, c.StageOffset);
+        Assert.Equal(80u, c.PairOffset);
+        Assert.Equal(80u + 48u * 1, c.StageOffset);
         var steps = c.Stages.Sum(s => s.Steps.Length);
         Assert.Equal(c.StageOffset + 16u * 3, c.Stages[0].ProgramOffset);
         Assert.Equal(c.FrameOffset + 24u * steps, c.HotLength);
@@ -144,7 +144,7 @@ public sealed class ContainerRoundTrip
         using var doc = System.Text.Json.JsonDocument.Parse(json);
         var root = doc.RootElement;
         Assert.Equal("container", root.GetProperty("plane").GetString());
-        Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(2, root.GetProperty("schemaVersion").GetInt32());
         Assert.Equal(20u, root.GetProperty("header").GetProperty("duration").GetUInt32());
         var pairs = root.GetProperty("pairs");
         Assert.Single(pairs.EnumerateArray());
@@ -174,7 +174,7 @@ public sealed class ContainerRejection
         BinaryPrimitives.WriteUInt32LittleEndian(blob.AsSpan(0), 0x32424C54);
         Assert.Throws<TlbFormatException>(() => TlbContainer.Parse(blob));
         blob = CopyOf(ContainerRoundTripBaked());
-        BinaryPrimitives.WriteUInt32LittleEndian(blob.AsSpan(4), 6);
+        BinaryPrimitives.WriteUInt32LittleEndian(blob.AsSpan(4), 7);
         var ex = Assert.Throws<TlbFormatException>(() => TlbContainer.Parse(blob));
         Assert.Equal("TLB magic or version invalid; rebake the asset with the current toolchain.", ex.Message);
     }
@@ -299,13 +299,13 @@ public sealed class FieldMapAndTrace
         var c = TlbContainer.Parse(blob);
         var fields = TlbMap.Fields(c, blob).ToDictionary(f => f.Path, f => f.Value);
         Assert.Equal("\"TLB1\"", fields["header.magic"]);
-        Assert.Equal("5", fields["header.version"]);
+        Assert.Equal("6", fields["header.version"]);
         Assert.Equal("20", fields["header.duration"]);
         Assert.Equal("0", fields["header.loops"]);
         Assert.Equal("00000040 · f32 2", fields["pair 0 track value 0"]);
-        Assert.Equal("65535 (none)", fields["row @0xE0.secondValueIndex"]);
-        Assert.Equal("1", fields["row @0xF8.secondValueIndex"]);
-        Assert.Equal("8", fields["row @0xF8.factorStart"]);
+        Assert.Equal("65535 (none)", fields["row @0xF0.secondValueIndex"]);
+        Assert.Equal("1", fields["row @0x108.secondValueIndex"]);
+        Assert.Equal("8", fields["row @0x108.factorStart"]);
     }
 
     [Fact]
@@ -325,29 +325,29 @@ public sealed class FieldMapAndTrace
     public void TickTraceReadsExactlyTheExecutingStructure()
     {
         var c = TlbContainer.Parse(BakedBlended());
-        Assert.Equal(224u, c.FrameOffset);
+        Assert.Equal(240u, c.FrameOffset);
 
         var early = TlbTrace.Tick(c, 5, false);
-        DoesNotContain(early, 0xF8 + 4, 0xF8 + 6);
-        DoesNotContain(early, 0xE0 + 16, 0xE0 + 20);
-        Contains(early, 192, 196);
-        Contains(early, 208, 216);
-        DoesNotContain(early, 216, 224);
+        DoesNotContain(early, 0x108 + 4, 0x108 + 6);
+        DoesNotContain(early, 0xF0 + 16, 0xF0 + 20);
+        Contains(early, 208, 212);
+        Contains(early, 224, 232);
+        DoesNotContain(early, 232, 240);
         Assert.Contains(early, a => a.What == "stage 0 entry" && a.Why.Contains("hit"));
         Assert.DoesNotContain(early, a => a.What == "stage 1 entry");
 
         var blend = TlbTrace.Tick(c, 10, false);
-        Contains(blend, 0xF8 + 4, 0xF8 + 6);
-        Contains(blend, 0xF8 + 16, 0xF8 + 20);
-        Contains(blend, 208, 216);
-        Contains(blend, 216, 224);
+        Contains(blend, 0x108 + 4, 0x108 + 6);
+        Contains(blend, 0x108 + 16, 0x108 + 20);
+        Contains(blend, 224, 232);
+        Contains(blend, 232, 240);
         Assert.Contains(blend, a => a.What == "stage 0 entry" && a.Why.Contains("scan"));
         Assert.Contains(blend, a => a.What == "stage 1 entry" && a.Why.Contains("hit"));
 
         var late = TlbTrace.Tick(c, 19, false);
-        DoesNotContain(late, 0x110 + 4, 0x110 + 6);
-        Contains(late, 216, 224);
-        DoesNotContain(late, 208, 216);
+        DoesNotContain(late, 0x120 + 4, 0x120 + 6);
+        Contains(late, 232, 240);
+        DoesNotContain(late, 224, 232);
 
         var past = TlbTrace.Tick(c, 20, false);
         Assert.DoesNotContain(past, a => a.What.Contains("step"));
