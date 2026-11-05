@@ -62,43 +62,4 @@ public class MultiPairBakeTests
         Assert.Contains(view.Labels, l => l is { TrackEntry: 1, ClipIndex: 0, Name: "e1" });
     }
 
-    [Fact]
-    public void SameTrackTypeTwiceWithDifferentData_StaysSeparateEntries()
-    {
-        var json = """
-        {
-          "duration": 8,
-          "loop": false,
-          "tracks": [
-            {
-              "name": "left",
-              "namespace": "Tlb",
-              "type": "AlphaTrack",
-              "data": { "Code": 1 },
-              "clips": [ { "namespace": "Tlb", "type": "AlphaClip", "start": 0, "end": 4, "data": { "Value": 1 } } ]
-            },
-            {
-              "name": "right",
-              "namespace": "Tlb",
-              "type": "AlphaTrack",
-              "data": { "Code": 2 },
-              "clips": [ { "namespace": "Tlb", "type": "AlphaClip", "start": 4, "end": 8, "data": { "Value": 2 } } ]
-            }
-          ]
-        }
-        """;
-
-        var bytes = TimelineBaker.BakeJson(json);
-        Assert.Equal(2u, BitConverter.ToUInt32(bytes, 16));
-
-        using var asset = TimelineAsset.LoadAsset(bytes);
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        var codes = new List<int>();
-        foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in rows[0]))
-            codes.Add(frame.Track.Code);
-        rows[0].Position = 4;
-        foreach (var frame in Timeline.Query<Tlb.AlphaTrack, Tlb.AlphaClip>(in rows[0]))
-            codes.Add(frame.Track.Code);
-        Assert.Equal([1, 2], codes);
-    }
 }

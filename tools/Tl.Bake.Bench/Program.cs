@@ -149,7 +149,7 @@ internal static class Program
                 var baked = TimelineBakerFast.BakeJsonUtf8(bytes, new BakerAssemblyResolver());
                 loadStage.Take(() =>
                 {
-                    _ = TimelineAsset.Load(baked);
+                    TimelineRef.Validate(baked);
                 });
             }
             Console.WriteLine($"round {round} done");

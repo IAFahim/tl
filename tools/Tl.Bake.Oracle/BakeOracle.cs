@@ -38,7 +38,7 @@ internal sealed class TrackBaker<TTrack, TClip>(TTrack trackValue) : ITrackBaker
 {
     private readonly List<BakedClip> _clips = [];
 
-    public ulong Key => PairRuntime<TTrack, TClip>.Key;
+    public ulong Key => Keying.Of(Keying.StableName(typeof(TTrack)) + "\0" + Keying.StableName(typeof(TClip)));
     public byte TrackIndex { get; set; }
     public ushort TrackValueIndex { get; set; }
     public Type TrackType => typeof(TTrack);
@@ -665,7 +665,7 @@ public static class BakeOracle
 
         try
         {
-            _ = TimelineAsset.Load(bytes);
+            TimelineRef.Validate(bytes);
         }
         catch (ArgumentException ex)
         {

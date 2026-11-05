@@ -15,7 +15,6 @@ public class ReportTests
         "program/step-count: 13\n" +
         "pool/region-bytes: 96\n" +
         "frame-slot/region-bytes: 312\n" +
-        "instance/state-bytes: 16\n" +
         "pool/0/track-unique-count: 1\n" +
         "pool/0/clip-unique-count: 1\n" +
         "pool/0/pool-bytes: 32\n" +
@@ -41,7 +40,6 @@ public class ReportTests
         "program/step-count: 13\n" +
         "pool/region-bytes: 96\n" +
         "frame-slot/region-bytes: 312\n" +
-        "instance/state-bytes: 16\n" +
         "pool/0/track-unique-count: 1\n" +
         "pool/0/clip-unique-count: 1\n" +
         "pool/0/pool-bytes: 32\n" +

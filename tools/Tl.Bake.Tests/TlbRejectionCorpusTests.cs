@@ -120,7 +120,7 @@ public class TlbRejectionCorpusTests
 
     static void Rejects(byte[] bytes, string message)
     {
-        var failure = Assert.Throws<ArgumentException>(() => TimelineAsset.Load(bytes));
+        var failure = Assert.Throws<ArgumentException>(() => TimelineRef.Validate(bytes));
         Assert.Equal(message, failure.Message);
     }
 

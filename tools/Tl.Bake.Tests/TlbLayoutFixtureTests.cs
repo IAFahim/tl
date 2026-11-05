@@ -19,10 +19,9 @@ public class TlbLayoutFixtureTests
     [Theory]
     [InlineData("minimal")]
     [InlineData("blended")]
-    public void Fixture_LoadsThroughTheRuntime_AndInspectsToTheCommittedRendering(string name)
+    public void Fixture_InspectsToTheCommittedRendering(string name)
     {
         var bytes = File.ReadAllBytes(FixturePath(name + ".tlb"));
-        TimelineAsset.Load(bytes);
         Assert.Equal(File.ReadAllText(FixturePath(name + ".inspect.json")), TlbInspection.Inspect(bytes));
     }
 

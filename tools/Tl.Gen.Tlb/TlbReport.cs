@@ -36,7 +36,6 @@ public static class TlbReport
         Line(lines, "program/step-count", steps);
         Line(lines, "pool/region-bytes", frameOffset - poolOffset);
         Line(lines, "frame-slot/region-bytes", hotBytes - frameOffset);
-        Line(lines, "instance/state-bytes", (ulong)Unsafe.SizeOf<TimelineComponent>());
         AppendPools(lines, tlb, (int)pairOffset, (int)pairCount);
         AppendLabels(lines, tlb);
         return lines.ToString();

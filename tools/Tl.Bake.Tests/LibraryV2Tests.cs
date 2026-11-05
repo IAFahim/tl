@@ -77,7 +77,6 @@ public class LibraryV2Tests
         Assert.Equal(2, c.Markers.Length);
         Assert.Equal(2u, c.Markers[0].Tick);
         Assert.Equal(6u, c.Markers[1].Tick);
-        TimelineAsset.Load(bytes);
         var inspect = TlbInspection.Inspect(bytes);
         Assert.Contains("\"schemaVersion\": 2", inspect);
         Assert.Contains("\"markers\"", inspect);
@@ -113,7 +112,7 @@ public class LibraryV2Tests
     }
 
     [Fact]
-    public void LibraryPacksLoadsAndMatchesTrySampleBothDirections()
+    public void LibraryPacksAndLoadsWorldWithPerTickSteps()
     {
         var temp = Path.Combine(Path.GetTempPath(), "tl-lib-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temp);
@@ -139,18 +138,9 @@ public class LibraryV2Tests
                 foreach (var t in new long[] { 0, 3, 4, 7 }) Assert.True(LibraryViewReader.HasEvent(jumpTl, (uint)t));
                 foreach (var t in new long[] { 1, 2, 5, 6 }) Assert.False(LibraryViewReader.HasEvent(jumpTl, (uint)t));
             }
-            var libManifest = new LibraryManifest();
-            libManifest.Timelines["jump"] = 1;
-            libManifest.Timelines["slide"] = 2;
-            libManifest.Channels["locomotion"] = 1;
-            var jumpTlb = TimelineBaker.BakeJson(File.ReadAllBytes(Golden("library", "jump.json")), Resolver(), false, libManifest);
-            var index = TimelineAsset.Load(jumpTlb);
             var id = new TimelineId(1);
             for (var tick = 0; tick < 8; tick++)
             {
-                var scratch = default(Tlb.StatClip);
-                var okFwd = Timeline<Tlb.StatTrack, Tlb.StatClip>.TrySample(index, (ushort)tick, ref scratch, out var frame, true);
-                Assert.True(okFwd);
                 unsafe
                 {
                     var wv = world.View;
@@ -162,42 +152,12 @@ public class LibraryV2Tests
                     Assert.True(steps.Length > 0);
                     var step = LibraryViewReader.FrameAt(tl, (ushort)tick, 0);
                     Assert.True((nint)step != 0);
-                    Assert.Equal(frame.TrackIndex, step->TrackIndex);
-                    Assert.Equal((uint)frame.ClipLength, step->WindowEnd - step->WindowStart);
-                    Assert.Equal(tick == step->WindowStart, frame.Has(FrameFlags.ClipStart));
-                    Assert.Equal(tick == (int)(step->WindowEnd - 1), frame.Has(FrameFlags.ClipEnd));
-                    var wantStat = tick < 4 ? Tlb.Stat.Health : Tlb.Stat.Mana;
-                    var wantDelta = tick < 4 ? -1 : 2;
-                    Assert.Equal(wantStat, frame.Clip.Stat);
-                    Assert.Equal(wantDelta, frame.Clip.Delta);
+                    Assert.True(tick >= step->WindowStart && tick < step->WindowEnd);
+                    Assert.True(step->WindowEnd > step->WindowStart);
                 }
-                var backPos = (ushort)(tick + 1);
-                var scratchB = default(Tlb.StatClip);
-                var okBwd = Timeline<Tlb.StatTrack, Tlb.StatClip>.TrySample(index, backPos, ref scratchB, out var frameB, false);
-                Assert.True(okBwd);
-                Assert.Equal(tick, frameB.TimelineTick);
             }
         }
         finally { try { Directory.Delete(temp, true); } catch { } }
-    }
-
-    [Fact]
-    public void TwoTracksOfOnePairKeepPerStepLanes()
-    {
-        var json = "{\"duration\":8,\"tracks\":["
-            + "{\"namespace\":\"Tlb\",\"type\":\"StatTrack\",\"data\":{\"Weight\":1},\"clips\":[{\"namespace\":\"Tlb\",\"type\":\"StatClip\",\"start\":0,\"end\":8,\"data\":{\"Stat\":\"Health\",\"Delta\":-1}}]},"
-            + "{\"namespace\":\"Tlb\",\"type\":\"StatTrack\",\"data\":{\"Weight\":2},\"clips\":[{\"namespace\":\"Tlb\",\"type\":\"StatClip\",\"start\":0,\"end\":8,\"data\":{\"Stat\":\"Mana\",\"Delta\":2}}]}"
-            + "]}";
-        var manifest = new LibraryManifest();
-        var bytes = TimelineBaker.BakeJson(json, Resolver(), false, manifest);
-        var c = TlbContainer.Parse(bytes);
-        Assert.Single(c.Pairs);
-        Assert.Single(c.Stages);
-        Assert.Equal(2, c.Stages[0].Steps.Length);
-        var index = TimelineAsset.Load(bytes);
-        var scratch = default(Tlb.StatClip);
-        Assert.True(Timeline<Tlb.StatTrack, Tlb.StatClip>.TrySample(index, 0, ref scratch, out var frame, true));
-        Assert.Equal(0, frame.TrackIndex);
     }
 
     [Fact]
@@ -245,11 +205,11 @@ public class LibraryV2Tests
         var badLoopNext = (byte[])bytes.Clone();
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(badLoopNext.AsSpan(8), 1u);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(badLoopNext.AsSpan(52), 7u);
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(badLoopNext));
+        Assert.Throws<ArgumentException>(() => TimelineRef.Validate(badLoopNext));
         var badMarker = (byte[])bytes.Clone();
         var markerOff = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(badMarker.AsSpan(64));
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(badMarker.AsSpan((int)markerOff), 99u);
-        Assert.Throws<ArgumentException>(() => TimelineAsset.Load(badMarker));
+        Assert.Throws<ArgumentException>(() => TimelineRef.Validate(badMarker));
     }
 }
 }

@@ -23,7 +23,7 @@ internal sealed class PairHelper<TTrack, TClip> : IPairHelper
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
-    public ulong Key => PairRuntime<TTrack, TClip>.Key;
+    public ulong Key => Keying.Of(Keying.StableName(typeof(TTrack)) + "\0" + Keying.StableName(typeof(TClip)));
     public int ClipSize => Unsafe.SizeOf<TClip>();
     public int TrackSize => Unsafe.SizeOf<TTrack>();
     public unsafe void CopyPayload(byte* dst, object box) => *(TClip*)dst = (TClip)box;
@@ -2263,19 +2263,13 @@ internal static class TimelineBakerFastCore
 
             try
             {
-                using var probe = TimelineAsset.LoadAsset(bytes);
+                Tl.TimelineRef.Validate(bytes);
             }
             catch (ArgumentException ex)
             {
                 var intern = Tl.Inspection.Tables().Intern;
                 var digest = System.Security.Cryptography.SHA256.HashData(bytes);
                 throw new BakeDiagnosticException($"TLB validation failed: {ex.Message}; content {Convert.ToHexString(digest).ToLowerInvariant()[..16]}/{bytes.Length}B, intern live {intern.Live}/{intern.Distinct}, graveyard {intern.GraveyardBlocks}");
-            }
-            catch (InvalidOperationException ex) when (
-                ex.Message.StartsWith("Timeline index domain exhausted", StringComparison.Ordinal)
-                || ex.Message.StartsWith("Intern table exhausted", StringComparison.Ordinal)
-                || ex.Message.StartsWith("Intern table probe exhausted", StringComparison.Ordinal))
-            {
             }
 
             return bytes;
