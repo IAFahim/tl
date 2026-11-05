@@ -34,7 +34,7 @@ public unsafe class KindBenchmarks
     TimelineWorld _shapes = null!, _many = null!, _pairs = null!;
     PlaybackTable _plA = null!, _pA = null!, _pB = null!, _pC = null!, _pD = null!, _pE2 = null!, _pE64 = null!, _pF1 = null!, _pF8 = null!;
     KindStore _sA = null!, _sB = null!, _sC = null!, _sD = null!, _sE2 = null!, _sE64 = null!, _sF1 = null!, _sF8 = null!;
-    KindPulses<int> _bullets1, _bullets8;
+    KindPulses<int, DmgFold> _bullets1, _bullets8;
     float[] _fxPlan = null!, _fxA = null!, _fxB = null!, _fxC = null!, _fxD = null!, _fxE2 = null!, _fxE64 = null!, _fxF = null!;
     int[] _hp1 = null!, _hp8 = null!;
 
@@ -81,8 +81,8 @@ public unsafe class KindBenchmarks
         _sE64 = new KindStore(_pairs, _pE64, names, Reach(N, e => 0b11ul << (2 * Block(e))));
         _sF1 = new KindStore(_shapes, _pF1, dmg, one);
         _sF8 = new KindStore(_shapes, _pF8, dmg, one);
-        _bullets1 = _sF1.Pulses<int>("Dmg");
-        _bullets8 = _sF8.Pulses<int>("Dmg");
+        _bullets1 = _sF1.Pulses<int, DmgFold>("Dmg");
+        _bullets8 = _sF8.Pulses<int, DmgFold>("Dmg");
         _fxPlan = new float[N];
         _fxA = new float[N];
         _fxB = new float[N];
@@ -157,7 +157,7 @@ public unsafe class KindBenchmarks
 
     [Benchmark] public void KindsE64() => Frames_(_pairs, _pE64, _fxE64, _hp8);
 
-    void Damage(PlaybackTable players, KindPulses<int> bullets, int pulses, int[] hp)
+    void Damage(PlaybackTable players, KindPulses<int, DmgFold> bullets, int pulses, int[] hp)
     {
         for (var f = 0; f < Frames; f++)
         {

@@ -178,7 +178,8 @@ name, so the attribute types may live in any assembly:
 
 - `[Tl.TimelineKind]` on a struct. Named arguments: `Accepts` (`0` Spans,
   `1` Pulses, `2` Both), `Mode` (`0` Combine, `1` Each), `Order` (int),
-  `Group` (string). The kind needs `public static Apply`; its first parameter
+  `Group` (string), `FoldsPulses` (bool; Combine kinds that accept pulses only,
+  lets game code fold consecutive pulses to one target, see #562). The kind needs `public static Apply`; its first parameter
   (by `in`/`ref` or value) is the kind's unmanaged value type. Combine mode also
   needs `public static Combine(ref T total, in T next)`.
 - `[Tl.Feeds(typeof(K))]` on a public static method of an `ITrack<TTrack, TClip>`
@@ -273,7 +274,7 @@ All offsets inside the section are relative to `KindOffset`.
 
 Kind entry (40 bytes): `NameOffset u32`, `NameLength u32` (into strings),
 `ValueBytes u32`, `EntryBytes u32`, `Capacity u32`, `Accepts u8`, `Mode u8`,
-`u16` zero, `Order i32`, `GroupNameOffset u32`, `GroupNameLength u32` (0 when
+`Flags u16` (bit 0 `FoldsPulses`, else zero), `Order i32`, `GroupNameOffset u32`, `GroupNameLength u32` (0 when
 none), `GroupCapacity u32`.
 
 Feeder entry (32 bytes): `Kind u16`, `Trigger u8` (`0` Span, `1` Start, `2` End,

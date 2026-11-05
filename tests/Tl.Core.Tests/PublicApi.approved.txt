@@ -61,6 +61,8 @@ type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.IHostedConsumer
 type Tl.IMarker`1
+type Tl.IPulseFold`1
+  Method Void Fold(T ByRef, T ByRef)
 type Tl.ITlModule
   Method Int32 FoldLaneBytes(Int32)
   Method Void FoldStep(Int32, Byte*, Byte*, Byte*, Single, UInt16, UInt16, UInt16, UInt16, UInt16, SByte, Byte*)
@@ -230,6 +232,8 @@ type Tl.KindMode
   Field Byte value__
 type Tl.KindPulses`1
   Method Void To(Int32, T)
+type Tl.KindPulses`2
+  Method Void To(Int32, T)
 type Tl.KindSectionView
   Field Byte* Base
   Field UInt32 Bytes
@@ -266,6 +270,7 @@ type Tl.KindStore
   Method UInt32 MarkerOf(UInt16, Int32)
   Method System.String NameOf(Int32)
   Method Tl.KindPulses`1[T] Pulses[T](System.String)
+  Method Tl.KindPulses`2[T,TFold] Pulses[T,TFold](System.String)
   Method Tl.LibraryStep* StepOf(UInt16, Int32, UInt16)
   Method Tl.KindTable* Table(Int32)
   Method Int32 TrailingZeros(UInt64)
@@ -312,6 +317,7 @@ type Tl.LibraryKind
   Field Byte Accepts
   Field UInt32 Capacity
   Field UInt32 EntryBytes
+  Field UInt16 Flags
   Field UInt32 GroupCapacity
   Field UInt32 GroupNameLength
   Field UInt32 GroupNameOffset
@@ -320,7 +326,6 @@ type Tl.LibraryKind
   Field UInt32 NameOffset
   Field Int32 Order
   Field UInt32 ValueBytes
-  Field UInt16 _pad
 type Tl.LibraryKindEvent
   Field UInt16 Feeder
   Field Byte Op
@@ -484,6 +489,7 @@ type Tl.TimelineId
   Field UInt16 Value
 type Tl.TimelineKindAttribute
   Property Tl.KindEntries Accepts
+  Property Boolean FoldsPulses
   Property System.String Group
   Property Tl.KindMode Mode
   Property Int32 Order

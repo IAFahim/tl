@@ -12,8 +12,9 @@ def domain():
             "[TimelineSystemMember(typeof(LSys))]", "public struct Legacy : ITrack<LegacyTrack, LegacyClip>", "{",
             "    public static void ExecuteActive(in Frame<LegacyTrack, LegacyClip> f, ref float fx) => fx += f.Direction * f.Clip.Amount * f.Track.Scale;",
             "    public static void OnClipEnd(in Frame<LegacyTrack, LegacyClip> f)", "    {", "    }", "}", ""]
-    out += ["[TimelineKind(Accepts = KindEntries.Pulses)]", "public struct Dmg", "{",
+    out += ["[TimelineKind(Accepts = KindEntries.Pulses, FoldsPulses = true)]", "public struct Dmg", "{",
             "    public static void Combine(ref int t, in int n) => t += n;", "    public static void Apply(in int t, ref int hp) => hp -= t;", "}",
+            "public struct DmgFold : IPulseFold<int>", "{", "    public void Fold(ref int total, in int next) => total += next;", "}",
             "public struct HitClip { public int Amount; }",
             "public struct HitTrack : IBlend<HitClip>", "{", "    public float Scale;", "    public void Blend(in HitClip a, in HitClip b, float t, out HitClip r) => r = a;", "}",
             "[TimelineSystemMember(typeof(KSys))]", "public struct Hit : ITrack<HitTrack, HitClip>", "{",

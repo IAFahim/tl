@@ -32,7 +32,7 @@ public struct Lift
     public static void Apply(in float total, ref Motion motion) => motion.Y += total;
 }
 
-[TimelineKind(Accepts = KindEntries.Pulses)]
+[TimelineKind(Accepts = KindEntries.Pulses, FoldsPulses = true)]
 public struct Damage
 {
     public static void Combine(ref int total, in int next) => total += next;
@@ -373,13 +373,13 @@ public class KindLibraryTests
 
     static uint U32(byte[] bytes, int at) => BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(at));
 
-    static Assembly Broken(string kindName, Action<TypeBuilder, Type> kindBody, KindEntries accepts, Type? feederReturn, bool pulse)
+    static Assembly Broken(string kindName, Action<TypeBuilder, Type> kindBody, KindEntries accepts, Type? feederReturn, bool pulse, bool folds = false)
     {
         var asm = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("KindBroken" + Guid.NewGuid().ToString("N")), AssemblyBuilderAccess.Run);
         AppDomain.CurrentDomain.AssemblyResolve += (_, e) => e.Name == asm.FullName ? asm : null;
         var module = asm.DefineDynamicModule("m");
         var kind = module.DefineType("Broken." + kindName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout, typeof(ValueType));
-        kind.SetCustomAttribute(new CustomAttributeBuilder(typeof(TimelineKindAttribute).GetConstructor(Type.EmptyTypes)!, [], [typeof(TimelineKindAttribute).GetProperty("Accepts")!], [accepts]));
+        kind.SetCustomAttribute(new CustomAttributeBuilder(typeof(TimelineKindAttribute).GetConstructor(Type.EmptyTypes)!, [], [typeof(TimelineKindAttribute).GetProperty("Accepts")!, typeof(TimelineKindAttribute).GetProperty("FoldsPulses")!], [accepts, folds]));
         kindBody(kind, typeof(int));
         var kindType = kind.CreateType();
         if (feederReturn != null)
@@ -418,6 +418,7 @@ public class KindLibraryTests
         Assert.Contains("Combine mode needs public static Combine", Assert.Throws<BakeDiagnosticException>(() => KindCatalog.Discover([Broken("NoCombine", Apply, KindEntries.Spans, null, false)])).Message);
         Assert.Contains("accepts pulses only; use [Pulse]", Assert.Throws<BakeDiagnosticException>(() => KindCatalog.Discover([Broken("PulsesOnly", ApplyAndCombine, KindEntries.Pulses, typeof(int), false)])).Message);
         Assert.Contains("accepts spans only", Assert.Throws<BakeDiagnosticException>(() => KindCatalog.Discover([Broken("SpansOnly", ApplyAndCombine, KindEntries.Spans, typeof(int), true)])).Message);
+        Assert.Contains("FoldsPulses needs Combine mode and pulses", Assert.Throws<BakeDiagnosticException>(() => KindCatalog.Discover([Broken("FoldSpans", ApplyAndCombine, KindEntries.Spans, null, false, true)])).Message);
         var mismatch = Assert.Throws<BakeDiagnosticException>(() => KindCatalog.Discover([Broken("Mismatch", ApplyAndCombine, KindEntries.Spans, typeof(float), false)])).Message;
         Assert.Contains("'Broken.Consumer.Feed'", mismatch);
         Assert.Contains("takes 'System.Int32'", mismatch);

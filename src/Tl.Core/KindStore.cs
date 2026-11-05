@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Tl;
@@ -25,6 +26,15 @@ public readonly unsafe struct KindPulses<T> where T : unmanaged
     internal KindPulses(KindStore.PulseHandle handle) { _handle = handle; }
 
     public void To(int entity, T value) => _handle.Send(entity, &value);
+}
+
+public readonly unsafe struct KindPulses<T, TFold> where T : unmanaged where TFold : struct, IPulseFold<T>
+{
+    readonly KindStore.PulseHandle _handle;
+
+    internal KindPulses(KindStore.PulseHandle handle) { _handle = handle; }
+
+    public void To(int entity, T value) => _handle.Send<T, TFold>(entity, value);
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -66,6 +76,7 @@ public sealed unsafe class KindStore : IDisposable
     Dictionary<string, int> _kindIndex = new(StringComparer.Ordinal);
     int[] _valueBytes = Array.Empty<int>();
     byte[] _accepts = Array.Empty<byte>();
+    bool[] _folds = Array.Empty<bool>();
     int _epoch;
 
     internal sealed class PulseHandle
@@ -74,6 +85,7 @@ public sealed unsafe class KindStore : IDisposable
         readonly string _name;
         int _kind;
         int _epoch;
+        bool _folds;
 
         internal PulseHandle(KindStore store, string name, int kind)
         {
@@ -81,17 +93,30 @@ public sealed unsafe class KindStore : IDisposable
             _name = name;
             _kind = kind;
             _epoch = store._epoch;
+            _folds = store._folds[kind];
         }
 
         internal void Send(int entity, void* value)
         {
-            if (_epoch != _store._epoch)
-            {
-                _kind = _store.IndexOf(_name);
-                _epoch = _store._epoch;
-            }
+            Refresh();
             if (_kind < 0) _store.DroppedPulses++;
             else _store.Send(_kind, entity, value);
+        }
+
+        internal void Send<T, TFold>(int entity, T value) where T : unmanaged where TFold : struct, IPulseFold<T>
+        {
+            Refresh();
+            if (_kind < 0) _store.DroppedPulses++;
+            else if (_folds) _store.SendFolded<T, TFold>(_kind, entity, value);
+            else _store.Send(_kind, entity, &value);
+        }
+
+        void Refresh()
+        {
+            if (_epoch == _store._epoch) return;
+            _kind = _store.IndexOf(_name);
+            _folds = _kind >= 0 && _store._folds[_kind];
+            _epoch = _store._epoch;
         }
     }
 
@@ -128,6 +153,31 @@ public sealed unsafe class KindStore : IDisposable
         if (_accepts[k] == (byte)KindEntries.Spans) throw new ArgumentException($"Kind '{kind}' accepts spans only; game code cannot send it pulses.");
         if (_valueBytes[k] != sizeof(T)) throw new ArgumentException($"Kind '{kind}' takes {_valueBytes[k]}-byte values; {typeof(T).Name} is {sizeof(T)}.");
         return new KindPulses<T>(new PulseHandle(this, kind, k));
+    }
+
+    public KindPulses<T, TFold> Pulses<T, TFold>(string kind) where T : unmanaged where TFold : struct, IPulseFold<T>
+    {
+        _ = Pulses<T>(kind);
+        var k = IndexOf(kind);
+        if (!_folds[k]) throw new ArgumentException($"Kind '{kind}' does not set FoldsPulses; set it on the kind, or send with Pulses<T>.");
+        return new KindPulses<T, TFold>(new PulseHandle(this, kind, k));
+    }
+
+    internal void SendFolded<T, TFold>(int kind, int entity, T value) where T : unmanaged where TFold : struct, IPulseFold<T>
+    {
+        var q = _queues + kind;
+        if (q->Count > 0)
+        {
+            var last = q->Items + (nuint)(q->Count - 1) * (nuint)q->Stride;
+            if (*(int*)last == entity)
+            {
+                var total = Unsafe.ReadUnaligned<T>(last + 4);
+                default(TFold).Fold(ref total, in value);
+                CopyValue(last + 4, (byte*)&total, sizeof(T));
+                return;
+            }
+        }
+        Send(kind, entity, &value);
     }
 
     internal void Send(int kind, int entity, void* value)
@@ -538,6 +588,7 @@ public sealed unsafe class KindStore : IDisposable
         _kindNames = new string[_kindCount];
         _valueBytes = new int[_kindCount];
         _accepts = new byte[_kindCount];
+        _folds = new bool[_kindCount];
         _kindIndex = new Dictionary<string, int>(StringComparer.Ordinal);
         for (var k = 0; k < _kindCount; k++)
         {
@@ -545,6 +596,7 @@ public sealed unsafe class KindStore : IDisposable
             _kindIndex[_kindNames[k]] = k;
             _valueBytes[k] = (int)_sec.Kinds[k].ValueBytes;
             _accepts[k] = _sec.Kinds[k].Accepts;
+            _folds[k] = _sec.Kinds[k].Flags != 0;
         }
         var entities = _players.EntityCapacity;
         for (var k = 0; k < _kindCount; k++)

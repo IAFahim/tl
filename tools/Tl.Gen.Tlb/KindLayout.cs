@@ -81,7 +81,7 @@ internal sealed class KindTimeline
                 if (feeder.Trigger != FeederTrigger.Marker && feeder.SourceKey == pairKeys[t.Windows[w].Pair]) entries.Add(((ushort)w, (ushort)f));
             }
         t.Entries.InsertRange(0, entries);
-        if (t.Windows.Count > ushort.MaxValue) throw new BakeDiagnosticException($"timeline '{name}': over 65,535 kind windows.");
+        if (t.Windows.Count > ushort.MaxValue) throw KindCatalog.Bad($"timeline '{name}': over 65,535 kind windows.");
         foreach (var (_, f) in t.Entries) t.KindMask |= 1ul << catalog.Feeders[f].Kind;
         t.Build(catalog);
         return t;
@@ -165,7 +165,7 @@ internal static class KindLayout
     {
         foreach (var name in settings.Kinds.Keys)
             if (catalog.IndexOf(name) < 0 && !catalog.Kinds.Any(k => k.Group == name))
-                throw new BakeDiagnosticException($"library.json kinds: '{name}' is not a kind or kind group.");
+                throw KindCatalog.Bad($"library.json kinds: '{name}' is not a kind or kind group.");
         var rows = new List<KindCapacityRow>();
         var worst = new int[catalog.Kinds.Count];
         for (var k = 0; k < catalog.Kinds.Count; k++)
@@ -247,7 +247,7 @@ internal static class KindLayout
             foreach (var v in new[] { no, nl, (uint)k.ValueBytes, (uint)k.EntryBytes, capacity[(false, k.Name)] }) main.Write(v);
             main.Write((byte)k.Accepts);
             main.Write((byte)k.Mode);
-            main.Write((ushort)0);
+            main.Write((ushort)(k.Folds ? 1 : 0));
             foreach (var v in new[] { (uint)k.Order, go, gl, k.Group == null ? 0u : capacity[(true, k.Group)] }) main.Write(v);
         }
         foreach (var f in catalog.Feeders)

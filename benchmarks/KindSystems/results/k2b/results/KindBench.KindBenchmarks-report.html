@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>KindBench.KindBenchmarks-20261106-030029</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.401
+  [Host] : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code>Toolchain=InProcessNoEmitToolchain  IterationCount=15  IterationTime=250ms  
+WarmupCount=6  
+</code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>KindsF1</td><td>27.71 ms</td><td>0.484 ms</td><td>0.404 ms</td><td>27.78 ms</td><td>-</td>
+</tr><tr><td>KindsF8</td><td>74.74 ms</td><td>8.122 ms</td><td>7.598 ms</td><td>71.21 ms</td><td>996 B</td>
+</tr></tbody></table>
+</body>
+</html>
