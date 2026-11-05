@@ -208,14 +208,35 @@ public readonly unsafe struct TimelineRef
 		void Fail(string message) => throw new ArgumentException(message);
 		if (baked.Length < 64) Fail("TLB truncated.");
 		var h = MemoryMarshal.Read<NativeHeader>(baked);
-		if (h.Magic != 0x31424C54 || h.Version != 5) Fail("TLB magic or version invalid; rebake the asset with the current toolchain.");
+		if (h.Magic != 0x31424C54 || (h.Version != 5 && h.Version != 6)) Fail("TLB magic or version invalid; rebake the asset with the current toolchain.");
+		if (h.Version == 6 && baked.Length < 80) Fail("TLB truncated.");
 		if (h.Duration > ushort.MaxValue) Fail("TLB duration exceeds the 65,535-tick position domain.");
 		if (h.PairCount > 256) Fail("TLB declares more than 256 pairs; the runtime resolves at most 256 pair chains per asset.");
 		if (h.Bytes != (uint)baked.Length) Fail("TLB size mismatch.");
 		if (h.HotLength == 0 || h.HotLength > h.Bytes) Fail("TLB hot length invalid.");
-		if (h.PairOffset < 64 || (h.PairOffset | h.StageOffset | h.PoolOffset | h.FrameOffset) % 8 != 0) Fail("TLB offsets must be 8-aligned.");
+		var minPair = h.Version == 6 ? 80u : 64u;
+		if (h.PairOffset < minPair || (h.PairOffset | h.StageOffset | h.PoolOffset | h.FrameOffset) % 8 != 0) Fail("TLB offsets must be 8-aligned.");
 		if (h.PairOffset + 48ul * h.PairCount > h.StageOffset) Fail("TLB pair table out of bounds.");
 		if (h.StageOffset + 16ul * h.StageCount > h.PoolOffset || h.PoolOffset > h.FrameOffset || h.FrameOffset > h.HotLength) Fail("TLB sections out of bounds.");
+		uint next = 0, channel = 0, flags = 0, markerOff = 0, markerCount = 0;
+		if (h.Version == 6)
+		{
+			next = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice(52));
+			channel = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice(56));
+			flags = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice(60));
+			markerOff = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice(64));
+			markerCount = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice(68));
+			if ((flags & ~1u) != 0) Fail("TLB flags invalid.");
+			if (h.Loops != 0 && next != 0) Fail("TLB next is incompatible with loop:true.");
+			if (h.Loops != 0 && (flags & 1u) != 0) Fail("TLB hold is incompatible with loop:true.");
+			if (next > ushort.MaxValue || channel > ushort.MaxValue) Fail("TLB next/channel out of range.");
+			if (markerCount == 0) { if (markerOff != 0) Fail("TLB marker offset must be zero when count is zero."); }
+			else
+			{
+				if (markerOff < h.FrameOffset || markerOff % 8 != 0 || markerOff > h.HotLength) Fail("TLB marker section out of bounds.");
+				ValidateMarkers(baked, (int)markerOff, (int)markerCount, h.Duration, h.HotLength);
+			}
+		}
 		var pairs = MemoryMarshal.Cast<byte, NativePair>(baked.Slice((int)h.PairOffset, 48 * (int)h.PairCount));
 		Action<string> fail = Fail;
 		for (var i = 1; i < pairs.Length; i++) if (pairs[i - 1].Key >= pairs[i].Key) Fail("TLB pair keys must be sorted.");
@@ -239,11 +260,31 @@ public readonly unsafe struct TimelineRef
 				if (step.Pair >= h.PairCount) Fail("TLB step pair out of bounds.");
 				var pair = pairs[(int)step.Pair];
 				if (step.Slot < h.FrameOffset || step.Slot % 8 != 0 || (ulong)step.Slot + pair.SlotStride > h.HotLength) Fail("TLB slots must be 8-aligned in bounds.");
+				if (h.Version == 6 && markerCount != 0 && step.Slot >= markerOff) Fail("TLB slots must precede the marker section.");
 				ValidateRow(baked, (int)step.Slot, pair, h.TrackCount, stage.Start, stage.End, fail);
 			}
 			edge = stage.End;
 		}
 		if (edge != h.Duration) Fail("TLB stages must cover duration.");
+	}
+
+	static void ValidateMarkers(ReadOnlySpan<byte> baked, int at, int count, uint duration, uint hotLength)
+	{
+		void Fail(string message) => throw new ArgumentException(message);
+		var off = (uint)at;
+		for (var i = 0; i < count; i++)
+		{
+			if (off + 16u > hotLength) Fail("TLB marker entry out of bounds.");
+			var tick = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice((int)off));
+			var size = BinaryPrimitives.ReadUInt32LittleEndian(baked.Slice((int)off + 4));
+			var key = BinaryPrimitives.ReadUInt64LittleEndian(baked.Slice((int)off + 8));
+			if (key == 0) Fail("TLB marker type key invalid.");
+			if (size == 0 || size > 4096) Fail("TLB marker payload size out of range.");
+			if (tick >= duration && duration != 0) Fail("TLB marker tick outside duration.");
+			off += 16u + ((size + 3u) & ~3u);
+			if (off > hotLength) Fail("TLB marker payload out of bounds.");
+		}
+		if (off > hotLength) Fail("TLB marker section out of bounds.");
 	}
 
 	static void ValidatePool(NativeHeader h, ulong address, uint count, uint valueBytes, Action<string> fail)

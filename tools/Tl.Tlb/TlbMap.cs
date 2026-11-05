@@ -40,7 +40,19 @@ public static class TlbMap
         Add(40, 44, TlbFieldKind.Header, "header.frameOffset", N(40));
         Add(44, 48, TlbFieldKind.Header, "header.hotLength", N(44));
         Add(48, 52, TlbFieldKind.Header, "header.bytes", N(48));
-        Add(52, 64, TlbFieldKind.Header, "header.reserved", "0");
+        if (c.Version == TlbContainer.HotVersion)
+        {
+            Add(52, 56, TlbFieldKind.Header, "header.nextId", N(52));
+            Add(56, 60, TlbFieldKind.Header, "header.channel", N(56));
+            Add(60, 64, TlbFieldKind.Header, "header.hold", N(60));
+            Add(64, 68, TlbFieldKind.Header, "header.markerOffset", N(64));
+            Add(68, 72, TlbFieldKind.Header, "header.markerCount", N(68));
+            Add(72, 80, TlbFieldKind.Header, "header.reserved", "0");
+        }
+        else
+        {
+            Add(52, 64, TlbFieldKind.Header, "header.reserved", "0");
+        }
 
         for (uint i = 0; i < c.Pairs.Length; i++)
         {
@@ -101,6 +113,25 @@ public static class TlbMap
             Add(slot + 20, slot + 24, TlbFieldKind.Row, $"row @0x{slot:X}.factorSpan", row.FactorSpan.ToString());
             if (stride > TlbContainer.RowBytes)
                 Add(slot + TlbContainer.RowBytes, slot + stride, TlbFieldKind.Gap, $"row @0x{slot:X}.stride pad", "alignment");
+        }
+
+        if (c.Version == TlbContainer.HotVersion && c.Markers.Length > 0)
+        {
+            uint moff = MarkerBase(f, c);
+            for (uint i = 0; i < c.Markers.Length; i++)
+            {
+                var m = c.Markers[i];
+                Add(moff, moff + 4, TlbFieldKind.Row, $"marker {i}.tick", m.Tick.ToString());
+                Add(moff + 4, moff + 8, TlbFieldKind.Row, $"marker {i}.size", m.Size.ToString());
+                Add(moff + 8, moff + 16, TlbFieldKind.Row, $"marker {i}.key", m.Key.ToString("x16"));
+                Add(moff + 16, moff + 16 + m.Size, TlbFieldKind.Row, $"marker {i}.payload", Hex(f.AsSpan((int)(moff + 16), (int)m.Size)));
+                moff += 16u + ((m.Size + 3u) & ~3u);
+            }
+        }
+
+        static uint MarkerBase(byte[] bytes, TlbContainer container)
+        {
+            return BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(64));
         }
 
         if (c.Tail is { } tail)

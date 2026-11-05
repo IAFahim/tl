@@ -10,8 +10,8 @@ public static class TlbTrace
         {
             new(0, c.Bytes, "digest — all bytes",
                 "TimelineTable.Digest hashes every byte (32-byte strides) into the content identity that interns this timeline"),
-            new(0, TlbContainer.HeaderBytes, "header",
-                "TimelineRef.Validate reads the 64-byte header and cross-checks magic, version, offsets, and sizes"),
+            new(0, c.Version == TlbContainer.HotVersion ? TlbContainer.HeaderBytesV6 : TlbContainer.HeaderBytes, "header",
+                "TimelineRef.Validate reads the header and cross-checks magic, version, offsets, and sizes"),
             new(c.PairOffset, c.PairOffset + TlbContainer.PairEntryBytes * (uint)c.Pairs.Length, "pair table",
                 "TimelineRef.Validate checks key order, slot stride, and both pool bounds"),
             new(c.StageOffset, c.StageOffset + TlbContainer.StageEntryBytes * (uint)c.Stages.Length, "stage table",

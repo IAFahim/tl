@@ -46,12 +46,12 @@ internal static unsafe class BakerParityPairs
 public class DomainBakerParityTests
 {
     [Theory]
-    [InlineData(0, 200, "8e2ec34507a47397ab93fdef7a63ef28157340ff4fcdcd444183477e2eb41391")]
-    [InlineData(1, 240, "a4404f1f012dd53b58b47147326919fefabfeb1d608ffca0a3343e6ee71dafde")]
-    [InlineData(2, 224, "3e32d1222e3660974699416ce8ee7d83c6b799efa4a8fbd9bd560537cd7ce521")]
-    [InlineData(3, 304, "cd4d5e7531d2b7633d605bb686dbc6e5f2425f5d3026bc15e6798546d7c4d656")]
-    [InlineData(4, 376, "f96f14b5cd77de42cd09b2c34af85e242d108e17a43bedf0741eb17541227080")]
-    [InlineData(5, 256, "817bb3aa68deb832d068a1dd8b9fa17d82a0824a30726fbd4af2061c38b41046")]
+    [InlineData(0, 216, "90d00f6df3a241c04e745bfc7d0186b380f65d30f57571e0b7f3b6e15a2c7b84")]
+    [InlineData(1, 256, "0892675bd6d0c3114790ecc92e49b99dc4ea2ba4a962c50db5ee69302f1174ec")]
+    [InlineData(2, 240, "012d3a37c568a18e9100c77b3c714782becfe0b160c07954c49280f313431f6b")]
+    [InlineData(3, 320, "50344c9df6bc1efd6d734a31cbe53621e9f73a55d17abfa7b70a4f52dc2222d8")]
+    [InlineData(4, 392, "dc5889ac5ef5efccf0a2acc05ba94d99a9e767ace6a8d2307db1f26827585e57")]
+    [InlineData(5, 272, "42ac98286edeeb4903a8431cd057ed1b5537b043c58d5c03e0e25385e1cf04cb")]
     public void BakesCanonicalBytes(int fixture, int length, string sha256)
     {
         var bytes = BakeFixture(fixture);

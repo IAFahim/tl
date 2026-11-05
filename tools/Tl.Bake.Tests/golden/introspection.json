@@ -1267,6 +1267,33 @@
     {
       "track": {
         "namespace": "Tlb",
+        "name": "GotoTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "GotoClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 2,
+        "fields": []
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.GotoClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
         "name": "HostedTrack",
         "assembly": "Tl.Bake.Tests",
         "size": 4,
@@ -1467,6 +1494,38 @@
       "unmanaged": true,
       "trackPairings": [
         "Tlb.PropertyClip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "Tlb",
+        "name": "StatTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Weight",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "Tlb",
+        "name": "StatClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 8,
+        "fields": [
+          {
+            "name": "Delta",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "Tlb.StatClip"
       ],
       "consumers": []
     },

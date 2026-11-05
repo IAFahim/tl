@@ -87,8 +87,8 @@ public sealed unsafe class MeasuredLanes : IDisposable
 
     internal void ValidateBinding(TimelineAsset asset)
     {
-        ArgumentNullException.ThrowIfNull(asset);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (asset is null) throw new ArgumentNullException(nameof(asset));
+        if (_disposed) throw new ObjectDisposedException(nameof(MeasuredLanes));
         var reference = asset.Reference;
         if (reference.Address == 0) throw new ArgumentException("Timeline asset is not loaded.");
         if (_source != reference.Address) throw new ArgumentException("Measured lanes were measured from a different TimelineAsset instance.");
@@ -223,7 +223,7 @@ internal static unsafe class LaneGuards
         where TTrack : unmanaged, IBlend<TClip>
         where TClip : unmanaged
     {
-        ArgumentNullException.ThrowIfNull(asset);
+        if (asset is null) throw new ArgumentNullException(nameof(asset));
         var reference = asset.Reference;
         if (reference.Address == 0) throw new ArgumentException("Timeline asset is not loaded.");
         var key = PairRuntime<TTrack, TClip>.Key;
