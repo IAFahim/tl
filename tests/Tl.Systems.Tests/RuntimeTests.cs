@@ -185,7 +185,31 @@ public sealed unsafe class RuntimeTests : IDisposable
         _world.ApplyRequests(_players);
         Assert.False(_players.IsPlaying(0, 2));
         Assert.True(_players.IsPlaying(0, 4));
-        Assert.Equal(1, _players.CountOf(0));
+        Assert.Equal(2, _players.CountOf(0));
+        Assert.Equal(0, _players.SlotsOf(0)[0].Timeline);
+        Assert.Equal(4, _players.SlotsOf(0)[1].Timeline);
+    }
+
+    [Fact]
+    public void SlotsKeepTheirIndexReuseLowestFreeAndGrow()
+    {
+        using var players = new PlaybackTable(2, 2);
+        players.Start(0, 1);
+        players.Start(0, 2);
+        players.Start(0, 4);
+        _world.ApplyRequests(players);
+        Assert.Equal(4, players.SlotsPerEntity);
+        Assert.Equal(3, players.CountOf(0));
+        players.Stop(0, 1);
+        _world.ApplyRequests(players);
+        Assert.Equal(2, players.SlotsOf(0)[1].Timeline);
+        Assert.Equal(4, players.SlotsOf(0)[2].Timeline);
+        players.Start(0, 5);
+        _world.ApplyRequests(players);
+        Assert.Equal(5, players.SlotsOf(0)[0].Timeline);
+        players.Stop(0, 4);
+        _world.ApplyRequests(players);
+        Assert.Equal(2, players.CountOf(0));
     }
 
     [Fact]

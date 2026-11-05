@@ -30,9 +30,11 @@ public sealed partial class TimelineWorld
         {
             var slots = players.SlotsOf(entity);
             var slotsCount = players.CountOf(entity);
+            if (slotsCount == 0) continue;
             for (var i = 0; i < slotsCount; i++)
             {
                 var current = slots + i;
+                if (current->Timeline == 0) continue;
                 var flags = current->Flags;
                 if ((flags & (PlaybackFlags.Ended | PlaybackFlags.Paused)) != 0)
                 {
@@ -55,7 +57,7 @@ public sealed partial class TimelineWorld
                     {
                         if (timeline->Loop != 0) current->Tick = (ushort)(duration - 1);
                         else if (timeline->Hold != 0) current->Flags = flags | PlaybackFlags.Ended;
-                        else { players.RemoveSlot(entity, i); i--; slotsCount--; continue; }
+                        else { players.RemoveSlot(entity, i); continue; }
                     }
                     else current->Tick--;
                 }
@@ -75,7 +77,7 @@ public sealed partial class TimelineWorld
                         current->Tick = (ushort)(duration - 1);
                         current->Flags = flags | PlaybackFlags.Ended;
                     }
-                    else { players.RemoveSlot(entity, i); i--; slotsCount--; continue; }
+                    else { players.RemoveSlot(entity, i); continue; }
                 }
                 else current->Tick++;
                 current->Flags &= ~PlaybackFlags.StartPending;
@@ -118,10 +120,11 @@ public sealed partial class TimelineWorld
                 return;
             case RequestOp.StopChannel:
                 for (var i = 0; i < players.CountOf(record.Entity); i++)
-                    if (players.SlotsOf(record.Entity)[i].Channel == (byte)record.Timeline) { players.CloseSlot(record.Entity, i); return; }
+                    if (players.SlotsOf(record.Entity)[i].Timeline != 0 && players.SlotsOf(record.Entity)[i].Channel == (byte)record.Timeline) { players.CloseSlot(record.Entity, i); return; }
                 return;
             default:
-                while (players.CountOf(record.Entity) > 0) players.CloseSlot(record.Entity, 0);
+                for (var i = 0; i < players.CountOf(record.Entity); i++)
+                    if (players.SlotsOf(record.Entity)[i].Timeline != 0) players.CloseSlot(record.Entity, i);
                 return;
         }
     }

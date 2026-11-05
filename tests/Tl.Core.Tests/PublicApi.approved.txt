@@ -275,6 +275,7 @@ type Tl.PlaybackTable
   Property Int32 EntityCapacity
   Method Boolean Find(Int32, Byte, Tl.Playback ByRef)
   Method Boolean IsPlaying(Int32, UInt16)
+  Field Int32 MaxSlots
   Property Tl.RequestQueue* Pending
   Property Int32 SlotsPerEntity
   Method Void Start(Int32, UInt16, UInt16)

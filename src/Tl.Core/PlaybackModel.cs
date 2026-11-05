@@ -54,10 +54,10 @@ public readonly unsafe struct PlaybackView
 
 public sealed unsafe class PlaybackTable : IDisposable
 {
-    readonly Playback* _slots;
+    Playback* _slots;
     readonly int* _counts;
     readonly int _entities;
-    readonly int _slotsPerEntity;
+    int _slotsPerEntity;
     readonly RequestQueue* _consumer;
     readonly RequestQueue* _pending;
     readonly ClosingList* _closing;
@@ -66,7 +66,7 @@ public sealed unsafe class PlaybackTable : IDisposable
     public PlaybackTable(int entityCapacity, int slotsPerEntity = 4)
     {
         if (entityCapacity <= 0) throw new ArgumentOutOfRangeException(nameof(entityCapacity));
-        if (slotsPerEntity <= 0 || slotsPerEntity > 64) throw new ArgumentOutOfRangeException(nameof(slotsPerEntity));
+        if (slotsPerEntity <= 0 || slotsPerEntity > MaxSlots) throw new ArgumentOutOfRangeException(nameof(slotsPerEntity));
         _entities = entityCapacity;
         _slotsPerEntity = slotsPerEntity;
         var slots = NativeMemory.AlignedAlloc((nuint)entityCapacity * (nuint)slotsPerEntity * 8u, 8u);
@@ -79,6 +79,8 @@ public sealed unsafe class PlaybackTable : IDisposable
         _pending = RequestQueue.Create();
         _closing = ClosingList.Create();
     }
+
+    public const int MaxSlots = 256;
 
     public int EntityCapacity => _entities;
     public int SlotsPerEntity => _slotsPerEntity;
@@ -112,29 +114,50 @@ public sealed unsafe class PlaybackTable : IDisposable
                     replaced = true;
                     break;
                 }
-        for (var i = 0; i < count; i++) if (slots[i].Timeline == timeline) return false;
-        if (count >= _slotsPerEntity) return false;
-        slots[count] = new Playback { Timeline = timeline, Tick = at, Channel = channel, Flags = at > 0 ? PlaybackFlags.StartPending : PlaybackFlags.None };
-        _counts[entity] = count + 1;
+        var free = count;
+        for (var i = count - 1; i >= 0; i--)
+        {
+            if (slots[i].Timeline == timeline) return false;
+            if (slots[i].Timeline == 0) free = i;
+        }
+        if (free == _slotsPerEntity)
+        {
+            if (_slotsPerEntity == MaxSlots) return false;
+            Grow();
+            slots = _slots + (nuint)entity * (nuint)_slotsPerEntity;
+        }
+        slots[free] = new Playback { Timeline = timeline, Tick = at, Channel = channel, Flags = at > 0 ? PlaybackFlags.StartPending : PlaybackFlags.None };
+        if (free == count) _counts[entity] = count + 1;
         return true;
+    }
+
+    void Grow()
+    {
+        var stride = Math.Min(MaxSlots, _slotsPerEntity * 2);
+        var bytes = (nuint)_entities * (nuint)stride * 8u;
+        var slots = (Playback*)NativeMemory.AlignedAlloc(bytes, 8u);
+        NativeMemory.Clear(slots, bytes);
+        for (var e = 0; e < _entities; e++)
+            new ReadOnlySpan<Playback>(_slots + (nuint)e * (nuint)_slotsPerEntity, _counts[e]).CopyTo(new Span<Playback>(slots + (nuint)e * (nuint)stride, stride));
+        NativeMemory.AlignedFree(_slots);
+        _slots = slots;
+        _slotsPerEntity = stride;
     }
 
     internal void CloseSlot(int entity, int slot)
     {
-        var count = _counts[entity];
         var slots = _slots + (nuint)entity * (nuint)_slotsPerEntity;
         ClosingList.Add(_closing, entity, slot, in slots[slot]);
-        for (var i = slot; i < count - 1; i++) slots[i] = slots[i + 1];
-        slots[count - 1] = default;
-        _counts[entity] = count - 1;
+        RemoveSlot(entity, slot);
     }
+
     internal void RemoveSlot(int entity, int slot)
     {
-        var count = _counts[entity];
         var slots = _slots + (nuint)entity * (nuint)_slotsPerEntity;
-        for (var i = slot; i < count - 1; i++) slots[i] = slots[i + 1];
-        slots[count - 1] = default;
-        _counts[entity] = count - 1;
+        slots[slot] = default;
+        var count = _counts[entity];
+        while (count > 0 && slots[count - 1].Timeline == 0) count--;
+        _counts[entity] = count;
     }
 
     internal Playback* SlotsOf(int entity) => _slots + (nuint)entity * (nuint)_slotsPerEntity;

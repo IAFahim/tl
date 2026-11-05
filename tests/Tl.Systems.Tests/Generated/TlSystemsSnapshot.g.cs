@@ -270,7 +270,7 @@ if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
 {
 var __pb = __pview.SlotOf(__e, __s);
-if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) continue;
+if (__pb->Timeline == 0 || (__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__pb->Timeline));
 if (__tl is null || __tl->Duration == 0) continue;
 var __tick = __pb->Tick;
@@ -550,6 +550,7 @@ var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
 var __pb = __pview.SlotOf(__e, __s);
+if (__pb->Timeline == 0) continue;
 var __pfl = __pb->Flags;
 if ((__pfl & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) { __pb->Flags = __pfl & ~global::Tl.PlaybackFlags.StartPending; }
 else
@@ -730,10 +731,11 @@ if (__tl->Loop != 0) __pb->Tick = (ushort)(__dur - 1);
 else if (__tl->Hold != 0) __pb->Flags = __af | global::Tl.PlaybackFlags.Ended;
 else
 {
-__pview.Counts[__e] = __cnt - 1;
-for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];
-__pview.SlotOf(__e, __cnt - 1)[0] = default;
-__cnt--; __s--;
+__pb[0] = default;
+var __hw = __pview.Counts[__e];
+while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;
+__pview.Counts[__e] = __hw;
+continue;
 }
 }
 else __pb->Tick--;
@@ -753,10 +755,11 @@ __handover = true;
 else if (__tl->Hold != 0) { __pb->Tick = (ushort)(__dur - 1); __pb->Flags = __af | global::Tl.PlaybackFlags.Ended; }
 else
 {
-__pview.Counts[__e] = __cnt - 1;
-for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];
-__pview.SlotOf(__e, __cnt - 1)[0] = default;
-__cnt--; __s--;
+__pb[0] = default;
+var __hw = __pview.Counts[__e];
+while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;
+__pview.Counts[__e] = __hw;
+continue;
 }
 }
 else __pb->Tick++;
@@ -844,7 +847,7 @@ if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
 {
 var __pb = __pview.SlotOf(__e, __s);
-if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) continue;
+if (__pb->Timeline == 0 || (__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__pb->Timeline));
 if (__tl is null || __tl->Duration == 0) continue;
 var __tick = __pb->Tick;
@@ -934,6 +937,7 @@ var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
 for (var __s = 0; __s < __cnt; __s++)
 {
 var __pb = __pview.SlotOf(__e, __s);
+if (__pb->Timeline == 0) continue;
 var __pfl = __pb->Flags;
 if ((__pfl & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) { __pb->Flags = __pfl & ~global::Tl.PlaybackFlags.StartPending; }
 else
@@ -990,10 +994,11 @@ if (__tl->Loop != 0) __pb->Tick = (ushort)(__dur - 1);
 else if (__tl->Hold != 0) __pb->Flags = __af | global::Tl.PlaybackFlags.Ended;
 else
 {
-__pview.Counts[__e] = __cnt - 1;
-for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];
-__pview.SlotOf(__e, __cnt - 1)[0] = default;
-__cnt--; __s--;
+__pb[0] = default;
+var __hw = __pview.Counts[__e];
+while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;
+__pview.Counts[__e] = __hw;
+continue;
 }
 }
 else __pb->Tick--;
@@ -1013,10 +1018,11 @@ __handover = true;
 else if (__tl->Hold != 0) { __pb->Tick = (ushort)(__dur - 1); __pb->Flags = __af | global::Tl.PlaybackFlags.Ended; }
 else
 {
-__pview.Counts[__e] = __cnt - 1;
-for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];
-__pview.SlotOf(__e, __cnt - 1)[0] = default;
-__cnt--; __s--;
+__pb[0] = default;
+var __hw = __pview.Counts[__e];
+while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;
+__pview.Counts[__e] = __hw;
+continue;
 }
 }
 else __pb->Tick++;

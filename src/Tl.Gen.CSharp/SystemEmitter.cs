@@ -303,7 +303,7 @@ internal static class SystemEmitter
         W(writer, "for (var __s = 0; __s < __count; __s++)");
         W(writer, "{");
         W(writer, "var __pb = __pview.SlotOf(__e, __s);");
-        W(writer, "if ((__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) continue;");
+        W(writer, "if (__pb->Timeline == 0 || (__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) continue;");
         W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__pb->Timeline));");
         W(writer, "if (__tl is null || __tl->Duration == 0) continue;");
         W(writer, "var __tick = __pb->Tick;");
@@ -358,6 +358,7 @@ internal static class SystemEmitter
         W(writer, "for (var __s = 0; __s < __cnt; __s++)");
         W(writer, "{");
         W(writer, "var __pb = __pview.SlotOf(__e, __s);");
+        W(writer, "if (__pb->Timeline == 0) continue;");
         W(writer, "var __pfl = __pb->Flags;");
         W(writer, "if ((__pfl & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) { __pb->Flags = __pfl & ~global::Tl.PlaybackFlags.StartPending; }");
         W(writer, "else");
@@ -393,10 +394,11 @@ internal static class SystemEmitter
         W(writer, "else if (__tl->Hold != 0) __pb->Flags = __af | global::Tl.PlaybackFlags.Ended;");
         W(writer, "else");
         W(writer, "{");
-        W(writer, "__pview.Counts[__e] = __cnt - 1;");
-        W(writer, "for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];");
-        W(writer, "__pview.SlotOf(__e, __cnt - 1)[0] = default;");
-        W(writer, "__cnt--; __s--;");
+        W(writer, "__pb[0] = default;");
+        W(writer, "var __hw = __pview.Counts[__e];");
+        W(writer, "while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;");
+        W(writer, "__pview.Counts[__e] = __hw;");
+        W(writer, "continue;");
         W(writer, "}");
         W(writer, "}");
         W(writer, "else __pb->Tick--;");
@@ -416,10 +418,11 @@ internal static class SystemEmitter
         W(writer, "else if (__tl->Hold != 0) { __pb->Tick = (ushort)(__dur - 1); __pb->Flags = __af | global::Tl.PlaybackFlags.Ended; }");
         W(writer, "else");
         W(writer, "{");
-        W(writer, "__pview.Counts[__e] = __cnt - 1;");
-        W(writer, "for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];");
-        W(writer, "__pview.SlotOf(__e, __cnt - 1)[0] = default;");
-        W(writer, "__cnt--; __s--;");
+        W(writer, "__pb[0] = default;");
+        W(writer, "var __hw = __pview.Counts[__e];");
+        W(writer, "while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;");
+        W(writer, "__pview.Counts[__e] = __hw;");
+        W(writer, "continue;");
         W(writer, "}");
         W(writer, "}");
         W(writer, "else __pb->Tick++;");
