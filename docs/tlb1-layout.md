@@ -2,7 +2,7 @@
 
 `tlb` compiles authored timeline JSON into TLB1, a deterministic binary container. This page specifies the byte layout so an out-of-process parser — a browser viewer over `.tlb` files, C catalog tooling, Unity-side import — can read the structure without running this repository's code. The committed fixtures under `tools/Tl.Bake.Tests/golden/fixtures/` are the test corpus for that parser.
 
-The spec describes what the baker emits today (TLB1 version 5). It promises no stability across future versions: the header version field is the handshake, parsers reject what they do not know, and any format change bumps the version and regenerates the fixtures in the same change.
+The spec describes what the baker emits today (TLB1 version 6; version 5 fixtures are byte-stable carryovers). It promises no stability across future versions: the header version field is the handshake, parsers reject what they do not know, and any format change bumps the version and regenerates the fixtures in the same change.
 
 ## Conventions
 

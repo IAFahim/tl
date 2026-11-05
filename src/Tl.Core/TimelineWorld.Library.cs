@@ -8,6 +8,7 @@ namespace Tl
     public sealed unsafe partial class TimelineWorld : IDisposable
     {
         internal LibraryView _view;
+        internal bool _ownsView;
         byte* _base;
         int _byteCount;
 
@@ -17,11 +18,18 @@ namespace Tl
         }
 
         public LibraryView View => _view;
+        internal void AdoptView(LibraryView view)
+        {
+            Free();
+            _view = view;
+            _ownsView = false;
+        }
 
         public unsafe void Reload(ReadOnlySpan<byte> library)
         {
             Free();
             LoadLibrary(library);
+            _generation++;
         }
 
         public unsafe void Dispose()
@@ -34,27 +42,33 @@ namespace Tl
 
         unsafe void Free()
         {
-            if (_view.Timelines != null)
+            if (_ownsView)
             {
-                for (var i = 0; i < _view.TimelineCount; i++)
+                if (_view.Timelines != null)
                 {
-                    var tl = _view.Timelines + i;
-                    if (tl->Stages != null)
+                    for (var i = 0; i < _view.TimelineCount; i++)
                     {
-                        for (var s = 0; s < tl->StageCount; s++)
-                            if (tl->Stages[s].Steps != null) { NativeMemory.AlignedFree(tl->Stages[s].Steps); break; }
-                        NativeMemory.AlignedFree(tl->Stages);
+                        var tl = _view.Timelines + i;
+                        if (tl->Stages != null)
+                        {
+                            for (var s = 0; s < tl->StageCount; s++)
+                                if (tl->Stages[s].Steps != null) { NativeMemory.AlignedFree(tl->Stages[s].Steps); break; }
+                            NativeMemory.AlignedFree(tl->Stages);
+                        }
+                        if (tl->Events != null) NativeMemory.AlignedFree(tl->Events);
+                        if (tl->EventTickBits != null) NativeMemory.AlignedFree(tl->EventTickBits);
                     }
-                    if (tl->Events != null) NativeMemory.AlignedFree(tl->Events);
-                    if (tl->EventTickBits != null) NativeMemory.AlignedFree(tl->EventTickBits);
+                    NativeMemory.AlignedFree(_view.Timelines);
                 }
-                NativeMemory.AlignedFree(_view.Timelines);
-                _view.Timelines = null;
+                if (_base != null) NativeMemory.AlignedFree(_base);
+                _ownsView = false;
             }
-            if (_base != null) { NativeMemory.AlignedFree(_base); _base = null; }
+            _view.Timelines = null;
+            _base = null;
             _view.TimelineCount = 0;
             _view.ByteCount = 0;
             _byteCount = 0;
+            _generation++;
         }
 
         unsafe void LoadLibrary(ReadOnlySpan<byte> library)
@@ -72,18 +86,17 @@ namespace Tl
             if (manifestOff + count * 32u > blobOff || blobOff > total - 32u) throw new ArgumentException("game.tlib sections out of bounds.");
             if (count > 65535) throw new ArgumentException("game.tlib declares more than 65535 timelines.");
             var digestAt = (int)(total - 32u);
-            Span<byte> calc = stackalloc byte[32];
 #if NET
+            Span<byte> calc = stackalloc byte[32];
             if (!SHA256.TryHashData(library.Slice(0, digestAt), calc, out _)) throw new ArgumentException("game.tlib digest failure.");
 #else
-            using (var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
-            {
-                sha.AppendData(library.Slice(0, digestAt));
-                if (!sha.TryGetHashAndReset(calc, out _)) throw new ArgumentException("game.tlib digest failure.");
-            }
+            using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            sha.AppendData(library.Slice(0, digestAt));
+            var calc = sha.GetHashAndReset();
 #endif
             if (!library.Slice(digestAt).SequenceEqual(calc)) throw new ArgumentException("game.tlib digest mismatch; file is corrupt or truncated.");
             _base = (byte*)NativeMemory.AlignedAlloc((nuint)library.Length, 64);
+            _ownsView = true;
             _byteCount = library.Length;
             fixed (byte* src = library) Buffer.MemoryCopy(src, _base, library.Length, library.Length);
             _view.Version = 1u;

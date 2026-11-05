@@ -5,3 +5,6 @@ public interface IBlend<TClip>
 {
     void Blend(in TClip first, in TClip second, float factor, out TClip result);
 }
+
+public interface IMarker<TMarker>
+    where TMarker : unmanaged;

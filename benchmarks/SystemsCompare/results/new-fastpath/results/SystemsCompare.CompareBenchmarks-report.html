@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>SystemsCompare.CompareBenchmarks-20261105-123721</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.401
+  [Host] : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Job </th><th>Toolchain         </th><th>IterationCount</th><th>IterationTime</th><th>WarmupCount</th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>NewA</td><td>Job-DFACHR</td><td>InProcessNoEmitToolchain</td><td>16</td><td>200ms</td><td>8</td><td>951.6 &mu;s</td><td>7.35 &mu;s</td><td>6.88 &mu;s</td><td>953.9 &mu;s</td><td>-</td>
+</tr><tr><td>NewB</td><td>Job-DFACHR</td><td>InProcessNoEmitToolchain</td><td>16</td><td>200ms</td><td>8</td><td>939.8 &mu;s</td><td>9.66 &mu;s</td><td>9.49 &mu;s</td><td>938.1 &mu;s</td><td>-</td>
+</tr><tr><td>NewC</td><td>Job-DFACHR</td><td>InProcessNoEmitToolchain</td><td>16</td><td>200ms</td><td>8</td><td>829.4 &mu;s</td><td>1.63 &mu;s</td><td>1.60 &mu;s</td><td>829.5 &mu;s</td><td>-</td>
+</tr><tr><td>NewD</td><td>Job-DFACHR</td><td>InProcessNoEmitToolchain</td><td>16</td><td>200ms</td><td>8</td><td>1,441.8 &mu;s</td><td>9.72 &mu;s</td><td>9.09 &mu;s</td><td>1,437.1 &mu;s</td><td>26 B</td>
+</tr><tr><td>NewA</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>952.6 &mu;s</td><td>8.92 &mu;s</td><td>7.45 &mu;s</td><td>954.2 &mu;s</td><td>4 B</td>
+</tr><tr><td>NewB</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>922.6 &mu;s</td><td>8.92 &mu;s</td><td>7.91 &mu;s</td><td>919.2 &mu;s</td><td>4 B</td>
+</tr><tr><td>NewC</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>842.3 &mu;s</td><td>10.70 &mu;s</td><td>10.01 &mu;s</td><td>847.6 &mu;s</td><td>3 B</td>
+</tr><tr><td>NewD</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>1,447.5 &mu;s</td><td>11.49 &mu;s</td><td>9.60 &mu;s</td><td>1,442.2 &mu;s</td><td>7 B</td>
+</tr></tbody></table>
+</body>
+</html>

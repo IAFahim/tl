@@ -84,6 +84,8 @@ internal static class TypeAnalyzer
             return new TypeAnalysis(name, ContractSite(syntax), [], [], [], []);
         if (type.TypeKind == TypeKind.Interface)
             return null;
+        if (IsNewStyle(type))
+            return new TypeAnalysis(name, null, [], [], [], []);
         var job = Job(type, compilation, contracts, syntax, name);
         var bake = Bake(type, compilation, syntax, name);
         return job is null && bake is null
@@ -357,6 +359,26 @@ internal static class TypeAnalyzer
         return modifier + Symbols.Name(parameter.Type) + name;
     }
 
+    internal static bool IsNewStyle(INamedTypeSymbol type)
+    {
+        foreach (var member in type.GetMembers())
+        {
+            if (member is not IMethodSymbol method || !method.IsStatic || method.Arity != 0 || !method.ReturnsVoid)
+                continue;
+            if (method.Name is "ExecuteBatch" or "OnClipStart" or "OnClipEnd" or "OnMarker")
+                return true;
+            if (method.Name == "ExecuteActive")
+                foreach (var parameter in method.Parameters)
+                {
+                    var origin = parameter.Type.OriginalDefinition;
+                    if (origin is INamedTypeSymbol named
+                        && named.ContainingNamespace?.ToDisplayString() == "Tl"
+                        && named.Name is "Requests" or "Events" or "BatchItem")
+                        return true;
+                }
+        }
+        return false;
+    }
     private static (INamedTypeSymbol Job, INamedTypeSymbol Frame, INamedTypeSymbol Blend)? Contract(Compilation compilation)
     {
         INamedTypeSymbol?[] types = [compilation.GetTypeByMetadataName("Tl.ITrack`2"), compilation.GetTypeByMetadataName("Tl.Frame`2"), compilation.GetTypeByMetadataName("Tl.IBlend`1")];
