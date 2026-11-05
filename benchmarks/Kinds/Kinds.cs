@@ -42,14 +42,18 @@ public struct Lift : IKind<float>
     public static unsafe void Apply(in float total, int entity, in Columns columns) => columns.MotionY[entity] += total;
 }
 
-public struct Damage : IKind<int>
+public struct Damage : IKind<int>, IPulseFold
 {
+    public static bool Folds => true;
+
     public static bool Each => false;
 
     public static unsafe int Evaluate(Library library, Entry* entry, Slot* slot, int dir, int entity, in Columns columns)
         => dir > 0 ? library.ClipOf(entry->Timeline, entry->Step)->Hit : 0;
 
     public static void Combine(ref int total, in int next) => total += next;
+
+    public static void Fold(ref int total, int next) => total += next;
 
     public static unsafe void Apply(in int total, int entity, in Columns columns) => columns.Health[entity] -= total;
 }

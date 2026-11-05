@@ -55,6 +55,7 @@ public unsafe class KindBenchmarks
     World _d = null!;
     World _e2 = null!;
     World _e64 = null!;
+    World _e64Blocked = null!;
     World _f1 = null!;
     World _f8 = null!;
     ColumnSet _colsA = null!;
@@ -62,6 +63,7 @@ public unsafe class KindBenchmarks
     ColumnSet _colsC = null!;
     ColumnSet _colsE2 = null!;
     ColumnSet _colsE64 = null!;
+    ColumnSet _colsE64Blocked = null!;
     ColumnSet _colsF1 = null!;
     ColumnSet _colsF8 = null!;
 
@@ -106,6 +108,8 @@ public unsafe class KindBenchmarks
 
     static float AmountOf(int timeline) => 1 + timeline % 7;
 
+    static int BlockOf(int e) => (int)((long)e * 32 / N);
+
     static int TimelineOfC(int e) => (int)((uint)(e * 2654435761u) % TimelinesC);
 
     static Dictionary<byte, (int, int)> Shapes(int kinds, int inline, int valueBytes)
@@ -142,7 +146,9 @@ public unsafe class KindBenchmarks
         for (var t = 0; t < TimelinesC; t++) c[t] = Scripts.Walk(40, AmountOf(t), 2f, KindId.Fx);
         _libC = new Library(c);
         _libD = new Library(new[] { Scripts.Walk(65535, 3f, 2f, KindId.Fx) });
-        _libE2 = new Library(new[] { new TimelineSpec { Duration = 40, Loop = true }.Add(0, 40, 0, ClipMode.Span, 3f, 2f).Add(0, 40, 1, ClipMode.Span, 3f, 2f) });
+        var e2 = new TimelineSpec[32];
+        for (var j = 0; j < 32; j++) e2[j] = new TimelineSpec { Duration = 40, Loop = true }.Add(0, 40, 0, ClipMode.Span, 3f, 2f).Add(0, 40, 1, ClipMode.Span, 3f, 2f);
+        _libE2 = new Library(e2);
         var e64 = new TimelineSpec[32];
         for (var j = 0; j < 32; j++) e64[j] = new TimelineSpec { Duration = 40, Loop = true }.Add(0, 40, (byte)(2 * j), ClipMode.Span, 3f, 2f).Add(0, 40, (byte)(2 * j + 1), ClipMode.Span, 3f, 2f);
         _libE64 = new Library(e64);
@@ -155,6 +161,7 @@ public unsafe class KindBenchmarks
         _d = new World(_libD, N, _ => 1ul << KindId.Fx, fx, KindId.Damage);
         _e2 = new World(_libE2, N, _ => 0b11, Shapes(2, 1, 0), 63);
         _e64 = new World(_libE64, N, e => 0b11ul << (2 * (e % 32)), Shapes(64, 1, 0), 63);
+        _e64Blocked = new World(_libE64, N, e => 0b11ul << (2 * BlockOf(e)), Shapes(64, 1, 0), 63);
         _f1 = new World(_libEmpty, N, _ => 1ul << KindId.Damage, Shapes(5, 1, 4), KindId.Damage);
         _f8 = new World(_libEmpty, N, _ => 1ul << KindId.Damage, Shapes(5, 8, 4), KindId.Damage);
         _colsA = new ColumnSet(N);
@@ -162,6 +169,7 @@ public unsafe class KindBenchmarks
         _colsC = new ColumnSet(N);
         _colsE2 = new ColumnSet(N);
         _colsE64 = new ColumnSet(N);
+        _colsE64Blocked = new ColumnSet(N);
         _colsF1 = new ColumnSet(N);
         _colsF8 = new ColumnSet(N);
         for (var e = 0; e < N; e++)
@@ -170,17 +178,18 @@ public unsafe class KindBenchmarks
             if (e % 10 == 0) _b.Playbacks.Start(e, 1);
             _c.Playbacks.Start(e, (ushort)(TimelineOfC(e) + 1), (ushort)(e % 40));
             _d.Playbacks.Start(e, 1, (ushort)(1000 + e % 40));
-            _e2.Playbacks.Start(e, 1);
+            _e2.Playbacks.Start(e, (ushort)(e % 32 + 1));
             _e64.Playbacks.Start(e, (ushort)(e % 32 + 1));
+            _e64Blocked.Playbacks.Start(e, (ushort)(BlockOf(e) + 1));
         }
     }
 
     [GlobalCleanup]
     public void Cleanup()
     {
-        foreach (var w in new[] { _a, _b, _c, _d, _e2, _e64, _f1, _f8 }) w.Dispose();
+        foreach (var w in new[] { _a, _b, _c, _d, _e2, _e64, _e64Blocked, _f1, _f8 }) w.Dispose();
         foreach (var l in new[] { _libA, _libC, _libD, _libE2, _libE64, _libEmpty }) l.Dispose();
-        foreach (var s in new[] { _colsA, _colsB, _colsC, _colsE2, _colsE64, _colsF1, _colsF8 }) s.Dispose();
+        foreach (var s in new[] { _colsA, _colsB, _colsC, _colsE2, _colsE64, _colsE64Blocked, _colsF1, _colsF8 }) s.Dispose();
         _playersA.Dispose();
         _playersC.Dispose();
         _planA.Dispose();
@@ -257,6 +266,18 @@ public unsafe class KindBenchmarks
     }
 
     [Benchmark]
+    public void KindsE64Blocked()
+    {
+        var c = _colsE64Blocked.Columns;
+        for (var f = 0; f < Frames; f++)
+        {
+            _e64Blocked.Tick(1);
+            for (var k = 0; k < 64; k++) _e64Blocked.RunKind<Fx, float>(_e64Blocked.Tables[k], c, 1);
+        }
+        Sink += c.Fx[0] + c.Fx[N - 1];
+    }
+
+    [Benchmark]
     public void KindsF1() => DamageFrames(_f1, _colsF1, 1);
 
     [Benchmark]
@@ -282,7 +303,7 @@ public unsafe class KindBenchmarks
         {
             for (var e = 0; e < N; e++)
                 for (var k = 0; k < pulses; k++) world.Send(e, 1);
-            world.Tick(1);
+            world.Tick<Damage>(1);
             world.RunKind<Damage, int>(table, c, 1);
         }
         Sink += c.Health[0] + c.Health[N - 1];
@@ -321,6 +342,23 @@ public unsafe class KindBenchmarks
 
 public static class Smoke
 {
+    public static int Profile(string shape)
+    {
+        var bench = new KindBenchmarks();
+        bench.Setup();
+        var run = typeof(KindBenchmarks).GetMethod(shape)!.CreateDelegate<Action>(bench);
+        var start = System.Diagnostics.Stopwatch.GetTimestamp();
+        var ops = 0;
+        while (System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalSeconds < 8)
+        {
+            run();
+            ops++;
+        }
+        Console.WriteLine($"PROFILE {shape} ops={ops} ms/op={8000.0 / ops:F2}");
+        bench.Cleanup();
+        return 0;
+    }
+
     public static int Run()
     {
         var bench = new KindBenchmarks();
@@ -335,18 +373,20 @@ public static class Smoke
             ("KindsDTickOnly", bench.KindsDTickOnly),
             ("KindsE2", bench.KindsE2),
             ("KindsE64", bench.KindsE64),
+            ("KindsE64Blocked", bench.KindsE64Blocked),
             ("KindsF1", bench.KindsF1),
             ("KindsF8", bench.KindsF8),
         };
-        foreach (var (_, run) in shapes) run();
+        foreach (var (_, run) in shapes)
+            for (var w = 0; w < 30; w++) run();
         foreach (var (name, run) in shapes)
         {
             var before = GC.GetAllocatedBytesForCurrentThread();
             var start = System.Diagnostics.Stopwatch.GetTimestamp();
-            run();
-            var ms = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            for (var r = 0; r < 20; r++) run();
+            var ms = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds / 20;
             var bytes = GC.GetAllocatedBytesForCurrentThread() - before;
-            Console.WriteLine($"SMOKE {name} frames={KindBenchmarks.Frames} entities={KindBenchmarks.N} ms={ms:F2} bytes={bytes}");
+            Console.WriteLine($"SMOKE {name} frames={KindBenchmarks.Frames} entities={KindBenchmarks.N} ms/op={ms:F2} bytes/20ops={bytes}");
         }
         var parityA = bench.ParityA();
         var parityC = bench.ParityC();

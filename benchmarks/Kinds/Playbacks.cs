@@ -11,7 +11,6 @@ public enum SlotFlags : byte
     Ended = 4,
     Stopping = 8,
     StartPending = 16,
-    Played = 32,
     Began = 64,
     StopAged = 128,
 }

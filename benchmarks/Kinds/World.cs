@@ -22,6 +22,18 @@ public interface IKind<T> where T : unmanaged
     static abstract void Apply(in T total, int entity, in Columns columns);
 }
 
+public interface IPulseFold
+{
+    static abstract bool Folds { get; }
+    static abstract void Fold(ref int total, int next);
+}
+
+public struct NoFold : IPulseFold
+{
+    public static bool Folds => false;
+    public static void Fold(ref int total, int next) { }
+}
+
 public struct GamePulse
 {
     public int Target;
@@ -115,7 +127,9 @@ public sealed unsafe class World : IDisposable
         _pulses[_pulseCount++] = new GamePulse { Target = target, Value = value };
     }
 
-    public void Tick(int stepDir)
+    public void Tick(int stepDir) => Tick<NoFold>(stepDir);
+
+    public void Tick<F>(int stepDir) where F : struct, IPulseFold
     {
         ApplyRequests();
         var p = Playbacks;
@@ -129,7 +143,7 @@ public sealed unsafe class World : IDisposable
                 TickEntity(e, stepDir);
             }
         }
-        MergePulses();
+        MergePulses<F>();
     }
 
     void ApplyRequests()
@@ -216,75 +230,93 @@ public sealed unsafe class World : IDisposable
     void TickEntity(int e, int stepDir)
     {
         var p = Playbacks;
+        var duration = Library.Duration;
+        var eventBits = Library.EventBits;
+        var tickBase = Library.TickBase;
         var live = false;
         var count = p.Count[e];
+        var slots = p.SlotOf(e, 0);
         for (var i = 0; i < count; i++)
         {
-            var s = p.SlotOf(e, i);
-            if (s->Timeline == 0) continue;
-            s->Flags &= ~(SlotFlags.Played | SlotFlags.Began);
-            if ((s->Flags & SlotFlags.Stopping) != 0)
-            {
-                if ((s->Flags & SlotFlags.StopAged) != 0) *s = default;
-                else
-                {
-                    s->Flags |= SlotFlags.StopAged;
-                    live = true;
-                }
-                continue;
-            }
-            if ((s->Flags & SlotFlags.StartPending) != 0)
-            {
-                Begin(e, i, s, stepDir);
-                live = true;
-                continue;
-            }
-            if ((s->Flags & (SlotFlags.Paused | SlotFlags.Ended)) != 0) continue;
-            var dir = (s->Flags & SlotFlags.Reverse) != 0 ? -stepDir : stepDir;
+            var s = slots + i;
             var id = s->Timeline;
-            int duration = Library.Duration[id];
-            var t = s->Tick + dir;
-            if ((uint)t < (uint)duration)
+            if (id == 0) continue;
+            var flags = s->Flags;
+            if ((flags & ~SlotFlags.Reverse) == 0)
             {
-                s->Tick = (ushort)t;
-                if ((Library.EventBits[Library.TickBase[id] + t] & (dir > 0 ? 1 : 2)) != 0) ApplyEvents(e, i, id, t, dir);
-                s->Flags |= SlotFlags.Played;
-                live = true;
-            }
-            else if (Library.Loops(id))
-            {
-                var d = dir > 0 ? 0 : 1;
-                var from = Library.WrapOffset[(id - 1) * 2 + d];
-                var to = Library.WrapOffset[(id - 1) * 2 + d + 1];
-                for (var w = from; w < to; w++)
+                var dir = flags == 0 ? stepDir : -stepDir;
+                var t = s->Tick + dir;
+                if ((uint)t < duration[id])
                 {
-                    var c = Library.Wrap[w];
-                    var clip = Library.ClipOf(id, c);
-                    Tables[clip->Kind]!.RemoveSpan(RowOf(e, clip->Kind), (byte)i, id, c);
-                }
-                t = dir > 0 ? 0 : duration - 1;
-                s->Tick = (ushort)t;
-                if ((Library.EventBits[Library.TickBase[id] + t] & (dir > 0 ? 1 : 2)) != 0) ApplyEvents(e, i, id, t, dir);
-                s->Flags |= SlotFlags.Played;
-                live = true;
-            }
-            else
-            {
-                RemoveActiveSpans(e, i, s);
-                var next = Library.Next[id];
-                if (next != 0)
-                {
-                    s->Timeline = next;
-                    s->Channel = Library.Channel[next];
-                    s->Tick = (ushort)(dir > 0 ? 0 : Library.Duration[next] - 1);
-                    Begin(e, i, s, stepDir);
+                    s->Tick = (ushort)t;
+                    if ((eventBits[tickBase[id] + t] & (dir > 0 ? 1 : 2)) != 0) ApplyEvents(e, i, id, t, dir);
                     live = true;
+                    continue;
                 }
-                else if (Library.Holds(id)) s->Flags |= SlotFlags.Ended;
-                else *s = default;
             }
+            live |= TickSlot(e, i, s, stepDir);
         }
         if (!live) p.SetPlaying(e, false);
+    }
+
+    bool TickSlot(int e, int i, Slot* s, int stepDir)
+    {
+        s->Flags &= ~SlotFlags.Began;
+        if ((s->Flags & SlotFlags.Stopping) != 0)
+        {
+            if ((s->Flags & SlotFlags.StopAged) != 0)
+            {
+                *s = default;
+                return false;
+            }
+            s->Flags |= SlotFlags.StopAged;
+            return true;
+        }
+        if ((s->Flags & SlotFlags.StartPending) != 0)
+        {
+            Begin(e, i, s, stepDir);
+            return true;
+        }
+        if ((s->Flags & (SlotFlags.Paused | SlotFlags.Ended)) != 0) return false;
+        var dir = (s->Flags & SlotFlags.Reverse) != 0 ? -stepDir : stepDir;
+        var id = s->Timeline;
+        int duration = Library.Duration[id];
+        var t = s->Tick + dir;
+        if ((uint)t < (uint)duration)
+        {
+            s->Tick = (ushort)t;
+            if ((Library.EventBits[Library.TickBase[id] + t] & (dir > 0 ? 1 : 2)) != 0) ApplyEvents(e, i, id, t, dir);
+            return true;
+        }
+        if (Library.Loops(id))
+        {
+            var d = dir > 0 ? 0 : 1;
+            var from = Library.WrapOffset[(id - 1) * 2 + d];
+            var to = Library.WrapOffset[(id - 1) * 2 + d + 1];
+            for (var w = from; w < to; w++)
+            {
+                var c = Library.Wrap[w];
+                var clip = Library.ClipOf(id, c);
+                Tables[clip->Kind]!.RemoveSpan(RowOf(e, clip->Kind), (byte)i, id, c);
+            }
+            t = dir > 0 ? 0 : duration - 1;
+            s->Tick = (ushort)t;
+            if ((Library.EventBits[Library.TickBase[id] + t] & (dir > 0 ? 1 : 2)) != 0) ApplyEvents(e, i, id, t, dir);
+            return true;
+        }
+        RemoveActiveSpans(e, i, s);
+        var next = Library.Next[id];
+        if (next != 0)
+        {
+            s->Timeline = next;
+            s->Channel = Library.Channel[next];
+            s->Tick = (ushort)(dir > 0 ? 0 : Library.Duration[next] - 1);
+            Begin(e, i, s, stepDir);
+            return true;
+        }
+        if (Library.Holds(id)) s->Flags |= SlotFlags.Ended;
+        else *s = default;
+        return false;
     }
 
     void Begin(int e, int i, Slot* s, int stepDir)
@@ -311,7 +343,7 @@ public sealed unsafe class World : IDisposable
                     break;
             }
         }
-        s->Flags = (s->Flags & ~SlotFlags.StartPending) | SlotFlags.Played | SlotFlags.Began;
+        s->Flags = (s->Flags & ~SlotFlags.StartPending) | SlotFlags.Began;
     }
 
     void RemoveActiveSpans(int e, int i, Slot* s)
@@ -364,21 +396,42 @@ public sealed unsafe class World : IDisposable
         entry->Reserved = 0;
     }
 
-    void MergePulses()
+    void MergePulses<F>() where F : struct, IPulseFold
     {
         var table = Tables[PulseKind];
+        var lastTarget = -1;
+        var lastRow = -1;
+        int* lastValue = null;
         for (var k = 0; k < _pulseCount; k++)
         {
             var pulse = _pulses[k];
-            var row = table == null ? -1 : RowOf(pulse.Target, PulseKind);
-            if (row < 0)
+            if (pulse.Target == lastTarget)
             {
-                DroppedPulses++;
-                continue;
+                if (lastRow < 0)
+                {
+                    DroppedPulses++;
+                    continue;
+                }
+                if (F.Folds)
+                {
+                    F.Fold(ref *lastValue, pulse.Value);
+                    continue;
+                }
             }
-            var entry = table!.Append(row);
+            else
+            {
+                lastTarget = pulse.Target;
+                lastRow = table == null ? -1 : RowOf(pulse.Target, PulseKind);
+                if (lastRow < 0)
+                {
+                    DroppedPulses++;
+                    continue;
+                }
+            }
+            var entry = table!.Append(lastRow);
             *entry = new Entry { Flags = EntryFlags.Pulse };
-            *(int*)((byte*)entry + 8) = pulse.Value;
+            lastValue = (int*)((byte*)entry + 8);
+            *lastValue = pulse.Value;
         }
         _pulseCount = 0;
     }
@@ -400,7 +453,7 @@ public sealed unsafe class World : IDisposable
                 var length = table.Length[row];
                 var data = table.Data(row);
                 var has = false;
-                var pulses = false;
+                var pulses = 0;
                 T total = default;
                 for (var j = 0; j < length; j++)
                 {
@@ -409,12 +462,12 @@ public sealed unsafe class World : IDisposable
                     if (entry->Timeline == 0)
                     {
                         value = *(T*)((byte*)entry + 8);
-                        pulses = true;
+                        pulses++;
                     }
                     else
                     {
                         var slot = p.SlotOf(e, entry->Slot);
-                        if ((entry->Flags & EntryFlags.Pulse) != 0) pulses = true;
+                        if ((entry->Flags & EntryFlags.Pulse) != 0) pulses++;
                         else if ((slot->Flags & SlotFlags.Paused) != 0) continue;
                         var dir = (slot->Flags & SlotFlags.Reverse) != 0 ? -stepDir : stepDir;
                         value = K.Evaluate(lib, entry, slot, dir, e, columns);
@@ -428,7 +481,8 @@ public sealed unsafe class World : IDisposable
                     }
                 }
                 if (has) K.Apply(total, e, columns);
-                if (pulses) table.RemovePulses(row);
+                if (pulses == length) table.Clear(row);
+                else if (pulses != 0) table.RemovePulses(row);
             }
         }
     }

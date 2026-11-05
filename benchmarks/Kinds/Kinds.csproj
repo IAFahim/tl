@@ -14,6 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="results/**" />
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" />
     <Compile Include="../../tests/Tl.Systems.Tests/BenchDomain/BenchShapes.cs" Link="Bench/BenchShapes.cs" />

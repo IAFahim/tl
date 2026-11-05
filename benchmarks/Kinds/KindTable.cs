@@ -125,6 +125,12 @@ public sealed unsafe class KindTable : IDisposable
         if (kept == 0) Active[row >> 6] &= ~(1ul << (row & 63));
     }
 
+    public void Clear(int row)
+    {
+        Length[row] = 0;
+        Active[row >> 6] &= ~(1ul << (row & 63));
+    }
+
     public void SetEnabled(int row, bool value)
     {
         if (value) Enabled[row >> 6] |= 1ul << (row & 63);

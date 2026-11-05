@@ -61,7 +61,7 @@ public sealed unsafe class Oracle
                 }
             }
             var stepDir = rng.Next(8) == 0 ? -1 : 1;
-            world.Tick(stepDir);
+            world.Tick<Damage>(stepDir);
             if (check) mismatches += Compare(world, library, sentLast, step, stepDir, expected, verbose && mismatches < 5);
             var c = cols.Columns;
             world.RunKind<Locomotion, Speed>(world.Tables[KindId.Locomotion], c, stepDir);
@@ -119,7 +119,7 @@ public sealed unsafe class Oracle
                             Bucket(e, clip->Kind).Add(new Key(EntryFlags.Pulse | EntryFlags.Interrupted, (byte)i, id, (ushort)c, 0));
                         continue;
                     }
-                    if ((s->Flags & SlotFlags.Played) == 0) continue;
+                    if ((s->Flags & SlotFlags.Began) == 0 && (s->Flags & (SlotFlags.Paused | SlotFlags.Ended)) != 0) continue;
                     var began = (s->Flags & SlotFlags.Began) != 0;
                     if (clip->Mode == ClipMode.PulseOnStart)
                     {
@@ -129,7 +129,12 @@ public sealed unsafe class Oracle
                     else if (t == clip->End - 1) Bucket(e, clip->Kind).Add(new Key(EntryFlags.Pulse, (byte)i, id, (ushort)c, 0));
                 }
             }
-        foreach (var (target, value) in sent) Bucket(target, KindId.Damage).Add(new Key(EntryFlags.Pulse, 0, 0, 0, value));
+        for (var k = 0; k < sent.Count;)
+        {
+            var (target, total) = sent[k++];
+            while (k < sent.Count && sent[k].target == target) total += sent[k++].value;
+            Bucket(target, KindId.Damage).Add(new Key(EntryFlags.Pulse, 0, 0, 0, total));
+        }
 
         for (var e = 0; e < world.Entities; e++)
             for (byte k = 0; k < 4; k++)
