@@ -56,7 +56,7 @@ PACKAGE_FORBIDDEN_FILES = {
 }
 
 SYMBOL_FILES = {
-    "Tl.Runtime": {"lib/net10.0/Tl.Core.pdb"},
+    "Tl.Runtime": {"lib/net10.0/Tl.Core.pdb", "lib/netstandard2.1/Tl.Core.pdb"},
 }
 
 PACKAGE_METADATA_FILES = {
