@@ -60,7 +60,8 @@ public sealed unsafe partial class TimelineWorld
                 }
                 else if ((uint)current->Tick + 1u >= duration)
                 {
-                    if (timeline->Next != 0)
+                    if (timeline->Loop != 0) current->Tick = 0;
+                    else if (timeline->Next != 0)
                     {
                         current->Timeline = timeline->Next;
                         current->Tick = 0;
