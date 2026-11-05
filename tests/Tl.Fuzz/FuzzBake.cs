@@ -65,7 +65,7 @@ public static class FuzzBake
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(44), bytesLength);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(48), bytesLength);
 
-        BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan((int)pairOffset), PairRuntime<FuzzTrack, FuzzClip>.Key);
+        BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan((int)pairOffset), 0x9E3779B97F4A7C15UL);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)pairOffset + 8), 24u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)pairOffset + 12), trackPoolAddress - pairOffset);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan((int)pairOffset + 16), 1u);

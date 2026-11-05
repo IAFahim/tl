@@ -1,4 +1,5 @@
 using System.Text;
+using Tl;
 using Xunit;
 using Xunit.Sdk;
 
@@ -164,18 +165,18 @@ public class JsonFuzzLaws
                 continue;
             }
             loaded++;
-            try
-            {
-                using var asset = TimelineAsset.Of(TimelineAsset.Load(baked));
-            }
-            catch (Exception e) when (FuzzContract.IsDocumentedCapacity(e))
-            {
-                break;
-            }
-            catch (Exception e)
-            {
-                throw new XunitException($"baked bytes from mutated JSON violate the load contract: {e.GetType().Name}: {e.Message}");
-            }
+        try
+        {
+            using var world = new TimelineWorld(baked);
+        }
+        catch (Exception e) when (FuzzContract.IsDocumentedCapacity(e))
+        {
+            break;
+        }
+        catch (Exception e)
+        {
+            throw new XunitException($"baked bytes from mutated JSON violate the load contract: {e.GetType().Name}: {e.Message}");
+        }
         }
         if (loaded == 0)
             throw new XunitException("no mutated document baked successfully; the mutator is too destructive");

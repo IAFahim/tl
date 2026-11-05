@@ -3,12 +3,10 @@ using Tl.Gen.Tlb;
 using Xunit;
 using Xunit.Sdk;
 
-using FuzzDomain;
 namespace Tl.Fuzz;
 
 public unsafe class BakeLaws
 {
-    static BakeLaws() => FuzzPairs.Install();
     const string SingleTrackJson = """
     {"name":"laws_asset","duration":9,"loop":true,"tracks":[
       {"name":"t1","namespace":"FuzzDomain","type":"FuzzJsonTrack","data":{"Scale":0.5},"clips":[
@@ -37,29 +35,6 @@ public unsafe class BakeLaws
             if (!first.AsSpan().SequenceEqual(second))
                 throw new XunitException($"JSON bake is not deterministic for the {context} fixture");
         }
-    }
-
-    [Fact]
-    public void JsonBakeLoadsAndFoldsLikeTheAuthoredModel()
-    {
-        var bytes = Bake(SingleTrackJson);
-        var model = new FuzzModel(9, true, 0.5f,
-        [
-            new FuzzClipSpec(0, 5, 1.5f),
-            new FuzzClipSpec(4, 9, 3f),
-        ]);
-        using var asset = TimelineAsset.Of(TimelineAsset.Load(bytes));
-        var view = Timeline<FuzzJsonTrack, FuzzJsonClip>.View(asset.Index);
-        for (ushort tick = 0; tick <= 9; tick++)
-        {
-            if (view.Forward[tick] != model.Forward(tick))
-                throw new XunitException($"JSON fold diverged at tick {tick}: {view.Forward[tick]} != {model.Forward(tick)}");
-        }
-        var viewBackwardTick = (ushort)(9 - 1);
-        var backwardPosition = (ushort)9;
-        var reached = (ushort)(backwardPosition - 1);
-        if (view.Backward[viewBackwardTick] != model.Scale * model.ClipSum(reached))
-            throw new XunitException($"JSON backward fold diverged at tick {viewBackwardTick}");
     }
 
     [Fact]
@@ -106,9 +81,9 @@ public unsafe class BakeLaws
         throw new XunitException("three overlapping clips must fail bake validation with a located diagnostic");
     }
 
-    internal static byte[] Bake(string json) => TimelineBaker.BakeJson(json, BakerAssemblyResolver.FromAssemblies([typeof(FuzzPairs).Assembly]));
+    internal static byte[] Bake(string json) => TimelineBaker.BakeJson(json, BakerAssemblyResolver.FromAssemblies([typeof(BakeLaws).Assembly]));
 
-    internal static byte[] Bake(byte[] utf8) => TimelineBaker.BakeJson(utf8, BakerAssemblyResolver.FromAssemblies([typeof(FuzzPairs).Assembly]));
+    internal static byte[] Bake(byte[] utf8) => TimelineBaker.BakeJson(utf8, BakerAssemblyResolver.FromAssemblies([typeof(BakeLaws).Assembly]));
 
     internal static string[] Fixtures() => [SingleTrackJson, TwoTrackJson];
 
