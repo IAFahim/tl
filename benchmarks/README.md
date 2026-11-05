@@ -13,7 +13,7 @@ Live projects, receipts, and retained evidence for the tl playback engine.
 Each owns a README that carries its verdict and cites its receipt directories under `results/`.
 
 - `ConsumerFusion` — consumer fusion inlining verdict, JIT/NativeAOT proof, and measurements.
-- `LiveBatch` — P0 batch-playback baseline for the roadmap 4.10 gates (`LiveBatch/README.md`, raw runs under `LiveBatch/results/`): shapes A (folded), B (fold-fed compose via `ColumnSet` `Apply` + `Prepare`/`Play` + per-128-chunk), C (frame consumer), D (four pairs) through the real generator, with a 97-frame bit-exact `--verify` parity arm.
+- `LiveBatch` — retired post-cutover (harness measured the removed 3.x batch path; receipts kept, see `LiveBatch/README.md`). P0 baseline for the roadmap 4.10 gates, raw runs under `LiveBatch/results/`.
 - `SystemsCompare` — pre/post fast-path gate comparison on NewA/B/C/D (plus netstandard2.1 twins), old baseline vs new receipts (`SystemsCompare/README.md`).
 
 ## Decision receipts
