@@ -143,7 +143,7 @@ namespace Tl
             tl->Id = id;
             tl->Channel = (ushort)channel;
             tl->Next = (ushort)next;
-            if (next > (uint)_view.TimelineCount) throw new ArgumentException("game.tlib timeline has unknown next id; file is corrupt or truncated.");
+            if (next > (uint)_view.TimelineCount) { Free(); throw new ArgumentException("game.tlib timeline has unknown next id; file is corrupt or truncated."); }
             tl->Loop = (byte)(loops != 0 ? 1 : 0);
             tl->Hold = (byte)((flags & 1u) != 0 ? 1 : 0);
             tl->Duration = duration;
