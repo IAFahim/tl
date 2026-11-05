@@ -20,6 +20,7 @@ Each owns a README that carries its verdict and cites its receipt directories un
 - `ConsumerFusion` — consumer fusion inlining verdict, JIT/NativeAOT proof, and measurements.
 - `InternContention` — #485 dispatch-vs-loader contention verdict (`InternContention/README.md`, raw runs under `InternContention/results/`): pre-fix main collapses dispatch to 0.10x under one loading thread; the fixed-arena, gate-free-reader runtime measures 0.87-0.96x across runs.
 - `LivePlan` — #486 live-plan cache verdict (`LivePlan/README.md`, raw runs under `LivePlan/results/`): alternating-id ColumnSet apply drops 25% (5,062 to 3,804 us at 100k rows) once id changes stop re-running key thunks and column scans; grouped and single-id arms hold parity.
+- `LiveBatch` — P0 batch-playback baseline for the roadmap 4.10 gates (`LiveBatch/README.md`, raw runs under `LiveBatch/results/`): shapes A (folded), B (fold-fed compose via `ColumnSet` `Apply` + `Prepare`/`Play` + per-128-chunk), C (frame consumer), D (four pairs) through the real generator, with a 97-frame bit-exact `--verify` parity arm.
 
 ## Decision receipts
 
