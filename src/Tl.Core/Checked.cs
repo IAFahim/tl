@@ -25,12 +25,12 @@ internal static class Checked
 
     [Conditional("TL_CHECKED")]
     [MethodImpl(AggressiveInlining)]
-    internal static void Columns(ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
+    internal static unsafe void Columns(ReadOnlySpan<ushort> positions, Span<ushort> next, Span<float> effects)
     {
         Columns(positions, effects);
         if (next.IsEmpty) return;
         if (next.Length != positions.Length) Fail.ColumnLength(positions.Length, next.Length);
-        if (Unsafe.AreSame(ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next))) return;
+        fixed (ushort* pa = positions, pb = next) if (pa == pb) return;
         if (MemoryMarshal.AsBytes(effects).Overlaps(MemoryMarshal.AsBytes(next))
             || MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(next)))
             Fail.ColumnOverlap();
@@ -58,12 +58,12 @@ internal static class Checked
 
     [Conditional("TL_CHECKED")]
     [MethodImpl(AggressiveInlining)]
-    internal static void Columns(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next)
+    internal static unsafe void Columns(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> next)
     {
         if (ids.Length != positions.Length) Fail.ColumnLength(positions.Length, ids.Length);
         if (positions.Length != next.Length) Fail.ColumnLength(positions.Length, next.Length);
         if (next.IsEmpty) return;
-        if (Unsafe.AreSame(ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next))) return;
+        fixed (ushort* pa = positions, pb = next) if (pa == pb) return;
         if (MemoryMarshal.AsBytes(positions).Overlaps(MemoryMarshal.AsBytes(next))
             || MemoryMarshal.AsBytes(ids).Overlaps(MemoryMarshal.AsBytes(next))) Fail.ColumnOverlap();
     }

@@ -2,13 +2,16 @@ using System.Numerics;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+#if NET
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+#endif
 using System.Diagnostics.CodeAnalysis;
 using static System.Runtime.CompilerServices.MethodImplOptions;
 
 namespace Tl;
 
+#if NET
 internal unsafe interface IRowWalk
 {
     static abstract bool Forward { get; }
@@ -49,7 +52,76 @@ internal readonly struct PlainRows : IRowNext
 {
     public static bool Fused => false;
 }
+#else
+internal unsafe interface IRowWalk
+{
+    bool Forward { get; }
+    bool InRange(ushort position, int duration);
+    bool Playable(ushort position, int duration, bool looping);
+    ushort Next(ushort position, int duration, bool looping);
+}
 
+internal readonly unsafe struct ForwardRows : IRowWalk
+{
+    public bool Forward => true;
+    public bool InRange(ushort position, int duration) => position < duration;
+    public bool Playable(ushort position, int duration, bool looping) => true;
+    public ushort Next(ushort position, int duration, bool looping)
+        => (ushort)(looping && position + 1 == duration ? 0 : position + 1);
+}
+
+internal readonly unsafe struct BackwardRows : IRowWalk
+{
+    public bool Forward => false;
+    public bool InRange(ushort position, int duration) => position <= duration;
+    public bool Playable(ushort position, int duration, bool looping) => looping ? position < duration : position > 0;
+    public ushort Next(ushort position, int duration, bool looping)
+        => (ushort)(position == 0 ? duration - 1 : position - 1);
+}
+
+internal interface IRowNext
+{
+    bool Fused { get; }
+}
+
+internal readonly struct FusedRows : IRowNext
+{
+    public bool Fused => true;
+}
+
+internal readonly struct PlainRows : IRowNext
+{
+    public bool Fused => false;
+}
+#endif
+
+internal static class RowDir<TDir>
+    where TDir : struct, IRowWalk
+{
+#if NET
+    public static bool Forward => TDir.Forward;
+    public static bool InRange(ushort position, int duration) => TDir.InRange(position, duration);
+    public static bool Playable(ushort position, int duration, bool looping) => TDir.Playable(position, duration, looping);
+    public static ushort Next(ushort position, int duration, bool looping) => TDir.Next(position, duration, looping);
+#else
+    static readonly TDir Dir = default;
+    public static bool Forward => Dir.Forward;
+    public static bool InRange(ushort position, int duration) => Dir.InRange(position, duration);
+    public static bool Playable(ushort position, int duration, bool looping) => Dir.Playable(position, duration, looping);
+    public static ushort Next(ushort position, int duration, bool looping) => Dir.Next(position, duration, looping);
+#endif
+}
+
+internal static class RowNext<TNext>
+    where TNext : struct, IRowNext
+{
+#if NET
+    public static bool Fused => TNext.Fused;
+#else
+    static readonly TNext Row = default;
+    public static bool Fused => Row.Fused;
+#endif
+}
 internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
@@ -98,78 +170,34 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         }
     }
 
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal SlotView** _views;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private byte* _absent;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal uint* _motion;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal float** _tables;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private SlotView** _shared;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private ulong* _sharedHashes;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private void* _retired;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private nuint _viewCapacity;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private nuint _absentCapacity;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private nuint _motionCapacity;
     private nuint _tablesCapacity;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private nuint _sharedCapacity;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private int _sharedUsed;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private int _blockCount;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private int _sharedHits;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private long _headerTotal;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private long _tableTotal;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private long _directoryTotal;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal volatile int _count;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _holes;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _lazyResolve;
     internal bool _floatLaneProven;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal bool _disposed;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal ushort _minDuration;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal ulong _generation;
     internal ulong _foldDigest;
     internal int _registryEpoch;
     internal long _restStamp;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     internal int _gate;
 
     internal int Holes => _holes;
@@ -525,11 +553,11 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var flatForward = (float*)((byte*)dense + denseBytes);
         var flatBackward = (float*)((byte*)flatForward + forwardBytes);
         var keys = (ulong*)((byte*)flatBackward + backwardBytes + padBytes);
-        var segmentSpan = CollectionsMarshal.AsSpan(plan.Segments);
-        fixed (LaneSegment* segmentSource = segmentSpan)
+        var segmentArray = plan.Segments.ToArray();
+        fixed (LaneSegment* segmentSource = segmentArray)
             Buffer.MemoryCopy(segmentSource, segments, (long)segBytes, (long)segBytes);
-        var denseSpan = CollectionsMarshal.AsSpan(plan.Dense);
-        fixed (float* denseSource = denseSpan)
+        var denseArray = plan.Dense.ToArray();
+        fixed (float* denseSource = denseArray)
             Buffer.MemoryCopy(denseSource, dense, (long)denseBytes, (long)denseBytes);
         if (directories)
         {
@@ -629,6 +657,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
         var bound = _count;
         var reverse = !forward;
         var i = 0;
+#if NET
         if (Vector256.IsHardwareAccelerated)
         {
             var boundVector = Vector256.Create((ushort)bound);
@@ -679,6 +708,7 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 i = block;
             }
         }
+#endif
         for (; i < count; i++) AdvanceRow(ids, positions, next, motion, views, bound, reverse, i);
     }
 
@@ -846,8 +876,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 looping = slot->Looping != 0;
             }
             var position = Unsafe.Add(ref posOrigin, row);
-            if (TDir.InRange(position, duration) && TDir.Playable(position, duration, looping))
-                Unsafe.Add(ref fxOrigin, row) += LaneEncoding.Value(slot, 0, TDir.Forward, TDir.Forward ? position : LaneEncoding.BackwardTick(position, duration));
+            if (RowDir<TDir>.InRange(position, duration) && RowDir<TDir>.Playable(position, duration, looping))
+                Unsafe.Add(ref fxOrigin, row) += LaneEncoding.Value(slot, 0, RowDir<TDir>.Forward, RowDir<TDir>.Forward ? position : LaneEncoding.BackwardTick(position, duration));
         }
     }
 
@@ -882,8 +912,8 @@ internal sealed unsafe class TimelineSet<TTrack, TClip> : IDisposable
                 looping = slot->Looping != 0;
             }
             var position = Unsafe.Add(ref posOrigin, row);
-            if (TDir.InRange(position, duration) && TDir.Playable(position, duration, looping))
-                Unsafe.Add(ref posOrigin, row) = TDir.Next(position, duration, looping);
+            if (RowDir<TDir>.InRange(position, duration) && RowDir<TDir>.Playable(position, duration, looping))
+                Unsafe.Add(ref posOrigin, row) = RowDir<TDir>.Next(position, duration, looping);
         }
     }
 
@@ -1043,7 +1073,11 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         var minDuration = set._minDuration;
         var lazy = set._lazyResolve;
         var holy = lazy && set._holes != 0;
+#if NET
         var gather = Avx2.IsSupported || Vector128.IsHardwareAccelerated;
+#else
+        var gather = false;
+#endif
         var forward = _forward;
         var i = 0;
         var uniformId = -1;
@@ -1131,7 +1165,11 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         var count = positions.Length;
         if (count == 0) return;
         var slot = set._views[index];
+#if NET
         var gather = Avx2.IsSupported || Vector128.IsHardwareAccelerated;
+#else
+        var gather = false;
+#endif
         var forward = _forward;
         var i = 0;
         while (i < count)
@@ -1147,6 +1185,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     {
         var duration = slot->Duration;
         var looping = slot->Looping != 0;
+#if NET
         var blockEnd = i + ((limit - i) >> 4 << 4);
         if (gather && duration > 1 && blockEnd > i && (Avx2.IsSupported || duration <= 8 && Vector128.IsHardwareAccelerated) && (looping ? LaneOps.StaggeredEnds(positions, i, blockEnd) : ShortRuns(positions, i, blockEnd)))
         {
@@ -1177,6 +1216,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 i = blockEnd;
             }
         }
+#endif
         return ApplyUniform(slot, positions, next, effects, i, limit, forward);
     }
 
@@ -1275,6 +1315,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 if (end - i >= VectorRows)
                 {
                     var run = views[ids[i]];
+#if NET
                     var flat = forward ? run->Forward : run->Backward;
                     var block = i + ((end - i) >> 4 << 4);
                     if (end - i < ShortRunRows && flat != null && run->Duration > 8 && Avx2.IsSupported)
@@ -1286,6 +1327,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                         i = ApplyUniform(run, positions, next, effects, block, end, forward);
                         continue;
                     }
+#endif
                     i = ApplyUniformSegment(run, positions, next, effects, i, end, forward, true);
                     continue;
                 }
@@ -1295,6 +1337,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         return limit;
     }
 
+#if NET
     [MethodImpl(NoInlining | AggressiveOptimization)]
     static unsafe int GatherRows<TWalk, TNext>(ushort* ids, ushort* positions, ushort* next, float* effects, float** tables, uint* motion, int i, int limit)
         where TWalk : struct, IRowWalk
@@ -1356,12 +1399,15 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         }
         return i;
     }
+#endif
 
+#if NET
     [MethodImpl(AggressiveInlining)]
     static unsafe Vector256<float> Gather(Vector256<long> base0, Vector256<long> base1, Vector256<int> tick)
         => Vector256.Create(
             Avx2.GatherVector128((float*)null, base0 + (Avx2.ConvertToVector256Int64(tick.GetLower()) << 2), 1),
             Avx2.GatherVector128((float*)null, base1 + (Avx2.ConvertToVector256Int64(tick.GetUpper()) << 2), 1));
+#endif
 
     [MethodImpl(AggressiveInlining)]
     static bool LongRunAt(ReadOnlySpan<ushort> ids, int at, int limit)
@@ -1379,13 +1425,13 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
             var id = Unsafe.Add(ref idRow, (nuint)i);
             if (i <= probe && i != first && Unsafe.Add(ref idRow, (nuint)i + 1) == id && Unsafe.Add(ref idRow, (nuint)(i + VectorRows - 1)) == id && Unsafe.Add(ref idRow, (nuint)i - 1) != id) return i;
             var slot = views[id];
-            var table = TWalk.Forward ? slot->Forward : slot->Backward;
+            var table = RowDir<TWalk>.Forward ? slot->Forward : slot->Backward;
             if (table == null) return i;
             var p = Unsafe.Add(ref positionRow, (nuint)i);
-            if (TWalk.Forward)
+            if (RowDir<TWalk>.Forward)
             {
                 Unsafe.Add(ref effectRow, (nuint)i) += table[p];
-                if (TNext.Fused)
+                if (RowNext<TNext>.Fused)
                 {
                     var duration = slot->Duration;
                     Unsafe.Add(ref nextRow, (nuint)i) = p < duration ? LaneMovement.ForwardNext(p, duration, slot->Looping != 0) : SlotView.Skipped;
@@ -1397,9 +1443,9 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 if (LaneMovement.BackwardPlayable(p, duration, slot->Looping != 0))
                 {
                     Unsafe.Add(ref effectRow, (nuint)i) += table[LaneEncoding.BackwardTick(p, duration)];
-                    if (TNext.Fused) Unsafe.Add(ref nextRow, (nuint)i) = LaneMovement.BackwardNext(p, duration);
+                    if (RowNext<TNext>.Fused) Unsafe.Add(ref nextRow, (nuint)i) = LaneMovement.BackwardNext(p, duration);
                 }
-                else if (TNext.Fused) Unsafe.Add(ref nextRow, (nuint)i) = p;
+                else if (RowNext<TNext>.Fused) Unsafe.Add(ref nextRow, (nuint)i) = p;
             }
         }
         return limit;
@@ -1429,6 +1475,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         where TWalk : struct, IRowWalk
         where TNext : struct, IRowNext
     {
+#if NET
         if (Avx2.IsSupported)
         {
             var start = i;
@@ -1437,6 +1484,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 i = GatherRows<TWalk, TNext>(idPin, positionPin, nextPin, effectPin, tables, motion, i, limit);
             if (i != start && LongRunAt(ids, i, limit)) return i;
         }
+#endif
         return FastMixedRows<TWalk, TNext>(ref MemoryMarshal.GetReference(ids), ref MemoryMarshal.GetReference(positions), ref MemoryMarshal.GetReference(next), ref MemoryMarshal.GetReference(effects), views, i, limit);
     }
     [MethodImpl(AggressiveInlining | AggressiveOptimization)]
@@ -1447,6 +1495,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         ref var origin = ref MemoryMarshal.GetReference(positions);
         var equalPairs = 0;
         var j = start;
+#if NET
         if (Vector256.IsHardwareAccelerated)
         {
             var vectorLimit = probe - 17;
@@ -1465,6 +1514,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 j += 8;
             }
         }
+#endif
         for (var k = j; k < probe - 1; k++)
             if (positions[k] == positions[k + 1]) equalPairs++;
         return equalPairs <= 24;
@@ -1474,6 +1524,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     static bool UniformChunk(ReadOnlySpan<ushort> ids, int start, int end, ushort first)
     {
         var i = start;
+#if NET
         if (Vector.IsHardwareAccelerated)
         {
             ref var origin = ref MemoryMarshal.GetReference(ids);
@@ -1485,6 +1536,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 i += Vector<ushort>.Count;
             }
         }
+#endif
         while (i < end)
         {
             if (ids[i] != first) return false;
@@ -1499,6 +1551,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         if (bound >= 65536) return false;
         var grew = false;
         var i = start;
+#if NET
         if (Vector.IsHardwareAccelerated)
         {
             ref var origin = ref MemoryMarshal.GetReference(ids);
@@ -1517,6 +1570,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                     if (id >= bound) grew |= ResolveOrThrow(set, id, k);
                 }
         }
+#endif
         while (i < end)
         {
             var id = ids[i];
@@ -1542,6 +1596,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
     static bool FastMixedChunk(ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, int start, int end, int bound, int minDuration)
     {
         if (bound <= 0) return false;
+#if NET
         if (Vector256.IsHardwareAccelerated && start + 17 <= end)
         {
             ref var idPeek = ref MemoryMarshal.GetReference(ids);
@@ -1550,8 +1605,10 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
             var positionPairs = Vector256.Equals(Vector256.LoadUnsafe(ref positionPeek, (nuint)start), Vector256.LoadUnsafe(ref positionPeek, (nuint)(start + 1)));
             if (BitOperations.PopCount(Vector256.ExtractMostSignificantBits(idPairs & positionPairs)) >= 12) return false;
         }
+#endif
         var boundLimit = bound >= 65536 ? (ushort)65535 : (ushort)bound;
         var i = start;
+#if NET
         if (Vector.IsHardwareAccelerated)
         {
             ref var idOrigin = ref MemoryMarshal.GetReference(ids);
@@ -1568,6 +1625,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 i += width;
             }
         }
+#endif
         for (var k = i; k < end; k++)
         {
             if (ids[k] >= boundLimit) return false;
@@ -1586,6 +1644,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
         var id = ids[start];
         var tick = positions[start];
         var end = start + 1;
+#if NET
         if (Vector512.IsHardwareAccelerated)
         {
             ref var idFirst = ref MemoryMarshal.GetReference(ids);
@@ -1634,6 +1693,7 @@ internal readonly ref struct TimelineSetLane<TTrack, TClip>
                 end += 8;
             }
         }
+#endif
         while (end < limit && ids[end] == id && positions[end] == tick) end++;
         return end;
     }

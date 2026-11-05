@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+#if NET
 using System.Runtime.Intrinsics;
+#endif
 using static System.Runtime.CompilerServices.MethodImplOptions;
 
 namespace Tl;
@@ -27,6 +29,7 @@ public static class Timeline
         var count = positions.Length;
         var motion = TimelineTable.Motion;
         var i = 0;
+#if NET
         var bound = count - (count & 15);
         while (i < bound)
         {
@@ -40,6 +43,7 @@ public static class Timeline
             else LaneOps.AdvanceRows(motion, indices, positions, next, forward, i, block);
             i = block;
         }
+#endif
         for (; i < count; i++)
         {
             var m = motion[indices[i]];
@@ -62,7 +66,7 @@ public static class Timeline
     [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     public static void Advance(TimelineAsset asset, ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
-        ArgumentNullException.ThrowIfNull(asset);
+        if (asset is null) throw new ArgumentNullException(nameof(asset));
         Advance(asset.Index, positions, next, forward);
     }
 
@@ -125,50 +129,98 @@ public static class Timeline
         => Dispatch(timeline, [], ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void Bake<T0>(ushort timeline, in T0 argument0)
+#if NET
         where T0 : allows ref struct
+#else
+        where T0 : unmanaged
+#endif
         => Dispatch(timeline, [TypeKey<T0>.Value], ref Ref(in argument0), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void Bake<T0, T1>(ushort timeline, in T0 argument0, in T1 argument1)
+#if NET
         where T0 : allows ref struct
         where T1 : allows ref struct
+#else
+        where T0 : unmanaged
+        where T1 : unmanaged
+#endif
         => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void Bake<T0, T1, T2>(ushort timeline, in T0 argument0, in T1 argument1, in T2 argument2)
+#if NET
         where T0 : allows ref struct
         where T1 : allows ref struct
         where T2 : allows ref struct
+#else
+        where T0 : unmanaged
+        where T1 : unmanaged
+        where T2 : unmanaged
+#endif
         => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Unsafe.NullRef<byte>());
 
     public static void Bake<T0, T1, T2, T3>(ushort timeline, in T0 argument0, in T1 argument1, in T2 argument2, in T3 argument3)
+#if NET
         where T0 : allows ref struct
         where T1 : allows ref struct
         where T2 : allows ref struct
         where T3 : allows ref struct
+#else
+        where T0 : unmanaged
+        where T1 : unmanaged
+        where T2 : unmanaged
+        where T3 : unmanaged
+#endif
         => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value, TypeKey<T3>.Value], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Ref(in argument3));
 
     public static void BakeRef<T0>(ushort timeline, ref T0 argument0)
+#if NET
         where T0 : allows ref struct
+#else
+        where T0 : unmanaged
+#endif
         => Dispatch(timeline, [TypeKey<T0>.Value ^ RefSlotKey], ref Ref(in argument0), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void BakeRef<T0, T1>(ushort timeline, in T0 argument0, ref T1 argument1)
+#if NET
         where T0 : allows ref struct
         where T1 : allows ref struct
+#else
+        where T0 : unmanaged
+        where T1 : unmanaged
+#endif
         => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value ^ RefSlotKey], ref Ref(in argument0), ref Ref(in argument1), ref Unsafe.NullRef<byte>(), ref Unsafe.NullRef<byte>());
 
     public static void BakeRef<T0, T1, T2>(ushort timeline, in T0 argument0, in T1 argument1, ref T2 argument2)
+#if NET
         where T0 : allows ref struct
         where T1 : allows ref struct
         where T2 : allows ref struct
+#else
+        where T0 : unmanaged
+        where T1 : unmanaged
+        where T2 : unmanaged
+#endif
         => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value ^ RefSlotKey], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Unsafe.NullRef<byte>());
 
     public static void BakeRef<T0, T1, T2, T3>(ushort timeline, in T0 argument0, in T1 argument1, in T2 argument2, ref T3 argument3)
+#if NET
         where T0 : allows ref struct
         where T1 : allows ref struct
         where T2 : allows ref struct
         where T3 : allows ref struct
+#else
+        where T0 : unmanaged
+        where T1 : unmanaged
+        where T2 : unmanaged
+        where T3 : unmanaged
+#endif
         => Dispatch(timeline, [TypeKey<T0>.Value, TypeKey<T1>.Value, TypeKey<T2>.Value, TypeKey<T3>.Value ^ RefSlotKey], ref Ref(in argument0), ref Ref(in argument1), ref Ref(in argument2), ref Ref(in argument3));
 
+#if NET
     static ref byte Ref<T>(in T argument) where T : allows ref struct
+#else
+    static ref byte Ref<T>(in T argument) where T : unmanaged
+#endif
         => ref Unsafe.As<T, byte>(ref Unsafe.AsRef(in argument));
 
     static unsafe void Dispatch(ushort timeline, ReadOnlySpan<ulong> present, ref byte argument0, ref byte argument1, ref byte argument2, ref byte argument3)
@@ -179,6 +231,7 @@ public static class Timeline
             Dispatch(timeline, present, arguments[..present.Length]);
         }
     }
+
 
     static unsafe void Dispatch(ushort timeline, ReadOnlySpan<ulong> present, ReadOnlySpan<IntPtr> arguments)
     {
@@ -196,7 +249,8 @@ public static class Timeline
                 if (bake->ParamCount > arguments.Length) continue;
                 if (!Satisfied(bake, present, binding)) continue;
                 for (var slot = 0; slot < bake->ParamCount; slot++) invoke[slot] = arguments[binding[slot]];
-                bake->Invoke((byte**)Unsafe.AsPointer(ref MemoryMarshal.GetReference(invoke)));
+                fixed (IntPtr* pinned = invoke)
+                    bake->Invoke((byte**)pinned);
             }
         }
     }

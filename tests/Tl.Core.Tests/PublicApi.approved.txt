@@ -261,6 +261,11 @@ type Tl.TimelineRef
 type Tl.TimelineState
   Field UInt32 Asset
   Field UInt16 Position
+type Tl.TimelineWorld
+  Property Tl.TimelineWorld Default
+  Method Boolean IsLive(UInt16)
+  Method UInt16 Load(System.ReadOnlySpan`1[System.Byte])
+  Method Tl.TimelineRef Reference(UInt16)
 type Tl.Timeline`1
   Method Void Advance(System.Span`1[System.UInt16], Boolean)
   Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)

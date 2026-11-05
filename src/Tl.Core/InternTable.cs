@@ -49,9 +49,7 @@ static unsafe class TimelineTable
         public long Stamp;
     }
 
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     static readonly byte* _arena;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     static readonly uint* _motion;
     static int _gate;
     static int _used;
@@ -114,7 +112,7 @@ static unsafe class TimelineTable
         try
         {
             _loads++;
-            if (Volatile.Read(ref _graveyard) != 0) DrainGraveyard(GraveyardGraceLoads);
+            if ((nint)Volatile.Read(ref _graveyard) != 0) DrainGraveyard(GraveyardGraceLoads);
             var entry = Find(k0, k1, k2, k3, baked, out var empty);
             if (entry != null)
             {
@@ -356,7 +354,7 @@ static unsafe class TimelineTable
     {
         var loads = Volatile.Read(ref _loads);
         nint kept = 0;
-        var node = Volatile.Read(ref _graveyard);
+        var node = (nint)Volatile.Read(ref _graveyard);
         while (node != 0)
         {
             var current = (GraveNode*)node;
@@ -404,8 +402,14 @@ static unsafe class TimelineTable
 
     static void Digest(ReadOnlySpan<byte> data, out ulong k0, out ulong k1, out ulong k2, out ulong k3)
     {
+#if NET
         Span<byte> hash = stackalloc byte[32];
         SHA256.TryHashData(data, hash, out _);
+#else
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        sha.AppendData(data);
+        var hash = sha.GetHashAndReset();
+#endif
         fixed (byte* p = hash)
         {
             k0 = Unsafe.ReadUnaligned<ulong>(p);

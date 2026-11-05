@@ -203,6 +203,11 @@ internal static class JobEmitter
         }
         W("private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }");
         W("}");
+        W($"internal static class TlGenerated{id}");
+        W("{");
+        W("private static int _installed;");
+        W($"internal static void Install() {{ if (global::System.Threading.Interlocked.Exchange(ref _installed, 1) == 0) TlConsumerBinding{id}.Install(); }}");
+        W("}");
         return writer.ToString();
     }
 
