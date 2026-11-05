@@ -1,9 +1,9 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Tl;
-using Tl.TestSupport;
 using Xunit;
 using Tl.Systems.Tests;
 
@@ -11,7 +11,6 @@ public sealed unsafe class ParityTests : IDisposable
 {
     internal const string Sources = """
         using Tl;
-        using Tl.TestSupport;
         namespace Parity {
         public readonly struct PATrack : IBlend<PAClip> {
             public readonly float Scale; public PATrack(float s) { Scale = s; }
@@ -47,20 +46,10 @@ public sealed unsafe class ParityTests : IDisposable
             public global::System.Span<FD> D;
         }
         [Tl.TimelineSystemMember(typeof(SAll))]
-        public readonly struct OA : ITrack<PATrack, PAClip> {
-            public static void Fold(in Frame<PATrack, PAClip> frame, out float lift) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
-            public static void ExecuteActive(in Frame<PATrack, PAClip> frame, in float lift, ref float a) { a += lift; }
-        }
-        [Tl.TimelineSystemMember(typeof(SAll))]
         public readonly struct NA : ITrack<PATrack, PAClip> {
             public static void Fold(in Frame<PATrack, PAClip> frame, out float lift) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
             public static void ExecuteActive(in Frame<PATrack, PAClip> frame, in float lift, ref FA a) { a.V += lift; }
             public static void OnClipEnd(in Frame<PATrack, PAClip> frame) { }
-        }
-        [Tl.TimelineSystemMember(typeof(SAll))]
-        public readonly struct OB : ITrack<PBTrack, PBClip> {
-            public static void Fold(in Frame<PBTrack, PBClip> frame, out float lift, out int kind) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; kind = (int)(frame.Clip.Amount * 10); }
-            public static void ExecuteActive(in Frame<PBTrack, PBClip> frame, in float lift, in int kind, ref float b, ref int i) { b += lift; i += kind; }
         }
         [Tl.TimelineSystemMember(typeof(SAll))]
         public readonly struct NB : ITrack<PBTrack, PBClip> {
@@ -69,35 +58,15 @@ public sealed unsafe class ParityTests : IDisposable
             public static void OnClipEnd(in Frame<PBTrack, PBClip> frame) { }
         }
         [Tl.TimelineSystemMember(typeof(SAll))]
-        public readonly struct OC : ITrack<PCTrack, PCClip> {
-            public static void ExecuteActive(in Frame<PCTrack, PCClip> frame, in int gain, ref float c) { c += gain * frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
-        }
-        [Tl.TimelineSystemMember(typeof(SAll))]
         public readonly struct NC : ITrack<PCTrack, PCClip> {
             public static void ExecuteActive(in Frame<PCTrack, PCClip> frame, in int gain, ref float c) { c += gain * frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
             public static void OnClipEnd(in Frame<PCTrack, PCClip> frame) { }
-        }
-        [Tl.TimelineSystemMember(typeof(SAll))]
-        public readonly struct OD : ITrack<PDTrack, PDClip> {
-            public static void Fold(in Frame<PDTrack, PDClip> frame, out float lift) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
-            public static void ExecuteActive(in Frame<PDTrack, PDClip> frame, in float lift, ref float d) { d += lift; }
         }
         [Tl.TimelineSystemMember(typeof(SAll))]
         public readonly struct ND : ITrack<PDTrack, PDClip> {
             public static void Fold(in Frame<PDTrack, PDClip> frame, out float lift) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
             public static void ExecuteActive(in Frame<PDTrack, PDClip> frame, in float lift, ref FD d) { d.V += lift; }
             public static void OnClipEnd(in Frame<PDTrack, PDClip> frame) { }
-        }
-        public static class OldRunner {
-            public static byte[] BakeA() => new DomainBaker().Track<PATrack, PAClip>(new PATrack(2f)).Clip(0, 0u, 40u, new PAClip(3f)).Looping().Bake();
-            public static byte[] BakeB() => new DomainBaker().Track<PBTrack, PBClip>(new PBTrack(2f)).Clip(0, 0u, 40u, new PBClip(3f)).Looping().Bake();
-            public static byte[] BakeC() => new DomainBaker().Track<PCTrack, PCClip>(new PCTrack(2f)).Clip(0, 0u, 40u, new PCClip(3f)).Looping().Bake();
-            public static byte[] BakeD() => new DomainBaker().Track<PDTrack, PDClip>(new PDTrack(2f)).Clip(0, 0u, 40u, new PDClip(3f)).Looping().Bake();
-            public static void RunA(ushort[] ids, ushort[] positions, bool forward, float[] fx) { var set = new global::Tl.ColumnSet(); set.Add<float>(fx); global::Tl.Timeline<PATrack, PAClip>.Apply(ids, positions, forward, in set); }
-            public static void RunB(ushort[] ids, ushort[] positions, bool forward, float[] fx, int[] ix) { var set = new global::Tl.ColumnSet(); set.Add<float>(fx); set.Add<int>(ix); global::Tl.Timeline<PBTrack, PBClip>.Apply(ids, positions, forward, in set); }
-            public static void RunC(ushort[] ids, ushort[] positions, bool forward, int[] gain, float[] fx) { var set = new global::Tl.ColumnSet(); set.Add<int>(gain); set.Add<float>(fx); global::Tl.Timeline<PCTrack, PCClip>.Apply(ids, positions, forward, in set); }
-            public static void RunD(ushort[] ids, ushort[] positions, bool forward, float[] fx) { var set = new global::Tl.ColumnSet(); set.Add<float>(fx); global::Tl.Timeline<PDTrack, PDClip>.Apply(ids, positions, forward, in set); }
-            public static void Advance(ushort index, ushort[] positions, bool forward) { global::Tl.Timeline.Advance(index, positions, forward); }
         }
         }
         """;
@@ -112,21 +81,6 @@ public sealed unsafe class ParityTests : IDisposable
             Assembly = assembly;
             PairKeys = pairKeys;
             Run = run;
-            _oldRunner = assembly.GetType("Parity.OldRunner")!;
-        }
-
-        readonly Type _oldRunner;
-
-        public byte[] Bake(string name) => (byte[])_oldRunner.GetMethod("Bake" + name)!.Invoke(null, null)!;
-
-        public void RunOld(string name, ushort[] ids, ushort[] positions, bool forward, params object[] columns)
-        {
-            var args = new object?[3 + columns.Length];
-            args[0] = ids;
-            args[1] = positions;
-            args[2] = forward;
-            columns.CopyTo(args, 3);
-            _oldRunner.GetMethod("Run" + name)!.Invoke(null, args);
         }
     }
 
@@ -184,10 +138,8 @@ public sealed unsafe class ParityTests : IDisposable
     internal static Fixture LoadFixture()
     {
         var tree = CSharpSyntaxTree.ParseText(Sources, new CSharpParseOptions(LanguageVersion.Latest), "Parity.cs");
-        var bakerSource = "using System;\nusing System.Collections.Generic;\nusing System.Linq;\n" + EmissionTests.ReadResource("Tl.Systems.Tests.Shared.DomainBaker.cs");
-        var baker = CSharpSyntaxTree.ParseText(bakerSource, new CSharpParseOptions(LanguageVersion.Latest), "DomainBaker.cs");
         var refs = EmissionTests.References().Where(reference => reference.Display is not string path || !path.EndsWith("Tl.Systems.Tests.dll", StringComparison.OrdinalIgnoreCase));
-        var compilation = CSharpCompilation.Create("ParityFixture", [tree, baker], refs, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
+        var compilation = CSharpCompilation.Create("ParityFixture", [tree], refs, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, nullableContextOptions: NullableContextOptions.Enable));
         GeneratorDriver driver = CSharpGeneratorDriver.Create([new Tl.Gen.CSharp.TimelineIncrementalGenerator().AsSourceGenerator()]);
         driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var updated, out var generatorDiagnostics);
         Assert.Empty(generatorDiagnostics);
@@ -217,27 +169,36 @@ public sealed unsafe class ParityTests : IDisposable
     }
 
     public void Dispose() { GC.SuppressFinalize(this); }
+    internal sealed record ParityGoldens(float[] A, float[] Bf, int[] Bi, float[] C, float[] D);
+
+    internal static ParityGoldens LoadGoldens()
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Tl.Systems.Tests.Generated.ParityGoldens.json");
+        Assert.NotNull(stream);
+        using var document = JsonDocument.Parse(stream);
+        var root = document.RootElement;
+        static float[] Floats(JsonElement e, string name)
+        {
+            var list = new List<float>();
+            foreach (var v in e.GetProperty(name).EnumerateArray()) list.Add(v.GetSingle());
+            return [.. list];
+        }
+        static int[] Ints(JsonElement e, string name)
+        {
+            var list = new List<int>();
+            foreach (var v in e.GetProperty(name).EnumerateArray()) list.Add(v.GetInt32());
+            return [.. list];
+        }
+        return new(Floats(root, "A"), Floats(root, "Bf"), Ints(root, "Bi"), Floats(root, "C"), Floats(root, "D"));
+    }
+
 
     [Fact]
     public void FourPairsParityForwardAndBackward()
     {
         var fixture = LoadFixture();
         const int Entities = 8;
-        var ids = new ushort[Entities];
-        var positions = new ushort[Entities];
-        var assetA = TimelineAsset.Load(fixture.Bake("A"));
-        var assetB = TimelineAsset.Load(fixture.Bake("B"));
-        var assetC = TimelineAsset.Load(fixture.Bake("C"));
-        var assetD = TimelineAsset.Load(fixture.Bake("D"));
-        var oldA = new float[Entities];
-        var oldBf = new float[Entities];
-        var oldBi = new int[Entities];
-        var oldC = new float[Entities];
-        var oldD = new float[Entities];
-        var oldG = new int[Entities];
-        for (var i = 0; i < Entities; i++) oldG[i] = 1;
-        RunOld(true);
-        RunOld(false);
+        var golden = LoadGoldens();
         var newA = new float[Entities];
         var newBf = new float[Entities];
         var newBi = new int[Entities];
@@ -247,44 +208,12 @@ public sealed unsafe class ParityTests : IDisposable
         for (var i = 0; i < Entities; i++) newG[i] = 1;
         RunNew(true);
         RunNew(false);
-        Assert.Equal(oldA, newA);
-        Assert.Equal(oldBf, newBf);
-        Assert.Equal(oldBi, newBi);
-        Assert.Equal(oldC, newC);
-        Assert.Equal(oldD, newD);
+        Assert.Equal(golden.A, newA);
+        Assert.Equal(golden.Bf, newBf);
+        Assert.Equal(golden.Bi, newBi);
+        Assert.Equal(golden.C, newC);
+        Assert.Equal(golden.D, newD);
 
-        void RunOld(bool forward)
-        {
-            for (var i = 0; i < Entities; i++) { ids[i] = assetA; positions[i] = 0; }
-            for (var f = 0; f < 97; f++)
-            {
-                fixture.RunOld("A", ids, positions, forward, oldA);
-                AdvanceAll(assetA, forward);
-            }
-            for (var i = 0; i < Entities; i++) { ids[i] = assetB; positions[i] = 0; }
-            for (var f = 0; f < 97; f++)
-            {
-                fixture.RunOld("B", ids, positions, forward, oldBf, oldBi);
-                AdvanceAll(assetB, forward);
-            }
-            for (var i = 0; i < Entities; i++) { ids[i] = assetC; positions[i] = 0; }
-            for (var f = 0; f < 97; f++)
-            {
-                fixture.RunOld("C", ids, positions, forward, oldG, oldC);
-                AdvanceAll(assetC, forward);
-            }
-            for (var i = 0; i < Entities; i++) { ids[i] = assetD; positions[i] = 0; }
-            for (var f = 0; f < 97; f++)
-            {
-                fixture.RunOld("D", ids, positions, forward, oldD);
-                AdvanceAll(assetD, forward);
-            }
-        }
-
-        void AdvanceAll(ushort index, bool forward)
-        {
-            Timeline.Advance(index, positions.AsSpan(), forward);
-        }
 
         void RunNew(bool forward)
         {
