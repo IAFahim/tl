@@ -123,7 +123,8 @@ for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Micro
     [[ ! -e "$stage/aot/$forbidden" ]] || { printf '%s\n' "NativeAOT output contains $forbidden" >&2; exit 2; }
 done
 
-tar --format=ustar --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner --mode=0755 -C "$stage/aot" -cf "$stage/Tl.PackageConsumer-$runtime_identifier.tar" Tl.PackageConsumer
+[[ -f "$stage/aot/game.tlib" ]] || { printf '%s\n' "NativeAOT output is missing game.tlib" >&2; exit 2; }
+tar --format=ustar --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner --mode=0755 -C "$stage/aot" -cf "$stage/Tl.PackageConsumer-$runtime_identifier.tar" Tl.PackageConsumer game.tlib
 gzip -n -9 "$stage/Tl.PackageConsumer-$runtime_identifier.tar"
 cp "$stage/Tl.PackageConsumer-$runtime_identifier.tar.gz" "$output/"
 mkdir "$stage/aot-archive-check"
