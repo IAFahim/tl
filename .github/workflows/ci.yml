@@ -128,13 +128,11 @@ jobs:
         with:
           dotnet-version: 10.0.402
       - run: dotnet build tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -m:1 -p:NuGetAudit=false
-      - run: dotnet build tests/Tl.Alpha -c Release -m:1 -p:NuGetAudit=false
-      - run: dotnet build benchmarks/Alpha -c Release -m:1 -p:NuGetAudit=false
+      - run: dotnet build tests/Tl.Systems.Tests/Tl.Systems.Tests.csproj -c Release -m:1 -p:NuGetAudit=false
+      - run: dotnet build benchmarks/Systems/Systems.csproj -c Release -m:1 -p:NuGetAudit=false
       - run: dotnet test tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release --no-build -p:NuGetAudit=false
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
-      - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
+      - run: dotnet test tests/Tl.Systems.Tests/Tl.Systems.Tests.csproj -c Release --no-build -p:NuGetAudit=false
+      - run: dotnet run --project benchmarks/Systems -c Release --no-build -- --smoke
 
   tier-env:
     runs-on: ubuntu-latest
