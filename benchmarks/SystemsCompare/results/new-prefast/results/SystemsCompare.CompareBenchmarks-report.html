@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>SystemsCompare.CompareBenchmarks-20261105-115422</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.401
+  [Host] : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Job </th><th>Toolchain         </th><th>IterationCount</th><th>IterationTime</th><th>WarmupCount</th><th>Mean</th><th>Error</th><th>StdDev</th><th>Median</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>NewA</td><td>Job-DFACHR</td><td>InProcessNoEmitToolchain</td><td>16</td><td>200ms</td><td>8</td><td>1,036.0 &mu;s</td><td>15.60 &mu;s</td><td>15.32 &mu;s</td><td>1,037.0 &mu;s</td><td>-</td>
+</tr><tr><td>NewB</td><td>Job-DFACHR</td><td>InProcessNoEmitToolchain</td><td>16</td><td>200ms</td><td>8</td><td>991.3 &mu;s</td><td>5.31 &mu;s</td><td>5.21 &mu;s</td><td>988.9 &mu;s</td><td>16 B</td>
+</tr><tr><td>NewC</td><td>Job-DFACHR</td><td>InProcessNoEmitToolchain</td><td>16</td><td>200ms</td><td>8</td><td>915.7 &mu;s</td><td>3.19 &mu;s</td><td>2.83 &mu;s</td><td>915.2 &mu;s</td><td>16 B</td>
+</tr><tr><td>NewD</td><td>Job-DFACHR</td><td>InProcessNoEmitToolchain</td><td>16</td><td>200ms</td><td>8</td><td>1,867.2 &mu;s</td><td>3.97 &mu;s</td><td>3.90 &mu;s</td><td>1,865.9 &mu;s</td><td>30 B</td>
+</tr><tr><td>NewA</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>1,039.6 &mu;s</td><td>13.16 &mu;s</td><td>11.67 &mu;s</td><td>1,043.9 &mu;s</td><td>-</td>
+</tr><tr><td>NewB</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>989.0 &mu;s</td><td>16.54 &mu;s</td><td>15.47 &mu;s</td><td>996.4 &mu;s</td><td>3 B</td>
+</tr><tr><td>NewC</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>918.8 &mu;s</td><td>11.28 &mu;s</td><td>10.55 &mu;s</td><td>912.6 &mu;s</td><td>4 B</td>
+</tr><tr><td>NewD</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>1,846.3 &mu;s</td><td>27.40 &mu;s</td><td>24.29 &mu;s</td><td>1,846.2 &mu;s</td><td>7 B</td>
+</tr></tbody></table>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>LiveBatch.LiveBatchBenchmarks-20261105-113924</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Omarchy
+Intel Core i9-14900K 0.80GHz, 1 CPU, 32 logical and 24 physical cores
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+  Job-TZECNT : .NET 10.0.12 (10.0.12, 10.0.1226.42308), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method </th><th>Job </th><th>Toolchain       </th><th>IterationCount</th><th>IterationTime</th><th>WarmupCount</th><th>Mean </th><th>Error</th><th>StdDev</th><th>Median</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>A_Folded</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>44.54 &mu;s</td><td>0.814 &mu;s</td><td>0.800 &mu;s</td><td>44.80 &mu;s</td><td>-</td>
+</tr><tr><td>B_Apply</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>7,594.49 &mu;s</td><td>6.030 &mu;s</td><td>5.923 &mu;s</td><td>7,592.99 &mu;s</td><td>-</td>
+</tr><tr><td>B_PreparePlay</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>7,562.15 &mu;s</td><td>5.655 &mu;s</td><td>5.290 &mu;s</td><td>7,561.87 &mu;s</td><td>-</td>
+</tr><tr><td>B_Chunk128</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>7,698.67 &mu;s</td><td>7.572 &mu;s</td><td>7.437 &mu;s</td><td>7,698.01 &mu;s</td><td>-</td>
+</tr><tr><td>C_Frame</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>82.03 &mu;s</td><td>0.242 &mu;s</td><td>0.202 &mu;s</td><td>82.03 &mu;s</td><td>-</td>
+</tr><tr><td>D_FourPairs</td><td>Job-TZECNT</td><td>Default</td><td>16</td><td>200ms</td><td>8</td><td>315.90 &mu;s</td><td>2.539 &mu;s</td><td>2.494 &mu;s</td><td>314.46 &mu;s</td><td>-</td>
+</tr><tr><td>A_Folded</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>43.17 &mu;s</td><td>0.626 &mu;s</td><td>0.555 &mu;s</td><td>42.81 &mu;s</td><td>-</td>
+</tr><tr><td>B_Apply</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>7,610.40 &mu;s</td><td>2.486 &mu;s</td><td>2.076 &mu;s</td><td>7,610.53 &mu;s</td><td>3 B</td>
+</tr><tr><td>B_PreparePlay</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>7,609.08 &mu;s</td><td>3.533 &mu;s</td><td>2.758 &mu;s</td><td>7,609.13 &mu;s</td><td>24 B</td>
+</tr><tr><td>B_Chunk128</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>7,690.94 &mu;s</td><td>2.762 &mu;s</td><td>2.583 &mu;s</td><td>7,690.36 &mu;s</td><td>11 B</td>
+</tr><tr><td>C_Frame</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>81.43 &mu;s</td><td>0.247 &mu;s</td><td>0.219 &mu;s</td><td>81.38 &mu;s</td><td>-</td>
+</tr><tr><td>D_FourPairs</td><td>InProcess</td><td>InProcessEmitToolchain</td><td>Default</td><td>Default</td><td>Default</td><td>314.32 &mu;s</td><td>0.256 &mu;s</td><td>0.227 &mu;s</td><td>314.37 &mu;s</td><td>1 B</td>
+</tr></tbody></table>
+</body>
+</html>
