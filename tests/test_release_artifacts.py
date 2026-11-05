@@ -173,7 +173,7 @@ class ReleaseArtifactTests(unittest.TestCase):
     @staticmethod
     def write_runtime_package(path, dependency=False, extra=None):
         dependencies = '<dependency id="Tl.Runtime" version="1.2.3" exclude="Compile"/>' if dependency else ""
-        nuspec = f"""<package><metadata><id>Tl.Runtime</id><version>1.2.3</version><repository type="git" url="https://github.com/IAFahim/tl" branch="refs/tags/v1.2.3" commit="{'a' * 40}"/><dependencies><group targetFramework="net10.0">{dependencies}</group></dependencies></metadata></package>"""
+        nuspec = f"""<package><metadata><id>Tl.Runtime</id><version>1.2.3</version><repository type="git" url="https://github.com/IAFahim/tl" branch="refs/tags/v1.2.3" commit="{'a' * 40}"/><dependencies><group targetFramework="net10.0">{dependencies}</group><group targetFramework=".NETStandard2.1"></group></dependencies></metadata></package>"""
         files = RELEASE_ARTIFACTS.PACKAGE_FILES["Tl.Runtime"] | RELEASE_ARTIFACTS.PACKAGE_METADATA_FILES | {"Tl.Runtime.nuspec"}
         if extra is not None:
             files.add(extra)
