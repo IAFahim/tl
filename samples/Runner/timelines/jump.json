@@ -1,0 +1,9 @@
+{"name":"jump","duration":30,"next":"run","channel":"locomotion","tracks":[
+{"name":"arc","namespace":"Game","type":"ArcTrack","data":{"Scale":1.0},"clips":[
+{"name":"rise","namespace":"Game","type":"ArcClip","start":0,"end":15,"data":{"Velocity":2.0}},
+{"name":"fall","namespace":"Game","type":"ArcClip","start":15,"end":30,"data":{"Velocity":-2.0}}]},
+{"name":"counter","namespace":"Game","type":"StatTrack","data":{"Which":"JumpCounter"},"clips":[
+{"name":"spend","namespace":"Game","type":"StatClip","start":0,"end":1,"data":{"Which":"JumpCounter","Delta":-1}}]},
+{"name":"calls","namespace":"Game","type":"CueTrack","clips":[
+{"name":"takeoff","namespace":"Game","type":"CueClip","start":0,"end":1,"data":{"Voice":"Step"}},
+{"name":"land","namespace":"Game","type":"CueClip","start":29,"end":30,"data":{"Voice":"Land"}}]}]}

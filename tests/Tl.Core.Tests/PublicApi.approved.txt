@@ -1,12 +1,3 @@
-type Tl.BakeRuntime`2
-  Method Void Bake(System.Void(System.Byte**), System.ReadOnlySpan`1[System.UInt64])
-  Property Int32 BakeCount
-  Method Int32 BakeParameterCount(Int32)
-  Method UInt64 BakeParameterKey(Int32, Int32)
-type Tl.BankState
-  Field Byte* Block
-  Field Int64 Misses
-  Field Int32 Runs
 type Tl.BatchItem`1
   Field R Fold
   Field Int32 Row
@@ -18,8 +9,6 @@ type Tl.ClosingList
   Method Tl.ClosingList* Create()
   Method Void Free(Tl.ClosingList*)
   Method Void Get(Int32, Int32 ByRef, Int32 ByRef, Tl.Playback ByRef)
-type Tl.ColumnSet
-  Method Void Add[T](System.ReadOnlySpan`1[T])
 type Tl.EntityRef
   Field Int32 Index
   Field Int32 Version
@@ -49,10 +38,6 @@ type Tl.FrameFlags
   Field Tl.FrameFlags TimelineEnd
   Field Tl.FrameFlags TimelineStart
   Field UInt16 value__
-type Tl.FrameQuery`2
-  Property Tl.Frame`2[TTrack,TClip] Current
-  Method Tl.FrameQuery`2[TTrack,TClip] GetEnumerator()
-  Method Boolean MoveNext()
 type Tl.Frame`2
   Field TClip Clip
   Property UInt16 ClipLength
@@ -65,16 +50,10 @@ type Tl.Frame`2
   Field TTrack Track
   Property UInt16 TrackIndex
   Property UInt16 WithinClip
-type Tl.IBake`1
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.IHostedConsumer
 type Tl.IMarker`1
-type Tl.ITimelineLane`1
-  Property UInt16 Duration
-  Method Single Effect(UInt16)
-  Method Single InverseEffect(UInt16)
-  Property Boolean Looping
 type Tl.ITlModule
   Method Int32 FoldLaneBytes(Int32)
   Method Void FoldStep(Int32, Byte*, Byte*, Byte*, Single, UInt16, UInt16, UInt16, UInt16, UInt16, SByte, Byte*)
@@ -83,9 +62,7 @@ type Tl.ITlModule
 type Tl.ITrack`2
 type Tl.Inspection
   NestedType Tl.Inspection+BakeSnapshot
-  Method BankSnapshot Bank[TTrack,TClip]()
   NestedType Tl.Inspection+BankSnapshot
-  Method LaneCopy CopyLanes[TTrack,TClip](UInt16)
   NestedType Tl.Inspection+FoldState
   NestedType Tl.Inspection+InternSnapshot
   NestedType Tl.Inspection+LaneCopy
@@ -215,16 +192,6 @@ type Tl.Inspection+ViewSnapshot
   Property FoldState State
   Property System.Nullable`1[System.Int32] Ticks
   Method System.String ToString()
-type Tl.LaneSegment
-  Field Byte Constant
-  Field Byte Dense
-  Field UInt16 End
-  Field Byte Kind
-  Field Byte Pad
-  Field Byte Ramp
-  Field UInt16 Start
-  Field Single V0
-  Field Single V1
 type Tl.LibraryEvent
   Field Byte Kind
   Field UInt32 Marker
@@ -287,18 +254,6 @@ type Tl.MarkerFrame`1
 type Tl.MarkerTableRegistry
   Method Void Register(Tl.TimelineWorld, UInt16, Void*, Int32, Int32)
   Method Boolean TryResolve(Tl.TimelineWorld, UInt16, UInt32, Int32, Byte* ByRef)
-type Tl.MeasuredLanes
-  Method Void Dispose()
-  Property UInt16 Duration
-  Property Boolean Looping
-type Tl.PairRuntime`2
-  Method Int32 Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Void(System.UInt64*, System.Int32, System.Byte*), System.String)
-  Method Int32 Consume(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Int32(System.UInt64*, System.Byte*), System.String)
-  Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.String)
-  Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Int32(System.UInt64*, System.Byte*), System.Void(System.UInt64, System.Int64), System.String)
-  Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Int32(System.UInt64*, System.Byte*), System.Void(System.UInt64, System.Int64), System.String, Int32)
-  Field UInt64 Key
-  Method Void VerifyLayout(UInt64)
 type Tl.Playback
   Field Byte Channel
   Field Tl.PlaybackFlags Flags
@@ -361,77 +316,18 @@ type Tl.Requests
   Method Void Stop(UInt16)
   Method Void StopAll()
   Method Void StopChannel(Byte)
-type Tl.SlotView
-  Field UInt16 AbiVersion
-  Field UInt16 AbiVersionV1
-  Field UInt16 AbiVersionV2
-  Field UInt16 AbiVersionV3
-  Field UInt16 AbiVersionV4
-  Field UInt16 Absent
-  Field Single* Backward
-  Field UInt64 ConsumerDigest
-  Field Single* Dense
-  Field UInt32* Directory
-  Field UInt16 Duration
-  Field Single* Forward
-  Field UInt64 Generation
-  Field UInt64* LaneKeys
-  Field UInt16 Looping
-  Field UInt16 ResultCount
-  Field Tl.LaneSegment* Segments
-  Field UInt16 Skipped
-  Field UInt32 TableTicks
 type Tl.SystemDispatch
   Method Void FastFoldAdd(Single*, UInt16*, Single*, Int32)
   Method System.Span`1[Tl.SystemStep] FilteredSteps(Tl.TimelineWorld, UInt64, UInt16, Int32, System.ReadOnlySpan`1[System.UInt64])
 type Tl.SystemStep
   Field Int32 Consumer
   Field Int32 Step
-type Tl.TickFrame
-  Field Tl.FrameFlags Flags
-  Field Void* Pair
-  Field Void* Slot
-  Field UInt16 TimelineTick
-  Method Tl.Frame`2[TTrack,TClip] ToFrame[TTrack,TClip](TClip ByRef)
-  Method Tl.Frame`2[TTrack,TClip] ToFrame[TTrack,TClip](Void*, Void*, UInt16, Tl.FrameFlags, TClip ByRef)
-type Tl.Timeline
-  Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
-  Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
-  Method Void Advance(Tl.TimelineAsset, System.Span`1[System.UInt16], Boolean)
-  Method Void Advance(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
-  Method Void Advance(UInt16, System.Span`1[System.UInt16], Boolean)
-  Method Void Advance(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
-  Method Void Bake(UInt16)
-  Method Void Bake[T0](UInt16, T0 ByRef)
-  Method Void Bake[T0,T1](UInt16, T0 ByRef, T1 ByRef)
-  Method Void Bake[T0,T1,T2](UInt16, T0 ByRef, T1 ByRef, T2 ByRef)
-  Method Void Bake[T0,T1,T2,T3](UInt16, T0 ByRef, T1 ByRef, T2 ByRef, T3 ByRef)
-  Method Void BakeRef[T0](UInt16, T0 ByRef)
-  Method Void BakeRef[T0,T1](UInt16, T0 ByRef, T1 ByRef)
-  Method Void BakeRef[T0,T1,T2](UInt16, T0 ByRef, T1 ByRef, T2 ByRef)
-  Method Void BakeRef[T0,T1,T2,T3](UInt16, T0 ByRef, T1 ByRef, T2 ByRef, T3 ByRef)
-  Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
-  Method Void SealConsumers()
-type Tl.TimelineAsset
-  Method Void Dispose()
-  Property UInt16 Index
-  Method UInt16 Load(System.ReadOnlySpan`1[System.Byte])
-  Method Tl.TimelineAsset Of(UInt16)
-  Property Tl.TimelineRef Reference
-type Tl.TimelineComponent
-  Field UInt16 Position
-  Field Tl.TimelineRef Reference
 type Tl.TimelineId
   Property Boolean IsNone
   Property Tl.TimelineId None
   Field UInt16 Value
-type Tl.TimelineMovement
-  Method Boolean Select(Tl.TimelineState ByRef, UInt16, Boolean, Boolean, Tl.TimelineState ByRef, UInt16 ByRef, Tl.FrameFlags ByRef)
 type Tl.TimelineRef
 type Tl.TimelineSlotKeysAttribute
-type Tl.TimelineState
-  Field UInt32 Asset
-  Field UInt16 Position
 type Tl.TimelineSystemAttribute
 type Tl.TimelineSystemMemberAttribute
   Property System.Type System
@@ -441,40 +337,10 @@ type Tl.TimelineWorld
   Property Tl.TimelineWorld Default
   Method Void Dispose()
   Method Boolean IsLive(UInt16)
-  Method UInt16 Load(System.ReadOnlySpan`1[System.Byte])
   Method Tl.TimelineRef Reference(UInt16)
   Method Void Reload(System.ReadOnlySpan`1[System.Byte])
   Method Tl.Requests Requests(Tl.PlaybackTable)
   Property Tl.LibraryView View
-type Tl.Timeline`1
-  Method Void Advance(System.Span`1[System.UInt16], Boolean)
-  Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
-  Method Void Apply(System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
-type Tl.Timeline`2
-  Method Void Advance(UInt16, UInt16 ByRef, Boolean)
-  Method Void Advance[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean)
-  Method Void Advance[TIndex,TPosition](System.ReadOnlySpan`1[System.Int32], System.ReadOnlySpan`1[TIndex], System.Span`1[TPosition], Boolean)
-  Method Void Advance[TIndex,TPosition](TIndex ByRef, TPosition ByRef, Boolean)
-  Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Void Apply(UInt16, UInt16, Boolean, System.Span`1[System.Single])
-  Method Void Apply[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean)
-  Method Void Apply(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Void Apply(System.ReadOnlySpan`1[System.UInt16], System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Void Apply(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean, System.Span`1[System.Single])
-  Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
-  Method Void Apply[TIndex,TPosition,TEffect](TIndex ByRef, TPosition ByRef, Boolean, TEffect ByRef)
-  Method Void Apply[TIndex,TPosition](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, Tl.ColumnSet ByRef)
-  Method Void Apply[TIndex,TPosition,TEffect](System.ReadOnlySpan`1[System.Int32], System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect])
-  Method Void ApplyChunk[TIndex,TPosition,TEffect0,TEffect1](System.ReadOnlySpan`1[TIndex], System.ReadOnlySpan`1[TPosition], Boolean, System.Span`1[TEffect0], System.Span`1[TEffect1])
-  Method Void Play(Tl.BankState ByRef, System.ReadOnlySpan`1[System.UInt16], Boolean)
-  Method Tl.BankState Prepare(System.ReadOnlySpan`1[System.UInt16], Tl.ColumnSet ByRef)
-  Method Void Release(Tl.BankState ByRef)
-  Method TClip SampleClip(UInt16, UInt16, Boolean)
-  Method Boolean TrySample(UInt16, UInt16, TClip ByRef, Tl.Frame`2[TTrack,TClip] ByRef, Boolean)
-  Method Tl.SlotView View(UInt16)
-  Method Tl.SlotView View(Tl.TimelineAsset)
 type Tl.TlGenerated
   Method Void Install(Tl.ITlModule)
   Property System.Collections.Generic.IReadOnlyList`1[Tl.ITlModule] Modules

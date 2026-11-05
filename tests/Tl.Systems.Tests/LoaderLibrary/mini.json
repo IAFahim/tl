@@ -1,0 +1,5 @@
+{"name":"mini","duration":8,"loop":true,"tracks":[
+{"name":"arc","namespace":"Game","type":"ArcTrack","data":{"Scale":1.0},"clips":[
+{"name":"up","namespace":"Game","type":"ArcClip","start":0,"end":4,"data":{"Velocity":2.0}},
+{"name":"down","namespace":"Game","type":"ArcClip","start":4,"end":8,"data":{"Velocity":-2.0}}]}],
+"markers":[{"namespace":"Game","type":"FootstepMarker","tick":4,"data":{"Step":3}}]}

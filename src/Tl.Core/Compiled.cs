@@ -6,7 +6,6 @@ public interface ITrack<TTrack, TClip>
     where TTrack : unmanaged
     where TClip : unmanaged;
 
-public interface IBake<TConsumer>;
 
 public interface IHostedConsumer;
 

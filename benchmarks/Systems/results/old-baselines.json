@@ -1,0 +1,11 @@
+{
+  "Source": "benchmarks/LiveBatch/results/p0-baseline/results/LiveBatch.LiveBatchBenchmarks-report-full.json (perf/544-livebatch-receipts), InProcess medians",
+  "Method": "per-entity nanoseconds = BDN median / 100000 rows; compare against same-unit new-kernel medians as an indicative ratio only (different harnesses, amortize fixed costs differently); release-machine BDN runs both sides for gate verdicts",
+  "Rows": 100000,
+  "Shapes": {
+    "folded": { "Label": "A_Folded", "Ns": 0.44004330871582 },
+    "fold-fed": { "Label": "B_Apply", "Ns": 76.203349453125 },
+    "frame": { "Label": "C_Frame", "Ns": 0.8520462834619999 },
+    "four-pair": { "Label": "D_FourPairs", "Ns": 3.2098983461328125 }
+  }
+}

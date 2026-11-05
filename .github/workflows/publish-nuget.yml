@@ -33,15 +33,13 @@ jobs:
       - run: dotnet workload install wasm-tools
       - run: dotnet build tl.slnx -c Release -m:1
       - run: dotnet test tl.slnx -c Release --no-build
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
-      - run: dotnet run --project samples/Mixed -c Release --no-build
-      - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
-      - run: dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true -o artifacts/aot
-      - run: ./artifacts/aot/Tl.Alpha
-      - run: ./artifacts/aot/Tl.Alpha --capacity
-      - run: ./artifacts/aot/Tl.Alpha --module-capacity
+      - name: Bake and verify the Runner sample
+        working-directory: samples/Runner
+        run: |
+          set -euo pipefail
+          dotnet run --project ../../tools/Tl.Bake -c Release --no-build -- library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
+          dotnet build -c Release
+          dotnet run -c Release --no-build -- --verify
       - name: Build and verify exact tagged artifacts
         env:
           RELEASE_TAG: ${{ inputs.tag }}

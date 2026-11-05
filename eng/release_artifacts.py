@@ -25,7 +25,7 @@ PACKAGE_FILES = {
         "buildTransitive/Tl.Gen.CSharp.targets",
         "icon.png",
     },
-    "Tl.Runtime": {"lib/net10.0/Tl.Core.dll"},
+    "Tl.Runtime": {"lib/net10.0/Tl.Core.dll", "lib/netstandard2.1/Tl.Core.dll"},
     "Tl.Bake": {
         "icon.png",
         "README.md",
@@ -44,7 +44,7 @@ PACKAGE_FILES = {
 PACKAGE_DEPENDENCY_GROUPS = {
     "Tl.CSharp": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": [{"id": "Tl.Runtime", "exclude": "Build,Analyzers"}]}],
     "Tl.Gen.CSharp": [],
-    "Tl.Runtime": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": []}],
+    "Tl.Runtime": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": []}, {"attributes": {"targetFramework": ".NETStandard2.1"}, "dependencies": []}],
     "Tl.Bake": [],
 }
 
@@ -56,7 +56,7 @@ PACKAGE_FORBIDDEN_FILES = {
 }
 
 SYMBOL_FILES = {
-    "Tl.Runtime": {"lib/net10.0/Tl.Core.pdb"},
+    "Tl.Runtime": {"lib/net10.0/Tl.Core.pdb", "lib/netstandard2.1/Tl.Core.pdb"},
 }
 
 PACKAGE_METADATA_FILES = {

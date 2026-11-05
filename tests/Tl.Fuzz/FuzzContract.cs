@@ -16,5 +16,5 @@ public static class FuzzContract
                 || e.Message.StartsWith("Consumer capacity exhausted", StringComparison.Ordinal));
 
     public static bool IsLocatedTlbDiagnostic(Exception e)
-        => e is ArgumentException && e.Message.StartsWith("TLB ", StringComparison.Ordinal);
+        => e is ArgumentException && (e.Message.StartsWith("TLB ", StringComparison.Ordinal) || e.Message.StartsWith("game.tlib ", StringComparison.Ordinal));
 }

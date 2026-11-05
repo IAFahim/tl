@@ -1,5 +1,6 @@
 using System.Text;
 using SharpFuzz;
+using Tl;
 using Tl.Gen.Tlb;
 
 namespace Tl.Fuzz.Harness;
@@ -55,7 +56,7 @@ public static class Program
         var input = ReadAll(stream);
         try
         {
-            using var asset = TimelineAsset.Of(TimelineAsset.Load(input));
+            using var world = new TimelineWorld(input);
         }
         catch (Exception e) when (FuzzContract.IsLocatedTlbDiagnostic(e) || FuzzContract.IsDocumentedCapacity(e))
         {

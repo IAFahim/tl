@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace Tl;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct LaneSegment
+internal struct LaneSegment
 {
     public const byte Constant = 0;
     public const byte Ramp = 1;
@@ -17,7 +17,7 @@ public struct LaneSegment
 }
 
 [StructLayout(LayoutKind.Sequential, Size = 80)]
-public unsafe struct SlotView
+internal unsafe struct SlotView
 {
     public const ushort AbiVersionV1 = 1;
     public const ushort AbiVersionV2 = 2;

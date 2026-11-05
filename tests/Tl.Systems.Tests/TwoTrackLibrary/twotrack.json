@@ -1,0 +1,5 @@
+{"name":"twotrack","duration":8,"loop":true,"tracks":[
+{"name":"a","namespace":"D10","type":"TwoTrackFoldTrack","data":{"Scale":2},"clips":[
+{"name":"c0","namespace":"D10","type":"TwoTrackFoldClip","start":0,"end":6,"data":{"Amount":3}}]},
+{"name":"b","namespace":"D10","type":"TwoTrackFoldTrack","data":{"Scale":10},"clips":[
+{"name":"c1","namespace":"D10","type":"TwoTrackFoldClip","start":2,"end":8,"data":{"Amount":5}}]}]}

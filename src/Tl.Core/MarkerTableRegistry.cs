@@ -30,6 +30,11 @@ public static unsafe class MarkerTableRegistry
             timelines[timeline] = new Table { Values = values, Stride = stride, Count = count };
         }
     }
+    internal static void Clear(TimelineWorld world)
+    {
+        if (world is null) return;
+        lock (_gate) { _tables.Remove(world); }
+    }
 
     public static bool TryResolve(TimelineWorld world, ushort timeline, uint marker, int size, out byte* value)
     {

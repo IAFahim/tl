@@ -1,0 +1,6 @@
+{"name":"run","duration":40,"loop":true,"channel":"locomotion","tracks":[
+{"name":"gait","namespace":"Game","type":"MoveTrack","data":{"Mult":1.0},"clips":[
+{"name":"stride","namespace":"Game","type":"MoveClip","start":0,"end":40,"data":{"Dx":0.5,"Dy":0.0}}]},
+{"name":"calls","namespace":"Game","type":"CueTrack","clips":[
+{"name":"stride-call","namespace":"Game","type":"CueClip","start":0,"end":1,"data":{"Voice":"Step"}}]}],
+"markers":[{"namespace":"Game","type":"FootstepMarker","tick":20,"data":{"Step":"Step","Foot":"Left"}}]}

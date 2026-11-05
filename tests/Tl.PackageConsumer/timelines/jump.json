@@ -1,0 +1,3 @@
+{"name":"jump","duration":4,"loop":true,"tracks":[
+{"name":"arc","namespace":"","type":"PackageTrack","data":{"Scale":1.0},"clips":[
+{"name":"hop","namespace":"","type":"PackageClip","start":0,"end":4,"data":{"Value":7.0}}]}]}

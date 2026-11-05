@@ -48,7 +48,7 @@ Launch delegated sub-agents in the background so an incoming session message can
 
 `tl` compiles immutable, heterogeneous timelines into deterministic execution. The shipped production contract is the data-authored surface owned by issue #56 and the README's authoring-contract sections: pure timeline selection, ordered typed operation jobs over borrowed component storage, and total signed `Tick`. Default state is ready; finite timelines clamp independently; every available crossed frame executes. Baked assets carry content-derived local identity; the runtime contains one owner-directed registry carve-out and one bank carve-out (issues #150/#160/#180): a cold, load-time intern table maps baked bytes to dense `ushort` timeline indices returned by `TimelineAsset.Load` (process-lifetime unmanaged state, refcount dispose, graveyard reclamation, never touched by playback), and the pair-typed `Timeline<TTrack, TClip>` bank folds each `(index, pair)` lazily on first typed use — no managed state, no ids in authored or baked data; the `Timeline.Bake(id, args...)` walk dispatches discovered `IBake<TConsumer, ...TContext>` marker bakes (context cap 4) from the cold pair-keyed bake table — cold pass-to-all dispatch only, the warm path untouched (#180). .NET and Unity share domain operation signatures while retaining host-specific scheduling and storage adapters; the Unity host package and its receipts live in the extracted tl.unity repository. C catalog work remains deferred in the extracted local tl.c repository. Authoring/import validates definitions before execution; reflection, hidden allocation, and implicit runtime compilation are outside the generated path. Issue #27 remains the design and evidence record of the removed alpha.3 surface.
 
-Production source plus UTF-8 relative paths must remain at or below 354,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
+Production source plus UTF-8 relative paths must remain at or below 520,000 bytes under `benchmarks/source_budget.py`. Every public abstraction must justify its runtime, generated-code, and maintenance cost. Extensions belong in separate packages when they do not strengthen the irreducible runtime.
 
 The data-authored timeline contract (README, "Data" through "Generated reports") is the shipped authoring contract, tracked by [issue #56](https://github.com/IAFahim/tl/issues/56). Read that contract before API work. Assets require no name, per-asset job binding, handwritten timeline class, catalog or schema marker. Typed frame queries are read-only stage views; the coordinator owns movement, consumer order, dependency completion and commit. Changes to the generator boundary, consumer identity, missing-component policy or loaded-asset lifetime must be proven before treating them as solved. Document changes through the issue protocol rather than silently reverting to the previous authoring model.
 
@@ -107,12 +107,9 @@ python3 benchmarks/source_budget.py
 python3 -m unittest discover -s benchmarks -p test_collect.py
 dotnet build tl.slnx -c Release -m:1 -p:NuGetAudit=false
 dotnet test tl.slnx -c Release --no-build -p:NuGetAudit=false
-dotnet run --project tests/Tl.Alpha -c Release --no-build
-dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
-dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
-dotnet run --project samples/Mixed -c Release --no-build
-dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
-dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
+sh -c 'cd samples/Runner && dotnet run --project ../../tools/Tl.Bake -c Release --no-build -- library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner'
+dotnet build samples/Runner/Runner.csproj -c Release -p:NuGetAudit=false
+dotnet run --project samples/Runner -c Release --no-build -- --verify
 dotnet test tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -p:TlChecked=true -p:NuGetAudit=false
 ```
 

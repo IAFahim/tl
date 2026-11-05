@@ -8,7 +8,6 @@ public sealed partial class TimelineWorld
     {
     }
 
-    public ushort Load(ReadOnlySpan<byte> baked) => TimelineAsset.Load(baked);
 
     public TimelineRef Reference(ushort index) => TimelineTable.Reference(index);
 

@@ -23,7 +23,6 @@
     <Compile Include="..\Tl.Fuzz\FuzzBake.cs" Link="Shared\FuzzBake.cs" />
     <Compile Include="..\Tl.Fuzz\FuzzDomain.cs" Link="Shared\FuzzDomain.cs" />
     <Compile Include="..\Tl.Fuzz\FuzzJsonDomain.cs" Link="Shared\FuzzJsonDomain.cs" />
-    <Compile Include="..\Tl.Fuzz\FuzzAssets.cs" Link="Shared\FuzzAssets.cs" />
     <Compile Include="..\Tl.Fuzz\FuzzRandom.cs" Link="Shared\FuzzRandom.cs" />
     <Compile Include="..\Tl.Fuzz\FuzzContract.cs" Link="Shared\FuzzContract.cs" />
   </ItemGroup>

@@ -16,11 +16,9 @@ INDEX_SOURCES = {
 PROJECT_WAIVERS = {}
 REPRODUCTION_WAIVERS = {}
 REPRODUCTION_HEADINGS = ("## Reproduction", "## Repro")
-RETIRED_TOKENS = ("Step", "Execute")
 PATH_SUFFIXES = (".csproj", ".cs", ".py", ".json", ".md", ".sh", ".txt", ".csv", ".slnx")
 FENCE = re.compile(r"^```\w*\n(.*?)^```", re.MULTILINE | re.DOTALL)
-STRING_LITERAL = re.compile(r"\"([^\"]+)\"|'([^']+)'")
-SCENARIO_LABEL = re.compile(r'new\(\s*"([^"]+)"')
+STRING_LITERAL = re.compile("\"([^\"]+)\"|'([^']+)'")
 PATH_TOKEN = re.compile(r"[\w./-]+")
 
 
@@ -110,12 +108,6 @@ class BenchmarkInventoryTests(unittest.TestCase):
         ]
         self.assertEqual([], unwaived)
 
-    def test_numbers_scenario_labels_avoid_retired_api_tokens(self):
-        labels = SCENARIO_LABEL.findall((BENCHMARKS / "Numbers" / "Program.cs").read_text(encoding="utf-8"))
-        self.assertTrue(labels, "scenario labels were not found in benchmarks/Numbers/Program.cs")
-        for label in labels:
-            for token in RETIRED_TOKENS:
-                self.assertNotIn(token, label, f"scenario label '{label}' contains retired API token '{token}'")
 
     def test_waivers_still_own_a_finding(self):
         reproduced = {probe for probe, _ in reproduction_findings()}

@@ -33,47 +33,4 @@ public static class Recording
     }
     """;
 
-    private static List<(char Pair, uint Tick, float Value)> ForwardOracle() =>
-    [
-        ('A', 0u, 10f),
-        ('E', 0u, 7f),
-        ('A', 1u, 10f),
-        ('B', 1u, 1.5f),
-        ('E', 1u, 7f),
-        ('A', 2u, 10f),
-        ('B', 2u, 1.5f),
-        ('E', 2u, 7f),
-        ('A', 3u, 10f),
-        ('B', 3u, 1.5f),
-        ('E', 3u, 7f),
-        ('A', 4u, 20f),
-        ('B', 4u, 1.5f),
-        ('A', 5u, 30f),
-        ('B', 5u, 1.5f),
-        ('B', 6u, 1.5f),
-        ('A', 6u, 30f),
-        ('A', 7u, 30f),
-    ];
-
-
-    public static List<(char Pair, uint Tick, float Value)> FramesOf(byte[] baked)
-    {
-        var frames = new List<(char, uint, float)>();
-        using var asset = TimelineAsset.LoadAsset(baked);
-        for (var position = 0; position < 8; position++)
-        {
-            var component = new TimelineComponent(asset.Reference) { Position = (ushort)position };
-            foreach (var frame in Timeline.Query<Tlb.DualTrack, Tlb.DualAlphaClip>(in component)) frames.Add(('A', frame.TimelineTick, frame.Clip.Value));
-            foreach (var frame in Timeline.Query<Tlb.DualTrack, Tlb.DualBetaClip>(in component)) frames.Add(('B', frame.TimelineTick, frame.Clip.Amount));
-            foreach (var frame in Timeline.Query<Tlb.EchoTrack, Tlb.EchoClip>(in component)) frames.Add(('E', frame.TimelineTick, frame.Clip.Value));
-        }
-        return frames;
-    }
-
-    public static List<(char Pair, uint Tick, float Value)> OracleFrames() =>
-        ForwardOracle()
-            .GroupBy(record => record.Tick)
-            .OrderBy(group => group.Key)
-            .SelectMany(group => group.OrderBy(record => record.Pair).Select(record => (record.Pair, record.Tick, record.Value)))
-            .ToList();
 }

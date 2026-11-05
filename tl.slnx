@@ -5,20 +5,15 @@
     <Project Path="src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj" />
   </Folder>
   <Folder Name="/samples/">
-    <Project Path="samples/Mixed/Mixed.csproj" />
-    <Project Path="samples/Showcase/Showcase.csproj" />
+    <Project Path="samples/Runner/Runner.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Tl.Core.Tests/Tl.Core.Tests.csproj" />
     <Project Path="tests/Tl.Fuzz/Tl.Fuzz.csproj" />
     <Project Path="tests/Tl.Gen.CSharp.Tests/Tl.Gen.CSharp.Tests.csproj" />
-    <Project Path="tests/Tl.Gen.CSharp.Consumer.Tests/Tl.Gen.CSharp.Consumer.Tests.csproj" />
-    <Project Path="tests/Tl.Alpha/Tl.Alpha.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
-    <Project Path="benchmarks/Alpha/Alpha.csproj" />
-    <Project Path="benchmarks/Numbers/Numbers.csproj" />
-    <Project Path="benchmarks/PairHandles/PairHandles.csproj" />
+    <Project Path="benchmarks/Systems/Systems.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Tl.Analyzers/Tl.Analyzers.csproj" />
@@ -27,11 +22,8 @@
     <Project Path="tools/Tl.Tlb/Tl.Tlb.csproj" />
     <Project Path="tools/Tl.Tlb.Tests/Tl.Tlb.Tests.csproj" />
     <Project Path="tools/Tl.Bake/Tl.Bake.csproj" />
-    <Project Path="tools/Tl.Bake.LiveHost/Tl.Bake.LiveHost.csproj" />
     <Project Path="tools/Tl.Bake.Tests/Tl.Bake.Tests.csproj" />
     <Project Path="tools/Tl.Bake.Bench/Tl.Bake.Bench.csproj" />
     <Project Path="tools/Tl.Bake.Oracle/Tl.Bake.Oracle.csproj" />
-    <Project Path="tools/Tl.Playground/Play.Core.Tests/Play.Core.Tests.csproj" />
-    <Project Path="tools/Tl.Playground/Playground.Smoke/Playground.Smoke.csproj" />
   </Folder>
 </Solution>

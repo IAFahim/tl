@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
@@ -11,7 +12,7 @@ namespace Tl
         internal bool _ownsView;
         byte* _base;
         int _byteCount;
-
+        readonly List<nint> _arenas = new();
         public unsafe TimelineWorld(ReadOnlySpan<byte> library)
         {
             LoadLibrary(library);
@@ -61,6 +62,9 @@ namespace Tl
                     NativeMemory.AlignedFree(_view.Timelines);
                 }
                 if (_base != null) NativeMemory.AlignedFree(_base);
+                foreach (var arena in _arenas) NativeMemory.AlignedFree((void*)arena);
+                _arenas.Clear();
+                MarkerTableRegistry.Clear(this);
                 _ownsView = false;
             }
             _view.Timelines = null;
@@ -218,8 +222,109 @@ namespace Tl
                 }
             }
             BuildEvents(tl, tlbBase, markerOff, markerCount, totalSteps, flat);
+            try { MaterializeSteps(tl, tlbBase, pairs, pairCount, flat, totalSteps, duration, markerOff, markerCount); }
+            catch { Free(); throw; }
             _ = trackCount;
             _ = frameOff;
+        }
+        static nuint Align16(nuint v) => (v + 15u) & ~(nuint)15u;
+
+        unsafe void MaterializeSteps(LibraryTimeline* tl, byte* tlbBase, NativePair* pairs, uint pairCount, LibraryStep* flat, int totalSteps, uint duration, uint markerOff, uint markerCount)
+        {
+            var registry = _systems ??= new SystemRegistry();
+            registry.RefreshModules();
+            var total = (nuint)0;
+            var strideMax = 0u;
+            for (var i = 0; i < totalSteps; i++)
+            {
+                var dst = flat + i;
+                if (dst->Pair >= pairCount) continue;
+                var pe = pairs + dst->Pair;
+                if (dst->TrackValueIndex >= pe->TrackPoolCount || dst->FirstValueIndex >= pe->ClipPoolCount) throw new ArgumentException("game.tlib step value index out of pool bounds; file is corrupt or truncated.");
+                if (dst->FactorSpan != 0 && (dst->SecondValueIndex == 0xFFFFu || dst->SecondValueIndex >= pe->ClipPoolCount)) throw new ArgumentException("game.tlib step blend index out of pool bounds; file is corrupt or truncated.");
+                var second = dst->FactorSpan != 0 ? pe->ClipValueBytes : 0u;
+                total += Align16((nuint)(pe->TrackValueBytes + pe->ClipValueBytes + second));
+                var window = dst->WindowEnd > dst->WindowStart ? dst->WindowEnd - dst->WindowStart : 0u;
+                if (window > 0 && registry.TryGet(dst->PairKey, out var entry))
+                {
+                    var laneBytes = entry.Module.FoldLaneBytes(entry.Index);
+                    if (laneBytes > 0) total += Align16((nuint)window * 2u * (uint)laneBytes);
+                }
+            }
+            var stride = 0u;
+            if (markerCount > 0)
+            {
+                var mp = tlbBase + markerOff;
+                var off = 0u;
+                for (uint m = 0; m < markerCount; m++)
+                {
+                    var size = BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(mp + off + 4, 4));
+                    if (size > strideMax) strideMax = size;
+                    off += 16u + ((size + 3u) & ~3u);
+                }
+                stride = (strideMax + 7u) & ~7u;
+                if (stride == 0) stride = 8u;
+                total += Align16((nuint)markerCount * stride);
+            }
+            if (total == 0) return;
+            var arena = (byte*)NativeMemory.AlignedAlloc(total, 64);
+            NativeMemory.Clear(arena, total);
+            _arenas.Add((nint)arena);
+            var cursor = arena;
+            for (var i = 0; i < totalSteps; i++)
+            {
+                var dst = flat + i;
+                dst->FrameRow = null;
+                dst->FoldLane = null;
+                if (dst->Pair >= pairCount) continue;
+                var pe = pairs + dst->Pair;
+                if (dst->TrackValueIndex >= pe->TrackPoolCount || dst->FirstValueIndex >= pe->ClipPoolCount) throw new ArgumentException("game.tlib step value index out of pool bounds; file is corrupt or truncated.");
+                if (dst->FactorSpan != 0 && (dst->SecondValueIndex == 0xFFFFu || dst->SecondValueIndex >= pe->ClipPoolCount)) throw new ArgumentException("game.tlib step blend index out of pool bounds; file is corrupt or truncated.");
+                var trackLen = pe->TrackValueBytes;
+                var firstLen = pe->ClipValueBytes;
+                var secondLen = dst->FactorSpan != 0 ? pe->ClipValueBytes : 0u;
+                var trackSrc = (byte*)pe + pe->TrackPoolOffset + (nuint)dst->TrackValueIndex * trackLen;
+                var firstSrc = (byte*)pe + pe->ClipPoolOffset + (nuint)dst->FirstValueIndex * firstLen;
+                new ReadOnlySpan<byte>(trackSrc, (int)trackLen).CopyTo(new Span<byte>(cursor, (int)trackLen));
+                new ReadOnlySpan<byte>(firstSrc, (int)firstLen).CopyTo(new Span<byte>(cursor + trackLen, (int)firstLen));
+                var rowBase = cursor;
+                var secondPtr = rowBase + trackLen;
+                if (secondLen != 0)
+                {
+                    var secondSrc = (byte*)pe + pe->ClipPoolOffset + (nuint)dst->SecondValueIndex * firstLen;
+                    new ReadOnlySpan<byte>(secondSrc, (int)secondLen).CopyTo(new Span<byte>(rowBase + trackLen + firstLen, (int)secondLen));
+                    secondPtr = rowBase + trackLen + firstLen;
+                }
+                dst->FrameRow = rowBase;
+                cursor += Align16((nuint)(trackLen + firstLen + secondLen));
+                var window = dst->WindowEnd > dst->WindowStart ? dst->WindowEnd - dst->WindowStart : 0u;
+                if (window == 0 || !registry.TryGet(dst->PairKey, out var entry)) continue;
+                var laneBytes = entry.Module.FoldLaneBytes(entry.Index);
+                if (laneBytes <= 0) continue;
+                dst->FoldLane = cursor;
+                for (uint w = 0; w < window; w++)
+                {
+                    var tick = dst->WindowStart + w;
+                    float blend = dst->FactorSpan == 0 ? 0f : dst->FactorSpan <= 1 ? 0.5f : unchecked(tick - dst->FactorStart) / (float)unchecked(dst->FactorSpan - 1);
+                    var at = cursor + (nuint)w * 2u * (uint)laneBytes;
+                    entry.Module.FoldStep(entry.Index, rowBase, rowBase + trackLen, secondPtr, blend, (ushort)tick, (ushort)window, (ushort)w, (ushort)dst->TrackIndex, (ushort)duration, 1, at);
+                    entry.Module.FoldStep(entry.Index, rowBase, rowBase + trackLen, secondPtr, blend, (ushort)tick, (ushort)window, (ushort)w, (ushort)dst->TrackIndex, (ushort)duration, -1, at + (uint)laneBytes);
+                }
+                cursor += Align16((nuint)window * 2u * (uint)laneBytes);
+            }
+            if (markerCount > 0)
+            {
+                var table = cursor;
+                var mp = tlbBase + markerOff;
+                var off = 0u;
+                for (uint m = 0; m < markerCount; m++)
+                {
+                    var size = BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(mp + off + 4, 4));
+                    new ReadOnlySpan<byte>(mp + off + 16, (int)size).CopyTo(new Span<byte>(table + m * stride, (int)size));
+                    off += 16u + ((size + 3u) & ~3u);
+                }
+                MarkerTableRegistry.Register(this, tl->Id, table, (int)stride, (int)markerCount);
+            }
         }
 
         unsafe void BuildEvents(LibraryTimeline* tl, byte* tlbBase, uint markerOff, uint markerCount, int totalSteps, LibraryStep* flat)

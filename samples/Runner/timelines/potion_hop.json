@@ -1,0 +1,4 @@
+{"name":"potion_hop","duration":12,"tracks":[
+{"name":"bubble","namespace":"Game","type":"ArcTrack","data":{"Scale":0.5},"clips":[
+{"name":"up","namespace":"Game","type":"ArcClip","start":0,"end":6,"data":{"Velocity":2.0}},
+{"name":"down","namespace":"Game","type":"ArcClip","start":6,"end":12,"data":{"Velocity":-2.0}}]}]}

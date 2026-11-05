@@ -1,267 +1,193 @@
 {
- "schemaVersion": 1,
- "scenarios": [
-  {
-   "name": "bake_valid",
-   "mode": "bake",
-   "inputs": {
-    "json": "$configDir/fixtures/alpha.json"
-   },
-   "options": {
-    "assemblies": [
-     "$testAssembly"
-    ]
-   },
-   "expected": {
-    "exitCode": 0,
-    "output": {
-     "path": "$out/alpha.tlb",
-     "sha256": "fb4c3b71d96353d225047267d2356cea9614bb04e0cdc4cd1b6236d90928c38a"
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "name": "bake_valid",
+      "mode": "bake",
+      "inputs": {
+        "json": "$configDir/fixtures/alpha.json"
+      },
+      "options": {
+        "assemblies": [
+          "$testAssembly"
+        ]
+      },
+      "expected": {
+        "exitCode": 0,
+        "output": {
+          "path": "$out/alpha.tlb",
+          "sha256": "fb4c3b71d96353d225047267d2356cea9614bb04e0cdc4cd1b6236d90928c38a"
+        }
+      }
+    },
+    {
+      "name": "bake_diagnostic",
+      "mode": "bake",
+      "inputs": {
+        "json": "$configDir/fixtures/broken.json"
+      },
+      "options": {
+        "assemblies": [
+          "$testAssembly"
+        ]
+      },
+      "expected": {
+        "exitCode": 1,
+        "stderrContains": [
+          "[3:3] duplicate field: 'duration'"
+        ],
+        "absentOutputs": [
+          "$out/broken.tlb"
+        ]
+      }
+    },
+    {
+      "name": "cache_reuse",
+      "mode": "bake",
+      "inputs": {
+        "json": "$configDir/fixtures/alpha.json"
+      },
+      "options": {
+        "assemblies": [
+          "$testAssembly"
+        ],
+        "cache": "$out/cache"
+      },
+      "expected": {
+        "exitCode": 0,
+        "runs": [
+          {
+            "stdoutContains": [
+              "cache: miss"
+            ]
+          },
+          {
+            "stdoutContains": [
+              "cache: hit"
+            ]
+          }
+        ],
+        "output": {
+          "path": "$out/alpha.tlb",
+          "sha256": "fb4c3b71d96353d225047267d2356cea9614bb04e0cdc4cd1b6236d90928c38a"
+        }
+      }
+    },
+    {
+      "name": "json_introspection",
+      "mode": "json",
+      "options": {
+        "assemblies": [
+          "$testAssembly"
+        ]
+      },
+      "expected": {
+        "exitCode": 0,
+        "stdoutGolden": "$root/tools/Tl.Bake.Tests/golden/introspection.json"
+      }
+    },
+    {
+      "name": "report",
+      "mode": "report",
+      "inputs": {
+        "tlb": "$out/alpha.tlb"
+      },
+      "expected": {
+        "exitCode": 0,
+        "stdoutContains": [
+          "tlb/total-bytes: 472",
+          "pair/count: 1",
+          "pool/0/track-unique-count: 1",
+          "pool/0/clip-unique-count: 2",
+          "pool/unique-count: 3",
+          "label/clip-count: 2"
+        ]
+      }
+    },
+    {
+      "name": "strip",
+      "mode": "strip",
+      "inputs": {
+        "tlb": "$out/alpha.tlb"
+      },
+      "expected": {
+        "exitCode": 0,
+        "output": {
+          "path": "$out/alpha.stripped.tlb",
+          "sha256": "6cec7c6062a193e158cec7a49e10ac85b72bc520da354e94fe0c65d4c75dba0a"
+        }
+      }
+    },
+    {
+      "name": "inspect",
+      "mode": "inspect",
+      "inputs": {
+        "tlb": "$out/alpha.tlb"
+      },
+      "expected": {
+        "exitCode": 0,
+        "stdoutContains": [
+          "\"schemaVersion\": 2",
+          "\"looping\": true",
+          "\"duration\": 12",
+          "\"slotStride\": 24",
+          "\"windowEnd\": 12"
+        ]
+      }
+    },
+    {
+      "name": "inspect_invalid_asset",
+      "mode": "inspect",
+      "inputs": {
+        "tlb": "$configDir/fixtures/alpha.json"
+      },
+      "expected": {
+        "exitCode": 3,
+        "stderrContains": [
+          "Asset error: TLB asset header is invalid."
+        ]
+      }
+    },
+    {
+      "name": "inspect_missing_file",
+      "mode": "inspect",
+      "inputs": {
+        "tlb": "$out/missing.tlb"
+      },
+      "expected": {
+        "exitCode": 2,
+        "stderrContains": [
+          "does not exist"
+        ]
+      }
+    },
+    {
+      "name": "watch_rebuild_skip_diagnostic",
+      "mode": "watch",
+      "inputs": {
+        "initial": "$configDir/fixtures/alpha.json",
+        "edits": [
+          "$configDir/fixtures/alpha_edited.json",
+          "$configDir/fixtures/alpha_edited.json",
+          "$configDir/fixtures/broken.json"
+        ]
+      },
+      "options": {
+        "assemblies": [
+          "$testAssembly"
+        ],
+        "debounceMs": 50,
+        "timeoutSeconds": 60
+      },
+      "expected": {
+        "events": [
+          "ready",
+          "rebuild",
+          "rebuild",
+          "skip",
+          "diagnostic"
+        ]
+      }
     }
-   }
-  },
-  {
-   "name": "bake_diagnostic",
-   "mode": "bake",
-   "inputs": {
-    "json": "$configDir/fixtures/broken.json"
-   },
-   "options": {
-    "assemblies": [
-     "$testAssembly"
-    ]
-   },
-   "expected": {
-    "exitCode": 1,
-    "stderrContains": [
-     "[3:3] duplicate field: 'duration'"
-    ],
-    "absentOutputs": [
-     "$out/broken.tlb"
-    ]
-   }
-  },
-  {
-   "name": "cache_reuse",
-   "mode": "bake",
-   "inputs": {
-    "json": "$configDir/fixtures/alpha.json"
-   },
-   "options": {
-    "assemblies": [
-     "$testAssembly"
-    ],
-    "cache": "$out/cache"
-   },
-   "expected": {
-    "exitCode": 0,
-    "runs": [
-     {
-      "stdoutContains": [
-       "cache: miss"
-      ]
-     },
-     {
-      "stdoutContains": [
-       "cache: hit"
-      ]
-     }
-    ],
-    "output": {
-     "path": "$out/alpha.tlb",
-     "sha256": "fb4c3b71d96353d225047267d2356cea9614bb04e0cdc4cd1b6236d90928c38a"
-    }
-   }
-  },
-  {
-   "name": "json_introspection",
-   "mode": "json",
-   "options": {
-    "assemblies": [
-     "$testAssembly"
-    ]
-   },
-   "expected": {
-    "exitCode": 0,
-    "stdoutGolden": "$root/tools/Tl.Bake.Tests/golden/introspection.json"
-   }
-  },
-  {
-   "name": "report",
-   "mode": "report",
-   "inputs": {
-    "tlb": "$out/alpha.tlb"
-   },
-   "expected": {
-    "exitCode": 0,
-    "stdoutContains": [
-     "tlb/total-bytes: 472",
-     "pair/count: 1",
-     "pool/0/track-unique-count: 1",
-     "pool/0/clip-unique-count: 2",
-     "pool/unique-count: 3",
-     "label/clip-count: 2"
-    ]
-   }
-  },
-  {
-   "name": "strip",
-   "mode": "strip",
-   "inputs": {
-    "tlb": "$out/alpha.tlb"
-   },
-   "expected": {
-    "exitCode": 0,
-    "output": {
-     "path": "$out/alpha.stripped.tlb",
-     "sha256": "6cec7c6062a193e158cec7a49e10ac85b72bc520da354e94fe0c65d4c75dba0a"
-    }
-   }
-  },
-  {
-   "name": "inspect",
-   "mode": "inspect",
-   "inputs": {
-    "tlb": "$out/alpha.tlb"
-   },
-   "expected": {
-    "exitCode": 0,
-    "stdoutContains": [
-     "\"schemaVersion\": 2",
-     "\"looping\": true",
-     "\"duration\": 12",
-     "\"slotStride\": 24",
-     "\"windowEnd\": 12"
-    ]
-   }
-  },
-  {
-   "name": "inspect_invalid_asset",
-   "mode": "inspect",
-   "inputs": {
-    "tlb": "$configDir/fixtures/alpha.json"
-   },
-   "expected": {
-    "exitCode": 3,
-    "stderrContains": [
-     "Asset error: TLB asset header is invalid."
-    ]
-   }
-  },
-  {
-   "name": "inspect_missing_file",
-   "mode": "inspect",
-   "inputs": {
-    "tlb": "$out/missing.tlb"
-   },
-   "expected": {
-    "exitCode": 2,
-    "stderrContains": [
-     "does not exist"
-    ]
-   }
-  },
-  {
-   "name": "live",
-   "mode": "live",
-   "inputs": {
-    "assembly": "$root/tools/Tl.Bake.LiveHost/bin/Release/net10.0/Tl.Bake.LiveHost.dll",
-    "assets": ["$out/alpha.tlb"]
-   },
-   "expected": {
-    "exitCode": 0,
-    "stdoutContains": [
-     "\"plane\": \"live\"",
-     "\"intern\": {",
-     "\"live\": 1",
-     "\"distinct\": 1",
-     "\"pairs\": 1",
-     "\"consumers\": 1",
-     "\"index\": 1",
-     "\"banks\": []",
-     "\"available\": true"
-    ]
-   }
-  },
-  {
-   "name": "live_bad_asset",
-   "mode": "live",
-   "inputs": {
-    "assembly": "$root/tools/Tl.Bake.LiveHost/bin/Release/net10.0/Tl.Bake.LiveHost.dll",
-    "assets": ["$configDir/fixtures/alpha.json"]
-   },
-   "expected": {
-    "exitCode": 3,
-    "stderrContains": [
-     "Asset error: TLB magic or version invalid"
-    ]
-   }
-  },
-  {
-   "name": "exec_exit_code",
-   "mode": "exec",
-   "inputs": {
-    "assembly": "$root/tools/Tl.Bake.LiveHost/bin/Release/net10.0/Tl.Bake.LiveHost.dll",
-    "method": "LiveHost.Dumps.Seven"
-   },
-   "expected": {
-    "exitCode": 7
-   }
-  },
-  {
-   "name": "exec_unknown_method",
-   "mode": "exec",
-   "inputs": {
-    "assembly": "$root/tools/Tl.Bake.LiveHost/bin/Release/net10.0/Tl.Bake.LiveHost.dll",
-    "method": "LiveHost.Dumps.Missing"
-   },
-   "expected": {
-    "exitCode": 4,
-    "stderrContains": [
-     "no public static int Missing"
-    ]
-   }
-  },
-  {
-   "name": "live_missing_assembly",
-   "mode": "live",
-   "inputs": {
-    "assembly": "$out/missing.dll"
-   },
-   "expected": {
-    "exitCode": 4,
-    "stderrContains": [
-     "Host error:"
-    ]
-   }
-  },
-  {
-   "name": "watch_rebuild_skip_diagnostic",
-   "mode": "watch",
-   "inputs": {
-    "initial": "$configDir/fixtures/alpha.json",
-    "edits": [
-     "$configDir/fixtures/alpha_edited.json",
-     "$configDir/fixtures/alpha_edited.json",
-     "$configDir/fixtures/broken.json"
-    ]
-   },
-   "options": {
-    "assemblies": [
-     "$testAssembly"
-    ],
-    "debounceMs": 50,
-    "timeoutSeconds": 60
-   },
-   "expected": {
-    "events": [
-     "ready",
-     "rebuild",
-     "rebuild",
-     "skip",
-     "diagnostic"
-    ]
-   }
-  }
- ]
+  ]
 }

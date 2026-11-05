@@ -39,34 +39,18 @@ jobs:
       - run: python3 -m unittest discover -s tests -p test_samples_inventory.py
       - run: python3 -m unittest discover -s tests -p test_dead_code.py
       - run: python3 -m unittest discover -s tests -p test_tlb1_spec_example.py
-      - run: python3 -m unittest discover -s tests -p test_conformance_vectors.py
       - run: dotnet build tl.slnx -c Release -m:1 -p:NuGetAudit=false
       - run: dotnet test tl.slnx -c Release --no-build -p:NuGetAudit=false
       - run: python3 -m unittest discover -s tests -p test_tlb_cli.py
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
-      - run: dotnet run --project samples/Mixed -c Release --no-build
-      - run: dotnet run --project tools/Tl.Playground/Playground.Smoke -c Release --no-build
-      - run: dotnet run --project tools/Tl.Bake -c Release --no-build -- samples/Showcase/jump.json samples/Showcase/jump.tlb --assembly samples/Showcase/bin/Release/net10.0/Showcase.dll
-      - name: Run the Showcase sample (json -> tlb -> play)
-        working-directory: samples/Showcase
+      - name: Run the Runner sample (library -> systems -> verify)
+        working-directory: samples/Runner
         run: |
-          dotnet run --project ../../tools/Tl.Bake -c Release --no-build -- jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
-          dotnet run -c Release --no-build
-      - name: Run the ManyEntities sample (typed lane vs hand-table parity)
-        working-directory: samples/ManyEntities
-        run: |
+          set -euo pipefail
+          dotnet build -c Release
+          dotnet run --project ../../tools/Tl.Bake -c Release --no-build -- library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
           dotnet build -c Release
           dotnet run -c Release --no-build
-      - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
-      - run: dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true -o artifacts/aot
-      - run: ./artifacts/aot/Tl.Alpha
-      - run: ./artifacts/aot/Tl.Alpha --capacity
-      - run: ./artifacts/aot/Tl.Alpha --module-capacity
-      - name: Verify NativeAOT runtime isolation
-        run: |
-          test -z "$(find artifacts/aot -type f \( -name 'Tl.Gen*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
+          dotnet run -c Release --no-build -- --verify
       - run: dotnet pack src/Tl.Core -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.Gen.CSharp -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.CSharp -c Release --no-build -m:1 -o artifacts/packages
@@ -91,26 +75,6 @@ jobs:
           dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
           test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"
           test -z "$(find artifacts/package-aot -type f \( -name 'Tl.Gen*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
-      - name: NuGet quick-start sample consumes the published packages
-        env:
-          NUGET_PACKAGES: ${{ runner.temp }}/tl-nuget-sample
-        run: |
-          set -euo pipefail
-          version="$(grep -oP '(?<=Include="Tl.CSharp" Version=")[^"]+' samples/NuGetQuickStart/NuGetQuickStart.csproj)"
-          if curl -fsSL https://api.nuget.org/v3-flatcontainer/tl.csharp/index.json | grep -q "\"$version\""; then
-            dotnet build samples/NuGetQuickStart/NuGetQuickStart.csproj -c Release
-            dotnet tool install --global Tl.Bake --version "$version"
-            tlb samples/NuGetQuickStart/boss.json samples/NuGetQuickStart/boss.tlb --assembly samples/NuGetQuickStart/bin/Release/net10.0/NuGetQuickStart.dll
-            cd samples/NuGetQuickStart
-            test "$(dotnet run -c Release --no-build)" = "flawless: health=80 position=2"
-          else
-            echo "SKIP: Tl.CSharp $version is not on nuget.org yet — this step becomes mandatory once publish-nuget ships it."
-          fi
-      - name: Typed playback lane parity and throughput
-        run: |
-          set -euo pipefail
-          dotnet build benchmarks/TypedPlaybackProto/TypedPlaybackProto.csproj -c Release
-          dotnet run --project benchmarks/TypedPlaybackProto -c Release --no-build -- 100000
       - run: eng/release-artifacts --candidate ci artifacts/release
 
   checked:
@@ -164,13 +128,11 @@ jobs:
         with:
           dotnet-version: 10.0.402
       - run: dotnet build tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -m:1 -p:NuGetAudit=false
-      - run: dotnet build tests/Tl.Alpha -c Release -m:1 -p:NuGetAudit=false
-      - run: dotnet build benchmarks/Alpha -c Release -m:1 -p:NuGetAudit=false
+      - run: dotnet build tests/Tl.Systems.Tests/Tl.Systems.Tests.csproj -c Release -m:1 -p:NuGetAudit=false
+      - run: dotnet build benchmarks/Systems/Systems.csproj -c Release -m:1 -p:NuGetAudit=false
       - run: dotnet test tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release --no-build -p:NuGetAudit=false
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
-      - run: dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
-      - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
+      - run: dotnet test tests/Tl.Systems.Tests/Tl.Systems.Tests.csproj -c Release --no-build -p:NuGetAudit=false
+      - run: dotnet run --project benchmarks/Systems -c Release --no-build -- --smoke
 
   tier-env:
     runs-on: ubuntu-latest

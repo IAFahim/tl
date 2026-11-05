@@ -108,17 +108,7 @@ public readonly unsafe struct TimelineRef
 	internal nint Address => (nint)_p;
 	internal uint PairCount => _p == null ? 0 : Header->PairCount;
 
-	[MethodImpl(AggressiveInlining)]
-	internal bool Advance(bool reverse, ushort pos, out ushort t, out FrameFlags f)
-	{
-		t = 0; f = FrameFlags.None;
-		return _p != null && TimelineMovement.Advance((ushort)Header->Duration, Header->Loops != 0, reverse, pos, out _, out t, out f);
-	}
 
-	internal bool Select(bool reverse, ushort position, out ushort tick, out FrameFlags flags)
-	{
-		return Advance(reverse, position, out tick, out flags);
-	}
 	internal int StageCount => _p == null ? 0 : (int)Header->StageCount;
 	internal NativeStage* Stages => (NativeStage*)(_p + Header->StageOffset);
 	internal NativeStage* StageOf(ushort tick)
@@ -313,72 +303,7 @@ public readonly unsafe struct TimelineRef
 	}
 }
 
-public sealed class TimelineAsset : IDisposable
-{
-	int _index;
-	long _generation;
 
-	TimelineAsset(ushort index, long generation)
-	{
-		_index = index;
-		_generation = generation;
-	}
-
-	public static ushort Load(ReadOnlySpan<byte> baked) => TimelineTable.Load(baked);
-
-	public static TimelineAsset Of(ushort index)
-	{
-		TimelineTable.Pin(index, out var generation);
-		return new TimelineAsset(index, generation);
-	}
-
-	internal static TimelineAsset LoadAsset(ReadOnlySpan<byte> baked)
-	{
-		TimelineTable.LoadPinned(baked, out var index, out var generation);
-		return new TimelineAsset(index, generation);
-	}
-
-	public ushort Index => Volatile.Read(ref _index) < 0
-		? throw new InvalidOperationException("Timeline asset view is disposed; call TimelineAsset.Of on a live index.")
-		: (ushort)Volatile.Read(ref _index);
-
-	public TimelineRef Reference => Volatile.Read(ref _index) < 0 ? default : TimelineTable.Reference((ushort)Volatile.Read(ref _index));
-
-	public void Dispose()
-	{
-		var index = Interlocked.Exchange(ref _index, -1);
-		if (index >= 0) TimelineTable.Release((ushort)index, Volatile.Read(ref _generation));
-	}
-}
-
-[StructLayout(LayoutKind.Sequential)]
-public struct TimelineComponent(TimelineRef reference)
-{
-    public TimelineRef Reference = reference;
-    public ushort Position;
-}
-
-public readonly unsafe struct TickFrame
-{
-    public readonly void* Slot;
-    public readonly void* Pair;
-    public readonly ushort TimelineTick;
-    public readonly FrameFlags Flags;
-
-    internal TickFrame(void* slot, void* pair, ushort timelineTick, FrameFlags flags)
-    {
-        Slot = slot;
-        Pair = pair;
-        TimelineTick = timelineTick;
-        Flags = flags;
-    }
-
-    public Frame<TTrack, TClip> ToFrame<TTrack, TClip>(ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
-        => SlotRow.ToFrame<TTrack, TClip>((SlotRow*)Slot, (byte*)Pair, TimelineTick, Flags, ref scratch);
-
-    public static Frame<TTrack, TClip> ToFrame<TTrack, TClip>(void* slot, void* pair, ushort tick, FrameFlags flags, ref TClip scratch) where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
-        => SlotRow.ToFrame<TTrack, TClip>((SlotRow*)slot, (byte*)pair, tick, flags, ref scratch);
-}
 
 	static unsafe class PairTable
 {
@@ -790,66 +715,3 @@ internal const int MemoResults = 10;
 	}
 }
 
-public static unsafe class PairRuntime<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
-{
-	public static readonly ulong Key = Keying.Of(Keying.StableName(typeof(TTrack)) + "\0" + Keying.StableName(typeof(TClip)));
-
-	public static int Consume(ExecThunk execute, BindThunk bind, string identity) => PairTable.Install(Key, execute, bind, identity);
-
-	public static int Consume(ExecThunk execute, KeysThunk keys, string identity) => PairTable.Install(Key, execute, null, identity, resultKeys: keys);
-
-	public static void ConsumeDispatch(ExecThunk execute, string identity) => PairTable.Install(Key, execute, null, identity, true);
-
-	public static void ConsumeDispatch(ExecThunk execute, KeysThunk keys, DiagThunk diag, string identity) => PairTable.Install(Key, execute, null, identity, true, keys, diag);
-
-	public static void ConsumeDispatch(ExecThunk execute, KeysThunk keys, DiagThunk diag, string identity, int feed) => PairTable.Install(Key, execute, null, identity, true, keys, diag, feed);
-
-	public static void VerifyLayout(ulong layout) => PairTable.VerifyLayout(Key, layout ^ PairLayoutDigest.Of<TTrack, TClip>());
-
-}
-
-public unsafe ref struct FrameQuery<TTrack, TClip> where TTrack : unmanaged, IBlend<TClip> where TClip : unmanaged
-{
-	readonly TimelineRef _block;
-	NativeStep* _steps;
-	readonly ushort _tick;
-	int _count;
-	TClip _scratch;
-	Frame<TTrack, TClip> _current;
-
-	internal FrameQuery(in TimelineComponent component)
-	{
-		_block = component.Reference;
-		_tick = component.Position;
-		var stage = _block._p == null ? null : _block.StageOf(_tick);
-		if (stage != null)
-		{
-			_steps = (NativeStep*)(_block._p + stage->ProgramOffset);
-			_count = (int)stage->ProgramCount;
-		}
-	}
-
-	public FrameQuery<TTrack, TClip> GetEnumerator() { var copy = this; return copy; }
-
-	public bool MoveNext()
-	{
-		if (_count == 0) return false;
-		var pairs = _block.Pairs;
-		var block = _block._p;
-		do
-		{
-			var step = *_steps++;
-			_count--;
-			if (pairs[step.Pair].Key == PairRuntime<TTrack, TClip>.Key)
-			{
-				Timeline<TTrack, TClip>.GuardSizes(pairs + step.Pair);
-				var pair = (byte*)(pairs + step.Pair);
-				_current = SlotRow.ToFrame<TTrack, TClip>((SlotRow*)(block + step.Slot), pair, _tick, FrameFlags.None, ref *(TClip*)Unsafe.AsPointer(ref _scratch));
-				return true;
-			}
-		} while (_count > 0);
-		return false;
-	}
-
-	public Frame<TTrack, TClip> Current => _current;
-}

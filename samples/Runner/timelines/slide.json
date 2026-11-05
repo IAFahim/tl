@@ -1,0 +1,7 @@
+{"name":"slide","duration":24,"next":"run","channel":"locomotion","tracks":[
+{"name":"skid","namespace":"Game","type":"MoveTrack","data":{"Mult":2.0},"clips":[
+{"name":"dust","namespace":"Game","type":"MoveClip","start":0,"end":24,"data":{"Dx":0.5,"Dy":0.0}}]},
+{"name":"hands","namespace":"Game","type":"InputTrack","clips":[
+{"name":"window","namespace":"Game","type":"InputWindowClip","start":6,"end":14,"data":{"Button":"Attack","OnPress":"barrel_explode"}}]},
+{"name":"calls","namespace":"Game","type":"CueTrack","clips":[
+{"name":"whoosh","namespace":"Game","type":"CueClip","start":6,"end":7,"data":{"Voice":"Step"}}]}]}

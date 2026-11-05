@@ -11,14 +11,12 @@ receipt_path = root / render_numbers.RECEIPT_PATH
 extra = sys.argv[1:]
 
 subprocess.run(
-    ["dotnet", "build", "benchmarks/Numbers/Numbers.csproj", "-c", "Release"],
+    ["dotnet", "build", "benchmarks/Systems/Systems.csproj", "-c", "Release"],
     cwd=root, check=True,
 )
 cmd = [
-    "dotnet", "run", "--project", "benchmarks/Numbers", "-c", "Release", "--no-build", "--",
-    "--corpus", str(root / "benchmarks/Numbers/results/corpus"),
-    "--out", str(receipt_path),
-    "--steady",
+    "dotnet", "run", "--project", "benchmarks/Systems", "-c", "Release", "--no-build", "--",
+    "--receipt", str(receipt_path),
     *extra,
 ]
 print("$", " ".join(cmd), flush=True)

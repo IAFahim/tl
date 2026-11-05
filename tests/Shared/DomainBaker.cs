@@ -82,7 +82,7 @@ internal sealed class DomainBaker
         _tracks.Add(new BakedTrack<TTrack, TClip>
         {
             TrackValue = value,
-            Key = PairRuntime<TTrack, TClip>.Key,
+            Key = Keying.Of(Keying.StableName(typeof(TTrack)) + "\0" + Keying.StableName(typeof(TClip))),
             Layout = FingerprintOf?.Invoke(typeof(TTrack), typeof(TClip)) ?? 0UL,
             Index = (byte)_tracks.Count,
         });

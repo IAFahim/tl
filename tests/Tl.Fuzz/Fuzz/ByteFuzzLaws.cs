@@ -1,4 +1,5 @@
 using System.Text;
+using Tl;
 using Xunit;
 using Xunit.Sdk;
 
@@ -22,9 +23,9 @@ public class TlbFuzzLaws
             var input = Mutate(random, bases[random.NextInt(bases.Count)]);
             try
             {
-                using var asset = TimelineAsset.Of(TimelineAsset.Load(input));
+                using var world = new TimelineWorld(input);
                 if (++successes > MaxSuccesses)
-                    throw new XunitException("mutation fuzz succeeded beyond the intern budget; the corpus mutated too little");
+                    throw new XunitException("mutation fuzz succeeded beyond budget; the corpus mutated too little");
             }
             catch (Exception e) when (FuzzContract.IsLocatedTlbDiagnostic(e) || FuzzContract.IsDocumentedCapacity(e))
             {
@@ -47,7 +48,7 @@ public class TlbFuzzLaws
             random.Fill(input);
             try
             {
-                using var asset = TimelineAsset.Of(TimelineAsset.Load(input));
+                using var world = new TimelineWorld(input);
                 successes++;
             }
             catch (Exception e) when (FuzzContract.IsLocatedTlbDiagnostic(e) || FuzzContract.IsDocumentedCapacity(e))
@@ -88,7 +89,7 @@ public class TlbFuzzLaws
     {
         try
         {
-            using var asset = TimelineAsset.Of(TimelineAsset.Load(input));
+            using var world = new TimelineWorld(input);
         }
         catch (Exception e) when (FuzzContract.IsLocatedTlbDiagnostic(e) || FuzzContract.IsDocumentedCapacity(e))
         {

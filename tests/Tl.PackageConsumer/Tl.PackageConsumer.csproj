@@ -11,6 +11,6 @@
     <PackageReference Include="Tl.CSharp" Version="3.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="../Shared/DomainBaker.cs" Link="Shared/DomainBaker.cs" />
+    <None Include="game.tlib" CopyToOutputDirectory="PreserveNewest" Condition="Exists('game.tlib')" />
   </ItemGroup>
 </Project>

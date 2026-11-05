@@ -1,509 +1,240 @@
 # tl
 
-**tl** compiles designer-authored timeline data into deterministic execution — data first, an authoring step that bakes it, a game system that plays it. No reflection, no runtime compilation, 0 B per frame.
+**tl** compiles designer-authored timelines into deterministic execution — data first, an authoring step that bakes it, a game system that plays it. tl contains no game behaviour:
+
+| Who | Does | Writes code |
+|---|---|---|
+| Designer | Builds timelines: places clips on tracks, sets values, loop, next, channel | Never |
+| Toolbox programmer | Writes each clip type once: payload struct + consumer code | Once per clip type, never per timeline |
+| Gameplay programmer | Decides when an entity starts a timeline; declares systems listing which entity data clip code may touch | A little |
+| Tl | Bakes timelines, stores each once, plays them on many entities, calls clip code at the right ticks | n/a |
+
+A timeline never lives on an entity. All timelines live once in the shared library the bootstrap loads. What an entity stores is a short list of **playbacks**: `{timeline, tick}` pairs. Jump id 2 vs slide id 5 just means "manifest index 2 vs 5".
 
 [![ci](https://github.com/IAFahim/tl/actions/workflows/ci.yml/badge.svg)](https://github.com/IAFahim/tl/actions/workflows/ci.yml)
-
-Live playground: [iafahim.github.io/tl](https://iafahim.github.io/tl/)
 
 ## Install
 
 ```sh
-dotnet add package Tl.CSharp --version 3.0.0
+dotnet add package Tl.CSharp --version 4.0.0
 dotnet tool install --global Tl.Bake     # the tlb bake command
 ```
 
 ## Get started
 
-Three structs and one JSON file — a first timeline in a minute. Put the structs and `jump.json` in a console project:
+Three structs and one JSON file — a first timeline in a minute. Put the structs and `timelines/jump.json` in a console project:
 
 ```cs
-public readonly record struct JumpClip(float Velocity);
+public readonly struct ArcClip { public readonly float Velocity; public ArcClip(float velocity) { Velocity = velocity; } }
 
-public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
+public readonly struct ArcTrack : IBlend<ArcClip>
 {
-    public void Blend(in JumpClip first, in JumpClip second, float factor, out JumpClip result)
-        => result = new JumpClip(first.Velocity + (second.Velocity - first.Velocity) * factor);
+    public readonly float Scale;
+    public ArcTrack(float scale) { Scale = scale; }
+    public void Blend(in ArcClip first, in ArcClip second, float factor, out ArcClip result)
+        => result = new ArcClip(first.Velocity + ((second.Velocity - first.Velocity) * factor));
 }
 
-public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
+public readonly struct Rise : ITrack<ArcTrack, ArcClip>
 {
-    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
-        => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
+    public static void Fold(in Frame<ArcTrack, ArcClip> frame, out float lift)
+        => lift = frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
+
+    public static void ExecuteActive(in Frame<ArcTrack, ArcClip> frame, in float lift, ref Motion m)
+        => m.Y += lift;
+
+    public static void OnClipEnd(in Frame<ArcTrack, ArcClip> frame)
+    {
+    }
 }
 ```
 
 ```json
 {
-  "duration": 30, "loop": true,
+  "name": "jump", "duration": 30, "next": "run", "channel": "locomotion",
   "tracks": [
-    { "type": "JumpTrack", "data": { "Scale": 1.0 },
-      "clips": [ { "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
-                 { "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } } ] }
+    { "namespace": "Game", "type": "ArcTrack", "data": { "Scale": 1.0 },
+      "clips": [ { "namespace": "Game", "type": "ArcClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
+                 { "namespace": "Game", "type": "ArcClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } } ] }
   ]
 }
 ```
 
-Build, then bake with `--auto` — namespaces are inferred from the built assembly, so the JSON above needs none:
+Build, then bake the whole library with `tlb library` — it packs every timeline into one `game.tlib` and writes the stable ids to `Timelines.g.cs`:
 
 ```sh
 dotnet build -c Release
-tlb jump.json jump.tlb --auto
+tlb library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
 ```
 
-Play it — `Apply` folds every row's effect and `Advance` advances every clock one frame; `Apply` is pure over the clock and never moves it, the one `Advance` call after every `Apply` does. After the full loop `y` is back at 0, the arc risen and fallen. Put the loop in `Program.cs` and `dotnet run`:
+Play it — systems run every step, then one `Advance` moves every clock; `Run` never moves ticks. After the full loop the arc has risen and fallen and `next` has handed the entity back to `run`. Put the loop in `Program.cs` and `dotnet run`:
 
 ```cs
-ushort jumpTimeline = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
-var tick = new ushort[1];
-var y = new float[1];
+using var world = new TimelineWorld(File.ReadAllBytes("game.tlib"));
+using var players = new PlaybackTable(entityCapacity: 1, slotsPerEntity: 4);
+var motion = new Motion[1];
+var power = new JumpPower[1];
+players.Start(0, Timelines.Jump);
 for (var frame = 0; frame < 30; frame++)
 {
-    Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, true, y);
-    Timeline.Advance(jumpTimeline, tick, true);
+    world.ApplyRequests(players);
+    new Movement { Motion = motion, JumpPower = power }.Run(world, players);
+    world.Advance(players);
 }
 ```
-
-A crowd that shares one clock — the raid jumping in sync — can drop the clock column entirely and hold that clock once: `Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, clock, true, jumpFx)` folds the whole crowd in one broadcast pass, and `Timeline<JumpTrack, JumpClip>.Advance(jumpTimeline, ref clock, true)` advances the single clock ([Shared clocks](#system)).
-
-`--auto` is opt-in and never guesses silently: exactly one loaded type of that bare name fills the `namespace`; zero or several stop the bake naming every candidate. `tlb --json --assembly bin/Release/net10.0/YourGame.dll` lists every authorable pair with its namespace, fields, and consumers — the source for filling tracks and clips by hand ([Type discovery](#type-discovery)). "Run the full thing" below is the same shape with four characters, rewind, and host wiring.
 
 ## Run the full thing
 
-`samples/Showcase` is the whole pipeline with the code inline — data, bake, system, output.
+`samples/Runner` is the whole pipeline with the code inline — data, bake, systems, output. Its `GameLogic.cs` is the shared toolbox both hosts compile (payloads, tracks and clips, consumers, the `Movement` and `Combat` systems); the console host loads `game.tlib` and steps three entities through it.
 
-**1 · the data** — `jump.json`, authored by a designer, naming the game's own C# types:
+**1 · the data** — `samples/Runner/timelines/`, authored by a designer, naming the game's own C# types. `run.json` loops locomotion under the whole game; `jump.json` hands back to `run` through `next`; `slide.json` opens an `InputWindow` that requests `barrel_explode` on a second channel when the player presses Attack mid-slide; `potion_hop.json` stacks channel-free on top of anything:
 
 ```json
-{
-  "name": "jump", "duration": 30, "loop": true,
-  "tracks": [
-    {
-      "name": "arc", "namespace": "Showcase", "type": "JumpTrack", "data": { "Scale": 1.0 },
-      "clips": [
-        { "name": "rise", "namespace": "Showcase", "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
-        { "name": "fall", "namespace": "Showcase", "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } }
-      ]
-    }
-  ]
-}
+{"name":"slide","duration":24,"next":"run","channel":"locomotion","tracks":[
+{"name":"hands","namespace":"Game","type":"InputTrack","clips":[
+{"name":"window","namespace":"Game","type":"InputWindowClip","start":6,"end":14,"data":{"Button":"Attack","OnPress":"barrel_explode"}}]}]}
 ```
 
-**2 · the bake** — JSON to canonical TLB1 bytes, deterministic on every machine:
+**2 · the bake** — `timelines/library.json` to one canonical `game.tlib`, deterministic on every machine:
 
 ```sh
-tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
+cd samples/Runner
+tlb library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
 ```
 
-**3 · the system** — `Program.cs`, three structs and one call per frame:
+**3 · the systems** — `samples/Runner/GameLogic.cs`. `Jump` folds the pure arc once per tick and composes it with live per-jumper power every step; `InputWindow` requests `barrel_explode` while Attack is held; `ChangeStat` spends one `JumpCounter` on clip start; `Stomp` and `Cues` raise typed events:
 
 ```cs
-public readonly record struct JumpClip(float Velocity);
-
-public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
+public readonly struct Jump : ITrack<ArcTrack, ArcClip>
 {
-    public void Blend(in JumpClip first, in JumpClip second, float factor, out JumpClip result)
+    public static void Fold(in Frame<ArcTrack, ArcClip> frame, out float lift)
+        => lift = frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
+
+    public static void ExecuteActive(in Frame<ArcTrack, ArcClip> frame, in float lift, ref Motion m, in JumpPower power)
+        => m.Y += lift * power.Value;
+
+    public static void OnClipEnd(in Frame<ArcTrack, ArcClip> frame)
     {
-        result = new JumpClip(first.Velocity + (second.Velocity - first.Velocity) * factor);
     }
-}
-
-public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
-{
-    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
-    {
-        y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
-    }
-}
-
-ushort jumpTimeline = TimelineAsset.Load(File.ReadAllBytes("jump.tlb"));
-var ids = new ushort[] { jumpTimeline, jumpTimeline, jumpTimeline, jumpTimeline };
-var tick = new ushort[4];
-var y = new float[4];
-
-for (var frame = 1; frame <= 30; frame++)
-{
-    Timeline<JumpTrack, JumpClip>.Apply(ids, tick, true, y);
-    Timeline.Advance(ids, tick, true);
-    if (frame % 3 == 0)
-        Console.WriteLine($"  tick {frame,2}   y = {y[0],4:0.0} m   {new string('#', Math.Max(0, (int)Math.Round(y[0] / 3)))}");
 }
 ```
 
 Run it:
 
 ```sh
-cd samples/Showcase
+cd samples/Runner
 dotnet build -c Release
-tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
+tlb library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
+dotnet build -c Release
 dotnet run -c Release --no-build
+dotnet run -c Release --no-build -- --verify
 ```
 
-You see:
+You see the hero run, jump exactly back to the takeoff height, and hand over to `run`; the slider's mid-slide button press detonates the barrel on the action channel; `--verify` proves `Jump_lands_exactly_where_it_took_off`, exact rewind, and a stable state hash across two 600-step runs.
 
-```
-four characters jump, one call per frame:
-  tick  3   y =  6.0 m   ##
-  tick  6   y = 12.0 m   ####
-  tick  9   y = 18.0 m   ######
-  tick 12   y = 24.0 m   ########
-  tick 15   y = 30.0 m   ##########
-  tick 18   y = 24.0 m   ########
-  tick 21   y = 18.0 m   ######
-  tick 24   y = 12.0 m   ####
-  tick 27   y =  6.0 m   ##
-  tick 30   y =  0.0 m
-
-rewind walks the arc back exactly:
-  after 30 back ticks: y = 0.0 m, tick = 0
-
-Timeline.Bake marked entities 42, 43 as jumping; unmarked entities never reach the advance
-```
-
-Migration from earlier packages: add an `Advance` call after every `Apply` — `Apply` gathers effects and never moves the clock, and its `positions` parameter is now `ReadOnlySpan` (existing `Span` callers compile unchanged; the per-entity overload takes the position `in`, so call sites spelling `ref` drop it); the consumer method `Execute` became `OnActive` in 1.0.0; 2.0.0 renames `OnMemo` to `Fold`, `OnActive` to `ExecuteActive`, `ApplyLanes` to `ApplyChunk`, and folds the `(fx, inputs)` Apply overload into the `ColumnSet` form — `Apply(ids, clocks, forward, fx)` for one effect column, `Apply(ids, clocks, forward, in set)` for any columns, `ApplyChunk(ids, clocks, forward, fx0, fx1)` for two typed fold lanes; the advance method `Step` is now `Advance`; the window-constant fold mode is removed with its `TickPurity` enum and the never-invoked range `Consume` overloads — hand-written fold consumers register with `Consume(execute, keys)` and sugar consumers with `Consume(execute, bind)` — one per-tick fold semantics (#471; pre-1.0 removals ship without compatibility aliases); `Consume` now returns the consumer's install handle, and an `ExecuteActive` that consumes fold results registers with `ConsumeDispatch(execute, keys, diag, identity, feed)` passing the producing fold's handle — the link is explicit, not inferred from install order (#474); after the final `Dispose` of an asset, its index is rest in every family — `Advance` is identity, `Apply` adds nothing, dispatch and live columns stay quiet, and `View` throws the located not-loaded diagnostic — instead of the frozen clock being re-added every frame or a mid-playback not-loaded throw, and `Advance`/`TrySample` no longer require a registered consumer (#481; never-loaded ids keep their throws).
+No game behaviour lives in tl. The jump-arc math is `Jump.Fold` (toolbox, once per clip type); pressing Attack to detonate is the host setting one `InputState` cell (gameplay, your ECS); sliding into a barrel needs no slide-specific code — the designer arranged an `InputWindow` clip plus a `Cue`/`Stomp` pair the toolbox already provided.
 
 ## Data
 
-The JSON above is the whole input format — one file per timeline, authored by a designer, naming the game's own C# types:
+Each timeline file is the whole input format — authored by a designer, naming the game's own C# types:
 
 - windows are half-open `[start, end)`; execution order is authored clip order
-- `data` fields map onto struct fields by name (`Scale` → `JumpTrack.Scale`); an omitted `data` on a track or clip bakes the type's default state — the same payload as `"data": {}`
-- an optional `name` on the timeline, each track, and each clip labels the asset for tools and reports; `--strip` drops the labels
-- two clips overlapping on one track blend through the type's `IBlend` with the authored factor
-- `loop: true` wraps at `duration`; finite timelines clamp
-- a timeline may mix track and clip types freely; caps are 65,535 ticks and 256 pairs per asset
-- every baked pair carries a layout fingerprint of its two structs (a hash over field names, field types, and declaration order). The C# generator owns the value end to end: it folds the pair's field shape from source symbols, emits a `PairRuntime<,>.VerifyLayout(fingerprint)` registration in the generated module initializer, and publishes the same constant as an assembly attribute that the baker copies into the asset. The one-time typed fold compares the two constants and fails fast with a rebake repair, so an asset baked against an older field layout of the same type names is rejected at bind instead of silently misread. Because both constants come from one generation of one assembly, an unedited rebuild can never disagree; a struct edit between bake and load changes the fold deterministically and the guard fires. The check is a single ulong compare on the cold fold — never on the warm path — and the runtime computes no fingerprint itself, which keeps it free of reflection under NativeAOT and trimming. Raw function-pointer consumers without a generated binding (and assets baked without one, layout 0) skip the comparison; hand-written consumers may register manually
+- `data` fields map onto struct fields by name (`Scale` → `ArcTrack.Scale`); an omitted `data` on a track or clip bakes the type's default state
+- an optional `name` on the timeline, each track, and each clip labels the asset for tools and reports
+- two clips overlapping on one track blend through the type's `IBlend` with the authored factor; overlap on a track whose type lacks `IBlend` fails the bake
+- `loop: true` wraps at `duration`; finite timelines without `next` disappear at the end; `hold: true` keeps the last tick with `Ended` instead
+- `next` names the timeline that takes over the same slot and channel at tick 0 when this one ends; it is incompatible with `loop: true`
+- `channel` names an exclusive lane per entity with replacement semantics; a timeline with no channel stacks with everything
+- `markers` are unmanaged structs resolved at marker ticks in either direction
+- enum fields take member names case-sensitively (`"Voice": "Boom"`); `TimelineId` fields take timeline names resolved against the manifest (`"OnPress": "barrel_explode"`, unknown names fail the bake)
+- unknown keys are rejected; a timeline may mix track and clip types freely; steps resolve per stage, with per-step frame tables built at load
+- every baked pair carries a layout fingerprint of its two structs (a hash over field names, field types, and declaration order). The generator folds the pair's field shape from source symbols; a struct edit between bake and bind fails fast with a rebake repair instead of silently misreading
+
+One `library.json` per library: `tickRate` feeds the Unity exporter (seconds to ticks; the runtime counts ticks only), `channels` order sets channel numbers (1-up, 0 = none; unknown channel fails the bake), `timelines` lists the timeline files. The manifest is the timeline names sorted ordinally; `TimelineId` is the dense id in load order (manifest order, id = index + 1, 0 = none) with `Timelines.<PascalCase>` compile-time constants.
 
 ## Authoring
 
-`tlb` compiles the data to canonical TLB1 bytes — deterministic (same input, same bytes, every machine and culture), pooled (each distinct string, type, and payload stored once; repeated designer copy shrinks on the way in), and cached (content-keyed hits preserve timestamps):
+`tlb library` compiles the data to canonical `game.tlib` bytes — deterministic (same input, same bytes, every machine and culture), content-deduped (each identical timeline stored once), digested end to end:
 
 ```sh
-tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
+tlb library <dir> [--assembly Game.dll] --out game.tlib --ids Timelines.g.cs [--namespace Game] [--diagnostics json]
 ```
 
-`--assembly` names the DLL that ships the JSON's types (pair keys hash namespace-qualified stable names plus the assembly's simple name — no version, no token, so AssemblyVersion bumps do not invalidate baked assets; TLB format v5). The explicit form always wins; the lazy forms fill in what is unambiguous:
+1. Bakes every timeline as today (TLB v6 with the JSON v2 fields), resolving types via `--assembly`/discovery/`--auto`, then resolves name fields in a second pass against the manifest.
+2. Writes `game.tlib`: header, manifest (names/ids/channels), each timeline's TLB bytes (content-digest dedup), digest over everything. Documented in [docs/library-layout.md](docs/library-layout.md) in the style of [docs/tlb1-layout.md](docs/tlb1-layout.md) (offsets, widths, alignment, endianness scope, rejection contract, fixtures).
+3. Writes `Timelines.g.cs` (`PascalCase`, collision fails bake, `const` so Burst reads them) plus `LibraryDigest`.
 
-```sh
-tlb jump.json          # output defaults to jump.tlb beside the input; assembly discovered
-tlb                    # exactly one *.json in the directory; more than one names the candidates
-tlb jump.json jump.tlb --auto   # namespace inferred where absent (see below)
-```
+`new TimelineWorld(ReadOnlySpan<byte> library)` is the one cold step per library: it validates (rejection contract) + digest, turns TLB structures into native blocks, and builds the derived tables — per-step fold lanes (every tick both directions; pure functions of the frame), frame tables per (timeline, step, direction), an event index (sorted tick/kind/step/marker plus 1 bit per tick), and per (system, timeline, stage) step lists in authored order so dispatch costs active steps, not clip types in the game. It publishes a `LibraryView`: an unmanaged versioned pointer struct documented in [docs/library-view-abi.md](docs/library-view-abi.md) with readers for tools.
 
-Discovery sweeps the DLLs under the launch directory (skipping `.git`, `obj`, and friends) and keeps the ones defining every `(namespace, type)` pair the JSON references — exactly one is used, several fail naming them, zero fails naming the missing types and swept roots. `tlb.db` in the launch directory remembers the last resolution per JSON and is reused while the recorded DLL still exists and still defines the types; it is machine-local, gitignored, and rewritten on every re-sweep.
-
-`--auto` (opt-in, bake and `--watch`) infers a missing `namespace` at authoring time: the loaded assemblies — narrowed by an authored `assembly` when present — are searched for types whose bare name equals the authored `type`. Exactly one match fills the namespace; zero or several fail with a diagnostic naming every candidate and the repair. Inference runs only where the property is absent, per track and per clip — an authored `namespace` always wins, and `"namespace": ""` still selects the global namespace. Inferred bakes are byte-identical to writing the namespaces by hand; namespace written after `clips` still wins, and clip identity is never taken from the track.
-
-The designer loop:
-
-```sh
-tlb --watch jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll
-```
-
-`--watch` bakes at startup, re-bakes on save (debounced, hash-skipped), and prints one JSON event per action (`ready`, `rebuild`, `skip`, `diagnostic`) — a broken file stays in the loop as a `diagnostic` until fixed. More: `tlb --report` audits asset sizes, `tlb --inspect <input.tlb>` emits the baked asset as deterministic, schema-versioned structural JSON — header, pairs with pool widths, stages, and every program step's window and blend factors — the contract for visual tooling; `tlb --live --assembly <game.dll> [--asset <file.tlb>]... [--resolve]` hosts the assembly Unity-style in an isolated context (the engine version wins), snapshots the process tables — intern/pair/bake occupancy — and every folded bank with byte totals, dedupe hits, and per-lane value-shape summaries as deterministic JSON through the public `Tl.Inspection` surface (`--summary` for compact text; `--resolve` runs module initializers and folds every view, degrading to unresolved output on engine skew); `tlb --exec --assembly <game.dll> --method Game.Dumps.Playbook [--asset <file.tlb>] [--arg key=value ...]` is the Unity `-executeMethod` analog: it runs a public static `int Method()` or `int Method(TimelineAsset)` in the hosted assembly — the return value becomes the exit code, an unhandled exception exits 4 with the stack, and `--arg` pairs ride along in `Environment.GetCommandLineArgs()`; `tlb --strip` drops authoring metadata for distribution. The Blender NLA bridge (`tools/Tl.Blender`) exports this same JSON and bakes through the same CLI. The TLB1 container's full byte layout — for out-of-process parsers that never run the CLI — is specified in [docs/tlb1-layout.md](docs/tlb1-layout.md), with committed golden fixtures as the parser test corpus.
-
-Cold editor tooling can use [`Inspection.CopyLanes`](docs/inspection-lanes.md) to copy an already folded pair's decoded forward/backward raw words. It performs no fold or live execution and returns owned storage; the host synchronizes with load and disposal. This additive API is available from the issue #432 source revision and belongs to the next package version after 3.0.0.
-
-Host source generators that synthesize timeline consumers themselves use chained generation, `TimelineGeneration.Run(compilation, synthesized, consumers = null, id = "Hosted")`. A generator's added sources are invisible to every other generator in the same pass, so the host runs this pipeline over a compilation it has already augmented with `AddSyntaxTrees` and emits the returned artifacts under its own `AddSource`; artifact names carry `id` so they cannot collide with the package generator's own. `synthesized` must be exactly the syntax trees the host added — consumers in any other tree are authored and stay with the package pass, so the chained pass never registers them (naming one in `consumers` is TLGEN84). A filter entry matching no timeline consumer is TLGEN83; filters compare `global::`-qualified type names. Bakes whose consumer is synthesized ride along in the chained artifacts; bakes for authored consumers stay with the package pass. `id` must be a non-empty ASCII identifier fragment (TLGEN82) spliced into generated type and file names. A family whose hook the host synthesizes must implement the `Tl.IHostedConsumer` marker so the package pass leaves it to the host; without it the family is rejected as TLGEN66 instead of vanishing silently.
-
-### Type discovery
-
-`tlb --json --assembly bin/Release/net10.0/Showcase.dll` lists every authorable pair in the given assemblies — the authoritative answer to "what can this JSON name?", captured live from `samples/Showcase`:
+`tlb --json --assembly bin/Release/net10.0/Runner.dll` lists every authorable pair in the given assemblies — the authoritative answer to "what can this JSON name?":
 
 ```json
 {
   "schemaVersion": 1,
-  "assemblies": [
-    "Showcase"
-  ],
+  "assemblies": ["Runner"],
   "pairs": [
     {
-      "track": {
-        "namespace": "Showcase",
-        "name": "JumpTrack",
-        "assembly": "Showcase",
-        "size": 4,
-        "fields": [
-          {
-            "name": "Scale",
-            "type": "float"
-          }
-        ]
-      },
-      "clip": {
-        "namespace": "Showcase",
-        "name": "JumpClip",
-        "assembly": "Showcase",
-        "size": 4,
-        "fields": [
-          {
-            "name": "Velocity",
-            "type": "float"
-          }
-        ]
-      },
-      "blendable": true,
-      "unmanaged": true,
-      "trackPairings": [
-        "Showcase.JumpClip"
-      ],
-      "consumers": [
-        {
-          "name": "Showcase.MoveY",
-          "assembly": "Showcase",
-          "outputs": [
-            "float"
-          ]
-        }
-      ]
+      "track": { "namespace": "Game", "name": "ArcTrack", "assembly": "Runner" },
+      "clip": { "namespace": "Game", "name": "ArcClip", "assembly": "Runner" },
+      "consumers": [{ "name": "Game.Jump", "assembly": "Runner" }]
     }
   ]
 }
 ```
 
-- `schemaVersion` — output contract version; tooling pins it before reading anything else
-- `assemblies` — simple names of the assemblies the pairs were collected from
-- `pairs` — every `(track, clip)` combination the bake accepts, ordered by track then clip
-- `track` / `clip` — the authoring identity: `namespace` is what the JSON's `namespace` field spells, `name` is the `type`, `assembly` is the simple name `--assembly` takes; write the pair's `data` from `fields` (name and value type)
-- `size` — struct byte size; omitted for managed types, which never bake
-- `blendable` — the track implements `IBlend<this clip>`; only blendable pairs produce lanes
-- `unmanaged` — both structs are unmanaged; a `false` pair fails the bake
-- `trackPairings` — every clip type this track can blend (the full `IBlend<>` set)
-- `consumers` — discovered `ITrack<track, clip>` jobs and the effect columns they write: the live `ExecuteActive` ref columns plus the `Fold` results that fold into typed lanes (`outputs`)
-
-Each `pairs` entry maps onto one track and its clips: the track entry names `(track.namespace, track.name)`, each clip entry names `(clip.namespace, clip.name)`, and `data` sets exactly the listed `fields`. With `--auto` the namespaces can be left out entirely; use this listing to check spellings, pick among same-named types, and see which consumers fold into a pair.
-
 ## System
 
-The three structs in the run above are the whole game side — the clip payload, the track settings with its blend, and the consumer that writes one effect column. `ITrack<TTrack, TClip>` consumers are discovered compilation-wide — no registration, no catalog. `frame.Direction` is +1 forward and −1 backward, which is why rewind is exact. Loading is one call that returns the timeline's index — a dense `ushort` starting at 1 (index 0 is reserved and never published, so a zero-initialized id can never name live content); the first typed use folds the pair's measured tables once, every later call is a table read. Ownership is explicit (#461): `TimelineAsset.Load` is a borrowing content view that takes no reference, `TimelineAsset.Of(index)` acquires one, and its `Dispose` releases exactly that one — two views of one content are two `Of` calls with two disposes, and the content dies when the last acquisition releases. A long-lived host that wants a frozen consumer set calls `Timeline.SealConsumers()` after its modules initialized and before the first fold, playback, or dispatch: installs of consumers or bakes after the seal throw `InvalidOperationException` (a consumer install names the rejected consumer), pinning the registry against late assembly loads that would otherwise split one pair's fold semantics, and the seal itself compacts the registry so every pair's consumers sit in one contiguous canonically-sorted (assembly, consumer-name) array with dense column bases — its live buffers are bounded by the pair's own consumer count, not the registry — a quiescence point that must not race a chain walk; without the call the lazy module-initializer flow is unchanged and single-assembly order is already canonical. A seal is the static guarantee; the digest is the runtime one (#477): every bank view carries a 64-bit digest of the consumer set it folded against — FNV-1a over the pair's chain in fold order (identity bytes, dispatch-only marks, feed targets, chain length) — and the next first use of any of the pair's indices compares it and refolds the whole bank when the set moved, so one pair can never serve two consumer sets across its indices. The digest sees the consumer set, not pointer liveness: a host that unloads a collectible `AssemblyLoadContext` whose assemblies registered consumers must keep those assemblies alive for the process lifetime, matching the immutable-static-data rule. Dead content is not freed under a live reader: the last release parks the block in a graveyard side list — its bytes, including `Duration`, stay intact — and a block frees only after 4,096 further loads have passed since its death, or on the explicit `Drain` the test harnesses call at quiescence. The intern table never grows or moves: its 65,536 entry slots and id directory are one fixed arena allocated at process start (lazily-backed zero pages, ~4.25 MB reserved), so a warm reader — dispatch, live playback, sampling — resolves an index with volatile reads only, never the loader gate (#485); loaders validate bytes before they take the gate, and the graveyard grace model is the same reclamation proof it was when readers gated. A dead index is rest in every API family (#481): the motion word is the one motion source — death writes its dead marker with zero duration bits — so `Advance` leaves every clock a fixed point, fold `Apply` on an index the bank has covered adds nothing and writes each row's position back as its own next, dispatch-only and `ColumnSet` live `Apply` dispatch nothing, and checked position-domain checks accept a dead index at any position, so checked and release agree; a dead index no bank has ever covered keeps the located not-loaded throw — exactly like a never-loaded id — as do `View`, `TrySample`, `Bake`, and `Of` on dead indices. Movement and sampling never fold: `Timeline<TTrack, TClip>.Advance` and `TrySample` read the motion word and the baked asset directly, so a pair without consumers moves clocks and reads frames.
+The structs in the run above are the whole game side — the clip payload, the track settings with its blend, and the consumers that read entity columns plus shared context. `ITrack<TTrack, TClip>` consumers are discovered compilation-wide — no registration, no catalog. `frame.Direction` is +1 forward and −1 backward, which is why rewind is exact.
 
-Hooking a timeline into game state — marking entities, spawning effects, notifying systems — is the one-shot bake surface. A bake is a marker struct implementing `IBake<TConsumer>` with a static `Bake` method whose signature is the contract: any parameters, each by value, `in`, or `ref`, of any type (including `Span<T>`/`ReadOnlySpan<T>`); a parameter typed exactly `TConsumer` is bound to `default(TConsumer)` — consumers are static, so the parameter participates in the per-pair signature match — and every other parameter is host state you pass to `Timeline.Bake` — or to `Timeline.BakeRef` when the parameter is declared `ref`, whose final argument is the one writable slot (at most one `ref` parameter per bake, TLGEN88). The generator reads the declared signature, infers the forwarding dispatch, and registers each bake per `(track, clip)` pair in the same generated binding — "add whatever parameter you want and it source gens it for me":
+A **system** is a struct the gameplay programmer declares once. It lists entity columns plus shared context (spatial index, event writer). The generator connects each consumer to the system holding its parameters and writes the loop. A game has a handful of systems and any number of timelines and clip types:
 
 ```cs
-public readonly struct AttachJumping : IBake<MoveY>
+[TimelineSystem]
+public ref partial struct Movement
 {
-    public static void Bake(World world, int entity)
-        => world.MarkJumping(entity);
-}
-
-Timeline.Bake(jumpTimeline, world, 42);
-Timeline.Bake(jumpTimeline, world, 43);
-```
-
-`ref` parameters write through to the caller's variable, `in` parameters avoid copies, and a `Span<Entity>` parameter bakes a whole spawned wave in one call. Bakes are host-timed — attach and transition effects, never per-frame work — so managed state is legal at bake time. The dispatch is a cold pass over the asset's pairs; the warm path never sees a bake.
-
-Per frame, three caller-owned columns — timeline index, clock, effect — and two calls: `Timeline<Track, Clip>.Apply` folds every row's effect at its current clock and never writes the clock, then one `Timeline.Advance` advances every clock one frame. Finite timelines clamp, looping ones wrap, rows sharing a clock collapse into vector runs. Because `Apply` is read-only on the clock, several pair systems may consume the same column in one frame — `Advance` moves it exactly once, and a per-system `Advance` multiplies the frame. A single system that owns its clock column outright may fuse the pair into `Apply(ids, clocks, next, forward, fx)` — `next` may be the same array for in-place — one pass, same result as `Apply` + `Advance`. Rewind is `forward: false` and applies each tick's backward contribution in reverse order: integer and enum lanes return bit-exactly, and float lanes return bit-exactly whenever every partial sum is representable (the ±2.0 arc above). Arbitrary float contributions accumulate IEEE rounding in both directions — a lane of 0.1 and −0.333 steps measured 40 ticks out and back from 0 lands on −3.1e−07 — so hosts that need exact replay from arbitrary float data keep the effect in an integer or fixed-point lane, or snapshot the column (issue #439). There is no multi-frame skip parameter, ever: every system observes every tick, and sequential folds stay bit-exact (owner decision). Loop counts come from `FrameFlags.TimelineEnd` or the position column.
-
-```cs
-// shared clock column — safe to fan out to every pair system, advance once:
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, jumpFx);
-Timeline<HealTrack, HealClip>.Apply(ids, clocks, true, healFx);
-Timeline.Advance(ids, clocks, true);
-
-// or one owned column — fused, single pass:
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, clocks, true, jumpFx);
-```
-
-A whole crowd on one clock needs no clock column at all: the clock is one `ushort`, `Apply(index, clock, forward, fx)` folds the span in one broadcast pass — no per-row position read, no per-row clock write, no ids scan, effects bit-identical to the per-row path at the same clock value — and `Advance(index, ref clock, forward)` advances that one clock in O(1). A clock past the end of a finite timeline skips the whole span, exactly like the per-row law. At one million rows this is the shipped floor: 0.08 ns per character hot, 0.19 cold (the `shared-clock` row above).
-
-```cs
-// whole crowd on one clock — the clock is a scalar:
-Timeline<JumpTrack, JumpClip>.Apply(raid, clock, true, jumpFx);
-Timeline<HealTrack, HealClip>.Apply(raid, clock, true, healFx);
-Timeline<JumpTrack, JumpClip>.Advance(raid, ref clock, true);
-```
-
-Entities that never form a crowd — a sparse set scattered across the host's own storage — pay the per-call contract once per batch instead of once per entity: `Timeline<JumpTrack, JumpClip>.Apply(rows, ids, tick, true, jumpY)` folds the entities at `rows[i]`, reading each row's id, clock, and effect straight from the host's columns (`ids[rows[i]]`, `tick[rows[i]]`, `jumpY[rows[i]]`), and `Timeline<JumpTrack, JumpClip>.Advance(rows, ids, tick, true)` moves those clocks. The result is bit-identical to calling the per-entity overload once per row, with no scratch columns and 0 B allocated: the columns stay the host's own (any 2-byte index and position struct, any 4-byte effect struct), unbound ids resolve lazily inside the batch, and a checked build validates column coherence and row bounds once per call.
-
-```cs
-// sparse set of jumpers, scattered rows of the host's component columns:
-Timeline<JumpTrack, JumpClip>.Apply(jumperRows, jumperIds, jumperTicks, true, jumpY);
-Timeline<JumpTrack, JumpClip>.Advance(jumperRows, jumperIds, jumperTicks, true);
-```
-
-```cs
-for (var frame = 0; frame < 30; frame++)
-{
-    Timeline<JumpTrack, JumpClip>.Apply(jumpTimeline, tick, false, y);
-    Timeline.Advance(jumpTimeline, tick, false);
+    public Span<Motion> Motion;
+    public ReadOnlySpan<JumpPower> JumpPower;
+    public Span<Stats> Stats;
+    public ReadOnlySpan<InputState> Input;
+    public Requests Requests;
+    public Events<Cue> Cues;
 }
 ```
 
-More systems on the same pair just declare the marker again — no registration, no chaining. Every consumer of `(JumpTrack, JumpClip)` of the same kind runs inside the same one `Apply` call — the single-result Apply family plays Fold lane 0 and `ApplyChunk` plays typed lanes by result type, the `ColumnSet` Apply runs every live `ExecuteActive` — folding its contribution into the effect column after the consumers before it:
+`Span`/`ReadOnlySpan` fields are columns (one element per entity); anything else is context; all column and context types are unmanaged. One consumer belongs to exactly one system (all params covered); fitting two systems without `[TimelineSystemMember(typeof(S))]` is an error; fitting none warns and never runs. `Run` never moves ticks: any number of systems run per step, ticks move once in `Advance`.
+
+All consumer methods are static, optional, in any combination, found by name and shape:
+
+| Method | Called | Receives | Use |
+|---|---|---|---|
+| `Fold(in Frame, out R...)` | at load, every tick both directions; must be pure | frame only | authored-data numbers |
+| `ExecuteActive(...)` | every step, once per active step of this pair per playback | frame **or** leading fold results, then columns, then context | per-entity effects |
+| `ExecuteBatch(...)` | once per block of playbacks instead of `ExecuteActive` | gathered folds + column spans | hand SIMD |
+| `OnClipStart(in Frame, ...)` | first tick of clip either direction (`Direction` says which); mid-clip start gives `Synthetic` | frame, columns, context | one-shots, stat changes |
+| `OnClipEnd(in Frame, ...)` | last tick either direction; mid-clip stop/replace gives `Interrupted` | frame, columns, context | cleanup |
+| `OnMarker(in MarkerFrame, ...)` on `struct X : IMarker<T>` | at marker tick either direction | marker frame, columns, context | footsteps, spawns |
+
+Rewind is exact (tied to ticks): `ChangeStat` applies `+delta` forward and `-delta` back across the same tick. Binding: `ref/in T` column type = this entity's element; `ref/in T` context type = shared value; `ref Requests` = start/stop for this entity applied next request phase; `ref Events<T>` = raises with `EntityRef`+slot; fold results = leading `in R` in declaration order. Caps are unchanged: 10 folds, widths 1/2/4/8, 30 live columns per consumer, 40-slot row, same-type duplicate-column rejection.
+
+A **playback** is one timeline playing on an entity: `{Timeline, Tick}` plus channel and flags. `Tick` is the next tick to play forward. Storage is a native table behind a managed owner with inline slots per entity (slot order = start order, O(1) start/stop, removal keeps order). Operations: `Start(entity, id, at = 0)` (channel replace: active clips of replaced playbacks get `OnClipEnd`+`Interrupted`; `at > 0` gives `OnClipStart`+`Synthetic` next step), `Stop`/`StopChannel`/`StopAll` (actives get `Interrupted` ends), `IsPlaying`/`Find(channel)`. Games with per-skill loadouts declare `[TimelineSlotKeys] enum Skill { Jump, Slide, Hurt }` and swap each entity's slot table (key → `TimelineId`, see `slots` in `samples/Runner/Program.cs`) so a potion swaps the jump without touching entities.
+
+One whole step, both hosts:
 
 ```cs
-public readonly struct ScreenShake : ITrack<JumpTrack, JumpClip>
-{
-    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame, ref float shake)
-    {
-        if (frame.Has(FrameFlags.TimelineEnd))
-            shake += 1f;
-    }
+using var world = new TimelineWorld(File.ReadAllBytes("game.tlib"));
+var players = new PlaybackTable(entityCapacity: 4096, slotsPerEntity: 4);
+players.Start(0, Timelines.Run);
+void Step() {
+    world.ApplyRequests(players);
+    new Movement { Motion = motion, JumpPower = power, Stats = stats, Input = input, Requests = world.Requests(players), Cues = cues.Writer }.Run(world, players);
+    new Combat { Position = position, Heads = heads, Hits = hits.Writer }.Run(world, players);
+    world.Advance(players);
 }
 ```
 
-Consumers fold in consumer-name order (`MoveY` before `ScreenShake`) — ordinal, culture-independent, deterministic on every machine; rename a consumer to move it. Within one assembly that is the emitted order; across assemblies the full order is (assembly name, consumer name) once `Timeline.SealConsumers()` has run. Receipts: `TandemFirstJob` and `TandemSecondJob` in `tests/Tl.Alpha` both run from generated installs, and the fold order is pinned by `tests/Tl.Core.Tests`. Order across different pairs is the host's call order.
+Step order: 1. Requests (last step's, then host's). 2. Systems in game order. 3. `Advance` per playback (++/--, wrap if loop, `next` handover same slot+channel at tick 0 + `StartPending`, else `hold` → `Ended` else removal; `Paused`/`Ended` don't move). 4. Events drained in (entity, slot, raise) order. Determinism: no hash-ordered containers; every tick played exactly once per step, no skipping; float order fixed by consumer order (entities row order; per entity slots in slot order; per playback steps in authored track order, reversed backward; per step consumers in ordinal consumer-name order, reversed backward; event methods after `ExecuteActive` of the same playback+tick).
 
-### The two consumer methods
-
-A consumer declares one or both of two static methods, and the method name carries the lane contract:
-
-`Fold(in Frame<TTrack, TClip> frame, out T0 r0, out T1 r1, ...)` runs once per tick, forward and backward, at the pair's first typed use — the fold, `duration × 2` invocations — and each `out` result freezes into its own per-tick, per-direction native table. The contract is the measured consumer's, by name now:
-
-- **Pure**: a function of the frame (`frame.Clip`, `frame.Track`, `frame.TimelineTick`, `frame.Flags`) — no side effects, no live state reads; live state read at fold freezes at fold time.
-- **Unmanaged results only, at most 10 of at most 8 bytes each** (TLGEN79): `bool`, `byte`, `short`, `int`, `long`, `float`, `double`, `char`, and enums — one lane per result, with 8-byte results folding into an adjacent 4-byte lane pair. `string` and other managed types are illegal as memo outputs (TLGEN76/79) — rich labels resolve to codes in the memo and map to text host-side or in `ExecuteActive`.
-- **Write-only results**: every probe starts from `0f` — accumulate, never read the incoming value. `out` results get private lanes in declaration order; `ref` results join the shared accumulate pool by type.
-- Direction comes from `frame.Direction` (`+1` forward, `−1` backward); the backward tables are measured too, so a sign-blind memo makes rewind wrong rather than absent.
-- Side effects fire `duration × 2` times at fold and never during playback; changed data means a new `Load` — a folded `(asset, pair)` never re-folds.
-
-Fold-only consumers play through the measured Apply family — `Apply(ids, clocks, forward, fx)` for one result, `ApplyChunk(ids, clocks, forward, fx0, fx1)` for several typed results — with zero per-frame consumer cost after the fold.
-
-`ExecuteActive` runs per frame per row, live, in three shapes:
-
-- `ExecuteActive(in Frame<TTrack, TClip> frame)` — pure dispatch: audio cues, markers, logging. The effects-less `Apply(ids, positions, forward)` executes it in row order.
-- `ExecuteActive(in Frame<TTrack, TClip> frame, ref T fx, in T a, in T b, ...)` — **live columns**: the feeding call binds the columns by type through a caller-assembled `ColumnSet` — `Apply(ids, clocks, forward, in set)` with `set.Add<T>(span)` per column — and the runtime executes the consumer once per row per frame at the row's current tick, `ref` read-write, `in` read-only.
-- `ExecuteActive(in T0 r0, in T1 r1, ..., ref T fx, in T a, ...)` — **compose**: the leading `in` parameters are the Fold results, fed positionally (type-checked at generation) from their frozen tables at the row's current position — direction-correct — while the `ref`/`in` columns come from the same Apply call. Precompute the pure math once, compose with live inputs per row.
-
-Legacy `ExecuteActive(in Frame<TTrack, TClip> frame, ref float y)` keeps working as sugar for a single-result `Fold` — same fold, same frozen table, same measured Apply — and `Fold` is the canonical spelling in new code. The consumer ABI reserves 40 pointer slots per registered consumer, and live `ExecuteActive` columns — memo feeds, `ref` columns, `in` columns — total at most 30 per consumer (TLGEN68). A required column that is not passed is a loud located throw naming the pair, consumer, and parameter — `Timeline<JumpTrack, JumpClip> consumer 'MoveY' ExecuteActive requires a column of type int (multiplier); none was passed.` — at first play of a column-carrying Apply. The plain float-column Apply family drives only the Fold lanes and never dispatches live consumers, so a pair with a live `ExecuteActive` must also be driven by its column-carrying overload; a pair with no Fold lane at all, or whose first lane holds an integer, enum, `double`, or other non-float result (the generator marks integer-arithmetic Fold results in the consumer's key metadata), throws a located `ArgumentException` at first float play instead of silently adding nothing or misreading bits, and the generic `Apply<TIndex, TPosition, TEffect>` with an `int`, `uint`, or enum effect reads the matching typed lane with integer arithmetic exactly like `ApplyChunk` (issue #439). Live `ExecuteActive` columns bind through a caller-assembled `ColumnSet` — `Add<T>(span)` per column, cold assembly, resolved by `TypeKey` at first play while the warm read stays the direct pointer row — so distinct `in`/`ref` column types compose freely up to the 30-column bound. Same-type duplicates are TLGEN81 (TypeKey binding cannot distinguish two columns of one type), and a partially fed pair names the column actually left unfed.
-
-The owner's jump case, first-class — the pure arc folds once, the per-jumper power composes live every frame:
-
-```cs
-public readonly struct JumpMove : ITrack<JumpTrack, JumpClip>
-{
-    // fold: the pure arc, frozen per tick and direction
-    public static void Fold(in Frame<JumpTrack, JumpClip> frame, out float arc)
-        => arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-
-    // per frame per row: arc arrives from the frozen table, multiplier is live host state
-    public static void ExecuteActive(in float arc, ref float y, in int multiplier)
-        => y += arc * multiplier;
-}
-
-var y = new float[crowd];
-var power = new int[crowd];   // per-jumper, changes whenever gameplay says so
-var player = new ColumnSet();
-player.Add(y);
-player.Add(power);
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, in player);
-```
-
-Rewind replays the backward tables: `forward: false` feeds the same `in` values from the backward tables (bit-exact under the representability rule in [System](#system)), and changing `power` between frames changes the applied effect — the input column is read fresh every call. Rule of thumb: **Fold carries the number — a pure per-tick contribution, frozen and shared by every row; ExecuteActive carries the effect on the world — live, per row, composed against the frozen number.**
-
-Fold takes up to 10 results of any legal width, and every one of them composes into ExecuteActive beside the live player columns — four results of four widths here, `ref JumpY` and `in JumpPower` live on the same consumer:
-
-```cs
-public readonly struct JumpWideMove : ITrack<JumpTrack, JumpClip>
-{
-    // fold: four frozen results, one direction-correct table each (byte/short/int/float)
-    public static void Fold(in Frame<JumpTrack, JumpClip> frame, out float arc, out int kind, out short phase, out byte style)
-    {
-        arc = frame.Direction * frame.Clip.Height * frame.Track.Scale;
-        kind = frame.Clip.Height;
-        phase = (short)(frame.Clip.Height / 2);
-        style = (byte)(frame.Clip.Height % 7 + 1);
-    }
-
-    // per frame per row: the four feeds arrive from their tables at the row's position,
-    // direction-correct, beside the live player columns
-    public static void ExecuteActive(in float arc, in int kind, in short phase, in byte style, ref JumpY y, in JumpPower power)
-        => y.Value += arc * power.Lift + kind + phase + style;
-}
-
-var y = new JumpY[crowd];
-var power = new JumpPower[crowd];
-var player = new ColumnSet();
-player.Add(y);
-player.Add(power);
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, in player);
-```
-
-Results of 8 bytes (`long`, `ulong`, `double`, wide enums) fold the same way — the lane is an adjacent pair, the read reassembles the exact bits, and `double` is added with IEEE semantics in both directions. Distinct gameplay column types compose through the same `ColumnSet`, assembled once per system run and reused across calls. The set holds GC-tracked references to its columns and pins them only for the duration of each `Apply`, so a compacting collection between assembly and play — or one triggered inside a consumer — never strands a write (issue #437); a `stackalloc` column therefore needs a `scoped ColumnSet`, which the compiler enforces:
-
-```cs
-var caller = new ColumnSet();
-caller.Add(power);
-caller.Add(wind);
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, forward, caller);
-```
-
-```cs
-public readonly struct JumpAudio : ITrack<JumpTrack, JumpClip>
-{
-    // dispatch: live per row — the clip boundary cue fires when a row crosses it
-    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame)
-    {
-        if (frame.Has(FrameFlags.ClipStart)) Audio.Cue(frame.Clip.Sound);
-    }
-}
-```
-
-Variation is authored, measured, or composed: short and tall jumps are separate assets that each fold their own table, continuous scaling folds a unit asset and multiplies through a live column or host-side after `Apply`, and live modifiers — wind, bounce, authority — are one live `in` column away from a folded arc.
-
-Host wiring is declared, not registered — implement `IBake<TConsumer>` with the `Bake` signature you want and one type-agnostic call attaches your markers at load time:
-
-```cs
-public readonly struct AttachJumping : IBake<MoveY>
-{
-    public static void Bake(World world, int entity)
-    {
-        world.MarkJumping(entity);
-    }
-}
-
-var world = new World();
-Timeline.Bake(jumpTimeline, world, 42); Timeline.Bake(jumpTimeline, world, 43);
-```
-
-`Timeline.Bake(id, args...)` walks the timeline's pairs and runs every bake whose declared parameter types all appear among the argument types — exact type match, and repeated types bind positionally: each parameter consumes the next not-yet-bound argument of its type, so two `Entity` parameters receive the first and second `Entity` arguments rather than the same one twice. Declaration order does not matter, parameterless bakes run on every call, a missing type keeps the bake silent. Every bake registered to one `(track, clip)` pair must declare an identical parameter list (TLGEN74 names both signatures otherwise); bakes on different pairs of the same asset may differ and still dispatch in one call. A parameter the bake mutates by `ref` binds only through `Timeline.BakeRef(id, args..., ref last)` — the final writable slot carries the declared ref key, so the write lands in your variable exactly like any `ref` API, while a plain `Timeline.Bake` call keeps that bake silent instead of writing through an `in` slot into a compiler temporary or a readonly copy. A bake may declare at most one `ref` parameter (TLGEN88 names it otherwise); the host overloads take at most four state arguments per call (TLGEN87). Discovered, signature-checked, and validated at build time (TLGEN70-74), installed into an unmanaged table, warm path untouched. A timeline that lacks the pair is a loud located diagnostic at first typed use — host wiring error, never designer data. Reading without advancing: `Timeline.Query<TTrack, TClip>(in TimelineComponent)` is a read-only stage view that never moves the clock.
-
-The proofs owed before the bake dispatch turns caller storage into raw pointers:
-
-- **Lifetime** — every host overload takes each state argument `in T` (or `ref T`), so the argument slots alias caller-owned storage that structurally outlives the synchronous `Bake` call: the pinned slot row lives in `Dispatch`'s frame, the per-bake invoke buffer is a `stackalloc` beneath it, nothing escapes the call, and the generated thunks dereference slots only inside it. A parameter typed as the consumer is `default` and consumes no argument slot, so the registration's parameter count bounds every slot access against the host's four-entry buffer.
-- **Writable slots** — a `ref`-declared state parameter installs under its type key tagged with the top bit, and only `Timeline.BakeRef`'s final argument presents that tagged key, so a generated thunk reaches a `ref` parameter exclusively through a slot the caller explicitly granted write access to; a plain `Timeline.Bake` presentation cannot satisfy it, and a value or `in` parameter cannot bind the writable slot in return (issue #480). At most one `ref` parameter is accepted per bake because the host exposes exactly one writable slot per call (TLGEN88).
-- **Aliasing** — every host overload hands its arguments to `Dispatch` as GC-tracked `ref`s, and `Dispatch` pins all four with `fixed` for the whole call before deriving the raw `nint` slots the generated thunks read, so an argument living inside a heap object (a class field, an array element) stays put even when an earlier bake allocates and compacts the heap; pinning a stack lvalue is free, and an interior pin holds its object only for the one cold call (issue #443). The boxed dispatch of earlier alphas had no such slots.
-- **Alignment** — there is no packing anywhere in the path: rehydrated addresses are the caller's own `T` lvalues, pinned in place rather than copied (naturally aligned, including `Span<T>` at pointer width), so `Unsafe.AsRef<T>` never sees misaligned storage.
-- **Concurrency** — the unmanaged table is installed only from the generated module initializer under its gate. `Install` publishes each entry's key with release semantics before the entry is linked; entries and their `ParamKeys` are immutable once linked; `Dispatch` only reads. Bake links follow the same rule: `Install` publishes the chain `Head` and `Next` links with release stores, `HeadOf` acquires the head, re-checks the slot key after a rehash, and hops to the body through the acquired index. No reader-visible byte is written after publication, and the process-lifetime `ParamKeys` allocation lives exactly as long as the table itself.
-
-Package consumers: pack the local repos first (`dotnet pack src/Tl.Core src/Tl.Gen.CSharp src/Tl.CSharp -c Release -o artifacts/packages`) and restore against that folder with an isolated `NUGET_PACKAGES` — otherwise the stale nuget.org package wins the cache and the build fails with misleading TLGEN66 `ExecuteActive` errors.
-
-## Bank blocks and stable views
-
-Every pair bank — the per-`(Track, Clip)` storage behind `Timeline<Track, Clip>` — allocates one immutable block per bound timeline index: an 80-byte `SlotView` header followed by the segmented encoding — per-lane direction directories (one `uint` per 64-tick bucket), the 16-byte run pool, the dense pool, flat tables for directions that escaped segmentation (`TableTicks` below 2049, or an encoding wider than the flat tables), and 8-byte lane keys, then the feed lane map (a 4-byte owned-result count and one 4-byte lane index per owned result, frozen into the view at fold time so live playback reads its own block, never registry words — #474), closed by a 32-byte zeroed guard — 64-aligned — so the register-table permute kernels, which load the first 32 bytes of a table whole for durations of at most 8, can never read past the block (#469). Movement records and the backward-by-position table are derived at read time (`backward[p == 0 ? duration - 1 : p - 1]`, arithmetic next positions), never stored (#405). Blocks never move for the bank's lifetime; the id directory, motion words, per-id table row (a forward and a backward table pointer, 16 B per id, read by the AVX2 mixed tier — issue #441), and absent markers grow by doubling and retire superseded arrays onto a retired chain that is freed only when the bank is disposed. Nothing duplicates clip or track values per consumer, per entity, or per index: the bank dedupes on the encoding — each bind hashes `(duration, looping, lane count, encoded runs, dense bytes, flat bytes, lane keys)` and shares an existing block when a decoded value-by-value comparison confirms the hash, which every content-identical asset is — and per-entity state stays `(index id, position)` columns.
-
-Hosts and other language runtimes acquire a view — an 80-byte `SlotView` copy — and may keep it for the bank's lifetime:
-
-| field | offset | meaning |
-| --- | ---: | --- |
-| `Directory`, `Segments`, `Dense` | 0 / 8 / 16 | segmented encoding: 4 B directory bucket per 64 ticks per lane direction (bit 31 set = forward scan), 16 B runs (`Start`, `End` inclusive, `Kind` constant/ramp/dense, `V0`/`V1`), dense float pool |
-| `Forward`, `Backward` | 24 / 32 | flat effect tables for escaped directions, `TableTicks` IEEE-754 binary32 elements each; null when that direction is segmented |
-| `LaneKeys` | 40 | 8 B per lane |
-| `Duration`, `Looping`, `Absent` | 48 / 50 / 52 | baked duration in ticks, wrap flag, bound-but-pair-less marker |
-| `TableTicks` | 56 | element count of each table (`max(1, duration) + 1`) |
-| `ResultCount`, `AbiVersion` | 60 / 62 | lane count; `4` — consumers reject unknown versions, a layout change is a new version, never silent drift |
-| `Generation` | 64 | bank publication counter at bake time, diagnostics only |
-| `ConsumerDigest` | 72 | digest of the pair's consumer set at fold time; a mismatch at first use refolds the bank (#477) |
-
-`Timeline<JumpTrack, JumpClip>.View(jumpTimeline)` returns the copy. Acquisition folds exactly the requested index — a pending hole below is never swept, folded, or marked by another index's first use, so first-use cost never grows with dead holes and a concurrent release of an unrelated index cannot fail this call; an index marked absent returns `Absent = 1` with null table pointers and `TableTicks = 0`; a dead or never-bound index throws `ArgumentException`. The copy is byte-compatible with the runtime's internal slot layout, so the playback kernels and a host mirror read the same offsets. Movement output columns mark a row with no next position using `SlotView.Skipped` (`0xFFFF`); next positions are derived arithmetic, never stored per tick. The bank holds 65,536 dense ids per pair, 0-based with no sentinel; the 65,537th add throws `InvalidOperationException`.
-
-### Playback misuse contract
-
-The playback path (`Apply`, `Advance`, `View`, the typed lanes) carries no managed diagnostics for O(n) properties in shipped bits: valid inputs throw nothing, and the warm path allocates 0 B. Two guard families split by cost. The O(1) column-length equality checks on every public `Apply`/`Advance` entry point are unconditional — a wrong-length effects or `next` column fails fast with a located `ArgumentException` in every configuration, because the alternative is a vector kernel storing through pointers into neighbouring memory (#461). The O(n) position-domain (`position` beyond the asset's `Duration`), overlap, and disposed-state checks stay compiled only into checked builds — every build where the `TL_CHECKED` define is present (Debug by default, or `dotnet build -p:TlChecked=true`); the C# `[Conditional]` mechanism removes the call and its argument evaluation from the shipped Release assembly, so those guards cost zero instructions there, and an IL scan still proves the shipped assembly contains zero call sites into the conditional guard class. In a checked build misuse fails fast with a located `ArgumentException` or `ObjectDisposedException`. In the shipped Release package a domain or overlap misuse remains undefined behaviour, not a guaranteed fault. Authoring and bind time keep located diagnostics regardless of configuration (invalid definitions, wrong pair, unbound ids, foreign `MeasuredLanes`, over-capacity adds, baked layout skew). Consume the checked configuration while developing; CI runs a checked lane beside the shipped one.
-
-The proofs owed before a pointer leaves the runtime:
-
-- **Publication** — a block becomes visible only after its tables are baked and its header written; the directory entry is the publication point, written with release semantics under a bank gate that also serializes bind, absent-marking, and dispose (closing the concurrent-bind race). Readers are lock-free: published blocks are immutable, a stale directory snapshot keeps reading a retired array whose every entry is untouched — the retired chain is linked in each array's private tail pad, outside reader-visible bytes — and a read that misses a just-published index falls back to resolve, which re-checks under the gate. Allocation precedes every counter commit, so a failed allocation leaves the bank untouched.
-- **Ownership** — the bank owns all blocks, directories, retired arrays, and the content-dedupe table; views and every captured pointer borrow. Disposing the bank invalidates every view and pointer with no callback or keepalive; use after dispose is a usage error with the same standing as every other raw-pointer borrow in the runtime.
-- **Identity** — a slot's identity is `(pair key, dense ushort index)`; index to content is fixed at first fold, a re-bake is a new index, and there is no silent rebind: binding a folded index returns it unchanged, and content-identical binds share the same block. An index whose asset is later disposed keeps its bank blocks — the bank copies at bind and the asset is refcounted independently — but its view is parked at a shared rest view (duration 0, a zero table guarded by one leading pad word) at the next playback call, so playback rests instead of re-adding the frozen tick, and a revival of the same content clears the rest view and rebinds on first use. Identity inherits the intern table's 128-bit collision tolerance.
-- **Safe reclamation** — immovability is the reclamation proof: per-index blocks, the live arrays, retired directories, motion words, and dedupe-table arrays are all freed in `Dispose` — nothing bank-attributable stays allocated after it — so there is no late reclamation, no graveyard, and no epoch a consumer must track.
-
-Host guidance for Unity/Burst and C consumers: resolve at load and capture `SlotView`s per index into component or chunk metadata — never resolve or bounds-check inside a hot loop. Run a pair system over a whole chunk back-to-back while it is cache-resident (the interleaved 56 MB working set measured 0.36–0.39 ns/row DRAM-bound against 0.22 hot), parallelise across chunks in the host (8 P-cores each holding an L2-resident slice), and prefer per-index calls for grouped archetypes. The runtime ships one deterministic single-thread fold and takes no lock on the warm path — warm index resolution is a volatile read over the fixed intern arena, so concurrent loads cannot stall dispatch (#485: 0.10x-throughput collapse on main, 0.87-0.96x noise after). What cannot be promised stays unpromised: staggered per-row clocks at 1M rows floor at ~0.14–0.17 ns/row single-core (gather-bound), and DRAM-cold frames at ~0.30 (bandwidth-bound), on the reference host. Warm kernels dispatch once per segment across register-table permute (durations at most 8 ticks), vector gather over the flat or segmented tables, and run-coalescing scalar tiers (#244, #405); movement is derived arithmetic, never a stored record. The AVX2 mixed tier (issue #441) gathers through raw addresses under the same proofs: **lifetime** — the caller's id, position, next, and effect columns are pinned with `fixed` for exactly one `MixedRows` call and no address outlives it, while the gathered per-id table row (`_tables`, a forward and a backward pointer per id, grown and retired exactly like the motion words) and the immovable tables it points into live until `Dispose`; **aliasing** — each 8-row block loads its positions before storing its next column, so in-place `next == positions` is safe, and effects are read and written only at the block's own rows; **alignment** — gathers read naturally aligned 8-byte table pointers and 4-byte motion and table words, and column loads are unaligned vector loads; a backward probe at position 0 first reads the element before the backward table, which is always inside the same block because the 80-byte header precedes every table, and that lane is then re-gathered at `duration - 1` before use; **concurrency** — the tier reads only ids below the chunk's `_count` snapshot whose table row and motion word are written before the view's release publication, and never writes bank memory. Adopting the view is additive: existing `Apply`/`Advance` code is unchanged, and `SlotView` is plain data with no managed object, function pointer, or serialization story — process-local native memory, never valid across processes or an endianness boundary.
-
-### Prepare and Play
-
-ColumnSet playback splits into a cold and a warm half (#490). `Timeline<Track, Clip>.Prepare(ids, in columns)` walks the id column once: it binds the ColumnSet shape's live plan (#486), freezes one run entry per maximal run of equal ids — the timeline's block pointer, its stage pair index, the memo lanes over its folded view — snapshots the pair's dispatch consumer list, resolves the caller's column pointers, and returns a `BankState { byte* Block; int Runs; long Misses; }`: one native block, one owner. `Play(in state, clocks, forward)` replays that state over any clock column: per row it selects the window, refreshes memo cells from the frozen lanes, and executes the snapshot consumer list in registry order (reversed for backward play) through the frozen column pointers — total, lock-free, 0 B, no throws, no managed reads, and no registry access, so Burst and NativeAOT hosts call the halves directly or port the block walk. `Release(ref state)` frees the block. Every ColumnSet `Apply` is exactly `Prepare \u2218 Play \u2218 Release` over the same machinery, so the split surface and the convenience surface cannot drift.
-
-The state is a snapshot: consumer installs after `Prepare` are invisible to `Play` until the next `Prepare`, and playback never reads registry words. An id that is dead, never loaded, or a live asset of a different pair is L3 identity — no window, no effect write, clock untouched — and its rows are counted once in `Misses` (owner decision 3, #490). Diagnostics stay in `Prepare`: located throws for a loaded id that lacks the pair's consumers or a baked layout skew, exactly where the fused path threw at its first non-rest id. The state borrows the caller's column buffers for its lifetime: keep them fixed — unmanaged memory, or managed arrays pinned for the state's lifetime; the convenience `Apply` pins internally for its single call, and per-frame managed buffers re-`Prepare` each frame instead of holding a state.
+Game owns column arrays plus result systems (integrate motion, apply damage, present cues). Tl requires none of that.
 
 ## Generated reports
 
@@ -511,150 +242,64 @@ The state is a snapshot: consumer installs after `Prepare` are invisible to `Pla
 dotnet msbuild -t:TlGenExport -p:Configuration=Release   # content-stable .g.cs snapshot + manifest
 ```
 
+Checked-in systems snapshots are byte-exact emission goldens. Regenerate them
+only with the commands below and check in the result; the matching tests fail
+on any drift:
+
+- `samples/Runner/Generated/TlSystemsRunner.g.cs` — regenerate via
+  `Tl.Systems.Tests` `RunnerSnapshotTests` with `TL_UPDATE_SNAPSHOT=1`
+  (emits the `Game.Logic` toolbox with id `Runner`; the Runner sample and
+  `LoaderRunTests` consume it).
+- `benchmarks/Systems/Generated/TlSystemsBench.g.cs` — regenerate via
+  `Tl.Systems.Tests` `BenchGenTests` with `TL_UPDATE_BENCH=1`
+  (emits the bench domain with id `Bench`; the Systems benchmarks consume it).
+- `tests/Tl.Systems.Tests/LoaderLibrary/game.tlib` — rebake with
+  `tlb library tests/Tl.Systems.Tests/LoaderLibrary --assembly <Tl.Systems.Tests.dll> --out game.tlib`
+  (the `LoaderRunTests` loader-built proof consumes it; ids are positional).
+
 ## Numbers
 
-<!-- tl-numbers: generated by eng/refresh-numbers from benchmarks/Numbers/results/numbers.json; edit the renderer, not this block -->
-One million characters, one frame per call (i9-14900K, .NET 10, Release; best of 5 × 3 rounds after a per-scenario steady-state warm-up (at least 0.5 s and until the best frame is flat across three rounds); hot = consecutive frames with the crowd cache-resident, cold = the 9 crowds interleaved, re-read from memory each frame; every shape bit-exact forward and backward, 0 B warm):
+<!-- tl-numbers: generated by eng/refresh-numbers from benchmarks/Systems/results/numbers.json; edit the renderer, not this block -->
+4.0 systems, one step per call (i9-14900K, 32 cores, .NET 10.0.12, Release; best of 5 in-process runs after per-shape steady-state warm-up (at least 0.5 s and until the best frame is flat across three rounds); hot = consecutive frames with the working set cache-resident, cold = interleaved shapes streaming from DRAM; every shape bit-exact forward and backward, 0 B allocated:
 
-| scenario | hot ms/frame | hot ns/character | cold ms/frame | cold ns/character |
-| --- | ---: | ---: | ---: | ---: |
-| whole crowd on one timeline (a raid jumping in sync) | 0.18 | 0.18 | 0.36 | 0.36 |
-| crowd on one clock: shared-clock Apply + scalar Advance | 0.08 | 0.08 | 0.17 | 0.17 |
-| 100 timelines, crowds of 10,000 each (per-ability groups) | 0.25 | 0.25 | 0.42 | 0.42 |
-| one looping timeline, every character on its own clock | 0.21 | 0.21 | 0.33 | 0.33 |
-| one-shot finite timeline, staggered clocks | 0.10 | 0.10 | 0.20 | 0.20 |
-| hand-written scalar loop (`effects[i] += 1f`) | 0.18 | 0.18 | 0.27 | 0.27 |
-| hand-written SIMD loop (`Vector<float>` add, scalar tail) | 0.08 | 0.08 | 0.17 | 0.17 |
-| small squads: 16 timelines × 16 characters | 0.54 | 0.54 | 0.60 | 0.60 |
-| worst case: unsorted rows, a different timeline each | 0.70 | 0.70 | 0.77 | 0.77 |
+| shape | hot ns/entity | cold ns/entity | warm alloc B |
+| --- | ---: | ---: | ---: |
+| folded lane through a generated system | 9.42 | 9.46 | 0 |
+| folded lane rewound through the same system | 9.45 | 9.50 | 0 |
+| fold-fed compose through a generated system | 10.86 | 10.79 | 0 |
+| frame-consumer dispatch through a generated system | 10.58 | 10.57 | 0 |
+| four pairs through one generated system | 21.84 | 22.03 | 0 |
+| one playback per entity (2-playback reference) | 8.88 | 8.94 | 0 |
+| two playbacks per entity | 17.26 | 17.21 | 0 |
+| 64 consumers, 2 active per tick | 372.47 | 372.19 | 0 |
 
-A single-timeline crowd floors at 0.08 ns per character hot and 0.17 cold — the hot column is the steady state with the crowd cache-resident, the cold column is the same frame with the 9 crowds interleaved so the working set streams from DRAM. The hand-written SIMD row is the traffic floor of this machine (0.08 hot, 0.17 cold); the shared-clock crowd sits on it and the per-row-clock crowds carry 4 more bytes per character. Grouping rows by timeline keeps every crowd on the fast rows (ECS archetypes cluster identical rows for free). Authoring a full game's data — 19.3 MB of JSON — bakes in 57 ms and loads in 1.6 ms. Memory: 8 B per character of host columns, `8 * (duration + 1)` bytes of flat tables per timeline or a segmented run encoding below that (80-byte header; movement records and backward-by-position derived, never stored), 0 B allocated per frame at any crowd size.
+Two playbacks per entity cost 1.94x one playback on the same run. Committed 3.x LiveBatch baselines (per-entity medians from a different harness and row count) ship in the receipt for reference; the 4.10 gates (folded ≤1.03x, fold-fed ≤0.15x, frame ≤0.25x, four-pair ≤0.70x, 64-consumer ≤1.5x, 2-playback ≤2.2x) are decided by same-harness BenchmarkDotNet runs on the release machine, not by the ratios above. Warm allocation is 0 B on every shape and determinism is verified by identical state hashes across two full runs.
 <!-- /tl-numbers -->
 
-### The code that gets each row
+The table is rendered from [benchmarks/Systems](benchmarks/Systems) receipts — every shape bit-exact forward and backward with 0 B warm — and CI fails if the receipt and this section disagree. Re-measure on the release machine with `eng/refresh-numbers`, which rebuilds the harness, re-runs every shape, and re-renders this block from the fingerprinted receipt. The 4.10 gates (folded ≤1.03x, fold-fed ≤0.15x, frame ≤0.25x, four-pair ≤0.70x, 64-consumer ≤1.5x, 2-playback ≤2.2x, 0 B warm, parity) run against these rows plus the committed 3.x baselines; ratios below are indicative until a same-harness release-machine run records the verdicts.
 
-Every number in the table is one frame of playback over the same million rows. The call shapes below are written against the quick-start raid for readability; the receipt harness ([benchmarks/Numbers/Domain.cs](benchmarks/Numbers/Domain.cs)) runs exactly these shapes on longer data — a looping 1024-tick `gold` lane (Amount 1.25 until tick 600, then −0.5, Scale 2), a finite copy of it for row 5, and 100 variants (Scale 1 + 0.25k, split at tick 300 + 7k) for the multi-timeline rows — with clocks seeded `i % 1024` where the rows below write `i % 30` (`i % 512` for the finite row), and each per-row-clock frame is the fused `Apply(ids, clocks, clocks, forward, fx)`, one pass equal to `Apply` + `Advance` (row 2 times its shared-clock `Apply` + scalar `Advance`, rows 6–7 their hand-written loops). The readable setup, baked once:
+## Migrating 3.x → 4.0
 
-```cs
-public readonly record struct JumpClip(float Velocity);
+4.0.0 ships one blessed playback path with no compatibility shims. Rename or remove directly; rebake every asset (`next`, `hold`, `channel`, and marker data have no 3.x spelling).
 
-public readonly record struct JumpTrack(float Scale) : IBlend<JumpClip>
-{
-    public void Blend(in JumpClip first, in JumpClip second, float factor, out JumpClip result)
-        => result = new JumpClip(first.Velocity + (second.Velocity - first.Velocity) * factor);
-}
+| 3.x | 4.0 |
+|---|---|
+| `TimelineAsset.Load/Of/Dispose`, `ushort` index, `TimelineComponent` | `new TimelineWorld(library)`, `TimelineId` consts, `Reload` |
+| `Timeline<TTrack,TClip>.Apply` overloads, `ApplyChunk`, generic `Apply<TIndex,...>`, row-list and shared-clock overloads | `system.Run(world, players)` |
+| `Timeline.Advance`, `Timeline<TTrack,TClip>.Advance` overloads | `world.Advance(players)` |
+| `ColumnSet` caller-assembled columns | `[TimelineSystem]` struct fields |
+| `Prepare`/`Play`/`Release`/`BankState` | removed (systems own the plan) |
+| `IBake<T>`, `Timeline.Bake`/`BakeRef` | removed; host code plus systems cover it |
+| `Timeline.SealConsumers` | removed; registry immutable after install |
+| `PairRuntime` function-pointer registration | `ITlModule` (generator ABI v2) |
+| `Frame<,>` ref struct holding refs | `Frame<,>` readonly struct holding values |
+| `FrameFlags : byte` | `FrameFlags : ushort` + `Synthetic`/`Interrupted` |
+| `TTrack : IBlend<TClip>` required | every track implements `IBlend<TClip>` (blend runs only where clips overlap) |
+| `ITimelineLane<T>`, `Timeline<T>` lane facade | removed (kernels internal) |
+| `Timeline.Query`, `FrameQuery`, `TickFrame` | removed (bake-time inspection via `TlbInspection`/`SystemReader`; runtime reads `LibraryView`) |
+| `TimelineState`/`TimelineMovement`, `SlotView`/`LaneSegment` | internal / `LibraryView` ABI v1 |
+| `TrySample`/`SampleClip`/`View` | removed (`Inspection` keeps `Tables` snapshots for bake diagnostics) |
 
-public readonly struct MoveY : ITrack<JumpTrack, JumpClip>
-{
-    public static void ExecuteActive(in Frame<JumpTrack, JumpClip> frame, ref float y)
-        => y += frame.Direction * frame.Clip.Velocity * frame.Track.Scale;
-}
-```
-
-```json
-{
-  "duration": 30, "loop": true,
-  "tracks": [
-    { "type": "JumpTrack", "data": { "Scale": 1.0 },
-      "clips": [ { "type": "JumpClip", "start": 0, "end": 15, "data": { "Velocity": 2.0 } },
-                 { "type": "JumpClip", "start": 15, "end": 30, "data": { "Velocity": -2.0 } } ] }
-  ]
-}
-```
-
-```sh
-tlb raid.json raid.tlb --auto
-```
-
-```cs
-ushort arc = TimelineAsset.Load(File.ReadAllBytes("raid.tlb"));   // the arc's dense baked index
-var ids = new ushort[1_000_000];
-var clocks = new ushort[1_000_000];
-var y = new float[1_000_000];                                    // one jump height per character
-```
-
-**Row 1 — whole crowd on one timeline (a raid jumping in sync): 0.18 ns/character hot, 0.36 cold.** A million goblins, every row on the arc and every clock cell on tick 5 — one timeline, one clock value, a clock column that still exists per row:
-
-```cs
-for (int i = 0; i < ids.Length; i++) { ids[i] = arc; clocks[i] = 5; }
-
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame, both calls: 0.18 ms hot · 0.36 cold (9 crowds interleaved)
-```
-
-**Row 2 — crowd on one clock: shared-clock Apply + scalar Advance: 0.08 hot, 0.17 cold.** The same raid, but the clock column disappears — the crowd shares one scalar clock and folds in one broadcast pass:
-
-```cs
-ushort clock = 5;                                // every goblin on tick 5 together, mid-rise
-
-Timeline<JumpTrack, JumpClip>.Apply(arc, clock, true, y);        // 0.08 ms per frame hot — this machine's floor
-Timeline<JumpTrack, JumpClip>.Advance(arc, ref clock, true);     // one tick, O(1)
-```
-
-**Row 3 — 100 timelines, crowds of 10,000 each (per-ability groups): 0.25 hot, 0.42 cold.** One hundred abilities, each with its own baked copy of the arc; ability k owns rows 10,000k–10,000k+9,999, so identical timelines cluster into long runs:
-
-```cs
-for (int i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i / 10_000); clocks[i] = (ushort)(i % 30); }
-
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.25 ms hot · 0.42 cold
-```
-
-**Row 4 — one looping timeline, every character on its own clock: 0.21 hot, 0.33 cold.** A million guards on the arc, each seeded at its own spawn tick — thirty different table slots gathered every frame:
-
-```cs
-for (int i = 0; i < ids.Length; i++) { ids[i] = arc; clocks[i] = (ushort)(i % 30); }
-
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.21 ms hot · 0.33 cold
-```
-
-**Row 5 — one-shot finite timeline, staggered clocks: 0.10 hot, 0.20 cold.** The same arc baked with `"loop": false` — a door-open. Doors staggered over the rise; a row past the end clamps at tick 30 and folds nothing:
-
-```cs
-ushort once = TimelineAsset.Load(File.ReadAllBytes("raid-once.tlb"));   // raid.json with "loop": false
-for (int i = 0; i < ids.Length; i++) { ids[i] = once; clocks[i] = (ushort)(i % 15); }
-
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.10 ms hot · 0.20 cold
-```
-
-**Row 6 — hand-written scalar loop (`effects[i] += 1f`): 0.18 hot, 0.27 cold.** The baseline the tl rows race — the whole frame is one plain C# add per character:
-
-```cs
-for (var i = 0; i < y.Length; i++)
-    y[i] += 1f;                           // one frame: 0.18 ms hot · 0.27 cold
-```
-
-**Row 7 — hand-written SIMD loop (`Vector<float>` add, scalar tail): 0.08 hot, 0.17 cold.** The same add by hand, `Vector<float>` wide, and the traffic floor of this machine:
-
-```cs
-var ones = new Vector<float>(1f);
-int i = 0;
-for (; i <= y.Length - Vector<float>.Count; i += Vector<float>.Count)
-    (Vector.LoadUnsafe(ref y[i]) + ones).StoreUnsafe(ref y[i]);
-for (; i < y.Length; i++)
-    y[i] += 1f;                           // one frame: 0.08 ms hot · 0.17 cold
-```
-
-**Row 8 — small squads: 16 timelines × 16 characters: 0.54 hot, 0.60 cold.** Sixteen squads of sixteen, tiled to a million rows; the warm kernel re-dispatches every 16 rows, so short crowds pay the fixed cost per segment (short runs gather straight from the flat table without the segment probes, issue #441):
-
-```cs
-for (int i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i / 16 % 16); clocks[i] = (ushort)(i % 30); }
-
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.54 ms hot · 0.60 cold
-```
-
-**Row 9 — worst case: unsorted rows, a different timeline each: 0.70 hot, 0.77 cold.** `ids[i] = i % 100` — no two neighbouring rows share a timeline, so nothing clusters and every row gathers from its own tables (issue #441's AVX2 mixed tier, gathering through a per-id table row, recovered most of the #405 cost: 7.15 → 0.70 hot):
-
-```cs
-for (int i = 0; i < ids.Length; i++) { ids[i] = (ushort)(i % 100); clocks[i] = (ushort)(i % 30); }
-
-Timeline<JumpTrack, JumpClip>.Apply(ids, clocks, true, y);
-Timeline.Advance(ids, clocks, true);   // one frame: 0.70 ms hot · 0.77 cold
-```
-
-Receipts: [benchmarks/Numbers](https://github.com/IAFahim/tl/tree/main/benchmarks/Numbers) (generates this section; `eng/refresh-numbers` re-measures and re-renders it from a fingerprinted receipt, and CI fails if the two disagree), [benchmarks/PairHandles](https://github.com/IAFahim/tl/tree/main/benchmarks/PairHandles), [benchmarks/Alpha](https://github.com/IAFahim/tl/tree/main/benchmarks/Alpha), [tests/Tl.Alpha](https://github.com/IAFahim/tl/tree/main/tests/Tl.Alpha) — parity, allocation, and throughput evidence, run in CI on every push.
+Behaviour change to name (D10): a fold-fed consumer with several active tracks of one pair now runs once per active step with its own track's values (matching frame consumers and authored track order). 3.x ran the composed value once per row. If a timeline overlaps two tracks of one pair feeding one composed consumer, re-tune by ear and re-record the receipt.
 
 Contributing: [AGENTS.md](AGENTS.md) · Security: [SECURITY.md](SECURITY.md) · License: [MIT](LICENSE)

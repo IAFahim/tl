@@ -1,4 +1,6 @@
+extern alias TlbTools;
 using Tl.Gen.Tlb;
+using TlbTools::Tl.Tlb;
 using Tlb;
 using Xunit;
 
@@ -431,24 +433,13 @@ public class DiagnosticTests
         """;
 
         var bytes = TimelineBaker.BakeJson(json);
-        using var asset = TimelineAsset.LoadAsset(bytes);
-        var rows = new[] { new TimelineComponent(asset.Reference) };
-        rows[0].Position = 5;
-        DualTrack track = default;
-        DualAlphaClip alpha = default;
-        DualBetaClip beta = default;
-        foreach (var frame in Timeline.Query<DualTrack, DualAlphaClip>(in rows[0]))
-        {
-            track = frame.Track;
-            alpha = frame.Clip;
-        }
-        Assert.Equal(4, track.Code);
-        Assert.Equal(1, alpha.Value);
-        foreach (var frame in Timeline.Query<DualTrack, DualBetaClip>(in rows[0]))
-        {
-            beta = frame.Clip;
-        }
-        Assert.Equal(2f, beta.Amount);
+        var c = TlbContainer.Parse(bytes);
+        Assert.Equal(2, c.Pairs.Length);
+        foreach (var pair in c.Pairs)
+            Assert.Equal(4, System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(pair.TrackPool.Values[0].AsSpan()));
+        var clipValues = c.Pairs.SelectMany(static pair => pair.ClipPool.Values).ToList();
+        Assert.Contains(clipValues, static v => System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(v.AsSpan()) == 1);
+        Assert.Contains(clipValues, static v => System.Buffers.Binary.BinaryPrimitives.ReadSingleLittleEndian(v.AsSpan()) == 2f);
     }
 
     [Fact]
