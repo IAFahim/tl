@@ -270,7 +270,7 @@ if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
 {
 var __pb = __pview.SlotOf(__e, __s);
-if (__pb->Timeline == 0 || (__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) continue;
+if (__pb->Timeline == 0 || (__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused | global::Tl.PlaybackFlags.Stopping)) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__pb->Timeline));
 if (__tl is null || __tl->Duration == 0) continue;
 var __tick = __pb->Tick;
@@ -457,6 +457,7 @@ internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.Playbac
 {
 if (world is null) throw new global::System.ArgumentNullException(nameof(world));
 if (players is null) throw new global::System.ArgumentNullException(nameof(players));
+if (players.Kinds != null) throw new global::System.InvalidOperationException("RunFused advances playbacks itself; use TimelineWorld.Tick with Run when a KindStore is attached.");
 var __view = world.View;
 var __pview = players.View;
 global::Tl.Requests __rq0;
@@ -847,7 +848,7 @@ if (__count == 0) continue;
 for (var __s = 0; __s < __count; __s++)
 {
 var __pb = __pview.SlotOf(__e, __s);
-if (__pb->Timeline == 0 || (__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) continue;
+if (__pb->Timeline == 0 || (__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused | global::Tl.PlaybackFlags.Stopping)) != 0) continue;
 var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__pb->Timeline));
 if (__tl is null || __tl->Duration == 0) continue;
 var __tick = __pb->Tick;
@@ -890,6 +891,7 @@ internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.Playbac
 {
 if (world is null) throw new global::System.ArgumentNullException(nameof(world));
 if (players is null) throw new global::System.ArgumentNullException(nameof(players));
+if (players.Kinds != null) throw new global::System.InvalidOperationException("RunFused advances playbacks itself; use TimelineWorld.Tick with Run when a KindStore is attached.");
 var __view = world.View;
 var __pview = players.View;
 global::Tl.Events<global::Game.StompHit> __eb0;

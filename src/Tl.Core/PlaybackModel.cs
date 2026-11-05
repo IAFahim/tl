@@ -10,6 +10,9 @@ public enum PlaybackFlags : byte
     Paused = 1 << 1,
     StartPending = 1 << 2,
     Ended = 1 << 3,
+    Stopping = 1 << 4,
+    StopAged = 1 << 5,
+    Began = 1 << 6,
 }
 
 [StructLayout(LayoutKind.Sequential, Size = 8)]
@@ -58,6 +61,9 @@ public sealed unsafe class PlaybackTable : IDisposable
     readonly int* _counts;
     readonly int _entities;
     int _slotsPerEntity;
+    readonly ulong* _playing;
+    readonly int _playingWords;
+    KindStore? _kinds;
     readonly RequestQueue* _consumer;
     readonly RequestQueue* _pending;
     readonly ClosingList* _closing;
@@ -75,6 +81,9 @@ public sealed unsafe class PlaybackTable : IDisposable
         NativeMemory.Clear(counts, (nuint)entityCapacity * 4u);
         _slots = (Playback*)slots;
         _counts = (int*)counts;
+        _playingWords = (entityCapacity + 63) >> 6;
+        _playing = (ulong*)NativeMemory.AlignedAlloc((nuint)_playingWords * 8u, 8u);
+        NativeMemory.Clear(_playing, (nuint)_playingWords * 8u);
         _consumer = RequestQueue.Create();
         _pending = RequestQueue.Create();
         _closing = ClosingList.Create();
@@ -83,6 +92,21 @@ public sealed unsafe class PlaybackTable : IDisposable
     public const int MaxSlots = 256;
 
     public int EntityCapacity => _entities;
+    public KindStore? Kinds => _kinds;
+    internal ulong* Playing => _playing;
+    internal int PlayingWords => _playingWords;
+
+    internal void SetPlaying(int entity, bool value)
+    {
+        if (value) _playing[entity >> 6] |= 1ul << (entity & 63);
+        else _playing[entity >> 6] &= ~(1ul << (entity & 63));
+    }
+
+    internal void AttachKinds(KindStore? kinds)
+    {
+        if (kinds != null && _kinds != null) throw new InvalidOperationException("A KindStore is already attached to this PlaybackTable.");
+        _kinds = kinds;
+    }
     public int SlotsPerEntity => _slotsPerEntity;
     public PlaybackView View => new(_slots, _counts, _entities, _slotsPerEntity);
     public RequestQueue* Pending => _pending;
@@ -95,7 +119,7 @@ public sealed unsafe class PlaybackTable : IDisposable
     {
         var count = _counts[entity];
         var slots = _slots + (nuint)entity * (nuint)_slotsPerEntity;
-        for (var i = 0; i < count; i++) if (slots[i].Timeline == timeline) return true;
+        for (var i = 0; i < count; i++) if (slots[i].Timeline == timeline && (slots[i].Flags & PlaybackFlags.Stopping) == 0) return true;
         return false;
     }
 
@@ -107,7 +131,7 @@ public sealed unsafe class PlaybackTable : IDisposable
         var slots = _slots + (nuint)entity * (nuint)_slotsPerEntity;
         if (channel != 0)
             for (var i = 0; i < count; i++)
-                if (slots[i].Channel == channel)
+                if (slots[i].Timeline != 0 && slots[i].Channel == channel && (slots[i].Flags & PlaybackFlags.Stopping) == 0)
                 {
                     CloseSlot(entity, i);
                     count = _counts[entity];
@@ -117,8 +141,8 @@ public sealed unsafe class PlaybackTable : IDisposable
         var free = count;
         for (var i = count - 1; i >= 0; i--)
         {
-            if (slots[i].Timeline == timeline) return false;
             if (slots[i].Timeline == 0) free = i;
+            else if (slots[i].Timeline == timeline && (slots[i].Flags & PlaybackFlags.Stopping) == 0) return false;
         }
         if (free == _slotsPerEntity)
         {
@@ -126,8 +150,10 @@ public sealed unsafe class PlaybackTable : IDisposable
             Grow();
             slots = _slots + (nuint)entity * (nuint)_slotsPerEntity;
         }
-        slots[free] = new Playback { Timeline = timeline, Tick = at, Channel = channel, Flags = at > 0 ? PlaybackFlags.StartPending : PlaybackFlags.None };
+        _kinds?.ValidateStart(entity, timeline);
+        slots[free] = new Playback { Timeline = timeline, Tick = at, Channel = channel, Flags = at > 0 || _kinds != null ? PlaybackFlags.StartPending : PlaybackFlags.None };
         if (free == count) _counts[entity] = count + 1;
+        SetPlaying(entity, true);
         return true;
     }
 
@@ -148,7 +174,13 @@ public sealed unsafe class PlaybackTable : IDisposable
     {
         var slots = _slots + (nuint)entity * (nuint)_slotsPerEntity;
         ClosingList.Add(_closing, entity, slot, in slots[slot]);
-        RemoveSlot(entity, slot);
+        if (_kinds == null)
+        {
+            RemoveSlot(entity, slot);
+            return;
+        }
+        _kinds.Stop(entity, slot);
+        slots[slot].Flags = (slots[slot].Flags & (PlaybackFlags.Reverse | PlaybackFlags.Paused | PlaybackFlags.Ended | PlaybackFlags.StartPending)) | PlaybackFlags.Stopping;
     }
 
     internal void RemoveSlot(int entity, int slot)
@@ -167,7 +199,7 @@ public sealed unsafe class PlaybackTable : IDisposable
     {
         var count = _counts[entity];
         var slots = _slots + (nuint)entity * (nuint)_slotsPerEntity;
-        for (var i = 0; i < count; i++) if (slots[i].Channel == channel && channel != 0) { playback = slots[i]; return true; }
+        for (var i = 0; i < count; i++) if (slots[i].Timeline != 0 && slots[i].Channel == channel && channel != 0 && (slots[i].Flags & PlaybackFlags.Stopping) == 0) { playback = slots[i]; return true; }
         playback = default;
         return false;
     }
@@ -181,6 +213,8 @@ public sealed unsafe class PlaybackTable : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _kinds?.Dispose();
+        NativeMemory.AlignedFree(_playing);
         RequestQueue.Free(_pending);
         RequestQueue.Free(_consumer);
         ClosingList.Free(_closing);

@@ -16,13 +16,24 @@ public sealed partial class TimelineWorld
     public unsafe void ApplyRequests(PlaybackTable players)
     {
         if (players is null) throw new ArgumentNullException(nameof(players));
+        players.Kinds?.Sync();
         Drain(players, players.Consumer);
         Drain(players, players.Pending);
+    }
+
+    public unsafe void Tick(PlaybackTable players, bool forward = true)
+    {
+        if (players is null) throw new ArgumentNullException(nameof(players));
+        var kinds = players.Kinds ?? throw new InvalidOperationException("Tick needs a KindStore attached to the PlaybackTable; use Advance for kind-free playback.");
+        ClosingList.Clear(players.Closing);
+        ApplyRequests(players);
+        kinds.TickPass(forward);
     }
 
     public unsafe void Advance(PlaybackTable players, bool forward = true)
     {
         if (players is null) throw new ArgumentNullException(nameof(players));
+        if (players.Kinds != null) throw new InvalidOperationException("A PlaybackTable with a KindStore advances through Tick, not Advance.");
         var timelines = _view.Timelines;
         if (timelines == null) return;
         var count = (uint)_view.TimelineCount;
@@ -116,15 +127,15 @@ public sealed partial class TimelineWorld
                 return;
             case RequestOp.Stop:
                 for (var i = 0; i < players.CountOf(record.Entity); i++)
-                    if (players.SlotsOf(record.Entity)[i].Timeline == record.Timeline) { players.CloseSlot(record.Entity, i); return; }
+                    if (players.SlotsOf(record.Entity)[i].Timeline == record.Timeline && (players.SlotsOf(record.Entity)[i].Flags & PlaybackFlags.Stopping) == 0) { players.CloseSlot(record.Entity, i); return; }
                 return;
             case RequestOp.StopChannel:
                 for (var i = 0; i < players.CountOf(record.Entity); i++)
-                    if (players.SlotsOf(record.Entity)[i].Timeline != 0 && players.SlotsOf(record.Entity)[i].Channel == (byte)record.Timeline) { players.CloseSlot(record.Entity, i); return; }
+                    if (players.SlotsOf(record.Entity)[i].Timeline != 0 && (players.SlotsOf(record.Entity)[i].Flags & PlaybackFlags.Stopping) == 0 && players.SlotsOf(record.Entity)[i].Channel == (byte)record.Timeline) { players.CloseSlot(record.Entity, i); return; }
                 return;
             default:
                 for (var i = 0; i < players.CountOf(record.Entity); i++)
-                    if (players.SlotsOf(record.Entity)[i].Timeline != 0) players.CloseSlot(record.Entity, i);
+                    if (players.SlotsOf(record.Entity)[i].Timeline != 0 && (players.SlotsOf(record.Entity)[i].Flags & PlaybackFlags.Stopping) == 0) players.CloseSlot(record.Entity, i);
                 return;
         }
     }

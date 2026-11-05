@@ -303,7 +303,7 @@ internal static class SystemEmitter
         W(writer, "for (var __s = 0; __s < __count; __s++)");
         W(writer, "{");
         W(writer, "var __pb = __pview.SlotOf(__e, __s);");
-        W(writer, "if (__pb->Timeline == 0 || (__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) continue;");
+        W(writer, "if (__pb->Timeline == 0 || (__pb->Flags & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused | global::Tl.PlaybackFlags.Stopping)) != 0) continue;");
         W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__pb->Timeline));");
         W(writer, "if (__tl is null || __tl->Duration == 0) continue;");
         W(writer, "var __tick = __pb->Tick;");
@@ -347,6 +347,7 @@ internal static class SystemEmitter
         W(writer, "{");
         W(writer, "if (world is null) throw new global::System.ArgumentNullException(nameof(world));");
         W(writer, "if (players is null) throw new global::System.ArgumentNullException(nameof(players));");
+        W(writer, "if (players.Kinds != null) throw new global::System.InvalidOperationException(\"RunFused advances playbacks itself; use TimelineWorld.Tick with Run when a KindStore is attached.\");");
         W(writer, "var __view = world.View;");
         W(writer, "var __pview = players.View;");
         EmitLocalDecls(writer, shape);

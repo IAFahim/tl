@@ -22,42 +22,58 @@ internal struct KindEntry
     public byte Reserved;
 }
 
-internal sealed unsafe class KindTable : IDisposable
+internal unsafe struct KindTable
 {
-    public readonly int Kind;
-    public readonly int Rows;
-    public readonly int Inline;
-    public readonly int Stride;
-    public readonly int Words;
-    public readonly int* Entity;
-    readonly byte* _inline;
-    public readonly ushort* Length;
-    readonly ushort* _capacity;
-    readonly byte** _heap;
-    public readonly ulong* Active;
-    public readonly ulong* Enabled;
+    public int Kind;
+    public int Rows;
+    public int Inline;
+    public int Stride;
+    public int Words;
+    public int* Entity;
+    byte* _inline;
+    public ushort* Length;
+    ushort* _capacity;
+    byte** _heap;
+    public ulong* Active;
+    public ulong* Enabled;
     public int MaxLength;
     public int Overflows;
-    bool _disposed;
 
-    public KindTable(int kind, ReadOnlySpan<int> entities, int inlineCapacity, int entryBytes)
+    public static KindTable* Create(int kind, ReadOnlySpan<int> entities, int inlineCapacity, int entryBytes)
     {
-        Kind = kind;
-        Rows = entities.Length;
-        Inline = inlineCapacity;
-        Stride = entryBytes;
-        Words = (Rows + 63) >> 6;
-        Entity = (int*)Zeroed((nuint)Rows * 4);
-        for (var r = 0; r < Rows; r++) Entity[r] = entities[r];
-        _inline = (byte*)Zeroed((nuint)Rows * (nuint)Inline * (nuint)Stride);
-        Length = (ushort*)Zeroed((nuint)Rows * 2);
-        _capacity = (ushort*)Zeroed((nuint)Rows * 2);
-        for (var r = 0; r < Rows; r++) _capacity[r] = (ushort)Inline;
-        _heap = (byte**)Zeroed((nuint)Rows * (nuint)sizeof(nint));
-        Active = (ulong*)Zeroed((nuint)Words * 8);
-        Enabled = (ulong*)Zeroed((nuint)Words * 8);
-        for (var w = 0; w < Words; w++) Enabled[w] = ~0ul;
-        if ((Rows & 63) != 0) Enabled[Words - 1] = (1ul << (Rows & 63)) - 1;
+        var t = (KindTable*)Zeroed((nuint)sizeof(KindTable));
+        t->Kind = kind;
+        t->Rows = entities.Length;
+        t->Inline = inlineCapacity;
+        t->Stride = entryBytes;
+        t->Words = (t->Rows + 63) >> 6;
+        t->Entity = (int*)Zeroed((nuint)t->Rows * 4);
+        for (var r = 0; r < t->Rows; r++) t->Entity[r] = entities[r];
+        t->_inline = (byte*)Zeroed((nuint)t->Rows * (nuint)inlineCapacity * (nuint)entryBytes);
+        t->Length = (ushort*)Zeroed((nuint)t->Rows * 2);
+        t->_capacity = (ushort*)Zeroed((nuint)t->Rows * 2);
+        for (var r = 0; r < t->Rows; r++) t->_capacity[r] = (ushort)inlineCapacity;
+        t->_heap = (byte**)Zeroed((nuint)t->Rows * (nuint)sizeof(nint));
+        t->Active = (ulong*)Zeroed((nuint)t->Words * 8);
+        t->Enabled = (ulong*)Zeroed((nuint)t->Words * 8);
+        for (var w = 0; w < t->Words; w++) t->Enabled[w] = ~0ul;
+        if ((t->Rows & 63) != 0) t->Enabled[t->Words - 1] = (1ul << (t->Rows & 63)) - 1;
+        return t;
+    }
+
+    public static void Free(KindTable* t)
+    {
+        if (t == null) return;
+        for (var r = 0; r < t->Rows; r++)
+            if (t->_heap[r] != null) NativeMemory.AlignedFree(t->_heap[r]);
+        NativeMemory.AlignedFree(t->Entity);
+        NativeMemory.AlignedFree(t->_inline);
+        NativeMemory.AlignedFree(t->Length);
+        NativeMemory.AlignedFree(t->_capacity);
+        NativeMemory.AlignedFree(t->_heap);
+        NativeMemory.AlignedFree(t->Active);
+        NativeMemory.AlignedFree(t->Enabled);
+        NativeMemory.AlignedFree(t);
     }
 
     static void* Zeroed(nuint bytes)
@@ -141,21 +157,5 @@ internal sealed unsafe class KindTable : IDisposable
     {
         if (value) Enabled[row >> 6] |= 1ul << (row & 63);
         else Enabled[row >> 6] &= ~(1ul << (row & 63));
-    }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        for (var r = 0; r < Rows; r++)
-            if (_heap[r] != null) NativeMemory.AlignedFree(_heap[r]);
-        NativeMemory.AlignedFree(Entity);
-        NativeMemory.AlignedFree(_inline);
-        NativeMemory.AlignedFree(Length);
-        NativeMemory.AlignedFree(_capacity);
-        NativeMemory.AlignedFree(_heap);
-        NativeMemory.AlignedFree(Active);
-        NativeMemory.AlignedFree(Enabled);
-        GC.SuppressFinalize(this);
     }
 }

@@ -215,6 +215,8 @@ type Tl.KindMode
   Field Tl.KindMode Combine
   Field Tl.KindMode Each
   Field Byte value__
+type Tl.KindPulses`1
+  Method Void To(Int32, T)
 type Tl.KindSectionView
   Field Byte* Base
   Field UInt32 Bytes
@@ -237,6 +239,19 @@ type Tl.KindSectionView
   Method Tl.LibraryKindTimeline* TimelineOf(UInt16)
   Field Tl.LibraryKindTimeline* Timelines
   Method Tl.LibraryWindow* Windows(Tl.LibraryKindTimeline*)
+type Tl.KindStats
+  Field Int64 BytesPerRow
+  Field Int32 MaxLength
+  Field Int32 Overflows
+  Field Int32 Rows
+type Tl.KindStore
+  Method Void Dispose()
+  Property Int64 DroppedPulses
+  Method Tl.KindStats GetStats(Int32)
+  Method Int32 IndexOf(System.String)
+  Property Int32 KindCount
+  Method System.String NameOf(Int32)
+  Method Tl.KindPulses`1[T] Pulses[T](System.String)
 type Tl.LibraryEvent
   Field Byte Kind
   Field UInt32 Marker
@@ -355,11 +370,14 @@ type Tl.Playback
   Field UInt16 Tick
   Field UInt16 Timeline
 type Tl.PlaybackFlags
+  Field Tl.PlaybackFlags Began
   Field Tl.PlaybackFlags Ended
   Field Tl.PlaybackFlags None
   Field Tl.PlaybackFlags Paused
   Field Tl.PlaybackFlags Reverse
   Field Tl.PlaybackFlags StartPending
+  Field Tl.PlaybackFlags StopAged
+  Field Tl.PlaybackFlags Stopping
   Field Byte value__
 type Tl.PlaybackTable
   Property Tl.ClosingList* Closing
@@ -369,6 +387,7 @@ type Tl.PlaybackTable
   Property Int32 EntityCapacity
   Method Boolean Find(Int32, Byte, Tl.Playback ByRef)
   Method Boolean IsPlaying(Int32, UInt16)
+  Property Tl.KindStore Kinds
   Field Int32 MaxSlots
   Property Tl.RequestQueue* Pending
   Property Int32 SlotsPerEntity
@@ -443,6 +462,7 @@ type Tl.TimelineWorld
   Method Tl.TimelineRef Reference(UInt16)
   Method Void Reload(System.ReadOnlySpan`1[System.Byte])
   Method Tl.Requests Requests(Tl.PlaybackTable)
+  Method Void Tick(Tl.PlaybackTable, Boolean)
   Property Tl.LibraryView View
 type Tl.TlGenerated
   Method Void Install(Tl.ITlModule)
