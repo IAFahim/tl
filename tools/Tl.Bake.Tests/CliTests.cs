@@ -164,6 +164,7 @@ public class CliTests
             Assert.Equal(
                 string.Join("\n",
                     "Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]",
+                    "       tlb library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]",
                     "       tlb --strip <input.tlb> <output.tlb>",
                     "       tlb --report <input.tlb>",
                     "       tlb --inspect <input.tlb>",

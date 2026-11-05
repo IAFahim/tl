@@ -11,11 +11,11 @@ public static class TlbJson
         using (var w = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true, NewLine = "\n" }))
         {
             w.WriteStartObject();
-            w.WriteNumber("schemaVersion", 1);
+            w.WriteNumber("schemaVersion", c.Version == TlbContainer.HotVersion ? 2 : 1);
             w.WriteString("plane", "container");
             w.WriteStartObject("header");
             w.WriteString("magic", "TLB1");
-            w.WriteNumber("formatVersion", TlbContainer.HotVersion);
+            w.WriteNumber("formatVersion", c.Version);
             w.WriteBoolean("looping", c.Loops != 0);
             w.WriteNumber("duration", c.Duration);
             w.WriteNumber("trackCount", c.TrackCount);
@@ -27,6 +27,13 @@ public static class TlbJson
             w.WriteNumber("frameOffset", c.FrameOffset);
             w.WriteNumber("hotLength", c.HotLength);
             w.WriteNumber("bytes", c.Bytes);
+            if (c.Version == TlbContainer.HotVersion)
+            {
+                w.WriteNumber("nextId", c.NextId);
+                w.WriteNumber("channel", c.Channel);
+                w.WriteBoolean("hold", c.Hold);
+                w.WriteNumber("markerCount", (uint)c.Markers.Length);
+            }
             w.WriteEndObject();
 
             w.WriteStartArray("pairs");
@@ -79,6 +86,21 @@ public static class TlbJson
                 w.WriteEndObject();
             }
             w.WriteEndArray();
+
+            if (c.Version == TlbContainer.HotVersion)
+            {
+                w.WriteStartArray("markers");
+                foreach (var m in c.Markers)
+                {
+                    w.WriteStartObject();
+                    w.WriteNumber("tick", m.Tick);
+                    w.WriteNumber("size", m.Size);
+                    w.WriteString("key", Hex(m.Key));
+                    w.WriteString("payload", Convert.ToHexString(m.Payload).ToLowerInvariant());
+                    w.WriteEndObject();
+                }
+                w.WriteEndArray();
+            }
 
             if (c.Tail is { } tail)
             {

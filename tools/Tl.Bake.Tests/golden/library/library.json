@@ -1,0 +1,5 @@
+{
+  "tickRate": 60,
+  "channels": ["locomotion"],
+  "timelines": ["jump.json", "slide.json"]
+}
