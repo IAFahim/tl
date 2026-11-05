@@ -1,8 +1,3 @@
-type Tl.BakeRuntime`2
-  Method Void Bake(System.Void(System.Byte**), System.ReadOnlySpan`1[System.UInt64])
-  Property Int32 BakeCount
-  Method Int32 BakeParameterCount(Int32)
-  Method UInt64 BakeParameterKey(Int32, Int32)
 type Tl.BankState
   Field Byte* Block
   Field Int64 Misses
@@ -65,7 +60,6 @@ type Tl.Frame`2
   Field TTrack Track
   Property UInt16 TrackIndex
   Property UInt16 WithinClip
-type Tl.IBake`1
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.IHostedConsumer
@@ -401,15 +395,6 @@ type Tl.Timeline
   Method Void Advance(Tl.TimelineAsset, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
   Method Void Advance(UInt16, System.Span`1[System.UInt16], Boolean)
   Method Void Advance(UInt16, System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
-  Method Void Bake(UInt16)
-  Method Void Bake[T0](UInt16, T0 ByRef)
-  Method Void Bake[T0,T1](UInt16, T0 ByRef, T1 ByRef)
-  Method Void Bake[T0,T1,T2](UInt16, T0 ByRef, T1 ByRef, T2 ByRef)
-  Method Void Bake[T0,T1,T2,T3](UInt16, T0 ByRef, T1 ByRef, T2 ByRef, T3 ByRef)
-  Method Void BakeRef[T0](UInt16, T0 ByRef)
-  Method Void BakeRef[T0,T1](UInt16, T0 ByRef, T1 ByRef)
-  Method Void BakeRef[T0,T1,T2](UInt16, T0 ByRef, T1 ByRef, T2 ByRef)
-  Method Void BakeRef[T0,T1,T2,T3](UInt16, T0 ByRef, T1 ByRef, T2 ByRef, T3 ByRef)
   Method Tl.FrameQuery`2[TTrack,TClip] Query[TTrack,TClip](Tl.TimelineComponent ByRef)
   Method Void SealConsumers()
 type Tl.TimelineAsset
