@@ -35,10 +35,13 @@ public static class TlbMetadata
     {
         if (tlb.Length < 64)
             throw new ArgumentException("TLB asset is truncated.");
+        var version = BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(4));
         if (BinaryPrimitives.ReadUInt32LittleEndian(tlb) != 0x31424C54u ||
-            BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(4)) != TlbLayout.Version ||
+            (version != 5u && version != TlbLayout.Version) ||
             BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(48)) != (uint)tlb.Length)
             throw new ArgumentException("TLB asset header is invalid.");
+        if (version == TlbLayout.Version && tlb.Length < 80)
+            throw new ArgumentException("TLB asset is truncated.");
         var hotLength = BinaryPrimitives.ReadUInt32LittleEndian(tlb.Slice(44));
         if (hotLength == 0 || hotLength > (uint)tlb.Length)
             throw new ArgumentException("TLB hot length is invalid.");
@@ -162,7 +165,7 @@ public sealed class TlbMetadataView
 
 internal static class TlbMetadataBuilder
 {
-    public static byte[] Build((Type Track, Type Clip)[] pairTypes, List<(int Track, int Clip, string Name)> labels)
+    public static byte[] Build((Type Track, Type Clip)[] pairTypes, List<(int Track, int Clip, string Name)> labels, List<FastMarker>? markers = null)
     {
         var pool = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var (track, clip) in pairTypes)
@@ -176,6 +179,14 @@ internal static class TlbMetadataBuilder
         }
         foreach (var label in labels)
             pool.Add(label.Name);
+        if (markers != null)
+            foreach (var marker in markers)
+                if (marker.MarkerType != null)
+                {
+                    pool.Add(marker.MarkerType.Namespace ?? string.Empty);
+                    pool.Add(marker.MarkerType.Name);
+                    pool.Add(marker.MarkerType.Assembly.GetName().Name ?? string.Empty);
+                }
 
         var strings = pool.ToArray();
         var index = new Dictionary<string, int>(strings.Length, StringComparer.Ordinal);
@@ -195,6 +206,7 @@ internal static class TlbMetadataBuilder
 
         var distinctTypes = pairTypes
             .SelectMany(pair => new[] { pair.Track, pair.Clip })
+            .Concat((markers ?? new List<FastMarker>()).Where(m => m.MarkerType != null).Select(m => m.MarkerType!))
             .Distinct()
             .OrderBy(t => t.Namespace ?? string.Empty, StringComparer.Ordinal)
             .ThenBy(t => t.Name, StringComparer.Ordinal)

@@ -1,0 +1,17 @@
+{
+  "name": "hold_markers",
+  "duration": 8,
+  "hold": true,
+  "tracks": [
+    {
+      "namespace": "Tlb", "type": "JobTrack", "data": { "Multiplier": 1 },
+      "clips": [
+        { "namespace": "Tlb", "type": "JobClip", "start": 0, "end": 8, "data": { "Amount": 2, "Steps": 1 } }
+      ]
+    }
+  ],
+  "markers": [
+    { "namespace": "Tlb", "type": "FootMarker", "tick": 2, "data": { "Kind": 1 } },
+    { "namespace": "Tlb", "type": "FootMarker", "tick": 6, "data": { "Kind": 2 } }
+  ]
+}
