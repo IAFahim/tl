@@ -15,7 +15,6 @@ CORPUS_SUFFIXES = {
 SKIPPED_DIRECTORIES = {".git", "bin", "obj", "node_modules"}
 OWNING_PROJECTS = ("src", "tools")
 CLASSIFIED = {
-    "ApplyMove": "Play.Core ITrack implementer discovered by the LiveAuthoring assembly.GetTypes() interface scan",
     "GetEnumerator": "permanently classified in the #300 audit",
     "G0Track": "blend-law companion named by the assembled strings in benchmarks/Numbers/Domain.cs",
     "G1Track": "blend-law companion named by the assembled strings in benchmarks/Numbers/Domain.cs",
