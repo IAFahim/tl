@@ -87,6 +87,7 @@ internal static class TypeAnalyzer
         if (IsNewStyle(type))
             return new TypeAnalysis(name, null, [], [], [], []);
         var bake = Bake(type, compilation, syntax, name);
+        var job = Job(type, compilation, contracts, syntax, name);
         return job is null && bake is null
             ? null
             : new TypeAnalysis(name, null, job?.Consumers ?? [], job?.Diagnostics ?? [], bake?.Diagnostics ?? [], bake?.Candidates ?? []);

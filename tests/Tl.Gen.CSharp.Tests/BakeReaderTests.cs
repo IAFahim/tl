@@ -372,7 +372,7 @@ public sealed class BakeReaderTests
         Assert.Empty(diagnostics);
         var binding = Assert.Single(sources).Value;
         Assert.DoesNotContain("Bake_", binding);
-        Assert.EndsWith("private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }\n}\n", binding);
+        Assert.EndsWith("private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }\n}\ninternal static class TlGenerated\n{\nprivate static int _installed;\ninternal static void Install() { if (global::System.Threading.Interlocked.Exchange(ref _installed, 1) == 0) TlConsumerBinding.Install(); }\n}\n", binding);
     }
 
     private static IReadOnlyList<string> BakeInstalls(string binding)
@@ -736,6 +736,11 @@ public sealed class BakeReaderTests
         global::Domain.ApplyDamageBake.Bake(in __tlArg0);
         }
         private static int FindKey(ulong* k, int c, ulong v) { for (var i = 0; i < c; i++) if (k[i] == v) return i; return -1; }
+        }
+        internal static class TlGenerated
+        {
+        private static int _installed;
+        internal static void Install() { if (global::System.Threading.Interlocked.Exchange(ref _installed, 1) == 0) TlConsumerBinding.Install(); }
         }
 
         """";
