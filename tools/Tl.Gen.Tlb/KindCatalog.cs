@@ -9,7 +9,7 @@ internal enum KindRule : byte { Combine, Each }
 
 internal enum FeederTrigger : byte { Span, Start, End, Marker }
 
-internal sealed record KindInfo(string Name, string FullName, Type Value, int ValueBytes, KindAccepts Accepts, KindRule Mode, int Order, string? Group)
+internal sealed record KindInfo(string Name, string FullName, Type Value, int ValueBytes, KindAccepts Accepts, KindRule Mode, int Order, string? Group, bool Folds)
 {
     public int EntryBytes => KindCatalog.EntryBytes(Accepts, ValueBytes);
 }
@@ -41,12 +41,12 @@ internal sealed class KindCatalog
             var attribute = type.CustomAttributes.FirstOrDefault(a => a.AttributeType.FullName == KindAttribute);
             if (attribute == null) continue;
             var where = $"kind '{type.FullName}'";
-            if (!type.IsValueType) throw new BakeDiagnosticException($"{where}: [TimelineKind] needs a struct.");
-            var apply = StaticMethod(type, "Apply") ?? throw new BakeDiagnosticException($"{where}: needs public static Apply(in T total, ...).");
+            if (!type.IsValueType) throw Bad($"{where}: [TimelineKind] needs a struct.");
+            var apply = StaticMethod(type, "Apply") ?? throw Bad($"{where}: needs public static Apply(in T total, ...).");
             var parameters = apply.GetParameters();
-            if (parameters.Length == 0) throw new BakeDiagnosticException($"{where}: Apply needs the kind value as its first parameter.");
+            if (parameters.Length == 0) throw Bad($"{where}: Apply needs the kind value as its first parameter.");
             var value = Strip(parameters[0].ParameterType);
-            var bytes = SizeOf(value) ?? throw new BakeDiagnosticException($"{where}: value type '{value.FullName}' must be unmanaged.");
+            var bytes = SizeOf(value) ?? throw Bad($"{where}: value type '{value.FullName}' must be unmanaged.");
             var accepts = (KindAccepts)Named(attribute, "Accepts", 0);
             var mode = (KindRule)Named(attribute, "Mode", 0);
             if (mode == KindRule.Combine)
@@ -54,16 +54,18 @@ internal sealed class KindCatalog
                 var combine = StaticMethod(type, "Combine");
                 var cp = combine?.GetParameters();
                 if (cp == null || cp.Length != 2 || Strip(cp[0].ParameterType) != value || Strip(cp[1].ParameterType) != value)
-                    throw new BakeDiagnosticException($"{where}: Combine mode needs public static Combine(ref {value.Name} total, in {value.Name} next).");
+                    throw Bad($"{where}: Combine mode needs public static Combine(ref {value.Name} total, in {value.Name} next).");
             }
+            var folds = Named(attribute, "FoldsPulses", 0) != 0;
+            if (folds && (mode != KindRule.Combine || accepts == KindAccepts.Spans)) throw Bad($"{where}: FoldsPulses needs Combine mode and pulses.");
             var group = attribute.NamedArguments.FirstOrDefault(n => n.MemberName == "Group").TypedValue.Value as string;
-            if (catalog.Kinds.Any(k => k.Name == type.Name)) throw new BakeDiagnosticException($"{where}: another kind is already named '{type.Name}'; kind names must be unique.");
-            if (catalog.Kinds.Count == 64) throw new BakeDiagnosticException($"{where}: more than 64 kinds; merge rare kinds into a kind group.");
+            if (catalog.Kinds.Any(k => k.Name == type.Name)) throw Bad($"{where}: another kind is already named '{type.Name}'; kind names must be unique.");
+            if (catalog.Kinds.Count == 64) throw Bad($"{where}: more than 64 kinds; merge rare kinds into a kind group.");
             kindTypes[type] = catalog.Kinds.Count;
-            catalog.Kinds.Add(new KindInfo(type.Name, type.FullName!, value, bytes, accepts, mode, Named(attribute, "Order", 0), string.IsNullOrEmpty(group) ? null : group));
+            catalog.Kinds.Add(new KindInfo(type.Name, type.FullName!, value, bytes, accepts, mode, Named(attribute, "Order", 0), string.IsNullOrEmpty(group) ? null : group, folds));
         }
         foreach (var g in catalog.Kinds.Where(k => k.Group != null).Select(k => k.Group!).Distinct(StringComparer.Ordinal))
-            if (catalog.Kinds.Any(k => k.Name == g)) throw new BakeDiagnosticException($"kind group '{g}' has the same name as a kind.");
+            if (catalog.Kinds.Any(k => k.Name == g)) throw Bad($"kind group '{g}' has the same name as a kind.");
 
         var found = new List<(int Kind, FeederTrigger Trigger, string Consumer, string Method, ulong Key)>();
         foreach (var type in types)
@@ -76,26 +78,26 @@ internal sealed class KindCatalog
                     if (name != FeedsAttribute && name != PulseAttribute) continue;
                     var where = $"'{type.FullName}.{method.Name}'";
                     if (attribute.ConstructorArguments.Count != 1 || attribute.ConstructorArguments[0].Value is not Type kindType)
-                        throw new BakeDiagnosticException($"{where}: [{Short(name)}] needs typeof(<kind>).");
+                        throw Bad($"{where}: [{Short(name)}] needs typeof(<kind>).");
                     if (!kindTypes.TryGetValue(kindType, out var kind))
-                        throw new BakeDiagnosticException($"{where}: '{kindType.FullName}' is not a [TimelineKind].");
+                        throw Bad($"{where}: '{kindType.FullName}' is not a [TimelineKind].");
                     var info = catalog.Kinds[kind];
                     var trigger = name == FeedsAttribute ? FeederTrigger.Span : (FeederTrigger)(1 + Named(attribute, "On", 0));
                     if (trigger == FeederTrigger.Span && info.Accepts == KindAccepts.Pulses)
-                        throw new BakeDiagnosticException($"{where}: kind '{info.Name}' accepts pulses only; use [Pulse].");
+                        throw Bad($"{where}: kind '{info.Name}' accepts pulses only; use [Pulse].");
                     if (trigger != FeederTrigger.Span && info.Accepts == KindAccepts.Spans)
-                        throw new BakeDiagnosticException($"{where}: kind '{info.Name}' accepts spans only; set Accepts = Pulses or Both on the kind.");
+                        throw Bad($"{where}: kind '{info.Name}' accepts spans only; set Accepts = Pulses or Both on the kind.");
                     if (Strip(method.ReturnType) != info.Value)
-                        throw new BakeDiagnosticException($"{where}: returns '{method.ReturnType.FullName}', but kind '{info.Name}' takes '{info.Value.FullName}'.");
+                        throw Bad($"{where}: returns '{method.ReturnType.FullName}', but kind '{info.Name}' takes '{info.Value.FullName}'.");
                     ulong key;
                     if (trigger == FeederTrigger.Marker)
                     {
-                        if (marker == null) throw new BakeDiagnosticException($"{where}: On = Marker needs a consumer that implements IMarker<T>.");
+                        if (marker == null) throw Bad($"{where}: On = Marker needs a consumer that implements IMarker<T>.");
                         key = MarkerKey(marker);
                     }
                     else
                     {
-                        if (track == null) throw new BakeDiagnosticException($"{where}: [{Short(name)}] needs a consumer that implements ITrack<TTrack, TClip>.");
+                        if (track == null) throw Bad($"{where}: [{Short(name)}] needs a consumer that implements ITrack<TTrack, TClip>.");
                         key = PairKey(track.Value.Track, track.Value.Clip);
                     }
                     found.Add((kind, trigger, type.FullName!, method.Name, key));
@@ -106,7 +108,7 @@ internal sealed class KindCatalog
             var ordinal = 0;
             foreach (var f in group.OrderBy(f => f.Consumer, StringComparer.Ordinal).ThenBy(f => f.Method, StringComparer.Ordinal))
             {
-                if (ordinal > byte.MaxValue) throw new BakeDiagnosticException($"kind '{catalog.Kinds[f.Kind].Name}': more than 256 feeders.");
+                if (ordinal > byte.MaxValue) throw Bad($"kind '{catalog.Kinds[f.Kind].Name}': more than 256 feeders.");
                 catalog.Feeders.Add(new FeederInfo(f.Kind, f.Trigger, f.Consumer, f.Method, f.Key, (byte)ordinal++));
             }
         }
@@ -130,6 +132,8 @@ internal sealed class KindCatalog
         }
         return (track, marker);
     }
+
+    internal static BakeDiagnosticException Bad(string message) => new(message);
 
     static string Short(string? attribute) => attribute == FeedsAttribute ? "Feeds" : "Pulse";
 

@@ -11,7 +11,7 @@ using var kinds = new PlaybackTable(N);
 var ones = new ulong[N];
 Array.Fill(ones, 0b11ul);
 using var store = new KindStore(world, kinds, ["K0", "Dmg"], ones);
-var bullets = store.Pulses<int>("Dmg");
+var bullets = store.Pulses<int, DmgFold>("Dmg");
 var legacyFx = new float[N];
 var kindFx = new float[N];
 var hp = new int[N];

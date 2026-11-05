@@ -192,13 +192,14 @@ public sealed unsafe class KindTickTests : IDisposable
         return mismatches;
     }
 
-    static ulong Script(Run run, int seed, int steps, bool check, int reloadAt, string? reloadPath)
+    static ulong Script(Run run, int seed, int steps, bool check, int reloadAt, string? reloadPath, bool fold = false)
     {
         var rng = new Random(seed * 7919 + 1);
         var hash = 14695981039346656037ul;
         long mismatches = 0;
         var damage = run.World.View.Kinds.IndexOf("Damage");
         var pulses = run.Store.Pulses<int>("Damage");
+        var folding = run.Store.Pulses<int, SumFold>("Damage");
         var sec = run.World.View.Kinds;
         for (var step = 0; step < steps; step++)
         {
@@ -224,8 +225,15 @@ public sealed unsafe class KindTickTests : IDisposable
             {
                 var target = rng.Next(p.EntityCapacity);
                 var value = rng.Next(1, 20);
-                pulses.To(target, value);
-                run.Sent.Add((target, value));
+                if (!fold)
+                {
+                    pulses.To(target, value);
+                    run.Sent.Add((target, value));
+                    continue;
+                }
+                folding.To(target, value);
+                if (run.Sent.Count > 0 && run.Sent[^1].Target == target) run.Sent[^1] = (target, run.Sent[^1].Value + value);
+                else run.Sent.Add((target, value));
             }
             run.World.Tick(p, rng.Next(8) != 0);
             if (check) mismatches += Compare(run, step, true);
@@ -282,6 +290,18 @@ public sealed unsafe class KindTickTests : IDisposable
         Assert.Equal(first, second);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void FoldedGamePulsesEqualTheOracleWithConsecutiveTargetsMerged(int seed)
+    {
+        var tlib = Pack(seed);
+        using var run = Open(tlib, 10);
+        CollectPairs(run);
+        Script(run, seed, 2500, true, -1, null, true);
+        Assert.True(run.Store.GetStats(run.World.View.Kinds.IndexOf("Damage")).Rows > 0);
+    }
+
     [Fact]
     public void ReloadRebuildsEntriesFromTheLivePlaybacks()
     {
@@ -290,6 +310,71 @@ public sealed unsafe class KindTickTests : IDisposable
         CollectPairs(run);
         Script(run, 5, 1500, true, 700, tlib);
         Assert.True(run.World.View.Version == 2);
+    }
+
+    struct SumFold : IPulseFold<int>
+    {
+        public void Fold(ref int total, in int next) => total += next;
+    }
+
+    static int PulseSum(Run run, int entity, int kind, out int entries)
+    {
+        var row = run.Store.RowOf(entity, kind);
+        var table = run.Store.Table(kind);
+        var sum = 0;
+        entries = 0;
+        for (var i = 0; i < table->Length[row]; i++)
+        {
+            var at = table->At(row, i);
+            if ((at->Flags & KindEntryFlags.Pulse) == 0) continue;
+            sum += *(int*)((byte*)at + 8);
+            entries++;
+        }
+        return sum;
+    }
+
+    [Fact]
+    public void FoldedPulsesKeepTheSumAndMergeOnlyConsecutiveSameTargets()
+    {
+        var tlib = Pack(8);
+        using var plain = Open(tlib, 4);
+        using var folded = Open(tlib, 4);
+        var a = plain.Store.Pulses<int>("Damage");
+        var b = folded.Store.Pulses<int, SumFold>("Damage");
+        foreach (var (target, value) in new[] { (0, 1), (0, 2), (0, 3), (1, 4), (0, 5), (0, 6), (2, 7) })
+        {
+            a.To(target, value);
+            b.To(target, value);
+        }
+        plain.World.Tick(plain.Players);
+        folded.World.Tick(folded.Players);
+        var damage = plain.World.View.Kinds.IndexOf("Damage");
+        foreach (var (entity, sum, entries, foldedEntries) in new[] { (0, 17, 5, 2), (1, 4, 1, 1), (2, 7, 1, 1), (3, 0, 0, 0) })
+        {
+            Assert.Equal(sum, PulseSum(plain, entity, damage, out var p));
+            Assert.Equal(sum, PulseSum(folded, entity, damage, out var f));
+            Assert.Equal(entries, p);
+            Assert.Equal(foldedEntries, f);
+        }
+    }
+
+    [Fact]
+    public void FoldingNeedsTheFlagOnTheKind()
+    {
+        using var run = Open(Pack(8), 2);
+        Assert.Throws<ArgumentException>(() => run.Store.Pulses<int, SumFold>("StatChange"));
+        Assert.Throws<ArgumentException>(() => run.Store.Pulses<long, FoldLong>("Damage"));
+        Assert.Throws<ArgumentException>(() => run.Store.Pulses<float, FoldFloat>("Lift"));
+    }
+
+    struct FoldLong : IPulseFold<long>
+    {
+        public void Fold(ref long total, in long next) => total += next;
+    }
+
+    struct FoldFloat : IPulseFold<float>
+    {
+        public void Fold(ref float total, in float next) => total += next;
     }
 
     [Fact]

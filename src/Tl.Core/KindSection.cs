@@ -15,7 +15,7 @@ public struct LibraryKind
     public uint Capacity;
     public byte Accepts;
     public byte Mode;
-    public ushort _pad;
+    public ushort Flags;
     public int Order;
     public uint GroupNameOffset;
     public uint GroupNameLength;
@@ -150,7 +150,7 @@ internal static unsafe class KindSectionReader
         {
             var kind = view.Kinds[k];
             if ((ulong)kind.NameOffset + kind.NameLength > view.StringsLength || (ulong)kind.GroupNameOffset + kind.GroupNameLength > view.StringsLength) throw Fail($"kind {k} name out of bounds");
-            if (kind.Accepts > 2 || kind.Mode > 1 || kind.Capacity > ushort.MaxValue) throw Fail($"kind {k} fields out of range");
+            if (kind.Accepts > 2 || kind.Mode > 1 || kind.Capacity > ushort.MaxValue || kind.Flags > 1 || (kind.Flags != 0 && (kind.Mode != 0 || kind.Accepts == 0))) throw Fail($"kind {k} fields out of range");
             if (kind.EntryBytes != (kind.Accepts == 0 ? 8u : 8u + ((kind.ValueBytes + 3u) & ~3u))) throw Fail($"kind {k} entry size does not follow its value size");
         }
         for (var f = 0; f < view.FeederCount; f++)

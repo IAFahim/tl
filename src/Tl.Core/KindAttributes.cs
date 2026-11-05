@@ -13,6 +13,12 @@ public sealed class TimelineKindAttribute : Attribute
     public KindMode Mode { get; set; }
     public int Order { get; set; }
     public string? Group { get; set; }
+    public bool FoldsPulses { get; set; }
+}
+
+public interface IPulseFold<T> where T : unmanaged
+{
+    void Fold(ref T total, in T next);
 }
 
 [AttributeUsage(AttributeTargets.Method)]
