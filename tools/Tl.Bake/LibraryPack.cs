@@ -14,6 +14,7 @@ internal static class LibraryPack
         var assemblyPaths = new List<string>();
         string? outPath = null;
         string? idsPath = null;
+        string? kindsPath = null;
         var ns = "Game";
         var auto = false;
         var diagnosticsJson = false;
@@ -27,6 +28,7 @@ internal static class LibraryPack
             }
             else if (a == "--out") { if (i + 1 >= args.Length) return Fail("Missing argument for --out", diagnosticsJson); outPath = args[++i]; }
             else if (a == "--ids") { if (i + 1 >= args.Length) return Fail("Missing argument for --ids", diagnosticsJson); idsPath = args[++i]; }
+            else if (a == "--kinds") { if (i + 1 >= args.Length) return Fail("Missing argument for --kinds", diagnosticsJson); kindsPath = args[++i]; }
             else if (a == "--namespace") { if (i + 1 >= args.Length) return Fail("Missing argument for --namespace", diagnosticsJson); ns = args[++i]; }
             else if (a == "--auto") auto = true;
             else if (a == "--diagnostics")
@@ -38,8 +40,8 @@ internal static class LibraryPack
             else if (dir == null) dir = a;
             else return Fail($"Unexpected argument '{a}'", diagnosticsJson);
         }
-        if (dir == null) return Fail("Usage: tlb library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]", diagnosticsJson);
-        try { return Pack(dir, assemblyPaths, outPath, idsPath, ns, auto, diagnosticsJson); }
+        if (dir == null) return Fail("Usage: tlb library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--kinds Kinds.g.cs] [--namespace Game] [--auto] [--diagnostics json]", diagnosticsJson);
+        try { return Pack(dir, assemblyPaths, outPath, idsPath, kindsPath, ns, auto, diagnosticsJson); }
         catch (BakeDiagnosticException ex) { return Fail(ex.Message, diagnosticsJson); }
         catch (Exception ex) { return Fail(ex.Message, diagnosticsJson); }
     }
@@ -51,7 +53,7 @@ internal static class LibraryPack
         return 1;
     }
 
-    static int Pack(string dir, List<string> assemblyPaths, string? outPath, string? idsPath, string ns, bool auto, bool diagnosticsJson)
+    static int Pack(string dir, List<string> assemblyPaths, string? outPath, string? idsPath, string? kindsPath, string ns, bool auto, bool diagnosticsJson)
     {
         dir = Path.GetFullPath(dir);
         var libraryJson = Path.Combine(dir, "library.json");
@@ -74,6 +76,7 @@ internal static class LibraryPack
                 channels.Add(c.GetString()!);
             }
         }
+        var kindSettings = KindSettingsOf(root);
         if (!root.TryGetProperty("timelines", out var tl) || tl.ValueKind != JsonValueKind.Array) throw new BakeDiagnosticException("library.json needs a 'timelines' array.");
         var patterns = new List<string>();
         foreach (var t in tl.EnumerateArray())
@@ -117,15 +120,44 @@ internal static class LibraryPack
         }
         outPath ??= Path.Combine(dir, "game.tlib");
         idsPath ??= Path.Combine(dir, "Timelines.g.cs");
-        var gameTlib = Emit(names, tlbs, tickRate);
+        var catalog = KindCatalog.Discover(resolver.ReferencedAssemblies);
+        var kindTimelines = new List<KindTimeline>();
+        for (var i = 0; i < names.Count; i++) kindTimelines.Add(KindTimeline.Analyze(names[i].Name, tlbs[i], catalog));
+        var reached = kindTimelines.Any(t => t.KindMask != 0);
+        List<KindCapacityRow>? rows = null;
+        byte[]? kindSection = null;
+        if (reached || kindsPath != null)
+        {
+            rows = KindLayout.Capacities(catalog, kindTimelines, channels.Count, kindSettings);
+            if (reached) kindSection = KindLayout.Section(catalog, kindTimelines, rows);
+        }
+        var gameTlib = Emit(names, tlbs, tickRate, kindSection);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
         File.WriteAllBytes(outPath, gameTlib);
         var digest = Convert.ToHexString(SHA256.HashData(gameTlib)).ToLowerInvariant();
         var ids = EmitIds(ns, names, digest, tickRate);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(idsPath))!);
         File.WriteAllText(idsPath, ids);
-        if (diagnosticsJson) Console.WriteLine(JsonSerializer.Serialize(new { timelines = names.Count, bytes = gameTlib.Length, digest, @out = outPath, ids = idsPath, tickRate }));
-        else Console.WriteLine($"library: {names.Count} timelines, {gameTlib.Length} bytes, digest {digest[..16]} -> {outPath}");
+        var kindsWritten = false;
+        if (rows != null)
+        {
+            kindsPath ??= Path.Combine(Path.GetDirectoryName(Path.GetFullPath(idsPath))!, "Kinds.g.cs");
+            kindsWritten = KindLayout.WriteIfChanged(kindsPath, KindLayout.CapacitySource(ns, rows));
+        }
+        if (diagnosticsJson)
+        {
+            var kinds = rows?.Select(r => new { name = r.Name, group = r.Group, worst = r.Worst, capacity = r.Capacity, entryBytes = r.EntryBytes, inlineBytes = r.Capacity * r.EntryBytes, setBy = r.SetBy }).ToArray();
+            Console.WriteLine(JsonSerializer.Serialize(new { timelines = names.Count, bytes = gameTlib.Length, digest, @out = outPath, ids = idsPath, tickRate, kinds, kindsFile = rows == null ? null : kindsPath, kindsWritten }));
+        }
+        else
+        {
+            Console.WriteLine($"library: {names.Count} timelines, {gameTlib.Length} bytes, digest {digest[..16]} -> {outPath}");
+            if (rows != null)
+            {
+                Console.Write(KindLayout.Report(rows));
+                Console.WriteLine(kindsWritten ? $"kinds: wrote {kindsPath}" : $"kinds: {kindsPath} unchanged");
+            }
+        }
         return 0;
     }
 
@@ -163,7 +195,40 @@ internal static class LibraryPack
         return [.. files];
     }
 
-    static byte[] Emit(List<(string Name, string File)> names, List<byte[]> tlbs, uint tickRate)
+    static KindSettings KindSettingsOf(JsonElement root)
+    {
+        var settings = new KindSettings();
+        if (!root.TryGetProperty("kinds", out var kinds)) return settings;
+        if (kinds.ValueKind != JsonValueKind.Object) throw new BakeDiagnosticException("library.json 'kinds' must be an object.");
+        foreach (var entry in kinds.EnumerateObject())
+        {
+            if (entry.Value.ValueKind != JsonValueKind.Object) throw new BakeDiagnosticException($"library.json kinds '{entry.Name}' must be an object.");
+            int? inline = null, maxInline = null, stackDepth = null;
+            var gamePulses = 0;
+            foreach (var field in entry.Value.EnumerateObject())
+            {
+                if (field.Value.ValueKind != JsonValueKind.Number || !field.Value.TryGetInt32(out var number) || number < 0)
+                    throw new BakeDiagnosticException($"library.json kinds '{entry.Name}.{field.Name}' must be a non-negative integer.");
+                switch (field.Name)
+                {
+                    case "inline" when entry.Name != "default": inline = number; break;
+                    case "gamePulses" when entry.Name != "default": gamePulses = number; break;
+                    case "maxInlineBytes": maxInline = number; break;
+                    case "stackDepth" when entry.Name == "default": stackDepth = number; break;
+                    default: throw new BakeDiagnosticException($"library.json kinds '{entry.Name}': unknown key '{field.Name}'.");
+                }
+            }
+            if (entry.Name == "default")
+            {
+                if (maxInline is { } m) settings.MaxInlineBytes = m;
+                if (stackDepth is { } d) settings.StackDepth = d;
+            }
+            else settings.Kinds[entry.Name] = (inline, gamePulses, maxInline);
+        }
+        return settings;
+    }
+
+    static byte[] Emit(List<(string Name, string File)> names, List<byte[]> tlbs, uint tickRate, byte[]? kindSection)
     {
         var offsets = new uint[names.Count];
         var lengths = new uint[names.Count];
@@ -184,15 +249,19 @@ internal static class LibraryPack
         uint blobOff = (manifestOff + entries + strings + 7u) & ~7u;
         uint cursor = blobOff;
         for (var u = 0; u < uniq.Count; u++) { uniqOff[u] = cursor; cursor += (uint)((uniq[u].Length + 7) & ~7); }
+        var kindOff = kindSection == null ? 0u : cursor;
+        if (kindSection != null) cursor += (uint)kindSection.Length;
         uint totalBytes = cursor + 32u;
         var bytes = new byte[totalBytes];
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), 0x42494C54u);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 1u);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), kindSection == null ? 1u : 2u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), (uint)names.Count);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), manifestOff);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), blobOff);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(20), totalBytes);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(24), tickRate);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(28), kindOff);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(32), kindSection == null ? 0u : (uint)kindSection.Length);
         var nameAt = manifestOff + entries;
         for (var i = 0; i < names.Count; i++)
         {
@@ -213,6 +282,7 @@ internal static class LibraryPack
             nameAt += (uint)nameBytes[i].Length;
         }
         for (var u = 0; u < uniq.Count; u++) uniq[u].CopyTo(bytes.AsSpan((int)uniqOff[u]));
+        kindSection?.CopyTo(bytes.AsSpan((int)kindOff));
         SHA256.TryHashData(bytes.AsSpan(0, (int)(totalBytes - 32u)), bytes.AsSpan((int)(totalBytes - 32u), 32), out _);
         return bytes;
     }

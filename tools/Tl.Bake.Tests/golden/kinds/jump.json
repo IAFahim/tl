@@ -1,0 +1,22 @@
+{
+  "name": "jump",
+  "duration": 20,
+  "channel": "locomotion",
+  "tracks": [
+    {
+      "namespace": "KindFixture", "type": "ArcTrack", "data": { "Scale": 1 },
+      "clips": [
+        { "namespace": "KindFixture", "type": "ArcClip", "start": 0, "end": 10, "data": { "Velocity": 4 } }
+      ]
+    },
+    {
+      "namespace": "KindFixture", "type": "WalkTrack", "data": { "Scale": 1 },
+      "clips": [
+        { "namespace": "KindFixture", "type": "WalkClip", "start": 0, "end": 20, "data": { "Speed": 1, "Priority": 0 } }
+      ]
+    }
+  ],
+  "markers": [
+    { "namespace": "KindFixture", "type": "StepMarker", "tick": 5, "data": { "Delta": -1 } }
+  ]
+}

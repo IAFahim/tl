@@ -116,3 +116,7 @@ methods run after `ExecuteActive` of the same playback and tick (P3).
   each, where the legacy single-pair view kept one.
 - Corrupt libraries (bad magic/version/offsets/size/order/digest, bad TLB,
   mis-sorted manifest) are rejected with located reasons.
+
+## Kind section (not yet in the view)
+
+A version 2 `game.tlib` carries a kind section (`docs/library-layout.md`, "Kinds"). `LibraryView` does not expose it yet; the runtime that reads kinds (#555) adds its view fields and bumps this ABI.

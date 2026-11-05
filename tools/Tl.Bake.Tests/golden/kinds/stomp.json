@@ -1,0 +1,14 @@
+{
+  "name": "stomp",
+  "duration": 8,
+  "channel": "action",
+  "tracks": [
+    {
+      "namespace": "KindFixture", "type": "HitTrack", "data": { "Scale": 1 },
+      "clips": [
+        { "namespace": "KindFixture", "type": "HitClip", "start": 2, "end": 4, "data": { "Amount": 25 } },
+        { "namespace": "KindFixture", "type": "HitClip", "start": 4, "end": 6, "data": { "Amount": 10 } }
+      ]
+    }
+  ]
+}

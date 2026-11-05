@@ -1023,6 +1023,124 @@
     },
     {
       "track": {
+        "namespace": "KindFixture",
+        "name": "ArcTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "KindFixture",
+        "name": "ArcClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Velocity",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "KindFixture.ArcClip"
+      ],
+      "consumers": [
+        {
+          "name": "KindFixture.Jump",
+          "assembly": "Tl.Bake.Tests",
+          "outputs": []
+        }
+      ]
+    },
+    {
+      "track": {
+        "namespace": "KindFixture",
+        "name": "HitTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "KindFixture",
+        "name": "HitClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Amount",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "KindFixture.HitClip"
+      ],
+      "consumers": [
+        {
+          "name": "KindFixture.Hit",
+          "assembly": "Tl.Bake.Tests",
+          "outputs": []
+        }
+      ]
+    },
+    {
+      "track": {
+        "namespace": "KindFixture",
+        "name": "WalkTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "KindFixture",
+        "name": "WalkClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 8,
+        "fields": [
+          {
+            "name": "Priority",
+            "type": "byte"
+          },
+          {
+            "name": "Speed",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "KindFixture.WalkClip"
+      ],
+      "consumers": [
+        {
+          "name": "KindFixture.Walk",
+          "assembly": "Tl.Bake.Tests",
+          "outputs": []
+        }
+      ]
+    },
+    {
+      "track": {
         "namespace": "Tlb",
         "name": "AlphaTrack",
         "assembly": "Tl.Bake.Tests",

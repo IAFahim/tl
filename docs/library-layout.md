@@ -1,4 +1,4 @@
-# game.tlib library layout (version 1)
+# game.tlib library layout (versions 1 and 2)
 
 `tlb library` compiles a library folder (one `library.json` + many timeline JSON
 files) into a deterministic `game.tlib` container plus a `Timelines.g.cs` id table.
@@ -155,13 +155,182 @@ Collisions (two names mapping to one member, or mapping to the reserved
 ## CLI
 
 ```sh
-tlb library <dir> [--assembly Game.Logic.dll]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]
+tlb library <dir> [--assembly Game.Logic.dll]... [--out game.tlib] [--ids Timelines.g.cs] [--kinds Kinds.g.cs] [--namespace Game] [--auto] [--diagnostics json]
 ```
 
 `--out`/`--ids` default beside the library folder (`game.tlib`,
 `Timelines.g.cs`). `--auto` infers missing `namespace` fields as in single
 bakes. With `--diagnostics json`, success prints one JSON summary line and
 failures print `{"errors":[{"message":...}]}` to stderr.
+
+## Kinds (library version 2)
+
+When any timeline reaches a kind (issue #554, plan `Roadmap.Kinds.impl.plan.md`
+section 4), `tlb library` appends a kind section, sets the header `Version` to
+`2`, and writes `Kinds.g.cs`. A library whose timelines reach no kind is
+byte-identical to version 1. A version 2 library needs a runtime that reads
+kinds (#555); version 1 runtimes reject it as an unknown version.
+
+### Discovery
+
+`tlb` scans the `--assembly` types for these shapes, matched by full attribute
+name, so the attribute types may live in any assembly:
+
+- `[Tl.TimelineKind]` on a struct. Named arguments: `Accepts` (`0` Spans,
+  `1` Pulses, `2` Both), `Mode` (`0` Combine, `1` Each), `Order` (int),
+  `Group` (string). The kind needs `public static Apply`; its first parameter
+  (by `in`/`ref` or value) is the kind's unmanaged value type. Combine mode also
+  needs `public static Combine(ref T total, in T next)`.
+- `[Tl.Feeds(typeof(K))]` on a public static method of an `ITrack<TTrack, TClip>`
+  consumer: a span feeder. `K` must accept spans.
+- `[Tl.Pulse(typeof(K), On = …)]` with `On` `0` Start, `1` End (on an `ITrack`
+  consumer) or `2` Marker (on an `IMarker<T>` consumer): a pulse feeder. `K`
+  must accept pulses.
+- A feeder returns exactly the kind's value type.
+
+Kinds are ordered by full type name and named by their simple name, which must
+be unique; at most 64 kinds. Feeders are ordered by kind, then consumer full
+name, then method name; `Ordinal` is the feeder's index within its kind.
+Violations fail the bake with the type and method named and the repair stated.
+
+### library.json `kinds`
+
+```json
+"kinds": {
+  "default": { "maxInlineBytes": 64, "stackDepth": 1 },
+  "Damage": { "inline": 4, "gamePulses": 4, "maxInlineBytes": 128 },
+  "Poison": { "inline": 0 }
+}
+```
+
+`default` takes `maxInlineBytes` and `stackDepth`; a kind or group name takes
+`inline` (fixed capacity), `gamePulses` and `maxInlineBytes`. Unknown names
+and keys fail the bake.
+
+### Capacity
+
+Per kind `K`, over the library's timelines:
+
+- `m(T, K)`: most span entries of `K` active on one tick of one playback of `T`.
+- `p(T, K)`: most pulses of `K` raised on one tick of `T`.
+- `C(K)`: sum over the library's channels of the largest `m(T, K)` on that channel.
+- `S(K)`: largest `m(T, K)` among timelines without a channel, times `stackDepth`.
+- Worst case `C(K) + S(K)`; kinds that accept pulses add
+  `max p(T, K) x (channelCount + stackDepth) + gamePulses`.
+- Capacity: `inline` when set, else `min(worst, floor(maxInlineBytes / entryBytes))`.
+- Entry bytes: `8` for span-only kinds, else `8 + align4(sizeof(value))`. A
+  kind group's entry is `12 + align4(largest pulse value)`, and its worst case
+  is the sum of its members'.
+
+`tlb library` prints one line per kind (worst case, capacity, entry bytes,
+inline bytes, and the timeline that set it); with `--diagnostics json` the
+summary carries a `kinds` array with the same fields.
+
+### Kinds.g.cs
+
+Written beside `--ids` (or at `--kinds <path>`) when any timeline reaches a
+kind or `--kinds` is given, and **only when its bytes change**, so a bake that
+moves no capacity triggers no recompile:
+
+```csharp
+namespace Game
+{
+    public static class KindCapacity
+    {
+        public const int Damage = 5;
+        public const int Lift = 2;
+    }
+}
+```
+
+One `const int` per kind and per kind group, ordinal by name.
+
+### Header fields (version 2)
+
+| Offset | Width | Field | Value |
+|---|---|---|---|
+| 4 | u32 | Version | `2` |
+| 28 | u32 | KindOffset | Absolute, 8-aligned, after the last blob |
+| 32 | u32 | KindLength | Section bytes (8-aligned); the digest follows |
+
+### Kind section
+
+All offsets inside the section are relative to `KindOffset`.
+
+| Offset | Width | Field |
+|---|---|---|
+| 0 | u32 | Magic `0x444E494B` (ASCII `KIND`) |
+| 4 | u32 | Version `1` |
+| 8 | u32 | KindCount |
+| 12 | u32 | FeederCount |
+| 16 | u32 | TimelineCount (equals the manifest count, same order) |
+| 20 | u32 | KindTable (`KindCount x 40`) |
+| 24 | u32 | FeederTable (`FeederCount x 32`) |
+| 28 | u32 | TimelineTable (`TimelineCount x 48`) |
+| 32 | u32 | StringsOffset |
+| 36 | u32 | StringsLength |
+| 40 | 24 | Zero |
+
+Kind entry (40 bytes): `NameOffset u32`, `NameLength u32` (into strings),
+`ValueBytes u32`, `EntryBytes u32`, `Capacity u32`, `Accepts u8`, `Mode u8`,
+`u16` zero, `Order i32`, `GroupNameOffset u32`, `GroupNameLength u32` (0 when
+none), `GroupCapacity u32`.
+
+Feeder entry (32 bytes): `Kind u16`, `Trigger u8` (`0` Span, `1` Start, `2` End,
+`3` Marker), `Ordinal u8`, `u32` zero, `SourceKey u64` (the pair key of the
+consumer's track and clip types, or the marker type key), `ConsumerOffset u32`,
+`ConsumerLength u32`, `MethodOffset u32`, `MethodLength u32`.
+
+Timeline entry (48 bytes; all zero when the timeline reaches no kind):
+
+| Offset | Width | Field |
+|---|---|---|
+| 0 | u64 | KindMask (bit = kind index) |
+| 8 | u32 | Windows (offset) |
+| 12 | u32 | WindowCount |
+| 16 | u32 | EventBits (offset; `Duration` bytes, bit 0 forward, bit 1 backward) |
+| 20 | u32 | EventIndex (offset; `2 x Duration + 1` u32, `[2t + dir]` to `[2t + dir + 1]`) |
+| 24 | u32 | Events (offset; 8 bytes each) |
+| 28 | u32 | EventCount (tick events) |
+| 32 | u32 | WrapForward (event index) |
+| 36 | u32 | WrapForwardCount |
+| 40 | u32 | WrapBackward (event index) |
+| 44 | u32 | WrapBackwardCount |
+
+Window (16 bytes): `Track u16`, `Pair u16` (pair index; marker index for a
+marker window), `Start u16`, `End u16` (exclusive), `Slot u32` (offset of the
+first TLB slot row of the window inside the timeline blob; 0 for markers),
+`Flags u32` (bit 0 marker). Slot windows are the distinct
+`(TrackIndex, Pair, WindowStart, WindowEnd)` of the slot rows in program-step
+order; marker windows follow, one per marker that some feeder handles, with
+`End = Start + 1`.
+
+Event (8 bytes): `Window u16`, `Feeder u16` (feeder index), `Op u8` (`0` Remove,
+`1` Insert, `2` PulseStart, `3` PulseEnd, `4` PulseMarker), 3 zero bytes. An
+entry is the pair `(Window, Feeder)`.
+
+Events at tick `t` in direction `dir` (0 forward, arriving from `t - 1`; 1
+backward, arriving from `t + 1`), in this order, each group by entry order:
+
+1. Remove span entries: forward `End == t`; backward `Start == t + 1`.
+2. Insert span entries: forward `Start == t`; backward `End - 1 == t`.
+3. Pulses: Start feeders at `Start == t`, End feeders at `End - 1 == t`,
+   Marker feeders at the marker tick, the same in both directions.
+
+`EventBits[t]` has bit `dir` set exactly when that list is non-empty. Looping
+timelines also carry wrap lists: forward removes span entries with
+`End == Duration`, backward removes those with `Start == 0`; the runtime then
+processes tick `0` (forward) or `Duration - 1` (backward).
+
+Fixtures: `tools/Tl.Bake.Tests/golden/kinds/` (`library.json`, four timelines,
+the committed `game.tlib` and `Kinds.g.cs.txt`). `KindLibraryTests` checks the
+event lists against the clip windows in both directions, hand-computed
+capacities, determinism and the no-rewrite rule. Regenerate the golden pack
+after an intended format change with:
+
+```sh
+cd tools/Tl.Bake.Tests/golden/kinds && dotnet ../../../Tl.Bake/bin/Release/net10.0/Tl.Bake.dll library . --assembly ../../bin/Release/net10.0/Tl.Bake.Tests.dll --namespace KindFixture --ids /tmp/Timelines.g.cs --kinds Kinds.g.cs.txt
+```
 
 ## Self-contained tlb artifacts
 

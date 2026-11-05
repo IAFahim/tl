@@ -34,6 +34,8 @@
     </None>
     <None Include="golden\**\*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="golden\**\*.tlb" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="golden\kinds\game.tlib" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="golden\kinds\Kinds.g.cs.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="golden\vectors\**\*.tlcv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
