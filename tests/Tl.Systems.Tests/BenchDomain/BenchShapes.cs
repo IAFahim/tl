@@ -142,47 +142,6 @@ public ref partial struct SD
     public global::System.Span<sbyte> D3;
 }
 
-public readonly struct OldA : ITrack<BTrack, BClip>
-{
-    public static void Fold(in Frame<BTrack, BClip> frame, out float lift) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
-    public static void ExecuteActive(in Frame<BTrack, BClip> frame, in float lift, ref float fx) { fx += lift; }
-}
-
-public readonly struct OldB : ITrack<CTrack, CClip>
-{
-    public static void Fold(in Frame<CTrack, CClip> frame, out float lift, out int kind) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; kind = (int)(frame.Clip.Amount * 10); }
-    public static void ExecuteActive(in Frame<CTrack, CClip> frame, in float lift, in int kind, ref float fx, ref int ix) { fx += lift; ix += kind; }
-}
-
-public readonly struct OldC : ITrack<DTrack, DClip>
-{
-    public static void ExecuteActive(in Frame<DTrack, DClip> frame, in int gain, ref float c) { c += gain * frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
-}
-
-public readonly struct OldD0 : ITrack<ETrack, EClip>
-{
-    public static void Fold(in Frame<ETrack, EClip> frame, out float lift) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
-    public static void ExecuteActive(in Frame<ETrack, EClip> frame, in float lift, ref float d) { d += lift; }
-}
-
-public readonly struct OldD1 : ITrack<FTrack, FClip>
-{
-    public static void Fold(in Frame<FTrack, FClip> frame, out float lift) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
-    public static void ExecuteActive(in Frame<FTrack, FClip> frame, in float lift, ref int d) { d += (int)lift; }
-}
-
-public readonly struct OldD2 : ITrack<GTrack, GClip>
-{
-    public static void Fold(in Frame<GTrack, GClip> frame, out float lift) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
-    public static void ExecuteActive(in Frame<GTrack, GClip> frame, in float lift, ref short d) { d += (short)lift; }
-}
-
-public readonly struct OldD3 : ITrack<HTrack, HClip>
-{
-    public static void Fold(in Frame<HTrack, HClip> frame, out float lift) { lift = frame.Direction * frame.Clip.Amount * frame.Track.Scale; }
-    public static void ExecuteActive(in Frame<HTrack, HClip> frame, in float lift, ref sbyte d) { d += (sbyte)lift; }
-}
-
 [Tl.TimelineSystemMember(typeof(SA))]
 public readonly struct NewA : ITrack<BTrack, BClip>
 {

@@ -71,60 +71,6 @@ public unsafe class SystemsBenchmarks
     short[] _s2y = null!;
     int _s64ticks;
 
-    ushort _assetA;
-    ushort _assetB;
-    ushort _assetC;
-    ushort _assetD0;
-    ushort _assetD1;
-    ushort[] _idsA = null!;
-    ushort[] _posA = null!;
-    ushort[] _idsB = null!;
-    ushort[] _posB = null!;
-    ushort[] _idsC = null!;
-    ushort[] _posC = null!;
-    ushort[] _idsD0 = null!;
-    ushort[] _idsD1 = null!;
-    ushort[] _idsD2 = null!;
-    ushort[] _idsD3 = null!;
-    ushort[] _posD0 = null!;
-    ushort[] _posD1 = null!;
-    ushort[] _posD2 = null!;
-    ushort[] _posD3 = null!;
-    ushort _assetD2;
-    ushort _assetD3;
-    float[] _oldA = null!;
-    float[] _oldBf = null!;
-    int[] _oldBi = null!;
-    int[] _oldCg = null!;
-    float[] _oldCf = null!;
-    float[] _oldD0 = null!;
-    int[] _oldD1 = null!;
-    short[] _oldD2 = null!;
-    sbyte[] _oldD3 = null!;
-
-    internal static byte[] BakeA() =>
-        new DomainBaker().Track<BTrack, BClip>(new BTrack(2f)).Clip(0, 0u, 40u, new BClip(3f)).Looping().Bake();
-
-    internal static byte[] BakeB() =>
-        new DomainBaker().Track<CTrack, CClip>(new CTrack(2f)).Clip(0, 0u, 40u, new CClip(3f)).Looping().Bake();
-
-    internal static byte[] BakeC() =>
-        new DomainBaker().Track<DTrack, DClip>(new DTrack(2f)).Clip(0, 0u, 40u, new DClip(3f)).Looping().Bake();
-
-    internal static byte[] BakeD() =>
-        new DomainBaker()
-            .Track<ETrack, EClip>(new ETrack(2f)).Track<FTrack, FClip>(new FTrack(2f))
-            .Track<GTrack, GClip>(new GTrack(2f)).Track<HTrack, HClip>(new HTrack(2f))
-            .Clip(0, 0u, 40u, new EClip(3f)).Clip(1, 0u, 40u, new FClip(3f))
-            .Clip(2, 0u, 40u, new GClip(3f)).Clip(3, 0u, 40u, new HClip(3f))
-            .Looping().Bake();
-
-    internal static byte[] BakeS2H() =>
-        new DomainBaker().Track<ETrack, EClip>(new ETrack(2f)).Clip(0, 0u, 40u, new EClip(3f)).Looping().Bake();
-
-    internal static byte[] BakeS2I() =>
-        new DomainBaker().Track<FTrack, FClip>(new FTrack(2f)).Clip(0, 0u, 40u, new FClip(3f)).Looping().Bake();
-
     static TimelineWorld BuildWorld(ViewScope scope, IList<ViewScope.TimelineSpec> timelines)
     {
         scope.Build(timelines);
@@ -253,37 +199,6 @@ public unsafe class SystemsBenchmarks
         _s2y = new short[N];
         for (var i = 0; i < N; i++) _gainC[i] = 1 + i % 4;
 
-        _assetA = TimelineAsset.Load(BakeA());
-        _assetB = TimelineAsset.Load(BakeB());
-        _assetC = TimelineAsset.Load(BakeC());
-        _assetD0 = TimelineAsset.Load(new DomainBaker().Track<ETrack, EClip>(new ETrack(2f)).Clip(0, 0u, 40u, new EClip(3f)).Looping().Bake());
-        _assetD1 = TimelineAsset.Load(new DomainBaker().Track<FTrack, FClip>(new FTrack(2f)).Clip(0, 0u, 40u, new FClip(3f)).Looping().Bake());
-        _assetD2 = TimelineAsset.Load(new DomainBaker().Track<GTrack, GClip>(new GTrack(2f)).Clip(0, 0u, 40u, new GClip(3f)).Looping().Bake());
-        _assetD3 = TimelineAsset.Load(new DomainBaker().Track<HTrack, HClip>(new HTrack(2f)).Clip(0, 0u, 40u, new HClip(3f)).Looping().Bake());
-        _idsA = Filled(_assetA);
-        _posA = new ushort[N];
-        _idsB = Filled(_assetB);
-        _posB = new ushort[N];
-        _idsC = Filled(_assetC);
-        _posC = new ushort[N];
-        _idsD0 = Filled(_assetD0);
-        _idsD1 = Filled(_assetD1);
-        _idsD2 = Filled(_assetD2);
-        _idsD3 = Filled(_assetD3);
-        _posD0 = new ushort[N];
-        _posD1 = new ushort[N];
-        _posD2 = new ushort[N];
-        _posD3 = new ushort[N];
-        _oldA = new float[N];
-        _oldBf = new float[N];
-        _oldBi = new int[N];
-        _oldCg = ArrayCopy(_gainC);
-        _oldCf = new float[N];
-        _oldD0 = new float[N];
-        _oldD1 = new int[N];
-        _oldD2 = new short[N];
-        _oldD3 = new sbyte[N];
-
         ResetNew(_pA, _wA, 1);
         ResetNew(_pB, _wB, 1);
         ResetNew(_pC, _wC, 1);
@@ -292,25 +207,6 @@ public unsafe class SystemsBenchmarks
         ResetNew(_pS2One, _wS2, 1);
         ResetS64();
     }
-
-    static ushort[] Filled(ushort asset)
-    {
-        var ids = new ushort[N];
-        Array.Fill(ids, asset);
-        return ids;
-    }
-
-    static int[] ArrayCopy(int[] source)
-    {
-        var copy = new int[source.Length];
-        Array.Copy(source, copy, source.Length);
-        return copy;
-    }
-
-    static byte[] BakePair<TTrack, TClip>(TTrack track, TClip clip)
-        where TTrack : unmanaged, IBlend<TClip>
-        where TClip : unmanaged =>
-        new DomainBaker().Track<TTrack, TClip>(track).Clip(0, 0u, 40u, clip).Looping().Bake();
 
     static void ResetNew(PlaybackTable players, TimelineWorld world, params ushort[] timelines)
     {
@@ -336,13 +232,6 @@ public unsafe class SystemsBenchmarks
     // cache stays hot (this is the measured warm path). Smoke calls Reset once.
     public void Reset()
     {
-        Array.Fill(_posA, (ushort)0);
-        Array.Fill(_posB, (ushort)0);
-        Array.Fill(_posC, (ushort)0);
-        Array.Fill(_posD0, (ushort)0);
-        Array.Fill(_posD1, (ushort)0);
-        Array.Fill(_posD2, (ushort)0);
-        Array.Fill(_posD3, (ushort)0);
         ResetNew(_pA, _wA, 1);
         ResetNew(_pB, _wB, 1);
         ResetNew(_pC, _wC, 1);
@@ -376,19 +265,6 @@ public unsafe class SystemsBenchmarks
     }
 
     [Benchmark]
-    public void OldA()
-    {
-        var set = new ColumnSet();
-        set.Add<float>(_oldA);
-        for (var f = 0; f < Frames; f++)
-        {
-            Timeline<BTrack, BClip>.Apply(_idsA, _posA, true, in set);
-            Timeline.Advance(_assetA, _posA, true);
-        }
-        Sink += _oldA[0] + _oldA[N - 1];
-    }
-
-    [Benchmark]
     public void NewA()
     {
         var system = new SA { Fx = _fxA };
@@ -415,20 +291,6 @@ public unsafe class SystemsBenchmarks
     }
 
     [Benchmark]
-    public void OldB()
-    {
-        var set = new ColumnSet();
-        set.Add<float>(_oldBf);
-        set.Add<int>(_oldBi);
-        for (var f = 0; f < Frames; f++)
-        {
-            Timeline<CTrack, CClip>.Apply(_idsB, _posB, true, in set);
-            Timeline.Advance(_assetB, _posB, true);
-        }
-        Sink += _oldBf[0] + _oldBi[N - 1];
-    }
-
-    [Benchmark]
     public void NewB()
     {
         var system = new SB { Fx = _fxB, Ix = _ixB };
@@ -442,20 +304,6 @@ public unsafe class SystemsBenchmarks
     }
 
     [Benchmark]
-    public void OldC()
-    {
-        var set = new ColumnSet();
-        set.Add<int>(_oldCg);
-        set.Add<float>(_oldCf);
-        for (var f = 0; f < Frames; f++)
-        {
-            Timeline<DTrack, DClip>.Apply(_idsC, _posC, true, in set);
-            Timeline.Advance(_assetC, _posC, true);
-        }
-        Sink += _oldCf[0] + _oldCg[N - 1];
-    }
-
-    [Benchmark]
     public void NewC()
     {
         var system = new SC { C = _gainC, F = _fxC };
@@ -466,31 +314,6 @@ public unsafe class SystemsBenchmarks
             _wC.Advance(_pC, true);
         }
         Sink += _fxC[0] + _gainC[N - 1];
-    }
-
-    [Benchmark]
-    public void OldD()
-    {
-        var set0 = new ColumnSet();
-        set0.Add<float>(_oldD0);
-        var set1 = new ColumnSet();
-        set1.Add<int>(_oldD1);
-        var set2 = new ColumnSet();
-        set2.Add<short>(_oldD2);
-        var set3 = new ColumnSet();
-        set3.Add<sbyte>(_oldD3);
-        for (var f = 0; f < Frames; f++)
-        {
-            Timeline<ETrack, EClip>.Apply(_idsD0, _posD0, true, in set0);
-            Timeline<FTrack, FClip>.Apply(_idsD1, _posD1, true, in set1);
-            Timeline<GTrack, GClip>.Apply(_idsD2, _posD2, true, in set2);
-            Timeline<HTrack, HClip>.Apply(_idsD3, _posD3, true, in set3);
-            Timeline.Advance(_assetD0, _posD0, true);
-            Timeline.Advance(_assetD1, _posD1, true);
-            Timeline.Advance(_assetD2, _posD2, true);
-            Timeline.Advance(_assetD3, _posD3, true);
-        }
-        Sink += _oldD0[0] + _oldD1[N - 1] + _oldD2[0] + _oldD3[N - 1];
     }
 
     [Benchmark]
