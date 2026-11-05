@@ -1,9 +1,13 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "header": {
-    "formatVersion": 5,
+    "formatVersion": 6,
     "duration": 20,
-    "looping": false
+    "looping": false,
+    "nextId": 0,
+    "channel": 0,
+    "hold": false,
+    "markerCount": 0
   },
   "pairs": [
     {
@@ -68,5 +72,6 @@
         }
       ]
     }
-  ]
+  ],
+  "markers": []
 }

@@ -6,8 +6,8 @@ namespace Tl.Bake.Tests;
 public class ReportTests
 {
     private const string OracleReport =
-        "tlb/total-bytes: 1198\n" +
-        "tlb/hot-bytes: 824\n" +
+        "tlb/total-bytes: 1214\n" +
+        "tlb/hot-bytes: 840\n" +
         "tlb/metadata-bytes: 374\n" +
         "pair/table-bytes: 144\n" +
         "pair/count: 3\n" +
@@ -32,8 +32,8 @@ public class ReportTests
         "label/clip-count: 4\n";
 
     private const string StrippedReport =
-        "tlb/total-bytes: 824\n" +
-        "tlb/hot-bytes: 824\n" +
+        "tlb/total-bytes: 840\n" +
+        "tlb/hot-bytes: 840\n" +
         "tlb/metadata-bytes: 0\n" +
         "pair/table-bytes: 144\n" +
         "pair/count: 3\n" +

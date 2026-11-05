@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace></RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <!-- LiveBatchDomain.cs owns unassigned spec fields; 0649 is noise here. -->
+    <NoWarn>$(NoWarn);0649</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The emit tool builds and runs standalone; never part of the bench. -->
+    <Compile Remove="GenTool/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" />
+    <!-- Byte-identical P0 domain copy + new consumers via default glob; generated snapshot committed. -->
+    <Compile Include="../../tests/Shared/DomainBaker.cs" Link="Shared/DomainBaker.cs" />
+    <ProjectReference Include="../../src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer"
+                      PrivateAssets="all"
+                      AdditionalProperties="TargetFramework=netstandard2.0"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
+  </ItemGroup>
+
+  <Import Project="../../src/Tl.Gen.CSharp/build/Tl.Gen.CSharp.targets" />
+
+</Project>

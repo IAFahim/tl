@@ -1,0 +1,14 @@
+{
+  "name": "slide",
+  "duration": 8,
+  "next": "jump",
+  "channel": "locomotion",
+  "tracks": [
+    {
+      "namespace": "Tlb", "type": "GotoTrack", "data": { "Scale": 1 },
+      "clips": [
+        { "namespace": "Tlb", "type": "GotoClip", "start": 0, "end": 8, "data": { "Target": "jump" } }
+      ]
+    }
+  ]
+}

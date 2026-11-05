@@ -8,6 +8,9 @@ public static class Program
     {
         try
         {
+            if (args is ["library", ..])
+                return LibraryPack.Run(args[1..]);
+
             if (args is ["--json", ..])
                 return Json(args);
 
@@ -132,6 +135,7 @@ public static class Program
         if (inputPath == null)
         {
             Console.Error.WriteLine("Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]");
+            Console.Error.WriteLine("       tlb library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]");
             Console.Error.WriteLine("       tlb --strip <input.tlb> <output.tlb>");
             Console.Error.WriteLine("       tlb --report <input.tlb>");
             Console.Error.WriteLine("       tlb --inspect <input.tlb>");

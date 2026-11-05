@@ -1,8 +1,8 @@
-# TLB1 container byte layout (version 5)
+ # TLB1 container byte layout (versions 5 and 6)
 
 `tlb` compiles authored timeline JSON into TLB1, a deterministic binary container. This page specifies the byte layout so an out-of-process parser — a browser viewer over `.tlb` files, C catalog tooling, Unity-side import — can read the structure without running this repository's code. The committed fixtures under `tools/Tl.Bake.Tests/golden/fixtures/` are the test corpus for that parser.
 
-The spec describes what the baker emits today (TLB1 version 5). It promises no stability across future versions: the header version field is the handshake, parsers reject what they do not know, and any format change bumps the version and regenerates the fixtures in the same change.
+The spec describes what the baker emits today (TLB1 version 6; version 5 fixtures are byte-stable carryovers). It promises no stability across future versions: the header version field is the handshake, parsers reject what they do not know, and any format change bumps the version and regenerates the fixtures in the same change.
 
 ## Conventions
 
@@ -214,18 +214,75 @@ The minimal fixture (327 bytes, sha256 `5835fb500684924b15e4c3eed022745426560558
 0147  (end of file at 327)
 ```
 
-## Fixtures
+ ## Version 6 (JSON v2 timelines)
 
-| File | Bytes | sha256 | Exercises |
-|---|---|---|---|
-| `minimal.tlb` | 327 | `5835fb500684924b15e4c3eed022745426560558172e6e48c93cd54cfb3c0900` | Single pair, single stage, no blend, no labels, empty label table |
-| `blended.tlb` | 1021 | `e33a22a7d847691a022a8380d73f7ccbd8bcbb9aa059a8abfef966af24176b02` | Two pairs with ascending keys, six stages, a blend window (`SecondValueIndex != 0xFFFF`, `FactorSpan = 2`), loop flag, named tracks and clips, duplicate clip payloads deduplicated in the pool |
+ Version 6 keeps every v5 section and order, extends the header to 80 bytes,
+ and appends a marker section between the slot rows and the cold tail.
+ `PairOffset >= 80` in v6 (`>= 64` in v5). Runtimes accept 5 and 6; the baker
+ emits 6; `tlb --inspect` renders `schemaVersion: 2` for v6.
 
-Each fixture's `.json` beside it is its authored source and its `.inspect.json` is the canonical rendering `tlb --inspect` produces (`schemaVersion: 1` structural JSON). Regenerate all three files per fixture with:
+ ### JSON v2 keys (authoring)
 
-```sh
-tlb minimal.json minimal.tlb --assembly <assembly-defining-the-types>
-tlb --inspect minimal.tlb > minimal.inspect.json
-```
+ Everything v1 keeps its meaning. New root keys: `next` (string timeline name;
+ incompatible with `loop:true`), `hold` (bool, default false; incompatible with
+ `loop:true`; a finite timeline without `next` stays at the end with `Ended`
+ instead of removal), `channel` (string; exclusivity lane, resolved via
+ `library.json` order; no channel stacks), `markers` (array of
+ `{type, namespace?, assembly?, tick, data}` unmanaged marker structs).
+ Track/clip `data` additionally accepts enum member names (case-sensitive) and
+ `TimelineId` fields accept timeline names resolved against the manifest
+ (unknown names fail the bake; `TimelineId`/enum payloads without a manifest
+ direct authors to `tlb library`). Unknown keys are still rejected.
 
-`TlbLayoutFixtureTests` (in `tools/Tl.Bake.Tests`) loads each committed `.tlb` through `TimelineAsset.Load` and pins `TlbInspection.Inspect` to the committed rendering byte-for-byte, so any format change that does not regenerate the fixtures fails the build.
+ ### Header delta (80 bytes in v6)
+
+ First 64 bytes keep the v5 offsets and meanings, except:
+
+ | Offset | Width | Field in v6 | Meaning |
+ |---|---|---|---|
+ | 4 | u32 | Version | `6` |
+ | 28 | u32 | PairOffset | At least 80; 8-byte aligned |
+ | 52 | u32 | NextId | Resolved timeline id, 0 = none |
+ | 56 | u32 | Channel | Resolved channel number, 0 = none |
+ | 60 | u32 | Flags | Bit 0 = Hold; other bits zero |
+ | 64 | u32 | MarkerOffset | 0 when `MarkerCount` is 0, else 8-aligned `>= FrameOffset` |
+ | 68 | u32 | MarkerCount | Number of marker entries |
+ | 72 | u32 | Reserved3 | Zero |
+ | 76 | u32 | Reserved4 | Zero |
+
+ ### Marker section (packed entries at MarkerOffset)
+
+ `MarkerCount` entries, authored tick order (baker sorts by tick, then key):
+ `[Tick u32][PayloadSize u32][TypeKey u64][Payload bytes padded to 4]`.
+ `TypeKey` is the 64-bit runtime identity of the marker struct type.
+ `PayloadSize` is `sizeof` the marker struct (1..4096). Ticks must satisfy
+ `tick < Duration` (when `Duration != 0`).
+
+ ### v6 rejection additions
+
+ Beyond the v5 contract: `Version` 5 or 6 only (unknown rejected);
+ `PairOffset < 80` in v6 rejected; `Flags & ~1u != 0` rejected;
+ `NextId != 0` with `Loops != 0` and `Hold` with `Loops != 0` rejected;
+ `NextId`/`Channel` above 65,535 rejected; marker entries out of bounds,
+ zero keys, oversize payloads, or ticks outside duration rejected; slot rows
+ at or past `MarkerOffset` rejected.
+
+ ## Fixtures
+
+ | File | Bytes | sha256 | Exercises |
+ |---|---|---|---|
+ | `minimal.tlb` | 327 | `5835fb500684924b15e4c3eed022745426560558172e6e48c93cd54cfb3c0900` | v5 carryover: single pair, single stage, no blend, no labels, empty label table |
+ | `blended.tlb` | 1021 | `e33a22a7d847691a022a8380d73f7ccbd8bcbb9aa059a8abfef966af24176b02` | v5 carryover: two pairs with ascending keys, six stages, a blend window (`SecondValueIndex != 0xFFFF`, `FactorSpan = 2`), loop flag, named tracks and clips, duplicate clip payloads deduplicated in the pool |
+
+ v6 fixtures live beside them (`v2_hold_markers.*`, `v2_library/`): hold flag,
+ marker section, enum and `TimelineId` payloads, and a packed `game.tlib` with
+ `Timelines.g.cs`. Each fixture's `.json` beside it is its authored source and
+ its `.inspect.json` is the canonical rendering `tlb --inspect` produces
+ (`schemaVersion: 2` structural JSON for v6). Regenerate all three files per fixture with:
+
+ ```sh
+ tlb minimal.json minimal.tlb --assembly <assembly-defining-the-types>
+ tlb --inspect minimal.tlb > minimal.inspect.json
+ ```
+
+ `TlbLayoutFixtureTests` (in `tools/Tl.Bake.Tests`) loads each committed `.tlb` through `TimelineAsset.Load` and pins `TlbInspection.Inspect` to the committed rendering byte-for-byte, so any format change that does not regenerate the fixtures fails the build.
