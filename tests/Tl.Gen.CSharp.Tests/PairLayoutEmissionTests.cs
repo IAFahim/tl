@@ -130,7 +130,8 @@ public sealed class PairLayoutEmissionTests
         Assert.Contains("[assembly: global::TlConsumerLayoutAttribute(typeof(global::Domain.DamageTrack), typeof(global::Domain.DamageClip), ", binding);
         Assert.Contains("internal sealed class TlConsumerLayoutAttribute : global::System.Attribute", binding);
         Assert.Equal(2, CountOf(binding, "[assembly: global::TlConsumerLayoutAttribute("));
-        Assert.Equal(2, CountOf(binding, ".VerifyLayout("));
+        Assert.Equal(0, CountOf(binding, ".VerifyLayout("));
+        Assert.Equal(0, CountOf(binding, "PairRuntime<"));  // no runtime registration; install is a no-op
         Assert.Equal(1, CountOf(binding, "internal sealed class TlConsumerLayoutAttribute"));
     }
 

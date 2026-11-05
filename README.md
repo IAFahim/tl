@@ -264,16 +264,16 @@ on any drift:
 
 | shape | hot ns/entity | cold ns/entity | warm alloc B |
 | --- | ---: | ---: | ---: |
-| folded lane through a generated system | 9.39 | 9.48 | 0 |
-| folded lane rewound through the same system | 9.55 | 9.64 | 0 |
-| fold-fed compose through a generated system | 10.67 | 10.80 | 0 |
-| frame-consumer dispatch through a generated system | 10.58 | 11.01 | 0 |
-| four pairs through one generated system | 22.37 | 22.41 | 0 |
-| one playback per entity (2-playback reference) | 9.13 | 9.02 | 0 |
-| two playbacks per entity | 17.10 | 17.45 | 0 |
-| 64 consumers, 2 active per tick | 378.61 | 376.88 | 0 |
+| folded lane through a generated system | 9.36 | 9.39 | 0 |
+| folded lane rewound through the same system | 9.41 | 9.45 | 0 |
+| fold-fed compose through a generated system | 10.67 | 10.54 | 0 |
+| frame-consumer dispatch through a generated system | 10.11 | 10.58 | 0 |
+| four pairs through one generated system | 22.09 | 21.89 | 0 |
+| one playback per entity (2-playback reference) | 8.98 | 9.02 | 0 |
+| two playbacks per entity | 17.00 | 17.10 | 0 |
+| 64 consumers, 2 active per tick | 376.23 | 374.53 | 0 |
 
-Two playbacks per entity cost 1.87x one playback on the same run. Committed 3.x LiveBatch baselines (per-entity medians from a different harness and row count) ship in the receipt for reference; the 4.10 gates (folded ≤1.03x, fold-fed ≤0.15x, frame ≤0.25x, four-pair ≤0.70x, 64-consumer ≤1.5x, 2-playback ≤2.2x) are decided by same-harness BenchmarkDotNet runs on the release machine, not by the ratios above. Warm allocation is 0 B on every shape and determinism is verified by identical state hashes across two full runs.
+Two playbacks per entity cost 1.89x one playback on the same run. Committed 3.x LiveBatch baselines (per-entity medians from a different harness and row count) ship in the receipt for reference; the 4.10 gates (folded ≤1.03x, fold-fed ≤0.15x, frame ≤0.25x, four-pair ≤0.70x, 64-consumer ≤1.5x, 2-playback ≤2.2x) are decided by same-harness BenchmarkDotNet runs on the release machine, not by the ratios above. Warm allocation is 0 B on every shape and determinism is verified by identical state hashes across two full runs.
 <!-- /tl-numbers -->
 
 The table is rendered from [benchmarks/Systems](benchmarks/Systems) receipts — every shape bit-exact forward and backward with 0 B warm — and CI fails if the receipt and this section disagree. Re-measure on the release machine with `eng/refresh-numbers`, which rebuilds the harness, re-runs every shape, and re-renders this block from the fingerprinted receipt. The 4.10 gates (folded ≤1.03x, fold-fed ≤0.15x, frame ≤0.25x, four-pair ≤0.70x, 64-consumer ≤1.5x, 2-playback ≤2.2x, 0 B warm, parity) run against these rows plus the committed 3.x baselines; ratios below are indicative until a same-harness release-machine run records the verdicts.
