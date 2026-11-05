@@ -56,8 +56,8 @@ public unsafe struct LibraryStep
     public uint WindowStart; public uint WindowEnd;
     public uint FactorStart; public uint FactorSpan;
     public ushort TrackValueIndex; public ushort FirstValueIndex; public ushort SecondValueIndex;
-    public void* FoldLane;         // per-step fold lane (D10); null until a Fold registers
-    public void* FrameRow;         // slot row in the loaded library copy
+    public void* FoldLane;         // per-step fold lane (D10); lane blocks per (tick, direction) filled at load via ITlModule; null when no Fold is registered for the pair (frame-consumer path)
+    public void* FrameRow;         // materialized [track][first][second] payload base for this step, copied from the pool values at load (never the baked index row)
 }
 public struct LibraryEvent
 {
@@ -78,7 +78,12 @@ public struct LibraryEvent
 - `new TimelineWorld(bytes)` copies the library into native memory, validates
   (magic, version, offsets, size, manifest order, every TLB, digest), and builds
   one `LibraryTimeline` per manifest entry with its own `Stages` (one flat
-  `Steps` block per timeline), `Events`, and `EventTickBits`.
+  `Steps` block per timeline), `Events`, and `EventTickBits`. It then
+  materializes derived tables in one arena per timeline: per-step `FrameRow`
+  payload rows resolved from the pool indices, per-step `FoldLane` blocks
+  evaluated per (tick, direction) through the registered `ITlModule`
+  (`FoldLane` stays null where no Fold is registered), and one marker table
+  per timeline published to `MarkerTableRegistry`.
 - `View` returns the struct by value; the pointers stay valid until `Dispose`
   or `Reload`. `Reload` frees the old tables before loading the new bytes.
 - Content dedup stays inside a world: identical TLB blobs may share file bytes,
