@@ -52,7 +52,6 @@ jobs:
           dotnet build -c Release
           dotnet run -c Release --no-build
           dotnet run -c Release --no-build -- --verify
-      - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
       - run: dotnet pack src/Tl.Core -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.Gen.CSharp -c Release --no-build -o artifacts/packages
       - run: dotnet pack src/Tl.CSharp -c Release --no-build -m:1 -o artifacts/packages
@@ -77,11 +76,6 @@ jobs:
           dotnet publish tests/Tl.PackageConsumer/Tl.PackageConsumer.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true --no-restore -o artifacts/package-aot
           test "$(./artifacts/package-aot/Tl.PackageConsumer)" = "7"
           test -z "$(find artifacts/package-aot -type f \( -name 'Tl.Gen*' -o -name 'Microsoft.CodeAnalysis*' -o -name 'Waffle*' \) -print -quit)"
-      - name: Typed playback lane parity and throughput
-        run: |
-          set -euo pipefail
-          dotnet build benchmarks/TypedPlaybackProto/TypedPlaybackProto.csproj -c Release
-          dotnet run --project benchmarks/TypedPlaybackProto -c Release --no-build -- 100000
       - run: eng/release-artifacts --candidate ci artifacts/release
 
   checked:

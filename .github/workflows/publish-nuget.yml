@@ -40,7 +40,6 @@ jobs:
           dotnet run --project ../../tools/Tl.Bake -c Release --no-build -- library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
           dotnet build -c Release
           dotnet run -c Release --no-build -- --verify
-      - run: dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
       - name: Build and verify exact tagged artifacts
         env:
           RELEASE_TAG: ${{ inputs.tag }}
