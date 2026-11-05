@@ -6,7 +6,6 @@ Live projects, receipts, and retained evidence for the tl playback engine.
 
 | Project | Gate | Receipt |
 | --- | --- | --- |
-| `Numbers` | `tl.slnx`, CI consistency test (`tests/test_readme_numbers.py`) | README Numbers generator: seven 1M-row scenarios plus a 19.3 MB corpus bake/load; `eng/refresh-numbers` re-measures and re-renders the README from `Numbers/results/numbers.json` |
 | `Systems` (+ `Systems21` netstandard2.1-vs-net10 ratio twin, same sources) | `benchmark.yml` (`--smoke`), `TlSystems.Tests` snapshot test | 4.0 systems throughput/correctness: NewA/B/C/D, S2, S64 shapes on hand-built views (`Systems/Generated/TlSystemsBench.g.cs` + `Systems/results/smoke-parity.txt`) |
 
 ## Standalone probes (not in `tl.slnx`)

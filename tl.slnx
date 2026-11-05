@@ -13,7 +13,6 @@
     <Project Path="tests/Tl.Gen.CSharp.Tests/Tl.Gen.CSharp.Tests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
-    <Project Path="benchmarks/Numbers/Numbers.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Tl.Analyzers/Tl.Analyzers.csproj" />

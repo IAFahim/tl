@@ -1,0 +1,180 @@
+{
+  "Fingerprint": {
+    "Cpu": "Intel(R) Core(TM) i9-14900K",
+    "Cores": 32,
+    "Dotnet": "10.0.12",
+    "Os": "Unix 7.2.8.9"
+  },
+  "Rows": 1024,
+  "Reps": 5,
+  "Scenarios": [
+    {
+      "Id": "folded",
+      "Label": "folded lane through a generated system",
+      "Hot": {
+        "Ms": 0.3253,
+        "Ns": 9.9273681640625
+      },
+      "Cold": {
+        "Ms": 0.3161,
+        "Ns": 9.6466064453125
+      },
+      "WarmupMs": 500.14279999999957,
+      "WarmupFrames": 46528,
+      "Allocated": 0,
+      "Gate": "\u003C=1.03x (no regression)",
+      "BaselineNs": 0.44004330871582,
+      "Ratio": 22.559979818880954
+    },
+    {
+      "Id": "folded-backward",
+      "Label": "folded lane rewound through the same system",
+      "Hot": {
+        "Ms": 0.322,
+        "Ns": 9.82666015625
+      },
+      "Cold": {
+        "Ms": 0.3148,
+        "Ns": 9.60693359375
+      },
+      "WarmupMs": 500.2092000000001,
+      "WarmupFrames": 47712,
+      "Allocated": 0,
+      "Gate": null,
+      "BaselineNs": null,
+      "Ratio": null
+    },
+    {
+      "Id": "fold-fed",
+      "Label": "fold-fed compose through a generated system",
+      "Hot": {
+        "Ms": 0.3169,
+        "Ns": 9.6710205078125
+      },
+      "Cold": {
+        "Ms": 0.3176,
+        "Ns": 9.6923828125
+      },
+      "WarmupMs": 500.23310000000015,
+      "WarmupFrames": 46560,
+      "Allocated": 0,
+      "Gate": "\u003C=0.15x",
+      "BaselineNs": 76.203349453125,
+      "Ratio": 0.12691070113343822
+    },
+    {
+      "Id": "frame",
+      "Label": "frame-consumer dispatch through a generated system",
+      "Hot": {
+        "Ms": 0.3443,
+        "Ns": 10.5072021484375
+      },
+      "Cold": {
+        "Ms": 0.344,
+        "Ns": 10.498046875
+      },
+      "WarmupMs": 500.21539999999965,
+      "WarmupFrames": 43296,
+      "Allocated": 0,
+      "Gate": "\u003C=0.25x",
+      "BaselineNs": 0.852046283462,
+      "Ratio": 12.331726987582249
+    },
+    {
+      "Id": "four-pair",
+      "Label": "four pairs through one generated system",
+      "Hot": {
+        "Ms": 0.6609,
+        "Ns": 20.1690673828125
+      },
+      "Cold": {
+        "Ms": 0.6824,
+        "Ns": 20.8251953125
+      },
+      "WarmupMs": 500.08509999999995,
+      "WarmupFrames": 22560,
+      "Allocated": 0,
+      "Gate": "\u003C=0.70x",
+      "BaselineNs": 3.2098983461328126,
+      "Ratio": 6.28339754344918
+    },
+    {
+      "Id": "1-playback",
+      "Label": "one playback per entity (2-playback reference)",
+      "Hot": {
+        "Ms": 0.2877,
+        "Ns": 8.7799072265625
+      },
+      "Cold": {
+        "Ms": 0.2909,
+        "Ns": 8.8775634765625
+      },
+      "WarmupMs": 500.2387000000006,
+      "WarmupFrames": 51136,
+      "Allocated": 0,
+      "Gate": null,
+      "BaselineNs": null,
+      "Ratio": null
+    },
+    {
+      "Id": "2-playback",
+      "Label": "two playbacks per entity",
+      "Hot": {
+        "Ms": 0.5566,
+        "Ns": 16.986083984375
+      },
+      "Cold": {
+        "Ms": 0.5647,
+        "Ns": 17.2332763671875
+      },
+      "WarmupMs": 500.2512999999999,
+      "WarmupFrames": 26624,
+      "Allocated": 0,
+      "Gate": "\u003C=2.2x of 1-playback (live)",
+      "BaselineNs": null,
+      "Ratio": null
+    },
+    {
+      "Id": "64-consumer",
+      "Label": "64 consumers, 2 active per tick",
+      "Hot": {
+        "Ms": 12.39,
+        "Ns": 378.11279296875
+      },
+      "Cold": {
+        "Ms": 12.323,
+        "Ns": 376.068115234375
+      },
+      "WarmupMs": 504.4064,
+      "WarmupFrames": 1120,
+      "Allocated": 0,
+      "Gate": "\u003C=1.5x of same-system 2-consumer (manual)",
+      "BaselineNs": null,
+      "Ratio": null
+    }
+  ],
+  "TwoVsOne": 1.934654153632256,
+  "Parity": {
+    "DoubleRunMatch": true,
+    "Hashes": {
+      "folded": "016c3f4b1f408325",
+      "folded-backward": "dd277b7266cc8325",
+      "fold-fed": "f57bc1cf58758325",
+      "frame": "49a2395e8c6d8325",
+      "four-pair": "7691914d7e5a4325",
+      "1-playback": "59d4f31acf454325",
+      "2-playback": "a348cc0767acc325",
+      "64-consumer": "78178f47d486c325"
+    }
+  },
+  "Bake": null,
+  "Checksum": 18150555008925706741,
+  "Tiering": {
+    "TieredCompilation": null,
+    "TieredPGO": null,
+    "EnableAVX2": null,
+    "EnableHWIntrinsic": null
+  },
+  "GeneratedUtc": "2026-11-05T07:32:08.8633975Z",
+  "Dotnet": "10.0.12"
+}
