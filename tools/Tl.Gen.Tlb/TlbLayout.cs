@@ -11,7 +11,7 @@ internal static class TlbLayout
     internal const uint StageEntryBytes = 16u;
     internal const uint StepBytes = 8u;
     internal const uint SlotRowBytes = 24u;
-    internal const ushort NoClipValue = 0xFFFF;
+    internal const ushort NoClipIndex = 0xFFFF;
     internal const uint MarkerAlign = 8u;
     internal static uint Align16(uint value) => (value + 15u) & ~15u;
 

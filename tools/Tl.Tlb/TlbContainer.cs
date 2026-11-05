@@ -223,12 +223,13 @@ public sealed class TlbContainer
             if (key == 0) throw new TlbFormatException($"TLB marker {i} type key invalid.");
             if (size == 0 || size > 4096) throw new TlbFormatException($"TLB marker {i} payload size out of range.");
             if (tick >= c.Duration && c.Duration != 0) throw new TlbFormatException($"TLB marker {i} tick outside duration.");
-            if (at + 16u + size > c.HotLength) throw new TlbFormatException($"TLB marker {i} payload exceeds the hot section.");
+            if (at + 16u + ((size + 3u) & ~3u) > c.HotLength) throw new TlbFormatException($"TLB marker {i} payload exceeds the hot section.");
             var payload = new byte[size];
             f.Slice((int)(at + 16u), (int)size).CopyTo(payload);
             markers[i] = new TlbMarker(tick, size, key, payload);
             at += 16u + ((size + 3u) & ~3u);
         }
+        if (at > c.HotLength) throw new TlbFormatException("TLB marker section out of bounds.");
         return markers;
     }
 

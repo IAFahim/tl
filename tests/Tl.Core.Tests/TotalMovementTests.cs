@@ -280,7 +280,7 @@ public class TotalMovementTests
         Assert.Equal(4, Marshal.OffsetOf<TimelineState>(nameof(TimelineState.Position)).ToInt32());
 
         var frameType = typeof(Frame<JobTrack, JobClip>);
-        Assert.False(frameType.IsByRefLike);
+        Assert.True(frameType.IsByRefLike);
         Assert.Equal(typeof(IBlend<JobClip>), typeof(JobTrack).GetInterfaces().Single());
 
         var stateType = typeof(TimelineState);

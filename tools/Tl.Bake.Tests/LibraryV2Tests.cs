@@ -1,9 +1,10 @@
+extern alias TlbTools;
 using System;
 using System.IO;
 using System.Reflection;
 using Tl;
 using Tl.Gen.Tlb;
-using Tl.Tlb;
+using TlbTools::Tl.Tlb;
 using Xunit;
 
 namespace Tlb
@@ -190,8 +191,8 @@ public class LibraryV2Tests
         var manifest = new LibraryManifest();
         var bytes = TimelineBaker.BakeJson(json, Resolver(), false, manifest);
         var c = TlbContainer.Parse(bytes);
-        Assert.Equal(1, c.Pairs.Length);
-        Assert.Equal(1, c.Stages.Length);
+        Assert.Single(c.Pairs);
+        Assert.Single(c.Stages);
         Assert.Equal(2, c.Stages[0].Steps.Length);
         var index = TimelineAsset.Load(bytes);
         var scratch = default(Tlb.StatClip);

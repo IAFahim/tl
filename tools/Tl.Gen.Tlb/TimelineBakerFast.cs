@@ -2235,7 +2235,7 @@ internal static class TimelineBakerFastCore
                             (int)occurrenceOffsets[oi],
                             lane.TrackValueIndex,
                             clipValueIndex[covering.First],
-                            covering.Second >= 0 ? clipValueIndex[covering.Second] : TlbLayout.NoClipValue,
+                            covering.Second >= 0 ? clipValueIndex[covering.Second] : TlbLayout.NoClipIndex,
                             windowStart,
                             windowEnd,
                             factorStart,
