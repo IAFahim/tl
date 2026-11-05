@@ -1,0 +1,24 @@
+Events disabled
+Events enabled
+
+ Performance counter stats for './benchmarks/LiveBatch/bin/Release/net10.0/LiveBatch --counters b-apply --counters-delay 3000 --counters-iters 1500':
+
+     <not counted>      cpu_atom/cycles/u                                                       (0.00%)
+    73,665,018,902      cpu_core/cycles/u                                                     
+     <not counted>      cpu_atom/instructions/u                                                 (0.00%)
+   250,487,167,006      cpu_core/instructions/u                                               
+     <not counted>      cpu_atom/branches/u                                                     (0.00%)
+    37,198,262,480      cpu_core/branches/u                                                   
+     <not counted>      cpu_atom/branch-misses/u                                                (0.00%)
+         5,469,746      cpu_core/branch-misses/u                                              
+     <not counted>      cpu_atom/cache-references/u                                             (0.00%)
+       251,466,741      cpu_core/cache-references/u                                           
+     <not counted>      cpu_atom/cache-misses/u                                                 (0.00%)
+         3,255,389      cpu_core/cache-misses/u                                               
+
+      15.953632331 seconds time elapsed
+
+      15.919420000 seconds user
+       0.010966000 seconds sys
+
+

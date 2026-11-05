@@ -1,0 +1,11 @@
+parity A folded: forward DBE54FE28E8A19F8, rewind max residue 0.00013923645 (blend-lane float order, batch==singles bit-exact)
+parity B fold-fed compose: forward CF64E5BE9CEE2D77, prepare/play + chunk128 + singles exact, rewind exact
+parity C frame consumer: forward 6AB48FD27BDE2D77, rewind exact
+parity D four pairs: forward B0903A4A34400000, rewind exact
+allocation: 128 x A runs retained 0 B
+allocation: 128 x B-apply runs retained 0 B
+allocation: 128 x B-prepareplay runs retained 0 B
+allocation: 128 x B-chunk128 runs retained 0 B
+allocation: 128 x C runs retained 0 B
+allocation: 128 x D runs retained 0 B
+LIVEBATCH PARITY PASS: 8192 rows x 97 frames forward and backward, bit-exact
