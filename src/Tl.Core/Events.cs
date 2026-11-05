@@ -29,7 +29,7 @@ unsafe struct EventsHeader<T>
     public int Sequence;
 }
 
-public unsafe struct Events<T>
+public unsafe struct Events<T> : IDisposable
     where T : unmanaged
 {
     EventsHeader<T>* _header;

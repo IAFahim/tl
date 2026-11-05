@@ -428,6 +428,7 @@ type Tl.TimelineId
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt16, Boolean, Boolean, Tl.TimelineState ByRef, UInt16 ByRef, Tl.FrameFlags ByRef)
 type Tl.TimelineRef
+type Tl.TimelineSlotKeysAttribute
 type Tl.TimelineState
   Field UInt32 Asset
   Field UInt16 Position

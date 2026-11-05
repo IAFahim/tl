@@ -14,6 +14,7 @@ public static class TlGenerated
 {
     static readonly List<ITlModule> _modules = new();
     static readonly object _gate = new();
+    internal static int Version;
 
     public static void Install(ITlModule module)
     {
@@ -21,6 +22,7 @@ public static class TlGenerated
         lock (_gate)
         {
             _modules.Add(module);
+            Version++;
         }
     }
 
@@ -43,23 +45,37 @@ sealed class SystemRegistry
         public readonly ITlModule Module;
         public readonly int Index;
     }
-
-    internal unsafe void* Stamp;
+    internal nint ViewStamp;
+    internal uint ViewBytes;
+    internal int ViewCount;
+    internal ulong ViewGeneration;
+    internal int ModuleVersion;
     internal readonly Dictionary<FilterKey, SystemStep[]> Filters = new();
 
-    internal unsafe void Reset(void* stamp)
+    internal void Reset(nint stamp, uint bytes, int count, ulong generation)
     {
-        Stamp = stamp;
+        ViewStamp = stamp;
+        ViewBytes = bytes;
+        ViewCount = count;
+        ViewGeneration = generation;
         Filters.Clear();
+    }
+
+    internal void RefreshModules()
+    {
+        var version = Volatile.Read(ref TlGenerated.Version);
+        if (version == ModuleVersion) return;
+        ModuleVersion = version;
+        foreach (var module in TlGenerated.Modules)
+            for (var i = 0; i < module.PairCount; i++)
+                _entries.TryAdd(module.PairKey(i), new Entry(module, i));
     }
 
     readonly Dictionary<ulong, Entry> _entries = new();
 
     internal SystemRegistry()
     {
-        foreach (var module in TlGenerated.Modules)
-            for (var i = 0; i < module.PairCount; i++)
-                _entries.TryAdd(module.PairKey(i), new Entry(module, i));
+        RefreshModules();
     }
 
     internal bool TryGet(ulong key, out Entry entry) => _entries.TryGetValue(key, out entry);
