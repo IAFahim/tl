@@ -21,8 +21,22 @@ internal static class SystemEmitter
         foreach (var assignment in assignments)
             EmitRun(writer, assignment, id);
         foreach (var assignment in assignments)
-            EmitRunFused(writer, assignment, id);
+            if (HasLegacy(assignment)) EmitRunFused(writer, assignment, id);
         return writer.ToString().Replace("\r\n", "\n");
+    }
+
+    static bool IsLegacy(SystemConsumer consumer)
+    {
+        foreach (var method in consumer.Methods)
+            if (method.Kind != ConsumerMethodKind.Feeder) return true;
+        return false;
+    }
+
+    static bool HasLegacy(SystemAssignment assignment)
+    {
+        foreach (var consumer in assignment.Consumers)
+            if (IsLegacy(consumer)) return true;
+        return false;
     }
 
     static void W(StringBuilder writer, string text)
@@ -276,7 +290,7 @@ internal static class SystemEmitter
         W(writer, $"internal const ulong SystemKey = {assignment.System.SystemKey}UL;");
         W(writer, "internal static readonly ulong[] PairKeys = new ulong[]");
         W(writer, "{");
-        foreach (var consumer in consumers) W(writer, $"{consumer.PairKey}UL,");
+        foreach (var consumer in consumers) W(writer, $"{(IsLegacy(consumer) ? consumer.PairKey : 0UL)}UL,");
         W(writer, "};");
         for (var c = 0; c < consumers.Count; c++)
             if (!consumers[c].IsMarker) EmitFrameHelper(writer, consumers[c], c);
@@ -294,8 +308,23 @@ internal static class SystemEmitter
         W(writer, "{");
         W(writer, "if (world is null) throw new global::System.ArgumentNullException(nameof(world));");
         W(writer, "if (players is null) throw new global::System.ArgumentNullException(nameof(players));");
-        W(writer, "var __view = world.View;");
-        W(writer, "var __pview = players.View;");
+        if (HasLegacy(assignment))
+        {
+            W(writer, "var __view = world.View;");
+            W(writer, "var __pview = players.View;");
+            EmitLegacyLoop(writer, assignment, shape);
+        }
+        EmitKindLoops(writer, assignment, shape);
+        W(writer, "}");
+        foreach (var batch in BatchConsumers(consumers))
+            EmitFlush(writer, assignment, shape, batch.consumer, batch.index);
+        EmitKindMethods(writer, assignment, shape);
+        if (HasLegacy(assignment)) EmitFusedKernel(writer, assignment, shape, id);
+        W(writer, "}");
+    }
+
+    static void EmitLegacyLoop(StringBuilder writer, SystemAssignment assignment, KernelShape shape)
+    {
         EmitLocalDecls(writer, shape);
         EmitCloseLoop(writer, assignment, shape);
         EmitBatchDecls(writer, assignment);
@@ -324,12 +353,6 @@ internal static class SystemEmitter
         W(writer, "}");
         W(writer, "}");
         EmitBatchTails(writer, assignment, shape);
-        EmitKindLoops(writer, assignment, shape);
-        W(writer, "}");
-        foreach (var batch in BatchConsumers(consumers))
-            EmitFlush(writer, assignment, shape, batch.consumer, batch.index);
-        EmitFusedKernel(writer, assignment, shape, id);
-        W(writer, "}");
     }
 
     static void EmitKindLoops(StringBuilder writer, SystemAssignment assignment, KernelShape shape)
@@ -338,8 +361,32 @@ internal static class SystemEmitter
         W(writer, "var __ks = players.Kinds;");
         W(writer, "if (__ks != null)");
         W(writer, "{");
-        foreach (var kind in assignment.Kinds) EmitKind(writer, assignment, shape, kind);
+        for (var i = 0; i < assignment.Kinds.Count; i++) W(writer, $"Kind_{i}(world, players, __ks, forward{KindArgs(shape, false)});");
         W(writer, "}");
+    }
+
+    static string KindArgs(KernelShape shape, bool typed)
+    {
+        var args = new StringBuilder();
+        for (var i = 0; i < shape.Columns.Count; i++)
+            if (shape.UsedColumns[i]) args.Append(typed ? $", {shape.Columns[i].ElementTypeName}* __c{i}" : $", __c{i}");
+        args.Append(typed ? ", int __n" : ", __n");
+        for (var i = 0; i < shape.Contexts.Count; i++)
+            if (shape.UsedContexts[i]) args.Append(typed ? $", ref {shape.Contexts[i].ElementTypeName} __ctx{i}" : $", ref __ctx{i}");
+        return args.ToString();
+    }
+
+    static void EmitKindMethods(StringBuilder writer, SystemAssignment assignment, KernelShape shape)
+    {
+        for (var i = 0; i < assignment.Kinds.Count; i++)
+        {
+            W(writer, $"internal static void Kind_{i}(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, global::Tl.KindStore __ks, bool forward{KindArgs(shape, true)})");
+            W(writer, "{");
+            W(writer, "var __view = world.View;");
+            W(writer, "var __pview = players.View;");
+            EmitKind(writer, assignment, shape, assignment.Kinds[i]);
+            W(writer, "}");
+        }
     }
 
     static void EmitKind(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind)
@@ -612,7 +659,7 @@ internal static class SystemEmitter
         for (var c = 0; c < consumers.Count; c++)
         {
             var consumer = consumers[c];
-            if (consumer.IsMarker) continue;
+            if (consumer.IsMarker || !IsLegacy(consumer)) continue;
             W(writer, $"case {c}:");
             W(writer, "{");
             W(writer, $"var __def = {stage}->Steps + __entry.Step;");

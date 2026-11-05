@@ -63,6 +63,7 @@ public sealed unsafe class KindStore : IDisposable
     readonly HashSet<string> _verified = new(StringComparer.Ordinal);
     bool _disposed;
     string[] _kindNames = Array.Empty<string>();
+    Dictionary<string, int> _kindIndex = new(StringComparer.Ordinal);
     int[] _valueBytes = Array.Empty<int>();
     byte[] _accepts = Array.Empty<byte>();
     int _epoch;
@@ -112,7 +113,7 @@ public sealed unsafe class KindStore : IDisposable
 
     public string NameOf(int kind) => _kindNames[kind];
 
-    public int IndexOf(string name) => Array.IndexOf(_kindNames, name);
+    public int IndexOf(string name) => _kindIndex.TryGetValue(name, out var kind) ? kind : -1;
 
     public KindStats GetStats(int kind)
     {
@@ -144,7 +145,7 @@ public sealed unsafe class KindStore : IDisposable
         }
         var at = q->Items + (nuint)q->Count * (nuint)q->Stride;
         *(int*)at = entity;
-        Buffer.MemoryCopy(value, at + 4, q->Stride - 4, _valueBytes[kind]);
+        CopyValue(at + 4, (byte*)value, _valueBytes[kind]);
         q->Count++;
     }
 
@@ -471,7 +472,7 @@ public sealed unsafe class KindStore : IDisposable
                 }
                 var entry = table->Append(row);
                 *entry = new KindEntry { Flags = KindEntryFlags.Pulse };
-                Buffer.MemoryCopy(at + 4, (byte*)entry + 8, table->Stride - 8, _valueBytes[k]);
+                CopyValue((byte*)entry + 8, at + 4, _valueBytes[k]);
             }
             q->Count = 0;
         }
@@ -537,9 +538,11 @@ public sealed unsafe class KindStore : IDisposable
         _kindNames = new string[_kindCount];
         _valueBytes = new int[_kindCount];
         _accepts = new byte[_kindCount];
+        _kindIndex = new Dictionary<string, int>(StringComparer.Ordinal);
         for (var k = 0; k < _kindCount; k++)
         {
             _kindNames[k] = _sec.NameOf(k);
+            _kindIndex[_kindNames[k]] = k;
             _valueBytes[k] = (int)_sec.Kinds[k].ValueBytes;
             _accepts[k] = _sec.Kinds[k].Accepts;
         }
@@ -552,7 +555,7 @@ public sealed unsafe class KindStore : IDisposable
         else
         {
             var map = new int[_names.Length];
-            for (var n = 0; n < map.Length; n++) map[n] = Array.IndexOf(_kindNames, _names[n]);
+            for (var n = 0; n < map.Length; n++) map[n] = IndexOf(_names[n]);
             for (var e = 0; e < entities; e++)
                 for (var n = 0; n < map.Length; n++)
                     if (map[n] >= 0 && (_reach![e] & (1ul << n)) != 0) _mask[e] |= 1ul << map[n];
@@ -652,6 +655,13 @@ public sealed unsafe class KindStore : IDisposable
                 _stepArrays[g] = arr;
             }
         }
+    }
+
+    static void CopyValue(byte* to, byte* from, int bytes)
+    {
+        if (bytes == 4) *(int*)to = *(int*)from;
+        else if (bytes == 8) *(long*)to = *(long*)from;
+        else Buffer.MemoryCopy(from, to, bytes, bytes);
     }
 
     static void* Zeroed(nuint bytes)

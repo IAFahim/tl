@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>KindBench</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\KindSystems\Domain.cs" Link="Domain.cs" />
+    <Compile Include="..\KindSystems\Generated\TlSystemsKindBench.g.cs" Link="TlSystemsKindBench.g.cs" />
+    <None Include="..\KindSystems\libs\shapes.tlib" Link="shapes.tlib" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <ProjectReference Include="..\..\src\Tl.Core\Tl.Core.csproj" />
+  </ItemGroup>
+</Project>
