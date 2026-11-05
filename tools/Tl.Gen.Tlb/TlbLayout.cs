@@ -5,14 +5,14 @@ namespace Tl.Gen.Tlb;
 internal static class TlbLayout
 {
     internal const uint Magic = 0x31424C54u;
-    internal const uint Version = 5u;
-    internal const uint HeaderBytes = 64u;
+    internal const uint Version = 6u;
+    internal const uint HeaderBytes = 80u;
     internal const uint PairEntryBytes = 48u;
     internal const uint StageEntryBytes = 16u;
     internal const uint StepBytes = 8u;
     internal const uint SlotRowBytes = 24u;
-    internal const ushort NoClipIndex = 0xFFFF;
-
+    internal const ushort NoClipValue = 0xFFFF;
+    internal const uint MarkerAlign = 8u;
     internal static uint Align16(uint value) => (value + 15u) & ~15u;
 
     internal static void WriteRow(byte[] bytes, int offset, ushort trackValueIndex, ushort firstIndex, ushort secondIndex, uint windowStart, uint windowEnd, uint factorStart, uint factorSpan, byte trackIndex)

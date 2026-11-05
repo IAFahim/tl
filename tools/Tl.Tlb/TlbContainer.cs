@@ -32,6 +32,8 @@ public sealed record TlbRow(
     public bool Blends => FactorSpan > 0;
 }
 
+public sealed record TlbMarker(uint Tick, uint Size, ulong Key, byte[] Payload);
+
 public sealed record TlbType(uint Namespace, uint Name, uint Assembly);
 
 public sealed record TlbTail(
@@ -47,15 +49,18 @@ public sealed record TlbTail(
 public sealed class TlbContainer
 {
     public const uint HotMagic = 0x31424C54;
-    public const uint HotVersion = 5;
+    public const uint HotVersion = 6;
+    public const uint HotVersionMin = 5;
     public const uint TailMagic = 0x4D42544C;
     public const uint TailVersion = 1;
     public const uint HeaderBytes = 64;
+    public const uint HeaderBytesV6 = 80;
     public const uint PairEntryBytes = 48;
     public const uint StageEntryBytes = 16;
     public const uint StepBytes = 8;
     public const uint RowBytes = 24;
 
+    public uint Version;
     public uint Loops;
     public uint Duration;
     public uint TrackCount;
@@ -65,20 +70,26 @@ public sealed class TlbContainer
     public uint FrameOffset;
     public uint HotLength;
     public uint Bytes;
+    public uint NextId;
+    public uint Channel;
+    public bool Hold;
+    public TlbMarker[] Markers = [];
     public TlbPair[] Pairs = [];
     public TlbStage[] Stages = [];
     public TlbRow[] Rows = [];
     public TlbTail? Tail;
-
     public static TlbContainer Parse(byte[] file) => Parse(file.AsSpan());
 
     public static TlbContainer Parse(ReadOnlySpan<byte> f)
     {
         if (f.Length < HeaderBytes) throw new TlbFormatException("TLB truncated.");
-        if (BinaryPrimitives.ReadUInt32LittleEndian(f) != HotMagic || BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(4)) != HotVersion)
+        var version = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(4));
+        if (BinaryPrimitives.ReadUInt32LittleEndian(f) != HotMagic || (version != HotVersionMin && version != HotVersion))
             throw new TlbFormatException("TLB magic or version invalid; rebake the asset with the current toolchain.");
+        if (version == HotVersion && f.Length < HeaderBytesV6) throw new TlbFormatException("TLB truncated.");
         var c = new TlbContainer
         {
+            Version = version,
             Loops = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(8)),
             Duration = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(12)),
             TrackCount = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(16)),
@@ -91,14 +102,26 @@ public sealed class TlbContainer
         c.FrameOffset = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(40));
         c.HotLength = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(44));
         c.Bytes = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(48));
+        uint markerOffset = 0, markerCount = 0;
+        if (version == HotVersion)
+        {
+            c.NextId = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(52));
+            c.Channel = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(56));
+            c.Hold = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(60)) != 0;
+            markerOffset = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(64));
+            markerCount = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(68));
+            if (c.Loops != 0 && c.NextId != 0) throw new TlbFormatException("TLB next is incompatible with loop:true.");
+            if (c.Loops != 0 && c.Hold) throw new TlbFormatException("TLB hold is incompatible with loop:true.");
+        }
         if (c.Duration > 65_535) throw new TlbFormatException($"header Duration {c.Duration} exceeds 65,535.");
         if (pairCount > 256) throw new TlbFormatException($"header PairCount {pairCount} exceeds 256.");
         if (c.Bytes != (uint)f.Length)
             throw new TlbFormatException($"header Bytes {c.Bytes} does not match the file length {f.Length}.");
         if (c.HotLength < 1 || c.HotLength > c.Bytes)
             throw new TlbFormatException($"header HotLength {c.HotLength} is outside [1, Bytes].");
-        if (c.PairOffset != HeaderBytes)
-            throw new TlbFormatException($"header PairOffset {c.PairOffset} is not {HeaderBytes}.");
+        var minPair = version == HotVersion ? HeaderBytesV6 : HeaderBytes;
+        if (c.PairOffset < minPair || c.PairOffset % 8 != 0)
+            throw new TlbFormatException($"header PairOffset {c.PairOffset} is before {minPair} or unaligned.");
         foreach (var (name, value, min) in new[]
         {
             ("StageOffset", c.StageOffset, c.PairOffset + PairEntryBytes * pairCount),
@@ -163,6 +186,8 @@ public sealed class TlbContainer
                     throw new TlbFormatException($"stage {i} step {s} names pair {pair} beyond PairCount {pairCount}.");
                 if (slot % 8 != 0 || slot < c.FrameOffset || slot + RowBytes > c.HotLength)
                     throw new TlbFormatException($"stage {i} step {s} slot {slot} is unaligned or outside the slot-row section.");
+                if (c.Version == HotVersion && markerCount != 0 && slot >= markerOffset)
+                    throw new TlbFormatException($"stage {i} step {s} slot {slot} must precede the marker section.");
                 steps[s] = new TlbStep(slot, pair);
                 rows.Add(ReadRow(f, slot, c.Pairs[(int)pair]));
             }
@@ -173,8 +198,38 @@ public sealed class TlbContainer
         if (expectedEnd != c.Duration)
             throw new TlbFormatException($"stages end at {expectedEnd}, not Duration {c.Duration}.");
         c.Rows = [.. rows];
+        c.Markers = c.Version == HotVersion ? ReadMarkers(f, c, markerOffset, markerCount) : [];
         c.Tail = c.HotLength < c.Bytes ? ReadTail(f, c) : null;
         return c;
+    }
+
+    static TlbMarker[] ReadMarkers(ReadOnlySpan<byte> f, TlbContainer c, uint offset, uint count)
+    {
+        if (count == 0)
+        {
+            if (offset != 0) throw new TlbFormatException("TLB marker offset must be zero when count is zero.");
+            return [];
+        }
+        if (offset < c.FrameOffset || offset % 8 != 0 || offset > c.HotLength)
+            throw new TlbFormatException($"TLB marker section at {offset} is unaligned or outside the hot section.");
+        var markers = new TlbMarker[count];
+        var at = offset;
+        for (uint i = 0; i < count; i++)
+        {
+            if (at + 16u > c.HotLength) throw new TlbFormatException($"TLB marker {i} entry exceeds the hot section.");
+            var tick = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)at));
+            var size = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)at + 4));
+            var key = BinaryPrimitives.ReadUInt64LittleEndian(f.Slice((int)at + 8));
+            if (key == 0) throw new TlbFormatException($"TLB marker {i} type key invalid.");
+            if (size == 0 || size > 4096) throw new TlbFormatException($"TLB marker {i} payload size out of range.");
+            if (tick >= c.Duration && c.Duration != 0) throw new TlbFormatException($"TLB marker {i} tick outside duration.");
+            if (at + 16u + size > c.HotLength) throw new TlbFormatException($"TLB marker {i} payload exceeds the hot section.");
+            var payload = new byte[size];
+            f.Slice((int)(at + 16u), (int)size).CopyTo(payload);
+            markers[i] = new TlbMarker(tick, size, key, payload);
+            at += 16u + ((size + 3u) & ~3u);
+        }
+        return markers;
     }
 
     static TlbPool ReadPool(ReadOnlySpan<byte> f, uint address, uint count, uint valueBytes, TlbContainer c, string what)

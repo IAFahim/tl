@@ -57,7 +57,7 @@ internal sealed class FieldEntry
 
 internal enum FieldKind : byte
 {
-    Bool, Byte, SByte, Short, UShort, Int, UInt, Long, ULong, Float, Double, Unsupported,
+    Bool, Byte, SByte, Short, UShort, Int, UInt, Long, ULong, Float, Double, Enum, TimelineId, Unsupported,
 }
 
 internal unsafe delegate void FloatApplier(object box, int* ids, float* vals, int count);
@@ -253,6 +253,24 @@ internal sealed class FastClip
     internal bool PopulateDone;
 }
 
+public sealed class LibraryManifest
+{
+    internal Dictionary<string, ushort> Timelines = new(StringComparer.Ordinal);
+    internal Dictionary<string, ushort> Channels = new(StringComparer.Ordinal);
+    internal uint TickRate = 60u;
+}
+internal sealed class FastMarker
+{
+    internal string Ns = "";
+    internal string TypeName = "";
+    internal string? Asm;
+    internal uint Tick;
+    internal Type? MarkerType;
+    internal int DataStart = -1, DataEnd = -1;
+    internal bool DataCaptured;
+    internal byte[] Payload = [];
+    internal ulong Key;
+}
 internal sealed class FastDoc
 {
     internal BakerAssemblyResolver Resolver = null!;
@@ -268,8 +286,14 @@ internal sealed class FastDoc
     internal readonly List<FastPairInfo> Pairs = new();
     internal Dictionary<(string, string, string?), Type> ResolveCache = new();
     internal readonly Dictionary<(Type, Type), int> PairIds = new();
+    internal string? NextName;
+    internal bool Hold;
+    internal string? ChannelName;
+    internal readonly List<FastMarker> Markers = new();
+    internal LibraryManifest? Manifest;
+    internal uint NextId;
+    internal uint ChannelId;
 }
-
 internal static class TimelineBakerFast
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, FieldTable> FieldTables = new();
@@ -277,16 +301,17 @@ internal static class TimelineBakerFast
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Type, Type), bool> BlendCache = new();
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, ITypeHelper> TypeHelpers = new();
 
-    internal static byte[] BakeJson(string json, BakerAssemblyResolver? resolver = null, bool autoNamespace = false)
+    internal static byte[] BakeJson(string json, BakerAssemblyResolver? resolver = null, bool autoNamespace = false, LibraryManifest? manifest = null)
     {
         resolver ??= new BakerAssemblyResolver();
-        return BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver, null, autoNamespace);
+        return BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver, null, autoNamespace, manifest);
     }
 
-    internal static byte[] BakeJsonUtf8(byte[] utf8, BakerAssemblyResolver? resolver = null, BakeWorkspace? workspace = null, bool autoNamespace = false)
+    internal static byte[] BakeJsonUtf8(byte[] utf8, BakerAssemblyResolver? resolver = null, BakeWorkspace? workspace = null, bool autoNamespace = false, LibraryManifest? manifest = null)
     {
         resolver ??= new BakerAssemblyResolver();
-        var doc = TimelineBakerSimd.TryParseFast(utf8, resolver, workspace, out var fast, autoNamespace) ? fast : ParseFast(utf8, resolver, workspace, autoNamespace);
+        var doc = TimelineBakerSimd.TryParseFast(utf8, resolver, workspace, out var fast, autoNamespace) ? fast : ParseFast(utf8, resolver, workspace, autoNamespace, manifest);
+        if (manifest != null) doc.Manifest = manifest;
         try
         {
             return TimelineBakerFastCore.BakeFast(doc, resolver);
@@ -297,9 +322,9 @@ internal static class TimelineBakerFast
         }
     }
 
-    internal static FastDoc ParseFast(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null, bool autoNamespace = false)
+    internal static FastDoc ParseFast(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null, bool autoNamespace = false, LibraryManifest? manifest = null)
     {
-        var walker = new Walker(utf8, resolver, workspace, autoNamespace);
+        var walker = new Walker(utf8, resolver, workspace, autoNamespace, manifest);
         walker.Run();
         return walker.Finish();
     }
@@ -362,23 +387,27 @@ internal static class TimelineBakerFast
         return table;
     }
 
-    private static FieldKind KindOf(Type t) =>
-        t == typeof(bool) ? FieldKind.Bool
-        : t == typeof(byte) ? FieldKind.Byte
-        : t == typeof(sbyte) ? FieldKind.SByte
-        : t == typeof(short) ? FieldKind.Short
-        : t == typeof(ushort) ? FieldKind.UShort
-        : t == typeof(int) ? FieldKind.Int
-        : t == typeof(uint) ? FieldKind.UInt
-        : t == typeof(long) ? FieldKind.Long
-        : t == typeof(ulong) ? FieldKind.ULong
-        : t == typeof(float) ? FieldKind.Float
-        : t == typeof(double) ? FieldKind.Double
-        : FieldKind.Unsupported;
+    private static FieldKind KindOf(Type t)
+    {
+        if (t == typeof(bool)) return FieldKind.Bool;
+        if (t == typeof(byte)) return FieldKind.Byte;
+        if (t == typeof(sbyte)) return FieldKind.SByte;
+        if (t == typeof(short)) return FieldKind.Short;
+        if (t == typeof(ushort)) return FieldKind.UShort;
+        if (t == typeof(int)) return FieldKind.Int;
+        if (t == typeof(uint)) return FieldKind.UInt;
+        if (t == typeof(long)) return FieldKind.Long;
+        if (t == typeof(ulong)) return FieldKind.ULong;
+        if (t == typeof(float)) return FieldKind.Float;
+        if (t == typeof(double)) return FieldKind.Double;
+        if (t == typeof(Tl.TimelineId)) return FieldKind.TimelineId;
+        if (t.IsEnum) return FieldKind.Enum;
+        return FieldKind.Unsupported;
+    }
 
     private static Delegate? CompileSetter(FieldInfo f, FieldKind kind)
     {
-        if (kind is FieldKind.Unsupported or FieldKind.Float)
+        if (kind is FieldKind.Float)
             return null;
         var method = new DynamicMethod(
             "set_" + f.Name,
@@ -408,16 +437,16 @@ internal static class TimelineBakerFast
         _ => t.ToString(),
     };
 
-    internal static string? PopulateSliceUtf8(byte[] utf8, int dataStart, int dataEnd, FieldTable table, object box, Type structType, string contextName)
+    internal static string? PopulateSliceUtf8(byte[] utf8, int dataStart, int dataEnd, FieldTable table, object box, Type structType, string contextName, LibraryManifest? manifest = null)
     {
         var slice = utf8.AsSpan(dataStart, dataEnd - dataStart);
         var sub = new Utf8JsonReader(slice);
         if (!sub.Read() || sub.TokenType != JsonTokenType.StartObject)
             return $"wrong-typed value for {contextName}: expected object, got {KindNameOfValue(sub.TokenType)}.";
-        return PopulateObject(ref sub, table, box, structType, contextName, utf8, dataStart, checkDup: false, null);
+        return PopulateObject(ref sub, table, box, structType, contextName, utf8, dataStart, checkDup: false, null, manifest);
     }
 
-    internal static unsafe string? PopulateObject(ref Utf8JsonReader r, FieldTable table, object box, Type structType, string contextName, byte[] utf8, int baseOffset, bool checkDup, List<DupScope>? scopes)
+    internal static unsafe string? PopulateObject(ref Utf8JsonReader r, FieldTable table, object box, Type structType, string contextName, byte[] utf8, int baseOffset, bool checkDup, List<DupScope>? scopes, LibraryManifest? manifest = null)
     {
         if (checkDup)
             scopes!.Add(DupScopePool.Rent());
@@ -471,7 +500,7 @@ internal static class TimelineBakerFast
                     }
                     continue;
                 }
-                var err = SetField(ref r, entry, box, contextName, utf8, baseOffset, scopes);
+                var err = SetField(ref r, entry, box, contextName, utf8, baseOffset, scopes, manifest);
                 if (err != null)
                     error ??= err;
             }
@@ -551,7 +580,7 @@ internal static class TimelineBakerFast
         }
     }
 
-    private static string? SetField(ref Utf8JsonReader r, FieldEntry entry, object box, string contextName, byte[] utf8, int baseOffset, List<DupScope>? scopes)
+    private static string? SetField(ref Utf8JsonReader r, FieldEntry entry, object box, string contextName, byte[] utf8, int baseOffset, List<DupScope>? scopes, LibraryManifest? manifest = null)
     {
         var field = entry.Name;
         var kindToken = r.TokenType;
@@ -600,6 +629,32 @@ internal static class TimelineBakerFast
             case FieldKind.Double:
                 if (kindToken == JsonTokenType.Number && r.TryGetDouble(out var d)) { ((Action<object, double>)entry.Setter!)(box, d); return null; }
                 return Fail($"wrong-typed value: field '{field}' in {contextName} expected double, got {Raw(ref r)}.", ref r);
+            case FieldKind.Enum:
+                if (kindToken == JsonTokenType.String)
+                {
+                    var text = r.GetString()!;
+                    var ft = entry.Field.FieldType;
+                    if (!Enum.IsDefined(ft, text))
+                    {
+                        var names = string.Join(", ", Enum.GetNames(ft));
+                        return Fail($"unknown enum member: field '{field}' in {contextName} has no member '{text}' on enum '{ft.Name}' (expected one of: {names}).", ref r);
+                    }
+                    var value = Enum.Parse(ft, text, ignoreCase: false);
+                    ((Action<object, object>)((object b, object v) => entry.Setter!.DynamicInvoke(b, v)))(box, value);
+                    return null;
+                }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected enum member name, got {KindNameOfValue(kindToken)}.", ref r);
+            case FieldKind.TimelineId:
+                if (kindToken == JsonTokenType.String)
+                {
+                    var text = r.GetString()!;
+                    if (manifest == null) return Fail($"timeline reference without manifest: field '{field}' in {contextName} names timeline '{text}' but no library manifest is available; bake via `tlb library`.", ref r);
+                    if (!manifest.Timelines.TryGetValue(text, out var id)) return Fail($"unknown timeline: field '{field}' in {contextName} names unknown timeline '{text}'.", ref r);
+                    var setter = entry.Setter!;
+                    setter.DynamicInvoke(box, new Tl.TimelineId(id));
+                    return null;
+                }
+                return Fail($"wrong-typed value: field '{field}' in {contextName} expected timeline name, got {KindNameOfValue(kindToken)}.", ref r);
             default:
                 return Fail($"wrong-typed value: field '{field}' in {contextName} has unsupported primitive type '{entry.TypeName}'.", ref r);
         }
@@ -781,12 +836,12 @@ internal ref struct Walker
     private readonly bool _auto;
     private readonly List<DupScope> _scopes = new();
 
-    internal Walker(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null, bool autoNamespace = false)
+    internal Walker(byte[] utf8, BakerAssemblyResolver resolver, BakeWorkspace? workspace = null, bool autoNamespace = false, LibraryManifest? manifest = null)
     {
         _utf8 = utf8;
         _resolver = resolver;
         _auto = autoNamespace;
-        _doc = new FastDoc { Utf8 = utf8, Resolver = resolver, Workspace = workspace };
+        _doc = new FastDoc { Utf8 = utf8, Resolver = resolver, Workspace = workspace, Manifest = manifest };
         workspace?.Warm(_doc);
         _r = new Utf8JsonReader(utf8);
     }
@@ -863,6 +918,42 @@ internal ref struct Walker
                     else
                         PendingRoot($"wrong-typed value: 'loop' must be a boolean, got '{Raw()}'.");
                     break;
+                case "next":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.String)
+                        PendingRoot($"wrong-typed value: root 'next' must be a string, got '{Raw()}'.");
+                    else if (_r.GetString()!.Length == 0)
+                        PendingRoot("wrong-typed value: root 'next' must be a non-empty timeline name.");
+                    else
+                        _doc.NextName = _r.GetString()!;
+                    break;
+                case "hold":
+                    _r.Read();
+                    if (_r.TokenType is JsonTokenType.True)
+                        _doc.Hold = true;
+                    else if (_r.TokenType is JsonTokenType.False)
+                        _doc.Hold = false;
+                    else
+                        PendingRoot($"wrong-typed value: 'hold' must be a boolean, got '{Raw()}'.");
+                    break;
+                case "channel":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.String)
+                        PendingRoot($"wrong-typed value: root 'channel' must be a string, got '{Raw()}'.");
+                    else if (_r.GetString()!.Length == 0)
+                        PendingRoot("wrong-typed value: root 'channel' must be a non-empty channel name.");
+                    else
+                        _doc.ChannelName = _r.GetString()!;
+                    break;
+                case "markers":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.StartArray)
+                    {
+                        PendingRoot($"wrong-typed value: 'markers' must be an array, got '{Raw()}'.");
+                        break;
+                    }
+                    ParseMarkers();
+                    break;
                 case "tracks":
                     _r.Read();
                     if (_r.TokenType != JsonTokenType.StartArray)
@@ -907,6 +998,90 @@ internal ref struct Walker
             ParseTrack(trackIndex);
             trackIndex++;
         }
+    }
+
+    private void ParseMarkers()
+    {
+        var markerIndex = 0;
+        while (_r.Read())
+        {
+            if (_r.TokenType == JsonTokenType.EndArray)
+                break;
+            if (_r.TokenType != JsonTokenType.StartObject)
+            {
+                PendingRoot($"Marker at index {markerIndex} must be an object.");
+                SkipValueWithDup();
+                markerIndex++;
+                continue;
+            }
+            ParseMarker(markerIndex);
+            markerIndex++;
+        }
+    }
+
+    private void ParseMarker(int markerIndex)
+    {
+        var marker = new FastMarker();
+        var ctx = $"marker {markerIndex}";
+        var haveTick = false;
+        var haveType = false;
+        PushScope();
+        while (_r.Read())
+        {
+            if (_r.TokenType == JsonTokenType.EndObject)
+                break;
+            DupCheck.Do(ref _r, _scopes, _utf8, 0);
+            var name = NameToken();
+            switch (name)
+            {
+                case "type":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.String)
+                        PendingRoot($"wrong-typed value: {ctx} 'type' must be a string, got '{Raw()}'.");
+                    else if (_r.GetString()!.Length == 0)
+                        PendingRoot($"wrong-typed value: {ctx} 'type' must be a non-empty bare name.");
+                    else
+                    {
+                        marker.TypeName = _r.GetString()!;
+                        haveType = true;
+                    }
+                    break;
+                case "namespace":
+                    marker.Ns = ReadBareName("namespace", ctx, out var nsError);
+                    if (nsError != null) PendingRoot(nsError);
+                    break;
+                case "assembly":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.String)
+                        PendingRoot($"wrong-typed value: {ctx} 'assembly' must be a string, got '{Raw()}'.");
+                    else
+                        marker.Asm = _r.GetString()!;
+                    break;
+                case "tick":
+                    _r.Read();
+                    if (_r.TokenType != JsonTokenType.Number || !_r.TryGetUInt32(out marker.Tick))
+                        PendingRoot($"wrong-typed value: 'tick' must be an unsigned integer, got '{Raw()}'.");
+                    else
+                        haveTick = true;
+                    break;
+                case "data":
+                    _r.Read();
+                    marker.DataStart = (int)_r.TokenStartIndex;
+                    marker.DataCaptured = true;
+                    SkipValueWithDup();
+                    marker.DataEnd = (int)_r.BytesConsumed;
+                    break;
+                default:
+                    PendingRoot(RejectMessage(name, ctx));
+                    _r.Read();
+                    SkipValueWithDup();
+                    break;
+            }
+        }
+        PopScope();
+        if (!haveType) PendingRoot($"missing required property: {ctx} needs 'type'.");
+        if (!haveTick) PendingRoot($"missing required property: {ctx} needs 'tick'.");
+        _doc.Markers.Add(marker);
     }
 
     private void ParseTrack(int trackIndex)
@@ -1290,8 +1465,8 @@ internal ref struct Walker
         pair.PoolLength += pair.ClipSize;
         var box = Activator.CreateInstance(pair.ClipType)!;
         var err = deferred
-            ? TimelineBakerFast.PopulateSliceUtf8(_utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName)
-            : TimelineBakerFast.PopulateObject(ref _r, pair.Fields, box, pair.ClipType, contextName, _utf8, 0, checkDup: true, _scopes);
+            ? TimelineBakerFast.PopulateSliceUtf8(_utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName, _doc.Manifest)
+            : TimelineBakerFast.PopulateObject(ref _r, pair.Fields, box, pair.ClipType, contextName, _utf8, 0, checkDup: true, _scopes, _doc.Manifest);
         if (err == null)
         {
             fixed (byte* dst = pair.Pool)
@@ -1394,7 +1569,23 @@ internal static class TimelineBakerFastCore
         {
             if (doc.Tracks.Count > 256)
                 throw new BakeDiagnosticException($"asset exceeds 256 authored tracks: {doc.Tracks.Count} track entries is above the TLB1 TrackIndex capacity.");
-
+            if (doc.Loops && doc.NextName != null)
+                throw new BakeDiagnosticException("next is incompatible with loop:true; a looping timeline never hands over.");
+            if (doc.Loops && doc.Hold)
+                throw new BakeDiagnosticException("hold is incompatible with loop:true; a looping timeline never ends.");
+            if (doc.Manifest == null)
+            {
+                if (doc.NextName != null) throw new BakeDiagnosticException($"timeline reference without manifest: root 'next' names timeline '{doc.NextName}' but no library manifest is available; bake via `tlb library`.");
+                if (doc.ChannelName != null) throw new BakeDiagnosticException($"channel without manifest: root 'channel' names channel '{doc.ChannelName}' but no library manifest is available; bake via `tlb library`.");
+            }
+            else
+            {
+                if (doc.NextName != null && !doc.Manifest.Timelines.TryGetValue(doc.NextName, out var nid)) throw new BakeDiagnosticException($"unknown timeline: root 'next' names unknown timeline '{doc.NextName}'.");
+                if (doc.NextName != null) doc.NextId = doc.Manifest.Timelines[doc.NextName];
+                if (doc.ChannelName != null && !doc.Manifest.Channels.TryGetValue(doc.ChannelName, out var cid)) throw new BakeDiagnosticException($"unknown channel: root 'channel' names unknown channel '{doc.ChannelName}'.");
+                if (doc.ChannelName != null) doc.ChannelId = doc.Manifest.Channels[doc.ChannelName];
+            }
+            ResolveMarkers();
             var lanes = new List<Lane>();
             var labels = new List<(int Track, int Clip, string Name)>();
             if (doc.RootName != null)
@@ -1535,7 +1726,7 @@ internal static class TimelineBakerFastCore
                 var helper = TimelineBakerFast.HelperFor(trackType);
                 info.TrackBytes = new byte[helper.Size];
                 var box = Activator.CreateInstance(trackType)!;
-                var err = TimelineBakerFast.PopulateSliceUtf8(doc.Utf8, info.DataStart, info.DataEnd, TimelineBakerFast.TableFor(trackType), box, trackType, contextName);
+                var err = TimelineBakerFast.PopulateSliceUtf8(doc.Utf8, info.DataStart, info.DataEnd, TimelineBakerFast.TableFor(trackType), box, trackType, contextName, doc.Manifest);
                 if (err != null)
                     throw new BakeDiagnosticException(err);
                 unsafe
@@ -1632,7 +1823,7 @@ internal static class TimelineBakerFastCore
             {
                 var contextName = $"clip {clip.ClipIndex} on track {ti} ({pair.ClipType.Name})";
                 var box = Activator.CreateInstance(pair.ClipType)!;
-                clip.PopulateError = TimelineBakerFast.PopulateSliceUtf8(doc.Utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName);
+                clip.PopulateError = TimelineBakerFast.PopulateSliceUtf8(doc.Utf8, clip.DataStart, clip.DataEnd, pair.Fields, box, pair.ClipType, contextName, doc.Manifest);
                 if (clip.PopulateError != null)
                     throw new BakeDiagnosticException(clip.PopulateError);
                 fixed (byte* dst = pair.Pool)
@@ -1641,6 +1832,63 @@ internal static class TimelineBakerFastCore
             else
                 Array.Clear(pair.Pool, clip.PayloadOffset, pair.ClipSize);
             clip.PopulateDone = true;
+        }
+
+        private void ResolveMarkers()
+        {
+            for (var mi = 0; mi < doc.Markers.Count; mi++)
+            {
+                var marker = doc.Markers[mi];
+                var ctx = $"marker {mi}";
+                Type resolved;
+                var key = (marker.Ns, marker.TypeName, marker.Asm);
+                if (!doc.ResolveCache.TryGetValue(key, out resolved!))
+                {
+                    try { resolved = resolver.ResolveType(marker.Ns, marker.TypeName, marker.Asm, ctx); }
+                    catch (BakeDiagnosticException ex) { throw new BakeDiagnosticException(ex.Message); }
+                    doc.ResolveCache[key] = resolved;
+                }
+                marker.MarkerType = resolved;
+                if (!TimelineBakerFast.IsUnmanagedCached(resolved))
+                    throw new BakeDiagnosticException($"unsupported marker type: {ctx} resolves '{resolved.FullName}' which is not unmanaged.");
+                if (marker.Tick >= doc.Duration && doc.Duration != 0)
+                    throw new BakeDiagnosticException($"marker outside [0, duration]: {ctx} tick {marker.Tick} exceeds timeline duration {doc.Duration}.");
+                if (doc.Duration == 0)
+                    throw new BakeDiagnosticException($"marker outside [0, duration]: {ctx} tick {marker.Tick} exceeds timeline duration 0.");
+                var helper = TimelineBakerFast.HelperFor(resolved);
+                marker.Payload = new byte[helper.Size];
+                if (marker.DataCaptured)
+                {
+                    var box = Activator.CreateInstance(resolved)!;
+                    var err = TimelineBakerFast.PopulateSliceUtf8(doc.Utf8, marker.DataStart, marker.DataEnd, TimelineBakerFast.TableFor(resolved), box, resolved, $"{ctx} ({resolved.Name})", doc.Manifest);
+                    if (err != null) throw new BakeDiagnosticException(err);
+                    unsafe { fixed (byte* dst = marker.Payload) helper.CopyTo(dst, box); }
+                }
+                marker.Key = MarkerKey(resolved);
+            }
+            doc.Markers.Sort((a, b) =>
+            {
+                var byTick = a.Tick.CompareTo(b.Tick);
+                if (byTick != 0) return byTick;
+                return a.Key.CompareTo(b.Key);
+            });
+        }
+
+        internal static ulong MarkerKey(Type type)
+        {
+            var name = MarkerStableName(type);
+            ulong h = 14695981039346656037ul;
+            foreach (var c in name) h = (h ^ c) * 1099511628211ul;
+            return h | 1ul;
+        }
+
+        internal static string MarkerStableName(Type type)
+        {
+            var prefix = type.IsNested ? MarkerStableName(type.DeclaringType!) + "+" : type.Namespace is { } space ? space + "." : "";
+            if (!type.IsConstructedGenericType) return prefix + type.Name + ", " + type.Assembly.GetName().Name;
+            var text = prefix + type.Name + "<";
+            foreach (var a in type.GetGenericArguments()) text += MarkerStableName(a) + ",";
+            return text + ", " + type.Assembly.GetName().Name;
         }
 
         private byte[] Core(List<Lane> lanes, List<(int Track, int Clip, string Name)> labels)
@@ -1871,11 +2119,22 @@ internal static class TimelineBakerFastCore
                     }
             }
 
-            var hotLength = frameOffset;
+            var hotSlotsEnd = frameOffset;
             for (var oi = 0; oi < totalOccurrences; oi++)
-                hotLength += TlbLayout.SlotRowBytes;
-
-            var tail = TlbMetadataBuilder.Build(pairTypes, labels);
+                hotSlotsEnd += TlbLayout.SlotRowBytes;
+            var markerOffset = hotSlotsEnd;
+            var markerSize = 0u;
+            foreach (var marker in doc.Markers)
+                markerSize += 16u + (uint)((marker.Payload.Length + 3) & ~3);
+            if (doc.Markers.Count > 0) markerOffset = (markerOffset + 7u) & ~7u;
+            else markerOffset = 0u;
+            var hotLength = doc.Markers.Count > 0 ? markerOffset + markerSize : hotSlotsEnd;
+            var markerTypes = new List<(Type Track, Type Clip)>();
+            var seenMarkerTypes = new HashSet<Type>();
+            foreach (var marker in doc.Markers)
+                if (seenMarkerTypes.Add(marker.MarkerType!))
+                    markerTypes.Add((marker.MarkerType!, marker.MarkerType!));
+            var tail = TlbMetadataBuilder.Build(pairTypes, labels, doc.Markers);
             var bytes = new byte[hotLength + tail.Length];
 
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), TlbLayout.Magic);
@@ -1891,6 +2150,13 @@ internal static class TimelineBakerFastCore
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(40), frameOffset);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(44), hotLength);
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(48), (uint)bytes.Length);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(52), doc.NextId);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(56), doc.ChannelId);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(60), doc.Hold ? 1u : 0u);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(64), markerOffset);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(68), (uint)doc.Markers.Count);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(72), 0u);
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(76), 0u);
 
             for (var index = 0; index < pairCount; index++)
             {
@@ -1969,7 +2235,7 @@ internal static class TimelineBakerFastCore
                             (int)occurrenceOffsets[oi],
                             lane.TrackValueIndex,
                             clipValueIndex[covering.First],
-                            covering.Second >= 0 ? clipValueIndex[covering.Second] : TlbLayout.NoClipIndex,
+                            covering.Second >= 0 ? clipValueIndex[covering.Second] : TlbLayout.NoClipValue,
                             windowStart,
                             windowEnd,
                             factorStart,
@@ -1980,7 +2246,20 @@ internal static class TimelineBakerFastCore
                 }
             }
 
-            tail.CopyTo(bytes, hotLength);
+            if (doc.Markers.Count > 0)
+            {
+                var moff = (int)markerOffset;
+                foreach (var marker in doc.Markers)
+                {
+                    BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(moff), marker.Tick);
+                    BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(moff + 4), (uint)marker.Payload.Length);
+                    BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(moff + 8), marker.Key);
+                    marker.Payload.CopyTo(bytes.AsSpan(moff + 16));
+                    moff += 16 + ((marker.Payload.Length + 3) & ~3);
+                }
+            }
+
+            tail.CopyTo(bytes, (int)hotLength);
 
             try
             {

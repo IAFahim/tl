@@ -7,31 +7,31 @@ internal readonly record struct BatchOutcome(byte[]? Bytes, Exception? Error, do
 
 public static class TimelineBaker
 {
-    public static byte[] BakeJson(string json, BakerAssemblyResolver? resolver = null, bool autoNamespace = false)
+    public static byte[] BakeJson(string json, BakerAssemblyResolver? resolver = null, bool autoNamespace = false, LibraryManifest? manifest = null)
     {
         resolver ??= new BakerAssemblyResolver();
-        return TimelineBakerFast.BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver, null, autoNamespace);
+        return TimelineBakerFast.BakeJsonUtf8(Encoding.UTF8.GetBytes(json), resolver, null, autoNamespace, manifest);
     }
 
-    public static byte[] BakeJson(byte[] utf8Json, BakerAssemblyResolver? resolver = null, bool autoNamespace = false)
+    public static byte[] BakeJson(byte[] utf8Json, BakerAssemblyResolver? resolver = null, bool autoNamespace = false, LibraryManifest? manifest = null)
     {
         if (!System.Text.Unicode.Utf8.IsValid(utf8Json))
             throw new BakeDiagnosticException($"invalid UTF-8 in authoring JSON at byte {FirstInvalidUtf8Offset(utf8Json)}: the bake input must be valid UTF-8; fix the input file encoding.");
         resolver ??= new BakerAssemblyResolver();
-        return TimelineBakerFast.BakeJsonUtf8(utf8Json, resolver, null, autoNamespace);
+        return TimelineBakerFast.BakeJsonUtf8(utf8Json, resolver, null, autoNamespace, manifest);
     }
 
-    private static byte[] BakeValidated(byte[] utf8Json, BakerAssemblyResolver resolver, bool autoNamespace)
+    private static byte[] BakeValidated(byte[] utf8Json, BakerAssemblyResolver resolver, bool autoNamespace, LibraryManifest? manifest = null)
     {
         if (!System.Text.Unicode.Utf8.IsValid(utf8Json))
             throw new BakeDiagnosticException($"invalid UTF-8 in authoring JSON at byte {FirstInvalidUtf8Offset(utf8Json)}: the bake input must be valid UTF-8; fix the input file encoding.");
-        return TimelineBakerFast.BakeJsonUtf8(utf8Json, resolver, BakeWorkspace.Shared, autoNamespace);
+        return TimelineBakerFast.BakeJsonUtf8(utf8Json, resolver, BakeWorkspace.Shared, autoNamespace, manifest);
     }
 
-    public static byte[][] BakeJsonBatch(IReadOnlyList<byte[]> utf8Jsons, BakerAssemblyResolver? resolver = null, bool autoNamespace = false)
+    public static byte[][] BakeJsonBatch(IReadOnlyList<byte[]> utf8Jsons, BakerAssemblyResolver? resolver = null, bool autoNamespace = false, LibraryManifest? manifest = null)
     {
         resolver ??= new BakerAssemblyResolver();
-        var outcomes = BakeBatch(utf8Jsons, resolver, autoNamespace);
+        var outcomes = BakeBatch(utf8Jsons, resolver, autoNamespace, manifest);
         foreach (var outcome in outcomes)
             if (outcome.Error != null)
                 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(outcome.Error!).Throw();
@@ -41,12 +41,12 @@ public static class TimelineBaker
         return outputs;
     }
 
-    private static BatchOutcome BakeOne(byte[] utf8Json, BakerAssemblyResolver resolver, bool autoNamespace)
+    private static BatchOutcome BakeOne(byte[] utf8Json, BakerAssemblyResolver resolver, bool autoNamespace, LibraryManifest? manifest = null)
     {
         var start = System.Diagnostics.Stopwatch.GetTimestamp();
         try
         {
-            var bytes = BakeValidated(utf8Json, resolver, autoNamespace);
+            var bytes = BakeValidated(utf8Json, resolver, autoNamespace, manifest);
             return new BatchOutcome(bytes, null, System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds);
         }
         catch (Exception error)
@@ -56,7 +56,7 @@ public static class TimelineBaker
     }
 
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "closures run before the dispose later in the same method")]
-    internal static BatchOutcome[] BakeBatch(IReadOnlyList<byte[]> utf8Jsons, BakerAssemblyResolver resolver, bool autoNamespace = false)
+    internal static BatchOutcome[] BakeBatch(IReadOnlyList<byte[]> utf8Jsons, BakerAssemblyResolver resolver, bool autoNamespace = false, LibraryManifest? manifest = null)
     {
         var outcomes = new BatchOutcome[utf8Jsons.Count];
         if (utf8Jsons.Count == 0)
@@ -65,7 +65,7 @@ public static class TimelineBaker
         if (workers <= 1)
         {
             for (var i = 0; i < utf8Jsons.Count; i++)
-                outcomes[i] = BakeOne(utf8Jsons[i], resolver, autoNamespace);
+                outcomes[i] = BakeOne(utf8Jsons[i], resolver, autoNamespace, manifest);
             return outcomes;
         }
         using var done = new CountdownEvent(workers);
@@ -75,7 +75,7 @@ public static class TimelineBaker
             new Thread(() =>
             {
                 for (var i = worker; i < utf8Jsons.Count; i += workers)
-                    outcomes[i] = BakeOne(utf8Jsons[i], resolver, autoNamespace);
+                    outcomes[i] = BakeOne(utf8Jsons[i], resolver, autoNamespace, manifest);
                 done.Signal();
             }).Start();
         }

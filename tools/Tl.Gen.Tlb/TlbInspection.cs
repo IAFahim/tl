@@ -8,6 +8,7 @@ public static class TlbInspection
 {
     public static string Inspect(ReadOnlySpan<byte> tlb)
     {
+        var version = (uint)Word(tlb, 4);
         var hotLength = TlbMetadata.HotLength(tlb);
         var pairOffset = Word(tlb, 28);
         var stageOffset = Word(tlb, 32);
@@ -15,7 +16,8 @@ public static class TlbInspection
         var frameOffset = Word(tlb, 40);
         var pairCount = Word(tlb, 24);
         var stageCount = Word(tlb, 20);
-        if (pairOffset < 64 || (ulong)pairOffset + 48ul * (ulong)pairCount > (ulong)stageOffset)
+        var minPair = version == 6 ? 80 : 64;
+        if (pairOffset < minPair || (ulong)pairOffset + 48ul * (ulong)pairCount > (ulong)stageOffset)
             throw new ArgumentException("TLB pair table is out of bounds.");
         if ((ulong)stageOffset + 16ul * (ulong)stageCount > (ulong)poolOffset || poolOffset > frameOffset || frameOffset > hotLength)
             throw new ArgumentException("TLB section layout is out of bounds.");
@@ -30,11 +32,18 @@ public static class TlbInspection
             void S(string name, string value) => writer.WriteString(name, value);
 
             writer.WriteStartObject();
-            N("schemaVersion", 1);
+            N("schemaVersion", version == 6 ? 2 : 1);
             W("header");
             N("formatVersion", Word(tlb, 4));
             N("duration", Word(tlb, 12));
             writer.WriteBoolean("looping", Word(tlb, 8) != 0);
+            if (version == 6)
+            {
+                N("nextId", Word(tlb, 52));
+                N("channel", Word(tlb, 56));
+                writer.WriteBoolean("hold", Word(tlb, 60) != 0);
+                N("markerCount", Word(tlb, 68));
+            }
             E();
 
             A("pairs");
@@ -91,6 +100,25 @@ public static class TlbInspection
                 E();
             }
             writer.WriteEndArray();
+            if (version == 6)
+            {
+                var markerOffset = Word(tlb, 64);
+                var markerCount = Word(tlb, 68);
+                A("markers");
+                var at = markerOffset;
+                for (var i = 0; i < markerCount; i++)
+                {
+                    var tick = Word(tlb, at);
+                    var size = Word(tlb, at + 4);
+                    writer.WriteStartObject();
+                    N("tick", tick);
+                    N("size", size);
+                    S("key", Hex(tlb, at + 8));
+                    E();
+                    at += 16 + ((size + 3) & ~3);
+                }
+                writer.WriteEndArray();
+            }
             writer.WriteEndObject();
         }
         return Encoding.UTF8.GetString(stream.ToArray());

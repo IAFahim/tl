@@ -1,0 +1,17 @@
+{
+  "name": "jump",
+  "duration": 8,
+  "channel": "locomotion",
+  "tracks": [
+    {
+      "namespace": "Tlb", "type": "StatTrack", "data": { "Weight": 1 },
+      "clips": [
+        { "namespace": "Tlb", "type": "StatClip", "start": 0, "end": 4, "data": { "Stat": "Health", "Delta": -1 } },
+        { "namespace": "Tlb", "type": "StatClip", "start": 4, "end": 8, "data": { "Stat": "Mana", "Delta": 2 } }
+      ]
+    }
+  ],
+  "markers": [
+    { "namespace": "Tlb", "type": "FootMarker", "tick": 0, "data": { "Kind": 7 } }
+  ]
+}
