@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace></RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <NoWarn>$(NoWarn);0649</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" />
+    <Compile Include="../../tests/Tl.Systems.Tests/BenchDomain/BenchShapes.cs" Link="Bench/BenchShapes.cs" />
+    <Compile Include="../../tests/Tl.Systems.Tests/BenchDomain/BenchS64Base.cs" Link="Bench/BenchS64Base.cs" />
+    <Compile Include="../../tests/Tl.Systems.Tests/BenchDomain/BenchS64Consumers.cs" Link="Bench/BenchS64Consumers.cs" />
+    <Compile Include="../../tests/Tl.Systems.Tests/Support/ViewBuilder.cs" Link="Shared/ViewBuilder.cs" />
+    <Compile Include="../Systems/Generated/TlSystemsBench.g.cs" Link="Generated/TlSystemsBench.g.cs" />
+    <ProjectReference Include="../../src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer"
+                      PrivateAssets="all"
+                      AdditionalProperties="TargetFramework=netstandard2.0"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
+  </ItemGroup>
+
+  <Import Project="../../src/Tl.Gen.CSharp/build/Tl.Gen.CSharp.targets" />
+
+</Project>
