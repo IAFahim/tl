@@ -38,6 +38,9 @@ CLASSIFIED = {
     "Tiny1Track": "blend-law companion named by the assembled strings in benchmarks/Numbers/Domain.cs",
     "Tiny2Track": "blend-law companion named by the assembled strings in benchmarks/Numbers/Domain.cs",
     "IsExternalInit": "compiler polyfill, permanently classified",
+    "SkipLocalsInitAttribute": "compiler polyfill, permanently classified",
+    "UnscopedRefAttribute": "compiler polyfill, permanently classified",
+    "TimelineSlotKeysAttribute": "applied as [TimelineSlotKeys] short name in tests/Tl.Systems.Toolbox; text scanner cannot see the use",
     "LiveHostInstall": "module-initializer consumer install for tlb --live hosting; invoked by attribute, never by name",
 }
 

@@ -44,9 +44,11 @@ class Tlb1SpecExampleTest(unittest.TestCase):
         fixture = (FIXTURES / "minimal.tlb").read_bytes()
         version = int.from_bytes(fixture[4:8], "little")
         self.assertEqual(version, 5)
-        self.assertIn("(version 5)", doc)
+        self.assertIn("(versions 5 and 6)", doc)
         self.assertNotRegex(doc, r"version 4\b")
         self.assertIn("| 4 | u32 | Version | `5` |", doc)
+        self.assertIn("emits today (TLB1 version 6", doc)
+        self.assertIn("| 4 | u32 | Version | `6` |", doc)
 
     def test_fixture_table_hashes_match_the_committed_files(self):
         doc = DOC.read_text(encoding="utf-8")
