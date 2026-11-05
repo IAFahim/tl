@@ -71,6 +71,7 @@ namespace Tl
             _base = null;
             _view.TimelineCount = 0;
             _view.ByteCount = 0;
+            _view.Kinds = default;
             _byteCount = 0;
             _generation++;
         }
@@ -79,7 +80,8 @@ namespace Tl
         {
             if (library.Length < 96) throw new ArgumentException("game.tlib truncated.");
             if (BinaryPrimitives.ReadUInt32LittleEndian(library) != 0x42494C54u) throw new ArgumentException("game.tlib magic invalid; rebake with current tlb.");
-            if (BinaryPrimitives.ReadUInt32LittleEndian(library.Slice(4)) != 1u) throw new ArgumentException("game.tlib version invalid; rebake with current tlb.");
+            var version = BinaryPrimitives.ReadUInt32LittleEndian(library.Slice(4));
+            if (version != 1u && version != 2u) throw new ArgumentException("game.tlib version invalid; rebake with current tlb.");
             var count = BinaryPrimitives.ReadUInt32LittleEndian(library.Slice(8));
             var manifestOff = BinaryPrimitives.ReadUInt32LittleEndian(library.Slice(12));
             var blobOff = BinaryPrimitives.ReadUInt32LittleEndian(library.Slice(16));
@@ -89,6 +91,9 @@ namespace Tl
             if (manifestOff < 64 || manifestOff % 8 != 0 || blobOff % 8 != 0) throw new ArgumentException("game.tlib offsets must be 8-aligned.");
             if (manifestOff + count * 32u > blobOff || blobOff > total - 32u) throw new ArgumentException("game.tlib sections out of bounds.");
             if (count > 65535) throw new ArgumentException("game.tlib declares more than 65535 timelines.");
+            var kindOff = version == 2u ? BinaryPrimitives.ReadUInt32LittleEndian(library.Slice(28)) : 0u;
+            var kindLen = version == 2u ? BinaryPrimitives.ReadUInt32LittleEndian(library.Slice(32)) : 0u;
+            if (version == 2u && (kindOff % 8 != 0 || kindOff < blobOff || kindLen < 64 || (ulong)kindOff + kindLen > total - 32u)) throw new ArgumentException("game.tlib kind section out of bounds; rebake with current tlb.");
             var digestAt = (int)(total - 32u);
 #if NET
             Span<byte> calc = stackalloc byte[32];
@@ -103,9 +108,10 @@ namespace Tl
             _ownsView = true;
             _byteCount = library.Length;
             fixed (byte* src = library) Buffer.MemoryCopy(src, _base, library.Length, library.Length);
-            _view.Version = 1u;
+            _view.Version = version;
             _view.TimelineCount = (int)count;
             _view.ByteCount = total;
+            _view.Kinds = default;
             if (count == 0) { _view.Timelines = null; return; }
             var timelines = (LibraryTimeline*)NativeMemory.AlignedAlloc((nuint)(count * (uint)sizeof(LibraryTimeline)), 64);
             NativeMemory.Clear(timelines, (nuint)(count * (uint)sizeof(LibraryTimeline)));
@@ -133,6 +139,11 @@ namespace Tl
                 try { TimelineRef.Validate(blob); }
                 catch (ArgumentException ex) { Free(); throw new ArgumentException($"game.tlib timeline '{name}': {ex.Message}"); }
                 BuildTimeline(timelines + i, (ushort)id, blob, tlbOff, name, i, channel);
+            }
+            if (version == 2u)
+            {
+                try { _view.Kinds = KindSectionReader.Create(_base + kindOff, kindLen, (int)count, timelines); }
+                catch (ArgumentException) { Free(); throw; }
             }
         }
 

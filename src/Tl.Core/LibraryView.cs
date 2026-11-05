@@ -15,11 +15,12 @@ namespace Tl
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct LibraryView
     {
-        public const uint AbiVersion = 1u;
+        public const uint AbiVersion = 2u;
         public uint Version;
         public int TimelineCount;
         public LibraryTimeline* Timelines;
         public uint ByteCount;
+        public KindSectionView Kinds;
     }
 
     [StructLayout(LayoutKind.Sequential)]

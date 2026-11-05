@@ -11,37 +11,6 @@ using Tl;
 using Tl.Gen.Tlb;
 using Xunit;
 
-namespace Tl
-{
-public enum KindEntries { Spans, Pulses, Both }
-
-public enum KindMode { Combine, Each }
-
-public enum ClipEvent { Start, End, Marker }
-
-[AttributeUsage(AttributeTargets.Struct)]
-public sealed class TimelineKindAttribute : Attribute
-{
-    public KindEntries Accepts { get; set; }
-    public KindMode Mode { get; set; }
-    public int Order { get; set; }
-    public string? Group { get; set; }
-}
-
-[AttributeUsage(AttributeTargets.Method)]
-public sealed class FeedsAttribute(Type kind) : Attribute
-{
-    public Type Kind { get; } = kind;
-}
-
-[AttributeUsage(AttributeTargets.Method)]
-public sealed class PulseAttribute(Type kind) : Attribute
-{
-    public Type Kind { get; } = kind;
-    public ClipEvent On { get; set; }
-}
-}
-
 namespace KindFixture
 {
 public struct Motion { public float X, Y; }

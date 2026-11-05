@@ -2,6 +2,11 @@ type Tl.BatchItem`1
   Field R Fold
   Field Int32 Row
   Field UInt16 Tick
+type Tl.ClipEvent
+  Field Tl.ClipEvent End
+  Field Tl.ClipEvent Marker
+  Field Tl.ClipEvent Start
+  Field Byte value__
 type Tl.ClosingList
   Method Void Add(Tl.ClosingList*, Int32, Int32, Tl.Playback ByRef)
   Method Void Clear(Tl.ClosingList*)
@@ -25,6 +30,8 @@ type Tl.Events`1
   Method Tl.EventRecord`1[T]& Item(Int32)
   Method Void Raise(T ByRef)
   Property Tl.Events`1[T] Writer
+type Tl.FeedsAttribute
+  Property System.Type Kind
 type Tl.FrameFlags
   Field Tl.FrameFlags ClipEnd
   Field Tl.FrameFlags ClipStart
@@ -192,6 +199,44 @@ type Tl.Inspection+ViewSnapshot
   Property FoldState State
   Property System.Nullable`1[System.Int32] Ticks
   Method System.String ToString()
+type Tl.KindEntries
+  Field Tl.KindEntries Both
+  Field Tl.KindEntries Pulses
+  Field Tl.KindEntries Spans
+  Field Byte value__
+type Tl.KindEventOp
+  Field Tl.KindEventOp Insert
+  Field Tl.KindEventOp PulseEnd
+  Field Tl.KindEventOp PulseMarker
+  Field Tl.KindEventOp PulseStart
+  Field Tl.KindEventOp Remove
+  Field Byte value__
+type Tl.KindMode
+  Field Tl.KindMode Combine
+  Field Tl.KindMode Each
+  Field Byte value__
+type Tl.KindSectionView
+  Field Byte* Base
+  Field UInt32 Bytes
+  Method Byte EventBitsAt(Tl.LibraryKindTimeline*, Int32)
+  Method UInt32 EventEnd(Tl.LibraryKindTimeline*, Int32, Int32)
+  Method UInt32 EventStart(Tl.LibraryKindTimeline*, Int32, Int32)
+  Method Tl.LibraryKindEvent* Events(Tl.LibraryKindTimeline*)
+  Field Int32 FeederCount
+  Field Tl.LibraryFeeder* Feeders
+  Method System.String GroupOf(Int32)
+  Method Int32 IndexOf(System.String)
+  Property Boolean IsEmpty
+  Field Int32 KindCount
+  Field Tl.LibraryKind* Kinds
+  Method System.String NameOf(Int32)
+  Field Byte* Strings
+  Field UInt32 StringsLength
+  Method System.String Text(UInt32, UInt32)
+  Field Int32 TimelineCount
+  Method Tl.LibraryKindTimeline* TimelineOf(UInt16)
+  Field Tl.LibraryKindTimeline* Timelines
+  Method Tl.LibraryWindow* Windows(Tl.LibraryKindTimeline*)
 type Tl.LibraryEvent
   Field Byte Kind
   Field UInt32 Marker
@@ -199,6 +244,47 @@ type Tl.LibraryEvent
   Field UInt32 Tick
   Field Byte _pad0
   Field UInt16 _pad1
+type Tl.LibraryFeeder
+  Field UInt32 ConsumerLength
+  Field UInt32 ConsumerOffset
+  Field UInt16 Kind
+  Field UInt32 MethodLength
+  Field UInt32 MethodOffset
+  Field Byte Ordinal
+  Field UInt64 SourceKey
+  Field Byte Trigger
+  Field UInt32 _pad
+type Tl.LibraryKind
+  Field Byte Accepts
+  Field UInt32 Capacity
+  Field UInt32 EntryBytes
+  Field UInt32 GroupCapacity
+  Field UInt32 GroupNameLength
+  Field UInt32 GroupNameOffset
+  Field Byte Mode
+  Field UInt32 NameLength
+  Field UInt32 NameOffset
+  Field Int32 Order
+  Field UInt32 ValueBytes
+  Field UInt16 _pad
+type Tl.LibraryKindEvent
+  Field UInt16 Feeder
+  Field Byte Op
+  Field UInt16 Window
+  Field Byte _p0
+  Field UInt16 _p1
+type Tl.LibraryKindTimeline
+  Field UInt32 EventBits
+  Field UInt32 EventCount
+  Field UInt32 EventIndex
+  Field UInt32 Events
+  Field UInt64 KindMask
+  Field UInt32 WindowCount
+  Field UInt32 Windows
+  Field UInt32 WrapBackward
+  Field UInt32 WrapBackwardCount
+  Field UInt32 WrapForward
+  Field UInt32 WrapForwardCount
 type Tl.LibraryStage
   Field UInt32 End
   Field UInt32 Start
@@ -232,6 +318,7 @@ type Tl.LibraryTimeline
 type Tl.LibraryView
   Field UInt32 AbiVersion
   Field UInt32 ByteCount
+  Field Tl.KindSectionView Kinds
   Field Int32 TimelineCount
   Field Tl.LibraryTimeline* Timelines
   Field UInt32 Version
@@ -243,6 +330,13 @@ type Tl.LibraryViewReader
   Method Boolean HasEvent(Tl.LibraryTimeline*, UInt32)
   Method Tl.LibraryStage* StageAt(Tl.LibraryTimeline*, UInt16)
   Method System.Span`1[Tl.LibraryStep] StepsFor(Tl.LibraryTimeline*, Tl.LibraryStage*)
+type Tl.LibraryWindow
+  Field UInt16 End
+  Field UInt32 Flags
+  Field UInt16 Pair
+  Field UInt32 Slot
+  Field UInt16 Start
+  Field UInt16 Track
 type Tl.MarkerFrame`1
   Property Int32 Direction
   Property Tl.FrameFlags Flags
@@ -290,6 +384,9 @@ type Tl.PlaybackView
   Method Tl.Playback* SlotOf(Int32, Int32)
   Field Tl.Playback* Slots
   Field Int32 SlotsPerEntity
+type Tl.PulseAttribute
+  Property System.Type Kind
+  Property Tl.ClipEvent On
 type Tl.RequestOp
   Field Tl.RequestOp Start
   Field Tl.RequestOp Stop
@@ -327,6 +424,11 @@ type Tl.TimelineId
   Property Boolean IsNone
   Property Tl.TimelineId None
   Field UInt16 Value
+type Tl.TimelineKindAttribute
+  Property Tl.KindEntries Accepts
+  Property System.String Group
+  Property Tl.KindMode Mode
+  Property Int32 Order
 type Tl.TimelineRef
 type Tl.TimelineSlotKeysAttribute
 type Tl.TimelineSystemAttribute

@@ -1,4 +1,4 @@
-# LibraryView ABI (v1)
+# LibraryView ABI (v2)
 
 `LibraryView` is the unmanaged, versioned pointer struct a loaded `game.tlib`
 publishes to every system kernel. It is the only boundary P2 hands to P3: P3
@@ -10,7 +10,7 @@ the Unity `tl.unity` port) read identical bytes.
 
 ## Versioning
 
-`LibraryView.AbiVersion == 1`. Additive fields arrive only after the documented
+`LibraryView.AbiVersion == 2` (v2 appends `Kinds`; v1 readers stop before it). Additive fields arrive only after the documented
 fields with a version bump; readers reject unknown `AbiVersion`. Field order,
 widths, and alignment below are the ABI. The structs use sequential layout
 with the natural C# pointer width (64-bit hosts); the file format
@@ -21,9 +21,9 @@ and the loader widens it into these pointers.
 
 ```csharp
 public readonly struct TimelineId { public readonly ushort Value; } // 0 = none
-public unsafe struct LibraryView   // AbiVersion == 1
+public unsafe struct LibraryView   // AbiVersion == 2
 {
-    public uint AbiVersion;        // == 1
+    public uint AbiVersion;        // == 2
     public int TimelineCount;
     public LibraryTimeline* Timelines; // manifest order, id = index + 1
     public uint ByteCount;         // game.tlib total bytes
@@ -117,6 +117,30 @@ methods run after `ExecuteActive` of the same playback and tick (P3).
 - Corrupt libraries (bad magic/version/offsets/size/order/digest, bad TLB,
   mis-sorted manifest) are rejected with located reasons.
 
-## Kind section (not yet in the view)
+## Kind section
 
-A version 2 `game.tlib` carries a kind section (`docs/library-layout.md`, "Kinds"). `LibraryView` does not expose it yet; the runtime that reads kinds (#555) adds its view fields and bumps this ABI.
+A version 2 `game.tlib` carries a kind section (`docs/library-layout.md`,
+"Kinds"). The loader validates it and publishes `LibraryView.Kinds`, a
+`KindSectionView` of pointers into the loaded library bytes (no copy):
+
+```csharp
+public unsafe struct KindSectionView
+{
+    public byte* Base; public uint Bytes;
+    public int KindCount, FeederCount, TimelineCount;
+    public LibraryKind* Kinds;                 // 40-byte rows
+    public LibraryFeeder* Feeders;             // 32-byte rows
+    public LibraryKindTimeline* Timelines;     // 48-byte rows, manifest order
+    public byte* Strings; public uint StringsLength;
+    // NameOf, GroupOf, IndexOf, TimelineOf(id), Windows(t), Events(t),
+    // EventBitsAt(t, tick), EventStart/EventEnd(t, tick, direction)
+}
+```
+
+`Kinds.IsEmpty` is true for a version 1 library. The row structs mirror the
+file layout byte for byte; `LibraryWindow` and `LibraryKindEvent` are the
+16- and 8-byte window and event rows. The loader rejects, with a located
+message, a section whose magic, version, counts, table offsets, strings,
+entry sizes, per-timeline offsets (8-aligned, in bounds), event index
+(ascending, covering the events), wrap lists, event fields or kind masks are
+invalid. Kind groups load but the runtime store rejects them until K10 lands.
