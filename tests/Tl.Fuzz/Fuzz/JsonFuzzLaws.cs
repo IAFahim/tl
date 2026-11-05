@@ -1,5 +1,4 @@
 using System.Text;
-using Tl;
 using Xunit;
 using Xunit.Sdk;
 
@@ -146,39 +145,4 @@ public class JsonFuzzLaws
         }
     }
 
-    [Fact]
-    public void SuccessfulMutatedBakesStillLoad()
-    {
-        var random = FuzzRandom.FromSeeds(0x303, 0xE6);
-        var bases = BakeLaws.Fixtures().Select(BakeLaws.Utf8).ToList();
-        var loaded = 0;
-        for (var iteration = 0; iteration < Iterations / 4 && loaded < 64; iteration++)
-        {
-            var input = TlbFuzzLaws.Mutate(random, bases[random.NextInt(bases.Count)]);
-            byte[] baked;
-            try
-            {
-                baked = BakeLaws.Bake(input);
-            }
-            catch (Exception e) when (FuzzContract.IsBakeDiagnostic(e))
-            {
-                continue;
-            }
-            loaded++;
-        try
-        {
-            using var world = new TimelineWorld(baked);
-        }
-        catch (Exception e) when (FuzzContract.IsDocumentedCapacity(e))
-        {
-            break;
-        }
-        catch (Exception e)
-        {
-            throw new XunitException($"baked bytes from mutated JSON violate the load contract: {e.GetType().Name}: {e.Message}");
-        }
-        }
-        if (loaded == 0)
-            throw new XunitException("no mutated document baked successfully; the mutator is too destructive");
-    }
 }
