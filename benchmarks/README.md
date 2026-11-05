@@ -24,7 +24,7 @@ Each owns a README that carries its verdict and cites its receipt directories un
 ## Harness
 
 - `source_budget.py` — enforced source budgets (`src` 510,000 B, `samples` 66,000 B).
-- `tools/Tl.Bake.Bench` — manual baked-asset harness with `corpus`, `parity`, `timing`, `batch`, and `batchcorpus` subcommands (#300 3.4); kept in `tl.slnx` for the compile gate, and its `tools/Tl.Bake.Bench/Fixtures.cs` is shared into `benchmarks/Numbers`.
+- `tools/Tl.Bake.Bench` — manual baked-asset harness with `corpus`, `parity`, `timing`, `batch`, and `batchcorpus` subcommands (#300 3.4); kept in `tl.slnx` for the compile gate.
 
  `Algorithms`, `AotBench`, `ConsumerChecks`, `ConsumerGenerate`, `Dispatch`, `FusionChecks`, `FusionGenerate`, `FusionHour`, `Generate`, `GenerateHooks`, `KernelCompare`, `Native`, and `Review` targeted removed surfaces, stayed outside the solution, CI, and the core gate, and were removed under issue #207 after the tracked-file necessity audit. `Alpha`, `FusedAdvance`, `InternContention`, `LaneCeiling`, `LivePlan`, `PairHandles`, `TypedPlaybackProto`, and `ValuePoolFormat` targeted the superseded 3.x playback path and were retired under issue #541; their verdicts above become historical on commit, with full receipts in `git log`. `git log` retains every receipt.
 
