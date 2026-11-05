@@ -1062,6 +1062,82 @@
     {
       "track": {
         "namespace": "KindFixture",
+        "name": "ChillTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "KindFixture",
+        "name": "ChillClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Amount",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "KindFixture.ChillClip"
+      ],
+      "consumers": [
+        {
+          "name": "KindFixture.Frost",
+          "assembly": "Tl.Bake.Tests",
+          "outputs": []
+        }
+      ]
+    },
+    {
+      "track": {
+        "namespace": "KindFixture",
+        "name": "FlameTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Scale",
+            "type": "float"
+          }
+        ]
+      },
+      "clip": {
+        "namespace": "KindFixture",
+        "name": "FlameClip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 4,
+        "fields": [
+          {
+            "name": "Power",
+            "type": "float"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "KindFixture.FlameClip"
+      ],
+      "consumers": [
+        {
+          "name": "KindFixture.Flame",
+          "assembly": "Tl.Bake.Tests",
+          "outputs": []
+        }
+      ]
+    },
+    {
+      "track": {
+        "namespace": "KindFixture",
         "name": "HitTrack",
         "assembly": "Tl.Bake.Tests",
         "size": 4,

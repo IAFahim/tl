@@ -283,18 +283,21 @@ type Tl.KindTable
   Method Byte* Data(Int32)
   Field UInt64* Enabled
   Field Int32* Entity
+  Field Boolean Grouped
   Field Int32 Inline
   Method Boolean IsActive(Int32)
   Field Int32 Kind
+  Method UInt16 KindOf(Tl.KindEntry*)
   Field UInt16* Length
   Field Int32 MaxLength
   Field Int32 Overflows
   Method Void RemovePulses(Int32)
-  Method Boolean RemoveSpan(Int32, Byte, UInt16, UInt16)
+  Method Boolean RemoveSpan(Int32, Byte, UInt16, UInt16, Int32)
   Field Int32 Rows
   Method Void SetEnabled(Int32, Boolean)
   Property Int64 StorageBytesPerRow
   Field Int32 Stride
+  Field Int32 ValueAt
   Field Int32 Words
 type Tl.LibraryEvent
   Field Byte Kind

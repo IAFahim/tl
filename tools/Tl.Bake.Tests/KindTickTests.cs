@@ -45,11 +45,13 @@ public sealed unsafe class KindTickTests : IDisposable
                 var start = rng.Next(duration);
                 var end = rng.Next(start + 1, duration + 1);
                 string track, clip;
-                switch (rng.Next(3))
+                switch (rng.Next(5))
                 {
                     case 0: track = Ns("WalkTrack", "\"Scale\":1"); clip = Ns("WalkClip", $"\"Speed\":{rng.Next(1, 5)},\"Priority\":{rng.Next(0, 9)}"); break;
                     case 1: track = Ns("ArcTrack", "\"Scale\":1"); clip = Ns("ArcClip", $"\"Velocity\":{rng.Next(1, 5)}"); break;
-                    default: track = Ns("HitTrack", "\"Scale\":1"); clip = Ns("HitClip", $"\"Amount\":{rng.Next(1, 30)}"); break;
+                    case 2: track = Ns("HitTrack", "\"Scale\":1"); clip = Ns("HitClip", $"\"Amount\":{rng.Next(1, 30)}"); break;
+                    case 3: track = Ns("FlameTrack", "\"Scale\":1"); clip = Ns("FlameClip", $"\"Power\":{rng.Next(1, 5)}"); break;
+                    default: track = Ns("ChillTrack", "\"Scale\":1"); clip = Ns("ChillClip", $"\"Amount\":{rng.Next(1, 9)}"); break;
                 }
                 sb.Append($"{{{track},\"clips\":[{{{clip.Replace("\"data\"", $"\"start\":{start},\"end\":{end},\"data\"")}}}]}}");
             }
@@ -175,6 +177,7 @@ public sealed unsafe class KindTickTests : IDisposable
                     for (var j = 0; j < table->Length[row]; j++)
                     {
                         var entry = table->At(row, j);
+                        if (table->KindOf(entry) != k) continue;
                         var flags = (byte)entry->Flags;
                         if ((entry->Flags & KindEntryFlags.Span) != 0) flags &= unchecked((byte)~(byte)KindEntryFlags.Synthetic);
                         have.Add(new Key(flags, entry->Timeline == 0 ? (byte)0 : entry->Slot, entry->Timeline, entry->Step, entry->Timeline == 0 ? (byte)0 : entry->Feeder, entry->Timeline == 0 ? *(int*)((byte*)entry + 8) : 0));
@@ -183,7 +186,7 @@ public sealed unsafe class KindTickTests : IDisposable
                 var a = have.OrderBy(x => x.GetHashCode()).ThenBy(x => x.ToString(), StringComparer.Ordinal).ToList();
                 var b = expect.OrderBy(x => x.GetHashCode()).ThenBy(x => x.ToString(), StringComparer.Ordinal).ToList();
                 var active = row >= 0 && table->IsActive(row);
-                if (!a.SequenceEqual(b) || active != (have.Count > 0))
+                if (!a.SequenceEqual(b) || active != (row >= 0 && table->Length[row] > 0))
                 {
                     mismatches++;
                     if (verbose && mismatches < 6) Console.WriteLine($"TICK step={step} entity={e} kind={sec.NameOf(k)} active={active} have=[{string.Join(",", a)}] want=[{string.Join(",", b)}]");
@@ -281,6 +284,8 @@ public sealed unsafe class KindTickTests : IDisposable
             CollectPairs(run);
             first = Script(run, seed, 2500, true, -1, null);
             Assert.True(run.Store.GetStats(run.World.View.Kinds.IndexOf("Damage")).Rows > 0);
+            Assert.True(run.Store.Table(run.World.View.Kinds.IndexOf("Burn"))->Grouped);
+            Assert.True(run.Store.Table(run.World.View.Kinds.IndexOf("Burn")) == run.Store.Table(run.World.View.Kinds.IndexOf("Chill")));
         }
         using (var run = Open(tlib, 10))
         {

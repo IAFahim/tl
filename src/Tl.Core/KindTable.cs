@@ -25,6 +25,8 @@ public struct KindEntry
 public unsafe struct KindTable
 {
     public int Kind;
+    public int ValueAt;
+    public bool Grouped;
     public int Rows;
     public int Inline;
     public int Stride;
@@ -39,10 +41,12 @@ public unsafe struct KindTable
     public int MaxLength;
     public int Overflows;
 
-    internal static KindTable* Create(int kind, ReadOnlySpan<int> entities, int inlineCapacity, int entryBytes)
+    internal static KindTable* Create(int kind, ReadOnlySpan<int> entities, int inlineCapacity, int entryBytes, bool grouped = false)
     {
         var t = (KindTable*)Zeroed((nuint)sizeof(KindTable));
         t->Kind = kind;
+        t->Grouped = grouped;
+        t->ValueAt = grouped ? 12 : 8;
         t->Rows = entities.Length;
         t->Inline = inlineCapacity;
         t->Stride = entryBytes;
@@ -114,14 +118,16 @@ public unsafe struct KindTable
         Overflows++;
     }
 
-    public bool RemoveSpan(int row, byte slot, ushort timeline, ushort step)
+    public ushort KindOf(KindEntry* entry) => Grouped ? *(ushort*)((byte*)entry + 8) : (ushort)Kind;
+
+    public bool RemoveSpan(int row, byte slot, ushort timeline, ushort step, int kind = -1)
     {
         var length = Length[row];
         var data = Data(row);
         for (var i = 0; i < length; i++)
         {
             var e = (KindEntry*)(data + (nuint)i * (nuint)Stride);
-            if ((e->Flags & KindEntryFlags.Span) == 0 || e->Slot != slot || e->Timeline != timeline || e->Step != step) continue;
+            if ((e->Flags & KindEntryFlags.Span) == 0 || e->Slot != slot || e->Timeline != timeline || e->Step != step || (Grouped && kind >= 0 && KindOf(e) != kind)) continue;
             var tail = (length - i - 1) * Stride;
             Buffer.MemoryCopy(data + (nuint)(i + 1) * (nuint)Stride, data + (nuint)i * (nuint)Stride, tail, tail);
             Length[row] = (ushort)(length - 1);

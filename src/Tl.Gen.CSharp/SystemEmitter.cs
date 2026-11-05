@@ -400,14 +400,22 @@ internal static class SystemEmitter
             var by = string.CompareOrdinal(a.feeder.ConsumerMetadata, b.feeder.ConsumerMetadata);
             return by != 0 ? by : string.CompareOrdinal(a.feeder.MethodName, b.feeder.MethodName);
         });
-        var signature = string.Join("\\n", feeders.ConvertAll(static f => $"{f.feeder.ConsumerMetadata}.{f.feeder.MethodName}:{(int)f.feeder.Trigger}"));
+        var parts = feeders.ConvertAll(static f => $"{f.feeder.ConsumerMetadata}.{f.feeder.MethodName}:{(int)f.feeder.Trigger}");
+        if (kind.Group.Length > 0) parts.Insert(0, "@" + kind.Group);
+        var signature = string.Join("\\n", parts);
+        var valueAt = kind.Group.Length > 0 ? 12 : 8;
         var value = kind.ValueTypeName;
         var apply = new ConsumerMethod(ConsumerMethodKind.ExecuteActive, kind.ApplyParams, [], []);
         var applyArgs = CallArgs(shape, apply, 0, "", "__e", "");
         var tail = applyArgs.Length == 0 ? "" : ", " + applyArgs;
         W(writer, "{");
         W(writer, $"__ks.Verify(\"{kind.Name}\", sizeof({value}), \"{signature}\");");
-        W(writer, $"var __kt = __ks.Table(__ks.IndexOf(\"{kind.Name}\"));");
+        if (kind.Group.Length > 0)
+        {
+            W(writer, $"var __kid = __ks.IndexOf(\"{kind.Name}\");");
+            W(writer, "var __kt = __ks.Table(__kid);");
+        }
+        else W(writer, $"var __kt = __ks.Table(__ks.IndexOf(\"{kind.Name}\"));");
         W(writer, "if (__kt != null)");
         W(writer, "{");
         W(writer, "var __stride = __kt->Stride;");
@@ -431,10 +439,11 @@ internal static class SystemEmitter
         W(writer, "for (var __j = 0; __j < __len; __j++)");
         W(writer, "{");
         W(writer, "var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
+        if (kind.Group.Length > 0) W(writer, "if (*(ushort*)((byte*)__en + 8) != __kid) continue;");
         W(writer, $"{value} __v = default;");
         W(writer, "if (__en->Timeline == 0)");
         W(writer, "{");
-        W(writer, $"__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<{value}>((byte*)__en + 8);");
+        W(writer, $"__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<{value}>((byte*)__en + {valueAt});");
         W(writer, "__pulses++;");
         W(writer, "}");
         W(writer, "else");

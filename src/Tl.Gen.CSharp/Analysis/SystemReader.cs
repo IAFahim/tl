@@ -383,8 +383,6 @@ internal static class SystemReader
         string group = "";
         foreach (var pair in attribute.NamedArguments)
             if (pair.Key == "Group" && pair.Value.Value is string text) group = text;
-        if (group.Length > 0)
-            Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' sets Group = \"{group}\"; kind groups are not supported by the .NET generator yet.");
         return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts));
     }
 

@@ -17,6 +17,7 @@ public sealed unsafe class KindRunTests : IDisposable
     readonly WalkStat[] _stat = new WalkStat[N];
     readonly JumpPower[] _power = new JumpPower[N];
     readonly Stamina[] _stamina = new Stamina[N];
+    readonly Heat[] _heat = new Heat[N];
     readonly Health[] _health = new Health[N];
 
     static string Path(string name)
@@ -51,7 +52,7 @@ public sealed unsafe class KindRunTests : IDisposable
     void Step(bool forward = true)
     {
         _world.Tick(_players, forward);
-        new Movement { Motion = _motion, Legacy = _legacy, WalkStat = _stat, JumpPower = _power, Stamina = _stamina }.Run(_world, _players, forward);
+        new Movement { Motion = _motion, Legacy = _legacy, WalkStat = _stat, JumpPower = _power, Stamina = _stamina, Heat = _heat }.Run(_world, _players, forward);
         new Vitals { Health = _health }.Run(_world, _players, forward);
     }
 
@@ -150,7 +151,7 @@ public sealed unsafe class KindRunTests : IDisposable
         for (var s = 0; s < 5; s++)
         {
             _world.ApplyRequests(plain);
-            new Movement { Motion = _motion, Legacy = _legacy, WalkStat = _stat, JumpPower = _power, Stamina = _stamina }.Run(_world, plain, true);
+            new Movement { Motion = _motion, Legacy = _legacy, WalkStat = _stat, JumpPower = _power, Stamina = _stamina, Heat = _heat }.Run(_world, plain, true);
             _world.Advance(plain, true);
         }
         Assert.Equal(10f, _legacy[1].X);

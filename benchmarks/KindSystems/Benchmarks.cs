@@ -180,7 +180,8 @@ public unsafe class KindBenchmarks
     long Row(KindStore s)
     {
         long bytes = 0;
-        for (var k = 0; k < s.KindCount; k++) if (s.RowOf(0, k) >= 0) bytes += s.GetStats(k).BytesPerRow;
+        var seen = new HashSet<nint>();
+        for (var k = 0; k < s.KindCount; k++) if (s.RowOf(0, k) >= 0 && seen.Add((nint)s.Table(k))) bytes += s.GetStats(k).BytesPerRow;
         return bytes;
     }
 

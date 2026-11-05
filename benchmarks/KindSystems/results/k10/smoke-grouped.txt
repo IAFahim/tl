@@ -1,0 +1,11 @@
+SMOKE PlanA frames=32 entities=100000 ms/op=34.38 bytes/20ops=1224
+SMOKE KindsA frames=32 entities=100000 ms/op=367.09 bytes/20ops=0
+SMOKE KindsB frames=32 entities=100000 ms/op=45.55 bytes/20ops=0
+SMOKE KindsC frames=32 entities=100000 ms/op=368.83 bytes/20ops=0
+SMOKE KindsDTickOnly frames=32 entities=100000 ms/op=7.16 bytes/20ops=0
+SMOKE KindsE2 frames=32 entities=100000 ms/op=467.55 bytes/20ops=0
+SMOKE KindsE64 frames=32 entities=100000 ms/op=484.93 bytes/20ops=0
+SMOKE KindsF1 frames=32 entities=100000 ms/op=34.15 bytes/20ops=0
+SMOKE KindsF8 frames=32 entities=100000 ms/op=70.44 bytes/20ops=0
+SMOKE parityPlanVsKinds=True
+SMOKE kindBytesPerEntity A/E2/E64=(28, 76, 76) damage1=(1, 0) damage8=(1, 0)

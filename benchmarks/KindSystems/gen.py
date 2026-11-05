@@ -2,6 +2,7 @@ import json, os, sys
 
 PAIRS = 31
 KINDS = PAIRS * 2
+GROUP = os.environ.get("TL_GROUP", "")
 
 def domain():
     out = ["using System;", "using Tl;", "", "namespace KindBench", "{", ""]
@@ -20,7 +21,7 @@ def domain():
             "[TimelineSystemMember(typeof(KSys))]", "public struct Hit : ITrack<HitTrack, HitClip>", "{",
             "    [Pulse(typeof(Dmg), On = ClipEvent.Start)]", "    public static int Start(in Frame<HitTrack, HitClip> f) => f.Clip.Amount;", "}", ""]
     for j in range(KINDS):
-        out += [f"[TimelineKind]", f"public struct K{j}", "{",
+        out += [f"[TimelineKind(Group = \"{GROUP}\")]" if GROUP else "[TimelineKind]", f"public struct K{j}", "{",
                 "    public static void Combine(ref float t, in float n) => t += n;",
                 "    public static void Apply(in float t, ref float fx) => fx += t;", "}",
                 f"public struct V{j} {{ public float Amount; }}",

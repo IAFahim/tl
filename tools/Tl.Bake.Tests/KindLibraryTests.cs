@@ -45,6 +45,20 @@ public struct StatChange
     public static void Apply(in int delta, ref Stamina stamina) => stamina.Value += delta;
 }
 
+[TimelineKind(Group = "Effects")]
+public struct Burn
+{
+    public static void Combine(ref float total, in float next) => total += next;
+    public static void Apply(in float total, ref Motion motion) => motion.X += total;
+}
+
+[TimelineKind(Accepts = KindEntries.Pulses, Group = "Effects")]
+public struct Chill
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref Stamina stamina) => stamina.Value -= total;
+}
+
 public readonly struct WalkClip(float speed, byte priority) { public readonly float Speed = speed; public readonly byte Priority = priority; }
 public readonly struct WalkTrack(float scale) : IBlend<WalkClip>
 {
@@ -62,6 +76,18 @@ public readonly struct HitTrack(float scale) : IBlend<HitClip>
 {
     public readonly float Scale = scale;
     public void Blend(in HitClip first, in HitClip second, float factor, out HitClip result) => result = first;
+}
+public readonly struct FlameClip(float power) { public readonly float Power = power; }
+public readonly struct FlameTrack(float scale) : IBlend<FlameClip>
+{
+    public readonly float Scale = scale;
+    public void Blend(in FlameClip first, in FlameClip second, float factor, out FlameClip result) => result = first;
+}
+public readonly struct ChillClip(int amount) { public readonly int Amount = amount; }
+public readonly struct ChillTrack(float scale) : IBlend<ChillClip>
+{
+    public readonly float Scale = scale;
+    public void Blend(in ChillClip first, in ChillClip second, float factor, out ChillClip result) => result = first;
 }
 public readonly struct StepMarker(int delta) { public readonly int Delta = delta; }
 
@@ -84,6 +110,21 @@ public struct Hit : ITrack<HitTrack, HitClip>
 
     [Pulse(typeof(StatChange), On = ClipEvent.End)]
     public static int End(in Frame<HitTrack, HitClip> f) => -1;
+}
+
+public struct Flame : ITrack<FlameTrack, FlameClip>
+{
+    [Feeds(typeof(Burn))]
+    public static float Evaluate(in Frame<FlameTrack, FlameClip> f) => f.Direction * f.Clip.Power * f.Track.Scale;
+}
+
+public struct Frost : ITrack<ChillTrack, ChillClip>
+{
+    [Pulse(typeof(Chill), On = ClipEvent.Start)]
+    public static int Start(in Frame<ChillTrack, ChillClip> f) => f.Direction > 0 ? f.Clip.Amount : 0;
+
+    [Pulse(typeof(Chill), On = ClipEvent.End)]
+    public static int End(in Frame<ChillTrack, ChillClip> f) => 1;
 }
 
 public struct Steps : IMarker<StepMarker>
@@ -134,12 +175,16 @@ public class KindLibraryTests
     public void CatalogFindsKindsFeedersAndPulses()
     {
         var catalog = KindCatalog.Discover([typeof(KindLibraryTests).Assembly]);
-        Assert.Equal(["Damage", "Lift", "Locomotion", "StatChange"], catalog.Kinds.Select(k => k.Name));
+        Assert.Equal(["Burn", "Chill", "Damage", "Lift", "Locomotion", "StatChange"], catalog.Kinds.Select(k => k.Name));
+        Assert.Equal(["Effects", "Effects"], catalog.Kinds.Take(2).Select(k => k.Group));
         var damage = catalog.Kinds[catalog.IndexOf("Damage")];
         Assert.Equal(12, damage.EntryBytes);
         Assert.Equal(8, catalog.Kinds[catalog.IndexOf("Lift")].EntryBytes);
         var feeders = catalog.Feeders.Select(f => $"{catalog.Kinds[f.Kind].Name}:{f.Trigger}:{f.Consumer}.{f.Method}:{f.Ordinal}").ToArray();
         Assert.Equal([
+            "Burn:Span:KindFixture.Flame.Evaluate:0",
+            "Chill:End:KindFixture.Frost.End:0",
+            "Chill:Start:KindFixture.Frost.Start:1",
             "Damage:Start:KindFixture.Hit.Start:0",
             "Lift:Span:KindFixture.Jump.Evaluate:0",
             "Locomotion:Span:KindFixture.Walk.Evaluate:0",

@@ -11,6 +11,7 @@ public struct Stamina { public int Value; }
 public struct WalkStat { public float Value; }
 public struct JumpPower { public float Value; }
 public struct Speed { public float Value; public byte Priority; }
+public struct Heat { public float Value; }
 
 public struct WalkClip { public float Speed; public byte Priority; }
 public struct WalkTrack : IBlend<WalkClip>
@@ -49,6 +50,20 @@ public struct StatTrack : IBlend<StatClip>
 
 public struct StepMarker { public int Delta; }
 
+public struct FlameClip { public float Power; }
+public struct FlameTrack : IBlend<FlameClip>
+{
+    public float Scale;
+    public void Blend(in FlameClip first, in FlameClip second, float factor, out FlameClip result) => result = first;
+}
+
+public struct ChillClip { public int Amount; }
+public struct ChillTrack : IBlend<ChillClip>
+{
+    public float Scale;
+    public void Blend(in ChillClip first, in ChillClip second, float factor, out ChillClip result) => result = first;
+}
+
 [TimelineKind]
 public struct Locomotion
 {
@@ -74,6 +89,34 @@ public struct Damage
 public struct StatChange
 {
     public static void Apply(in int delta, ref Stamina stamina) => stamina.Value += delta;
+}
+
+[TimelineKind(Group = "Effects")]
+public struct Burn
+{
+    public static void Combine(ref float total, in float next) => total += next;
+    public static void Apply(in float total, ref Heat heat) => heat.Value += total;
+}
+
+[TimelineKind(Accepts = KindEntries.Pulses, Group = "Effects")]
+public struct Chill
+{
+    public static void Combine(ref int total, in int next) => total += next;
+    public static void Apply(in int total, ref Stamina stamina) => stamina.Value -= total;
+}
+
+[TimelineSystemMember(typeof(Movement))]
+public struct Flame : ITrack<FlameTrack, FlameClip>
+{
+    [Feeds(typeof(Burn))]
+    public static float Evaluate(in Frame<FlameTrack, FlameClip> f) => f.Direction * f.Clip.Power * f.Track.Scale;
+}
+
+[TimelineSystemMember(typeof(Movement))]
+public struct Frost : ITrack<ChillTrack, ChillClip>
+{
+    [Pulse(typeof(Chill), On = ClipEvent.Start)]
+    public static int Start(in Frame<ChillTrack, ChillClip> f) => f.Direction > 0 ? f.Clip.Amount : 0;
 }
 
 public struct Walk : ITrack<WalkTrack, WalkClip>
@@ -130,6 +173,7 @@ public ref partial struct Movement
     public ReadOnlySpan<WalkStat> WalkStat;
     public ReadOnlySpan<JumpPower> JumpPower;
     public Span<Stamina> Stamina;
+    public Span<Heat> Heat;
 }
 
 [TimelineSystem]

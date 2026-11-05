@@ -1,0 +1,1 @@
+{"name": "ember", "duration": 6, "channel": "action", "tracks": [{"namespace": "KindGame", "type": "FlameTrack", "data": {"Scale": 1}, "clips": [{"namespace": "KindGame", "type": "FlameClip", "start": 0, "end": 6, "data": {"Power": 2}}]}]}

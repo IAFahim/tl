@@ -27,3 +27,16 @@ dotnet run --project benchmarks/KindSystems/KindSystems.csproj -c Release --no-b
 Why the misses (K-E remains; K-F is fixed by folding):
 - K-E: the 62-kind arm touches 62 distinct kind loops and feeder bodies per step, the 2-kind arm touches 2, so its hot code and library tables are about 30 times larger. The storage claim holds exactly; the time ratio measures instruction and table footprint, not the kind count.
 - K-F: without folding, each pulse is written to the send queue, read at merge, written to the owner's entries and read by the kind loop, about 40 bytes of traffic per pulse, and the 100,000-row kind table no longer fits in L2. Declaring `gamePulses` in `library.json` removes the heap spill (overflows 0) but not the traffic. `FoldsPulses = true` on a Combine kind lets game code send through `Pulses<T, TFold>`, which folds a pulse into the previous one when it has the same target (one entry per run of pulses). It changes float sums because the order of additions changes, so it is opt-in per kind and the kind must be baked with the flag; integer kinds are bit-identical.
+
+## Kind groups (issue #564, `results/k10`)
+
+`TL_GROUP=Pool python3 gen.py` puts the 62 span kinds in one kind group; `TL_UPDATE_BENCH=1` with `KindBenchGenTests` and `bake.sh` then rebuild the generated snapshot and libraries for that variant (run the same steps without the variable to restore). Smoke runs, 100,000 entities, 32 steps, same CPU:
+
+| Shape | Ungrouped | One group of 62 | Why |
+|---|---|---|---|
+| K-A, one walk entry per entity | 31.3 ms | 367 ms | every member's loop scans all rows of the shared table and skips other kinds' entries |
+| K-E, 2 of 62 reachable | 78.3 / 97.1 ms | 468 / 485 ms | same |
+| Storage, 2 reachable kinds | 48 B | 76 B | one header, but the group capacity is sized for the worst case of the whole group (5 x 12 B) |
+| Parity with plan 1 | bit-equal | bit-equal | |
+
+Groups trade time and some inline storage for fewer headers, so they pay off for entities that would reach dozens of rarely used kinds (plan section 2, K10), not for a few hot kinds. Rows are shared, so the `Enabled` and `Active` bits belong to the group, not to a member kind.

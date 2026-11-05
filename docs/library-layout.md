@@ -189,6 +189,8 @@ name, so the attribute types may live in any assembly:
   must accept pulses.
 - A feeder returns exactly the kind's value type.
 
+Kinds that share a `Group` share one table per entity in the .NET runtime. A group entry is `12 + align4(largest pulse value)` bytes: the 8-byte entry header, a `u16` kind index and 2 bytes of padding, then the value. Members apply only their own entries.
+
 Kinds are ordered by full type name and named by their simple name, which must
 be unique; at most 64 kinds. Feeders are ordered by kind, then consumer full
 name, then method name; `Ordinal` is the feeder's index within its kind.

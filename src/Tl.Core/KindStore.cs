@@ -77,6 +77,7 @@ public sealed unsafe class KindStore : IDisposable
     int[] _valueBytes = Array.Empty<int>();
     byte[] _accepts = Array.Empty<byte>();
     bool[] _folds = Array.Empty<bool>();
+    int[] _owner = Array.Empty<int>();
     int _epoch;
 
     internal sealed class PulseHandle
@@ -231,6 +232,7 @@ public sealed unsafe class KindStore : IDisposable
         {
             if (_valueBytes[k] != valueBytes) throw new InvalidOperationException($"Kind '{kind}' is {valueBytes} bytes in code but {_valueBytes[k]} in the loaded library; rebake the library with tlb.");
             var have = new System.Text.StringBuilder();
+            if (_sec.Kinds[k].GroupNameLength != 0) have.Append('@').Append(_sec.GroupOf(k));
             for (var f = 0; f < _sec.FeederCount; f++)
             {
                 if (_sec.Feeders[f].Kind != k) continue;
@@ -256,7 +258,7 @@ public sealed unsafe class KindStore : IDisposable
         {
             _queues[k].Count = 0;
             var t = _tables[k];
-            if (t == null) continue;
+            if (t == null || _owner[k] != k) continue;
             for (var r = 0; r < t->Rows; r++) t->RemovePulses(r);
         }
     }
@@ -284,7 +286,7 @@ public sealed unsafe class KindStore : IDisposable
             var f = (int)(_pairs[k] & 0xffff);
             if (tick < windows[w].Start || tick >= windows[w].End) continue;
             var feeder = _sec.Feeders + f;
-            if (feeder->Trigger == 0) _tables[feeder->Kind]->RemoveSpan(RowOf(entity, feeder->Kind), (byte)slot, id, (ushort)w);
+            if (feeder->Trigger == 0) _tables[feeder->Kind]->RemoveSpan(RowOf(entity, feeder->Kind), (byte)slot, id, (ushort)w, feeder->Kind);
             else if (feeder->Trigger == 2 && tick < windows[w].End - 1) Append(entity, feeder, slot, id, w, KindEntryFlags.Pulse | KindEntryFlags.Interrupted);
         }
     }
@@ -448,7 +450,7 @@ public sealed unsafe class KindStore : IDisposable
         {
             var w = (int)(_pairs[k] >> 16);
             var feeder = _sec.Feeders + (_pairs[k] & 0xffff);
-            if (feeder->Trigger == 0 && tick >= windows[w].Start && tick < windows[w].End) _tables[feeder->Kind]->RemoveSpan(RowOf(e, feeder->Kind), (byte)i, id, (ushort)w);
+            if (feeder->Trigger == 0 && tick >= windows[w].Start && tick < windows[w].End) _tables[feeder->Kind]->RemoveSpan(RowOf(e, feeder->Kind), (byte)i, id, (ushort)w, feeder->Kind);
         }
     }
 
@@ -463,7 +465,7 @@ public sealed unsafe class KindStore : IDisposable
         for (var n = from; n < to; n++)
         {
             var feeder = _sec.Feeders + events[n].Feeder;
-            _tables[feeder->Kind]->RemoveSpan(RowOf(e, feeder->Kind), (byte)i, id, events[n].Window);
+            _tables[feeder->Kind]->RemoveSpan(RowOf(e, feeder->Kind), (byte)i, id, events[n].Window, feeder->Kind);
         }
     }
 
@@ -480,7 +482,7 @@ public sealed unsafe class KindStore : IDisposable
             switch ((KindEventOp)ev.Op)
             {
                 case KindEventOp.Remove:
-                    _tables[feeder->Kind]->RemoveSpan(RowOf(e, feeder->Kind), (byte)i, id, ev.Window);
+                    _tables[feeder->Kind]->RemoveSpan(RowOf(e, feeder->Kind), (byte)i, id, ev.Window, feeder->Kind);
                     break;
                 case KindEventOp.Insert:
                     Append(e, feeder, i, id, ev.Window, KindEntryFlags.Span);
@@ -501,6 +503,7 @@ public sealed unsafe class KindStore : IDisposable
         entry->Feeder = feeder->Ordinal;
         entry->Flags = flags;
         entry->Reserved = 0;
+        if (_tables[feeder->Kind]->Grouped) *(ushort*)((byte*)entry + 8) = (ushort)feeder->Kind;
     }
 
     void MergePulses()
@@ -522,7 +525,8 @@ public sealed unsafe class KindStore : IDisposable
                 }
                 var entry = table->Append(row);
                 *entry = new KindEntry { Flags = KindEntryFlags.Pulse };
-                CopyValue((byte*)entry + 8, at + 4, _valueBytes[k]);
+                if (table->Grouped) *(ushort*)((byte*)entry + 8) = (ushort)k;
+                CopyValue((byte*)entry + table->ValueAt, at + 4, _valueBytes[k]);
             }
             q->Count = 0;
         }
@@ -599,8 +603,16 @@ public sealed unsafe class KindStore : IDisposable
             _folds[k] = _sec.Kinds[k].Flags != 0;
         }
         var entities = _players.EntityCapacity;
+        _owner = new int[_kindCount];
+        var firstOf = new Dictionary<string, int>(StringComparer.Ordinal);
         for (var k = 0; k < _kindCount; k++)
-            if (_sec.Kinds[k].GroupNameLength != 0) throw new NotSupportedException($"Kind '{_sec.NameOf(k)}' is in kind group '{_sec.GroupOf(k)}'; kind groups are not supported by the .NET runtime yet.");
+        {
+            _owner[k] = k;
+            if (_sec.Kinds[k].GroupNameLength == 0) continue;
+            var group = _sec.GroupOf(k);
+            if (firstOf.TryGetValue(group, out var first)) _owner[k] = first;
+            else firstOf[group] = k;
+        }
         _mask = (ulong*)Zeroed((nuint)entities * 8);
         var all = _kindCount == 64 ? ~0ul : (1ul << _kindCount) - 1;
         if (_names == null) for (var e = 0; e < entities; e++) _mask[e] = all;
@@ -623,18 +635,36 @@ public sealed unsafe class KindStore : IDisposable
         _tables = (KindTable**)Zeroed((nuint)Math.Max(1, _kindCount) * (nuint)sizeof(nint));
         _queues = (PulseQueue*)Zeroed((nuint)Math.Max(1, _kindCount) * (nuint)sizeof(PulseQueue));
         var members = new List<int>();
-        for (var k = 0; k < _kindCount; k++)
+        var rowIn = new int[entities];
+        for (var o = 0; o < _kindCount; o++)
         {
+            ref var row = ref _sec.Kinds[o];
+            _queues[o].Stride = 4 + (int)((row.ValueBytes + 3u) & ~3u);
+            if (_owner[o] != o) continue;
+            var bits = 0ul;
+            var largest = 0u;
+            for (var k = o; k < _kindCount; k++)
+                if (_owner[k] == o)
+                {
+                    bits |= 1ul << k;
+                    if (_sec.Kinds[k].Accepts != 0) largest = Math.Max(largest, _sec.Kinds[k].ValueBytes);
+                }
             members.Clear();
             for (var e = 0; e < entities; e++)
-                if ((_mask[e] & (1ul << k)) != 0)
+                if ((_mask[e] & bits) != 0)
                 {
-                    _rows[_offset[e] + Pop(_mask[e] & ((1ul << k) - 1))] = members.Count;
+                    rowIn[e] = members.Count;
                     members.Add(e);
                 }
-            ref var row = ref _sec.Kinds[k];
-            _queues[k].Stride = 4 + (int)((row.ValueBytes + 3u) & ~3u);
-            if (members.Count != 0) _tables[k] = KindTable.Create(k, members.ToArray(), (int)row.Capacity, (int)row.EntryBytes);
+            for (var k = o; k < _kindCount; k++)
+                if (_owner[k] == o)
+                    for (var e = 0; e < entities; e++)
+                        if ((_mask[e] & (1ul << k)) != 0) _rows[_offset[e] + Pop(_mask[e] & ((1ul << k) - 1))] = rowIn[e];
+            if (members.Count == 0) continue;
+            var grouped = row.GroupNameLength != 0;
+            var table = KindTable.Create(o, members.ToArray(), (int)(grouped ? row.GroupCapacity : row.Capacity), grouped ? 12 + (int)((largest + 3u) & ~3u) : (int)row.EntryBytes, grouped);
+            for (var k = o; k < _kindCount; k++)
+                if (_owner[k] == o) _tables[k] = table;
         }
         _closure = (ulong*)Zeroed((nuint)Math.Max(1, _timelineCount) * 8);
         _pairStart = (int*)Zeroed((nuint)(_timelineCount + 2) * 4);
@@ -726,7 +756,7 @@ public sealed unsafe class KindStore : IDisposable
     void Release()
     {
         if (_tables != null)
-            for (var k = 0; k < _kindCount; k++) KindTable.Free(_tables[k]);
+            for (var k = 0; k < _kindCount; k++) if (_owner[k] == k) KindTable.Free(_tables[k]);
         if (_queues != null)
             for (var k = 0; k < _kindCount; k++) if (_queues[k].Items != null) NativeMemory.AlignedFree(_queues[k].Items);
         if (_stepArrays != null)

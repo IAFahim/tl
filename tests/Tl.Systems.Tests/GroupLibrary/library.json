@@ -1,0 +1,11 @@
+{
+  "tickRate": 60,
+  "channels": [
+    "locomotion",
+    "action"
+  ],
+  "timelines": [
+    "flare.json",
+    "ember.json"
+  ]
+}

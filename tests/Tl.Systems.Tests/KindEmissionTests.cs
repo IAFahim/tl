@@ -73,7 +73,6 @@ public sealed class KindEmissionTests
         Rejects("[TimelineKind] public struct K { public static void Apply(in float t, ref M m) { } }", "TLGEN102", "add public static void Combine(ref float total, in float next)");
         Rejects("[TimelineKind] public struct K { public static void Combine(ref float t, in int n) { } public static void Apply(in float t, ref M m) { } }", "TLGEN102", "Combine(ref float total");
         Rejects("[TimelineKind(Mode = KindMode.Each)] public struct K { public static void Apply(in float t, ref Events<int> e) { } }", "TLGEN102", "takes Events");
-        Rejects("[TimelineKind(Mode = KindMode.Each, Group = \"G\")] public struct K { public static void Apply(in float t, ref M m) { } }", "TLGEN102", "kind groups are not supported");
         Rejects("[TimelineKind(Mode = KindMode.Each)] public struct K { public static void Apply(in float t, ref M m) { } } [TimelineKind(Mode = KindMode.Each)] public struct K2 { public static void Apply(in float t, ref M m) { } } [TimelineSystem] public ref partial struct S3 { public Span<M> M; }", "TLGEN105", "fits 2 systems");
         Rejects("public struct Unseen { public int Q; } [TimelineKind(Mode = KindMode.Each)] public struct K { public static void Apply(in float t, ref Unseen u) { } }", "TLGEN105", "fits no system");
     }
