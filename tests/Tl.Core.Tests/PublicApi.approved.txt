@@ -204,6 +204,19 @@ type Tl.KindEntries
   Field Tl.KindEntries Pulses
   Field Tl.KindEntries Spans
   Field Byte value__
+type Tl.KindEntry
+  Field Byte Feeder
+  Field Tl.KindEntryFlags Flags
+  Field Byte Reserved
+  Field Byte Slot
+  Field UInt16 Step
+  Field UInt16 Timeline
+type Tl.KindEntryFlags
+  Field Tl.KindEntryFlags Interrupted
+  Field Tl.KindEntryFlags Pulse
+  Field Tl.KindEntryFlags Span
+  Field Tl.KindEntryFlags Synthetic
+  Field Byte value__
 type Tl.KindEventOp
   Field Tl.KindEventOp Insert
   Field Tl.KindEventOp PulseEnd
@@ -250,8 +263,34 @@ type Tl.KindStore
   Method Tl.KindStats GetStats(Int32)
   Method Int32 IndexOf(System.String)
   Property Int32 KindCount
+  Method UInt32 MarkerOf(UInt16, Int32)
   Method System.String NameOf(Int32)
   Method Tl.KindPulses`1[T] Pulses[T](System.String)
+  Method Tl.LibraryStep* StepOf(UInt16, Int32, UInt16)
+  Method Tl.KindTable* Table(Int32)
+  Method Int32 TrailingZeros(UInt64)
+  Method Void Verify(System.String, Int32, System.String)
+type Tl.KindTable
+  Field UInt64* Active
+  Method Tl.KindEntry* Append(Int32)
+  Method Tl.KindEntry* At(Int32, Int32)
+  Method Void Clear(Int32)
+  Method Byte* Data(Int32)
+  Field UInt64* Enabled
+  Field Int32* Entity
+  Field Int32 Inline
+  Method Boolean IsActive(Int32)
+  Field Int32 Kind
+  Field UInt16* Length
+  Field Int32 MaxLength
+  Field Int32 Overflows
+  Method Void RemovePulses(Int32)
+  Method Boolean RemoveSpan(Int32, Byte, UInt16, UInt16)
+  Field Int32 Rows
+  Method Void SetEnabled(Int32, Boolean)
+  Property Int64 StorageBytesPerRow
+  Field Int32 Stride
+  Field Int32 Words
 type Tl.LibraryEvent
   Field Byte Kind
   Field UInt32 Marker

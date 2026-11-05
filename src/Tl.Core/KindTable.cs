@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace Tl;
 
 [Flags]
-internal enum KindEntryFlags : byte
+public enum KindEntryFlags : byte
 {
     Span = 1,
     Pulse = 2,
@@ -12,7 +12,7 @@ internal enum KindEntryFlags : byte
 }
 
 [StructLayout(LayoutKind.Sequential, Size = 8)]
-internal struct KindEntry
+public struct KindEntry
 {
     public ushort Timeline;
     public ushort Step;
@@ -22,7 +22,7 @@ internal struct KindEntry
     public byte Reserved;
 }
 
-internal unsafe struct KindTable
+public unsafe struct KindTable
 {
     public int Kind;
     public int Rows;
@@ -39,7 +39,7 @@ internal unsafe struct KindTable
     public int MaxLength;
     public int Overflows;
 
-    public static KindTable* Create(int kind, ReadOnlySpan<int> entities, int inlineCapacity, int entryBytes)
+    internal static KindTable* Create(int kind, ReadOnlySpan<int> entities, int inlineCapacity, int entryBytes)
     {
         var t = (KindTable*)Zeroed((nuint)sizeof(KindTable));
         t->Kind = kind;
@@ -61,7 +61,7 @@ internal unsafe struct KindTable
         return t;
     }
 
-    public static void Free(KindTable* t)
+    internal static void Free(KindTable* t)
     {
         if (t == null) return;
         for (var r = 0; r < t->Rows; r++)

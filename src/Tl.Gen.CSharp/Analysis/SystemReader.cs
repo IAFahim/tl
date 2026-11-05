@@ -22,10 +22,23 @@ internal static class SystemReader
         INamedTypeSymbol System,
         INamedTypeSymbol SystemMember);
 
+    internal sealed record KindContracts(INamedTypeSymbol Kind, INamedTypeSymbol Feeds, INamedTypeSymbol Pulse);
+
+    static KindContracts? KindContractsOf(Compilation compilation)
+    {
+        var kind = compilation.GetTypeByMetadataName("Tl.TimelineKindAttribute");
+        var feeds = compilation.GetTypeByMetadataName("Tl.FeedsAttribute");
+        var pulse = compilation.GetTypeByMetadataName("Tl.PulseAttribute");
+        return kind is null || feeds is null || pulse is null ? null : new KindContracts(kind, feeds, pulse);
+    }
+
     internal static (IReadOnlyList<SystemDecl> Systems, IReadOnlyList<SystemAssignment> Assignments, IReadOnlyList<DeclarationDiagnostic> Diagnostics) Read(CSharpCompilation compilation)
     {
         var systems = new List<SystemDecl>();
         var consumers = new List<SystemConsumer>();
+        var kinds = new List<KindDecl>();
+        var kindSites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
+        var kindContracts = KindContractsOf(compilation);
         var sites = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
         var diagnostics = new List<DeclarationDiagnostic>();
         var contracts = Contracts(compilation);
@@ -37,7 +50,12 @@ internal static class SystemReader
             {
                 if (model.GetDeclaredSymbol(node) is not INamedTypeSymbol type) continue;
                 if (IsSystem(type, contracts)) systems.Add(ReadSystem(type, node, diagnostics));
-                var consumer = ReadConsumer(type, node, contracts, compilation, diagnostics);
+                if (kindContracts is not null && ReadKind(type, node, kindContracts, contracts, diagnostics) is { } kind)
+                {
+                    kinds.Add(kind);
+                    kindSites[kind.TypeName] = node;
+                }
+                var consumer = ReadConsumer(type, node, contracts, kindContracts, compilation, diagnostics);
                 if (consumer is not null)
                 {
                     consumers.Add(consumer);
@@ -46,7 +64,9 @@ internal static class SystemReader
             }
         }
         consumers.Sort(static (a, b) => string.CompareOrdinal(a.ConsumerTypeName, b.ConsumerTypeName));
-        return (systems, Assign(systems, consumers, sites, diagnostics), diagnostics);
+        kinds.Sort(static (a, b) => a.Order != b.Order ? a.Order.CompareTo(b.Order) : string.CompareOrdinal(a.Name, b.Name));
+        var assignments = Assign(systems, consumers, sites, diagnostics);
+        return (systems, kinds.Count == 0 && !consumers.Any(static c => c.Feeders.Count > 0) ? assignments : AssignKinds(systems, assignments, kinds, kindSites, sites, diagnostics), diagnostics);
     }
 
     internal static ContractSet? Contracts(Compilation compilation)
@@ -148,7 +168,7 @@ internal static class SystemReader
     static bool IsTl(INamedTypeSymbol type, string name)
         => type.Name == name && type.ConstructedFrom.ContainingNamespace?.ToDisplayString() == "Tl";
 
-    static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics)
+    static SystemConsumer? ReadConsumer(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts? kindContracts, Compilation compilation, List<DeclarationDiagnostic> diagnostics)
     {
         if (!TypeAnalyzer.IsNewStyle(type)) return null;
         var name = Symbols.Name(type);
@@ -211,11 +231,220 @@ internal static class SystemReader
                 if (at >= 0) methods[at] = active with { Direct = direct };
             }
         }
+        var feeders = kindContracts is null ? new List<FeederDecl>() : ReadFeeders(type, site, contracts, kindContracts, track, clip, marker, foldTypes, local);
+        foreach (var feeder in feeders) methods.Add(feeder.Method);
         if (methods.Count == 0 && local.Count == 0)
-            Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, ExecuteBatch, OnClipStart, OnClipEnd, or OnMarker.");
+            Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, ExecuteBatch, OnClipStart, OnClipEnd, OnMarker, or a [Feeds]/[Pulse] method.");
         diagnostics.AddRange(local);
         var key = track is null ? StableKey(marker!) : StablePairKey(track, clip!);
-        return new(name, track is null ? "" : Symbols.Name(track), clip is null ? "" : Symbols.Name(clip), marker is null ? "" : Symbols.Name(marker), marker is not null, blendable, key, members, methods, local);
+        return new(name, track is null ? "" : Symbols.Name(track), clip is null ? "" : Symbols.Name(clip), marker is null ? "" : Symbols.Name(marker), marker is not null, blendable, key, members, methods, local) { Feeders = feeders };
+    }
+
+    static string MetadataName(INamedTypeSymbol type)
+    {
+        if (type.ContainingType is { } outer) return MetadataName(outer) + "+" + type.Name;
+        return type.ContainingNamespace is { IsGlobalNamespace: false } space ? space.ToDisplayString() + "." + type.Name : type.Name;
+    }
+
+    static int NamedInt(AttributeData attribute, string name)
+    {
+        foreach (var pair in attribute.NamedArguments)
+            if (pair.Key == name && pair.Value.Value is not null) return Convert.ToInt32(pair.Value.Value);
+        return 0;
+    }
+
+    static List<FeederDecl> ReadFeeders(INamedTypeSymbol type, SyntaxNode site, ContractSet contracts, KindContracts kc, ITypeSymbol? track, ITypeSymbol? clip, ITypeSymbol? marker, List<string> foldTypes, List<DeclarationDiagnostic> diagnostics)
+    {
+        var result = new List<FeederDecl>();
+        var name = Symbols.Name(type);
+        foreach (var method in type.GetMembers().OfType<IMethodSymbol>())
+        {
+            AttributeData? attribute = null;
+            var isPulse = false;
+            foreach (var candidate in method.GetAttributes())
+            {
+                if (Symbols.Same(candidate.AttributeClass, kc.Feeds)) attribute = candidate;
+                if (Symbols.Same(candidate.AttributeClass, kc.Pulse)) { attribute = candidate; isPulse = true; }
+            }
+            if (attribute is null) continue;
+            var where = Symbols.Site(method, site);
+            var label = isPulse ? "Pulse" : "Feeds";
+            if (!method.IsStatic || method.ReturnsVoid || method.Arity != 0 || method.DeclaredAccessibility != Accessibility.Public && !SymbolEqualityComparer.Default.Equals(method.ContainingAssembly, type.ContainingAssembly))
+            {
+                Symbols.Error(diagnostics, where, "TLGEN100", $"Consumer '{name}' [{label}] method '{method.Name}' must be a non-generic static method that returns the kind value.");
+                continue;
+            }
+            if (attribute.ConstructorArguments.Length != 1 || attribute.ConstructorArguments[0].Value is not INamedTypeSymbol kindType)
+            {
+                Symbols.Error(diagnostics, where, "TLGEN100", $"Consumer '{name}' [{label}] on '{method.Name}' needs typeof(<kind>).");
+                continue;
+            }
+            var on = isPulse ? NamedInt(attribute, "On") : -1;
+            var trigger = !isPulse ? FeederTrigger.Span : on switch { 0 => FeederTrigger.Start, 1 => FeederTrigger.End, _ => FeederTrigger.Marker };
+            if (trigger == FeederTrigger.Marker ? marker is null : track is null)
+            {
+                Symbols.Error(diagnostics, where, "TLGEN101", $"Consumer '{name}' '{method.Name}': {(trigger == FeederTrigger.Marker ? "On = Marker needs a consumer that implements IMarker<T>" : "[Feeds]/[Pulse] on a clip needs a consumer that implements ITrack<TTrack, TClip>")}.");
+                continue;
+            }
+            if (!method.ReturnType.IsUnmanagedType)
+            {
+                Symbols.Error(diagnostics, where, "TLGEN100", $"Consumer '{name}' '{method.Name}' returns managed type '{Symbols.Name(method.ReturnType)}'; kind values are unmanaged.");
+                continue;
+            }
+            var parameters = new List<ConsumerParam>();
+            var index = 0;
+            var ok = true;
+            if (trigger == FeederTrigger.Marker)
+            {
+                var frame = contracts.MarkerFrame.Construct(marker!);
+                if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame))
+                {
+                    parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.MarkerFrame, -1, ""));
+                    index = 1;
+                }
+            }
+            else
+            {
+                var frame = contracts.Frame.Construct(track!, clip!);
+                if (method.Parameters.Length > 0 && method.Parameters[0].RefKind == RefKind.In && Symbols.Same(method.Parameters[0].Type, frame))
+                {
+                    parameters.Add(new(method.Parameters[0].Name, Symbols.Name(frame), "in ", ConsumerParamKind.Frame, -1, ""));
+                    index = 1;
+                }
+                var feed = 0;
+                while (index < method.Parameters.Length && feed < foldTypes.Count
+                    && method.Parameters[index].RefKind == RefKind.In
+                    && string.Equals(Symbols.Name(method.Parameters[index].Type), foldTypes[feed], StringComparison.Ordinal))
+                {
+                    parameters.Add(new(method.Parameters[index].Name, foldTypes[feed], "in ", ConsumerParamKind.FoldFeed, feed, ""));
+                    index++;
+                    feed++;
+                }
+            }
+            for (; index < method.Parameters.Length && ok; index++)
+            {
+                if (!BindValue(type, method.Name, method.Parameters[index], contracts, diagnostics, site, out var bound)) { ok = false; break; }
+                if (bound.Kind is ConsumerParamKind.Requests or ConsumerParamKind.Events)
+                {
+                    Symbols.Error(diagnostics, where, "TLGEN100", $"Consumer '{name}' '{method.Name}' takes {bound.Kind}; feeders are pure and return a value, so they take only the frame, folds, columns and context.");
+                    ok = false;
+                    break;
+                }
+                parameters.Add(bound);
+            }
+            if (!ok) continue;
+            if (CheckColumns(type, method.Name, parameters, diagnostics, site) is null) continue;
+            result.Add(new(kindType.Name, trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])));
+        }
+        return result;
+    }
+
+    static KindDecl? ReadKind(INamedTypeSymbol type, SyntaxNode site, KindContracts kc, ContractSet contracts, List<DeclarationDiagnostic> diagnostics)
+    {
+        AttributeData? attribute = null;
+        foreach (var candidate in type.GetAttributes())
+            if (Symbols.Same(candidate.AttributeClass, kc.Kind)) attribute = candidate;
+        if (attribute is null) return null;
+        var name = Symbols.Name(type);
+        if (type.TypeKind != TypeKind.Struct)
+        {
+            Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' must be a struct.");
+            return null;
+        }
+        var apply = type.GetMembers("Apply").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
+        if (apply is null || apply.Parameters.Length == 0 || apply.Parameters[0].RefKind != RefKind.In || !apply.Parameters[0].Type.IsUnmanagedType)
+        {
+            Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' needs public static void Apply(in <value> total, ...) with an unmanaged value type.");
+            return null;
+        }
+        var value = apply.Parameters[0].Type;
+        var each = NamedInt(attribute, "Mode") == 1;
+        if (!each)
+        {
+            var combine = type.GetMembers("Combine").OfType<IMethodSymbol>().FirstOrDefault(static m => m.IsStatic && m.ReturnsVoid && m.Arity == 0);
+            if (combine is null || combine.Parameters.Length != 2 || combine.Parameters[0].RefKind != RefKind.Ref || combine.Parameters[1].RefKind != RefKind.In
+                || !Symbols.Same(combine.Parameters[0].Type, value) || !Symbols.Same(combine.Parameters[1].Type, value))
+            {
+                Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' combines entries: add public static void Combine(ref {Symbols.Name(value)} total, in {Symbols.Name(value)} next), or set Mode = KindMode.Each.");
+                return null;
+            }
+        }
+        var parameters = new List<ConsumerParam>();
+        for (var i = 1; i < apply.Parameters.Length; i++)
+        {
+            if (!BindValue(type, "Apply", apply.Parameters[i], contracts, diagnostics, site, out var bound)) return null;
+            if (bound.Kind is ConsumerParamKind.Requests or ConsumerParamKind.Events)
+            {
+                Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' Apply takes {bound.Kind}; kinds apply to columns and context only.");
+                return null;
+            }
+            parameters.Add(bound);
+        }
+        string group = "";
+        foreach (var pair in attribute.NamedArguments)
+            if (pair.Key == "Group" && pair.Value.Value is string text) group = text;
+        if (group.Length > 0)
+            Symbols.Error(diagnostics, site, "TLGEN102", $"Kind '{name}' sets Group = \"{group}\"; kind groups are not supported by the .NET generator yet.");
+        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts));
+    }
+
+    static IReadOnlyList<SystemAssignment> AssignKinds(IReadOnlyList<SystemDecl> systems, IReadOnlyList<SystemAssignment> assignments, List<KindDecl> kinds, IReadOnlyDictionary<string, SyntaxNode> kindSites, IReadOnlyDictionary<string, SyntaxNode> consumerSites, List<DeclarationDiagnostic> diagnostics)
+    {
+        var byName = new Dictionary<string, KindDecl>(StringComparer.Ordinal);
+        foreach (var kind in kinds)
+        {
+            if (byName.ContainsKey(kind.Name)) Symbols.Error(diagnostics, kindSites[kind.TypeName], "TLGEN102", $"Kind name '{kind.Name}' is declared twice; kind names must be unique.");
+            else byName[kind.Name] = kind;
+        }
+        foreach (var assignment in assignments)
+            foreach (var consumer in assignment.Consumers)
+                foreach (var feeder in consumer.Feeders)
+                {
+                    if (!byName.TryGetValue(feeder.KindName, out var kind))
+                    {
+                        Symbols.Error(diagnostics, consumerSites[consumer.ConsumerTypeName], "TLGEN103", $"Consumer '{consumer.ConsumerTypeName}' '{feeder.MethodName}' feeds '{feeder.KindName}', which is not a [TimelineKind] struct.");
+                        continue;
+                    }
+                    if (kind.Accepts == 0 && feeder.Trigger != FeederTrigger.Span || kind.Accepts == 1 && feeder.Trigger == FeederTrigger.Span)
+                        Symbols.Error(diagnostics, consumerSites[consumer.ConsumerTypeName], "TLGEN106", $"Consumer '{consumer.ConsumerTypeName}' '{feeder.MethodName}' {(feeder.Trigger == FeederTrigger.Span ? "feeds spans" : "raises pulses")}, but kind '{kind.Name}' accepts {(kind.Accepts == 0 ? "spans only; set Accepts = KindEntries.Both or Pulses" : "pulses only; use [Pulse]")}.");
+                    if (!string.Equals(kind.ValueTypeName, feeder.ValueTypeName, StringComparison.Ordinal))
+                        Symbols.Error(diagnostics, consumerSites[consumer.ConsumerTypeName], "TLGEN104", $"Consumer '{consumer.ConsumerTypeName}' '{feeder.MethodName}' returns '{feeder.ValueTypeName}', but kind '{kind.Name}' takes '{kind.ValueTypeName}'.");
+                }
+        var perSystem = new Dictionary<string, List<KindDecl>>(StringComparer.Ordinal);
+        foreach (var system in systems) perSystem[system.TypeName] = new List<KindDecl>();
+        foreach (var kind in byName.Values.OrderBy(static k => k.Order).ThenBy(static k => k.Name, StringComparer.Ordinal))
+        {
+            var site = kindSites[kind.TypeName];
+            var fed = assignments.Where(a => a.Consumers.Any(c => c.Feeders.Any(f => f.KindName == kind.Name))).ToList();
+            var apply = new SystemConsumer(kind.TypeName, "", "", "", false, false, 0, kind.MemberSystems, [new(ConsumerMethodKind.ExecuteActive, kind.ApplyParams, [], [])], []);
+            SystemDecl? chosen = null;
+            if (fed.Count > 1)
+            {
+                Symbols.Error(diagnostics, site, "TLGEN105", $"Kind '{kind.Name}' is fed by consumers in {fed.Count} systems ({string.Join(", ", fed.Select(static a => a.System.TypeName))}); a kind belongs to exactly one system.");
+                continue;
+            }
+            if (fed.Count == 1) chosen = fed[0].System;
+            else
+            {
+                var fitting = systems.Where(s => Fits(s, apply) && (kind.MemberSystems.Count == 0 || kind.MemberSystems.Contains(s.TypeName, StringComparer.Ordinal))).ToList();
+                if (fitting.Count == 1) chosen = fitting[0];
+                else
+                {
+                    Symbols.Error(diagnostics, site, "TLGEN105", fitting.Count == 0
+                        ? $"Kind '{kind.Name}' fits no system; its Apply needs {(FirstMissingParam(apply, systems) is { } m ? $"{m.Kind} '{m.Type}'" : "columns no system provides")}."
+                        : $"Kind '{kind.Name}' fits {fitting.Count} systems; add [TimelineSystemMember(typeof(...))] to pick one.");
+                    continue;
+                }
+            }
+            if (!Fits(chosen, apply))
+            {
+                var missing = FirstMissingParam(apply, [chosen]);
+                Symbols.Error(diagnostics, site, "TLGEN105", $"Kind '{kind.Name}' is fed in system '{chosen.TypeName}', but its Apply needs {(missing is { } x ? $"{x.Kind} '{x.Type}'" : "columns")} that system does not provide.");
+                continue;
+            }
+            perSystem[chosen.TypeName].Add(kind);
+        }
+        return assignments.Select(a => a with { Kinds = perSystem[a.System.TypeName] }).ToList();
     }
 
     static bool HasMethod(INamedTypeSymbol type, string name)

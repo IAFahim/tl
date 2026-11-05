@@ -217,21 +217,24 @@ internal static class SystemEmitter
         }
         shape.UsedColumns = new bool[shape.Columns.Count];
         shape.UsedContexts = new bool[shape.Contexts.Count];
+        var parameters = new List<ConsumerParam>();
         foreach (var consumer in assignment.Consumers)
             foreach (var method in consumer.Methods)
-                foreach (var parameter in method.Params)
+                parameters.AddRange(method.Params);
+        foreach (var kind in assignment.Kinds) parameters.AddRange(kind.ApplyParams);
+        foreach (var parameter in parameters)
+        {
+            if (parameter.Kind is ConsumerParamKind.Column or ConsumerParamKind.ColumnReadOnly)
+            {
+                var at = shape.Columns.FindIndex(field => field.ElementTypeName == parameter.TypeName);
+                if (at >= 0 && (parameter.Kind == ConsumerParamKind.ColumnReadOnly || shape.Columns[at].Kind == SystemFieldKind.Column)) shape.UsedColumns[at] = true;
+                else
                 {
-                    if (parameter.Kind is ConsumerParamKind.Column or ConsumerParamKind.ColumnReadOnly)
-                    {
-                        var at = shape.Columns.FindIndex(field => field.ElementTypeName == parameter.TypeName);
-                        if (at >= 0 && (parameter.Kind == ConsumerParamKind.ColumnReadOnly || shape.Columns[at].Kind == SystemFieldKind.Column)) shape.UsedColumns[at] = true;
-                        else
-                        {
-                            var ctx = shape.Contexts.FindIndex(field => field.ElementTypeName == parameter.TypeName);
-                            if (ctx >= 0) shape.UsedContexts[ctx] = true;
-                        }
-                    }
+                    var ctx = shape.Contexts.FindIndex(field => field.ElementTypeName == parameter.TypeName);
+                    if (ctx >= 0) shape.UsedContexts[ctx] = true;
                 }
+            }
+        }
         return shape;
     }
 
@@ -321,10 +324,134 @@ internal static class SystemEmitter
         W(writer, "}");
         W(writer, "}");
         EmitBatchTails(writer, assignment, shape);
+        EmitKindLoops(writer, assignment, shape);
         W(writer, "}");
         foreach (var batch in BatchConsumers(consumers))
             EmitFlush(writer, assignment, shape, batch.consumer, batch.index);
         EmitFusedKernel(writer, assignment, shape, id);
+        W(writer, "}");
+    }
+
+    static void EmitKindLoops(StringBuilder writer, SystemAssignment assignment, KernelShape shape)
+    {
+        if (assignment.Kinds.Count == 0) return;
+        W(writer, "var __ks = players.Kinds;");
+        W(writer, "if (__ks != null)");
+        W(writer, "{");
+        foreach (var kind in assignment.Kinds) EmitKind(writer, assignment, shape, kind);
+        W(writer, "}");
+    }
+
+    static void EmitKind(StringBuilder writer, SystemAssignment assignment, KernelShape shape, KindDecl kind)
+    {
+        var feeders = new List<(int consumer, FeederDecl feeder)>();
+        for (var c = 0; c < assignment.Consumers.Count; c++)
+            foreach (var feeder in assignment.Consumers[c].Feeders)
+                if (feeder.KindName == kind.Name) feeders.Add((c, feeder));
+        feeders.Sort(static (a, b) =>
+        {
+            var by = string.CompareOrdinal(a.feeder.ConsumerMetadata, b.feeder.ConsumerMetadata);
+            return by != 0 ? by : string.CompareOrdinal(a.feeder.MethodName, b.feeder.MethodName);
+        });
+        var signature = string.Join("\\n", feeders.ConvertAll(static f => $"{f.feeder.ConsumerMetadata}.{f.feeder.MethodName}:{(int)f.feeder.Trigger}"));
+        var value = kind.ValueTypeName;
+        var apply = new ConsumerMethod(ConsumerMethodKind.ExecuteActive, kind.ApplyParams, [], []);
+        var applyArgs = CallArgs(shape, apply, 0, "", "__e", "");
+        var tail = applyArgs.Length == 0 ? "" : ", " + applyArgs;
+        W(writer, "{");
+        W(writer, $"__ks.Verify(\"{kind.Name}\", sizeof({value}), \"{signature}\");");
+        W(writer, $"var __kt = __ks.Table(__ks.IndexOf(\"{kind.Name}\"));");
+        W(writer, "if (__kt != null)");
+        W(writer, "{");
+        W(writer, "var __stride = __kt->Stride;");
+        W(writer, "for (var __kw = 0; __kw < __kt->Words; __kw++)");
+        W(writer, "{");
+        W(writer, "var __kb = __kt->Active[__kw] & __kt->Enabled[__kw];");
+        W(writer, "while (__kb != 0)");
+        W(writer, "{");
+        W(writer, "var __row = (__kw << 6) + global::Tl.KindStore.TrailingZeros(__kb);");
+        W(writer, "__kb &= __kb - 1;");
+        W(writer, "var __e = __kt->Entity[__row];");
+        W(writer, "if (__e >= __n) continue;");
+        W(writer, "var __len = (int)__kt->Length[__row];");
+        W(writer, "byte* __data = __kt->Data(__row);");
+        if (!kind.Each)
+        {
+            W(writer, $"{value} __total = default;");
+            W(writer, "var __has = false;");
+        }
+        W(writer, "var __pulses = 0;");
+        W(writer, "for (var __j = 0; __j < __len; __j++)");
+        W(writer, "{");
+        W(writer, "var __en = (global::Tl.KindEntry*)(__data + (nuint)__j * (nuint)__stride);");
+        W(writer, $"{value} __v = default;");
+        W(writer, "if (__en->Timeline == 0)");
+        W(writer, "{");
+        W(writer, $"__v = global::System.Runtime.CompilerServices.Unsafe.ReadUnaligned<{value}>((byte*)__en + 8);");
+        W(writer, "__pulses++;");
+        W(writer, "}");
+        W(writer, "else");
+        W(writer, "{");
+        W(writer, "var __isPulse = (__en->Flags & global::Tl.KindEntryFlags.Pulse) != 0;");
+        W(writer, "if (__isPulse) __pulses++;");
+        W(writer, "var __pb = __pview.SlotOf(__e, __en->Slot);");
+        W(writer, "if (!__isPulse && (__pb->Flags & global::Tl.PlaybackFlags.Paused) != 0) continue;");
+        W(writer, "var __tl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__en->Timeline));");
+        W(writer, "ushort __tick = __pb->Tick;");
+        W(writer, "var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
+        W(writer, "var __kflags = (__backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None)");
+        W(writer, "| ((__en->Flags & global::Tl.KindEntryFlags.Synthetic) != 0 ? global::Tl.FrameFlags.Synthetic : global::Tl.FrameFlags.None)");
+        W(writer, "| ((__en->Flags & global::Tl.KindEntryFlags.Interrupted) != 0 ? global::Tl.FrameFlags.Interrupted : global::Tl.FrameFlags.None);");
+        W(writer, "if (__tick == 0) __kflags |= global::Tl.FrameFlags.TimelineStart;");
+        W(writer, "if (__tick == (ushort)(__tl->Duration - 1)) __kflags |= global::Tl.FrameFlags.TimelineEnd;");
+        W(writer, "var __ok = false;");
+        if (feeders.Count > 0)
+        {
+        W(writer, "switch (__en->Feeder)");
+        W(writer, "{");
+        }
+        for (var i = 0; i < feeders.Count; i++)
+        {
+            var (c, feeder) = feeders[i];
+            var consumer = assignment.Consumers[c];
+            W(writer, $"case {i}:");
+            W(writer, "{");
+            if (feeder.Trigger == FeederTrigger.Marker)
+            {
+                W(writer, $"byte* __mptr{c};");
+                W(writer, $"if (!global::Tl.MarkerTableRegistry.TryResolve(world, __tl->Id, __ks.MarkerOf(__en->Timeline, __en->Step), sizeof({consumer.MarkerTypeName}), out __mptr{c})) throw new global::System.InvalidOperationException(\"Tl: marker values are not published for this library.\");");
+                W(writer, $"{consumer.MarkerTypeName} __m{c} = *({consumer.MarkerTypeName}*)__mptr{c};");
+                W(writer, $"var __mf{c} = new global::Tl.MarkerFrame<{consumer.MarkerTypeName}>(in __m{c}, __tick, 0, __kflags);");
+                W(writer, $"__v = {consumer.ConsumerTypeName}.{feeder.MethodName}({CallArgs(shape, feeder.Method, c, $"__mf{c}", "__e", "")});");
+            }
+            else
+            {
+                W(writer, "var __def = __ks.StepOf(__en->Timeline, __en->Step, __tick);");
+                W(writer, "if (__def == null || __tick < __def->WindowStart || __tick >= __def->WindowEnd) break;");
+                EmitMaterialize(writer, consumer, c, "__tl", "__tick", "__backward", "__kflags");
+                if (FoldOf(consumer) is not null) EmitFeeds(writer, consumer, c);
+                W(writer, $"__v = {consumer.ConsumerTypeName}.{feeder.MethodName}({CallArgs(shape, feeder.Method, c, $"__f{c}", "__e", $"__fd{c}_")});");
+            }
+            W(writer, "__ok = true;");
+            W(writer, "break;");
+            W(writer, "}");
+        }
+        if (feeders.Count > 0) W(writer, "}");
+        W(writer, "if (!__ok) continue;");
+        W(writer, "}");
+        if (kind.Each) W(writer, $"{kind.TypeName}.Apply(in __v{tail});");
+        else
+        {
+            W(writer, $"if (__has) {kind.TypeName}.Combine(ref __total, in __v);");
+            W(writer, "else { __total = __v; __has = true; }");
+        }
+        W(writer, "}");
+        if (!kind.Each) W(writer, $"if (__has) {kind.TypeName}.Apply(in __total{tail});");
+        W(writer, "if (__pulses == __len) __kt->Clear(__row);");
+        W(writer, "else if (__pulses != 0) __kt->RemovePulses(__row);");
+        W(writer, "}");
+        W(writer, "}");
+        W(writer, "}");
         W(writer, "}");
     }
 

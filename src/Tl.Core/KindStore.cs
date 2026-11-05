@@ -55,6 +55,12 @@ public sealed unsafe class KindStore : IDisposable
     ulong* _closure;
     uint* _pairs;
     int* _pairStart;
+    int* _windowBase;
+    int* _firstStage;
+    int* _stageCount;
+    LibraryStep*** _stepArrays;
+    int _windowTotal;
+    readonly HashSet<string> _verified = new(StringComparer.Ordinal);
     bool _disposed;
     string[] _kindNames = Array.Empty<string>();
     int[] _valueBytes = Array.Empty<int>();
@@ -142,7 +148,49 @@ public sealed unsafe class KindStore : IDisposable
         q->Count++;
     }
 
-    internal KindTable* Table(int kind) => _tables[kind];
+    public KindTable* Table(int kind) => (uint)kind < (uint)_kindCount ? _tables[kind] : null;
+
+    public static int TrailingZeros(ulong value) => Tz(value);
+
+    public LibraryStep* StepOf(ushort timeline, int window, ushort tick)
+    {
+        var t = timeline - 1;
+        if ((uint)t >= (uint)_timelineCount) return null;
+        var g = _windowBase[t] + window;
+        var arr = _stepArrays[g];
+        if (arr == null) return null;
+        var tl = _tls + t;
+        var stage = LibraryViewReader.StageAt(tl, tick);
+        if (stage == null) return null;
+        var s = (int)(stage - tl->Stages) - _firstStage[g];
+        return (uint)s < (uint)_stageCount[g] ? arr[s] : null;
+    }
+
+    public uint MarkerOf(ushort timeline, int window)
+    {
+        var tk = _sec.TimelineOf(timeline);
+        return tk == null ? uint.MaxValue : _sec.Windows(tk)[window].Pair;
+    }
+
+    public void Verify(string kind, int valueBytes, string signature)
+    {
+        if (_verified.Contains(kind)) return;
+        var k = IndexOf(kind);
+        if (k >= 0)
+        {
+            if (_valueBytes[k] != valueBytes) throw new InvalidOperationException($"Kind '{kind}' is {valueBytes} bytes in code but {_valueBytes[k]} in the loaded library; rebake the library with tlb.");
+            var have = new System.Text.StringBuilder();
+            for (var f = 0; f < _sec.FeederCount; f++)
+            {
+                if (_sec.Feeders[f].Kind != k) continue;
+                if (have.Length > 0) have.Append('\n');
+                have.Append(_sec.Text(_sec.Feeders[f].ConsumerOffset, _sec.Feeders[f].ConsumerLength)).Append('.').Append(_sec.Text(_sec.Feeders[f].MethodOffset, _sec.Feeders[f].MethodLength)).Append(':').Append(_sec.Feeders[f].Trigger);
+            }
+            if (have.ToString() != signature)
+                throw new InvalidOperationException($"Kind '{kind}' feeders in the loaded library differ from the compiled game; rebake the library with tlb.\nlibrary: {have.ToString().Replace('\n', ' ')}\ncode:    {signature.Replace('\n', ' ')}");
+        }
+        _verified.Add(kind);
+    }
 
     internal int RowOf(int entity, int kind)
     {
@@ -555,8 +603,55 @@ public sealed unsafe class KindStore : IDisposable
             pairs.AddRange(set);
         }
         _pairStart[_timelineCount] = pairs.Count;
+        BuildSteps();
         _pairs = (uint*)Zeroed((nuint)Math.Max(1, pairs.Count) * 4);
         for (var n = 0; n < pairs.Count; n++) _pairs[n] = pairs[n];
+    }
+
+    void BuildSteps()
+    {
+        _windowBase = (int*)Zeroed((nuint)(_timelineCount + 1) * 4);
+        var total = 0;
+        for (var t = 0; t < _timelineCount; t++)
+        {
+            _windowBase[t] = total;
+            if (_kindCount != 0 && _sec.Timelines[t].KindMask != 0) total += (int)_sec.Timelines[t].WindowCount;
+        }
+        _windowBase[_timelineCount] = total;
+        _windowTotal = total;
+        _firstStage = (int*)Zeroed((nuint)Math.Max(1, total) * 4);
+        _stageCount = (int*)Zeroed((nuint)Math.Max(1, total) * 4);
+        _stepArrays = (LibraryStep***)Zeroed((nuint)Math.Max(1, total) * (nuint)sizeof(nint));
+        for (var t = 0; t < _timelineCount; t++)
+        {
+            if (_kindCount == 0 || _sec.Timelines[t].KindMask == 0) continue;
+            var tk = _sec.Timelines + t;
+            var tl = _tls + t;
+            var windows = _sec.Windows(tk);
+            for (var w = 0; w < tk->WindowCount; w++)
+            {
+                var win = windows[w];
+                if ((win.Flags & 1u) != 0) continue;
+                int first = -1, last = -1;
+                for (var s = 0; s < tl->StageCount; s++)
+                {
+                    if (tl->Stages[s].Start <= win.Start && win.Start < tl->Stages[s].End) first = s;
+                    if (tl->Stages[s].Start <= win.End - 1 && win.End - 1 < tl->Stages[s].End) last = s;
+                }
+                if (first < 0 || last < first) continue;
+                var arr = (LibraryStep**)Zeroed((nuint)(last - first + 1) * (nuint)sizeof(nint));
+                for (var s = first; s <= last; s++)
+                    for (var n = 0; n < tl->Stages[s].StepCount; n++)
+                    {
+                        var step = tl->Stages[s].Steps + n;
+                        if (step->TrackIndex == win.Track && step->Pair == win.Pair && step->WindowStart == win.Start && step->WindowEnd == win.End) { arr[s - first] = step; break; }
+                    }
+                var g = _windowBase[t] + w;
+                _firstStage[g] = first;
+                _stageCount[g] = last - first + 1;
+                _stepArrays[g] = arr;
+            }
+        }
     }
 
     static void* Zeroed(nuint bytes)
@@ -572,7 +667,10 @@ public sealed unsafe class KindStore : IDisposable
             for (var k = 0; k < _kindCount; k++) KindTable.Free(_tables[k]);
         if (_queues != null)
             for (var k = 0; k < _kindCount; k++) if (_queues[k].Items != null) NativeMemory.AlignedFree(_queues[k].Items);
-        foreach (var block in new void*[] { _tables, _queues, _mask, _offset, _rows, _closure, _pairs, _pairStart })
+        if (_stepArrays != null)
+            for (var g = 0; g < _windowTotal; g++) if (_stepArrays[g] != null) NativeMemory.AlignedFree(_stepArrays[g]);
+        _verified.Clear();
+        foreach (var block in new void*[] { _tables, _queues, _mask, _offset, _rows, _closure, _pairs, _pairStart, _windowBase, _firstStage, _stageCount, _stepArrays })
             if (block != null) NativeMemory.AlignedFree(block);
         _tables = null;
         _queues = null;
@@ -582,6 +680,11 @@ public sealed unsafe class KindStore : IDisposable
         _closure = null;
         _pairs = null;
         _pairStart = null;
+        _windowBase = null;
+        _firstStage = null;
+        _stageCount = null;
+        _stepArrays = null;
+        _windowTotal = 0;
     }
 
     public void Dispose()

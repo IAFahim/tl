@@ -30,6 +30,8 @@
     <Compile Include="..\..\tests\Shared\DomainBaker.cs" Link="Shared\DomainBaker.cs" />
     <EmbeddedResource Include="..\..\tests\Shared\DomainBaker.cs" Link="Shared\DomainBaker.cs" />
     <EmbeddedResource Include="Toolbox\Toolbox.cs" />
+    <EmbeddedResource Include="KindDomain\KindDomain.cs" />
+    <EmbeddedResource Include="Generated\TlSystemsKinds.g.cs" />
     <EmbeddedResource Include="Generated\TlSystemsSnapshot.g.cs" />
     <EmbeddedResource Include="Generated\ParityGoldens.json" />
     <EmbeddedResource Include="BenchDomain\BenchShapes.cs" />

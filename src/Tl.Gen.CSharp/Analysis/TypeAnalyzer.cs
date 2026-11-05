@@ -363,6 +363,10 @@ internal static class TypeAnalyzer
     {
         foreach (var member in type.GetMembers())
         {
+            if (member is IMethodSymbol { IsStatic: true } attributed)
+                foreach (var attribute in attributed.GetAttributes())
+                    if (attribute.AttributeClass is { Name: "FeedsAttribute" or "PulseAttribute", ContainingNamespace: { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true } })
+                        return true;
             if (member is not IMethodSymbol method || !method.IsStatic || method.Arity != 0 || !method.ReturnsVoid)
                 continue;
             if (method.Name is "ExecuteBatch" or "OnClipStart" or "OnClipEnd" or "OnMarker")

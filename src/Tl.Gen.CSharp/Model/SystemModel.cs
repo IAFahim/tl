@@ -24,6 +24,7 @@ internal enum ConsumerMethodKind : byte
     OnClipStart,
     OnClipEnd,
     OnMarker,
+    Feeder,
 }
 
 internal enum ConsumerParamKind : byte
@@ -52,6 +53,27 @@ internal sealed record ConsumerMethod(ConsumerMethodKind Kind, IReadOnlyList<Con
     public DirectLane Direct { get; init; } = DirectLane.None;
 }
 
+internal enum FeederTrigger : byte
+{
+    Span,
+    Start,
+    End,
+    Marker,
+}
+
+internal sealed record FeederDecl(string KindName, FeederTrigger Trigger, string MethodName, string ConsumerMetadata, string ValueTypeName, ConsumerMethod Method);
+
+internal sealed record KindDecl(
+    string Name,
+    string TypeName,
+    string ValueTypeName,
+    bool Each,
+    int Accepts,
+    int Order,
+    string Group,
+    IReadOnlyList<ConsumerParam> ApplyParams,
+    IReadOnlyList<string> MemberSystems);
+
 internal sealed record SystemConsumer(
     string ConsumerTypeName,
     string TrackTypeName,
@@ -62,9 +84,15 @@ internal sealed record SystemConsumer(
     ulong PairKey,
     IReadOnlyList<string> MemberSystems,
     IReadOnlyList<ConsumerMethod> Methods,
-    IReadOnlyList<DeclarationDiagnostic> Diagnostics);
+    IReadOnlyList<DeclarationDiagnostic> Diagnostics)
+{
+    public IReadOnlyList<FeederDecl> Feeders { get; init; } = [];
+}
 
 internal sealed record SystemAssignment(
     SystemDecl System,
     IReadOnlyList<SystemConsumer> Consumers,
-    IReadOnlyList<DeclarationDiagnostic> Diagnostics);
+    IReadOnlyList<DeclarationDiagnostic> Diagnostics)
+{
+    public IReadOnlyList<KindDecl> Kinds { get; init; } = [];
+}
