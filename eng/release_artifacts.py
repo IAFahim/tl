@@ -25,7 +25,7 @@ PACKAGE_FILES = {
         "buildTransitive/Tl.Gen.CSharp.targets",
         "icon.png",
     },
-    "Tl.Runtime": {"lib/net10.0/Tl.Core.dll"},
+    "Tl.Runtime": {"lib/net10.0/Tl.Core.dll", "lib/netstandard2.1/Tl.Core.dll"},
     "Tl.Bake": {
         "icon.png",
         "README.md",
