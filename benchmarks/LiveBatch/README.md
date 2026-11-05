@@ -7,6 +7,10 @@ game build does. No hand-written `PairRuntime<,>.Consume` thunks.
 
 Fixtures are duration-97 looping timelines, 8 variants per shape (pattern 0-7),
 100,000 rows per benchmark call, ids cycling variants, clocks cycling ticks.
+Clocks are frozen during measurement: no `Advance` in the timed call, so every
+median is `Apply` batch throughput per row, never scalar latency. Each arm
+folds only row 0 into `Sink` to defeat dead-code elimination; all 100,000 rows
+are still fully computed.
 
 | Arm | Shape | Call |
 | --- | ----- | ---- |
@@ -24,8 +28,9 @@ pairs live on one timeline: four tracks, four pair types, one id/clock stream.
 ## Verdict
 
 P0 baseline receipts for the roadmap 4.10 gates (same machine, net10.0).
-The `--verify` parity arm reports exact forward checksums per shape; see the
-receipt log.
+Batch throughput per benchmark call; the `--verify` parity arm reports exact
+forward checksums per shape (batch-vs-singles bit-exact on all shapes; see the
+receipt log).
 
 | Arm | Median @100k rows (Default job) | Alloc |
 | --- | ---: | ---: |
@@ -37,22 +42,27 @@ receipt log.
 | D_FourPairs | 313.98 us | 0 B |
 
 Medians agree with the InProcess cross-check rows (44.00 us / 7,622.03 us /
-7,617.84 us / 7,692.65 us / 85.20 us / 320.99 us). The Default job is the
-primary receipt: clean child process, zero managed bytes on every arm. The
-InProcess rows attribute 11-26 B/op to the B arms and 2 B/op to D; the
-`--verify` warm loop (`GC.GetAllocatedBytesForCurrentThread` over 128 runs)
-retains 0 B on all six arms, so the InProcess bytes are harness attribution,
-not benchmark allocation.
+7,617.84 us / 7,692.65 us / 85.20 us / 320.99 us). Both jobs run by design: the
+`ManualConfig` Default job is the primary receipt (clean child process, zero
+managed bytes on every arm) and the `[InProcess]` attribute adds same-process
+cross-check rows. The InProcess rows attribute 11-26 B/op to the B arms and
+2 B/op to D; the `--verify` warm loop (`GC.GetAllocatedBytesForCurrentThread`
+over 128 runs) retains 0 B on all six arms, so the InProcess bytes are harness
+attribution, not benchmark allocation. Both gauges count managed bytes only;
+`Prepare`'s native `BankState` is freed by `Release` and never enters either
+count.
 
-PMU (this machine, P-core, `perf stat`, user counters only):
+PMU (this machine, P-core, `perf stat`, user counters only; 2 of the 6 arms —
+`a` and `b-apply` bound the range, the split/chunk/frame/four-pair counters are
+left for the P3 gate runs):
 
 | Shape | ns/row (perf window) | cycles/row | IPC | branches/row | miss rate |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | a | 0.443 | 2.5 | 3.08 | 0.85 | 0.064% |
 | b-apply | 75.8 | 491 | 3.40 | 248 | 0.015% |
 
-The perf-window ns/row cross-checks the BenchmarkDotNet medians (0.453 and
-76.4 ns/row).
+The perf-window ns/row is batch throughput per row (same quantity as the
+Medians above) and cross-checks them (0.453 and 76.4 ns/row).
 
 Forward checksums (8,192 rows x 97 frames, from the receipt log):
 A `DBE54FE28E8A19F8`, B `CF64E5BE9CEE2D77`, C `6AB48FD27BDE2D77`,
@@ -62,7 +72,7 @@ D `B0903A4A34400000`.
 
 ```sh
 dotnet run --project benchmarks/LiveBatch -c Release -- --verify
-dotnet run --project benchmarks/LiveBatch -c Release -- --artifacts results/<stamp>
+dotnet run --project benchmarks/LiveBatch -c Release -- --artifacts results/p0-baseline
 ```
 
 PMU counters, where available:
@@ -76,7 +86,7 @@ Shapes: `a`, `b-apply`, `b-prepareplay`, `b-chunk128`, `c`, `d`.
 
 ## Receipts
 
-- `results/20261105-000208/` — raw BenchmarkDotNet JSON (`JsonExporter.Full`,
+- `results/p0-baseline/` — raw BenchmarkDotNet JSON (`JsonExporter.Full`,
   CSV, HTML, GitHub markdown) for the six arms on this machine, the console
   log with the parity checksums (`parity.log`), and PMU captures
   (`pmu-a.txt`/`.perf.txt`, `pmu-b-apply.txt`/`.perf.txt`).

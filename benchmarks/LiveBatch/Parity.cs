@@ -18,7 +18,7 @@ internal static class Parity
         failures += ShapeD();
         failures += WarmAllocation();
         Console.WriteLine(failures == 0
-            ? $"LIVEBATCH PARITY PASS: {Rows} rows x {Frames} frames forward and backward, bit-exact"
+            ? $"LIVEBATCH PARITY PASS: {Rows} rows x {Frames} frames forward and backward, batch-vs-singles bit-exact"
             : $"LIVEBATCH PARITY FAIL: {failures} mismatches");
         return failures;
     }
@@ -303,6 +303,45 @@ internal static class Parity
             Timeline.Advance(ids, clocks, true);
         }
         var forward = Checksum(d0, clocks) ^ Checksum(d1, clocks) ^ Checksum(d2, clocks) ^ Checksum(d3, clocks);
+        var o0 = new float[Rows];
+        var o1 = new float[Rows];
+        var o2 = new float[Rows];
+        var o3 = new float[Rows];
+        var oracleClocks = StartClocks();
+        var oneId = new ushort[1];
+        var oneClock = new ushort[1];
+        var e0 = new float[1];
+        var e1 = new float[1];
+        var e2 = new float[1];
+        var e3 = new float[1];
+        for (var i = 0; i < Rows; i++)
+        {
+            oneId[0] = ids[i];
+            oneClock[0] = oracleClocks[i];
+            e0[0] = e1[0] = e2[0] = e3[0] = 0;
+            for (var frame = 0; frame < Frames; frame++)
+            {
+                Timeline<D0Track, D0Clip>.Apply(oneId, oneClock, true, e0);
+                Timeline<D1Track, D1Clip>.Apply(oneId, oneClock, true, e1);
+                Timeline<D2Track, D2Clip>.Apply(oneId, oneClock, true, e2);
+                Timeline<D3Track, D3Clip>.Apply(oneId, oneClock, true, e3);
+                Timeline.Advance(oneId, oneClock, true);
+            }
+            o0[i] = e0[0];
+            o1[i] = e1[0];
+            o2[i] = e2[0];
+            o3[i] = e3[0];
+            oracleClocks[i] = oneClock[0];
+        }
+        for (var i = 0; i < Rows; i++)
+        {
+            if (d0[i] != o0[i]) Fail(ref failures, $"D effect d0 row {i}: batch {d0[i]} vs single {o0[i]}");
+            if (d1[i] != o1[i]) Fail(ref failures, $"D effect d1 row {i}: batch {d1[i]} vs single {o1[i]}");
+            if (d2[i] != o2[i]) Fail(ref failures, $"D effect d2 row {i}: batch {d2[i]} vs single {o2[i]}");
+            if (d3[i] != o3[i]) Fail(ref failures, $"D effect d3 row {i}: batch {d3[i]} vs single {o3[i]}");
+            if (clocks[i] != oracleClocks[i]) Fail(ref failures, $"D clock row {i}");
+            if (failures > 8) return failures;
+        }
         for (var frame = 0; frame < Frames; frame++)
         {
             Timeline<D0Track, D0Clip>.Apply(ids, clocks, false, d0);
