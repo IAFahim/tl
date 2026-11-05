@@ -42,7 +42,10 @@ public static unsafe class SystemDispatch
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
         var registry = world._systems ??= new SystemRegistry();
-        if ((nint)registry.Stamp != (nint)world._view.Timelines) registry.Reset(world._view.Timelines);
+        registry.RefreshModules();
+        var view = world._view;
+        if (registry.ViewStamp != (nint)view.Timelines || registry.ViewBytes != view.ByteCount || registry.ViewCount != view.TimelineCount || registry.ViewGeneration != world._generation)
+            registry.Reset((nint)view.Timelines, view.ByteCount, view.TimelineCount, world._generation);
         var key = new FilterKey(system, timeline, stage);
         if (registry.Filters.TryGetValue(key, out var cached)) return cached;
         var built = Build(world._view, timeline, stage, pairKeys);

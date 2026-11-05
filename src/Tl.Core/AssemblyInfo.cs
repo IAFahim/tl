@@ -11,3 +11,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Alpha")]
 [assembly: InternalsVisibleTo("Tl.Gen.Tlb")]
 [assembly: InternalsVisibleTo("Tl.Systems.Tests")]
+[assembly: InternalsVisibleTo("Systems")]
+[assembly: InternalsVisibleTo("Systems21")]

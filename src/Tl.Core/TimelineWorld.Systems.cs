@@ -2,11 +2,12 @@ using System;
 
 namespace Tl;
 
-public sealed unsafe partial class TimelineWorld
+public sealed partial class TimelineWorld
 {
     internal SystemRegistry? _systems;
+    internal ulong _generation;
 
-    public Requests Requests(PlaybackTable players)
+    public unsafe Requests Requests(PlaybackTable players)
     {
         if (players is null) throw new ArgumentNullException(nameof(players));
         return new Requests(players.Consumer, -1, -1);
@@ -61,10 +62,12 @@ public sealed unsafe partial class TimelineWorld
                 else if ((uint)current->Tick + 1u >= duration)
                 {
                     if (timeline->Loop != 0) current->Tick = 0;
-                    else if (timeline->Next != 0)
+                    else if (timeline->Next != 0 && (uint)(timeline->Next - 1) < count)
                     {
+                        var next = timelines + (timeline->Next - 1);
                         current->Timeline = timeline->Next;
                         current->Tick = 0;
+                        current->Channel = (byte)next->Channel;
                         handover = true;
                     }
                     else if (timeline->Hold != 0)
@@ -79,6 +82,7 @@ public sealed unsafe partial class TimelineWorld
                 if (handover) current->Flags |= PlaybackFlags.StartPending;
             }
         }
+        ClosingList.Clear(players.Closing);
     }
 
     unsafe void Drain(PlaybackTable players, RequestQueue* queue)
