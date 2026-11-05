@@ -147,7 +147,7 @@ Each timeline file is the whole input format — authored by a designer, naming 
 - `channel` names an exclusive lane per entity with replacement semantics; a timeline with no channel stacks with everything
 - `markers` are unmanaged structs resolved at marker ticks in either direction
 - enum fields take member names case-sensitively (`"Voice": "Boom"`); `TimelineId` fields take timeline names resolved against the manifest (`"OnPress": "barrel_explode"`, unknown names fail the bake)
-- unknown keys are rejected; a timeline may mix track and clip types freely; caps are 65,535 ticks and 2,048 ticks of per-tick frame tables (longer timelines resolve per stage plus a tick-to-stage map)
+- unknown keys are rejected; a timeline may mix track and clip types freely; steps resolve per stage, with per-step frame tables built at load
 - every baked pair carries a layout fingerprint of its two structs (a hash over field names, field types, and declaration order). The generator folds the pair's field shape from source symbols; a struct edit between bake and bind fails fast with a rebake repair instead of silently misreading
 
 One `library.json` per library: `tickRate` feeds the Unity exporter (seconds to ticks; the runtime counts ticks only), `channels` order sets channel numbers (1-up, 0 = none; unknown channel fails the bake), `timelines` lists the timeline files. The manifest is the timeline names sorted ordinally; `TimelineId` is the dense id in load order (manifest order, id = index + 1, 0 = none) with `Timelines.<PascalCase>` compile-time constants.
@@ -296,9 +296,9 @@ The table is rendered from [benchmarks/Systems](benchmarks/Systems) receipts —
 | `FrameFlags : byte` | `FrameFlags : ushort` + `Synthetic`/`Interrupted` |
 | `TTrack : IBlend<TClip>` required | every track implements `IBlend<TClip>` (blend runs only where clips overlap) |
 | `ITimelineLane<T>`, `Timeline<T>` lane facade | removed (kernels internal) |
-| `Timeline.Query`, `FrameQuery`, `TickFrame` | `world.Sample<TTrack,TClip>(id, tick, step)` for tools |
+| `Timeline.Query`, `FrameQuery`, `TickFrame` | removed (bake-time inspection via `TlbInspection`/`SystemReader`; runtime reads `LibraryView`) |
 | `TimelineState`/`TimelineMovement`, `SlotView`/`LaneSegment` | internal / `LibraryView` ABI v1 |
-| `TrySample`/`SampleClip`/`View`/`Inspection` | kept, moved onto `TimelineWorld` |
+| `TrySample`/`SampleClip`/`View` | removed (`Inspection` keeps `Tables` snapshots for bake diagnostics) |
 
 Behaviour change to name (D10): a fold-fed consumer with several active tracks of one pair now runs once per active step with its own track's values (matching frame consumers and authored track order). 3.x ran the composed value once per row. If a timeline overlaps two tracks of one pair feeding one composed consumer, re-tune by ear and re-record the receipt.
 
