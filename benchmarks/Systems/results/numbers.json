@@ -12,33 +12,33 @@
       "Id": "folded",
       "Label": "folded lane through a generated system",
       "Hot": {
-        "Ms": 0.3253,
-        "Ns": 9.9273681640625
+        "Ms": 0.3078,
+        "Ns": 9.393310546875
       },
       "Cold": {
-        "Ms": 0.3161,
-        "Ns": 9.6466064453125
+        "Ms": 0.3108,
+        "Ns": 9.48486328125
       },
-      "WarmupMs": 500.14279999999957,
-      "WarmupFrames": 46528,
+      "WarmupMs": 501.1709999999989,
+      "WarmupFrames": 47456,
       "Allocated": 0,
       "Gate": "\u003C=1.03x (no regression)",
       "BaselineNs": 0.44004330871582,
-      "Ratio": 22.559979818880954
+      "Ratio": 21.34633196511392
     },
     {
       "Id": "folded-backward",
       "Label": "folded lane rewound through the same system",
       "Hot": {
-        "Ms": 0.322,
-        "Ns": 9.82666015625
+        "Ms": 0.3129,
+        "Ns": 9.5489501953125
       },
       "Cold": {
-        "Ms": 0.3148,
-        "Ns": 9.60693359375
+        "Ms": 0.3159,
+        "Ns": 9.6405029296875
       },
-      "WarmupMs": 500.2092000000001,
-      "WarmupFrames": 47712,
+      "WarmupMs": 500.0927000000001,
+      "WarmupFrames": 48128,
       "Allocated": 0,
       "Gate": null,
       "BaselineNs": null,
@@ -48,69 +48,69 @@
       "Id": "fold-fed",
       "Label": "fold-fed compose through a generated system",
       "Hot": {
-        "Ms": 0.3169,
-        "Ns": 9.6710205078125
+        "Ms": 0.3497,
+        "Ns": 10.6719970703125
       },
       "Cold": {
-        "Ms": 0.3176,
-        "Ns": 9.6923828125
+        "Ms": 0.3539,
+        "Ns": 10.8001708984375
       },
-      "WarmupMs": 500.23310000000015,
-      "WarmupFrames": 46560,
+      "WarmupMs": 500.2335999999999,
+      "WarmupFrames": 42368,
       "Allocated": 0,
       "Gate": "\u003C=0.15x",
       "BaselineNs": 76.203349453125,
-      "Ratio": 0.12691070113343822
+      "Ratio": 0.1400462991049648
     },
     {
       "Id": "frame",
       "Label": "frame-consumer dispatch through a generated system",
       "Hot": {
-        "Ms": 0.3443,
-        "Ns": 10.5072021484375
+        "Ms": 0.3466,
+        "Ns": 10.577392578125
       },
       "Cold": {
-        "Ms": 0.344,
-        "Ns": 10.498046875
+        "Ms": 0.3609,
+        "Ns": 11.0137939453125
       },
-      "WarmupMs": 500.21539999999965,
-      "WarmupFrames": 43296,
+      "WarmupMs": 500.2518999999998,
+      "WarmupFrames": 42912,
       "Allocated": 0,
       "Gate": "\u003C=0.25x",
       "BaselineNs": 0.852046283462,
-      "Ratio": 12.331726987582249
+      "Ratio": 12.414105645936706
     },
     {
       "Id": "four-pair",
       "Label": "four pairs through one generated system",
       "Hot": {
-        "Ms": 0.6609,
-        "Ns": 20.1690673828125
+        "Ms": 0.7329,
+        "Ns": 22.3663330078125
       },
       "Cold": {
-        "Ms": 0.6824,
-        "Ns": 20.8251953125
+        "Ms": 0.7344,
+        "Ns": 22.412109375
       },
-      "WarmupMs": 500.08509999999995,
-      "WarmupFrames": 22560,
+      "WarmupMs": 500.43620000000016,
+      "WarmupFrames": 20480,
       "Allocated": 0,
       "Gate": "\u003C=0.70x",
       "BaselineNs": 3.2098983461328126,
-      "Ratio": 6.28339754344918
+      "Ratio": 6.967925646230752
     },
     {
       "Id": "1-playback",
       "Label": "one playback per entity (2-playback reference)",
       "Hot": {
-        "Ms": 0.2877,
-        "Ns": 8.7799072265625
+        "Ms": 0.2992,
+        "Ns": 9.130859375
       },
       "Cold": {
-        "Ms": 0.2909,
-        "Ns": 8.8775634765625
+        "Ms": 0.2957,
+        "Ns": 9.0240478515625
       },
-      "WarmupMs": 500.2387000000006,
-      "WarmupFrames": 51136,
+      "WarmupMs": 500.00140000000084,
+      "WarmupFrames": 50016,
       "Allocated": 0,
       "Gate": null,
       "BaselineNs": null,
@@ -120,15 +120,15 @@
       "Id": "2-playback",
       "Label": "two playbacks per entity",
       "Hot": {
-        "Ms": 0.5566,
-        "Ns": 16.986083984375
+        "Ms": 0.5603,
+        "Ns": 17.0989990234375
       },
       "Cold": {
-        "Ms": 0.5647,
-        "Ns": 17.2332763671875
+        "Ms": 0.5719,
+        "Ns": 17.4530029296875
       },
-      "WarmupMs": 500.2512999999999,
-      "WarmupFrames": 26624,
+      "WarmupMs": 500.54500000000036,
+      "WarmupFrames": 26208,
       "Allocated": 0,
       "Gate": "\u003C=2.2x of 1-playback (live)",
       "BaselineNs": null,
@@ -138,14 +138,14 @@
       "Id": "64-consumer",
       "Label": "64 consumers, 2 active per tick",
       "Hot": {
-        "Ms": 12.39,
-        "Ns": 378.11279296875
+        "Ms": 12.4062,
+        "Ns": 378.607177734375
       },
       "Cold": {
-        "Ms": 12.323,
-        "Ns": 376.068115234375
+        "Ms": 12.3495,
+        "Ns": 376.8768310546875
       },
-      "WarmupMs": 504.4064,
+      "WarmupMs": 502.98749999999995,
       "WarmupFrames": 1120,
       "Allocated": 0,
       "Gate": "\u003C=1.5x of same-system 2-consumer (manual)",
@@ -153,18 +153,18 @@
       "Ratio": null
     }
   ],
-  "TwoVsOne": 1.934654153632256,
+  "TwoVsOne": 1.8726604278074865,
   "Parity": {
     "DoubleRunMatch": true,
     "Hashes": {
-      "folded": "016c3f4b1f408325",
-      "folded-backward": "dd277b7266cc8325",
-      "fold-fed": "f57bc1cf58758325",
-      "frame": "49a2395e8c6d8325",
-      "four-pair": "7691914d7e5a4325",
-      "1-playback": "59d4f31acf454325",
-      "2-playback": "a348cc0767acc325",
-      "64-consumer": "78178f47d486c325"
+      "folded": "ed0d0bf0a0734325",
+      "folded-backward": "365febf429d88325",
+      "fold-fed": "418bf4be836a8325",
+      "frame": "246ee60153190325",
+      "four-pair": "f1821bf524bb0325",
+      "1-playback": "e87455c561470325",
+      "2-playback": "9da5ef3eb2ed4325",
+      "64-consumer": "1a19f5d353e0c325"
     }
   },
   "Bake": null,
@@ -175,6 +175,6 @@
     "EnableAVX2": null,
     "EnableHWIntrinsic": null
   },
-  "GeneratedUtc": "2026-11-05T07:32:08.8633975Z",
+  "GeneratedUtc": "2026-11-05T07:50:19.4589331Z",
   "Dotnet": "10.0.12"
 }

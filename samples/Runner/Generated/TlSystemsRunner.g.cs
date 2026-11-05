@@ -308,8 +308,15 @@ ushort __within4 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir4 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_4(__row4, __first4, __second4, __blend4, __tick, __len4, __within4, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir4, __base, out var __t4, out var __cc4, out var __f4);
 byte* __lane4 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4;
-if (__def->FoldLane == null) throw new global::System.InvalidOperationException("global::Game.Jump: fold lane is not loaded.");
-float __fd4_0 = *(float*)(__lane4 + 0);
+float __fd4_0 = default;
+if (__def->FoldLane == null)
+{
+global::Game.Jump.Fold(in __f4, out __fd4_0);
+}
+else
+{
+__fd4_0 = *(float*)(__lane4 + 0);
+}
 global::Game.Jump.ExecuteActive(in __f4, in __fd4_0, ref __c0[__e], in __c1[__e]);
 if (__tick == __def->WindowEnd - 1) global::Game.Jump.OnClipEnd(in __f4);
 break;
@@ -347,6 +354,270 @@ global::Game.Footsteps.OnMarker(in __mf2, ref __eb0);
 }
 }
 }
+}
+internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward, global::Game.Motion* __c0, global::Game.JumpPower* __c1, global::Game.Stats* __c2, global::Game.InputState* __c3, int __n, global::Tl.Requests __req0, global::Tl.Events<global::Game.Cue> __ev0)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+if (players is null) throw new global::System.ArgumentNullException(nameof(players));
+var __view = world.View;
+var __pview = players.View;
+global::Tl.Requests __rq0;
+global::Tl.Events<global::Game.Cue> __eb0;
+var __closing = players.Closing;
+for (var __ci = 0; __ci < __closing->Count; __ci++)
+{
+__closing->Get(__ci, out var __ce, out var __cs, out var __cpb);
+var __ctl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__cpb.Timeline));
+if (__ctl is null || __ctl->Duration == 0) continue;
+var __ctick = __cpb.Tick < __ctl->Duration ? __cpb.Tick : (ushort)(__ctl->Duration - 1);
+var __cstage = global::Tl.LibraryViewReader.StageAt(__ctl, __ctick);
+if (__cstage is null) continue;
+var __csteps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __ctl->Id, (int)(__cstage - __ctl->Stages), PairKeys);
+var __cbackward = forward ? (__cpb.Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__cpb.Flags & global::Tl.PlaybackFlags.Reverse) == 0;
+var __cbase = (__cbackward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None) | global::Tl.FrameFlags.Interrupted;
+if (__ctick == 0) __cbase |= global::Tl.FrameFlags.TimelineStart;
+if (__ctick == (ushort)(__ctl->Duration - 1)) __cbase |= global::Tl.FrameFlags.TimelineEnd;
+__rq0 = __req0.For(__ce, __cs);
+__eb0 = __ev0; __eb0.Bind(__ce, __cs);
+for (var __i = 0; __i < __csteps.Length; __i++)
+{
+var __entry = __csteps[__i];
+switch (__entry.Consumer)
+{
+case 0:
+{
+var __def = __cstage->Steps + __entry.Step;
+if (__ctick < __def->WindowStart || __ctick >= __def->WindowEnd) break;
+break;
+}
+case 1:
+{
+var __def = __cstage->Steps + __entry.Step;
+if (__ctick < __def->WindowStart || __ctick >= __def->WindowEnd) break;
+break;
+}
+case 3:
+{
+var __def = __cstage->Steps + __entry.Step;
+if (__ctick < __def->WindowStart || __ctick >= __def->WindowEnd) break;
+break;
+}
+case 4:
+{
+var __def = __cstage->Steps + __entry.Step;
+if (__ctick < __def->WindowStart || __ctick >= __def->WindowEnd) break;
+byte* __row4 = (byte*)__def->FrameRow;
+byte* __first4 = __row4 + sizeof(global::Game.ArcTrack);
+byte* __second4 = __def->FactorSpan == 0 ? null : __first4 + sizeof(global::Game.ArcClip);
+float __blend4 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__ctick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len4 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within4 = (ushort)(__ctick - __def->WindowStart);
+sbyte __dir4 = __cbackward ? (sbyte)-1 : (sbyte)1;
+Frame_4(__row4, __first4, __second4, __blend4, __ctick, __len4, __within4, (ushort)__def->TrackIndex, (ushort)__ctl->Duration, __dir4, __cbase, out var __t4, out var __cc4, out var __f4);
+global::Game.Jump.OnClipEnd(in __f4);
+break;
+}
+case 5:
+{
+var __def = __cstage->Steps + __entry.Step;
+if (__ctick < __def->WindowStart || __ctick >= __def->WindowEnd) break;
+byte* __row5 = (byte*)__def->FrameRow;
+byte* __first5 = __row5 + sizeof(global::Game.MoveTrack);
+byte* __second5 = __def->FactorSpan == 0 ? null : __first5 + sizeof(global::Game.MoveClip);
+float __blend5 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__ctick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len5 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within5 = (ushort)(__ctick - __def->WindowStart);
+sbyte __dir5 = __cbackward ? (sbyte)-1 : (sbyte)1;
+Frame_5(__row5, __first5, __second5, __blend5, __ctick, __len5, __within5, (ushort)__def->TrackIndex, (ushort)__ctl->Duration, __dir5, __cbase, out var __t5, out var __cc5, out var __f5);
+global::Game.Move.OnClipEnd(in __f5);
+break;
+}
+}
+}
+}
+for (var __e = 0; __e < __n; __e++)
+{
+var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
+for (var __s = 0; __s < __cnt; __s++)
+{
+var __pb = __pview.SlotOf(__e, __s);
+var __pfl = __pb->Flags;
+if ((__pfl & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) { __pb->Flags = __pfl & ~global::Tl.PlaybackFlags.StartPending; }
+else
+{
+if (__pb->Timeline == 0 || (uint)(__pb->Timeline - 1) >= (uint)__view.TimelineCount) throw new global::System.ArgumentException($"Playback slot {__s} of entity {__e} names no timeline in the loaded library.");
+var __tl = __view.Timelines + (__pb->Timeline - 1);
+var __dur = __tl->Duration;
+if (__dur != 0)
+{
+var __tick = __pb->Tick;
+var __stage = global::Tl.LibraryViewReader.StageAt(__tl, __tick);
+if (__stage != null)
+{
+var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
+var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
+var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
+if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
+__rq0 = __req0.For(__e, __s);
+__eb0 = __ev0; __eb0.Bind(__e, __s);
+for (var __i = 0; __i < __steps.Length; __i++)
+{
+var __entry = __steps[__i];
+switch (__entry.Consumer)
+{
+case 0:
+{
+var __def = __stage->Steps + __entry.Step;
+if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
+byte* __row0 = (byte*)__def->FrameRow;
+byte* __first0 = __row0 + sizeof(global::Game.StatTrack);
+byte* __second0 = __def->FactorSpan == 0 ? null : __first0 + sizeof(global::Game.StatClip);
+float __blend0 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len0 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within0 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __base, out var __t0, out var __cc0, out var __f0);
+if (__tick == __def->WindowStart) global::Game.ChangeStat.OnClipStart(in __f0, ref __c2[__e]);
+break;
+}
+case 1:
+{
+var __def = __stage->Steps + __entry.Step;
+if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
+byte* __row1 = (byte*)__def->FrameRow;
+byte* __first1 = __row1 + sizeof(global::Game.CueTrack);
+byte* __second1 = __def->FactorSpan == 0 ? null : __first1 + sizeof(global::Game.CueClip);
+float __blend1 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len1 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within1 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir1 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_1(__row1, __first1, __second1, __blend1, __tick, __len1, __within1, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir1, __base, out var __t1, out var __cc1, out var __f1);
+if (__tick == __def->WindowStart) global::Game.Cues.OnClipStart(in __f1, ref __eb0);
+break;
+}
+case 3:
+{
+var __def = __stage->Steps + __entry.Step;
+if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
+byte* __row3 = (byte*)__def->FrameRow;
+byte* __first3 = __row3 + sizeof(global::Game.InputTrack);
+byte* __second3 = __def->FactorSpan == 0 ? null : __first3 + sizeof(global::Game.InputWindowClip);
+float __blend3 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len3 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within3 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir3 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_3(__row3, __first3, __second3, __blend3, __tick, __len3, __within3, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir3, __base, out var __t3, out var __cc3, out var __f3);
+global::Game.InputWindow.ExecuteActive(in __f3, in __c3[__e], ref __rq0);
+break;
+}
+case 4:
+{
+var __def = __stage->Steps + __entry.Step;
+if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
+byte* __row4 = (byte*)__def->FrameRow;
+byte* __first4 = __row4 + sizeof(global::Game.ArcTrack);
+byte* __second4 = __def->FactorSpan == 0 ? null : __first4 + sizeof(global::Game.ArcClip);
+float __blend4 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len4 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within4 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir4 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_4(__row4, __first4, __second4, __blend4, __tick, __len4, __within4, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir4, __base, out var __t4, out var __cc4, out var __f4);
+byte* __lane4 = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint)4;
+float __fd4_0 = default;
+if (__def->FoldLane == null)
+{
+global::Game.Jump.Fold(in __f4, out __fd4_0);
+}
+else
+{
+__fd4_0 = *(float*)(__lane4 + 0);
+}
+global::Game.Jump.ExecuteActive(in __f4, in __fd4_0, ref __c0[__e], in __c1[__e]);
+if (__tick == __def->WindowEnd - 1) global::Game.Jump.OnClipEnd(in __f4);
+break;
+}
+case 5:
+{
+var __def = __stage->Steps + __entry.Step;
+if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
+byte* __row5 = (byte*)__def->FrameRow;
+byte* __first5 = __row5 + sizeof(global::Game.MoveTrack);
+byte* __second5 = __def->FactorSpan == 0 ? null : __first5 + sizeof(global::Game.MoveClip);
+float __blend5 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len5 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within5 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir5 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_5(__row5, __first5, __second5, __blend5, __tick, __len5, __within5, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir5, __base, out var __t5, out var __cc5, out var __f5);
+global::Game.Move.ExecuteActive(in __f5, ref __c0[__e]);
+if (__tick == __def->WindowEnd - 1) global::Game.Move.OnClipEnd(in __f5);
+break;
+}
+}
+}
+if (global::Tl.LibraryViewReader.HasEvent(__tl, __tick))
+{
+var __mev = global::Tl.LibraryViewReader.Events(__tl);
+for (var __mk = 0; __mk < __mev.Length; __mk++)
+{
+if (__mev[__mk].Tick != __tick || __mev[__mk].Kind != 2) continue;
+byte* __mptr2;
+if (!global::Tl.MarkerTableRegistry.TryResolve(world, __tl->Id, __mev[__mk].Marker, sizeof(global::Game.FootstepMarker), out __mptr2)) throw new global::System.InvalidOperationException("Tl: marker values are not published for this library.");
+global::Game.FootstepMarker __m2 = *(global::Game.FootstepMarker*)__mptr2;
+var __mf2 = new global::Tl.MarkerFrame<global::Game.FootstepMarker>(in __m2, __tick, 0, __base);
+global::Game.Footsteps.OnMarker(in __mf2, ref __eb0);
+}
+}
+}
+}
+var __af = __pb->Flags;
+var __handover = false;
+if (__dur == 0) { __pb->Flags = (__af | global::Tl.PlaybackFlags.Ended) & ~global::Tl.PlaybackFlags.StartPending; }
+else if (((__af & global::Tl.PlaybackFlags.Reverse) != 0) == forward)
+{
+if (__pb->Tick == 0)
+{
+if (__tl->Loop != 0) __pb->Tick = (ushort)(__dur - 1);
+else if (__tl->Hold != 0) __pb->Flags = __af | global::Tl.PlaybackFlags.Ended;
+else
+{
+__pview.Counts[__e] = __cnt - 1;
+for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];
+__pview.SlotOf(__e, __cnt - 1)[0] = default;
+__cnt--; __s--;
+}
+}
+else __pb->Tick--;
+}
+else if ((uint)__pb->Tick + 1u >= __dur)
+{
+if (__tl->Loop != 0) __pb->Tick = 0;
+else if (__tl->Next != 0 && (uint)(__tl->Next - 1) < (uint)__view.TimelineCount)
+{
+var __anext = __view.Timelines + (__tl->Next - 1);
+__pb->Timeline = __tl->Next;
+__pb->Tick = 0;
+__pb->Channel = (byte)__anext->Channel;
+__pb->Flags |= global::Tl.PlaybackFlags.StartPending;
+__handover = true;
+}
+else if (__tl->Hold != 0) { __pb->Tick = (ushort)(__dur - 1); __pb->Flags = __af | global::Tl.PlaybackFlags.Ended; }
+else
+{
+__pview.Counts[__e] = __cnt - 1;
+for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];
+__pview.SlotOf(__e, __cnt - 1)[0] = default;
+__cnt--; __s--;
+}
+}
+else __pb->Tick++;
+__pb->Flags &= ~global::Tl.PlaybackFlags.StartPending;
+if (__handover) __pb->Flags |= global::Tl.PlaybackFlags.StartPending;
+}
+}
+}
+global::Tl.ClosingList.Clear(players.Closing);
 }
 }
 internal static unsafe class TlSystem_Runner_global__Game_Combat
@@ -453,6 +724,140 @@ break;
 }
 }
 }
+internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward, global::Game.Position* __c0, global::Game.HeadIndex* __c1, int __n, global::Tl.Events<global::Game.StompHit> __ev0)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+if (players is null) throw new global::System.ArgumentNullException(nameof(players));
+var __view = world.View;
+var __pview = players.View;
+global::Tl.Events<global::Game.StompHit> __eb0;
+var __closing = players.Closing;
+for (var __ci = 0; __ci < __closing->Count; __ci++)
+{
+__closing->Get(__ci, out var __ce, out var __cs, out var __cpb);
+var __ctl = global::Tl.LibraryViewReader.GetTimeline(in __view, new global::Tl.TimelineId(__cpb.Timeline));
+if (__ctl is null || __ctl->Duration == 0) continue;
+var __ctick = __cpb.Tick < __ctl->Duration ? __cpb.Tick : (ushort)(__ctl->Duration - 1);
+var __cstage = global::Tl.LibraryViewReader.StageAt(__ctl, __ctick);
+if (__cstage is null) continue;
+var __csteps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __ctl->Id, (int)(__cstage - __ctl->Stages), PairKeys);
+var __cbackward = forward ? (__cpb.Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__cpb.Flags & global::Tl.PlaybackFlags.Reverse) == 0;
+var __cbase = (__cbackward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None) | global::Tl.FrameFlags.Interrupted;
+if (__ctick == 0) __cbase |= global::Tl.FrameFlags.TimelineStart;
+if (__ctick == (ushort)(__ctl->Duration - 1)) __cbase |= global::Tl.FrameFlags.TimelineEnd;
+__eb0 = __ev0; __eb0.Bind(__ce, __cs);
+for (var __i = 0; __i < __csteps.Length; __i++)
+{
+var __entry = __csteps[__i];
+switch (__entry.Consumer)
+{
+case 0:
+{
+var __def = __cstage->Steps + __entry.Step;
+if (__ctick < __def->WindowStart || __ctick >= __def->WindowEnd) break;
+break;
+}
+}
+}
+}
+for (var __e = 0; __e < __n; __e++)
+{
+var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;
+for (var __s = 0; __s < __cnt; __s++)
+{
+var __pb = __pview.SlotOf(__e, __s);
+var __pfl = __pb->Flags;
+if ((__pfl & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) { __pb->Flags = __pfl & ~global::Tl.PlaybackFlags.StartPending; }
+else
+{
+if (__pb->Timeline == 0 || (uint)(__pb->Timeline - 1) >= (uint)__view.TimelineCount) throw new global::System.ArgumentException($"Playback slot {__s} of entity {__e} names no timeline in the loaded library.");
+var __tl = __view.Timelines + (__pb->Timeline - 1);
+var __dur = __tl->Duration;
+if (__dur != 0)
+{
+var __tick = __pb->Tick;
+var __stage = global::Tl.LibraryViewReader.StageAt(__tl, __tick);
+if (__stage != null)
+{
+var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
+var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
+var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
+if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
+if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
+__eb0 = __ev0; __eb0.Bind(__e, __s);
+for (var __i = 0; __i < __steps.Length; __i++)
+{
+var __entry = __steps[__i];
+switch (__entry.Consumer)
+{
+case 0:
+{
+var __def = __stage->Steps + __entry.Step;
+if (__tick < __def->WindowStart || __tick >= __def->WindowEnd) break;
+byte* __row0 = (byte*)__def->FrameRow;
+byte* __first0 = __row0 + sizeof(global::Game.StompTrack);
+byte* __second0 = __def->FactorSpan == 0 ? null : __first0 + sizeof(global::Game.StompClip);
+float __blend0 = __def->FactorSpan == 0 ? 0f : (__def->FactorSpan <= 1 ? 0.5f : (__tick - __def->FactorStart) / (float)(__def->FactorSpan - 1));
+ushort __len0 = (ushort)(__def->WindowEnd - __def->WindowStart);
+ushort __within0 = (ushort)(__tick - __def->WindowStart);
+sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
+Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __base, out var __t0, out var __cc0, out var __f0);
+global::Game.Stomp.ExecuteActive(in __f0, in __c0[__e], in __c1[__e], ref __eb0);
+break;
+}
+}
+}
+}
+}
+var __af = __pb->Flags;
+var __handover = false;
+if (__dur == 0) { __pb->Flags = (__af | global::Tl.PlaybackFlags.Ended) & ~global::Tl.PlaybackFlags.StartPending; }
+else if (((__af & global::Tl.PlaybackFlags.Reverse) != 0) == forward)
+{
+if (__pb->Tick == 0)
+{
+if (__tl->Loop != 0) __pb->Tick = (ushort)(__dur - 1);
+else if (__tl->Hold != 0) __pb->Flags = __af | global::Tl.PlaybackFlags.Ended;
+else
+{
+__pview.Counts[__e] = __cnt - 1;
+for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];
+__pview.SlotOf(__e, __cnt - 1)[0] = default;
+__cnt--; __s--;
+}
+}
+else __pb->Tick--;
+}
+else if ((uint)__pb->Tick + 1u >= __dur)
+{
+if (__tl->Loop != 0) __pb->Tick = 0;
+else if (__tl->Next != 0 && (uint)(__tl->Next - 1) < (uint)__view.TimelineCount)
+{
+var __anext = __view.Timelines + (__tl->Next - 1);
+__pb->Timeline = __tl->Next;
+__pb->Tick = 0;
+__pb->Channel = (byte)__anext->Channel;
+__pb->Flags |= global::Tl.PlaybackFlags.StartPending;
+__handover = true;
+}
+else if (__tl->Hold != 0) { __pb->Tick = (ushort)(__dur - 1); __pb->Flags = __af | global::Tl.PlaybackFlags.Ended; }
+else
+{
+__pview.Counts[__e] = __cnt - 1;
+for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];
+__pview.SlotOf(__e, __cnt - 1)[0] = default;
+__cnt--; __s--;
+}
+}
+else __pb->Tick++;
+__pb->Flags &= ~global::Tl.PlaybackFlags.StartPending;
+if (__handover) __pb->Flags |= global::Tl.PlaybackFlags.StartPending;
+}
+}
+}
+global::Tl.ClosingList.Clear(players.Closing);
+}
 }
 }
 namespace Game
@@ -502,6 +907,58 @@ fixed (global::Game.Position* __p0 = this.Position)
 fixed (global::Game.HeadIndex* __p1 = this.Heads)
 {
 global::TlSystems.TlSystem_Runner_global__Game_Combat.Run(world, players, forward, __p0, __p1, __len, this.Hits);
+}
+}
+}
+}
+}
+namespace Game
+{
+partial struct Movement
+{
+public unsafe void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward = true)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+if (players is null) throw new global::System.ArgumentNullException(nameof(players));
+int __len = players.EntityCapacity;
+__len = this.Motion.Length;
+if (this.JumpPower.Length != __len) throw new global::System.ArgumentException("global::Game.Movement: column JumpPower lengths differ.");
+if (this.Stats.Length != __len) throw new global::System.ArgumentException("global::Game.Movement: column Stats lengths differ.");
+if (this.Input.Length != __len) throw new global::System.ArgumentException("global::Game.Movement: column Input lengths differ.");
+if (__len > players.EntityCapacity) throw new global::System.ArgumentException("global::Game.Movement: column length exceeds table capacity.");
+fixed (global::Game.Motion* __p0 = this.Motion)
+{
+fixed (global::Game.JumpPower* __p1 = this.JumpPower)
+{
+fixed (global::Game.Stats* __p2 = this.Stats)
+{
+fixed (global::Game.InputState* __p3 = this.Input)
+{
+global::TlSystems.TlSystem_Runner_global__Game_Movement.RunFused(world, players, forward, __p0, __p1, __p2, __p3, __len, this.Requests, this.Cues);
+}
+}
+}
+}
+}
+}
+}
+namespace Game
+{
+partial struct Combat
+{
+public unsafe void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward = true)
+{
+if (world is null) throw new global::System.ArgumentNullException(nameof(world));
+if (players is null) throw new global::System.ArgumentNullException(nameof(players));
+int __len = players.EntityCapacity;
+__len = this.Position.Length;
+if (this.Heads.Length != __len) throw new global::System.ArgumentException("global::Game.Combat: column Heads lengths differ.");
+if (__len > players.EntityCapacity) throw new global::System.ArgumentException("global::Game.Combat: column length exceeds table capacity.");
+fixed (global::Game.Position* __p0 = this.Position)
+{
+fixed (global::Game.HeadIndex* __p1 = this.Heads)
+{
+global::TlSystems.TlSystem_Runner_global__Game_Combat.RunFused(world, players, forward, __p0, __p1, __len, this.Hits);
 }
 }
 }
