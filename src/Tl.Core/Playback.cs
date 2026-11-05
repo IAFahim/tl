@@ -3,8 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace Tl;
 
-[Flags]
-public enum FrameFlags : byte
+public enum FrameFlags : ushort
 {
     None = 0,
     ClipStart = 1 << 0,
@@ -15,6 +14,8 @@ public enum FrameFlags : byte
     CompletedAfter = 1 << 5,
     Looping = 1 << 6,
     Reverse = 1 << 7,
+    Synthetic = 1 << 8,
+    Interrupted = 1 << 9,
 }
 
 [StructLayout(LayoutKind.Sequential)]

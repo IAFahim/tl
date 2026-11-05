@@ -10,3 +10,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Tl.Bake.Tests")]
 [assembly: InternalsVisibleTo("Alpha")]
 [assembly: InternalsVisibleTo("Tl.Gen.Tlb")]
+[assembly: InternalsVisibleTo("Tl.Systems.Tests")]

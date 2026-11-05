@@ -3,20 +3,17 @@ using System.ComponentModel;
 namespace Tl;
 
 public interface ITrack<TTrack, TClip>
-    where TTrack : unmanaged, IBlend<TClip>
+    where TTrack : unmanaged
     where TClip : unmanaged;
 
 public interface IBake<TConsumer>;
 
 public interface IHostedConsumer;
 
-public readonly ref struct Frame<TTrack, TClip>
-    where TTrack : unmanaged, IBlend<TClip>
+public readonly struct Frame<TTrack, TClip>
+    where TTrack : unmanaged
     where TClip : unmanaged
 {
-    private readonly ref readonly TTrack _track;
-    private readonly ref readonly TClip _clip;
-
     [EditorBrowsable(EditorBrowsableState.Never)]
     public Frame(
         in TTrack track,
@@ -27,8 +24,8 @@ public readonly ref struct Frame<TTrack, TClip>
         ushort trackIndex,
         FrameFlags flags)
     {
-        _track = ref track;
-        _clip = ref clip;
+        Track = track;
+        Clip = clip;
         TimelineTick = timelineTick;
         ClipLength = clipLength;
         WithinClip = withinClip;
@@ -36,9 +33,10 @@ public readonly ref struct Frame<TTrack, TClip>
         Flags = flags;
     }
 
-    public ref readonly TTrack Track => ref _track;
-    public ref readonly TClip Clip => ref _clip;
+    public readonly TTrack Track;
+    public readonly TClip Clip;
     public ushort TimelineTick { get; }
+    public ushort Tick => TimelineTick;
     public ushort ClipLength { get; }
     public ushort WithinClip { get; }
     public ushort TrackIndex { get; }

@@ -1,0 +1,66 @@
+using System.Collections.Generic;
+
+namespace Tl;
+
+public interface ITlModule
+{
+    int PairCount { get; }
+    ulong PairKey(int index);
+    int FoldLaneBytes(int index);
+    unsafe void FoldStep(int index, byte* track, byte* first, byte* second, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, byte* lane);
+}
+
+public static class TlGenerated
+{
+    static readonly List<ITlModule> _modules = new();
+    static readonly object _gate = new();
+
+    public static void Install(ITlModule module)
+    {
+        if (module is null) throw new ArgumentNullException(nameof(module));
+        lock (_gate)
+        {
+            _modules.Add(module);
+        }
+    }
+
+    public static IReadOnlyList<ITlModule> Modules
+    {
+        get { lock (_gate) return _modules.ToArray(); }
+    }
+}
+
+sealed class SystemRegistry
+{
+    internal readonly struct Entry
+    {
+        public Entry(ITlModule module, int index)
+        {
+            Module = module;
+            Index = index;
+        }
+
+        public readonly ITlModule Module;
+        public readonly int Index;
+    }
+
+    internal unsafe void* Stamp;
+    internal readonly Dictionary<FilterKey, SystemStep[]> Filters = new();
+
+    internal unsafe void Reset(void* stamp)
+    {
+        Stamp = stamp;
+        Filters.Clear();
+    }
+
+    readonly Dictionary<ulong, Entry> _entries = new();
+
+    internal SystemRegistry()
+    {
+        foreach (var module in TlGenerated.Modules)
+            for (var i = 0; i < module.PairCount; i++)
+                _entries.TryAdd(module.PairKey(i), new Entry(module, i));
+    }
+
+    internal bool TryGet(ulong key, out Entry entry) => _entries.TryGetValue(key, out entry);
+}

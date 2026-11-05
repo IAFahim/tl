@@ -1,0 +1,123 @@
+using System;
+
+namespace Tl;
+
+public sealed unsafe partial class TimelineWorld
+{
+    internal SystemRegistry? _systems;
+
+    public Requests Requests(PlaybackTable players)
+    {
+        if (players is null) throw new ArgumentNullException(nameof(players));
+        return new Requests(players.Consumer, -1, -1);
+    }
+
+    public unsafe void ApplyRequests(PlaybackTable players)
+    {
+        if (players is null) throw new ArgumentNullException(nameof(players));
+        Drain(players, players.Consumer);
+        Drain(players, players.Pending);
+    }
+
+    public unsafe void Advance(PlaybackTable players, bool forward = true)
+    {
+        if (players is null) throw new ArgumentNullException(nameof(players));
+        var timelines = _view.Timelines;
+        if (timelines == null) return;
+        var count = (uint)_view.TimelineCount;
+        for (var entity = 0; entity < players.EntityCapacity; entity++)
+        {
+            var slots = players.SlotsOf(entity);
+            var slotsCount = players.CountOf(entity);
+            for (var i = 0; i < slotsCount; i++)
+            {
+                var current = slots + i;
+                var flags = current->Flags;
+                if ((flags & (PlaybackFlags.Ended | PlaybackFlags.Paused)) != 0)
+                {
+                    current->Flags = flags & ~PlaybackFlags.StartPending;
+                    continue;
+                }
+                if (current->Timeline == 0 || (uint)(current->Timeline - 1) >= count)
+                    throw new ArgumentException($"Playback slot {i} of entity {entity} names no timeline in the loaded library.");
+                var timeline = timelines + (current->Timeline - 1);
+                var duration = timeline->Duration;
+                var reverse = (flags & PlaybackFlags.Reverse) != 0;
+                var handover = false;
+                if (duration == 0)
+                {
+                    current->Flags = (flags | PlaybackFlags.Ended) & ~PlaybackFlags.StartPending;
+                }
+                else if (reverse == forward)
+                {
+                    if (current->Tick == 0)
+                    {
+                        if (timeline->Loop != 0) current->Tick = (ushort)(duration - 1);
+                        else if (timeline->Hold != 0) current->Flags = flags | PlaybackFlags.Ended;
+                        else { players.RemoveSlot(entity, i); i--; slotsCount--; continue; }
+                    }
+                    else current->Tick--;
+                }
+                else if ((uint)current->Tick + 1u >= duration)
+                {
+                    if (timeline->Next != 0)
+                    {
+                        current->Timeline = timeline->Next;
+                        current->Tick = 0;
+                        handover = true;
+                    }
+                    else if (timeline->Hold != 0)
+                    {
+                        current->Tick = (ushort)(duration - 1);
+                        current->Flags = flags | PlaybackFlags.Ended;
+                    }
+                    else { players.RemoveSlot(entity, i); i--; slotsCount--; continue; }
+                }
+                else current->Tick++;
+                current->Flags &= ~PlaybackFlags.StartPending;
+                if (handover) current->Flags |= PlaybackFlags.StartPending;
+            }
+        }
+    }
+
+    unsafe void Drain(PlaybackTable players, RequestQueue* queue)
+    {
+        if (queue->Count == 0) return;
+        RequestQueue.SortStable(queue);
+        for (var i = 0; i < queue->Count; i++)
+        {
+            ref readonly var record = ref queue->Item(i);
+            ApplyRecord(players, record);
+        }
+        RequestQueue.Clear(queue);
+    }
+
+    unsafe void ApplyRecord(PlaybackTable players, in RequestRecord record)
+    {
+        if ((uint)record.Entity >= (uint)players.EntityCapacity)
+            throw new ArgumentOutOfRangeException(nameof(record), $"Request names entity {record.Entity} outside the table capacity.");
+        switch (record.Op)
+        {
+            case RequestOp.Start:
+                if (record.Timeline == 0 || (uint)(record.Timeline - 1) >= (uint)_view.TimelineCount)
+                    throw new ArgumentException($"Request starts timeline {record.Timeline}; the loaded library holds {_view.TimelineCount}.");
+                var timeline = _view.Timelines + (record.Timeline - 1);
+                var duration = timeline->Duration;
+                if (duration == 0) return;
+                var at = timeline->Loop != 0 ? (ushort)(record.At % duration) : record.At < duration ? record.At : (ushort)(duration - 1);
+                players.TryStartImmediate(record.Entity, record.Timeline, at, (byte)timeline->Channel, out _);
+                return;
+            case RequestOp.Stop:
+                for (var i = 0; i < players.CountOf(record.Entity); i++)
+                    if (players.SlotsOf(record.Entity)[i].Timeline == record.Timeline) { players.CloseSlot(record.Entity, i); return; }
+                return;
+            case RequestOp.StopChannel:
+                for (var i = 0; i < players.CountOf(record.Entity); i++)
+                    if (players.SlotsOf(record.Entity)[i].Channel == (byte)record.Timeline) { players.CloseSlot(record.Entity, i); return; }
+                return;
+            default:
+                while (players.CountOf(record.Entity) > 0) players.CloseSlot(record.Entity, 0);
+                return;
+        }
+    }
+}
