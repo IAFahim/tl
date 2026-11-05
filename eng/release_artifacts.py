@@ -44,7 +44,7 @@ PACKAGE_FILES = {
 PACKAGE_DEPENDENCY_GROUPS = {
     "Tl.CSharp": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": [{"id": "Tl.Runtime", "exclude": "Build,Analyzers"}]}],
     "Tl.Gen.CSharp": [],
-    "Tl.Runtime": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": []}],
+    "Tl.Runtime": [{"attributes": {"targetFramework": "net10.0"}, "dependencies": []}, {"attributes": {"targetFramework": ".NETStandard2.1"}, "dependencies": []}],
     "Tl.Bake": [],
 }
 
