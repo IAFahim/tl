@@ -1,0 +1,16 @@
+namespace Tl;
+
+public sealed partial class TimelineWorld
+{
+    public static TimelineWorld Default { get; } = new TimelineWorld();
+
+    public TimelineWorld()
+    {
+    }
+
+    public ushort Load(ReadOnlySpan<byte> baked) => TimelineAsset.Load(baked);
+
+    public TimelineRef Reference(ushort index) => TimelineTable.Reference(index);
+
+    public bool IsLive(ushort index) => TimelineTable.IsLive(index);
+}

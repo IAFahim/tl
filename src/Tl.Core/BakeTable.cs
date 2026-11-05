@@ -39,7 +39,6 @@ static unsafe class BakeTable
     struct Slot { public ulong Key; public int Head, Tail; }
 
     internal const int SlotCount = 1024;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     static ulong _slotsBase = (ulong)NativeMemory.AlignedAlloc((nuint)(8 + sizeof(Slot) * SlotCount), 64);
     static ulong _entriesBase = (ulong)NativeMemory.AlignedAlloc((nuint)(sizeof(Entry) * SlotCount), 64);
     static int _entryCapacity = SlotCount;
@@ -131,7 +130,6 @@ static unsafe class BakeTable
         throw BakeIndex(index);
     }
 
-    [SuppressMessage("ReSharper", "EntityNameCapturedOnly.Local", Justification = "paramName via nameof is the diagnostic convention")]
     static ArgumentOutOfRangeException BakeIndex(int index)
         => new(nameof(index), "Bake index is outside the registered bake chain for this timeline pair.");
 

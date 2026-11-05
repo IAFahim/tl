@@ -46,7 +46,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 {
 	internal static TimelineSet<TTrack, TClip>? _bank;
 	const int PlanSlots = 4;
-	static int _liveVictim; static ulong _planSlots;
+    static int _liveVictim; static long _planSlots;
 
 	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply(ReadOnlySpan<ushort> indices, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
@@ -94,8 +94,8 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	}
 
 	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
-	public static void Advance(ushort index, ref ushort position, bool forward)
-		=> Timeline.Advance(index, MemoryMarshal.CreateSpan(ref position, 1), forward);
+    public static void Advance(ushort index, ref ushort position, bool forward)
+        => Timeline.Advance(index, UPoly.Pin(ref position), forward);
 
 	[MethodImpl(AggressiveOptimization)]
 	public static bool TrySample(ushort index, ushort position, ref TClip scratch, out Frame<TTrack, TClip> frame, bool forward = true)
@@ -193,7 +193,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void Apply(TimelineAsset asset, ReadOnlySpan<ushort> positions, bool forward, Span<float> effects)
 	{
-		ArgumentNullException.ThrowIfNull(asset);
+		if (asset is null) throw new ArgumentNullException(nameof(asset));
 		Apply(asset.Index, positions, forward, effects);
 	}
 
@@ -259,27 +259,27 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	}
 
 	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
-	public static void Apply<TIndex, TPosition, TEffect>(in TIndex index, in TPosition position, bool forward, ref TEffect effect)
-		where TIndex : struct
-		where TPosition : struct
-		where TEffect : struct
-	{
-		CheckSizes<TIndex, TPosition, TEffect>();
-		if (IntegerEffect<TEffect>())
-		{
-			ApplyInteger<TEffect>(
-				MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)), 1),
-				MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TPosition, ushort>(ref Unsafe.AsRef(in position)), 1),
-				forward,
-				MemoryMarshal.CreateSpan(ref Unsafe.As<TEffect, int>(ref effect), 1));
-			return;
-		}
-		Apply(
-			Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
-			MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<TPosition, ushort>(ref Unsafe.AsRef(in position)), 1),
-			forward,
-			MemoryMarshal.CreateSpan(ref Unsafe.As<TEffect, float>(ref effect), 1));
-	}
+    public static void Apply<TIndex, TPosition, TEffect>(in TIndex index, in TPosition position, bool forward, ref TEffect effect)
+        where TIndex : unmanaged
+        where TPosition : unmanaged
+        where TEffect : unmanaged
+    {
+        CheckSizes<TIndex, TPosition, TEffect>();
+        if (IntegerEffect<TEffect>())
+        {
+            ApplyInteger<TEffect>(
+                MemoryMarshal.Cast<TIndex, ushort>(UPoly.PinRead(in index)).Slice(0, 1),
+                MemoryMarshal.Cast<TPosition, ushort>(UPoly.PinRead(in position)).Slice(0, 1),
+                forward,
+                MemoryMarshal.Cast<TEffect, int>(UPoly.Pin(ref effect)).Slice(0, 1));
+            return;
+        }
+        Apply(
+            MemoryMarshal.Cast<TIndex, ushort>(UPoly.PinRead(in index))[0],
+            MemoryMarshal.Cast<TPosition, ushort>(UPoly.PinRead(in position)).Slice(0, 1),
+            forward,
+            MemoryMarshal.Cast<TEffect, float>(UPoly.Pin(ref effect)).Slice(0, 1));
+    }
 
 	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	public static void ApplyChunk<TIndex, TPosition, TEffect0, TEffect1>(ReadOnlySpan<TIndex> indices, ReadOnlySpan<TPosition> positions, bool forward, Span<TEffect0> effects0, Span<TEffect1> effects1)
@@ -619,7 +619,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 		{
 			var fresh = (ulong*)NativeMemory.AlignedAlloc(PlanSlots * 8, 64);
 			Unsafe.InitBlock(fresh, 0, PlanSlots * 8);
-			var raced = Interlocked.CompareExchange(ref _planSlots, (ulong)fresh, 0);
+			var raced = Interlocked.CompareExchange(ref _planSlots, (long)fresh, 0);
 			if (raced != 0) NativeMemory.AlignedFree(fresh);
 			slots = raced == 0 ? fresh : (ulong*)raced;
 		}
@@ -740,16 +740,16 @@ public static unsafe partial class Timeline<TTrack, TClip>
 	}
 
 	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
-	public static void Advance<TIndex, TPosition>(in TIndex index, ref TPosition position, bool forward)
-		where TIndex : struct
-		where TPosition : struct
-	{
-		CheckSizes<TIndex, TPosition>();
-		Timeline.Advance(
-			Unsafe.As<TIndex, ushort>(ref Unsafe.AsRef(in index)),
-			MemoryMarshal.CreateSpan(ref Unsafe.As<TPosition, ushort>(ref position), 1),
-			forward);
-	}
+    public static void Advance<TIndex, TPosition>(in TIndex index, ref TPosition position, bool forward)
+        where TIndex : unmanaged
+        where TPosition : unmanaged
+    {
+        CheckSizes<TIndex, TPosition>();
+        Timeline.Advance(
+            MemoryMarshal.Cast<TIndex, ushort>(UPoly.PinRead(in index))[0],
+            MemoryMarshal.Cast<TPosition, ushort>(UPoly.Pin(ref position)).Slice(0, 1),
+            forward);
+    }
 
 	[MethodImpl(AggressiveInlining | AggressiveOptimization)]
 	static void CheckSizes<TIndex, TPosition, TEffect>()
@@ -890,7 +890,7 @@ public static unsafe partial class Timeline<TTrack, TClip>
 
 	public static SlotView View(TimelineAsset asset)
 	{
-		ArgumentNullException.ThrowIfNull(asset);
+		if (asset is null) throw new ArgumentNullException(nameof(asset));
 		return View(asset.Index);
 	}
 
@@ -920,11 +920,12 @@ public unsafe ref struct ColumnSet
 		internal fixed int Lengths[Capacity];
 	}
 
+#if NET
 	private ref struct Octet
 	{
 		private ref byte _c0, _c1, _c2, _c3, _c4, _c5, _c6, _c7;
 
-		internal void Set(int slot, Span<byte> span)
+		internal void Set(int slot, ReadOnlySpan<byte> span)
 		{
 			ref var column = ref MemoryMarshal.GetReference(span);
 			switch (slot)
@@ -955,6 +956,42 @@ public unsafe ref struct ColumnSet
 			}
 		}
 	}
+#else
+	private ref struct Octet
+	{
+		private ReadOnlySpan<byte> _s0, _s1, _s2, _s3, _s4, _s5, _s6, _s7;
+
+		internal void Set(int slot, ReadOnlySpan<byte> span)
+		{
+			switch (slot)
+			{
+				case 0: _s0 = span; break;
+				case 1: _s1 = span; break;
+				case 2: _s2 = span; break;
+				case 3: _s3 = span; break;
+				case 4: _s4 = span; break;
+				case 5: _s5 = span; break;
+				case 6: _s6 = span; break;
+				default: _s7 = span; break;
+			}
+		}
+
+		internal readonly ref byte Get(int slot)
+		{
+			switch (slot)
+			{
+				case 0: return ref MemoryMarshal.GetReference(_s0);
+				case 1: return ref MemoryMarshal.GetReference(_s1);
+				case 2: return ref MemoryMarshal.GetReference(_s2);
+				case 3: return ref MemoryMarshal.GetReference(_s3);
+				case 4: return ref MemoryMarshal.GetReference(_s4);
+				case 5: return ref MemoryMarshal.GetReference(_s5);
+				case 6: return ref MemoryMarshal.GetReference(_s6);
+				default: return ref MemoryMarshal.GetReference(_s7);
+			}
+		}
+	}
+#endif
 
 	[UnscopedRef]
 	private readonly ref readonly Octet OctetOf(int slot)
@@ -979,13 +1016,27 @@ public unsafe ref struct ColumnSet
 			if (_storage.Keys[i] == key) ThrowDuplicate<T>();
 		if (Count >= Capacity) ThrowFull();
 		_storage.Keys[Count] = key;
-		OctetAt(Count).Set(Count & 7, MemoryMarshal.CreateSpan(ref Unsafe.As<T, byte>(ref MemoryMarshal.GetReference(column)), 1));
+		var head = MemoryMarshal.AsBytes(column);
+		OctetAt(Count).Set(Count & 7, head.IsEmpty ? default : head.Slice(0, 1));
 		_storage.Lengths[Count] = column.Length;
 		Count++;
 	}
 
 	[UnscopedRef]
-	private ref Octet OctetAt(int slot) => ref Unsafe.AsRef(in OctetOf(slot));
+	private ref Octet OctetAt(int slot)
+	{
+		switch (slot >> 3)
+		{
+			case 0: return ref _o0;
+			case 1: return ref _o1;
+			case 2: return ref _o2;
+			case 3: return ref _o3;
+			case 4: return ref _o4;
+			case 5: return ref _o5;
+			case 6: return ref _o6;
+			default: return ref _o7;
+		}
+	}
 
 	internal readonly int LengthAt(int slot) => _storage.Lengths[slot];
 

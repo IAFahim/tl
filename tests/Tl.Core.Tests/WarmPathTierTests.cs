@@ -17,7 +17,9 @@ public class WarmPathTierTests
     static readonly WarmMethod[] Allowlist =
     [
         new(typeof(TimelineSet<LaneTrack, LaneClip>), nameof(TimelineSet<,>.IsFolded), 1, null, WarmMode.Inline),
+#if !TLCORE21
         new(typeof(TimelineSet<LaneTrack, LaneClip>), nameof(TimelineSet<,>.Gather), 1, null, WarmMode.Inline),
+#endif
         new(typeof(TimelineSet<LaneTrack, LaneClip>), nameof(TimelineSet<,>.Apply), 4, null, WarmMode.Inline),
         new(typeof(TimelineSet<LaneTrack, LaneClip>), nameof(TimelineSet<,>.Apply), 5, null, WarmMode.Inline),
         new(typeof(TimelineSet<LaneTrack, LaneClip>), nameof(TimelineSet<,>.ApplySlot), 4, null, WarmMode.Inline),
@@ -44,7 +46,9 @@ public class WarmPathTierTests
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "FastMixed", 10, null, WarmMode.Optimize),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "MixedVector", 10, null, WarmMode.Optimize),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "FastMixedRows", 7, null, WarmMode.Optimize),
+#if !TLCORE21
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "GatherRows", 8, null, WarmMode.Optimize),
+#endif
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "LongRunAt", 3, null, WarmMode.Inline),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "ShortRuns", 3, null, WarmMode.Inline),
         new(typeof(TimelineSetLane<LaneTrack, LaneClip>), "UniformChunk", 4, null, WarmMode.Optimize),
@@ -81,15 +85,19 @@ public class WarmPathTierTests
         new(typeof(LaneOps), "StaggeredEnds", 3, null, WarmMode.Inline),
         new(typeof(LaneOps), nameof(LaneOps.Add), 4, null, WarmMode.Inline),
         new(typeof(LaneOps), nameof(LaneOps.Fill), 4, null, WarmMode.Inline),
+#if !TLCORE21
         new(typeof(LaneOps), nameof(LaneOps.EffPermuteForward), 8, null, WarmMode.Optimize),
         new(typeof(LaneOps), nameof(LaneOps.EffPermuteBackward), 8, null, WarmMode.Optimize),
         new(typeof(LaneOps), nameof(LaneOps.EffectForward), 8, null, WarmMode.Optimize),
         new(typeof(LaneOps), nameof(LaneOps.EffectBackward), 8, null, WarmMode.Optimize),
+#endif
         new(typeof(LaneOps), nameof(LaneOps.AdvanceForward), 6, null, WarmMode.Optimize),
         new(typeof(LaneOps), nameof(LaneOps.AdvanceBackward), 6, null, WarmMode.Optimize),
         new(typeof(LaneOps), nameof(LaneOps.AdvanceRows), 7, null, WarmMode.Optimize),
+#if !TLCORE21
         new(typeof(LaneOps), "AdvanceForwardWide", 5, null, WarmMode.Inline),
         new(typeof(LaneOps), "AdvanceBackwardWide", 5, null, WarmMode.Inline),
+#endif
         new(typeof(Timeline<LaneTrack, LaneClip>), nameof(Timeline<,>.Apply), 4, null, WarmMode.Optimize),
         new(typeof(Timeline<LaneTrack, LaneClip>), nameof(Timeline<,>.Advance), 3, null, WarmMode.Optimize),
         new(typeof(Timeline<LaneTrack, LaneClip>), nameof(Timeline<,>.Advance), 4, "ReadOnlySpan`1", WarmMode.Inline),

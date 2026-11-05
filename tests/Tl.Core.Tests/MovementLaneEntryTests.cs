@@ -13,6 +13,31 @@ public readonly record struct MovementWrapTrack(float Scale) : IBlend<MovementWr
         => result = new MovementWrapClip(first.Amount + (second.Amount - first.Amount) * factor);
 }
 
+#if TLCORE21
+public readonly struct MovementWrapLane : ITimelineLane<MovementWrapLane>
+{
+    public ushort Duration => 4;
+    public bool Looping => true;
+    public float Effect(ushort position) => position;
+    public float InverseEffect(ushort position) => -position;
+}
+
+public readonly struct MovementClampLane : ITimelineLane<MovementClampLane>
+{
+    public ushort Duration => 4;
+    public bool Looping => false;
+    public float Effect(ushort position) => position + 0.5f;
+    public float InverseEffect(ushort position) => -(position + 0.5f);
+}
+
+public readonly struct MovementZeroLane : ITimelineLane<MovementZeroLane>
+{
+    public ushort Duration => 0;
+    public bool Looping => true;
+    public float Effect(ushort position) => 1f;
+    public float InverseEffect(ushort position) => -1f;
+}
+#else
 public readonly struct MovementWrapLane : ITimelineLane<MovementWrapLane>
 {
     public static ushort Duration => 4;
@@ -36,6 +61,7 @@ public readonly struct MovementZeroLane : ITimelineLane<MovementZeroLane>
     public static float Effect(ushort position) => 1f;
     public static float InverseEffect(ushort position) => -1f;
 }
+#endif
 
 internal static unsafe class MovementLanePairs
 {

@@ -40,6 +40,33 @@ public readonly record struct OrphanTrack(int Code) : IBlend<OrphanClip>
     public void Blend(in OrphanClip first, in OrphanClip second, float factor, out OrphanClip result) => result = first;
 }
 
+#if TLCORE21
+public readonly struct LawLane : ITimelineLane<LawLane>
+{
+    ushort ITimelineLane<LawLane>.Duration => 6;
+    bool ITimelineLane<LawLane>.Looping => true;
+    float ITimelineLane<LawLane>.Effect(ushort position) => position;
+    float ITimelineLane<LawLane>.InverseEffect(ushort position) => -position;
+
+    public static ushort Duration => 6;
+    public static bool Looping => true;
+    public static float Effect(ushort position) => position;
+    public static float InverseEffect(ushort position) => -position;
+}
+
+public readonly struct LawFiniteLane : ITimelineLane<LawFiniteLane>
+{
+    ushort ITimelineLane<LawFiniteLane>.Duration => 6;
+    bool ITimelineLane<LawFiniteLane>.Looping => false;
+    float ITimelineLane<LawFiniteLane>.Effect(ushort position) => position + 1;
+    float ITimelineLane<LawFiniteLane>.InverseEffect(ushort position) => -(position + 1);
+
+    public static ushort Duration => 6;
+    public static bool Looping => false;
+    public static float Effect(ushort position) => position + 1;
+    public static float InverseEffect(ushort position) => -(position + 1);
+}
+#else
 public readonly struct LawLane : ITimelineLane<LawLane>
 {
     public static ushort Duration => 6;
@@ -55,6 +82,7 @@ public readonly struct LawFiniteLane : ITimelineLane<LawFiniteLane>
     public static float Effect(ushort position) => position + 1;
     public static float InverseEffect(ushort position) => -(position + 1);
 }
+#endif
 
 internal static unsafe class LanePairs
 {
@@ -786,6 +814,15 @@ public partial class LaneTests
         Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
     }
 
+#if TLCORE21
+    readonly struct ZeroLane : ITimelineLane<ZeroLane>
+    {
+        public ushort Duration => 0;
+        public bool Looping => true;
+        public float Effect(ushort position) => 1f;
+        public float InverseEffect(ushort position) => -1f;
+    }
+#else
     readonly struct ZeroLane : ITimelineLane<ZeroLane>
     {
         public static ushort Duration => 0;
@@ -793,6 +830,7 @@ public partial class LaneTests
         public static float Effect(ushort position) => 1f;
         public static float InverseEffect(ushort position) => -1f;
     }
+#endif
 
     static byte[] EmptyBake() => new DomainBaker()
         .Track<LaneTrack, LaneClip>(new LaneTrack(1f))

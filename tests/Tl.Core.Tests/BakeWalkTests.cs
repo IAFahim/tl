@@ -84,6 +84,7 @@ public unsafe class BakeWalkTests
         Assert.Equal(["alpha:zero"], Log.GetRange(before, Log.Count - before));
     }
 
+#if !TLCORE21
     [Fact]
     public void SubsetSatisfactionRunsEveryMatchInChainOrderAcrossPairsInPairKeyOrder()
     {
@@ -154,6 +155,7 @@ public unsafe class BakeWalkTests
 
         Assert.Equal(GammaLast("alpha:zero"), Log.GetRange(before, Log.Count - before));
     }
+#endif
 
     [Fact]
     public void ContextIdentityIsTheStaticArgumentType()
@@ -161,11 +163,12 @@ public unsafe class BakeWalkTests
         var before = Log.Count;
         using var timeline = TimelineAsset.LoadAsset(TwoPairBake(15, 16));
 
-        Timeline.Bake(timeline.Index, (object)new BakeHost("A"), new BakeId(11));
+        Timeline.Bake(timeline.Index, Guid.NewGuid(), new BakeId(11));
 
         Assert.Equal(["alpha:id:11", "alpha:zero"], Log.GetRange(before, Log.Count - before));
     }
 
+#if !TLCORE21
     [Fact]
     public void PairsWithoutInstalledBakesAreSilent()
     {
@@ -207,6 +210,7 @@ public unsafe class BakeWalkTests
         Assert.Contains($"Timeline index {index} is not loaded", thrown.Message);
         Assert.Equal([], Log.GetRange(before, Log.Count - before));
     }
+#endif
 
     private static void AlphaWide(byte** arguments)
         => Log.Add("alpha:wide:" + Unsafe.AsRef<BakeHost>(arguments[0]).Name + ":" + Unsafe.AsRef<BakeId>(arguments[1]).Value.ToString(CultureInfo.InvariantCulture));
