@@ -94,7 +94,7 @@ consumer_properties=(
     -p:PathMap="$root=/_/%2C$consumer_artifacts=/_consumer/"
     -p:TlGenAssembly="$solution_artifacts/bin/Tl.Gen.CSharp/release_net10.0/Tl.Gen.CSharp.dll"
 )
-dotnet restore "$consumer" --force --no-cache --source "$output" --artifacts-path "$consumer_artifacts"
+dotnet restore "$consumer" --force --no-cache --source "$output" --artifacts-path "$consumer_artifacts" -p:NuGetAudit=false
 dotnet build "$consumer" -c Release --no-restore --artifacts-path "$consumer_artifacts" "${consumer_properties[@]}"
 jit_output="$consumer_artifacts/bin/Tl.PackageConsumer/release"
 [[ "$("$jit_output/Tl.PackageConsumer")" == "7" ]]
@@ -115,7 +115,7 @@ for forbidden in Tl.Gen.CSharp.dll Tl.Gen.CSharp.pdb Tl.Gen.dll Tl.Gen.pdb Micro
     [[ ! -e "$jit_output/$forbidden" ]] || { printf '%s\n' "JIT output contains $forbidden" >&2; exit 2; }
 done
 
-dotnet restore "$consumer" -r "$runtime_identifier" -p:PublishAot=true --force --no-cache --source "$output" --source https://api.nuget.org/v3/index.json --artifacts-path "$consumer_artifacts"
+dotnet restore "$consumer" -r "$runtime_identifier" -p:PublishAot=true --force --no-cache --source "$output" --source https://api.nuget.org/v3/index.json --artifacts-path "$consumer_artifacts" -p:NuGetAudit=false
 dotnet publish "$consumer" -c Release -r "$runtime_identifier" --self-contained true -p:PublishAot=true -p:StripSymbols=true --no-restore --artifacts-path "$consumer_artifacts" -o "$stage/aot" "${consumer_properties[@]}"
 [[ "$("$stage/aot/Tl.PackageConsumer")" == "7" ]]
 
