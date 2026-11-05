@@ -2,14 +2,17 @@ using System.Numerics;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+#if NET
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+#endif
 using System.Diagnostics.CodeAnalysis;
 using static System.Runtime.CompilerServices.MethodImplOptions;
 
 namespace Tl;
 
 
+#if NET
 public interface ITimelineLane<T>
     where T : unmanaged, ITimelineLane<T>
 {
@@ -17,6 +20,33 @@ public interface ITimelineLane<T>
     static abstract bool Looping { get; }
     static abstract float Effect(ushort position);
     static abstract float InverseEffect(ushort position);
+}
+#else
+public interface ITimelineLane<T>
+    where T : unmanaged
+{
+    ushort Duration { get; }
+    bool Looping { get; }
+    float Effect(ushort position);
+    float InverseEffect(ushort position);
+}
+#endif
+
+internal static class LaneShape<T>
+    where T : unmanaged, ITimelineLane<T>
+{
+#if NET
+    public static ushort Duration => T.Duration;
+    public static bool Looping => T.Looping;
+    public static float Effect(ushort position) => T.Effect(position);
+    public static float InverseEffect(ushort position) => T.InverseEffect(position);
+#else
+    static readonly T Shape = default;
+    public static ushort Duration => Shape.Duration;
+    public static bool Looping => Shape.Looping;
+    public static float Effect(ushort position) => Shape.Effect(position);
+    public static float InverseEffect(ushort position) => Shape.InverseEffect(position);
+#endif
 }
 
 public static class Timeline<T>
@@ -57,12 +87,12 @@ internal readonly ref struct TimelineLane<T>
     [MethodImpl(AggressiveOptimization)]
     internal static void Advance(ReadOnlySpan<ushort> positions, Span<ushort> next, bool forward)
     {
-        var duration = T.Duration;
+        var duration = LaneShape<T>.Duration;
         var count = positions.Length;
         if (count == 0) return;
         if (duration == 0) { positions.CopyTo(next); return; }
-        if (forward) LaneOps.AdvanceForward(duration, T.Looping, positions, next, 0, count);
-        else LaneOps.AdvanceBackward(duration, T.Looping, positions, next, 0, count);
+        if (forward) LaneOps.AdvanceForward(duration, LaneShape<T>.Looping, positions, next, 0, count);
+        else LaneOps.AdvanceBackward(duration, LaneShape<T>.Looping, positions, next, 0, count);
     }
 
     [MethodImpl(AggressiveOptimization)]
@@ -70,13 +100,14 @@ internal readonly ref struct TimelineLane<T>
     {
         Checked.Columns(positions, next, effects);
         Checked.Length(positions, next);
-        var duration = T.Duration;
+        var duration = LaneShape<T>.Duration;
         var count = positions.Length;
         if (count == 0) return;
         if (duration == 0) { positions.CopyTo(next); return; }
-        var looping = T.Looping;
+        var looping = LaneShape<T>.Looping;
         var active = LaneAccelerator<T>.Active;
         var i = 0;
+#if NET
         if (active && duration > 1 && (Avx2.IsSupported || duration <= 8 && Vector128.IsHardwareAccelerated))
         {
             var end = count - (count & 15);
@@ -96,6 +127,7 @@ internal readonly ref struct TimelineLane<T>
             }
             i = end;
         }
+#endif
         for (; i < count; i++)
         {
             var pos = positions[i];
@@ -103,7 +135,7 @@ internal readonly ref struct TimelineLane<T>
             {
                 if (pos < duration)
                 {
-                    effects[i] += T.Effect(pos);
+                    effects[i] += LaneShape<T>.Effect(pos);
                     next[i] = looping && pos + 1 == duration ? (ushort)0 : (ushort)(pos + 1);
                 }
                 else next[i] = pos;
@@ -113,7 +145,7 @@ internal readonly ref struct TimelineLane<T>
                 if (looping ? pos < duration : pos > 0 && pos <= duration)
                 {
                     var tick = pos == 0 ? (ushort)(duration - 1) : (ushort)(pos - 1);
-                    effects[i] += T.InverseEffect(tick);
+                    effects[i] += LaneShape<T>.InverseEffect(tick);
                     next[i] = tick;
                 }
                 else next[i] = pos;
@@ -127,7 +159,7 @@ internal readonly ref struct TimelineLane<T>
         Checked.Columns(_positions, effects);
         var positions = _positions;
         var count = positions.Length;
-        var duration = T.Duration;
+        var duration = LaneShape<T>.Duration;
         if (count == 0 || duration == 0) return;
         if (!LaneAccelerator<T>.Active || RunShaped(_positions))
         {
@@ -142,8 +174,8 @@ internal readonly ref struct TimelineLane<T>
     {
         var positions = _positions;
         var count = positions.Length;
-        var duration = T.Duration;
-        var looping = T.Looping;
+        var duration = LaneShape<T>.Duration;
+        var looping = LaneShape<T>.Looping;
         var forward = _forward;
         var i = 0;
         while (i < count)
@@ -154,13 +186,13 @@ internal readonly ref struct TimelineLane<T>
                 if (forward)
                 {
                     if (position >= duration) { i = end; continue; }
-                    delta = T.Effect(position);
+                    delta = LaneShape<T>.Effect(position);
                 }
                 else
                 {
                     if (position == 0 && !looping || position > duration || looping && position == duration) { i = end; continue; }
                     var tick = position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1);
-                    delta = T.InverseEffect(tick);
+                    delta = LaneShape<T>.InverseEffect(tick);
                 }
                 if (end == i + 1)
                     effects[i] += delta;
@@ -175,36 +207,40 @@ internal readonly ref struct TimelineLane<T>
     {
         var positions = _positions;
         var count = positions.Length;
-        var duration = T.Duration;
-        var looping = T.Looping;
+        var duration = LaneShape<T>.Duration;
+        var looping = LaneShape<T>.Looping;
         var forward = _forward;
         var i = 0;
+#if NET
         var gather = duration > 1 && Avx2.IsSupported;
         var permute = duration <= 8 && (Avx2.IsSupported || Vector128.IsHardwareAccelerated);
+#endif
         while (i < count)
         {
             var chunkEnd = i + Chunk;
             if (chunkEnd > count) chunkEnd = count;
+#if NET
             var blockEnd = i + ((chunkEnd - i) >> 4 << 4);
             if ((gather || permute) && duration > 1 && blockEnd > i && LaneOps.StaggeredEnds(positions, i, blockEnd))
             {
                 if (forward)
                 {
                     if (duration <= 8)
-                        LaneOps.EffPermuteForward(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
+                        LaneOps.EffPermuteForward(LaneAccelerator<T>.ForwardEffects, LaneShape<T>.Duration, looping, positions, default, effects, i, blockEnd);
                     else
-                        LaneOps.EffectForward<FlatSource>(LaneAccelerator<T>.ForwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
+                        LaneOps.EffectForward<FlatSource>(LaneAccelerator<T>.ForwardEffects, LaneShape<T>.Duration, looping, positions, default, effects, i, blockEnd);
                 }
                 else
                 {
                     if (duration <= 8)
-                        LaneOps.EffPermuteBackward(LaneAccelerator<T>.BackwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
+                        LaneOps.EffPermuteBackward(LaneAccelerator<T>.BackwardEffects, LaneShape<T>.Duration, looping, positions, default, effects, i, blockEnd);
                     else
-                        LaneOps.EffectBackward<FlatSource>(LaneAccelerator<T>.BackwardEffects, T.Duration, looping, positions, default, effects, i, blockEnd);
+                        LaneOps.EffectBackward<FlatSource>(LaneAccelerator<T>.BackwardEffects, LaneShape<T>.Duration, looping, positions, default, effects, i, blockEnd);
                 }
                 i = blockEnd;
                 continue;
             }
+#endif
             while (i < chunkEnd)
             {
                 var position = positions[i];
@@ -212,7 +248,7 @@ internal readonly ref struct TimelineLane<T>
                 if (forward)
                 {
                     if (position >= duration) { i = end; continue; }
-                    var delta = T.Effect(position);
+                    var delta = LaneShape<T>.Effect(position);
                     if (end == i + 1) effects[i] += delta;
                     else LaneOps.Add(effects, i, end, delta);
                 }
@@ -220,7 +256,7 @@ internal readonly ref struct TimelineLane<T>
                 {
                     if (position == 0 && !looping || position > duration || looping && position == duration) { i = end; continue; }
                     var tick = position == 0 ? (ushort)(duration - 1) : (ushort)(position - 1);
-                    var delta = T.InverseEffect(tick);
+                    var delta = LaneShape<T>.InverseEffect(tick);
                     if (end == i + 1) effects[i] += delta;
                     else LaneOps.Add(effects, i, end, delta);
                 }
@@ -251,6 +287,7 @@ internal static class LaneOps
     {
         var value = values[start];
         var end = start + 1;
+#if NET
         if (Vector512.IsHardwareAccelerated)
         {
             ref var first = ref MemoryMarshal.GetReference(values);
@@ -287,6 +324,7 @@ internal static class LaneOps
                 end += 8;
             }
         }
+#endif
         while (end < limit && values[end] == value) end++;
         return end;
     }
@@ -296,8 +334,11 @@ internal static class LaneOps
     {
         var probe = start + 64;
         if (probe > end) probe = end;
+#if NET
         ref var origin = ref MemoryMarshal.GetReference(positions);
+#endif
         var j = start;
+#if NET
         if (Vector.IsHardwareAccelerated)
         {
             var vectorLimit = probe - Vector<ushort>.Count - 1;
@@ -307,6 +348,7 @@ internal static class LaneOps
                 j += Vector<ushort>.Count;
             }
         }
+#endif
         for (var k = j; k < probe - 1; k++)
             if (positions[k] == positions[k + 1]) return false;
         return true;
@@ -327,6 +369,7 @@ internal static class LaneOps
     {
         var length = end - start;
         var i = 0;
+#if NET
         ref var origin = ref MemoryMarshal.GetReference(values);
         if (Avx.IsSupported)
         {
@@ -342,6 +385,7 @@ internal static class LaneOps
             for (; i < limit; i += 4)
                 (Vector128.LoadUnsafe(ref origin, (nuint)(start + i)) + vector).StoreUnsafe(ref origin, (nuint)(start + i));
         }
+#endif
         for (; i < length; i++) values[start + i] += delta;
     }
 
@@ -350,6 +394,7 @@ internal static class LaneOps
     {
         var length = end - start;
         var i = 0;
+#if NET
         ref var origin = ref MemoryMarshal.GetReference(values);
         if (Avx2.IsSupported)
         {
@@ -363,11 +408,12 @@ internal static class LaneOps
             var limit = length & ~7;
             for (; i < limit; i += 8) vector.StoreUnsafe(ref origin, (nuint)(start + i));
         }
+#endif
         for (; i < length; i++) values[start + i] = value;
     }
 
+#if NET
     [MethodImpl(NoInlining | AggressiveOptimization)]
-    [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
     internal static unsafe void EffPermuteForward(float* eff, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit)
     {
         var hasNext = !nextColumn.IsEmpty;
@@ -453,7 +499,6 @@ internal static class LaneOps
     }
 
     [MethodImpl(NoInlining | AggressiveOptimization)]
-    [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
     internal static unsafe void EffPermuteBackward(float* backward, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit)
     {
         var hasNext = !nextColumn.IsEmpty;
@@ -538,7 +583,6 @@ internal static class LaneOps
     }
 
     [MethodImpl(NoInlining | AggressiveOptimization)]
-    [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
     internal static unsafe void EffectForward<TSrc>(void* source, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit) where TSrc : struct, IEffectSource
     {
         var durationVector = Vector256.Create(duration);
@@ -573,7 +617,6 @@ internal static class LaneOps
     }
 
     [MethodImpl(NoInlining | AggressiveOptimization)]
-    [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
     internal static unsafe void EffectBackward<TSrc>(void* source, ushort duration, bool wrap, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, Span<float> effects, int i, int limit) where TSrc : struct, IEffectSource
     {
         var durationVector = Vector256.Create(duration);
@@ -654,6 +697,7 @@ internal static class LaneOps
         }
         return value;
     }
+#endif
 
     [MethodImpl(AggressiveOptimization)]
     static unsafe float SegValue(uint* directory, LaneSegment* segments, float* dense, uint tick)
@@ -676,9 +720,12 @@ internal static class LaneOps
             positions.Slice(i, limit - i).CopyTo(nextColumn.Slice(i, limit - i));
             return;
         }
+#if NET
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
+#endif
         var last = (ushort)(duration - 1);
+#if NET
         if (Vector256.IsHardwareAccelerated)
         {
             var lastVector = Vector256.Create(last);
@@ -709,6 +756,7 @@ internal static class LaneOps
                 i += 8;
             }
         }
+#endif
         for (; i < limit; i++)
         {
             var pos = positions[i];
@@ -724,9 +772,12 @@ internal static class LaneOps
             positions.Slice(i, limit - i).CopyTo(nextColumn.Slice(i, limit - i));
             return;
         }
+#if NET
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
+#endif
         var last = (ushort)(duration - 1);
+#if NET
         if (Vector256.IsHardwareAccelerated)
         {
             var lastVector = Vector256.Create(last);
@@ -777,6 +828,7 @@ internal static class LaneOps
                 i += 8;
             }
         }
+#endif
         for (; i < limit; i++)
         {
             var pos = positions[i];
@@ -785,9 +837,9 @@ internal static class LaneOps
     }
 
     [MethodImpl(NoInlining | AggressiveOptimization)]
-    [SuppressMessage("ReSharper", "RedundantUnsafeContext")]
     internal static unsafe void AdvanceRows(uint* motion, ReadOnlySpan<ushort> ids, ReadOnlySpan<ushort> positions, Span<ushort> nextColumn, bool forward, int i, int limit)
     {
+#if NET
         ref var idRef = ref MemoryMarshal.GetReference(ids);
         ref var p = ref MemoryMarshal.GetReference(positions);
         ref var n = ref MemoryMarshal.GetReference(nextColumn);
@@ -840,6 +892,7 @@ internal static class LaneOps
                 i += 8;
             }
         }
+#endif
         for (; i < limit; i++)
         {
             var m = motion[ids[i]];
@@ -855,6 +908,7 @@ internal static class LaneOps
         }
     }
 
+#if NET
     [MethodImpl(AggressiveInlining | AggressiveOptimization)]
     static Vector256<uint> AdvanceForwardWide(Vector256<uint> pos, Vector256<uint> duration, Vector256<int> loop, Vector256<uint> one, Vector256<uint> zero)
     {
@@ -894,8 +948,10 @@ internal static class LaneOps
         var move = Vector128.ConditionalSelect(loop.AsUInt32(), loopMove, finiteMove);
         return Vector128.ConditionalSelect(move, next, pos);
     }
+#endif
 }
 
+#if NET
 internal interface IEffectSource
 {
     static abstract unsafe Vector256<float> Gather(void* source, Vector256<uint> ticks);
@@ -924,6 +980,7 @@ internal readonly unsafe struct SegmentedBackwardSource : IEffectSource
         return LaneOps.SegGather(slot->Directory + (nuint)LaneEncoding.Buckets(slot->TableTicks), slot->Segments, slot->Dense, ticks);
     }
 }
+#endif
 
 internal static class LaneMovement
 {
@@ -1084,11 +1141,8 @@ internal static unsafe class LaneAccelerator<T>
 
     where T : unmanaged, ITimelineLane<T>
 {
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static float* ForwardEffects;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static float* BackwardEffects;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static bool Active;
 }
 
@@ -1096,10 +1150,22 @@ internal readonly struct BakedLane<TTrack, TClip> : ITimelineLane<BakedLane<TTra
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
+#if NET
     public static ushort Duration => LaneTable<TTrack, TClip>.Duration;
     public static bool Looping => LaneTable<TTrack, TClip>.Looping;
     public static float Effect(ushort position) => LaneTable<TTrack, TClip>.Effect(position);
     public static float InverseEffect(ushort position) => LaneTable<TTrack, TClip>.InverseEffect(position);
+#else
+    ushort ITimelineLane<BakedLane<TTrack, TClip>>.Duration => LaneTable<TTrack, TClip>.Duration;
+    bool ITimelineLane<BakedLane<TTrack, TClip>>.Looping => LaneTable<TTrack, TClip>.Looping;
+    float ITimelineLane<BakedLane<TTrack, TClip>>.Effect(ushort position) => LaneTable<TTrack, TClip>.Effect(position);
+    float ITimelineLane<BakedLane<TTrack, TClip>>.InverseEffect(ushort position) => LaneTable<TTrack, TClip>.InverseEffect(position);
+
+    public static ushort Duration => LaneTable<TTrack, TClip>.Duration;
+    public static bool Looping => LaneTable<TTrack, TClip>.Looping;
+    public static float Effect(ushort position) => LaneTable<TTrack, TClip>.Effect(position);
+    public static float InverseEffect(ushort position) => LaneTable<TTrack, TClip>.InverseEffect(position);
+#endif
 
     public static void Bind(TimelineAsset asset) => LaneTable<TTrack, TClip>.Bind(asset);
 }
@@ -1108,15 +1174,9 @@ static unsafe class LaneTable<TTrack, TClip>
     where TTrack : unmanaged, IBlend<TClip>
     where TClip : unmanaged
 {
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private static float* Forward;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
     private static float* Backward;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static ushort Duration;
-    [SuppressMessage("ReSharper", "StaticMemberInGenericType")]
     public static bool Looping;
 
     public static float Effect(ushort position) => Forward[position];

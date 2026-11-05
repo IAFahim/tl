@@ -7,43 +7,79 @@ type Tl.BankState
   Field Byte* Block
   Field Int64 Misses
   Field Int32 Runs
+type Tl.BatchItem`1
+  Field R Fold
+  Field Int32 Row
+  Field UInt16 Tick
+type Tl.ClosingList
+  Method Void Add(Tl.ClosingList*, Int32, Int32, Tl.Playback ByRef)
+  Method Void Clear(Tl.ClosingList*)
+  Property Int32 Count
+  Method Tl.ClosingList* Create()
+  Method Void Free(Tl.ClosingList*)
+  Method Void Get(Int32, Int32 ByRef, Int32 ByRef, Tl.Playback ByRef)
 type Tl.ColumnSet
   Method Void Add[T](System.ReadOnlySpan`1[T])
+type Tl.EntityRef
+  Field Int32 Index
+  Field Int32 Version
+type Tl.EventRecord`1
+  Field Tl.EntityRef Entity
+  Field Int32 Sequence
+  Field Int32 Slot
+  Field T Value
+type Tl.Events`1
+  Method Void Bind(Int32, Int32)
+  Property Int32 Count
+  Method Void Dispose()
+  Method System.Span`1[Tl.EventRecord`1[T]] Drain()
+  Method Tl.EventRecord`1[T]& Item(Int32)
+  Method Void Raise(T ByRef)
+  Property Tl.Events`1[T] Writer
 type Tl.FrameFlags
   Field Tl.FrameFlags ClipEnd
   Field Tl.FrameFlags ClipStart
   Field Tl.FrameFlags CompletedAfter
   Field Tl.FrameFlags CompletedBefore
+  Field Tl.FrameFlags Interrupted
   Field Tl.FrameFlags Looping
   Field Tl.FrameFlags None
   Field Tl.FrameFlags Reverse
+  Field Tl.FrameFlags Synthetic
   Field Tl.FrameFlags TimelineEnd
   Field Tl.FrameFlags TimelineStart
-  Field Byte value__
+  Field UInt16 value__
 type Tl.FrameQuery`2
   Property Tl.Frame`2[TTrack,TClip] Current
   Method Tl.FrameQuery`2[TTrack,TClip] GetEnumerator()
   Method Boolean MoveNext()
 type Tl.Frame`2
-  Property TClip& Clip
+  Field TClip Clip
   Property UInt16 ClipLength
   Property Int32 Direction
   Property Tl.FrameFlags Flags
   Method Boolean Has(Tl.FrameFlags)
   Property Boolean IsBackward
+  Property UInt16 Tick
   Property UInt16 TimelineTick
-  Property TTrack& Track
+  Field TTrack Track
   Property UInt16 TrackIndex
   Property UInt16 WithinClip
 type Tl.IBake`1
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.IHostedConsumer
+type Tl.IMarker`1
 type Tl.ITimelineLane`1
   Property UInt16 Duration
   Method Single Effect(UInt16)
   Method Single InverseEffect(UInt16)
   Property Boolean Looping
+type Tl.ITlModule
+  Method Int32 FoldLaneBytes(Int32)
+  Method Void FoldStep(Int32, Byte*, Byte*, Byte*, Single, UInt16, UInt16, UInt16, UInt16, SByte, Byte*)
+  Property Int32 PairCount
+  Method UInt64 PairKey(Int32)
 type Tl.ITrack`2
 type Tl.Inspection
   NestedType Tl.Inspection+BakeSnapshot
@@ -189,6 +225,65 @@ type Tl.LaneSegment
   Field UInt16 Start
   Field Single V0
   Field Single V1
+type Tl.LibraryEvent
+  Field Byte Kind
+  Field UInt32 Marker
+  Field Int32 StepIndex
+  Field UInt32 Tick
+  Field Byte _pad0
+  Field UInt16 _pad1
+type Tl.LibraryStage
+  Field UInt32 End
+  Field UInt32 Start
+  Field Int32 StepCount
+  Field Tl.LibraryStep* Steps
+type Tl.LibraryStep
+  Field UInt32 FactorSpan
+  Field UInt32 FactorStart
+  Field UInt16 FirstValueIndex
+  Field Void* FoldLane
+  Field Void* FrameRow
+  Field UInt32 Pair
+  Field UInt64 PairKey
+  Field UInt16 SecondValueIndex
+  Field Int32 TrackIndex
+  Field UInt16 TrackValueIndex
+  Field UInt32 WindowEnd
+  Field UInt32 WindowStart
+type Tl.LibraryTimeline
+  Field UInt16 Channel
+  Field UInt32 Duration
+  Field Int32 EventCount
+  Field UInt64* EventTickBits
+  Field Tl.LibraryEvent* Events
+  Field Byte Hold
+  Field UInt16 Id
+  Field Byte Loop
+  Field UInt16 Next
+  Field Int32 StageCount
+  Field Tl.LibraryStage* Stages
+type Tl.LibraryView
+  Field UInt32 AbiVersion
+  Field UInt32 ByteCount
+  Field Int32 TimelineCount
+  Field Tl.LibraryTimeline* Timelines
+  Field UInt32 Version
+type Tl.LibraryViewReader
+  Method System.Span`1[Tl.LibraryEvent] Events(Tl.LibraryTimeline*)
+  Method Void* FoldLane(Tl.LibraryStep*, Int32)
+  Method Tl.LibraryStep* FrameAt(Tl.LibraryTimeline*, UInt16, Int32)
+  Method Tl.LibraryTimeline* GetTimeline(Tl.LibraryView ByRef, Tl.TimelineId)
+  Method Boolean HasEvent(Tl.LibraryTimeline*, UInt32)
+  Method Tl.LibraryStage* StageAt(Tl.LibraryTimeline*, UInt16)
+  Method System.Span`1[Tl.LibraryStep] StepsFor(Tl.LibraryTimeline*, Tl.LibraryStage*)
+type Tl.MarkerFrame`1
+  Property Int32 Direction
+  Property Tl.FrameFlags Flags
+  Method Boolean Has(Tl.FrameFlags)
+  Property Boolean IsBackward
+  Field TMarker Marker
+  Property UInt16 Tick
+  Property UInt16 TrackIndex
 type Tl.MeasuredLanes
   Method Void Dispose()
   Property UInt16 Duration
@@ -201,6 +296,65 @@ type Tl.PairRuntime`2
   Method Void ConsumeDispatch(System.Void(System.Byte*, System.Byte*, System.UInt16, Tl.FrameFlags, System.Void**, System.Int32), System.Int32(System.UInt64*, System.Byte*), System.Void(System.UInt64, System.Int64), System.String, Int32)
   Field UInt64 Key
   Method Void VerifyLayout(UInt64)
+type Tl.Playback
+  Field Byte Channel
+  Field Tl.PlaybackFlags Flags
+  Field UInt16 Reserved
+  Field UInt16 Tick
+  Field UInt16 Timeline
+type Tl.PlaybackFlags
+  Field Tl.PlaybackFlags Ended
+  Field Tl.PlaybackFlags None
+  Field Tl.PlaybackFlags Paused
+  Field Tl.PlaybackFlags Reverse
+  Field Tl.PlaybackFlags StartPending
+  Field Byte value__
+type Tl.PlaybackTable
+  Method Int32 CountOf(Int32)
+  Method Void Dispose()
+  Property Int32 EntityCapacity
+  Method Boolean Find(Int32, Byte, Tl.Playback ByRef)
+  Method Boolean IsPlaying(Int32, UInt16)
+  Property Int32 SlotsPerEntity
+  Method Void Start(Int32, UInt16, UInt16)
+  Method Void Stop(Int32, UInt16)
+  Method Void StopAll(Int32)
+  Method Void StopChannel(Int32, Byte)
+  Property Tl.PlaybackView View
+type Tl.PlaybackView
+  Method Int32 CountOf(Int32)
+  Field Int32* Counts
+  Field Int32 EntityCount
+  Method Tl.Playback* SlotOf(Int32, Int32)
+  Field Tl.Playback* Slots
+  Field Int32 SlotsPerEntity
+type Tl.RequestOp
+  Field Tl.RequestOp Start
+  Field Tl.RequestOp Stop
+  Field Tl.RequestOp StopAll
+  Field Tl.RequestOp StopChannel
+  Field Byte value__
+type Tl.RequestQueue
+  Method Void Add(Tl.RequestQueue*, Int32, Int32, UInt16, UInt16, Tl.RequestOp)
+  Method Void Clear(Tl.RequestQueue*)
+  Property Int32 Count
+  Method Tl.RequestQueue* Create()
+  Method Void Free(Tl.RequestQueue*)
+  Method Tl.RequestRecord& Item(Int32)
+  Method Void SortStable(Tl.RequestQueue*)
+type Tl.RequestRecord
+  Field UInt16 At
+  Field Int32 Entity
+  Field Tl.RequestOp Op
+  Field Int32 Sequence
+  Field Int32 Slot
+  Field UInt16 Timeline
+type Tl.Requests
+  Method Tl.Requests For(Int32, Int32)
+  Method Void Start(UInt16, UInt16)
+  Method Void Stop(UInt16)
+  Method Void StopAll()
+  Method Void StopChannel(Byte)
 type Tl.SlotView
   Field UInt16 AbiVersion
   Field UInt16 AbiVersionV1
@@ -255,12 +409,30 @@ type Tl.TimelineAsset
 type Tl.TimelineComponent
   Field UInt16 Position
   Field Tl.TimelineRef Reference
+type Tl.TimelineId
+  Property Boolean IsNone
+  Property Tl.TimelineId None
+  Field UInt16 Value
 type Tl.TimelineMovement
   Method Boolean Select(Tl.TimelineState ByRef, UInt16, Boolean, Boolean, Tl.TimelineState ByRef, UInt16 ByRef, Tl.FrameFlags ByRef)
 type Tl.TimelineRef
 type Tl.TimelineState
   Field UInt32 Asset
   Field UInt16 Position
+type Tl.TimelineSystemAttribute
+type Tl.TimelineSystemMemberAttribute
+  Property System.Type System
+type Tl.TimelineWorld
+  Method Void Advance(Tl.PlaybackTable, Boolean)
+  Method Void ApplyRequests(Tl.PlaybackTable)
+  Property Tl.TimelineWorld Default
+  Method Void Dispose()
+  Method Boolean IsLive(UInt16)
+  Method UInt16 Load(System.ReadOnlySpan`1[System.Byte])
+  Method Tl.TimelineRef Reference(UInt16)
+  Method Void Reload(System.ReadOnlySpan`1[System.Byte])
+  Method Tl.Requests Requests(Tl.PlaybackTable)
+  Property Tl.LibraryView View
 type Tl.Timeline`1
   Method Void Advance(System.Span`1[System.UInt16], Boolean)
   Method Void Advance(System.ReadOnlySpan`1[System.UInt16], System.Span`1[System.UInt16], Boolean)
@@ -290,5 +462,8 @@ type Tl.Timeline`2
   Method Boolean TrySample(UInt16, UInt16, TClip ByRef, Tl.Frame`2[TTrack,TClip] ByRef, Boolean)
   Method Tl.SlotView View(UInt16)
   Method Tl.SlotView View(Tl.TimelineAsset)
+type Tl.TlGenerated
+  Method Void Install(Tl.ITlModule)
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.ITlModule] Modules
 type Tl.TypeKey`1
   Field UInt64 Value

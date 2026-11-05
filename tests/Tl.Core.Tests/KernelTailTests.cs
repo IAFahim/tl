@@ -1,3 +1,4 @@
+#if !TLCORE21
 using System.Runtime.Intrinsics.X86;
 using Xunit;
 
@@ -108,3 +109,4 @@ public unsafe class KernelTailTests
         return baker.Bake();
     }
 }
+#endif

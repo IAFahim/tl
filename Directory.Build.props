@@ -13,4 +13,7 @@
   <PropertyGroup>
     <DefineConstants Condition="('$(Configuration)' == '' or '$(Configuration)' == 'Debug') or '$(TlChecked)' == 'true'">$(DefineConstants);TL_CHECKED</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup>
+    <TlCoreTfm Condition="'$(TlCoreTfm)' == ''">net10.0</TlCoreTfm>
+  </PropertyGroup>
 </Project>

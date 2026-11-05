@@ -29,7 +29,11 @@ static class Keying
 	}
 }
 
+#if NET
 public static class TypeKey<T> where T : allows ref struct
+#else
+public static class TypeKey<T>
+#endif
 {
 	public static readonly ulong Value = Keying.Of(Keying.StableName(typeof(T)));
 }
@@ -73,7 +77,6 @@ struct NativeStep { public uint Slot, Pair; }
 	public uint FactorStart;
 	public uint FactorSpan;
 
-	[SuppressMessage("ReSharper", "RedundantUnsafeContext")]
 	internal static unsafe Frame<TTrack, TClip> ToFrame<TTrack, TClip>(SlotRow* row, byte* pair, ushort tick, FrameFlags flags, ref TClip scratch)
 		where TTrack : unmanaged, IBlend<TClip>
 		where TClip : unmanaged
@@ -97,7 +100,6 @@ struct NativeStep { public uint Slot, Pair; }
 }
 public readonly unsafe struct TimelineRef
 {
-	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	internal readonly byte* _p;
 	internal TimelineRef(void* p) => _p = (byte*)p;
 
@@ -344,7 +346,6 @@ internal const int MemoResults = 10;
 	internal struct Consumer { public int Next, Offset, Feed, Ordinal, NameOffset; public ulong PairKey; public ExecThunk Execute; public BindThunk Bind; public KeysThunk Keys; public DiagThunk Diag; public byte DispatchOnly; }
 	struct Slot { public ulong Key; public int Head, Tail; }
 	const int SlotCount = 1024;
-	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	internal static ulong _slotsBase = (ulong)NativeMemory.AlignedAlloc((nuint)(8 + 24 * SlotCount), 64);
 	static ulong _consumersBase = (ulong)NativeMemory.AlignedAlloc((nuint)(sizeof(Consumer) * 64), 64);
 	internal static int _consumerCapacity = 64;
