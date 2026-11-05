@@ -1,0 +1,5 @@
+{"name":"barrel_explode","duration":20,"channel":"action","tracks":[
+{"name":"blast","namespace":"Game","type":"CueTrack","clips":[
+{"name":"boom","namespace":"Game","type":"CueClip","start":0,"end":1,"data":{"Voice":"Boom"}}]},
+{"name":"shock","namespace":"Game","type":"StompTrack","clips":[
+{"name":"wave","namespace":"Game","type":"StompClip","start":4,"end":12,"data":{"Radius":3.0}}]}]}

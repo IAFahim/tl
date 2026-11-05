@@ -1,0 +1,19 @@
+SMOKE NewA frames=32 entities=1024 ms=10.3 bytes=1096 sum=2d69363e2fed0325 ticks=0
+SMOKE NewABackward frames=32 entities=1024 ms=2.3 bytes=0 sum=1e94b3f3fdfd0325 ticks=0
+SMOKE NewB frames=32 entities=1024 ms=5.8 bytes=1008 sum=4547167f4e910325 ticks=0
+SMOKE NewC frames=32 entities=1024 ms=6.0 bytes=1008 sum=431b36c7ad610325 ticks=0
+SMOKE NewD frames=32 entities=1024 ms=7.9 bytes=1056 sum=51758c7b7ec10325 ticks=0
+SMOKE S2OnePlayback frames=32 entities=1024 ms=5.4 bytes=1008 sum=37a359eedbc10325 ticks=0
+SMOKE S2TwoPlaybacks frames=32 entities=1024 ms=3.8 bytes=96 sum=7b9842f742e10325 ticks=0
+SMOKE S64TwoActive frames=32 entities=1024 ms=38.3 bytes=14872 sum=7b9842f742e10325 ticks=524288
+SMOKE sink=526660
+SMOKE NewA frames=32 entities=1024 ms=5.9 bytes=1008 sum=2d69363e2fed0325 ticks=0
+SMOKE NewABackward frames=32 entities=1024 ms=2.0 bytes=0 sum=1e94b3f3fdfd0325 ticks=0
+SMOKE NewB frames=32 entities=1024 ms=6.2 bytes=1008 sum=4547167f4e910325 ticks=0
+SMOKE NewC frames=32 entities=1024 ms=6.4 bytes=1008 sum=431b36c7ad610325 ticks=0
+SMOKE NewD frames=32 entities=1024 ms=8.1 bytes=1056 sum=51758c7b7ec10325 ticks=0
+SMOKE S2OnePlayback frames=32 entities=1024 ms=1.9 bytes=1008 sum=37a359eedbc10325 ticks=0
+SMOKE S2TwoPlaybacks frames=32 entities=1024 ms=3.4 bytes=96 sum=7b9842f742e10325 ticks=0
+SMOKE S64TwoActive frames=32 entities=1024 ms=19.9 bytes=14872 sum=7b9842f742e10325 ticks=524288
+SMOKE sink=526660
+SMOKE hash1=7b9842f742e10325 hash2=7b9842f742e10325 equal=True

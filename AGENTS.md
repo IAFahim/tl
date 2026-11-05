@@ -110,7 +110,9 @@ dotnet test tl.slnx -c Release --no-build -p:NuGetAudit=false
 dotnet run --project tests/Tl.Alpha -c Release --no-build
 dotnet run --project tests/Tl.Alpha -c Release --no-build -- --capacity
 dotnet run --project tests/Tl.Alpha -c Release --no-build -- --module-capacity
-dotnet run --project samples/Mixed -c Release --no-build
+sh -c 'cd samples/Runner && dotnet run --project ../../tools/Tl.Bake -c Release --no-build -- library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner'
+dotnet build samples/Runner/Runner.csproj -c Release -p:NuGetAudit=false
+dotnet run --project samples/Runner -c Release --no-build -- --verify
 dotnet run --project benchmarks/Alpha -c Release --no-build -- --verify
 dotnet publish tests/Tl.Alpha/Tl.Alpha.csproj -c Release -r linux-x64 --self-contained true -p:PublishAot=true
 dotnet test tests/Tl.Core.Tests/Tl.Core.Tests.csproj -c Release -p:TlChecked=true -p:NuGetAudit=false

@@ -33,6 +33,5 @@ __pycache__/
 /.zcode/
 
 # baked sample artifact (CI and README quick start regenerate it)
-samples/NuGetQuickStart/boss.tlb
-samples/Showcase/jump.tlb
+samples/Runner/game.tlib
 tlb.db
