@@ -390,4 +390,50 @@ public sealed unsafe class RuntimeTests : IDisposable
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.Equal(0, allocated);
     }
+    [Fact]
+    public void MissingFoldLaneFallsBackToFrameFold()
+    {
+        using var scope = new ViewScope();
+        var keys = FixtureWorlds.Keys.Value;
+        var arc = new ViewScope.TimelineSpec { Loop = 1, Duration = 30 };
+        arc.Steps.Add(new ViewScope.StepSpec
+        {
+            PairKey = keys["Arc"],
+            Track = FixtureWorlds.Image(new Game.ArcTrack(1f)),
+            First = FixtureWorlds.Image(new Game.ArcClip(2f)),
+            WindowStart = 0,
+            WindowEnd = 30,
+        });
+        scope.Build(new System.Collections.Generic.List<ViewScope.TimelineSpec> { arc });
+        var world = new TimelineWorld();
+        scope.InjectInto(world);
+        GC.SuppressFinalize(world);
+        using var players = new PlaybackTable(1);
+        var motion = new Motion[1];
+        var power = new[] { new JumpPower(1f) };
+        var stats = new Stats[1];
+        var input = new InputState[1];
+        var anim = new Anim[1];
+        var feet = new Foot[1];
+        using var cues = new Events<Cue>(64);
+        players.Start(0, 1);
+        for (var f = 0; f < 30; f++)
+        {
+            world.ApplyRequests(players);
+            var movement = new Movement
+            {
+                Motion = motion,
+                JumpPower = power,
+                Stats = stats,
+                Input = input,
+                Anim = anim,
+                Feet = feet,
+                Requests = world.Requests(players),
+                Cues = cues.Writer,
+            };
+            movement.Run(world, players, true);
+            world.Advance(players, true);
+        }
+        Assert.Equal(60f, motion[0].Y);
+    }
 }

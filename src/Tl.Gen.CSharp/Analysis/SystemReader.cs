@@ -202,6 +202,15 @@ internal static class SystemReader
             Err("TLGEN95", $"Consumer '{name}' declares both ExecuteActive and ExecuteBatch; batch replaces the active call.");
         if (batch is not null && (fold is null || !foldTypes.Contains(batch.Params[1].BatchElement, StringComparer.Ordinal)))
             Err("TLGEN96", $"Consumer '{name}' ExecuteBatch element must equal one Fold result type.");
+        if (active is not null && batch is null && start is null && end is not null)
+        {
+            var direct = AnalyzeDirect(type, active, fold, compilation.GetSemanticModel(site.SyntaxTree));
+            if (direct.Eligible)
+            {
+                var at = methods.IndexOf(active);
+                if (at >= 0) methods[at] = active with { Direct = direct };
+            }
+        }
         if (methods.Count == 0 && local.Count == 0)
             Err("TLGEN99", $"Consumer '{name}' declares no readable consumer method; add Fold, ExecuteActive, ExecuteBatch, OnClipStart, OnClipEnd, or OnMarker.");
         diagnostics.AddRange(local);
@@ -226,6 +235,157 @@ internal static class SystemReader
                 members.Add(Symbols.Name(system));
         }
         return members;
+    }
+
+    // Direct-lane detection: ExecuteActive must be a single `col += rhs` /
+    // `col -= rhs` statement where rhs mentions only fold feeds, read-only
+    // columns, and lane-constant frame members (Direction/Track.*/Clip.*),
+    // with an empty OnClipEnd and no start/marker/batch/requests/events.
+    // Anything else fails closed to the generic dispatch path.
+    static DirectLane AnalyzeDirect(INamedTypeSymbol type, ConsumerMethod active, ConsumerMethod? fold, SemanticModel semantic)
+    {
+        var site = type.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+        if (site is null) return DirectLane.None;
+        var symbol = Pick(type, "ExecuteActive", type.ContainingAssembly, new List<DeclarationDiagnostic>(), site);
+        var endSymbol = Pick(type, "OnClipEnd", type.ContainingAssembly, new List<DeclarationDiagnostic>(), site);
+        if (symbol is null || endSymbol is null) return DirectLane.None;
+        if (endSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not MethodDeclarationSyntax endSyntax
+            || endSyntax.Body?.Statements.Count != 0) return DirectLane.None;
+        if (symbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not MethodDeclarationSyntax syntax) return DirectLane.None;
+        AssignmentExpressionSyntax? assignment = null;
+        if (syntax.Body is { Statements.Count: 1 } body
+            && body.Statements[0] is ExpressionStatementSyntax expression
+            && expression.Expression is AssignmentExpressionSyntax a)
+            assignment = a;
+        else assignment = syntax.ExpressionBody?.Expression as AssignmentExpressionSyntax;
+        if (assignment is null) return DirectLane.None;
+        var op = assignment.Kind() switch
+        {
+            SyntaxKind.AddAssignmentExpression => "+=",
+            SyntaxKind.SubtractAssignmentExpression => "-=",
+            _ => "",
+        };
+        if (op.Length == 0) return DirectLane.None;
+        string? frame = null, written = null, writtenType = null;
+        var feeds = new Dictionary<string, int>(StringComparer.Ordinal);
+        var reads = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var parameter in active.Params)
+        {
+            switch (parameter.Kind)
+            {
+                case ConsumerParamKind.Frame:
+                    if (frame is not null) return DirectLane.None;
+                    frame = parameter.Name;
+                    break;
+                case ConsumerParamKind.FoldFeed:
+                    feeds[parameter.Name] = parameter.FoldIndex;
+                    break;
+                case ConsumerParamKind.ColumnReadOnly:
+                    reads[parameter.Name] = parameter.TypeName;
+                    break;
+                case ConsumerParamKind.Column when parameter.Modifier == "ref ":
+                    if (written is not null) return DirectLane.None;
+                    written = parameter.Name;
+                    writtenType = parameter.TypeName;
+                    break;
+                default:
+                    return DirectLane.None;
+            }
+        }
+        if (written is null || writtenType is null) return DirectLane.None;
+        var member = "";
+        if (assignment.Left is IdentifierNameSyntax target)
+        {
+            if (target.Identifier.Text != written) return DirectLane.None;
+        }
+        else if (assignment.Left is MemberAccessExpressionSyntax access
+            && access.Expression is IdentifierNameSyntax root
+            && root.Identifier.Text == written
+            && access.Name is IdentifierNameSyntax fieldName)
+        {
+            if (semantic.GetSymbolInfo(access).Symbol is not IFieldSymbol field) return DirectLane.None;
+            if (field.Type.SpecialType is not (SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Int32 or SpecialType.System_UInt32)) return DirectLane.None;
+            member = fieldName.Identifier.Text;
+        }
+        else return DirectLane.None;
+        var usedOffsets = new List<int>();
+        var usedReads = new List<string>();
+        var laneNeeded = false;
+        if (!RhsOk(assignment.Right, fold, feeds, reads, frame, usedOffsets, usedReads, ref laneNeeded)) return DirectLane.None;
+        if (!laneNeeded && usedReads.Count == 0) return DirectLane.None;
+        if (laneNeeded && usedOffsets.Count == 0) usedOffsets.Add(0);
+        return new DirectLane(true, op, writtenType, member, [.. usedOffsets], [.. usedReads]);
+    }
+
+    static bool RhsOk(ExpressionSyntax node, ConsumerMethod? fold, Dictionary<string, int> feeds, Dictionary<string, string> reads, string? frame, List<int> usedOffsets, List<string> usedReads, ref bool laneNeeded)
+    {
+        switch (node)
+        {
+            case IdentifierNameSyntax id:
+                if (feeds.TryGetValue(id.Identifier.Text, out var feed))
+                {
+                    var offset = FoldOffsetOf(fold, feed);
+                    if (offset < 0) return false;
+                    if (!usedOffsets.Contains(offset)) usedOffsets.Add(offset);
+                    laneNeeded = true;
+                    return true;
+                }
+                if (reads.TryGetValue(id.Identifier.Text, out var read))
+                {
+                    if (!usedReads.Contains(read)) usedReads.Add(read);
+                    return true;
+                }
+                return false;
+            case MemberAccessExpressionSyntax member:
+                if (!FrameRootedOk(member, frame)) return false;
+                laneNeeded = true;
+                return true;
+            case LiteralExpressionSyntax literal:
+                return literal.IsKind(SyntaxKind.NumericLiteralExpression);
+            case BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.AddExpression)
+                || binary.IsKind(SyntaxKind.SubtractExpression)
+                || binary.IsKind(SyntaxKind.MultiplyExpression):
+                return RhsOk(binary.Left, fold, feeds, reads, frame, usedOffsets, usedReads, ref laneNeeded)
+                    && RhsOk(binary.Right, fold, feeds, reads, frame, usedOffsets, usedReads, ref laneNeeded);
+            case ParenthesizedExpressionSyntax paren:
+                return RhsOk(paren.Expression, fold, feeds, reads, frame, usedOffsets, usedReads, ref laneNeeded);
+            case PrefixUnaryExpressionSyntax unary when unary.IsKind(SyntaxKind.UnaryMinusExpression):
+                return RhsOk(unary.Operand, fold, feeds, reads, frame, usedOffsets, usedReads, ref laneNeeded);
+            default:
+                return false;
+        }
+    }
+
+    static int FoldOffsetOf(ConsumerMethod? fold, int feed)
+    {
+        // Lane layout mirrors EmitFeeds: fold outs packed in declaration order.
+        // Only float outs participate; anything else fails closed.
+        if (fold is null) return -1;
+        var offset = 0;
+        for (var o = 0; o < fold.Params.Count; o++)
+        {
+            if (fold.Params[o].Kind is not ConsumerParamKind.FoldResult) continue;
+            if (fold.Params[o].FoldIndex == feed)
+                return fold.FoldTypes[o] is "float" or "System.Single" && fold.FoldSizes[o] == 4 ? offset : -1;
+            offset += fold.FoldSizes[o];
+        }
+        return -1;
+    }
+
+    static bool FrameRootedOk(MemberAccessExpressionSyntax node, string? frame)
+    {
+        if (frame is null) return false;
+        var names = new List<string>();
+        ExpressionSyntax current = node;
+        while (current is MemberAccessExpressionSyntax access)
+        {
+            names.Add(access.Name.Identifier.Text);
+            current = access.Expression;
+        }
+        if (current is not IdentifierNameSyntax root || root.Identifier.Text != frame) return false;
+        var first = names[names.Count - 1];
+        if (first is not ("Direction" or "Track" or "Clip")) return false;
+        return first is not "Direction" || names.Count == 1;
     }
 
     static IMethodSymbol? Pick(INamedTypeSymbol type, string name, IAssemblySymbol assembly, List<DeclarationDiagnostic> diagnostics, SyntaxNode site)

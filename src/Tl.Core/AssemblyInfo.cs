@@ -13,3 +13,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Tl.Systems.Tests")]
 [assembly: InternalsVisibleTo("Systems")]
 [assembly: InternalsVisibleTo("Systems21")]
+[assembly: InternalsVisibleTo("SystemsCompare")]
+[assembly: InternalsVisibleTo("SystemsCompare21")]

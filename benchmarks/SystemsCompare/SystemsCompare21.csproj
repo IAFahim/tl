@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace></RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <!-- 2.1-vs-10 ratio bench: same sources, netstandard2.1 Tl.Core on the net10 host. -->
+    <NoWarn>$(NoWarn);0649</NoWarn>
+    <!-- Explicit file list only: this project shares the directory with SystemsCompare. -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <ProjectReference Include="../../src/Tl.Core/Tl.Core.csproj" AdditionalProperties="TargetFramework=netstandard2.1" />
+    <Compile Include="Benchmarks.cs" Link="Bench/Benchmarks.cs" />
+    <Compile Include="Program.cs" Link="Bench/Program.cs" />
+    <Compile Include="CompareView.cs" Link="Bench/CompareView.cs" />
+    <Compile Include="Generated/TlSystemsCompare.g.cs" Link="Generated/TlSystemsCompare.g.cs" />
+    <Compile Include="LiveBatchDomain.cs" Link="Bench/LiveBatchDomain.cs" />
+    <Compile Include="CompareDomain.cs" Link="Bench/CompareDomain.cs" />
+    <Compile Include="../../tests/Shared/DomainBaker.cs" Link="Shared/DomainBaker.cs" />
+    <ProjectReference Include="../../src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer"
+                      PrivateAssets="all"
+                      AdditionalProperties="TargetFramework=netstandard2.0"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;PublishTrimmed" />
+  </ItemGroup>
+
+  <Import Project="../../src/Tl.Gen.CSharp/build/Tl.Gen.CSharp.targets" />
+
+</Project>

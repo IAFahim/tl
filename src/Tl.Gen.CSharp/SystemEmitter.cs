@@ -20,6 +20,8 @@ internal static class SystemEmitter
         writer.Append("}\n");
         foreach (var assignment in assignments)
             EmitRun(writer, assignment, id);
+        foreach (var assignment in assignments)
+            EmitRunFused(writer, assignment, id);
         return writer.ToString().Replace("\r\n", "\n");
     }
 
@@ -322,6 +324,112 @@ internal static class SystemEmitter
         W(writer, "}");
         foreach (var batch in BatchConsumers(consumers))
             EmitFlush(writer, assignment, shape, batch.consumer, batch.index);
+        EmitFusedKernel(writer, assignment, shape, id);
+        W(writer, "}");
+    }
+
+    // Fused Run+Advance: one entity pass executes at the current tick and then
+    // advances the slot in place. The advance transcription mirrors
+    // TimelineWorld.Advance per slot exactly (loop/hold/next/handover/remove).
+    static void EmitFusedKernel(StringBuilder writer, SystemAssignment assignment, KernelShape shape, string id)
+    {
+        var signature = new StringBuilder();
+        signature.Append("internal static void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward");
+        for (var i = 0; i < shape.Columns.Count; i++)
+            if (shape.UsedColumns[i]) signature.Append($", {shape.Columns[i].ElementTypeName}* __c{i}");
+        signature.Append(", int __n");
+        for (var i = 0; i < shape.Contexts.Count; i++)
+            if (shape.UsedContexts[i]) signature.Append($", ref {shape.Contexts[i].ElementTypeName} __ctx{i}");
+        for (var i = 0; i < shape.Requests.Count; i++) signature.Append(", global::Tl.Requests __req" + i);
+        for (var i = 0; i < shape.Events.Count; i++) signature.Append($", {shape.Events[i].TypeName} __ev{i}");
+        signature.Append(')');
+        W(writer, signature.ToString());
+        W(writer, "{");
+        W(writer, "if (world is null) throw new global::System.ArgumentNullException(nameof(world));");
+        W(writer, "if (players is null) throw new global::System.ArgumentNullException(nameof(players));");
+        W(writer, "var __view = world.View;");
+        W(writer, "var __pview = players.View;");
+        EmitLocalDecls(writer, shape);
+        EmitCloseLoop(writer, assignment, shape);
+        EmitBatchDecls(writer, assignment);
+        W(writer, "for (var __e = 0; __e < __n; __e++)");
+        W(writer, "{");
+        W(writer, "var __cnt = __e < __pview.EntityCount ? __pview.Counts[__e] : 0;");
+        W(writer, "for (var __s = 0; __s < __cnt; __s++)");
+        W(writer, "{");
+        W(writer, "var __pb = __pview.SlotOf(__e, __s);");
+        W(writer, "var __pfl = __pb->Flags;");
+        W(writer, "if ((__pfl & (global::Tl.PlaybackFlags.Ended | global::Tl.PlaybackFlags.Paused)) != 0) { __pb->Flags = __pfl & ~global::Tl.PlaybackFlags.StartPending; }");
+        W(writer, "else");
+        W(writer, "{");
+        W(writer, "if (__pb->Timeline == 0 || (uint)(__pb->Timeline - 1) >= (uint)__view.TimelineCount) throw new global::System.ArgumentException($\"Playback slot {__s} of entity {__e} names no timeline in the loaded library.\");");
+        W(writer, "var __tl = __view.Timelines + (__pb->Timeline - 1);");
+        W(writer, "var __dur = __tl->Duration;");
+        W(writer, "if (__dur != 0)");
+        W(writer, "{");
+        W(writer, "var __tick = __pb->Tick;");
+        W(writer, "var __stage = global::Tl.LibraryViewReader.StageAt(__tl, __tick);");
+        W(writer, "if (__stage != null)");
+        W(writer, "{");
+        W(writer, "var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);");
+        W(writer, "var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
+        W(writer, "var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;");
+        W(writer, "if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;");
+        W(writer, "if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;");
+        W(writer, "if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;");
+        EmitBind(writer, shape, "__e", "__s");
+        EmitEntryLoop(writer, assignment, shape, "__steps", "__stage", "__tl", "__tick", "__base", "__backward", "__e", "__s", false);
+        EmitMarkers(writer, assignment, shape, "__tl", "__tick", "__base", "__e", "__s");
+        W(writer, "}");
+        W(writer, "}");
+        W(writer, "var __af = __pb->Flags;");
+        W(writer, "var __handover = false;");
+        W(writer, "if (__dur == 0) { __pb->Flags = (__af | global::Tl.PlaybackFlags.Ended) & ~global::Tl.PlaybackFlags.StartPending; }");
+        W(writer, "else if (((__af & global::Tl.PlaybackFlags.Reverse) != 0) == forward)");
+        W(writer, "{");
+        W(writer, "if (__pb->Tick == 0)");
+        W(writer, "{");
+        W(writer, "if (__tl->Loop != 0) __pb->Tick = (ushort)(__dur - 1);");
+        W(writer, "else if (__tl->Hold != 0) __pb->Flags = __af | global::Tl.PlaybackFlags.Ended;");
+        W(writer, "else");
+        W(writer, "{");
+        W(writer, "__pview.Counts[__e] = __cnt - 1;");
+        W(writer, "for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];");
+        W(writer, "__pview.SlotOf(__e, __cnt - 1)[0] = default;");
+        W(writer, "__cnt--; __s--;");
+        W(writer, "}");
+        W(writer, "}");
+        W(writer, "else __pb->Tick--;");
+        W(writer, "}");
+        W(writer, "else if ((uint)__pb->Tick + 1u >= __dur)");
+        W(writer, "{");
+        W(writer, "if (__tl->Loop != 0) __pb->Tick = 0;");
+        W(writer, "else if (__tl->Next != 0 && (uint)(__tl->Next - 1) < (uint)__view.TimelineCount)");
+        W(writer, "{");
+        W(writer, "var __anext = __view.Timelines + (__tl->Next - 1);");
+        W(writer, "__pb->Timeline = __tl->Next;");
+        W(writer, "__pb->Tick = 0;");
+        W(writer, "__pb->Channel = (byte)__anext->Channel;");
+        W(writer, "__pb->Flags |= global::Tl.PlaybackFlags.StartPending;");
+        W(writer, "__handover = true;");
+        W(writer, "}");
+        W(writer, "else if (__tl->Hold != 0) { __pb->Tick = (ushort)(__dur - 1); __pb->Flags = __af | global::Tl.PlaybackFlags.Ended; }");
+        W(writer, "else");
+        W(writer, "{");
+        W(writer, "__pview.Counts[__e] = __cnt - 1;");
+        W(writer, "for (var __rs = __s; __rs < __cnt - 1; __rs++) __pview.SlotOf(__e, __rs)[0] = __pview.SlotOf(__e, __rs + 1)[0];");
+        W(writer, "__pview.SlotOf(__e, __cnt - 1)[0] = default;");
+        W(writer, "__cnt--; __s--;");
+        W(writer, "}");
+        W(writer, "}");
+        W(writer, "else __pb->Tick++;");
+        W(writer, "__pb->Flags &= ~global::Tl.PlaybackFlags.StartPending;");
+        W(writer, "if (__handover) __pb->Flags |= global::Tl.PlaybackFlags.StartPending;");
+        W(writer, "}");
+        W(writer, "}");
+        W(writer, "}");
+        EmitBatchTails(writer, assignment, shape);
+        W(writer, "global::Tl.ClosingList.Clear(players.Closing);");
         W(writer, "}");
     }
 
@@ -406,13 +514,29 @@ internal static class SystemEmitter
         var fold = FoldOf(consumer);
         if (fold is null || LaneBytes(consumer) == 0) return;
         W(writer, $"byte* __lane{index} = (byte*)__def->FoldLane + (((uint)__tick - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint){LaneBytes(consumer)};");
-        W(writer, $"if (__def->FoldLane == null) throw new global::System.InvalidOperationException(\"{consumer.ConsumerTypeName}: fold lane is not loaded.\");");
         var offset = 0;
         for (var o = 0; o < fold.Params.Count; o++)
         {
-            W(writer, $"{fold.Params[o].TypeName} __fd{index}_{o} = *({fold.Params[o].TypeName}*)(__lane{index} + {offset});");
+            W(writer, $"{fold.Params[o].TypeName} __fd{index}_{o} = default;");
             offset += fold.FoldSizes[o];
         }
+        W(writer, $"if (__def->FoldLane == null)");
+        W(writer, "{");
+        var foldArgs = new StringBuilder();
+        foldArgs.Append($"in __f{index}");
+        for (var o = 0; o < fold.Params.Count; o++)
+            foldArgs.Append($", {fold.Params[o].Modifier}__fd{index}_{o}");
+        W(writer, $"{consumer.ConsumerTypeName}.Fold({foldArgs});");
+        W(writer, "}");
+        W(writer, "else");
+        W(writer, "{");
+        offset = 0;
+        for (var o = 0; o < fold.Params.Count; o++)
+        {
+            W(writer, $"__fd{index}_{o} = *({fold.Params[o].TypeName}*)(__lane{index} + {offset});");
+            offset += fold.FoldSizes[o];
+        }
+        W(writer, "}");
     }
 
     static string CallArgs(KernelShape shape, ConsumerMethod method, int index, string frameVar, string rowVar, string feedPrefix)
@@ -483,8 +607,12 @@ internal static class SystemEmitter
             if (method.Kind == ConsumerMethodKind.OnClipStart) start = method;
             if (method.Kind == ConsumerMethodKind.OnClipEnd) end = method;
         }
-        EmitMaterialize(writer, consumer, index, tl, tick, backward, flags);
-        if (FoldOf(consumer) is not null) EmitFeeds(writer, consumer, index);
+        var direct = active is not null && batch is null && start is null && active.Direct.Eligible;
+        if (!direct)
+        {
+            EmitMaterialize(writer, consumer, index, tl, tick, backward, flags);
+            if (FoldOf(consumer) is not null) EmitFeeds(writer, consumer, index);
+        }
         if (batch is not null)
         {
             var element = batch.Params[1].BatchElement;
@@ -499,12 +627,50 @@ internal static class SystemEmitter
         }
         else if (active is not null)
         {
-            W(writer, $"{consumer.ConsumerTypeName}.ExecuteActive({CallArgs(shape, active, index, $"__f{index}", entity, $"__fd{index}_")});");
+            if (direct)
+            {
+                W(writer, $"if (__def->FoldLane == null)");
+                W(writer, "{");
+                EmitMaterialize(writer, consumer, index, tl, tick, backward, flags);
+                if (FoldOf(consumer) is not null) EmitFeeds(writer, consumer, index);
+                W(writer, $"{consumer.ConsumerTypeName}.ExecuteActive({CallArgs(shape, active, index, $"__f{index}", entity, $"__fd{index}_")});");
+                W(writer, "}");
+                W(writer, "else");
+                W(writer, "{");
+                EmitDirectStep(writer, shape, consumer, active, index, entity, tick, backward);
+                W(writer, "}");
+            }
+            else W(writer, $"{consumer.ConsumerTypeName}.ExecuteActive({CallArgs(shape, active, index, $"__f{index}", entity, $"__fd{index}_")});");
         }
         if (start is not null)
             W(writer, $"if ({tick} == __def->WindowStart) {consumer.ConsumerTypeName}.OnClipStart({CallArgs(shape, start, index, $"__f{index}", entity, $"__fd{index}_")});");
-        if (end is not null && batch is null)
+        if (end is not null && batch is null && !direct)
             W(writer, $"if ({tick} == __def->WindowEnd - 1) {consumer.ConsumerTypeName}.OnClipEnd({CallArgs(shape, end, index, $"__f{index}", entity, $"__fd{index}_")});");
+    }
+
+    // Direct-lane step: no Frame construction, no switch dispatch beyond the
+    // entry table, no consumer call. Loads the precomputed lane value(s) and
+    // adds them straight into the written column (times read columns).
+    static void EmitDirectStep(StringBuilder writer, KernelShape shape, SystemConsumer consumer, ConsumerMethod active, int index, string entity, string tick, string backward)
+    {
+        var direct = active.Direct;
+        var fold = FoldOf(consumer);
+        var stride = fold is null ? 4 : LaneBytes(consumer);
+        var written = ColumnOf(shape, direct.WrittenType, true);
+        var writtenRef = direct.WrittenMember.Length == 0 ? $"__c{written}[{entity}]" : $"__c{written}[{entity}].{direct.WrittenMember}";
+        if (direct.FoldOffsets.Count > 0)
+        {
+            W(writer, $"byte* __lane{index} = (byte*)__def->FoldLane + (((uint){tick} - __def->WindowStart) * 2u + ({backward} ? 1u : 0u)) * (uint){stride};");
+        }
+        var parts = new List<string>();
+        for (var k = 0; k < direct.FoldOffsets.Count; k++)
+        {
+            W(writer, $"float __fd{index}_{k} = *(float*)((byte*)__lane{index} + {direct.FoldOffsets[k]});");
+            parts.Add($"__fd{index}_{k}");
+        }
+        foreach (var read in direct.ReadTypes)
+            parts.Add($"__c{ColumnOf(shape, read, false)}[{entity}]");
+        W(writer, $"{writtenRef} {direct.Op} {string.Join(" * ", parts)};");
     }
 
     static void EmitBatchDecls(StringBuilder writer, SystemAssignment assignment)
@@ -778,6 +944,72 @@ internal static class SystemEmitter
         }
         var call = new StringBuilder();
         call.Append($"global::TlSystems.TlSystem_{safe}.Run(world, players, forward");
+        foreach (var ptr in ptrs) call.Append($", {ptr}");
+        call.Append(", __len");
+        for (var i = 0; i < shape.Contexts.Count; i++)
+            if (shape.UsedContexts[i]) call.Append($", ref this.{shape.Contexts[i].Name}");
+        foreach (var field in system.Fields)
+        {
+            if (field.Kind == SystemFieldKind.Requests) call.Append($", this.{field.Name}");
+            if (field.Kind == SystemFieldKind.Events) call.Append($", this.{field.Name}");
+        }
+        call.Append(");");
+        if (pins.Count == 0)
+        {
+            W(writer, call.ToString());
+        }
+        else
+        {
+            foreach (var pin in pins)
+            {
+                W(writer, pin);
+                W(writer, "{");
+            }
+            W(writer, call.ToString());
+            foreach (var pin in pins) W(writer, "}");
+        }
+        W(writer, "}");
+        W(writer, "}");
+        if (ns.Length > 0) W(writer, "}");
+    }
+
+    static void EmitRunFused(StringBuilder writer, SystemAssignment assignment, string id)
+    {
+        var system = assignment.System;
+        var shape = ShapeOf(assignment, id);
+        var ns = NamespaceOf(system.TypeName);
+        var shortName = ShortNameOf(system.TypeName);
+        var safe = $"{id}_{Sanitize(system.TypeName)}";
+        if (ns.Length > 0)
+        {
+            W(writer, $"namespace {ns}");
+            W(writer, "{");
+        }
+        W(writer, $"partial struct {shortName}");
+        W(writer, "{");
+        W(writer, "public unsafe void RunFused(global::Tl.TimelineWorld world, global::Tl.PlaybackTable players, bool forward = true)");
+        W(writer, "{");
+        W(writer, "if (world is null) throw new global::System.ArgumentNullException(nameof(world));");
+        W(writer, "if (players is null) throw new global::System.ArgumentNullException(nameof(players));");
+        W(writer, "int __len = players.EntityCapacity;");
+        var first = true;
+        foreach (var field in system.Fields)
+        {
+            if (field.Kind is not (SystemFieldKind.Column or SystemFieldKind.ColumnReadOnly)) continue;
+            if (first) { W(writer, $"__len = this.{field.Name}.Length;"); first = false; }
+            else W(writer, $"if (this.{field.Name}.Length != __len) throw new global::System.ArgumentException(\"{system.TypeName}: column {field.Name} lengths differ.\");");
+        }
+        W(writer, $"if (__len > players.EntityCapacity) throw new global::System.ArgumentException(\"{system.TypeName}: column length exceeds table capacity.\");");
+        var pins = new List<string>();
+        var ptrs = new List<string>();
+        for (var i = 0; i < shape.Columns.Count; i++)
+        {
+            if (!shape.UsedColumns[i]) continue;
+            pins.Add($"fixed ({shape.Columns[i].ElementTypeName}* __p{i} = this.{shape.Columns[i].Name})");
+            ptrs.Add($"__p{i}");
+        }
+        var call = new StringBuilder();
+        call.Append($"global::TlSystems.TlSystem_{safe}.RunFused(world, players, forward");
         foreach (var ptr in ptrs) call.Append($", {ptr}");
         call.Append(", __len");
         for (var i = 0; i < shape.Contexts.Count; i++)
