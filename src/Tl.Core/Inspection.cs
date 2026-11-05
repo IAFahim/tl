@@ -76,79 +76,7 @@ public static unsafe class Inspection
         Pair(),
         new BakeSnapshot(0, 0));
 
-    public static BankSnapshot? Bank<TTrack, TClip>()
-        where TTrack : unmanaged, IBlend<TClip>
-        where TClip : unmanaged
-    {
-        var bank = Timeline<TTrack, TClip>._bank;
-        if (bank is null)
-            return null;
-        var count = bank._count;
-        var views = new ViewSnapshot[count];
-        for (var index = 0; index < count; index++)
-        {
-            var slot = bank.FoldedView((ushort)index);
-            if (slot is null)
-            {
-                views[index] = new ViewSnapshot(
-                    index,
-                    bank.IsAbsent((ushort)index) ? FoldState.Absent : FoldState.Pending,
-                    null, null, null, null, null, null, null);
-                continue;
-            }
-            views[index] = new ViewSnapshot(
-                index,
-                FoldState.Folded,
-                slot->Duration,
-                slot->Looping != 0,
-                (int)slot->TableTicks,
-                (int)slot->ResultCount,
-                (int)slot->AbiVersion,
-                unchecked((long)slot->Generation),
-                Shapes(slot));
-        }
-        return new BankSnapshot(
-            typeof(TTrack).FullName ?? typeof(TTrack).Name,
-            typeof(TClip).FullName ?? typeof(TClip).Name,
-            PairRuntime<TTrack, TClip>.Key,
-            count,
-            bank._holes,
-            bank.BlockCount,
-            bank.SharedHits,
-            unchecked((long)bank._generation),
-            bank.HeaderBytes,
-            bank.TableBytes,
-            bank.DirectoryBytes,
-            bank.RetainedBytes,
-            views);
-    }
 
-    public static LaneCopy? CopyLanes<TTrack, TClip>(ushort index)
-        where TTrack : unmanaged, IBlend<TClip>
-        where TClip : unmanaged
-    {
-        var bank = Timeline<TTrack, TClip>._bank;
-        if (bank is null || index >= bank._count)
-            return null;
-        var slot = bank.FoldedView(index);
-        if (slot is null)
-            return null;
-        var ticks = checked((int)slot->TableTicks);
-        var lanes = new LaneWords[slot->ResultCount];
-        for (var lane = 0; lane < lanes.Length; lane++)
-        {
-            var forward = new uint[ticks];
-            var backward = new uint[ticks];
-            for (var tick = 0; tick < ticks; tick++)
-            {
-                forward[tick] = LaneEncoding.Bits(LaneEncoding.Value(slot, (nuint)lane, true, tick));
-                backward[tick] = LaneEncoding.Bits(LaneEncoding.Value(slot, (nuint)lane, false, tick));
-            }
-            lanes[lane] = new(slot->LaneKeys[lane], forward, backward);
-        }
-        return new(index, slot->Duration, slot->Looping != 0, slot->AbiVersion,
-            unchecked((long)slot->Generation), lanes);
-    }
 
     static PairSnapshot Pair()
     {
