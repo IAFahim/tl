@@ -46,14 +46,16 @@ internal static class LibraryPack
         catch (Exception ex) { return Fail(ex.Message, diagnosticsJson); }
     }
 
-    static int Fail(string message, bool json)
+    internal static int Fail(string message, bool json)
     {
         if (json) Console.Error.WriteLine(JsonSerializer.Serialize(new { errors = new[] { new { message } } }));
         else Console.Error.WriteLine($"Error: {message}");
         return 1;
     }
 
-    static int Pack(string dir, List<string> assemblyPaths, string? outPath, string? idsPath, string? kindsPath, string ns, bool auto, bool diagnosticsJson)
+    internal sealed record LibraryKindInputs(List<(string Name, string File)> Names, List<byte[]> Blobs, uint TickRate, int ChannelCount, KindSettings Settings, KindCatalog Catalog, List<KindTimeline> KindTimelines);
+
+    internal static LibraryKindInputs LoadKindInputs(string dir, List<string> assemblyPaths, bool auto)
     {
         dir = Path.GetFullPath(dir);
         var libraryJson = Path.Combine(dir, "library.json");
@@ -118,17 +120,25 @@ internal static class LibraryPack
             try { tlbs.Add(TimelineBaker.BakeJson(jsons[i], resolver, auto, manifest)); }
             catch (BakeDiagnosticException ex) { throw new BakeDiagnosticException($"{names[i].File}: {ex.Message}"); }
         }
-        outPath ??= Path.Combine(dir, "game.tlib");
-        idsPath ??= Path.Combine(dir, "Timelines.g.cs");
         var catalog = KindCatalog.Discover(resolver.ReferencedAssemblies);
         var kindTimelines = new List<KindTimeline>();
         for (var i = 0; i < names.Count; i++) kindTimelines.Add(KindTimeline.Analyze(names[i].Name, tlbs[i], catalog));
+        return new LibraryKindInputs(names, tlbs, tickRate, channels.Count, kindSettings, catalog, kindTimelines);
+    }
+
+    static int Pack(string dir, List<string> assemblyPaths, string? outPath, string? idsPath, string? kindsPath, string ns, bool auto, bool diagnosticsJson)
+    {
+        dir = Path.GetFullPath(dir);
+        var input = LoadKindInputs(dir, assemblyPaths, auto);
+        var (names, tlbs, tickRate, channelCount, kindSettings, catalog, kindTimelines) = input;
+        outPath ??= Path.Combine(dir, "game.tlib");
+        idsPath ??= Path.Combine(dir, "Timelines.g.cs");
         var reached = kindTimelines.Any(t => t.KindMask != 0);
         List<KindCapacityRow>? rows = null;
         byte[]? kindSection = null;
         if (reached || kindsPath != null)
         {
-            rows = KindLayout.Capacities(catalog, kindTimelines, channels.Count, kindSettings);
+            rows = KindLayout.Capacities(catalog, kindTimelines, channelCount, kindSettings);
             if (reached) kindSection = KindLayout.Section(catalog, kindTimelines, rows);
         }
         var gameTlib = Emit(names, tlbs, tickRate, kindSection);
