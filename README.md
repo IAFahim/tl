@@ -16,8 +16,8 @@ A timeline never lives on an entity. All timelines live once in the shared libra
 ## Install
 
 ```sh
-dotnet add package Tl.CSharp --version 4.0.0
-dotnet tool install --global Tl.Bake     # the tlb bake command
+dotnet add package Tl.CSharp --version 4.0.0-preview.1
+dotnet tool install --global Tl.Bake --prerelease     # the tlb bake command
 ```
 
 ## Get started

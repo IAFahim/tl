@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TlVersion>3.0.0</TlVersion>
+    <TlVersion>4.0.0-preview.1</TlVersion>
     <LangVersion>14</LangVersion>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
