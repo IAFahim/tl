@@ -13,6 +13,7 @@ Live projects, receipts, and retained evidence for the tl playback engine.
 Each owns a README that carries its verdict and cites its receipt directories under `results/`.
 
 - `KindSystems` — K2 gates K-A to K-F through the generated path against plan 1's kernel, with a NativeAOT twin `KindSystems.Aot` (`KindSystems/README.md`).
+- `Kinds` — K0 prototype of per-tick work grouped by kind (#553): oracle, gates K-A to K-F against plan 1's kernel, Unity buffer and chunk numbers (`Kinds/README.md`).
 - `ConsumerFusion` — consumer fusion inlining verdict, JIT/NativeAOT proof, and measurements.
 - `LiveBatch` — retired post-cutover (harness measured the removed 3.x batch path; receipts kept, see `LiveBatch/README.md`). P0 baseline for the roadmap 4.10 gates, raw runs under `LiveBatch/results/`.
 - `SystemsCompare` — pre/post fast-path gate comparison on NewA/B/C/D (plus netstandard2.1 twins), old baseline vs new receipts (`SystemsCompare/README.md`).
