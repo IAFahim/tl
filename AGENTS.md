@@ -132,6 +132,7 @@ Run JetBrains Inspect Code when available. Classify remaining findings explicitl
 - Before 1.0, public API changes ship without compatibility shims or obsolete aliases — rename or remove directly and record the migration in the release notes.
 - A release tag points to the exact validated commit. Package versions, tag, release title, generated checksums, and repository commit metadata agree.
 - Never move a published tag. Use the next prerelease identifier.
-- Do not choose a license, publish to NuGet, or make legal compatibility claims without the repository owner's explicit decision.
+- NuGet publishing is automatic: pushing a `v*` tag runs `.github/workflows/publish-nuget.yml` (release gate, artifact verification, then trusted-publishing OIDC push through the `nuget-production` environment; no API keys). Never publish by hand.
+- Do not choose a license or make legal compatibility claims without the repository owner's explicit decision.
 - Do not commit credentials, machine-local settings, generated benchmark scratch, or unreviewed binary artifacts.
 - Release readiness is tracked by one milestone and one release issue whose checklist links every blocking issue and exact artifact workflow run.

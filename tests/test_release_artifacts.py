@@ -64,14 +64,18 @@ class ReleaseArtifactTests(unittest.TestCase):
             manifest = json.loads(first_manifest)
             self.assertEqual(["a.bin", "b.bin"], [artifact["path"] for artifact in manifest["artifacts"]])
 
-    def test_nuget_publish_requires_manual_dispatch(self):
+    def test_nuget_publish_runs_on_version_tags_and_manual_dispatch(self):
         workflow = (ROOT / ".github" / "workflows" / "publish-nuget.yml").read_text(encoding="utf-8")
         trigger = workflow.split("permissions:", 1)[0]
         validate = workflow.split("  validate:", 1)[1].split("  publish:", 1)[0]
         publish = workflow.split("  publish:", 1)[1]
         self.assertIn("workflow_dispatch:", trigger)
+        self.assertIn("tags:
+      - 'v*'", trigger)
+        self.assertNotIn("branches:", trigger)
         self.assertNotIn("release:", trigger)
-        self.assertIn("ref: refs/tags/${{ inputs.tag }}", validate)
+        self.assertIn("RELEASE_TAG: ${{ inputs.tag || github.ref_name }}", workflow)
+        self.assertIn("ref: refs/tags/${{ env.RELEASE_TAG }}", validate)
         self.assertNotIn("id-token: write", validate)
         self.assertIn("environment: nuget-production", workflow)
         self.assertNotIn("if:", publish)
