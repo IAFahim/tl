@@ -27,6 +27,8 @@ type Tl.Events`1
   Property Int32 Count
   Method Void Dispose()
   Method System.Span`1[Tl.EventRecord`1[T]] Drain()
+  Property Int32 Dropped
+  Property Int32 HeaderBytes
   Method Tl.EventRecord`1[T]& Item(Int32)
   Method Void Raise(T ByRef)
   Property Tl.Events`1[T] Writer
