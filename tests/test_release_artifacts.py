@@ -70,8 +70,8 @@ class ReleaseArtifactTests(unittest.TestCase):
         validate = workflow.split("  validate:", 1)[1].split("  publish:", 1)[0]
         publish = workflow.split("  publish:", 1)[1]
         self.assertIn("workflow_dispatch:", trigger)
-        self.assertIn("tags:
-      - 'v*'", trigger)
+        self.assertIn("      - 'v*'", trigger)
+        self.assertIn("    tags:", trigger)
         self.assertNotIn("branches:", trigger)
         self.assertNotIn("release:", trigger)
         self.assertIn("RELEASE_TAG: ${{ inputs.tag || github.ref_name }}", workflow)
