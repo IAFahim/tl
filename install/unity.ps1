@@ -109,6 +109,19 @@ function Install-TlUnity {
         return 'removed'
     }
 
+    function Remove-Testable {
+        $manifestPath = Join-Path $project 'Packages\manifest.json'
+        $manifestJson = [System.IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
+        $listed = $manifestJson.PSObject.Properties['testables']
+        if (-not $listed -or @($listed.Value) -notcontains $pkgName) { return 'absent' }
+        $kept = @($listed.Value | Where-Object { $_ -ne $pkgName })
+        if ($kept.Count -eq 0) { $manifestJson.PSObject.Properties.Remove('testables') }
+        else { $manifestJson.testables = $kept }
+        $manifestText = ($manifestJson | ConvertTo-Json -Depth 32) -replace "`r`n", "`n"
+        [System.IO.File]::WriteAllText($manifestPath, $manifestText + "`n", $utf8)
+        return 'dropped'
+    }
+
     function Invoke-Unity($log, [string[]]$extra) {
         Assert-ProjectClosed
         $all = @('-batchmode', '-nographics', '-quit', '-logFile', $log) + $extra
@@ -396,6 +409,7 @@ function Install-TlUnity {
         Say "wrote $demoRel/Demo.unity with the SubScene DemoContent"
 
         Step "10/$steps" 'demo: PlayMode test (the scene runs in the default world)'
+        if ((Remove-Testable) -eq 'dropped') { Say "removed $pkgName from testables (its own tests register the same kind names as the demo)" }
         $testLog = Join-Path $logs "demo-test-$projectName.log"
         $testXml = Join-Path $logs "demo-test-$projectName.xml"
         $rc = Invoke-UnityTests $testLog $testXml @('-projectPath', $project, '-testPlatform', 'PlayMode')
