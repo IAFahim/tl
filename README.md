@@ -13,6 +13,20 @@ A timeline never lives on an entity. All timelines live once in the shared libra
 
 [![ci](https://github.com/IAFahim/tl/actions/workflows/ci.yml/badge.svg)](https://github.com/IAFahim/tl/actions/workflows/ci.yml)
 
+## Install for Unity
+
+One pasted line sets up Unity 7, `com.tl.unity`, the `tlb` bake tool and a `Game` assembly, then compiles. No git clone, latest GitHub every run, safe to rerun, new or existing project. Needs git, the .NET 10 SDK and `gh auth login` (`tl.unity` is private for now). Verified on Windows 11; Linux and macOS are untested.
+
+```sh
+curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>
+```
+
+```powershell
+$env:TL_PROJECT='C:\path\MyGame'; irm https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.ps1 | iex
+```
+
+Next: [USING-ECS section 3](https://github.com/IAFahim/tl.unity/blob/main/docs/USING-ECS.md). PowerShell 5.1 and pwsh work, no Git Bash needed.
+
 ## Install
 
 ```sh
