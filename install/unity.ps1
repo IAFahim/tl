@@ -15,6 +15,9 @@ function Install-TlUnity {
     if ($env:TL_UNITY_TIMEOUT) { $timeoutMs = [int]$env:TL_UNITY_TIMEOUT * 1000 }
     $utf8 = New-Object System.Text.UTF8Encoding $false
     $start = Get-Date
+    $demo = $false
+    if ($env:TL_DEMO -and $env:TL_DEMO -notin @('0', 'false', 'no', 'off')) { $demo = $true }
+    $steps = 5
 
     function Step($n, $text) { Write-Host "[$n] $text" -ForegroundColor Green }
     function Say($text) { Write-Host "    $text" }
@@ -24,9 +27,12 @@ function Install-TlUnity {
         Test-Path -LiteralPath (Join-Path $dir 'ProjectSettings\ProjectVersion.txt')
     }
 
-    function Invoke-Bounded($file, [string[]]$arguments, [int]$ms) {
+    function Invoke-Bounded($file, [string[]]$arguments, [int]$ms, [string]$outFile = '', [string]$workDir = '') {
         $quoted = ($arguments | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' '
-        $p = Start-Process -FilePath $file -ArgumentList $quoted -PassThru -NoNewWindow
+        $params = @{ FilePath = $file; ArgumentList = $quoted; PassThru = $true; NoNewWindow = $true }
+        if ($outFile) { $params.RedirectStandardOutput = $outFile; $params.RedirectStandardError = "$outFile.err" }
+        if ($workDir) { $params.WorkingDirectory = $workDir }
+        $p = Start-Process @params
         $null = $p.Handle
         if (-not $p.WaitForExit($ms)) {
             try { $p.Kill() } catch { }
@@ -38,7 +44,33 @@ function Install-TlUnity {
 
     function Invoke-Unity($log, [string[]]$extra) {
         $all = @('-batchmode', '-nographics', '-quit', '-logFile', $log) + $extra
-        return (Invoke-Bounded $script:unity $all $timeoutMs)
+        return (Invoke-Bounded $script:unity $all $timeoutMs "$log.stdout")
+    }
+
+    function Invoke-UnityTests($log, $xml, [string[]]$extra) {
+        Remove-Item -LiteralPath $xml -Force -ErrorAction SilentlyContinue
+        $all = @('-batchmode', '-nographics', '-logFile', $log, '-runTests', '-testResults', $xml) + $extra
+        return (Invoke-Bounded $script:unity $all $timeoutMs "$log.stdout")
+    }
+
+    function Invoke-Tlb($name, [string[]]$arguments) {
+        $out = Join-Path $logs "demo-$name-$projectName.log"
+        $rc = Invoke-Bounded 'dotnet' (@($tlb) + $arguments) 300000 $out $project
+        if ($rc -ne 0) {
+            if (Test-Path -LiteralPath $out) { Get-Content -LiteralPath $out -Tail 5 | ForEach-Object { Say $_ } }
+            Fail "tlb $name failed (exit $rc), see $out"
+        }
+    }
+
+    function Get-ErrorCount($log) {
+        if (Test-Path -LiteralPath $log) { return @(Select-String -LiteralPath $log -Pattern 'error CS' -SimpleMatch).Count }
+        return 0
+    }
+
+    function Get-Field($text, $name) {
+        $m = [regex]::Match($text, "$name=(\S+)")
+        if ($m.Success) { return $m.Groups[1].Value }
+        return ''
     }
 
     function Get-VersionKey($name) {
@@ -82,6 +114,8 @@ function Install-TlUnity {
         return $null
     }
 
+    foreach ($a in $tlScriptArgs) { if ("$a" -eq '--demo') { $demo = $true } }
+    if ($demo) { $steps = 10 }
     if (-not $Target) {
         if (Test-UnityProject (Get-Location).Path) { $Target = (Get-Location).Path }
         else { Fail 'no project path: set $env:TL_PROJECT = ''C:\path\MyGame'' before the iwr line, or run it inside a Unity project folder' }
@@ -97,7 +131,7 @@ function Install-TlUnity {
     Write-Host ' Unity 7 + com.tl.unity + tlb + Game assembly, no git clone needed'
     Write-Host ''
 
-    Step '1/5' 'prerequisites'
+    Step "1/$steps" 'prerequisites'
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Fail 'git is required: winget install Git.Git, then open a new shell and run this again' }
     $oldPrompt = $env:GIT_TERMINAL_PROMPT
     $env:GIT_TERMINAL_PROMPT = '0'
@@ -114,7 +148,7 @@ function Install-TlUnity {
     }
     Say "git ok, $pkgRepo readable, .NET $sdk"
 
-    Step '2/5' 'Unity 7 editor'
+    Step "2/$steps" 'Unity 7 editor'
     $script:unity = $env:UNITY
     if ($script:unity) {
         if (-not (Test-Path -LiteralPath $script:unity)) { Fail "UNITY is set to '$($script:unity)' but that file does not exist" }
@@ -132,7 +166,7 @@ function Install-TlUnity {
     }
     Say "editor: $($script:unity)"
 
-    Step '3/5' "project: $project"
+    Step "3/$steps" "project: $project"
     if (Test-UnityProject $project) { Say 'Unity project exists, adding to it' }
     else {
         New-Item -ItemType Directory -Force -Path $project | Out-Null
@@ -142,7 +176,7 @@ function Install-TlUnity {
         if (-not (Test-UnityProject $project)) { Fail "project creation failed (exit $rc), see $createLog" }
     }
 
-    Step '4/5' 'package, tlb, Game assembly'
+    Step "4/$steps" 'package, tlb, Game assembly'
     $manifest = Join-Path $project 'Packages\manifest.json'
     if (-not (Test-Path -LiteralPath $manifest)) { Fail "missing $manifest" }
     $json = [System.IO.File]::ReadAllText($manifest) | ConvertFrom-Json
@@ -210,7 +244,7 @@ function Install-TlUnity {
         Say 'wrote Assets/Game/Game.asmdef'
     }
 
-    Step '5/5' 'compile'
+    Step "5/$steps" 'compile'
     $compileLog = Join-Path $logs "compile-$projectName.log"
     $rc = Invoke-Unity $compileLog @('-projectPath', $project)
     $errors = 0
@@ -222,6 +256,8 @@ function Install-TlUnity {
         }
         Fail "compile failed (exit $rc, $errors error CS), see $compileLog"
     }
+    $compileRc = $rc
+    $compileErrors = $errors
     $cache = Join-Path $project 'Library\PackageCache'
     $resolved = $null
     if (Test-Path -LiteralPath $cache) { $resolved = Get-ChildItem -LiteralPath $cache -Directory -Filter "$pkgName@*" | Select-Object -First 1 }
@@ -230,21 +266,109 @@ function Install-TlUnity {
         Fail "compile passed but $pkgName did not resolve, see $compileLog"
     }
 
+    $demoRel = 'Assets/EcsDemo'
+    $demoRoot = Join-Path $project 'Assets\EcsDemo'
+    if ($demo) {
+        Step "6/$steps" "demo: copy the sample into $demoRel"
+        $sample = Join-Path $cache "$($resolved.Name)\Samples~\EcsDemo"
+        if (Test-Path -LiteralPath $demoRoot) { Say "$demoRel exists, left as is (delete the folder to get the sample again)" }
+        else {
+            if (-not (Test-Path -LiteralPath $sample)) { Fail "$($resolved.Name) has no Samples~/EcsDemo: this package version is too old for the demo" }
+            New-Item -ItemType Directory -Force -Path (Join-Path $project 'Assets') | Out-Null
+            Copy-Item -LiteralPath $sample -Destination $demoRoot -Recurse
+            Say "copied Samples~/EcsDemo from $($resolved.Name)"
+        }
+
+        Step "7/$steps" 'demo: compile, Timeline Library asset, staged assemblies'
+        $env:TL_TLB = $tlb
+        $prepLog = Join-Path $logs "demo-prepare-$projectName.log"
+        $rc = Invoke-Unity $prepLog @('-projectPath', $project, '-executeMethod', 'EcsDemoSetup.Prepare')
+        $demoErrors = Get-ErrorCount $prepLog
+        $prepared = (Test-Path -LiteralPath $prepLog) -and (Select-String -LiteralPath $prepLog -Pattern 'EcsDemo prepared' -SimpleMatch -Quiet)
+        if ($rc -ne 0 -or $demoErrors -ne 0 -or -not $prepared) {
+            Select-String -LiteralPath $prepLog -Pattern 'error CS' -SimpleMatch | Select-Object -First 20 | ForEach-Object { Say $_.Line }
+            Fail "demo prepare failed (exit $rc, $demoErrors error CS), see $prepLog"
+        }
+        Say "compiled with $demoErrors error CS, library asset and stage ready"
+
+        Step "8/$steps" 'demo: bake capacities (tlb kinds) and the library (tlb library)'
+        Invoke-Tlb 'kinds' @('kinds', '--library', "$demoRel/Timelines", '--namespace', 'Demo', '--out', "$demoRel/Kinds.g.cs", '--assembly', '.tl/stage/Demo.dll', '--diagnostics', 'json')
+        Invoke-Tlb 'library' @('library', "$demoRel/Timelines", '--assembly', '.tl/stage/Demo.dll', '--out', "$demoRel/Timelines/game.tlib", '--ids', "$demoRel/Timelines/Timelines.g.cs", '--kinds', "$demoRel/Kinds.g.cs", '--namespace', 'Demo')
+        $tlibPath = Join-Path $demoRoot 'Timelines\game.tlib'
+        $bytesPath = Join-Path $demoRoot 'Timelines\game.bytes'
+        Copy-Item -LiteralPath $tlibPath -Destination $bytesPath -Force
+        $caps = (Select-String -LiteralPath (Join-Path $demoRoot 'Kinds.g.cs') -Pattern 'const int (\w+) = (\d+)' | ForEach-Object { "$($_.Matches[0].Groups[1].Value) $($_.Matches[0].Groups[2].Value)" }) -join ', '
+        Say "capacities: $caps"
+        Say "library: $demoRel/Timelines/game.bytes ($((Get-Item -LiteralPath $bytesPath).Length) bytes)"
+
+        Step "9/$steps" 'demo: scene and SubScene'
+        $sceneLog = Join-Path $logs "demo-scene-$projectName.log"
+        $rc = Invoke-Unity $sceneLog @('-projectPath', $project, '-executeMethod', 'EcsDemoSetup.Build')
+        $demoErrors = Get-ErrorCount $sceneLog
+        $built = (Test-Path -LiteralPath $sceneLog) -and (Select-String -LiteralPath $sceneLog -Pattern 'EcsDemo scene' -SimpleMatch -Quiet)
+        if ($rc -ne 0 -or $demoErrors -ne 0 -or -not $built) {
+            Select-String -LiteralPath $sceneLog -Pattern 'error CS' -SimpleMatch | Select-Object -First 20 | ForEach-Object { Say $_.Line }
+            Fail "demo scene failed (exit $rc, $demoErrors error CS), see $sceneLog"
+        }
+        Say "wrote $demoRel/Demo.unity with the SubScene DemoContent"
+
+        Step "10/$steps" 'demo: PlayMode test (the scene runs in the default world)'
+        $testLog = Join-Path $logs "demo-test-$projectName.log"
+        $testXml = Join-Path $logs "demo-test-$projectName.xml"
+        $rc = Invoke-UnityTests $testLog $testXml @('-projectPath', $project, '-testPlatform', 'PlayMode')
+        $demoErrors = Get-ErrorCount $testLog
+        $hit = $null
+        if (Test-Path -LiteralPath $testLog) { $hit = Select-String -LiteralPath $testLog -Pattern 'EcsDemo result (.*)$' | Select-Object -Last 1 }
+        if (-not $hit) { Fail "the demo test printed no result (exit $rc, $demoErrors error CS), see $testLog" }
+        $text = $hit.Matches[0].Groups[1].Value
+        $passed = ''
+        $failed = ''
+        if (Test-Path -LiteralPath $testXml) {
+            $run = ([xml](Get-Content -LiteralPath $testXml -Raw)).'test-run'
+            $passed = [string]$run.passed
+            $failed = [string]$run.failed
+        }
+        $w = Get-Field $text 'walkerHealth'; $d = Get-Field $text 'dummyHealth'
+        $c = Get-Field $text 'cues'; $l = Get-Field $text 'lastCue'
+        $x30 = Get-Field $text 'x30'; $x50 = Get-Field $text 'x50'
+        $dp = Get-Field $text 'droppedPulses'; $ds = Get-Field $text 'droppedStarts'
+        Write-Host ''
+        Say 'demo result'
+        Say "  Walker health  $w   (guide: 58)"
+        Say "  Dummy health   $d   (guide: 93)"
+        Say "  Cues           $c, last cue $l   (guide: 2, last 2)"
+        Say "  X at step 30   $x30"
+        Say "  X at step 50   $x50   (guide: equal, ten steps back undo ten steps forward)"
+        Say "  Dropped        $dp pulses, $ds starts   (guide: 0 and 0)"
+        Say "  PlayMode test  passed $passed, failed $failed, error CS $demoErrors"
+        $good = ($w -eq '58') -and ($d -eq '93') -and ($c -eq '2') -and ($l -eq '2') -and ($x30 -ne '') -and ($x30 -eq $x50) -and ($dp -eq '0') -and ($ds -eq '0') -and ($passed -eq '1') -and ($failed -eq '0') -and ($demoErrors -eq 0)
+        if (-not $good) { Fail "the demo numbers are not the guide's numbers (test exit $rc), see $testLog" }
+        Say '  all numbers match the guide'
+    }
     $elapsed = [int]((Get-Date) - $start).TotalSeconds
     Write-Host ''
     Say "Unity project:  $project"
     Say "package:        $($resolved.Name)"
     Say "tlb:            $tlb"
-    Say "compile:        exit $rc, error CS $errors"
+    Say "compile:        exit $compileRc, error CS $compileErrors"
     Say "done in ${elapsed}s"
     Write-Host ''
-    Say "next: follow $guide section 3 onward (the Game assembly replaces Demo in step 1)."
-    Say '      the guide needs access to the private repo until tl.unity is public.'
-    Say "      to use tlb in a shell: `$env:TL_TLB = '$tlb'"
+    if ($demo) {
+        Say 'next: open the project and press Play'
+        Say "  1. open it:  & '$($script:unity)' -projectPath '$project'   (or Unity Hub > Add > Add project from disk)"
+        Say "  2. double-click $demoRel/Demo.unity in the Project window, press Play"
+        Say '  3. Window > Entities > Hierarchy: Walker and Dummy in the runtime world; Window > General > Test Runner > PlayMode > Run All repeats the numbers above'
+        Say "  guide: $guide"
+    }
+    else {
+        Say "next: `$env:TL_DEMO = 1 before the irm line adds and runs the ECS demo, or follow $guide section 3 onward"
+        Say '      (the Game assembly replaces Demo in step 1).'
+    }
+    Say "tlb in a shell: `$env:TL_TLB = '$tlb'"
 }
 
 $tlTarget = $env:TL_PROJECT
-if (-not $tlTarget -and $tlScriptArgs -and $tlScriptArgs.Count -gt 0) { $tlTarget = [string]$tlScriptArgs[0] }
+if (-not $tlTarget) { $tlTarget = @($tlScriptArgs | ForEach-Object { [string]$_ } | Where-Object { $_ -and -not $_.StartsWith('--') })[0] }
 try {
     Install-TlUnity -Target $tlTarget
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tl for Unity installer (Linux, macOS, Windows Git Bash). Safe to run again.
 #   curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>
+#   add --demo to also build and run the ECS demo: ... | bash -s -- --demo <project-path>
 set -euo pipefail
 
 PKG_NAME="com.tl.unity"
@@ -11,6 +12,17 @@ TL_HOME="${TL_HOME:-$HOME/.tl}"
 TLB_REL="tools/Tl.Bake/bin/Release/net10.0/Tl.Bake.dll"
 GUIDE="https://github.com/IAFahim/tl.unity/blob/main/docs/USING-ECS.md"
 UNITY_TIMEOUT="${TL_UNITY_TIMEOUT:-2700}"
+DEMO="${TL_DEMO:-0}"
+TARGET=""
+for arg in "$@"; do
+  case "$arg" in
+    --demo) DEMO=1 ;;
+    -*) printf 'unknown option %s (usage: bash -s -- [--demo] <project-path>)
+' "$arg" >&2; exit 1 ;;
+    *) TARGET="$arg" ;;
+  esac
+done
+case "$DEMO" in 1|true|yes|on) DEMO=1; STEPS=10 ;; *) DEMO=0; STEPS=5 ;; esac
 
 if [ -t 1 ]; then GREEN=$'\033[0;32m'; RED=$'\033[0;31m'; NC=$'\033[0m'; else GREEN=""; RED=""; NC=""; fi
 step() { printf '%s[%s]%s %s\n' "$GREEN" "$1" "$NC" "$2"; }
@@ -39,12 +51,15 @@ abs() {
   dir="$(dirname "$1")"
   base="$(basename "$1")"
   mkdir -p "$dir"
-  printf '%s/%s' "$(cd "$dir" && pwd)" "$base"
+  case "$base" in
+    .|..) (cd "$1" && pwd) ;;
+    *) printf '%s/%s' "$(cd "$dir" && pwd)" "$base" ;;
+  esac
 }
 
 is_unity_project() { [ -f "$1/ProjectSettings/ProjectVersion.txt" ]; }
 
-TARGET="${1:-${TL_PROJECT:-}}"
+TARGET="${TARGET:-${TL_PROJECT:-}}"
 if [ -z "$TARGET" ]; then
   if is_unity_project "$PWD"; then TARGET="$PWD"; else die "usage: curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>"; fi
 fi
@@ -141,9 +156,22 @@ run_unity() {
   shift
   local rc=0
   if command -v timeout >/dev/null 2>&1; then
-    timeout "$UNITY_TIMEOUT" "$UNITY" -batchmode -nographics -quit -logFile "$(native "$log")" "$@" </dev/null || rc=$?
+    timeout "$UNITY_TIMEOUT" "$UNITY" -batchmode -nographics -quit -logFile "$(native "$log")" "$@" </dev/null >"$log.stdout" 2>&1 || rc=$?
   else
-    "$UNITY" -batchmode -nographics -quit -logFile "$(native "$log")" "$@" </dev/null || rc=$?
+    "$UNITY" -batchmode -nographics -quit -logFile "$(native "$log")" "$@" </dev/null >"$log.stdout" 2>&1 || rc=$?
+  fi
+  return "$rc"
+}
+
+run_unity_tests() {
+  local log="$1" xml="$2"
+  shift 2
+  local rc=0
+  rm -f "$xml"
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$UNITY_TIMEOUT" "$UNITY" -batchmode -nographics -logFile "$(native "$log")" -runTests -testResults "$(native "$xml")" "$@" </dev/null >"$log.stdout" 2>&1 || rc=$?
+  else
+    "$UNITY" -batchmode -nographics -logFile "$(native "$log")" -runTests -testResults "$(native "$xml")" "$@" </dev/null >"$log.stdout" 2>&1 || rc=$?
   fi
   return "$rc"
 }
@@ -255,14 +283,14 @@ JSON
   say "wrote Assets/Game/Game.asmdef"
 }
 
-step "1/5" "prerequisites"
+step "1/$STEPS" "prerequisites"
 check_prerequisites
 
-step "2/5" "Unity 7 editor"
+step "2/$STEPS" "Unity 7 editor"
 resolve_unity
 say "editor: $UNITY"
 
-step "3/5" "project: $PROJECT"
+step "3/$STEPS" "project: $PROJECT"
 if is_unity_project "$PROJECT"; then
   say "Unity project exists, adding to it"
 else
@@ -274,7 +302,7 @@ else
   is_unity_project "$PROJECT" || die "project creation failed (exit $rc), see $CREATE_LOG"
 fi
 
-step "4/5" "package, tlb, Game assembly"
+step "4/$STEPS" "package, tlb, Game assembly"
 MANIFEST="$PROJECT/Packages/manifest.json"
 [ -f "$MANIFEST" ] || die "missing $MANIFEST"
 say "manifest $PKG_NAME: $(add_dependency "$MANIFEST")"
@@ -284,7 +312,7 @@ printf '%s\n' "$TLB" > "$PROJECT/.tl/tlb.path"
 say "tlb: $TLB"
 write_asmdef
 
-step "5/5" "compile"
+step "5/$STEPS" "compile"
 COMPILE_LOG="$LOGS/compile-$(basename "$PROJECT").log"
 rc=0
 run_unity "$COMPILE_LOG" -projectPath "$(native "$PROJECT")" || rc=$?
@@ -296,10 +324,106 @@ if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ]; then
   fi
   die "compile failed (exit $rc, $ERRORS error CS), see $COMPILE_LOG"
 fi
-RESOLVED="$(ls "$PROJECT/Library/PackageCache" 2>/dev/null | grep "^$PKG_NAME@" || true)"
+COMPILE_RC="$rc"
+COMPILE_ERRORS="$ERRORS"
+RESOLVED="$(ls "$PROJECT/Library/PackageCache" 2>/dev/null | grep "^$PKG_NAME@" | tail -n 1 || true)"
 if [ -z "$RESOLVED" ]; then
   say "$PKG_NAME is not in Library/PackageCache: run \`gh auth login\` first, then run this again"
   die "compile passed but $PKG_NAME did not resolve, see $COMPILE_LOG"
+fi
+
+demo_field() {
+  printf '%s' "$1" | sed -n "s/.*$2=\([^ ]*\).*/\1/p"
+}
+
+demo_tlb() {
+  local name="$1"
+  shift
+  local out="$LOGS/demo-$name-$(basename "$PROJECT").log"
+  if ! (cd "$PROJECT" && dotnet "$TLB" "$@") >"$out" 2>&1; then
+    tail -n 5 "$out" | sed 's/^/    /'
+    die "tlb $name failed, see $out"
+  fi
+}
+
+DEMO_RESULT=""
+if [ "$DEMO" = 1 ]; then
+  DEMO_REL="Assets/EcsDemo"
+  DEMO_ROOT="$PROJECT/$DEMO_REL"
+  NAME_ARG="$(basename "$PROJECT")"
+
+  step "6/$STEPS" "demo: copy the sample into $DEMO_REL"
+  SAMPLE="$PROJECT/Library/PackageCache/$RESOLVED/Samples~/EcsDemo"
+  if [ -d "$DEMO_ROOT" ]; then
+    say "$DEMO_REL exists, left as is (delete the folder to get the sample again)"
+  else
+    [ -d "$SAMPLE" ] || die "$RESOLVED has no Samples~/EcsDemo: this package version is too old for --demo"
+    mkdir -p "$PROJECT/Assets"
+    cp -R "$SAMPLE" "$DEMO_ROOT"
+    say "copied Samples~/EcsDemo from $RESOLVED"
+  fi
+
+  step "7/$STEPS" "demo: compile, Timeline Library asset, staged assemblies"
+  export TL_TLB="$TLB"
+  PREP_LOG="$LOGS/demo-prepare-$NAME_ARG.log"
+  rc=0
+  run_unity "$PREP_LOG" -projectPath "$(native "$PROJECT")" -executeMethod EcsDemoSetup.Prepare || rc=$?
+  ERRORS="$(error_count "$PREP_LOG")"
+  if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ] || ! grep -q 'EcsDemo prepared' "$PREP_LOG"; then
+    grep 'error CS' "$PREP_LOG" | head -n 20 || true
+    die "demo prepare failed (exit $rc, $ERRORS error CS), see $PREP_LOG"
+  fi
+  say "compiled with $ERRORS error CS, library asset and stage ready"
+
+  step "8/$STEPS" "demo: bake capacities (tlb kinds) and the library (tlb library)"
+  demo_tlb kinds kinds --library "$DEMO_REL/Timelines" --namespace Demo --out "$DEMO_REL/Kinds.g.cs" --assembly .tl/stage/Demo.dll --diagnostics json
+  demo_tlb library library "$DEMO_REL/Timelines" --assembly .tl/stage/Demo.dll --out "$DEMO_REL/Timelines/game.tlib" --ids "$DEMO_REL/Timelines/Timelines.g.cs" --kinds "$DEMO_REL/Kinds.g.cs" --namespace Demo
+  cp "$DEMO_ROOT/Timelines/game.tlib" "$DEMO_ROOT/Timelines/game.bytes"
+  say "capacities: $(grep -o 'const int [A-Za-z]* = [0-9]*' "$DEMO_ROOT/Kinds.g.cs" | sed 's/const int //; s/ = / /' | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+  say "library: $DEMO_REL/Timelines/game.bytes ($(wc -c < "$DEMO_ROOT/Timelines/game.bytes" | tr -d ' ') bytes)"
+
+  step "9/$STEPS" "demo: scene and SubScene"
+  BUILD_LOG="$LOGS/demo-scene-$NAME_ARG.log"
+  rc=0
+  run_unity "$BUILD_LOG" -projectPath "$(native "$PROJECT")" -executeMethod EcsDemoSetup.Build || rc=$?
+  ERRORS="$(error_count "$BUILD_LOG")"
+  if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ] || ! grep -q 'EcsDemo scene' "$BUILD_LOG"; then
+    grep 'error CS' "$BUILD_LOG" | head -n 20 || true
+    die "demo scene failed (exit $rc, $ERRORS error CS), see $BUILD_LOG"
+  fi
+  say "wrote $DEMO_REL/Demo.unity with the SubScene DemoContent"
+
+  step "10/$STEPS" "demo: PlayMode test (the scene runs in the default world)"
+  TEST_LOG="$LOGS/demo-test-$NAME_ARG.log"
+  TEST_XML="$LOGS/demo-test-$NAME_ARG.xml"
+  rc=0
+  run_unity_tests "$TEST_LOG" "$TEST_XML" -projectPath "$(native "$PROJECT")" -testPlatform PlayMode || rc=$?
+  ERRORS="$(error_count "$TEST_LOG")"
+  LINE="$(grep -o 'EcsDemo result .*' "$TEST_LOG" 2>/dev/null | tail -n 1 || true)"
+  TEST_RUN="$(grep -o '<test-run [^>]*' "$TEST_XML" 2>/dev/null | head -n 1 || true)"
+  PASSED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* passed="\([0-9]*\)".*/\1/p')"
+  FAILED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* failed="\([0-9]*\)".*/\1/p')"
+  if [ -z "$LINE" ]; then
+    die "the demo test printed no result (exit $rc, $ERRORS error CS), see $TEST_LOG"
+  fi
+  W="$(demo_field "$LINE" walkerHealth)"; D="$(demo_field "$LINE" dummyHealth)"
+  C="$(demo_field "$LINE" cues)"; L="$(demo_field "$LINE" lastCue)"
+  X30="$(demo_field "$LINE" x30)"; X50="$(demo_field "$LINE" x50)"
+  DP="$(demo_field "$LINE" droppedPulses)"; DS="$(demo_field "$LINE" droppedStarts)"
+  echo
+  say "demo result"
+  say "  Walker health  $W   (guide: 58)"
+  say "  Dummy health   $D   (guide: 93)"
+  say "  Cues           $C, last cue $L   (guide: 2, last 2)"
+  say "  X at step 30   $X30"
+  say "  X at step 50   $X50   (guide: equal, ten steps back undo ten steps forward)"
+  say "  Dropped        $DP pulses, $DS starts   (guide: 0 and 0)"
+  say "  PlayMode test  passed ${PASSED:-?}, failed ${FAILED:-?}, error CS $ERRORS"
+  if [ "$W" != 58 ] || [ "$D" != 93 ] || [ "$C" != 2 ] || [ "$L" != 2 ] || [ -z "$X30" ] || [ "$X30" != "$X50" ] || [ "$DP" != 0 ] || [ "$DS" != 0 ] || [ "$PASSED" != 1 ] || [ "${FAILED:-1}" != 0 ] || [ "$ERRORS" -ne 0 ]; then
+    die "the demo numbers are not the guide's numbers (test exit $rc), see $TEST_LOG"
+  fi
+  DEMO_RESULT="ok"
+  say "  all numbers match the guide"
 fi
 
 ELAPSED=$(( $(date +%s) - START ))
@@ -307,9 +431,17 @@ echo
 say "Unity project:  $PROJECT"
 say "package:        $RESOLVED"
 say "tlb:            $TLB"
-say "compile:        exit $rc, error CS $ERRORS"
+say "compile:        exit $COMPILE_RC, error CS $COMPILE_ERRORS"
 say "done in ${ELAPSED}s"
 echo
-say "next: follow $GUIDE section 3 onward (the Game assembly replaces Demo in step 1)."
-say "      the guide needs access to the private repo until tl.unity is public."
-say "      to use tlb in a shell: export TL_TLB=\"$TLB\""
+if [ "$DEMO" = 1 ]; then
+  say "next: open the project and press Play"
+  say "  1. open it:  \"$UNITY\" -projectPath \"$(native "$PROJECT")\"   (or Unity Hub > Add > Add project from disk)"
+  say "  2. double-click $DEMO_REL/Demo.unity in the Project window, press Play"
+  say "  3. Window > Entities > Hierarchy: Walker and Dummy in the runtime world; Window > General > Test Runner > PlayMode > Run All repeats the numbers above"
+  say "  guide: $GUIDE"
+else
+  say "next: bash -s -- --demo <project-path> adds and runs the ECS demo, or follow $GUIDE section 3 onward"
+  say "      (the Game assembly replaces Demo in step 1)."
+fi
+say "tlb in a shell: export TL_TLB=\"$TLB\""

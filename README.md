@@ -25,6 +25,16 @@ curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | b
 $env:TL_PROJECT='C:\path\MyGame'; irm https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.ps1 | iex
 ```
 
+What to run first: the same line with the demo (`--demo` for bash, `$env:TL_DEMO=1` for PowerShell) also builds the ECS demo, runs its PlayMode test headlessly and prints Walker health 58, Dummy health 93, two cues and the exact rewind, then tells you how to open the project and press Play.
+
+```sh
+curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- --demo <project-path>
+```
+
+```powershell
+$env:TL_PROJECT='C:\path\MyGame'; $env:TL_DEMO=1; irm https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.ps1 | iex
+```
+
 Next: [USING-ECS section 3](https://github.com/IAFahim/tl.unity/blob/main/docs/USING-ECS.md). PowerShell 5.1 and pwsh work, no Git Bash needed.
 
 ## Install
