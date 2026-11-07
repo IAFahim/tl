@@ -15,27 +15,23 @@ A timeline never lives on an entity. All timelines live once in the shared libra
 
 ## Install for Unity
 
-One pasted line sets up Unity 7, `com.tl.unity`, the `tlb` bake tool and a `Game` assembly, then compiles. No git clone, latest GitHub every run, safe to rerun, new or existing project. Needs git, the .NET 10 SDK and `gh auth login` (`tl.unity` is private for now). Verified on Windows 11; Linux and macOS are untested.
+In Unity the package is enough: newest Unity 7, a **Universal 3D** (URP) project, Package Manager > **+** > **Install package from git URL** >
+`https://github.com/IAFahim/tl.unity.git?path=/com.tl.unity#main`. No .NET, no tool, no JSON: designers use Unity's Timeline window. Guide:
+[USING-ECS](https://github.com/IAFahim/tl.unity/blob/main/docs/USING-ECS.md).
 
-```sh
-curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>
-```
+One pasted line does all of it from a terminal: it creates a URP project on the newest Unity 7 editor (installs one with the Unity CLI if
+none), adds the package, imports the Force demo, builds its scene with a camera and runs its PlayMode test (the cube moves 4.0333 m). Needs
+git with access to `tl.unity` (`gh auth login`, `gh auth setup-git`; the repo is private for now). Safe to rerun on the same project.
 
 ```powershell
 $env:TL_PROJECT='C:\path\MyGame'; irm https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.ps1 | iex
 ```
 
-What to run first: the same line with the demo (`--demo` for bash, `$env:TL_DEMO=1` for PowerShell) also builds the ECS demo, runs its PlayMode test headlessly and prints Walker health 58, Dummy health 93, two cues and the exact rewind, then tells you how to open the project and press Play.
-
 ```sh
-curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- --demo <project-path>
+curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>
 ```
 
-```powershell
-$env:TL_PROJECT='C:\path\MyGame'; $env:TL_DEMO=1; irm https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.ps1 | iex
-```
-
-Next: [USING-ECS section 3](https://github.com/IAFahim/tl.unity/blob/main/docs/USING-ECS.md). PowerShell 5.1 and pwsh work, no Git Bash needed.
+Verified on Windows 11 (both scripts, fresh project, about 4 minutes). Linux and macOS: written to the same steps, not run yet.
 
 ## Install
 

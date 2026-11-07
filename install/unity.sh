@@ -1,28 +1,27 @@
 #!/usr/bin/env bash
 # Tl for Unity installer (Linux, macOS, Windows Git Bash). Safe to run again.
 #   curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>
-#   add --demo to also build and run the ECS demo: ... | bash -s -- --demo <project-path>
+# Makes (or updates) a Universal 3D (URP) project on the newest Unity 7 editor with com.tl.unity from its git URL,
+# imports the Force demo sample, builds its scenes and runs its PlayMode test.
 set -euo pipefail
 
 PKG_NAME="com.tl.unity"
 PKG_URL="https://github.com/IAFahim/tl.unity.git?path=/com.tl.unity#main"
 PKG_REPO="https://github.com/IAFahim/tl.unity.git"
-TL_REPO="https://github.com/IAFahim/tl.git"
+TEST_NAME="com.unity.test-framework"
+TEST_VERSION="1.6.0"
 TL_HOME="${TL_HOME:-$HOME/.tl}"
-TLB_REL="tools/Tl.Bake/bin/Release/net10.0/Tl.Bake.dll"
 GUIDE="https://github.com/IAFahim/tl.unity/blob/main/docs/USING-ECS.md"
 UNITY_TIMEOUT="${TL_UNITY_TIMEOUT:-2700}"
-DEMO="${TL_DEMO:-0}"
+STEPS=6
 TARGET=""
 for arg in "$@"; do
   case "$arg" in
-    --demo) DEMO=1 ;;
-    -*) printf 'unknown option %s (usage: bash -s -- [--demo] <project-path>)
-' "$arg" >&2; exit 1 ;;
+    --demo) ;;
+    -*) printf 'unknown option %s (usage: bash -s -- <project-path>)\n' "$arg" >&2; exit 1 ;;
     *) TARGET="$arg" ;;
   esac
 done
-case "$DEMO" in 1|true|yes|on) DEMO=1; STEPS=10 ;; *) DEMO=0; STEPS=5 ;; esac
 
 if [ -t 1 ]; then GREEN=$'\033[0;32m'; RED=$'\033[0;31m'; NC=$'\033[0m'; else GREEN=""; RED=""; NC=""; fi
 step() { printf '%s[%s]%s %s\n' "$GREEN" "$1" "$NC" "$2"; }
@@ -32,7 +31,7 @@ die() { printf '%s[tl] ERROR:%s %s\n' "$RED" "$NC" "$*" >&2; exit 1; }
 cat <<'EOF'
 
  Tl for Unity - installer
- Unity 7 + com.tl.unity + tlb + Game assembly, no git clone needed
+ Unity 7 (URP) + com.tl.unity + the Force demo, nothing else to install
 
 EOF
 
@@ -41,6 +40,8 @@ case "$(uname -s)" in
   Darwin*) OS=macos ;;
   *) OS=linux ;;
 esac
+
+is_unity_project() { [ -f "$1/ProjectSettings/ProjectVersion.txt" ]; }
 
 native() {
   if [ "$OS" = windows ]; then cygpath -m "$1"; else printf '%s' "$1"; fi
@@ -55,39 +56,6 @@ abs() {
     .|..) (cd "$1" && pwd) ;;
     *) printf '%s/%s' "$(cd "$dir" && pwd)" "$base" ;;
   esac
-}
-
-is_unity_project() { [ -f "$1/ProjectSettings/ProjectVersion.txt" ]; }
-
-TARGET="${TARGET:-${TL_PROJECT:-}}"
-if [ -z "$TARGET" ]; then
-  if is_unity_project "$PWD"; then TARGET="$PWD"; else die "usage: curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>"; fi
-fi
-PROJECT="$(abs "$TARGET")"
-LOGS="$TL_HOME/logs"
-mkdir -p "$LOGS"
-START="$(date +%s)"
-
-dotnet_hint() {
-  case "$OS" in
-    windows) printf '%s' "winget install Microsoft.DotNet.SDK.10" ;;
-    macos) printf '%s' "brew install --cask dotnet-sdk" ;;
-    *) printf '%s' "sudo apt-get install -y dotnet-sdk-10.0   (or: curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0)" ;;
-  esac
-}
-
-check_prerequisites() {
-  command -v git >/dev/null 2>&1 || die "git is required: install git, then run this again"
-  if ! GIT_TERMINAL_PROMPT=0 git ls-remote "$PKG_REPO" HEAD </dev/null >/dev/null 2>&1; then
-    die "git cannot read $PKG_REPO (private or not logged in): run \`gh auth login\` first"
-  fi
-  if ! command -v dotnet >/dev/null 2>&1 || ! dotnet --list-sdks 2>/dev/null | grep -q '^10\.'; then
-    say "the .NET 10 SDK is required to build tlb and is not installed. Install it with:"
-    say "    $(dotnet_hint)"
-    say "then open a new shell and run this again."
-    exit 1
-  fi
-  say "git ok, $PKG_REPO readable, .NET $(dotnet --list-sdks | grep '^10\.' | tail -n 1 | cut -d' ' -f1)"
 }
 
 editor_roots() {
@@ -386,63 +354,121 @@ print("removed")
   esac
 }
 
-ensure_tlb() {
-  local checkout="$TL_HOME/tl" before after built
-  local dll="$checkout/$TLB_REL" stamp="$LOGS/tlb-built.sha"
-  if [ -d "$checkout/.git" ]; then
-    before="$(git -C "$checkout" rev-parse HEAD)"
-    if git -C "$checkout" fetch --depth 1 --quiet origin main </dev/null; then
-      git -C "$checkout" reset --hard --quiet FETCH_HEAD
-    else
-      say "git fetch failed, using the existing checkout"
-    fi
-    after="$(git -C "$checkout" rev-parse HEAD)"
-  else
-    mkdir -p "$TL_HOME"
-    git clone --depth 1 --quiet "$TL_REPO" "$checkout" </dev/null
-    before=""
-    after="$(git -C "$checkout" rev-parse HEAD)"
+check_prerequisites() {
+  command -v git >/dev/null 2>&1 || die "git is required (Unity fetches the package with it): install git, then run this again"
+  if ! GIT_TERMINAL_PROMPT=0 git ls-remote "$PKG_REPO" HEAD </dev/null >/dev/null 2>&1; then
+    die "git cannot read $PKG_REPO (private or not logged in): run \`gh auth login\` and \`gh auth setup-git\` first"
   fi
-  built="$(cat "$stamp" 2>/dev/null || true)"
-  say "tlb: latest main is ${after:0:9}, last build ${built:0:9}"
-  if [ ! -f "$dll" ] || [ "$before" != "$after" ] || [ "$built" != "$after" ]; then
-    say "building tlb"
-    rm -f "$stamp"
-    BUILD_LOG="$LOGS/tlb-build.log"
-    dotnet build "$checkout/tools/Tl.Bake" -c Release -nologo -v q </dev/null >"$BUILD_LOG" 2>&1 || { tail -n 20 "$BUILD_LOG"; die "dotnet build of tools/Tl.Bake failed, see $BUILD_LOG"; }
-  else
-    say "tlb is up to date"
-  fi
-  [ -f "$dll" ] || die "tlb build did not produce $dll"
-  printf '%s\n' "$after" > "$stamp"
-  TLB="$(native "$dll")"
+  pick_json_tool >/dev/null || die "need python3, python or node to edit Packages/manifest.json"
+  say "git ok, $PKG_REPO readable"
 }
 
-write_asmdef() {
-  local dir="$PROJECT/Assets/Game" file="$PROJECT/Assets/Game/Game.asmdef"
-  mkdir -p "$dir"
-  if [ -f "$file" ]; then say "Assets/Game/Game.asmdef exists, left as is"; return 0; fi
-  cat > "$file" <<'JSON'
+urp_template() {
+  local data
+  case "$OS" in
+    macos) data="$(dirname "$(dirname "$UNITY")")/Resources" ;;
+    *) data="$(dirname "$UNITY")/Data/Resources" ;;
+  esac
+  ls "$data"/PackageManager/ProjectTemplates/com.unity.template.urp-blank-*.tgz 2>/dev/null | sort | tail -n 1
+}
+
+has_urp() {
+  grep -q '"com.unity.render-pipelines.universal"' "$1/Packages/manifest.json" 2>/dev/null
+}
+
+add_test_framework() {
+  local manifest="$1" tool file
+  tool="$(pick_json_tool)"
+  file="$(native "$manifest")"
+  case "$tool" in
+    node)
+      node -e '
+        const fs = require("fs");
+        const [file, name, version] = process.argv.slice(1);
+        const json = JSON.parse(fs.readFileSync(file, "utf8"));
+        json.dependencies = json.dependencies || {};
+        if (json.dependencies[name]) { console.log("present"); process.exit(0); }
+        json.dependencies[name] = version;
+        fs.writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
+        console.log("added");
+      ' "$file" "$TEST_NAME" "$TEST_VERSION"
+      ;;
+    *)
+      "$tool" -I -c '
+import json, sys
+file, name, version = sys.argv[1:4]
+with open(file, encoding="utf-8") as f:
+    data = json.load(f)
+deps = data.setdefault("dependencies", {})
+if name in deps:
+    print("present")
+    sys.exit(0)
+deps[name] = version
+with open(file, "w", encoding="utf-8", newline="\n") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+print("added")
+' "$file" "$TEST_NAME" "$TEST_VERSION"
+      ;;
+  esac
+}
+
+write_helper() {
+  mkdir -p "$(dirname "$HELPER")"
+  cat > "$HELPER" <<'CS'
+using System;
+using System.Linq;
+using UnityEditor;
+using UnityEditor.PackageManager.UI;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+
+public static class TlInstaller
 {
-  "name": "Game",
-  "rootNamespace": "Game",
-  "references": [
-    "Tl.Core",
-    "Tl.Unity",
-    "Tl.Unity.Authoring",
-    "Tl.Unity.Generate",
-    "Unity.Burst",
-    "Unity.Collections",
-    "Unity.Entities",
-    "Unity.Entities.Hybrid",
-    "Unity.Mathematics"
-  ],
-  "allowUnsafeCode": true,
-  "autoReferenced": true
+    public static void Import()
+    {
+        var sample = Sample.FindByPackage("com.tl.unity", null).FirstOrDefault(s => s.displayName == "Force demo");
+        if (string.IsNullOrEmpty(sample.displayName))
+            throw new InvalidOperationException("the com.tl.unity package has no Force demo sample");
+        sample.Import(Sample.ImportOptions.OverridePreviousImports);
+        AssetDatabase.Refresh();
+        Debug.Log("TL-INSTALL imported " + sample.importPath);
+    }
+
+    public static void Build()
+    {
+        var builder = Type.GetType("ForceDemoBuilder, Assembly-CSharp-Editor") ?? throw new InvalidOperationException("ForceDemoBuilder did not compile");
+        var force = (string)builder.GetMethod("Build").Invoke(null, null);
+        var control = (string)builder.GetMethod("BuildControl").Invoke(null, null);
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(force, true), new EditorBuildSettingsScene(control, true) };
+        EditorSceneManager.OpenScene(force);
+        Debug.Log("TL-INSTALL scene=" + force.Replace(' ', '+') + " control=" + control.Replace(' ', '+'));
+    }
 }
-JSON
-  say "wrote Assets/Game/Game.asmdef"
+CS
 }
+
+remove_helper() {
+  rm -f "$HELPER" "$HELPER.meta"
+  rm -rf "$HELPER_DIR"
+  rm -f "$HELPER_DIR.meta"
+}
+
+field() {
+  printf '%s' "$1" | sed -n "s/.*$2=\([^ ]*\).*/\1/p"
+}
+
+TARGET="${TARGET:-${TL_PROJECT:-}}"
+if [ -z "$TARGET" ]; then
+  if is_unity_project "$PWD"; then TARGET="$PWD"; else die "usage: curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>"; fi
+fi
+PROJECT="$(abs "$TARGET")"
+NAME="$(basename "$PROJECT")"
+LOGS="$TL_HOME/logs"
+mkdir -p "$LOGS"
+START="$(date +%s)"
+HELPER_DIR="$PROJECT/Assets/TlInstaller"
+HELPER="$HELPER_DIR/Editor/TlInstaller.cs"
 
 step "1/$STEPS" "prerequisites"
 check_prerequisites
@@ -455,172 +481,98 @@ step "3/$STEPS" "project: $PROJECT"
 if is_unity_project "$PROJECT"; then
   say "Unity project exists, adding to it"
   guard_project_closed
+  if ! has_urp "$PROJECT"; then
+    say "this project does not use URP: Tl runs, but Entities Graphics draws nothing (the demo cube stays invisible)."
+    say "make a new project with this installer, or install Universal RP and set it in Project Settings > Graphics"
+  fi
 else
+  TEMPLATE="$(urp_template)"
+  [ -n "$TEMPLATE" ] || die "the editor at $UNITY has no Universal 3D template (com.unity.template.urp-blank-*.tgz)"
   mkdir -p "$PROJECT"
-  CREATE_LOG="$LOGS/create-$(basename "$PROJECT").log"
-  say "creating the project in batch mode (first import takes minutes)"
+  CREATE_LOG="$LOGS/create-$NAME.log"
+  say "creating a Universal 3D (URP) project from $(basename "$TEMPLATE") (first import takes minutes)"
   rc=0
-  run_unity "$CREATE_LOG" -createProject "$(native "$PROJECT")" || rc=$?
+  run_unity "$CREATE_LOG" -createProject "$(native "$PROJECT")" -cloneFromTemplate "$(native "$TEMPLATE")" || rc=$?
   if ! is_unity_project "$PROJECT"; then
     diagnose_log "$CREATE_LOG"
     die "project creation failed (exit $rc): $CAUSE, see $CREATE_LOG"
   fi
+  has_urp "$PROJECT" || die "the new project has no URP package, see $CREATE_LOG"
 fi
 
-step "4/$STEPS" "package, tlb, Game assembly"
+step "4/$STEPS" "package from git, Force demo sample"
 MANIFEST="$PROJECT/Packages/manifest.json"
 [ -f "$MANIFEST" ] || die "missing $MANIFEST"
 say "manifest $PKG_NAME: $(add_dependency "$MANIFEST")"
-LOCK_FILE="$PROJECT/Packages/packages-lock.json"
-if [ "$(drop_lock_entry "$LOCK_FILE")" = removed ]; then
+say "manifest $TEST_NAME: $(add_test_framework "$MANIFEST")"
+if [ "$(drop_testable "$MANIFEST")" = dropped ]; then
+  say "removed $PKG_NAME from testables (its own test kinds would run next to the demo)"
+fi
+if [ "$(drop_lock_entry "$PROJECT/Packages/packages-lock.json")" = removed ]; then
   say "$PKG_NAME: refreshing to the latest main (dropped the pinned commit from Packages/packages-lock.json)"
-else
-  say "$PKG_NAME: refreshing to the latest main"
 fi
-ensure_tlb
-mkdir -p "$PROJECT/.tl"
-printf '%s\n' "$TLB" > "$PROJECT/.tl/tlb.path"
-say "tlb: $TLB"
-write_asmdef
-
-step "5/$STEPS" "compile"
-COMPILE_LOG="$LOGS/compile-$(basename "$PROJECT").log"
+write_helper
+IMPORT_LOG="$LOGS/import-$NAME.log"
 rc=0
-run_unity "$COMPILE_LOG" -projectPath "$(native "$PROJECT")" || rc=$?
-ERRORS="$(error_count "$COMPILE_LOG")"
-if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ]; then
-  if grep -qiE 'unable to read|could not read|authentication failed|repository not found' "$COMPILE_LOG" 2>/dev/null; then
-    say "Unity could not fetch $PKG_NAME from git: run \`gh auth login\` first"
+run_unity "$IMPORT_LOG" -projectPath "$(native "$PROJECT")" -executeMethod TlInstaller.Import || rc=$?
+ERRORS="$(error_count "$IMPORT_LOG")"
+if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ] || ! grep -q 'TL-INSTALL imported' "$IMPORT_LOG"; then
+  if grep -qiE 'unable to read|could not read|authentication failed|repository not found' "$IMPORT_LOG" 2>/dev/null; then
+    say "Unity could not fetch $PKG_NAME from git: run \`gh auth login\` and \`gh auth setup-git\` first"
   fi
-  diagnose_log "$COMPILE_LOG"
-  die "compile failed (exit $rc): $CAUSE, see $COMPILE_LOG"
+  remove_helper
+  diagnose_log "$IMPORT_LOG"
+  die "package or sample import failed (exit $rc): $CAUSE, see $IMPORT_LOG"
 fi
-COMPILE_RC="$rc"
-COMPILE_ERRORS="$ERRORS"
 RESOLVED="$(ls -t "$PROJECT/Library/PackageCache" 2>/dev/null | grep "^$PKG_NAME@" | head -n 1 || true)"
-if [ -z "$RESOLVED" ]; then
-  say "$PKG_NAME is not in Library/PackageCache: run \`gh auth login\` first, then run this again"
-  die "compile passed but $PKG_NAME did not resolve, see $COMPILE_LOG"
+say "package ${RESOLVED:-$PKG_NAME}, Force demo sample imported, $ERRORS error CS"
+
+step "5/$STEPS" "Force demo scenes (camera, light, ground, SubScene, cube)"
+BUILD_LOG="$LOGS/build-$NAME.log"
+rc=0
+run_unity "$BUILD_LOG" -projectPath "$(native "$PROJECT")" -executeMethod TlInstaller.Build || rc=$?
+ERRORS="$(error_count "$BUILD_LOG")"
+SCENE="$(grep -o 'TL-INSTALL scene=[^ ]*' "$BUILD_LOG" 2>/dev/null | head -n 1 | cut -d= -f2- | tr '+' ' ' || true)"
+remove_helper
+if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ] || [ -z "$SCENE" ]; then
+  diagnose_log "$BUILD_LOG"
+  die "building the demo scenes failed (exit $rc): $CAUSE, see $BUILD_LOG"
 fi
+say "scene: $SCENE"
 
-demo_field() {
-  printf '%s' "$1" | sed -n "s/.*$2=\([^ ]*\).*/\1/p"
-}
-
-demo_tlb() {
-  local name="$1"
-  shift
-  local out="$LOGS/demo-$name-$(basename "$PROJECT").log"
-  if ! (cd "$PROJECT" && dotnet "$TLB" "$@") >"$out" 2>&1; then
-    tail -n 5 "$out" | sed 's/^/    /'
-    die "tlb $name failed, see $out"
-  fi
-}
-
-DEMO_RESULT=""
-if [ "$DEMO" = 1 ]; then
-  DEMO_REL="Assets/EcsDemo"
-  DEMO_ROOT="$PROJECT/$DEMO_REL"
-  NAME_ARG="$(basename "$PROJECT")"
-
-  step "6/$STEPS" "demo: copy the sample into $DEMO_REL"
-  SAMPLE="$PROJECT/Library/PackageCache/$RESOLVED/Samples~/EcsDemo"
-  if [ -d "$DEMO_ROOT" ]; then
-    say "$DEMO_REL exists, left as is (delete the folder to get the sample again)"
-  else
-    if [ ! -d "$SAMPLE" ]; then
-      say "the resolved $RESOLVED is an old commit: delete the $PKG_NAME entry in Packages/packages-lock.json (and Library/PackageCache/$RESOLVED), then run this again"
-      die "$RESOLVED has no Samples~/EcsDemo: this package version is too old for --demo"
-    fi
-    mkdir -p "$PROJECT/Assets"
-    cp -R "$SAMPLE" "$DEMO_ROOT"
-    say "copied Samples~/EcsDemo from $RESOLVED"
-  fi
-
-  step "7/$STEPS" "demo: compile, Timeline Library asset, staged assemblies"
-  export TL_TLB="$TLB"
-  PREP_LOG="$LOGS/demo-prepare-$NAME_ARG.log"
-  rc=0
-  run_unity "$PREP_LOG" -projectPath "$(native "$PROJECT")" -executeMethod EcsDemoSetup.Prepare || rc=$?
-  ERRORS="$(error_count "$PREP_LOG")"
-  if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ] || ! grep -q 'EcsDemo prepared' "$PREP_LOG"; then
-    diagnose_log "$PREP_LOG"
-    die "demo prepare failed (exit $rc): $CAUSE, see $PREP_LOG"
-  fi
-  say "compiled with $ERRORS error CS, library asset and stage ready"
-
-  step "8/$STEPS" "demo: bake capacities (tlb kinds) and the library (tlb library)"
-  demo_tlb kinds kinds --library "$DEMO_REL/Timelines" --namespace Demo --out "$DEMO_REL/Kinds.g.cs" --assembly .tl/stage/Demo.dll --diagnostics json
-  demo_tlb library library "$DEMO_REL/Timelines" --assembly .tl/stage/Demo.dll --out "$DEMO_REL/Timelines/game.tlib" --ids "$DEMO_REL/Timelines/Timelines.g.cs" --kinds "$DEMO_REL/Kinds.g.cs" --namespace Demo
-  cp "$DEMO_ROOT/Timelines/game.tlib" "$DEMO_ROOT/Timelines/game.bytes"
-  say "capacities: $(grep -o 'const int [A-Za-z]* = [0-9]*' "$DEMO_ROOT/Kinds.g.cs" | sed 's/const int //; s/ = / /' | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
-  say "library: $DEMO_REL/Timelines/game.bytes ($(wc -c < "$DEMO_ROOT/Timelines/game.bytes" | tr -d ' ') bytes)"
-
-  step "9/$STEPS" "demo: scene and SubScene"
-  BUILD_LOG="$LOGS/demo-scene-$NAME_ARG.log"
-  rc=0
-  run_unity "$BUILD_LOG" -projectPath "$(native "$PROJECT")" -executeMethod EcsDemoSetup.Build || rc=$?
-  ERRORS="$(error_count "$BUILD_LOG")"
-  if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ] || ! grep -q 'EcsDemo scene' "$BUILD_LOG"; then
-    diagnose_log "$BUILD_LOG"
-    die "demo scene failed (exit $rc): $CAUSE, see $BUILD_LOG"
-  fi
-  say "wrote $DEMO_REL/Demo.unity with the SubScene DemoContent"
-
-  step "10/$STEPS" "demo: PlayMode test (the scene runs in the default world)"
-  TEST_LOG="$LOGS/demo-test-$NAME_ARG.log"
-  TEST_XML="$LOGS/demo-test-$NAME_ARG.xml"
-  TESTABLE="$(drop_testable "$MANIFEST")"
-  if [ "$TESTABLE" = dropped ]; then
-    say "removed $PKG_NAME from testables (its own tests register the same kind names as the demo)"
-  fi
-  rc=0
-  run_unity_tests "$TEST_LOG" "$TEST_XML" -projectPath "$(native "$PROJECT")" -testPlatform PlayMode || rc=$?
-  ERRORS="$(error_count "$TEST_LOG")"
-  LINE="$(grep -o 'EcsDemo result .*' "$TEST_LOG" 2>/dev/null | tail -n 1 || true)"
-  TEST_RUN="$(grep -o '<test-run [^>]*' "$TEST_XML" 2>/dev/null | head -n 1 || true)"
-  PASSED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* passed="\([0-9]*\)".*/\1/p')"
-  FAILED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* failed="\([0-9]*\)".*/\1/p')"
-  if [ -z "$LINE" ]; then
-    diagnose_log "$TEST_LOG"
-    die "the demo test printed no result (exit $rc): $CAUSE, see $TEST_LOG"
-  fi
-  W="$(demo_field "$LINE" walkerHealth)"; D="$(demo_field "$LINE" dummyHealth)"
-  C="$(demo_field "$LINE" cues)"; L="$(demo_field "$LINE" lastCue)"
-  X30="$(demo_field "$LINE" x30)"; X50="$(demo_field "$LINE" x50)"
-  DP="$(demo_field "$LINE" droppedPulses)"; DS="$(demo_field "$LINE" droppedStarts)"
-  echo
-  say "demo result"
-  say "  Walker health  $W   (guide: 58)"
-  say "  Dummy health   $D   (guide: 93)"
-  say "  Cues           $C, last cue $L   (guide: 2, last 2)"
-  say "  X at step 30   $X30"
-  say "  X at step 50   $X50   (guide: equal, ten steps back undo ten steps forward)"
-  say "  Dropped        $DP pulses, $DS starts   (guide: 0 and 0)"
-  say "  PlayMode test  passed ${PASSED:-?}, failed ${FAILED:-?}, error CS $ERRORS"
-  if [ "$W" != 58 ] || [ "$D" != 93 ] || [ "$C" != 2 ] || [ "$L" != 2 ] || [ -z "$X30" ] || [ "$X30" != "$X50" ] || [ "$DP" != 0 ] || [ "$DS" != 0 ] || [ "$PASSED" != 1 ] || [ "${FAILED:-1}" != 0 ] || [ "$ERRORS" -ne 0 ]; then
-    die "the demo numbers are not the guide's numbers (test exit $rc), see $TEST_LOG"
-  fi
-  DEMO_RESULT="ok"
-  say "  all numbers match the guide"
+step "6/$STEPS" "Force demo PlayMode test"
+TEST_LOG="$LOGS/test-$NAME.log"
+TEST_XML="$LOGS/test-$NAME.xml"
+rc=0
+run_unity_tests "$TEST_LOG" "$TEST_XML" -projectPath "$(native "$PROJECT")" -testPlatform PlayMode || rc=$?
+ERRORS="$(error_count "$TEST_LOG")"
+LINE="$(grep -o 'ForceDemo result .*' "$TEST_LOG" 2>/dev/null | tail -n 1 || true)"
+DASH="$(grep -o 'ControlDemo result .*' "$TEST_LOG" 2>/dev/null | tail -n 1 || true)"
+TEST_RUN="$(grep -o '<test-run [^>]*' "$TEST_XML" 2>/dev/null | head -n 1 || true)"
+PASSED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* passed="\([0-9]*\)".*/\1/p')"
+FAILED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* failed="\([0-9]*\)".*/\1/p')"
+if [ -z "$LINE" ]; then
+  diagnose_log "$TEST_LOG"
+  die "the Force demo test printed no result (exit $rc): $CAUSE, see $TEST_LOG"
+fi
+MOVED="$(field "$LINE" movedX)"
+say "cube pushed along X: $MOVED m (expected 4.0333)"
+if [ -n "$DASH" ]; then
+  say "Control demo: dash started at x $(field "$DASH" dashAtX), cube ends at z $(field "$DASH" endZ) (expected 3.0500)"
+fi
+say "PlayMode tests: passed ${PASSED:-?}, failed ${FAILED:-?}, error CS $ERRORS"
+if [ "$MOVED" != 4.0333 ] || [ "${FAILED:-1}" != 0 ] || [ "$ERRORS" -ne 0 ]; then
+  die "the demo did not give the expected numbers (test exit $rc), see $TEST_LOG"
 fi
 
 ELAPSED=$(( $(date +%s) - START ))
 echo
 say "Unity project:  $PROJECT"
-say "package:        $RESOLVED"
-say "tlb:            $TLB"
-say "compile:        exit $COMPILE_RC, error CS $COMPILE_ERRORS"
+say "package:        ${RESOLVED:-$PKG_NAME}"
 say "done in ${ELAPSED}s"
 echo
-if [ "$DEMO" = 1 ]; then
-  say "next: open the project and press Play"
-  say "  1. open it:  \"$UNITY\" -projectPath \"$(native "$PROJECT")\"   (or Unity Hub > Add > Add project from disk)"
-  say "  2. double-click $DEMO_REL/Demo.unity in the Project window, press Play"
-  say "  3. Window > Entities > Hierarchy: Walker and Dummy in the runtime world; Window > General > Test Runner > PlayMode > Run All repeats the numbers above"
-  say "  guide: $GUIDE"
-else
-  say "next: bash -s -- --demo <project-path> adds and runs the ECS demo, or follow $GUIDE section 3 onward"
-  say "      (the Game assembly replaces Demo in step 1)."
-fi
-say "tlb in a shell: export TL_TLB=\"$TLB\""
+say "next: open the project and press Play"
+say "  1. open it:  \"$UNITY\" -projectPath \"$(native "$PROJECT")\"   (or Unity Hub > Add > Add project from disk)"
+say "  2. open Force Demo (it is in File > Build Profiles' scene list and $SCENE); press Play: the cube slides about 4 m to the right"
+say "  3. tick the SubScene checkbox, select Cube, Window > Sequencing > Timeline: drag the playhead to preview without Play"
+say "  guide: $GUIDE"
