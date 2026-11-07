@@ -42,12 +42,81 @@ function Install-TlUnity {
         return [int]$p.ExitCode
     }
 
+    function Get-EditorHolder {
+        $norm = $project.Replace('/', '\').TrimEnd('\')
+        $hits = @()
+        foreach ($proc in @(Get-CimInstance Win32_Process -Filter "Name='Unity.exe'" -ErrorAction SilentlyContinue)) {
+            if ($proc.CommandLine -match '(?i)-projectpath(?:\s+|=)(?:"([^"]+)"|(\S+))') {
+                $value = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+                if ($value.Replace('/', '\').TrimEnd('\') -ieq $norm) {
+                    $hits += [pscustomobject]@{ ProcessId = $proc.ProcessId; Worker = [bool]($proc.CommandLine -match 'AssetImportWorker') }
+                }
+            }
+        }
+        if ($hits.Count -eq 0) { return $null }
+        return (($hits | Sort-Object Worker, ProcessId | Select-Object -First 1).ProcessId)
+    }
+
+    function Test-FileHeld($path) {
+        try { $stream = [System.IO.File]::Open($path, 'Open', 'ReadWrite', 'None'); $stream.Dispose(); return $false }
+        catch [System.IO.IOException] { return $true }
+        catch { return $false }
+    }
+
+    function Assert-ProjectClosed {
+        if (-not (Test-UnityProject $project)) { return }
+        $holder = Get-EditorHolder
+        $lock = Join-Path $project 'Temp\UnityLockfile'
+        if (-not $holder -and (Test-Path -LiteralPath $lock) -and (Test-FileHeld $lock)) { $holder = 'unknown' }
+        if ($holder) { Fail "Unity Editor is open on this project (PID $holder). Close it, then run this again. Project: $project" }
+        if (Test-Path -LiteralPath $lock) {
+            Say 'Temp/UnityLockfile is stale (no Unity process has this project open), removing it'
+            Remove-Item -LiteralPath $lock -Force -ErrorAction Stop
+        }
+    }
+
+    function Get-FailureCause($log) {
+        $source = $log
+        if (-not (Test-Path -LiteralPath $source)) { $source = "$log.stdout" }
+        if (-not (Test-Path -LiteralPath $source)) { return 'Unity wrote no log' }
+        if (Select-String -LiteralPath $source -Pattern 'another unity instance' -Quiet) {
+            return 'another Unity instance has this project open: close the Editor, then run this again'
+        }
+        if (Select-String -LiteralPath $source -Pattern 'no valid unity (editor )?license|not licensed|license.*(expired|invalid|not (been )?activated)|activation failed|unable to activate|failed to activate' -Quiet) {
+            return 'Unity license problem: open Unity Hub, sign in and activate a license, then run this again'
+        }
+        $count = Get-ErrorCount $source
+        if ($count -gt 0) {
+            Select-String -LiteralPath $source -Pattern 'error CS' -SimpleMatch | Select-Object -First 3 | ForEach-Object { Say "  $($_.Line)" }
+            return "compile errors ($count error CS)"
+        }
+        $abort = Select-String -LiteralPath $source -Pattern 'aborting batchmode' | Select-Object -First 1
+        if ($abort) { return $abort.Line.Trim() }
+        Get-Content -LiteralPath $source | Where-Object { $_.Trim() } | Select-Object -Last 5 | ForEach-Object { Say "  $_" }
+        return 'last lines of the log'
+    }
+
+    function Remove-LockEntry {
+        $lockPath = Join-Path $project 'Packages\packages-lock.json'
+        if (-not (Test-Path -LiteralPath $lockPath)) { return '' }
+        $lockJson = [System.IO.File]::ReadAllText($lockPath) | ConvertFrom-Json
+        if (-not $lockJson.PSObject.Properties['dependencies']) { return 'absent' }
+        $entry = $lockJson.dependencies.PSObject.Properties[$pkgName]
+        if (-not $entry) { return 'absent' }
+        $lockJson.dependencies.PSObject.Properties.Remove($pkgName)
+        $lockText = ($lockJson | ConvertTo-Json -Depth 32) -replace "`r`n", "`n"
+        [System.IO.File]::WriteAllText($lockPath, $lockText + "`n", $utf8)
+        return 'removed'
+    }
+
     function Invoke-Unity($log, [string[]]$extra) {
+        Assert-ProjectClosed
         $all = @('-batchmode', '-nographics', '-quit', '-logFile', $log) + $extra
         return (Invoke-Bounded $script:unity $all $timeoutMs "$log.stdout")
     }
 
     function Invoke-UnityTests($log, $xml, [string[]]$extra) {
+        Assert-ProjectClosed
         Remove-Item -LiteralPath $xml -Force -ErrorAction SilentlyContinue
         $all = @('-batchmode', '-nographics', '-logFile', $log, '-runTests', '-testResults', $xml) + $extra
         return (Invoke-Bounded $script:unity $all $timeoutMs "$log.stdout")
@@ -167,13 +236,13 @@ function Install-TlUnity {
     Say "editor: $($script:unity)"
 
     Step "3/$steps" "project: $project"
-    if (Test-UnityProject $project) { Say 'Unity project exists, adding to it' }
+    if (Test-UnityProject $project) { Say 'Unity project exists, adding to it'; Assert-ProjectClosed }
     else {
         New-Item -ItemType Directory -Force -Path $project | Out-Null
         $createLog = Join-Path $logs "create-$projectName.log"
         Say 'creating the project in batch mode (first import takes minutes)'
         $rc = Invoke-Unity $createLog @('-createProject', $project)
-        if (-not (Test-UnityProject $project)) { Fail "project creation failed (exit $rc), see $createLog" }
+        if (-not (Test-UnityProject $project)) { Fail "project creation failed (exit $rc): $(Get-FailureCause $createLog), see $createLog" }
     }
 
     Step "4/$steps" 'package, tlb, Game assembly'
@@ -190,6 +259,9 @@ function Install-TlUnity {
         Say "manifest ${pkgName}: added"
     }
 
+    if ((Remove-LockEntry) -eq 'removed') { Say "${pkgName}: refreshing to the latest main (dropped the pinned commit from Packages/packages-lock.json)" }
+    else { Say "${pkgName}: refreshing to the latest main" }
+
     $checkout = Join-Path $tlHome 'tl'
     $dll = Join-Path $checkout ($tlbRel -replace '/', '\')
     $before = ''
@@ -205,8 +277,13 @@ function Install-TlUnity {
         if ($LASTEXITCODE -ne 0) { Fail "git clone $tlRepo failed" }
     }
     $after = (& git -C $checkout rev-parse HEAD)
-    if ((-not (Test-Path -LiteralPath $dll)) -or ($before -ne $after)) {
+    $stamp = Join-Path $logs 'tlb-built.sha'
+    $built = ''
+    if (Test-Path -LiteralPath $stamp) { $built = (Get-Content -LiteralPath $stamp -Raw).Trim() }
+    Say "tlb: latest main is $($after.Substring(0, 9)), last build $($built.Substring(0, [Math]::Min(9, $built.Length)))"
+    if ((-not (Test-Path -LiteralPath $dll)) -or ($before -ne $after) -or ($built -ne $after)) {
         Say 'building tlb'
+        Remove-Item -LiteralPath $stamp -Force -ErrorAction SilentlyContinue
         $buildLog = Join-Path $logs 'tlb-build.log'
         $buildRc = Invoke-Bounded 'dotnet' @('build', (Join-Path $checkout 'tools\Tl.Bake'), '-c', 'Release', '-nologo', '-v', 'q') 900000 $buildLog
         if ($buildRc -ne 0) {
@@ -216,6 +293,7 @@ function Install-TlUnity {
     }
     else { Say 'tlb is up to date' }
     if (-not (Test-Path -LiteralPath $dll)) { Fail "tlb build did not produce $dll" }
+    [System.IO.File]::WriteAllText($stamp, $after + "`n", $utf8)
     $tlb = $dll -replace '\\', '/'
     New-Item -ItemType Directory -Force -Path (Join-Path $project '.tl') | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $project '.tl\tlb.path'), $tlb + "`n", $utf8)
@@ -254,17 +332,17 @@ function Install-TlUnity {
     $errors = 0
     if (Test-Path -LiteralPath $compileLog) { $errors = @(Select-String -LiteralPath $compileLog -Pattern 'error CS' -SimpleMatch).Count }
     if ($rc -ne 0 -or $errors -ne 0) {
-        Select-String -LiteralPath $compileLog -Pattern 'error CS' -SimpleMatch | Select-Object -First 20 | ForEach-Object { Say $_.Line }
+        $cause = Get-FailureCause $compileLog
         if (Select-String -LiteralPath $compileLog -Pattern 'unable to read|could not read|authentication failed|repository not found' -Quiet) {
             Say "Unity could not fetch $pkgName from git: run ``gh auth login`` first"
         }
-        Fail "compile failed (exit $rc, $errors error CS), see $compileLog"
+        Fail "compile failed (exit $rc): $cause, see $compileLog"
     }
     $compileRc = $rc
     $compileErrors = $errors
     $cache = Join-Path $project 'Library\PackageCache'
     $resolved = $null
-    if (Test-Path -LiteralPath $cache) { $resolved = Get-ChildItem -LiteralPath $cache -Directory -Filter "$pkgName@*" | Select-Object -First 1 }
+    if (Test-Path -LiteralPath $cache) { $resolved = Get-ChildItem -LiteralPath $cache -Directory -Filter "$pkgName@*" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 }
     if (-not $resolved) {
         Say "$pkgName is not in Library\PackageCache: run ``gh auth login`` first, then run this again"
         Fail "compile passed but $pkgName did not resolve, see $compileLog"
@@ -277,7 +355,10 @@ function Install-TlUnity {
         $sample = Join-Path $cache "$($resolved.Name)\Samples~\EcsDemo"
         if (Test-Path -LiteralPath $demoRoot) { Say "$demoRel exists, left as is (delete the folder to get the sample again)" }
         else {
-            if (-not (Test-Path -LiteralPath $sample)) { Fail "$($resolved.Name) has no Samples~/EcsDemo: this package version is too old for the demo" }
+            if (-not (Test-Path -LiteralPath $sample)) {
+                Say "the resolved $($resolved.Name) is an old commit: delete the $pkgName entry in Packages/packages-lock.json (and Library/PackageCache/$($resolved.Name)), then run this again"
+                Fail "$($resolved.Name) has no Samples~/EcsDemo: this package version is too old for the demo"
+            }
             New-Item -ItemType Directory -Force -Path (Join-Path $project 'Assets') | Out-Null
             Copy-Item -LiteralPath $sample -Destination $demoRoot -Recurse
             Say "copied Samples~/EcsDemo from $($resolved.Name)"
@@ -290,8 +371,7 @@ function Install-TlUnity {
         $demoErrors = Get-ErrorCount $prepLog
         $prepared = (Test-Path -LiteralPath $prepLog) -and (Select-String -LiteralPath $prepLog -Pattern 'EcsDemo prepared' -SimpleMatch -Quiet)
         if ($rc -ne 0 -or $demoErrors -ne 0 -or -not $prepared) {
-            Select-String -LiteralPath $prepLog -Pattern 'error CS' -SimpleMatch | Select-Object -First 20 | ForEach-Object { Say $_.Line }
-            Fail "demo prepare failed (exit $rc, $demoErrors error CS), see $prepLog"
+            Fail "demo prepare failed (exit $rc): $(Get-FailureCause $prepLog), see $prepLog"
         }
         Say "compiled with $demoErrors error CS, library asset and stage ready"
 
@@ -311,8 +391,7 @@ function Install-TlUnity {
         $demoErrors = Get-ErrorCount $sceneLog
         $built = (Test-Path -LiteralPath $sceneLog) -and (Select-String -LiteralPath $sceneLog -Pattern 'EcsDemo scene' -SimpleMatch -Quiet)
         if ($rc -ne 0 -or $demoErrors -ne 0 -or -not $built) {
-            Select-String -LiteralPath $sceneLog -Pattern 'error CS' -SimpleMatch | Select-Object -First 20 | ForEach-Object { Say $_.Line }
-            Fail "demo scene failed (exit $rc, $demoErrors error CS), see $sceneLog"
+            Fail "demo scene failed (exit $rc): $(Get-FailureCause $sceneLog), see $sceneLog"
         }
         Say "wrote $demoRel/Demo.unity with the SubScene DemoContent"
 
@@ -323,7 +402,7 @@ function Install-TlUnity {
         $demoErrors = Get-ErrorCount $testLog
         $hit = $null
         if (Test-Path -LiteralPath $testLog) { $hit = Select-String -LiteralPath $testLog -Pattern 'EcsDemo result (.*)$' | Select-Object -Last 1 }
-        if (-not $hit) { Fail "the demo test printed no result (exit $rc, $demoErrors error CS), see $testLog" }
+        if (-not $hit) { Fail "the demo test printed no result (exit $rc): $(Get-FailureCause $testLog), see $testLog" }
         $text = $hit.Matches[0].Groups[1].Value
         $passed = ''
         $failed = ''
@@ -380,4 +459,5 @@ catch {
     Write-Host "[tl] ERROR: $($_.Exception.Message)" -ForegroundColor Red
     $global:LASTEXITCODE = 1
     Write-Error 'tl install failed' -ErrorAction SilentlyContinue
+    if ($PSCommandPath) { exit 1 }
 }

@@ -151,9 +151,82 @@ resolve_unity() {
   UNITY="$(find_unity7)" || die "Unity 7 install finished but no 7000.* editor was found under $(editor_roots)"
 }
 
+editor_holders() {
+  local project="$1" lock="$1/Temp/UnityLockfile" script
+  if [ "$OS" = windows ]; then
+    script="$LOGS/check-editor.ps1"
+    cat > "$script" <<'PS'
+$p = $env:TL_CHECK_PROJECT.Replace('/', '\').TrimEnd('\')
+foreach ($proc in @(Get-CimInstance Win32_Process -Filter "Name='Unity.exe'" -ErrorAction SilentlyContinue)) {
+  if ($proc.CommandLine -match '(?i)-projectpath(?:\s+|=)(?:"([^"]+)"|(\S+))') {
+    $v = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+    if ($v.Replace('/', '\').TrimEnd('\') -ieq $p) {
+      $w = if ($proc.CommandLine -match 'AssetImportWorker') { 1 } else { 0 }
+      "$w $($proc.ProcessId)"
+    }
+  }
+}
+$lock = Join-Path $p 'Temp\UnityLockfile'
+if (Test-Path -LiteralPath $lock) {
+  try { $fs = [System.IO.File]::Open($lock, 'Open', 'ReadWrite', 'None'); $fs.Dispose() } catch [System.IO.IOException] { "2 unknown" } catch { }
+}
+PS
+    TL_CHECK_PROJECT="$(native "$project")" powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$(native "$script")" </dev/null 2>/dev/null | tr -d '\r' | sort -n | awk 'NR==1{print $2}'
+  else
+    {
+      ps -eo pid=,args= 2>/dev/null | P="$project" awk '
+        { pid = $1; line = $0; sub(/^ *[0-9]+ +/, "", line); split(line, t, " ")
+          if (t[1] !~ /(^|\/)Unity$/) next
+          i = index(tolower(line), "-projectpath ")
+          if (!i) next
+          rest = substr(line, i + 13); sub(/^"/, "", rest)
+          p = ENVIRON["P"]
+          if (index(rest, p) != 1) next
+          c = substr(rest, length(p) + 1, 1)
+          if (c == "" || c == " " || c == "/" || c == "\"") print (line ~ /AssetImportWorker/ ? 1 : 0), pid }'
+      if [ -e "$lock" ] && command -v lsof >/dev/null 2>&1; then
+        lsof -t "$lock" 2>/dev/null | awk '{ print 2, $1 }'
+      fi
+    } | sort -n | awk 'NR==1{print $2}'
+  fi
+}
+
+guard_project_closed() {
+  is_unity_project "$PROJECT" || return 0
+  local holder lock="$PROJECT/Temp/UnityLockfile"
+  holder="$(editor_holders "$PROJECT")"
+  if [ -n "$holder" ]; then
+    die "Unity Editor is open on this project (PID $holder). Close it, then run this again. Project: $PROJECT"
+  fi
+  if [ -e "$lock" ]; then
+    say "Temp/UnityLockfile is stale (no Unity process has this project open), removing it"
+    rm -f "$lock" || die "could not remove the stale $lock"
+  fi
+}
+
+diagnose_log() {
+  local log="$1" source="$1" hits
+  [ -f "$source" ] || source="$1.stdout"
+  if [ ! -f "$source" ]; then CAUSE="Unity wrote no log"; return 0; fi
+  if grep -qi 'another unity instance' "$source"; then
+    CAUSE="another Unity instance has this project open: close the Editor, then run this again"
+  elif grep -qiE 'no valid unity (editor )?license|not licensed|license.*(expired|invalid|not (been )?activated)|activation failed|unable to activate|failed to activate' "$source"; then
+    CAUSE="Unity license problem: open Unity Hub, sign in and activate a license, then run this again"
+  elif [ "$(error_count "$source")" -gt 0 ]; then
+    CAUSE="compile errors ($(error_count "$source") error CS)"
+    grep 'error CS' "$source" | head -n 3 | sed 's/^/    /'
+  elif hits="$(grep -i 'aborting batchmode' "$source" | head -n 1)" && [ -n "$hits" ]; then
+    CAUSE="$hits"
+  else
+    CAUSE="last lines of the log"
+    sed '/^[[:space:]]*$/d' "$source" | tail -n 5 | sed 's/^/    /'
+  fi
+}
+
 run_unity() {
   local log="$1"
   shift
+  guard_project_closed
   local rc=0
   if command -v timeout >/dev/null 2>&1; then
     timeout "$UNITY_TIMEOUT" "$UNITY" -batchmode -nographics -quit -logFile "$(native "$log")" "$@" </dev/null >"$log.stdout" 2>&1 || rc=$?
@@ -166,6 +239,7 @@ run_unity() {
 run_unity_tests() {
   local log="$1" xml="$2"
   shift 2
+  guard_project_closed
   local rc=0
   rm -f "$xml"
   if command -v timeout >/dev/null 2>&1; then
@@ -272,9 +346,49 @@ print("dropped")
   esac
 }
 
+drop_lock_entry() {
+  local file="$1" tool
+  [ -f "$file" ] || return 0
+  tool="$(pick_json_tool)" || die "need python3, python or node to edit $file"
+  file="$(native "$file")"
+  case "$tool" in
+    node)
+      node -e '
+        const fs = require("fs");
+        const [file, name] = process.argv.slice(1);
+        const json = JSON.parse(fs.readFileSync(file, "utf8"));
+        const deps = json.dependencies || {};
+        const entry = deps[name];
+        if (!entry) { console.log("absent"); process.exit(0); }
+        delete deps[name];
+        fs.writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
+        console.log("removed");
+      ' "$file" "$PKG_NAME"
+      ;;
+    *)
+      "$tool" -I -c '
+import json, sys
+file, name = sys.argv[1:3]
+with open(file, encoding="utf-8") as f:
+    data = json.load(f)
+deps = data.get("dependencies", {})
+entry = deps.get(name)
+if entry is None:
+    print("absent")
+    sys.exit(0)
+del deps[name]
+with open(file, "w", encoding="utf-8", newline="\n") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+print("removed")
+' "$file" "$PKG_NAME"
+      ;;
+  esac
+}
+
 ensure_tlb() {
-  local checkout="$TL_HOME/tl" before after
-  local dll="$checkout/$TLB_REL"
+  local checkout="$TL_HOME/tl" before after built
+  local dll="$checkout/$TLB_REL" stamp="$LOGS/tlb-built.sha"
   if [ -d "$checkout/.git" ]; then
     before="$(git -C "$checkout" rev-parse HEAD)"
     if git -C "$checkout" fetch --depth 1 --quiet origin main </dev/null; then
@@ -289,14 +403,18 @@ ensure_tlb() {
     before=""
     after="$(git -C "$checkout" rev-parse HEAD)"
   fi
-  if [ ! -f "$dll" ] || [ "$before" != "$after" ]; then
+  built="$(cat "$stamp" 2>/dev/null || true)"
+  say "tlb: latest main is ${after:0:9}, last build ${built:0:9}"
+  if [ ! -f "$dll" ] || [ "$before" != "$after" ] || [ "$built" != "$after" ]; then
     say "building tlb"
+    rm -f "$stamp"
     BUILD_LOG="$LOGS/tlb-build.log"
     dotnet build "$checkout/tools/Tl.Bake" -c Release -nologo -v q </dev/null >"$BUILD_LOG" 2>&1 || { tail -n 20 "$BUILD_LOG"; die "dotnet build of tools/Tl.Bake failed, see $BUILD_LOG"; }
   else
     say "tlb is up to date"
   fi
   [ -f "$dll" ] || die "tlb build did not produce $dll"
+  printf '%s\n' "$after" > "$stamp"
   TLB="$(native "$dll")"
 }
 
@@ -336,19 +454,29 @@ say "editor: $UNITY"
 step "3/$STEPS" "project: $PROJECT"
 if is_unity_project "$PROJECT"; then
   say "Unity project exists, adding to it"
+  guard_project_closed
 else
   mkdir -p "$PROJECT"
   CREATE_LOG="$LOGS/create-$(basename "$PROJECT").log"
   say "creating the project in batch mode (first import takes minutes)"
   rc=0
   run_unity "$CREATE_LOG" -createProject "$(native "$PROJECT")" || rc=$?
-  is_unity_project "$PROJECT" || die "project creation failed (exit $rc), see $CREATE_LOG"
+  if ! is_unity_project "$PROJECT"; then
+    diagnose_log "$CREATE_LOG"
+    die "project creation failed (exit $rc): $CAUSE, see $CREATE_LOG"
+  fi
 fi
 
 step "4/$STEPS" "package, tlb, Game assembly"
 MANIFEST="$PROJECT/Packages/manifest.json"
 [ -f "$MANIFEST" ] || die "missing $MANIFEST"
 say "manifest $PKG_NAME: $(add_dependency "$MANIFEST")"
+LOCK_FILE="$PROJECT/Packages/packages-lock.json"
+if [ "$(drop_lock_entry "$LOCK_FILE")" = removed ]; then
+  say "$PKG_NAME: refreshing to the latest main (dropped the pinned commit from Packages/packages-lock.json)"
+else
+  say "$PKG_NAME: refreshing to the latest main"
+fi
 ensure_tlb
 mkdir -p "$PROJECT/.tl"
 printf '%s\n' "$TLB" > "$PROJECT/.tl/tlb.path"
@@ -361,15 +489,15 @@ rc=0
 run_unity "$COMPILE_LOG" -projectPath "$(native "$PROJECT")" || rc=$?
 ERRORS="$(error_count "$COMPILE_LOG")"
 if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ]; then
-  grep 'error CS' "$COMPILE_LOG" | head -n 20 || true
   if grep -qiE 'unable to read|could not read|authentication failed|repository not found' "$COMPILE_LOG" 2>/dev/null; then
     say "Unity could not fetch $PKG_NAME from git: run \`gh auth login\` first"
   fi
-  die "compile failed (exit $rc, $ERRORS error CS), see $COMPILE_LOG"
+  diagnose_log "$COMPILE_LOG"
+  die "compile failed (exit $rc): $CAUSE, see $COMPILE_LOG"
 fi
 COMPILE_RC="$rc"
 COMPILE_ERRORS="$ERRORS"
-RESOLVED="$(ls "$PROJECT/Library/PackageCache" 2>/dev/null | grep "^$PKG_NAME@" | tail -n 1 || true)"
+RESOLVED="$(ls -t "$PROJECT/Library/PackageCache" 2>/dev/null | grep "^$PKG_NAME@" | head -n 1 || true)"
 if [ -z "$RESOLVED" ]; then
   say "$PKG_NAME is not in Library/PackageCache: run \`gh auth login\` first, then run this again"
   die "compile passed but $PKG_NAME did not resolve, see $COMPILE_LOG"
@@ -400,7 +528,10 @@ if [ "$DEMO" = 1 ]; then
   if [ -d "$DEMO_ROOT" ]; then
     say "$DEMO_REL exists, left as is (delete the folder to get the sample again)"
   else
-    [ -d "$SAMPLE" ] || die "$RESOLVED has no Samples~/EcsDemo: this package version is too old for --demo"
+    if [ ! -d "$SAMPLE" ]; then
+      say "the resolved $RESOLVED is an old commit: delete the $PKG_NAME entry in Packages/packages-lock.json (and Library/PackageCache/$RESOLVED), then run this again"
+      die "$RESOLVED has no Samples~/EcsDemo: this package version is too old for --demo"
+    fi
     mkdir -p "$PROJECT/Assets"
     cp -R "$SAMPLE" "$DEMO_ROOT"
     say "copied Samples~/EcsDemo from $RESOLVED"
@@ -413,8 +544,8 @@ if [ "$DEMO" = 1 ]; then
   run_unity "$PREP_LOG" -projectPath "$(native "$PROJECT")" -executeMethod EcsDemoSetup.Prepare || rc=$?
   ERRORS="$(error_count "$PREP_LOG")"
   if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ] || ! grep -q 'EcsDemo prepared' "$PREP_LOG"; then
-    grep 'error CS' "$PREP_LOG" | head -n 20 || true
-    die "demo prepare failed (exit $rc, $ERRORS error CS), see $PREP_LOG"
+    diagnose_log "$PREP_LOG"
+    die "demo prepare failed (exit $rc): $CAUSE, see $PREP_LOG"
   fi
   say "compiled with $ERRORS error CS, library asset and stage ready"
 
@@ -431,8 +562,8 @@ if [ "$DEMO" = 1 ]; then
   run_unity "$BUILD_LOG" -projectPath "$(native "$PROJECT")" -executeMethod EcsDemoSetup.Build || rc=$?
   ERRORS="$(error_count "$BUILD_LOG")"
   if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ] || ! grep -q 'EcsDemo scene' "$BUILD_LOG"; then
-    grep 'error CS' "$BUILD_LOG" | head -n 20 || true
-    die "demo scene failed (exit $rc, $ERRORS error CS), see $BUILD_LOG"
+    diagnose_log "$BUILD_LOG"
+    die "demo scene failed (exit $rc): $CAUSE, see $BUILD_LOG"
   fi
   say "wrote $DEMO_REL/Demo.unity with the SubScene DemoContent"
 
@@ -451,7 +582,8 @@ if [ "$DEMO" = 1 ]; then
   PASSED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* passed="\([0-9]*\)".*/\1/p')"
   FAILED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* failed="\([0-9]*\)".*/\1/p')"
   if [ -z "$LINE" ]; then
-    die "the demo test printed no result (exit $rc, $ERRORS error CS), see $TEST_LOG"
+    diagnose_log "$TEST_LOG"
+    die "the demo test printed no result (exit $rc): $CAUSE, see $TEST_LOG"
   fi
   W="$(demo_field "$LINE" walkerHealth)"; D="$(demo_field "$LINE" dummyHealth)"
   C="$(demo_field "$LINE" cues)"; L="$(demo_field "$LINE" lastCue)"
