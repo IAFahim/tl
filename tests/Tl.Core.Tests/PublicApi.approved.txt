@@ -70,6 +70,7 @@ type Tl.ITlModule
   Method Void FoldStep(Int32, Byte*, Byte*, Byte*, Single, UInt16, UInt16, UInt16, UInt16, UInt16, SByte, Byte*)
   Property Int32 PairCount
   Method UInt64 PairKey(Int32)
+type Tl.ITlTrack`1
 type Tl.ITrack`2
 type Tl.Inspection
   NestedType Tl.Inspection+BakeSnapshot
@@ -520,8 +521,55 @@ type Tl.TimelineWorld
   Method Tl.Requests Requests(Tl.PlaybackTable)
   Method Void Tick(Tl.PlaybackTable, Boolean)
   Property Tl.LibraryView View
+type Tl.TlAssetId
+  Method Boolean Equals(Tl.TlAssetId)
+  Method Boolean Equals(System.Object)
+  Method Int32 GetHashCode()
+  Property Boolean IsValid
+  Method System.String ToString()
+  Field UInt32 W
+  Field UInt32 X
+  Field UInt32 Y
+  Field UInt32 Z
+type Tl.TlClipAttribute
+  Property System.String Menu
+type Tl.TlCurve
+  NestedType Tl.TlCurve+<_values>e__FixedBuffer
+  Method Tl.TlCurve Constant(Single)
+  Method Single Evaluate(Single)
+  Property Single Item [Int32]
+  Field Int32 Samples
+type Tl.TlCurve+<_values>e__FixedBuffer
+  Field Single FixedElementField
+type Tl.TlFrame`1
+  Field TClip Clip
+  Field UInt16 ClipLength
+  Property Int32 Direction
+  Field Tl.FrameFlags Flags
+  Method Boolean Has(Tl.FrameFlags)
+  Property Boolean IsBackward
+  Property Single Progress
+  Field UInt16 Tick
+  Field UInt16 TrackIndex
+  Field UInt16 WithinClip
 type Tl.TlGenerated
   Method Void Install(Tl.ITlModule)
   Property System.Collections.Generic.IReadOnlyList`1[Tl.ITlModule] Modules
+type Tl.TlKindAttribute
+  Property Tl.KindEntries Accepts
+  Property Boolean FoldsPulses
+  Property Int32 GamePulses
+  Property System.String Group
+  Property Int32 Inline
+  Property Tl.KindMode Mode
+  Property Int32 Order
+type Tl.TlNoSettings`1
+  Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
+type Tl.TlTimeline
+  Field Tl.TlAssetId Asset
+  Method Boolean Equals(Tl.TlTimeline)
+  Method Boolean Equals(System.Object)
+  Method Int32 GetHashCode()
+  Property Boolean IsValid
 type Tl.TypeKey`1
   Field UInt64 Value
