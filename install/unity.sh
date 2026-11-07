@@ -230,6 +230,48 @@ print("added")
   esac
 }
 
+drop_testable() {
+  local manifest="$1" tool file
+  tool="$(pick_json_tool)" || die "need python3, python or node to edit $manifest"
+  file="$(native "$manifest")"
+  case "$tool" in
+    node)
+      node -e '
+        const fs = require("fs");
+        const [file, name] = process.argv.slice(1);
+        const json = JSON.parse(fs.readFileSync(file, "utf8"));
+        const list = json.testables || [];
+        if (!list.includes(name)) { console.log("absent"); process.exit(0); }
+        json.testables = list.filter((x) => x !== name);
+        if (json.testables.length === 0) delete json.testables;
+        fs.writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
+        console.log("dropped");
+      ' "$file" "$PKG_NAME"
+      ;;
+    *)
+      "$tool" -I -c '
+import json, sys
+file, name = sys.argv[1:3]
+with open(file, encoding="utf-8") as f:
+    data = json.load(f)
+items = data.get("testables", [])
+if name not in items:
+    print("absent")
+    sys.exit(0)
+items = [x for x in items if x != name]
+if items:
+    data["testables"] = items
+else:
+    del data["testables"]
+with open(file, "w", encoding="utf-8", newline="\n") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+print("dropped")
+' "$file" "$PKG_NAME"
+      ;;
+  esac
+}
+
 ensure_tlb() {
   local checkout="$TL_HOME/tl" before after
   local dll="$checkout/$TLB_REL"
@@ -397,6 +439,10 @@ if [ "$DEMO" = 1 ]; then
   step "10/$STEPS" "demo: PlayMode test (the scene runs in the default world)"
   TEST_LOG="$LOGS/demo-test-$NAME_ARG.log"
   TEST_XML="$LOGS/demo-test-$NAME_ARG.xml"
+  TESTABLE="$(drop_testable "$MANIFEST")"
+  if [ "$TESTABLE" = dropped ]; then
+    say "removed $PKG_NAME from testables (its own tests register the same kind names as the demo)"
+  fi
   rc=0
   run_unity_tests "$TEST_LOG" "$TEST_XML" -projectPath "$(native "$PROJECT")" -testPlatform PlayMode || rc=$?
   ERRORS="$(error_count "$TEST_LOG")"
