@@ -6,7 +6,11 @@ internal sealed class BakeWorkspace
 {
     internal static readonly BakeWorkspace Shared = new();
 
+#if NET
     private readonly Lock _gate = new();
+#else
+    private readonly object _gate = new();
+#endif
     private (ulong[] Structural, ulong[] Quotes)? _masks;
     private readonly Dictionary<ulong, byte[]> _pairPools = [];
     private readonly ConcurrentDictionary<(string Ns, string Type, string? Asm), Type> _typeCache = new();

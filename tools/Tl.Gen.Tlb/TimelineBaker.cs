@@ -15,17 +15,24 @@ public static class TimelineBaker
 
     public static byte[] BakeJson(byte[] utf8Json, BakerAssemblyResolver? resolver = null, bool autoNamespace = false, LibraryManifest? manifest = null)
     {
-        if (!System.Text.Unicode.Utf8.IsValid(utf8Json))
-            throw new BakeDiagnosticException($"invalid UTF-8 in authoring JSON at byte {FirstInvalidUtf8Offset(utf8Json)}: the bake input must be valid UTF-8; fix the input file encoding.");
+        if (NetCompat.FirstInvalidUtf8(utf8Json) >= 0)
+            throw new BakeDiagnosticException($"invalid UTF-8 in authoring JSON at byte {NetCompat.FirstInvalidUtf8(utf8Json)}: the bake input must be valid UTF-8; fix the input file encoding.");
         resolver ??= new BakerAssemblyResolver();
         return TimelineBakerFast.BakeJsonUtf8(utf8Json, resolver, null, autoNamespace, manifest);
     }
 
     private static byte[] BakeValidated(byte[] utf8Json, BakerAssemblyResolver resolver, bool autoNamespace, LibraryManifest? manifest = null)
     {
-        if (!System.Text.Unicode.Utf8.IsValid(utf8Json))
-            throw new BakeDiagnosticException($"invalid UTF-8 in authoring JSON at byte {FirstInvalidUtf8Offset(utf8Json)}: the bake input must be valid UTF-8; fix the input file encoding.");
+        if (NetCompat.FirstInvalidUtf8(utf8Json) >= 0)
+            throw new BakeDiagnosticException($"invalid UTF-8 in authoring JSON at byte {NetCompat.FirstInvalidUtf8(utf8Json)}: the bake input must be valid UTF-8; fix the input file encoding.");
         return TimelineBakerFast.BakeJsonUtf8(utf8Json, resolver, BakeWorkspace.Shared, autoNamespace, manifest);
+    }
+
+    public static byte[] BakeTyped(TypedTimeline timeline, BakerAssemblyResolver? resolver = null, LibraryManifest? manifest = null)
+    {
+        if (timeline == null)
+            throw new ArgumentNullException(nameof(timeline));
+        return TypedBake.Bake(timeline, resolver ?? BakerAssemblyResolver.FromAssemblies([]), manifest);
     }
 
     public static byte[][] BakeJsonBatch(IReadOnlyList<byte[]> utf8Jsons, BakerAssemblyResolver? resolver = null, bool autoNamespace = false, LibraryManifest? manifest = null)
@@ -47,11 +54,11 @@ public static class TimelineBaker
         try
         {
             var bytes = BakeValidated(utf8Json, resolver, autoNamespace, manifest);
-            return new BatchOutcome(bytes, null, System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+            return new BatchOutcome(bytes, null, NetCompat.ElapsedMs(start));
         }
         catch (Exception error)
         {
-            return new BatchOutcome(null, error, System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+            return new BatchOutcome(null, error, NetCompat.ElapsedMs(start));
         }
     }
 
@@ -81,19 +88,5 @@ public static class TimelineBaker
         }
         done.Wait();
         return outcomes;
-    }
-
-    private static int FirstInvalidUtf8Offset(byte[] utf8Json)
-    {
-        var span = utf8Json.AsSpan();
-        var offset = 0;
-        while (offset < span.Length)
-        {
-            var status = Rune.DecodeFromUtf8(span[offset..], out _, out var consumed);
-            if (status != System.Buffers.OperationStatus.Done)
-                return offset;
-            offset += consumed;
-        }
-        return span.Length;
     }
 }

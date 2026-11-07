@@ -16,6 +16,7 @@ type Tl.Gen.Tlb.TimelineBaker
   Method Byte[] BakeJson(System.String, Tl.Gen.Tlb.BakerAssemblyResolver, Boolean, Tl.Gen.Tlb.LibraryManifest)
   Method Byte[] BakeJson(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver, Boolean, Tl.Gen.Tlb.LibraryManifest)
   Method Byte[][] BakeJsonBatch(System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Tl.Gen.Tlb.BakerAssemblyResolver, Boolean, Tl.Gen.Tlb.LibraryManifest)
+  Method Byte[] BakeTyped(Tl.Gen.Tlb.TypedTimeline, Tl.Gen.Tlb.BakerAssemblyResolver, Tl.Gen.Tlb.LibraryManifest)
 type Tl.Gen.Tlb.TlbInspection
   Method System.String Inspect(System.ReadOnlySpan`1[System.Byte])
 type Tl.Gen.Tlb.TlbLabel
@@ -37,3 +38,27 @@ type Tl.Gen.Tlb.TlbTypeIdentity
   Property System.String Assembly
   Property System.String Name
   Property System.String Namespace
+type Tl.Gen.Tlb.TypedClip
+  Property Byte[] Data
+  Property UInt32 End
+  Property System.String Name
+  Property UInt32 Start
+  Property System.Type Type
+type Tl.Gen.Tlb.TypedMarker
+  Property Byte[] Data
+  Property UInt32 Tick
+  Property System.Type Type
+type Tl.Gen.Tlb.TypedTimeline
+  Property System.String Channel
+  Property UInt32 Duration
+  Property Boolean Hold
+  Property Boolean Loops
+  Property System.Collections.Generic.List`1[Tl.Gen.Tlb.TypedMarker] Markers
+  Property System.String Name
+  Property System.String Next
+  Property System.Collections.Generic.List`1[Tl.Gen.Tlb.TypedTrack] Tracks
+type Tl.Gen.Tlb.TypedTrack
+  Property System.Collections.Generic.List`1[Tl.Gen.Tlb.TypedClip] Clips
+  Property Byte[] Data
+  Property System.String Name
+  Property System.Type Type

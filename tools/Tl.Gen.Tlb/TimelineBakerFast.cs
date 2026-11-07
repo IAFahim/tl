@@ -1,7 +1,9 @@
 using System.Buffers.Binary;
 using System.Numerics;
+#if NET
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+#endif
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -183,7 +185,7 @@ internal sealed class FieldTable
     il.Emit(OpCodes.Ldarg_3);
     il.Emit(OpCodes.Blt, loop);
     il.Emit(OpCodes.Ret);
-    return method.CreateDelegate<FloatApplier>();
+    return (FloatApplier)method.CreateDelegate(typeof(FloatApplier));
     }
 
 }
@@ -1842,7 +1844,9 @@ internal static class TimelineBakerFastCore
                 var ctx = $"marker {mi}";
                 Type resolved;
                 var key = (marker.Ns, marker.TypeName, marker.Asm);
-                if (!doc.ResolveCache.TryGetValue(key, out resolved!))
+                if (marker.MarkerType != null)
+                    resolved = marker.MarkerType;
+                else if (!doc.ResolveCache.TryGetValue(key, out resolved!))
                 {
                     try { resolved = resolver.ResolveType(marker.Ns, marker.TypeName, marker.Asm, ctx); }
                     catch (BakeDiagnosticException ex) { throw new BakeDiagnosticException(ex.Message); }
@@ -1856,7 +1860,8 @@ internal static class TimelineBakerFastCore
                 if (doc.Duration == 0)
                     throw new BakeDiagnosticException($"marker outside [0, duration]: {ctx} tick {marker.Tick} exceeds timeline duration 0.");
                 var helper = TimelineBakerFast.HelperFor(resolved);
-                marker.Payload = new byte[helper.Size];
+                if (marker.Payload.Length != helper.Size)
+                    marker.Payload = new byte[helper.Size];
                 if (marker.DataCaptured)
                 {
                     var box = Activator.CreateInstance(resolved)!;
@@ -1996,11 +2001,15 @@ internal static class TimelineBakerFastCore
             var coveringFirst = new List<int>(lanes.Count);
             var coveringSecond = new List<int>(lanes.Count);
             var coverTables = BuildCoverTables(lanes);
+#if NET
             var vectorScan = Avx2.IsSupported;
+#endif
             for (var region = 0; region < stageCount; region++)
             {
                 var edge = boundaries[region];
+#if NET
                 var edgeVector = Vector256.Create((int)(edge ^ 0x8000_0000u));
+#endif
                 activeLaneIdx.Clear();
                 activeMin.Clear();
                 coveringFirst.Clear();
@@ -2010,6 +2019,7 @@ internal static class TimelineBakerFastCore
                     int first = -1, second = -1;
                     var minAuthored = int.MaxValue;
                     var table = coverTables[laneIdx];
+#if NET
                     if (vectorScan)
                     {
                         for (var off = 0; off < table.Padded; off += 8)
@@ -2034,6 +2044,7 @@ internal static class TimelineBakerFastCore
                         }
                     }
                     else
+#endif
                     {
                         var clips = lanes[laneIdx].ClipIds;
                         foreach (var clipIndex in clips)
@@ -2268,8 +2279,7 @@ internal static class TimelineBakerFastCore
             catch (ArgumentException ex)
             {
                 var intern = Tl.Inspection.Tables().Intern;
-                var digest = System.Security.Cryptography.SHA256.HashData(bytes);
-                throw new BakeDiagnosticException($"TLB validation failed: {ex.Message}; content {Convert.ToHexString(digest).ToLowerInvariant()[..16]}/{bytes.Length}B, intern live {intern.Live}/{intern.Distinct}, graveyard {intern.GraveyardBlocks}");
+                throw new BakeDiagnosticException($"TLB validation failed: {ex.Message}; content {NetCompat.Sha256Hex(bytes)[..16]}/{bytes.Length}B, intern live {intern.Live}/{intern.Distinct}, graveyard {intern.GraveyardBlocks}");
             }
 
             return bytes;

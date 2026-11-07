@@ -1399,7 +1399,7 @@ internal sealed unsafe class SimdWalker
         il.Emit(OpCodes.Sub);
         il.Emit(OpCodes.Conv_I);
         il.Emit(OpCodes.Ret);
-        var offsetOf = method.CreateDelegate<FieldOffsetDelegate>();
+        var offsetOf = (FieldOffsetDelegate)method.CreateDelegate(typeof(FieldOffsetDelegate));
         object probe = Activator.CreateInstance(declaring)!;
         return (int)offsetOf(probe);
     }

@@ -1,5 +1,7 @@
+#if NET
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+#endif
 
 namespace Tl.Gen.Tlb;
 
@@ -23,6 +25,7 @@ internal sealed class JsonStructuralIndex
     internal static bool TryScan(byte[] utf8, BakeWorkspace? workspace, out JsonStructuralIndex index)
     {
         index = null!;
+#if NET
         if (!Avx2.IsSupported || utf8.Length == 0)
             return false;
         var blocks = (utf8.Length + BlockBytes - 1) / BlockBytes;
@@ -53,8 +56,12 @@ internal sealed class JsonStructuralIndex
         }
         index = new JsonStructuralIndex(utf8, structural, quotes, blocks);
         return true;
+#else
+        return false;
+#endif
     }
 
+#if NET
     private static readonly Vector256<byte> StructuralHigh = Replicate(0x00, 0x00, 0x20, 0x80, 0x00, 0x50, 0x00, 0x50);
     private static readonly Vector256<byte> StructuralLow = Replicate(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x40, 0x20, 0x10);
 
@@ -155,6 +162,8 @@ internal sealed class JsonStructuralIndex
         var flags = Avx2.And(Avx2.Shuffle(high, highNibbles), Avx2.Shuffle(low, lowNibbles));
         return ~Avx2.CompareEqual(flags, zero).ExtractMostSignificantBits();
     }
+
+#endif
 
     private static ulong PrefixXor(ulong value)
     {
