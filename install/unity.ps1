@@ -207,8 +207,12 @@ function Install-TlUnity {
     $after = (& git -C $checkout rev-parse HEAD)
     if ((-not (Test-Path -LiteralPath $dll)) -or ($before -ne $after)) {
         Say 'building tlb'
-        & dotnet build (Join-Path $checkout 'tools\Tl.Bake') -c Release -nologo -v q -clp:NoSummary
-        if ($LASTEXITCODE -ne 0) { Fail 'dotnet build of tools/Tl.Bake failed' }
+        $buildLog = Join-Path $logs 'tlb-build.log'
+        $buildRc = Invoke-Bounded 'dotnet' @('build', (Join-Path $checkout 'tools\Tl.Bake'), '-c', 'Release', '-nologo', '-v', 'q') 900000 $buildLog
+        if ($buildRc -ne 0) {
+            if (Test-Path -LiteralPath $buildLog) { Get-Content -LiteralPath $buildLog -Tail 20 | ForEach-Object { Say $_ } }
+            Fail "dotnet build of tools/Tl.Bake failed (exit $buildRc), see $buildLog"
+        }
     }
     else { Say 'tlb is up to date' }
     if (-not (Test-Path -LiteralPath $dll)) { Fail "tlb build did not produce $dll" }
