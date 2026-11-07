@@ -9,7 +9,7 @@ internal enum KindRule : byte { Combine, Each }
 
 internal enum FeederTrigger : byte { Span, Start, End, Marker }
 
-internal sealed record KindInfo(string Name, string FullName, Type Value, int ValueBytes, KindAccepts Accepts, KindRule Mode, int Order, string? Group, bool Folds)
+internal sealed record KindInfo(string Name, string FullName, Type Value, int ValueBytes, KindAccepts Accepts, KindRule Mode, int Order, string? Group, bool Folds, int? Inline = null)
 {
     public int EntryBytes => KindCatalog.EntryBytes(Accepts, ValueBytes);
 }
@@ -19,6 +19,7 @@ internal sealed record FeederInfo(int Kind, FeederTrigger Trigger, string Consum
 internal sealed class KindCatalog
 {
     internal const string KindAttribute = "Tl.TimelineKindAttribute";
+    internal const string TlKindAttribute = "Tl.TlKindAttribute";
     internal const string FeedsAttribute = "Tl.FeedsAttribute";
     internal const string PulseAttribute = "Tl.PulseAttribute";
 
@@ -38,7 +39,7 @@ internal sealed class KindCatalog
         var kindTypes = new Dictionary<Type, int>();
         foreach (var type in types)
         {
-            var attribute = type.CustomAttributes.FirstOrDefault(a => a.AttributeType.FullName == KindAttribute);
+            var attribute = type.CustomAttributes.FirstOrDefault(a => a.AttributeType.FullName is KindAttribute or TlKindAttribute);
             if (attribute == null) continue;
             var where = $"kind '{type.FullName}'";
             if (!type.IsValueType) throw Bad($"{where}: [TimelineKind] needs a struct.");
@@ -62,7 +63,7 @@ internal sealed class KindCatalog
             if (catalog.Kinds.Any(k => k.Name == type.Name)) throw Bad($"{where}: another kind is already named '{type.Name}'; kind names must be unique.");
             if (catalog.Kinds.Count == 64) throw Bad($"{where}: more than 64 kinds; merge rare kinds into a kind group.");
             kindTypes[type] = catalog.Kinds.Count;
-            catalog.Kinds.Add(new KindInfo(type.Name, type.FullName!, value, bytes, accepts, mode, Named(attribute, "Order", 0), string.IsNullOrEmpty(group) ? null : group, folds));
+            catalog.Kinds.Add(new KindInfo(type.Name, type.FullName!, value, bytes, accepts, mode, Named(attribute, "Order", 0), string.IsNullOrEmpty(group) ? null : group, folds, Inline(attribute)));
         }
         foreach (var g in catalog.Kinds.Where(k => k.Group != null).Select(k => k.Group!).Distinct(StringComparer.Ordinal))
             if (catalog.Kinds.Any(k => k.Name == g)) throw Bad($"kind group '{g}' has the same name as a kind.");
@@ -141,6 +142,12 @@ internal sealed class KindCatalog
         => type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly).Where(m => m.Name == name).OrderBy(m => m.GetParameters().Length).FirstOrDefault();
 
     static Type Strip(Type type) => type.IsByRef ? type.GetElementType()! : type;
+
+    static int? Inline(CustomAttributeData attribute)
+    {
+        var inline = Named(attribute, "Inline", -1);
+        return inline >= 0 ? inline : null;
+    }
 
     static int Named(CustomAttributeData attribute, string name, int fallback)
     {

@@ -177,7 +177,7 @@ internal static class KindLayout
                 + Most(t => t.Channel == 0, t => t.MaxSpans[k]) * settings.StackDepth;
             if (kind.Accepts != KindAccepts.Spans) total += Most(_ => true, t => t.MaxPulses[k]) * (channelCount + settings.StackDepth) + o.GamePulses;
             worst[k] = total;
-            var capacity = o.Inline ?? Math.Min(total, (o.MaxInlineBytes ?? settings.MaxInlineBytes) / kind.EntryBytes);
+            var capacity = o.Inline ?? kind.Inline ?? Math.Min(total, (o.MaxInlineBytes ?? settings.MaxInlineBytes) / kind.EntryBytes);
             var top = timelines.OrderByDescending(t => t.MaxSpans[k] + t.MaxPulses[k]).FirstOrDefault(t => t.MaxSpans[k] + t.MaxPulses[k] > 0);
             rows.Add(new KindCapacityRow(kind.Name, false, total, capacity, kind.EntryBytes, top?.Name ?? (o.GamePulses > 0 ? "gamePulses" : "-")));
         }
