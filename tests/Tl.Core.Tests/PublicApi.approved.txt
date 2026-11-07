@@ -438,7 +438,9 @@ type Tl.PlaybackTable
   Method Boolean IsPlaying(Int32, UInt16)
   Property Tl.KindStore Kinds
   Field Int32 MaxSlots
+  Method Void Pause(Int32, UInt16)
   Property Tl.RequestQueue* Pending
+  Method Void Resume(Int32, UInt16)
   Property Int32 SlotsPerEntity
   Method Void Start(Int32, UInt16, UInt16)
   Method Void Stop(Int32, UInt16)
@@ -456,6 +458,8 @@ type Tl.PulseAttribute
   Property System.Type Kind
   Property Tl.ClipEvent On
 type Tl.RequestOp
+  Field Tl.RequestOp Pause
+  Field Tl.RequestOp Resume
   Field Tl.RequestOp Start
   Field Tl.RequestOp Stop
   Field Tl.RequestOp StopAll
@@ -478,6 +482,8 @@ type Tl.RequestRecord
   Field UInt16 Timeline
 type Tl.Requests
   Method Tl.Requests For(Int32, Int32)
+  Method Void Pause(UInt16)
+  Method Void Resume(UInt16)
   Method Void Start(UInt16, UInt16)
   Method Void Stop(UInt16)
   Method Void StopAll()

@@ -175,6 +175,25 @@ public sealed unsafe class RuntimeTests : IDisposable
     }
 
     [Fact]
+    public void PauseHoldsTheTickAndResumeContinues()
+    {
+        _players.Start(0, 2);
+        _world.ApplyRequests(_players);
+        for (var f = 0; f < 5; f++) _world.Advance(_players, forward: true);
+        var tick = _players.SlotsOf(0)[0].Tick;
+        _players.Pause(0, 2);
+        _world.ApplyRequests(_players);
+        Assert.NotEqual(0, (int)(_players.SlotsOf(0)[0].Flags & PlaybackFlags.Paused));
+        for (var f = 0; f < 5; f++) _world.Advance(_players, forward: true);
+        Assert.Equal(tick, _players.SlotsOf(0)[0].Tick);
+        _players.Resume(0, 2);
+        _world.ApplyRequests(_players);
+        Assert.Equal(0, (int)(_players.SlotsOf(0)[0].Flags & PlaybackFlags.Paused));
+        _world.Advance(_players, forward: true);
+        Assert.Equal(tick + 1, _players.SlotsOf(0)[0].Tick);
+    }
+
+    [Fact]
     public void StopChannelRemovesOnlyThatChannel()
     {
         _players.Start(0, 2);
