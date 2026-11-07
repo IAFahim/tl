@@ -249,7 +249,7 @@ ensure_tlb() {
   fi
   if [ ! -f "$dll" ] || [ "$before" != "$after" ]; then
     say "building tlb"
-    dotnet build "$checkout/tools/Tl.Bake" -c Release -nologo -v q </dev/null
+    dotnet build "$checkout/tools/Tl.Bake" -c Release -nologo -v q -clp:NoSummary </dev/null
   else
     say "tlb is up to date"
   fi
