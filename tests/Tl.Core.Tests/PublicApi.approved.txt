@@ -69,6 +69,7 @@ type Tl.IBlend`1
 type Tl.IHostedConsumer
 type Tl.IKindRows
   Method Tl.KindEntry* Append(Int32, Tl.LibraryFeeder*)
+  Method Void Purge(Int32, Byte, UInt16)
   Method Void RemoveSpan(Int32, Int32, Byte, UInt16, UInt16)
 type Tl.IMarker`1
 type Tl.IPlaybackSlots
@@ -279,6 +280,7 @@ type Tl.KindPulses`2
   Method Void To(Int32, T)
 type Tl.KindRules
   Method Void Close[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
+  Method Boolean Rebind[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
   Method Void Reenter[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
   Method Boolean TickEntity[TRows](Tl.KindTables ByRef, Tl.Playback*, Int32, TRows ByRef, Int32, Int32)
 type Tl.KindSectionView
@@ -338,6 +340,7 @@ type Tl.KindTable
   Field UInt16* Length
   Field Int32 MaxLength
   Field Int32 Overflows
+  Method Void Purge(Int32, Byte, UInt16)
   Method Void RemovePulses(Int32)
   Method Boolean RemoveSpan(Int32, Byte, UInt16, UInt16, Int32)
   Field Int32 Rows
@@ -495,6 +498,7 @@ type Tl.PlaybackFlags
   Field Tl.PlaybackFlags Ended
   Field Tl.PlaybackFlags None
   Field Tl.PlaybackFlags Paused
+  Field Tl.PlaybackFlags ReenterPending
   Field Tl.PlaybackFlags Reverse
   Field Tl.PlaybackFlags StartPending
   Field Tl.PlaybackFlags StopAged
@@ -507,6 +511,7 @@ type Tl.PlaybackRules
   Method Boolean IsLive(Tl.Playback ByRef)
   Method Boolean IsPlaying[TSlots](TSlots ByRef, UInt16)
   Method Boolean Pause[TSlots](TSlots ByRef, UInt16, Boolean)
+  Method Boolean Rebind(Tl.Playback ByRef, Tl.LibraryTimeline*, Int32)
   Method Boolean Start[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, UInt16, UInt16, Boolean ByRef)
   Method Boolean Stop[TSlots](TSlots ByRef, UInt16)
   Method Void StopAll[TSlots](TSlots ByRef)

@@ -240,7 +240,7 @@ if (__stage is null) continue;
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 __rq0 = __req0.For(__e, __s);
@@ -262,7 +262,7 @@ ushort __len0 = (ushort)(__def->WindowEnd - __def->WindowStart);
 ushort __within0 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __base, out var __t0, out var __cc0, out var __f0);
-if (__tick == __def->WindowStart) global::Game.ChangeStat.OnClipStart(in __f0, ref __c2[__e]);
+if (__tick == __def->WindowStart && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Game.ChangeStat.OnClipStart(in __f0, ref __c2[__e]);
 break;
 }
 case 1:
@@ -277,7 +277,7 @@ ushort __len1 = (ushort)(__def->WindowEnd - __def->WindowStart);
 ushort __within1 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir1 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_1(__row1, __first1, __second1, __blend1, __tick, __len1, __within1, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir1, __base, out var __t1, out var __cc1, out var __f1);
-if (__tick == __def->WindowStart) global::Game.Cues.OnClipStart(in __f1, ref __eb0);
+if (__tick == __def->WindowStart && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Game.Cues.OnClipStart(in __f1, ref __eb0);
 break;
 }
 case 3:
@@ -318,7 +318,7 @@ else
 __fd4_0 = *(float*)(__lane4 + 0);
 }
 global::Game.Jump.ExecuteActive(in __f4, in __fd4_0, ref __c0[__e], in __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::Game.Jump.OnClipEnd(in __f4);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Game.Jump.OnClipEnd(in __f4);
 break;
 }
 case 5:
@@ -334,12 +334,12 @@ ushort __within5 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir5 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_5(__row5, __first5, __second5, __blend5, __tick, __len5, __within5, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir5, __base, out var __t5, out var __cc5, out var __f5);
 global::Game.Move.ExecuteActive(in __f5, ref __c0[__e]);
-if (__tick == __def->WindowEnd - 1) global::Game.Move.OnClipEnd(in __f5);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Game.Move.OnClipEnd(in __f5);
 break;
 }
 }
 }
-if (global::Tl.LibraryViewReader.HasEvent(__tl, __tick))
+if ((__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0 && global::Tl.LibraryViewReader.HasEvent(__tl, __tick))
 {
 var __mev = global::Tl.LibraryViewReader.Events(__tl);
 for (var __mk = 0; __mk < __mev.Length; __mk++)
@@ -459,7 +459,7 @@ if (__stage != null)
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 __rq0 = __req0.For(__e, __s);
@@ -481,7 +481,7 @@ ushort __len0 = (ushort)(__def->WindowEnd - __def->WindowStart);
 ushort __within0 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __base, out var __t0, out var __cc0, out var __f0);
-if (__tick == __def->WindowStart) global::Game.ChangeStat.OnClipStart(in __f0, ref __c2[__e]);
+if (__tick == __def->WindowStart && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Game.ChangeStat.OnClipStart(in __f0, ref __c2[__e]);
 break;
 }
 case 1:
@@ -496,7 +496,7 @@ ushort __len1 = (ushort)(__def->WindowEnd - __def->WindowStart);
 ushort __within1 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir1 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_1(__row1, __first1, __second1, __blend1, __tick, __len1, __within1, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir1, __base, out var __t1, out var __cc1, out var __f1);
-if (__tick == __def->WindowStart) global::Game.Cues.OnClipStart(in __f1, ref __eb0);
+if (__tick == __def->WindowStart && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Game.Cues.OnClipStart(in __f1, ref __eb0);
 break;
 }
 case 3:
@@ -537,7 +537,7 @@ else
 __fd4_0 = *(float*)(__lane4 + 0);
 }
 global::Game.Jump.ExecuteActive(in __f4, in __fd4_0, ref __c0[__e], in __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::Game.Jump.OnClipEnd(in __f4);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Game.Jump.OnClipEnd(in __f4);
 break;
 }
 case 5:
@@ -553,12 +553,12 @@ ushort __within5 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir5 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_5(__row5, __first5, __second5, __blend5, __tick, __len5, __within5, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir5, __base, out var __t5, out var __cc5, out var __f5);
 global::Game.Move.ExecuteActive(in __f5, ref __c0[__e]);
-if (__tick == __def->WindowEnd - 1) global::Game.Move.OnClipEnd(in __f5);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Game.Move.OnClipEnd(in __f5);
 break;
 }
 }
 }
-if (global::Tl.LibraryViewReader.HasEvent(__tl, __tick))
+if ((__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0 && global::Tl.LibraryViewReader.HasEvent(__tl, __tick))
 {
 var __mev = global::Tl.LibraryViewReader.Events(__tl);
 for (var __mk = 0; __mk < __mev.Length; __mk++)
@@ -662,7 +662,7 @@ if (__stage is null) continue;
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 __eb0 = __ev0; __eb0.Bind(__e, __s);
@@ -751,7 +751,7 @@ if (__stage != null)
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 __eb0 = __ev0; __eb0.Bind(__e, __s);

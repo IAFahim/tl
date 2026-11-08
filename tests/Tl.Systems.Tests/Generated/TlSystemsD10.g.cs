@@ -134,7 +134,7 @@ if (__stage is null) continue;
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -165,7 +165,7 @@ else
 __fd0_0 = *(float*)(__lane0 + 0);
 }
 global::D10.TwoTrackFold.ExecuteActive(in __f0, in __fd0_0, ref __c0[__e], ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::D10.TwoTrackFold.OnClipEnd(in __f0);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::D10.TwoTrackFold.OnClipEnd(in __f0);
 break;
 }
 }
@@ -240,7 +240,7 @@ if (__stage != null)
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -271,7 +271,7 @@ else
 __fd0_0 = *(float*)(__lane0 + 0);
 }
 global::D10.TwoTrackFold.ExecuteActive(in __f0, in __fd0_0, ref __c0[__e], ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::D10.TwoTrackFold.OnClipEnd(in __f0);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::D10.TwoTrackFold.OnClipEnd(in __f0);
 break;
 }
 }

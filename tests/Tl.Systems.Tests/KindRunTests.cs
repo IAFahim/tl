@@ -159,6 +159,62 @@ public sealed unsafe class KindRunTests : IDisposable
     }
 
     [Fact]
+    public void ReloadKeepsTheTickAndReentersSpansWithoutRepeatingStartPulses()
+    {
+        _players.Start(0, Jump);
+        Step();
+        Assert.Equal(-1, _stamina[0].Value);
+        Assert.Equal(0, _players.View.SlotOf(0, 0)->Tick);
+        _world.Reload(File.ReadAllBytes(Path("game.tlib")));
+        Step();
+        Assert.Equal(0, _players.View.SlotOf(0, 0)->Tick);
+        Assert.Equal(-1, _stamina[0].Value);
+        Assert.Equal(12f, _motion[0].Y);
+        var lift = _store.IndexOf("Lift");
+        var table = _store.Table(lift);
+        var row = _store.RowOf(0, lift);
+        Assert.Equal(1, table->Length[row]);
+        Assert.Equal(KindEntryFlags.Span | KindEntryFlags.Synthetic, table->At(row, 0)->Flags);
+        Step();
+        Assert.Equal(1, _players.View.SlotOf(0, 0)->Tick);
+        Assert.Equal(-1, _stamina[0].Value);
+    }
+
+    [Fact]
+    public void ReloadPreservesAPausedPlaybackWithoutApplyingItsSpans()
+    {
+        _players.Start(0, Jump);
+        Step();
+        _players.Pause(0, Jump);
+        Step();
+        var before = _motion[0].Y;
+        _world.Reload(File.ReadAllBytes(Path("game.tlib")));
+        Step();
+        Assert.Equal(PlaybackFlags.Paused, _players.View.SlotOf(0, 0)->Flags & PlaybackFlags.Paused);
+        Assert.Equal(0, _players.View.SlotOf(0, 0)->Tick);
+        Assert.Equal(before, _motion[0].Y);
+        Assert.Equal(-1, _stamina[0].Value);
+        _players.Resume(0, Jump);
+        Step();
+        Assert.Equal(1, _players.View.SlotOf(0, 0)->Tick);
+        Assert.Equal(before + 6f, _motion[0].Y);
+    }
+
+    [Fact]
+    public void ReloadDropsStoppingSlotsWithoutReenteringThem()
+    {
+        _players.Start(0, Jump);
+        Step();
+        _players.Stop(0, Jump);
+        _world.ApplyRequests(_players);
+        _world.Reload(File.ReadAllBytes(Path("game.tlib")));
+        Step();
+        Assert.Equal(0, _players.View.SlotOf(0, 0)->Timeline);
+        Assert.Equal(6f, _motion[0].Y);
+        Assert.Equal(-1, _stamina[0].Value);
+    }
+
+    [Fact]
     public void ALibraryBakedAgainstOtherFeedersFailsWithARebakeHint()
     {
         using var stale = new KindRunTests("stale.tlib");

@@ -1,5 +1,6 @@
 using Game;
 using Tl;
+using Tl.Gen.Tlb;
 using Xunit;
 
 namespace Tl.Systems.Tests;
@@ -20,6 +21,41 @@ public sealed unsafe class LoaderRunTests
         world.ApplyRequests(players);
         new Movement { Motion = motion, JumpPower = power, Stats = stats, Input = input, Anim = anim, Feet = feet, Requests = world.Requests(players), Cues = cues.Writer }.Run(world, players, forward);
         world.Advance(players, forward);
+    }
+
+    [Fact]
+    public void AShorterLiveLibraryDoesNotReplayMarkersAtTheReplacementPosition()
+    {
+        var resolver = BakerAssemblyResolver.FromAssemblies([typeof(ArcTrack).Assembly]);
+        byte[] Library(int duration, int marker)
+        {
+            var json = $$$"""
+                {"name":"mini","duration":{{{duration}}},"loop":true,"tracks":[
+                {"namespace":"Game","type":"ArcTrack","data":{"Scale":1},"clips":[
+                {"namespace":"Game","type":"ArcClip","start":0,"end":{{{duration}}},"data":{"Velocity":2}}]}],
+                "markers":[{"namespace":"Game","type":"FootstepMarker","tick":0,"data":{"Step":{{{marker}}}}}]}
+                """;
+            return LibraryAssembler.Assemble([new LibraryPart { Name = "mini", Tlb = TimelineBaker.BakeJson(json, resolver) }], 60, LibrarySettings.Default);
+        }
+        using var world = new TimelineWorld(Library(8, 1));
+        using var players = new PlaybackTable(1);
+        using var cues = new Events<Cue>(16);
+        var motion = new Motion[1];
+        var power = new[] { new JumpPower(1f) };
+        var stats = new Stats[1];
+        var input = new InputState[1];
+        var anim = new Anim[1];
+        var feet = new Foot[1];
+        players.Start(0, 1);
+        Step(world, players, motion, power, stats, input, anim, feet, cues);
+        Assert.Equal(1001, cues.Drain()[0].Value.Code);
+        Assert.Equal(1, players.View.SlotOf(0, 0)->Tick);
+        world.Reload(Library(1, 2));
+        Step(world, players, motion, power, stats, input, anim, feet, cues);
+        Assert.Equal(0, players.View.SlotOf(0, 0)->Tick);
+        Assert.Equal(0, cues.Count);
+        Step(world, players, motion, power, stats, input, anim, feet, cues);
+        Assert.Equal(1002, cues.Drain()[0].Value.Code);
     }
 
     [Fact]
