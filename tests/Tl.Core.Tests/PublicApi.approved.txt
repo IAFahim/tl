@@ -1,3 +1,8 @@
+type Tl.AdvanceResult
+  Field Tl.AdvanceResult Kept
+  Field Tl.AdvanceResult Removed
+  Field Tl.AdvanceResult Unknown
+  Field Byte value__
 type Tl.BatchItem`1
   Field R Fold
   Field Int32 Row
@@ -494,6 +499,7 @@ type Tl.PlaybackFlags
   Field Tl.PlaybackFlags Stopping
   Field Byte value__
 type Tl.PlaybackRules
+  Method Tl.AdvanceResult Advance(Tl.Playback ByRef, Tl.LibraryTimeline*, Int32, Boolean)
   Method Void Apply[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Tl.RequestOp, UInt16, UInt16)
   Method Boolean Find[TSlots](TSlots ByRef, Byte, Tl.Playback ByRef)
   Method Boolean IsLive(Tl.Playback ByRef)

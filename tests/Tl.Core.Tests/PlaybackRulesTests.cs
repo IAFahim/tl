@@ -114,4 +114,43 @@ public unsafe class PlaybackRulesTests
         Assert.Equal(1, slots[0].Timeline);
         Assert.False(Start(ref slots, 3));
     }
+
+    static AdvanceResult Advance(ref Playback slot, bool forward = true)
+    {
+        fixed (LibraryTimeline* t = Timelines) return PlaybackRules.Advance(ref slot, t, Timelines.Length, forward);
+    }
+
+    [Fact]
+    public void AdvanceWrapsLoopsAndHandsOverToNext()
+    {
+        var run = new Playback { Timeline = 1, Tick = 9, Channel = 1 };
+        Assert.Equal(AdvanceResult.Kept, Advance(ref run));
+        Assert.Equal(0, run.Tick);
+        Assert.Equal(AdvanceResult.Kept, Advance(ref run, false));
+        Assert.Equal(9, run.Tick);
+        var jump = new Playback { Timeline = 2, Tick = 5, Channel = 7, Flags = PlaybackFlags.StartPending };
+        Assert.Equal(AdvanceResult.Kept, Advance(ref jump));
+        Assert.Equal(1, jump.Timeline);
+        Assert.Equal(0, jump.Tick);
+        Assert.Equal(1, jump.Channel);
+        Assert.Equal(PlaybackFlags.StartPending, jump.Flags);
+        Assert.Equal(AdvanceResult.Kept, Advance(ref jump));
+        Assert.Equal(PlaybackFlags.None, jump.Flags);
+    }
+
+    [Fact]
+    public void AdvanceEndsRemovesPausesAndReverses()
+    {
+        var slide = new Playback { Timeline = 3, Tick = 7 };
+        Assert.Equal(AdvanceResult.Removed, Advance(ref slide));
+        var back = new Playback { Timeline = 3, Tick = 4, Flags = PlaybackFlags.Reverse };
+        Assert.Equal(AdvanceResult.Kept, Advance(ref back));
+        Assert.Equal(3, back.Tick);
+        var paused = new Playback { Timeline = 1, Tick = 4, Flags = PlaybackFlags.Paused | PlaybackFlags.StartPending };
+        Assert.Equal(AdvanceResult.Kept, Advance(ref paused));
+        Assert.Equal(4, paused.Tick);
+        Assert.Equal(PlaybackFlags.Paused, paused.Flags);
+        var lost = new Playback { Timeline = 9 };
+        Assert.Equal(AdvanceResult.Unknown, Advance(ref lost));
+    }
 }
