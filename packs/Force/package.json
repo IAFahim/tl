@@ -1,0 +1,9 @@
+{
+  "name": "com.tl.pack.force",
+  "version": "0.1.0",
+  "displayName": "Tl Force Pack",
+  "description": "Portable force clips, additive kinds and state for Tl timelines.",
+  "unity": "7000.0",
+  "license": "MIT",
+  "author": { "name": "IAFahim", "url": "https://github.com/IAFahim" }
+}
