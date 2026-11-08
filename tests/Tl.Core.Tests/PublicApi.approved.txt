@@ -484,6 +484,10 @@ type Tl.MarkerFrame`1
 type Tl.MarkerTableRegistry
   Method Void Register(Tl.TimelineWorld, UInt16, Void*, Int32, Int32)
   Method Boolean TryResolve(Tl.TimelineWorld, UInt16, UInt32, Int32, Byte* ByRef)
+type Tl.Mathematics.float3
+  Field Single x
+  Field Single y
+  Field Single z
 type Tl.Playback
   Field Byte Channel
   Field Tl.PlaybackFlags Flags

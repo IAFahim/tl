@@ -4,6 +4,9 @@
     <Project Path="src/Tl.Core/Tl.Core.csproj" />
     <Project Path="src/Tl.Gen.CSharp/Tl.Gen.CSharp.csproj" />
   </Folder>
+  <Folder Name="/packs/">
+    <Project Path="packs/Force/Tl.Pack.Force.csproj" />
+  </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Runner/Runner.csproj" />
   </Folder>
@@ -11,6 +14,7 @@
     <Project Path="tests/Tl.Core.Tests/Tl.Core.Tests.csproj" />
     <Project Path="tests/Tl.Fuzz/Tl.Fuzz.csproj" />
     <Project Path="tests/Tl.Gen.CSharp.Tests/Tl.Gen.CSharp.Tests.csproj" />
+    <Project Path="tests/Tl.Packs.Tests/Tl.Packs.Tests.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/Systems/Systems.csproj" />
