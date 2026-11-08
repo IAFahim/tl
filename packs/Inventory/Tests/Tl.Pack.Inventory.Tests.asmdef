@@ -1,0 +1,27 @@
+{
+  "name": "Tl.Pack.Inventory.Tests",
+  "rootNamespace": "Tl.Pack.Inventory.Tests",
+  "references": [
+    "Tl.Core",
+    "Tl.Unity",
+    "Tl.Pack.Inventory",
+    "Unity.Burst",
+    "Unity.Collections",
+    "Unity.Entities",
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "noEngineReferences": false
+}

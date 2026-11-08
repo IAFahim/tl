@@ -1,0 +1,9 @@
+{
+  "name": "com.tl.pack.inventory",
+  "version": "0.1.0",
+  "displayName": "Tl Inventory Pack",
+  "description": "Portable item gives, crafts and pickups on a bag for Tl timelines.",
+  "unity": "7000.0",
+  "license": "MIT",
+  "author": { "name": "IAFahim", "url": "https://github.com/IAFahim" }
+}
