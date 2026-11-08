@@ -27,6 +27,43 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
             .WithComparer(AnalysisComparer.Instance)
             .WithTrackingName("Tl.Analysis");
         context.RegisterSourceOutput(analysis, static (production, result) => Produce(production, result));
+        var systems = context.CompilationProvider
+            .Select(static (compilation, cancellation) => AnalyzeSystems(compilation, cancellation))
+            .WithComparer(AnalysisComparer.Instance)
+            .WithTrackingName("Tl.Systems");
+        context.RegisterSourceOutput(systems, static (production, result) => Produce(production, result));
+    }
+
+    private static Analysis AnalyzeSystems(Compilation compilation, CancellationToken cancellation)
+    {
+        var empty = new Analysis([], [], "");
+        if (compilation is not CSharpCompilation csharp) return empty;
+        var kind = compilation.GetTypeByMetadataName("Tl.TlKindAttribute");
+        var track = compilation.GetTypeByMetadataName("Tl.ITlTrack`1");
+        if (kind is null || track is null) return empty;
+        var id = string.Concat((compilation.AssemblyName ?? "Game").Select(static c => char.IsLetterOrDigit(c) ? c : '_'));
+        if (compilation.Assembly.GetTypeByMetadataName("TlSystems.TlModule_" + id) is not null) return empty;
+        var found = false;
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            var semantic = compilation.GetSemanticModel(tree);
+            foreach (var syntax in tree.GetRoot(cancellation).DescendantNodes().OfType<TypeDeclarationSyntax>())
+            {
+                if (semantic.GetDeclaredSymbol(syntax, cancellation) is not INamedTypeSymbol type) continue;
+                if (type.GetAttributes().Any(attribute => SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, kind))
+                    || type.AllInterfaces.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, track)))
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+        if (!found) return empty;
+        var emitted = SystemGeneration.Emit(csharp, id);
+        var fingerprint = string.Join("\0", emitted.Diagnostics.Select(DiagnosticFingerprint).Concat(emitted.Artifacts.Select(static artifact => artifact.RelativePath + "\0" + artifact.Content)));
+        return new Analysis(emitted.Diagnostics, emitted.Artifacts, fingerprint);
     }
 
     private static Analysis Analyze(ImmutableArray<TypeAnalysis?> models, CancellationToken cancellation)
