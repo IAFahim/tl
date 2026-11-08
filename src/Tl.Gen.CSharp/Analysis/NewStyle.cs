@@ -30,6 +30,7 @@ internal sealed class NewStyleAnalysis
     public readonly IReadOnlyDictionary<string, int> Inline;
     public readonly ISet<string> TlFrameFeeders;
     public readonly IReadOnlyList<INamedTypeSymbol> States;
+    public IReadOnlyList<NewStyleColumn> AutoEvents { get; init; } = [];
 
     public bool HasAuto => AutoSource.Length != 0;
 }
@@ -86,6 +87,11 @@ internal static class NewStyle
         var kinds = new List<INamedTypeSymbol>();
         var consumers = new List<INamedTypeSymbol>();
         var systemColumns = new HashSet<string>(StringComparer.Ordinal);
+        var systemEvents = new HashSet<string>(StringComparer.Ordinal);
+        var eventTracks = new List<INamedTypeSymbol>();
+        var tlTrack = compilation.GetTypeByMetadataName("Tl.ITlTrack`1");
+        var events = compilation.GetTypeByMetadataName("Tl.Events`1");
+        var member = compilation.GetTypeByMetadataName("Tl.TimelineSystemMemberAttribute");
         foreach (var tree in compilation.SyntaxTrees)
         {
             var model = compilation.GetSemanticModel(tree);
@@ -108,8 +114,20 @@ internal static class NewStyle
                         foreach (var field in type.GetMembers().OfType<IFieldSymbol>())
                             if (field.Type is INamedTypeSymbol { IsGenericType: true } span && (span.MetadataName == "Span`1" || span.MetadataName == "ReadOnlySpan`1"))
                                 systemColumns.Add(span.TypeArguments[0].ToDisplayString(Full));
+                            else if (field.Type is INamedTypeSymbol { IsGenericType: true } evented && Same(evented.OriginalDefinition, events))
+                                systemEvents.Add(evented.TypeArguments[0].ToDisplayString(Full));
                 }
+                if (tlTrack is not null && events is not null && EventElements(type, events).Count != 0 && !eventTracks.Contains(type, SymbolEqualityComparer.Default))
+                    foreach (var face in type.AllInterfaces)
+                        if (Same(face.OriginalDefinition, tlTrack))
+                        {
+                            eventTracks.Add(type);
+                            break;
+                        }
                 foreach (var method in type.GetMembers().OfType<IMethodSymbol>())
+                {
+                    if (tlFrame is not null && method.IsStatic && method.Name is "OnClipStart" or "OnClipEnd" && method.Parameters.Length > 0 && method.Parameters[0].Type is INamedTypeSymbol clipFrame && Same(clipFrame.OriginalDefinition, tlFrame))
+                        feeders.Add(FeederKey(type.ToDisplayString(Full), method.Name));
                     foreach (var attribute in method.GetAttributes())
                         if (Same(attribute.AttributeClass, feeds) || Same(attribute.AttributeClass, pulse))
                         {
@@ -118,6 +136,7 @@ internal static class NewStyle
                             if (tlFrame is not null && method.Parameters.Length > 0 && method.Parameters[0].Type is INamedTypeSymbol first && Same(first.OriginalDefinition, tlFrame))
                                 feeders.Add(FeederKey(type.ToDisplayString(Full), method.Name));
                         }
+                }
             }
         }
         var autoKinds = new HashSet<string>(StringComparer.Ordinal);
@@ -149,6 +168,27 @@ internal static class NewStyle
                         if (isState(parameter.Type))
                             AddColumn(columns, parameter.Type.ToDisplayString(Full), parameter.RefKind == RefKind.Ref);
                 }
+        var autoEvents = new List<string>();
+        if (events is not null)
+        {
+            foreach (var track in eventTracks)
+            {
+                var elements = EventElements(track, events);
+                if (members.Contains(track.ToDisplayString(Full)))
+                {
+                    foreach (var element in elements)
+                        if (!autoEvents.Contains(element))
+                            autoEvents.Add(element);
+                    continue;
+                }
+                if (HasMember(track, member) || elements.Any(systemEvents.Contains))
+                    continue;
+                members.Add(track.ToDisplayString(Full));
+                foreach (var element in elements)
+                    if (!autoEvents.Contains(element))
+                        autoEvents.Add(element);
+            }
+        }
         var autoFull = AutoNamespace + "." + autoName;
         var result = compilation;
         if (feeders.Count != 0 || members.Count != 0 || HasAttribute(kinds, tlKind))
@@ -162,7 +202,7 @@ internal static class NewStyle
                     result = result.ReplaceSyntaxTree(tree, tree.WithRootAndOptions(rewritten, tree.Options));
             }
         }
-        if (columns.Count == 0 && !feedsForeign)
+        if (columns.Count == 0 && !feedsForeign && autoEvents.Count == 0)
             return new NewStyleAnalysis(result, autoName, [], "", inline, feeders, states);
         var text = new StringBuilder();
         text.Append("namespace Tl.Generated\n{\n[global::Tl.TimelineSystem]\npublic ref partial struct ").Append(autoName).Append("\n{\n");
@@ -173,11 +213,46 @@ internal static class NewStyle
             text.Append("public global::System.").Append(columns[i].writable ? "Span<" : "ReadOnlySpan<").Append(columns[i].type).Append("> ").Append(name).Append(";\n");
             autoColumns.Add(new NewStyleColumn(name, columns[i].type, columns[i].writable));
         }
+        var eventFields = new List<NewStyleColumn>();
+        for (var i = 0; i < autoEvents.Count; i++)
+        {
+            var name = "E" + i + "_" + Simple(autoEvents[i]);
+            text.Append("public global::Tl.Events<").Append(autoEvents[i]).Append("> ").Append(name).Append(";\n");
+            eventFields.Add(new NewStyleColumn(name, autoEvents[i], true));
+        }
         text.Append("}\n}\n");
         var source = text.ToString();
         var options = compilation.SyntaxTrees.FirstOrDefault()?.Options as CSharpParseOptions ?? CSharpParseOptions.Default;
         result = result.AddSyntaxTrees(CSharpSyntaxTree.ParseText(source, options, "TlAuto.g.cs"));
-        return new NewStyleAnalysis(result, autoName, autoColumns, source, inline, feeders, states);
+        return new NewStyleAnalysis(result, autoName, autoColumns, source, inline, feeders, states) { AutoEvents = eventFields };
+    }
+
+    static List<string> EventElements(INamedTypeSymbol type, INamedTypeSymbol events)
+    {
+        var elements = new List<string>();
+        foreach (var method in type.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (!method.IsStatic || method.Name is not ("OnClipStart" or "OnClipEnd"))
+                continue;
+            for (var i = 1; i < method.Parameters.Length; i++)
+                if (method.Parameters[i].Type is INamedTypeSymbol { IsGenericType: true } evented && Same(evented.OriginalDefinition, events))
+                {
+                    var element = evented.TypeArguments[0].ToDisplayString(Full);
+                    if (!elements.Contains(element))
+                        elements.Add(element);
+                }
+        }
+        return elements;
+    }
+
+    static bool HasMember(INamedTypeSymbol type, INamedTypeSymbol? member)
+    {
+        if (member is null)
+            return false;
+        foreach (var attribute in type.GetAttributes())
+            if (Same(attribute.AttributeClass, member))
+                return true;
+        return false;
     }
 
     internal static bool IsForeignKind(INamedTypeSymbol type, IAssemblySymbol assembly)

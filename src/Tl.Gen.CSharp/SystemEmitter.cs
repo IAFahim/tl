@@ -213,6 +213,14 @@ internal static class SystemEmitter
         public bool[] UsedColumns = Array.Empty<bool>();
         public bool[] UsedContexts = Array.Empty<bool>();
         public string Safe = "";
+        public Dictionary<ConsumerMethod, string> TlFrames = new(MethodIdentity.Instance);
+    }
+
+    sealed class MethodIdentity : IEqualityComparer<ConsumerMethod>
+    {
+        public static readonly MethodIdentity Instance = new();
+        public bool Equals(ConsumerMethod? x, ConsumerMethod? y) => ReferenceEquals(x, y);
+        public int GetHashCode(ConsumerMethod obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 
     static KernelShape ShapeOf(SystemAssignment assignment, string id)
@@ -285,6 +293,11 @@ internal static class SystemEmitter
     {
         var shape = ShapeOf(assignment, id);
         var consumers = assignment.Consumers;
+        if (tlFrames is not null)
+            foreach (var consumer in consumers)
+                foreach (var method in consumer.Methods)
+                    if (method.Kind is ConsumerMethodKind.OnClipStart or ConsumerMethodKind.OnClipEnd && tlFrames.Contains(NewStyle.FeederKey(consumer.ConsumerTypeName, method.Kind.ToString())))
+                        shape.TlFrames[method] = consumer.ClipTypeName;
         W(writer, $"internal static unsafe class TlSystem_{shape.Safe}");
         W(writer, "{");
         W(writer, $"internal const ulong SystemKey = {assignment.System.SystemKey}UL;");
@@ -728,7 +741,7 @@ internal static class SystemEmitter
         var start = 0;
         if (method.Params.Count > 0 && method.Params[0].Kind is ConsumerParamKind.Frame or ConsumerParamKind.MarkerFrame)
         {
-            args.Add($"in {frameVar}");
+            args.Add(shape.TlFrames.TryGetValue(method, out var clip) ? $"new global::Tl.TlFrame<{clip}>(in {frameVar})" : $"in {frameVar}");
             start = 1;
         }
         for (var p = start; p < method.Params.Count; p++)

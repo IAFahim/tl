@@ -43,6 +43,52 @@ public sealed class NewStyleAnalyzerTests
         Assert.True(output.Emit(bytes).Success);
     }
 
+    const string EventSource = """
+        using Tl;
+        namespace Portable;
+        [TlState] public partial struct Push { public float X; }
+        [TlClip("Push")] public struct PushClip { public float X; public int Amount; }
+        public struct Strike { public int Amount; }
+        public struct Ring { public int Count; }
+        [TlKind] public struct PushKind
+        {
+            public static void Combine(ref float total, in float next) => total += next;
+            public static void Apply(in float total, ref Push push) => push.X += total;
+        }
+        public struct PushTrack : ITlTrack<PushClip>
+        {
+            [Feeds(typeof(PushKind))]
+            public static float Evaluate(in TlFrame<PushClip> frame) => frame.Clip.X;
+            public static void OnClipStart(in TlFrame<PushClip> frame, ref Events<Strike> strikes) => strikes.Raise(new Strike { Amount = frame.Clip.Amount });
+        }
+        public struct BellTrack : ITlTrack<PushClip>
+        {
+            public static void OnClipEnd(in TlFrame<PushClip> frame, ref Events<Ring> rings) => rings.Raise(new Ring { Count = 1 });
+        }
+        """;
+
+    [Fact]
+    public void TrackClipEventsLandInTheAutoSystem()
+    {
+        var parse = new CSharpParseOptions(LanguageVersion.Latest);
+        var compilation = CSharpCompilation.Create("Portable.Pack", [CSharpSyntaxTree.ParseText(EventSource, parse, "Push.cs")], References(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, optimizationLevel: OptimizationLevel.Release));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create([new TimelineIncrementalGenerator().AsSourceGenerator()], parseOptions: parse);
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+        Assert.Empty(diagnostics.Where(d => d.Severity != DiagnosticSeverity.Hidden));
+        Assert.Empty(output.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var auto = output.GetTypeByMetadataName("Tl.Generated.TlAuto_Portable_Pack");
+        Assert.NotNull(auto);
+        var fields = auto!.GetMembers().OfType<IFieldSymbol>().Select(field => field.Type.ToDisplayString()).ToArray();
+        Assert.Contains("Tl.Events<Portable.Strike>", fields);
+        Assert.Contains("Tl.Events<Portable.Ring>", fields);
+        var generated = string.Join("\n", driver.GetRunResult().GeneratedTrees.Select(tree => tree.ToString()));
+        Assert.Contains("global::Portable.PushTrack.OnClipStart", generated);
+        Assert.Contains("global::Portable.BellTrack.OnClipEnd", generated);
+        using var bytes = new MemoryStream();
+        Assert.True(output.Emit(bytes).Success);
+    }
+
     [Fact]
     public void RepeatedAnalyzerRunsKeepTheGeneratedSourceIdentical()
     {
