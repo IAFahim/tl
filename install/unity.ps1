@@ -18,6 +18,7 @@ function Install-TlUnity {
     $steps = 6
     $helperSource = @'
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.PackageManager.UI;
@@ -28,22 +29,66 @@ public static class TlInstaller
 {
     public static void Import()
     {
-        var sample = Sample.FindByPackage("com.tl.unity", null).FirstOrDefault(s => s.displayName == "Force demo");
-        if (string.IsNullOrEmpty(sample.displayName))
-            throw new InvalidOperationException("the com.tl.unity package has no Force demo sample");
-        sample.Import(Sample.ImportOptions.OverridePreviousImports);
+        var wanted = (Environment.GetEnvironmentVariable("TL_DEMOS") ?? "all").ToLowerInvariant();
+        var imported = 0;
+        foreach (var sample in Sample.FindByPackage("com.tl.unity", null))
+        {
+            if (sample.displayName.Contains("IL2CPP"))
+                continue;
+            var key = sample.displayName.ToLowerInvariant().Replace(" demo", "").Trim();
+            if (wanted != "all" && key != "demo hub" && !wanted.Split(',').Select(w => w.Trim()).Contains(key))
+                continue;
+            sample.Import(Sample.ImportOptions.OverridePreviousImports);
+            Debug.Log("TL-INSTALL imported " + sample.displayName.Replace(' ', '+'));
+            imported++;
+        }
+        if (imported == 0)
+            throw new InvalidOperationException("the com.tl.unity package has no demo samples");
         AssetDatabase.Refresh();
-        Debug.Log("TL-INSTALL imported " + sample.importPath);
     }
 
     public static void Build()
     {
-        var builder = Type.GetType("ForceDemoBuilder, Assembly-CSharp-Editor") ?? throw new InvalidOperationException("ForceDemoBuilder did not compile");
-        var force = (string)builder.GetMethod("Build").Invoke(null, null);
-        var control = (string)builder.GetMethod("BuildControl").Invoke(null, null);
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(force, true), new EditorBuildSettingsScene(control, true) };
-        EditorSceneManager.OpenScene(force);
-        Debug.Log("TL-INSTALL scene=" + force.Replace(' ', '+') + " control=" + control.Replace(' ', '+'));
+        var types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(Types).ToList();
+        var stubs = types.FirstOrDefault(t => t.FullName == "Tl.Unity.Editor.TlMenuStubFiles");
+        if (stubs != null)
+            stubs.GetMethod("Sync").Invoke(null, null);
+        var scenes = new List<string>();
+        foreach (var builder in types.Where(t => t.IsAbstract && t.IsSealed && t.Name.EndsWith("DemoBuilder", StringComparison.Ordinal) && t.Name != "DemoHubBuilder").OrderBy(t => t.Name, StringComparer.Ordinal))
+            foreach (var name in new[] { "Build", "BuildControl" })
+            {
+                var method = builder.GetMethod(name, Type.EmptyTypes);
+                if (method == null || method.ReturnType != typeof(string))
+                    continue;
+                var scene = (string)method.Invoke(null, null);
+                scenes.Add(scene);
+                Debug.Log("TL-INSTALL built " + scene.Replace(' ', '+'));
+            }
+        if (scenes.Count == 0)
+            throw new InvalidOperationException("no demo builder compiled");
+        var hub = types.FirstOrDefault(t => t.Name == "DemoHubBuilder");
+        string open;
+        if (hub != null)
+            open = (string)hub.GetMethod("Build").Invoke(null, null);
+        else
+        {
+            EditorBuildSettings.scenes = scenes.Select(s => new EditorBuildSettingsScene(s, true)).ToArray();
+            open = scenes[0];
+        }
+        EditorSceneManager.OpenScene(open);
+        Debug.Log("TL-INSTALL scene=" + open.Replace(' ', '+') + " demos=" + scenes.Count);
+    }
+
+    static IEnumerable<Type> Types(System.Reflection.Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (System.Reflection.ReflectionTypeLoadException error)
+        {
+            return error.Types.Where(t => t != null);
+        }
     }
 }
 '@
@@ -239,7 +284,7 @@ public static class TlInstaller
 
     Write-Host ''
     Write-Host ' Tl for Unity - installer'
-    Write-Host ' Unity 7 (URP) + com.tl.unity + the Force demo, nothing else to install'
+    Write-Host ' Unity 7 (URP) + com.tl.unity + the Tl demos, nothing else to install'
     Write-Host ''
 
     Step "1/$steps" 'prerequisites'
@@ -292,7 +337,7 @@ public static class TlInstaller
         if (-not (Select-String -LiteralPath $manifest -Pattern '"com.unity.render-pipelines.universal"' -Quiet)) { Fail "the new project has no URP package, see $createLog" }
     }
 
-    Step "4/$steps" 'package from git, Force demo sample'
+    Step "4/$steps" 'package from git, demo samples'
     if (-not (Test-Path -LiteralPath $manifest)) { Fail "missing $manifest" }
     $json = [System.IO.File]::ReadAllText($manifest) | ConvertFrom-Json
     if (-not $json.PSObject.Properties['dependencies']) { $json | Add-Member -NotePropertyName dependencies -NotePropertyValue ([pscustomobject]@{}) }
@@ -315,9 +360,10 @@ public static class TlInstaller
     }
     $resolved = Get-ChildItem -LiteralPath (Join-Path $project 'Library\PackageCache') -Directory -Filter "$pkgName@*" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
     $resolvedName = if ($resolved) { $resolved.Name } else { $pkgName }
-    Say "package $resolvedName, Force demo sample imported, $errors error CS"
+    $imported = @(Select-String -LiteralPath $importLog -Pattern 'TL-INSTALL imported (\S+)' | ForEach-Object { $_.Matches[0].Groups[1].Value.Replace('+', ' ') })
+    Say "package $resolvedName, samples imported: $($imported -join ', '), $errors error CS"
 
-    Step "5/$steps" 'Force demo scenes (camera, light, ground, SubScene, cube)'
+    Step "5/$steps" 'demo scenes and the Tl Demos hub'
     $buildLog = Join-Path $logs "build-$projectName.log"
     $rc = Invoke-Unity $buildLog @('-projectPath', $project, '-executeMethod', 'TlInstaller.Build')
     $errors = Get-ErrorCount $buildLog
@@ -327,24 +373,54 @@ public static class TlInstaller
     $scene = $sceneLine.Matches[0].Groups[1].Value.Replace('+', ' ')
     Say "scene: $scene"
 
-    Step "6/$steps" 'Force demo PlayMode test'
+    Step "6/$steps" 'every demo''s PlayMode test, one line per demo'
     $testLog = Join-Path $logs "test-$projectName.log"
     $testXml = Join-Path $logs "test-$projectName.xml"
-    $rc = Invoke-UnityTests $testLog $testXml @('-projectPath', $project, '-testPlatform', 'PlayMode')
-    $errors = Get-ErrorCount $testLog
-    $line = Select-String -LiteralPath $testLog -Pattern 'ForceDemo result .*' -ErrorAction SilentlyContinue | Select-Object -Last 1
-    $dash = Select-String -LiteralPath $testLog -Pattern 'ControlDemo result .*' -ErrorAction SilentlyContinue | Select-Object -Last 1
-    if (-not $line) { Fail "the Force demo test printed no result (exit $rc): $(Get-FailureCause $testLog), see $testLog" }
-    $passed = '?'; $failed = '?'
-    if (Test-Path -LiteralPath $testXml) {
-        $run = Select-String -LiteralPath $testXml -Pattern '<test-run [^>]*' | Select-Object -First 1
-        if ($run) { $passed = Get-Field ($run.Line -replace '"', '') 'passed'; $failed = Get-Field ($run.Line -replace '"', '') 'failed' }
+    if ($env:TL_NO_TESTS -eq '1' -or $tlScriptArgs -contains '--no-tests') {
+        Say 'skipped (--no-tests)'
     }
-    $moved = Get-Field $line.Matches[0].Value 'movedX'
-    Say "cube pushed along X: $moved m (expected 4.0333)"
-    if ($dash) { Say "Control demo: dash started at x $(Get-Field $dash.Matches[0].Value 'dashAtX'), cube ends at z $(Get-Field $dash.Matches[0].Value 'endZ') (expected 3.0500)" }
-    Say "PlayMode tests: passed $passed, failed $failed, error CS $errors"
-    if ($moved -ne '4.0333' -or $failed -ne '0' -or $errors -ne 0) { Fail "the demo did not give the expected numbers (test exit $rc), see $testLog" }
+    else {
+        Assert-ProjectClosed
+        Remove-Item -LiteralPath $testXml -Force -ErrorAction SilentlyContinue
+        $rc = Invoke-Bounded $script:unity @('-batchmode', '-logFile', $testLog, '-runTests', '-testResults', $testXml, '-projectPath', $project, '-testPlatform', 'PlayMode') $timeoutMs "$testLog.stdout"
+        $errors = Get-ErrorCount $testLog
+        $passed = '?'; $failed = '?'
+        if (Test-Path -LiteralPath $testXml) {
+            $run = Select-String -LiteralPath $testXml -Pattern '<test-run [^>]*' | Select-Object -First 1
+            if ($run) { $passed = Get-Field ($run.Line -replace '"', '') 'passed'; $failed = Get-Field ($run.Line -replace '"', '') 'failed' }
+        }
+        function Last($pattern) {
+            $hit = Select-String -LiteralPath $testLog -Pattern $pattern -ErrorAction SilentlyContinue | Select-Object -Last 1
+            if ($hit) { return $hit.Matches[0].Value }
+            return ''
+        }
+        $bad = New-Object System.Collections.ArrayList
+        function Report($name, $ok, $text) {
+            $mark = if ($ok) { 'ok  ' } else { 'FAIL' }
+            Write-Host ("    {0} {1,-8} {2}" -f $mark, $name, $text)
+            if (-not $ok) { [void]$bad.Add($name) }
+        }
+        $force = Last 'TL-DEMO force .*'
+        if ($force -or $imported -contains 'Force demo') {
+            $x = Get-Field $force 'x'; $back = Get-Field $force 'back'; $picture = Get-Field $force 'picture'; $warn = Get-Field $force 'warnings'
+            Report 'Force' ($x -eq '4.0333' -and ($back -eq '0.0000' -or $back -eq '-0.0000') -and $warn -eq '0' -and $picture -ne 'off') "push x $x m (expected 4.0333), back to $back (expected 0.0000), picture $picture, warnings $warn (expected 0)"
+            $dash = Last 'ControlDemo result .*'
+            Report 'Control' ((Get-Field $dash 'endZ') -eq '3.0500') "dash started at x $(Get-Field $dash 'dashAtX'), cube ends at z $(Get-Field $dash 'endZ') (expected 3.0500)"
+        }
+        $events = Last 'TL-DEMO events .*'
+        if ($events -or $imported -contains 'Events demo') {
+            $strikes = Get-Field $events 'strikes'; $health = Get-Field $events 'health'; $hurt = Get-Field $events 'hurt'; $sparks = Get-Field $events 'sparks'
+            Report 'Events' ($strikes -eq '15' -and $health -eq '10' -and $hurt -eq '15' -and $sparks -eq '15') "strikes $strikes (expected 15), dummy health $health (expected 10), hurt $hurt, sparks $sparks (expected 15)"
+        }
+        $rows = @(Select-String -LiteralPath $testLog -Pattern 'TL-BENCH crowd .*' -ErrorAction SilentlyContinue | ForEach-Object { $_.Matches[0].Value })
+        if ($rows.Count -gt 0 -or $imported -contains 'Crowd demo') {
+            $text = ($rows | ForEach-Object { "$(Get-Field $_ 'entities') dancers $(Get-Field $_ 'ns/entity') ns/entity $(Get-Field $_ 'warmB') B" }) -join '; '
+            $zero = @($rows | Where-Object { (Get-Field $_ 'warmB') -eq '0' }).Count
+            Report 'Crowd' ($rows.Count -eq 2 -and $zero -eq 2) "$text (expected 2 rows at 0 B)"
+        }
+        Say "PlayMode tests: passed $passed, failed $failed, error CS $errors"
+        if ($bad.Count -gt 0 -or $failed -ne '0' -or $errors -ne 0) { Fail "a demo did not give the expected numbers ($($bad -join ', '); test exit $rc), see $testLog" }
+    }
 
     $elapsed = [int]((Get-Date) - $start).TotalSeconds
     Write-Host ''
@@ -352,10 +428,10 @@ public static class TlInstaller
     Say "package:        $resolvedName"
     Say "done in ${elapsed}s"
     Write-Host ''
-    Say 'next: open the project and press Play'
+    Say "open Tl Demos, press Play"
     Say "  1. open it:  & '$($script:unity)' -projectPath '$project'   (or Unity Hub > Add > Add project from disk)"
-    Say "  2. open Force Demo ($scene); press Play: the cube slides about 4 m to the right"
-    Say '  3. tick the SubScene checkbox, select Cube, Window > Sequencing > Timeline: drag the playhead to preview without Play'
+    Say "  2. the scene $scene is open; press Play and click a demo (each demo has a Tl Demos button to come back)"
+    Say "  3. each demo folder under Assets/Samples has a README: the first 10 minutes, the Timeline setup and the code"
     Say "  guide: $guide"
 }
 

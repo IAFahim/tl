@@ -2,7 +2,8 @@
 # Tl for Unity installer (Linux, macOS, Windows Git Bash). Safe to run again.
 #   curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>
 # Makes (or updates) a Universal 3D (URP) project on the newest Unity 7 editor with com.tl.unity from its git URL,
-# imports the Force demo sample, builds its scenes and runs its PlayMode test.
+# imports every demo sample, builds their scenes and the Tl Demos hub, runs every demo's PlayMode test and prints one line per demo.
+#   TL_DEMOS=all (default) or a comma list (force,events,crowd); --no-tests skips the test step.
 set -euo pipefail
 
 PKG_NAME="com.tl.unity"
@@ -15,9 +16,10 @@ GUIDE="https://github.com/IAFahim/tl.unity/blob/main/docs/USING-ECS.md"
 UNITY_TIMEOUT="${TL_UNITY_TIMEOUT:-2700}"
 STEPS=6
 TARGET=""
+NO_TESTS="${TL_NO_TESTS:-0}"
 for arg in "$@"; do
   case "$arg" in
-    --demo) ;;
+    --no-tests) NO_TESTS=1 ;;
     -*) printf 'unknown option %s (usage: bash -s -- <project-path>)\n' "$arg" >&2; exit 1 ;;
     *) TARGET="$arg" ;;
   esac
@@ -31,7 +33,7 @@ die() { printf '%s[tl] ERROR:%s %s\n' "$RED" "$NC" "$*" >&2; exit 1; }
 cat <<'EOF'
 
  Tl for Unity - installer
- Unity 7 (URP) + com.tl.unity + the Force demo, nothing else to install
+ Unity 7 (URP) + com.tl.unity + the Tl demos, nothing else to install
 
 EOF
 
@@ -417,6 +419,7 @@ write_helper() {
   mkdir -p "$(dirname "$HELPER")"
   cat > "$HELPER" <<'CS'
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.PackageManager.UI;
@@ -427,22 +430,66 @@ public static class TlInstaller
 {
     public static void Import()
     {
-        var sample = Sample.FindByPackage("com.tl.unity", null).FirstOrDefault(s => s.displayName == "Force demo");
-        if (string.IsNullOrEmpty(sample.displayName))
-            throw new InvalidOperationException("the com.tl.unity package has no Force demo sample");
-        sample.Import(Sample.ImportOptions.OverridePreviousImports);
+        var wanted = (Environment.GetEnvironmentVariable("TL_DEMOS") ?? "all").ToLowerInvariant();
+        var imported = 0;
+        foreach (var sample in Sample.FindByPackage("com.tl.unity", null))
+        {
+            if (sample.displayName.Contains("IL2CPP"))
+                continue;
+            var key = sample.displayName.ToLowerInvariant().Replace(" demo", "").Trim();
+            if (wanted != "all" && key != "demo hub" && !wanted.Split(',').Select(w => w.Trim()).Contains(key))
+                continue;
+            sample.Import(Sample.ImportOptions.OverridePreviousImports);
+            Debug.Log("TL-INSTALL imported " + sample.displayName.Replace(' ', '+'));
+            imported++;
+        }
+        if (imported == 0)
+            throw new InvalidOperationException("the com.tl.unity package has no demo samples");
         AssetDatabase.Refresh();
-        Debug.Log("TL-INSTALL imported " + sample.importPath);
     }
 
     public static void Build()
     {
-        var builder = Type.GetType("ForceDemoBuilder, Assembly-CSharp-Editor") ?? throw new InvalidOperationException("ForceDemoBuilder did not compile");
-        var force = (string)builder.GetMethod("Build").Invoke(null, null);
-        var control = (string)builder.GetMethod("BuildControl").Invoke(null, null);
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(force, true), new EditorBuildSettingsScene(control, true) };
-        EditorSceneManager.OpenScene(force);
-        Debug.Log("TL-INSTALL scene=" + force.Replace(' ', '+') + " control=" + control.Replace(' ', '+'));
+        var types = AppDomain.CurrentDomain.GetAssemblies().SelectMany(Types).ToList();
+        var stubs = types.FirstOrDefault(t => t.FullName == "Tl.Unity.Editor.TlMenuStubFiles");
+        if (stubs != null)
+            stubs.GetMethod("Sync").Invoke(null, null);
+        var scenes = new List<string>();
+        foreach (var builder in types.Where(t => t.IsAbstract && t.IsSealed && t.Name.EndsWith("DemoBuilder", StringComparison.Ordinal) && t.Name != "DemoHubBuilder").OrderBy(t => t.Name, StringComparer.Ordinal))
+            foreach (var name in new[] { "Build", "BuildControl" })
+            {
+                var method = builder.GetMethod(name, Type.EmptyTypes);
+                if (method == null || method.ReturnType != typeof(string))
+                    continue;
+                var scene = (string)method.Invoke(null, null);
+                scenes.Add(scene);
+                Debug.Log("TL-INSTALL built " + scene.Replace(' ', '+'));
+            }
+        if (scenes.Count == 0)
+            throw new InvalidOperationException("no demo builder compiled");
+        var hub = types.FirstOrDefault(t => t.Name == "DemoHubBuilder");
+        string open;
+        if (hub != null)
+            open = (string)hub.GetMethod("Build").Invoke(null, null);
+        else
+        {
+            EditorBuildSettings.scenes = scenes.Select(s => new EditorBuildSettingsScene(s, true)).ToArray();
+            open = scenes[0];
+        }
+        EditorSceneManager.OpenScene(open);
+        Debug.Log("TL-INSTALL scene=" + open.Replace(' ', '+') + " demos=" + scenes.Count);
+    }
+
+    static IEnumerable<Type> Types(System.Reflection.Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (System.Reflection.ReflectionTypeLoadException error)
+        {
+            return error.Types.Where(t => t != null);
+        }
     }
 }
 CS
@@ -500,7 +547,7 @@ else
   has_urp "$PROJECT" || die "the new project has no URP package, see $CREATE_LOG"
 fi
 
-step "4/$STEPS" "package from git, Force demo sample"
+step "4/$STEPS" "package from git, demo samples"
 MANIFEST="$PROJECT/Packages/manifest.json"
 [ -f "$MANIFEST" ] || die "missing $MANIFEST"
 say "manifest $PKG_NAME: $(add_dependency "$MANIFEST")"
@@ -525,9 +572,10 @@ if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ] || ! grep -q 'TL-INSTALL imported' "$I
   die "package or sample import failed (exit $rc): $CAUSE, see $IMPORT_LOG"
 fi
 RESOLVED="$(ls -t "$PROJECT/Library/PackageCache" 2>/dev/null | grep "^$PKG_NAME@" | head -n 1 || true)"
-say "package ${RESOLVED:-$PKG_NAME}, Force demo sample imported, $ERRORS error CS"
+IMPORTED="$(grep -o 'TL-INSTALL imported [^ ]*' "$IMPORT_LOG" | cut -d' ' -f3 | tr '+' ' ' | paste -sd, - | sed 's/,/, /g')"
+say "package ${RESOLVED:-$PKG_NAME}, samples imported: $IMPORTED, $ERRORS error CS"
 
-step "5/$STEPS" "Force demo scenes (camera, light, ground, SubScene, cube)"
+step "5/$STEPS" "demo scenes and the Tl Demos hub"
 BUILD_LOG="$LOGS/build-$NAME.log"
 rc=0
 run_unity "$BUILD_LOG" -projectPath "$(native "$PROJECT")" -executeMethod TlInstaller.Build || rc=$?
@@ -540,29 +588,51 @@ if [ "$rc" -ne 0 ] || [ "$ERRORS" -ne 0 ] || [ -z "$SCENE" ]; then
 fi
 say "scene: $SCENE"
 
-step "6/$STEPS" "Force demo PlayMode test"
+step "6/$STEPS" "every demo's PlayMode test, one line per demo"
 TEST_LOG="$LOGS/test-$NAME.log"
 TEST_XML="$LOGS/test-$NAME.xml"
-rc=0
-run_unity_tests "$TEST_LOG" "$TEST_XML" -projectPath "$(native "$PROJECT")" -testPlatform PlayMode || rc=$?
-ERRORS="$(error_count "$TEST_LOG")"
-LINE="$(grep -o 'ForceDemo result .*' "$TEST_LOG" 2>/dev/null | tail -n 1 || true)"
-DASH="$(grep -o 'ControlDemo result .*' "$TEST_LOG" 2>/dev/null | tail -n 1 || true)"
-TEST_RUN="$(grep -o '<test-run [^>]*' "$TEST_XML" 2>/dev/null | head -n 1 || true)"
-PASSED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* passed="\([0-9]*\)".*/\1/p')"
-FAILED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* failed="\([0-9]*\)".*/\1/p')"
-if [ -z "$LINE" ]; then
-  diagnose_log "$TEST_LOG"
-  die "the Force demo test printed no result (exit $rc): $CAUSE, see $TEST_LOG"
-fi
-MOVED="$(field "$LINE" movedX)"
-say "cube pushed along X: $MOVED m (expected 4.0333)"
-if [ -n "$DASH" ]; then
-  say "Control demo: dash started at x $(field "$DASH" dashAtX), cube ends at z $(field "$DASH" endZ) (expected 3.0500)"
-fi
-say "PlayMode tests: passed ${PASSED:-?}, failed ${FAILED:-?}, error CS $ERRORS"
-if [ "$MOVED" != 4.0333 ] || [ "${FAILED:-1}" != 0 ] || [ "$ERRORS" -ne 0 ]; then
-  die "the demo did not give the expected numbers (test exit $rc), see $TEST_LOG"
+if [ "$NO_TESTS" = 1 ]; then
+  say "skipped (--no-tests)"
+else
+  rc=0
+  run_unity_tests "$TEST_LOG" "$TEST_XML" -projectPath "$(native "$PROJECT")" -testPlatform PlayMode || rc=$?
+  ERRORS="$(error_count "$TEST_LOG")"
+  TEST_RUN="$(grep -o '<test-run [^>]*' "$TEST_XML" 2>/dev/null | head -n 1 || true)"
+  PASSED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* passed="\([0-9]*\)".*/\1/p')"
+  FAILED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* failed="\([0-9]*\)".*/\1/p')"
+  BAD=""
+  report() { if [ "$2" = ok ]; then printf '    ok   %-8s %s\n' "$1" "$3"; else printf '    FAIL %-8s %s\n' "$1" "$3"; BAD="$BAD $1"; fi; }
+  last() { grep -o "$1" "$TEST_LOG" 2>/dev/null | tail -n 1 || true; }
+  FORCE="$(last 'TL-DEMO force .*')"
+  if [ -n "$FORCE" ] || printf '%s' "$IMPORTED" | grep -q 'Force demo'; then
+    X="$(field "$FORCE" ' x')"; BACK="$(field "$FORCE" back)"; PIC="$(field "$FORCE" picture)"; WARN="$(field "$FORCE" warnings)"
+    v=bad; { [ "$X" = 4.0333 ] && { [ "$BACK" = 0.0000 ] || [ "$BACK" = -0.0000 ]; } && [ "$WARN" = 0 ] && [ "$PIC" != off ]; } && v=ok
+    report Force "$v" "push x $X m (expected 4.0333), back to $BACK (expected 0.0000), picture $PIC, warnings $WARN (expected 0)"
+    DASH="$(last 'ControlDemo result .*')"
+    v=bad; [ "$(field "$DASH" endZ)" = 3.0500 ] && v=ok
+    report Control "$v" "dash started at x $(field "$DASH" dashAtX), cube ends at z $(field "$DASH" endZ) (expected 3.0500)"
+  fi
+  EVENTS="$(last 'TL-DEMO events .*')"
+  if [ -n "$EVENTS" ] || printf '%s' "$IMPORTED" | grep -q 'Events demo'; then
+    S="$(field "$EVENTS" strikes)"; H="$(field "$EVENTS" health)"; U="$(field "$EVENTS" hurt)"; K="$(field "$EVENTS" sparks)"
+    v=bad; { [ "$S" = 15 ] && [ "$H" = 10 ] && [ "$U" = 15 ] && [ "$K" = 15 ]; } && v=ok
+    report Events "$v" "strikes $S (expected 15), dummy health $H (expected 10), hurt $U, sparks $K (expected 15)"
+  fi
+  ROWS="$(grep -o 'TL-BENCH crowd .*' "$TEST_LOG" 2>/dev/null || true)"
+  if [ -n "$ROWS" ] || printf '%s' "$IMPORTED" | grep -q 'Crowd demo'; then
+    TEXT=""; COUNT=0; ZERO=0
+    while IFS= read -r row; do
+      [ -n "$row" ] || continue
+      COUNT=$((COUNT + 1)); [ "$(field "$row" warmB)" = 0 ] && ZERO=$((ZERO + 1))
+      TEXT="$TEXT${TEXT:+; }$(field "$row" entities) dancers $(printf '%s' "$row" | sed -n 's|.*ns/entity=\([^ ]*\).*|\1|p') ns/entity $(field "$row" warmB) B"
+    done <<< "$ROWS"
+    v=bad; { [ "$COUNT" = 2 ] && [ "$ZERO" = 2 ]; } && v=ok
+    report Crowd "$v" "$TEXT (expected 2 rows at 0 B)"
+  fi
+  say "PlayMode tests: passed ${PASSED:-?}, failed ${FAILED:-?}, error CS $ERRORS"
+  if [ -n "$BAD" ] || [ "${FAILED:-1}" != 0 ] || [ "$ERRORS" -ne 0 ]; then
+    die "a demo did not give the expected numbers ($BAD; test exit $rc), see $TEST_LOG"
+  fi
 fi
 
 ELAPSED=$(( $(date +%s) - START ))
@@ -571,8 +641,8 @@ say "Unity project:  $PROJECT"
 say "package:        ${RESOLVED:-$PKG_NAME}"
 say "done in ${ELAPSED}s"
 echo
-say "next: open the project and press Play"
+say "open Tl Demos, press Play"
 say "  1. open it:  \"$UNITY\" -projectPath \"$(native "$PROJECT")\"   (or Unity Hub > Add > Add project from disk)"
-say "  2. open Force Demo (it is in File > Build Profiles' scene list and $SCENE); press Play: the cube slides about 4 m to the right"
-say "  3. tick the SubScene checkbox, select Cube, Window > Sequencing > Timeline: drag the playhead to preview without Play"
+say "  2. the scene $SCENE is open; press Play and click a demo (each demo has a Tl Demos button to come back)"
+say "  3. each demo folder under Assets/Samples has a README: the first 10 minutes, the Timeline setup and the code"
 say "  guide: $GUIDE"
