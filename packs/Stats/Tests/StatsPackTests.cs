@@ -12,7 +12,7 @@ namespace Tl.Pack.Stats.Tests
         const ushort Haste = 2;
         const int Steps = 600;
 
-        static ulong Mix(ulong h, int v) => (h ^ (uint)v) * 1099511628211UL;
+        static ulong Mix(ulong h, int v) { var s = new global::Tl.TlStateHash { Value = h }; s.Int(v); return s.Value; }
 
         [Test]
         public void TheDuelGivesTheDemoCheckpointsAndTheDotNetHash()
@@ -33,7 +33,7 @@ namespace Tl.Pack.Stats.Tests
             StatsAttackBonusKind.Init(entities, hero);
             entities.SetComponentData(hero, new Health { Value = 100, Max = 100 });
             entities.SetComponentData(hero, new Attack { Base = 10 });
-            var h = 14695981039346656037UL;
+            var h = global::Tl.TlStateHash.Seed;
             long warm = 0;
             var seen = new Dictionary<int, (int, int)>();
             for (var s = 0; s < Steps; s++)

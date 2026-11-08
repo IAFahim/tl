@@ -73,7 +73,7 @@ public sealed class MotionTests
         ? Ease.Lerp(Pull.From, Pull.To, Pull.Ease.Evaluate(P(tick - 40, 40)))
         : Ease.Lerp(Jump.From, Jump.To, Jump.Ease.Evaluate(P(tick, 120)));
 
-    static ulong Mix(ulong h, float v) => (h ^ (uint)BitConverter.SingleToInt32Bits(v)) * 1099511628211UL;
+    static ulong Mix(ulong h, float v) { var s = new global::Tl.TlStateHash { Value = h }; s.Float(v); return s.Value; }
 
     static ulong Mix(ulong h, in Pose pose, in Tint tint)
     {
@@ -93,7 +93,7 @@ public sealed class MotionTests
         players.Start(0, Glide);
         players.Start(1, Breathe);
         players.Start(2, Hop);
-        var h = 14695981039346656037UL;
+        var h = global::Tl.TlStateHash.Seed;
         warm = 0;
         for (var step = 0; step < steps; step++)
         {

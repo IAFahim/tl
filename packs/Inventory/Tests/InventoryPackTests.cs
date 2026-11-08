@@ -9,7 +9,7 @@ namespace Tl.Pack.Inventory.Tests
     {
         const ulong Pinned = 5645869165897381019UL;
 
-        static ulong Mix(ulong h, int v) => (h ^ (uint)v) * 1099511628211UL;
+        static ulong Mix(ulong h, int v) { var s = new global::Tl.TlStateHash { Value = h }; s.Int(v); return s.Value; }
 
         static ulong Mix(ulong h, in Bag bag)
             => Mix(Mix(Mix(Mix(Mix(Mix(Mix(Mix(h, bag.Wood), bag.Stone), bag.Plank), bag.Potion), bag.Sword), bag.Coin), bag.Key), bag.Gem);
@@ -52,7 +52,7 @@ namespace Tl.Pack.Inventory.Tests
         [Test]
         public void RewindEmptiesTheBagAndTheFinalBagAndHashMatchDotNet()
         {
-            var h = 14695981039346656037UL;
+            var h = global::Tl.TlStateHash.Seed;
             long warm = 0;
             var rewound = Play(450, 450, ref h, ref warm);
             var final = Play(600, 0, ref h, ref warm);

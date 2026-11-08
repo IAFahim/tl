@@ -682,6 +682,19 @@ type Tl.TlKindAttribute
 type Tl.TlNoSettings`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.TlStateAttribute
+type Tl.TlStateHash
+  Method Tl.TlStateHash Begin()
+  Method Void Bytes(Byte*, Int32)
+  Method Void Column[T](T ByRef)
+  Method Void Float(Single)
+  Method Void FloatLane(Single)
+  Method Void Int(Int32)
+  Method Void Lane(UInt64)
+  Field UInt64 Prime
+  Field UInt64 Seed
+  Method Void Slots(Tl.Playback*, Int32)
+  Field UInt64 Value
+  Method Void Word(UInt32)
 type Tl.TlTimeline
   Field Tl.TlAssetId Asset
   Method Boolean Equals(Tl.TlTimeline)

@@ -21,7 +21,7 @@ namespace Tl.Pack.Force.Tests
             return state;
         }
 
-        static ulong Mix(ulong h, float v) => (h ^ (ulong)BitConverter.SingleToInt32Bits(v)) * 1099511628211UL;
+        static ulong Mix(ulong h, float v) { var s = new global::Tl.TlStateHash { Value = h }; s.FloatLane(v); return s.Value; }
 
         [Test]
         public void ThePackStateIsAComponentAndItsKindRunsAsJobs()
@@ -53,7 +53,7 @@ namespace Tl.Pack.Force.Tests
             var step = entities.CreateEntityQuery(typeof(global::Tl.Unity.TimelineStep));
             var forwardNow = true;
             var rng = 0x6D2B79F5u;
-            var h = 14695981039346656037UL;
+            var h = global::Tl.TlStateHash.Seed;
             var moved = false;
             long warm = 0;
             for (var s = 0; s < Steps; s++)

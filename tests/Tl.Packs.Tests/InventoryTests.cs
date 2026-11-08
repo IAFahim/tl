@@ -46,7 +46,7 @@ public sealed class InventoryTests
 
     static string Show(in Bag b) => $"Wood {b.Wood} Stone {b.Stone} Plank {b.Plank} Potion {b.Potion} Sword {b.Sword} Coin {b.Coin} Key {b.Key} Gem {b.Gem}";
 
-    static ulong Mix(ulong h, int v) => (h ^ (uint)v) * 1099511628211UL;
+    static ulong Mix(ulong h, int v) { var s = new global::Tl.TlStateHash { Value = h }; s.Int(v); return s.Value; }
 
     static ulong Mix(ulong h, in Bag bag)
         => Mix(Mix(Mix(Mix(Mix(Mix(Mix(Mix(h, bag.Wood), bag.Stone), bag.Plank), bag.Potion), bag.Sword), bag.Coin), bag.Key), bag.Gem);
@@ -74,7 +74,7 @@ public sealed class InventoryTests
 
     internal static ulong Run(byte[] library, out Bag rewound, out Bag final, out long warm)
     {
-        var h = 14695981039346656037UL;
+        var h = global::Tl.TlStateHash.Seed;
         warm = 0;
         Play(library, 450, 450, ref h, ref warm, out rewound);
         Play(library, 600, 0, ref h, ref warm, out final);

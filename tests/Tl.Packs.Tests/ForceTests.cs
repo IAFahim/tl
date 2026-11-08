@@ -107,7 +107,7 @@ public sealed class ForceTests
         return state;
     }
 
-    static ulong Mix(ulong h, float v) => (h ^ (ulong)BitConverter.SingleToInt32Bits(v)) * 1099511628211UL;
+    static ulong Mix(ulong h, float v) { var s = new global::Tl.TlStateHash { Value = h }; s.FloatLane(v); return s.Value; }
 
     internal static ulong Play(byte[] library, int rows, int steps, out long warm)
     {
@@ -116,7 +116,7 @@ public sealed class ForceTests
         using var kinds = new KindStore(world, players);
         var states = new ForceState[rows];
         var rng = 0x6D2B79F5u;
-        var h = 14695981039346656037UL;
+        var h = global::Tl.TlStateHash.Seed;
         warm = 0;
         for (var step = 0; step < steps; step++)
         {

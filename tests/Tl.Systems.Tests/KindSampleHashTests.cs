@@ -81,7 +81,7 @@ public sealed unsafe class KindSampleHashTests
         }
     }
 
-    static ulong MixInt(ulong h, int v) => (h ^ (ulong)(uint)v) * 1099511628211UL;
+    static ulong MixInt(ulong h, int v) { var s = new global::Tl.TlStateHash { Value = h }; s.Int(v); return s.Value; }
 
     static ulong Hash(Host game, ulong h)
     {
@@ -94,7 +94,7 @@ public sealed unsafe class KindSampleHashTests
     public void BulletsSampleReplaysToTheHashTheUnityHostExpects()
     {
         using var game = new Host(Rows);
-        var h = 14695981039346656037UL;
+        var h = global::Tl.TlStateHash.Seed;
         game.Start(0, Stomp);
         game.Step();
         h = Hash(game, h);

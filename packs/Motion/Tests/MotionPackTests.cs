@@ -10,7 +10,7 @@ namespace Tl.Pack.Motion.Tests
         const ulong Pinned = 14881653450773647005UL;
         const int Steps = 600;
 
-        static ulong Mix(ulong h, float v) => (h ^ (uint)BitConverter.SingleToInt32Bits(v)) * 1099511628211UL;
+        static ulong Mix(ulong h, float v) { var s = new global::Tl.TlStateHash { Value = h }; s.Float(v); return s.Value; }
 
         static ulong Mix(ulong h, in Pose pose, in Tint tint)
         {
@@ -46,7 +46,7 @@ namespace Tl.Pack.Motion.Tests
                 MotionTintKind.Init(entities, rows[e]);
                 entities.GetBuffer<global::Tl.Unity.TimelineRequest>(rows[e]).Add(global::Tl.Unity.TimelineRequest.Start(0, timelines[e], 0));
             }
-            var h = 14695981039346656037UL;
+            var h = global::Tl.TlStateHash.Seed;
             long warm = 0;
             for (var s = 0; s < Steps; s++)
             {

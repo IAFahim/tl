@@ -50,7 +50,7 @@ public sealed class StatsTests
         return LibraryAssembler.Assemble(parts, 60, settings);
     }
 
-    static ulong Mix(ulong h, int v) => (h ^ (uint)v) * 1099511628211UL;
+    static ulong Mix(ulong h, int v) { var s = new global::Tl.TlStateHash { Value = h }; s.Int(v); return s.Value; }
 
     internal static ulong Run(byte[] library, int steps, Action<int, Health, Attack>? checkpoint, out long warm)
     {
@@ -59,7 +59,7 @@ public sealed class StatsTests
         using var kinds = new KindStore(world, players);
         var health = new[] { new Health { Value = 100, Max = 100 } };
         var attack = new[] { new Attack { Base = 10 } };
-        var h = 14695981039346656037UL;
+        var h = global::Tl.TlStateHash.Seed;
         warm = 0;
         for (var step = 0; step < steps; step++)
         {

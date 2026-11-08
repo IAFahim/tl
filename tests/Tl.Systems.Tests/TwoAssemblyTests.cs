@@ -30,7 +30,7 @@ public sealed class TwoAssemblyTests
                 return state;
             }
 
-            static ulong Mix(ulong h, float v) => (h ^ (ulong)BitConverter.SingleToInt32Bits(v)) * 1099511628211UL;
+            static ulong Mix(ulong h, float v) { var s = new global::Tl.TlStateHash { Value = h }; s.FloatLane(v); return s.Value; }
 
             public static ulong Play(byte[] library, int rows, int steps, bool feedFirst)
             {
@@ -41,7 +41,7 @@ public sealed class TwoAssemblyTests
                 var wind = new Wind[rows];
                 for (var e = 0; e < rows; e++) wind[e].Scale = 1f + 0.25f * e;
                 var rng = 0x6D2B79F5u;
-                var h = 14695981039346656037UL;
+                var h = global::Tl.TlStateHash.Seed;
                 for (var step = 0; step < steps; step++)
                 {
                     var forward = !(step >= 200 && step < 240);
