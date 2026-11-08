@@ -547,9 +547,6 @@ internal static class SystemEmitter
         W(writer, "}");
     }
 
-    // Fused Run+Advance: one entity pass executes at the current tick and then
-    // advances the slot in place. The advance transcription mirrors
-    // TimelineWorld.Advance per slot exactly (loop/hold/next/handover/remove).
     static void EmitFusedKernel(StringBuilder writer, SystemAssignment assignment, KernelShape shape, string id)
     {
         var signature = new StringBuilder();
@@ -603,51 +600,14 @@ internal static class SystemEmitter
         EmitMarkers(writer, assignment, shape, "__tl", "__tick", "__base", "__e", "__s");
         W(writer, "}");
         W(writer, "}");
-        W(writer, "var __af = __pb->Flags;");
-        W(writer, "var __handover = false;");
-        W(writer, "if (__dur == 0) { __pb->Flags = (__af | global::Tl.PlaybackFlags.Ended) & ~global::Tl.PlaybackFlags.StartPending; }");
-        W(writer, "else if (((__af & global::Tl.PlaybackFlags.Reverse) != 0) == forward)");
-        W(writer, "{");
-        W(writer, "if (__pb->Tick == 0)");
-        W(writer, "{");
-        W(writer, "if (__tl->Loop != 0) __pb->Tick = (ushort)(__dur - 1);");
-        W(writer, "else if (__tl->Hold != 0) __pb->Flags = __af | global::Tl.PlaybackFlags.Ended;");
-        W(writer, "else");
+        W(writer, "var __advance = global::Tl.PlaybackRules.Advance(ref *__pb, __view.Timelines, __view.TimelineCount, forward);");
+        W(writer, "if (__advance == global::Tl.AdvanceResult.Removed)");
         W(writer, "{");
         W(writer, "__pb[0] = default;");
         W(writer, "var __hw = __pview.Counts[__e];");
         W(writer, "while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;");
         W(writer, "__pview.Counts[__e] = __hw;");
-        W(writer, "continue;");
         W(writer, "}");
-        W(writer, "}");
-        W(writer, "else __pb->Tick--;");
-        W(writer, "}");
-        W(writer, "else if ((uint)__pb->Tick + 1u >= __dur)");
-        W(writer, "{");
-        W(writer, "if (__tl->Loop != 0) __pb->Tick = 0;");
-        W(writer, "else if (__tl->Next != 0 && (uint)(__tl->Next - 1) < (uint)__view.TimelineCount)");
-        W(writer, "{");
-        W(writer, "var __anext = __view.Timelines + (__tl->Next - 1);");
-        W(writer, "__pb->Timeline = __tl->Next;");
-        W(writer, "__pb->Tick = 0;");
-        W(writer, "__pb->Channel = (byte)__anext->Channel;");
-        W(writer, "__pb->Flags |= global::Tl.PlaybackFlags.StartPending;");
-        W(writer, "__handover = true;");
-        W(writer, "}");
-        W(writer, "else if (__tl->Hold != 0) { __pb->Tick = (ushort)(__dur - 1); __pb->Flags = __af | global::Tl.PlaybackFlags.Ended; }");
-        W(writer, "else");
-        W(writer, "{");
-        W(writer, "__pb[0] = default;");
-        W(writer, "var __hw = __pview.Counts[__e];");
-        W(writer, "while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;");
-        W(writer, "__pview.Counts[__e] = __hw;");
-        W(writer, "continue;");
-        W(writer, "}");
-        W(writer, "}");
-        W(writer, "else __pb->Tick++;");
-        W(writer, "__pb->Flags &= ~global::Tl.PlaybackFlags.StartPending;");
-        W(writer, "if (__handover) __pb->Flags |= global::Tl.PlaybackFlags.StartPending;");
         W(writer, "}");
         W(writer, "}");
         W(writer, "}");

@@ -883,51 +883,14 @@ break;
 }
 }
 }
-var __af = __pb->Flags;
-var __handover = false;
-if (__dur == 0) { __pb->Flags = (__af | global::Tl.PlaybackFlags.Ended) & ~global::Tl.PlaybackFlags.StartPending; }
-else if (((__af & global::Tl.PlaybackFlags.Reverse) != 0) == forward)
-{
-if (__pb->Tick == 0)
-{
-if (__tl->Loop != 0) __pb->Tick = (ushort)(__dur - 1);
-else if (__tl->Hold != 0) __pb->Flags = __af | global::Tl.PlaybackFlags.Ended;
-else
+var __advance = global::Tl.PlaybackRules.Advance(ref *__pb, __view.Timelines, __view.TimelineCount, forward);
+if (__advance == global::Tl.AdvanceResult.Removed)
 {
 __pb[0] = default;
 var __hw = __pview.Counts[__e];
 while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;
 __pview.Counts[__e] = __hw;
-continue;
 }
-}
-else __pb->Tick--;
-}
-else if ((uint)__pb->Tick + 1u >= __dur)
-{
-if (__tl->Loop != 0) __pb->Tick = 0;
-else if (__tl->Next != 0 && (uint)(__tl->Next - 1) < (uint)__view.TimelineCount)
-{
-var __anext = __view.Timelines + (__tl->Next - 1);
-__pb->Timeline = __tl->Next;
-__pb->Tick = 0;
-__pb->Channel = (byte)__anext->Channel;
-__pb->Flags |= global::Tl.PlaybackFlags.StartPending;
-__handover = true;
-}
-else if (__tl->Hold != 0) { __pb->Tick = (ushort)(__dur - 1); __pb->Flags = __af | global::Tl.PlaybackFlags.Ended; }
-else
-{
-__pb[0] = default;
-var __hw = __pview.Counts[__e];
-while (__hw > 0 && __pview.SlotOf(__e, __hw - 1)->Timeline == 0) __hw--;
-__pview.Counts[__e] = __hw;
-continue;
-}
-}
-else __pb->Tick++;
-__pb->Flags &= ~global::Tl.PlaybackFlags.StartPending;
-if (__handover) __pb->Flags |= global::Tl.PlaybackFlags.StartPending;
 }
 }
 }
