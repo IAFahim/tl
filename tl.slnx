@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/packs/">
     <Project Path="packs/Force/Tl.Pack.Force.csproj" />
+    <Project Path="packs/Stats/Tl.Pack.Stats.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Runner/Runner.csproj" />

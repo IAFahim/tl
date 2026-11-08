@@ -11,7 +11,7 @@ public sealed class ForceTests
 {
     internal const ulong Pinned = 7683521458411619355UL;
 
-    static string Root()
+    internal static string Root()
     {
         var dir = AppContext.BaseDirectory;
         for (var i = 0; i < 8 && !File.Exists(Path.Combine(dir, "tl.slnx")); i++) dir = Path.GetDirectoryName(dir)!;

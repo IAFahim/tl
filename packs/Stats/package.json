@@ -1,0 +1,9 @@
+{
+  "name": "com.tl.pack.stats",
+  "version": "0.1.0",
+  "displayName": "Tl Stats Pack",
+  "description": "Portable hits, heals, poison and buffs on health and attack for Tl timelines.",
+  "unity": "7000.0",
+  "license": "MIT",
+  "author": { "name": "IAFahim", "url": "https://github.com/IAFahim" }
+}
