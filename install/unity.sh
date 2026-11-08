@@ -3,12 +3,12 @@
 #   curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>
 # Makes (or updates) a Universal 3D (URP) project on the newest Unity 7 editor with com.tl.unity from its git URL,
 # imports every demo sample, builds their scenes and the Tl Demos hub, runs every demo's PlayMode test and prints one line per demo.
-#   TL_DEMOS=all (default) or a comma list (force,events,crowd,motion,stats); --no-tests skips the test step.
+#   TL_DEMOS=all (default) or a comma list (force,events,crowd,motion,stats,inventory); --no-tests skips the test step.
 set -euo pipefail
 
 PKG_NAME="com.tl.unity"
 PKG_URL="https://github.com/IAFahim/tl.unity.git?path=/com.tl.unity#main"
-PACKS="com.tl.pack.motion=https://github.com/IAFahim/tl.git?path=/packs/Motion#main com.tl.pack.stats=https://github.com/IAFahim/tl.git?path=/packs/Stats#main"
+PACKS="com.tl.pack.force=https://github.com/IAFahim/tl.git?path=/packs/Force#main com.tl.pack.inventory=https://github.com/IAFahim/tl.git?path=/packs/Inventory#main com.tl.pack.motion=https://github.com/IAFahim/tl.git?path=/packs/Motion#main com.tl.pack.stats=https://github.com/IAFahim/tl.git?path=/packs/Stats#main"
 PKG_REPO="https://github.com/IAFahim/tl.unity.git"
 TEST_NAME="com.unity.test-framework"
 TEST_VERSION="1.6.0"
@@ -604,7 +604,7 @@ else
   PASSED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* passed="\([0-9]*\)".*/\1/p')"
   FAILED="$(printf '%s' "$TEST_RUN" | sed -n 's/.* failed="\([0-9]*\)".*/\1/p')"
   BAD=""
-  report() { if [ "$2" = ok ]; then printf '    ok   %-8s %s\n' "$1" "$3"; else printf '    FAIL %-8s %s\n' "$1" "$3"; BAD="$BAD $1"; fi; }
+  report() { if [ "$2" = ok ]; then printf '    ok   %-9s %s\n' "$1" "$3"; else printf '    FAIL %-9s %s\n' "$1" "$3"; BAD="$BAD $1"; fi; }
   last() { grep -o "$1" "$TEST_LOG" 2>/dev/null | tail -n 1 || true; }
   FORCE="$(last 'TL-DEMO force .*')"
   if [ -n "$FORCE" ] || printf '%s' "$IMPORTED" | grep -q 'Force demo'; then
@@ -632,6 +632,12 @@ else
     A="$(field "$STATS" health200)"; B="$(field "$STATS" health450)"; C="$(field "$STATS" health600)"
     v=bad; { [ "$A" = 64/20 ] && [ "$B" = 53/20 ] && [ "$C" = 72/10 ]; } && v=ok
     report Stats "$v" "health/attack $A, $B, $C at steps 200, 450, 600 (expected 64/20, 53/20, 72/10)"
+  fi
+  INVENTORY="$(last 'TL-DEMO inventory .*')"
+  if [ -n "$INVENTORY" ] || printf '%s' "$IMPORTED" | grep -q 'Inventory demo'; then
+    G="$(field "$INVENTORY" final)"; C="$(field "$INVENTORY" coinAt)"; E="$(field "$INVENTORY" gemAt)"
+    v=bad; { [ "$G" = Wood_1_Stone_3_Plank_2_Potion_1_Sword_1_Coin_10_Key_0_Gem_1 ] && [ "$C" = 420 ] && [ "$E" = 480 ]; } && v=ok
+    report Inventory "$v" "bag $(printf '%s' "$G" | tr '_' ' ') at step 600, coins at tick $C, gem at tick $E (expected Wood 1 Stone 3 Plank 2 Potion 1 Sword 1 Coin 10 Key 0 Gem 1, 420, 480)"
   fi
   ROWS="$(grep -o 'TL-BENCH crowd .*' "$TEST_LOG" 2>/dev/null || true)"
   if [ -n "$ROWS" ] || printf '%s' "$IMPORTED" | grep -q 'Crowd demo'; then

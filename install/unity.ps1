@@ -7,7 +7,7 @@ function Install-TlUnity {
     $pkgName = 'com.tl.unity'
     $pkgUrl = 'https://github.com/IAFahim/tl.unity.git?path=/com.tl.unity#main'
     $pkgRepo = 'https://github.com/IAFahim/tl.unity.git'
-    $packs = [ordered]@{ 'com.tl.pack.motion' = 'https://github.com/IAFahim/tl.git?path=/packs/Motion#main'; 'com.tl.pack.stats' = 'https://github.com/IAFahim/tl.git?path=/packs/Stats#main' }
+    $packs = [ordered]@{ 'com.tl.pack.force' = 'https://github.com/IAFahim/tl.git?path=/packs/Force#main'; 'com.tl.pack.inventory' = 'https://github.com/IAFahim/tl.git?path=/packs/Inventory#main'; 'com.tl.pack.motion' = 'https://github.com/IAFahim/tl.git?path=/packs/Motion#main'; 'com.tl.pack.stats' = 'https://github.com/IAFahim/tl.git?path=/packs/Stats#main' }
     $testName = 'com.unity.test-framework'
     $testVersion = '1.6.0'
     $guide = 'https://github.com/IAFahim/tl.unity/blob/main/docs/USING-ECS.md'
@@ -399,7 +399,7 @@ public static class TlInstaller
         $bad = New-Object System.Collections.ArrayList
         function Report($name, $ok, $text) {
             $mark = if ($ok) { 'ok  ' } else { 'FAIL' }
-            Write-Host ("    {0} {1,-8} {2}" -f $mark, $name, $text)
+            Write-Host ("    {0} {1,-9} {2}" -f $mark, $name, $text)
             if (-not $ok) { [void]$bad.Add($name) }
         }
         $force = Last 'TL-DEMO force .*'
@@ -423,6 +423,11 @@ public static class TlInstaller
         if ($stats -or $imported -contains 'Stats demo') {
             $h200 = Get-Field $stats 'health200'; $h450 = Get-Field $stats 'health450'; $h600 = Get-Field $stats 'health600'
             Report 'Stats' ($h200 -eq '64/20' -and $h450 -eq '53/20' -and $h600 -eq '72/10') "health/attack $h200, $h450, $h600 at steps 200, 450, 600 (expected 64/20, 53/20, 72/10)"
+        }
+        $inventory = Last 'TL-DEMO inventory .*'
+        if ($inventory -or $imported -contains 'Inventory demo') {
+            $bag = Get-Field $inventory 'final'; $coin = Get-Field $inventory 'coinAt'; $gem = Get-Field $inventory 'gemAt'
+            Report 'Inventory' ($bag -eq 'Wood_1_Stone_3_Plank_2_Potion_1_Sword_1_Coin_10_Key_0_Gem_1' -and $coin -eq '420' -and $gem -eq '480') "bag $($bag -replace '_', ' ') at step 600, coins at tick $coin, gem at tick $gem (expected Wood 1 Stone 3 Plank 2 Potion 1 Sword 1 Coin 10 Key 0 Gem 1, 420, 480)"
         }
         $rows = @(Select-String -LiteralPath $testLog -Pattern 'TL-BENCH crowd .*' -ErrorAction SilentlyContinue | ForEach-Object { $_.Matches[0].Value })
         if ($rows.Count -gt 0 -or $imported -contains 'Crowd demo') {
