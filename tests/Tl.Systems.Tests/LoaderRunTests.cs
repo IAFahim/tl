@@ -59,6 +59,49 @@ public sealed unsafe class LoaderRunTests
     }
 
     [Fact]
+    public void AHeldPlaybackRewindsWhenReversedAndPlaysForwardAgain()
+    {
+        var resolver = BakerAssemblyResolver.FromAssemblies([typeof(ArcTrack).Assembly]);
+        var json = """
+            {"name":"held","duration":4,"hold":true,"tracks":[
+            {"namespace":"Game","type":"ArcTrack","data":{"Scale":1},"clips":[
+            {"namespace":"Game","type":"ArcClip","start":0,"end":4,"data":{"Velocity":2}}]}]}
+            """;
+        using var world = new TimelineWorld(LibraryAssembler.Assemble([new LibraryPart { Name = "held", Tlb = TimelineBaker.BakeJson(json, resolver) }], 60, LibrarySettings.Default));
+        using var players = new PlaybackTable(1);
+        using var cues = new Events<Cue>(16);
+        var motion = new Motion[1];
+        var power = new[] { new JumpPower(1f) };
+        var stats = new Stats[1];
+        var input = new InputState[1];
+        var anim = new Anim[1];
+        var feet = new Foot[1];
+        players.Start(0, 1);
+        for (var f = 0; f < 6; f++) Step(world, players, motion, power, stats, input, anim, feet, cues);
+        Assert.Equal(8f, motion[0].Y);
+        Assert.Equal(PlaybackFlags.Ended, players.View.SlotOf(0, 0)->Flags);
+        Assert.Equal(3, players.View.SlotOf(0, 0)->Tick);
+        for (var f = 0; f < 3; f++) Step(world, players, motion, power, stats, input, anim, feet, cues, false);
+        Assert.Equal(8f, motion[0].Y);
+        players.Reverse(0, 1, true);
+        Step(world, players, motion, power, stats, input, anim, feet, cues);
+        Assert.Equal(6f, motion[0].Y);
+        Assert.Equal(2, players.View.SlotOf(0, 0)->Tick);
+        for (var f = 0; f < 4; f++) Step(world, players, motion, power, stats, input, anim, feet, cues);
+        Assert.Equal(0f, motion[0].Y);
+        Assert.Equal(PlaybackFlags.Ended | PlaybackFlags.Reverse, players.View.SlotOf(0, 0)->Flags);
+        Assert.Equal(0, players.View.SlotOf(0, 0)->Tick);
+        players.Reverse(0, 1, false);
+        Step(world, players, motion, power, stats, input, anim, feet, cues);
+        Assert.Equal(2f, motion[0].Y);
+        Assert.Equal(1, players.View.SlotOf(0, 0)->Tick);
+        players.Seek(0, 1, 3);
+        Step(world, players, motion, power, stats, input, anim, feet, cues);
+        Assert.Equal(4f, motion[0].Y);
+        Assert.Equal(3, players.View.SlotOf(0, 0)->Tick);
+    }
+
+    [Fact]
     public void LoaderBuiltLibraryRunsFoldLanesFramesEndsAndMarkers()
     {
         using var world = new TimelineWorld(File.ReadAllBytes(Path.Combine(LoaderLibraryDir(), "game.tlib")));

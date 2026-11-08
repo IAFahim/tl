@@ -77,6 +77,7 @@ type Tl.IPlaybackSlots
   Method Void Close(Int32)
   Property Tl.Playback& Item [Int32]
   Property Int32 Length
+  Method Void Purge(Int32)
   Property Boolean StartsPending
   Method Boolean TryAdd(Tl.Playback ByRef)
 type Tl.IPulseFold`1
@@ -511,11 +512,16 @@ type Tl.PlaybackFlags
 type Tl.PlaybackRules
   Method Tl.AdvanceResult Advance(Tl.Playback ByRef, Tl.LibraryTimeline*, Int32, Boolean)
   Method Void Apply[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Tl.RequestOp, UInt16, UInt16)
+  Method Int32 Find[TSlots](TSlots ByRef, UInt16)
   Method Boolean Find[TSlots](TSlots ByRef, Byte, Tl.Playback ByRef)
+  Method Int32 FindChannel[TSlots](TSlots ByRef, Byte)
   Method Boolean IsLive(Tl.Playback ByRef)
   Method Boolean IsPlaying[TSlots](TSlots ByRef, UInt16)
   Method Boolean Pause[TSlots](TSlots ByRef, UInt16, Boolean)
+  Method Boolean PauseAt[TSlots](TSlots ByRef, Int32, Boolean)
   Method Boolean Rebind(Tl.Playback ByRef, Tl.LibraryTimeline*, Int32)
+  Method Boolean Reverse[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Int32, Boolean)
+  Method Boolean Seek[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Int32, UInt16)
   Method Boolean Start[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, UInt16, UInt16, Boolean ByRef)
   Method Boolean Stop[TSlots](TSlots ByRef, UInt16)
   Method Void StopAll[TSlots](TSlots ByRef)
@@ -531,8 +537,14 @@ type Tl.PlaybackTable
   Property Tl.KindStore Kinds
   Field Int32 MaxSlots
   Method Void Pause(Int32, UInt16)
+  Method Void PauseChannel(Int32, Byte)
   Property Tl.RequestQueue* Pending
   Method Void Resume(Int32, UInt16)
+  Method Void ResumeChannel(Int32, Byte)
+  Method Void Reverse(Int32, UInt16, Boolean)
+  Method Void ReverseChannel(Int32, Byte, Boolean)
+  Method Void Seek(Int32, UInt16, UInt16)
+  Method Void SeekChannel(Int32, Byte, UInt16)
   Property Int32 SlotsPerEntity
   Method Void Start(Int32, UInt16, UInt16)
   Method Void Stop(Int32, UInt16)
@@ -551,7 +563,13 @@ type Tl.PulseAttribute
   Property Tl.ClipEvent On
 type Tl.RequestOp
   Field Tl.RequestOp Pause
+  Field Tl.RequestOp PauseChannel
   Field Tl.RequestOp Resume
+  Field Tl.RequestOp ResumeChannel
+  Field Tl.RequestOp Reverse
+  Field Tl.RequestOp ReverseChannel
+  Field Tl.RequestOp Seek
+  Field Tl.RequestOp SeekChannel
   Field Tl.RequestOp Start
   Field Tl.RequestOp Stop
   Field Tl.RequestOp StopAll
@@ -576,7 +594,13 @@ type Tl.RequestRecord
 type Tl.Requests
   Method Tl.Requests For(Int32, Int32)
   Method Void Pause(UInt16)
+  Method Void PauseChannel(Byte)
   Method Void Resume(UInt16)
+  Method Void ResumeChannel(Byte)
+  Method Void Reverse(UInt16, Boolean)
+  Method Void ReverseChannel(Byte, Boolean)
+  Method Void Seek(UInt16, UInt16)
+  Method Void SeekChannel(Byte, UInt16)
   Method Void Start(UInt16, UInt16)
   Method Void Stop(UInt16)
   Method Void StopAll()

@@ -9,6 +9,7 @@ public unsafe class PlaybackRulesTests
         public Playback[] Items;
         public int Count;
         public int Closed;
+        public int Purged;
         public bool Pending;
 
         public int Length => Count;
@@ -23,6 +24,8 @@ public unsafe class PlaybackRulesTests
         }
 
         public bool Admit(ushort timeline) => true;
+
+        public void Purge(int index) => Purged++;
 
         public void Close(int index)
         {
@@ -152,5 +155,78 @@ public unsafe class PlaybackRulesTests
         Assert.Equal(PlaybackFlags.Paused, paused.Flags);
         var lost = new Playback { Timeline = 9 };
         Assert.Equal(AdvanceResult.Unknown, Advance(ref lost));
+    }
+
+    static void Apply(ref ListSlots slots, RequestOp op, ushort timeline, ushort at = 0)
+    {
+        fixed (LibraryTimeline* t = Timelines) PlaybackRules.Apply(ref slots, t, Timelines.Length, op, timeline, at);
+    }
+
+    [Fact]
+    public void SeekClampsWrapsPurgesAndKeepsPauseAndDirection()
+    {
+        var slots = Slots();
+        slots.Items[0] = new Playback { Timeline = 3, Tick = 7, Channel = 2, Flags = PlaybackFlags.Ended | PlaybackFlags.Paused | PlaybackFlags.Reverse, Reserved = 0x1234 };
+        slots.Items[1] = new Playback { Timeline = 1, Tick = 4, Channel = 1, Flags = PlaybackFlags.Began };
+        slots.Count = 2;
+        Apply(ref slots, RequestOp.Seek, 3, 500);
+        Assert.Equal(7, slots[0].Tick);
+        Assert.Equal(PlaybackFlags.Paused | PlaybackFlags.Reverse | PlaybackFlags.ReenterPending, slots[0].Flags);
+        Assert.Equal(0x1234, slots[0].Reserved);
+        Assert.Equal(1, slots.Purged);
+        Apply(ref slots, RequestOp.SeekChannel, 1, 23);
+        Assert.Equal(3, slots[1].Tick);
+        Assert.Equal(PlaybackFlags.ReenterPending, slots[1].Flags);
+        Assert.Equal(2, slots.Purged);
+        Apply(ref slots, RequestOp.SeekChannel, 0, 1);
+        Apply(ref slots, RequestOp.Seek, 2, 1);
+        Assert.Equal(2, slots.Purged);
+    }
+
+    [Fact]
+    public void SeekOnAPendingStartOnlyMovesWhereItBegins()
+    {
+        var slots = Slots();
+        slots.Items[0] = new Playback { Timeline = 3, Tick = 2, Flags = PlaybackFlags.StartPending };
+        slots.Count = 1;
+        Apply(ref slots, RequestOp.Seek, 3, 5);
+        Assert.Equal(5, slots[0].Tick);
+        Assert.Equal(PlaybackFlags.StartPending, slots[0].Flags);
+        Assert.Equal(0, slots.Purged);
+    }
+
+    [Fact]
+    public void ReverseLeavesAHoldOnlyAtTheEndItFacesAway()
+    {
+        var slots = Slots();
+        slots.Items[0] = new Playback { Timeline = 3, Tick = 7, Channel = 2, Flags = PlaybackFlags.Ended };
+        slots.Items[1] = new Playback { Timeline = 4, Tick = 0, Flags = PlaybackFlags.Ended | PlaybackFlags.Reverse };
+        slots.Count = 2;
+        Apply(ref slots, RequestOp.Reverse, 3, 0);
+        Assert.Equal(PlaybackFlags.Ended, slots[0].Flags);
+        Apply(ref slots, RequestOp.ReverseChannel, 2, 1);
+        Assert.Equal(PlaybackFlags.Reverse | PlaybackFlags.StartPending, slots[0].Flags);
+        Assert.Equal(7, slots[0].Tick);
+        Apply(ref slots, RequestOp.Reverse, 4, 1);
+        Assert.Equal(PlaybackFlags.Ended | PlaybackFlags.Reverse, slots[1].Flags);
+        Apply(ref slots, RequestOp.Reverse, 4, 0);
+        Assert.Equal(PlaybackFlags.StartPending, slots[1].Flags);
+        Assert.Equal(0, slots.Purged);
+    }
+
+    [Fact]
+    public void ChannelPauseAndResumeTouchOnlyThatChannel()
+    {
+        var slots = Slots();
+        slots.Items[0] = new Playback { Timeline = 3, Channel = 2 };
+        slots.Items[1] = new Playback { Timeline = 4 };
+        slots.Count = 2;
+        Apply(ref slots, RequestOp.PauseChannel, 0);
+        Assert.Equal(PlaybackFlags.None, slots[1].Flags);
+        Apply(ref slots, RequestOp.PauseChannel, 2);
+        Assert.Equal(PlaybackFlags.Paused, slots[0].Flags);
+        Assert.Equal(PlaybackFlags.None, slots[1].Flags);
+        Apply(ref slots, RequestOp.ResumeChannel, 2);
+        Assert.Equal(PlaybackFlags.None, slots[0].Flags);
     }
 }
