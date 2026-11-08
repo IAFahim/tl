@@ -2,6 +2,7 @@ using Tl.Mathematics;
 
 namespace Tl.Pack.Motion
 {
+    [System.Serializable]
     public struct Rgba
     {
         public float R;
