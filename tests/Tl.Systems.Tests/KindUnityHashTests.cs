@@ -56,8 +56,8 @@ public sealed unsafe class KindUnityHashTests : IDisposable
     ulong Play(int steps)
     {
         var ids = new ushort[] { Jump, PotionHop, Run, SpeedBoost, Stomp };
-        var damage = _store.Pulses<int>("Damage");
-        var stats = _store.Pulses<int>("StatChange");
+        var damage = _store.Pulses<int>("KindGame.Damage");
+        var stats = _store.Pulses<int>("KindGame.StatChange");
         var rng = 0x2545F491u;
         var h = 14695981039346656037UL;
         for (var step = 0; step < steps; step++)

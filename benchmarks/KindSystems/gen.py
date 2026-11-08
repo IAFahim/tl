@@ -58,6 +58,6 @@ if __name__ == "__main__":
         timeline("walk_legacy", 40, [track("LegacyTrack", 2, [(0, 40, {"Amount": 3})], "LegacyClip")], loop=True),
         timeline("long", 65535, [track("T0", 2, [(0, 65535, {"Amount": 3})], "V0")], loop=True),
         timeline("hit", 8, [track("HitTrack", 1, [(2, 4, {"Amount": 5})], "HitClip")]),
-    ], kinds={"Dmg": {"gamePulses": 8, "maxInlineBytes": 128}})
+    ], kinds={"KindBench.Dmg": {"gamePulses": 8, "maxInlineBytes": 128}})
     write_lib("lib-many", [timeline(f"m{i:03d}", 40, [track("T0", 2, [(0, 40, {"Amount": 1 + i % 7})], "V0")], loop=True) for i in range(100)])
     write_lib("lib-pairs", [timeline(f"p{i:02d}", 40, [track(f"T{2*i}", 2, [(0, 40, {"Amount": 3})], f"V{2*i}"), track(f"T{2*i+1}", 2, [(0, 40, {"Amount": 4})], f"V{2*i+1}")], loop=True) for i in range(PAIRS)] + [timeline(f"q{i:02d}", 40, [track("T0", 2, [(0, 40, {"Amount": 3})], "V0"), track("T1", 2, [(0, 40, {"Amount": 4})], "V1")], loop=True) for i in range(PAIRS)] + [timeline("hit", 8, [track("HitTrack", 1, [(2, 4, {"Amount": 5})], "HitClip")])])

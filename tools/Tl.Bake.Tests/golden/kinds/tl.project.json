@@ -4,6 +4,6 @@
   "channels": ["locomotion", "action"],
   "timelines": ["run.json", "jump.json", "potion_hop.json", "stomp.json"],
   "kinds": {
-    "Damage": { "gamePulses": 4 }
+    "KindFixture.Damage": { "gamePulses": 4 }
   }
 }

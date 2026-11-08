@@ -31,7 +31,7 @@ public sealed unsafe class KindSampleHashTests
             _world = new TimelineWorld(File.ReadAllBytes(System.IO.Path.Combine(dir, "tests", "Tl.Systems.Tests", "KindLibrary", "unity", "game.tlib")));
             _players = new PlaybackTable(count);
             _store = new KindStore(_world, _players);
-            _damage = _store.Pulses<int>("Damage");
+            _damage = _store.Pulses<int>("KindGame.Damage");
             _motion = new Motion[count];
             _legacy = new LegacyMotion[count];
             _stat = new WalkStat[count];
@@ -70,7 +70,7 @@ public sealed unsafe class KindSampleHashTests
 
         public int LocomotionEntries(int row)
         {
-            var kind = _store.IndexOf("Locomotion");
+            var kind = _store.IndexOf("KindGame.Locomotion");
             return _store.Table(kind)->Length[_store.RowOf(row, kind)];
         }
 

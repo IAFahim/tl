@@ -75,6 +75,7 @@ internal sealed record KindDecl(
     IReadOnlyList<string> MemberSystems)
 {
     public bool Foreign { get; init; }
+    public string Id { get; init; } = "";
 }
 
 internal sealed record SystemConsumer(

@@ -40,12 +40,12 @@ Every document starts with `"schema": 1`. Any other value, a missing value where
   "tickRate": 60,
   "channels": ["body", "voice"],
   "timelines": ["push.json", "moves/*.json"],
-  "kinds": { "Damage": { "gamePulses": 4 } },
+  "kinds": { "Game.Damage": { "gamePulses": 4 } },
   "packs": [ { "name": "Tl.Force", "assembly": "Tl.Pack.Force", "version": "0.1.0", "layout": "<digest>" } ]
 }
 ```
 
-`schema` and `timelines` are required. Channel order sets channel numbers (1-up). Timeline globs are relative to the project file and never match the project file itself. Layout of the packed result: `docs/library-layout.md`.
+`schema` and `timelines` are required. `kinds` keys are kind full type names (or group names). Channel order sets channel numbers (1-up). Timeline globs are relative to the project file and never match the project file itself. Layout of the packed result: `docs/library-layout.md`.
 
 ## Scene (`*.scene.json`)
 
@@ -80,3 +80,4 @@ No compatibility layer is kept.
 - `library.json` is now `tl.project.json` and needs `"schema": 1`. Rename the file; the old name is not read.
 - The TLB cold metadata tail is version 2 (64-byte header, track and clip tables, generic type names, channel and next labels). Tails of version 1 are rejected by every metadata reader (`tlb --report`, `tlb decode`, `Tl.Tlb`); playback never reads the tail, so old files still play, but rebake them to inspect or decode them. Every TLB and `game.tlib` byte fixture was re-pinned; hot sections and all state hashes are unchanged (13943614770702343869, 6607956939547305625, 12545803591333190611).
 - `TlbMetadataView` gained `Tracks` and `Clips`; type rows of generic types now carry their arguments in `Name`.
+- Kinds are identified by full type name everywhere (library kind rows, `tl.project.json` `kinds` keys, `KindStore.IndexOf`/`Pulses<T>`, generated systems, the Unity registry and kind ids), so a pack's `Tl.Pack.Force.ForceKind` and a game's `ForceKind` coexist (IAFahim/tl#582). Write `"Game.Damage"` where you wrote `"Damage"`. The generated `KindCapacity` constants keep the short name unless two kinds share it.

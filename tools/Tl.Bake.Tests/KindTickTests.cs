@@ -65,7 +65,7 @@ public sealed unsafe class KindTickTests : IDisposable
             sb.Append("]}");
             File.WriteAllText(Path.Combine(_dir, $"t{id}.json"), sb.ToString());
         }
-        File.WriteAllText(Path.Combine(_dir, "tl.project.json"), "{\"schema\":1,\"channels\":[\"locomotion\",\"action\"],\"timelines\":[\"t*.json\"],\"kinds\":{\"Damage\":{\"gamePulses\":2}}}");
+        File.WriteAllText(Path.Combine(_dir, "tl.project.json"), "{\"schema\":1,\"channels\":[\"locomotion\",\"action\"],\"timelines\":[\"t*.json\"],\"kinds\":{\"KindFixture.Damage\":{\"gamePulses\":2}}}");
         var rc = LibraryPack.Run([_dir, "--assembly", typeof(KindTickTests).Assembly.Location, "--namespace", "KindFixture"]);
         Assert.Equal(0, rc);
         return Path.Combine(_dir, "game.tlib");
@@ -162,7 +162,7 @@ public sealed unsafe class KindTickTests : IDisposable
                     if (key != 0) Bucket(e, feeder.Kind).Add(new Key(key, (byte)i, id, w, feeder.Ordinal, 0));
                 }
             }
-        var damage = sec.IndexOf("Damage");
+        var damage = sec.IndexOf("KindFixture.Damage");
         for (var k = 0; k < run.Sent.Count;)
         {
             var (target, value) = run.Sent[k++];
@@ -201,9 +201,9 @@ public sealed unsafe class KindTickTests : IDisposable
         var rng = new Random(seed * 7919 + 1);
         var hash = 14695981039346656037ul;
         long mismatches = 0;
-        var damage = run.World.View.Kinds.IndexOf("Damage");
-        var pulses = run.Store.Pulses<int>("Damage");
-        var folding = run.Store.Pulses<int, SumFold>("Damage");
+        var damage = run.World.View.Kinds.IndexOf("KindFixture.Damage");
+        var pulses = run.Store.Pulses<int>("KindFixture.Damage");
+        var folding = run.Store.Pulses<int, SumFold>("KindFixture.Damage");
         var sec = run.World.View.Kinds;
         for (var step = 0; step < steps; step++)
         {
@@ -284,9 +284,9 @@ public sealed unsafe class KindTickTests : IDisposable
         {
             CollectPairs(run);
             first = Script(run, seed, 2500, true, -1, null);
-            Assert.True(run.Store.GetStats(run.World.View.Kinds.IndexOf("Damage")).Rows > 0);
-            Assert.True(run.Store.Table(run.World.View.Kinds.IndexOf("Burn"))->Grouped);
-            Assert.True(run.Store.Table(run.World.View.Kinds.IndexOf("Burn")) == run.Store.Table(run.World.View.Kinds.IndexOf("Chill")));
+            Assert.True(run.Store.GetStats(run.World.View.Kinds.IndexOf("KindFixture.Damage")).Rows > 0);
+            Assert.True(run.Store.Table(run.World.View.Kinds.IndexOf("KindFixture.Burn"))->Grouped);
+            Assert.True(run.Store.Table(run.World.View.Kinds.IndexOf("KindFixture.Burn")) == run.Store.Table(run.World.View.Kinds.IndexOf("KindFixture.Chill")));
         }
         using (var run = Open(tlib, 10))
         {
@@ -305,7 +305,7 @@ public sealed unsafe class KindTickTests : IDisposable
         using var run = Open(tlib, 10);
         CollectPairs(run);
         Script(run, seed, 2500, true, -1, null, true);
-        Assert.True(run.Store.GetStats(run.World.View.Kinds.IndexOf("Damage")).Rows > 0);
+        Assert.True(run.Store.GetStats(run.World.View.Kinds.IndexOf("KindFixture.Damage")).Rows > 0);
     }
 
     [Fact]
@@ -345,8 +345,8 @@ public sealed unsafe class KindTickTests : IDisposable
         var tlib = Pack(8);
         using var plain = Open(tlib, 4);
         using var folded = Open(tlib, 4);
-        var a = plain.Store.Pulses<int>("Damage");
-        var b = folded.Store.Pulses<int, SumFold>("Damage");
+        var a = plain.Store.Pulses<int>("KindFixture.Damage");
+        var b = folded.Store.Pulses<int, SumFold>("KindFixture.Damage");
         foreach (var (target, value) in new[] { (0, 1), (0, 2), (0, 3), (1, 4), (0, 5), (0, 6), (2, 7) })
         {
             a.To(target, value);
@@ -354,7 +354,7 @@ public sealed unsafe class KindTickTests : IDisposable
         }
         plain.World.Tick(plain.Players);
         folded.World.Tick(folded.Players);
-        var damage = plain.World.View.Kinds.IndexOf("Damage");
+        var damage = plain.World.View.Kinds.IndexOf("KindFixture.Damage");
         foreach (var (entity, sum, entries, foldedEntries) in new[] { (0, 17, 5, 2), (1, 4, 1, 1), (2, 7, 1, 1), (3, 0, 0, 0) })
         {
             Assert.Equal(sum, PulseSum(plain, entity, damage, out var p));
@@ -368,9 +368,9 @@ public sealed unsafe class KindTickTests : IDisposable
     public void FoldingNeedsTheFlagOnTheKind()
     {
         using var run = Open(Pack(8), 2);
-        Assert.Throws<ArgumentException>(() => run.Store.Pulses<int, SumFold>("StatChange"));
-        Assert.Throws<ArgumentException>(() => run.Store.Pulses<long, FoldLong>("Damage"));
-        Assert.Throws<ArgumentException>(() => run.Store.Pulses<float, FoldFloat>("Lift"));
+        Assert.Throws<ArgumentException>(() => run.Store.Pulses<int, SumFold>("KindFixture.StatChange"));
+        Assert.Throws<ArgumentException>(() => run.Store.Pulses<long, FoldLong>("KindFixture.Damage"));
+        Assert.Throws<ArgumentException>(() => run.Store.Pulses<float, FoldFloat>("KindFixture.Lift"));
     }
 
     struct FoldLong : IPulseFold<long>
@@ -392,8 +392,8 @@ public sealed unsafe class KindTickTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => world.Tick(plain));
         using var run = Open(tlib, 2);
         Assert.Throws<InvalidOperationException>(() => run.World.Advance(run.Players));
-        Assert.Throws<ArgumentException>(() => run.Store.Pulses<long>("Damage"));
-        Assert.Throws<ArgumentException>(() => run.Store.Pulses<int>("Locomotion"));
+        Assert.Throws<ArgumentException>(() => run.Store.Pulses<long>("KindFixture.Damage"));
+        Assert.Throws<ArgumentException>(() => run.Store.Pulses<int>("KindFixture.Locomotion"));
         Assert.Throws<ArgumentException>(() => run.Store.Pulses<int>("Poison"));
         Assert.Throws<InvalidOperationException>(() => new KindStore(run.World, run.Players));
     }
@@ -402,14 +402,14 @@ public sealed unsafe class KindTickTests : IDisposable
     public void EntitiesOnlyReceiveTheirReachableKindsAndMissedPulsesAreCounted()
     {
         var tlib = Pack(7);
-        using var run = Open(tlib, 4, ["Damage", "Locomotion"], [0b01ul, 0b10ul, 0b11ul, 0ul]);
-        var damage = run.World.View.Kinds.IndexOf("Damage");
-        var lift = run.World.View.Kinds.IndexOf("Lift");
+        using var run = Open(tlib, 4, ["KindFixture.Damage", "KindFixture.Locomotion"], [0b01ul, 0b10ul, 0b11ul, 0ul]);
+        var damage = run.World.View.Kinds.IndexOf("KindFixture.Damage");
+        var lift = run.World.View.Kinds.IndexOf("KindFixture.Lift");
         Assert.True(run.Store.RowOf(0, damage) >= 0);
         Assert.True(run.Store.RowOf(1, damage) < 0);
         Assert.True(run.Store.RowOf(2, lift) < 0);
         Assert.True(run.Store.GetStats(damage).Rows == 2);
-        var pulses = run.Store.Pulses<int>("Damage");
+        var pulses = run.Store.Pulses<int>("KindFixture.Damage");
         pulses.To(0, 5);
         pulses.To(1, 6);
         pulses.To(3, 7);

@@ -43,7 +43,7 @@ public unsafe class KindBenchmarks
     static string[] Names(int count)
     {
         var names = new string[count];
-        for (var i = 0; i < count; i++) names[i] = "K" + i;
+        for (var i = 0; i < count; i++) names[i] = "KindBench.K" + i;
         return names;
     }
 
@@ -60,9 +60,9 @@ public unsafe class KindBenchmarks
         _shapes = new TimelineWorld(File.ReadAllBytes(Lib("shapes")));
         _many = new TimelineWorld(File.ReadAllBytes(Lib("many")));
         _pairs = new TimelineWorld(File.ReadAllBytes(Lib("pairs")));
-        var k0 = new[] { "K0" };
+        var k0 = new[] { "KindBench.K0" };
         var one = Reach(N, _ => 1ul);
-        var dmg = new[] { "Dmg" };
+        var dmg = new[] { "KindBench.Dmg" };
         _plA = new PlaybackTable(N);
         _pA = new PlaybackTable(N);
         _pB = new PlaybackTable(N);
@@ -81,8 +81,8 @@ public unsafe class KindBenchmarks
         _sE64 = new KindStore(_pairs, _pE64, names, Reach(N, e => 0b11ul << (2 * Block(e))));
         _sF1 = new KindStore(_shapes, _pF1, dmg, one);
         _sF8 = new KindStore(_shapes, _pF8, dmg, one);
-        _bullets1 = _sF1.Pulses<int, DmgFold>("Dmg");
-        _bullets8 = _sF8.Pulses<int, DmgFold>("Dmg");
+        _bullets1 = _sF1.Pulses<int, DmgFold>("KindBench.Dmg");
+        _bullets8 = _sF8.Pulses<int, DmgFold>("KindBench.Dmg");
         _fxPlan = new float[N];
         _fxA = new float[N];
         _fxB = new float[N];
@@ -192,9 +192,9 @@ public unsafe class KindBenchmarks
         return n;
     }
 
-    public (int Max, int Overflows) Damage1() => (_sF1.GetStats(_sF1.IndexOf("Dmg")).MaxLength, _sF1.GetStats(_sF1.IndexOf("Dmg")).Overflows);
+    public (int Max, int Overflows) Damage1() => (_sF1.GetStats(_sF1.IndexOf("KindBench.Dmg")).MaxLength, _sF1.GetStats(_sF1.IndexOf("KindBench.Dmg")).Overflows);
 
-    public (int Max, int Overflows) Damage8() => (_sF8.GetStats(_sF8.IndexOf("Dmg")).MaxLength, _sF8.GetStats(_sF8.IndexOf("Dmg")).Overflows);
+    public (int Max, int Overflows) Damage8() => (_sF8.GetStats(_sF8.IndexOf("KindBench.Dmg")).MaxLength, _sF8.GetStats(_sF8.IndexOf("KindBench.Dmg")).Overflows);
 }
 
 public static class Smoke

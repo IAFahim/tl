@@ -343,7 +343,7 @@ internal static class SystemReader
             if (!ok) continue;
             if (CheckColumns(type, method.Name, parameters, diagnostics, site) is null) continue;
             if (NewStyle.IsForeignKind(kindType, assembly) && !foreign.ContainsKey(Symbols.Name(kindType))) foreign[Symbols.Name(kindType)] = (kindType, site);
-            result.Add(new(kindType.Name, trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])));
+            result.Add(new(StableName(kindType), trigger, method.Name, MetadataName(type), Symbols.Name(method.ReturnType), new(ConsumerMethodKind.Feeder, parameters, [.. foldTypes], [])));
         }
         return result;
     }
@@ -392,7 +392,7 @@ internal static class SystemReader
         string group = "";
         foreach (var pair in attribute.NamedArguments)
             if (pair.Key == "Group" && pair.Value.Value is string text) group = text;
-        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts));
+        return new(type.Name, name, Symbols.Name(value), each, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, parameters, MemberSystems(type, contracts)) { Id = StableName(type) };
     }
 
     static KindDecl? ReadForeignKind(INamedTypeSymbol type, SyntaxNode site, List<DeclarationDiagnostic> diagnostics)
@@ -409,7 +409,7 @@ internal static class SystemReader
         string group = "";
         foreach (var pair in attribute.NamedArguments)
             if (pair.Key == "Group" && pair.Value.Value is string text) group = text;
-        return new(type.Name, Symbols.Name(type), Symbols.Name(apply.Parameters[0].Type), NamedInt(attribute, "Mode") == 1, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, [], []) { Foreign = true };
+        return new(type.Name, Symbols.Name(type), Symbols.Name(apply.Parameters[0].Type), NamedInt(attribute, "Mode") == 1, NamedInt(attribute, "Accepts"), NamedInt(attribute, "Order"), group, [], []) { Foreign = true, Id = StableName(type) };
     }
 
     static IReadOnlyList<SystemAssignment> AssignKinds(IReadOnlyList<SystemDecl> systems, IReadOnlyList<SystemAssignment> assignments, List<KindDecl> kinds, IReadOnlyDictionary<string, SyntaxNode> kindSites, IReadOnlyDictionary<string, SyntaxNode> consumerSites, List<DeclarationDiagnostic> diagnostics)
@@ -417,8 +417,8 @@ internal static class SystemReader
         var byName = new Dictionary<string, KindDecl>(StringComparer.Ordinal);
         foreach (var kind in kinds)
         {
-            if (byName.ContainsKey(kind.Name)) Symbols.Error(diagnostics, kindSites[kind.TypeName], "TLGEN102", $"Kind name '{kind.Name}' is declared twice; kind names must be unique.");
-            else byName[kind.Name] = kind;
+            if (byName.ContainsKey(kind.Id)) Symbols.Error(diagnostics, kindSites[kind.TypeName], "TLGEN102", $"Kind '{kind.Id}' is declared twice; Tl identifies kinds by full type name, so rename one or move it to another namespace.");
+            else byName[kind.Id] = kind;
         }
         foreach (var assignment in assignments)
             foreach (var consumer in assignment.Consumers)
@@ -436,10 +436,10 @@ internal static class SystemReader
                 }
         var perSystem = new Dictionary<string, List<KindDecl>>(StringComparer.Ordinal);
         foreach (var system in systems) perSystem[system.TypeName] = new List<KindDecl>();
-        foreach (var kind in byName.Values.OrderBy(static k => k.Order).ThenBy(static k => k.Name, StringComparer.Ordinal))
+        foreach (var kind in byName.Values.OrderBy(static k => k.Order).ThenBy(static k => k.Name, StringComparer.Ordinal).ThenBy(static k => k.Id, StringComparer.Ordinal))
         {
             var site = kindSites[kind.TypeName];
-            var fed = assignments.Where(a => a.Consumers.Any(c => c.Feeders.Any(f => f.KindName == kind.Name))).ToList();
+            var fed = assignments.Where(a => a.Consumers.Any(c => c.Feeders.Any(f => f.KindName == kind.Id))).ToList();
             var apply = new SystemConsumer(kind.TypeName, "", "", "", false, false, 0, kind.MemberSystems, [new(ConsumerMethodKind.ExecuteActive, kind.ApplyParams, [], [])], []);
             SystemDecl? chosen = null;
             if (fed.Count > 1)

@@ -44,20 +44,20 @@ public sealed unsafe class KindGroupRunTests : IDisposable
     [Fact]
     public void MembersOfAGroupShareOneTableWithOneRowPerEntity()
     {
-        var burn = _store.IndexOf("Burn");
-        var chill = _store.IndexOf("Chill");
+        var burn = _store.IndexOf("KindGame.Burn");
+        var chill = _store.IndexOf("KindGame.Chill");
         Assert.True(_store.Table(burn) == _store.Table(chill));
         Assert.True(_store.Table(burn)->Grouped);
         Assert.Equal(16, _store.Table(burn)->Stride);
         Assert.Equal(N, _store.Table(burn)->Rows);
         Assert.Equal(_store.RowOf(1, burn), _store.RowOf(1, chill));
-        Assert.False(_store.Table(_store.IndexOf("Lift"))->Grouped);
+        Assert.False(_store.Table(_store.IndexOf("KindGame.Lift"))->Grouped);
     }
 
     [Fact]
     public void EachMemberAppliesOnlyItsOwnEntriesFromTheSharedTable()
     {
-        var chill = _store.Pulses<int>("Chill");
+        var chill = _store.Pulses<int>("KindGame.Chill");
         _players.Start(0, Flare);
         _players.Start(0, Ember);
         Step();
@@ -78,8 +78,8 @@ public sealed unsafe class KindGroupRunTests : IDisposable
         _players.Start(0, Flare);
         _players.Start(0, Ember);
         Step();
-        var table = _store.Table(_store.IndexOf("Burn"));
-        var row = _store.RowOf(0, _store.IndexOf("Burn"));
+        var table = _store.Table(_store.IndexOf("KindGame.Burn"));
+        var row = _store.RowOf(0, _store.IndexOf("KindGame.Burn"));
         Assert.Equal(2, table->Length[row]);
         _players.Stop(0, Ember);
         Step();
@@ -99,6 +99,6 @@ public sealed unsafe class KindGroupRunTests : IDisposable
         using var players = new PlaybackTable(1);
         using var world = new TimelineWorld(File.ReadAllBytes(System.IO.Path.Combine(dir, "tests", "Tl.Systems.Tests", "KindLibrary", "game.tlib")));
         using var store = new KindStore(world, players);
-        Assert.Equal(-1, store.IndexOf("Burn"));
+        Assert.Equal(-1, store.IndexOf("KindGame.Burn"));
     }
 }

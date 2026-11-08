@@ -65,7 +65,7 @@ public class KindsCliTests
             var (exit, stdout, stderr) = Run(WithAssembly(dir));
             Assert.Equal(0, exit);
             Assert.Equal(File.ReadAllText(Golden("kinds", "Kinds.g.cs.txt")), stdout);
-            Assert.Contains("kind Damage: worst 7, capacity 5", stderr);
+            Assert.Contains("kind KindFixture.Damage: worst 7, capacity 5", stderr);
             Assert.Contains("kind group Effects: worst 0, capacity 0", stderr);
         }
         finally { Directory.Delete(dir, true); }
@@ -95,8 +95,8 @@ public class KindsCliTests
               "timelines": ["run.json", "jump.json", "potion_hop.json", "stomp.json"],
               "kinds": {
                 "default": { "maxInlineBytes": 16, "stackDepth": 3 },
-                "Damage": { "gamePulses": 4, "maxInlineBytes": 120 },
-                "Locomotion": { "inline": 0 }
+                "KindFixture.Damage": { "gamePulses": 4, "maxInlineBytes": 120 },
+                "KindFixture.Locomotion": { "inline": 0 }
               }
             }
             """));
@@ -150,8 +150,8 @@ public class KindsCliTests
             using var first = JsonDocument.Parse(stdout);
             Assert.Equal(4, first.RootElement.GetProperty("timelines").GetInt32());
             var rows = first.RootElement.GetProperty("kinds").EnumerateArray().ToDictionary(k => k.GetProperty("name").GetString()!);
-            Assert.Equal(5, rows["Damage"].GetProperty("capacity").GetInt32());
-            Assert.Equal(7, rows["Damage"].GetProperty("worst").GetInt32());
+            Assert.Equal(5, rows["KindFixture.Damage"].GetProperty("capacity").GetInt32());
+            Assert.Equal(7, rows["KindFixture.Damage"].GetProperty("worst").GetInt32());
             Assert.True(rows["Effects"].GetProperty("group").GetBoolean());
             Assert.Equal(JsonValueKind.Null, first.RootElement.GetProperty("kindsFile").ValueKind);
             Assert.False(first.RootElement.GetProperty("kindsWritten").GetBoolean());

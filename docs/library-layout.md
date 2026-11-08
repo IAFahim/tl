@@ -192,8 +192,12 @@ name, so the attribute types may live in any assembly:
 
 Kinds that share a `Group` share one table per entity in the .NET runtime. A group entry is `12 + align4(largest pulse value)` bytes: the 8-byte entry header, a `u16` kind index and 2 bytes of padding, then the value. Members apply only their own entries.
 
-Kinds are ordered by full type name and named by their simple name, which must
-be unique; at most 64 kinds. Feeders are ordered by kind, then consumer full
+Kinds are ordered and identified by full type name (namespace and name, `+`
+for nested types), the same spelling as pair keys: `Tl.Pack.Force.ForceKind`
+and a game's `ForceKind` are two kinds. The kind row's name string is that full
+name, and hosts join kinds by it (`KindStore.IndexOf`, `Pulses<T>(name)`, the
+Unity registry). Two kinds with one full name fail the bake with both assembly
+names; at most 64 kinds. Feeders are ordered by kind, then consumer full
 name, then method name; `Ordinal` is the feeder's index within its kind.
 Violations fail the bake with the type and method named and the repair stated.
 
@@ -202,12 +206,12 @@ Violations fail the bake with the type and method named and the repair stated.
 ```json
 "kinds": {
   "default": { "maxInlineBytes": 64, "stackDepth": 1 },
-  "Damage": { "inline": 4, "gamePulses": 4, "maxInlineBytes": 128 },
+  "Game.Damage": { "inline": 4, "gamePulses": 4, "maxInlineBytes": 128 },
   "Poison": { "inline": 0 }
 }
 ```
 
-`default` takes `maxInlineBytes` and `stackDepth`; a kind or group name takes
+`default` takes `maxInlineBytes` and `stackDepth`; a kind (by full type name) or group name takes
 `inline` (fixed capacity), `gamePulses` and `maxInlineBytes`. Unknown names
 and keys fail the bake. A kind's `[TlKind(Inline = n, GamePulses = n)]` values
 apply when `tl.project.json` does not set them.

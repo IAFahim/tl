@@ -394,7 +394,7 @@ internal static class SystemEmitter
         var feeders = new List<(int consumer, FeederDecl feeder)>();
         for (var c = 0; c < assignment.Consumers.Count; c++)
             foreach (var feeder in assignment.Consumers[c].Feeders)
-                if (feeder.KindName == kind.Name) feeders.Add((c, feeder));
+                if (feeder.KindName == kind.Id) feeders.Add((c, feeder));
         feeders.Sort(static (a, b) =>
         {
             var by = string.CompareOrdinal(a.feeder.ConsumerMetadata, b.feeder.ConsumerMetadata);
@@ -410,13 +410,13 @@ internal static class SystemEmitter
         var tail = applyArgs.Length == 0 ? "" : ", " + applyArgs;
         var feed = kind.Foreign;
         W(writer, "{");
-        W(writer, $"var __routes = __ks.Join(\"{kind.Name}\", sizeof({value}), \"{signature}\", {(feed ? feedKey : 0)}, out var __me);");
+        W(writer, $"var __routes = __ks.Join(\"{kind.Id}\", sizeof({value}), \"{signature}\", {(feed ? feedKey : 0)}, out var __me);");
         if (kind.Group.Length > 0)
         {
-            W(writer, $"var __kid = __ks.IndexOf(\"{kind.Name}\");");
+            W(writer, $"var __kid = __ks.IndexOf(\"{kind.Id}\");");
             W(writer, "var __kt = __ks.Table(__kid);");
         }
-        else W(writer, $"var __kt = __ks.Table(__ks.IndexOf(\"{kind.Name}\"));");
+        else W(writer, $"var __kt = __ks.Table(__ks.IndexOf(\"{kind.Id}\"));");
         W(writer, "if (__kt != null && __routes != null)");
         W(writer, "{");
         W(writer, "var __stride = __kt->Stride;");

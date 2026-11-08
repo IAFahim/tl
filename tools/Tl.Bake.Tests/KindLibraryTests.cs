@@ -177,9 +177,9 @@ public class KindLibraryTests
         var catalog = KindCatalog.Discover([typeof(KindLibraryTests).Assembly]);
         Assert.Equal(["Burn", "Chill", "Damage", "Lift", "Locomotion", "StatChange"], catalog.Kinds.Select(k => k.Name));
         Assert.Equal(["Effects", "Effects"], catalog.Kinds.Take(2).Select(k => k.Group));
-        var damage = catalog.Kinds[catalog.IndexOf("Damage")];
+        var damage = catalog.Kinds[catalog.IndexOf("KindFixture.Damage")];
         Assert.Equal(12, damage.EntryBytes);
-        Assert.Equal(8, catalog.Kinds[catalog.IndexOf("Lift")].EntryBytes);
+        Assert.Equal(8, catalog.Kinds[catalog.IndexOf("KindFixture.Lift")].EntryBytes);
         var feeders = catalog.Feeders.Select(f => $"{catalog.Kinds[f.Kind].Name}:{f.Trigger}:{f.Consumer}.{f.Method}:{f.Ordinal}").ToArray();
         Assert.Equal([
             "Burn:Span:KindFixture.Flame.Evaluate:0",
@@ -221,8 +221,8 @@ public class KindLibraryTests
               "timelines": ["run.json", "jump.json", "potion_hop.json", "stomp.json"],
               "kinds": {
                 "default": { "maxInlineBytes": 16, "stackDepth": 3 },
-                "Damage": { "gamePulses": 4, "maxInlineBytes": 120 },
-                "Locomotion": { "inline": 0 }
+                "KindFixture.Damage": { "gamePulses": 4, "maxInlineBytes": 120 },
+                "KindFixture.Locomotion": { "inline": 0 }
               }
             }
             """));
@@ -388,16 +388,16 @@ public class KindLibraryTests
                 var end = clip.GetProperty("end").GetInt32();
                 switch (track.GetProperty("type").GetString())
                 {
-                    case "WalkTrack": items.Add(("Locomotion", 0, start, end)); break;
-                    case "ArcTrack": items.Add(("Lift", 0, start, end)); break;
-                    case "HitTrack": items.Add(("Damage", 1, start, end)); items.Add(("StatChange", 2, start, end)); break;
+                    case "WalkTrack": items.Add(("KindFixture.Locomotion", 0, start, end)); break;
+                    case "ArcTrack": items.Add(("KindFixture.Lift", 0, start, end)); break;
+                    case "HitTrack": items.Add(("KindFixture.Damage", 1, start, end)); items.Add(("KindFixture.StatChange", 2, start, end)); break;
                 }
             }
         if (json.TryGetProperty("markers", out var markers))
             foreach (var marker in markers.EnumerateArray())
             {
                 var tick = marker.GetProperty("tick").GetInt32();
-                items.Add(("StatChange", 3, tick, tick + 1));
+                items.Add(("KindFixture.StatChange", 3, tick, tick + 1));
             }
         return (t, dir) =>
         {

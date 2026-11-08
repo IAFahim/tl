@@ -69,7 +69,7 @@ public sealed unsafe class KindRunTests : IDisposable
         Assert.Equal(102f, _motion[0].X);
         Step();
         Assert.Equal(104f, _motion[0].X);
-        Assert.Equal(1, _store.GetStats(_store.IndexOf("Locomotion")).MaxLength - 1);
+        Assert.Equal(1, _store.GetStats(_store.IndexOf("KindGame.Locomotion")).MaxLength - 1);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed unsafe class KindRunTests : IDisposable
     [Fact]
     public void BulletsAndTimelineHitsSumIntoOneHealthWritePerStep()
     {
-        var bullets = _store.Pulses<int>("Damage");
+        var bullets = _store.Pulses<int>("KindGame.Damage");
         _players.Start(0, Stomp);
         Step();
         bullets.To(1, 7);
@@ -133,7 +133,7 @@ public sealed unsafe class KindRunTests : IDisposable
     {
         _players.Start(0, Run);
         Step();
-        var kind = _store.IndexOf("Locomotion");
+        var kind = _store.IndexOf("KindGame.Locomotion");
         var row = _store.RowOf(0, kind);
         _store.Table(kind)->SetEnabled(row, false);
         for (var s = 0; s < 3; s++) Step();
@@ -170,7 +170,7 @@ public sealed unsafe class KindRunTests : IDisposable
         Assert.Equal(0, _players.View.SlotOf(0, 0)->Tick);
         Assert.Equal(-1, _stamina[0].Value);
         Assert.Equal(12f, _motion[0].Y);
-        var lift = _store.IndexOf("Lift");
+        var lift = _store.IndexOf("KindGame.Lift");
         var table = _store.Table(lift);
         var row = _store.RowOf(0, lift);
         Assert.Equal(1, table->Length[row]);

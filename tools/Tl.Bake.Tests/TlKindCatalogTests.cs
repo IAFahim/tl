@@ -49,4 +49,50 @@ public class TlKindCatalogTests
         var row = Assert.Single(LibraryAssembler.Capacities([part], new LibrarySettings { ChannelCount = 1, StackDepth = 1, MaxInlineBytes = 64 }));
         Assert.Equal(3, row.Capacity);
     }
+
+    static AssemblyBuilder KindAssembly(string assembly, params string[] kinds)
+    {
+        var asm = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(assembly + Guid.NewGuid().ToString("N")), AssemblyBuilderAccess.Run);
+        AppDomain.CurrentDomain.AssemblyResolve += (_, e) => e.Name == asm.FullName ? asm : null;
+        var module = asm.DefineDynamicModule("m");
+        var attribute = module.DefineType("Tl.TlKindAttribute", TypeAttributes.Public | TypeAttributes.Sealed, typeof(Attribute));
+        attribute.DefineDefaultConstructor(MethodAttributes.Public);
+        var attributeType = attribute.CreateType();
+        foreach (var name in kinds)
+        {
+            var kind = module.DefineType(name, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.SequentialLayout, typeof(ValueType));
+            kind.SetCustomAttribute(new CustomAttributeBuilder(attributeType.GetConstructor(Type.EmptyTypes)!, []));
+            kind.DefineMethod("Apply", MethodAttributes.Public | MethodAttributes.Static, typeof(void), [typeof(float).MakeByRefType()]).GetILGenerator().Emit(OpCodes.Ret);
+            kind.DefineMethod("Combine", MethodAttributes.Public | MethodAttributes.Static, typeof(void), [typeof(float).MakeByRefType(), typeof(float).MakeByRefType()]).GetILGenerator().Emit(OpCodes.Ret);
+            kind.CreateType();
+        }
+        return asm;
+    }
+
+    [Fact]
+    public void KindsWithOneShortNameInTwoNamespacesAreTwoKinds()
+    {
+        var asm = KindAssembly("TlKindTwins", "Tl.Pack.Force.ForceKind", "ForceDemo.ForceKind");
+        var catalog = KindCatalog.Discover([asm]);
+        Assert.Equal(["ForceDemo.ForceKind", "Tl.Pack.Force.ForceKind"], catalog.Kinds.Select(k => k.FullName));
+        var kinds = LibraryBake.Kinds([asm]);
+        Assert.Equal(["ForceDemo.ForceKind", "Tl.Pack.Force.ForceKind"], kinds.Names);
+        var part = new LibraryPart { Name = "empty", Tlb = [], Kinds = KindLayout.Payload(catalog, new KindTimeline { MaxSpans = [0, 0], MaxPulses = [0, 0] }, kinds.Inline, kinds.GamePulses) };
+        var rows = LibraryAssembler.Capacities([part], new LibrarySettings { ChannelCount = 1, StackDepth = 1, MaxInlineBytes = 64 });
+        Assert.Equal(["ForceDemo.ForceKind", "Tl.Pack.Force.ForceKind"], rows.Select(r => r.Name));
+        var source = KindLayout.CapacitySource("Game", rows);
+        Assert.Contains("public const int ForceDemo_ForceKind = ", source);
+        Assert.Contains("public const int Tl_Pack_Force_ForceKind = ", source);
+    }
+
+    [Fact]
+    public void TwoKindsWithOneFullNameFailWithBothAssemblies()
+    {
+        var first = KindAssembly("TlKindFirst", "Same.Push");
+        var second = KindAssembly("TlKindSecond", "Same.Push");
+        var error = Assert.Throws<BakeDiagnosticException>(() => KindCatalog.Discover([first, second]));
+        Assert.Contains("'Same.Push'", error.Message);
+        Assert.Contains(first.GetName().Name!, error.Message);
+        Assert.Contains(second.GetName().Name!, error.Message);
+    }
 }

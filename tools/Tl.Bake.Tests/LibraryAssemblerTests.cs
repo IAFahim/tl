@@ -85,9 +85,9 @@ public sealed unsafe class LibraryAssemblerTests
     {
         var input = Inputs();
         var settings = input.Settings;
-        settings.Kinds = new Dictionary<string, KindOverride> { ["Damage"] = new(inline: 7), ["Effects"] = new(inline: 3) };
+        settings.Kinds = new Dictionary<string, KindOverride> { ["KindFixture.Damage"] = new(inline: 7), ["Effects"] = new(inline: 3) };
         var capacities = LibraryAssembler.Capacities(input.Parts, settings);
-        Assert.Equal(7, capacities.Single(c => c.Name == "Damage").Capacity);
+        Assert.Equal(7, capacities.Single(c => c.Name == "KindFixture.Damage").Capacity);
         Assert.Equal(3, capacities.Single(c => c.Group && c.Name == "Effects").Capacity);
         settings.Kinds = new Dictionary<string, KindOverride> { ["Nope"] = new(inline: 1) };
         var error = Assert.Throws<InvalidOperationException>(() => LibraryAssembler.Assemble(input.Parts, input.TickRate, settings));

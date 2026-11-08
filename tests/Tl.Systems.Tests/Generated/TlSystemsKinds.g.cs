@@ -293,8 +293,8 @@ internal static void Kind_0(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-var __routes = __ks.Join("Burn", sizeof(float), "@Effects\nKindGame.Flame.Evaluate:0", 0, out var __me);
-var __kid = __ks.IndexOf("Burn");
+var __routes = __ks.Join("KindGame.Burn", sizeof(float), "@Effects\nKindGame.Flame.Evaluate:0", 0, out var __me);
+var __kid = __ks.IndexOf("KindGame.Burn");
 var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
@@ -385,8 +385,8 @@ internal static void Kind_1(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-var __routes = __ks.Join("Chill", sizeof(int), "@Effects\nKindGame.Frost.Start:1", 0, out var __me);
-var __kid = __ks.IndexOf("Chill");
+var __routes = __ks.Join("KindGame.Chill", sizeof(int), "@Effects\nKindGame.Frost.Start:1", 0, out var __me);
+var __kid = __ks.IndexOf("KindGame.Chill");
 var __kt = __ks.Table(__kid);
 if (__kt != null && __routes != null)
 {
@@ -477,8 +477,8 @@ internal static void Kind_2(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-var __routes = __ks.Join("Lift", sizeof(float), "KindGame.Jump.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("Lift"));
+var __routes = __ks.Join("KindGame.Lift", sizeof(float), "KindGame.Jump.Evaluate:0", 0, out var __me);
+var __kt = __ks.Table(__ks.IndexOf("KindGame.Lift"));
 if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
@@ -577,8 +577,8 @@ internal static void Kind_3(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-var __routes = __ks.Join("Locomotion", sizeof(global::KindGame.Speed), "KindGame.Walk.Evaluate:0", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("Locomotion"));
+var __routes = __ks.Join("KindGame.Locomotion", sizeof(global::KindGame.Speed), "KindGame.Walk.Evaluate:0", 0, out var __me);
+var __kt = __ks.Table(__ks.IndexOf("KindGame.Locomotion"));
 if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
@@ -667,8 +667,8 @@ internal static void Kind_4(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-var __routes = __ks.Join("StatChange", sizeof(int), "KindGame.ChangeStat.Start:1\nKindGame.Steps.OnStep:3", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("StatChange"));
+var __routes = __ks.Join("KindGame.StatChange", sizeof(int), "KindGame.ChangeStat.Start:1\nKindGame.Steps.OnStep:3", 0, out var __me);
+var __kt = __ks.Table(__ks.IndexOf("KindGame.StatChange"));
 if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
@@ -935,8 +935,8 @@ internal static void Kind_0(global::Tl.TimelineWorld world, global::Tl.PlaybackT
 var __view = world.View;
 var __pview = players.View;
 {
-var __routes = __ks.Join("Damage", sizeof(int), "KindGame.Hit.Start:1", 0, out var __me);
-var __kt = __ks.Table(__ks.IndexOf("Damage"));
+var __routes = __ks.Join("KindGame.Damage", sizeof(int), "KindGame.Hit.Start:1", 0, out var __me);
+var __kt = __ks.Table(__ks.IndexOf("KindGame.Damage"));
 if (__kt != null && __routes != null)
 {
 var __stride = __kt->Stride;
