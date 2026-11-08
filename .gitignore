@@ -36,4 +36,4 @@ __pycache__/
 
 # baked sample artifact (CI and README quick start regenerate it)
 samples/Runner/game.tlib
-tlb.db
+tl.db

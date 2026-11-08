@@ -1,6 +1,6 @@
 # game.tlib library layout (versions 1 and 2)
 
-`tlb library` compiles a library folder (one `tl.project.json` + many timeline JSON
+`tl library` compiles a library folder (one `tl.project.json` + many timeline JSON
 files) into a deterministic `game.tlib` container plus a `Timelines.g.cs` id table.
 This page specifies the byte layout so an out-of-process parser — a browser
 viewer, C catalog tooling, Unity-side import — can read the structure without
@@ -156,7 +156,7 @@ Collisions (two names mapping to one member, or mapping to the reserved
 ## CLI
 
 ```sh
-tlb library <dir> [--assembly Game.Logic.dll]... [--out game.tlib] [--ids Timelines.g.cs] [--kinds Kinds.g.cs] [--namespace Game] [--auto] [--diagnostics json]
+tl library <dir> [--assembly Game.Logic.dll]... [--out game.tlib] [--ids Timelines.g.cs] [--kinds Kinds.g.cs] [--namespace Game] [--auto] [--diagnostics json]
 ```
 
 `--out`/`--ids` default beside the library folder (`game.tlib`,
@@ -167,14 +167,14 @@ failures print `{"errors":[{"message":...}]}` to stderr.
 ## Kinds (library version 2)
 
 When any timeline reaches a kind (issue #554, plan `Roadmap.Kinds.impl.plan.md`
-section 4), `tlb library` appends a kind section, sets the header `Version` to
+section 4), `tl library` appends a kind section, sets the header `Version` to
 `2`, and writes `Kinds.g.cs`. A library whose timelines reach no kind is
 byte-identical to version 1. A version 2 library needs a runtime that reads
 kinds (#555); version 1 runtimes reject it as an unknown version.
 
 ### Discovery
 
-`tlb` scans the `--assembly` types for these shapes, matched by full attribute
+`tl` scans the `--assembly` types for these shapes, matched by full attribute
 name, so the attribute types may live in any assembly:
 
 - `[Tl.TimelineKind]` on a struct. Named arguments: `Accepts` (`0` Spans,
@@ -231,7 +231,7 @@ Per kind `K`, over the library's timelines:
   kind group's entry is `12 + align4(largest pulse value)`, and its worst case
   is the sum of its members'.
 
-`tlb library` prints one line per kind (worst case, capacity, entry bytes,
+`tl library` prints one line per kind (worst case, capacity, entry bytes,
 inline bytes, and the timeline that set it); with `--diagnostics json` the
 summary carries a `kinds` array with the same fields.
 
@@ -333,7 +333,7 @@ processes tick `0` (forward) or `Duration - 1` (backward).
 
 ### One assembler, per-timeline kind payloads
 
-`Tl.LibraryAssembler` (Tl.Core) writes every `game.tlib`: `tlb library` and the
+`Tl.LibraryAssembler` (Tl.Core) writes every `game.tlib`: `tl library` and the
 Unity package both call it. Each timeline arrives as a `LibraryPart` (name, TLB
 bytes, optional kind payload, library id of its `next`, timeline-reference
 sites to patch); the assembler checks that every payload was baked against the

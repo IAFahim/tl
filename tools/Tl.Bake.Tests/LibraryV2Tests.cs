@@ -64,7 +64,7 @@ public class LibraryV2Tests
     {
         var ex = Assert.Throws<BakeDiagnosticException>(() =>
             TimelineBaker.BakeJson("{\"duration\":4,\"next\":\"jump\",\"tracks\":[]}", Resolver()));
-        Assert.Contains("tlb library", ex.Message);
+        Assert.Contains("tl library", ex.Message);
     }
 
     [Fact]

@@ -171,7 +171,7 @@ public class KindsCliTests
         var (exit, stdout, stderr) = Run(["--namespace", Namespace]);
         Assert.Equal(1, exit);
         Assert.Equal("", stdout);
-        Assert.Contains("Usage: tlb kinds", stderr);
+        Assert.Contains("Usage: tl kinds", stderr);
     }
 
     [Fact]

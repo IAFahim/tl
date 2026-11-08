@@ -618,7 +618,7 @@ class BakeArgvTests(unittest.TestCase):
 class BakeRunTests(unittest.TestCase):
     def test_success_result_and_report(self):
         result = BAKE.run_bake(
-            ["tlb", "a.json", "a.tlb"],
+            ["tl", "a.json", "a.tlb"],
             runner=lambda argv: CompletedFake(0, "cache: miss abcd\n", ""),
         )
         self.assertEqual(0, result["exit_code"])
@@ -626,7 +626,7 @@ class BakeRunTests(unittest.TestCase):
         lines = BAKE.report_lines(result)
         self.assertEqual(
             [
-                (BAKE.SEVERITY_INFO, "bake: tlb a.json a.tlb"),
+                (BAKE.SEVERITY_INFO, "bake: tl a.json a.tlb"),
                 (BAKE.SEVERITY_INFO, "bake: cache: miss abcd"),
                 (BAKE.SEVERITY_INFO, "bake: exit 0"),
             ],
@@ -635,7 +635,7 @@ class BakeRunTests(unittest.TestCase):
 
     def test_failure_keeps_diagnostic_with_line_and_column(self):
         result = BAKE.run_bake(
-            ["tlb", "a.json", "a.tlb"],
+            ["tl", "a.json", "a.tlb"],
             runner=lambda argv: CompletedFake(
                 1,
                 "",
@@ -717,7 +717,7 @@ class ParsePairsTests(unittest.TestCase):
 
     def test_missing_keys_rejected(self):
         pairs, error = INTROSPECT.run_introspection(
-            "tlb",
+            "tl",
             ("game.dll",),
             runner=introspect_runner(CompletedFake(0, "{\"schemaVersion\": 1, \"pairs\": [{}]}", "")),
         )
@@ -727,13 +727,13 @@ class ParsePairsTests(unittest.TestCase):
 
 class RunIntrospectionTests(unittest.TestCase):
     def test_no_assemblies_is_a_no_op(self):
-        pairs, error = INTROSPECT.run_introspection("tlb", ())
+        pairs, error = INTROSPECT.run_introspection("tl", ())
         self.assertEqual((), pairs)
         self.assertEqual("", error)
 
     def test_successful_document_parses(self):
         pairs, error = INTROSPECT.run_introspection(
-            "tlb",
+            "tl",
             ("game.dll",),
             runner=introspect_runner(CompletedFake(0, json.dumps(INTROSPECTION_DOCUMENT), "")),
         )
@@ -742,7 +742,7 @@ class RunIntrospectionTests(unittest.TestCase):
 
     def test_nonzero_exit_reports_stderr(self):
         pairs, error = INTROSPECT.run_introspection(
-            "tlb",
+            "tl",
             ("game.dll",),
             runner=introspect_runner(CompletedFake(3, "", "boom")),
         )
@@ -752,7 +752,7 @@ class RunIntrospectionTests(unittest.TestCase):
 
     def test_invalid_json_reports_error(self):
         pairs, error = INTROSPECT.run_introspection(
-            "tlb",
+            "tl",
             ("game.dll",),
             runner=introspect_runner(CompletedFake(0, "{not json", "")),
         )
@@ -761,9 +761,9 @@ class RunIntrospectionTests(unittest.TestCase):
 
     def test_missing_executable_reports_error(self):
         def raise_os_error(argv):
-            raise FileNotFoundError("tlb")
+            raise FileNotFoundError("tl")
 
-        pairs, error = INTROSPECT.run_introspection("tlb", ("game.dll",), runner=raise_os_error)
+        pairs, error = INTROSPECT.run_introspection("tl", ("game.dll",), runner=raise_os_error)
         self.assertEqual((), pairs)
         self.assertIn("failed to start", error)
 

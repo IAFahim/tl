@@ -288,7 +288,7 @@ public class AutoLazyDiscoveryTests : IDisposable
 
         var second = Run("auto.json", "--auto");
         Equal(0, second.Exit, second.Stderr);
-        Assert.Contains("cached in tlb.db", second.Stdout);
+        Assert.Contains("cached in tl.db", second.Stdout);
     }
 
     [Fact]

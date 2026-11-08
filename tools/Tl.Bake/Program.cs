@@ -154,16 +154,16 @@ public static class Program
 
         if (inputPath == null)
         {
-            Console.Error.WriteLine("Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]");
-            Console.Error.WriteLine("       tlb bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]...");
-            Console.Error.WriteLine("       tlb decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...");
-            Console.Error.WriteLine("       tlb library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]");
-            Console.Error.WriteLine("       tlb kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]");
-            Console.Error.WriteLine("       tlb --strip <input.tlb> <output.tlb>");
-            Console.Error.WriteLine("       tlb --report <input.tlb>");
-            Console.Error.WriteLine("       tlb --inspect <input.tlb>");
-            Console.Error.WriteLine("       tlb --json --assembly <path>...");
-            Console.Error.WriteLine("       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>] [--auto]");
+            Console.Error.WriteLine("Usage: tl [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]");
+            Console.Error.WriteLine("       tl bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]...");
+            Console.Error.WriteLine("       tl decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...");
+            Console.Error.WriteLine("       tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]");
+            Console.Error.WriteLine("       tl kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]");
+            Console.Error.WriteLine("       tl --strip <input.tlb> <output.tlb>");
+            Console.Error.WriteLine("       tl --report <input.tlb>");
+            Console.Error.WriteLine("       tl --inspect <input.tlb>");
+            Console.Error.WriteLine("       tl --json --assembly <path>...");
+            Console.Error.WriteLine("       tl --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>] [--auto]");
             Console.Error.WriteLine("With only an input, output defaults beside it and the assembly is discovered from the JSON's types.");
             return 1;
         }
@@ -227,7 +227,7 @@ public static class Program
     {
         if (args.Length != 3)
         {
-            Console.Error.WriteLine("Usage: tlb --strip <input.tlb> <output.tlb>");
+            Console.Error.WriteLine("Usage: tl --strip <input.tlb> <output.tlb>");
             return 1;
         }
 
@@ -245,7 +245,7 @@ public static class Program
     {
         if (args.Length != 2)
         {
-            Console.Error.WriteLine("Usage: tlb --report <input.tlb>");
+            Console.Error.WriteLine("Usage: tl --report <input.tlb>");
             return 1;
         }
 
@@ -263,7 +263,7 @@ public static class Program
     {
         if (args.Length != 2)
         {
-            Console.Error.WriteLine("Usage: tlb --inspect <input.tlb>");
+            Console.Error.WriteLine("Usage: tl --inspect <input.tlb>");
             return 2;
         }
 

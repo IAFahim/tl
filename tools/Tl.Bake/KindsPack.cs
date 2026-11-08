@@ -33,7 +33,7 @@ internal static class KindsPack
             else if (a.StartsWith('-')) return LibraryPack.Fail($"Unexpected flag '{a}'", diagnosticsJson);
             else return LibraryPack.Fail($"Unexpected argument '{a}'", diagnosticsJson);
         }
-        if (library == null) return LibraryPack.Fail("Usage: tlb kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]", diagnosticsJson);
+        if (library == null) return LibraryPack.Fail("Usage: tl kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]", diagnosticsJson);
         try { return Emit(library, assemblyPaths, outPath, ns, auto, diagnosticsJson); }
         catch (BakeDiagnosticException ex) { return LibraryPack.Fail(ex.Message, diagnosticsJson); }
         catch (Exception ex) { return LibraryPack.Fail(ex.Message, diagnosticsJson); }

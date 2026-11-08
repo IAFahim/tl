@@ -40,7 +40,7 @@ Verified on Windows 11 (PowerShell script, fresh project). The bash script follo
 
 ```sh
 dotnet add package Tl.CSharp --version 4.0.0-preview.1
-dotnet tool install --global Tl.Bake --prerelease     # the tlb bake command
+dotnet tool install --global Tl.Bake --prerelease     # the tl bake command
 ```
 
 ## Get started
@@ -83,11 +83,11 @@ public readonly struct Rise : ITrack<ArcTrack, ArcClip>
 }
 ```
 
-Build, then bake the whole library with `tlb library` — it packs every timeline into one `game.tlib` and writes the stable ids to `Timelines.g.cs`:
+Build, then bake the whole library with `tl library` — it packs every timeline into one `game.tlib` and writes the stable ids to `Timelines.g.cs`:
 
 ```sh
 dotnet build -c Release
-tlb library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
+tl library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
 ```
 
 Play it — systems run every step, then one `Advance` moves every clock; `Run` never moves ticks. After the full loop the arc has risen and fallen and `next` has handed the entity back to `run`. Put the loop in `Program.cs` and `dotnet run`:
@@ -122,7 +122,7 @@ for (var frame = 0; frame < 30; frame++)
 
 ```sh
 cd samples/Runner
-tlb library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
+tl library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
 ```
 
 **3 · the systems** — `samples/Runner/GameLogic.cs`. `Jump` folds the pure arc once per tick and composes it with live per-jumper power every step; `InputWindow` requests `barrel_explode` while Attack is held; `ChangeStat` spends one `JumpCounter` on clip start; `Stomp` and `Cues` raise typed events:
@@ -147,7 +147,7 @@ Run it:
 ```sh
 cd samples/Runner
 dotnet build -c Release
-tlb library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
+tl library timelines --assembly bin/Release/net10.0/Runner.dll --out game.tlib --ids Timelines.g.cs --namespace Runner
 dotnet build -c Release
 dotnet run -c Release --no-build
 dotnet run -c Release --no-build -- --verify
@@ -177,21 +177,21 @@ One `tl.project.json` per library: `tickRate` feeds the Unity exporter (seconds 
 
 ## Authoring
 
-`tlb library` compiles the data to canonical `game.tlib` bytes — deterministic (same input, same bytes, every machine and culture), content-deduped (each identical timeline stored once), digested end to end:
+`tl library` compiles the data to canonical `game.tlib` bytes — deterministic (same input, same bytes, every machine and culture), content-deduped (each identical timeline stored once), digested end to end:
 
 ```sh
-tlb library <dir> [--assembly Game.dll] --out game.tlib --ids Timelines.g.cs [--namespace Game] [--diagnostics json]
+tl library <dir> [--assembly Game.dll] --out game.tlib --ids Timelines.g.cs [--namespace Game] [--diagnostics json]
 ```
 
 1. Bakes every timeline as today (TLB v6 with the JSON v2 fields), resolving types via `--assembly`/discovery/`--auto`, then resolves name fields in a second pass against the manifest.
 2. Writes `game.tlib`: header, manifest (names/ids/channels), each timeline's TLB bytes (content-digest dedup), digest over everything. Documented in [docs/library-layout.md](docs/library-layout.md) in the style of [docs/tlb1-layout.md](docs/tlb1-layout.md) (offsets, widths, alignment, endianness scope, rejection contract, fixtures).
 3. Writes `Timelines.g.cs` (`PascalCase`, collision fails bake, `const` so Burst reads them) plus `LibraryDigest`.
 
-`tlb bake tl.project.json -o game.tlib` is the same pack; `tlb decode game.tlib -o decoded/` (or one `.tlb`) writes the exact JSON back, or fails by name when it cannot. The three JSON documents (timeline, `tl.project.json`, scene), the decode guarantees and the migration notes are in [docs/json-format.md](docs/json-format.md).
+`tl bake tl.project.json -o game.tlib` is the same pack; `tl decode game.tlib -o decoded/` (or one `.tlb`) writes the exact JSON back, or fails by name when it cannot. The three JSON documents (timeline, `tl.project.json`, scene), the decode guarantees and the migration notes are in [docs/json-format.md](docs/json-format.md).
 
 `new TimelineWorld(ReadOnlySpan<byte> library)` is the one cold step per library: it validates (rejection contract) + digest, turns TLB structures into native blocks, and builds the derived tables — per-step fold lanes (every tick both directions; pure functions of the frame), frame tables per (timeline, step, direction), an event index (sorted tick/kind/step/marker plus 1 bit per tick), and per (system, timeline, stage) step lists in authored order so dispatch costs active steps, not clip types in the game. It publishes a `LibraryView`: an unmanaged versioned pointer struct documented in [docs/library-view-abi.md](docs/library-view-abi.md) with readers for tools.
 
-`tlb --json --assembly bin/Release/net10.0/Runner.dll` lists every authorable pair in the given assemblies — the authoritative answer to "what can this JSON name?":
+`tl --json --assembly bin/Release/net10.0/Runner.dll` lists every authorable pair in the given assemblies — the authoritative answer to "what can this JSON name?":
 
 ```json
 {
@@ -279,7 +279,7 @@ on any drift:
   `Tl.Systems.Tests` `BenchGenTests` with `TL_UPDATE_BENCH=1`
   (emits the bench domain with id `Bench`; the Systems benchmarks consume it).
 - `tests/Tl.Systems.Tests/LoaderLibrary/game.tlib` — rebake with
-  `tlb library tests/Tl.Systems.Tests/LoaderLibrary --assembly <Tl.Systems.Tests.dll> --out game.tlib`
+  `tl library tests/Tl.Systems.Tests/LoaderLibrary --assembly <Tl.Systems.Tests.dll> --out game.tlib`
   (the `LoaderRunTests` loader-built proof consumes it; ids are positional).
 
 ## Numbers

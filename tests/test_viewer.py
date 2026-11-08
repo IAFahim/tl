@@ -90,7 +90,7 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(
             hashlib.sha256(raw).hexdigest(),
             LIVE_MIXED_SHA256,
-            "live-mixed.json changed; regenerate with tlb --live --resolve and repin here and on issue #420",
+            "live-mixed.json changed; regenerate with tl --live --resolve and repin here and on issue #420",
         )
         doc = json.loads(raw)
         self.assertEqual(doc["schemaVersion"], 1)

@@ -6,7 +6,7 @@ namespace Tl.Bake;
 
 internal static class DecodeCommand
 {
-    const string Usage = "Usage: tlb decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...";
+    const string Usage = "Usage: tl decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...";
 
     internal static int Run(string[] args)
     {

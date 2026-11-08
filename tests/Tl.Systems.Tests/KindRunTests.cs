@@ -25,7 +25,7 @@ public sealed unsafe class KindRunTests : IDisposable
         var dir = AppContext.BaseDirectory;
         for (var i = 0; i < 8 && !File.Exists(System.IO.Path.Combine(dir, "tl.slnx")); i++) dir = System.IO.Path.GetDirectoryName(dir)!;
         var file = System.IO.Path.Combine(dir, "tests", "Tl.Systems.Tests", "KindLibrary", name);
-        Assert.True(File.Exists(file), $"Kind library golden missing; bake it with: tlb library tests/Tl.Systems.Tests/KindLibrary --assembly <Tl.Systems.Tests.dll> --namespace KindGame --ids <scratch>/Timelines.g.cs --kinds <scratch>/Kinds.g.cs ({name}).");
+        Assert.True(File.Exists(file), $"Kind library golden missing; bake it with: tl library tests/Tl.Systems.Tests/KindLibrary --assembly <Tl.Systems.Tests.dll> --namespace KindGame --ids <scratch>/Timelines.g.cs --kinds <scratch>/Kinds.g.cs ({name}).");
         return file;
     }
 

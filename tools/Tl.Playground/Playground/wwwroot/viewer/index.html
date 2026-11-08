@@ -178,7 +178,7 @@ footer { max-width: 1240px; margin: 0 auto; padding: 0 24px 40px; color: var(--f
 <header>
   <div class="hero">
     <div class="wordmark"><b>tl</b><span>viewer</span></div>
-    <p class="tagline">static <code>tlb --inspect</code> · live <code>tlb --live</code> · structural diff — parsed in the browser, nothing uploaded</p>
+    <p class="tagline">static <code>tl --inspect</code> · live <code>tl --live</code> · structural diff — parsed in the browser, nothing uploaded</p>
   </div>
   <nav>
     <button id="tab-static" class="active">Static</button>
@@ -193,7 +193,7 @@ footer { max-width: 1240px; margin: 0 auto; padding: 0 24px 40px; color: var(--f
     <div class="drop" id="drop-static">
       <span>static plane JSON:</span>
       <input type="file" id="file-static" accept=".json,application/json">
-      <span class="mono-dim">tlb --inspect asset.tlb</span>
+      <span class="mono-dim">tl --inspect asset.tlb</span>
       <div class="actions">
         <button class="load-example" id="example-static">load committed golden</button>
       </div>
@@ -204,7 +204,7 @@ footer { max-width: 1240px; margin: 0 auto; padding: 0 24px 40px; color: var(--f
     <div class="drop" id="drop-live">
       <span>live plane JSON:</span>
       <input type="file" id="file-live" accept=".json,application/json">
-      <span class="mono-dim">tlb --live --assembly game.dll [--asset a.tlb] [--resolve]</span>
+      <span class="mono-dim">tl --live --assembly game.dll [--asset a.tlb] [--resolve]</span>
       <div class="actions">
         <button class="load-example" id="example-live">load recorded Mixed snapshot</button>
       </div>
@@ -228,7 +228,7 @@ footer { max-width: 1240px; margin: 0 auto; padding: 0 24px 40px; color: var(--f
 </main>
 <footer>
   schemaVersion 1 planes only — <a href="https://github.com/IAFahim/tl/blob/main/docs/tlb1-layout.md">TLB1 layout spec</a>.
-  Pointer output (tlb --live --addresses) is non-golden: this viewer never displays pointer values and refuses to diff them.
+  Pointer output (tl --live --addresses) is non-golden: this viewer never displays pointer values and refuses to diff them.
 </footer>
 <script>
 "use strict";
@@ -254,7 +254,7 @@ function classify(obj) {
   if (obj.schemaVersion !== 1) problems.push("schemaVersion " + JSON.stringify(obj.schemaVersion) + " is not 1; this viewer renders schemaVersion 1 only");
   const isLive = obj.plane === "live";
   const isStatic = !isStaticIllegal(obj) && Array.isArray(obj.pairs) && Array.isArray(obj.stages) && typeof obj.header === "object";
-  if (!isLive && !isStatic) problems.push("unrecognized plane: expected a tlb --inspect render (header/pairs/stages) or a tlb --live snapshot (plane: \"live\")");
+  if (!isLive && !isStatic) problems.push("unrecognized plane: expected a tl --inspect render (header/pairs/stages) or a tl --live snapshot (plane: \"live\")");
   let pointers = false;
   walkJson(obj, (v, key) => { if (key === "address" && typeof v === "string") pointers = true; });
   return { plane: isLive ? "live" : isStatic ? "static" : "unknown", problems, pointers };
@@ -272,7 +272,7 @@ function guard(text, forDiff) {
   for (const p of c.problems) banner(p, "bad");
   if (c.problems.length) return null;
   if (c.pointers) {
-    banner("pointer plane detected (tlb --live --addresses): explicitly non-golden — pointer values are never displayed" +
+    banner("pointer plane detected (tl --live --addresses): explicitly non-golden — pointer values are never displayed" +
       (forDiff ? " and this input is refused for diffing" : ""), "warn");
     if (forDiff) return null;
   }
@@ -474,12 +474,12 @@ function renderPipeline() {
       st.obj.pairs.length + " pairs · " + st.obj.stages.length + " stages · " + L.stepTotal + " steps · duration " +
       st.obj.header.duration + (st.obj.header.looping ? " looping" : " finite")
     : "load the static plane to compute the container layout",
-    "tlb bake input.json -o asset.tlb");
+    "tl bake input.json -o asset.tlb");
   html += arrow;
   html += stageCard(!!st, "3 · inspect", st
     ? "deterministic structural JSON — header, pool widths, stages, every step window and blend factor; renders this viewer's Static tab, including the computed byte map and tick scrubber"
     : "not loaded",
-    "tlb --inspect asset.tlb");
+    "tl --inspect asset.tlb");
   html += arrow;
   html += stageCard(!!lv, "4 · load + intern", lv
     ? "TimelineAsset.Load interns the baked bytes into the process-lifetime table — capacity " + lv.obj.tables.intern.capacity +
@@ -487,7 +487,7 @@ function renderPipeline() {
       " · graveyard " + lv.obj.tables.intern.graveyardBlocks + " blocks / " + lv.obj.tables.intern.graveyardBytes + " B" +
       " · alloc " + lv.obj.tables.intern.allocBytes + " B · peak " + lv.obj.tables.intern.peakLiveBytes + " B"
     : "load the live plane to see the intern table",
-    "tlb --live --assembly game.dll --asset asset.tlb");
+    "tl --live --assembly game.dll --asset asset.tlb");
   html += arrow;
   html += stageCard(!!lv, "5 · typed fold", lv
     ? "Timeline&lt;TTrack, TClip&gt; folds each (index, pair) on first typed use — pair table " + lv.obj.tables.pair.pairs +
@@ -503,7 +503,7 @@ function renderPipeline() {
   html += stageCard(!!lv, "7 · live snapshot", lv
     ? "process tables + every folded bank as deterministic JSON — this viewer's Live tab"
     : "not loaded",
-    "tlb --live --assembly game.dll --resolve > live.json");
+    "tl --live --assembly game.dll --resolve > live.json");
   body.innerHTML = html;
   for (const b of body.querySelectorAll(".copy-cmd"))
     b.onclick = () => {
@@ -652,7 +652,7 @@ function timelineSvg(o, steps, nowT) {
 function renderLive(text, sourceName) {
   const g = guard(text, false);
   if (g && g.cls.plane !== "live") {
-    banner("this is not a live plane (tlb --live) render", "bad");
+    banner("this is not a live plane (tl --live) render", "bad");
     liveDoc = null;
   } else {
     liveDoc = g ? { obj: g.obj, name: sourceName } : null;
@@ -786,7 +786,7 @@ function renderDiff() {
   const ga = guard(diffA.text, true), gb = guard(diffB.text, true);
   if (!ga || !gb) { body.innerHTML = '<div class="empty">refused — see banner</div>'; return; }
   if (ga.cls.plane !== "static" || gb.cls.plane !== "static") {
-    banner("diff accepts static planes (tlb --inspect) only; live planes have process identity and refuse diffing", "bad");
+    banner("diff accepts static planes (tl --inspect) only; live planes have process identity and refuse diffing", "bad");
     body.innerHTML = '<div class="empty">refused — see banner</div>';
     return;
   }

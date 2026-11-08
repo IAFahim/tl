@@ -108,7 +108,7 @@ public class LazyTests : IDisposable
         Assert.Equal(0, result.Exit);
         Assert.Contains("assembly:", result.Stdout);
         Assert.True(File.Exists(Path.Combine(_root, "game.tlb")));
-        Assert.True(File.Exists(Path.Combine(_root, "tlb.db")));
+        Assert.True(File.Exists(Path.Combine(_root, "tl.db")));
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class LazyTests : IDisposable
         Assert.Equal(0, Run("game.json").Exit);
         var second = Run("game.json");
         Assert.Equal(0, second.Exit);
-        Assert.Contains("cached in tlb.db", second.Stdout);
+        Assert.Contains("cached in tl.db", second.Stdout);
     }
 
     [Fact]
@@ -194,7 +194,7 @@ public class LazyTests : IDisposable
         var result = Run("game.json", "game.tlb", "--assembly", assembly);
         Assert.Equal(0, result.Exit);
         Assert.DoesNotContain("assembly:", result.Stdout);
-        Assert.False(File.Exists(Path.Combine(_root, "tlb.db")));
+        Assert.False(File.Exists(Path.Combine(_root, "tl.db")));
         Assert.True(File.Exists(Path.Combine(_root, "game.tlb")));
     }
 

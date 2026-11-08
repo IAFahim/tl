@@ -123,7 +123,7 @@ public sealed class TlbCliCoverageTests : IDisposable
     [Fact]
     public void CacheLoad_WithCorruptDatabase_StartsEmpty()
     {
-        File.WriteAllText(Path.Combine(_root, "tlb.db"), "{not json");
+        File.WriteAllText(Path.Combine(_root, "tl.db"), "{not json");
         var cache = Lazy.Cache.Load(_root);
         Assert.False(cache.TryGet(Path.Combine(_root, "x.json"), "fingerprint", out var assembly));
         Assert.Equal(string.Empty, assembly);

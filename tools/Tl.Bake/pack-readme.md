@@ -1,16 +1,16 @@
 # Tl.Bake
 
-The `tlb` command (package `Tl.Bake`) compiles designer-authored timeline JSON into canonical TLB1 binary assets for the [tl](https://github.com/IAFahim/tl) runtime. The command was named `tlbake` before 1.0.0-alpha.8. The output is TLB1 v3 and the loader accepts v3 only; assets baked by earlier alphas (v1, or the v2 layout shipped through 1.0.0-alpha.8) are rejected at load with a diagnostic, so update the tool and re-bake.
+The `tl` command (package `Tl.Bake`) compiles designer-authored timeline JSON into canonical TLB1 binary assets for the [tl](https://github.com/IAFahim/tl) runtime. The command was named `tlbake` before 1.0.0-alpha.8. The output is TLB1 v3 and the loader accepts v3 only; assets baked by earlier alphas (v1, or the v2 layout shipped through 1.0.0-alpha.8) are rejected at load with a diagnostic, so update the tool and re-bake.
 
 ```sh
 dotnet tool install --global Tl.Bake --prerelease --add-source <directory containing the Tl.Bake nupkg>
-tlb boss.json boss.tlb --assembly MyGame.Domain.dll
-tlb boss.json              # output defaults to boss.tlb; assembly discovered from the JSON's types
-tlb                        # exactly one *.json in the directory
-tlb --json --assembly MyGame.Domain.dll
-tlb --watch boss.json boss.tlb --assembly MyGame.Domain.dll
-tlb --strip boss.tlb boss.ship.tlb
-tlb --report boss.tlb
+tl boss.json boss.tlb --assembly MyGame.Domain.dll
+tl boss.json              # output defaults to boss.tlb; assembly discovered from the JSON's types
+tl                        # exactly one *.json in the directory
+tl --json --assembly MyGame.Domain.dll
+tl --watch boss.json boss.tlb --assembly MyGame.Domain.dll
+tl --strip boss.tlb boss.ship.tlb
+tl --report boss.tlb
 ```
 
 - Deterministic: identical inputs produce byte-identical assets.
@@ -19,11 +19,11 @@ tlb --report boss.tlb
   the types may ship in any assembly at runtime; two types with one full name
   in one bake fail with both assembly names. Explicit `--assembly` always
   wins and skips discovery.
-- Lazy forms: `tlb boss.json` defaults the output to `boss.tlb` beside the
+- Lazy forms: `tl boss.json` defaults the output to `boss.tlb` beside the
   input and discovers the assembly by sweeping DLLs under the launch
   directory for one defining every `(namespace, type)` pair the JSON
-  references; bare `tlb` requires exactly one `*.json` in the directory.
-  `tlb.db` in the launch directory caches the last resolution per JSON,
+  references; bare `tl` requires exactly one `*.json` in the directory.
+  `tl.db` in the launch directory caches the last resolution per JSON,
   is machine-local (gitignored), and is rewritten whenever it goes stale.
 - `--json` prints the authorable `(track, clip)` pairs the assemblies expose,
   with member names, so authoring tools can fill type lists automatically.

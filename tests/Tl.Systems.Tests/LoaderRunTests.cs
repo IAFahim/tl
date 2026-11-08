@@ -12,7 +12,7 @@ public sealed unsafe class LoaderRunTests
         var dir = AppContext.BaseDirectory;
         for (var i = 0; i < 8 && !File.Exists(Path.Combine(dir, "tl.slnx")); i++) dir = Path.GetDirectoryName(dir)!;
         var library = Path.Combine(dir, "tests", "Tl.Systems.Tests", "LoaderLibrary");
-        Assert.True(File.Exists(Path.Combine(library, "game.tlib")), "Loader library golden missing; bake it with: tlb library tests/Tl.Systems.Tests/LoaderLibrary --assembly <Tl.Systems.Tests.dll> --out game.tlib.");
+        Assert.True(File.Exists(Path.Combine(library, "game.tlib")), "Loader library golden missing; bake it with: tl library tests/Tl.Systems.Tests/LoaderLibrary --assembly <Tl.Systems.Tests.dll> --out game.tlib.");
         return library;
     }
 

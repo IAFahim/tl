@@ -139,7 +139,7 @@ public class CliTests
             var exitCode = Program.Main([]);
             Assert.NotEqual(0, exitCode);
             Assert.Contains("No input given and no *.json found", stderr.ToString());
-            Assert.Contains("Fix: pass an input, e.g. 'tlb jump.json'.", stderr.ToString());
+            Assert.Contains("Fix: pass an input, e.g. 'tl jump.json'.", stderr.ToString());
         }
         finally
         {
@@ -163,16 +163,16 @@ public class CliTests
             Assert.Equal(1, exitCode);
             Assert.Equal(
                 string.Join("\n",
-                    "Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]",
-                    "       tlb bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]...",
-                    "       tlb decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...",
-                    "       tlb library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]",
-                    "       tlb kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]",
-                    "       tlb --strip <input.tlb> <output.tlb>",
-                    "       tlb --report <input.tlb>",
-                    "       tlb --inspect <input.tlb>",
-                    "       tlb --json --assembly <path>...",
-                    "       tlb --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>] [--auto]",
+                    "Usage: tl [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]",
+                    "       tl bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]...",
+                    "       tl decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...",
+                    "       tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]",
+                    "       tl kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]",
+                    "       tl --strip <input.tlb> <output.tlb>",
+                    "       tl --report <input.tlb>",
+                    "       tl --inspect <input.tlb>",
+                    "       tl --json --assembly <path>...",
+                    "       tl --watch <input.json> <output.tlb> [--assembly <path>]... [--debounce <ms>] [--auto]",
                     "With only an input, output defaults beside it and the assembly is discovered from the JSON's types.",
                     ""),
                 stderr.ToString().Replace("\r\n", "\n"));

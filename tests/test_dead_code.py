@@ -40,7 +40,7 @@ CLASSIFIED = {
     "SkipLocalsInitAttribute": "compiler polyfill, permanently classified",
     "UnscopedRefAttribute": "compiler polyfill, permanently classified",
     "TimelineSlotKeysAttribute": "applied as [TimelineSlotKeys] short name in tests/Tl.Systems.Toolbox; text scanner cannot see the use",
-    "LiveHostInstall": "module-initializer consumer install for tlb --live hosting; invoked by attribute, never by name",
+    "LiveHostInstall": "module-initializer consumer install for tl --live hosting; invoked by attribute, never by name",
 }
 
 

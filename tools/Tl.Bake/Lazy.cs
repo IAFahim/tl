@@ -15,7 +15,7 @@ internal static class Lazy
         if (candidates.Length == 0)
         {
             Console.Error.WriteLine($"Error: No input given and no *.json found in '{directory}'.");
-            Console.Error.WriteLine("Fix: pass an input, e.g. 'tlb jump.json'.");
+            Console.Error.WriteLine("Fix: pass an input, e.g. 'tl jump.json'.");
             return null;
         }
         if (candidates.Length > 1)
@@ -23,7 +23,7 @@ internal static class Lazy
             Console.Error.WriteLine($"Error: No input given and {candidates.Length} *.json files found in '{directory}':");
             foreach (var candidate in candidates)
                 Console.Error.WriteLine($"  {Path.GetFileName(candidate)}");
-            Console.Error.WriteLine("Fix: name one, e.g. 'tlb jump.json'.");
+            Console.Error.WriteLine("Fix: name one, e.g. 'tl jump.json'.");
             return null;
         }
         return candidates[0];
@@ -38,7 +38,7 @@ internal static class Lazy
         if (pairs.Count == 0)
         {
             Console.Error.WriteLine($"Error: '{Path.GetFileName(jsonPath)}' names no track or clip types to look for.");
-            Console.Error.WriteLine("Fix: 'tlb --json --assembly <path>' lists authorable pairs; give the JSON at least one track.");
+            Console.Error.WriteLine("Fix: 'tl --json --assembly <path>' lists authorable pairs; give the JSON at least one track.");
             return null;
         }
         var directory = Directory.GetCurrentDirectory();
@@ -46,7 +46,7 @@ internal static class Lazy
         var cache = Cache.Load(directory);
         if (cache.TryGet(Path.GetFullPath(jsonPath), fingerprint, out var cached) && DefinesAll(cached, pairs, autoNamespace))
         {
-            Console.WriteLine($"assembly: {cached} (cached in tlb.db)");
+            Console.WriteLine($"assembly: {cached} (cached in tl.db)");
             return cached;
         }
         var candidates = Sweep(directory);
@@ -74,7 +74,7 @@ internal static class Lazy
         Console.Error.WriteLine($"Error: {matches.Count} dlls define every type this JSON names:");
         foreach (var match in matches)
             Console.Error.WriteLine($"  {match}");
-        Console.Error.WriteLine("Fix: pass one explicitly, e.g. 'tlb jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll'.");
+        Console.Error.WriteLine("Fix: pass one explicitly, e.g. 'tl jump.json jump.tlb --assembly bin/Release/net10.0/Showcase.dll'.");
         return null;
     }
 
@@ -201,7 +201,7 @@ internal static class Lazy
 
         internal static Cache Load(string directory)
         {
-            var path = Path.Combine(directory, "tlb.db");
+            var path = Path.Combine(directory, "tl.db");
             if (!File.Exists(path)) return new Cache();
             try
             {
@@ -219,7 +219,7 @@ internal static class Lazy
 
         internal static void Save(string directory, Cache cache)
         {
-            var path = Path.Combine(directory, "tlb.db");
+            var path = Path.Combine(directory, "tl.db");
             using var stream = File.Create(path);
             using var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
             writer.WriteStartObject();
