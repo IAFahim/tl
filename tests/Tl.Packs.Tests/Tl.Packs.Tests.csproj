@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\packs\Force\Tl.Pack.Force.csproj" />
     <ProjectReference Include="..\..\packs\Stats\Tl.Pack.Stats.csproj" />
     <ProjectReference Include="..\..\packs\Inventory\Tl.Pack.Inventory.csproj" />
+    <ProjectReference Include="..\..\packs\Motion\Tl.Pack.Motion.csproj" />
     <ProjectReference Include="..\..\tools\Tl.Gen.Tlb\Tl.Gen.Tlb.csproj" />
   </ItemGroup>
 </Project>

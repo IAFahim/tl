@@ -1,0 +1,8 @@
+{
+  "name": "Tl.Pack.Motion",
+  "rootNamespace": "Tl.Pack.Motion",
+  "references": ["Tl.Core", "Tl.Unity", "Unity.Burst", "Unity.Collections", "Unity.Entities"],
+  "allowUnsafeCode": true,
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

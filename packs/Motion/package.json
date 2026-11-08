@@ -1,0 +1,9 @@
+{
+  "name": "com.tl.pack.motion",
+  "version": "0.1.0",
+  "displayName": "Tl Motion Pack",
+  "description": "Portable move, scale, spin and tint clips with priority override for Tl timelines.",
+  "unity": "7000.0",
+  "license": "MIT",
+  "author": { "name": "IAFahim", "url": "https://github.com/IAFahim" }
+}

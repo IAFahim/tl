@@ -7,6 +7,7 @@
   <Folder Name="/packs/">
     <Project Path="packs/Force/Tl.Pack.Force.csproj" />
     <Project Path="packs/Inventory/Tl.Pack.Inventory.csproj" />
+    <Project Path="packs/Motion/Tl.Pack.Motion.csproj" />
     <Project Path="packs/Stats/Tl.Pack.Stats.csproj" />
   </Folder>
   <Folder Name="/samples/">
