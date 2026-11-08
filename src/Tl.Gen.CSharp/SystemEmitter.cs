@@ -344,7 +344,7 @@ internal static class SystemEmitter
         W(writer, "var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);");
         W(writer, "var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
         W(writer, "var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;");
-        W(writer, "if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;");
+        W(writer, "if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;");
         W(writer, "if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;");
         W(writer, "if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;");
         EmitBind(writer, shape, "__e", "__s");
@@ -592,7 +592,7 @@ internal static class SystemEmitter
         W(writer, "var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);");
         W(writer, "var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;");
         W(writer, "var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;");
-        W(writer, "if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;");
+        W(writer, "if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;");
         W(writer, "if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;");
         W(writer, "if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;");
         EmitBind(writer, shape, "__e", "__s");
@@ -801,7 +801,7 @@ internal static class SystemEmitter
             var element = batch.Params[1].BatchElement;
             var elementOffset = FoldOutOffset(consumer, element);
             W(writer, $"if (__def->FoldLane == null) throw new global::System.InvalidOperationException(\"{consumer.ConsumerTypeName}: fold lane is not loaded.\");");
-            W(writer, $"int __syn{index} = ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && {tick} > 0) ? 1 : 0;");
+            W(writer, $"int __syn{index} = (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0 ? 2 : ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && {tick} > 0) ? 1 : 0;");
             W(writer, $"if (__bn{index} >= 128 || __bstage{index} != __stage || __bstep{index} != __entry.Step || __btick{index} != {tick} || __bdir{index} != (__backward ? 1 : 0) || __bsyn{index} != __syn{index}) {{ Flush_{index}(__bb{index}, __bsl{index}, __bn{index}, __bstage{index}, __bstep{index}, __btick{index}, __bdir{index}, __bsyn{index}, __bdur{index}, {FlushCallArgs(shape)}); __bn{index} = 0; __bstep{index} = -1; }}");
             W(writer, $"__bstage{index} = __stage; __bstep{index} = __entry.Step; __btick{index} = {tick}; __bdir{index} = __backward ? 1 : 0; __bsyn{index} = __syn{index}; __bdur{index} = (ushort)__tl->Duration;");
             W(writer, $"__bb{index}[__bn{index}] = new global::Tl.BatchItem<{element}>({entity}, {tick}, *({element}*)((byte*)__def->FoldLane + (((uint){tick} - __def->WindowStart) * 2u + (__backward ? 1u : 0u)) * (uint){LaneBytes(consumer)} + {elementOffset}));");
@@ -826,9 +826,9 @@ internal static class SystemEmitter
             else W(writer, $"{consumer.ConsumerTypeName}.ExecuteActive({CallArgs(shape, active, index, $"__f{index}", entity, $"__fd{index}_")});");
         }
         if (start is not null)
-            W(writer, $"if ({tick} == __def->WindowStart) {consumer.ConsumerTypeName}.OnClipStart({CallArgs(shape, start, index, $"__f{index}", entity, $"__fd{index}_")});");
+            W(writer, $"if ({tick} == __def->WindowStart && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) {consumer.ConsumerTypeName}.OnClipStart({CallArgs(shape, start, index, $"__f{index}", entity, $"__fd{index}_")});");
         if (end is not null && batch is null && !direct)
-            W(writer, $"if ({tick} == __def->WindowEnd - 1) {consumer.ConsumerTypeName}.OnClipEnd({CallArgs(shape, end, index, $"__f{index}", entity, $"__fd{index}_")});");
+            W(writer, $"if ({tick} == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) {consumer.ConsumerTypeName}.OnClipEnd({CallArgs(shape, end, index, $"__f{index}", entity, $"__fd{index}_")});");
     }
 
     // Direct-lane step: no Frame construction, no switch dispatch beyond the
@@ -947,7 +947,7 @@ internal static class SystemEmitter
         W(writer, call.ToString());
         if (end is not null)
         {
-            W(writer, "if (tick == __def->WindowEnd - 1)");
+            W(writer, "if (tick == __def->WindowEnd - 1 && syn != 2)");
             W(writer, "{");
             W(writer, "for (var __k = 0; __k < count; __k++)");
             W(writer, "{");
@@ -1071,7 +1071,7 @@ internal static class SystemEmitter
             if (method is not null) markers.Add((assignment.Consumers[i], i, method));
         }
         if (markers.Count == 0) return;
-        W(writer, $"if (global::Tl.LibraryViewReader.HasEvent({tl}, {tick}))");
+        W(writer, $"if ((__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0 && global::Tl.LibraryViewReader.HasEvent({tl}, {tick}))");
         W(writer, "{");
         W(writer, $"var __mev = global::Tl.LibraryViewReader.Events({tl});");
         W(writer, "for (var __mk = 0; __mk < __mev.Length; __mk++)");

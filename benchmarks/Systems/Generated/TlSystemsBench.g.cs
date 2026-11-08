@@ -191,7 +191,7 @@ if (__stage is null) continue;
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -305,7 +305,7 @@ if (__stage != null)
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -447,7 +447,7 @@ if (__stage is null) continue;
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -480,7 +480,7 @@ __fd0_0 = *(float*)(__lane0 + 0);
 __fd0_1 = *(int*)(__lane0 + 4);
 }
 global::Bench.NewB.ExecuteActive(in __f0, in __fd0_0, in __fd0_1, ref __c0[__e], ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewB.OnClipEnd(in __f0);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewB.OnClipEnd(in __f0);
 break;
 }
 }
@@ -555,7 +555,7 @@ if (__stage != null)
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -588,7 +588,7 @@ __fd0_0 = *(float*)(__lane0 + 0);
 __fd0_1 = *(int*)(__lane0 + 4);
 }
 global::Bench.NewB.ExecuteActive(in __f0, in __fd0_0, in __fd0_1, ref __c0[__e], ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewB.OnClipEnd(in __f0);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewB.OnClipEnd(in __f0);
 break;
 }
 }
@@ -691,7 +691,7 @@ if (__stage is null) continue;
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -795,7 +795,7 @@ if (__stage != null)
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -1023,7 +1023,7 @@ if (__stage is null) continue;
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -1088,7 +1088,7 @@ else
 __fd1_0 = *(float*)(__lane1 + 0);
 }
 global::Bench.NewD1.ExecuteActive(in __f1, in __fd1_0, ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewD1.OnClipEnd(in __f1);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewD1.OnClipEnd(in __f1);
 break;
 }
 case 2:
@@ -1114,7 +1114,7 @@ else
 __fd2_0 = *(float*)(__lane2 + 0);
 }
 global::Bench.NewD2.ExecuteActive(in __f2, in __fd2_0, ref __c2[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewD2.OnClipEnd(in __f2);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewD2.OnClipEnd(in __f2);
 break;
 }
 case 3:
@@ -1140,7 +1140,7 @@ else
 __fd3_0 = *(float*)(__lane3 + 0);
 }
 global::Bench.NewD3.ExecuteActive(in __f3, in __fd3_0, ref __c3[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewD3.OnClipEnd(in __f3);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewD3.OnClipEnd(in __f3);
 break;
 }
 }
@@ -1260,7 +1260,7 @@ if (__stage != null)
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -1325,7 +1325,7 @@ else
 __fd1_0 = *(float*)(__lane1 + 0);
 }
 global::Bench.NewD1.ExecuteActive(in __f1, in __fd1_0, ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewD1.OnClipEnd(in __f1);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewD1.OnClipEnd(in __f1);
 break;
 }
 case 2:
@@ -1351,7 +1351,7 @@ else
 __fd2_0 = *(float*)(__lane2 + 0);
 }
 global::Bench.NewD2.ExecuteActive(in __f2, in __fd2_0, ref __c2[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewD2.OnClipEnd(in __f2);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewD2.OnClipEnd(in __f2);
 break;
 }
 case 3:
@@ -1377,7 +1377,7 @@ else
 __fd3_0 = *(float*)(__lane3 + 0);
 }
 global::Bench.NewD3.ExecuteActive(in __f3, in __fd3_0, ref __c3[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewD3.OnClipEnd(in __f3);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewD3.OnClipEnd(in __f3);
 break;
 }
 }
@@ -1512,7 +1512,7 @@ if (__stage is null) continue;
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -1533,7 +1533,7 @@ ushort __within0 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __base, out var __t0, out var __cc0, out var __f0);
 global::Bench.NewH.ExecuteActive(in __f0, ref __c0[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewH.OnClipEnd(in __f0);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewH.OnClipEnd(in __f0);
 break;
 }
 case 1:
@@ -1549,7 +1549,7 @@ ushort __within1 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir1 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_1(__row1, __first1, __second1, __blend1, __tick, __len1, __within1, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir1, __base, out var __t1, out var __cc1, out var __f1);
 global::Bench.NewI.ExecuteActive(in __f1, ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewI.OnClipEnd(in __f1);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewI.OnClipEnd(in __f1);
 break;
 }
 }
@@ -1639,7 +1639,7 @@ if (__stage != null)
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -1660,7 +1660,7 @@ ushort __within0 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __base, out var __t0, out var __cc0, out var __f0);
 global::Bench.NewH.ExecuteActive(in __f0, ref __c0[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewH.OnClipEnd(in __f0);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewH.OnClipEnd(in __f0);
 break;
 }
 case 1:
@@ -1676,7 +1676,7 @@ ushort __within1 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir1 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_1(__row1, __first1, __second1, __blend1, __tick, __len1, __within1, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir1, __base, out var __t1, out var __cc1, out var __f1);
 global::Bench.NewI.ExecuteActive(in __f1, ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::Bench.NewI.OnClipEnd(in __f1);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.NewI.OnClipEnd(in __f1);
 break;
 }
 }
@@ -3795,7 +3795,7 @@ if (__stage is null) continue;
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -3816,7 +3816,7 @@ ushort __within0 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __base, out var __t0, out var __cc0, out var __f0);
 global::Bench.M00.ExecuteActive(in __f0, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M00.OnClipEnd(in __f0);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M00.OnClipEnd(in __f0);
 break;
 }
 case 1:
@@ -3832,7 +3832,7 @@ ushort __within1 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir1 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_1(__row1, __first1, __second1, __blend1, __tick, __len1, __within1, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir1, __base, out var __t1, out var __cc1, out var __f1);
 global::Bench.M01.ExecuteActive(in __f1, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M01.OnClipEnd(in __f1);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M01.OnClipEnd(in __f1);
 break;
 }
 case 2:
@@ -3848,7 +3848,7 @@ ushort __within2 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir2 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_2(__row2, __first2, __second2, __blend2, __tick, __len2, __within2, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir2, __base, out var __t2, out var __cc2, out var __f2);
 global::Bench.M02.ExecuteActive(in __f2, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M02.OnClipEnd(in __f2);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M02.OnClipEnd(in __f2);
 break;
 }
 case 3:
@@ -3864,7 +3864,7 @@ ushort __within3 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir3 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_3(__row3, __first3, __second3, __blend3, __tick, __len3, __within3, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir3, __base, out var __t3, out var __cc3, out var __f3);
 global::Bench.M03.ExecuteActive(in __f3, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M03.OnClipEnd(in __f3);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M03.OnClipEnd(in __f3);
 break;
 }
 case 4:
@@ -3880,7 +3880,7 @@ ushort __within4 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir4 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_4(__row4, __first4, __second4, __blend4, __tick, __len4, __within4, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir4, __base, out var __t4, out var __cc4, out var __f4);
 global::Bench.M04.ExecuteActive(in __f4, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M04.OnClipEnd(in __f4);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M04.OnClipEnd(in __f4);
 break;
 }
 case 5:
@@ -3896,7 +3896,7 @@ ushort __within5 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir5 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_5(__row5, __first5, __second5, __blend5, __tick, __len5, __within5, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir5, __base, out var __t5, out var __cc5, out var __f5);
 global::Bench.M05.ExecuteActive(in __f5, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M05.OnClipEnd(in __f5);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M05.OnClipEnd(in __f5);
 break;
 }
 case 6:
@@ -3912,7 +3912,7 @@ ushort __within6 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir6 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_6(__row6, __first6, __second6, __blend6, __tick, __len6, __within6, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir6, __base, out var __t6, out var __cc6, out var __f6);
 global::Bench.M06.ExecuteActive(in __f6, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M06.OnClipEnd(in __f6);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M06.OnClipEnd(in __f6);
 break;
 }
 case 7:
@@ -3928,7 +3928,7 @@ ushort __within7 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir7 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_7(__row7, __first7, __second7, __blend7, __tick, __len7, __within7, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir7, __base, out var __t7, out var __cc7, out var __f7);
 global::Bench.M07.ExecuteActive(in __f7, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M07.OnClipEnd(in __f7);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M07.OnClipEnd(in __f7);
 break;
 }
 case 8:
@@ -3944,7 +3944,7 @@ ushort __within8 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir8 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_8(__row8, __first8, __second8, __blend8, __tick, __len8, __within8, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir8, __base, out var __t8, out var __cc8, out var __f8);
 global::Bench.M10.ExecuteActive(in __f8, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M10.OnClipEnd(in __f8);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M10.OnClipEnd(in __f8);
 break;
 }
 case 9:
@@ -3960,7 +3960,7 @@ ushort __within9 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir9 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_9(__row9, __first9, __second9, __blend9, __tick, __len9, __within9, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir9, __base, out var __t9, out var __cc9, out var __f9);
 global::Bench.M11.ExecuteActive(in __f9, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M11.OnClipEnd(in __f9);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M11.OnClipEnd(in __f9);
 break;
 }
 case 10:
@@ -3976,7 +3976,7 @@ ushort __within10 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir10 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_10(__row10, __first10, __second10, __blend10, __tick, __len10, __within10, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir10, __base, out var __t10, out var __cc10, out var __f10);
 global::Bench.M12.ExecuteActive(in __f10, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M12.OnClipEnd(in __f10);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M12.OnClipEnd(in __f10);
 break;
 }
 case 11:
@@ -3992,7 +3992,7 @@ ushort __within11 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir11 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_11(__row11, __first11, __second11, __blend11, __tick, __len11, __within11, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir11, __base, out var __t11, out var __cc11, out var __f11);
 global::Bench.M13.ExecuteActive(in __f11, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M13.OnClipEnd(in __f11);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M13.OnClipEnd(in __f11);
 break;
 }
 case 12:
@@ -4008,7 +4008,7 @@ ushort __within12 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir12 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_12(__row12, __first12, __second12, __blend12, __tick, __len12, __within12, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir12, __base, out var __t12, out var __cc12, out var __f12);
 global::Bench.M14.ExecuteActive(in __f12, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M14.OnClipEnd(in __f12);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M14.OnClipEnd(in __f12);
 break;
 }
 case 13:
@@ -4024,7 +4024,7 @@ ushort __within13 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir13 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_13(__row13, __first13, __second13, __blend13, __tick, __len13, __within13, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir13, __base, out var __t13, out var __cc13, out var __f13);
 global::Bench.M15.ExecuteActive(in __f13, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M15.OnClipEnd(in __f13);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M15.OnClipEnd(in __f13);
 break;
 }
 case 14:
@@ -4040,7 +4040,7 @@ ushort __within14 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir14 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_14(__row14, __first14, __second14, __blend14, __tick, __len14, __within14, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir14, __base, out var __t14, out var __cc14, out var __f14);
 global::Bench.M16.ExecuteActive(in __f14, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M16.OnClipEnd(in __f14);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M16.OnClipEnd(in __f14);
 break;
 }
 case 15:
@@ -4056,7 +4056,7 @@ ushort __within15 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir15 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_15(__row15, __first15, __second15, __blend15, __tick, __len15, __within15, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir15, __base, out var __t15, out var __cc15, out var __f15);
 global::Bench.M17.ExecuteActive(in __f15, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M17.OnClipEnd(in __f15);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M17.OnClipEnd(in __f15);
 break;
 }
 case 16:
@@ -4072,7 +4072,7 @@ ushort __within16 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir16 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_16(__row16, __first16, __second16, __blend16, __tick, __len16, __within16, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir16, __base, out var __t16, out var __cc16, out var __f16);
 global::Bench.M20.ExecuteActive(in __f16, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M20.OnClipEnd(in __f16);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M20.OnClipEnd(in __f16);
 break;
 }
 case 17:
@@ -4088,7 +4088,7 @@ ushort __within17 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir17 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_17(__row17, __first17, __second17, __blend17, __tick, __len17, __within17, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir17, __base, out var __t17, out var __cc17, out var __f17);
 global::Bench.M21.ExecuteActive(in __f17, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M21.OnClipEnd(in __f17);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M21.OnClipEnd(in __f17);
 break;
 }
 case 18:
@@ -4104,7 +4104,7 @@ ushort __within18 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir18 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_18(__row18, __first18, __second18, __blend18, __tick, __len18, __within18, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir18, __base, out var __t18, out var __cc18, out var __f18);
 global::Bench.M22.ExecuteActive(in __f18, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M22.OnClipEnd(in __f18);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M22.OnClipEnd(in __f18);
 break;
 }
 case 19:
@@ -4120,7 +4120,7 @@ ushort __within19 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir19 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_19(__row19, __first19, __second19, __blend19, __tick, __len19, __within19, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir19, __base, out var __t19, out var __cc19, out var __f19);
 global::Bench.M23.ExecuteActive(in __f19, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M23.OnClipEnd(in __f19);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M23.OnClipEnd(in __f19);
 break;
 }
 case 20:
@@ -4136,7 +4136,7 @@ ushort __within20 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir20 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_20(__row20, __first20, __second20, __blend20, __tick, __len20, __within20, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir20, __base, out var __t20, out var __cc20, out var __f20);
 global::Bench.M24.ExecuteActive(in __f20, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M24.OnClipEnd(in __f20);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M24.OnClipEnd(in __f20);
 break;
 }
 case 21:
@@ -4152,7 +4152,7 @@ ushort __within21 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir21 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_21(__row21, __first21, __second21, __blend21, __tick, __len21, __within21, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir21, __base, out var __t21, out var __cc21, out var __f21);
 global::Bench.M25.ExecuteActive(in __f21, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M25.OnClipEnd(in __f21);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M25.OnClipEnd(in __f21);
 break;
 }
 case 22:
@@ -4168,7 +4168,7 @@ ushort __within22 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir22 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_22(__row22, __first22, __second22, __blend22, __tick, __len22, __within22, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir22, __base, out var __t22, out var __cc22, out var __f22);
 global::Bench.M26.ExecuteActive(in __f22, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M26.OnClipEnd(in __f22);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M26.OnClipEnd(in __f22);
 break;
 }
 case 23:
@@ -4184,7 +4184,7 @@ ushort __within23 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir23 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_23(__row23, __first23, __second23, __blend23, __tick, __len23, __within23, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir23, __base, out var __t23, out var __cc23, out var __f23);
 global::Bench.M27.ExecuteActive(in __f23, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M27.OnClipEnd(in __f23);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M27.OnClipEnd(in __f23);
 break;
 }
 case 24:
@@ -4200,7 +4200,7 @@ ushort __within24 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir24 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_24(__row24, __first24, __second24, __blend24, __tick, __len24, __within24, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir24, __base, out var __t24, out var __cc24, out var __f24);
 global::Bench.M30.ExecuteActive(in __f24, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M30.OnClipEnd(in __f24);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M30.OnClipEnd(in __f24);
 break;
 }
 case 25:
@@ -4216,7 +4216,7 @@ ushort __within25 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir25 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_25(__row25, __first25, __second25, __blend25, __tick, __len25, __within25, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir25, __base, out var __t25, out var __cc25, out var __f25);
 global::Bench.M31.ExecuteActive(in __f25, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M31.OnClipEnd(in __f25);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M31.OnClipEnd(in __f25);
 break;
 }
 case 26:
@@ -4232,7 +4232,7 @@ ushort __within26 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir26 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_26(__row26, __first26, __second26, __blend26, __tick, __len26, __within26, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir26, __base, out var __t26, out var __cc26, out var __f26);
 global::Bench.M32.ExecuteActive(in __f26, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M32.OnClipEnd(in __f26);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M32.OnClipEnd(in __f26);
 break;
 }
 case 27:
@@ -4248,7 +4248,7 @@ ushort __within27 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir27 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_27(__row27, __first27, __second27, __blend27, __tick, __len27, __within27, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir27, __base, out var __t27, out var __cc27, out var __f27);
 global::Bench.M33.ExecuteActive(in __f27, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M33.OnClipEnd(in __f27);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M33.OnClipEnd(in __f27);
 break;
 }
 case 28:
@@ -4264,7 +4264,7 @@ ushort __within28 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir28 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_28(__row28, __first28, __second28, __blend28, __tick, __len28, __within28, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir28, __base, out var __t28, out var __cc28, out var __f28);
 global::Bench.M34.ExecuteActive(in __f28, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M34.OnClipEnd(in __f28);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M34.OnClipEnd(in __f28);
 break;
 }
 case 29:
@@ -4280,7 +4280,7 @@ ushort __within29 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir29 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_29(__row29, __first29, __second29, __blend29, __tick, __len29, __within29, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir29, __base, out var __t29, out var __cc29, out var __f29);
 global::Bench.M35.ExecuteActive(in __f29, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M35.OnClipEnd(in __f29);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M35.OnClipEnd(in __f29);
 break;
 }
 case 30:
@@ -4296,7 +4296,7 @@ ushort __within30 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir30 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_30(__row30, __first30, __second30, __blend30, __tick, __len30, __within30, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir30, __base, out var __t30, out var __cc30, out var __f30);
 global::Bench.M36.ExecuteActive(in __f30, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M36.OnClipEnd(in __f30);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M36.OnClipEnd(in __f30);
 break;
 }
 case 31:
@@ -4312,7 +4312,7 @@ ushort __within31 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir31 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_31(__row31, __first31, __second31, __blend31, __tick, __len31, __within31, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir31, __base, out var __t31, out var __cc31, out var __f31);
 global::Bench.M37.ExecuteActive(in __f31, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M37.OnClipEnd(in __f31);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M37.OnClipEnd(in __f31);
 break;
 }
 case 32:
@@ -4328,7 +4328,7 @@ ushort __within32 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir32 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_32(__row32, __first32, __second32, __blend32, __tick, __len32, __within32, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir32, __base, out var __t32, out var __cc32, out var __f32);
 global::Bench.M40.ExecuteActive(in __f32, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M40.OnClipEnd(in __f32);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M40.OnClipEnd(in __f32);
 break;
 }
 case 33:
@@ -4344,7 +4344,7 @@ ushort __within33 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir33 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_33(__row33, __first33, __second33, __blend33, __tick, __len33, __within33, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir33, __base, out var __t33, out var __cc33, out var __f33);
 global::Bench.M41.ExecuteActive(in __f33, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M41.OnClipEnd(in __f33);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M41.OnClipEnd(in __f33);
 break;
 }
 case 34:
@@ -4360,7 +4360,7 @@ ushort __within34 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir34 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_34(__row34, __first34, __second34, __blend34, __tick, __len34, __within34, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir34, __base, out var __t34, out var __cc34, out var __f34);
 global::Bench.M42.ExecuteActive(in __f34, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M42.OnClipEnd(in __f34);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M42.OnClipEnd(in __f34);
 break;
 }
 case 35:
@@ -4376,7 +4376,7 @@ ushort __within35 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir35 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_35(__row35, __first35, __second35, __blend35, __tick, __len35, __within35, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir35, __base, out var __t35, out var __cc35, out var __f35);
 global::Bench.M43.ExecuteActive(in __f35, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M43.OnClipEnd(in __f35);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M43.OnClipEnd(in __f35);
 break;
 }
 case 36:
@@ -4392,7 +4392,7 @@ ushort __within36 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir36 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_36(__row36, __first36, __second36, __blend36, __tick, __len36, __within36, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir36, __base, out var __t36, out var __cc36, out var __f36);
 global::Bench.M44.ExecuteActive(in __f36, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M44.OnClipEnd(in __f36);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M44.OnClipEnd(in __f36);
 break;
 }
 case 37:
@@ -4408,7 +4408,7 @@ ushort __within37 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir37 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_37(__row37, __first37, __second37, __blend37, __tick, __len37, __within37, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir37, __base, out var __t37, out var __cc37, out var __f37);
 global::Bench.M45.ExecuteActive(in __f37, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M45.OnClipEnd(in __f37);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M45.OnClipEnd(in __f37);
 break;
 }
 case 38:
@@ -4424,7 +4424,7 @@ ushort __within38 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir38 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_38(__row38, __first38, __second38, __blend38, __tick, __len38, __within38, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir38, __base, out var __t38, out var __cc38, out var __f38);
 global::Bench.M46.ExecuteActive(in __f38, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M46.OnClipEnd(in __f38);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M46.OnClipEnd(in __f38);
 break;
 }
 case 39:
@@ -4440,7 +4440,7 @@ ushort __within39 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir39 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_39(__row39, __first39, __second39, __blend39, __tick, __len39, __within39, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir39, __base, out var __t39, out var __cc39, out var __f39);
 global::Bench.M47.ExecuteActive(in __f39, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M47.OnClipEnd(in __f39);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M47.OnClipEnd(in __f39);
 break;
 }
 case 40:
@@ -4456,7 +4456,7 @@ ushort __within40 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir40 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_40(__row40, __first40, __second40, __blend40, __tick, __len40, __within40, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir40, __base, out var __t40, out var __cc40, out var __f40);
 global::Bench.M50.ExecuteActive(in __f40, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M50.OnClipEnd(in __f40);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M50.OnClipEnd(in __f40);
 break;
 }
 case 41:
@@ -4472,7 +4472,7 @@ ushort __within41 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir41 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_41(__row41, __first41, __second41, __blend41, __tick, __len41, __within41, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir41, __base, out var __t41, out var __cc41, out var __f41);
 global::Bench.M51.ExecuteActive(in __f41, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M51.OnClipEnd(in __f41);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M51.OnClipEnd(in __f41);
 break;
 }
 case 42:
@@ -4488,7 +4488,7 @@ ushort __within42 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir42 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_42(__row42, __first42, __second42, __blend42, __tick, __len42, __within42, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir42, __base, out var __t42, out var __cc42, out var __f42);
 global::Bench.M52.ExecuteActive(in __f42, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M52.OnClipEnd(in __f42);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M52.OnClipEnd(in __f42);
 break;
 }
 case 43:
@@ -4504,7 +4504,7 @@ ushort __within43 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir43 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_43(__row43, __first43, __second43, __blend43, __tick, __len43, __within43, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir43, __base, out var __t43, out var __cc43, out var __f43);
 global::Bench.M53.ExecuteActive(in __f43, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M53.OnClipEnd(in __f43);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M53.OnClipEnd(in __f43);
 break;
 }
 case 44:
@@ -4520,7 +4520,7 @@ ushort __within44 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir44 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_44(__row44, __first44, __second44, __blend44, __tick, __len44, __within44, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir44, __base, out var __t44, out var __cc44, out var __f44);
 global::Bench.M54.ExecuteActive(in __f44, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M54.OnClipEnd(in __f44);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M54.OnClipEnd(in __f44);
 break;
 }
 case 45:
@@ -4536,7 +4536,7 @@ ushort __within45 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir45 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_45(__row45, __first45, __second45, __blend45, __tick, __len45, __within45, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir45, __base, out var __t45, out var __cc45, out var __f45);
 global::Bench.M55.ExecuteActive(in __f45, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M55.OnClipEnd(in __f45);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M55.OnClipEnd(in __f45);
 break;
 }
 case 46:
@@ -4552,7 +4552,7 @@ ushort __within46 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir46 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_46(__row46, __first46, __second46, __blend46, __tick, __len46, __within46, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir46, __base, out var __t46, out var __cc46, out var __f46);
 global::Bench.M56.ExecuteActive(in __f46, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M56.OnClipEnd(in __f46);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M56.OnClipEnd(in __f46);
 break;
 }
 case 47:
@@ -4568,7 +4568,7 @@ ushort __within47 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir47 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_47(__row47, __first47, __second47, __blend47, __tick, __len47, __within47, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir47, __base, out var __t47, out var __cc47, out var __f47);
 global::Bench.M57.ExecuteActive(in __f47, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M57.OnClipEnd(in __f47);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M57.OnClipEnd(in __f47);
 break;
 }
 case 48:
@@ -4584,7 +4584,7 @@ ushort __within48 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir48 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_48(__row48, __first48, __second48, __blend48, __tick, __len48, __within48, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir48, __base, out var __t48, out var __cc48, out var __f48);
 global::Bench.M60.ExecuteActive(in __f48, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M60.OnClipEnd(in __f48);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M60.OnClipEnd(in __f48);
 break;
 }
 case 49:
@@ -4600,7 +4600,7 @@ ushort __within49 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir49 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_49(__row49, __first49, __second49, __blend49, __tick, __len49, __within49, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir49, __base, out var __t49, out var __cc49, out var __f49);
 global::Bench.M61.ExecuteActive(in __f49, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M61.OnClipEnd(in __f49);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M61.OnClipEnd(in __f49);
 break;
 }
 case 50:
@@ -4616,7 +4616,7 @@ ushort __within50 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir50 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_50(__row50, __first50, __second50, __blend50, __tick, __len50, __within50, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir50, __base, out var __t50, out var __cc50, out var __f50);
 global::Bench.M62.ExecuteActive(in __f50, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M62.OnClipEnd(in __f50);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M62.OnClipEnd(in __f50);
 break;
 }
 case 51:
@@ -4632,7 +4632,7 @@ ushort __within51 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir51 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_51(__row51, __first51, __second51, __blend51, __tick, __len51, __within51, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir51, __base, out var __t51, out var __cc51, out var __f51);
 global::Bench.M63.ExecuteActive(in __f51, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M63.OnClipEnd(in __f51);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M63.OnClipEnd(in __f51);
 break;
 }
 case 52:
@@ -4648,7 +4648,7 @@ ushort __within52 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir52 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_52(__row52, __first52, __second52, __blend52, __tick, __len52, __within52, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir52, __base, out var __t52, out var __cc52, out var __f52);
 global::Bench.M64.ExecuteActive(in __f52, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M64.OnClipEnd(in __f52);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M64.OnClipEnd(in __f52);
 break;
 }
 case 53:
@@ -4664,7 +4664,7 @@ ushort __within53 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir53 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_53(__row53, __first53, __second53, __blend53, __tick, __len53, __within53, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir53, __base, out var __t53, out var __cc53, out var __f53);
 global::Bench.M65.ExecuteActive(in __f53, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M65.OnClipEnd(in __f53);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M65.OnClipEnd(in __f53);
 break;
 }
 case 54:
@@ -4680,7 +4680,7 @@ ushort __within54 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir54 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_54(__row54, __first54, __second54, __blend54, __tick, __len54, __within54, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir54, __base, out var __t54, out var __cc54, out var __f54);
 global::Bench.M66.ExecuteActive(in __f54, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M66.OnClipEnd(in __f54);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M66.OnClipEnd(in __f54);
 break;
 }
 case 55:
@@ -4696,7 +4696,7 @@ ushort __within55 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir55 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_55(__row55, __first55, __second55, __blend55, __tick, __len55, __within55, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir55, __base, out var __t55, out var __cc55, out var __f55);
 global::Bench.M67.ExecuteActive(in __f55, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M67.OnClipEnd(in __f55);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M67.OnClipEnd(in __f55);
 break;
 }
 case 56:
@@ -4712,7 +4712,7 @@ ushort __within56 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir56 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_56(__row56, __first56, __second56, __blend56, __tick, __len56, __within56, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir56, __base, out var __t56, out var __cc56, out var __f56);
 global::Bench.M70.ExecuteActive(in __f56, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M70.OnClipEnd(in __f56);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M70.OnClipEnd(in __f56);
 break;
 }
 case 57:
@@ -4728,7 +4728,7 @@ ushort __within57 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir57 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_57(__row57, __first57, __second57, __blend57, __tick, __len57, __within57, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir57, __base, out var __t57, out var __cc57, out var __f57);
 global::Bench.M71.ExecuteActive(in __f57, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M71.OnClipEnd(in __f57);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M71.OnClipEnd(in __f57);
 break;
 }
 case 58:
@@ -4744,7 +4744,7 @@ ushort __within58 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir58 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_58(__row58, __first58, __second58, __blend58, __tick, __len58, __within58, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir58, __base, out var __t58, out var __cc58, out var __f58);
 global::Bench.M72.ExecuteActive(in __f58, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M72.OnClipEnd(in __f58);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M72.OnClipEnd(in __f58);
 break;
 }
 case 59:
@@ -4760,7 +4760,7 @@ ushort __within59 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir59 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_59(__row59, __first59, __second59, __blend59, __tick, __len59, __within59, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir59, __base, out var __t59, out var __cc59, out var __f59);
 global::Bench.M73.ExecuteActive(in __f59, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M73.OnClipEnd(in __f59);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M73.OnClipEnd(in __f59);
 break;
 }
 case 60:
@@ -4776,7 +4776,7 @@ ushort __within60 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir60 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_60(__row60, __first60, __second60, __blend60, __tick, __len60, __within60, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir60, __base, out var __t60, out var __cc60, out var __f60);
 global::Bench.M74.ExecuteActive(in __f60, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M74.OnClipEnd(in __f60);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M74.OnClipEnd(in __f60);
 break;
 }
 case 61:
@@ -4792,7 +4792,7 @@ ushort __within61 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir61 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_61(__row61, __first61, __second61, __blend61, __tick, __len61, __within61, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir61, __base, out var __t61, out var __cc61, out var __f61);
 global::Bench.M75.ExecuteActive(in __f61, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M75.OnClipEnd(in __f61);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M75.OnClipEnd(in __f61);
 break;
 }
 case 62:
@@ -4808,7 +4808,7 @@ ushort __within62 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir62 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_62(__row62, __first62, __second62, __blend62, __tick, __len62, __within62, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir62, __base, out var __t62, out var __cc62, out var __f62);
 global::Bench.M76.ExecuteActive(in __f62, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M76.OnClipEnd(in __f62);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M76.OnClipEnd(in __f62);
 break;
 }
 case 63:
@@ -4824,7 +4824,7 @@ ushort __within63 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir63 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_63(__row63, __first63, __second63, __blend63, __tick, __len63, __within63, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir63, __base, out var __t63, out var __cc63, out var __f63);
 global::Bench.M77.ExecuteActive(in __f63, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M77.OnClipEnd(in __f63);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M77.OnClipEnd(in __f63);
 break;
 }
 }
@@ -5844,7 +5844,7 @@ if (__stage != null)
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -5865,7 +5865,7 @@ ushort __within0 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir0 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_0(__row0, __first0, __second0, __blend0, __tick, __len0, __within0, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir0, __base, out var __t0, out var __cc0, out var __f0);
 global::Bench.M00.ExecuteActive(in __f0, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M00.OnClipEnd(in __f0);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M00.OnClipEnd(in __f0);
 break;
 }
 case 1:
@@ -5881,7 +5881,7 @@ ushort __within1 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir1 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_1(__row1, __first1, __second1, __blend1, __tick, __len1, __within1, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir1, __base, out var __t1, out var __cc1, out var __f1);
 global::Bench.M01.ExecuteActive(in __f1, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M01.OnClipEnd(in __f1);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M01.OnClipEnd(in __f1);
 break;
 }
 case 2:
@@ -5897,7 +5897,7 @@ ushort __within2 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir2 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_2(__row2, __first2, __second2, __blend2, __tick, __len2, __within2, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir2, __base, out var __t2, out var __cc2, out var __f2);
 global::Bench.M02.ExecuteActive(in __f2, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M02.OnClipEnd(in __f2);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M02.OnClipEnd(in __f2);
 break;
 }
 case 3:
@@ -5913,7 +5913,7 @@ ushort __within3 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir3 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_3(__row3, __first3, __second3, __blend3, __tick, __len3, __within3, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir3, __base, out var __t3, out var __cc3, out var __f3);
 global::Bench.M03.ExecuteActive(in __f3, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M03.OnClipEnd(in __f3);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M03.OnClipEnd(in __f3);
 break;
 }
 case 4:
@@ -5929,7 +5929,7 @@ ushort __within4 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir4 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_4(__row4, __first4, __second4, __blend4, __tick, __len4, __within4, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir4, __base, out var __t4, out var __cc4, out var __f4);
 global::Bench.M04.ExecuteActive(in __f4, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M04.OnClipEnd(in __f4);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M04.OnClipEnd(in __f4);
 break;
 }
 case 5:
@@ -5945,7 +5945,7 @@ ushort __within5 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir5 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_5(__row5, __first5, __second5, __blend5, __tick, __len5, __within5, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir5, __base, out var __t5, out var __cc5, out var __f5);
 global::Bench.M05.ExecuteActive(in __f5, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M05.OnClipEnd(in __f5);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M05.OnClipEnd(in __f5);
 break;
 }
 case 6:
@@ -5961,7 +5961,7 @@ ushort __within6 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir6 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_6(__row6, __first6, __second6, __blend6, __tick, __len6, __within6, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir6, __base, out var __t6, out var __cc6, out var __f6);
 global::Bench.M06.ExecuteActive(in __f6, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M06.OnClipEnd(in __f6);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M06.OnClipEnd(in __f6);
 break;
 }
 case 7:
@@ -5977,7 +5977,7 @@ ushort __within7 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir7 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_7(__row7, __first7, __second7, __blend7, __tick, __len7, __within7, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir7, __base, out var __t7, out var __cc7, out var __f7);
 global::Bench.M07.ExecuteActive(in __f7, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M07.OnClipEnd(in __f7);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M07.OnClipEnd(in __f7);
 break;
 }
 case 8:
@@ -5993,7 +5993,7 @@ ushort __within8 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir8 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_8(__row8, __first8, __second8, __blend8, __tick, __len8, __within8, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir8, __base, out var __t8, out var __cc8, out var __f8);
 global::Bench.M10.ExecuteActive(in __f8, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M10.OnClipEnd(in __f8);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M10.OnClipEnd(in __f8);
 break;
 }
 case 9:
@@ -6009,7 +6009,7 @@ ushort __within9 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir9 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_9(__row9, __first9, __second9, __blend9, __tick, __len9, __within9, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir9, __base, out var __t9, out var __cc9, out var __f9);
 global::Bench.M11.ExecuteActive(in __f9, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M11.OnClipEnd(in __f9);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M11.OnClipEnd(in __f9);
 break;
 }
 case 10:
@@ -6025,7 +6025,7 @@ ushort __within10 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir10 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_10(__row10, __first10, __second10, __blend10, __tick, __len10, __within10, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir10, __base, out var __t10, out var __cc10, out var __f10);
 global::Bench.M12.ExecuteActive(in __f10, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M12.OnClipEnd(in __f10);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M12.OnClipEnd(in __f10);
 break;
 }
 case 11:
@@ -6041,7 +6041,7 @@ ushort __within11 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir11 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_11(__row11, __first11, __second11, __blend11, __tick, __len11, __within11, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir11, __base, out var __t11, out var __cc11, out var __f11);
 global::Bench.M13.ExecuteActive(in __f11, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M13.OnClipEnd(in __f11);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M13.OnClipEnd(in __f11);
 break;
 }
 case 12:
@@ -6057,7 +6057,7 @@ ushort __within12 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir12 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_12(__row12, __first12, __second12, __blend12, __tick, __len12, __within12, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir12, __base, out var __t12, out var __cc12, out var __f12);
 global::Bench.M14.ExecuteActive(in __f12, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M14.OnClipEnd(in __f12);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M14.OnClipEnd(in __f12);
 break;
 }
 case 13:
@@ -6073,7 +6073,7 @@ ushort __within13 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir13 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_13(__row13, __first13, __second13, __blend13, __tick, __len13, __within13, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir13, __base, out var __t13, out var __cc13, out var __f13);
 global::Bench.M15.ExecuteActive(in __f13, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M15.OnClipEnd(in __f13);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M15.OnClipEnd(in __f13);
 break;
 }
 case 14:
@@ -6089,7 +6089,7 @@ ushort __within14 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir14 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_14(__row14, __first14, __second14, __blend14, __tick, __len14, __within14, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir14, __base, out var __t14, out var __cc14, out var __f14);
 global::Bench.M16.ExecuteActive(in __f14, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M16.OnClipEnd(in __f14);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M16.OnClipEnd(in __f14);
 break;
 }
 case 15:
@@ -6105,7 +6105,7 @@ ushort __within15 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir15 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_15(__row15, __first15, __second15, __blend15, __tick, __len15, __within15, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir15, __base, out var __t15, out var __cc15, out var __f15);
 global::Bench.M17.ExecuteActive(in __f15, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M17.OnClipEnd(in __f15);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M17.OnClipEnd(in __f15);
 break;
 }
 case 16:
@@ -6121,7 +6121,7 @@ ushort __within16 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir16 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_16(__row16, __first16, __second16, __blend16, __tick, __len16, __within16, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir16, __base, out var __t16, out var __cc16, out var __f16);
 global::Bench.M20.ExecuteActive(in __f16, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M20.OnClipEnd(in __f16);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M20.OnClipEnd(in __f16);
 break;
 }
 case 17:
@@ -6137,7 +6137,7 @@ ushort __within17 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir17 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_17(__row17, __first17, __second17, __blend17, __tick, __len17, __within17, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir17, __base, out var __t17, out var __cc17, out var __f17);
 global::Bench.M21.ExecuteActive(in __f17, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M21.OnClipEnd(in __f17);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M21.OnClipEnd(in __f17);
 break;
 }
 case 18:
@@ -6153,7 +6153,7 @@ ushort __within18 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir18 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_18(__row18, __first18, __second18, __blend18, __tick, __len18, __within18, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir18, __base, out var __t18, out var __cc18, out var __f18);
 global::Bench.M22.ExecuteActive(in __f18, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M22.OnClipEnd(in __f18);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M22.OnClipEnd(in __f18);
 break;
 }
 case 19:
@@ -6169,7 +6169,7 @@ ushort __within19 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir19 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_19(__row19, __first19, __second19, __blend19, __tick, __len19, __within19, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir19, __base, out var __t19, out var __cc19, out var __f19);
 global::Bench.M23.ExecuteActive(in __f19, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M23.OnClipEnd(in __f19);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M23.OnClipEnd(in __f19);
 break;
 }
 case 20:
@@ -6185,7 +6185,7 @@ ushort __within20 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir20 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_20(__row20, __first20, __second20, __blend20, __tick, __len20, __within20, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir20, __base, out var __t20, out var __cc20, out var __f20);
 global::Bench.M24.ExecuteActive(in __f20, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M24.OnClipEnd(in __f20);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M24.OnClipEnd(in __f20);
 break;
 }
 case 21:
@@ -6201,7 +6201,7 @@ ushort __within21 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir21 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_21(__row21, __first21, __second21, __blend21, __tick, __len21, __within21, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir21, __base, out var __t21, out var __cc21, out var __f21);
 global::Bench.M25.ExecuteActive(in __f21, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M25.OnClipEnd(in __f21);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M25.OnClipEnd(in __f21);
 break;
 }
 case 22:
@@ -6217,7 +6217,7 @@ ushort __within22 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir22 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_22(__row22, __first22, __second22, __blend22, __tick, __len22, __within22, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir22, __base, out var __t22, out var __cc22, out var __f22);
 global::Bench.M26.ExecuteActive(in __f22, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M26.OnClipEnd(in __f22);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M26.OnClipEnd(in __f22);
 break;
 }
 case 23:
@@ -6233,7 +6233,7 @@ ushort __within23 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir23 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_23(__row23, __first23, __second23, __blend23, __tick, __len23, __within23, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir23, __base, out var __t23, out var __cc23, out var __f23);
 global::Bench.M27.ExecuteActive(in __f23, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M27.OnClipEnd(in __f23);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M27.OnClipEnd(in __f23);
 break;
 }
 case 24:
@@ -6249,7 +6249,7 @@ ushort __within24 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir24 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_24(__row24, __first24, __second24, __blend24, __tick, __len24, __within24, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir24, __base, out var __t24, out var __cc24, out var __f24);
 global::Bench.M30.ExecuteActive(in __f24, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M30.OnClipEnd(in __f24);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M30.OnClipEnd(in __f24);
 break;
 }
 case 25:
@@ -6265,7 +6265,7 @@ ushort __within25 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir25 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_25(__row25, __first25, __second25, __blend25, __tick, __len25, __within25, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir25, __base, out var __t25, out var __cc25, out var __f25);
 global::Bench.M31.ExecuteActive(in __f25, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M31.OnClipEnd(in __f25);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M31.OnClipEnd(in __f25);
 break;
 }
 case 26:
@@ -6281,7 +6281,7 @@ ushort __within26 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir26 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_26(__row26, __first26, __second26, __blend26, __tick, __len26, __within26, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir26, __base, out var __t26, out var __cc26, out var __f26);
 global::Bench.M32.ExecuteActive(in __f26, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M32.OnClipEnd(in __f26);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M32.OnClipEnd(in __f26);
 break;
 }
 case 27:
@@ -6297,7 +6297,7 @@ ushort __within27 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir27 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_27(__row27, __first27, __second27, __blend27, __tick, __len27, __within27, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir27, __base, out var __t27, out var __cc27, out var __f27);
 global::Bench.M33.ExecuteActive(in __f27, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M33.OnClipEnd(in __f27);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M33.OnClipEnd(in __f27);
 break;
 }
 case 28:
@@ -6313,7 +6313,7 @@ ushort __within28 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir28 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_28(__row28, __first28, __second28, __blend28, __tick, __len28, __within28, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir28, __base, out var __t28, out var __cc28, out var __f28);
 global::Bench.M34.ExecuteActive(in __f28, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M34.OnClipEnd(in __f28);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M34.OnClipEnd(in __f28);
 break;
 }
 case 29:
@@ -6329,7 +6329,7 @@ ushort __within29 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir29 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_29(__row29, __first29, __second29, __blend29, __tick, __len29, __within29, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir29, __base, out var __t29, out var __cc29, out var __f29);
 global::Bench.M35.ExecuteActive(in __f29, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M35.OnClipEnd(in __f29);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M35.OnClipEnd(in __f29);
 break;
 }
 case 30:
@@ -6345,7 +6345,7 @@ ushort __within30 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir30 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_30(__row30, __first30, __second30, __blend30, __tick, __len30, __within30, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir30, __base, out var __t30, out var __cc30, out var __f30);
 global::Bench.M36.ExecuteActive(in __f30, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M36.OnClipEnd(in __f30);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M36.OnClipEnd(in __f30);
 break;
 }
 case 31:
@@ -6361,7 +6361,7 @@ ushort __within31 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir31 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_31(__row31, __first31, __second31, __blend31, __tick, __len31, __within31, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir31, __base, out var __t31, out var __cc31, out var __f31);
 global::Bench.M37.ExecuteActive(in __f31, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M37.OnClipEnd(in __f31);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M37.OnClipEnd(in __f31);
 break;
 }
 case 32:
@@ -6377,7 +6377,7 @@ ushort __within32 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir32 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_32(__row32, __first32, __second32, __blend32, __tick, __len32, __within32, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir32, __base, out var __t32, out var __cc32, out var __f32);
 global::Bench.M40.ExecuteActive(in __f32, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M40.OnClipEnd(in __f32);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M40.OnClipEnd(in __f32);
 break;
 }
 case 33:
@@ -6393,7 +6393,7 @@ ushort __within33 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir33 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_33(__row33, __first33, __second33, __blend33, __tick, __len33, __within33, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir33, __base, out var __t33, out var __cc33, out var __f33);
 global::Bench.M41.ExecuteActive(in __f33, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M41.OnClipEnd(in __f33);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M41.OnClipEnd(in __f33);
 break;
 }
 case 34:
@@ -6409,7 +6409,7 @@ ushort __within34 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir34 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_34(__row34, __first34, __second34, __blend34, __tick, __len34, __within34, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir34, __base, out var __t34, out var __cc34, out var __f34);
 global::Bench.M42.ExecuteActive(in __f34, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M42.OnClipEnd(in __f34);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M42.OnClipEnd(in __f34);
 break;
 }
 case 35:
@@ -6425,7 +6425,7 @@ ushort __within35 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir35 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_35(__row35, __first35, __second35, __blend35, __tick, __len35, __within35, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir35, __base, out var __t35, out var __cc35, out var __f35);
 global::Bench.M43.ExecuteActive(in __f35, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M43.OnClipEnd(in __f35);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M43.OnClipEnd(in __f35);
 break;
 }
 case 36:
@@ -6441,7 +6441,7 @@ ushort __within36 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir36 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_36(__row36, __first36, __second36, __blend36, __tick, __len36, __within36, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir36, __base, out var __t36, out var __cc36, out var __f36);
 global::Bench.M44.ExecuteActive(in __f36, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M44.OnClipEnd(in __f36);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M44.OnClipEnd(in __f36);
 break;
 }
 case 37:
@@ -6457,7 +6457,7 @@ ushort __within37 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir37 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_37(__row37, __first37, __second37, __blend37, __tick, __len37, __within37, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir37, __base, out var __t37, out var __cc37, out var __f37);
 global::Bench.M45.ExecuteActive(in __f37, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M45.OnClipEnd(in __f37);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M45.OnClipEnd(in __f37);
 break;
 }
 case 38:
@@ -6473,7 +6473,7 @@ ushort __within38 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir38 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_38(__row38, __first38, __second38, __blend38, __tick, __len38, __within38, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir38, __base, out var __t38, out var __cc38, out var __f38);
 global::Bench.M46.ExecuteActive(in __f38, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M46.OnClipEnd(in __f38);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M46.OnClipEnd(in __f38);
 break;
 }
 case 39:
@@ -6489,7 +6489,7 @@ ushort __within39 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir39 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_39(__row39, __first39, __second39, __blend39, __tick, __len39, __within39, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir39, __base, out var __t39, out var __cc39, out var __f39);
 global::Bench.M47.ExecuteActive(in __f39, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M47.OnClipEnd(in __f39);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M47.OnClipEnd(in __f39);
 break;
 }
 case 40:
@@ -6505,7 +6505,7 @@ ushort __within40 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir40 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_40(__row40, __first40, __second40, __blend40, __tick, __len40, __within40, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir40, __base, out var __t40, out var __cc40, out var __f40);
 global::Bench.M50.ExecuteActive(in __f40, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M50.OnClipEnd(in __f40);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M50.OnClipEnd(in __f40);
 break;
 }
 case 41:
@@ -6521,7 +6521,7 @@ ushort __within41 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir41 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_41(__row41, __first41, __second41, __blend41, __tick, __len41, __within41, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir41, __base, out var __t41, out var __cc41, out var __f41);
 global::Bench.M51.ExecuteActive(in __f41, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M51.OnClipEnd(in __f41);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M51.OnClipEnd(in __f41);
 break;
 }
 case 42:
@@ -6537,7 +6537,7 @@ ushort __within42 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir42 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_42(__row42, __first42, __second42, __blend42, __tick, __len42, __within42, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir42, __base, out var __t42, out var __cc42, out var __f42);
 global::Bench.M52.ExecuteActive(in __f42, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M52.OnClipEnd(in __f42);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M52.OnClipEnd(in __f42);
 break;
 }
 case 43:
@@ -6553,7 +6553,7 @@ ushort __within43 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir43 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_43(__row43, __first43, __second43, __blend43, __tick, __len43, __within43, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir43, __base, out var __t43, out var __cc43, out var __f43);
 global::Bench.M53.ExecuteActive(in __f43, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M53.OnClipEnd(in __f43);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M53.OnClipEnd(in __f43);
 break;
 }
 case 44:
@@ -6569,7 +6569,7 @@ ushort __within44 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir44 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_44(__row44, __first44, __second44, __blend44, __tick, __len44, __within44, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir44, __base, out var __t44, out var __cc44, out var __f44);
 global::Bench.M54.ExecuteActive(in __f44, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M54.OnClipEnd(in __f44);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M54.OnClipEnd(in __f44);
 break;
 }
 case 45:
@@ -6585,7 +6585,7 @@ ushort __within45 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir45 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_45(__row45, __first45, __second45, __blend45, __tick, __len45, __within45, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir45, __base, out var __t45, out var __cc45, out var __f45);
 global::Bench.M55.ExecuteActive(in __f45, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M55.OnClipEnd(in __f45);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M55.OnClipEnd(in __f45);
 break;
 }
 case 46:
@@ -6601,7 +6601,7 @@ ushort __within46 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir46 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_46(__row46, __first46, __second46, __blend46, __tick, __len46, __within46, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir46, __base, out var __t46, out var __cc46, out var __f46);
 global::Bench.M56.ExecuteActive(in __f46, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M56.OnClipEnd(in __f46);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M56.OnClipEnd(in __f46);
 break;
 }
 case 47:
@@ -6617,7 +6617,7 @@ ushort __within47 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir47 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_47(__row47, __first47, __second47, __blend47, __tick, __len47, __within47, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir47, __base, out var __t47, out var __cc47, out var __f47);
 global::Bench.M57.ExecuteActive(in __f47, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M57.OnClipEnd(in __f47);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M57.OnClipEnd(in __f47);
 break;
 }
 case 48:
@@ -6633,7 +6633,7 @@ ushort __within48 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir48 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_48(__row48, __first48, __second48, __blend48, __tick, __len48, __within48, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir48, __base, out var __t48, out var __cc48, out var __f48);
 global::Bench.M60.ExecuteActive(in __f48, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M60.OnClipEnd(in __f48);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M60.OnClipEnd(in __f48);
 break;
 }
 case 49:
@@ -6649,7 +6649,7 @@ ushort __within49 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir49 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_49(__row49, __first49, __second49, __blend49, __tick, __len49, __within49, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir49, __base, out var __t49, out var __cc49, out var __f49);
 global::Bench.M61.ExecuteActive(in __f49, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M61.OnClipEnd(in __f49);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M61.OnClipEnd(in __f49);
 break;
 }
 case 50:
@@ -6665,7 +6665,7 @@ ushort __within50 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir50 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_50(__row50, __first50, __second50, __blend50, __tick, __len50, __within50, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir50, __base, out var __t50, out var __cc50, out var __f50);
 global::Bench.M62.ExecuteActive(in __f50, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M62.OnClipEnd(in __f50);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M62.OnClipEnd(in __f50);
 break;
 }
 case 51:
@@ -6681,7 +6681,7 @@ ushort __within51 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir51 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_51(__row51, __first51, __second51, __blend51, __tick, __len51, __within51, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir51, __base, out var __t51, out var __cc51, out var __f51);
 global::Bench.M63.ExecuteActive(in __f51, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M63.OnClipEnd(in __f51);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M63.OnClipEnd(in __f51);
 break;
 }
 case 52:
@@ -6697,7 +6697,7 @@ ushort __within52 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir52 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_52(__row52, __first52, __second52, __blend52, __tick, __len52, __within52, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir52, __base, out var __t52, out var __cc52, out var __f52);
 global::Bench.M64.ExecuteActive(in __f52, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M64.OnClipEnd(in __f52);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M64.OnClipEnd(in __f52);
 break;
 }
 case 53:
@@ -6713,7 +6713,7 @@ ushort __within53 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir53 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_53(__row53, __first53, __second53, __blend53, __tick, __len53, __within53, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir53, __base, out var __t53, out var __cc53, out var __f53);
 global::Bench.M65.ExecuteActive(in __f53, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M65.OnClipEnd(in __f53);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M65.OnClipEnd(in __f53);
 break;
 }
 case 54:
@@ -6729,7 +6729,7 @@ ushort __within54 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir54 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_54(__row54, __first54, __second54, __blend54, __tick, __len54, __within54, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir54, __base, out var __t54, out var __cc54, out var __f54);
 global::Bench.M66.ExecuteActive(in __f54, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M66.OnClipEnd(in __f54);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M66.OnClipEnd(in __f54);
 break;
 }
 case 55:
@@ -6745,7 +6745,7 @@ ushort __within55 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir55 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_55(__row55, __first55, __second55, __blend55, __tick, __len55, __within55, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir55, __base, out var __t55, out var __cc55, out var __f55);
 global::Bench.M67.ExecuteActive(in __f55, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M67.OnClipEnd(in __f55);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M67.OnClipEnd(in __f55);
 break;
 }
 case 56:
@@ -6761,7 +6761,7 @@ ushort __within56 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir56 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_56(__row56, __first56, __second56, __blend56, __tick, __len56, __within56, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir56, __base, out var __t56, out var __cc56, out var __f56);
 global::Bench.M70.ExecuteActive(in __f56, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M70.OnClipEnd(in __f56);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M70.OnClipEnd(in __f56);
 break;
 }
 case 57:
@@ -6777,7 +6777,7 @@ ushort __within57 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir57 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_57(__row57, __first57, __second57, __blend57, __tick, __len57, __within57, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir57, __base, out var __t57, out var __cc57, out var __f57);
 global::Bench.M71.ExecuteActive(in __f57, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M71.OnClipEnd(in __f57);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M71.OnClipEnd(in __f57);
 break;
 }
 case 58:
@@ -6793,7 +6793,7 @@ ushort __within58 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir58 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_58(__row58, __first58, __second58, __blend58, __tick, __len58, __within58, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir58, __base, out var __t58, out var __cc58, out var __f58);
 global::Bench.M72.ExecuteActive(in __f58, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M72.OnClipEnd(in __f58);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M72.OnClipEnd(in __f58);
 break;
 }
 case 59:
@@ -6809,7 +6809,7 @@ ushort __within59 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir59 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_59(__row59, __first59, __second59, __blend59, __tick, __len59, __within59, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir59, __base, out var __t59, out var __cc59, out var __f59);
 global::Bench.M73.ExecuteActive(in __f59, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M73.OnClipEnd(in __f59);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M73.OnClipEnd(in __f59);
 break;
 }
 case 60:
@@ -6825,7 +6825,7 @@ ushort __within60 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir60 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_60(__row60, __first60, __second60, __blend60, __tick, __len60, __within60, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir60, __base, out var __t60, out var __cc60, out var __f60);
 global::Bench.M74.ExecuteActive(in __f60, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M74.OnClipEnd(in __f60);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M74.OnClipEnd(in __f60);
 break;
 }
 case 61:
@@ -6841,7 +6841,7 @@ ushort __within61 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir61 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_61(__row61, __first61, __second61, __blend61, __tick, __len61, __within61, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir61, __base, out var __t61, out var __cc61, out var __f61);
 global::Bench.M75.ExecuteActive(in __f61, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M75.OnClipEnd(in __f61);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M75.OnClipEnd(in __f61);
 break;
 }
 case 62:
@@ -6857,7 +6857,7 @@ ushort __within62 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir62 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_62(__row62, __first62, __second62, __blend62, __tick, __len62, __within62, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir62, __base, out var __t62, out var __cc62, out var __f62);
 global::Bench.M76.ExecuteActive(in __f62, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M76.OnClipEnd(in __f62);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M76.OnClipEnd(in __f62);
 break;
 }
 case 63:
@@ -6873,7 +6873,7 @@ ushort __within63 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir63 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_63(__row63, __first63, __second63, __blend63, __tick, __len63, __within63, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir63, __base, out var __t63, out var __cc63, out var __f63);
 global::Bench.M77.ExecuteActive(in __f63, ref __ctx0);
-if (__tick == __def->WindowEnd - 1) global::Bench.M77.OnClipEnd(in __f63);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::Bench.M77.OnClipEnd(in __f63);
 break;
 }
 }

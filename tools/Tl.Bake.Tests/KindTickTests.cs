@@ -151,6 +151,7 @@ public sealed unsafe class KindTickTests : IDisposable
                         continue;
                     }
                     if (!began && (ended || (s->Flags & PlaybackFlags.Paused) != 0)) continue;
+                    if ((s->Flags & PlaybackFlags.ReenterPending) != 0) continue;
                     if (feeder.Trigger == 1)
                     {
                         if (t == window.Start) key = (byte)KindEntryFlags.Pulse;

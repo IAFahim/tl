@@ -226,7 +226,7 @@ if (__stage is null) continue;
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -271,7 +271,7 @@ ushort __within4 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir4 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_4(__row4, __first4, __second4, __blend4, __tick, __len4, __within4, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir4, __base, out var __t4, out var __cc4, out var __f4);
 global::KindGame.LegacyWalk.ExecuteActive(in __f4, in __c2[__e], ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::KindGame.LegacyWalk.OnClipEnd(in __f4);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::KindGame.LegacyWalk.OnClipEnd(in __f4);
 break;
 }
 }
@@ -831,7 +831,7 @@ if (__stage != null)
 var __steps = global::Tl.SystemDispatch.FilteredSteps(world, SystemKey, __tl->Id, (int)(__stage - __tl->Stages), PairKeys);
 var __backward = forward ? (__pb->Flags & global::Tl.PlaybackFlags.Reverse) != 0 : (__pb->Flags & global::Tl.PlaybackFlags.Reverse) == 0;
 var __base = __backward ? global::Tl.FrameFlags.Reverse : global::Tl.FrameFlags.None;
-if ((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) __base |= global::Tl.FrameFlags.Synthetic;
+if (((__pb->Flags & global::Tl.PlaybackFlags.StartPending) != 0 && __tick > 0) || (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) != 0) __base |= global::Tl.FrameFlags.Synthetic;
 if (__tick == 0) __base |= global::Tl.FrameFlags.TimelineStart;
 if (__tick == (ushort)(__tl->Duration - 1)) __base |= global::Tl.FrameFlags.TimelineEnd;
 for (var __i = 0; __i < __steps.Length; __i++)
@@ -876,7 +876,7 @@ ushort __within4 = (ushort)(__tick - __def->WindowStart);
 sbyte __dir4 = __backward ? (sbyte)-1 : (sbyte)1;
 Frame_4(__row4, __first4, __second4, __blend4, __tick, __len4, __within4, (ushort)__def->TrackIndex, (ushort)__tl->Duration, __dir4, __base, out var __t4, out var __cc4, out var __f4);
 global::KindGame.LegacyWalk.ExecuteActive(in __f4, in __c2[__e], ref __c1[__e]);
-if (__tick == __def->WindowEnd - 1) global::KindGame.LegacyWalk.OnClipEnd(in __f4);
+if (__tick == __def->WindowEnd - 1 && (__pb->Flags & global::Tl.PlaybackFlags.ReenterPending) == 0) global::KindGame.LegacyWalk.OnClipEnd(in __f4);
 break;
 }
 }
