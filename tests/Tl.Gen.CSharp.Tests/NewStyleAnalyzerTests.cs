@@ -85,6 +85,9 @@ public sealed class NewStyleAnalyzerTests
         var generated = string.Join("\n", driver.GetRunResult().GeneratedTrees.Select(tree => tree.ToString()));
         Assert.Contains("global::Portable.PushTrack.OnClipStart", generated);
         Assert.Contains("global::Portable.BellTrack.OnClipEnd", generated);
+        var key = 14695981039346656037UL;
+        foreach (var c in "Tl.TlNoSettings`1<Portable.PushClip,\0Portable.PushClip") key = (key ^ c) * 1099511628211UL;
+        Assert.Contains((key | 1UL) + "UL", generated);
         using var bytes = new MemoryStream();
         Assert.True(output.Emit(bytes).Success);
     }

@@ -924,7 +924,7 @@ internal static class SystemReader
         var current = type;
         while (current is not null)
         {
-            nested.Push(current.Name + TypeArguments(current));
+            nested.Push(current.MetadataName + TypeArguments(current));
             current = current.ContainingType;
         }
         var prefix = type.ContainingNamespace is { IsGlobalNamespace: false } space ? space.ToDisplayString() + "." : "";
