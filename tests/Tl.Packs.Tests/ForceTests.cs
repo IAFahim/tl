@@ -11,6 +11,13 @@ public sealed class ForceTests
 {
     internal const ulong Pinned = 7683521458411619355UL;
 
+    static string Root()
+    {
+        var dir = AppContext.BaseDirectory;
+        for (var i = 0; i < 8 && !File.Exists(Path.Combine(dir, "tl.slnx")); i++) dir = Path.GetDirectoryName(dir)!;
+        return dir;
+    }
+
     static byte[] Bytes(ForceClip clip) => MemoryMarshal.AsBytes(new Span<ForceClip>(ref clip)).ToArray();
 
     static TlCurve Ramp(float from, float to)
@@ -163,6 +170,9 @@ public sealed class ForceTests
     public void SixHundredMixedStepsKeepThePinnedHashAndAllocateNothingWarm()
     {
         var library = Library();
+        var golden = Path.Combine(Root(), "tests", "Tl.Packs.Tests", "Force", "force.tlib");
+        if (Environment.GetEnvironmentVariable("TL_UPDATE_SNAPSHOT") == "1") File.WriteAllBytes(golden, library);
+        Assert.Equal(File.ReadAllBytes(golden), library);
         var hash = Play(library, 8, 600, out var warm);
         Assert.Equal(hash, Play(library, 8, 600, out _));
         Assert.Equal(0L, warm);
