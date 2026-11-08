@@ -4,6 +4,8 @@ type Tl.Gen.Tlb.BakeCacheKey
   Method System.String Prefix(Byte[])
   Field System.String ToolVersion
 type Tl.Gen.Tlb.BakeDiagnosticException
+type Tl.Gen.Tlb.BakeKinds
+  Property System.Collections.Generic.IReadOnlyList`1[System.String] Names
 type Tl.Gen.Tlb.BakerAssemblyResolver
   Method Void AddAssembly(System.Reflection.Assembly)
   Method Tl.Gen.Tlb.BakerAssemblyResolver FromAssemblies(System.Collections.Generic.IEnumerable`1[System.Reflection.Assembly])
@@ -11,6 +13,12 @@ type Tl.Gen.Tlb.BakerAssemblyResolver
   Method System.Object PopulateStruct(System.Type, System.Text.Json.JsonElement, System.String)
   Method System.Type ResolveType(System.String, System.String, System.String, System.String)
   Method Void ValidateUnmanaged(System.Type, System.Type)
+type Tl.Gen.Tlb.LibraryBake
+  Method Byte[] BakeTyped(Tl.Gen.Tlb.TypedTimeline, Tl.Gen.Tlb.LibraryManifest)
+  Method UInt64 KindMask(System.String, Byte[], Tl.Gen.Tlb.BakeKinds)
+  Method Byte[] KindPayload(System.String, Byte[], Tl.Gen.Tlb.BakeKinds)
+  Method Tl.Gen.Tlb.BakeKinds Kinds(System.Collections.Generic.IEnumerable`1[System.Reflection.Assembly], System.Collections.Generic.IReadOnlyDictionary`2[System.String,Tl.KindOverride])
+  Method Tl.Gen.Tlb.LibraryManifest Manifest(System.Collections.Generic.IReadOnlyList`1[System.String], System.Collections.Generic.IReadOnlyList`1[System.String], UInt32)
 type Tl.Gen.Tlb.LibraryManifest
 type Tl.Gen.Tlb.TimelineBaker
   Method Byte[] BakeJson(System.String, Tl.Gen.Tlb.BakerAssemblyResolver, Boolean, Tl.Gen.Tlb.LibraryManifest)

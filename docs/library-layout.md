@@ -208,7 +208,8 @@ Violations fail the bake with the type and method named and the repair stated.
 
 `default` takes `maxInlineBytes` and `stackDepth`; a kind or group name takes
 `inline` (fixed capacity), `gamePulses` and `maxInlineBytes`. Unknown names
-and keys fail the bake.
+and keys fail the bake. A kind's `[TlKind(Inline = n, GamePulses = n)]` values
+apply when `library.json` does not set them.
 
 ### Capacity
 
@@ -324,6 +325,33 @@ backward, arriving from `t + 1`), in this order, each group by entry order:
 timelines also carry wrap lists: forward removes span entries with
 `End == Duration`, backward removes those with `Start == 0`; the runtime then
 processes tick `0` (forward) or `Duration - 1` (backward).
+
+### One assembler, per-timeline kind payloads
+
+`Tl.LibraryAssembler` (Tl.Core) writes every `game.tlib`: `tlb library` and the
+Unity package both call it. Each timeline arrives as a `LibraryPart` (name, TLB
+bytes, optional kind payload, library id of its `next`, timeline-reference
+sites to patch); the assembler checks that every payload was baked against the
+same kind catalog, computes the capacities above (`LibraryAssembler.Capacities`,
+overrides in `LibrarySettings.Kinds` by kind or group name), merges the payloads
+into the kind section and emits the file. `Tl.Gen.Tlb.LibraryBake.KindPayload`
+writes a payload; `Tl.KindPayload` reads it.
+
+Kind payload (`KindPayload`, one per timeline, little-endian):
+
+| Offset | Width | Field |
+|---|---|---|
+| 0 | u32 | Magic `0x444B4C54` (ASCII `TLKD`) |
+| 4 | u32 | Version `1` |
+| 8 | u32 | KindCount |
+| 12 | u32 | SectionLength |
+| 16 | 16 x KindCount | per kind: `MaxSpans i32`, `MaxPulses i32`, `Inline i32` (-1 none), `GamePulses i32` |
+| 16 + 16 x KindCount | SectionLength | a kind section of this one timeline, capacities zero |
+
+The merged section copies the catalog (kind and feeder tables, strings) from the
+first payload, writes the capacities, and moves each timeline row and its data,
+shifting the row's data offsets. The result equals the section computed over
+all timelines at once.
 
 Fixtures: `tools/Tl.Bake.Tests/golden/kinds/` (`library.json`, four timelines,
 the committed `game.tlib` and `Kinds.g.cs.txt`). `KindLibraryTests` checks the

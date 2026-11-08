@@ -204,6 +204,13 @@ type Tl.Inspection+ViewSnapshot
   Property FoldState State
   Property System.Nullable`1[System.Int32] Ticks
   Method System.String ToString()
+type Tl.KindCapacity
+  Field Int32 Capacity
+  Field Int32 EntryBytes
+  Field Boolean Group
+  Field System.String Name
+  Field System.String SetBy
+  Field Int32 Worst
 type Tl.KindEntries
   Field Tl.KindEntries Both
   Field Tl.KindEntries Pulses
@@ -233,6 +240,23 @@ type Tl.KindMode
   Field Tl.KindMode Combine
   Field Tl.KindMode Each
   Field Byte value__
+type Tl.KindOverride
+  Field System.Nullable`1[System.Int32] GamePulses
+  Field System.Nullable`1[System.Int32] Inline
+  Field System.Nullable`1[System.Int32] MaxInlineBytes
+type Tl.KindPayload
+  Property Int32 FeederCount
+  Property Int32[] GamePulses
+  Property Int32[] Inline
+  Property Int32 KindCount
+  Property UInt64 KindMask
+  Field UInt32 Magic
+  Property Int32[] MaxPulses
+  Property Int32[] MaxSpans
+  Method Tl.KindPayload Read(Byte[], System.String)
+  Method Boolean SameCatalog(Tl.KindPayload)
+  Field UInt32 Version
+  Method Byte[] Write(System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], System.Collections.Generic.IReadOnlyList`1[System.Int32], Byte[])
 type Tl.KindPulses`1
   Method Void To(Int32, T)
 type Tl.KindPulses`2
@@ -302,6 +326,12 @@ type Tl.KindTable
   Field Int32 Stride
   Field Int32 ValueAt
   Field Int32 Words
+type Tl.LibraryAssembler
+  Method Byte[] Assemble(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart], UInt32, Tl.LibrarySettings)
+  Method Byte[] Assemble(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart], UInt32, Tl.LibrarySettings, System.Collections.Generic.IReadOnlyList`1[Tl.KindCapacity] ByRef)
+  Method System.Collections.Generic.IReadOnlyList`1[Tl.KindCapacity] Capacities(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart], Tl.LibrarySettings)
+  Method UInt32 ChannelOf(System.ReadOnlySpan`1[System.Byte])
+  Method UInt32 NextOf(System.ReadOnlySpan`1[System.Byte])
 type Tl.LibraryEvent
   Field Byte Kind
   Field UInt32 Marker
@@ -350,6 +380,18 @@ type Tl.LibraryKindTimeline
   Field UInt32 WrapBackwardCount
   Field UInt32 WrapForward
   Field UInt32 WrapForwardCount
+type Tl.LibraryPart
+  Field Byte[] Kinds
+  Field System.String Name
+  Field UInt16 Next
+  Field UInt32[] Refs
+  Field Byte[] Tlb
+type Tl.LibrarySettings
+  Field Int32 ChannelCount
+  Property Tl.LibrarySettings Default
+  Field System.Collections.Generic.IReadOnlyDictionary`2[System.String,Tl.KindOverride] Kinds
+  Field Int32 MaxInlineBytes
+  Field Int32 StackDepth
 type Tl.LibraryStage
   Field UInt32 End
   Field UInt32 Start

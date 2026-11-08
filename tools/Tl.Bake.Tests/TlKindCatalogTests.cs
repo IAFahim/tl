@@ -44,7 +44,9 @@ public class TlKindCatalogTests
         var feeder = Assert.Single(catalog.Feeders);
         Assert.Equal(FeederTrigger.Span, feeder.Trigger);
         Assert.Equal(KindCatalog.PairKey(typeof(KindFixture.HitTrack), typeof(KindFixture.HitClip)), feeder.SourceKey);
-        var row = Assert.Single(KindLayout.Capacities(catalog, [], 1, new KindSettings()));
+        var kinds = LibraryBake.Kinds([asm]);
+        var part = new LibraryPart { Name = "empty", Tlb = [], Kinds = KindLayout.Payload(catalog, new KindTimeline { MaxSpans = [0], MaxPulses = [0] }, kinds.Inline, kinds.GamePulses) };
+        var row = Assert.Single(LibraryAssembler.Capacities([part], new LibrarySettings { ChannelCount = 1, StackDepth = 1, MaxInlineBytes = 64 }));
         Assert.Equal(3, row.Capacity);
     }
 }

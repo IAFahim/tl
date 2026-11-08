@@ -45,7 +45,7 @@ internal static class KindsPack
             : File.Exists(library) ? Path.GetFullPath(Path.GetDirectoryName(library)!)
             : throw new BakeDiagnosticException($"library path '{library}' does not exist.");
         var input = LibraryPack.LoadKindInputs(dir, assemblyPaths, auto);
-        var rows = KindLayout.Capacities(input.Catalog, input.KindTimelines, input.ChannelCount, input.Settings);
+        var rows = LibraryAssembler.Capacities(input.Parts, input.Settings);
         var source = KindLayout.CapacitySource(ns, rows);
         var kindsWritten = false;
         if (outPath != null) kindsWritten = KindLayout.WriteIfChanged(outPath, source);

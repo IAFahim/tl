@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -53,7 +52,7 @@ internal static class LibraryPack
         return 1;
     }
 
-    internal sealed record LibraryKindInputs(List<(string Name, string File)> Names, List<byte[]> Blobs, uint TickRate, int ChannelCount, KindSettings Settings, KindCatalog Catalog, List<KindTimeline> KindTimelines);
+    internal sealed record LibraryKindInputs(List<(string Name, string File)> Names, List<LibraryPart> Parts, uint TickRate, LibrarySettings Settings, bool Reached);
 
     internal static LibraryKindInputs LoadKindInputs(string dir, List<string> assemblyPaths, bool auto)
     {
@@ -120,28 +119,28 @@ internal static class LibraryPack
             try { tlbs.Add(TimelineBaker.BakeJson(jsons[i], resolver, auto, manifest)); }
             catch (BakeDiagnosticException ex) { throw new BakeDiagnosticException($"{names[i].File}: {ex.Message}"); }
         }
-        var catalog = KindCatalog.Discover(resolver.ReferencedAssemblies);
-        var kindTimelines = new List<KindTimeline>();
-        for (var i = 0; i < names.Count; i++) kindTimelines.Add(KindTimeline.Analyze(names[i].Name, tlbs[i], catalog));
-        return new LibraryKindInputs(names, tlbs, tickRate, channels.Count, kindSettings, catalog, kindTimelines);
+        var kinds = LibraryBake.Kinds(resolver.ReferencedAssemblies);
+        var parts = new List<LibraryPart>();
+        var reached = false;
+        for (var i = 0; i < names.Count; i++)
+        {
+            parts.Add(new LibraryPart { Name = names[i].Name, Tlb = tlbs[i], Kinds = LibraryBake.KindPayload(names[i].Name, tlbs[i], kinds), Next = (ushort)LibraryAssembler.NextOf(tlbs[i]) });
+            reached |= LibraryBake.KindMask(names[i].Name, tlbs[i], kinds) != 0;
+        }
+        kindSettings.ChannelCount = channels.Count;
+        return new LibraryKindInputs(names, parts, tickRate, kindSettings, reached);
     }
 
     static int Pack(string dir, List<string> assemblyPaths, string? outPath, string? idsPath, string? kindsPath, string ns, bool auto, bool diagnosticsJson)
     {
         dir = Path.GetFullPath(dir);
         var input = LoadKindInputs(dir, assemblyPaths, auto);
-        var (names, tlbs, tickRate, channelCount, kindSettings, catalog, kindTimelines) = input;
+        var names = input.Names;
+        var tickRate = input.TickRate;
         outPath ??= Path.Combine(dir, "game.tlib");
         idsPath ??= Path.Combine(dir, "Timelines.g.cs");
-        var reached = kindTimelines.Any(t => t.KindMask != 0);
-        List<KindCapacityRow>? rows = null;
-        byte[]? kindSection = null;
-        if (reached || kindsPath != null)
-        {
-            rows = KindLayout.Capacities(catalog, kindTimelines, channelCount, kindSettings);
-            if (reached) kindSection = KindLayout.Section(catalog, kindTimelines, rows);
-        }
-        var gameTlib = Emit(names, tlbs, tickRate, kindSection);
+        var gameTlib = LibraryAssembler.Assemble(input.Parts, tickRate, input.Settings, out var capacities);
+        var rows = input.Reached || kindsPath != null ? capacities : null;
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
         File.WriteAllBytes(outPath, gameTlib);
         var digest = Convert.ToHexString(SHA256.HashData(gameTlib)).ToLowerInvariant();
@@ -205,16 +204,16 @@ internal static class LibraryPack
         return [.. files];
     }
 
-    static KindSettings KindSettingsOf(JsonElement root)
+    static LibrarySettings KindSettingsOf(JsonElement root)
     {
-        var settings = new KindSettings();
+        var settings = LibrarySettings.Default;
         if (!root.TryGetProperty("kinds", out var kinds)) return settings;
         if (kinds.ValueKind != JsonValueKind.Object) throw new BakeDiagnosticException("library.json 'kinds' must be an object.");
+        var overrides = new Dictionary<string, KindOverride>(StringComparer.Ordinal);
         foreach (var entry in kinds.EnumerateObject())
         {
             if (entry.Value.ValueKind != JsonValueKind.Object) throw new BakeDiagnosticException($"library.json kinds '{entry.Name}' must be an object.");
-            int? inline = null, maxInline = null, stackDepth = null;
-            var gamePulses = 0;
+            int? inline = null, maxInline = null, stackDepth = null, gamePulses = null;
             foreach (var field in entry.Value.EnumerateObject())
             {
                 if (field.Value.ValueKind != JsonValueKind.Number || !field.Value.TryGetInt32(out var number) || number < 0)
@@ -233,68 +232,10 @@ internal static class LibraryPack
                 if (maxInline is { } m) settings.MaxInlineBytes = m;
                 if (stackDepth is { } d) settings.StackDepth = d;
             }
-            else settings.Kinds[entry.Name] = (inline, gamePulses, maxInline);
+            else overrides[entry.Name] = new KindOverride(inline, gamePulses, maxInline);
         }
+        settings.Kinds = overrides;
         return settings;
-    }
-
-    static byte[] Emit(List<(string Name, string File)> names, List<byte[]> tlbs, uint tickRate, byte[]? kindSection)
-    {
-        var offsets = new uint[names.Count];
-        var lengths = new uint[names.Count];
-        var uniq = new List<byte[]>();
-        var uniqOff = new List<uint>();
-        for (var i = 0; i < names.Count; i++)
-        {
-            var idx = uniq.FindIndex(u => u.AsSpan().SequenceEqual(tlbs[i]));
-            if (idx < 0) { idx = uniq.Count; uniq.Add(tlbs[i]); uniqOff.Add(0); }
-            offsets[i] = (uint)idx;
-            lengths[i] = (uint)tlbs[i].Length;
-        }
-        var nameBytes = names.Select(n => Encoding.UTF8.GetBytes(n.Name)).ToList();
-        uint manifestOff = 64;
-        uint entries = (uint)names.Count * 32u;
-        uint strings = 0;
-        foreach (var b in nameBytes) strings += (uint)b.Length;
-        uint blobOff = (manifestOff + entries + strings + 7u) & ~7u;
-        uint cursor = blobOff;
-        for (var u = 0; u < uniq.Count; u++) { uniqOff[u] = cursor; cursor += (uint)((uniq[u].Length + 7) & ~7); }
-        var kindOff = kindSection == null ? 0u : cursor;
-        if (kindSection != null) cursor += (uint)kindSection.Length;
-        uint totalBytes = cursor + 32u;
-        var bytes = new byte[totalBytes];
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), 0x42494C54u);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), kindSection == null ? 1u : 2u);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), (uint)names.Count);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), manifestOff);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), blobOff);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(20), totalBytes);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(24), tickRate);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(28), kindOff);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(32), kindSection == null ? 0u : (uint)kindSection.Length);
-        var nameAt = manifestOff + entries;
-        for (var i = 0; i < names.Count; i++)
-        {
-            var at = (int)(manifestOff + (uint)i * 32u);
-            var ch = tlbs[i].Length >= 80 && BinaryPrimitives.ReadUInt32LittleEndian(tlbs[i].AsSpan(4)) == 6u
-                ? BinaryPrimitives.ReadUInt32LittleEndian(tlbs[i].AsSpan(56))
-                : 0u;
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at), (uint)(i + 1));
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 4), ch);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 8), nameAt);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 12), (uint)nameBytes[i].Length);
-            var u = (int)offsets[i];
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 16), uniqOff[u]);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 20), lengths[i]);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 24), 0u);
-            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at + 28), 0u);
-            nameBytes[i].CopyTo(bytes.AsSpan((int)nameAt));
-            nameAt += (uint)nameBytes[i].Length;
-        }
-        for (var u = 0; u < uniq.Count; u++) uniq[u].CopyTo(bytes.AsSpan((int)uniqOff[u]));
-        kindSection?.CopyTo(bytes.AsSpan((int)kindOff));
-        SHA256.TryHashData(bytes.AsSpan(0, (int)(totalBytes - 32u)), bytes.AsSpan((int)(totalBytes - 32u), 32), out _);
-        return bytes;
     }
 
     static string EmitIds(string ns, List<(string Name, string File)> names, string digest, uint tickRate)
