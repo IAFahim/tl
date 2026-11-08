@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "name": "haste",
+  "duration": 300,
+  "channel": "haste",
+  "tracks": [
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Tl.Pack.Stats.BuffClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Tl.Pack.Stats",
+          "type": "BuffClip",
+          "start": 0,
+          "end": 300,
+          "data": {
+            "AttackBonus": 10
+          }
+        }
+      ]
+    }
+  ]
+}

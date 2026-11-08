@@ -37,40 +37,17 @@ internal static class DecodeCommand
 
     static int Library(byte[] lib, BakerAssemblyResolver resolver, string dir)
     {
-        uint U(int at) => BinaryPrimitives.ReadUInt32LittleEndian(lib.AsSpan(at));
-        if (lib.Length < 96 || U(20) != lib.Length) throw new BakeDiagnosticException("game.tlib header is invalid.");
-        var count = (int)U(8);
-        var manifest = new LibraryManifest { TickRate = U(24) };
-        var entries = new List<(string Name, byte[] Tlb)>();
-        for (var i = 0; i < count; i++)
-        {
-            var at = (int)U(12) + 32 * i;
-            var name = Encoding.UTF8.GetString(lib, (int)U(at + 8), (int)U(at + 12));
-            entries.Add((name, lib.AsSpan((int)U(at + 16), (int)U(at + 20)).ToArray()));
-            manifest.Timelines[name] = (ushort)U(at);
-        }
-        var channels = new SortedDictionary<int, string>();
-        foreach (var (name, tlb) in entries)
-        {
-            var id = (int)BinaryPrimitives.ReadUInt32LittleEndian(tlb.AsSpan(56));
-            if (id == 0) continue;
-            var label = TlbMetadata.Read(tlb).Labels.FirstOrDefault(l => l.TrackEntry == -2).Name
-                ?? throw new BakeDiagnosticException($"timeline '{name}' has channel {id} but its metadata names no channel.");
-            if (channels.TryGetValue(id, out var known) && known != label) throw new BakeDiagnosticException($"channel {id} is named '{known}' and '{label}'.");
-            channels[id] = label;
-        }
-        for (var id = 1; id <= channels.Count; id++)
-            if (!channels.ContainsKey(id)) throw new BakeDiagnosticException($"game.tlib uses channel {channels.Keys.Max()} but no timeline names channel {id}; unused channel names are not stored in game.tlib.");
-        foreach (var pair in channels) manifest.Channels[pair.Value] = (ushort)pair.Key;
+        var manifest = TlScene.ManifestOf(lib, out var entries);
+        var channels = manifest.Channels.OrderBy(c => c.Value).Select(c => c.Key).ToList();
         Directory.CreateDirectory(dir);
         foreach (var (name, tlb) in entries)
         {
             try { Write(Path.Combine(dir, name + ".json"), TimelineJson.Decode(tlb, resolver, manifest)); }
             catch (BakeDiagnosticException error) { throw new BakeDiagnosticException($"timeline '{name}': {error.Message}"); }
         }
-        Write(Path.Combine(dir, "tl.project.json"), TlJson.ExportProject(entries.Select(e => e.Name + ".json").ToList(), channels.Values.ToList(), manifest.TickRate));
+        Write(Path.Combine(dir, "tl.project.json"), TlJson.ExportProject(entries.Select(e => e.Name + ".json").ToList(), channels, manifest.TickRate));
         Console.WriteLine($"decode: {entries.Count} timelines -> {dir}");
-        if (U(4) >= 2) Console.WriteLine("decode: kind settings (project.kinds) are not stored in game.tlib; copy them from the authoring project.");
+        if (BinaryPrimitives.ReadUInt32LittleEndian(lib.AsSpan(4)) >= 2) Console.WriteLine("decode: kind settings (project.kinds) are not stored in game.tlib; copy them from the authoring project.");
         return 0;
     }
 

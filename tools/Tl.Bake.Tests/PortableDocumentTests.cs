@@ -55,6 +55,9 @@ public sealed class PortableDocumentTests
     [InlineData("{\"schema\":1,\"entities\":[{}],\"requests\":[{\"step\":1,\"entity\":0,\"op\":\"SetSpeed\",\"timeline\":\"push\",\"speed\":0}]}", "speed")]
     [InlineData("{\"schema\":1,\"entities\":[{}],\"requests\":[{\"step\":1,\"entity\":0,\"op\":\"StopAll\",\"speed\":2}]}", "unknown")]
     [InlineData("{\"schema\":1,\"entities\":[{\"states\":[{\"namespace\":\"Game\",\"type\":\"Health\",\"data\":{\"Value\":1,\"Value\":2}}]}]}", "duplicate")]
+    [InlineData("{\"schema\":1,\"entities\":[{}],\"requests\":[{\"step\":1,\"entity\":0,\"op\":\"SeekChannel\",\"channel\":\"body\"}]}", "required")]
+    [InlineData("{\"schema\":1,\"entities\":[{}],\"direction\":[{\"step\":1,\"forward\":1}]}", "direction.forward")]
+    [InlineData("{\"schema\":1,\"entities\":[{}],\"direction\":[{\"step\":-1,\"forward\":true}]}", "direction.step")]
     public void SceneRejectsIncompleteOrAmbiguousCommands(string json, string expected)
     {
         var error = Assert.Throws<BakeDiagnosticException>(() => TlJson.ReadScene(Encoding.UTF8.GetBytes(json)));

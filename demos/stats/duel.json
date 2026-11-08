@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "name": "duel",
+  "duration": 600,
+  "tracks": [
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Tl.Pack.Stats.HitClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Tl.Pack.Stats",
+          "type": "HitClip",
+          "start": 60,
+          "end": 61,
+          "data": {
+            "Amount": 12
+          }
+        },
+        {
+          "namespace": "Tl.Pack.Stats",
+          "type": "HitClip",
+          "start": 120,
+          "end": 121,
+          "data": {
+            "Amount": 12
+          }
+        },
+        {
+          "namespace": "Tl.Pack.Stats",
+          "type": "HitClip",
+          "start": 180,
+          "end": 181,
+          "data": {
+            "Amount": 12
+          }
+        }
+      ]
+    },
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Tl.Pack.Stats.PoisonClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Tl.Pack.Stats",
+          "type": "PoisonClip",
+          "start": 240,
+          "end": 480,
+          "data": {
+            "Amount": 1,
+            "Every": 20
+          }
+        }
+      ]
+    },
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Tl.Pack.Stats.HealClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Tl.Pack.Stats",
+          "type": "HealClip",
+          "start": 500,
+          "end": 501,
+          "data": {
+            "Amount": 20
+          }
+        }
+      ]
+    }
+  ]
+}

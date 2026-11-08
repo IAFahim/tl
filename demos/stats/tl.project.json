@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "tickRate": 60,
+  "channels": [
+    "haste"
+  ],
+  "timelines": [
+    "duel.json",
+    "haste.json"
+  ]
+}

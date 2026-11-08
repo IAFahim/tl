@@ -166,6 +166,7 @@ public class CliTests
                     "Usage: tl [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]",
                     "       tl bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]...",
                     "       tl decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...",
+                    "       tl run <scene.json> --steps <n> --assembly <path>... [--library game.tlib] [--checkpoints <every>] [--show]",
                     "       tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]",
                     "       tl kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]",
                     "       tl --strip <input.tlb> <output.tlb>",

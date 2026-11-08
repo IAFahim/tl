@@ -54,11 +54,16 @@ Every document starts with `"schema": 1`. Any other value, a missing value where
   "schema": 1,
   "project": "tl.project.json",
   "entities": [ { "name": "cube", "states": [ { "namespace": "Game", "type": "Health", "data": { "Value": 10 } } ], "play": [ { "timeline": "push" } ] } ],
-  "requests": [ { "step": 40, "entity": 0, "op": "Pause", "timeline": "push" } ]
+  "requests": [ { "step": 40, "entity": 0, "op": "Pause", "timeline": "push" } ],
+  "direction": [ { "step": 100, "forward": false } ]
 }
 ```
 
-Each request names the fields its operation needs (`timeline` for timeline operations, `channel` for channel operations, `tick` for `Seek`, `speed` for `SetSpeed*`, `reverse` for `SetReverse*`) and nothing else. Scene JSON is validated today; `tl run` that executes it is phase 7.
+Each request names the fields its operation needs (`timeline` for timeline operations, `channel` for channel operations, `tick` for `Seek` and `SeekChannel`, `speed` for `SetSpeed*`, `reverse` for `SetReverse*`) and nothing else. `direction` (optional) flips the whole world: `[{ "step": 450, "forward": false }, { "step": 900, "forward": true }]`.
+
+`tl run <scene.json> --steps N --assembly <pack or game dll>...` executes a scene in the plain .NET host (`--library game.tlib` to skip baking `project`). Step `s` (0-based) applies the world direction set for `s`, the `play` entries (step 0 only, in entity order), then that step's requests in file order, then ticks once and runs every `[TimelineSystem]` of the given assemblies in full-name order. It prints `hash=<H> steps=<N> entities=<E>`; `--checkpoints K` prints the running hash every K steps (`--show` adds every state value). `SetSpeed*` is refused until playback speed lands (IAFahim/tl#577).
+
+The state hash (`Tl.TlStateHash`, FNV-1a 64 over little-endian 32-bit words, a short tail zero-padded) is updated after every step: for each entity in scene order, its playback slot count and each 8-byte `Playback` (timeline id, tick, channel, flags, reserved), then the raw bytes of every state type any entity lists, types in full-name order (an entity without that state hashes zeros). Timeline ids are manifest ids (names in ordinal order), so any host that loads the same timelines prints the same hash.
 
 ## Commands
 
@@ -67,6 +72,7 @@ tl bake tl.project.json -o game.tlib --assembly Game.dll     # whole project (al
 tl bake push.json -o push.tlb --assembly Game.dll            # one timeline without channel or next
 tl decode push.tlb -o push.json --assembly Game.dll          # one timeline; stdout without -o
 tl decode game.tlib -o decoded/ --assembly Game.dll          # every timeline plus tl.project.json
+tl run demo.scene.json --steps 600 --assembly Game.dll        # run a scene, print its state hash
 ```
 
 Decode is exact or it fails. It rebuilds each timeline from the TLB cold metadata (`docs/tlb1-layout.md`, "Cold metadata tail"): authored track and clip order, each clip label bound to its window, track and clip type arguments, channel and next names. It writes every value through its fields, refuses a value whose bytes do not survive that (for example a struct with nonzero padding bytes, named with the byte offset), and re-bakes the JSON it wrote, failing unless the bytes are identical. A stripped TLB (`tl --strip`) has no metadata and cannot be decoded.

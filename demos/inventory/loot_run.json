@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "name": "loot_run",
+  "duration": 600,
+  "tracks": [
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Tl.Pack.Inventory.GiveClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Tl.Pack.Inventory",
+          "type": "GiveClip",
+          "start": 0,
+          "end": 1,
+          "data": {
+            "Count": 5,
+            "Item": "Wood"
+          }
+        },
+        {
+          "namespace": "Tl.Pack.Inventory",
+          "type": "GiveClip",
+          "start": 60,
+          "end": 61,
+          "data": {
+            "Count": 3,
+            "Item": "Stone"
+          }
+        },
+        {
+          "namespace": "Tl.Pack.Inventory",
+          "type": "GiveClip",
+          "start": 120,
+          "end": 121,
+          "data": {
+            "Count": 2,
+            "Item": "Potion"
+          }
+        },
+        {
+          "namespace": "Tl.Pack.Inventory",
+          "type": "GiveClip",
+          "start": 540,
+          "end": 541,
+          "data": {
+            "Count": 1,
+            "Item": "Sword"
+          }
+        }
+      ]
+    },
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Tl.Pack.Inventory.GiveClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Tl.Pack.Inventory",
+          "type": "GiveClip",
+          "start": 360,
+          "end": 361,
+          "data": {
+            "Count": -1,
+            "Item": "Potion"
+          }
+        }
+      ]
+    },
+    {
+      "namespace": "Tl",
+      "type": "TlNoSettings<Tl.Pack.Inventory.CraftClip>",
+      "data": {},
+      "clips": [
+        {
+          "namespace": "Tl.Pack.Inventory",
+          "type": "CraftClip",
+          "start": 180,
+          "end": 300,
+          "data": {
+            "Input": "Wood",
+            "InputCount": 4,
+            "Output": "Plank",
+            "OutputCount": 2
+          }
+        }
+      ]
+    }
+  ],
+  "markers": [
+    {
+      "namespace": "Tl.Pack.Inventory",
+      "type": "PickupMarker",
+      "tick": 420,
+      "data": {
+        "Count": 10,
+        "Item": "Coin"
+      }
+    },
+    {
+      "namespace": "Tl.Pack.Inventory",
+      "type": "PickupMarker",
+      "tick": 480,
+      "data": {
+        "Count": 1,
+        "Item": "Gem"
+      }
+    }
+  ]
+}

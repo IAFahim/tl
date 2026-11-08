@@ -14,6 +14,9 @@ public static class Program
             if (args is ["bake", ..])
                 return BakeCommand(args[1..]);
 
+            if (args is ["run", ..])
+                return RunCommand.Run(args[1..]);
+
             if (args is ["decode", ..])
                 return DecodeCommand.Run(args[1..]);
 
@@ -157,6 +160,7 @@ public static class Program
             Console.Error.WriteLine("Usage: tl [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]");
             Console.Error.WriteLine("       tl bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]...");
             Console.Error.WriteLine("       tl decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...");
+            Console.Error.WriteLine("       tl run <scene.json> --steps <n> --assembly <path>... [--library game.tlib] [--checkpoints <every>] [--show]");
             Console.Error.WriteLine("       tl library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]");
             Console.Error.WriteLine("       tl kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]");
             Console.Error.WriteLine("       tl --strip <input.tlb> <output.tlb>");

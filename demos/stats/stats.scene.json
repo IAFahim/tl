@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "project": "tl.project.json",
+  "entities": [
+    {
+      "name": "hero",
+      "states": [
+        { "namespace": "Tl.Pack.Stats", "type": "Health", "data": { "Value": 100, "Max": 100 } },
+        { "namespace": "Tl.Pack.Stats", "type": "Attack", "data": { "Base": 10 } }
+      ],
+      "play": [ { "timeline": "duel" } ]
+    }
+  ],
+  "requests": [
+    { "step": 100, "entity": 0, "op": "Start", "timeline": "haste" },
+    { "step": 250, "entity": 0, "op": "Start", "timeline": "haste" }
+  ]
+}

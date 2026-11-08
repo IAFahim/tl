@@ -33,6 +33,27 @@ type Tl.Gen.Tlb.TlJson
   Method System.String ExportProject(System.Collections.Generic.IReadOnlyList`1[System.String], System.Collections.Generic.IReadOnlyList`1[System.String], UInt32)
   Method System.Text.Json.JsonDocument ReadProject(Byte[])
   Method System.Text.Json.JsonDocument ReadScene(Byte[])
+type Tl.Gen.Tlb.TlScene
+  Field System.Collections.Generic.List`1[System.Type] Columns
+  Field System.Collections.Generic.List`1[System.ValueTuple`2[System.Int32,System.Boolean]] Direction
+  Field System.Collections.Generic.List`1[Tl.Gen.Tlb.TlScene+Entity] Entities
+  NestedType Tl.Gen.Tlb.TlScene+Entity
+  Method Boolean ForwardAt(Int32, Boolean)
+  Method Tl.Gen.Tlb.LibraryManifest ManifestOf(Byte[], System.Collections.Generic.List`1[System.ValueTuple`2[System.String,System.Byte[]]] ByRef)
+  Field System.String Project
+  Method Tl.Gen.Tlb.TlScene Read(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver, Tl.Gen.Tlb.LibraryManifest)
+  NestedType Tl.Gen.Tlb.TlScene+Request
+  Field System.Collections.Generic.List`1[Tl.Gen.Tlb.TlScene+Request] Requests
+type Tl.Gen.Tlb.TlScene+Entity
+  Field System.String Name
+  Field System.Collections.Generic.List`1[System.ValueTuple`2[System.UInt16,System.UInt16]] Play
+  Field System.Collections.Generic.List`1[System.ValueTuple`2[System.Type,System.Byte[]]] States
+type Tl.Gen.Tlb.TlScene+Request
+  Field Int32 Entity
+  Field Tl.RequestOp Op
+  Field Int32 Step
+  Field UInt16 Target
+  Field UInt16 Value
 type Tl.Gen.Tlb.TlbClipRow
   Property UInt32 End
   Property Int32 Pair
