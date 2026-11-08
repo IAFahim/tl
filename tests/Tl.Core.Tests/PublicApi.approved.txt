@@ -62,7 +62,17 @@ type Tl.Frame`2
 type Tl.IBlend`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
 type Tl.IHostedConsumer
+type Tl.IKindRows
+  Method Tl.KindEntry* Append(Int32, Tl.LibraryFeeder*)
+  Method Void RemoveSpan(Int32, Int32, Byte, UInt16, UInt16)
 type Tl.IMarker`1
+type Tl.IPlaybackSlots
+  Method Boolean Admit(UInt16)
+  Method Void Close(Int32)
+  Property Tl.Playback& Item [Int32]
+  Property Int32 Length
+  Property Boolean StartsPending
+  Method Boolean TryAdd(Tl.Playback ByRef)
 type Tl.IPulseFold`1
   Method Void Fold(T ByRef, T ByRef)
 type Tl.ITlModule
@@ -262,6 +272,8 @@ type Tl.KindPulses`1
   Method Void To(Int32, T)
 type Tl.KindPulses`2
   Method Void To(Int32, T)
+type Tl.KindRules
+  Method Void Close[TRows](Tl.KindTables ByRef, TRows ByRef, Int32, Tl.Playback ByRef, Int32)
 type Tl.KindSectionView
   Field Byte* Base
   Field UInt32 Bytes
@@ -327,6 +339,15 @@ type Tl.KindTable
   Field Int32 Stride
   Field Int32 ValueAt
   Field Int32 Words
+type Tl.KindTables
+  Field UInt64* Closure
+  Field Int32 KindCount
+  Field Int32* PairStart
+  Field UInt32* Pairs
+  Method Boolean Reaches(UInt16, UInt64)
+  Field Tl.KindSectionView Sec
+  Field Int32 TimelineCount
+  Field Tl.LibraryTimeline* Timelines
 type Tl.LibraryAssembler
   Method Byte[] Assemble(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart], UInt32, Tl.LibrarySettings)
   Method Byte[] Assemble(System.Collections.Generic.IReadOnlyList`1[Tl.LibraryPart], UInt32, Tl.LibrarySettings, System.Collections.Generic.IReadOnlyList`1[Tl.KindCapacity] ByRef)
@@ -472,6 +493,16 @@ type Tl.PlaybackFlags
   Field Tl.PlaybackFlags StopAged
   Field Tl.PlaybackFlags Stopping
   Field Byte value__
+type Tl.PlaybackRules
+  Method Void Apply[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, Tl.RequestOp, UInt16, UInt16)
+  Method Boolean Find[TSlots](TSlots ByRef, Byte, Tl.Playback ByRef)
+  Method Boolean IsLive(Tl.Playback ByRef)
+  Method Boolean IsPlaying[TSlots](TSlots ByRef, UInt16)
+  Method Boolean Pause[TSlots](TSlots ByRef, UInt16, Boolean)
+  Method Boolean Start[TSlots](TSlots ByRef, Tl.LibraryTimeline*, Int32, UInt16, UInt16, Boolean ByRef)
+  Method Boolean Stop[TSlots](TSlots ByRef, UInt16)
+  Method Void StopAll[TSlots](TSlots ByRef)
+  Method Boolean StopChannel[TSlots](TSlots ByRef, Byte)
 type Tl.PlaybackTable
   Property Tl.ClosingList* Closing
   Property Tl.RequestQueue* Consumer
@@ -516,6 +547,7 @@ type Tl.RequestQueue
   Method Tl.RequestQueue* Create()
   Method Void Free(Tl.RequestQueue*)
   Method Tl.RequestRecord& Item(Int32)
+  Method Void Sort(Tl.RequestRecord*, Int32)
   Method Void SortStable(Tl.RequestQueue*)
 type Tl.RequestRecord
   Field UInt16 At
