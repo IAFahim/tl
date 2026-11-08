@@ -607,6 +607,7 @@ type Tl.TlKindAttribute
   Property Int32 Order
 type Tl.TlNoSettings`1
   Method Void Blend(TClip ByRef, TClip ByRef, Single, TClip ByRef)
+type Tl.TlStateAttribute
 type Tl.TlTimeline
   Field Tl.TlAssetId Asset
   Method Boolean Equals(Tl.TlTimeline)
