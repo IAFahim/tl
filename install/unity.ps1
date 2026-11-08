@@ -7,6 +7,7 @@ function Install-TlUnity {
     $pkgName = 'com.tl.unity'
     $pkgUrl = 'https://github.com/IAFahim/tl.unity.git?path=/com.tl.unity#main'
     $pkgRepo = 'https://github.com/IAFahim/tl.unity.git'
+    $packs = [ordered]@{ 'com.tl.pack.motion' = 'https://github.com/IAFahim/tl.git?path=/packs/Motion#main'; 'com.tl.pack.stats' = 'https://github.com/IAFahim/tl.git?path=/packs/Stats#main' }
     $testName = 'com.unity.test-framework'
     $testVersion = '1.6.0'
     $guide = 'https://github.com/IAFahim/tl.unity/blob/main/docs/USING-ECS.md'
@@ -175,9 +176,9 @@ public static class TlInstaller
         if (-not (Test-Path -LiteralPath $lockPath)) { return '' }
         $lockJson = [System.IO.File]::ReadAllText($lockPath) | ConvertFrom-Json
         if (-not $lockJson.PSObject.Properties['dependencies']) { return 'absent' }
-        $entry = $lockJson.dependencies.PSObject.Properties[$pkgName]
-        if (-not $entry) { return 'absent' }
-        $lockJson.dependencies.PSObject.Properties.Remove($pkgName)
+        $names = @($pkgName) + @($packs.Keys) | Where-Object { $lockJson.dependencies.PSObject.Properties[$_] }
+        if (-not $names) { return 'absent' }
+        foreach ($name in $names) { $lockJson.dependencies.PSObject.Properties.Remove($name) }
         $lockText = ($lockJson | ConvertTo-Json -Depth 32) -replace "`r`n", "`n"
         [System.IO.File]::WriteAllText($lockPath, $lockText + "`n", $utf8)
         return 'removed'
@@ -342,6 +343,7 @@ public static class TlInstaller
     $json = [System.IO.File]::ReadAllText($manifest) | ConvertFrom-Json
     if (-not $json.PSObject.Properties['dependencies']) { $json | Add-Member -NotePropertyName dependencies -NotePropertyValue ([pscustomobject]@{}) }
     Say "manifest ${pkgName}: $(Set-Dependency $json $pkgName $pkgUrl $true)"
+    foreach ($pack in $packs.Keys) { Say "manifest ${pack}: $(Set-Dependency $json $pack $packs[$pack] $true)" }
     Say "manifest ${testName}: $(Set-Dependency $json $testName $testVersion $false)"
     Write-Json $manifest $json
     if ((Remove-Testable) -eq 'dropped') { Say "removed $pkgName from testables (its own test kinds would run next to the demo)" }
@@ -411,6 +413,16 @@ public static class TlInstaller
         if ($events -or $imported -contains 'Events demo') {
             $strikes = Get-Field $events 'strikes'; $health = Get-Field $events 'health'; $hurt = Get-Field $events 'hurt'; $sparks = Get-Field $events 'sparks'
             Report 'Events' ($strikes -eq '15' -and $health -eq '10' -and $hurt -eq '15' -and $sparks -eq '15') "strikes $strikes (expected 15), dummy health $health (expected 10), hurt $hurt, sparks $sparks (expected 15)"
+        }
+        $motion = Last 'TL-DEMO motion .*'
+        if ($motion -or $imported -contains 'Motion demo') {
+            $samples = Get-Field $motion 'samples'; $off = Get-Field $motion 'mismatches'
+            Report 'Motion' ($off -eq '0' -and $samples -and [int]$samples -ge 200) "$samples samples, $off positions differ from the .NET pack reference (expected 0)"
+        }
+        $stats = Last 'TL-DEMO stats .*'
+        if ($stats -or $imported -contains 'Stats demo') {
+            $h200 = Get-Field $stats 'health200'; $h450 = Get-Field $stats 'health450'; $h600 = Get-Field $stats 'health600'
+            Report 'Stats' ($h200 -eq '64/20' -and $h450 -eq '53/20' -and $h600 -eq '72/10') "health/attack $h200, $h450, $h600 at steps 200, 450, 600 (expected 64/20, 53/20, 72/10)"
         }
         $rows = @(Select-String -LiteralPath $testLog -Pattern 'TL-BENCH crowd .*' -ErrorAction SilentlyContinue | ForEach-Object { $_.Matches[0].Value })
         if ($rows.Count -gt 0 -or $imported -contains 'Crowd demo') {

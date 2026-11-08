@@ -3,11 +3,12 @@
 #   curl -sSL https://raw.githubusercontent.com/IAFahim/tl/main/install/unity.sh | bash -s -- <project-path>
 # Makes (or updates) a Universal 3D (URP) project on the newest Unity 7 editor with com.tl.unity from its git URL,
 # imports every demo sample, builds their scenes and the Tl Demos hub, runs every demo's PlayMode test and prints one line per demo.
-#   TL_DEMOS=all (default) or a comma list (force,events,crowd); --no-tests skips the test step.
+#   TL_DEMOS=all (default) or a comma list (force,events,crowd,motion,stats); --no-tests skips the test step.
 set -euo pipefail
 
 PKG_NAME="com.tl.unity"
 PKG_URL="https://github.com/IAFahim/tl.unity.git?path=/com.tl.unity#main"
+PACKS="com.tl.pack.motion=https://github.com/IAFahim/tl.git?path=/packs/Motion#main com.tl.pack.stats=https://github.com/IAFahim/tl.git?path=/packs/Stats#main"
 PKG_REPO="https://github.com/IAFahim/tl.unity.git"
 TEST_NAME="com.unity.test-framework"
 TEST_VERSION="1.6.0"
@@ -238,7 +239,7 @@ pick_json_tool() {
 }
 
 add_dependency() {
-  local manifest="$1" tool file
+  local manifest="$1" name="${2:-$PKG_NAME}" url="${3:-$PKG_URL}" tool file
   tool="$(pick_json_tool)" || die "need python3, python or node to edit $manifest"
   file="$(native "$manifest")"
   case "$tool" in
@@ -252,7 +253,7 @@ add_dependency() {
         json.dependencies[name] = url;
         fs.writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
         console.log("added");
-      ' "$file" "$PKG_NAME" "$PKG_URL"
+      ' "$file" "$name" "$url"
       ;;
     *)
       "$tool" -I -c '
@@ -269,7 +270,7 @@ with open(file, "w", encoding="utf-8", newline="\n") as f:
     json.dump(data, f, indent=2)
     f.write("\n")
 print("added")
-' "$file" "$PKG_NAME" "$PKG_URL"
+' "$file" "$name" "$url"
       ;;
   esac
 }
@@ -317,7 +318,7 @@ print("dropped")
 }
 
 drop_lock_entry() {
-  local file="$1" tool
+  local file="$1" name="${2:-$PKG_NAME}" tool
   [ -f "$file" ] || return 0
   tool="$(pick_json_tool)" || die "need python3, python or node to edit $file"
   file="$(native "$file")"
@@ -333,7 +334,7 @@ drop_lock_entry() {
         delete deps[name];
         fs.writeFileSync(file, JSON.stringify(json, null, 2) + "\n");
         console.log("removed");
-      ' "$file" "$PKG_NAME"
+      ' "$file" "$name"
       ;;
     *)
       "$tool" -I -c '
@@ -351,7 +352,7 @@ with open(file, "w", encoding="utf-8", newline="\n") as f:
     json.dump(data, f, indent=2)
     f.write("\n")
 print("removed")
-' "$file" "$PKG_NAME"
+' "$file" "$name"
       ;;
   esac
 }
@@ -551,6 +552,7 @@ step "4/$STEPS" "package from git, demo samples"
 MANIFEST="$PROJECT/Packages/manifest.json"
 [ -f "$MANIFEST" ] || die "missing $MANIFEST"
 say "manifest $PKG_NAME: $(add_dependency "$MANIFEST")"
+for pack in $PACKS; do say "manifest ${pack%%=*}: $(add_dependency "$MANIFEST" "${pack%%=*}" "${pack#*=}")"; done
 say "manifest $TEST_NAME: $(add_test_framework "$MANIFEST")"
 if [ "$(drop_testable "$MANIFEST")" = dropped ]; then
   say "removed $PKG_NAME from testables (its own test kinds would run next to the demo)"
@@ -558,6 +560,7 @@ fi
 if [ "$(drop_lock_entry "$PROJECT/Packages/packages-lock.json")" = removed ]; then
   say "$PKG_NAME: refreshing to the latest main (dropped the pinned commit from Packages/packages-lock.json)"
 fi
+for pack in $PACKS; do drop_lock_entry "$PROJECT/Packages/packages-lock.json" "${pack%%=*}" >/dev/null; done
 write_helper
 IMPORT_LOG="$LOGS/import-$NAME.log"
 rc=0
@@ -617,6 +620,18 @@ else
     S="$(field "$EVENTS" strikes)"; H="$(field "$EVENTS" health)"; U="$(field "$EVENTS" hurt)"; K="$(field "$EVENTS" sparks)"
     v=bad; { [ "$S" = 15 ] && [ "$H" = 10 ] && [ "$U" = 15 ] && [ "$K" = 15 ]; } && v=ok
     report Events "$v" "strikes $S (expected 15), dummy health $H (expected 10), hurt $U, sparks $K (expected 15)"
+  fi
+  MOTION="$(last 'TL-DEMO motion .*')"
+  if [ -n "$MOTION" ] || printf '%s' "$IMPORTED" | grep -q 'Motion demo'; then
+    N="$(field "$MOTION" samples)"; M="$(field "$MOTION" mismatches)"
+    v=bad; { [ "$M" = 0 ] && [ "${N:-0}" -ge 200 ]; } && v=ok
+    report Motion "$v" "$N samples, $M positions differ from the .NET pack reference (expected 0)"
+  fi
+  STATS="$(last 'TL-DEMO stats .*')"
+  if [ -n "$STATS" ] || printf '%s' "$IMPORTED" | grep -q 'Stats demo'; then
+    A="$(field "$STATS" health200)"; B="$(field "$STATS" health450)"; C="$(field "$STATS" health600)"
+    v=bad; { [ "$A" = 64/20 ] && [ "$B" = 53/20 ] && [ "$C" = 72/10 ]; } && v=ok
+    report Stats "$v" "health/attack $A, $B, $C at steps 200, 450, 600 (expected 64/20, 53/20, 72/10)"
   fi
   ROWS="$(grep -o 'TL-BENCH crowd .*' "$TEST_LOG" 2>/dev/null || true)"
   if [ -n "$ROWS" ] || printf '%s' "$IMPORTED" | grep -q 'Crowd demo'; then
