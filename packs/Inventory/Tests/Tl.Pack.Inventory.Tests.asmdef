@@ -4,6 +4,8 @@
   "references": [
     "Tl.Core",
     "Tl.Unity",
+    "Tl.Unity.Bake",
+    "Tl.Unity.Editor",
     "Tl.Pack.Inventory",
     "Unity.Burst",
     "Unity.Collections",
