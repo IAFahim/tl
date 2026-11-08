@@ -4,6 +4,8 @@
 # Build output
 **/bin/
 **/obj/
+packs/**/bin~/
+packs/**/obj~/
 artifacts/
 
 # BenchmarkDotNet

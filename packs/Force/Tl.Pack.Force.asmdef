@@ -1,0 +1,8 @@
+{
+  "name": "Tl.Pack.Force",
+  "rootNamespace": "Tl.Pack.Force",
+  "references": ["Tl.Core", "Tl.Unity", "Unity.Burst", "Unity.Collections", "Unity.Entities"],
+  "allowUnsafeCode": true,
+  "autoReferenced": true,
+  "noEngineReferences": false
+}
