@@ -31,7 +31,7 @@ public unsafe struct LibraryView   // AbiVersion == 2
 public unsafe struct LibraryTimeline
 {
     public ushort Id;              // 1-based, manifest order
-    public ushort Channel;         // 0 = none, else 1-up per library.json order
+    public ushort Channel;         // 0 = none, else 1-up per tl.project.json order
     public ushort Next;            // TimelineId value, 0 = none
     public byte Loop;              // 0/1
     public byte Hold;              // 0/1

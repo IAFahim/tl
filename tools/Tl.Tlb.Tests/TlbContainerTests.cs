@@ -392,7 +392,8 @@ public sealed class GoldenFixtureCorpus
             if (name == "minimal")
             {
                 Assert.Equal(200u, c.HotLength);
-                Assert.Equal(327u, c.Bytes);
+                Assert.Equal(375u, c.Bytes);
+                Assert.Equal((0u, 4u), (c.Tail.Clips[0].Start, c.Tail.Clips[0].End));
                 Assert.Equal(4u, c.Duration);
                 Assert.Single(c.Stages);
                 Assert.Equal("Tlb.JobTrack, Tl.Bake.Tests", c.Tail.TypeName(c.Tail.PairTypes[0].TrackType));
@@ -401,7 +402,7 @@ public sealed class GoldenFixtureCorpus
             if (name == "blended")
             {
                 Assert.Equal(680u, c.HotLength);
-                Assert.Equal(1021u, c.Bytes);
+                Assert.Equal(1149u, c.Bytes);
                 Assert.Equal(6, c.Stages.Length);
             }
         }

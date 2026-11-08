@@ -73,7 +73,8 @@ public static class TlbReport
         {
             foreach (var label in TlbMetadata.Read(tlb).Labels)
             {
-                if (label.TrackEntry < 0) root++;
+                if (label.TrackEntry == -1) root++;
+                else if (label.TrackEntry < 0) continue;
                 else if (label.ClipIndex < 0) track++;
                 else clip++;
             }

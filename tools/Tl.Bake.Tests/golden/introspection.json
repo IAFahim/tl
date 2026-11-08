@@ -1217,6 +1217,80 @@
     },
     {
       "track": {
+        "namespace": "PortableJson",
+        "name": "IndependentTrack\u00601",
+        "assembly": "Tl.Bake.Tests",
+        "fields": []
+      },
+      "clip": {
+        "namespace": "PortableJson",
+        "name": "Clip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 88,
+        "fields": []
+      },
+      "blendable": true,
+      "unmanaged": false,
+      "trackPairings": [
+        "PortableJson.Clip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "PortableJson",
+        "name": "PaddedTrack",
+        "assembly": "Tl.Bake.Tests",
+        "size": 1,
+        "fields": []
+      },
+      "clip": {
+        "namespace": "PortableJson",
+        "name": "Padded",
+        "assembly": "Tl.Bake.Tests",
+        "size": 8,
+        "fields": [
+          {
+            "name": "Tag",
+            "type": "byte"
+          },
+          {
+            "name": "Value",
+            "type": "int"
+          }
+        ]
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "PortableJson.Padded"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
+        "namespace": "PortableJson",
+        "name": "Settings",
+        "assembly": "Tl.Bake.Tests",
+        "size": 12,
+        "fields": []
+      },
+      "clip": {
+        "namespace": "PortableJson",
+        "name": "Clip",
+        "assembly": "Tl.Bake.Tests",
+        "size": 88,
+        "fields": []
+      },
+      "blendable": true,
+      "unmanaged": true,
+      "trackPairings": [
+        "PortableJson.Clip"
+      ],
+      "consumers": []
+    },
+    {
+      "track": {
         "namespace": "Tlb",
         "name": "AlphaTrack",
         "assembly": "Tl.Bake.Tests",

@@ -65,7 +65,7 @@ public sealed unsafe class KindTickTests : IDisposable
             sb.Append("]}");
             File.WriteAllText(Path.Combine(_dir, $"t{id}.json"), sb.ToString());
         }
-        File.WriteAllText(Path.Combine(_dir, "library.json"), "{\"channels\":[\"locomotion\",\"action\"],\"timelines\":[\"t*.json\"],\"kinds\":{\"Damage\":{\"gamePulses\":2}}}");
+        File.WriteAllText(Path.Combine(_dir, "tl.project.json"), "{\"schema\":1,\"channels\":[\"locomotion\",\"action\"],\"timelines\":[\"t*.json\"],\"kinds\":{\"Damage\":{\"gamePulses\":2}}}");
         var rc = LibraryPack.Run([_dir, "--assembly", typeof(KindTickTests).Assembly.Location, "--namespace", "KindFixture"]);
         Assert.Equal(0, rc);
         return Path.Combine(_dir, "game.tlib");

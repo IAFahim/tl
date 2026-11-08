@@ -16,7 +16,7 @@
         "exitCode": 0,
         "output": {
           "path": "$out/alpha.tlb",
-          "sha256": "fb4c3b71d96353d225047267d2356cea9614bb04e0cdc4cd1b6236d90928c38a"
+          "sha256": "73f2d3b186384340eeae2e872b0fc682470f4fada32495e85649963985e5cd44"
         }
       }
     },
@@ -69,7 +69,7 @@
         ],
         "output": {
           "path": "$out/alpha.tlb",
-          "sha256": "fb4c3b71d96353d225047267d2356cea9614bb04e0cdc4cd1b6236d90928c38a"
+          "sha256": "73f2d3b186384340eeae2e872b0fc682470f4fada32495e85649963985e5cd44"
         }
       }
     },
@@ -95,7 +95,7 @@
       "expected": {
         "exitCode": 0,
         "stdoutContains": [
-          "tlb/total-bytes: 472",
+          "tlb/total-bytes: 536",
           "pair/count: 1",
           "pool/0/track-unique-count: 1",
           "pool/0/clip-unique-count: 2",
@@ -114,7 +114,7 @@
         "exitCode": 0,
         "output": {
           "path": "$out/alpha.stripped.tlb",
-          "sha256": "6cec7c6062a193e158cec7a49e10ac85b72bc520da354e94fe0c65d4c75dba0a"
+          "sha256": "4c410fff5e955916bd3d05b1703069fbff4c1ab3f73144368eb9a304bae7726c"
         }
       }
     },

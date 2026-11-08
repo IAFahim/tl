@@ -335,7 +335,7 @@ public static class BakeOracle
     private static string ReadBareName(JsonElement value, string field, string context)
     {
         var text = ReadLabel(value, $"{context} '{field}'");
-        if (text.Contains('.') || text.Contains(',') || text.Contains('+') || text.Contains('='))
+        if (field != "namespace" && text.Contains('.') || text.Contains(',') || text.Contains('+') || text.Contains('='))
             throw new BakeDiagnosticException($"dotted name rejected: '{field}' in {context} must be a bare name without '.', ',', '+' or '='; got '{text}'. Empty selects the global namespace.");
         return text;
     }
@@ -351,6 +351,7 @@ public static class BakeOracle
             labels.Add((-1, -1, rootName));
 
         var authoredIndex = 0;
+        var trackTypes = new Type[specs.Count];
         for (var entryIndex = 0; entryIndex < specs.Count; entryIndex++)
         {
             var spec = specs[entryIndex];
@@ -358,6 +359,7 @@ public static class BakeOracle
                 throw new BakeDiagnosticException($"empty tracks with duration > 0 (stages must cover duration): track {entryIndex} has 0 clips.");
 
             var trackType = resolver.ResolveType(spec.Namespace, spec.Type, spec.Assembly, $"track {entryIndex}");
+            trackTypes[entryIndex] = trackType;
             object trackInstance = spec.Data is { } trackData
                 ? BakerAssemblyResolver.PopulateStruct(trackType, trackData, $"track {entryIndex} ({trackType.Name})")
                 : Activator.CreateInstance(trackType)!;
@@ -437,7 +439,7 @@ public static class BakeOracle
             authoredIndex += resolvedClips.Count;
         }
 
-        return BakeCore(lanes, specs.Count, duration, loops, labels, resolver);
+        return BakeCore(lanes, trackTypes, duration, loops, labels, resolver);
     }
 
     private static void ValidateBlendPairing(Type trackType, Type clipType, int entryIndex)
@@ -461,7 +463,7 @@ public static class BakeOracle
 
     [SuppressMessage("ReSharper", "ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract", Justification = "jb nullable-contract false positive on method-group lambda")]
 
-    private static byte[] BakeCore(List<ITrackBaker> lanes, int trackEntryCount, uint duration, bool loops, List<(int Track, int Clip, string Name)> labels, BakerAssemblyResolver resolver)
+    private static byte[] BakeCore(List<ITrackBaker> lanes, Type[] trackTypes, uint duration, bool loops, List<(int Track, int Clip, string Name)> labels, BakerAssemblyResolver resolver)
     {
         var cuts = new SortedSet<uint>();
         if (duration != 0)
@@ -569,14 +571,24 @@ public static class BakeOracle
             }
 
         var hotLength = cursor;
-        var tail = TlbMetadataBuilder.Build(pairTypes, labels);
+        var trackRows = new List<(Type Type, int Pair, int Value, int Clips)>();
+        var clipRows = new List<(int Pair, int Value, uint Start, uint End)>();
+        for (var entry = 0; entry < trackTypes.Length; entry++)
+        {
+            var owned = lanes.Where(lane => lane.TrackIndex == entry).ToList();
+            var clips = owned.SelectMany(lane => lane.Clips.Select(clip => (Lane: lane, Clip: clip))).OrderBy(item => item.Clip.AuthoredIndex).ToList();
+            trackRows.Add((trackTypes[entry], owned.Count == 0 ? -1 : pairIndex[owned[0].Key], owned.Count == 0 ? 0 : owned[0].TrackValueIndex, clips.Count));
+            foreach (var (lane, clip) in clips)
+                clipRows.Add((pairIndex[lane.Key], clip.PoolIndex, clip.Start, clip.End));
+        }
+        var tail = TlbMetadataBuilder.Build(pairTypes, labels, null, trackRows, clipRows);
         var bytes = new byte[hotLength + tail.Length];
 
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0), TlbLayout.Magic);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), TlbLayout.Version);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), loops ? 1u : 0u);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(12), duration);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), (uint)trackEntryCount);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), (uint)trackTypes.Length);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(20), (uint)stageSteps.Count);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(24), (uint)pairKeys.Length);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(28), pairOffset);

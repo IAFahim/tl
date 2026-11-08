@@ -140,6 +140,27 @@ public static class TlbJson
                     w.WriteEndObject();
                 }
                 w.WriteEndArray();
+                w.WriteStartArray("tracks");
+                foreach (var (type, pair, value, clips) in tail.Tracks)
+                {
+                    w.WriteStartObject();
+                    w.WriteString("type", tail.TypeName(type));
+                    if (pair != uint.MaxValue) { w.WriteNumber("pair", pair); w.WriteNumber("value", value); }
+                    w.WriteNumber("clips", clips);
+                    w.WriteEndObject();
+                }
+                w.WriteEndArray();
+                w.WriteStartArray("clips");
+                foreach (var (pair, value, start, end) in tail.Clips)
+                {
+                    w.WriteStartObject();
+                    w.WriteNumber("pair", pair);
+                    w.WriteNumber("value", value);
+                    w.WriteNumber("start", start);
+                    w.WriteNumber("end", end);
+                    w.WriteEndObject();
+                }
+                w.WriteEndArray();
                 w.WriteEndObject();
             }
             w.WriteEndObject();

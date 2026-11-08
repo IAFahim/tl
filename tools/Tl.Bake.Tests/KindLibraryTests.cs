@@ -138,7 +138,7 @@ namespace Tl.Bake.Tests
 {
 public class KindLibraryTests
 {
-    static readonly string[] Files = ["library.json", "run.json", "jump.json", "potion_hop.json", "stomp.json"];
+    static readonly string[] Files = ["tl.project.json", "run.json", "jump.json", "potion_hop.json", "stomp.json"];
 
     static string Golden(params string[] parts)
     {
@@ -213,8 +213,9 @@ public class KindLibraryTests
     [Fact]
     public void StackDepthChannelsCapsAndOverridesApply()
     {
-        var dir = Stage(d => File.WriteAllText(Path.Combine(d, "library.json"), """
+        var dir = Stage(d => File.WriteAllText(Path.Combine(d, "tl.project.json"), """
             {
+              "schema": 1,
               "tickRate": 60,
               "channels": ["locomotion", "action"],
               "timelines": ["run.json", "jump.json", "potion_hop.json", "stomp.json"],
@@ -240,8 +241,8 @@ public class KindLibraryTests
     [Fact]
     public void UnknownKindSettingFailsWithName()
     {
-        var dir = Stage(d => File.WriteAllText(Path.Combine(d, "library.json"), """
-            { "channels": ["locomotion", "action"], "timelines": ["run.json"], "kinds": { "Poison": { "inline": 0 } } }
+        var dir = Stage(d => File.WriteAllText(Path.Combine(d, "tl.project.json"), """
+            { "schema": 1, "channels": ["locomotion", "action"], "timelines": ["run.json"], "kinds": { "Poison": { "inline": 0 } } }
             """));
         try
         {
@@ -291,7 +292,7 @@ public class KindLibraryTests
             File.WriteAllText(run, File.ReadAllText(run).Replace("\"Speed\": 2", "\"Speed\": 3"));
             Assert.Equal(0, Pack(dir));
             Assert.Equal(stamp, File.GetLastWriteTimeUtc(kinds));
-            File.WriteAllText(Path.Combine(dir, "library.json"), File.ReadAllText(Path.Combine(dir, "library.json")).Replace("\"gamePulses\": 4", "\"gamePulses\": 0"));
+            File.WriteAllText(Path.Combine(dir, "tl.project.json"), File.ReadAllText(Path.Combine(dir, "tl.project.json")).Replace("\"gamePulses\": 4", "\"gamePulses\": 0"));
             Assert.Equal(0, Pack(dir));
             Assert.NotEqual(stamp, File.GetLastWriteTimeUtc(kinds));
             Assert.Equal(3, Capacities(kinds)["Damage"]);
@@ -306,7 +307,7 @@ public class KindLibraryTests
         Directory.CreateDirectory(temp);
         try
         {
-            foreach (var name in new[] { "library.json", "jump.json", "slide.json" })
+            foreach (var name in new[] { "tl.project.json", "jump.json", "slide.json" })
                 File.Copy(Golden("library", name), Path.Combine(temp, name));
             Assert.Equal(0, Pack(temp));
             var bytes = File.ReadAllBytes(Path.Combine(temp, "game.tlib"));

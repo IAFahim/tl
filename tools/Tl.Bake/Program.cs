@@ -11,6 +11,12 @@ public static class Program
             if (args is ["library", ..])
                 return LibraryPack.Run(args[1..]);
 
+            if (args is ["bake", ..])
+                return BakeCommand(args[1..]);
+
+            if (args is ["decode", ..])
+                return DecodeCommand.Run(args[1..]);
+
             if (args is ["kinds", ..])
                 return KindsPack.Run(args[1..]);
 
@@ -42,6 +48,22 @@ public static class Program
             Console.Error.WriteLine($"Error: {ex.Message}");
             return 1;
         }
+    }
+
+    private static int BakeCommand(string[] args)
+    {
+        var rest = new List<string>();
+        string? output = null;
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (args[i] is "-o" or "--out" && i + 1 < args.Length) output = args[++i];
+            else rest.Add(args[i]);
+        }
+        var input = rest.FirstOrDefault(a => !a.StartsWith('-'));
+        if (input != null && (Directory.Exists(input) || input.EndsWith("tl.project.json", StringComparison.Ordinal)))
+            return LibraryPack.Run(output == null ? [.. rest] : [.. rest, "--out", output]);
+        if (output != null && input != null) rest.Insert(rest.IndexOf(input) + 1, output);
+        return Bake([.. rest]);
     }
 
     private static int Json(string[] args)
@@ -133,6 +155,8 @@ public static class Program
         if (inputPath == null)
         {
             Console.Error.WriteLine("Usage: tlb [input.json [output.tlb]] [--assembly <path>]... [--cache <dir>] [--auto]");
+            Console.Error.WriteLine("       tlb bake <tl.project.json|dir|input.json> [-o <out>] [--assembly <path>]...");
+            Console.Error.WriteLine("       tlb decode <input.tlb|game.tlib> [-o <out.json|dir>] --assembly <path>...");
             Console.Error.WriteLine("       tlb library <dir> [--assembly <path>]... [--out game.tlib] [--ids Timelines.g.cs] [--namespace Game] [--auto] [--diagnostics json]");
             Console.Error.WriteLine("       tlb kinds --library <dir> --namespace <ns> [--out Kinds.g.cs] [--assembly <path>]... [--auto] [--diagnostics json]");
             Console.Error.WriteLine("       tlb --strip <input.tlb> <output.tlb>");

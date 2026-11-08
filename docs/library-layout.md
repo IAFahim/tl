@@ -1,6 +1,6 @@
 # game.tlib library layout (versions 1 and 2)
 
-`tlb library` compiles a library folder (one `library.json` + many timeline JSON
+`tlb library` compiles a library folder (one `tl.project.json` + many timeline JSON
 files) into a deterministic `game.tlib` container plus a `Timelines.g.cs` id table.
 This page specifies the byte layout so an out-of-process parser — a browser
 viewer, C catalog tooling, Unity-side import — can read the structure without
@@ -22,12 +22,13 @@ change bumps the version and regenerates the fixtures in the same change.
   bytes produces the identical file on every machine and culture. No timestamps,
   no absolute paths, no hash-ordered containers appear anywhere.
 
-## library.json (authoring input, not shipped)
+## tl.project.json (authoring input, not shipped)
 
-One `library.json` per library folder:
+One `tl.project.json` per library folder:
 
 ```json
 {
+  "schema": 1,
   "tickRate": 60,
   "channels": ["locomotion", "combat"],
   "timelines": ["jump.json", "combat/*.json"]
@@ -72,7 +73,7 @@ each blob start 8-aligned, `total = align8-end + 32`.
 | 12 | u32 | ManifestOffset | `64`; 8-byte aligned |
 | 16 | u32 | BlobOffset | 8-byte aligned |
 | 20 | u32 | TotalBytes | Equals the file size |
-| 24 | u32 | TickRate | From `library.json` |
+| 24 | u32 | TickRate | From `tl.project.json` |
 | 28 | u32 | Reserved0 | Zero |
 | 32 | u32 | Reserved1 | Zero |
 | 36 | u32 | Reserved2 | Zero |
@@ -196,7 +197,7 @@ be unique; at most 64 kinds. Feeders are ordered by kind, then consumer full
 name, then method name; `Ordinal` is the feeder's index within its kind.
 Violations fail the bake with the type and method named and the repair stated.
 
-### library.json `kinds`
+### tl.project.json `kinds`
 
 ```json
 "kinds": {
@@ -209,7 +210,7 @@ Violations fail the bake with the type and method named and the repair stated.
 `default` takes `maxInlineBytes` and `stackDepth`; a kind or group name takes
 `inline` (fixed capacity), `gamePulses` and `maxInlineBytes`. Unknown names
 and keys fail the bake. A kind's `[TlKind(Inline = n, GamePulses = n)]` values
-apply when `library.json` does not set them.
+apply when `tl.project.json` does not set them.
 
 ### Capacity
 
@@ -353,7 +354,7 @@ first payload, writes the capacities, and moves each timeline row and its data,
 shifting the row's data offsets. The result equals the section computed over
 all timelines at once.
 
-Fixtures: `tools/Tl.Bake.Tests/golden/kinds/` (`library.json`, four timelines,
+Fixtures: `tools/Tl.Bake.Tests/golden/kinds/` (`tl.project.json`, four timelines,
 the committed `game.tlib` and `Kinds.g.cs.txt`). `KindLibraryTests` checks the
 event lists against the clip windows in both directions, hand-computed
 capacities, determinism and the no-rewrite rule. Regenerate the golden pack
@@ -376,7 +377,7 @@ dotnet publish tools/Tl.Bake/Tl.Bake.csproj -c Release -r win-x64 --self-contain
 
 ## Fixtures
 
-`tools/Tl.Bake.Tests/golden/library/` holds `library.json` plus `jump.json`
+`tools/Tl.Bake.Tests/golden/library/` holds `tl.project.json` plus `jump.json`
 (loop, channel, markers) and `slide.json` (`next: "jump"`, enum + `TimelineId`
 fields). The committed `game.tlib` + `Timelines.g.cs` beside them are the
 golden pack; `TimelineWorld` loads them and the library tests pin manifest

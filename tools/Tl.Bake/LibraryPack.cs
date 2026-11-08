@@ -57,36 +57,37 @@ internal static class LibraryPack
     internal static LibraryKindInputs LoadKindInputs(string dir, List<string> assemblyPaths, bool auto)
     {
         dir = Path.GetFullPath(dir);
-        var libraryJson = Path.Combine(dir, "library.json");
-        if (!File.Exists(libraryJson)) throw new BakeDiagnosticException($"library.json not found in '{dir}'.");
-        using var libDoc = JsonDocument.Parse(File.ReadAllBytes(libraryJson));
+        var libraryJson = File.Exists(dir) ? dir : Path.Combine(dir, "tl.project.json");
+        dir = Path.GetDirectoryName(libraryJson)!;
+        if (!File.Exists(libraryJson)) throw new BakeDiagnosticException($"tl.project.json not found in '{dir}'.");
+        using var libDoc = TlJson.ReadProject(File.ReadAllBytes(libraryJson));
         var root = libDoc.RootElement;
-        if (root.ValueKind != JsonValueKind.Object) throw new BakeDiagnosticException("library.json root must be an object.");
+        if (root.ValueKind != JsonValueKind.Object) throw new BakeDiagnosticException("tl.project.json root must be an object.");
         var tickRate = 60u;
         if (root.TryGetProperty("tickRate", out var tr))
         {
-            if (tr.ValueKind != JsonValueKind.Number || !tr.TryGetUInt32(out tickRate)) throw new BakeDiagnosticException("library.json 'tickRate' must be an unsigned integer.");
+            if (tr.ValueKind != JsonValueKind.Number || !tr.TryGetUInt32(out tickRate)) throw new BakeDiagnosticException("tl.project.json 'tickRate' must be an unsigned integer.");
         }
         var channels = new List<string>();
         if (root.TryGetProperty("channels", out var ch))
         {
-            if (ch.ValueKind != JsonValueKind.Array) throw new BakeDiagnosticException("library.json 'channels' must be an array.");
+            if (ch.ValueKind != JsonValueKind.Array) throw new BakeDiagnosticException("tl.project.json 'channels' must be an array.");
             foreach (var c in ch.EnumerateArray())
             {
-                if (c.ValueKind != JsonValueKind.String || c.GetString()!.Length == 0) throw new BakeDiagnosticException("library.json channel names must be non-empty strings.");
+                if (c.ValueKind != JsonValueKind.String || c.GetString()!.Length == 0) throw new BakeDiagnosticException("tl.project.json channel names must be non-empty strings.");
                 channels.Add(c.GetString()!);
             }
         }
         var kindSettings = KindSettingsOf(root);
-        if (!root.TryGetProperty("timelines", out var tl) || tl.ValueKind != JsonValueKind.Array) throw new BakeDiagnosticException("library.json needs a 'timelines' array.");
+        if (!root.TryGetProperty("timelines", out var tl) || tl.ValueKind != JsonValueKind.Array) throw new BakeDiagnosticException("tl.project.json needs a 'timelines' array.");
         var patterns = new List<string>();
         foreach (var t in tl.EnumerateArray())
         {
-            if (t.ValueKind != JsonValueKind.String) throw new BakeDiagnosticException("library.json timeline entries must be strings.");
+            if (t.ValueKind != JsonValueKind.String) throw new BakeDiagnosticException("tl.project.json timeline entries must be strings.");
             patterns.Add(t.GetString()!);
         }
         var files = Expand(dir, patterns);
-        if (files.Count == 0) throw new BakeDiagnosticException("library.json 'timelines' matched no files.");
+        if (files.Count == 0) throw new BakeDiagnosticException("tl.project.json 'timelines' matched no files.");
         var names = new List<(string Name, string File)>();
         foreach (var f in files) names.Add((TimelineName(f), f));
         names.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
@@ -135,6 +136,7 @@ internal static class LibraryPack
     {
         dir = Path.GetFullPath(dir);
         var input = LoadKindInputs(dir, assemblyPaths, auto);
+        if (File.Exists(dir)) dir = Path.GetDirectoryName(dir)!;
         var names = input.Names;
         var tickRate = input.TickRate;
         outPath ??= Path.Combine(dir, "game.tlib");
@@ -199,7 +201,8 @@ internal static class LibraryPack
             var subdir = slash < 0 ? dir : Path.GetFullPath(Path.Combine(dir, sub[..slash]));
             var pattern = slash < 0 ? sub : sub[(slash + 1)..];
             if (!Directory.Exists(subdir)) throw new BakeDiagnosticException($"timeline glob directory not found: '{p}'.");
-            foreach (var f in Directory.GetFiles(subdir, pattern)) files.Add(Path.GetFullPath(f));
+            foreach (var f in Directory.GetFiles(subdir, pattern))
+                if (!string.Equals(Path.GetFullPath(f), Path.Combine(dir, "tl.project.json"), StringComparison.OrdinalIgnoreCase)) files.Add(Path.GetFullPath(f));
         }
         return [.. files];
     }
@@ -208,23 +211,23 @@ internal static class LibraryPack
     {
         var settings = LibrarySettings.Default;
         if (!root.TryGetProperty("kinds", out var kinds)) return settings;
-        if (kinds.ValueKind != JsonValueKind.Object) throw new BakeDiagnosticException("library.json 'kinds' must be an object.");
+        if (kinds.ValueKind != JsonValueKind.Object) throw new BakeDiagnosticException("tl.project.json 'kinds' must be an object.");
         var overrides = new Dictionary<string, KindOverride>(StringComparer.Ordinal);
         foreach (var entry in kinds.EnumerateObject())
         {
-            if (entry.Value.ValueKind != JsonValueKind.Object) throw new BakeDiagnosticException($"library.json kinds '{entry.Name}' must be an object.");
+            if (entry.Value.ValueKind != JsonValueKind.Object) throw new BakeDiagnosticException($"tl.project.json kinds '{entry.Name}' must be an object.");
             int? inline = null, maxInline = null, stackDepth = null, gamePulses = null;
             foreach (var field in entry.Value.EnumerateObject())
             {
                 if (field.Value.ValueKind != JsonValueKind.Number || !field.Value.TryGetInt32(out var number) || number < 0)
-                    throw new BakeDiagnosticException($"library.json kinds '{entry.Name}.{field.Name}' must be a non-negative integer.");
+                    throw new BakeDiagnosticException($"tl.project.json kinds '{entry.Name}.{field.Name}' must be a non-negative integer.");
                 switch (field.Name)
                 {
                     case "inline" when entry.Name != "default": inline = number; break;
                     case "gamePulses" when entry.Name != "default": gamePulses = number; break;
                     case "maxInlineBytes": maxInline = number; break;
                     case "stackDepth" when entry.Name == "default": stackDepth = number; break;
-                    default: throw new BakeDiagnosticException($"library.json kinds '{entry.Name}': unknown key '{field.Name}'.");
+                    default: throw new BakeDiagnosticException($"tl.project.json kinds '{entry.Name}': unknown key '{field.Name}'.");
                 }
             }
             if (entry.Name == "default")

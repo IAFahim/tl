@@ -47,9 +47,9 @@ def write_lib(folder, timelines, kinds=None):
     for t in timelines:
         json.dump(t, open(os.path.join(folder, t["name"] + ".json"), "w"), indent=1)
         names.append(t["name"] + ".json")
-    library = {"tickRate": 60, "timelines": names}
+    library = {"schema": 1, "tickRate": 60, "timelines": names}
     if kinds: library["kinds"] = kinds
-    json.dump(library, open(os.path.join(folder, "library.json"), "w"), indent=1)
+    json.dump(library, open(os.path.join(folder, "tl.project.json"), "w"), indent=1)
 
 if __name__ == "__main__":
     open("Domain.cs", "w").write(domain())

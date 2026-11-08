@@ -39,7 +39,9 @@ public sealed record TlbType(uint Namespace, uint Name, uint Assembly);
 public sealed record TlbTail(
     uint Offset, string[] Strings, TlbType[] Types,
     (uint TrackType, uint ClipType)[] PairTypes,
-    (uint TrackEntry, uint ClipIndex, uint Name)[] Labels)
+    (uint TrackEntry, uint ClipIndex, uint Name)[] Labels,
+    (uint Type, uint Pair, uint Value, uint Clips)[] Tracks,
+    (uint Pair, uint Value, uint Start, uint End)[] Clips)
 {
     public string String(uint index) => Strings[index];
     public string TypeName(uint index) =>
@@ -52,7 +54,7 @@ public sealed class TlbContainer
     public const uint HotVersion = 6;
     public const uint HotVersionMin = 5;
     public const uint TailMagic = 0x4D42544C;
-    public const uint TailVersion = 1;
+    public const uint TailVersion = 2;
     public const uint HeaderBytes = 64;
     public const uint HeaderBytesV6 = 80;
     public const uint PairEntryBytes = 48;
@@ -274,7 +276,7 @@ public sealed class TlbContainer
     {
         var tailStart = c.HotLength;
         var tailLength = c.Bytes - c.HotLength;
-        if (tailLength < 48) throw new TlbFormatException("TLB metadata tail truncated.");
+        if (tailLength < 64) throw new TlbFormatException("TLB metadata tail truncated.");
         if (BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)tailStart)) != TailMagic ||
             BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)tailStart + 4)) != TailVersion)
             throw new TlbFormatException("TLB metadata tail magic or version invalid; rebake the asset.");
@@ -288,6 +290,14 @@ public sealed class TlbContainer
         var pairTypeTableOffset = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)tailStart + 36));
         var labelCount = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)tailStart + 40));
         var labelTableOffset = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)tailStart + 44));
+        var trackCount = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)tailStart + 48));
+        var trackTableOffset = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)tailStart + 52));
+        var clipCount = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)tailStart + 56));
+        var clipTableOffset = BinaryPrimitives.ReadUInt32LittleEndian(f.Slice((int)tailStart + 60));
+        if (trackCount != c.TrackCount)
+            throw new TlbFormatException($"tail TrackCount {trackCount} does not match TrackCount {c.TrackCount}.");
+        TailEnd(trackTableOffset, 16, trackCount, "track");
+        TailEnd(clipTableOffset, 16, clipCount, "clip");
         if (pairTypeCount != (uint)c.Pairs.Length)
             throw new TlbFormatException($"tail PairTypeCount {pairTypeCount} does not match PairCount {c.Pairs.Length}.");
         uint TailEnd(uint offset, uint width, uint count, string what)
@@ -337,8 +347,32 @@ public sealed class TlbContainer
                 throw new TlbFormatException($"tail label {i} names a string beyond StringCount {stringCount}.");
             labels[i] = (trackEntry, clipIndex, name);
         }
-        if (stringIndexOffset != 48)
-            throw new TlbFormatException("tail StringIndexOffset is not 48.");
+        var tracks = new (uint, uint, uint, uint)[trackCount];
+        var covered = 0ul;
+        for (uint i = 0; i < trackCount; i++)
+        {
+            var at = (int)(tailStart + trackTableOffset + 16 * i);
+            var row = (BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(at)), BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(at + 4)),
+                BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(at + 8)), BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(at + 12)));
+            if (row.Item1 >= typeCount || (row.Item2 == uint.MaxValue) != (row.Item4 == 0) || row.Item2 != uint.MaxValue && row.Item2 >= pairTypeCount)
+                throw new TlbFormatException($"tail track {i} names a type or pair out of range.");
+            covered += row.Item4;
+            tracks[i] = row;
+        }
+        if (covered != clipCount)
+            throw new TlbFormatException($"tail track rows cover {covered} clips, the clip table has {clipCount}.");
+        var clips = new (uint, uint, uint, uint)[clipCount];
+        for (uint i = 0; i < clipCount; i++)
+        {
+            var at = (int)(tailStart + clipTableOffset + 16 * i);
+            var row = (BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(at)), BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(at + 4)),
+                BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(at + 8)), BinaryPrimitives.ReadUInt32LittleEndian(f.Slice(at + 12)));
+            if (row.Item1 >= pairTypeCount || row.Item3 >= row.Item4)
+                throw new TlbFormatException($"tail clip {i} names a pair out of range or an empty window.");
+            clips[i] = row;
+        }
+        if (stringIndexOffset != 64)
+            throw new TlbFormatException("tail StringIndexOffset is not 64.");
         var declaredEnd = new[]
         {
             TailEnd(stringIndexOffset, 4, stringCount, "string index"),
@@ -346,9 +380,11 @@ public sealed class TlbContainer
             TailEnd(typeTableOffset, 12, typeCount, "type"),
             TailEnd(pairTypeTableOffset, 8, pairTypeCount, "pair type"),
             TailEnd(labelTableOffset, 12, labelCount, "label"),
+            TailEnd(trackTableOffset, 16, trackCount, "track"),
+            TailEnd(clipTableOffset, 16, clipCount, "clip"),
         }.Max();
         if (declaredEnd > tailLength)
             throw new TlbFormatException("tail tables exceed the tail length.");
-        return new TlbTail(tailStart, strings, types, pairTypes, labels);
+        return new TlbTail(tailStart, strings, types, pairTypes, labels, tracks, clips);
     }
 }

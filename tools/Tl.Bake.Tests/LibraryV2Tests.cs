@@ -118,7 +118,7 @@ public class LibraryV2Tests
         Directory.CreateDirectory(temp);
         try
         {
-            foreach (var name in new[] { "library.json", "jump.json", "slide.json" })
+            foreach (var name in new[] { "tl.project.json", "jump.json", "slide.json" })
                 File.Copy(Golden("library", name), Path.Combine(temp, name));
             var rc = LibraryPack.Run([temp, "--assembly", typeof(LibraryV2Tests).Assembly.Location]);
             Assert.Equal(0, rc);
@@ -167,7 +167,7 @@ public class LibraryV2Tests
         Directory.CreateDirectory(temp);
         try
         {
-            foreach (var name in new[] { "library.json", "jump.json", "slide.json" })
+            foreach (var name in new[] { "tl.project.json", "jump.json", "slide.json" })
                 File.Copy(Golden("library", name), Path.Combine(temp, name));
             Assert.Equal(0, LibraryPack.Run([temp, "--assembly", typeof(LibraryV2Tests).Assembly.Location]));
             var good = File.ReadAllBytes(Path.Combine(temp, "game.tlib"));

@@ -6,9 +6,9 @@ namespace Tl.Bake.Tests;
 public class ReportTests
 {
     private const string OracleReport =
-        "tlb/total-bytes: 1214\n" +
+        "tlb/total-bytes: 1326\n" +
         "tlb/hot-bytes: 840\n" +
-        "tlb/metadata-bytes: 374\n" +
+        "tlb/metadata-bytes: 486\n" +
         "pair/table-bytes: 144\n" +
         "pair/count: 3\n" +
         "stage/count: 6\n" +

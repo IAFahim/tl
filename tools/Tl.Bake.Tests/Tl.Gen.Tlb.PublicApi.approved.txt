@@ -25,6 +25,19 @@ type Tl.Gen.Tlb.TimelineBaker
   Method Byte[] BakeJson(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver, Boolean, Tl.Gen.Tlb.LibraryManifest)
   Method Byte[][] BakeJsonBatch(System.Collections.Generic.IReadOnlyList`1[System.Byte[]], Tl.Gen.Tlb.BakerAssemblyResolver, Boolean, Tl.Gen.Tlb.LibraryManifest)
   Method Byte[] BakeTyped(Tl.Gen.Tlb.TypedTimeline, Tl.Gen.Tlb.BakerAssemblyResolver, Tl.Gen.Tlb.LibraryManifest)
+type Tl.Gen.Tlb.TimelineJson
+  Method System.String Decode(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver, Tl.Gen.Tlb.LibraryManifest)
+  Method System.String Export(Tl.Gen.Tlb.TypedTimeline, Tl.Gen.Tlb.LibraryManifest)
+  Method Tl.Gen.Tlb.TypedTimeline Read(Byte[], Tl.Gen.Tlb.BakerAssemblyResolver, Tl.Gen.Tlb.LibraryManifest)
+type Tl.Gen.Tlb.TlJson
+  Method System.String ExportProject(System.Collections.Generic.IReadOnlyList`1[System.String], System.Collections.Generic.IReadOnlyList`1[System.String], UInt32)
+  Method System.Text.Json.JsonDocument ReadProject(Byte[])
+  Method System.Text.Json.JsonDocument ReadScene(Byte[])
+type Tl.Gen.Tlb.TlbClipRow
+  Property UInt32 End
+  Property Int32 Pair
+  Property UInt32 Start
+  Property Int32 Value
 type Tl.Gen.Tlb.TlbInspection
   Method System.String Inspect(System.ReadOnlySpan`1[System.Byte])
 type Tl.Gen.Tlb.TlbLabel
@@ -36,12 +49,19 @@ type Tl.Gen.Tlb.TlbMetadata
   Method Tl.Gen.Tlb.TlbMetadataView Read(System.ReadOnlySpan`1[System.Byte])
   Method Byte[] Strip(System.ReadOnlySpan`1[System.Byte])
 type Tl.Gen.Tlb.TlbMetadataView
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.Tlb.TlbClipRow] Clips
   Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.Tlb.TlbLabel] Labels
   Property System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.Int32,System.Int32]] PairTypes
   Property System.Collections.Generic.IReadOnlyList`1[System.String] Strings
+  Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.Tlb.TlbTrackRow] Tracks
   Property System.Collections.Generic.IReadOnlyList`1[Tl.Gen.Tlb.TlbTypeIdentity] Types
 type Tl.Gen.Tlb.TlbReport
   Method System.String Report(System.ReadOnlySpan`1[System.Byte])
+type Tl.Gen.Tlb.TlbTrackRow
+  Property Int32 Clips
+  Property Int32 Pair
+  Property Int32 Type
+  Property Int32 Value
 type Tl.Gen.Tlb.TlbTypeIdentity
   Property System.String Assembly
   Property System.String Name

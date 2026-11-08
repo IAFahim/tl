@@ -118,7 +118,7 @@ for (var frame = 0; frame < 30; frame++)
 {"name":"window","namespace":"Game","type":"InputWindowClip","start":6,"end":14,"data":{"Button":"Attack","OnPress":"barrel_explode"}}]}]}
 ```
 
-**2 · the bake** — `timelines/library.json` to one canonical `game.tlib`, deterministic on every machine:
+**2 · the bake** — `timelines/tl.project.json` to one canonical `game.tlib`, deterministic on every machine:
 
 ```sh
 cd samples/Runner
@@ -173,7 +173,7 @@ Each timeline file is the whole input format — authored by a designer, naming 
 - unknown keys are rejected; a timeline may mix track and clip types freely; steps resolve per stage, with per-step frame tables built at load
 - every baked pair carries a layout fingerprint of its two structs (a hash over field names, field types, and declaration order). The generator folds the pair's field shape from source symbols; a struct edit between bake and bind fails fast with a rebake repair instead of silently misreading
 
-One `library.json` per library: `tickRate` feeds the Unity exporter (seconds to ticks; the runtime counts ticks only), `channels` order sets channel numbers (1-up, 0 = none; unknown channel fails the bake), `timelines` lists the timeline files. The manifest is the timeline names sorted ordinally; `TimelineId` is the dense id in load order (manifest order, id = index + 1, 0 = none) with `Timelines.<PascalCase>` compile-time constants.
+One `tl.project.json` per library: `tickRate` feeds the Unity exporter (seconds to ticks; the runtime counts ticks only), `channels` order sets channel numbers (1-up, 0 = none; unknown channel fails the bake), `timelines` lists the timeline files. The manifest is the timeline names sorted ordinally; `TimelineId` is the dense id in load order (manifest order, id = index + 1, 0 = none) with `Timelines.<PascalCase>` compile-time constants.
 
 ## Authoring
 
@@ -186,6 +186,8 @@ tlb library <dir> [--assembly Game.dll] --out game.tlib --ids Timelines.g.cs [--
 1. Bakes every timeline as today (TLB v6 with the JSON v2 fields), resolving types via `--assembly`/discovery/`--auto`, then resolves name fields in a second pass against the manifest.
 2. Writes `game.tlib`: header, manifest (names/ids/channels), each timeline's TLB bytes (content-digest dedup), digest over everything. Documented in [docs/library-layout.md](docs/library-layout.md) in the style of [docs/tlb1-layout.md](docs/tlb1-layout.md) (offsets, widths, alignment, endianness scope, rejection contract, fixtures).
 3. Writes `Timelines.g.cs` (`PascalCase`, collision fails bake, `const` so Burst reads them) plus `LibraryDigest`.
+
+`tlb bake tl.project.json -o game.tlib` is the same pack; `tlb decode game.tlib -o decoded/` (or one `.tlb`) writes the exact JSON back, or fails by name when it cannot. The three JSON documents (timeline, `tl.project.json`, scene), the decode guarantees and the migration notes are in [docs/json-format.md](docs/json-format.md).
 
 `new TimelineWorld(ReadOnlySpan<byte> library)` is the one cold step per library: it validates (rejection contract) + digest, turns TLB structures into native blocks, and builds the derived tables — per-step fold lanes (every tick both directions; pure functions of the frame), frame tables per (timeline, step, direction), an event index (sorted tick/kind/step/marker plus 1 bit per tick), and per (system, timeline, stage) step lists in authored order so dispatch costs active steps, not clip types in the game. It publishes a `LibraryView`: an unmanaged versioned pointer struct documented in [docs/library-view-abi.md](docs/library-view-abi.md) with readers for tools.
 

@@ -49,7 +49,7 @@ public class DiagnosticTests
     }
 
     [Fact]
-    public void DottedNamespace_ThrowsDiagnostic()
+    public void UnknownDottedNamespace_ThrowsDiagnostic()
     {
         var json = """
         {
@@ -65,7 +65,7 @@ public class DiagnosticTests
         """;
 
         var ex = Assert.Throws<BakeDiagnosticException>(() => TimelineBaker.BakeJson(json));
-        Assert.Contains("dotted name rejected", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("unknown/unresolvable type", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

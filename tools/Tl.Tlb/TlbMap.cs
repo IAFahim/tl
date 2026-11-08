@@ -149,6 +149,10 @@ public static class TlbMap
             Add(t + 36, t + 40, TlbFieldKind.Tail, "tail.pairTypeTableOffset", U32(t + 36).ToString());
             Add(t + 40, t + 44, TlbFieldKind.Tail, "tail.labelCount", ((uint)tail.Labels.Length).ToString());
             Add(t + 44, t + 48, TlbFieldKind.Tail, "tail.labelTableOffset", U32(t + 44).ToString());
+            Add(t + 48, t + 52, TlbFieldKind.Tail, "tail.trackCount", ((uint)tail.Tracks.Length).ToString());
+            Add(t + 52, t + 56, TlbFieldKind.Tail, "tail.trackTableOffset", U32(t + 52).ToString());
+            Add(t + 56, t + 60, TlbFieldKind.Tail, "tail.clipCount", ((uint)tail.Clips.Length).ToString());
+            Add(t + 60, t + 64, TlbFieldKind.Tail, "tail.clipTableOffset", U32(t + 60).ToString());
             var indexAt = t + U32(t + 12);
             for (uint i = 0; i < tail.Strings.Length; i++)
                 Add(indexAt + 4 * i, indexAt + 4 * (i + 1), TlbFieldKind.Tail, $"tail string index {i}",
@@ -169,6 +173,19 @@ public static class TlbMap
                 var (trackEntry, clipIndex, name) = tail.Labels[i];
                 Add(labelAt + 12 * i, labelAt + 12 * (i + 1), TlbFieldKind.Tail, $"tail label {i}",
                     $"track {trackEntry} clip {clipIndex} = \"{tail.String(name)}\"");
+            }
+            var trackAt = t + U32(t + 52);
+            for (uint i = 0; i < tail.Tracks.Length; i++)
+            {
+                var (type, pair, value, clips) = tail.Tracks[i];
+                Add(trackAt + 16 * i, trackAt + 16 * (i + 1), TlbFieldKind.Tail, $"tail track {i}",
+                    ShortName(tail, type) + (pair == uint.MaxValue ? " (no clips)" : $" pair {pair} value {value}, {clips} clips"));
+            }
+            var clipAt = t + U32(t + 60);
+            for (uint i = 0; i < tail.Clips.Length; i++)
+            {
+                var (pair, value, start, end) = tail.Clips[i];
+                Add(clipAt + 16 * i, clipAt + 16 * (i + 1), TlbFieldKind.Tail, $"tail clip {i}", $"pair {pair} value {value} [{start}, {end})");
             }
         }
 
