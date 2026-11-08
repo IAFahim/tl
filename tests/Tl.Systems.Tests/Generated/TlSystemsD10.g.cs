@@ -8,7 +8,7 @@ public ulong PairKey(int index)
 {
 switch (index)
 {
-case 0: return 789158600212456365UL;
+case 0: return 16185761523353686663UL;
 default: return 0UL;
 }
 }
@@ -54,10 +54,10 @@ internal static void InstallModule() => Install();
 }
 internal static unsafe class TlSystem_D10_global__D10_TwoTrack
 {
-internal const ulong SystemKey = 4129764946557914783UL;
+internal const ulong SystemKey = 16020138691183654573UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
-789158600212456365UL,
+16185761523353686663UL,
 };
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out global::D10.TwoTrackFoldTrack track, out global::D10.TwoTrackFoldClip clip, out global::Tl.Frame<global::D10.TwoTrackFoldTrack, global::D10.TwoTrackFoldClip> frame)
 {

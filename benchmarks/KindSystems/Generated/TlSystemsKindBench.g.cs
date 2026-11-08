@@ -43,7 +43,7 @@ internal static void InstallModule() => Install();
 }
 internal static unsafe class TlSystem_KindBench_global__KindBench_KSys
 {
-internal const ulong SystemKey = 13650734798340235907UL;
+internal const ulong SystemKey = 835704356084001161UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
 0UL,
@@ -6233,10 +6233,10 @@ else if (__pulses != 0) __kt->RemovePulses(__row);
 }
 internal static unsafe class TlSystem_KindBench_global__KindBench_LSys
 {
-internal const ulong SystemKey = 960389987727213651UL;
+internal const ulong SystemKey = 12495392110944207111UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
-232368776488139085UL,
+3630860994946108199UL,
 };
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out global::KindBench.LegacyTrack track, out global::KindBench.LegacyClip clip, out global::Tl.Frame<global::KindBench.LegacyTrack, global::KindBench.LegacyClip> frame)
 {

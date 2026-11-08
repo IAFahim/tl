@@ -897,7 +897,7 @@ internal static class SystemReader
             current = current.ContainingType;
         }
         var prefix = type.ContainingNamespace is { IsGlobalNamespace: false } space ? space.ToDisplayString() + "." : "";
-        return prefix + string.Join("+", nested) + ", " + type.ContainingAssembly.Name;
+        return prefix + string.Join("+", nested);
     }
 
     static string TypeArguments(ITypeSymbol type)

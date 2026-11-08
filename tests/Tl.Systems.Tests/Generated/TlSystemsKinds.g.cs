@@ -8,7 +8,7 @@ public ulong PairKey(int index)
 {
 switch (index)
 {
-case 0: return 3498430075144198785UL;
+case 0: return 14068976065496153043UL;
 default: return 0UL;
 }
 }
@@ -54,14 +54,14 @@ internal static void InstallModule() => Install();
 }
 internal static unsafe class TlSystem_Kinds_global__KindGame_Movement
 {
-internal const ulong SystemKey = 14868619084471193271UL;
+internal const ulong SystemKey = 8458436716167386113UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
 0UL,
 0UL,
 0UL,
-3498430075144198785UL,
-8632175842048914453UL,
+14068976065496153043UL,
+2194717391423795397UL,
 0UL,
 0UL,
 };
@@ -886,7 +886,7 @@ global::Tl.ClosingList.Clear(players.Closing);
 }
 internal static unsafe class TlSystem_Kinds_global__KindGame_Vitals
 {
-internal const ulong SystemKey = 17084182060549344057UL;
+internal const ulong SystemKey = 18383117159997139311UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
 0UL,

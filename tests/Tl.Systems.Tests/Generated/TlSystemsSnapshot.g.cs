@@ -8,8 +8,8 @@ public ulong PairKey(int index)
 {
 switch (index)
 {
-case 0: return 3065691447675732541UL;
-case 1: return 6382557007706613279UL;
+case 0: return 8947138385693466375UL;
+case 1: return 2188592906716903883UL;
 default: return 0UL;
 }
 }
@@ -65,16 +65,16 @@ internal static void InstallModule() => Install();
 }
 internal static unsafe class TlSystem_Test_global__Game_Movement
 {
-internal const ulong SystemKey = 18178850367981890549UL;
+internal const ulong SystemKey = 11465983910837163971UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
-2577865471368193573UL,
-14773646703089457161UL,
-13265735763035867609UL,
-6297343649047378629UL,
-3065691447675732541UL,
-6382557007706613279UL,
-6382557007706613279UL,
+15451458145976081193UL,
+1197982930946161443UL,
+8824137521634061667UL,
+15105790595736752995UL,
+8947138385693466375UL,
+2188592906716903883UL,
+2188592906716903883UL,
 };
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out global::Game.StatTrack track, out global::Game.StatClip clip, out global::Tl.Frame<global::Game.StatTrack, global::Game.StatClip> frame)
 {
@@ -775,10 +775,10 @@ global::Tl.ClosingList.Clear(players.Closing);
 }
 internal static unsafe class TlSystem_Test_global__Game_Combat
 {
-internal const ulong SystemKey = 3443072783048531441UL;
+internal const ulong SystemKey = 10170786594861020539UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
-12896104052611593349UL,
+5754863215074304223UL,
 };
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out global::Game.StompTrack track, out global::Game.StompClip clip, out global::Tl.Frame<global::Game.StompTrack, global::Game.StompClip> frame)
 {

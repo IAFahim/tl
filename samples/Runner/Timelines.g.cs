@@ -8,7 +8,7 @@ namespace Runner
         public const ushort PotionHop = 3;
         public const ushort Run = 4;
         public const ushort Slide = 5;
-        public const string LibraryDigest = "69808d173513254e7b697321d2036a16e27506a45c16988afc292a4cb70374c9";
+        public const string LibraryDigest = "6da51af7c54ba43106356072b28cd8042bf4eb14373c9d79c7143be80c55e9d4";
         public const uint TickRate = 60;
     }
 }

@@ -8,12 +8,12 @@ public ulong PairKey(int index)
 {
 switch (index)
 {
-case 0: return 4268973855293000913UL;
-case 1: return 8523035158736115517UL;
-case 2: return 15985788336307642309UL;
-case 3: return 17643769699081943497UL;
-case 4: return 6244625210517985453UL;
-case 5: return 8461760656460862393UL;
+case 0: return 17375090692110928701UL;
+case 1: return 8386089970255037775UL;
+case 2: return 6090901766999551431UL;
+case 3: return 15042049802863940853UL;
+case 4: return 9234686065088713039UL;
+case 5: return 17787130887546833417UL;
 default: return 0UL;
 }
 }
@@ -111,10 +111,10 @@ internal static void InstallModule() => Install();
 }
 internal static unsafe class TlSystem_Bench_global__Bench_SA
 {
-internal const ulong SystemKey = 13140184373322188597UL;
+internal const ulong SystemKey = 2785421646787835145UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
-4268973855293000913UL,
+17375090692110928701UL,
 };
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out global::Bench.BTrack track, out global::Bench.BClip clip, out global::Tl.Frame<global::Bench.BTrack, global::Bench.BClip> frame)
 {
@@ -404,10 +404,10 @@ global::Tl.ClosingList.Clear(players.Closing);
 }
 internal static unsafe class TlSystem_Bench_global__Bench_SB
 {
-internal const ulong SystemKey = 8261321358694437171UL;
+internal const ulong SystemKey = 2785418348252950513UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
-8523035158736115517UL,
+8386089970255037775UL,
 };
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out global::Bench.CTrack track, out global::Bench.CClip clip, out global::Tl.Frame<global::Bench.CTrack, global::Bench.CClip> frame)
 {
@@ -685,10 +685,10 @@ global::Tl.ClosingList.Clear(players.Closing);
 }
 internal static unsafe class TlSystem_Bench_global__Bench_SC
 {
-internal const ulong SystemKey = 7552438008879836271UL;
+internal const ulong SystemKey = 2785419447764578723UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
-6357294441556461969UL,
+13946159693516107017UL,
 };
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out global::Bench.DTrack track, out global::Bench.DClip clip, out global::Tl.Frame<global::Bench.DTrack, global::Bench.DClip> frame)
 {
@@ -958,13 +958,13 @@ global::Tl.ClosingList.Clear(players.Closing);
 }
 internal static unsafe class TlSystem_Bench_global__Bench_SD
 {
-internal const ulong SystemKey = 2055145999320508037UL;
+internal const ulong SystemKey = 2785424945322719779UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
-15985788336307642309UL,
-17643769699081943497UL,
-6244625210517985453UL,
-8461760656460862393UL,
+6090901766999551431UL,
+15042049802863940853UL,
+9234686065088713039UL,
+17787130887546833417UL,
 };
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out global::Bench.ETrack track, out global::Bench.EClip clip, out global::Tl.Frame<global::Bench.ETrack, global::Bench.EClip> frame)
 {
@@ -1548,11 +1548,11 @@ global::Tl.ClosingList.Clear(players.Closing);
 }
 internal static unsafe class TlSystem_Bench_global__Bench_S2
 {
-internal const ulong SystemKey = 4215594321740267235UL;
+internal const ulong SystemKey = 2785365571694796385UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
-15985788336307642309UL,
-17643769699081943497UL,
+6090901766999551431UL,
+15042049802863940853UL,
 };
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out global::Bench.ETrack track, out global::Bench.EClip clip, out global::Tl.Frame<global::Bench.ETrack, global::Bench.EClip> frame)
 {
@@ -1884,73 +1884,73 @@ global::Tl.ClosingList.Clear(players.Closing);
 }
 internal static unsafe class TlSystem_Bench_global__Bench_S64
 {
-internal const ulong SystemKey = 7695708495951083627UL;
+internal const ulong SystemKey = 2844209016626776009UL;
 internal static readonly ulong[] PairKeys = new ulong[]
 {
-14122973187438770871UL,
-14122973187438770871UL,
-14122973187438770871UL,
-14122973187438770871UL,
-14122973187438770871UL,
-14122973187438770871UL,
-14122973187438770871UL,
-14122973187438770871UL,
-10521270301821735643UL,
-10521270301821735643UL,
-10521270301821735643UL,
-10521270301821735643UL,
-10521270301821735643UL,
-10521270301821735643UL,
-10521270301821735643UL,
-10521270301821735643UL,
-13752699493078376875UL,
-13752699493078376875UL,
-13752699493078376875UL,
-13752699493078376875UL,
-13752699493078376875UL,
-13752699493078376875UL,
-13752699493078376875UL,
-13752699493078376875UL,
-4411500746408769495UL,
-4411500746408769495UL,
-4411500746408769495UL,
-4411500746408769495UL,
-4411500746408769495UL,
-4411500746408769495UL,
-4411500746408769495UL,
-4411500746408769495UL,
-16333170274142164583UL,
-16333170274142164583UL,
-16333170274142164583UL,
-16333170274142164583UL,
-16333170274142164583UL,
-16333170274142164583UL,
-16333170274142164583UL,
-16333170274142164583UL,
-18274311432424276227UL,
-18274311432424276227UL,
-18274311432424276227UL,
-18274311432424276227UL,
-18274311432424276227UL,
-18274311432424276227UL,
-18274311432424276227UL,
-18274311432424276227UL,
-2316136978987547683UL,
-2316136978987547683UL,
-2316136978987547683UL,
-2316136978987547683UL,
-2316136978987547683UL,
-2316136978987547683UL,
-2316136978987547683UL,
-2316136978987547683UL,
-7910255462223675351UL,
-7910255462223675351UL,
-7910255462223675351UL,
-7910255462223675351UL,
-7910255462223675351UL,
-7910255462223675351UL,
-7910255462223675351UL,
-7910255462223675351UL,
+4192003550239266993UL,
+4192003550239266993UL,
+4192003550239266993UL,
+4192003550239266993UL,
+4192003550239266993UL,
+4192003550239266993UL,
+4192003550239266993UL,
+4192003550239266993UL,
+13765828463376640887UL,
+13765828463376640887UL,
+13765828463376640887UL,
+13765828463376640887UL,
+13765828463376640887UL,
+13765828463376640887UL,
+13765828463376640887UL,
+13765828463376640887UL,
+740704466717724013UL,
+740704466717724013UL,
+740704466717724013UL,
+740704466717724013UL,
+740704466717724013UL,
+740704466717724013UL,
+740704466717724013UL,
+740704466717724013UL,
+8444771468607426639UL,
+8444771468607426639UL,
+8444771468607426639UL,
+8444771468607426639UL,
+8444771468607426639UL,
+8444771468607426639UL,
+8444771468607426639UL,
+8444771468607426639UL,
+14925260244259387777UL,
+14925260244259387777UL,
+14925260244259387777UL,
+14925260244259387777UL,
+14925260244259387777UL,
+14925260244259387777UL,
+14925260244259387777UL,
+14925260244259387777UL,
+17118663879687752407UL,
+17118663879687752407UL,
+17118663879687752407UL,
+17118663879687752407UL,
+17118663879687752407UL,
+17118663879687752407UL,
+17118663879687752407UL,
+17118663879687752407UL,
+14211765223935744341UL,
+14211765223935744341UL,
+14211765223935744341UL,
+14211765223935744341UL,
+14211765223935744341UL,
+14211765223935744341UL,
+14211765223935744341UL,
+14211765223935744341UL,
+747207254923849023UL,
+747207254923849023UL,
+747207254923849023UL,
+747207254923849023UL,
+747207254923849023UL,
+747207254923849023UL,
+747207254923849023UL,
+747207254923849023UL,
 };
 internal static void Frame_0(byte* trackPtr, byte* firstPtr, byte* secondPtr, float blend, ushort tick, ushort windowLength, ushort withinClip, ushort trackIndex, ushort duration, sbyte direction, global::Tl.FrameFlags extra, out global::Bench.T0 track, out global::Bench.C0 clip, out global::Tl.Frame<global::Bench.T0, global::Bench.C0> frame)
 {

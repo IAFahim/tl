@@ -14,9 +14,10 @@ tlb --report boss.tlb
 ```
 
 - Deterministic: identical inputs produce byte-identical assets.
-- `--assembly` names the assemblies containing the track/clip structs; the
-  assembly name must match the assembly that ships those types at runtime
-  (pair keys hash assembly-qualified names). Explicit `--assembly` always
+- `--assembly` names the assemblies containing the track/clip structs. Pair
+  keys hash the full type names (namespace and name, no assembly name), so
+  the types may ship in any assembly at runtime; two types with one full name
+  in one bake fail with both assembly names. Explicit `--assembly` always
   wins and skips discovery.
 - Lazy forms: `tlb boss.json` defaults the output to `boss.tlb` beside the
   input and discovers the assembly by sweeping DLLs under the launch

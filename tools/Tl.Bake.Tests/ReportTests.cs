@@ -19,10 +19,10 @@ public class ReportTests
         "pool/0/clip-unique-count: 1\n" +
         "pool/0/pool-bytes: 32\n" +
         "pool/1/track-unique-count: 1\n" +
-        "pool/1/clip-unique-count: 1\n" +
+        "pool/1/clip-unique-count: 2\n" +
         "pool/1/pool-bytes: 32\n" +
         "pool/2/track-unique-count: 1\n" +
-        "pool/2/clip-unique-count: 2\n" +
+        "pool/2/clip-unique-count: 1\n" +
         "pool/2/pool-bytes: 32\n" +
         "pool/unique-count: 7\n" +
         "pool/value-bytes: 28\n" +
@@ -44,10 +44,10 @@ public class ReportTests
         "pool/0/clip-unique-count: 1\n" +
         "pool/0/pool-bytes: 32\n" +
         "pool/1/track-unique-count: 1\n" +
-        "pool/1/clip-unique-count: 1\n" +
+        "pool/1/clip-unique-count: 2\n" +
         "pool/1/pool-bytes: 32\n" +
         "pool/2/track-unique-count: 1\n" +
-        "pool/2/clip-unique-count: 2\n" +
+        "pool/2/clip-unique-count: 1\n" +
         "pool/2/pool-bytes: 32\n" +
         "pool/unique-count: 7\n" +
         "pool/value-bytes: 28\n" +
