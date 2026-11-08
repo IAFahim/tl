@@ -27,6 +27,40 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
             .WithComparer(AnalysisComparer.Instance)
             .WithTrackingName("Tl.Analysis");
         context.RegisterSourceOutput(analysis, static (production, result) => Produce(production, result));
+        var newStyle = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                static (node, _) => node is TypeDeclarationSyntax syntax && (syntax.AttributeLists.Count > 0 || syntax.BaseList is not null),
+                static (syntax, cancellation) => IsNewStyle(syntax.SemanticModel, (TypeDeclarationSyntax)syntax.Node, cancellation))
+            .Where(static found => found)
+            .Collect();
+        var systems = newStyle.Combine(context.CompilationProvider)
+            .Select(static (pair, cancellation) => pair.Left.IsEmpty ? Empty : AnalyzeSystems(pair.Right, cancellation))
+            .WithComparer(AnalysisComparer.Instance)
+            .WithTrackingName("Tl.Systems");
+        context.RegisterSourceOutput(systems, static (production, result) => Produce(production, result));
+    }
+
+    private static readonly Analysis Empty = new([], [], "");
+
+    private static bool IsNewStyle(SemanticModel semantic, TypeDeclarationSyntax syntax, CancellationToken cancellation)
+    {
+        if (semantic.GetDeclaredSymbol(syntax, cancellation) is not INamedTypeSymbol type) return false;
+        foreach (var attribute in type.GetAttributes())
+            if (NewStyle.IsKindAttribute(attribute.AttributeClass)) return true;
+        foreach (var candidate in type.AllInterfaces)
+            if (candidate.OriginalDefinition is { MetadataName: "ITlTrack`1", ContainingNamespace: { Name: "Tl", ContainingNamespace.IsGlobalNamespace: true } }) return true;
+        return false;
+    }
+
+    private static Analysis AnalyzeSystems(Compilation compilation, CancellationToken cancellation)
+    {
+        cancellation.ThrowIfCancellationRequested();
+        if (compilation is not CSharpCompilation csharp) return Empty;
+        var id = string.Concat((compilation.AssemblyName ?? "Game").Select(static c => char.IsLetterOrDigit(c) ? c : '_'));
+        if (compilation.Assembly.GetTypeByMetadataName("TlSystems.TlModule_" + id) is not null) return Empty;
+        var emitted = SystemGeneration.Emit(csharp, id);
+        var fingerprint = string.Join("\0", emitted.Diagnostics.Select(DiagnosticFingerprint).Concat(emitted.Artifacts.Select(static artifact => artifact.RelativePath + "\0" + artifact.Content)));
+        return new Analysis(emitted.Diagnostics, emitted.Artifacts, fingerprint);
     }
 
     private static Analysis Analyze(ImmutableArray<TypeAnalysis?> models, CancellationToken cancellation)
@@ -44,7 +78,7 @@ public sealed class TimelineIncrementalGenerator : IIncrementalGenerator
     {
         foreach (var diagnostic in analysis.Diagnostics)
             context.ReportDiagnostic(Diagnostic.Create(
-                new DiagnosticDescriptor(diagnostic.Code, "Invalid timeline declaration", "{0}", "Tl.Generation", DiagnosticSeverity.Error, true),
+                new DiagnosticDescriptor(diagnostic.Code, "Invalid timeline declaration", "{0}", "Tl.Generation", diagnostic.Code == "TLGEN98" ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error, true),
                 Location(diagnostic), diagnostic.Message));
         foreach (var artifact in analysis.Artifacts)
             context.AddSource(artifact.RelativePath, SourceText.From(JobEmitter.Normalize(artifact.Content), new UTF8Encoding(false)));
